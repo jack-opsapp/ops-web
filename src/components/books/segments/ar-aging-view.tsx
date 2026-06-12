@@ -226,7 +226,7 @@ export function ArAgingView({
             return (
               <div
                 key={status}
-                className="flex flex-col gap-[4px] rounded-[5px] border border-border bg-[rgba(255,255,255,0.02)] p-1.5"
+                className="flex flex-col gap-[4px] rounded-[10px] border border-border bg-transparent p-1.5"
               >
                 <span className="font-mono text-micro uppercase tracking-[0.14em] text-text-3">
                   {tp(`invoices.status.${status}`, formatEnumLabel(status))}

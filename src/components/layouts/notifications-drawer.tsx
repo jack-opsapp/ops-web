@@ -199,7 +199,7 @@ export function NotificationsDrawer() {
         key: "ambient",
         label: t("filters.ambient"),
         color: "var(--text-3)",
-        line: "rgba(255,255,255,0.12)",
+        line: "var(--line)",
         soft: "rgba(255,255,255,0.04)",
         count: counts.ambient,
       },
@@ -246,8 +246,8 @@ export function NotificationsDrawer() {
               WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               border: "1px solid var(--glass-border)",
               borderRight: "none",
-              borderTopLeftRadius: 10,
-              borderBottomLeftRadius: 10,
+              borderTopLeftRadius: 12,
+              borderBottomLeftRadius: 12,
               pointerEvents: "auto",
               overflow: "hidden",
             }}
@@ -270,7 +270,7 @@ export function NotificationsDrawer() {
                 display: "flex",
                 alignItems: "center",
                 padding: "12px 14px 10px",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                borderBottom: "1px solid var(--line)",
                 position: "relative",
               }}
             >
@@ -318,7 +318,7 @@ export function NotificationsDrawer() {
                 display: "flex",
                 gap: 4,
                 padding: "8px 14px 10px",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                borderBottom: "1px solid var(--line)",
                 flexWrap: "nowrap",
                 overflowX: "hidden",
               }}
@@ -344,9 +344,9 @@ export function NotificationsDrawer() {
                       alignItems: "center",
                       gap: 6,
                       whiteSpace: "nowrap",
-                      background: active ? c.soft : "rgba(255,255,255,0.02)",
+                      background: active ? c.soft : "rgba(255,255,255,0.04)",
                       border: `1px solid ${
-                        active ? c.line : "rgba(255,255,255,0.08)"
+                        active ? c.line : "var(--line)"
                       }`,
                       color: active ? c.color : "var(--text-3)",
                       transition: reducedMotion
@@ -457,7 +457,7 @@ export function NotificationsDrawer() {
                 display: "flex",
                 alignItems: "center",
                 padding: "9px 14px",
-                borderTop: "1px solid rgba(255,255,255,0.06)",
+                borderTop: "1px solid var(--line)",
               }}
             >
               <span

@@ -175,8 +175,8 @@ export function QuickActionsDrawer() {
                 WebkitBackdropFilter: "blur(28px) saturate(1.3)",
                 border: "1px solid var(--glass-border)",
                 borderRight: "none",
-                borderTopLeftRadius: 10,
-                borderBottomLeftRadius: 10,
+                borderTopLeftRadius: 12,
+                borderBottomLeftRadius: 12,
                 pointerEvents: "auto",
                 overflow: "hidden",
               }}
@@ -199,7 +199,7 @@ export function QuickActionsDrawer() {
                   display: "flex",
                   alignItems: "center",
                   padding: "12px 14px 10px",
-                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  borderBottom: "1px solid var(--line)",
                   position: "relative",
                   zIndex: 1,
                 }}
@@ -238,9 +238,9 @@ export function QuickActionsDrawer() {
                     padding: "2px 6px",
                     minWidth: 16,
                     textAlign: "center",
-                    border: "1px solid rgba(255,255,255,0.14)",
+                    border: "1px solid var(--line)",
                     borderRadius: 3,
-                    background: "rgba(255,255,255,0.04)",
+                    background: "rgba(255,255,255,0.06)",
                   }}
                 >
                   {t("drawer.shortcutHint")}
@@ -352,7 +352,7 @@ export function QuickActionsDrawer() {
                   alignItems: "center",
                   justifyContent: "space-between",
                   padding: "9px 14px",
-                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                  borderTop: "1px solid var(--line)",
                   borderLeft: "none",
                   borderRight: "none",
                   borderBottom: "none",

@@ -141,8 +141,8 @@ function NavRow({
         expanded &&
           !gated &&
           (isActive
-            ? "bg-[rgba(255,255,255,0.05)]"
-            : "hover:bg-[rgba(255,255,255,0.04)]")
+            ? "bg-surface-active"
+            : "hover:bg-surface-hover")
       )}
     >
       {/* Active edge marker — 2px text-2 bar at the rail's inner edge. No
@@ -163,12 +163,12 @@ function NavRow({
         className={cn(
           "relative flex shrink-0 items-center justify-center",
           !expanded &&
-            "h-[40px] w-[40px] rounded-[8px] transition-colors duration-150 motion-reduce:transition-none",
+            "h-[40px] w-[40px] rounded-[6px] transition-colors duration-150 motion-reduce:transition-none",
           !expanded &&
             !gated &&
             (isActive
-              ? "bg-[rgba(255,255,255,0.06)]"
-              : "group-hover:bg-[rgba(255,255,255,0.05)]")
+              ? "bg-surface-active"
+              : "group-hover:bg-surface-hover")
         )}
       >
         <Icon
@@ -183,7 +183,7 @@ function NavRow({
         />
         {/* Rail badge — small count dot pinned to the tile corner. */}
         {!expanded && badgeCount !== undefined && badgeCount > 0 && (
-          <span className="absolute -right-[1px] -top-[1px] flex h-[15px] min-w-[15px] items-center justify-center rounded-[5px] bg-[rgba(255,255,255,0.12)] px-[3px] font-mono text-[9px] leading-none text-text-2 tabular-nums">
+          <span className="absolute -right-[1px] -top-[1px] flex h-[15px] min-w-[15px] items-center justify-center rounded-[4px] bg-surface-active px-[3px] font-mono text-[9px] leading-none text-text-2 tabular-nums">
             {badgeCount > 99 ? "99+" : badgeCount}
           </span>
         )}
@@ -196,7 +196,7 @@ function NavRow({
       )}
       {/* Drawer badge — inline trailing count. */}
       {expanded && badgeCount !== undefined && badgeCount > 0 && (
-        <span className="ml-auto rounded-[4px] bg-[rgba(255,255,255,0.08)] px-[5px] py-[2px] font-mono text-[10px] leading-none text-text-2 tabular-nums">
+        <span className="ml-auto rounded-[4px] bg-surface-active px-[5px] py-[2px] font-mono text-[10px] leading-none text-text-2 tabular-nums">
           {badgeCount > 99 ? "99+" : badgeCount}
         </span>
       )}
@@ -223,7 +223,7 @@ function GroupMark({
     return (
       <div
         aria-hidden="true"
-        className="mx-auto my-2 h-px w-[28px] bg-[rgba(255,255,255,0.07)]"
+        className="mx-auto my-2 h-px w-[28px] bg-[rgba(255,255,255,0.10)]"
       />
     );
   }
@@ -423,7 +423,7 @@ export function Sidebar() {
         aria-hidden={isMobileView && !isMobileOpen ? "true" : undefined}
         className={cn(
           "fixed left-0 top-0 z-[505] flex h-screen flex-col",
-          "border-r border-[rgba(255,255,255,0.06)]",
+          "border-r border-glass-border",
           "transition-transform duration-200 ease-smooth motion-reduce:transition-none",
           // Mobile: off-canvas drawer. The visibility/pointer-events pair keeps
           // the drawer genuinely inert when closed even if a legacy WebView
@@ -435,16 +435,27 @@ export function Sidebar() {
           "md:translate-x-0 md:visible md:pointer-events-auto"
         )}
         style={{
+          // Sidebar is a panel-tier surface: .glass-surface 0.58 (DESIGN.md §5
+          // surface table) — glass-dense is reserved for modals/popovers.
           width: isMobileView ? MOBILE_DRAWER_PX : RAIL_PX,
-          background: "var(--surface-glass-dense)",
+          background: "var(--glass)",
           backdropFilter: "blur(28px) saturate(1.3)",
           WebkitBackdropFilter: "blur(28px) saturate(1.3)",
         }}
       >
+        {/* glass-surface top-edge gradient — the only lit-from-above cue */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)",
+          }}
+        />
         {/* Company header */}
         <div
           className={cn(
-            "flex h-[56px] shrink-0 items-center border-b border-[rgba(255,255,255,0.06)]",
+            "flex h-[56px] shrink-0 items-center border-b border-border",
             expanded ? "gap-2.5 px-[20px]" : "justify-center px-0"
           )}
         >
@@ -517,7 +528,7 @@ export function Sidebar() {
         {/* Footer: brand + version, then the operator section */}
         <div
           className={cn(
-            "shrink-0 border-t border-[rgba(255,255,255,0.06)]",
+            "shrink-0 border-t border-border",
             expanded ? "p-3.5 pt-2.5" : "px-2 pb-2.5 pt-2"
           )}
         >
@@ -551,15 +562,15 @@ export function Sidebar() {
           <div
             role="tooltip"
             style={{ position: "fixed", top: tip.top, left: tip.left }}
-            className="pointer-events-none z-[1000] -translate-y-1/2 animate-fade-in rounded-[6px] border border-[rgba(255,255,255,0.10)] px-[9px] py-[5px] motion-reduce:animate-none"
+            className="pointer-events-none z-[1000] -translate-y-1/2 animate-fade-in rounded-[4px] border border-glass-border px-[9px] py-[5px] motion-reduce:animate-none"
           >
             <span
               aria-hidden="true"
-              className="absolute inset-0 -z-[1] rounded-[6px]"
+              className="absolute inset-0 -z-[1] rounded-[4px]"
               style={{
-                background: "var(--surface-glass-dense)",
-                backdropFilter: "blur(12px) saturate(1.2)",
-                WebkitBackdropFilter: "blur(12px) saturate(1.2)",
+                background: "var(--glass-dense)",
+                backdropFilter: "blur(28px) saturate(1.3)",
+                WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               }}
             />
             <span className="whitespace-nowrap font-cakemono text-[12px] font-light uppercase tracking-[0.04em] text-text">

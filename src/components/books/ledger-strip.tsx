@@ -116,7 +116,7 @@ function TileSub({ children }: { children: React.ReactNode }) {
 
 function ScopeBadge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-[3px] border border-border px-[5px] py-px font-mono text-micro uppercase tracking-[0.14em] text-text-3">
+    <span className="rounded-[4px] border border-border px-[5px] py-px font-mono text-micro uppercase tracking-[0.14em] text-text-3">
       {children}
     </span>
   );

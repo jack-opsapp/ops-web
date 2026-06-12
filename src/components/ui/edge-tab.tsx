@@ -254,8 +254,8 @@ export function EdgeTab({
               background: "var(--glass-dense)",
               backdropFilter: "blur(28px) saturate(1.3)",
               WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 5,
+              border: "1px solid var(--glass-border)",
+              borderRadius: 4,
               padding: "6px 10px",
               whiteSpace: "nowrap",
               pointerEvents: "none",
@@ -284,9 +284,9 @@ export function EdgeTab({
                   padding: "2px 5px",
                   minWidth: 14,
                   textAlign: "center",
-                  border: "1px solid rgba(255,255,255,0.14)",
+                  border: "1px solid var(--line)",
                   borderRadius: 3,
-                  background: "rgba(255,255,255,0.04)",
+                  background: "rgba(255,255,255,0.06)",
                 }}
               >
                 {shortcut}

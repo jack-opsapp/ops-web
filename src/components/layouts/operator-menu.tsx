@@ -100,9 +100,9 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
           type="button"
           aria-label={t("user.menuAriaLabel")}
           className={cn(
-            "flex w-full items-center rounded-[6px] bg-[rgba(255,255,255,0.03)] p-1.5",
+            "flex w-full items-center rounded-[6px] bg-surface-input p-1.5",
             "transition-colors duration-150 ease-smooth motion-reduce:transition-none",
-            "hover:bg-[rgba(255,255,255,0.06)]",
+            "hover:bg-surface-hover",
             expanded ? "gap-2.5" : "justify-center"
           )}
         >
@@ -143,7 +143,7 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
         className="z-[1000] w-[248px] rounded-[12px] p-0"
       >
         {/* Identity block */}
-        <div className="border-b border-[rgba(255,255,255,0.06)] px-4 pb-3 pt-3.5">
+        <div className="border-b border-border px-4 pb-3 pt-3.5">
           <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-2">
             <span aria-hidden="true" className="text-text-mute">
               {"// "}
@@ -158,7 +158,7 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
             </p>
           )}
           {roleName && (
-            <span className="mt-2 inline-flex rounded-[4px] border border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.05)] px-1.5 py-[2px] font-mono text-[10px] uppercase tracking-[0.12em] text-text-2">
+            <span className="mt-2 inline-flex rounded-[4px] border border-border bg-[rgba(255,255,255,0.05)] px-1.5 py-[2px] font-mono text-[10px] uppercase tracking-[0.12em] text-text-2">
               {roleName}
             </span>
           )}

@@ -29,7 +29,7 @@ export function BooksSegmentControl<T extends string = string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="inline-flex h-[28px] items-center gap-[2px] rounded-[6px] border border-border p-[2px]" role="tablist">
+    <div className="inline-flex h-[28px] items-center gap-[2px] rounded-[5px] border border-border p-[2px]" role="tablist">
       {options.map((opt) => {
         const active = opt.value === value;
         return (

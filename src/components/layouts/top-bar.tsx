@@ -63,10 +63,9 @@ function SyncIndicator({
   return (
     <div
       className={cn(
-        "group flex items-center justify-center h-[40px] px-[12px] rounded-[4px]",
+        "group flex items-center justify-center h-[40px] px-[12px] rounded-[5px]",
         "font-mono text-[11px] tracking-wider",
-        "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-        "border border-[rgba(255,255,255,0.06)]",
+        "bg-surface-input border border-border",
         "transition-all duration-150 ease-smooth motion-reduce:transition-none",
         status === "offline" ? "text-ops-error" : "text-text-3"
       )}
@@ -189,10 +188,9 @@ export function TopBar() {
         <button
           onClick={openMobile}
           className={cn(
-            "md:hidden p-2 rounded-[4px]",
+            "md:hidden p-2 rounded-[5px]",
             "text-text-3 hover:text-text-2",
-            "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-            "border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.14)]",
+            "bg-surface-input hover:bg-surface-hover border border-border",
             "transition-all duration-150 ease-smooth motion-reduce:transition-none"
           )}
           aria-label={t("menu.ariaLabel")}
@@ -261,10 +259,9 @@ export function TopBar() {
               onMouseEnter={() => setIsUndoHovered(true)}
               onMouseLeave={() => setIsUndoHovered(false)}
               className={cn(
-                "flex items-center justify-center h-[40px] w-[40px] rounded-[4px]",
-                "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-                "border border-[rgba(255,255,255,0.06)]",
-                "text-text-3 hover:border-[rgba(255,255,255,0.14)] hover:text-text-2",
+                "flex items-center justify-center h-[40px] w-[40px] rounded-[5px]",
+                "bg-surface-input hover:bg-surface-hover border border-border",
+                "text-text-3 hover:text-text-2",
                 "transition-all duration-150 ease-smooth motion-reduce:transition-none animate-fade-in motion-reduce:animate-none",
                 isUndoing && "opacity-50 pointer-events-none"
               )}
@@ -281,10 +278,10 @@ export function TopBar() {
               <div
                 className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-[4px] whitespace-nowrap pointer-events-none animate-fade-in motion-reduce:animate-none"
                 style={{
-                  background: "var(--surface-glass-dense)",
-                  backdropFilter: "blur(12px) saturate(1.2)",
-                  WebkitBackdropFilter: "blur(12px) saturate(1.2)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  background: "var(--glass-dense)",
+                  backdropFilter: "blur(28px) saturate(1.3)",
+                  WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+                  border: "1px solid var(--glass-border)",
                 }}
               >
                 <span className="font-mono text-micro text-text-2 uppercase tracking-wider">
@@ -296,10 +293,9 @@ export function TopBar() {
         )}
         <button
           className={cn(
-            "flex items-center gap-[6px] h-[40px] px-2 rounded-[4px]",
-            "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-            "border border-[rgba(255,255,255,0.06)]",
-            "text-text-3 hover:border-[rgba(255,255,255,0.14)] hover:text-text-2",
+            "flex items-center gap-[6px] h-[40px] px-2 rounded-[5px]",
+            "bg-surface-input hover:bg-surface-hover border border-border",
+            "text-text-3 hover:text-text-2",
             "transition-all duration-150 ease-smooth motion-reduce:transition-none cursor-pointer",
             "min-w-0 w-[140px] sm:w-[200px] shrink"
           )}
@@ -319,7 +315,7 @@ export function TopBar() {
             {t("search.placeholder")}
           </span>
           {showShortcutHints && (
-            <kbd className="ml-auto font-mono text-micro text-text-mute bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
+            <kbd className="ml-auto font-mono text-micro text-text-2 bg-[rgba(255,255,255,0.06)] border border-border rounded-[3px] px-[5px] py-[1px] hidden sm:inline">
               {t("search.shortcut")}
             </kbd>
           )}

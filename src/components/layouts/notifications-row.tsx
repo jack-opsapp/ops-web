@@ -46,7 +46,7 @@ const TONE_SURFACE: Record<
   },
   ambient: {
     color: "var(--text-3)",
-    line: "rgba(255,255,255,0.08)",
+    line: "var(--line)",
     soft: "rgba(255,255,255,0.04)",
   },
 };
@@ -113,7 +113,7 @@ export function NotificationRow({
         padding: "9px 14px",
         cursor: "pointer",
         background: hover || expanded ? "rgba(255,255,255,0.03)" : "transparent",
-        borderTop: "1px solid rgba(255,255,255,0.04)",
+        borderTop: "1px solid var(--line)",
         transition: reducedMotion
           ? "none"
           : "background var(--d-hover) var(--ease-smooth)",
@@ -149,14 +149,14 @@ export function NotificationRow({
           style={{
             width: 20,
             height: 20,
-            borderRadius: 2.5,
+            borderRadius: 4,
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             background: showAccent ? toneSurface.soft : "rgba(255,255,255,0.04)",
             border: `1px solid ${
-              showAccent ? toneSurface.line : "rgba(255,255,255,0.06)"
+              showAccent ? toneSurface.line : "var(--line)"
             }`,
             color: showAccent ? toneSurface.color : "var(--text-3)",
           }}
@@ -192,13 +192,13 @@ export function NotificationRow({
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               padding: "3px 8px",
-              borderRadius: 2.5,
+              borderRadius: 5,
               flexShrink: 0,
               background: showAccent
                 ? toneSurface.soft
                 : "rgba(255,255,255,0.04)",
               border: `1px solid ${
-                showAccent ? toneSurface.line : "rgba(255,255,255,0.1)"
+                showAccent ? toneSurface.line : "var(--line)"
               }`,
               color: showAccent ? toneSurface.color : "var(--text)",
               cursor: "pointer",
@@ -224,7 +224,7 @@ export function NotificationRow({
               width: 18,
               height: 18,
               flexShrink: 0,
-              borderRadius: 2.5,
+              borderRadius: 4,
               border: "none",
               background: "transparent",
               color: "var(--text-mute)",
@@ -302,12 +302,12 @@ export function NotificationRow({
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                     padding: "4px 9px",
-                    borderRadius: 2.5,
+                    borderRadius: 5,
                     background: showAccent
                       ? toneSurface.soft
                       : "rgba(255,255,255,0.04)",
                     border: `1px solid ${
-                      showAccent ? toneSurface.line : "rgba(255,255,255,0.1)"
+                      showAccent ? toneSurface.line : "var(--line)"
                     }`,
                     color: showAccent ? toneSurface.color : "var(--text)",
                     cursor: "pointer",
@@ -344,9 +344,9 @@ const rowSecondaryBtnStyle: React.CSSProperties = {
   letterSpacing: "0.08em",
   textTransform: "uppercase",
   padding: "4px 9px",
-  borderRadius: 2.5,
+  borderRadius: 5,
   background: "transparent",
-  border: "1px solid rgba(255,255,255,0.08)",
+  border: "1px solid var(--line)",
   color: "var(--text-3)",
   cursor: "pointer",
 };

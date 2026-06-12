@@ -79,7 +79,7 @@ function ConnectionCard({
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-1.5">
-          <div className="flex h-[40px] w-[40px] items-center justify-center rounded-[8px] bg-fill-neutral-dim">
+          <div className="flex h-[40px] w-[40px] items-center justify-center rounded-[6px] bg-fill-neutral-dim">
             <Calculator className="h-[20px] w-[20px] text-text-2" />
           </div>
           <div>
