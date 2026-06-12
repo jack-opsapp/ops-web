@@ -437,7 +437,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
           navigate(`/projects/${item.entityId}`);
           break;
         case "stale-quoting":
-          navigate(`/estimates/new?opportunityId=${item.entityId}`);
+          navigate(`/books?segment=estimates&action=new&opportunityId=${item.entityId}`);
           break;
         case "estimate-no-response":
           queueAction({
