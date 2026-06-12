@@ -12,7 +12,7 @@
 ## Two systemic defects (poison everything; fix once, fix globally)
 
 1. **Slashed zero is enabled nowhere.** DESIGN.md's non-negotiable `font-feature-settings: "tnum" 1, "zero" 1` is absent from the product CSS — every number on every surface renders the wrong zero. One global CSS fix.
-2. **The 28px control tier is unsanctioned drift.** projects table-v2 normalized a 28px toolbar ladder (22–24px chips, 11px row padding); Books faithfully copied it; Catalog is copying it now. DESIGN.md's control floor is 36px. **Needs Jackson's ruling: enforce the 36px floor everywhere, or formally amend DESIGN.md with a documented compact/workbar tier.** Until ruled, no new surface may copy the 28px tier.
+2. ~~The 28px control tier is unsanctioned drift~~ — **RULED (Jackson, 2026-06-11): "36px is NOT the spec. That seems like mobile touch targets. THERE ARE NO TOUCH TARGETS ON WEB."** The 28px workbar tier (table-v2 lineage, copied by Books and Catalog) is **sanctioned** for web. Every "undersized control" finding in this audit is **void**. DESIGN.md §9's 36px button row describes the standard button, not a web floor, and §15's 44px touch-target row is iOS-only. Remediation must amend DESIGN.md to document the compact workbar tier explicitly so future audits stop flagging density as a defect. (Slashed-zero defect #1 stands.)
 
 ## High-severity classes (20 confirmed — file:line + fixes in the JSON)
 
