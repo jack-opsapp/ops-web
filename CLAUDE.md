@@ -9,7 +9,7 @@ Supplements the root `OPS LTD./CLAUDE.md`. Read both.
 - TanStack Query (data fetching, caching, optimistic updates)
 - Zustand (client state)
 - Framer Motion (animations)
-- IBM Carbon (`@carbon/icons-react`) (icons)
+- Icons: `lucide-react` (current — all icon usage today) — IBM Carbon (`@carbon/icons-react`) is the adopted target, **not installed**; don't import it until the migration lands (see `OPS-ICON-SET-BRIEF.md` + root `CLAUDE.md` Icons rule)
 - dnd-kit (drag and drop)
 
 ## Fonts

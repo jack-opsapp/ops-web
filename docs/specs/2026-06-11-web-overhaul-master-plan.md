@@ -116,6 +116,13 @@ Constraints: DESIGN.md §9 components (no accent on nav, 2px text-2 active bar, 
 4. Verify in the running app with screenshots before claiming done.
 5. Commit atomically (stage by name, no AI attribution), respect parallel-session WIP, update the relevant bible section in the same session.
 
+**Design enforcement (added 2026-06-11 after wave output was judged a "cheap replica" of the system):**
+
+- `ops-design` is **not an invocable skill** — it is a directory of files. Reading it is mandatory but reading alone has demonstrably NOT produced on-brand output. The following are hard requirements, not suggestions.
+- **Invoke these registered skills via the Skill tool, by exact name, at the stated moment:** `frontend-design:frontend-design` or `custom-skills:interface-design` before building any page or component; `ops-copywriter:ops-copywriter` before writing any user-facing string; `animation-studio:animation-architect` before any motion/transition work; `custom-skills:widget-builder` for anything widget-shaped. If a skill fails to load, say so in the session log rather than silently proceeding.
+- **Composition is traceable or it doesn't ship:** every new panel, table, toolbar, header, and strip must trace to a reference component in `ops-design-system/project/ui_kits/ops-web/` or to DESIGN.md §9 (components) / §10 (widget anatomy). Token-compliant colors on an off-system composition still fails. If no reference exists for what you need, mock it and get Jackson's approval before writing code.
+- **Hard done-gate:** before reporting a wave complete, invoke `custom-skills:audit-design-system` against every file created or modified in the wave, fix every high-severity finding, and include the audit summary in the landing report. A wave without its audit attached is not done.
+
 ---
 
 ## 7. P4 cross-cutting sweep checklist
