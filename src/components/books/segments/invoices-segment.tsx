@@ -48,7 +48,8 @@ import {
 } from "../segment-toolbar";
 import { ArAgingView } from "./ar-aging-view";
 
-type FilterStatus = "all" | InvoiceStatus;
+/** "overdue" is the date-based virtual filter used by the A/R tile drill. */
+type FilterStatus = "all" | "overdue" | InvoiceStatus;
 export type InvoicesView = "list" | "aging";
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
@@ -64,7 +65,7 @@ const STATUS_TONE: Record<InvoiceStatus, string> = {
   [InvoiceStatus.WrittenOff]: "border-border bg-transparent text-text-mute",
 };
 
-function StatusTag({ status }: { status: InvoiceStatus }) {
+function StatusTag({ status, label }: { status: InvoiceStatus; label: string }) {
   return (
     <span
       className={cn(
@@ -73,7 +74,7 @@ function StatusTag({ status }: { status: InvoiceStatus }) {
         STATUS_TONE[status] ?? STATUS_TONE[InvoiceStatus.Sent],
       )}
     >
-      {formatEnumLabel(status)}
+      {label}
     </span>
   );
 }
@@ -168,8 +169,8 @@ export function InvoicesSegment({
   const { data: products = [] } = useProducts();
   const { data: invoiceMetrics = [] } = useInvoiceMetrics();
 
-  const clients = clientsData?.clients ?? [];
-  const projects = projectsData?.projects ?? [];
+  const clients = useMemo(() => clientsData?.clients ?? [], [clientsData]);
+  const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
 
   const createInvoice = useCreateInvoice();
   const updateInvoice = useUpdateInvoice();
@@ -208,13 +209,13 @@ export function InvoicesSegment({
         body: JSON.stringify({ documentId: invoiceId, documentType: "invoice" }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "PDF generation failed" }));
-        throw new Error(err.error || "PDF generation failed");
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t("pdf.generationFailed"));
       }
       const { pdfUrl } = await res.json();
       window.open(pdfUrl, "_blank");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to generate PDF");
+      toast.error(err instanceof Error ? err.message : t("pdf.generationFailed"));
     } finally {
       setGeneratingPdfId(null);
     }
@@ -234,7 +235,9 @@ export function InvoicesSegment({
 
   const filtered = useMemo(() => {
     let list = [...invoices];
-    if (statusFilter !== "all") {
+    if (statusFilter === "overdue") {
+      list = list.filter(isOverdueRow);
+    } else if (statusFilter !== "all") {
       list = list.filter((i) => i.status === statusFilter);
     }
     if (searchQuery.trim()) {
@@ -256,9 +259,13 @@ export function InvoicesSegment({
     const collected = find("revenue") ?? find("collected");
     const receivables = find("receivable");
     const pastDue = find("past");
+    const collection = find("collection");
+    const avgDays = find("days");
     if (collected) items.push({ label: tb("stat.collected"), value: formatMetricValue(collected), tone: "olive" });
     if (receivables) items.push({ label: tb("ledger.ar"), value: formatMetricValue(receivables) });
     if (pastDue) items.push({ label: tb("ledger.overdue"), value: formatMetricValue(pastDue), tone: "rose" });
+    if (collection) items.push({ label: tb("stat.collectionRate"), value: formatMetricValue(collection) });
+    if (avgDays) items.push({ label: tb("stat.avgDays"), value: formatMetricValue(avgDays) });
     return items;
   }, [invoiceMetrics, tb]);
 
@@ -310,7 +317,15 @@ export function InvoicesSegment({
       <div className="flex flex-wrap items-center gap-[12px]">
         <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
         {drilled && statusFilter !== "all" && (
-          <DrillChip label={formatEnumLabel(statusFilter)} onClear={onClearDrill} />
+          <DrillChip
+            label={
+              statusFilter === "overdue"
+                ? tb("ledger.overdue")
+                : statusOptions.find((o) => o.value === statusFilter)?.label ??
+                  formatEnumLabel(statusFilter)
+            }
+            onClear={onClearDrill}
+          />
         )}
         <span className="font-mono text-micro text-text-3 tabular-nums">
           {statusFilter === "all" && !searchQuery
@@ -334,20 +349,20 @@ export function InvoicesSegment({
 
       {/* Table */}
       {isLoading ? (
-        <div className="animate-pulse space-y-[2px]">
+        <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="glass-surface h-[48px]" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8">
+        <div className="flex flex-col items-start py-8">
           <Receipt className="mb-2 h-[32px] w-[32px] text-text-mute" />
           <h3 className="font-mohave text-heading text-text">
             {searchQuery || statusFilter !== "all" ? t("invoices.empty.noMatch") : t("invoices.empty.none")}
           </h3>
-          <p className="mt-0.5 font-mono text-caption text-text-3">
-            {searchQuery || statusFilter !== "all" ? t("invoices.empty.noMatch") : t("invoices.empty.helper")}
-          </p>
+          {!searchQuery && statusFilter === "all" && (
+            <p className="mt-0.5 font-mono text-caption text-text-3">{t("invoices.empty.helper")}</p>
+          )}
           {!searchQuery && statusFilter === "all" && can("invoices.create") && (
             <Button className="mt-3 gap-[6px]" onClick={gatedOpenCreate}>
               <Plus className="h-[16px] w-[16px]" />
@@ -459,7 +474,10 @@ export function InvoicesSegment({
                         </span>
                       </td>
                       <td className="px-2 py-[11px] text-center">
-                        <StatusTag status={invoice.status} />
+                        <StatusTag
+                          status={invoice.status}
+                          label={t(`invoices.status.${invoice.status}`, formatEnumLabel(invoice.status))}
+                        />
                       </td>
                       <td className="px-2 py-[11px] text-right">
                         <div
@@ -473,7 +491,7 @@ export function InvoicesSegment({
                             title={t("invoices.actions.downloadPdf")}
                           >
                             {generatingPdfId === invoice.id ? (
-                              <Loader2 className="h-[14px] w-[14px] animate-spin" />
+                              <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none" />
                             ) : (
                               <Download className="h-[14px] w-[14px]" />
                             )}

@@ -3,6 +3,7 @@ import {
   computeLedger,
   mondayOf,
   periodRange,
+  localIsoDate,
   type InvoiceArRow,
 } from "@/lib/api/services/books-service";
 
@@ -173,6 +174,24 @@ describe("computeLedger — jobs", () => {
     expect(ids).toContain("proj-loser"); // -900 < -500 floor displaces the 4th
     expect(ids).not.toContain("proj-p4");
     expect(ledger.jobs.losers).toBe(1);
+  });
+});
+
+describe("localIsoDate", () => {
+  it("serializes the LOCAL calendar date (toISOString would shift a day west of UTC)", () => {
+    // 23:30 local on May 31 — in any UTC-minus zone, toISOString().slice(0,10)
+    // would report June 1. The boundary must stay May 31.
+    const lateNight = new Date(2026, 4, 31, 23, 30, 0);
+    expect(localIsoDate(lateNight)).toBe("2026-05-31");
+
+    const earlyMorning = new Date(2026, 5, 1, 0, 5, 0);
+    expect(localIsoDate(earlyMorning)).toBe("2026-06-01");
+  });
+
+  it("keeps last_month's end inside the month at any time of day", () => {
+    const lateAfternoon = new Date(2026, 5, 11, 17, 30, 0); // 5:30pm local
+    const { end } = periodRange("last_month", lateAfternoon);
+    expect(localIsoDate(end)).toBe("2026-05-31");
   });
 });
 

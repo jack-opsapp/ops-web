@@ -76,6 +76,16 @@ export function periodRange(period: BooksPeriod, now = new Date()): { start: Dat
   }
 }
 
+/** Local-date ISO string (YYYY-MM-DD). `toISOString()` would serialize the
+ *  UTC date and shift period boundaries a day west of Greenwich — DATE
+ *  columns compare against calendar dates, not instants. */
+export function localIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 /** Monday-start week bucket key (ISO date of that Monday), matching the iOS
  *  weekly-net computation (Postgres/Swift week starts Monday). */
 export function mondayOf(date: Date): string {
@@ -83,10 +93,7 @@ export function mondayOf(date: Date): string {
   const day = d.getDay(); // 0 = Sunday
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
+  return localIsoDate(d);
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -315,8 +322,8 @@ export const BooksService = {
   async fetchLedger(companyId: string, period: BooksPeriod): Promise<BooksLedger> {
     const supabase = requireSupabase();
     const { start, end } = periodRange(period);
-    const startIso = start.toISOString().slice(0, 10);
-    const endIso = end.toISOString().slice(0, 10);
+    const startIso = localIsoDate(start);
+    const endIso = localIsoDate(end);
 
     const [paymentsRes, expensesRes, invoicesRes] = await Promise.all([
       supabase

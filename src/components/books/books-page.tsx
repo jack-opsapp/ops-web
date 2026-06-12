@@ -69,21 +69,30 @@ export function BooksPage() {
   const statusParam = searchParams.get("status");
   const actionParam = searchParams.get("action");
 
+  // The stored default hydrates in an effect (this route prerenders, so a
+  // lazy initializer would mismatch). Until it lands, a no-?segment visit
+  // resolves no segment — one skeleton frame — so the first paint can
+  // neither flash the wrong segment nor clobber the stored value.
   const [storedSegment, setStoredSegment] = useState<BooksSegment | null>(null);
+  const [segmentHydrated, setSegmentHydrated] = useState(false);
   useEffect(() => {
     const stored = window.localStorage.getItem(SEGMENT_STORAGE_KEY) as BooksSegment | null;
     if (stored && SEGMENT_ORDER.includes(stored)) setStoredSegment(stored);
+    setSegmentHydrated(true);
   }, []);
 
   const activeSegment: BooksSegment | null = useMemo(() => {
     if (segmentParam && visibleSegments.includes(segmentParam)) return segmentParam;
+    if (!segmentHydrated) return null;
     if (storedSegment && visibleSegments.includes(storedSegment)) return storedSegment;
     return visibleSegments[0] ?? null;
-  }, [segmentParam, storedSegment, visibleSegments]);
+  }, [segmentParam, storedSegment, segmentHydrated, visibleSegments]);
 
   useEffect(() => {
-    if (activeSegment) window.localStorage.setItem(SEGMENT_STORAGE_KEY, activeSegment);
-  }, [activeSegment]);
+    if (segmentHydrated && activeSegment) {
+      window.localStorage.setItem(SEGMENT_STORAGE_KEY, activeSegment);
+    }
+  }, [activeSegment, segmentHydrated]);
 
   const updateParams = useCallback(
     (next: Record<string, string | null>) => {
@@ -114,7 +123,10 @@ export function BooksPage() {
 
   const drillOverdue = useCallback(() => {
     setDrilled(true);
-    updateParams({ segment: "invoices", status: InvoiceStatus.PastDue, view: null });
+    // "overdue" is the date-based virtual filter (any open balance past its
+    // due date) — the A/R tile counts by date, and most overdue invoices sit
+    // in sent/awaiting_payment/partially_paid, never the past_due enum.
+    updateParams({ segment: "invoices", status: "overdue", view: null });
   }, [updateParams]);
 
   const clearDrill = useCallback(() => {
@@ -123,7 +135,8 @@ export function BooksPage() {
   }, [updateParams]);
 
   // ── Status filters (lifted to the URL; D10 honors widget deep links) ──
-  const invoiceStatusFilter: "all" | InvoiceStatus = useMemo(() => {
+  const invoiceStatusFilter: "all" | "overdue" | InvoiceStatus = useMemo(() => {
+    if (statusParam === "overdue") return "overdue";
     const values = Object.values(InvoiceStatus) as string[];
     return statusParam && values.includes(statusParam) ? (statusParam as InvoiceStatus) : "all";
   }, [statusParam]);
@@ -244,8 +257,9 @@ export function BooksPage() {
       )}
 
       {/* No visible segment: the route gate should prevent this, but never
-          render a blank canvas — show the tactical empty state. */}
-      {!activeSegment && (
+          render a blank canvas — show the tactical empty state. (Suppressed
+          during the one-frame localStorage hydration.) */}
+      {segmentHydrated && !activeSegment && (
         <div className="flex flex-col items-start py-8">
           <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
             <span className="text-text-mute">{"// "}</span>
