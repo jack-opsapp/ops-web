@@ -173,7 +173,7 @@ export function ActionRequiredWidget({
         reason: `${reasonLabel}, ${days}d ${t("actionRequired.pastDue") ?? "past due"}`,
         age: formatAgeDays(days, "overdue", t),
         amount: inv.balanceDue,
-        navigateTo: "/invoices",
+        navigateTo: "/books?segment=invoices",
       });
     }
 
@@ -202,7 +202,7 @@ export function ActionRequiredWidget({
         reason: `${reasonLabel}, ${expiresText}`,
         age: expiresText,
         amount: est.total,
-        navigateTo: "/estimates",
+        navigateTo: "/books?segment=estimates",
       });
     }
 

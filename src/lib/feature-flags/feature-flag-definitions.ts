@@ -10,7 +10,10 @@
 /** Routes gated by each feature flag slug. */
 export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   pipeline: ["/pipeline"],
-  accounting: ["/accounting", "/estimates", "/invoices"],
+  // /books absorbed /accounting + /estimates + /invoices (P3.1). The old
+  // paths stay listed through the redirect window — middleware 308s them
+  // before render, but the flag must keep gating both ends of the hop.
+  accounting: ["/books", "/accounting", "/estimates", "/invoices"],
   products: ["/products"],
   inventory: ["/inventory"],
   // ai_email_review removed 2026-04-24 — collapsed into phase_c

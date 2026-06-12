@@ -190,7 +190,7 @@ export function WinRateWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">--%</span>
-              <button onClick={() => onNavigate("/estimates")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/books?segment=estimates")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
@@ -254,7 +254,7 @@ export function WinRateWidget({
                 {animatedRate}%
               </span>
               <button
-                onClick={(e) => { e.stopPropagation(); onNavigate("/estimates"); }}
+                onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=estimates"); }}
                 className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />

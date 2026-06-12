@@ -183,7 +183,7 @@ export function CashPositionWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">$0</span>
-              <button onClick={() => onNavigate("/invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/books?segment=invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
@@ -258,7 +258,7 @@ export function CashPositionWidget({
                 {netPrefix}{formatCompactCurrency(animatedNet)}
               </span>
               <button
-                onClick={(e) => { e.stopPropagation(); onNavigate("/invoices"); }}
+                onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=invoices"); }}
                 className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />

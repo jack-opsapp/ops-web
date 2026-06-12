@@ -222,7 +222,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
               key={expense.id}
               className="px-3 py-2 flex items-center gap-2 border-b border-[rgba(255,255,255,0.04)] last:border-b-0 hover:bg-[rgba(255,255,255,0.04)] transition-colors cursor-pointer"
               onClick={() => {
-                router.push("/accounting");
+                router.push("/books?segment=expenses");
                 closePopover(state.id);
               }}
             >
@@ -249,7 +249,7 @@ const MemberExpensesPopoverInstance = memo(function MemberExpensesPopoverInstanc
       <div className="px-3 py-1.5 border-t border-[rgba(255,255,255,0.06)] shrink-0">
         <button
           onClick={() => {
-            router.push("/accounting");
+            router.push("/books?segment=expenses");
             closePopover(state.id);
           }}
           className="flex items-center gap-1 font-mohave text-[11px] text-text-mute hover:text-text transition-colors"

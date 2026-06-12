@@ -451,10 +451,10 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
           });
           break;
         case "past-due-invoice":
-          navigate("/invoices");
+          navigate("/books?segment=invoices");
           break;
         case "estimate-expiring":
-          navigate("/estimates");
+          navigate("/books?segment=estimates");
           break;
       }
     };

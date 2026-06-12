@@ -102,7 +102,7 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
             </span>
             {onNavigate && (
               <button
-                onClick={() => onNavigate("/accounting")}
+                onClick={() => onNavigate("/books?segment=invoices&view=aging")}
                 className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
