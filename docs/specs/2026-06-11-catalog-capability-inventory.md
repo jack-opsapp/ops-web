@@ -97,3 +97,23 @@
 | D4 | Image URL free-text field on stock items | Family `image_url` is iOS-managed (photo upload); a raw URL input is not OPS-grade. Family images still display when present. |
 
 Everything else: 100% parity, plus the variant-awareness upgrade (§0) the old surface structurally could not deliver.
+
+## 6. Scope additions beyond parity (Direction D, critique-driven)
+
+Adopted after the flow research + 3-lens critique panel (owner realism · design system · overpromise, which audited live tenant data: Canpro 0/75 costed SKUs, 0 snapshots, 0 recipes, 25/75 unthresholded variants). The build is accountable for these, not just the parity list:
+
+| # | Addition | Why |
+|---|----------|-----|
+| S1 | **Audit writes on every web quantity mutation** — inline edit, drawer pills, set/delta field, bulk adjust, import deltas each insert an `inventory_deductions` row (`reason: manual_adjustment`, `catalog_variant_id` + legacy `inventory_item_id`, previous/new qty, actor); drawer ledger queries COALESCE both id columns so iOS + web rows interleave | Without it the drawer ledger never shows web edits ("EVERY CHANGE LOGGED" would be false) |
+| S2 | **Signed receiving input** — QTY cell and drawer field accept `+40` / `−12` deltas as well as set-to counts; delta commits labeled DELIVERY/MANUAL in the ledger | Receiving is delta-shaped; set-only forces tailgate math |
+| S3 | **Buy-run exit** — COPY LIST (plain text: item · variant · qty short · unit, grouped by category, confirmation toast) + PRINT stylesheet on the threshold pivot | The #1 flow otherwise dead-ends at a filtered table |
+| S4 | **UNTRACKED health bucket** — variants with no effective threshold at any cascade level are never counted OK; tile shows the 4th bucket and its zero state CTAs ([SET THRESHOLDS →]) | "OK" on unmeasured stock is a lie (25/75 at Canpro) |
+| S5 | **SKU cost path** — UNIT COST field in the stock drawer (writes `unit_cost_override` / family `default_unit_cost`), NO COST awareness in stock; ON-HAND tile renders `—` + [ADD COSTS →] when coverage is 0 | The $ hero is unreachable otherwise (0/75 costed at Canpro) |
+| S6 | **Coverage-honest dollar figures** — BUY TO THRESHOLD computed over costed rows only, with `N ITEMS UNCOSTED` flag; avg-margin hero `—` when nothing is costed (also fix `fetchProductMetrics` emitting `0%`) | Silently partial sums are worse than none |
+| S7 | **GROUP :: FAMILY opt-in toggle** (persisted); any filter/sort forces flat | C's variant honesty without breaking critical-first triage |
+| S8 | **Kebab manage modals** — categories, tags, units, threshold defaults (category-level), each gated `inventory.manage`; Import CSV gated `inventory.import`; snapshots labeled "Saved counts" in UI copy | Old web had tags/units only; categories + threshold defaults are the cascade's admin surface |
+| S9 | **Designed zero states everywhere** — no fake zeroes: `—` heroes with action CTAs; ledger empty state; USED IN hidden when empty; chips render nothing without categories | First-run truth at sparse tenants |
+| S10 | **Per-row inline editing** — stock QTY; product COST/PRICE/MARGIN tri-coupled cells with multi-select SET MARGIN | The #2 and #3 flows live in these cells |
+| S11 | **`/catalog/products/[id]` full product editor** — base fields + options/modifiers/recipe authoring inline (reusing the surviving editor components); also fixes the iOS "VIEW ON WEB →" deep link to `/products/{id}` which 404s today (`ProductDetailView.swift:1054`); redirect added for `/products/[id]` as well as `/products/[id]/options` | One authoring home; live broken deep link |
+
+**Explicitly deferred (documented, not promised in pixels):** supplier price-sheet upload/parse reprice flow (own initiative); per-row count-staleness ages + stalest-first sort (meaningless until S1 has accumulated data); threshold auto-suggestions from usage history (needs populated deduction history).
