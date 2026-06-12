@@ -48,7 +48,7 @@ function SyncIndicator({
 }) {
   const icon = {
     synced: <Check className="w-[14px] h-[14px] shrink-0" />,
-    syncing: <RefreshCw className="w-[14px] h-[14px] shrink-0 animate-spin" />,
+    syncing: <RefreshCw className="w-[14px] h-[14px] shrink-0 animate-spin motion-reduce:animate-none" />,
     pending: <Clock className="w-[14px] h-[14px] shrink-0" />,
     offline: <WifiOff className="w-[14px] h-[14px] shrink-0" />,
   }[status];
@@ -72,7 +72,7 @@ function SyncIndicator({
       )}
       title={label}
     >
-      <span className="max-w-0 overflow-hidden uppercase whitespace-nowrap transition-all duration-200 ease-smooth motion-reduce:transition-none group-hover:max-w-[80px] group-hover:mr-[6px]">
+      <span className="max-w-0 overflow-hidden uppercase whitespace-nowrap transition-[max-width,margin] duration-150 ease-smooth motion-reduce:transition-none group-hover:max-w-[80px] group-hover:mr-[6px]">
         {label}
       </span>
       {icon}
@@ -265,13 +265,13 @@ export function TopBar() {
                 "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
                 "border border-[rgba(255,255,255,0.06)]",
                 "text-text-3 hover:border-[rgba(255,255,255,0.14)] hover:text-text-2",
-                "transition-all duration-150 ease-smooth motion-reduce:transition-none animate-fade-in",
+                "transition-all duration-150 ease-smooth motion-reduce:transition-none animate-fade-in motion-reduce:animate-none",
                 isUndoing && "opacity-50 pointer-events-none"
               )}
               aria-label={t("undo.ariaLabel")}
             >
               {isUndoing ? (
-                <Loader2 className="w-[16px] h-[16px] animate-spin" />
+                <Loader2 className="w-[16px] h-[16px] animate-spin motion-reduce:animate-none" />
               ) : (
                 <Undo2 className="w-[16px] h-[16px]" />
               )}
@@ -279,7 +279,7 @@ export function TopBar() {
             {/* Hover tooltip */}
             {isUndoHovered && !isUndoing && (
               <div
-                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-[4px] whitespace-nowrap pointer-events-none animate-fade-in"
+                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-[4px] whitespace-nowrap pointer-events-none animate-fade-in motion-reduce:animate-none"
                 style={{
                   background: "var(--surface-glass-dense)",
                   backdropFilter: "blur(12px) saturate(1.2)",

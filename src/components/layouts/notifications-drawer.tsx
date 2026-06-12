@@ -351,7 +351,7 @@ export function NotificationsDrawer() {
                       color: active ? c.color : "var(--text-3)",
                       transition: reducedMotion
                         ? "none"
-                        : "background 160ms var(--ease-smooth), border-color 160ms var(--ease-smooth), color 160ms var(--ease-smooth)",
+                        : "background var(--d-hover) var(--ease-smooth), border-color var(--d-hover) var(--ease-smooth), color var(--d-hover) var(--ease-smooth)",
                     }}
                   >
                     {c.key !== "all" && (
@@ -365,7 +365,7 @@ export function NotificationsDrawer() {
                           opacity: active ? 1 : 0.55,
                           transition: reducedMotion
                             ? "none"
-                            : "opacity 160ms var(--ease-smooth)",
+                            : "opacity var(--d-hover) var(--ease-smooth)",
                         }}
                       />
                     )}
@@ -377,7 +377,7 @@ export function NotificationsDrawer() {
                         fontVariantNumeric: "tabular-nums",
                         transition: reducedMotion
                           ? "none"
-                          : "color 160ms var(--ease-smooth), opacity 160ms var(--ease-smooth)",
+                          : "color var(--d-hover) var(--ease-smooth), opacity var(--d-hover) var(--ease-smooth)",
                       }}
                     >
                       {c.count}

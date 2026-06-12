@@ -340,11 +340,11 @@ export const fadeSlideDownReduced: Variants = {
 
 // ── Notifications drawer (2026-04-23 redesign) ──
 
-/** Drawer slide-in from the right edge */
+/** Drawer slide-in from the right edge — panel-enter token (200ms, --d-panel) */
 export const drawerVariants: Variants = {
   hidden: { x: 360, opacity: 0 },
-  visible: { x: 0, opacity: 1, transition: { duration: 0.26, ease: EASE_SMOOTH } },
-  exit: { x: 360, opacity: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { x: 360, opacity: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
 };
 
 /** Drawer reduced-motion fallback — opacity only */
@@ -384,11 +384,11 @@ export const chipVariantsReduced: Variants = {
 
 // ── Quick Actions drawer (2026-04-25 — replaces bottom-right FAB) ──
 
-/** Quick Actions drawer panel slide-in from the right (308px) */
+/** Quick Actions drawer panel slide-in from the right (308px) — 200ms --d-panel */
 export const quickActionsDrawerVariants: Variants = {
   hidden: { x: 308, opacity: 0 },
-  visible: { x: 0, opacity: 1, transition: { duration: 0.26, ease: EASE_SMOOTH } },
-  exit: { x: 308, opacity: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } },
+  visible: { x: 0, opacity: 1, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { x: 308, opacity: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
 };
 
 /** Quick Actions drawer reduced-motion fallback */
@@ -398,13 +398,13 @@ export const quickActionsDrawerVariantsReduced: Variants = {
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
 
-/** Quick Actions row stagger entry — 30ms per item, 200ms duration */
+/** Quick Actions row stagger entry — DESIGN.md §8 row stagger: 300ms + 50ms/item */
 export const quickActionsRowVariants: Variants = {
   hidden: { opacity: 0, x: -6 },
   visible: (i: number) => ({
     opacity: 1,
     x: 0,
-    transition: { delay: i * 0.03, duration: 0.2, ease: EASE_SMOOTH },
+    transition: { delay: i * 0.05, duration: 0.3, ease: EASE_SMOOTH },
   }),
 };
 

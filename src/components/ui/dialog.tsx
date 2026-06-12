@@ -17,7 +17,7 @@ const DialogOverlay = React.forwardRef<
     className={cn(
       "fixed inset-0 z-50",
       "backdrop-blur-sm",
-      "data-[state=open]:animate-fade-in",
+      "motion-safe:data-[state=open]:animate-fade-in",
       className
     )}
     {...props}
@@ -38,7 +38,7 @@ const DialogContent = React.forwardRef<
         "w-full max-w-[540px] max-h-[85vh] overflow-y-auto",
         "glass-dense",
         "p-3",
-        "data-[state=open]:animate-scale-in",
+        "motion-safe:data-[state=open]:animate-scale-in",
         "focus:outline-none",
         className
       )}

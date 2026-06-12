@@ -116,7 +116,7 @@ export function NotificationRow({
         borderTop: "1px solid rgba(255,255,255,0.04)",
         transition: reducedMotion
           ? "none"
-          : "background 120ms cubic-bezier(0.22,1,0.36,1)",
+          : "background var(--d-hover) var(--ease-smooth)",
         outline: "none",
       }}
     >

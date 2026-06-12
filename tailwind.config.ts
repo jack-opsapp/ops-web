@@ -330,20 +330,25 @@ const config: Config = {
           "100%": { boxShadow: "0 0 0 0 rgba(111, 148, 176, 0)" },
         },
       },
+      // One easing curve everywhere (DESIGN.md §8) — every keyframe animation
+      // runs on the OPS curve. typewriter/blink-caret are mechanical steps()
+      // by design. The stock `pulse` is overridden so existing animate-pulse
+      // skeletons inherit the curve with no call-site changes.
       animation: {
-        "pulse-live": "pulse-live 3s ease-in-out infinite",
-        "fade-in": "fade-in 0.2s ease-out",
-        "slide-in-right": "slide-in-right 0.3s ease-out",
-        "slide-in-left": "slide-in-left 0.3s ease-out",
-        "slide-up": "slide-up 0.2s ease-out",
-        "scale-in": "scale-in 0.15s ease-out",
+        pulse: "pulse 2s cubic-bezier(0.22, 1, 0.36, 1) infinite",
+        "pulse-live": "pulse-live 3s cubic-bezier(0.22, 1, 0.36, 1) infinite",
+        "fade-in": "fade-in 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+        "slide-in-right": "slide-in-right 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+        "slide-in-left": "slide-in-left 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+        "slide-up": "slide-up 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+        "scale-in": "scale-in 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
         "anchored-in": "anchored-in 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        "accordion-down": "accordion-down 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+        "accordion-up": "accordion-up 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
         typewriter: "typewriter 1.5s steps(30) forwards",
         "blink-caret": "blink-caret 0.75s step-end infinite",
-        shimmer: "shimmer 1.5s ease-in-out infinite",
-        "glow-flash": "glow-flash 1s ease-out forwards",
+        shimmer: "shimmer 1.5s cubic-bezier(0.22, 1, 0.36, 1) infinite",
+        "glow-flash": "glow-flash 1s cubic-bezier(0.22, 1, 0.36, 1) forwards",
       },
 
       // === Backdrop Blur ===

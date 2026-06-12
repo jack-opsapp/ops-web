@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { animate } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { useBooksLedger } from "@/lib/hooks";
 import type { BooksLedger, BooksPeriod } from "@/lib/api/services/books-service";
@@ -35,7 +36,7 @@ function fmtPct(value: number): string {
   return `${Math.round(value)}%`;
 }
 
-// ─── Count-up (800ms, EASE-SMOOTH-adjacent quad-out, reduced-motion aware) ───
+// ─── Count-up (800ms hero count-up, exact EASE_SMOOTH, reduced-motion aware) ──
 
 function useCountUp(target: number, enabled: boolean, duration = 800): number {
   const [value, setValue] = useState(enabled ? 0 : target);
@@ -48,17 +49,14 @@ function useCountUp(target: number, enabled: boolean, duration = 800): number {
     }
     const from = prev.current;
     prev.current = target;
-    let start: number | null = null;
-    let raf: number;
-    const step = (ts: number) => {
-      if (start === null) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      const eased = 1 - (1 - progress) * (1 - progress);
-      setValue(from + (target - from) * eased);
-      if (progress < 1) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    // framer-motion evaluates the real cubic-bezier(0.22, 1, 0.36, 1) — one
+    // easing curve everywhere (DESIGN.md §8), no hand-rolled approximation.
+    const controls = animate(from, target, {
+      duration: duration / 1000,
+      ease: [0.22, 1, 0.36, 1],
+      onUpdate: (v) => setValue(v),
+    });
+    return () => controls.stop();
   }, [target, enabled, duration]);
 
   return value;

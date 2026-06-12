@@ -132,9 +132,10 @@ export function EdgeTab({
           cursor: "pointer",
           pointerEvents: "auto",
           color: "var(--text)",
+          // 200ms = --d-panel; the tab slides in lockstep with its drawer.
           transition: reducedMotion
             ? "opacity 150ms linear"
-            : `right 260ms ${EASE_SMOOTH_CSS}, background-color 150ms ${EASE_SMOOTH_CSS}`,
+            : `right 200ms ${EASE_SMOOTH_CSS}, background-color 150ms ${EASE_SMOOTH_CSS}`,
           outline: "none",
         }}
       >
@@ -152,7 +153,7 @@ export function EdgeTab({
               pointerEvents: "none",
               transition: reducedMotion
                 ? "none"
-                : `background 220ms ${EASE_SMOOTH_CSS}, opacity 220ms ${EASE_SMOOTH_CSS}`,
+                : `background 200ms ${EASE_SMOOTH_CSS}, opacity 200ms ${EASE_SMOOTH_CSS}`,
             }}
           />
         )}
@@ -170,7 +171,7 @@ export function EdgeTab({
             background: ACCENT_VAR[accent],
             transition: reducedMotion
               ? "none"
-              : `background 180ms ${EASE_SMOOTH_CSS}`,
+              : `background 150ms ${EASE_SMOOTH_CSS}`,
           }}
         />
 
@@ -184,7 +185,7 @@ export function EdgeTab({
             transform: `rotate(${open ? openGlyphRotation : 0}deg)`,
             transition: reducedMotion
               ? "none"
-              : `transform 260ms ${EASE_SMOOTH_CSS}`,
+              : `transform 200ms ${EASE_SMOOTH_CSS}`,
             position: "relative",
           }}
         >
