@@ -247,11 +247,11 @@ export function NotificationRow({
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 10,
-              color: "var(--text-mute)",
+              color: "var(--text-3)",
               flexShrink: 0,
               minWidth: 24,
               textAlign: "right",
-              fontVariantNumeric: "tabular-nums",
+              fontFeatureSettings: '"tnum" 1, "zero" 1',
             }}
           >
             {formatRel(minutesAgo)}

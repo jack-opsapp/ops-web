@@ -4,7 +4,11 @@ import { useEffect, useMemo } from "react";
 import { EdgeTab } from "@/components/ui/edge-tab";
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
-import { resolveTone, toneRank } from "@/lib/notifications/notification-meta";
+import {
+  resolveTone,
+  toneRank,
+  type NotificationTone,
+} from "@/lib/notifications/notification-meta";
 import { useDictionary } from "@/i18n/client";
 import type { EdgeTabAccent } from "@/components/ui/edge-tab.types";
 import { EDGE_RAIL_STACK } from "@/components/ui/edge-rail-layout";
@@ -20,9 +24,12 @@ export function NotificationsTab() {
 
   const count = notifs.length;
 
-  // Compute the accent from the highest-severity outstanding notification.
-  const topTone = useMemo<EdgeTabAccent>(() => {
-    return notifs.reduce<EdgeTabAccent>((best, n) => {
+  // Compute the stripe tone from the highest-severity outstanding
+  // notification. Notification tones include "accent" (per-type metadata),
+  // but the rail maps everything below attn to monochrome ambient — the
+  // edge tabs never wear steel blue (DESIGN.md §3).
+  const topTone = useMemo<NotificationTone>(() => {
+    return notifs.reduce<NotificationTone>((best, n) => {
       const tone = resolveTone(n.type);
       return toneRank[tone] > toneRank[best] ? tone : best;
     }, "ambient");
@@ -31,14 +38,14 @@ export function NotificationsTab() {
   const accent = useMemo<EdgeTabAccent>(() => {
     if (topTone === "critical") return "critical";
     if (topTone === "attn") return "attn";
-    return "accent";
+    return "ambient";
   }, [topTone]);
 
-  // Tinted glass — when an urgent or attention notification is outstanding,
-  // wash the tab in a 0.12-alpha rose glaze so the rail picks up the
-  // semantic hue alongside the brighter accent stripe. (Bug 82cc08e5.)
-  const tint = useMemo<"neutral" | "rose" | "accent">(() => {
-    if (topTone === "critical" || topTone === "attn") return "rose";
+  // Tinted glass — the glaze tracks the same semantic tone as the stripe:
+  // rose for critical, tan for attention, nothing otherwise. (Bug 82cc08e5.)
+  const tint = useMemo<"neutral" | "rose" | "tan">(() => {
+    if (topTone === "critical") return "rose";
+    if (topTone === "attn") return "tan";
     return "neutral";
   }, [topTone]);
 

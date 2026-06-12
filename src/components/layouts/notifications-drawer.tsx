@@ -402,7 +402,7 @@ export function NotificationsDrawer() {
                     style={{
                       fontFamily: "var(--font-mono)",
                       fontSize: 10,
-                      color: "var(--text-mute)",
+                      color: "var(--text-3)",
                       letterSpacing: "0.16em",
                     }}
                   >
@@ -441,7 +441,7 @@ export function NotificationsDrawer() {
                     style={{
                       fontFamily: "var(--font-mono)",
                       fontSize: 9,
-                      color: "var(--text-mute)",
+                      color: "var(--text-3)",
                       letterSpacing: "0.18em",
                     }}
                   >
@@ -464,9 +464,9 @@ export function NotificationsDrawer() {
                 style={{
                   fontFamily: "var(--font-mono)",
                   fontSize: 10,
-                  color: "var(--text-mute)",
+                  color: "var(--text-3)",
                   letterSpacing: "0.14em",
-                  fontVariantNumeric: "tabular-nums",
+                  fontFeatureSettings: '"tnum" 1, "zero" 1',
                 }}
               >
                 {t("footer.lastSync").replace("{time}", syncTime)}

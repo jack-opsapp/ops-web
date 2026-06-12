@@ -27,20 +27,21 @@ const DEFAULT_HEIGHT = 140;
 const DEFAULT_DRAWER_WIDTH = 360;
 const EASE_SMOOTH_CSS = "cubic-bezier(0.22, 1, 0.36, 1)";
 
+// Monochrome by default; rose/tan only when the state carries the matching
+// semantic meaning. Steel blue never appears on rail chrome (DESIGN.md §3).
 const ACCENT_VAR: Record<EdgeTabAccent, string> = {
   critical: "var(--rose)",
   attn: "var(--tan)",
-  accent: "var(--ops-accent)",
   ambient: "var(--text-mute)",
 };
 
 // State-driven glaze laid over the base glass fill — picks up the hue tied
 // to the tab's semantic state without breaking the dense-glass blur.
-// Values mirror --rose-soft / --ops-accent-soft. (Bug 82cc08e5.)
+// Earth-tone softs only. (Bug 82cc08e5.)
 const TINT_VAR: Record<NonNullable<EdgeTabProps["tint"]>, string | null> = {
   neutral: null,
   rose: "var(--rose-soft)",
-  accent: "var(--ops-accent-soft)",
+  tan: "var(--tan-soft)",
 };
 
 export function EdgeTab({
@@ -48,7 +49,7 @@ export function EdgeTab({
   open,
   onToggle,
   count,
-  accent = "accent",
+  accent = "ambient",
   height = DEFAULT_HEIGHT,
   drawerWidth = DEFAULT_DRAWER_WIDTH,
   railTop = EDGE_RAIL_TOP,

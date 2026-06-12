@@ -67,7 +67,8 @@ function SyncIndicator({
         "font-mono text-[11px] tracking-wider",
         "bg-surface-input border border-border",
         "transition-all duration-150 ease-smooth motion-reduce:transition-none",
-        status === "offline" ? "text-ops-error" : "text-text-3"
+        // rose is the error TEXT tone — brick (#93321A) is borders/dots only
+        status === "offline" ? "text-rose" : "text-text-3"
       )}
       title={label}
     >

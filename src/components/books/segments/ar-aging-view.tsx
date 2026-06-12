@@ -194,7 +194,7 @@ export function ArAgingView({
                   className="flex items-center justify-between rounded px-1 py-[6px] hover:bg-surface-hover-subtle"
                 >
                   <div className="flex min-w-0 items-center gap-1">
-                    <span className="w-[16px] shrink-0 text-right font-mono text-micro text-text-mute tabular-nums">
+                    <span className="w-[16px] shrink-0 text-right font-mono text-micro text-text-3 tabular-nums">
                       {idx + 1}.
                     </span>
                     <span className="truncate font-mohave text-body-sm text-text-2">
@@ -205,7 +205,7 @@ export function ArAgingView({
                     <span className="font-mono text-data-sm text-text tabular-nums">
                       {formatCurrency(client.total)}
                     </span>
-                    <span className="font-mono text-micro text-text-mute tabular-nums">
+                    <span className="font-mono text-micro text-text-3 tabular-nums">
                       ({t("topClients.paid").replace("{amount}", formatCurrency(client.paid))})
                     </span>
                   </div>

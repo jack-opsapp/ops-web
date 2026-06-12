@@ -235,7 +235,7 @@ function GroupMark({
       >
         {"//"}
       </span>
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3">
         {t(`group.${group}`)}
       </span>
     </div>
@@ -540,10 +540,10 @@ export function Sidebar() {
           >
             <OpsMark
               title=""
-              className="h-[14px] w-auto shrink-0 select-none text-text-mute opacity-50"
+              className="h-[14px] w-auto shrink-0 select-none text-text-3"
             />
             {expanded && (
-              <span className="select-none font-mono text-[10px] tracking-[0.14em] text-text-mute tabular-nums">
+              <span className="select-none font-mono text-[10px] tracking-[0.14em] text-text-3 tabular-nums">
                 {t("version.prefix")}
                 {packageJson.version}
               </span>

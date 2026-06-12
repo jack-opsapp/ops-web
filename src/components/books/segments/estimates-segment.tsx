@@ -293,7 +293,7 @@ export function EstimatesSegment({
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-start py-8">
-          <FileText className="mb-2 h-[32px] w-[32px] text-text-mute" />
+          <FileText className="mb-2 h-[32px] w-[32px] text-text-3" />
           <h3 className="font-mohave text-body-lg text-text-2">
             {searchQuery || statusFilter !== "all" ? t("estimates.empty.noMatch") : t("estimates.empty.none")}
           </h3>
@@ -428,7 +428,7 @@ export function EstimatesSegment({
                         {can("estimates.delete") && (
                           <button
                             onClick={() => deleteEstimate.mutate(estimate.id)}
-                            className="rounded p-[4px] text-text-mute transition-colors hover:bg-rose-soft hover:text-rose"
+                            className="rounded p-[4px] text-text-3 transition-colors hover:bg-rose-soft hover:text-rose"
                             title={t("estimates.actions.delete")}
                           aria-label={t("estimates.actions.delete")}
                           >

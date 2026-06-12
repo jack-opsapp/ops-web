@@ -320,13 +320,13 @@ export function SyncSegment({
             <div className="flex items-center justify-between">
               <PanelTitle>{t("integrations.syncHistory")}</PanelTitle>
               {connectionsLoading && (
-                <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none text-text-mute" />
+                <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none text-text-3" />
               )}
             </div>
 
             {historyLoading ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-[20px] w-[20px] animate-spin motion-reduce:animate-none text-text-mute" />
+                <Loader2 className="h-[20px] w-[20px] animate-spin motion-reduce:animate-none text-text-3" />
               </div>
             ) : syncHistory.length === 0 ? (
               <p className="py-4 text-center font-mono text-micro text-text-mute">—</p>

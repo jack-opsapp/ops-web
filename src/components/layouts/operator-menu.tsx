@@ -62,7 +62,7 @@ function ExternalItem({
     >
       <Icon className="h-[16px] w-[16px] text-text-3" />
       {label}
-      <ArrowUpRight className="ml-auto h-[12px] w-[12px] text-text-mute" />
+      <ArrowUpRight className="ml-auto h-[12px] w-[12px] text-text-3" />
     </DropdownMenuItem>
   );
 }

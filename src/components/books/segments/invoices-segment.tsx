@@ -61,8 +61,8 @@ const STATUS_TONE: Record<InvoiceStatus, string> = {
   [InvoiceStatus.PartiallyPaid]: "border-tan-line bg-tan-soft text-tan",
   [InvoiceStatus.Paid]: "border-olive-line bg-olive-soft text-olive",
   [InvoiceStatus.PastDue]: "border-rose-line bg-rose-soft text-rose",
-  [InvoiceStatus.Void]: "border-border bg-transparent text-text-mute",
-  [InvoiceStatus.WrittenOff]: "border-border bg-transparent text-text-mute",
+  [InvoiceStatus.Void]: "border-border bg-transparent text-text-3",
+  [InvoiceStatus.WrittenOff]: "border-border bg-transparent text-text-3",
 };
 
 function StatusTag({ status, label }: { status: InvoiceStatus; label: string }) {
@@ -354,7 +354,7 @@ export function InvoicesSegment({
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-start py-8">
-          <Receipt className="mb-2 h-[32px] w-[32px] text-text-mute" />
+          <Receipt className="mb-2 h-[32px] w-[32px] text-text-3" />
           <h3 className="font-mohave text-body-lg text-text-2">
             {searchQuery || statusFilter !== "all" ? t("invoices.empty.noMatch") : t("invoices.empty.none")}
           </h3>
@@ -455,7 +455,7 @@ export function InvoicesSegment({
                         <span
                           className={cn(
                             "font-mono text-data-sm tabular-nums",
-                            invoice.amountPaid > 0 ? "text-olive" : "text-text-mute",
+                            invoice.amountPaid > 0 ? "text-olive" : "text-text-3",
                           )}
                         >
                           {invoice.amountPaid > 0 ? formatCurrency(invoice.amountPaid) : "—"}
@@ -465,7 +465,7 @@ export function InvoicesSegment({
                         <span
                           className={cn(
                             "font-mono text-data-sm tabular-nums",
-                            invoice.balanceDue > 0 ? "text-text" : "text-text-mute",
+                            invoice.balanceDue > 0 ? "text-text" : "text-text-3",
                           )}
                         >
                           {invoice.balanceDue > 0 ? formatCurrency(invoice.balanceDue) : "—"}
@@ -522,7 +522,7 @@ export function InvoicesSegment({
                             can("invoices.void") && (
                               <button
                                 onClick={() => voidInvoice.mutate(invoice.id)}
-                                className="rounded p-[4px] text-text-mute transition-colors hover:bg-rose-soft hover:text-rose"
+                                className="rounded p-[4px] text-text-3 transition-colors hover:bg-rose-soft hover:text-rose"
                                 title={t("invoices.actions.void")}
                           aria-label={t("invoices.actions.void")}
                               >
@@ -532,7 +532,7 @@ export function InvoicesSegment({
                           {can("invoices.delete") && (
                             <button
                               onClick={() => deleteInvoice.mutate(invoice.id)}
-                              className="rounded p-[4px] text-text-mute transition-colors hover:bg-rose-soft hover:text-rose"
+                              className="rounded p-[4px] text-text-3 transition-colors hover:bg-rose-soft hover:text-rose"
                               title={t("invoices.actions.delete")}
                           aria-label={t("invoices.actions.delete")}
                             >
