@@ -33,12 +33,14 @@ export type BooksSegment = "invoices" | "estimates" | "expenses" | "sync";
 
 const SEGMENT_ORDER: BooksSegment[] = ["invoices", "estimates", "expenses", "sync"];
 
-/** Per-segment gate (capability inventory §7). Never role names. */
-const SEGMENT_PERMISSION: Record<BooksSegment, string> = {
-  invoices: "invoices.view",
-  estimates: "estimates.view",
-  expenses: "expenses.approve",
-  sync: "accounting.manage_connections",
+/** Per-segment gate (capability inventory §7). Never role names.
+ *  invoices also admits accounting.view-only users — they land on the
+ *  A/R aging view (old /accounting parity) without the document list. */
+const SEGMENT_ALLOWED: Record<BooksSegment, (can: (p: string) => boolean) => boolean> = {
+  invoices: (can) => can("invoices.view") || can("accounting.view"),
+  estimates: (can) => can("estimates.view"),
+  expenses: (can) => can("expenses.approve"),
+  sync: (can) => can("accounting.manage_connections"),
 };
 
 const PERIOD_STORAGE_KEY = "books.period";
@@ -57,7 +59,7 @@ export function BooksPage() {
 
   // ── Visible segments ──────────────────────────────────────────────────
   const visibleSegments = useMemo(
-    () => SEGMENT_ORDER.filter((s) => can(SEGMENT_PERMISSION[s])),
+    () => SEGMENT_ORDER.filter((s) => SEGMENT_ALLOWED[s](can)),
     [can],
   );
 
@@ -191,7 +193,7 @@ export function BooksPage() {
         <LedgerStrip
           period={period}
           onPeriodChange={handlePeriodChange}
-          onDrillOverdue={visibleSegments.includes("invoices") ? drillOverdue : undefined}
+          onDrillOverdue={can("invoices.view") ? drillOverdue : undefined}
           clientName={clientName}
         />
       )}
@@ -199,6 +201,7 @@ export function BooksPage() {
       {activeSegment === "invoices" && (
         <InvoicesSegment
           segmentControl={segmentControl}
+          listAllowed={can("invoices.view")}
           view={invoicesView}
           onViewChange={(view) => updateParams({ view: view === "aging" ? "aging" : null })}
           statusFilter={invoiceStatusFilter}

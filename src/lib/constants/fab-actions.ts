@@ -40,10 +40,10 @@ export function isWindowAction(action: FABAction): action is FABAction & { targe
 }
 
 export const ALL_ACTIONS: FABAction[] = [
-  { id: "expense",        labelKey: "action.expense",   hintCode: "EXP", icon: Receipt,       triggerAction: "expenses",   handler: "route",  target: "/accounting?tab=expenses", requiredPermission: "expenses.create" },
+  { id: "expense",        labelKey: "action.expense",   hintCode: "EXP", icon: Receipt,       triggerAction: "expenses",   handler: "route",  target: "/books?segment=expenses",  requiredPermission: "expenses.create" },
   { id: "lead",           labelKey: "action.lead",      hintCode: "LED", icon: TrendingUp,    triggerAction: "leads",      handler: "window", target: "create-lead",              requiredPermission: "pipeline.manage" },
   { id: "estimate",       labelKey: "action.estimate",  hintCode: "EST", icon: Calculator,    triggerAction: "estimates",  handler: "window", target: "create-estimate",          requiredPermission: "estimates.create" },
-  { id: "invoice",        labelKey: "action.invoice",   hintCode: "INV", icon: FileText,      triggerAction: "invoices",   handler: "route",  target: "/invoices?action=new",     requiredPermission: "invoices.create" },
+  { id: "invoice",        labelKey: "action.invoice",   hintCode: "INV", icon: FileText,      triggerAction: "invoices",   handler: "route",  target: "/books?segment=invoices&action=new", requiredPermission: "invoices.create" },
   { id: "client",         labelKey: "action.client",    hintCode: "CLI", icon: Users,         triggerAction: "clients",    handler: "window", target: "create-client",            requiredPermission: "clients.create" },
   // Phase 9.1 — "New Project" routes through the unified workspace
   // window in creating mode instead of the legacy create-project modal.

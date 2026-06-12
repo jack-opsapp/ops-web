@@ -47,6 +47,7 @@ import { getSlugForPermission } from "@/lib/feature-flags/feature-flag-definitio
 import {
   getNavEntries,
   isNavEntryActive,
+  entryPermissions,
   type RouteEntry,
   type NavGroup,
 } from "@/lib/navigation/route-registry";
@@ -351,12 +352,14 @@ export function Sidebar() {
       if (entry.phaseCOnly && !phaseCVisible) continue;
 
       let gated = false;
-      if (entry.permission) {
-        if (!isPermissionUnlocked(entry.permission)) {
+      const perms = entryPermissions(entry);
+      if (perms.length > 0) {
+        if (!perms.some(isPermissionUnlocked)) {
           // Commercial feature flag locked — visible but dimmed, click opens
-          // the request-access flow.
+          // the request-access flow. Any-of entries (BOOKS) dim only when
+          // every constituent permission is flag-locked.
           gated = true;
-        } else if (permissionsReady && !can(entry.permission)) {
+        } else if (permissionsReady && !perms.some((p) => can(p))) {
           // RBAC — hidden outright once permissions have resolved.
           continue;
         }
@@ -392,8 +395,10 @@ export function Sidebar() {
 
   const handleSelect = useCallback(
     (entry: RouteEntry, gated: boolean) => {
-      if (gated && entry.permission) {
-        const slug = getSlugForPermission(entry.permission);
+      if (gated) {
+        const slug = entryPermissions(entry)
+          .map(getSlugForPermission)
+          .find((s): s is NonNullable<ReturnType<typeof getSlugForPermission>> => !!s);
         if (slug) setAccessModalFeature({ label: t(entry.labelKey), slug });
         return;
       }
@@ -490,9 +495,11 @@ export function Sidebar() {
                   gated={row.gated}
                   badgeCount={row.badgeCount}
                   gatedTooltip={
-                    row.gated && row.entry.permission
+                    row.gated && entryPermissions(row.entry).length > 0
                       ? requestedSlugs?.has(
-                          getSlugForPermission(row.entry.permission) ?? ""
+                          entryPermissions(row.entry)
+                            .map(getSlugForPermission)
+                            .find((s) => !!s) ?? ""
                         )
                         ? t("gated.accessRequested")
                         : t("gated.inDevelopment")

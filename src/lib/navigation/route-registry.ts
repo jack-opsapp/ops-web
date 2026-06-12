@@ -34,8 +34,6 @@ import {
   MapPin,
   CalendarDays,
   GitBranch,
-  FileText,
-  Receipt,
   Calculator,
   Package,
   Boxes,
@@ -68,6 +66,13 @@ export interface RouteEntry {
   nav: { order: number; group: NavGroup } | false;
   /** RBAC permission required to see/visit (usePermissionStore.can). */
   permission?: string;
+  /**
+   * Any-of RBAC gate for hub surfaces that absorb several permissioned
+   * areas (BOOKS mirrors iOS `MainTabView.hasBooksAccess`): visible when
+   * the user holds AT LEAST ONE listed permission. Mutually exclusive
+   * with `permission` — set one or the other.
+   */
+  anyOfPermissions?: string[];
   /**
    * Phase C posture (master plan §3): rendered ONLY when
    * `canAccessFeature("phase_c")` — invisible to everyone else. Distinct
@@ -140,34 +145,36 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     fullHeight: "padded",
   },
   {
-    key: "estimates",
-    href: "/estimates",
-    icon: FileText,
-    labelKey: "nav.estimates",
-    paletteKeywords: ["quotes", "proposals"],
-    nav: { order: 6, group: "command" },
-    permission: "estimates.view",
-    absorbedBy: { phase: "3.1", target: "/books?segment=estimates" },
-  },
-  {
-    key: "invoices",
-    href: "/invoices",
-    icon: Receipt,
-    labelKey: "nav.invoices",
-    paletteKeywords: ["billing", "payments"],
-    nav: { order: 7, group: "command" },
-    permission: "invoices.view",
-    absorbedBy: { phase: "3.1", target: "/books?segment=invoices" },
-  },
-  {
-    key: "accounting",
-    href: "/accounting",
+    // BOOKS — the unified financial hub (P3.1). Absorbed Estimates,
+    // Invoices, Accounting (A/R + integrations + QB import), the expense
+    // review hub, and the cashflow placeholder. Icon traces to the
+    // OPS-ICON-SET-BRIEF `nav-finance` concept (Carbon `Calculator`).
+    key: "books",
+    href: "/books",
     icon: Calculator,
-    labelKey: "nav.accounting",
-    paletteKeywords: ["finance", "money", "quickbooks"],
-    nav: { order: 8, group: "command" },
-    permission: "accounting.view",
-    absorbedBy: { phase: "3.1", target: "/books?segment=invoices&view=aging" },
+    labelKey: "nav.books",
+    paletteKeywords: [
+      "money",
+      "invoices",
+      "estimates",
+      "quotes",
+      "expenses",
+      "accounting",
+      "finance",
+      "billing",
+      "payments",
+      "quickbooks",
+    ],
+    nav: { order: 6, group: "command" },
+    // Any-of across the four segments' gates. expenses.approve (not .view):
+    // the web expenses segment is the review hub — web has no own-scope
+    // expense list, so .view alone would render an empty Books.
+    anyOfPermissions: [
+      "invoices.view",
+      "estimates.view",
+      "expenses.approve",
+      "accounting.view",
+    ],
   },
   {
     key: "products",
@@ -300,9 +307,26 @@ export function getTitleKeyForPath(pathname: string): string | null {
   return getEntryForPath(pathname)?.labelKey ?? null;
 }
 
-/** RBAC permission required for a pathname, or null (always allowed). */
+/** RBAC permission required for a pathname, or null (always allowed).
+ *  NOTE: any-of entries (BOOKS) return null here — use
+ *  `getAnyOfPermissionsForPath` for full gating. */
 export function getPermissionForPath(pathname: string): string | null {
   return getEntryForPath(pathname)?.permission ?? null;
+}
+
+/** Full RBAC gate for a pathname as an any-of list, or null (ungated).
+ *  Single-permission entries normalize to a one-element array. */
+export function getAnyOfPermissionsForPath(pathname: string): string[] | null {
+  const entry = getEntryForPath(pathname);
+  if (!entry) return null;
+  if (entry.anyOfPermissions?.length) return entry.anyOfPermissions;
+  return entry.permission ? [entry.permission] : null;
+}
+
+/** Normalized permission list for a registry entry ([] = ungated). */
+export function entryPermissions(entry: RouteEntry): string[] {
+  if (entry.anyOfPermissions?.length) return entry.anyOfPermissions;
+  return entry.permission ? [entry.permission] : [];
 }
 
 /** Full-height mode for a pathname, honoring opt-out exceptions. */

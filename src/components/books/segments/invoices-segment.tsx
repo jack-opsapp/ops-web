@@ -107,6 +107,8 @@ function isOverdueRow(invoice: Invoice): boolean {
 export interface InvoicesSegmentProps {
   /** The Books segment control, rendered inside this segment's workbar row. */
   segmentControl: React.ReactNode;
+  /** False for accounting.view-only users: A/R aging only, no document list. */
+  listAllowed: boolean;
   view: InvoicesView;
   onViewChange: (view: InvoicesView) => void;
   /** Status filter lifted to the URL (?status=…). */
@@ -122,6 +124,7 @@ export interface InvoicesSegmentProps {
 
 export function InvoicesSegment({
   segmentControl,
+  listAllowed,
   view,
   onViewChange,
   statusFilter,
@@ -262,38 +265,40 @@ export function InvoicesSegment({
   const workbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
       {segmentControl}
-      <div className="flex items-center gap-2">
-        <div className="w-[280px] max-w-full">
-          <Input
-            placeholder={t("invoices.search")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            prefixIcon={<Search className="h-[16px] w-[16px]" />}
-          />
+      {listAllowed && (
+        <div className="flex items-center gap-2">
+          <div className="w-[280px] max-w-full">
+            <Input
+              placeholder={t("invoices.search")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              prefixIcon={<Search className="h-[16px] w-[16px]" />}
+            />
+          </div>
+          {can("invoices.create") && (
+            <Button
+              variant="secondary"
+              className="gap-[6px] border-ops-accent bg-transparent font-cakemono font-light uppercase text-ops-accent hover:border-ops-accent hover:bg-ops-accent hover:text-black"
+              onClick={gatedOpenCreate}
+            >
+              <Plus className="h-[16px] w-[16px]" />
+              {t("invoices.newInvoice")}
+            </Button>
+          )}
         </div>
-        {can("invoices.create") && (
-          <Button
-            variant="secondary"
-            className="gap-[6px] border-ops-accent bg-transparent font-cakemono font-light uppercase text-ops-accent hover:border-ops-accent hover:bg-ops-accent hover:text-black"
-            onClick={gatedOpenCreate}
-          >
-            <Plus className="h-[16px] w-[16px]" />
-            {t("invoices.newInvoice")}
-          </Button>
-        )}
-      </div>
+      )}
     </div>
   );
 
-  // ── A/R aging view ──────────────────────────────────────────────────
-  if (view === "aging" && canAging) {
+  // ── A/R aging view (forced for accounting.view-only users) ──────────
+  if ((view === "aging" || !listAllowed) && canAging) {
     return (
       <div className="space-y-[14px]">
         {workbar}
         <ArAgingView
           invoices={invoices}
           clientMap={clientMap}
-          onBackToList={() => onViewChange("list")}
+          onBackToList={listAllowed ? () => onViewChange("list") : undefined}
         />
       </div>
     );

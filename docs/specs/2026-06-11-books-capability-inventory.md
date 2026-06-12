@@ -89,11 +89,12 @@ Static "available in the OPS iPhone app" notice + back-to-dashboard link. No dat
 | `/money/cashflow` | `/books` |
 | `/books/cashflow` (iOS forecast_dip action_url) | `/books` |
 
-## 7 · Permission model for /books (decided this wave)
+## 7 · Permission model for /books (decided this wave; refined at build)
 
-- **Route:** visible/enterable with **any of** `invoices.view` / `estimates.view` / `expenses.view` / `accounting.view` (mirrors iOS `MainTabView.hasBooksAccess` any-of pattern; registry type gains `anyOfPermissions`).
-- **Summary cards (financial hero):** `accounting.view` (web analog of iOS `finances.view` card gating — web has no `finances.*` bits).
-- **INVOICES segment:** `invoices.view` · A/R view inside it: `accounting.view`.
+- **Route:** visible/enterable with **any of** `invoices.view` / `estimates.view` / `expenses.approve` / `accounting.view` (mirrors the iOS `MainTabView.hasBooksAccess` any-of pattern; registry type gains `anyOfPermissions` + `entryPermissions`/`getAnyOfPermissionsForPath` helpers consumed by the layout gate, sidebar, and command palette). `expenses.approve` rather than `.view`: the web expenses segment is the review hub — web has no own-scope expense list, so `.view` alone would admit users to an empty hub.
+- **Summary cards (ledger strip):** `accounting.view` (web analog of iOS `finances.view` card gating — web has no `finances.*` bits).
+- **INVOICES segment:** `invoices.view` for the document list · the segment also admits `accounting.view`-only users, who land directly on the A/R aging view (old `/accounting` parity) with no list, search, or create affordances.
+- **A/R view (`?view=aging`):** `accounting.view`.
 - **ESTIMATES segment:** `estimates.view`.
 - **EXPENSES segment:** `expenses.approve` (web parity = the review hub; web has no own-scope "my expenses" surface today and this wave does not invent one).
 - **SYNC segment:** `accounting.manage_connections`.
