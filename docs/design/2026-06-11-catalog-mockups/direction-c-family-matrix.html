@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CATALOG — Direction C · Family Matrix</title>
+<link rel="stylesheet" href="_base.css" />
+<style>
+  /* Direction C — FAMILY MATRIX: the iOS TABLE view brought to desktop.
+     Stock is grouped by variant family; expanding a family reveals its
+     variants as a mini-matrix with the family's option axes as columns.
+     A compact two-tile strip + threshold banner replaces the full strip. */
+  .striprow { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; }
+  .tile { padding: 14px 18px 12px; min-height: 96px; display: flex; flex-direction: column; }
+  .tile .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .tile .hero { font-family: var(--font-mono); font-weight: 600; font-size: 20px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+  .tile .hero small { font-family: var(--font-mohave); font-weight: 400; font-size: 12px; color: var(--text-3); margin-left: 4px; }
+  .tile .hero.rose { color: var(--rose); }
+  .tile .sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); letter-spacing: 0.06em; font-feature-settings: "tnum" 1, "zero" 1; margin-top: auto; }
+  .tile .sub .ol { color: var(--olive); } .tile .sub .tn { color: var(--tan); } .tile .sub .rs { color: var(--rose); }
+  .healthbar { display: flex; height: 4px; border-radius: var(--r-bar); overflow: hidden; gap: 2px; margin: 8px 0; }
+  .healthbar i { display: block; height: 100%; border-radius: 1px; }
+
+  .banner {
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px; margin-bottom: 28px;
+    border: 1px solid var(--tan-line); background: var(--tan-soft); border-radius: var(--r-panel);
+  }
+  .banner .msg { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tan); font-feature-settings: "tnum" 1, "zero" 1; }
+  .banner .msg .rs { color: var(--rose); }
+  .banner .go { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; color: var(--text-2); cursor: pointer; text-transform: uppercase; }
+
+  .workbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  .workbar .right { display: flex; align-items: center; gap: 8px; }
+  .filterline { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .count { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+  .statline { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; text-transform: uppercase; }
+  .statline b { font-weight: 500; color: var(--text-2); } .statline .tn { color: var(--tan); } .statline .rs { color: var(--rose); }
+  .kebab { width: 36px; min-height: 36px; border: 1px solid var(--line); border-radius: var(--r-btn); background: transparent; color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; }
+
+  /* family list */
+  .families { display: flex; flex-direction: column; gap: 8px; }
+  .family { overflow: hidden; }
+  .famhead { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; }
+  .famhead .chev { color: var(--text-mute); font-family: var(--font-mono); font-size: 10px; width: 12px; }
+  .famhead .name { font-family: var(--font-mohave); font-size: 15px; color: var(--text); }
+  .famhead .cat { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; color: var(--text-mute); text-transform: uppercase; }
+  .famhead .roll { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--text-2); font-feature-settings: "tnum" 1, "zero" 1; }
+  .famhead .roll small { color: var(--text-mute); font-size: 10px; margin-left: 3px; text-transform: uppercase; }
+  .famhead .vcount { font-family: var(--font-mono); font-size: 10px; color: var(--text-mute); letter-spacing: 0.1em; }
+
+  table.matrix { width: 100%; border-collapse: collapse; border-top: 1px solid var(--line); }
+  table.matrix th {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--text-mute); text-align: left; padding: 8px 16px 8px; font-weight: 400; background: rgba(255,255,255,0.02);
+  }
+  table.matrix td { padding: 9px 16px; border-top: 1px solid rgba(255,255,255,0.05); }
+  table.matrix .opt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--text-2); text-transform: uppercase; }
+  table.matrix .r { text-align: right; }
+  .qty { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+  .qty small { font-family: var(--font-mono); font-size: 10px; color: var(--text-mute); margin-left: 3px; text-transform: uppercase; }
+  .qty.tn { color: var(--tan); } .qty.rs { color: var(--rose); }
+  .d { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+  .acts { display: inline-flex; gap: 2px; justify-content: flex-end; }
+  .acts span { width: 24px; height: 24px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-3); }
+  .acts svg { width: 14px; height: 14px; }
+
+  .viewnote { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; color: var(--text-mute); text-transform: uppercase; margin: 34px 0 12px; }
+  .mocknote { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; color: var(--text-mute); text-transform: uppercase; margin-top: 36px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3H4v18h5M15 3h5v18h-5"/></svg>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><path d="M8 10v4M12 10v2M16 10v6"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v6M18 9a9 9 0 0 1-9 9"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10.01"/><line x1="12" y1="10" x2="12" y2="10.01"/><line x1="16" y1="10" x2="16" y2="10.01"/><line x1="8" y1="14" x2="8" y2="14.01"/><line x1="12" y1="14" x2="12" y2="14.01"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="8" y2="18.01"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg></div>
+    <div class="rail-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+    <div class="spacer"></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></div>
+    <div class="avatar">JS</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1>Catalog</h1>
+      <span class="sys">SYS :: 142 SKUS &middot; 38 PRODUCTS</span>
+    </header>
+
+    <div class="canvas">
+      <!-- ── Compact strip + banner ───────────────────────────────────── -->
+      <div class="striprow">
+        <div class="tile glass-surface">
+          <div class="head"><span class="t-panel-title"><span class="sl">//</span> STOCK HEALTH</span></div>
+          <span class="hero rose">7<small>BELOW THRESHOLD</small></span>
+          <div class="healthbar">
+            <i style="width:79%; background: var(--olive); opacity:.75"></i>
+            <i style="width:12%; background: var(--tan)"></i>
+            <i style="width:9%; background: var(--rose)"></i>
+          </div>
+          <span class="sub"><span class="rs">2 CRITICAL</span> &middot; <span class="tn">5 LOW</span> &middot; ON-HAND $23,480</span>
+        </div>
+        <div class="tile glass-surface">
+          <div class="head"><span class="t-panel-title"><span class="sl">//</span> PRODUCTS</span></div>
+          <span class="hero">38<small>12 CONFIGURED</small></span>
+          <div class="healthbar">
+            <i style="width:63%; background: var(--fill-neutral)"></i>
+            <i style="width:37%; background: var(--fill-neutral-dim)"></i>
+          </div>
+          <span class="sub">34 ACTIVE &middot; AVG MARGIN <span class="ol">42%</span> &middot; 9 RECIPES</span>
+        </div>
+      </div>
+
+      <div class="banner">
+        <span class="msg"><span style="color:var(--text-mute)">//</span> CORNER POST BLACK &middot; TOPMOUNT AT 3 &mdash; <span class="rs">CRITICAL</span></span>
+        <span class="go">[REVIEW ALL 7 &rarr;]</span>
+      </div>
+
+      <!-- ── STOCK segment — family matrix ────────────────────────────── -->
+      <div class="viewnote" style="margin-top:0">[ VIEW :: STOCK SEGMENT ]</div>
+
+      <div class="workbar">
+        <div class="seg">
+          <button>PRODUCTS <span class="cnt">38</span></button>
+          <button class="active">STOCK <span class="cnt">142</span></button>
+        </div>
+        <div class="right">
+          <div class="input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search stock&hellip;</div>
+          <button class="btn btn-primary">+ NEW ITEM</button>
+          <button class="kebab">&#8942;</button>
+        </div>
+      </div>
+
+      <div class="filterline">
+        <div class="chips">
+          <button class="chip active">ALL</button>
+          <button class="chip">SIDING</button>
+          <button class="chip">TRIM</button>
+          <button class="chip">WRAP</button>
+          <button class="chip">FASTENERS</button>
+        </div>
+        <span class="count">31 FAMILIES &middot; 142 SKUS</span>
+        <span class="statline"><span class="rs">CRITICAL 2</span> &middot; <span class="tn">LOW 5</span></span>
+      </div>
+
+      <div class="families">
+        <!-- expanded family with option-axis matrix -->
+        <div class="family glass-surface">
+          <div class="famhead">
+            <span class="chev">&#9662;</span>
+            <span class="name">Corner Post</span>
+            <span class="cat">TRIM</span>
+            <span class="tag tag-dim">EXTERIOR</span>
+            <span class="roll">49<small>PCS</small></span>
+            <span class="vcount">2 VARIANTS</span>
+          </div>
+          <table class="matrix">
+            <thead>
+              <tr>
+                <th style="padding-left:44px">COLOR</th>
+                <th>MOUNT TYPE</th>
+                <th>SKU</th>
+                <th class="r">QTY</th>
+                <th class="c" style="text-align:center">STATUS</th>
+                <th class="r" style="width:110px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding-left:44px"><span class="opt">WHITE</span></td>
+                <td><span class="opt">STANDARD</span></td>
+                <td><span class="d">CP-W-S</span></td>
+                <td class="r"><span class="qty">46<small>PCS</small></span></td>
+                <td style="text-align:center"><span class="tag tag-dim">OK</span></td>
+                <td class="r"><div class="acts">
+                  <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="10" x2="3" y2="10"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                  <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                </div></td>
+              </tr>
+              <tr>
+                <td style="padding-left:44px"><span class="opt">BLACK</span></td>
+                <td><span class="opt">TOPMOUNT</span></td>
+                <td><span class="d">CP-B-T</span></td>
+                <td class="r"><span class="qty rs">3<small>PCS</small></span></td>
+                <td style="text-align:center"><span class="tag tag-rose">CRITICAL</span></td>
+                <td class="r"><div class="acts">
+                  <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="10" x2="3" y2="10"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                  <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                </div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- collapsed families -->
+        <div class="family glass-surface">
+          <div class="famhead">
+            <span class="chev">&#9656;</span>
+            <span class="name">J-Channel</span>
+            <span class="cat">TRIM</span>
+            <span class="tag tag-tan">1 LOW</span>
+            <span class="roll">96<small>PCS</small></span>
+            <span class="vcount">2 VARIANTS</span>
+          </div>
+        </div>
+        <div class="family glass-surface">
+          <div class="famhead">
+            <span class="chev">&#9656;</span>
+            <span class="name">Vinyl Siding D4.5</span>
+            <span class="cat">SIDING</span>
+            <span class="roll">690<small>SQ FT</small></span>
+            <span class="vcount">2 VARIANTS</span>
+          </div>
+        </div>
+        <div class="family glass-surface">
+          <div class="famhead">
+            <span class="chev">&#9656;</span>
+            <span class="name">House Wrap</span>
+            <span class="cat">WRAP</span>
+            <span class="tag tag-tan">1 LOW</span>
+            <span class="roll">6<small>ROLLS</small></span>
+            <span class="vcount">1 VARIANT</span>
+          </div>
+        </div>
+        <div class="family glass-surface">
+          <div class="famhead">
+            <span class="chev">&#9656;</span>
+            <span class="name">Starter Strip</span>
+            <span class="cat">TRIM</span>
+            <span class="roll">38<small>PCS</small></span>
+            <span class="vcount">1 VARIANT</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mocknote">[ MOCKUP NOTE :: PRODUCTS SEGMENT KEEPS THE FLAT TABLE FROM DIRECTION A &middot; SEARCH AUTO-EXPANDS MATCHING FAMILIES ]</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

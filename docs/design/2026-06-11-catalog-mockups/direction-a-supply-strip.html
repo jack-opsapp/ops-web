@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CATALOG — Direction A · Supply Strip</title>
+<link rel="stylesheet" href="_base.css" />
+<style>
+  /* Direction A — SUPPLY STRIP: Books' instrument-strip language applied to
+     supply. Four glance tiles (stock health, on-hand value, products, build
+     readiness) above the segmented working area. */
+  .strip-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .tile { padding: 16px 18px 14px; cursor: pointer; min-height: 132px; display: flex; flex-direction: column; }
+  .tile .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .tile .hero { font-family: var(--font-mono); font-weight: 600; font-size: 22px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+  .tile .hero small { font-family: var(--font-mohave); font-weight: 400; font-size: 12px; color: var(--text-3); margin-left: 4px; letter-spacing: 0.02em; }
+  .tile .hero.rose { color: var(--rose); }
+  .tile .viz { margin: 10px 0 8px; }
+  .tile .sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); letter-spacing: 0.06em; font-feature-settings: "tnum" 1, "zero" 1; margin-top: auto; }
+  .tile .sub b { color: var(--text-2); font-weight: 500; }
+  .tile .sub .ol { color: var(--olive); } .tile .sub .tn { color: var(--tan); } .tile .sub .rs { color: var(--rose); }
+  .scopebadge { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; color: var(--text-mute); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; text-transform: uppercase; }
+
+  /* health bar: olive / tan / rose distribution */
+  .healthbar { display: flex; height: 4px; border-radius: var(--r-bar); overflow: hidden; gap: 2px; }
+  .healthbar i { display: block; height: 100%; border-radius: 1px; }
+
+  /* category value ramp */
+  .catbars { display: flex; flex-direction: column; gap: 4px; }
+  .catbars .row { display: flex; align-items: center; gap: 8px; }
+  .catbars .lbl { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em; color: var(--text-mute); width: 52px; text-transform: uppercase; }
+  .catbars .bar { flex: 1; height: 4px; border-radius: var(--r-bar); background: var(--fill-neutral-dim); overflow: hidden; }
+  .catbars .bar i { display: block; height: 100%; background: var(--fill-neutral); border-radius: var(--r-bar); }
+
+  /* kind split meter */
+  .split { display: flex; height: 4px; border-radius: var(--r-bar); overflow: hidden; gap: 2px; }
+  .split i { display: block; height: 100%; border-radius: 1px; background: var(--fill-neutral); }
+  .split i.dim { background: var(--fill-neutral-dim); }
+
+  /* config dots */
+  .cfgdots { display: grid; grid-template-columns: repeat(19, 8px); gap: 4px; }
+  .cfgdots i { width: 8px; height: 8px; border-radius: 2px; background: var(--fill-neutral-dim); }
+  .cfgdots i.on { background: var(--fill-neutral); }
+
+  .workbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  .workbar .left { display: flex; align-items: center; gap: 16px; }
+  .workbar .right { display: flex; align-items: center; gap: 8px; }
+  .filterline { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .count { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+  .statline { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; text-transform: uppercase; }
+  .statline b { font-weight: 500; color: var(--text-2); } .statline .tn { color: var(--tan); } .statline .rs { color: var(--rose); } .statline .ol { color: var(--olive); }
+  .kebab { width: 36px; min-height: 36px; border: 1px solid var(--line); border-radius: var(--r-btn); background: transparent; color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; letter-spacing: 1px; }
+
+  .acts { display: inline-flex; gap: 2px; justify-content: flex-end; }
+  .acts span { width: 24px; height: 24px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-3); }
+  .acts svg { width: 14px; height: 14px; }
+
+  .qty { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+  .qty small { font-family: var(--font-mono); font-size: 10px; color: var(--text-mute); margin-left: 3px; text-transform: uppercase; }
+  .qty.tn { color: var(--tan); } .qty.rs { color: var(--rose); }
+  .variant { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase; margin-top: 2px; }
+  .thumb { width: 32px; height: 32px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface-input); display: inline-flex; align-items: center; justify-content: center; color: var(--text-mute); }
+  .thumb svg { width: 14px; height: 14px; }
+  .cfg { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--text-3); text-transform: uppercase; }
+  .ck { width: 14px; height: 14px; border: 1px solid var(--line); border-radius: 3px; display: inline-block; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: 0; }
+
+  .viewnote { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; color: var(--text-mute); text-transform: uppercase; margin: 34px 0 12px; }
+  .mocknote { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; color: var(--text-mute); text-transform: uppercase; margin-top: 36px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- ── P2 fixed instrument rail (post-swap: CATALOG holds slot 7) ────── -->
+  <aside class="rail">
+    <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3H4v18h5M15 3h5v18h-5"/></svg>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><path d="M8 10v4M12 10v2M16 10v6"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v6M18 9a9 9 0 0 1-9 9"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10.01"/><line x1="12" y1="10" x2="12" y2="10.01"/><line x1="16" y1="10" x2="16" y2="10.01"/><line x1="8" y1="14" x2="8" y2="14.01"/><line x1="12" y1="14" x2="12" y2="14.01"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="8" y2="18.01"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg></div>
+    <div class="rail-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+    <div class="spacer"></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></div>
+    <div class="avatar">JS</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1>Catalog</h1>
+      <span class="sys">SYS :: 142 SKUS &middot; 38 PRODUCTS</span>
+    </header>
+
+    <div class="canvas">
+      <!-- ── Supply strip ─────────────────────────────────────────────── -->
+      <div class="strip-head">
+        <span class="t-panel-title"><span class="sl">//</span> SUPPLY</span>
+        <span class="scopebadge">LIVE</span>
+      </div>
+
+      <div class="tiles">
+        <!-- STOCK HEALTH -->
+        <div class="tile glass-surface">
+          <div class="head"><span class="t-panel-title"><span class="sl">//</span> STOCK HEALTH</span></div>
+          <span class="hero rose">7<small>BELOW THRESHOLD</small></span>
+          <div class="viz healthbar">
+            <i style="width:79%; background: var(--olive); opacity:.75"></i>
+            <i style="width:12%; background: var(--tan)"></i>
+            <i style="width:9%; background: var(--rose)"></i>
+          </div>
+          <span class="sub"><span class="rs">2 CRITICAL</span> &middot; <span class="tn">5 LOW</span> &middot; 135 OK</span>
+        </div>
+
+        <!-- ON-HAND VALUE -->
+        <div class="tile glass-surface">
+          <div class="head"><span class="t-panel-title"><span class="sl">//</span> ON-HAND</span></div>
+          <span class="hero">$23,480</span>
+          <div class="viz catbars">
+            <div class="row"><span class="lbl">SIDING</span><div class="bar"><i style="width:88%"></i></div></div>
+            <div class="row"><span class="lbl">TRIM</span><div class="bar"><i style="width:54%"></i></div></div>
+            <div class="row"><span class="lbl">WRAP</span><div class="bar"><i style="width:22%"></i></div></div>
+          </div>
+          <span class="sub">142 SKUS &middot; 31 FAMILIES</span>
+        </div>
+
+        <!-- PRODUCTS -->
+        <div class="tile glass-surface">
+          <div class="head"><span class="t-panel-title"><span class="sl">//</span> PRODUCTS</span></div>
+          <span class="hero">38</span>
+          <div class="viz split">
+            <i style="width:63%" title="services"></i>
+            <i class="dim" style="width:37%" title="goods"></i>
+          </div>
+          <span class="sub">34 ACTIVE &middot; AVG MARGIN <span class="ol">42%</span></span>
+        </div>
+
+        <!-- BUILD READY -->
+        <div class="tile glass-surface">
+          <div class="head"><span class="t-panel-title"><span class="sl">//</span> CONFIGURED</span></div>
+          <span class="hero">12<small>PRODUCTS</small></span>
+          <div class="viz cfgdots">
+            <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <span class="sub">9 WITH RECIPES &middot; 56 OPTION VALUES</span>
+        </div>
+      </div>
+
+      <!-- ── STOCK segment ────────────────────────────────────────────── -->
+      <div class="viewnote">[ VIEW :: STOCK SEGMENT ]</div>
+
+      <div class="workbar">
+        <div class="left">
+          <div class="seg">
+            <button>PRODUCTS <span class="cnt">38</span></button>
+            <button class="active">STOCK <span class="cnt">142</span></button>
+          </div>
+        </div>
+        <div class="right">
+          <div class="input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search stock&hellip;</div>
+          <button class="btn btn-primary">+ NEW ITEM</button>
+          <button class="kebab">&#8942;</button>
+        </div>
+      </div>
+
+      <div class="filterline">
+        <div class="chips">
+          <button class="chip active">ALL</button>
+          <button class="chip">SIDING</button>
+          <button class="chip">TRIM</button>
+          <button class="chip">WRAP</button>
+          <button class="chip">FASTENERS</button>
+        </div>
+        <span class="count">142 SKUS</span>
+        <span class="statline"><span class="rs">CRITICAL 2</span> &middot; <span class="tn">LOW 5</span> &middot; ON-HAND <b>$23,480</b></span>
+      </div>
+
+      <div class="glass-surface" style="overflow:hidden">
+        <table class="docs">
+          <thead>
+            <tr>
+              <th style="width:36px"><span class="ck"></span></th>
+              <th>ITEM</th>
+              <th class="r">QTY</th>
+              <th>SKU</th>
+              <th>TAGS</th>
+              <th class="c">STATUS</th>
+              <th class="r" style="width:110px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="ck"></span></td>
+              <td><span class="name">Corner Post</span><div class="variant">BLACK &middot; TOPMOUNT</div></td>
+              <td class="r"><span class="qty rs">3<small>PCS</small></span></td>
+              <td><span class="d">CP-B-T</span></td>
+              <td><span class="tag tag-dim">EXTERIOR</span></td>
+              <td class="c"><span class="tag tag-rose">CRITICAL</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="10" x2="3" y2="10"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td><span class="ck"></span></td>
+              <td><span class="name">House Wrap</span><div class="variant">9 FT ROLL</div></td>
+              <td class="r"><span class="qty tn">6<small>ROLLS</small></span></td>
+              <td><span class="d">HW-9</span></td>
+              <td><span class="tag tag-dim">WRAP</span></td>
+              <td class="c"><span class="tag tag-tan">LOW</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="10" x2="3" y2="10"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td><span class="ck"></span></td>
+              <td><span class="name">J-Channel</span><div class="variant">WHITE</div></td>
+              <td class="r"><span class="qty">84<small>PCS</small></span></td>
+              <td><span class="d">JC-W</span></td>
+              <td><span class="tag tag-dim">EXTERIOR</span></td>
+              <td class="c"><span class="tag tag-dim">OK</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="10" x2="3" y2="10"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td><span class="ck"></span></td>
+              <td><span class="name">J-Channel</span><div class="variant">BLACK</div></td>
+              <td class="r"><span class="qty tn">12<small>PCS</small></span></td>
+              <td><span class="d">JC-B</span></td>
+              <td><span class="tag tag-dim">EXTERIOR</span></td>
+              <td class="c"><span class="tag tag-tan">LOW</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="10" x2="3" y2="10"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td><span class="ck"></span></td>
+              <td><span class="name">Vinyl Siding D4.5</span><div class="variant">SLATE</div></td>
+              <td class="r"><span class="qty">210<small>SQ FT</small></span></td>
+              <td><span class="d">VS-D45-SL</span></td>
+              <td><span class="tag tag-dim">SIDING</span></td>
+              <td class="c"><span class="tag tag-dim">OK</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="10" x2="3" y2="10"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td><span class="ck"></span></td>
+              <td><span class="name">Vinyl Siding D4.5</span><div class="variant">IVORY</div></td>
+              <td class="r"><span class="qty">480<small>SQ FT</small></span></td>
+              <td><span class="d">VS-D45-IV</span></td>
+              <td><span class="tag tag-dim">SIDING</span></td>
+              <td class="c"><span class="tag tag-dim">OK</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="10" x2="3" y2="10"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td><span class="ck"></span></td>
+              <td><span class="name">Starter Strip</span><div class="variant" style="color:var(--text-mute)">&mdash;</div></td>
+              <td class="r"><span class="qty">38<small>PCS</small></span></td>
+              <td><span class="d">SS-10</span></td>
+              <td><span class="tag tag-dim">TRIM</span></td>
+              <td class="c"><span class="tag tag-dim">OK</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="21" y1="14" x2="3" y2="14"/><line x1="21" y1="10" x2="3" y2="10"/><line x1="12" y1="3" x2="12" y2="7"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ── PRODUCTS segment ─────────────────────────────────────────── -->
+      <div class="viewnote">[ VIEW :: PRODUCTS SEGMENT ]</div>
+
+      <div class="workbar">
+        <div class="left">
+          <div class="seg">
+            <button class="active">PRODUCTS <span class="cnt">38</span></button>
+            <button>STOCK <span class="cnt">142</span></button>
+          </div>
+        </div>
+        <div class="right">
+          <div class="input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search products&hellip;</div>
+          <button class="btn btn-primary">+ NEW PRODUCT</button>
+          <button class="kebab">&#8942;</button>
+        </div>
+      </div>
+
+      <div class="filterline">
+        <div class="chips">
+          <button class="chip active">ALL</button>
+          <button class="chip">SERVICES</button>
+          <button class="chip">GOODS</button>
+          <button class="chip">CONFIGURED</button>
+          <button class="chip">FAVORITES</button>
+        </div>
+        <span class="count">38 PRODUCTS</span>
+        <span class="statline">ACTIVE <b>34</b> &middot; AVG MARGIN <span class="ol">42%</span></span>
+      </div>
+
+      <div class="glass-surface" style="overflow:hidden">
+        <table class="docs">
+          <thead>
+            <tr>
+              <th>PRODUCT</th>
+              <th>UNIT</th>
+              <th>CATEGORY</th>
+              <th>TASK</th>
+              <th class="r">PRICE</th>
+              <th class="r">COST</th>
+              <th class="c">TAX</th>
+              <th>CONFIG</th>
+              <th class="r" style="width:110px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="display:flex; align-items:center; gap:10px">
+                <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+                <span><span class="name">Siding install <span style="color:var(--tan); font-size:11px">&#9733;</span></span><div class="sub" style="font-size:12px">D4.5 vinyl, wrap + channel included</div></span>
+              </td>
+              <td><span class="d">SQ FT</span></td>
+              <td><span class="sub">Siding</span></td>
+              <td><span class="d"><span class="dot" style="background:#7FA3BD"></span>INSTALL</span></td>
+              <td class="r"><span class="money">$4.20</span></td>
+              <td class="r"><span class="money dim">$1.10</span></td>
+              <td class="c"><span class="tag tag-olive">YES</span></td>
+              <td><span class="cfg">3 OPT &middot; 4 REC</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td style="display:flex; align-items:center; gap:10px">
+                <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+                <span><span class="name">Soffit + fascia</span><div class="sub" style="font-size:12px">Aluminum, vented</div></span>
+              </td>
+              <td><span class="d">LN FT</span></td>
+              <td><span class="sub">Trim</span></td>
+              <td><span class="d"><span class="dot" style="background:#9DB582"></span>INSTALL</span></td>
+              <td class="r"><span class="money">$12.50</span></td>
+              <td class="r"><span class="money dim">$4.80</span></td>
+              <td class="c"><span class="tag tag-olive">YES</span></td>
+              <td><span class="cfg">2 OPT &middot; 3 REC</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td style="display:flex; align-items:center; gap:10px">
+                <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+                <span><span class="name">Window wrap</span><div class="sub" style="font-size:12px">Per opening, coil stock</div></span>
+              </td>
+              <td><span class="d">EACH</span></td>
+              <td><span class="sub">Trim</span></td>
+              <td><span class="d"><span class="dot" style="background:#C4A868"></span>WRAP</span></td>
+              <td class="r"><span class="money">$180</span></td>
+              <td class="r"><span class="money dim">$42</span></td>
+              <td class="c"><span class="tag tag-olive">YES</span></td>
+              <td><span class="cfg" style="color:var(--text-mute)">&mdash;</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td style="display:flex; align-items:center; gap:10px">
+                <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+                <span><span class="name">Picket rail</span><div class="sub" style="font-size:12px">Flat rate, standard run</div></span>
+              </td>
+              <td><span class="d">FLAT</span></td>
+              <td><span class="sub">Rail</span></td>
+              <td><span class="d" style="color:var(--text-mute)">&mdash;</span></td>
+              <td class="r"><span class="money">$2,500</span></td>
+              <td class="r"><span class="money dim">&mdash;</span></td>
+              <td class="c"><span class="tag tag-dim">NO</span></td>
+              <td><span class="cfg">1 OPT</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mocknote">[ MOCKUP NOTE :: SEGMENTS RENDER ONE AT A TIME — STACKED HERE FOR REVIEW ]</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
