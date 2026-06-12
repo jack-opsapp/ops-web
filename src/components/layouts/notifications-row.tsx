@@ -230,14 +230,14 @@ export function NotificationRow({
               borderRadius: 4,
               border: "none",
               background: "transparent",
-              color: "var(--text-mute)",
+              color: "var(--text-3)",
               cursor: "pointer",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = "var(--text-2)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = "var(--text-mute)";
+              e.currentTarget.style.color = "var(--text-3)";
             }}
           >
             <X size={12} strokeWidth={1.5} />

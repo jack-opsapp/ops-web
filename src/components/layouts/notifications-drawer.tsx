@@ -366,7 +366,7 @@ export function NotificationsDrawer() {
                     {c.label}
                     <span
                       style={{
-                        color: active ? c.color : "var(--text-mute)",
+                        color: active ? c.color : "var(--text-3)",
                         opacity: active ? 0.85 : 1,
                         fontVariantNumeric: "tabular-nums",
                         transition: reducedMotion
