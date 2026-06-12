@@ -264,6 +264,17 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Numbers are always mono, tabular-lining, slashed zero (DESIGN.md §4
+     critical rules — non-negotiable). Family-level so every font-mono site
+     inherits "tnum" + "zero" without per-callsite classes. Mirrors
+     ops-design-system/project/colors_and_type.css:142-145. Inline-style
+     sites (fontFamily: var(--font-mono)) must set fontFeatureSettings
+     themselves — the selector can't reach them. */
+  .font-mono, code, kbd, samp, pre {
+    font-family: theme("fontFamily.mono");
+    font-feature-settings: "tnum" 1, "zero" 1;
+  }
+
   /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
