@@ -68,7 +68,7 @@ function StatusTag({ status }: { status: InvoiceStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-[4px] border px-[6px] py-[2px]",
+        "inline-flex items-center whitespace-nowrap rounded-[4px] border px-[6px] py-[2px]",
         "font-mono text-micro font-medium uppercase tracking-[0.12em]",
         STATUS_TONE[status] ?? STATUS_TONE[InvoiceStatus.Sent],
       )}

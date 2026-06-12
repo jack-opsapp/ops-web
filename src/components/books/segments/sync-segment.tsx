@@ -99,7 +99,7 @@ function ConnectionCard({
         {/* Status tag */}
         <span
           className={cn(
-            "inline-flex items-center gap-[4px] rounded-[4px] border px-[6px] py-[2px]",
+            "inline-flex items-center gap-[4px] whitespace-nowrap rounded-[4px] border px-[6px] py-[2px]",
             "font-mono text-micro font-medium uppercase tracking-[0.12em]",
             isConnected
               ? "border-olive-line bg-olive-soft text-olive"

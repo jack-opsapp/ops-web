@@ -72,7 +72,7 @@ function StatusTag({ status }: { status: EstimateStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-[4px] border px-[6px] py-[2px]",
+        "inline-flex items-center whitespace-nowrap rounded-[4px] border px-[6px] py-[2px]",
         "font-mono text-micro font-medium uppercase tracking-[0.12em]",
         STATUS_TONE[status] ?? "border-border bg-[rgba(255,255,255,0.05)] text-text-2",
       )}
