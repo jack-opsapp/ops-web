@@ -12,6 +12,7 @@ import {
   getEntryForPath,
   getTitleKeyForPath,
   getPermissionForPath,
+  getAnyOfPermissionsForPath,
   getFullHeightMode,
   getNavEntries,
   getNumberShortcutRoutes,
@@ -115,11 +116,8 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
     ["/team", "team.view"],
     ["/map", "map.view"],
     ["/pipeline", "pipeline.view"],
-    ["/estimates", "estimates.view"],
-    ["/invoices", "invoices.view"],
     ["/products", "products.view"],
     ["/inventory", "inventory.view"],
-    ["/accounting", "accounting.view"],
     ["/inbox", "pipeline.view"],
     ["/calibration", "email.configure_ai"],
     ["/agent", "pipeline.view"],
@@ -131,6 +129,29 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
   it("dashboard and settings are always allowed", () => {
     expect(getPermissionForPath("/dashboard")).toBeNull();
     expect(getPermissionForPath("/settings")).toBeNull();
+  });
+
+  // BOOKS (P3.1) absorbed /estimates, /invoices, /accounting — the hub
+  // gates on ANY of its segments' permissions (capability inventory §7).
+  it("/books is any-of gated across its segments", () => {
+    expect(getPermissionForPath("/books")).toBeNull(); // single-permission API
+    expect(getAnyOfPermissionsForPath("/books")).toEqual([
+      "invoices.view",
+      "estimates.view",
+      "expenses.approve",
+      "accounting.view",
+    ]);
+  });
+
+  it("single-permission entries normalize through the any-of helper", () => {
+    expect(getAnyOfPermissionsForPath("/pipeline")).toEqual(["pipeline.view"]);
+    expect(getAnyOfPermissionsForPath("/dashboard")).toBeNull();
+  });
+
+  it("retired financial routes are no longer registered (middleware owns them)", () => {
+    expect(getEntryForPath("/estimates")).toBeNull();
+    expect(getEntryForPath("/invoices")).toBeNull();
+    expect(getEntryForPath("/accounting")).toBeNull();
   });
 });
 
