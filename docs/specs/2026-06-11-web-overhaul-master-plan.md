@@ -123,6 +123,12 @@ Constraints: DESIGN.md §9 components (no accent on nav, 2px text-2 active bar, 
 - **Composition is traceable or it doesn't ship:** every new panel, table, toolbar, header, and strip must trace to a reference component in `ops-design-system/project/ui_kits/ops-web/` or to DESIGN.md §9 (components) / §10 (widget anatomy). Token-compliant colors on an off-system composition still fails. If no reference exists for what you need, mock it and get Jackson's approval before writing code.
 - **Hard done-gate:** before reporting a wave complete, invoke `custom-skills:audit-design-system` against every file created or modified in the wave, fix every high-severity finding, and include the audit summary in the landing report. A wave without its audit attached is not done.
 
+**UX-judgment gate (the overarching principle — Jackson, 2026-06-12):**
+
+Critical thinking about layout, organization, and information presentation **is the work itself**, not a review step. Every presentation decision must be *reasoned from the human's situation* — what they're trying to accomplish right now, how often they do it, what state they're in, what they should see first — never merely *rendered* from the data model, the feature list, or this spec's letter. At the mockup stage, before Jackson sees anything, run an explicit information-architecture critique: for **every element on the screen**, answer *"why is this the right presentation, for this user, at this moment?"* Any element whose only justification is "the option/data/feature exists" gets redesigned, not shipped. Jackson reviews taste; coherence must already be guaranteed — he must never have to catch a design-thinking failure retroactively.
+
+Canonical failure: Books rendered side-by-side QuickBooks AND Sage connection cards because two providers exist in the data model — but a user picks one provider, once, ever. Correct: a single CONNECT ACCOUNTING SOFTWARE entry point → brief provider flow → compact live badge once connected → settings/disconnect/switch in a modal behind the badge. Derived applications (illustrative, NOT exhaustive — the principle is the requirement): either/or choices collapse to one entry point; prominence proportional to frequency of use (once-ever setup never owns permanent prime space); state-aware layouts that show the user's current reality, not all possible realities; the schema is not the interface; verbs out of scan surfaces; progressive disclosure over page acreage; ruthless omission — every element earns its place.
+
 ---
 
 ## 7. P4 cross-cutting sweep checklist
