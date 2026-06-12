@@ -260,7 +260,7 @@ export function EstimatesSegment({
             <button
               type="button"
               onClick={gatedOpenCreate}
-              className="inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[12px] font-light uppercase text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              className="inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
               <Plus className="h-[12px] w-[12px]" strokeWidth={1.5} />
               {t("estimates.newEstimate")}
@@ -366,17 +366,17 @@ export function EstimatesSegment({
                       </span>
                     </td>
                     <td className="hidden px-2 py-[11px] md:table-cell">
-                      <span className="block max-w-[160px] truncate font-mohave text-caption-sm text-text-3">
+                      <span className="block max-w-[160px] truncate font-mohave text-body-sm text-text-3">
                         {estimate.projectId ? projectMap.get(estimate.projectId) ?? "—" : "—"}
                       </span>
                     </td>
                     <td className="hidden px-2 py-[11px] sm:table-cell">
-                      <span className="whitespace-nowrap font-mono text-caption-sm text-text-3 tabular-nums">
+                      <span className="whitespace-nowrap font-mono text-data-sm text-text-3 tabular-nums">
                         {fmtDate(estimate.issueDate, locale)}
                       </span>
                     </td>
                     <td className="hidden px-2 py-[11px] lg:table-cell">
-                      <span className="whitespace-nowrap font-mono text-caption-sm text-text-3 tabular-nums">
+                      <span className="whitespace-nowrap font-mono text-data-sm text-text-3 tabular-nums">
                         {fmtDate(estimate.expirationDate, locale)}
                       </span>
                     </td>

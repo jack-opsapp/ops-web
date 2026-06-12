@@ -214,14 +214,14 @@ export function InvoiceFormModal({
           {/* Client + Project */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.client")}</label>
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.client")}</label>
               <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 <option value="">{t("form.selectClient")}</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.project")}</label>
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.project")}</label>
               <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 <option value="">{t("form.selectProjectOptional")}</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
@@ -232,41 +232,41 @@ export function InvoiceFormModal({
           {/* Date + Terms + Due Date */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.date")}</label>
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.date")}</label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.paymentTerms")}</label>
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.paymentTerms")}</label>
               <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 {PAYMENT_TERMS_OPTIONS.map((term) => <option key={term} value={term}>{term}</option>)}
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.dueDate")}</label>
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.dueDate")}</label>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
 
           {/* Deposit */}
           <div className="max-w-[200px] space-y-0.5">
-            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.deposit")}</label>
+            <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.deposit")}</label>
             <Input type="number" min={0} step={0.01} value={depositAmount} onChange={(e) => setDepositAmount(parseFloat(e.target.value) || 0)} />
           </div>
 
           {/* Line Items */}
           <div className="space-y-0.5">
-            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.lineItems")}</label>
+            <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.lineItems")}</label>
             <LineItemEditor items={lineItems} onChange={setLineItems} products={products} />
           </div>
 
           {/* Notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.notes")}</label>
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.notes")}</label>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("form.paymentNotesPlaceholder")} rows={3} />
             </div>
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.internalNotes")}</label>
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.internalNotes")}</label>
               <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder={t("invoices.form.internalNotes")} rows={3} />
             </div>
           </div>

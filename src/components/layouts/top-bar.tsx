@@ -200,26 +200,29 @@ export function TopBar() {
         </button>
 
         {isNested ? (
-          /* Breadcrumb trail for nested routes */
+          /* Breadcrumb trail per the kit TopBar: JetBrains Mono 11px
+             uppercase 0.16em crumbs with `//` separators in text-mute;
+             the leaf entity title is Cake Mono 300 (the display voice —
+             Mohave never carries tracked-uppercase headings). */
           <div className="flex items-center gap-[6px] min-w-0">
             {parentCrumbs ? (
               /* Custom parent crumbs (set by detail pages) */
               parentCrumbs.map((crumb, i) => (
                 <div key={i} className="flex items-center gap-[6px]">
                   {i > 0 && (
-                    <span className="text-text-mute font-mono text-body-sm">
-                      /
+                    <span className="text-text-mute font-mono text-micro">
+                      {"//"}
                     </span>
                   )}
                   {crumb.href ? (
                     <button
                       onClick={() => router.push(crumb.href!)}
-                      className="font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors uppercase tracking-wider"
+                      className="font-mono text-micro text-text-3 hover:text-text-2 transition-colors uppercase tracking-[0.16em]"
                     >
                       {crumb.label}
                     </button>
                   ) : (
-                    <span className="font-mohave text-body-sm text-text-3 uppercase tracking-wider">
+                    <span className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                       {crumb.label}
                     </span>
                   )}
@@ -229,13 +232,13 @@ export function TopBar() {
               /* Auto-generated: parent route title from the registry */
               <button
                 onClick={() => router.push(parentRoute)}
-                className="font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors uppercase tracking-wider"
+                className="font-mono text-micro text-text-3 hover:text-text-2 transition-colors uppercase tracking-[0.16em]"
               >
                 {rootTitle}
               </button>
             )}
-            <span className="text-text-mute font-mono text-body-sm">/</span>
-            <span className="font-mohave text-heading text-text uppercase tracking-wider truncate">
+            <span className="text-text-mute font-mono text-micro">{"//"}</span>
+            <span className="font-cakemono font-light text-heading text-text uppercase truncate">
               {entityName || segments[segments.length - 1]}
             </span>
           </div>

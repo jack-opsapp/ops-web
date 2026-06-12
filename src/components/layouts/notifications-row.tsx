@@ -166,7 +166,7 @@ export function NotificationRow({
         <span
           style={{
             fontFamily: "var(--font-mohave)",
-            fontSize: 13.5,
+            fontSize: 14,
             color: "var(--text)",
             flex: 1,
             overflow: "hidden",
@@ -188,8 +188,8 @@ export function NotificationRow({
             style={{
               fontFamily: "var(--font-cakemono)",
               fontWeight: 300,
-              fontSize: 10,
-              letterSpacing: "0.08em",
+              fontSize: 14,
+              letterSpacing: 0,
               textTransform: "uppercase",
               padding: "3px 8px",
               borderRadius: 5,
@@ -246,7 +246,7 @@ export function NotificationRow({
           <span
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 10,
+              fontSize: 11,
               color: "var(--text-3)",
               flexShrink: 0,
               minWidth: 24,
@@ -278,7 +278,7 @@ export function NotificationRow({
               <div
                 style={{
                   fontFamily: "var(--font-mohave)",
-                  fontSize: 12,
+                  fontSize: 14,
                   color: "var(--text-3)",
                   lineHeight: 1.45,
                   marginTop: 6,
@@ -298,8 +298,8 @@ export function NotificationRow({
                   style={{
                     fontFamily: "var(--font-cakemono)",
                     fontWeight: 300,
-                    fontSize: 10,
-                    letterSpacing: "0.08em",
+                    fontSize: 14,
+                    letterSpacing: 0,
                     textTransform: "uppercase",
                     padding: "4px 9px",
                     borderRadius: 5,
@@ -340,8 +340,8 @@ export function NotificationRow({
 const rowSecondaryBtnStyle: React.CSSProperties = {
   fontFamily: "var(--font-cakemono)",
   fontWeight: 300,
-  fontSize: 10,
-  letterSpacing: "0.08em",
+  fontSize: 14,
+  letterSpacing: 0,
   textTransform: "uppercase",
   padding: "4px 9px",
   borderRadius: 5,

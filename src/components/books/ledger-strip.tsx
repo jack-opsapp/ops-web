@@ -354,7 +354,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
             <TileHero>
               {data.weeklyNets.length === 0 ? "—" : fmtMoney(data.avgPerWeek, { signed: true })}
               {data.weeklyNets.length > 0 && (
-                <span className="ml-0.5 text-caption-sm font-normal text-text-3">
+                <span className="ml-0.5 text-micro text-text-3">
                   {t("ledger.avgWk")}
                 </span>
               )}
@@ -403,7 +403,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
           <TileShell label={t("ledger.jobs")}>
             <TileHero>
               {data.jobs.profitable}
-              <span className="ml-0.5 text-caption-sm font-normal text-text-3">
+              <span className="ml-0.5 text-micro text-text-3">
                 {t("ledger.profitable")}
               </span>
             </TileHero>

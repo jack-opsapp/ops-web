@@ -41,7 +41,9 @@ export function BooksSegmentControl<T extends string = string>({
             onClick={() => onChange(opt.value)}
             className={cn(
               "inline-flex h-[22px] items-center gap-1 rounded-[5px] px-1.5",
-              "font-cakemono text-[12px] font-light uppercase",
+              // Toggle voice: JetBrains Mono 11px uppercase — Cake Mono has
+              // no 12px role (DESIGN.md §4: 14 button / 11 badge only).
+              "font-mono text-micro font-medium uppercase tracking-[0.12em]",
               "border transition-colors duration-150 ease-smooth",
               active
                 ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"

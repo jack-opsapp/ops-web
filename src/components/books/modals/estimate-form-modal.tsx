@@ -205,7 +205,7 @@ export function EstimateFormModal({
           {/* Client + Project */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                 {t("estimates.form.client")}
               </label>
               <select
@@ -220,7 +220,7 @@ export function EstimateFormModal({
               </select>
             </div>
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                 {t("estimates.form.project")}
               </label>
               <select
@@ -239,7 +239,7 @@ export function EstimateFormModal({
           {/* Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                 {t("estimates.form.date")}
               </label>
               <Input
@@ -249,7 +249,7 @@ export function EstimateFormModal({
               />
             </div>
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                 {t("estimates.form.validUntil")}
               </label>
               <Input
@@ -262,7 +262,7 @@ export function EstimateFormModal({
 
           {/* Line Items */}
           <div className="space-y-0.5">
-            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+            <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
               {t("estimates.form.lineItems")}
             </label>
             <LineItemEditor
@@ -275,7 +275,7 @@ export function EstimateFormModal({
           {/* Notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                 {t("estimates.form.notes")}
               </label>
               <Textarea
@@ -286,7 +286,7 @@ export function EstimateFormModal({
               />
             </div>
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                 {t("estimates.form.internalNotes")}
               </label>
               <Textarea
@@ -300,7 +300,7 @@ export function EstimateFormModal({
 
           {/* T&C */}
           <div className="space-y-0.5">
-            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
+            <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
               {t("estimates.form.terms")}
             </label>
             <Textarea

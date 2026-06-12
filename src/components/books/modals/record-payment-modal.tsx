@@ -77,21 +77,21 @@ export function RecordPaymentModal({
         <div className="space-y-2 mt-2">
           <div className="bg-fill-neutral-dim rounded p-1.5 space-y-0.5">
             <div className="flex justify-between">
-              <span className="font-mono text-caption text-text-3">{t("invoices.payment.invoice")}</span>
-              <span className="font-mono text-data text-text">{invoice.invoiceNumber}</span>
+              <span className="font-mono text-micro uppercase tracking-[0.14em] text-text-3">{t("invoices.payment.invoice")}</span>
+              <span className="font-mono text-data-sm text-text">{invoice.invoiceNumber}</span>
             </div>
             <div className="flex justify-between">
-              <span className="font-mono text-caption text-text-3">{t("invoices.payment.total")}</span>
-              <span className="font-mono text-data text-text">{formatCurrency(invoice.total)}</span>
+              <span className="font-mono text-micro uppercase tracking-[0.14em] text-text-3">{t("invoices.payment.total")}</span>
+              <span className="font-mono text-data-sm text-text">{formatCurrency(invoice.total)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="font-mono text-caption text-text-3">{t("invoices.payment.balanceDue")}</span>
-              <span className="font-mono text-data text-rose">{formatCurrency(invoice.balanceDue)}</span>
+              <span className="font-mono text-micro uppercase tracking-[0.14em] text-text-3">{t("invoices.payment.balanceDue")}</span>
+              <span className="font-mono text-data-sm text-rose">{formatCurrency(invoice.balanceDue)}</span>
             </div>
           </div>
 
           <div className="space-y-0.5">
-            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.amount")}</label>
+            <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.payment.amount")}</label>
             <div className="flex gap-1">
               <Input type="number" min={0.01} step={0.01} value={amount} onChange={(e) => setAmount(parseFloat(e.target.value) || 0)} className="flex-1" />
               <Button variant="secondary" size="sm" onClick={() => setAmount(invoice.balanceDue)}>{t("invoices.payment.payInFull")}</Button>
@@ -100,11 +100,11 @@ export function RecordPaymentModal({
 
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.date")}</label>
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.payment.date")}</label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-0.5">
-              <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.method")}</label>
+              <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.payment.method")}</label>
               <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 {Object.entries(PAYMENT_METHOD_KEYS).map(([k, key]) => (
                   <option key={k} value={k}>{t(key)}</option>
@@ -114,12 +114,12 @@ export function RecordPaymentModal({
           </div>
 
           <div className="space-y-0.5">
-            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.reference")}</label>
+            <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.payment.reference")}</label>
             <Input value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} placeholder={t("invoices.payment.referencePlaceholder")} />
           </div>
 
           <div className="space-y-0.5">
-            <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.notes")}</label>
+            <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.payment.notes")}</label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("invoices.payment.notes")} rows={2} />
           </div>
 

@@ -83,8 +83,8 @@ function ConnectionCard({
             <Calculator className="h-[20px] w-[20px] text-text-2" />
           </div>
           <div>
-            <h3 className="font-mohave text-body-sm uppercase text-text">{t(i18nKeys.name)}</h3>
-            <p className="mt-[2px] font-mono text-micro text-text-3">{t(i18nKeys.description)}</p>
+            <h3 className="font-mohave text-body-sm text-text">{t(i18nKeys.name)}</h3>
+            <p className="mt-[2px] font-mohave text-body-sm text-text-3">{t(i18nKeys.description)}</p>
           </div>
         </div>
 
@@ -354,7 +354,7 @@ export function SyncSegment({
                   <span className="mt-[2px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[4px] border border-border font-mono text-micro text-text-3 tabular-nums">
                     {i + 1}
                   </span>
-                  <p className="font-mono text-micro leading-relaxed text-text-2">
+                  <p className="font-mohave text-body-sm leading-relaxed text-text-2">
                     <strong className="font-medium text-text">{t(titleKey)}</strong> {t(descKey)}
                   </p>
                 </div>

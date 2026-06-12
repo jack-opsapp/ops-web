@@ -42,7 +42,7 @@ import {
 
 const menuItemClass = cn(
   "h-[36px] gap-2.5 rounded-[6px] px-2.5",
-  "font-cakemono font-light text-[13px] uppercase tracking-[0.02em] text-text-2",
+  "font-cakemono font-light text-[14px] uppercase text-text-2",
   "focus:bg-[rgba(255,255,255,0.05)] focus:text-text"
 );
 
@@ -116,7 +116,7 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <span className="font-mohave text-[13px] text-text-2">
+              <span className="font-mohave text-body-sm text-text-2">
                 {initial}
               </span>
             )}
@@ -127,7 +127,7 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
                 {displayName}
               </span>
               {roleName && (
-                <span className="block truncate font-mono text-[10px] uppercase tracking-[0.14em] text-text-3">
+                <span className="block truncate font-mono text-micro uppercase tracking-[0.14em] text-text-3">
                   {roleName}
                 </span>
               )}
@@ -153,12 +153,12 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
             {operatorHandle}
           </p>
           {currentUser?.email && (
-            <p className="mt-1 truncate font-mohave text-[12px] text-text-3">
+            <p className="mt-1 truncate font-mohave text-body-sm text-text-3">
               {currentUser.email}
             </p>
           )}
           {roleName && (
-            <span className="mt-2 inline-flex rounded-[4px] border border-border bg-[rgba(255,255,255,0.05)] px-1.5 py-[2px] font-mono text-[10px] uppercase tracking-[0.12em] text-text-2">
+            <span className="mt-2 inline-flex rounded-[4px] border border-border bg-[rgba(255,255,255,0.05)] px-1.5 py-[2px] font-mono text-micro uppercase tracking-[0.12em] text-text-2">
               {roleName}
             </span>
           )}

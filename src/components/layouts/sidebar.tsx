@@ -183,20 +183,20 @@ function NavRow({
         />
         {/* Rail badge — small count dot pinned to the tile corner. */}
         {!expanded && badgeCount !== undefined && badgeCount > 0 && (
-          <span className="absolute -right-[1px] -top-[1px] flex h-[15px] min-w-[15px] items-center justify-center rounded-[4px] bg-surface-active px-[3px] font-mono text-[9px] leading-none text-text-2 tabular-nums">
+          <span className="absolute -right-[1px] -top-[1px] flex h-[16px] min-w-[16px] items-center justify-center rounded-[4px] bg-surface-active px-[3px] font-mono text-micro leading-none text-text-2 tabular-nums">
             {badgeCount > 99 ? "99+" : badgeCount}
           </span>
         )}
       </span>
 
       {expanded && (
-        <span className="truncate font-cakemono text-[13px] font-light uppercase tracking-[0.02em]">
+        <span className="truncate font-cakemono text-[14px] font-light uppercase">
           {label}
         </span>
       )}
       {/* Drawer badge — inline trailing count. */}
       {expanded && badgeCount !== undefined && badgeCount > 0 && (
-        <span className="ml-auto rounded-[4px] bg-surface-active px-[5px] py-[2px] font-mono text-[10px] leading-none text-text-2 tabular-nums">
+        <span className="ml-auto rounded-[4px] bg-surface-active px-[5px] py-[2px] font-mono text-micro leading-none text-text-2 tabular-nums">
           {badgeCount > 99 ? "99+" : badgeCount}
         </span>
       )}
@@ -231,11 +231,11 @@ function GroupMark({
     <div className="flex items-baseline gap-1 px-2 pb-1.5 pt-3">
       <span
         aria-hidden="true"
-        className="font-mono text-[10px] tracking-[0.16em] text-text-mute"
+        className="font-mono text-micro tracking-[0.16em] text-text-mute"
       >
         {"//"}
       </span>
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3">
+      <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
         {t(`group.${group}`)}
       </span>
     </div>
@@ -543,7 +543,7 @@ export function Sidebar() {
               className="h-[14px] w-auto shrink-0 select-none text-text-3"
             />
             {expanded && (
-              <span className="select-none font-mono text-[10px] tracking-[0.14em] text-text-3 tabular-nums">
+              <span className="select-none font-mono text-micro tracking-[0.14em] text-text-3 tabular-nums">
                 {t("version.prefix")}
                 {packageJson.version}
               </span>
@@ -573,7 +573,7 @@ export function Sidebar() {
                 WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               }}
             />
-            <span className="whitespace-nowrap font-cakemono text-[12px] font-light uppercase tracking-[0.04em] text-text">
+            <span className="whitespace-nowrap font-cakemono text-[14px] font-light uppercase text-text">
               {tip.label}
             </span>
           </div>,

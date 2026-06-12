@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils/cn";
 const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-1",
-    "font-mohave text-button uppercase whitespace-nowrap",
+    // DESIGN.md §9: button label = Cake Mono 300, 14px, uppercase — at every
+    // size. Heights vary; the label voice does not.
+    "font-cakemono font-light text-[14px] uppercase whitespace-nowrap",
     "rounded-[5px] transition-all duration-150",
     "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
     "disabled:pointer-events-none disabled:opacity-40",
@@ -53,8 +55,8 @@ const buttonVariants = cva(
         // unspecified-but-coherent derivations on a 32/36/40 ladder — never the
         // 44px touch-target value (OPS-Web is mouse-driven; there is no touch here).
         default: "h-9 px-4",
-        sm: "h-8 px-3 text-button-sm",
-        lg: "h-10 px-5 text-body-lg",
+        sm: "h-8 px-3",
+        lg: "h-10 px-5",
         icon: "h-9 w-9 p-0",
       },
     },

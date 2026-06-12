@@ -225,7 +225,7 @@ export function QuickActionsDrawer() {
                   aria-hidden
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 9,
+                    fontSize: 11,
                     color: "var(--text-2)",
                     letterSpacing: 0,
                     padding: "2px 6px",
@@ -258,7 +258,7 @@ export function QuickActionsDrawer() {
                     <span
                       style={{
                         fontFamily: "var(--font-mono)",
-                        fontSize: 10,
+                        fontSize: 11,
                         color: "var(--text-3)",
                         letterSpacing: "0.16em",
                       }}
@@ -309,7 +309,7 @@ export function QuickActionsDrawer() {
                       <span
                         style={{
                           fontFamily: "var(--font-mohave)",
-                          fontSize: 13,
+                          fontSize: 14,
                           flex: 1,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -322,7 +322,7 @@ export function QuickActionsDrawer() {
                         aria-hidden
                         style={{
                           fontFamily: "var(--font-mono)",
-                          fontSize: 9,
+                          fontSize: 11,
                           color: "var(--text-3)",
                           letterSpacing: "0.12em",
                           fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -353,7 +353,7 @@ export function QuickActionsDrawer() {
                   color: "var(--text-3)",
                   cursor: "pointer",
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
+                  fontSize: 11,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
                   transition: reducedMotion

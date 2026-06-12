@@ -328,7 +328,7 @@ export function NotificationsDrawer() {
                     variants={reducedMotion ? undefined : chipVariants}
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 10,
+                      fontSize: 11,
                       letterSpacing: "0.12em",
                       padding: "4px 8px",
                       borderRadius: 4,
@@ -394,7 +394,7 @@ export function NotificationsDrawer() {
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 10,
+                      fontSize: 11,
                       color: "var(--text-3)",
                       letterSpacing: "0.16em",
                     }}
@@ -433,7 +433,7 @@ export function NotificationsDrawer() {
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 9,
+                      fontSize: 11,
                       color: "var(--text-3)",
                       letterSpacing: "0.18em",
                     }}
@@ -456,7 +456,7 @@ export function NotificationsDrawer() {
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
+                  fontSize: 11,
                   color: "var(--text-3)",
                   letterSpacing: "0.14em",
                   fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -472,7 +472,7 @@ export function NotificationsDrawer() {
                 onClick={() => dismissAllMutation.mutate()}
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
+                  fontSize: 11,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
                   color: "var(--text-3)",

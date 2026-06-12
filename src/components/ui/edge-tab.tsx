@@ -270,7 +270,7 @@ export function EdgeTab({
             <span
               style={{
                 fontFamily: "var(--font-mohave)",
-                fontSize: 13,
+                fontSize: 14,
                 color: "var(--text)",
               }}
             >
