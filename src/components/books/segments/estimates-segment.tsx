@@ -50,6 +50,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
+import { Tag, type TagProps } from "@/components/ui/tag";
 import { EstimateFormModal } from "../modals/estimate-form-modal";
 import {
   FilterChips,
@@ -63,28 +64,18 @@ type FilterStatus = "all" | EstimateStatus;
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
-const STATUS_TONE: Partial<Record<EstimateStatus, string>> = {
-  [EstimateStatus.Draft]: "border-border bg-transparent text-text-3",
-  [EstimateStatus.Sent]: "border-border bg-[rgba(255,255,255,0.05)] text-text-2",
-  [EstimateStatus.Viewed]: "border-border bg-[rgba(255,255,255,0.05)] text-text-2",
-  [EstimateStatus.Approved]: "border-olive-line bg-olive-soft text-olive",
-  [EstimateStatus.Converted]: "border-olive-line bg-olive-soft text-olive",
-  [EstimateStatus.Declined]: "border-rose-line bg-rose-soft text-rose",
-  [EstimateStatus.Expired]: "border-tan-line bg-tan-soft text-tan",
+const STATUS_VARIANT: Partial<Record<EstimateStatus, TagProps["variant"]>> = {
+  [EstimateStatus.Draft]: "dim",
+  [EstimateStatus.Sent]: "neutral",
+  [EstimateStatus.Viewed]: "neutral",
+  [EstimateStatus.Approved]: "olive",
+  [EstimateStatus.Converted]: "olive",
+  [EstimateStatus.Declined]: "rose",
+  [EstimateStatus.Expired]: "tan",
 };
 
 function StatusTag({ status, label }: { status: EstimateStatus; label: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-[4px] border px-[6px] py-[2px]",
-        "font-mono text-micro font-medium uppercase tracking-[0.12em]",
-        STATUS_TONE[status] ?? "border-border bg-[rgba(255,255,255,0.05)] text-text-2",
-      )}
-    >
-      {label}
-    </span>
-  );
+  return <Tag variant={STATUS_VARIANT[status] ?? "neutral"}>{label}</Tag>;
 }
 
 function fmtDate(date: Date | null, locale: Locale): string {

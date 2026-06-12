@@ -31,7 +31,7 @@ import {
 import { AccountingProvider } from "@/lib/types/pipeline";
 import type { AccountingConnection } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { cn } from "@/lib/utils/cn";
+import { Tag } from "@/components/ui/tag";
 import { QuickBooksImportTab } from "@/components/accounting/qbo/quickbooks-import-tab";
 import { FilterChips } from "../segment-toolbar";
 
@@ -89,22 +89,14 @@ function ConnectionCard({
         </div>
 
         {/* Status tag */}
-        <span
-          className={cn(
-            "inline-flex items-center gap-[4px] whitespace-nowrap rounded-[4px] border px-[6px] py-[2px]",
-            "font-mono text-micro font-medium uppercase tracking-[0.12em]",
-            isConnected
-              ? "border-olive-line bg-olive-soft text-olive"
-              : "border-border bg-transparent text-text-3",
-          )}
-        >
+        <Tag variant={isConnected ? "olive" : "dim"}>
           {isConnected ? (
             <CheckCircle2 className="h-[10px] w-[10px]" />
           ) : (
             <Link2Off className="h-[10px] w-[10px]" />
           )}
           {isConnected ? t("integrations.connected") : t("integrations.notConnected")}
-        </span>
+        </Tag>
       </div>
 
       {/* Connection details — never surface the QuickBooks realm id (customer-

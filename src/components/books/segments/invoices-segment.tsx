@@ -43,6 +43,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Tag, type TagProps } from "@/components/ui/tag";
 import { InvoiceFormModal } from "../modals/invoice-form-modal";
 import { RecordPaymentModal } from "../modals/record-payment-modal";
 import {
@@ -60,29 +61,19 @@ export type InvoicesView = "list" | "aging";
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
-const STATUS_TONE: Record<InvoiceStatus, string> = {
-  [InvoiceStatus.Draft]: "border-border bg-transparent text-text-3",
-  [InvoiceStatus.Sent]: "border-border bg-[rgba(255,255,255,0.05)] text-text-2",
-  [InvoiceStatus.AwaitingPayment]: "border-border bg-[rgba(255,255,255,0.05)] text-text-2",
-  [InvoiceStatus.PartiallyPaid]: "border-tan-line bg-tan-soft text-tan",
-  [InvoiceStatus.Paid]: "border-olive-line bg-olive-soft text-olive",
-  [InvoiceStatus.PastDue]: "border-rose-line bg-rose-soft text-rose",
-  [InvoiceStatus.Void]: "border-border bg-transparent text-text-3",
-  [InvoiceStatus.WrittenOff]: "border-border bg-transparent text-text-3",
+const STATUS_VARIANT: Record<InvoiceStatus, TagProps["variant"]> = {
+  [InvoiceStatus.Draft]: "dim",
+  [InvoiceStatus.Sent]: "neutral",
+  [InvoiceStatus.AwaitingPayment]: "neutral",
+  [InvoiceStatus.PartiallyPaid]: "tan",
+  [InvoiceStatus.Paid]: "olive",
+  [InvoiceStatus.PastDue]: "rose",
+  [InvoiceStatus.Void]: "dim",
+  [InvoiceStatus.WrittenOff]: "dim",
 };
 
 function StatusTag({ status, label }: { status: InvoiceStatus; label: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-[4px] border px-[6px] py-[2px]",
-        "font-mono text-micro font-medium uppercase tracking-[0.12em]",
-        STATUS_TONE[status] ?? STATUS_TONE[InvoiceStatus.Sent],
-      )}
-    >
-      {label}
-    </span>
-  );
+  return <Tag variant={STATUS_VARIANT[status] ?? "neutral"}>{label}</Tag>;
 }
 
 function fmtDate(date: Date | null, locale: Locale): string {
