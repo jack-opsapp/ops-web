@@ -1,11 +1,9 @@
 {
   "title": "Libros",
-
   "segment.invoices": "Facturas",
   "segment.estimates": "Cotizaciones",
   "segment.expenses": "Gastos",
-  "segment.sync": "Sinc",
-
+  "segment.sync": "Sincronizar",
   "ledger.title": "LIBRO MAYOR",
   "ledger.net": "NETO",
   "ledger.cashflow": "FLUJO DE CAJA",
@@ -19,7 +17,7 @@
   "ledger.weeks": "{n} SEM",
   "ledger.allOpen": "TODO ABIERTO",
   "ledger.overdue": "VENCIDO",
-  "ledger.topChase": "POR COBRAR MAYOR",
+  "ledger.topChase": "MAYOR DEUDOR",
   "ledger.profitable": "RENTABLES",
   "ledger.losers": "{n} CON PÉRDIDA",
   "ledger.oneLoser": "1 CON PÉRDIDA",
@@ -27,7 +25,6 @@
   "ledger.noData": "SIN DATOS",
   "ledger.retry": "REINTENTAR",
   "ledger.error": "ERROR",
-
   "period.30d": "30 DÍAS",
   "period.90d": "90 DÍAS",
   "period.6m": "6 MESES",
@@ -36,19 +33,21 @@
   "period.last_month": "MES PASADO",
   "period.this_quarter": "ESTE TRIMESTRE",
   "period.ytd": "AÑO A LA FECHA",
-
   "view.list": "Lista",
   "view.aging": "Antigüedad",
   "view.connections": "Conexiones",
   "view.import": "Importar",
-
   "count.invoices": "{n} DE {total}",
   "count.all": "{n} TOTAL",
-
   "stat.pending": "PENDIENTE",
   "stat.approval": "APROBACIÓN",
   "stat.convert": "CONVERSIÓN",
   "stat.collected": "COBRADO",
   "stat.avgDays": "DÍAS PROM DE PAGO",
-  "stat.collectionRate": "COBRANZA"
+  "stat.collectionRate": "COBRANZA",
+  "stat.sentMonth": "ENVIADAS/MES",
+  "stat.avgEstimate": "PROM",
+  "stat.outstanding": "POR COBRAR",
+  "stat.collectedMtd": "COBRADO MES",
+  "stat.aging90": "90+ DÍAS"
 }

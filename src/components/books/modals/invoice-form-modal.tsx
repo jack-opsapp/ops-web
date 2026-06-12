@@ -61,6 +61,7 @@ export function InvoiceFormModal({
   onUpdate: (id: string, data: Partial<CreateInvoice> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
 }) {
   const { t } = useDictionary("pipeline");
+  const { t: tc } = useDictionary("common");
   const isEditing = !!invoice;
 
   // State is fully prop-driven through the effect below. Initial values stay
@@ -182,7 +183,7 @@ export function InvoiceFormModal({
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
+            <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
               {isEditing ? `${t("invoices.modal.edit")} ${invoice?.invoiceNumber ?? ""}` : t("invoices.modal.new")}
             </DialogTitle>
           </DialogHeader>
@@ -190,7 +191,7 @@ export function InvoiceFormModal({
             {[48, 48, 48, 120, 80, 80].map((h, i) => (
               <div
                 key={i}
-                className="w-full rounded bg-fill-neutral-dim/40 animate-pulse"
+                className="w-full rounded bg-fill-neutral-dim/40 animate-pulse motion-reduce:animate-none"
                 style={{ height: h }}
               />
             ))}
@@ -204,7 +205,7 @@ export function InvoiceFormModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
+          <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
             {isEditing ? `${t("invoices.modal.edit")} ${invoice?.invoiceNumber}` : t("invoices.modal.new")}
           </DialogTitle>
         </DialogHeader>
@@ -214,15 +215,15 @@ export function InvoiceFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.client")}</label>
-              <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
-                <option value="">Select client...</option>
+              <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
+                <option value="">{t("form.selectClient")}</option>
                 {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div className="space-y-0.5">
               <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.project")}</label>
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
-                <option value="">Select project (optional)...</option>
+              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
+                <option value="">{t("form.selectProjectOptional")}</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
             </div>
@@ -236,7 +237,7 @@ export function InvoiceFormModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.paymentTerms")}</label>
-              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
+              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
                 {PAYMENT_TERMS_OPTIONS.map((term) => <option key={term} value={term}>{term}</option>)}
               </select>
             </div>
@@ -262,7 +263,7 @@ export function InvoiceFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.notes")}</label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Payment instructions, thank you note..." rows={3} />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("form.paymentNotesPlaceholder")} rows={3} />
             </div>
             <div className="space-y-0.5">
               <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.form.internalNotes")}</label>
@@ -272,8 +273,8 @@ export function InvoiceFormModal({
 
           {/* Actions */}
           <div className="flex justify-end gap-1 pt-2 border-t border-border">
-            <Button variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSubmit}>{isEditing ? t("invoices.modal.edit") : t("invoices.modal.new")}</Button>
+            <Button variant="ghost" onClick={onClose}>{tc("cancel")}</Button>
+            <Button onClick={handleSubmit}>{isEditing ? t("invoices.modal.save") : t("invoices.modal.create")}</Button>
           </div>
         </div>
       </DialogContent>

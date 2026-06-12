@@ -1,11 +1,9 @@
 {
   "title": "Books",
-
   "segment.invoices": "Invoices",
   "segment.estimates": "Estimates",
   "segment.expenses": "Expenses",
   "segment.sync": "Sync",
-
   "ledger.title": "LEDGER",
   "ledger.net": "NET",
   "ledger.cashflow": "CASH FLOW",
@@ -27,7 +25,6 @@
   "ledger.noData": "NO DATA",
   "ledger.retry": "RETRY",
   "ledger.error": "ERROR",
-
   "period.30d": "30 DAYS",
   "period.90d": "90 DAYS",
   "period.6m": "6 MONTHS",
@@ -36,19 +33,21 @@
   "period.last_month": "LAST MONTH",
   "period.this_quarter": "THIS QUARTER",
   "period.ytd": "YEAR TO DATE",
-
   "view.list": "List",
   "view.aging": "Aging",
   "view.connections": "Connections",
   "view.import": "Import",
-
   "count.invoices": "{n} OF {total}",
   "count.all": "{n} TOTAL",
-
   "stat.pending": "PENDING",
   "stat.approval": "APPROVAL",
   "stat.convert": "CONVERT",
   "stat.collected": "COLLECTED",
   "stat.avgDays": "AVG DAYS TO PAY",
-  "stat.collectionRate": "COLLECTION"
+  "stat.collectionRate": "COLLECTION",
+  "stat.sentMonth": "SENT/MO",
+  "stat.avgEstimate": "AVG",
+  "stat.outstanding": "OUTSTANDING",
+  "stat.collectedMtd": "COLLECTED MTD",
+  "stat.aging90": "90+ DAYS"
 }

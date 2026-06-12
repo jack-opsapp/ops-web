@@ -51,7 +51,7 @@ export function BooksSegmentControl<T extends string = string>({
           >
             {opt.label}
             {typeof opt.count === "number" && (
-              <span className="font-mono text-micro-sm text-text-mute tabular-nums">
+              <span className="font-mono text-micro text-text-3 tabular-nums">
                 {opt.count}
               </span>
             )}
@@ -130,6 +130,8 @@ export interface StatLineItem {
   label: string;
   value: string;
   tone?: "default" | "olive" | "rose" | "tan";
+  /** Quiet metadata appended in parens (e.g. the metric's breakdown count). */
+  note?: string;
 }
 
 const TONE_CLASS: Record<NonNullable<StatLineItem["tone"]>, string> = {
@@ -166,6 +168,7 @@ export function SegmentStatLine({ items }: { items: StatLineItem[] }) {
           {i > 0 && <span aria-hidden className="text-text-mute">·</span>}
           <span className="uppercase">{item.label}</span>
           <span className={TONE_CLASS[item.tone ?? "default"]}>{item.value}</span>
+          {item.note && <span className="text-text-3">({item.note})</span>}
         </span>
       ))}
     </span>

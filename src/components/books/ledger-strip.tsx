@@ -118,7 +118,7 @@ function TileSub({ children }: { children: React.ReactNode }) {
 
 function ScopeBadge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-[3px] border border-border px-[5px] py-px font-mono text-micro-xs uppercase tracking-[0.14em] text-text-mute">
+    <span className="rounded-[3px] border border-border px-[5px] py-px font-mono text-micro uppercase tracking-[0.14em] text-text-3">
       {children}
     </span>
   );
@@ -186,7 +186,7 @@ function WeeklySparkline({ weeks }: { weeks: BooksLedger["weeklyNets"] }) {
 
   return (
     <svg
-      className="my-[10px] w-full"
+      className="my-[10px] w-full text-text-3"
       height={H}
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
@@ -197,7 +197,7 @@ function WeeklySparkline({ weeks }: { weeks: BooksLedger["weeklyNets"] }) {
         ref={pathRef}
         points={points}
         fill="none"
-        stroke="rgba(255,255,255,0.45)"
+        stroke="currentColor"
         strokeWidth="1.5"
       />
       {dip && <circle cx={dip.x} cy={dip.y} r="2.5" className="fill-rose" />}
@@ -205,7 +205,8 @@ function WeeklySparkline({ weeks }: { weeks: BooksLedger["weeklyNets"] }) {
   );
 }
 
-const RAMP_COLORS = ["#C4A868", "#D4A574", "#B58289", "#93321A"];
+// Aging ramp classes trace to tokens: tan / fin-receivables / rose / brick.
+const RAMP_CLASSES = ["bg-tan", "bg-financial-receivables", "bg-rose", "bg-financial-overdue"];
 
 function AgingRamp({ buckets, animate }: { buckets: BooksLedger["ar"]["buckets"]; animate: boolean }) {
   const values = [buckets.b0_30, buckets.b31_60, buckets.b61_90, buckets.b90p];
@@ -215,10 +216,9 @@ function AgingRamp({ buckets, animate }: { buckets: BooksLedger["ar"]["buckets"]
       {values.map((v, i) => (
         <span
           key={i}
-          className="block flex-1 rounded-t-[2px]"
+          className={cn("block flex-1 rounded-t-[2px]", RAMP_CLASSES[i])}
           style={{
             height: `${Math.max(v > 0 ? 8 : 4, (v / max) * 100)}%`,
-            backgroundColor: RAMP_COLORS[i],
             opacity: v > 0 ? 1 : 0.25,
             transition: animate
               ? `height 500ms cubic-bezier(0.22, 1, 0.36, 1) ${i * 50}ms`
@@ -266,7 +266,7 @@ function DivergingBars({ bars, animate }: { bars: BooksLedger["jobs"]["bars"]; a
 
 function TileSkeleton() {
   return (
-    <div className="glass-surface min-h-[132px] animate-pulse px-[18px] pb-[14px] pt-2">
+    <div className="glass-surface min-h-[132px] animate-pulse px-[18px] pb-[14px] pt-2 motion-reduce:animate-none">
       <div className="mb-2 h-[11px] w-[72px] rounded bg-fill-neutral-dim" />
       <div className="mb-2 h-[24px] w-[120px] rounded bg-fill-neutral-dim" />
       <div className="mb-2 h-[16px] w-full rounded bg-fill-neutral-dim/60" />

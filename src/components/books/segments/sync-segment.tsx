@@ -37,12 +37,8 @@ import { FilterChips } from "../segment-toolbar";
 
 export type SyncView = "connections" | "import";
 
-// ─── Provider info (ported from the retired /accounting page) ─────────────────
-
-const PROVIDER_STYLE: Record<AccountingProvider, { color: string; bgColor: string }> = {
-  [AccountingProvider.QuickBooks]: { color: "#2CA01C", bgColor: "rgba(44,160,28,0.1)" },
-  [AccountingProvider.Sage]: { color: "#00DC00", bgColor: "rgba(0,220,0,0.08)" },
-};
+// ─── Provider info (ported from the retired /accounting page; brand-green
+//     fills dropped — icons are monochrome metadata per DESIGN.md §11) ───────
 
 const PROVIDER_I18N_KEYS: Record<AccountingProvider, { name: string; description: string }> = {
   [AccountingProvider.QuickBooks]: {
@@ -75,7 +71,6 @@ function ConnectionCard({
   t: (key: string) => string;
 }) {
   const { locale } = useLocale();
-  const style = PROVIDER_STYLE[provider];
   const i18nKeys = PROVIDER_I18N_KEYS[provider];
   const isConnected = connection?.isConnected ?? false;
 
@@ -84,11 +79,8 @@ function ConnectionCard({
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-1.5">
-          <div
-            className="flex h-[40px] w-[40px] items-center justify-center rounded-[8px]"
-            style={{ backgroundColor: style.bgColor }}
-          >
-            <Calculator className="h-[20px] w-[20px]" style={{ color: style.color }} />
+          <div className="flex h-[40px] w-[40px] items-center justify-center rounded-[8px] bg-fill-neutral-dim">
+            <Calculator className="h-[20px] w-[20px] text-text-2" />
           </div>
           <div>
             <h3 className="font-mohave text-body-sm uppercase text-text">{t(i18nKeys.name)}</h3>
@@ -120,7 +112,7 @@ function ConnectionCard({
       {isConnected && connection && (
         <div className="grid grid-cols-2 gap-1.5 border-t border-border pt-1">
           <div>
-            <span className="block font-mono text-micro-sm uppercase tracking-[0.14em] text-text-mute">
+            <span className="block font-mono text-micro uppercase tracking-[0.14em] text-text-3">
               {t("integrations.lastSynced")}
             </span>
             <span className="font-mono text-data-sm text-text-2 tabular-nums">
@@ -135,7 +127,7 @@ function ConnectionCard({
             </span>
           </div>
           <div>
-            <span className="block font-mono text-micro-sm uppercase tracking-[0.14em] text-text-mute">
+            <span className="block font-mono text-micro uppercase tracking-[0.14em] text-text-3">
               {t("integrations.autoSync")}
             </span>
             <span className="font-mono text-data-sm text-text-2">
@@ -151,7 +143,7 @@ function ConnectionCard({
           <>
             <Button variant="default" size="sm" onClick={onSync} disabled={isSyncing} className="gap-1">
               {isSyncing ? (
-                <Loader2 className="h-[14px] w-[14px] animate-spin" />
+                <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none" />
               ) : (
                 <RefreshCw className="h-[14px] w-[14px]" />
               )}
@@ -201,7 +193,7 @@ function SyncHistoryRow({
       <span className="flex-1 truncate font-mono text-micro uppercase tracking-[0.08em] text-text-2">
         {entry.provider} — {entry.status}
       </span>
-      <span className="shrink-0 font-mono text-micro-sm text-text-mute tabular-nums">
+      <span className="shrink-0 font-mono text-micro text-text-3 tabular-nums">
         {new Date(entry.timestamp).toLocaleDateString(getDateLocale(locale), {
           month: "short",
           day: "numeric",
@@ -210,7 +202,7 @@ function SyncHistoryRow({
         })}
       </span>
       {entry.details && (
-        <span className="max-w-[200px] truncate font-mono text-micro-sm text-text-mute">
+        <span className="max-w-[200px] truncate font-mono text-micro text-text-3">
           {entry.details}
         </span>
       )}
@@ -328,13 +320,13 @@ export function SyncSegment({
             <div className="flex items-center justify-between">
               <PanelTitle>{t("integrations.syncHistory")}</PanelTitle>
               {connectionsLoading && (
-                <Loader2 className="h-[14px] w-[14px] animate-spin text-text-mute" />
+                <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none text-text-mute" />
               )}
             </div>
 
             {historyLoading ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-[20px] w-[20px] animate-spin text-text-mute" />
+                <Loader2 className="h-[20px] w-[20px] animate-spin motion-reduce:animate-none text-text-mute" />
               </div>
             ) : syncHistory.length === 0 ? (
               <p className="py-4 text-center font-mono text-micro text-text-mute">—</p>
@@ -359,7 +351,7 @@ export function SyncSegment({
                 ] as const
               ).map(([titleKey, descKey], i) => (
                 <div key={titleKey} className="flex items-start gap-1">
-                  <span className="mt-[2px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border border-border font-mono text-micro-sm text-text-3 tabular-nums">
+                  <span className="mt-[2px] flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-[4px] border border-border font-mono text-micro text-text-3 tabular-nums">
                     {i + 1}
                   </span>
                   <p className="font-mono text-micro leading-relaxed text-text-2">

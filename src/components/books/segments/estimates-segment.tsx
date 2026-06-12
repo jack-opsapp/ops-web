@@ -68,7 +68,7 @@ const STATUS_TONE: Partial<Record<EstimateStatus, string>> = {
   [EstimateStatus.Expired]: "border-tan-line bg-tan-soft text-tan",
 };
 
-function StatusTag({ status }: { status: EstimateStatus }) {
+function StatusTag({ status, label }: { status: EstimateStatus; label: string }) {
   return (
     <span
       className={cn(
@@ -77,7 +77,7 @@ function StatusTag({ status }: { status: EstimateStatus }) {
         STATUS_TONE[status] ?? "border-border bg-[rgba(255,255,255,0.05)] text-text-2",
       )}
     >
-      {formatEnumLabel(status)}
+      {label}
     </span>
   );
 }
@@ -145,8 +145,8 @@ export function EstimatesSegment({
   const { data: products = [] } = useProducts();
   const { data: estimateMetrics = [] } = useEstimateMetrics();
 
-  const clients = clientsData?.clients ?? [];
-  const projects = projectsData?.projects ?? [];
+  const clients = useMemo(() => clientsData?.clients ?? [], [clientsData]);
+  const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
 
   const createEstimate = useCreateEstimate();
   const updateEstimate = useUpdateEstimate();
@@ -182,13 +182,13 @@ export function EstimatesSegment({
         body: JSON.stringify({ documentId: estimateId, documentType: "estimate" }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "PDF generation failed" }));
-        throw new Error(err.error || "PDF generation failed");
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t("pdf.generationFailed"));
       }
       const { pdfUrl } = await res.json();
       window.open(pdfUrl, "_blank");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to generate PDF");
+      toast.error(err instanceof Error ? err.message : t("pdf.generationFailed"));
     } finally {
       setGeneratingPdfId(null);
     }
@@ -230,9 +230,13 @@ export function EstimatesSegment({
     const pending = find("pending");
     const approval = find("approval");
     const convert = find("conver");
+    const sentMonth = find("sent");
+    const avgEstimate = find("avg");
     if (pending) items.push({ label: tb("stat.pending"), value: formatMetricValue(pending), tone: "tan" });
     if (approval) items.push({ label: tb("stat.approval"), value: formatMetricValue(approval) });
     if (convert) items.push({ label: tb("stat.convert"), value: formatMetricValue(convert) });
+    if (sentMonth) items.push({ label: tb("stat.sentMonth"), value: formatMetricValue(sentMonth) });
+    if (avgEstimate) items.push({ label: tb("stat.avgEstimate"), value: formatMetricValue(avgEstimate) });
     return items;
   }, [estimateMetrics, tb]);
 
@@ -265,7 +269,13 @@ export function EstimatesSegment({
       <div className="flex flex-wrap items-center gap-[12px]">
         <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
         {drilled && statusFilter !== "all" && (
-          <DrillChip label={formatEnumLabel(statusFilter)} onClear={onClearDrill} />
+          <DrillChip
+            label={
+              statusOptions.find((o) => o.value === statusFilter)?.label ??
+              formatEnumLabel(statusFilter)
+            }
+            onClear={onClearDrill}
+          />
         )}
         <span className="font-mono text-micro text-text-3 tabular-nums">
           {statusFilter === "all" && !searchQuery
@@ -279,20 +289,20 @@ export function EstimatesSegment({
 
       {/* Table */}
       {isLoading ? (
-        <div className="animate-pulse space-y-[2px]">
+        <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="glass-surface h-[48px]" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8">
+        <div className="flex flex-col items-start py-8">
           <FileText className="mb-2 h-[32px] w-[32px] text-text-mute" />
           <h3 className="font-mohave text-heading text-text">
             {searchQuery || statusFilter !== "all" ? t("estimates.empty.noMatch") : t("estimates.empty.none")}
           </h3>
-          <p className="mt-0.5 font-mono text-caption text-text-3">
-            {searchQuery || statusFilter !== "all" ? t("estimates.empty.noMatch") : t("estimates.empty.helper")}
-          </p>
+          {!searchQuery && statusFilter === "all" && (
+            <p className="mt-0.5 font-mono text-caption text-text-3">{t("estimates.empty.helper")}</p>
+          )}
           {!searchQuery && statusFilter === "all" && can("estimates.create") && (
             <Button className="mt-3 gap-[6px]" onClick={gatedOpenCreate}>
               <Plus className="h-[16px] w-[16px]" />
@@ -373,7 +383,10 @@ export function EstimatesSegment({
                       </span>
                     </td>
                     <td className="px-2 py-[11px] text-center">
-                      <StatusTag status={estimate.status} />
+                      <StatusTag
+                        status={estimate.status}
+                        label={t(`estimates.status.${estimate.status}`, formatEnumLabel(estimate.status))}
+                      />
                     </td>
                     <td className="px-2 py-[11px] text-right">
                       <div
@@ -387,7 +400,7 @@ export function EstimatesSegment({
                           title={t("estimates.actions.downloadPdf")}
                         >
                           {generatingPdfId === estimate.id ? (
-                            <Loader2 className="h-[14px] w-[14px] animate-spin" />
+                            <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none" />
                           ) : (
                             <Download className="h-[14px] w-[14px]" />
                           )}

@@ -37,7 +37,7 @@ export function PeriodPill({
           )}
         >
           {t(`period.${value}`)}
-          <span aria-hidden className="text-[9px] text-text-mute">
+          <span aria-hidden className="text-micro text-text-mute">
             &#9662;
           </span>
         </button>

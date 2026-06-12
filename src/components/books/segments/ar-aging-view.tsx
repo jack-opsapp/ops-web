@@ -12,6 +12,7 @@ import { useDictionary } from "@/i18n/client";
 import { useAccountingMetrics } from "@/lib/hooks";
 import { InvoiceStatus, formatCurrency } from "@/lib/types/pipeline";
 import type { Invoice } from "@/lib/types/pipeline";
+import { cn } from "@/lib/utils/cn";
 import { formatEnumLabel } from "@/lib/utils/format";
 import { SegmentStatLine, formatMetricValue, type StatLineItem } from "../segment-toolbar";
 
@@ -52,12 +53,13 @@ function AgingBar({
   label,
   amount,
   maxAmount,
-  color,
+  barClass,
 }: {
   label: string;
   amount: number;
   maxAmount: number;
-  color: string;
+  /** Tailwind background class tracing to a design-system token. */
+  barClass: string;
 }) {
   const pct = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
   return (
@@ -72,8 +74,11 @@ function AgingBar({
       </div>
       <div className="h-[4px] overflow-hidden rounded-[2px] bg-fill-neutral-dim">
         <div
-          className="h-full rounded-[2px] transition-[width] duration-500 ease-smooth motion-reduce:transition-none"
-          style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}
+          className={cn(
+            "h-full rounded-[2px] transition-[width] duration-500 ease-smooth motion-reduce:transition-none",
+            barClass,
+          )}
+          style={{ width: `${Math.min(pct, 100)}%` }}
         />
       </div>
     </div>
@@ -103,6 +108,7 @@ export function ArAgingView({
 }) {
   const { t } = useDictionary("accounting");
   const { t: tb } = useDictionary("books");
+  const { t: tp } = useDictionary("pipeline");
   const { data: accountingMetrics = [] } = useAccountingMetrics();
 
   const aging = useMemo(() => calculateAgingBuckets(invoices), [invoices]);
@@ -134,10 +140,18 @@ export function ArAgingView({
   }, [invoices, clientMap]);
 
   const statItems = useMemo<StatLineItem[]>(() => {
-    return accountingMetrics
-      .slice(0, 4)
-      .map((m) => ({ label: m.label, value: formatMetricValue(m) }));
-  }, [accountingMetrics]);
+    const find = (needle: string) =>
+      accountingMetrics.find((m) => m.label.toLowerCase().includes(needle));
+    const entries: Array<[string, ReturnType<typeof find>]> = [
+      [tb("stat.outstanding"), find("outstanding")],
+      [tb("stat.collectedMtd"), find("collected")],
+      [tb("ledger.overdue"), find("overdue")],
+      [tb("stat.aging90"), find("aging") ?? find("90")],
+    ];
+    return entries
+      .filter((e): e is [string, NonNullable<ReturnType<typeof find>>] => !!e[1])
+      .map(([label, m]) => ({ label, value: formatMetricValue(m), note: m.breakdown }));
+  }, [accountingMetrics, tb]);
 
   return (
     <div className="space-y-2">
@@ -159,11 +173,11 @@ export function ArAgingView({
         <div className="glass-surface space-y-1.5 p-2">
           <PanelTitle>{t("aging.title")}</PanelTitle>
           <div className="space-y-[12px] pt-0.5">
-            <AgingBar label={t("aging.current")} amount={aging.current} maxAmount={maxAging} color="#9DB582" />
-            <AgingBar label={t("aging.1to30")} amount={aging.days1_30} maxAmount={maxAging} color="#C4A868" />
-            <AgingBar label={t("aging.31to60")} amount={aging.days31_60} maxAmount={maxAging} color="#D4A574" />
-            <AgingBar label={t("aging.61to90")} amount={aging.days61_90} maxAmount={maxAging} color="#B58289" />
-            <AgingBar label={t("aging.90plus")} amount={aging.days90Plus} maxAmount={maxAging} color="#93321A" />
+            <AgingBar label={t("aging.current")} amount={aging.current} maxAmount={maxAging} barClass="bg-olive" />
+            <AgingBar label={t("aging.1to30")} amount={aging.days1_30} maxAmount={maxAging} barClass="bg-tan" />
+            <AgingBar label={t("aging.31to60")} amount={aging.days31_60} maxAmount={maxAging} barClass="bg-financial-receivables" />
+            <AgingBar label={t("aging.61to90")} amount={aging.days61_90} maxAmount={maxAging} barClass="bg-rose" />
+            <AgingBar label={t("aging.90plus")} amount={aging.days90Plus} maxAmount={maxAging} barClass="bg-financial-overdue" />
           </div>
         </div>
 
@@ -214,8 +228,8 @@ export function ArAgingView({
                 key={status}
                 className="flex flex-col gap-[4px] rounded-[5px] border border-border bg-[rgba(255,255,255,0.02)] p-1.5"
               >
-                <span className="font-mono text-micro-sm uppercase tracking-[0.14em] text-text-mute">
-                  {formatEnumLabel(status)}
+                <span className="font-mono text-micro uppercase tracking-[0.14em] text-text-3">
+                  {tp(`invoices.status.${status}`, formatEnumLabel(status))}
                 </span>
                 <span className="font-mono text-data-lg text-text tabular-nums">{list.length}</span>
                 <span className="font-mono text-micro text-text-3 tabular-nums">

@@ -50,6 +50,7 @@ export function EstimateFormModal({
   onUpdate: (id: string, data: Partial<CreateEstimate> & { companyId: string }, lineItems: Array<Partial<CreateLineItem>>) => void;
 }) {
   const { t } = useDictionary("pipeline");
+  const { t: tc } = useDictionary("common");
   const isEditing = !!estimate;
 
   // State is fully driven by props through the effect below. Initializers are
@@ -173,7 +174,7 @@ export function EstimateFormModal({
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
+            <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
               {isEditing ? `${t("estimates.modal.edit")} ${estimate?.estimateNumber ?? ""}` : t("estimates.modal.new")}
             </DialogTitle>
           </DialogHeader>
@@ -181,7 +182,7 @@ export function EstimateFormModal({
             {[48, 48, 48, 120, 80, 80].map((h, i) => (
               <div
                 key={i}
-                className="w-full rounded bg-fill-neutral-dim/40 animate-pulse"
+                className="w-full rounded bg-fill-neutral-dim/40 animate-pulse motion-reduce:animate-none"
                 style={{ height: h }}
               />
             ))}
@@ -195,7 +196,7 @@ export function EstimateFormModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
+          <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
             {isEditing ? `${t("estimates.modal.edit")} ${estimate?.estimateNumber}` : t("estimates.modal.new")}
           </DialogTitle>
         </DialogHeader>
@@ -210,9 +211,9 @@ export function EstimateFormModal({
               <select
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+                className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
               >
-                <option value="">Select client...</option>
+                <option value="">{t("form.selectClient")}</option>
                 {clients.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -225,9 +226,9 @@ export function EstimateFormModal({
               <select
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
-                className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
+                className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
               >
-                <option value="">Select project (optional)...</option>
+                <option value="">{t("form.selectProjectOptional")}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>{p.title}</option>
                 ))}
@@ -280,7 +281,7 @@ export function EstimateFormModal({
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any notes for the client..."
+                placeholder={t("form.clientNotesPlaceholder")}
                 rows={3}
               />
             </div>
@@ -305,7 +306,7 @@ export function EstimateFormModal({
             <Textarea
               value={termsAndConditions}
               onChange={(e) => setTermsAndConditions(e.target.value)}
-              placeholder="Terms and conditions..."
+              placeholder={t("form.termsPlaceholder")}
               rows={2}
             />
           </div>
@@ -313,10 +314,10 @@ export function EstimateFormModal({
           {/* Actions */}
           <div className="flex justify-end gap-1 pt-2 border-t border-border">
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {tc("cancel")}
             </Button>
             <Button onClick={handleSubmit}>
-              {isEditing ? "Save Changes" : "Create Estimate"}
+              {isEditing ? t("estimates.modal.save") : t("estimates.modal.create")}
             </Button>
           </div>
         </div>

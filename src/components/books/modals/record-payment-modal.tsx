@@ -20,15 +20,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, PaymentMethod } from "@/lib/types/pipeline";
 import type { Invoice, CreatePayment } from "@/lib/types/pipeline";
 
-const paymentMethodLabels: Record<PaymentMethod, string> = {
-  [PaymentMethod.Cash]: "Cash",
-  [PaymentMethod.Check]: "Check",
-  [PaymentMethod.CreditCard]: "Credit Card",
-  [PaymentMethod.DebitCard]: "Debit Card",
-  [PaymentMethod.Ach]: "ACH",
-  [PaymentMethod.BankTransfer]: "Bank Transfer",
-  [PaymentMethod.Stripe]: "Stripe",
-  [PaymentMethod.Other]: "Other",
+/** Dictionary keys per method — labels resolve through the pipeline namespace. */
+const PAYMENT_METHOD_KEYS: Record<PaymentMethod, string> = {
+  [PaymentMethod.Cash]: "payment.method.cash",
+  [PaymentMethod.Check]: "payment.method.check",
+  [PaymentMethod.CreditCard]: "payment.method.credit_card",
+  [PaymentMethod.DebitCard]: "payment.method.debit_card",
+  [PaymentMethod.Ach]: "payment.method.ach",
+  [PaymentMethod.BankTransfer]: "payment.method.bank_transfer",
+  [PaymentMethod.Stripe]: "payment.method.stripe",
+  [PaymentMethod.Other]: "payment.method.other",
 };
 
 export function RecordPaymentModal({
@@ -45,6 +46,7 @@ export function RecordPaymentModal({
   onSubmit: (data: CreatePayment) => void;
 }) {
   const { t } = useDictionary("pipeline");
+  const { t: tc } = useDictionary("common");
   const [amount, setAmount] = useState(invoice?.balanceDue ?? 0);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.Other);
@@ -67,7 +69,7 @@ export function RecordPaymentModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[440px]">
         <DialogHeader>
-          <DialogTitle className="font-mohave text-heading uppercase tracking-wider">
+          <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
             {t("invoices.payment.title")}
           </DialogTitle>
         </DialogHeader>
@@ -84,7 +86,7 @@ export function RecordPaymentModal({
             </div>
             <div className="flex justify-between">
               <span className="font-mono text-caption text-text-3">{t("invoices.payment.balanceDue")}</span>
-              <span className="font-mono text-data text-ops-error">{formatCurrency(invoice.balanceDue)}</span>
+              <span className="font-mono text-data text-rose">{formatCurrency(invoice.balanceDue)}</span>
             </div>
           </div>
 
@@ -103,9 +105,9 @@ export function RecordPaymentModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.method")}</label>
-              <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full bg-fill-neutral-dim border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
-                {Object.entries(paymentMethodLabels).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
+              <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
+                {Object.entries(PAYMENT_METHOD_KEYS).map(([k, key]) => (
+                  <option key={k} value={k}>{t(key)}</option>
                 ))}
               </select>
             </div>
@@ -113,7 +115,7 @@ export function RecordPaymentModal({
 
           <div className="space-y-0.5">
             <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">{t("invoices.payment.reference")}</label>
-            <Input value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} placeholder="Check #, transaction ID..." />
+            <Input value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} placeholder={t("invoices.payment.referencePlaceholder")} />
           </div>
 
           <div className="space-y-0.5">
@@ -122,7 +124,7 @@ export function RecordPaymentModal({
           </div>
 
           <div className="flex justify-end gap-1 pt-2 border-t border-border">
-            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button variant="ghost" onClick={onClose}>{tc("cancel")}</Button>
             <Button
               onClick={() => {
                 onSubmit({

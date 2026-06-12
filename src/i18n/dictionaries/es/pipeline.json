@@ -4,27 +4,21 @@
   "newLead": "Nuevo prospecto",
   "filter": "Filtrar",
   "inbox": "Bandeja de entrada",
-
   "search.placeholder": "Buscar tratos...",
-
   "metrics.pipelineValue": "Pipeline",
   "metrics.activeDeals": "Tratos activos",
   "metrics.won": "Ganados",
-  "metrics.conversion": "Conversión",
-
+  "metrics.conversion": "Conv",
   "filter.stage": "Etapa",
   "filter.changeStatus": "Cambiar estado",
   "filter.allStages": "Todas las etapas",
   "filter.clear": "Limpiar filtros",
-
   "gmail.connectBanner": "Conecta Gmail para importar prospectos automáticamente",
   "gmail.connectDesc": "Los correos entrantes de clientes se convierten en prospectos del pipeline automáticamente.",
   "gmail.connect": "Conectar",
   "gmail.dismiss": "Descartar",
   "gmail.reviewEmails": "Revisar correos",
-
   "loading": "Cargando pipeline...",
-
   "mode.label": "Vista del pipeline",
   "mode.focused": "Enfocado",
   "mode.table": "Tabla",
@@ -147,7 +141,6 @@
   "table.undo.body": "Se cambió {column} en {deal}",
   "table.undo.action": "Deshacer",
   "table.undo.dismiss": "Descartar",
-
   "column.updating": "Actualizando pipeline...",
   "column.markWon": "Marcar como ganado",
   "column.markLost": "Marcar como perdido",
@@ -155,7 +148,6 @@
   "column.noDeals": "Sin tratos en esta etapa",
   "column.dropHere": "Suelta aquí para mover",
   "column.addNewLead": "Agregar nuevo prospecto",
-
   "card.dragToMove": "Arrastra para mover",
   "card.daysInStage": "{count}d en etapa",
   "card.followUpOverdue": "Seguimiento vencido",
@@ -163,16 +155,13 @@
   "card.followUpDueToday": "Seguimiento para hoy",
   "card.today": "Hoy",
   "card.advanceNext": "Avanzar a la siguiente etapa",
-
   "card.unknown": "Desconocido",
-
   "quickAdd.contactName": "Nombre de contacto *",
   "quickAdd.dealTitle": "Título del trato",
   "quickAdd.estValue": "Valor est. ($)",
   "quickAdd.cancel": "Cancelar (Esc)",
   "quickAdd.addLead": "Agregar prospecto (Enter)",
   "quickAdd.leadSuffix": "Prospecto",
-
   "detail.title": "Detalles del trato",
   "detail.noDeal": "Ningún trato seleccionado",
   "detail.noContact": "Sin contacto",
@@ -224,7 +213,6 @@
   "detail.unknown": "Desconocido",
   "detail.photoEmailSource": "Correo",
   "detail.photoSiteVisitSource": "Visita al sitio",
-
   "transition.wonTitle": "Trato ganado",
   "transition.wonDescription": "Felicidades por cerrar",
   "transition.finalValue": "Valor final",
@@ -255,7 +243,6 @@
   "transition.notes": "Notas (opcional)",
   "transition.notesPlaceholder": "Detalles adicionales...",
   "transition.markLost": "Marcar perdido",
-
   "toast.movedTo": "Movido a",
   "toast.failedMove": "Error al mover trato",
   "toast.dealMarkedWon": "Trato marcado como ganado",
@@ -268,9 +255,7 @@
   "toast.failedCreateLead": "Error al crear prospecto",
   "toast.leadFromEmail": "Prospecto creado desde correo",
   "toast.errorOccurred": "Ocurrió un error",
-
   "bottomBar": "Arrastra las tarjetas entre columnas para actualizar la etapa",
-
   "estimates.title": "Cotizaciones",
   "estimates.totalValue": "Valor total",
   "estimates.accepted": "Aceptadas",
@@ -308,7 +293,6 @@
   "estimates.actions.send": "Enviar",
   "estimates.actions.convertToInvoice": "Convertir a factura",
   "estimates.actions.delete": "Eliminar",
-
   "invoices.title": "Facturas",
   "invoices.outstanding": "Pendientes",
   "invoices.overdue": "Vencidas",
@@ -361,7 +345,6 @@
   "invoices.actions.recordPayment": "Registrar pago",
   "invoices.actions.void": "Anular",
   "invoices.actions.delete": "Eliminar",
-
   "card.followUpToday": "Seguimiento hoy",
   "card.followUpDate": "Seguimiento {date}",
   "card.lastActivity": "Ult: {type} hace {timeAgo}",
@@ -443,7 +426,6 @@
   "actions.deleteConfirm": "Esto eliminara permanentemente este prospecto. Estas seguro?",
   "metrics.active": "Activos",
   "metrics.discarded": "Descartados",
-  "metrics.conversion": "Conv",
   "mobile.swipeAdvance": "Suelta para mover a {stage}",
   "mobile.swipeRetreat": "Suelta para regresar a {stage}",
   "filter.everyone": "Todos",
@@ -459,7 +441,6 @@
   "empty.swipeHint": "Desliza para ver otras etapas",
   "error.loadFailed": "Error al cargar pipeline",
   "error.retry": "Reintentar",
-
   "contextMenu.edit": "Editar",
   "contextMenu.archive": "Archivar",
   "contextMenu.delete": "Eliminar",
@@ -477,11 +458,45 @@
   "contextMenu.selectAllInStage": "Seleccionar todo en etapa",
   "contextMenu.restoreTo": "Restaurar a...",
   "contextMenu.deletePermanently": "Eliminar permanentemente",
-
   "archiveTray.title": "ARCHIVADOS",
   "archiveTray.restore": "Restaurar",
   "archiveTray.empty": "Sin tratos archivados",
-
   "discardTray.title": "DESCARTADOS",
-  "discardTray.empty": "Sin tratos descartados"
+  "discardTray.empty": "Sin tratos descartados",
+  "pdf.generationFailed": "No se pudo generar el PDF",
+  "form.selectClient": "Seleccionar cliente...",
+  "form.selectProjectOptional": "Seleccionar proyecto (opcional)...",
+  "form.clientNotesPlaceholder": "Notas para el cliente...",
+  "form.termsPlaceholder": "Términos y condiciones...",
+  "form.paymentNotesPlaceholder": "Instrucciones de pago, nota de agradecimiento...",
+  "invoices.payment.referencePlaceholder": "N.º de cheque, ID de transacción...",
+  "invoices.modal.save": "Guardar cambios",
+  "invoices.modal.create": "Crear factura",
+  "estimates.modal.save": "Guardar cambios",
+  "estimates.modal.create": "Crear cotización",
+  "payment.method.cash": "Efectivo",
+  "payment.method.check": "Cheque",
+  "payment.method.credit_card": "Tarjeta de crédito",
+  "payment.method.debit_card": "Tarjeta de débito",
+  "payment.method.ach": "ACH",
+  "payment.method.bank_transfer": "Transferencia bancaria",
+  "payment.method.stripe": "Stripe",
+  "payment.method.other": "Otro",
+  "invoices.status.draft": "Borrador",
+  "invoices.status.sent": "Enviada",
+  "invoices.status.awaiting_payment": "Esperando pago",
+  "invoices.status.partially_paid": "Pago parcial",
+  "invoices.status.past_due": "Vencida",
+  "invoices.status.paid": "Pagada",
+  "invoices.status.void": "Anulada",
+  "invoices.status.written_off": "Incobrable",
+  "estimates.status.draft": "Borrador",
+  "estimates.status.sent": "Enviada",
+  "estimates.status.viewed": "Vista",
+  "estimates.status.approved": "Aprobada",
+  "estimates.status.changes_requested": "Cambios solicitados",
+  "estimates.status.declined": "Rechazada",
+  "estimates.status.converted": "Convertida",
+  "estimates.status.expired": "Expirada",
+  "estimates.status.superseded": "Reemplazada"
 }
