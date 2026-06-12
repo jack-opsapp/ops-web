@@ -29,11 +29,11 @@ export function PeriodPill({
         <button
           type="button"
           className={cn(
-            "inline-flex items-center gap-1 rounded px-1.5 py-[5px]",
+            "inline-flex h-[24px] items-center gap-1 rounded-[4px] px-1",
             "border border-border font-mono text-micro uppercase tracking-[0.12em]",
             "text-text-2 tabular-nums transition-colors duration-150 ease-smooth",
             "hover:bg-surface-hover hover:text-text",
-            "focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
           )}
         >
           {t(`period.${value}`)}

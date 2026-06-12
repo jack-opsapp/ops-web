@@ -11,9 +11,9 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
-import { Plus, Search, Receipt, Send, DollarSign, Ban, Trash2, Download, Loader2 } from "lucide-react";
+import { Plus, Receipt, Send, DollarSign, Ban, Trash2, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import {
   useInvoices,
   useCreateInvoice,
@@ -273,24 +273,22 @@ export function InvoicesSegment({
     <div className="flex flex-wrap items-center justify-between gap-2">
       {segmentControl}
       {listAllowed && (
-        <div className="flex items-center gap-2">
-          <div className="w-[280px] max-w-full">
-            <Input
-              placeholder={t("invoices.search")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              prefixIcon={<Search className="h-[16px] w-[16px]" />}
-            />
-          </div>
+        <div className="flex items-center gap-1.5">
+          <SearchInput
+            placeholder={t("invoices.search")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            wrapperClassName="w-[220px] max-w-full"
+          />
           {can("invoices.create") && (
-            <Button
-              variant="secondary"
-              className="gap-[6px] border-ops-accent bg-transparent font-cakemono font-light uppercase text-ops-accent hover:border-ops-accent hover:bg-ops-accent hover:text-black"
+            <button
+              type="button"
               onClick={gatedOpenCreate}
+              className="inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[12px] font-light uppercase text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
-              <Plus className="h-[16px] w-[16px]" />
+              <Plus className="h-[12px] w-[12px]" strokeWidth={1.5} />
               {t("invoices.newInvoice")}
-            </Button>
+            </button>
           )}
         </div>
       )}
@@ -357,7 +355,7 @@ export function InvoicesSegment({
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-start py-8">
           <Receipt className="mb-2 h-[32px] w-[32px] text-text-mute" />
-          <h3 className="font-mohave text-heading text-text">
+          <h3 className="font-mohave text-body-lg text-text-2">
             {searchQuery || statusFilter !== "all" ? t("invoices.empty.noMatch") : t("invoices.empty.none")}
           </h3>
           {!searchQuery && statusFilter === "all" && (
@@ -433,14 +431,14 @@ export function InvoicesSegment({
                         </span>
                       </td>
                       <td className="hidden px-2 py-[11px] sm:table-cell">
-                        <span className="font-mono text-caption-sm text-text-3 tabular-nums">
+                        <span className="whitespace-nowrap font-mono text-caption-sm text-text-3 tabular-nums">
                           {fmtDate(invoice.issueDate, locale)}
                         </span>
                       </td>
                       <td className="px-2 py-[11px]">
                         <span
                           className={cn(
-                            "font-mono text-caption-sm tabular-nums",
+                            "whitespace-nowrap font-mono text-caption-sm tabular-nums",
                             over ? "text-rose" : "text-text-3",
                           )}
                         >

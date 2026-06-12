@@ -29,7 +29,7 @@ export function BooksSegmentControl<T extends string = string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="inline-flex gap-[2px] rounded-[7px] border border-border p-[3px]" role="tablist">
+    <div className="inline-flex h-[28px] items-center gap-[2px] rounded-[6px] border border-border p-[2px]" role="tablist">
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -40,13 +40,13 @@ export function BooksSegmentControl<T extends string = string>({
             aria-selected={active}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "inline-flex items-center gap-1 rounded px-[18px] py-[6px]",
-              "font-cakemono text-[13px] font-light uppercase tracking-[0.02em]",
+              "inline-flex h-[22px] items-center gap-1 rounded-[5px] px-1.5",
+              "font-cakemono text-[12px] font-light uppercase",
               "border transition-colors duration-150 ease-smooth",
               active
                 ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
                 : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text-2",
-              "focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
             )}
           >
             {opt.label}
@@ -88,13 +88,13 @@ export function FilterChips<T extends string = string>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "rounded-[4px] border px-[10px] py-[4px]",
+              "inline-flex h-[24px] items-center rounded-[4px] border px-1",
               "font-mono text-micro font-medium uppercase tracking-[0.12em]",
               "transition-colors duration-150 ease-smooth",
               active
                 ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
                 : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2",
-              "focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
             )}
           >
             {opt.label}
@@ -112,10 +112,10 @@ export function DrillChip({ label, onClear }: { label: string; onClear: () => vo
       type="button"
       onClick={onClear}
       className={cn(
-        "inline-flex items-center gap-[6px] rounded-[4px] border border-rose-line bg-rose-soft px-[10px] py-[4px]",
+        "inline-flex h-[24px] items-center gap-[6px] rounded-[4px] border border-rose-line bg-rose-soft px-1",
         "font-mono text-micro font-medium uppercase tracking-[0.12em] text-rose",
         "transition-colors duration-150 ease-smooth hover:bg-[rgba(181,130,137,0.2)]",
-        "focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
       )}
     >
       {label}

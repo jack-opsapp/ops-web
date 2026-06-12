@@ -102,7 +102,7 @@ function TileShell({
 
 function TileHero({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-[22px] font-semibold leading-tight text-text tabular-nums">
+    <span className="font-mono text-data-lg leading-tight text-text tabular-nums">
       {children}
     </span>
   );
