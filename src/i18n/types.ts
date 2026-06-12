@@ -17,6 +17,7 @@ export type Namespace =
   | 'schedule'
   | 'pipeline'
   | 'accounting'
+  | 'books'
   | 'inbox'
   | 'compose'
   | 'email-templates'
