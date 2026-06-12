@@ -274,27 +274,20 @@ export function NotificationsDrawer() {
                 position: "relative",
               }}
             >
+              {/* Kit widget header: `// TITLE` — one JetBrains Mono 11px
+                  uppercase run, slash in --text-mute (Widget.jsx anatomy). */}
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  color: "var(--text-mute)",
+                  fontSize: 11,
                   letterSpacing: "0.16em",
-                }}
-              >
-                {"//"}
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-cakemono)",
-                  fontWeight: 300,
-                  fontSize: 13,
-                  color: "var(--text)",
                   textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  marginLeft: 6,
+                  color: "var(--text-3)",
                 }}
               >
+                <span aria-hidden style={{ color: "var(--text-mute)" }}>
+                  {"// "}
+                </span>
                 {t("drawer.title")}
               </span>
               <span
@@ -303,7 +296,7 @@ export function NotificationsDrawer() {
                   fontSize: 11,
                   color: "var(--text-2)",
                   marginLeft: 8,
-                  fontVariantNumeric: "tabular-nums",
+                  fontFeatureSettings: '"tnum" 1, "zero" 1',
                 }}
               >
                 {notifs.length}

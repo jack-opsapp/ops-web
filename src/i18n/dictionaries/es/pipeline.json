@@ -289,6 +289,7 @@
   "estimates.form.notes": "Notas (visibles para el cliente)",
   "estimates.form.internalNotes": "Notas internas",
   "estimates.form.terms": "Términos y condiciones",
+  "actions.menu": "Acciones",
   "estimates.actions.downloadPdf": "Descargar PDF",
   "estimates.actions.send": "Enviar",
   "estimates.actions.convertToInvoice": "Convertir a factura",

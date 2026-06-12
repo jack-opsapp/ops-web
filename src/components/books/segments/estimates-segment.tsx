@@ -43,6 +43,12 @@ import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModa
 import { cn } from "@/lib/utils/cn";
 import { formatEnumLabel } from "@/lib/utils/format";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
 import { EstimateFormModal } from "../modals/estimate-form-modal";
 import {
@@ -385,56 +391,60 @@ export function EstimatesSegment({
                         label={t(`estimates.status.${estimate.status}`, formatEnumLabel(estimate.status))}
                       />
                     </td>
+                    {/* Rows are data; verbs live in one labelled overflow
+                        (DESIGN.md §11 — icons are metadata, not actions). */}
                     <td className="px-2 py-[11px] text-right">
                       <div
-                        className="flex items-center justify-end gap-0.5"
+                        className="inline-flex"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <button
-                          onClick={() => handleDownloadPdf(estimate.id)}
-                          disabled={generatingPdfId === estimate.id}
-                          className="rounded p-[4px] text-text-3 transition-colors hover:bg-surface-active hover:text-text disabled:opacity-50"
-                          title={t("estimates.actions.downloadPdf")}
-                          aria-label={t("estimates.actions.downloadPdf")}
-                        >
-                          {generatingPdfId === estimate.id ? (
-                            <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none" />
-                          ) : (
-                            <Download className="h-[14px] w-[14px]" />
-                          )}
-                        </button>
-                        {estimate.status === EstimateStatus.Draft && can("estimates.send") && (
-                          <button
-                            onClick={() => setSendingEstimate(estimate)}
-                            className="rounded p-[4px] text-text-3 transition-colors hover:bg-surface-active hover:text-text"
-                            title={t("estimates.actions.send")}
-                          aria-label={t("estimates.actions.send")}
-                          >
-                            <Send className="h-[14px] w-[14px]" />
-                          </button>
-                        )}
-                        {(estimate.status === EstimateStatus.Approved ||
-                          estimate.status === EstimateStatus.Sent) &&
-                          can("estimates.convert") && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
                             <button
-                              onClick={() => convertToInvoice.mutate({ estimateId: estimate.id })}
-                              className="rounded p-[4px] text-text-3 transition-colors hover:bg-olive-soft hover:text-olive"
-                              title={t("estimates.actions.convertToInvoice")}
-                          aria-label={t("estimates.actions.convertToInvoice")}
+                              type="button"
+                              className="inline-flex h-[24px] items-center gap-[4px] rounded-[4px] border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                             >
-                              <ArrowRightLeft className="h-[14px] w-[14px]" />
+                              {generatingPdfId === estimate.id && (
+                                <Loader2 className="h-[12px] w-[12px] animate-spin motion-reduce:animate-none" />
+                              )}
+                              {t("actions.menu")}
                             </button>
-                          )}
-                        {can("estimates.delete") && (
-                          <button
-                            onClick={() => deleteEstimate.mutate(estimate.id)}
-                            className="rounded p-[4px] text-text-3 transition-colors hover:bg-rose-soft hover:text-rose"
-                            title={t("estimates.actions.delete")}
-                          aria-label={t("estimates.actions.delete")}
-                          >
-                            <Trash2 className="h-[14px] w-[14px]" />
-                          </button>
-                        )}
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              disabled={generatingPdfId === estimate.id}
+                              onClick={() => handleDownloadPdf(estimate.id)}
+                            >
+                              <Download className="h-[14px] w-[14px] text-text-3" />
+                              {t("estimates.actions.downloadPdf")}
+                            </DropdownMenuItem>
+                            {estimate.status === EstimateStatus.Draft && can("estimates.send") && (
+                              <DropdownMenuItem onClick={() => setSendingEstimate(estimate)}>
+                                <Send className="h-[14px] w-[14px] text-text-3" />
+                                {t("estimates.actions.send")}
+                              </DropdownMenuItem>
+                            )}
+                            {(estimate.status === EstimateStatus.Approved ||
+                              estimate.status === EstimateStatus.Sent) &&
+                              can("estimates.convert") && (
+                                <DropdownMenuItem
+                                  onClick={() => convertToInvoice.mutate({ estimateId: estimate.id })}
+                                >
+                                  <ArrowRightLeft className="h-[14px] w-[14px] text-text-3" />
+                                  {t("estimates.actions.convertToInvoice")}
+                                </DropdownMenuItem>
+                              )}
+                            {can("estimates.delete") && (
+                              <DropdownMenuItem
+                                className="text-rose focus:bg-rose-soft focus:text-rose"
+                                onClick={() => deleteEstimate.mutate(estimate.id)}
+                              >
+                                <Trash2 className="h-[14px] w-[14px] text-rose" />
+                                {t("estimates.actions.delete")}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </td>
                   </tr>

@@ -37,6 +37,12 @@ import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModa
 import { cn } from "@/lib/utils/cn";
 import { formatEnumLabel } from "@/lib/utils/format";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { InvoiceFormModal } from "../modals/invoice-form-modal";
 import { RecordPaymentModal } from "../modals/record-payment-modal";
 import {
@@ -477,68 +483,69 @@ export function InvoicesSegment({
                           label={t(`invoices.status.${invoice.status}`, formatEnumLabel(invoice.status))}
                         />
                       </td>
+                      {/* Rows are data; verbs live in one labelled overflow
+                          (DESIGN.md §11 — icons are metadata, not actions). */}
                       <td className="px-2 py-[11px] text-right">
                         <div
-                          className="flex items-center justify-end gap-0.5"
+                          className="inline-flex"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <button
-                            onClick={() => handleDownloadPdf(invoice.id)}
-                            disabled={generatingPdfId === invoice.id}
-                            className="rounded p-[4px] text-text-3 transition-colors hover:bg-surface-active hover:text-text disabled:opacity-50"
-                            title={t("invoices.actions.downloadPdf")}
-                          aria-label={t("invoices.actions.downloadPdf")}
-                          >
-                            {generatingPdfId === invoice.id ? (
-                              <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none" />
-                            ) : (
-                              <Download className="h-[14px] w-[14px]" />
-                            )}
-                          </button>
-                          {invoice.status === InvoiceStatus.Draft && can("invoices.send") && (
-                            <button
-                              onClick={() => sendInvoice.mutate(invoice.id)}
-                              className="rounded p-[4px] text-text-3 transition-colors hover:bg-surface-active hover:text-text"
-                              title={t("invoices.actions.send")}
-                          aria-label={t("invoices.actions.send")}
-                            >
-                              <Send className="h-[14px] w-[14px]" />
-                            </button>
-                          )}
-                          {invoice.status !== InvoiceStatus.Paid &&
-                            invoice.status !== InvoiceStatus.Void &&
-                            can("invoices.record_payment") && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <button
-                                onClick={() => setPaymentInvoice(invoice)}
-                                className="rounded p-[4px] text-text-3 transition-colors hover:bg-olive-soft hover:text-olive"
-                                title={t("invoices.actions.recordPayment")}
-                          aria-label={t("invoices.actions.recordPayment")}
+                                type="button"
+                                className="inline-flex h-[24px] items-center gap-[4px] rounded-[4px] border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                               >
-                                <DollarSign className="h-[14px] w-[14px]" />
+                                {generatingPdfId === invoice.id && (
+                                  <Loader2 className="h-[12px] w-[12px] animate-spin motion-reduce:animate-none" />
+                                )}
+                                {t("actions.menu")}
                               </button>
-                            )}
-                          {invoice.status !== InvoiceStatus.Void &&
-                            invoice.status !== InvoiceStatus.Paid &&
-                            can("invoices.void") && (
-                              <button
-                                onClick={() => voidInvoice.mutate(invoice.id)}
-                                className="rounded p-[4px] text-text-3 transition-colors hover:bg-rose-soft hover:text-rose"
-                                title={t("invoices.actions.void")}
-                          aria-label={t("invoices.actions.void")}
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                disabled={generatingPdfId === invoice.id}
+                                onClick={() => handleDownloadPdf(invoice.id)}
                               >
-                                <Ban className="h-[14px] w-[14px]" />
-                              </button>
-                            )}
-                          {can("invoices.delete") && (
-                            <button
-                              onClick={() => deleteInvoice.mutate(invoice.id)}
-                              className="rounded p-[4px] text-text-3 transition-colors hover:bg-rose-soft hover:text-rose"
-                              title={t("invoices.actions.delete")}
-                          aria-label={t("invoices.actions.delete")}
-                            >
-                              <Trash2 className="h-[14px] w-[14px]" />
-                            </button>
-                          )}
+                                <Download className="h-[14px] w-[14px] text-text-3" />
+                                {t("invoices.actions.downloadPdf")}
+                              </DropdownMenuItem>
+                              {invoice.status === InvoiceStatus.Draft && can("invoices.send") && (
+                                <DropdownMenuItem onClick={() => sendInvoice.mutate(invoice.id)}>
+                                  <Send className="h-[14px] w-[14px] text-text-3" />
+                                  {t("invoices.actions.send")}
+                                </DropdownMenuItem>
+                              )}
+                              {invoice.status !== InvoiceStatus.Paid &&
+                                invoice.status !== InvoiceStatus.Void &&
+                                can("invoices.record_payment") && (
+                                  <DropdownMenuItem onClick={() => setPaymentInvoice(invoice)}>
+                                    <DollarSign className="h-[14px] w-[14px] text-text-3" />
+                                    {t("invoices.actions.recordPayment")}
+                                  </DropdownMenuItem>
+                                )}
+                              {invoice.status !== InvoiceStatus.Void &&
+                                invoice.status !== InvoiceStatus.Paid &&
+                                can("invoices.void") && (
+                                  <DropdownMenuItem
+                                    className="text-rose focus:bg-rose-soft focus:text-rose"
+                                    onClick={() => voidInvoice.mutate(invoice.id)}
+                                  >
+                                    <Ban className="h-[14px] w-[14px] text-rose" />
+                                    {t("invoices.actions.void")}
+                                  </DropdownMenuItem>
+                                )}
+                              {can("invoices.delete") && (
+                                <DropdownMenuItem
+                                  className="text-rose focus:bg-rose-soft focus:text-rose"
+                                  onClick={() => deleteInvoice.mutate(invoice.id)}
+                                >
+                                  <Trash2 className="h-[14px] w-[14px] text-rose" />
+                                  {t("invoices.actions.delete")}
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
