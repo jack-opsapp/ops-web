@@ -1164,14 +1164,11 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
    * autonomous path. Learning happens only from SENT drafts, never from
    * abandoned/discarded ones (bible §10 line 1809).
    *
-   * The lifecycle-draft send-transition itself (flipping
-   * opportunity_follow_up_drafts to status='sent' + final_sent_body) is owned
-   * by P3 and does NOT yet exist in this worktree (no code writes
-   * final_sent_body; grep confirms 0 call sites). Therefore this method is
-   * built complete but its invocation is DEFERRED behind
-   * LIFECYCLE_LEARNING_ENABLED until the P3 send-transition lands and calls it.
-   * When P3 lands, the send-transition site calls this with the operator's
-   * final body + subject; no further change to this method is needed.
+   * The lifecycle-draft send-transition (flipping opportunity_follow_up_drafts
+   * to status='sent' + final_sent_body) landed with P3 in the email send route
+   * (src/app/api/integrations/email/send/route.ts), which calls this method
+   * with the operator's final body + subject, gated behind
+   * LIFECYCLE_LEARNING_ENABLED (enabled at go-live).
    *
    * Bridging: template_follow_up drafts have ai_draft_history_id IS NULL
    * today (they were never AI-generated). To run the existing delta+learn
