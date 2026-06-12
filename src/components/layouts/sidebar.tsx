@@ -1,30 +1,31 @@
 "use client";
 
 /**
- * Sidebar — the HUD rail (WEB OVERHAUL P2, rebuilt from scratch).
+ * Sidebar — the instrument rail (WEB OVERHAUL P2, variant B).
  *
- * Desktop: 72px instrument rail at rest → 240px glass-dense overlay on
- * hover. Expansion waits 120ms of hover intent (mousing past the rail to
- * reach content never flares it open) and collapses after an 80ms grace.
- * Keyboard focus entering the rail expands it immediately.
+ * Desktop: a fixed 72px icon rail. It never expands and nothing reflows —
+ * each icon surfaces its label as a glass tooltip that flies out to the
+ * right on hover/focus, leaving the rail (and the page) perfectly still.
+ * This replaces the earlier hover-to-expand overlay, whose width animation
+ * read as jarring every time the cursor grazed the rail.
  *
- * Mobile (<768px): slide-in drawer, always-expanded anatomy, scrim
+ * Mobile (<768px): slide-in drawer with the full labelled anatomy, scrim
  * dismiss + Escape.
  *
  * Nav structure comes from the route registry — labels resolve through the
  * `navigation` dictionary, visibility through RBAC (`can`), commercial
- * feature flags (`isPermissionUnlocked` → dimmed request-access state),
- * and the Phase C posture (`canAccessFeature("phase_c")` → entries render
- * only for flagged companies, invisible to everyone else). The Inbox nav
- * entry is gone (master plan §3 — UI shelved); its route survives for
- * inbox_ui-flagged companies via the page's server gate + the registry's
- * non-nav entry, reachable by URL and old notification links.
+ * feature flags (`isPermissionUnlocked` → dimmed request-access state), and
+ * the Phase C posture (`canAccessFeature("phase_c")` → entries render only
+ * for flagged companies, invisible to everyone else). The Inbox nav entry
+ * is gone (master plan §3 — UI shelved); its route survives behind the
+ * inbox_ui flag, reachable by URL and old notification links.
  *
- * Z (nav band): top bar 500 · mobile scrim 502 · sidebar 505.
+ * Z (nav band): top bar 500 · mobile scrim 502 · sidebar 505 · tooltip 1000.
  */
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Building2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { OpsMark } from "@/components/brand";
@@ -53,24 +54,35 @@ import { FeatureAccessModal } from "@/components/ops/feature-access-modal";
 import { OperatorMenu } from "./operator-menu";
 import packageJson from "../../../package.json";
 
-// Rail geometry — the 72px rest width is shared with dashboard-layout's
-// pl-[72px] content inset and md:left-[72px] top-bar offset.
-const RAIL_REST_PX = 72;
-const RAIL_EXPANDED_PX = 240;
+// Rail geometry — the 72px width is shared with dashboard-layout's
+// md:pl-[72px] content inset and md:left-[72px] top-bar / gradient offsets.
+const RAIL_PX = 72;
 const MOBILE_DRAWER_PX = 280;
-const HOVER_INTENT_MS = 120;
-const HOVER_GRACE_MS = 80;
+// Tooltip dwell before it surfaces — long enough that cursor fly-overs on the
+// way to page content never flash a label, short enough to feel instant.
+const TOOLTIP_DELAY_MS = 90;
+
+// ─── Tooltip (desktop icon labels) ───────────────────────────────────────────
+
+interface TipState {
+  label: string;
+  top: number;
+  left: number;
+}
 
 // ─── Nav row ─────────────────────────────────────────────────────────────────
 
 interface NavRowProps {
   entry: RouteEntry;
+  /** Mobile drawer shows labels inline; desktop rail is icon-only. */
   expanded: boolean;
   isActive: boolean;
   gated: boolean;
   badgeCount?: number;
   gatedTooltip?: string;
   onSelect: () => void;
+  onShowTip: (el: HTMLElement, label: string) => void;
+  onHideTip: () => void;
 }
 
 function NavRow({
@@ -81,57 +93,109 @@ function NavRow({
   badgeCount,
   gatedTooltip,
   onSelect,
+  onShowTip,
+  onHideTip,
 }: NavRowProps) {
   const Icon = entry.icon;
   const { t } = useDictionary("navigation");
+  const label = t(entry.labelKey);
+
+  // Desktop tooltip surfaces the label (or the gated reason). On mobile the
+  // label is already inline, so the tooltip stays dormant.
+  const tipLabel = gated ? gatedTooltip ?? label : label;
+  const tipHandlers = expanded
+    ? {}
+    : {
+        onMouseEnter: (e: React.MouseEvent<HTMLButtonElement>) =>
+          onShowTip(e.currentTarget, tipLabel),
+        onMouseLeave: onHideTip,
+        onFocus: (e: React.FocusEvent<HTMLButtonElement>) =>
+          onShowTip(e.currentTarget, tipLabel),
+        onBlur: onHideTip,
+      };
 
   return (
     <button
       type="button"
-      onClick={onSelect}
-      title={gated ? gatedTooltip : !expanded ? t(entry.labelKey) : undefined}
+      onClick={() => {
+        onHideTip();
+        onSelect();
+      }}
+      aria-label={label}
       aria-current={isActive ? "page" : undefined}
+      {...tipHandlers}
       className={cn(
-        "group relative flex w-full items-center h-[36px] rounded-[6px]",
+        "group relative flex w-full items-center",
         "transition-colors duration-150 ease-smooth motion-reduce:transition-none",
-        expanded ? "gap-3 px-[11px]" : "justify-center px-0",
+        expanded
+          ? "h-[40px] gap-3 rounded-[6px] px-3"
+          : "h-[44px] justify-center px-0",
         gated
           ? "text-text-mute opacity-50 hover:opacity-70 cursor-pointer"
           : isActive
             ? "text-text"
-            : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]"
+            : "text-text-3 hover:text-text",
+        // On mobile the whole row carries the fill; on the rail the fill is a
+        // centered tile drawn below, so the row itself stays transparent.
+        expanded &&
+          !gated &&
+          (isActive
+            ? "bg-[rgba(255,255,255,0.05)]"
+            : "hover:bg-[rgba(255,255,255,0.04)]")
       )}
     >
-      {/* Active indicator — 2px text-2 bar at the rail edge. No accent on nav. */}
+      {/* Active edge marker — 2px text-2 bar at the rail's inner edge. No
+          accent on nav (DESIGN.md §9). */}
       {isActive && !gated && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute -left-3.5 top-[6px] bottom-[6px] w-[2px] rounded-[1px] bg-text-2"
+          className={cn(
+            "pointer-events-none absolute top-1/2 h-[18px] w-[2px] -translate-y-1/2 rounded-[1px] bg-text-2",
+            expanded ? "left-0" : "left-[7px]"
+          )}
         />
       )}
-      <Icon
+
+      {/* Icon — on the rail it sits inside a 40px tile that carries the
+          hover/active fill; in the drawer it's a bare glyph. */}
+      <span
         className={cn(
-          "h-[20px] w-[20px] shrink-0 transition-colors duration-150 motion-reduce:transition-none",
-          gated
-            ? "text-text-mute"
-            : isActive
-              ? "text-text"
-              : "text-text-3 group-hover:text-text-2"
+          "relative flex shrink-0 items-center justify-center",
+          !expanded &&
+            "h-[40px] w-[40px] rounded-[8px] transition-colors duration-150 motion-reduce:transition-none",
+          !expanded &&
+            !gated &&
+            (isActive
+              ? "bg-[rgba(255,255,255,0.06)]"
+              : "group-hover:bg-[rgba(255,255,255,0.05)]")
         )}
-      />
+      >
+        <Icon
+          className={cn(
+            "h-[20px] w-[20px] transition-colors duration-150 motion-reduce:transition-none",
+            gated
+              ? "text-text-mute"
+              : isActive
+                ? "text-text"
+                : "text-text-3 group-hover:text-text-2"
+          )}
+        />
+        {/* Rail badge — small count dot pinned to the tile corner. */}
+        {!expanded && badgeCount !== undefined && badgeCount > 0 && (
+          <span className="absolute -right-[1px] -top-[1px] flex h-[15px] min-w-[15px] items-center justify-center rounded-[5px] bg-[rgba(255,255,255,0.12)] px-[3px] font-mono text-[9px] leading-none text-text-2 tabular-nums">
+            {badgeCount > 99 ? "99+" : badgeCount}
+          </span>
+        )}
+      </span>
+
       {expanded && (
-        <span className="truncate font-cakemono font-light text-[13px] uppercase tracking-[0.02em]">
-          {t(entry.labelKey)}
+        <span className="truncate font-cakemono text-[13px] font-light uppercase tracking-[0.02em]">
+          {label}
         </span>
       )}
-      {badgeCount !== undefined && badgeCount > 0 && (
-        <span
-          className={cn(
-            "font-mono text-micro leading-none text-text-2 tabular-nums",
-            "rounded-[4px] bg-[rgba(255,255,255,0.08)] px-[5px] py-[2px]",
-            expanded ? "ml-auto" : "absolute right-[6px] top-[2px]"
-          )}
-        >
+      {/* Drawer badge — inline trailing count. */}
+      {expanded && badgeCount !== undefined && badgeCount > 0 && (
+        <span className="ml-auto rounded-[4px] bg-[rgba(255,255,255,0.08)] px-[5px] py-[2px] font-mono text-[10px] leading-none text-text-2 tabular-nums">
           {badgeCount > 99 ? "99+" : badgeCount}
         </span>
       )}
@@ -152,17 +216,18 @@ function GroupMark({
 }) {
   const { t } = useDictionary("navigation");
   if (!expanded) {
-    // At rest the group boundary reads as a hairline (no room for a label).
+    // On the rail there's no room for a label — the group boundary reads as a
+    // short centered hairline.
     if (first) return null;
     return (
       <div
         aria-hidden="true"
-        className="mx-1.5 my-2 h-px bg-[rgba(255,255,255,0.06)]"
+        className="mx-auto my-2 h-px w-[28px] bg-[rgba(255,255,255,0.07)]"
       />
     );
   }
   return (
-    <div className="flex items-baseline gap-1 px-2 pb-1.5 pt-2.5">
+    <div className="flex items-baseline gap-1 px-2 pb-1.5 pt-3">
       <span
         aria-hidden="true"
         className="font-mono text-[10px] tracking-[0.16em] text-text-mute"
@@ -181,8 +246,7 @@ function GroupMark({
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isHoverExpanded, setHoverExpanded, isMobileOpen, closeMobile } =
-    useSidebarStore();
+  const { isMobileOpen, closeMobile } = useSidebarStore();
   const currentUser = useAuthStore((s) => s.currentUser);
   const storeCompany = useAuthStore((s) => s.company);
   const { data: freshCompany } = useCompany();
@@ -197,8 +261,8 @@ export function Sidebar() {
   const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
   const flagsReady = useFeatureFlagsStore(selectFlagsReady);
 
-  // Phase C surfaces render only for flagged companies. Flags load async
-  // and unknown slugs default to accessible, so the readiness gate is what
+  // Phase C surfaces render only for flagged companies. Flags load async and
+  // unknown slugs default to accessible, so the readiness gate is what
   // prevents a boot-time flash of Calibration/Agent Queue for everyone.
   const phaseCVisible = flagsReady && canAccessFeature("phase_c");
 
@@ -236,54 +300,42 @@ export function Sidebar() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isMobileOpen, closeMobile]);
 
-  // ── Hover intent (desktop) ─────────────────────────────────────────────
-  const expandTimer = useRef<number | null>(null);
-  const collapseTimer = useRef<number | null>(null);
-  const clearTimers = useCallback(() => {
-    if (expandTimer.current !== null) window.clearTimeout(expandTimer.current);
-    if (collapseTimer.current !== null)
-      window.clearTimeout(collapseTimer.current);
-    expandTimer.current = null;
-    collapseTimer.current = null;
+  const expanded = isMobileView;
+
+  // ── Label tooltips (desktop rail) ──────────────────────────────────────
+  // A single portalled chip, positioned from the hovered/focused row's rect
+  // so it escapes the rail's clipping and never shifts layout.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const [tip, setTip] = useState<TipState | null>(null);
+  const tipTimer = useRef<number | null>(null);
+  const clearTipTimer = useCallback(() => {
+    if (tipTimer.current !== null) {
+      window.clearTimeout(tipTimer.current);
+      tipTimer.current = null;
+    }
   }, []);
-  useEffect(() => clearTimers, [clearTimers]);
-
-  const handleEnter = useCallback(() => {
-    if (isMobileView) return;
-    clearTimers();
-    expandTimer.current = window.setTimeout(
-      () => setHoverExpanded(true),
-      HOVER_INTENT_MS
-    );
-  }, [isMobileView, clearTimers, setHoverExpanded]);
-
-  const handleLeave = useCallback(() => {
-    if (isMobileView) return;
-    clearTimers();
-    collapseTimer.current = window.setTimeout(
-      () => setHoverExpanded(false),
-      HOVER_GRACE_MS
-    );
-  }, [isMobileView, clearTimers, setHoverExpanded]);
-
-  // Keyboard parity: focus entering the rail expands immediately; focus
-  // leaving collapses after the same grace as the pointer path.
-  const handleFocus = useCallback(() => {
-    if (isMobileView) return;
-    clearTimers();
-    setHoverExpanded(true);
-  }, [isMobileView, clearTimers, setHoverExpanded]);
-
-  const handleBlur = useCallback(
-    (e: React.FocusEvent<HTMLElement>) => {
+  const showTip = useCallback(
+    (el: HTMLElement, label: string) => {
       if (isMobileView) return;
-      if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
-      handleLeave();
+      clearTipTimer();
+      tipTimer.current = window.setTimeout(() => {
+        const r = el.getBoundingClientRect();
+        // Anchor to the rail's right edge (not the button's) so the chip
+        // always clears the rail with a consistent gap.
+        const railRight =
+          el.closest("aside")?.getBoundingClientRect().right ?? r.right;
+        setTip({ label, top: r.top + r.height / 2, left: railRight + 8 });
+      }, TOOLTIP_DELAY_MS);
     },
-    [isMobileView, handleLeave]
+    [isMobileView, clearTipTimer]
   );
-
-  const expanded = isMobileView ? true : isHoverExpanded;
+  const hideTip = useCallback(() => {
+    clearTipTimer();
+    setTip(null);
+  }, [clearTipTimer]);
+  useEffect(() => clearTipTimer, [clearTipTimer]);
 
   // ── Nav rows (registry × live gates) ───────────────────────────────────
   type Row =
@@ -301,8 +353,8 @@ export function Sidebar() {
       let gated = false;
       if (entry.permission) {
         if (!isPermissionUnlocked(entry.permission)) {
-          // Commercial feature flag locked — visible but dimmed, click
-          // opens the request-access flow.
+          // Commercial feature flag locked — visible but dimmed, click opens
+          // the request-access flow.
           gated = true;
         } else if (permissionsReady && !can(entry.permission)) {
           // RBAC — hidden outright once permissions have resolved.
@@ -346,10 +398,9 @@ export function Sidebar() {
         return;
       }
       router.push(entry.href);
-      setHoverExpanded(false);
       closeMobile();
     },
-    [router, setHoverExpanded, closeMobile, t]
+    [router, closeMobile, t]
   );
 
   return (
@@ -364,30 +415,22 @@ export function Sidebar() {
       )}
 
       <aside
-        onMouseEnter={handleEnter}
-        onMouseLeave={handleLeave}
-        onFocusCapture={handleFocus}
-        onBlur={handleBlur}
         aria-hidden={isMobileView && !isMobileOpen ? "true" : undefined}
         className={cn(
           "fixed left-0 top-0 z-[505] flex h-screen flex-col",
           "border-r border-[rgba(255,255,255,0.06)]",
-          "transition-[width,transform] duration-200 ease-smooth motion-reduce:transition-none",
-          // Mobile: off-canvas drawer. The visibility/pointer-events pair
-          // keeps the drawer genuinely inert when closed even if a legacy
-          // WebView drops the transform (drawer used to land back in layout
-          // and overlap dashboard widgets at 390px).
+          "transition-transform duration-200 ease-smooth motion-reduce:transition-none",
+          // Mobile: off-canvas drawer. The visibility/pointer-events pair keeps
+          // the drawer genuinely inert when closed even if a legacy WebView
+          // drops the transform (drawer used to land back in layout and
+          // overlap dashboard widgets at 390px).
           isMobileOpen
             ? "translate-x-0 visible pointer-events-auto"
             : "-translate-x-full invisible pointer-events-none",
           "md:translate-x-0 md:visible md:pointer-events-auto"
         )}
         style={{
-          width: isMobileView
-            ? MOBILE_DRAWER_PX
-            : expanded
-              ? RAIL_EXPANDED_PX
-              : RAIL_REST_PX,
+          width: isMobileView ? MOBILE_DRAWER_PX : RAIL_PX,
           background: "var(--surface-glass-dense)",
           backdropFilter: "blur(28px) saturate(1.3)",
           WebkitBackdropFilter: "blur(28px) saturate(1.3)",
@@ -414,14 +457,19 @@ export function Sidebar() {
             )}
           </div>
           {expanded && (
-            <span className="truncate font-cakemono font-light text-[14px] uppercase text-text">
+            <span className="truncate font-cakemono text-[14px] font-light uppercase text-text">
               {company?.name || t("company.fallback")}
             </span>
           )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 py-1.5 scrollbar-hide">
+        <nav
+          className={cn(
+            "flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide",
+            expanded ? "px-3.5 py-1.5" : "px-0 py-2"
+          )}
+        >
           {rows.map((row, i) =>
             row.kind === "mark" ? (
               <GroupMark
@@ -431,7 +479,10 @@ export function Sidebar() {
                 first={row.first}
               />
             ) : (
-              <div key={row.entry.key} className="mb-[2px]">
+              <div
+                key={row.entry.key}
+                className={cn(expanded ? "mb-[2px]" : "mb-[3px] px-2")}
+              >
                 <NavRow
                   entry={row.entry}
                   expanded={expanded}
@@ -448,6 +499,8 @@ export function Sidebar() {
                       : undefined
                   }
                   onSelect={() => handleSelect(row.entry, row.gated)}
+                  onShowTip={showTip}
+                  onHideTip={hideTip}
                 />
               </div>
             )
@@ -455,7 +508,12 @@ export function Sidebar() {
         </nav>
 
         {/* Footer: brand + version, then the operator section */}
-        <div className="shrink-0 border-t border-[rgba(255,255,255,0.06)] p-3.5 pt-2.5">
+        <div
+          className={cn(
+            "shrink-0 border-t border-[rgba(255,255,255,0.06)]",
+            expanded ? "p-3.5 pt-2.5" : "px-2 pb-2.5 pt-2"
+          )}
+        >
           <div
             className={cn(
               "flex items-center gap-2 pb-2",
@@ -476,6 +534,33 @@ export function Sidebar() {
           <OperatorMenu expanded={expanded} />
         </div>
       </aside>
+
+      {/* Desktop label tooltip — portalled so it escapes the rail and never
+          reflows the page. Suppressed on mobile, where labels are inline. */}
+      {mounted &&
+        tip &&
+        !isMobileView &&
+        createPortal(
+          <div
+            role="tooltip"
+            style={{ position: "fixed", top: tip.top, left: tip.left }}
+            className="pointer-events-none z-[1000] -translate-y-1/2 animate-fade-in rounded-[6px] border border-[rgba(255,255,255,0.10)] px-[9px] py-[5px] motion-reduce:animate-none"
+          >
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 -z-[1] rounded-[6px]"
+              style={{
+                background: "var(--surface-glass-dense)",
+                backdropFilter: "blur(12px) saturate(1.2)",
+                WebkitBackdropFilter: "blur(12px) saturate(1.2)",
+              }}
+            />
+            <span className="whitespace-nowrap font-cakemono text-[12px] font-light uppercase tracking-[0.04em] text-text">
+              {tip.label}
+            </span>
+          </div>,
+          document.body
+        )}
 
       {/* Feature access request modal (gated entries) */}
       {accessModalFeature && (

@@ -137,9 +137,9 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        side="top"
-        align={expanded ? "start" : "center"}
-        sideOffset={8}
+        side={expanded ? "top" : "right"}
+        align={expanded ? "start" : "end"}
+        sideOffset={expanded ? 8 : 12}
         className="z-[1000] w-[248px] rounded-[12px] p-0"
       >
         {/* Identity block */}
