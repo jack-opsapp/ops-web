@@ -25,6 +25,16 @@ export const EDGE_Z_TAB_REST = 1540;
 export const EDGE_Z_DRAWER = 1550;
 export const EDGE_Z_TAB_ACTIVE = 1560;
 
+/**
+ * Drawer padding zones — defined once so the rail drawers can't drift into
+ * per-callsite padding dialects. All values are 4/8-grid (DESIGN.md §7).
+ */
+export const EDGE_DRAWER_PADDING = {
+  header: "12px 16px 8px",
+  row: "8px 16px",
+  footer: "8px 16px",
+} as const;
+
 export const EDGE_RAIL_STACK = {
   notifications: {
     height: 164,

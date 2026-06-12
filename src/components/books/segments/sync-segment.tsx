@@ -274,7 +274,7 @@ export function SyncSegment({
   );
 
   return (
-    <div className="space-y-[14px]">
+    <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         {segmentControl}
         <FilterChips options={viewOptions} value={view} onChange={(v) => onViewChange(v as SyncView)} />
@@ -283,9 +283,10 @@ export function SyncSegment({
       {view === "import" ? (
         <QuickBooksImportTab />
       ) : (
-        <div className="space-y-2">
+        // Sibling glass panels sit 24px apart (DESIGN.md §7 panel gap).
+        <div className="space-y-3">
           {/* Connection cards */}
-          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             <ConnectionCard
               provider={AccountingProvider.QuickBooks}
               connection={qbConnection}
@@ -329,7 +330,7 @@ export function SyncSegment({
                 <Loader2 className="h-[20px] w-[20px] animate-spin motion-reduce:animate-none text-text-3" />
               </div>
             ) : syncHistory.length === 0 ? (
-              <p className="py-4 text-center font-mono text-micro text-text-mute">—</p>
+              <p className="py-4 font-mono text-micro text-text-mute">—</p>
             ) : (
               <div className="max-h-[300px] space-y-[2px] overflow-y-auto">
                 {syncHistory.map((entry) => (

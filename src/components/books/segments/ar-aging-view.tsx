@@ -154,7 +154,8 @@ export function ArAgingView({
   }, [accountingMetrics, tb]);
 
   return (
-    <div className="space-y-2">
+    // Sibling glass panels sit 24px apart (DESIGN.md §7 panel gap).
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-[12px]">
         {onBackToList && (
           <button
@@ -168,7 +169,7 @@ export function ArAgingView({
         <SegmentStatLine items={statItems} />
       </div>
 
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {/* Aging report */}
         <div className="glass-surface space-y-1.5 p-2">
           <PanelTitle>{t("aging.title")}</PanelTitle>
@@ -185,7 +186,7 @@ export function ArAgingView({
         <div className="glass-surface space-y-1.5 p-2">
           <PanelTitle>{t("topClients.title")}</PanelTitle>
           {topClients.length === 0 ? (
-            <p className="py-3 text-center font-mono text-micro text-text-mute">—</p>
+            <p className="py-3 font-mono text-micro text-text-mute">—</p>
           ) : (
             <div className="space-y-[2px] pt-0.5">
               {topClients.map((client, idx) => (

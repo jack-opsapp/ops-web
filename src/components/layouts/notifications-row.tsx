@@ -17,6 +17,7 @@ import { useDictionary } from "@/i18n/client";
 import { lucideIconFromName } from "@/lib/notifications/notification-meta";
 import { translateNotifCopy } from "@/lib/notifications/translate-copy";
 import { rowVariants, rowVariantsReduced } from "@/lib/utils/motion";
+import { EDGE_DRAWER_PADDING } from "@/components/ui/edge-rail-layout";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 import type { NotificationMeta } from "@/lib/notifications/notification-meta";
 
@@ -110,7 +111,7 @@ export function NotificationRow({
       onClick={onRowClick}
       style={{
         position: "relative",
-        padding: "9px 14px",
+        padding: EDGE_DRAWER_PADDING.row,
         cursor: "pointer",
         background: hover || expanded ? "rgba(255,255,255,0.03)" : "transparent",
         borderTop: "1px solid var(--line)",

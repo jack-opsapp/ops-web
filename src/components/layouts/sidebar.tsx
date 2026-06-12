@@ -497,7 +497,7 @@ export function Sidebar() {
             ) : (
               <div
                 key={row.entry.key}
-                className={cn(expanded ? "mb-[2px]" : "mb-[3px] px-2")}
+                className={cn(expanded ? "mb-[2px]" : "mb-[2px] px-2")}
               >
                 <NavRow
                   entry={row.entry}
@@ -562,7 +562,7 @@ export function Sidebar() {
           <div
             role="tooltip"
             style={{ position: "fixed", top: tip.top, left: tip.left }}
-            className="pointer-events-none z-[1000] -translate-y-1/2 animate-fade-in rounded-[4px] border border-glass-border px-[9px] py-[5px] motion-reduce:animate-none"
+            className="pointer-events-none z-[1000] -translate-y-1/2 animate-fade-in rounded-[4px] border border-glass-border px-1 py-0.5 motion-reduce:animate-none"
           >
             <span
               aria-hidden="true"

@@ -40,6 +40,7 @@ import {
 import { useDictionary } from "@/i18n/client";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 import {
+  EDGE_DRAWER_PADDING,
   EDGE_RAIL_BOTTOM,
   EDGE_RAIL_STACK,
   EDGE_RAIL_TOP,
@@ -269,7 +270,7 @@ export function NotificationsDrawer() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                padding: "12px 14px 10px",
+                padding: EDGE_DRAWER_PADDING.header,
                 borderBottom: "1px solid var(--line)",
                 position: "relative",
               }}
@@ -310,7 +311,7 @@ export function NotificationsDrawer() {
               style={{
                 display: "flex",
                 gap: 4,
-                padding: "8px 14px 10px",
+                padding: EDGE_DRAWER_PADDING.row,
                 borderBottom: "1px solid var(--line)",
                 flexWrap: "nowrap",
                 overflowX: "hidden",
@@ -390,7 +391,7 @@ export function NotificationsDrawer() {
               style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
             >
               {visible.length === 0 && (
-                <div style={{ padding: 28, textAlign: "center" }}>
+                <div style={{ padding: 24 }}>
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
@@ -429,7 +430,7 @@ export function NotificationsDrawer() {
                 );
               })}
               {visible.length > 0 && (
-                <div style={{ padding: "10px 14px", textAlign: "center" }}>
+                <div style={{ padding: EDGE_DRAWER_PADDING.row }}>
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
@@ -449,7 +450,7 @@ export function NotificationsDrawer() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                padding: "9px 14px",
+                padding: EDGE_DRAWER_PADDING.footer,
                 borderTop: "1px solid var(--line)",
               }}
             >

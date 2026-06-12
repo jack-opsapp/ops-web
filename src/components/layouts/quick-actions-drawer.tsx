@@ -32,6 +32,7 @@ import {
 } from "@/lib/utils/motion";
 import { computeQuickActionsPanelHeight } from "./quick-actions-tab";
 import {
+  EDGE_DRAWER_PADDING,
   EDGE_RAIL_BOTTOM,
   EDGE_RAIL_STACK,
   EDGE_RAIL_TOP,
@@ -198,7 +199,7 @@ export function QuickActionsDrawer() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  padding: "12px 14px 10px",
+                  padding: EDGE_DRAWER_PADDING.header,
                   borderBottom: "1px solid var(--line)",
                   position: "relative",
                   zIndex: 1,
@@ -254,7 +255,7 @@ export function QuickActionsDrawer() {
                 }}
               >
                 {actions.length === 0 && (
-                  <div style={{ padding: 24, textAlign: "center" }}>
+                  <div style={{ padding: 24 }}>
                     <span
                       style={{
                         fontFamily: "var(--font-mono)",
@@ -344,7 +345,7 @@ export function QuickActionsDrawer() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "9px 14px",
+                  padding: EDGE_DRAWER_PADDING.footer,
                   borderTop: "1px solid var(--line)",
                   borderLeft: "none",
                   borderRight: "none",

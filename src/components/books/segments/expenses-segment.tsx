@@ -11,7 +11,7 @@ import { ExpenseReviewDashboard } from "@/components/expenses/expense-review-das
 
 export function ExpensesSegment({ segmentControl }: { segmentControl: React.ReactNode }) {
   return (
-    <div className="space-y-[14px]">
+    <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">{segmentControl}</div>
       <ExpenseReviewDashboard />
     </div>

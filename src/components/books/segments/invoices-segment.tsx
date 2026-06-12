@@ -304,7 +304,7 @@ export function InvoicesSegment({
   // ── A/R aging view (forced for accounting.view-only users) ──────────
   if ((view === "aging" || !listAllowed) && canAging) {
     return (
-      <div className="space-y-[14px]">
+      <div className="space-y-2">
         {workbar}
         <ArAgingView
           invoices={invoices}
@@ -316,7 +316,7 @@ export function InvoicesSegment({
   }
 
   return (
-    <div className="space-y-[14px]">
+    <div className="space-y-2">
       {workbar}
       <div className="flex flex-wrap items-center gap-[12px]">
         <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
@@ -397,7 +397,6 @@ export function InvoicesSegment({
                       className={cn(
                         "px-2 py-1.5 text-left font-mono text-micro font-normal uppercase tracking-[0.16em] text-text-3",
                         i >= 5 && i <= 7 && "text-right",
-                        i === 8 && "text-center",
                         i === 2 && "hidden md:table-cell",
                         i === 3 && "hidden sm:table-cell",
                         i === 6 && "hidden sm:table-cell",
@@ -421,27 +420,27 @@ export function InvoicesSegment({
                         setEditingInvoice(invoice);
                       }}
                     >
-                      <td className="px-2 py-[11px]">
+                      <td className="px-2 py-1.5">
                         <span className="font-mono text-data-sm text-text tabular-nums">
                           {invoice.invoiceNumber}
                         </span>
                       </td>
-                      <td className="px-2 py-[11px]">
+                      <td className="px-2 py-1.5">
                         <span className="block max-w-[180px] truncate font-mohave text-body-sm text-text">
                           {invoice.clientId ? clientMap.get(invoice.clientId) ?? "—" : "—"}
                         </span>
                       </td>
-                      <td className="hidden px-2 py-[11px] md:table-cell">
+                      <td className="hidden px-2 py-1.5 md:table-cell">
                         <span className="block max-w-[160px] truncate font-mohave text-body-sm text-text-3">
                           {invoice.projectId ? projectMap.get(invoice.projectId) ?? "—" : "—"}
                         </span>
                       </td>
-                      <td className="hidden px-2 py-[11px] sm:table-cell">
+                      <td className="hidden px-2 py-1.5 sm:table-cell">
                         <span className="whitespace-nowrap font-mono text-data-sm text-text-3 tabular-nums">
                           {fmtDate(invoice.issueDate, locale)}
                         </span>
                       </td>
-                      <td className="px-2 py-[11px]">
+                      <td className="px-2 py-1.5">
                         <span
                           className={cn(
                             "whitespace-nowrap font-mono text-data-sm tabular-nums",
@@ -452,12 +451,12 @@ export function InvoicesSegment({
                           {over && days > 0 && ` · ${days}D`}
                         </span>
                       </td>
-                      <td className="px-2 py-[11px] text-right">
+                      <td className="px-2 py-1.5 text-right">
                         <span className="font-mono text-data-sm text-text tabular-nums">
                           {formatCurrency(invoice.total)}
                         </span>
                       </td>
-                      <td className="hidden px-2 py-[11px] text-right sm:table-cell">
+                      <td className="hidden px-2 py-1.5 text-right sm:table-cell">
                         <span
                           className={cn(
                             "font-mono text-data-sm tabular-nums",
@@ -467,7 +466,7 @@ export function InvoicesSegment({
                           {invoice.amountPaid > 0 ? formatCurrency(invoice.amountPaid) : "—"}
                         </span>
                       </td>
-                      <td className="px-2 py-[11px] text-right">
+                      <td className="px-2 py-1.5 text-right">
                         <span
                           className={cn(
                             "font-mono text-data-sm tabular-nums",
@@ -477,7 +476,7 @@ export function InvoicesSegment({
                           {invoice.balanceDue > 0 ? formatCurrency(invoice.balanceDue) : "—"}
                         </span>
                       </td>
-                      <td className="px-2 py-[11px] text-center">
+                      <td className="px-2 py-1.5">
                         <StatusTag
                           status={invoice.status}
                           label={t(`invoices.status.${invoice.status}`, formatEnumLabel(invoice.status))}
@@ -485,7 +484,7 @@ export function InvoicesSegment({
                       </td>
                       {/* Rows are data; verbs live in one labelled overflow
                           (DESIGN.md §11 — icons are metadata, not actions). */}
-                      <td className="px-2 py-[11px] text-right">
+                      <td className="px-2 py-1.5 text-right">
                         <div
                           className="inline-flex"
                           onClick={(e) => e.stopPropagation()}

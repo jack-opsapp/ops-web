@@ -204,11 +204,11 @@ export function TopBar() {
              uppercase 0.16em crumbs with `//` separators in text-mute;
              the leaf entity title is Cake Mono 300 (the display voice —
              Mohave never carries tracked-uppercase headings). */
-          <div className="flex items-center gap-[6px] min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
             {parentCrumbs ? (
               /* Custom parent crumbs (set by detail pages) */
               parentCrumbs.map((crumb, i) => (
-                <div key={i} className="flex items-center gap-[6px]">
+                <div key={i} className="flex items-center gap-1">
                   {i > 0 && (
                     <span className="text-text-mute font-mono text-micro">
                       {"//"}
@@ -253,7 +253,7 @@ export function TopBar() {
       </div>
 
       {/* Center: Undo + Search */}
-      <div className="flex items-center gap-[6px] mx-auto min-w-0 flex-shrink">
+      <div className="flex items-center gap-1 mx-auto min-w-0 flex-shrink">
         {/* Undo button — only visible when stack is non-empty */}
         {topEntry && (
           <div className="relative">
@@ -297,7 +297,7 @@ export function TopBar() {
         )}
         <button
           className={cn(
-            "flex items-center gap-[6px] h-[40px] px-2 rounded-[5px]",
+            "flex items-center gap-1 h-[40px] px-2 rounded-[5px]",
             "bg-surface-input hover:bg-surface-hover border border-border",
             "text-text-3 hover:text-text-2",
             "transition-all duration-150 ease-smooth motion-reduce:transition-none cursor-pointer",
@@ -327,7 +327,7 @@ export function TopBar() {
       </div>
 
       {/* Right: Sync + clock */}
-      <div className="flex items-center gap-[10px] shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         <SyncIndicator status={syncStatus} t={t} />
         <DeckClock />
       </div>

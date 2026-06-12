@@ -81,7 +81,8 @@ function TileShell({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       className={cn(
-        "glass-surface flex min-h-[132px] flex-col px-[18px] pb-[14px] pt-2 text-left",
+        // SM widget zone: 14px top / 18px sides / 12px bottom (DESIGN.md §7).
+        "glass-surface flex min-h-[132px] flex-col px-[18px] pb-[12px] pt-[14px] text-left",
         onClick &&
           "cursor-pointer transition-colors duration-150 ease-smooth hover:bg-surface-hover focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
       )}
@@ -264,7 +265,7 @@ function DivergingBars({ bars, animate }: { bars: BooksLedger["jobs"]["bars"]; a
 
 function TileSkeleton() {
   return (
-    <div className="glass-surface min-h-[132px] animate-pulse px-[18px] pb-[14px] pt-2 motion-reduce:animate-none">
+    <div className="glass-surface min-h-[132px] animate-pulse px-[18px] pb-[12px] pt-[14px] motion-reduce:animate-none">
       <div className="mb-2 h-[11px] w-[72px] rounded bg-fill-neutral-dim" />
       <div className="mb-2 h-[24px] w-[120px] rounded bg-fill-neutral-dim" />
       <div className="mb-2 h-[16px] w-full rounded bg-fill-neutral-dim/60" />
@@ -311,7 +312,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
           <TileSkeleton />
         </div>
       ) : isError || !data ? (
-        <div className="glass-surface flex min-h-[80px] items-center justify-between px-[18px] py-2">
+        <div className="glass-surface flex min-h-[80px] items-center justify-between px-[18px] pb-[12px] pt-[14px]">
           <span className="font-mono text-micro uppercase tracking-[0.16em] text-rose">
             <span className="text-text-mute">{"// "}</span>
             {t("ledger.error")}
