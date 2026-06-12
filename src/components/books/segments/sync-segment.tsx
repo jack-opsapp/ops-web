@@ -1,0 +1,376 @@
+"use client";
+
+/**
+ * Books — SYNC segment (P3.1). Home for the accounting integrations
+ * (capability inventory A6) and the QuickBooks read-only import (A7),
+ * absorbed from /accounting?tab=integrations / ?tab=import.
+ * Gated on accounting.manage_connections (invisible to everyone else).
+ */
+
+import { useMemo } from "react";
+import {
+  Calculator,
+  Link2,
+  Link2Off,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Loader2,
+} from "lucide-react";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import { Button } from "@/components/ui/button";
+import {
+  useAccountingConnections,
+  useInitiateOAuth,
+  useDisconnectProvider,
+  useTriggerSync,
+  useSyncHistory,
+} from "@/lib/hooks";
+import { AccountingProvider } from "@/lib/types/pipeline";
+import type { AccountingConnection } from "@/lib/types/pipeline";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { cn } from "@/lib/utils/cn";
+import { QuickBooksImportTab } from "@/components/accounting/qbo/quickbooks-import-tab";
+import { FilterChips } from "../segment-toolbar";
+
+export type SyncView = "connections" | "import";
+
+// ─── Provider info (ported from the retired /accounting page) ─────────────────
+
+const PROVIDER_STYLE: Record<AccountingProvider, { color: string; bgColor: string }> = {
+  [AccountingProvider.QuickBooks]: { color: "#2CA01C", bgColor: "rgba(44,160,28,0.1)" },
+  [AccountingProvider.Sage]: { color: "#00DC00", bgColor: "rgba(0,220,0,0.08)" },
+};
+
+const PROVIDER_I18N_KEYS: Record<AccountingProvider, { name: string; description: string }> = {
+  [AccountingProvider.QuickBooks]: {
+    name: "integrations.quickbooks",
+    description: "integrations.quickbooksDesc",
+  },
+  [AccountingProvider.Sage]: {
+    name: "integrations.sage",
+    description: "integrations.sageDesc",
+  },
+};
+
+// ─── Connection card ──────────────────────────────────────────────────────────
+
+function ConnectionCard({
+  provider,
+  connection,
+  onConnect,
+  onDisconnect,
+  onSync,
+  isSyncing,
+  t,
+}: {
+  provider: AccountingProvider;
+  connection?: AccountingConnection;
+  onConnect: () => void;
+  onDisconnect: () => void;
+  onSync: () => void;
+  isSyncing: boolean;
+  t: (key: string) => string;
+}) {
+  const { locale } = useLocale();
+  const style = PROVIDER_STYLE[provider];
+  const i18nKeys = PROVIDER_I18N_KEYS[provider];
+  const isConnected = connection?.isConnected ?? false;
+
+  return (
+    <div className="glass-surface space-y-1.5 p-2">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-1.5">
+          <div
+            className="flex h-[40px] w-[40px] items-center justify-center rounded-[8px]"
+            style={{ backgroundColor: style.bgColor }}
+          >
+            <Calculator className="h-[20px] w-[20px]" style={{ color: style.color }} />
+          </div>
+          <div>
+            <h3 className="font-mohave text-body-sm uppercase text-text">{t(i18nKeys.name)}</h3>
+            <p className="mt-[2px] font-mono text-micro text-text-3">{t(i18nKeys.description)}</p>
+          </div>
+        </div>
+
+        {/* Status tag */}
+        <span
+          className={cn(
+            "inline-flex items-center gap-[4px] rounded-[4px] border px-[6px] py-[2px]",
+            "font-mono text-micro font-medium uppercase tracking-[0.12em]",
+            isConnected
+              ? "border-olive-line bg-olive-soft text-olive"
+              : "border-border bg-transparent text-text-3",
+          )}
+        >
+          {isConnected ? (
+            <CheckCircle2 className="h-[10px] w-[10px]" />
+          ) : (
+            <Link2Off className="h-[10px] w-[10px]" />
+          )}
+          {isConnected ? t("integrations.connected") : t("integrations.notConnected")}
+        </span>
+      </div>
+
+      {/* Connection details — never surface the QuickBooks realm id (customer-
+          identifying info; Intuit security req). Status only. */}
+      {isConnected && connection && (
+        <div className="grid grid-cols-2 gap-1.5 border-t border-border pt-1">
+          <div>
+            <span className="block font-mono text-micro-sm uppercase tracking-[0.14em] text-text-mute">
+              {t("integrations.lastSynced")}
+            </span>
+            <span className="font-mono text-data-sm text-text-2 tabular-nums">
+              {connection.lastSyncAt
+                ? new Date(connection.lastSyncAt).toLocaleDateString(getDateLocale(locale), {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : t("integrations.never")}
+            </span>
+          </div>
+          <div>
+            <span className="block font-mono text-micro-sm uppercase tracking-[0.14em] text-text-mute">
+              {t("integrations.autoSync")}
+            </span>
+            <span className="font-mono text-data-sm text-text-2">
+              {connection.syncEnabled ? t("integrations.enabled") : t("integrations.disabled")}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 pt-0.5">
+        {isConnected ? (
+          <>
+            <Button variant="default" size="sm" onClick={onSync} disabled={isSyncing} className="gap-1">
+              {isSyncing ? (
+                <Loader2 className="h-[14px] w-[14px] animate-spin" />
+              ) : (
+                <RefreshCw className="h-[14px] w-[14px]" />
+              )}
+              {isSyncing ? t("integrations.syncing") : t("integrations.syncNow")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDisconnect}
+              className="text-text-3 hover:text-rose"
+            >
+              <Link2Off className="mr-0.5 h-[14px] w-[14px]" />
+              {t("integrations.disconnect")}
+            </Button>
+          </>
+        ) : (
+          <Button variant="default" size="sm" onClick={onConnect} className="gap-1">
+            <Link2 className="h-[14px] w-[14px]" />
+            {t("integrations.connect")} {t(i18nKeys.name)}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Sync history row ─────────────────────────────────────────────────────────
+
+function SyncHistoryRow({
+  entry,
+}: {
+  entry: { id: string; provider: string; status: string; timestamp: Date; details: string | null };
+}) {
+  const { locale } = useLocale();
+  const statusIcon =
+    entry.status === "success" ? (
+      <CheckCircle2 className="h-[12px] w-[12px] text-olive" />
+    ) : entry.status === "error" ? (
+      <AlertCircle className="h-[12px] w-[12px] text-rose" />
+    ) : (
+      <Clock className="h-[12px] w-[12px] text-tan" />
+    );
+
+  return (
+    <div className="flex items-center gap-1.5 rounded px-1 py-[6px] hover:bg-[rgba(255,255,255,0.02)]">
+      {statusIcon}
+      <span className="flex-1 truncate font-mono text-micro uppercase tracking-[0.08em] text-text-2">
+        {entry.provider} — {entry.status}
+      </span>
+      <span className="shrink-0 font-mono text-micro-sm text-text-mute tabular-nums">
+        {new Date(entry.timestamp).toLocaleDateString(getDateLocale(locale), {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </span>
+      {entry.details && (
+        <span className="max-w-[200px] truncate font-mono text-micro-sm text-text-mute">
+          {entry.details}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function PanelTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </h2>
+  );
+}
+
+// ─── Segment ──────────────────────────────────────────────────────────────────
+
+export function SyncSegment({
+  segmentControl,
+  view,
+  onViewChange,
+}: {
+  segmentControl: React.ReactNode;
+  view: SyncView;
+  onViewChange: (view: SyncView) => void;
+}) {
+  const { t } = useDictionary("accounting");
+  const { t: tb } = useDictionary("books");
+  const { company } = useAuthStore();
+  const companyId = company?.id ?? "";
+
+  const { data: connections = [], isLoading: connectionsLoading } = useAccountingConnections();
+  const { data: syncHistory = [], isLoading: historyLoading } = useSyncHistory();
+
+  const initiateOAuth = useInitiateOAuth();
+  const disconnectProvider = useDisconnectProvider();
+  const triggerSync = useTriggerSync();
+
+  const qbConnection =
+    connections.find((c) => c.provider === AccountingProvider.QuickBooks && c.isConnected) ??
+    connections.find((c) => c.provider === AccountingProvider.QuickBooks);
+  const sageConnection =
+    connections.find((c) => c.provider === AccountingProvider.Sage && c.isConnected) ??
+    connections.find((c) => c.provider === AccountingProvider.Sage);
+
+  const handleConnect = (provider: AccountingProvider) => {
+    if (!companyId) return;
+    initiateOAuth.mutate({ companyId, provider });
+  };
+  const handleDisconnect = (
+    provider: AccountingProvider,
+    providerEnvironment?: "production" | "sandbox",
+  ) => {
+    if (!companyId) return;
+    disconnectProvider.mutate({ companyId, provider, providerEnvironment });
+  };
+  const handleSync = (provider: AccountingProvider) => {
+    if (!companyId) return;
+    triggerSync.mutate({ companyId, provider });
+  };
+
+  const viewOptions = useMemo(
+    () => [
+      { value: "connections" as SyncView, label: tb("view.connections") },
+      { value: "import" as SyncView, label: tb("view.import") },
+    ],
+    [tb],
+  );
+
+  return (
+    <div className="space-y-[14px]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {segmentControl}
+        <FilterChips options={viewOptions} value={view} onChange={(v) => onViewChange(v as SyncView)} />
+      </div>
+
+      {view === "import" ? (
+        <QuickBooksImportTab />
+      ) : (
+        <div className="space-y-2">
+          {/* Connection cards */}
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+            <ConnectionCard
+              provider={AccountingProvider.QuickBooks}
+              connection={qbConnection}
+              onConnect={() => handleConnect(AccountingProvider.QuickBooks)}
+              onDisconnect={() =>
+                handleDisconnect(AccountingProvider.QuickBooks, qbConnection?.providerEnvironment)
+              }
+              onSync={() => handleSync(AccountingProvider.QuickBooks)}
+              isSyncing={
+                triggerSync.isPending &&
+                triggerSync.variables?.provider === AccountingProvider.QuickBooks
+              }
+              t={t}
+            />
+            <ConnectionCard
+              provider={AccountingProvider.Sage}
+              connection={sageConnection}
+              onConnect={() => handleConnect(AccountingProvider.Sage)}
+              onDisconnect={() =>
+                handleDisconnect(AccountingProvider.Sage, sageConnection?.providerEnvironment)
+              }
+              onSync={() => handleSync(AccountingProvider.Sage)}
+              isSyncing={
+                triggerSync.isPending && triggerSync.variables?.provider === AccountingProvider.Sage
+              }
+              t={t}
+            />
+          </div>
+
+          {/* Sync history */}
+          <div className="glass-surface space-y-1.5 p-2">
+            <div className="flex items-center justify-between">
+              <PanelTitle>{t("integrations.syncHistory")}</PanelTitle>
+              {connectionsLoading && (
+                <Loader2 className="h-[14px] w-[14px] animate-spin text-text-mute" />
+              )}
+            </div>
+
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-[20px] w-[20px] animate-spin text-text-mute" />
+              </div>
+            ) : syncHistory.length === 0 ? (
+              <p className="py-4 text-center font-mono text-micro text-text-mute">—</p>
+            ) : (
+              <div className="max-h-[300px] space-y-[2px] overflow-y-auto">
+                {syncHistory.map((entry) => (
+                  <SyncHistoryRow key={entry.id} entry={entry} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* How sync works */}
+          <div className="glass-surface space-y-1 p-2">
+            <PanelTitle>{t("integrations.howSyncWorks")}</PanelTitle>
+            <div className="space-y-1 pt-0.5">
+              {(
+                [
+                  ["integrations.outbound", "integrations.outboundDesc"],
+                  ["integrations.inbound", "integrations.inboundDesc"],
+                  ["integrations.conflicts", "integrations.conflictsDesc"],
+                ] as const
+              ).map(([titleKey, descKey], i) => (
+                <div key={titleKey} className="flex items-start gap-1">
+                  <span className="mt-[2px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border border-border font-mono text-micro-sm text-text-3 tabular-nums">
+                    {i + 1}
+                  </span>
+                  <p className="font-mono text-micro leading-relaxed text-text-2">
+                    <strong className="font-medium text-text">{t(titleKey)}</strong> {t(descKey)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
