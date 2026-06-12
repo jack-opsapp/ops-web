@@ -1,6 +1,6 @@
 # OPS-Web Overhaul — Master Plan
 
-**Status:** Active — P1 (decisions) complete, P2 (shell) ready to start
+**Status:** Active — P1 (decisions) complete · P2 (shell) shipped · P3.1 (Books) shipped
 **Decision authority:** Jackson, 2026-06-11
 **Document role:** Program-level spec for the full production-polish overhaul of OPS-Web. Every phase session works from this document. Each phase runs its own spec → plan → build → verify cycle; this document defines the destination, the verdicts, and the rules. It does not duplicate per-surface design detail — that is produced inside each phase.
 
@@ -157,3 +157,6 @@ Run as systematic greps + a full visual walkthrough. Every item is pass/fail per
 | 2026-06-11 | Map absorbed into Projects as view mode; Team absorbed into Settings | Jackson |
 | 2026-06-11 | P2 sidebar: hover-to-expand rejected on live review (jarring); fixed 72px instrument rail with right-flyout tooltip labels approved and shipped (cc4f78a6, shell spec §9 revision) | Jackson |
 | 2026-06-11 | Single local branch `feat/web-overhaul` for the entire program; no per-task branches; no GitHub pushes until explicitly authorized; waves land sequentially | Jackson |
+| 2026-06-11 | **P3.1 Books direction A ("Instrument Strip") approved** — Jackson delegated the pick ("whatever you think is the best UX") across three live-reviewed mockups; A chosen for iOS-pattern fidelity, table width, and clean permission degradation. Mockups + capability inventory + plan: `docs/{design/2026-06-11-books-mockups, specs/2026-06-11-books-capability-inventory.md, plans/2026-06-11-books-surface.md}` | Jackson (delegated) |
+| 2026-06-11 | **P3.1 Books shipped** — `/books` with ledger strip (NET/CASH FLOW/A-R/JOBS) + 4 segments (INVOICES · ESTIMATES · EXPENSES · SYNC); zero descopes against the capability inventory. §2 row-5 mapping confirmed: `/accounting` → `/books?segment=invoices&view=aging` (tab-aware: expenses→expenses, integrations→sync, import→sync+import); `/books/cashflow` (iOS forecast_dip action_url) added to the redirect map. Registry gained `anyOfPermissions` (route gate = invoices.view ∨ estimates.view ∨ expenses.approve ∨ accounting.view; `.approve` because the web expenses segment is the review hub); `/books` joined the `accounting` feature-flag route list. Old pages deleted after live verification (gallery in `docs/design/2026-06-11-books-mockups/verification/`). Known pre-existing red: `tests/unit/inbox/ai-draft-provenance.test.ts` (lifecycle-learning flag drift, unrelated to this wave) | Session P3.1 |
+| 2026-06-11 | Market-intel research (`WEB OVERHAUL - P3-1-1`) folded into Books: A/R-at-a-glance + per-job profit are the trades-loved surfaces; nothing auto-sends in the operator's voice; plain-language labels over accountant-speak | Session P3.1 |
