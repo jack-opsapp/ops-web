@@ -12,7 +12,6 @@ import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
 import {
-  Plus,
   FileText,
   Send,
   ArrowRightLeft,
@@ -20,7 +19,6 @@ import {
   Download,
   Loader2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   useEstimates,
@@ -40,7 +38,6 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
-import { cn } from "@/lib/utils/cn";
 import { formatEnumLabel } from "@/lib/utils/format";
 import { toast } from "sonner";
 import {
@@ -51,6 +48,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
 import { Tag, type TagProps } from "@/components/ui/tag";
+import {
+  RegisterTable,
+  TableNumber,
+  TablePrimary,
+  TableMeta,
+  TableMono,
+  type RegisterTableColumn,
+} from "@/components/ui/register-table";
 import { EstimateFormModal } from "../modals/estimate-form-modal";
 import {
   FilterChips,
@@ -237,28 +242,123 @@ export function EstimatesSegment({
     return items;
   }, [estimateMetrics, tb, numLocale]);
 
+  // Rows are data; verbs live in one labelled overflow (DESIGN.md §11 — icons
+  // are metadata, not actions). Stop propagation so opening the menu never also
+  // opens the document.
+  const renderActions = (estimate: Estimate) => (
+    <div className="inline-flex" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-[24px] items-center gap-[4px] rounded-[4px] border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+          >
+            {generatingPdfId === estimate.id && (
+              <Loader2 className="h-[12px] w-[12px] animate-spin motion-reduce:animate-none" />
+            )}
+            {t("actions.menu")}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            disabled={generatingPdfId === estimate.id}
+            onClick={() => handleDownloadPdf(estimate.id)}
+          >
+            <Download className="h-[14px] w-[14px] text-text-3" />
+            {t("estimates.actions.downloadPdf")}
+          </DropdownMenuItem>
+          {estimate.status === EstimateStatus.Draft && can("estimates.send") && (
+            <DropdownMenuItem onClick={() => setSendingEstimate(estimate)}>
+              <Send className="h-[14px] w-[14px] text-text-3" />
+              {t("estimates.actions.send")}
+            </DropdownMenuItem>
+          )}
+          {(estimate.status === EstimateStatus.Approved ||
+            estimate.status === EstimateStatus.Sent) &&
+            can("estimates.convert") && (
+              <DropdownMenuItem
+                onClick={() => convertToInvoice.mutate({ estimateId: estimate.id })}
+              >
+                <ArrowRightLeft className="h-[14px] w-[14px] text-text-3" />
+                {t("estimates.actions.convertToInvoice")}
+              </DropdownMenuItem>
+            )}
+          {can("estimates.delete") && (
+            <DropdownMenuItem
+              className="text-rose focus:bg-rose-soft focus:text-rose"
+              onClick={() => deleteEstimate.mutate(estimate.id)}
+            >
+              <Trash2 className="h-[14px] w-[14px] text-rose" />
+              {t("estimates.actions.delete")}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
+  const columns: RegisterTableColumn<Estimate>[] = [
+    {
+      id: "number",
+      header: t("estimates.table.number"),
+      cell: (est) => <TableNumber>{est.estimateNumber}</TableNumber>,
+    },
+    {
+      id: "client",
+      header: t("estimates.table.client"),
+      cell: (est) => (
+        <TablePrimary>{est.clientId ? clientMap.get(est.clientId) ?? "—" : "—"}</TablePrimary>
+      ),
+    },
+    {
+      id: "project",
+      header: t("estimates.table.project"),
+      className: "hidden md:table-cell",
+      cell: (est) => (
+        <TableMeta>{est.projectId ? projectMap.get(est.projectId) ?? "—" : "—"}</TableMeta>
+      ),
+    },
+    {
+      id: "date",
+      header: t("estimates.table.date"),
+      className: "hidden sm:table-cell",
+      cell: (est) => <TableMono>{fmtDate(est.issueDate, locale)}</TableMono>,
+    },
+    {
+      id: "expiry",
+      header: t("estimates.table.expiry"),
+      className: "hidden lg:table-cell",
+      cell: (est) => <TableMono>{fmtDate(est.expirationDate, locale)}</TableMono>,
+    },
+    {
+      id: "total",
+      header: t("estimates.table.total"),
+      align: "right",
+      cell: (est) => <TableMono tone="default">{formatCurrency(est.total)}</TableMono>,
+    },
+    {
+      id: "status",
+      header: t("estimates.table.status"),
+      cell: (est) => (
+        <StatusTag
+          status={est.status}
+          label={t(`estimates.status.${est.status}`, formatEnumLabel(est.status))}
+        />
+      ),
+    },
+    { id: "actions", header: "", align: "right", cell: renderActions },
+  ];
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         {segmentControl}
-        <div className="flex items-center gap-1.5">
-          <SearchInput
-            placeholder={t("estimates.search")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            wrapperClassName="w-[220px] max-w-full"
-          />
-          {can("estimates.create") && (
-            <button
-              type="button"
-              onClick={gatedOpenCreate}
-              className="inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-            >
-              <Plus className="h-[12px] w-[12px]" strokeWidth={1.5} />
-              {t("estimates.newEstimate")}
-            </button>
-          )}
-        </div>
+        <SearchInput
+          placeholder={t("estimates.search")}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          wrapperClassName="w-[220px] max-w-full"
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-[12px]">
@@ -290,8 +390,8 @@ export function EstimatesSegment({
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        /* Empty state per DESIGN.md §2: state the fact (`0 ESTIMATES`), no
-           coach-marks — the always-visible NEW ESTIMATE button is the action. */
+        /* Empty state per DESIGN.md §2: state the fact only (`0 ESTIMATES`) —
+           no coach-mark, no button. The FAB owns creation (fab-actions.ts). */
         <div className="flex flex-col items-start py-8">
           <FileText className="mb-2 h-[32px] w-[32px] text-text-3" />
           {searchQuery || statusFilter !== "all" ? (
@@ -303,152 +403,17 @@ export function EstimatesSegment({
               {t("estimates.empty.none")}
             </h3>
           )}
-          {!searchQuery && statusFilter === "all" && can("estimates.create") && (
-            <Button className="mt-3 gap-[6px]" onClick={gatedOpenCreate}>
-              <Plus className="h-[16px] w-[16px]" />
-              {t("estimates.newEstimate")}
-            </Button>
-          )}
         </div>
       ) : (
-        <div className="glass-surface overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[700px]">
-              <thead>
-                <tr className="border-b border-border">
-                  {[
-                    t("estimates.table.number"),
-                    t("estimates.table.client"),
-                    t("estimates.table.project"),
-                    t("estimates.table.date"),
-                    t("estimates.table.expiry"),
-                    t("estimates.table.total"),
-                    t("estimates.table.status"),
-                    "",
-                  ].map((label, i) => (
-                    <th
-                      key={i}
-                      className={cn(
-                        "px-2 py-1.5 text-left font-mono text-micro font-normal uppercase tracking-[0.16em] text-text-3",
-                        i === 5 && "text-right",
-                        i === 2 && "hidden md:table-cell",
-                        i === 3 && "hidden sm:table-cell",
-                        i === 4 && "hidden lg:table-cell",
-                      )}
-                    >
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((estimate) => (
-                  <tr
-                    key={estimate.id}
-                    className="cursor-pointer border-b border-[rgba(255,255,255,0.05)] transition-colors last:border-b-0 hover:bg-surface-hover"
-                    onClick={() => {
-                      if (!can("estimates.edit")) return;
-                      setEditingEstimate(estimate);
-                    }}
-                  >
-                    <td className="px-2 py-1.5">
-                      <span className="font-mono text-data-sm text-text tabular-nums">
-                        {estimate.estimateNumber}
-                      </span>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <span className="block max-w-[180px] truncate font-mohave text-body-sm text-text">
-                        {estimate.clientId ? clientMap.get(estimate.clientId) ?? "—" : "—"}
-                      </span>
-                    </td>
-                    <td className="hidden px-2 py-1.5 md:table-cell">
-                      <span className="block max-w-[160px] truncate font-mohave text-body-sm text-text-3">
-                        {estimate.projectId ? projectMap.get(estimate.projectId) ?? "—" : "—"}
-                      </span>
-                    </td>
-                    <td className="hidden px-2 py-1.5 sm:table-cell">
-                      <span className="whitespace-nowrap font-mono text-data-sm text-text-3 tabular-nums">
-                        {fmtDate(estimate.issueDate, locale)}
-                      </span>
-                    </td>
-                    <td className="hidden px-2 py-1.5 lg:table-cell">
-                      <span className="whitespace-nowrap font-mono text-data-sm text-text-3 tabular-nums">
-                        {fmtDate(estimate.expirationDate, locale)}
-                      </span>
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      <span className="font-mono text-data-sm text-text tabular-nums">
-                        {formatCurrency(estimate.total)}
-                      </span>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <StatusTag
-                        status={estimate.status}
-                        label={t(`estimates.status.${estimate.status}`, formatEnumLabel(estimate.status))}
-                      />
-                    </td>
-                    {/* Rows are data; verbs live in one labelled overflow
-                        (DESIGN.md §11 — icons are metadata, not actions). */}
-                    <td className="px-2 py-1.5 text-right">
-                      <div
-                        className="inline-flex"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex h-[24px] items-center gap-[4px] rounded-[4px] border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-                            >
-                              {generatingPdfId === estimate.id && (
-                                <Loader2 className="h-[12px] w-[12px] animate-spin motion-reduce:animate-none" />
-                              )}
-                              {t("actions.menu")}
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              disabled={generatingPdfId === estimate.id}
-                              onClick={() => handleDownloadPdf(estimate.id)}
-                            >
-                              <Download className="h-[14px] w-[14px] text-text-3" />
-                              {t("estimates.actions.downloadPdf")}
-                            </DropdownMenuItem>
-                            {estimate.status === EstimateStatus.Draft && can("estimates.send") && (
-                              <DropdownMenuItem onClick={() => setSendingEstimate(estimate)}>
-                                <Send className="h-[14px] w-[14px] text-text-3" />
-                                {t("estimates.actions.send")}
-                              </DropdownMenuItem>
-                            )}
-                            {(estimate.status === EstimateStatus.Approved ||
-                              estimate.status === EstimateStatus.Sent) &&
-                              can("estimates.convert") && (
-                                <DropdownMenuItem
-                                  onClick={() => convertToInvoice.mutate({ estimateId: estimate.id })}
-                                >
-                                  <ArrowRightLeft className="h-[14px] w-[14px] text-text-3" />
-                                  {t("estimates.actions.convertToInvoice")}
-                                </DropdownMenuItem>
-                              )}
-                            {can("estimates.delete") && (
-                              <DropdownMenuItem
-                                className="text-rose focus:bg-rose-soft focus:text-rose"
-                                onClick={() => deleteEstimate.mutate(estimate.id)}
-                              >
-                                <Trash2 className="h-[14px] w-[14px] text-rose" />
-                                {t("estimates.actions.delete")}
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <RegisterTable<Estimate>
+          columns={columns}
+          rows={filtered}
+          getRowId={(est) => est.id}
+          onRowClick={(est) => setEditingEstimate(est)}
+          isRowInteractive={() => can("estimates.edit")}
+          minWidth={700}
+          ariaLabel={tb("segment.estimates")}
+        />
       )}
 
       {/* Send Estimate Flow */}

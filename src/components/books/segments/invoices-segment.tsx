@@ -11,8 +11,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
-import { Plus, Receipt, Send, DollarSign, Ban, Trash2, Download, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Receipt, Send, DollarSign, Ban, Trash2, Download, Loader2 } from "lucide-react";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   useInvoices,
@@ -34,7 +33,6 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
-import { cn } from "@/lib/utils/cn";
 import { formatEnumLabel } from "@/lib/utils/format";
 import { toast } from "sonner";
 import {
@@ -44,6 +42,15 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Tag, type TagProps } from "@/components/ui/tag";
+import { SegmentControl } from "@/components/ui/segment-control";
+import {
+  RegisterTable,
+  TableNumber,
+  TablePrimary,
+  TableMeta,
+  TableMono,
+  type RegisterTableColumn,
+} from "@/components/ui/register-table";
 import { InvoiceFormModal } from "../modals/invoice-form-modal";
 import { RecordPaymentModal } from "../modals/record-payment-modal";
 import {
@@ -267,26 +274,176 @@ export function InvoicesSegment({
     return items;
   }, [invoiceMetrics, tb, numLocale]);
 
+  // Rows are data; verbs live in one labelled overflow (DESIGN.md §11 — icons
+  // are metadata, not actions). Stop propagation so opening the menu never also
+  // opens the document.
+  const renderActions = (invoice: Invoice) => (
+    <div className="inline-flex" onClick={(e) => e.stopPropagation()}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex h-[24px] items-center gap-[4px] rounded-[4px] border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+          >
+            {generatingPdfId === invoice.id && (
+              <Loader2 className="h-[12px] w-[12px] animate-spin motion-reduce:animate-none" />
+            )}
+            {t("actions.menu")}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            disabled={generatingPdfId === invoice.id}
+            onClick={() => handleDownloadPdf(invoice.id)}
+          >
+            <Download className="h-[14px] w-[14px] text-text-3" />
+            {t("invoices.actions.downloadPdf")}
+          </DropdownMenuItem>
+          {invoice.status === InvoiceStatus.Draft && can("invoices.send") && (
+            <DropdownMenuItem onClick={() => sendInvoice.mutate(invoice.id)}>
+              <Send className="h-[14px] w-[14px] text-text-3" />
+              {t("invoices.actions.send")}
+            </DropdownMenuItem>
+          )}
+          {invoice.status !== InvoiceStatus.Paid &&
+            invoice.status !== InvoiceStatus.Void &&
+            can("invoices.record_payment") && (
+              <DropdownMenuItem onClick={() => setPaymentInvoice(invoice)}>
+                <DollarSign className="h-[14px] w-[14px] text-text-3" />
+                {t("invoices.actions.recordPayment")}
+              </DropdownMenuItem>
+            )}
+          {invoice.status !== InvoiceStatus.Void &&
+            invoice.status !== InvoiceStatus.Paid &&
+            can("invoices.void") && (
+              <DropdownMenuItem
+                className="text-rose focus:bg-rose-soft focus:text-rose"
+                onClick={() => voidInvoice.mutate(invoice.id)}
+              >
+                <Ban className="h-[14px] w-[14px] text-rose" />
+                {t("invoices.actions.void")}
+              </DropdownMenuItem>
+            )}
+          {can("invoices.delete") && (
+            <DropdownMenuItem
+              className="text-rose focus:bg-rose-soft focus:text-rose"
+              onClick={() => deleteInvoice.mutate(invoice.id)}
+            >
+              <Trash2 className="h-[14px] w-[14px] text-rose" />
+              {t("invoices.actions.delete")}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+
+  const columns: RegisterTableColumn<Invoice>[] = [
+    {
+      id: "number",
+      header: t("invoices.table.number"),
+      cell: (i) => <TableNumber>{i.invoiceNumber}</TableNumber>,
+    },
+    {
+      id: "client",
+      header: t("invoices.table.client"),
+      cell: (i) => <TablePrimary>{i.clientId ? clientMap.get(i.clientId) ?? "—" : "—"}</TablePrimary>,
+    },
+    {
+      id: "project",
+      header: t("invoices.table.project"),
+      className: "hidden md:table-cell",
+      cell: (i) => <TableMeta>{i.projectId ? projectMap.get(i.projectId) ?? "—" : "—"}</TableMeta>,
+    },
+    {
+      id: "date",
+      header: t("invoices.table.date"),
+      className: "hidden sm:table-cell",
+      cell: (i) => <TableMono>{fmtDate(i.issueDate, locale)}</TableMono>,
+    },
+    {
+      id: "due",
+      header: t("invoices.table.due"),
+      cell: (i) => {
+        const over = isOverdueRow(i);
+        const days = overdueDays(i);
+        return (
+          <TableMono tone={over ? "rose" : "muted"}>
+            {fmtDate(i.dueDate, locale)}
+            {over && days > 0 && ` · ${days}D`}
+          </TableMono>
+        );
+      },
+    },
+    {
+      id: "total",
+      header: t("invoices.table.total"),
+      align: "right",
+      cell: (i) => <TableMono tone="default">{formatCurrency(i.total)}</TableMono>,
+    },
+    {
+      id: "paid",
+      header: t("invoices.table.paid"),
+      align: "right",
+      className: "hidden sm:table-cell",
+      cell: (i) => (
+        <TableMono tone={i.amountPaid > 0 ? "olive" : "muted"}>
+          {i.amountPaid > 0 ? formatCurrency(i.amountPaid) : "—"}
+        </TableMono>
+      ),
+    },
+    {
+      id: "balance",
+      header: t("invoices.table.balance"),
+      align: "right",
+      cell: (i) => (
+        <TableMono tone={i.balanceDue > 0 ? "default" : "muted"}>
+          {i.balanceDue > 0 ? formatCurrency(i.balanceDue) : "—"}
+        </TableMono>
+      ),
+    },
+    {
+      id: "status",
+      header: t("invoices.table.status"),
+      cell: (i) => (
+        <StatusTag
+          status={i.status}
+          label={t(`invoices.status.${i.status}`, formatEnumLabel(i.status))}
+        />
+      ),
+    },
+    { id: "actions", header: "", align: "right", cell: renderActions },
+  ];
+
+  // The LIST | AGING switch is a view-mode toggle, not a filter — it lives in
+  // the stable workbar (rendered in both branches) pinned to the right, so it
+  // holds one fixed slot whether search is present (list) or absent (aging).
+  // State-aware: shown only when the user can reach BOTH views.
+  const showViewToggle = listAllowed && canAging;
+  const showSearch = listAllowed && view === "list";
+
   const workbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
       {segmentControl}
-      {listAllowed && (
+      {(showSearch || showViewToggle) && (
         <div className="flex items-center gap-1.5">
-          <SearchInput
-            placeholder={t("invoices.search")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            wrapperClassName="w-[220px] max-w-full"
-          />
-          {can("invoices.create") && (
-            <button
-              type="button"
-              onClick={gatedOpenCreate}
-              className="inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-            >
-              <Plus className="h-[12px] w-[12px]" strokeWidth={1.5} />
-              {t("invoices.newInvoice")}
-            </button>
+          {showSearch && (
+            <SearchInput
+              placeholder={t("invoices.search")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              wrapperClassName="w-[220px] max-w-full"
+            />
+          )}
+          {showViewToggle && (
+            <SegmentControl<InvoicesView>
+              options={[
+                { value: "list", label: tb("view.list") },
+                { value: "aging", label: tb("view.aging") },
+              ]}
+              value={view}
+              onChange={onViewChange}
+            />
           )}
         </div>
       )}
@@ -298,11 +455,7 @@ export function InvoicesSegment({
     return (
       <div className="space-y-2">
         {workbar}
-        <ArAgingView
-          invoices={invoices}
-          clientMap={clientMap}
-          onBackToList={listAllowed ? () => onViewChange("list") : undefined}
-        />
+        <ArAgingView invoices={invoices} clientMap={clientMap} />
       </div>
     );
   }
@@ -328,18 +481,8 @@ export function InvoicesSegment({
             ? tb("count.all", { n: invoices.length })
             : tb("count.invoices", { n: filtered.length, total: invoices.length })}
         </span>
-        <span className="ml-auto inline-flex items-center gap-2">
+        <span className="ml-auto">
           <SegmentStatLine items={statItems} />
-          {canAging && (
-            <FilterChips
-              options={[
-                { value: "list", label: tb("view.list") },
-                { value: "aging", label: tb("view.aging") },
-              ]}
-              value={view}
-              onChange={(v) => onViewChange(v as InvoicesView)}
-            />
-          )}
         </span>
       </div>
 
@@ -351,8 +494,8 @@ export function InvoicesSegment({
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        /* Empty state per DESIGN.md §2: state the fact (`0 INVOICES`), no
-           coach-marks — the always-visible NEW INVOICE button is the action. */
+        /* Empty state per DESIGN.md §2: state the fact only (`0 INVOICES`) —
+           no coach-mark, no button. The FAB owns creation (fab-actions.ts). */
         <div className="flex flex-col items-start py-8">
           <Receipt className="mb-2 h-[32px] w-[32px] text-text-3" />
           {searchQuery || statusFilter !== "all" ? (
@@ -364,193 +507,16 @@ export function InvoicesSegment({
               {t("invoices.empty.none")}
             </h3>
           )}
-          {!searchQuery && statusFilter === "all" && can("invoices.create") && (
-            <Button className="mt-3 gap-[6px]" onClick={gatedOpenCreate}>
-              <Plus className="h-[16px] w-[16px]" />
-              {t("invoices.newInvoice")}
-            </Button>
-          )}
         </div>
       ) : (
-        <div className="glass-surface overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px]">
-              <thead>
-                <tr className="border-b border-border">
-                  {[
-                    t("invoices.table.number"),
-                    t("invoices.table.client"),
-                    t("invoices.table.project"),
-                    t("invoices.table.date"),
-                    t("invoices.table.due"),
-                    t("invoices.table.total"),
-                    t("invoices.table.paid"),
-                    t("invoices.table.balance"),
-                    t("invoices.table.status"),
-                    "",
-                  ].map((label, i) => (
-                    <th
-                      key={i}
-                      className={cn(
-                        "px-2 py-1.5 text-left font-mono text-micro font-normal uppercase tracking-[0.16em] text-text-3",
-                        i >= 5 && i <= 7 && "text-right",
-                        i === 2 && "hidden md:table-cell",
-                        i === 3 && "hidden sm:table-cell",
-                        i === 6 && "hidden sm:table-cell",
-                      )}
-                    >
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((invoice) => {
-                  const over = isOverdueRow(invoice);
-                  const days = overdueDays(invoice);
-                  return (
-                    <tr
-                      key={invoice.id}
-                      className="cursor-pointer border-b border-[rgba(255,255,255,0.05)] transition-colors last:border-b-0 hover:bg-surface-hover"
-                      onClick={() => {
-                        if (!can("invoices.edit")) return;
-                        setEditingInvoice(invoice);
-                      }}
-                    >
-                      <td className="px-2 py-1.5">
-                        <span className="font-mono text-data-sm text-text tabular-nums">
-                          {invoice.invoiceNumber}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <span className="block max-w-[180px] truncate font-mohave text-body-sm text-text">
-                          {invoice.clientId ? clientMap.get(invoice.clientId) ?? "—" : "—"}
-                        </span>
-                      </td>
-                      <td className="hidden px-2 py-1.5 md:table-cell">
-                        <span className="block max-w-[160px] truncate font-mohave text-body-sm text-text-3">
-                          {invoice.projectId ? projectMap.get(invoice.projectId) ?? "—" : "—"}
-                        </span>
-                      </td>
-                      <td className="hidden px-2 py-1.5 sm:table-cell">
-                        <span className="whitespace-nowrap font-mono text-data-sm text-text-3 tabular-nums">
-                          {fmtDate(invoice.issueDate, locale)}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <span
-                          className={cn(
-                            "whitespace-nowrap font-mono text-data-sm tabular-nums",
-                            over ? "text-rose" : "text-text-3",
-                          )}
-                        >
-                          {fmtDate(invoice.dueDate, locale)}
-                          {over && days > 0 && ` · ${days}D`}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1.5 text-right">
-                        <span className="font-mono text-data-sm text-text tabular-nums">
-                          {formatCurrency(invoice.total)}
-                        </span>
-                      </td>
-                      <td className="hidden px-2 py-1.5 text-right sm:table-cell">
-                        <span
-                          className={cn(
-                            "font-mono text-data-sm tabular-nums",
-                            invoice.amountPaid > 0 ? "text-olive" : "text-text-3",
-                          )}
-                        >
-                          {invoice.amountPaid > 0 ? formatCurrency(invoice.amountPaid) : "—"}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1.5 text-right">
-                        <span
-                          className={cn(
-                            "font-mono text-data-sm tabular-nums",
-                            invoice.balanceDue > 0 ? "text-text" : "text-text-3",
-                          )}
-                        >
-                          {invoice.balanceDue > 0 ? formatCurrency(invoice.balanceDue) : "—"}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <StatusTag
-                          status={invoice.status}
-                          label={t(`invoices.status.${invoice.status}`, formatEnumLabel(invoice.status))}
-                        />
-                      </td>
-                      {/* Rows are data; verbs live in one labelled overflow
-                          (DESIGN.md §11 — icons are metadata, not actions). */}
-                      <td className="px-2 py-1.5 text-right">
-                        <div
-                          className="inline-flex"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex h-[24px] items-center gap-[4px] rounded-[4px] border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-                              >
-                                {generatingPdfId === invoice.id && (
-                                  <Loader2 className="h-[12px] w-[12px] animate-spin motion-reduce:animate-none" />
-                                )}
-                                {t("actions.menu")}
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                disabled={generatingPdfId === invoice.id}
-                                onClick={() => handleDownloadPdf(invoice.id)}
-                              >
-                                <Download className="h-[14px] w-[14px] text-text-3" />
-                                {t("invoices.actions.downloadPdf")}
-                              </DropdownMenuItem>
-                              {invoice.status === InvoiceStatus.Draft && can("invoices.send") && (
-                                <DropdownMenuItem onClick={() => sendInvoice.mutate(invoice.id)}>
-                                  <Send className="h-[14px] w-[14px] text-text-3" />
-                                  {t("invoices.actions.send")}
-                                </DropdownMenuItem>
-                              )}
-                              {invoice.status !== InvoiceStatus.Paid &&
-                                invoice.status !== InvoiceStatus.Void &&
-                                can("invoices.record_payment") && (
-                                  <DropdownMenuItem onClick={() => setPaymentInvoice(invoice)}>
-                                    <DollarSign className="h-[14px] w-[14px] text-text-3" />
-                                    {t("invoices.actions.recordPayment")}
-                                  </DropdownMenuItem>
-                                )}
-                              {invoice.status !== InvoiceStatus.Void &&
-                                invoice.status !== InvoiceStatus.Paid &&
-                                can("invoices.void") && (
-                                  <DropdownMenuItem
-                                    className="text-rose focus:bg-rose-soft focus:text-rose"
-                                    onClick={() => voidInvoice.mutate(invoice.id)}
-                                  >
-                                    <Ban className="h-[14px] w-[14px] text-rose" />
-                                    {t("invoices.actions.void")}
-                                  </DropdownMenuItem>
-                                )}
-                              {can("invoices.delete") && (
-                                <DropdownMenuItem
-                                  className="text-rose focus:bg-rose-soft focus:text-rose"
-                                  onClick={() => deleteInvoice.mutate(invoice.id)}
-                                >
-                                  <Trash2 className="h-[14px] w-[14px] text-rose" />
-                                  {t("invoices.actions.delete")}
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <RegisterTable<Invoice>
+          columns={columns}
+          rows={filtered}
+          getRowId={(i) => i.id}
+          onRowClick={(i) => setEditingInvoice(i)}
+          isRowInteractive={() => can("invoices.edit")}
+          ariaLabel={tb("segment.invoices")}
+        />
       )}
 
       {/* Create/Edit Invoice Modal */}

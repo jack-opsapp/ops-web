@@ -100,12 +100,9 @@ function PanelTitle({ children }: { children: React.ReactNode }) {
 export function ArAgingView({
   invoices,
   clientMap,
-  onBackToList,
 }: {
   invoices: Invoice[];
   clientMap: Map<string, string>;
-  /** Absent for accounting.view-only users (no document list to go back to). */
-  onBackToList?: () => void;
 }) {
   const { t } = useDictionary("accounting");
   const { t: tb } = useDictionary("books");
@@ -157,20 +154,11 @@ export function ArAgingView({
   }, [accountingMetrics, tb, numLocale]);
 
   return (
-    // Sibling glass panels sit 24px apart (DESIGN.md §7 panel gap).
+    // Sibling glass panels sit 24px apart (DESIGN.md §7 panel gap). The way
+    // back to the document list is the workbar's LIST | AGING toggle — this
+    // view no longer carries a divergent back control (WEB OVERHAUL P3-5 §3).
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-[12px]">
-        {onBackToList && (
-          <button
-            type="button"
-            onClick={onBackToList}
-            className="rounded-[4px] border border-border px-[10px] py-[4px] font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2"
-          >
-            ← {tb("view.list")}
-          </button>
-        )}
-        <SegmentStatLine items={statItems} />
-      </div>
+      <SegmentStatLine items={statItems} />
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {/* Aging report */}
