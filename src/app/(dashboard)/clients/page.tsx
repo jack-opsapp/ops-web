@@ -14,6 +14,7 @@ import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModa
 import { getInitials } from "@/lib/types/models";
 import { formatCurrency, formatPhoneNumber } from "@/lib/utils/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterChips } from "@/components/ui/filter-chip";
 import {
@@ -299,14 +300,10 @@ export default function ClientsPage() {
             aria-label={t("search.placeholder")}
           />
           {canCreate && (
-            <button
-              type="button"
-              onClick={gatedCreate}
-              className="inline-flex h-[34px] items-center gap-[6px] rounded-[5px] border border-ops-accent bg-transparent px-3 font-cakemono text-[13px] font-light uppercase text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-            >
+            <Button variant="primary" size="sm" type="button" onClick={gatedCreate}>
               <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
               {t("newClient")}
-            </button>
+            </Button>
           )}
         </div>
       </div>
