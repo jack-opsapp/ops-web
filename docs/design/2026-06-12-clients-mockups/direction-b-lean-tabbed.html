@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CLIENTS — Direction B · Lean list + Tabbed dossier</title>
+<link rel="stylesheet" href="_base.css" />
+<style>
+  /* Direction B — LEAN LIST + TABBED DOSSIER. No glance strip; a single slim
+     A/R banner carries the one number that drives action ("9 clients owe
+     $18,240"). The table gets the most rows above the fold. The client window
+     uses the same approved shell but the dossier is TABBED (CONTACT · PROJECTS
+     · MONEY · ACTIVITY) for a focused peek instead of one long scroll. */
+
+  .banner { display: flex; align-items: center; gap: 12px; padding: 10px 16px; margin-bottom: 18px;
+    border: 1px solid var(--rose-line); background: var(--rose-soft); border-radius: var(--r-panel); }
+  .banner .msg { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--rose); font-feature-settings: "tnum" 1, "zero" 1; }
+  .banner .go { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; color: var(--text-2); cursor: pointer; text-transform: uppercase; }
+
+  .workbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  .workbar .right { display: flex; align-items: center; gap: 8px; }
+  .filterline { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .count { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+
+  .av { width: 28px; height: 28px; border-radius: 50%; background: var(--surface-active); border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 11px; color: var(--text-2); flex: none; }
+  .cname { font-family: var(--font-mohave); font-size: 14px; color: var(--text); }
+  .ccompany { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; color: var(--text-3); }
+  .contact { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+  .pcount { font-family: var(--font-mono); font-size: 13px; color: var(--text-2); font-feature-settings: "tnum" 1, "zero" 1; }
+  .owed { font-family: var(--font-mono); font-size: 13px; font-feature-settings: "tnum" 1, "zero" 1; }
+  .owed.rs { color: var(--rose); } .owed.dim { color: var(--text-mute); }
+  .seen { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+  .subbadge { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; color: var(--text-mute); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; text-transform: uppercase; }
+
+  .canvas.dimmed > *:not(.window-layer) { opacity: 0.4; filter: saturate(0.7); }
+
+  .window-layer { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+  .cwin { position: relative; width: 880px; height: 600px; display: flex; flex-direction: column; border-radius: var(--r-modal); border: 1px solid var(--glass-border); overflow: hidden; background: var(--glass-dense); backdrop-filter: blur(28px) saturate(1.3); box-shadow: 0 24px 64px rgba(0,0,0,0.55); }
+  .titlebar { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+  .lights { display: inline-flex; gap: 8px; }
+  .lights i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--line); display: inline-block; }
+  .lights i.close { background: rgba(181,130,137,0.25); border-color: var(--rose-line); }
+  .tbcrumb { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; color: var(--text-3); text-transform: uppercase; }
+  .tbcrumb b { color: var(--text); font-weight: 500; } .tbcrumb .sl { color: var(--text-mute); }
+  .tbid { font-family: var(--font-mono); font-size: 11px; color: var(--text-mute); letter-spacing: 0.1em; }
+  .modepill { margin-left: auto; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); border: 1px solid var(--line); border-radius: var(--r-chip); padding: 3px 8px; }
+
+  /* tab strip */
+  .wtabs { display: flex; gap: 2px; padding: 8px 14px 0; border-bottom: 1px solid var(--line); }
+  .wtabs button { font-family: var(--font-cakemono); font-weight: 300; font-size: 13px; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-3); background: transparent; border: none; border-bottom: 2px solid transparent; padding: 6px 14px 10px; cursor: pointer; }
+  .wtabs button.active { color: var(--text); border-bottom-color: var(--text-2); }
+  .wtabs .owe { margin-left: auto; align-self: center; }
+
+  .winbody { flex: 1; overflow-y: auto; padding: 18px 22px; }
+  .sec { margin-bottom: 18px; }
+  .sec .h { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; color: var(--text-3); text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; }
+  .sec .h .sl { color: var(--text-mute); } .sec .h .act { color: var(--text-3); cursor: pointer; }
+  .crow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .crow:last-child { border-bottom: none; }
+  .crow .k { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase; width: 70px; }
+  .crow .v { font-family: var(--font-mohave); font-size: 14px; color: var(--text); flex: 1; }
+  .crow .v.mono { font-family: var(--font-mono); font-size: 13px; font-feature-settings: "tnum" 1, "zero" 1; }
+  .crow .cp { font-family: var(--font-mono); font-size: 10px; color: var(--text-mute); letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; }
+  .scrow { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .scname { font-family: var(--font-mohave); font-size: 13px; color: var(--text); }
+  .sctitle { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--text-mute); text-transform: uppercase; }
+  .sccontact { margin-left: auto; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+
+  .footer { height: 52px; border-top: 1px solid var(--line); display: flex; align-items: center; padding: 0 16px; gap: 8px; }
+  .footer .spacer { flex: 1; }
+  .footer .prim { font-family: var(--font-cakemono); font-weight: 300; font-size: 14px; text-transform: uppercase; color: var(--ops-accent); border: 1px solid var(--ops-accent); border-radius: var(--r-btn); background: transparent; min-height: 36px; padding: 0 18px; cursor: pointer; }
+
+  .mocknote { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; color: var(--text-mute); text-transform: uppercase; margin-top: 28px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail" style="position:fixed;inset:0 auto 0 0;width:72px;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:14px 0 18px;gap:4px;z-index:5;">
+    <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:22px;height:22px;color:var(--text);margin-bottom:18px"><path d="M9 3H4v18h5M15 3h5v18h-5"/></svg>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v6M18 9a9 9 0 0 1-9 9"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></div>
+    <div class="rail-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+    <div class="spacer"></div>
+    <div class="avatar">JS</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1>Clients</h1>
+      <span class="sys">SYS :: 48 CLIENTS</span>
+    </header>
+
+    <div class="canvas dimmed">
+      <div class="banner">
+        <span class="msg"><span style="color:var(--text-mute)">//</span> 9 CLIENTS OWE <b style="color:var(--rose)">$18,240</b> &mdash; OLDEST 47 DAYS</span>
+        <span class="go">[CHASE &rarr;]</span>
+      </div>
+
+      <div class="workbar">
+        <span class="t-panel-title"><span class="sl">//</span> ALL CLIENTS</span>
+        <div class="right">
+          <div class="input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search clients&hellip;</div>
+          <button class="btn btn-primary">+ NEW CLIENT</button>
+        </div>
+      </div>
+      <div class="filterline">
+        <div class="chips">
+          <button class="chip active">ALL</button>
+          <button class="chip">WITH PROJECTS</button>
+          <button class="chip">OWES</button>
+          <button class="chip">NEW</button>
+        </div>
+        <span class="count">48 CLIENTS</span>
+      </div>
+
+      <div class="glass-surface" style="overflow:hidden">
+        <table class="docs">
+          <thead>
+            <tr><th>CLIENT</th><th>CONTACT</th><th class="r">PROJECTS</th><th class="r">OUTSTANDING</th><th class="r">LAST SEEN</th></tr>
+          </thead>
+          <tbody>
+            <tr style="background:var(--surface-active)"><td><div style="display:flex;align-items:center;gap:10px"><span class="av">HR</span><span><span class="cname">Henderson Residence</span><div class="ccompany">HENDERSON FAMILY &middot; <span class="subbadge">2</span></div></span></div></td><td><span class="contact">778-535-7941 &middot; rob@hendersons.ca</span></td><td class="r"><span class="pcount">3</span></td><td class="r"><span class="owed rs">$6,400</span></td><td class="r"><span class="seen">2D</span></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">MV</span><span><span class="cname">Maple Valley Strata</span><div class="ccompany">STRATA COUNCIL &middot; <span class="subbadge">4</span></div></span></div></td><td><span class="contact">604-220-1180 &middot; council@maplevalley.ca</span></td><td class="r"><span class="pcount">5</span></td><td class="r"><span class="owed rs">$9,120</span></td><td class="r"><span class="seen">6D</span></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">DK</span><span><span class="cname">Dimitri Kowalski</span><div class="ccompany" style="color:var(--text-mute)">&mdash;</div></span></div></td><td><span class="contact">250-661-2204 &middot; dk.builds@gmail.com</span></td><td class="r"><span class="pcount">1</span></td><td class="r"><span class="owed dim">&mdash;</span></td><td class="r"><span class="seen">11D</span></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">SW</span><span><span class="cname">Sandra Wu</span><div class="ccompany">WU PROPERTIES</div></span></div></td><td><span class="contact">604-771-9930 &middot; sandra@wuprop.com</span></td><td class="r"><span class="pcount">2</span></td><td class="r"><span class="owed rs">$2,720</span></td><td class="r"><span class="seen">3W</span></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">BC</span><span><span class="cname">Bayview Cafe</span><div class="ccompany">RENO LTD</div></span></div></td><td><span class="contact">778-340-5512 &middot; mgr@bayviewcafe.ca</span></td><td class="r"><span class="pcount" style="color:var(--text-mute)">&mdash;</span></td><td class="r"><span class="owed dim">&mdash;</span></td><td class="r"><span class="seen">2M</span></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">GT</span><span><span class="cname">Grayson Townhomes</span><div class="ccompany">GRAYSON DEV &middot; <span class="subbadge">3</span></div></span></div></td><td><span class="contact">604-118-7740 &middot; pm@graysondev.com</span></td><td class="r"><span class="pcount">6</span></td><td class="r"><span class="owed dim">&mdash;</span></td><td class="r"><span class="seen">5D</span></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">PL</span><span><span class="cname">Pinedale Lodge</span><div class="ccompany">HOSPITALITY GROUP</div></span></div></td><td><span class="contact">604-882-3301 &middot; ops@pinedale.ca</span></td><td class="r"><span class="pcount">2</span></td><td class="r"><span class="owed dim">&mdash;</span></td><td class="r"><span class="seen">8D</span></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">RT</span><span><span class="cname">Riverside Townhomes</span><div class="ccompany">RIVERSIDE DEV &middot; <span class="subbadge">5</span></div></span></div></td><td><span class="contact">778-204-9912 &middot; build@riverside.ca</span></td><td class="r"><span class="pcount">4</span></td><td class="r"><span class="owed dim">&mdash;</span></td><td class="r"><span class="seen">1D</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── CLIENT WORKSPACE WINDOW · TABBED ─────────────────────────── -->
+    <div class="window-layer">
+      <div class="scrim"></div>
+      <div class="cwin">
+        <div class="titlebar">
+          <span class="lights"><i class="close"></i><i></i><i></i></span>
+          <span class="tbcrumb" style="margin-left:4px"><span class="sl">//</span> CLIENT &mdash; <b>HENDERSON RESIDENCE</b></span>
+          <span class="tbid">CL-3F9A</span>
+          <span class="modepill">VIEWING</span>
+        </div>
+
+        <div class="wtabs">
+          <button class="active">CONTACT</button>
+          <button>PROJECTS <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-mute)">5</span></button>
+          <button>MONEY</button>
+          <button>ACTIVITY</button>
+          <span class="owe tag tag-rose">OWES $6,400</span>
+        </div>
+
+        <div class="winbody">
+          <div class="sec">
+            <div class="h"><span><span class="sl">//</span> CONTACT</span></div>
+            <div class="crow"><span class="k">Phone</span><span class="v mono">778-535-7941</span><span class="cp">[copy] [call]</span></div>
+            <div class="crow"><span class="k">Email</span><span class="v mono">rob@hendersons.ca</span><span class="cp">[copy] [mail]</span></div>
+            <div class="crow"><span class="k">Address</span><span class="v">4417 Marine Dr, West Vancouver BC</span><span class="cp">[map]</span></div>
+            <div class="crow"><span class="k">Since</span><span class="v mono">MAR 2024 &middot; 14 MONTHS</span></div>
+          </div>
+          <div class="sec">
+            <div class="h"><span><span class="sl">//</span> SUB-CONTACTS</span><span class="act">[+ ADD]</span></div>
+            <div class="scrow"><span class="av" style="width:24px;height:24px;font-size:10px">RH</span><span><span class="scname">Rob Henderson</span> <span class="sctitle">OWNER</span></span><span class="sccontact">778-535-7941</span></div>
+            <div class="scrow"><span class="av" style="width:24px;height:24px;font-size:10px">JH</span><span><span class="scname">Jane Henderson</span> <span class="sctitle">SITE CONTACT</span></span><span class="sccontact">778-535-8810</span></div>
+          </div>
+          <div class="sec">
+            <div class="h"><span><span class="sl">//</span> NOTES</span><span class="act">[EDIT]</span></div>
+            <p style="font-family:var(--font-mohave);font-size:14px;color:var(--text-2);line-height:1.5">Gate code 4417. Dog on site — call before arriving. Prefers text over email for scheduling.</p>
+          </div>
+        </div>
+
+        <div class="footer">
+          <span class="spacer"></span>
+          <button class="prim">EDIT</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="mocknote" style="padding:0 44px 24px;position:relative;z-index:60">[ MOCKUP NOTE :: NO STRIP &mdash; A/R BANNER CARRIES THE ONE ACTIONABLE NUMBER &middot; DENSER TABLE &middot; WINDOW DOSSIER IS TABBED (CONTACT/PROJECTS/MONEY/ACTIVITY) FOR A FOCUSED PEEK ]</div>
+  </div>
+</div>
+</body>
+</html>
