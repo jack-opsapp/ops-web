@@ -54,6 +54,19 @@ export {
   useUpdateSubClient,
   useDeleteSubClient,
 } from "./use-clients";
+export {
+  useClientOutstandingMap,
+  useClientFinancials,
+  useClientActivity,
+} from "./use-client-financials";
+export type {
+  ClientOutstanding,
+  ClientOutstandingResult,
+  ClientFinancials,
+  ClientActivityEvent,
+  ClientActivityKind,
+  ClientActivityResult,
+} from "./use-client-financials";
 
 // Users / Team
 export {
