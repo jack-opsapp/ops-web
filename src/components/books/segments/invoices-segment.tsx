@@ -11,7 +11,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
-import { Receipt, Send, DollarSign, Ban, Trash2, Download, Loader2 } from "lucide-react";
+import { Send, DollarSign, Ban, Trash2, Download, Loader2 } from "lucide-react";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   useInvoices,
@@ -45,6 +45,7 @@ import { Tag, type TagProps } from "@/components/ui/tag";
 import { SegmentControl } from "@/components/ui/segment-control";
 import {
   RegisterTable,
+  RegisterEmpty,
   TableNumber,
   TablePrimary,
   TableMeta,
@@ -494,20 +495,15 @@ export function InvoicesSegment({
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        /* Empty state per DESIGN.md §2: state the fact only (`0 INVOICES`) —
-           no coach-mark, no button. The FAB owns creation (fab-actions.ts). */
-        <div className="flex flex-col items-start py-8">
-          <Receipt className="mb-2 h-[32px] w-[32px] text-text-3" />
-          {searchQuery || statusFilter !== "all" ? (
-            <h3 className="font-mohave text-body-lg text-text-2">
-              {t("invoices.empty.noMatch")}
-            </h3>
-          ) : (
-            <h3 className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-              {t("invoices.empty.none")}
-            </h3>
-          )}
-        </div>
+        /* Empty state — DESIGN.md §2: state the fact only, no coach-mark, no button.
+           The FAB owns creation (fab-actions.ts). */
+        <RegisterEmpty
+          noun={
+            searchQuery || statusFilter !== "all"
+              ? t("invoices.empty.matches")
+              : t("invoices.empty.noun")
+          }
+        />
       ) : (
         <RegisterTable<Invoice>
           columns={columns}

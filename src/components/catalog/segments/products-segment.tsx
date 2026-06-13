@@ -11,6 +11,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Search, Package, Sliders, Trash2, Star } from "lucide-react";
+import { RegisterEmpty } from "@/components/ui/register-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
@@ -185,18 +186,13 @@ export function ProductsSegment({
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-start gap-2 px-4 py-10">
-            <Package className="h-[32px] w-[32px] text-text-mute" />
-            <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-              <span className="text-text-mute">{"// "}</span>
-              {search || filter !== "all" ? "NO MATCHES" : t("products.empty.title", "NO PRODUCTS YET")}
-            </span>
-            <p className="max-w-[360px] font-mohave text-[13px] text-text-3">
-              {search || filter !== "all"
-                ? t("products.empty.filtered", "Adjust the filters.")
-                : t("products.empty.help", "")}
-            </p>
-          </div>
+          <RegisterEmpty
+            noun={
+              search || filter !== "all"
+                ? t("products.empty.matches")
+                : t("products.empty.noun")
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px]">

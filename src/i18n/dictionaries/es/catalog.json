@@ -65,8 +65,8 @@
   "stock.status.ok": "OK",
   "stock.status.untracked": "SIN UMBRAL",
   "stock.empty.title": "SIN STOCK AÚN",
-  "stock.empty.help": "Rastrea los materiales que paran el día cuando se acaban.",
-  "stock.empty.filtered": "Ajusta los filtros.",
+  "stock.empty.noun": "Stock",
+  "stock.empty.matches": "Coincidencias",
   "stock.copied": "Lista de compra copiada",
 
   "drawer.thresholds": "UMBRALES",
@@ -107,9 +107,8 @@
   "products.config.materials": "{n} MATERIALES",
   "products.tax.yes": "SÍ",
   "products.tax.no": "NO",
-  "products.empty.title": "SIN PRODUCTOS AÚN",
-  "products.empty.help": "Arma el catálogo de precios sobre el que viajan tus estimados.",
-  "products.empty.filtered": "Ajusta los filtros.",
+  "products.empty.noun": "Productos",
+  "products.empty.matches": "Coincidencias",
   "products.options": "OPCIONES Y PRECIOS",
   "products.materials": "MATERIALES",
 

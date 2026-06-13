@@ -65,8 +65,8 @@
   "stock.status.ok": "OK",
   "stock.status.untracked": "UNTRACKED",
   "stock.empty.title": "NO STOCK YET",
-  "stock.empty.help": "Track the materials that kill a day when you run out.",
-  "stock.empty.filtered": "Adjust the filters.",
+  "stock.empty.noun": "Stock",
+  "stock.empty.matches": "Matches",
   "stock.copied": "Buy list copied",
 
   "drawer.thresholds": "THRESHOLDS",
@@ -107,9 +107,8 @@
   "products.config.materials": "{n} MATERIALS",
   "products.tax.yes": "YES",
   "products.tax.no": "NO",
-  "products.empty.title": "NO PRODUCTS YET",
-  "products.empty.help": "Build the price book your estimates ride on.",
-  "products.empty.filtered": "Adjust the filters.",
+  "products.empty.noun": "Products",
+  "products.empty.matches": "Matches",
   "products.options": "OPTIONS & PRICING",
   "products.materials": "MATERIALS",
 

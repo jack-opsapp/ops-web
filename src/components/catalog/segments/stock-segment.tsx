@@ -8,7 +8,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Package } from "lucide-react";
+import { Search } from "lucide-react";
+import { RegisterEmpty } from "@/components/ui/register-table";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -664,15 +665,6 @@ function GroupedTable({
 function EmptyStock({ filtered }: { filtered: boolean }) {
   const { t } = useDictionary("catalog");
   return (
-    <div className="flex flex-col items-start gap-2 px-4 py-10">
-      <Package className="h-[32px] w-[32px] text-text-mute" />
-      <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-        <span className="text-text-mute">{"// "}</span>
-        {filtered ? "NO MATCHES" : t("stock.empty.title", "NO STOCK YET")}
-      </span>
-      <p className="max-w-[360px] font-mohave text-[13px] text-text-3">
-        {filtered ? t("stock.empty.filtered", "Adjust the filters.") : t("stock.empty.help", "")}
-      </p>
-    </div>
+    <RegisterEmpty noun={filtered ? t("stock.empty.matches") : t("stock.empty.noun")} />
   );
 }

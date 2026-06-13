@@ -12,7 +12,6 @@ import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
 import {
-  FileText,
   Send,
   ArrowRightLeft,
   Trash2,
@@ -50,6 +49,7 @@ import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
 import { Tag, type TagProps } from "@/components/ui/tag";
 import {
   RegisterTable,
+  RegisterEmpty,
   TableNumber,
   TablePrimary,
   TableMeta,
@@ -390,20 +390,15 @@ export function EstimatesSegment({
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        /* Empty state per DESIGN.md §2: state the fact only (`0 ESTIMATES`) —
-           no coach-mark, no button. The FAB owns creation (fab-actions.ts). */
-        <div className="flex flex-col items-start py-8">
-          <FileText className="mb-2 h-[32px] w-[32px] text-text-3" />
-          {searchQuery || statusFilter !== "all" ? (
-            <h3 className="font-mohave text-body-lg text-text-2">
-              {t("estimates.empty.noMatch")}
-            </h3>
-          ) : (
-            <h3 className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-              {t("estimates.empty.none")}
-            </h3>
-          )}
-        </div>
+        /* Empty state — DESIGN.md §2: state the fact only, no coach-mark, no button.
+           The FAB owns creation (fab-actions.ts). */
+        <RegisterEmpty
+          noun={
+            searchQuery || statusFilter !== "all"
+              ? t("estimates.empty.matches")
+              : t("estimates.empty.noun")
+          }
+        />
       ) : (
         <RegisterTable<Estimate>
           columns={columns}

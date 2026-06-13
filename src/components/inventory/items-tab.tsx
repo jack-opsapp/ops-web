@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback } from "react";
 import {
   Plus,
   Search,
-  Package,
   Pencil,
   Trash2,
   SlidersHorizontal,
@@ -21,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState } from "@/components/ops/empty-state";
+import { RegisterEmpty } from "@/components/ui/register-table";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { ItemFormDialog } from "./item-form-dialog";
 import { QuantityAdjustDialog } from "./quantity-adjust-dialog";
@@ -383,21 +382,13 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
           </span>
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={<Package className="w-[32px] h-[32px]" />}
-          title="No items found"
-          description={
+        /* Empty state — DESIGN.md §2: state the fact only. Create lives in the
+           toolbar "New Item" button, not the empty register. */
+        <RegisterEmpty
+          noun={
             search || tagFilter !== "__all__" || statusFilter !== "__all__"
-              ? "Try adjusting your filters."
-              : "Add your first inventory item to get started."
-          }
-          action={
-            !search && tagFilter === "__all__" && statusFilter === "__all__"
-              ? {
-                  label: "Add Item",
-                  onClick: onCreateFormOpen,
-                }
-              : undefined
+              ? "Matches"
+              : "Items"
           }
         />
       ) : (
