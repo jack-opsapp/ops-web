@@ -16,6 +16,7 @@ export type AccountingSyncOperation =
   | "void"
   | "inactivate"
   | "delete_soft"
+  | "delete"
   | "link"
   | "reconcile";
 

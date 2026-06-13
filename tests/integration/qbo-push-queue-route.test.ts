@@ -12,6 +12,7 @@ const getValidToken = vi.fn();
 const writeCreate = vi.fn();
 const writeUpdate = vi.fn();
 const writeVoid = vi.fn();
+const writeDelete = vi.fn();
 const writeFetchCurrent = vi.fn();
 
 vi.mock("@/lib/api/services/accounting-sync-queue-service", () => ({
@@ -42,6 +43,7 @@ vi.mock("@/lib/api/services/quickbooks-write-service", () => ({
     create: writeCreate,
     update: writeUpdate,
     void: writeVoid,
+    deleteEntity: writeDelete,
     fetchCurrent: writeFetchCurrent,
   })),
 }));
@@ -265,6 +267,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       writeCreate,
       writeUpdate,
       writeVoid,
+      writeDelete,
       writeFetchCurrent,
     ]) {
       mock.mockReset();
@@ -290,6 +293,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     writeCreate.mockResolvedValue({ qbId: "123", syncToken: "0", metaUpdatedAt: "2026-06-05T10:01:00Z" });
     writeUpdate.mockResolvedValue({ qbId: "90", syncToken: "6", metaUpdatedAt: "2026-06-05T10:02:00Z" });
     writeVoid.mockResolvedValue({ qbId: "90", syncToken: "6", metaUpdatedAt: "2026-06-05T10:02:00Z" });
+    writeDelete.mockResolvedValue({ qbId: "99", syncToken: "4", metaUpdatedAt: "2026-06-05T10:02:00Z" });
     writeFetchCurrent.mockResolvedValue({
       Invoice: { Id: "90", SyncToken: "5", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
     });
@@ -564,6 +568,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       email: "late@maverick.test",
       phone_number: "778-555-0999",
       created_at: "2026-06-05T11:00:00.000Z",
+      deleted_at: null,
     });
     state.sub_clients.push({
       id: "contact-early",
@@ -573,6 +578,7 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       email: "early@maverick.test",
       phone_number: "778-555-0111",
       created_at: "2026-06-05T09:00:00.000Z",
+      deleted_at: null,
     });
 
     const POST = await loadPost();
@@ -590,6 +596,72 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       expect.arrayContaining([
         expect.objectContaining({ table: "sub_clients", method: "order", args: ["created_at", { ascending: true }] }),
       ]),
+    );
+  });
+
+  it("ignores soft-deleted sub-clients when choosing the customer primary contact", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        entityType: "customer",
+        entityId: CUSTOMER_ID,
+        operation: "update",
+        externalId: "123",
+        sourceTable: "sub_clients",
+        idempotencyKey: `customer:${CUSTOMER_ID}`,
+      }),
+    ]);
+    writeFetchCurrent.mockResolvedValueOnce({
+      Customer: { Id: "123", SyncToken: "4", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
+    });
+    state.clients.push({
+      id: CUSTOMER_ID,
+      company_id: COMPANY_ID,
+      name: "Maverick Projects",
+      email: "office@maverick.test",
+      phone_number: "778-555-0100",
+      qb_id: "123",
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+    state.sub_clients.push({
+      id: "contact-deleted",
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      name: "Deleted Contact",
+      email: "deleted@maverick.test",
+      phone_number: "778-555-0000",
+      created_at: "2026-06-05T08:00:00.000Z",
+      deleted_at: "2026-06-05T09:00:00.000Z",
+    });
+    state.sub_clients.push({
+      id: "contact-active",
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      name: "Active Contact",
+      email: "active@maverick.test",
+      phone_number: "778-555-0111",
+      created_at: "2026-06-05T10:00:00.000Z",
+      deleted_at: null,
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeUpdate).toHaveBeenCalledWith(
+      "Customer",
+      expect.objectContaining({
+        Id: "123",
+        SyncToken: "4",
+        PrimaryEmailAddr: { Address: "active@maverick.test" },
+        PrimaryPhone: { FreeFormNumber: "778-555-0111" },
+      }),
+    );
+    expect(writeUpdate).not.toHaveBeenCalledWith(
+      "Customer",
+      expect.objectContaining({
+        PrimaryEmailAddr: { Address: "deleted@maverick.test" },
+      }),
     );
   });
 
@@ -1140,6 +1212,69 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "77", workerId: expect.any(String) });
   });
 
+  it("updates linked payments and rewrites the canonical payment:invoice QuickBooks id when the invoice link changes", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        entityType: "payment",
+        entityId: "payment-1",
+        operation: "update",
+        sourceTable: "payments",
+        idempotencyKey: "payment:payment-1:update",
+        externalId: "77",
+      }),
+    ]);
+    writeFetchCurrent.mockResolvedValueOnce({
+      Payment: { Id: "77", SyncToken: "1", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
+    });
+    writeUpdate.mockResolvedValueOnce({ qbId: "77", syncToken: "2", metaUpdatedAt: "2026-06-05T10:02:00Z" });
+    state.clients.push({ id: CUSTOMER_ID, company_id: COMPANY_ID, name: "Maverick Projects", qb_id: "44" });
+    state.invoices.push({
+      id: INVOICE_ID,
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      invoice_number: "INV-1002",
+      total: 125,
+      balance_due: 100,
+      qb_id: "91",
+    });
+    state.payments.push({
+      id: "payment-1",
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      invoice_id: INVOICE_ID,
+      amount: 25,
+      qb_id: "77:90",
+      payment_date: "2026-06-05",
+      reference_number: "CHK-77",
+      created_at: "2026-06-05T09:00:00.000Z",
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeFetchCurrent).toHaveBeenCalledWith("Payment", "77");
+    expect(writeUpdate).toHaveBeenCalledWith(
+      "Payment",
+      expect.objectContaining({
+        Id: "77",
+        SyncToken: "1",
+        CustomerRef: { value: "44" },
+        TotalAmt: 25,
+        Line: [
+          expect.objectContaining({
+            Amount: 25,
+            LinkedTxn: [{ TxnId: "91", TxnType: "Invoice" }],
+          }),
+        ],
+      }),
+    );
+    expect(state.payments[0].qb_id).toBe("77:91");
+    expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "77", workerId: expect.any(String) });
+  });
+
   it("voids linked payments as sparse QuickBooks void updates", async () => {
     process.env.ACCOUNTING_WRITE_ENABLED = "true";
     claimDue.mockResolvedValue([
@@ -1199,6 +1334,45 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       "QuickBooks estimate void requires operator review",
       expect.anything(),
     );
+  });
+
+  it("deletes linked estimates in QuickBooks with the current SyncToken", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        entityType: "estimate",
+        entityId: "estimate-1",
+        operation: "delete" as never,
+        sourceTable: "estimates",
+        sourceAction: "soft_delete",
+        idempotencyKey: "estimate:estimate-1:delete",
+        externalId: "99",
+      }),
+    ]);
+    writeFetchCurrent.mockResolvedValueOnce({
+      Estimate: { Id: "99", SyncToken: "3", MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" } },
+    });
+    state.estimates.push({
+      id: "estimate-1",
+      company_id: COMPANY_ID,
+      client_id: CUSTOMER_ID,
+      estimate_number: "EST-1001",
+      total: 125,
+      qb_id: "99",
+      deleted_at: "2026-06-05T10:00:00.000Z",
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+    state.clients.push({ id: CUSTOMER_ID, company_id: COMPANY_ID, name: "Maverick Projects", qb_id: "44" });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+
+    expect(res.status).toBe(200);
+    expect(writeFetchCurrent).toHaveBeenCalledWith("Estimate", "99");
+    expect(writeDelete).toHaveBeenCalledWith("Estimate", { Id: "99", SyncToken: "3" });
+    expect(writeVoid).not.toHaveBeenCalled();
+    expect(writeUpdate).not.toHaveBeenCalled();
+    expect(markSucceeded).toHaveBeenCalledWith("q-1", { externalId: "99", workerId: expect.any(String) });
   });
 });
 

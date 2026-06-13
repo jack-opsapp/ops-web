@@ -197,7 +197,7 @@ async function maybeSingle(
 ): Promise<DbRow | null> {
   let query = supabase.from(table).select("*");
   for (const [column, value] of filters) {
-    query = query.eq(column, value);
+    query = value === null ? query.is(column, null) : query.eq(column, value);
   }
   const { data, error } = await query.maybeSingle();
   if (error) retryable(`Failed to fetch ${table}: ${error.message}`);
@@ -377,6 +377,10 @@ function assertSupportedOperation(row: AccountingSyncQueueRow): void {
   if (row.operation === "delete_soft" && row.entityType !== "customer") {
     needsReview(`QuickBooks ${row.entityType} delete_soft requires operator review`);
   }
+
+  if (row.operation === "delete" && row.entityType !== "estimate") {
+    needsReview(`QuickBooks ${row.entityType} delete requires operator review`);
+  }
 }
 
 async function assertConnectionWritable(
@@ -420,6 +424,7 @@ async function prepareCustomerPush(
   const contactRows = await selectRows(supabase, "sub_clients", [
     ["client_id", row.entityId],
     ["company_id", row.companyId],
+    ["deleted_at", null],
   ], "created_at");
   const entity = "Customer";
   const localQbId = cleanString(client.qb_id);
@@ -538,6 +543,27 @@ async function prepareEstimatePush(
   ]);
   if (!estimate) deterministicBlock("OPS estimate row not found");
 
+  const entity = "Estimate";
+  const localQbId = cleanString(estimate.qb_id);
+  const existingQbId = localQbId ?? cleanString(row.externalId);
+
+  if (row.operation === "delete") {
+    if (!existingQbId) {
+      deterministicBlock("QuickBooks estimate delete requires an existing qb_id or queue external_id");
+    }
+    const current = await currentQboState(writeService, entity, existingQbId);
+    if (!current.syncToken) deterministicBlock("QuickBooks Estimate SyncToken required");
+    return {
+      table: "estimates",
+      qboEntity: entity,
+      payload: { Id: existingQbId, SyncToken: current.syncToken },
+      existingQbId,
+      localQbIdMissing: !localQbId,
+      opsUpdatedAt: cleanString(estimate.deleted_at ?? estimate.updated_at),
+      qbUpdatedAt: current.qbUpdatedAt,
+    };
+  }
+
   const clientId = estimateClientId(estimate);
   if (!clientId) deterministicBlock("OPS estimate client link missing");
   const client = await maybeSingle(supabase, "clients", [
@@ -550,9 +576,6 @@ async function prepareEstimatePush(
     ["estimate_id", row.entityId],
     ["company_id", row.companyId],
   ], "sort_order")).map(mapLineItem);
-  const entity = "Estimate";
-  const localQbId = cleanString(estimate.qb_id);
-  const existingQbId = localQbId ?? cleanString(row.externalId);
   const current = await currentQboState(writeService, entity, existingQbId);
 
   try {
@@ -668,7 +691,7 @@ async function preparePaymentPush(
       existingQbId,
       paymentInvoiceQbId: invoiceLink?.qbId ?? null,
       localQbIdMissing: !localQbId,
-      opsUpdatedAt: cleanString(payment.created_at),
+      opsUpdatedAt: cleanString(payment.updated_at ?? payment.created_at),
       qbUpdatedAt: current.qbUpdatedAt,
     };
   } catch (error) {
@@ -736,6 +759,10 @@ async function performProviderWrite(input: {
 
   if (row.operation === "void") {
     return writeService.void(prepared.qboEntity, prepared.payload);
+  }
+
+  if (row.operation === "delete") {
+    return writeService.deleteEntity(prepared.qboEntity, prepared.payload);
   }
 
   return writeService.update(prepared.qboEntity, prepared.payload);
@@ -963,7 +990,10 @@ async function processQueueRow(input: {
     const result = await performProviderWrite({ row, prepared, writeService });
 
     try {
-      if (prepared.localQbIdMissing && cleanString(result.qbId)) {
+      if (
+        cleanString(result.qbId) &&
+        (prepared.localQbIdMissing || (row.entityType === "payment" && row.operation !== "void"))
+      ) {
         await writeQbId(supabase, row, prepared, result.qbId);
       }
 

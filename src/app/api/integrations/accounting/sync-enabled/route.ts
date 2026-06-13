@@ -50,10 +50,32 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceRoleClient();
     const providerEnvironment =
       provider === "quickbooks" ? getQuickBooksProviderEnvironment() : "production";
+    const updatedAt = new Date().toISOString();
+
+    if (provider === "quickbooks" && syncEnabled) {
+      const { error: siblingError } = await supabase
+        .from("accounting_connections")
+        .update({
+          sync_enabled: false,
+          sync_direction: "pull_only",
+          propagate_deletes: false,
+          updated_at: updatedAt,
+        })
+        .eq("company_id", companyId)
+        .eq("provider", provider)
+        .neq("provider_environment", providerEnvironment);
+
+      if (siblingError) {
+        return NextResponse.json(
+          { error: `Failed to disable other QuickBooks environments: ${siblingError.message}` },
+          { status: 500 }
+        );
+      }
+    }
 
     const { data, error } = await supabase
       .from("accounting_connections")
-      .update({ sync_enabled: syncEnabled, updated_at: new Date().toISOString() })
+      .update({ sync_enabled: syncEnabled, updated_at: updatedAt })
       .eq("company_id", companyId)
       .eq("provider", provider)
       .eq("provider_environment", providerEnvironment)

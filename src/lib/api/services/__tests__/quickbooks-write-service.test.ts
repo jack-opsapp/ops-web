@@ -279,6 +279,35 @@ describe("QuickBooksWriteService", () => {
     );
   });
 
+  it("posts Estimate deletes to operation=delete with the minimum payload", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      okResponse({
+        Estimate: {
+          Id: "99",
+          SyncToken: "4",
+          MetaData: { LastUpdatedTime: "2026-06-05T10:02:00Z" },
+        },
+      }),
+    );
+    const service = new QuickBooksWriteService({
+      realmId: "462081636529",
+      accessToken: "token",
+      environment: "sandbox",
+      fetchImpl,
+    });
+
+    await service.deleteEntity("Estimate", { Id: "99", SyncToken: "3" });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://sandbox-quickbooks.api.intuit.com/v3/company/462081636529/estimate?operation=delete&minorversion=75",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ Id: "99", SyncToken: "3" }),
+      }),
+    );
+    expect(service.writeCalls).toBe(1);
+  });
+
   it("rejects Payment voids without sparse=true before making a write call", async () => {
     const fetchImpl = vi.fn();
     const service = new QuickBooksWriteService({

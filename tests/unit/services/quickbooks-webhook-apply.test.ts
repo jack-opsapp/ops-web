@@ -338,6 +338,28 @@ describe("QuickBooksWebhookApplyService.applyEntity — Customer", () => {
     });
   });
 
+  it("an inactive QBO customer soft-deletes the linked OPS client", async () => {
+    const { client, captured } = makeSupabase({ existingIds: { clients: "client-1" } });
+    fetchEntityById.mockResolvedValue({ ...SANDBOX_CUSTOMER, Active: false });
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Customer", "1", "Update");
+
+    expect(result.status).toBe("success");
+    const clientUpdate = captured.updates.find((u) => u.table === "clients");
+    expect(clientUpdate?.patch.deleted_at).toEqual(expect.any(String));
+  });
+
+  it("an active QBO customer reactivates a previously soft-deleted OPS client", async () => {
+    const { client, captured } = makeSupabase({ existingIds: { clients: "client-1" } });
+    fetchEntityById.mockResolvedValue({ ...SANDBOX_CUSTOMER, Active: true });
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Customer", "1", "Update");
+
+    expect(result.status).toBe("success");
+    const clientUpdate = captured.updates.find((u) => u.table === "clients");
+    expect(clientUpdate?.patch.deleted_at).toBeNull();
+  });
+
   it("skips customer webhooks that echo a just-recorded OPS-to-QBO write", async () => {
     const { client, captured } = makeSupabase({
       rows: {
@@ -395,6 +417,22 @@ describe("QuickBooksWebhookApplyService.applyEntity — Customer", () => {
     expect(subInsert).toBeDefined();
     expect(subInsert!.row).toMatchObject({ qb_id: "42", name: "John Smith", email: "john@acme.com", phone_number: "555" });
     expect(captured.upserts.some((u) => u.table === "sub_clients")).toBe(false);
+  });
+
+  it("an inactive company-customer soft-deletes both the client and contact sub_client", async () => {
+    const { client, captured } = makeSupabase({ existingIds: { clients: "client-42", sub_clients: "sub-42" } });
+    fetchEntityById.mockResolvedValue({
+      Id: "42", DisplayName: "Acme Corp", CompanyName: "Acme Corp",
+      GivenName: "John", FamilyName: "Smith",
+      PrimaryEmailAddr: { Address: "john@acme.com" }, PrimaryPhone: { FreeFormNumber: "555" },
+      Active: false,
+    });
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Customer", "42", "Update");
+
+    expect(result.status).toBe("success");
+    expect(captured.updates.find((u) => u.table === "clients")?.patch.deleted_at).toEqual(expect.any(String));
+    expect(captured.updates.find((u) => u.table === "sub_clients")?.patch.deleted_at).toEqual(expect.any(String));
   });
 
   it("an individual webhook stays flat (no sub_client)", async () => {
@@ -646,6 +684,58 @@ describe("QuickBooksWebhookApplyService.applyEntity — Payment", () => {
       amount: 25,
     });
   });
+
+  it("voids stale split payment rows that are no longer present in the QBO payment", async () => {
+    const { client, captured } = makeSupabase({
+      existingIds: { clients: "client-1" },
+      rows: {
+        invoices: [
+          { id: "invoice-130", company_id: CO, qb_id: "130" },
+          { id: "invoice-999", company_id: CO, qb_id: "999" },
+        ],
+        payments: [
+          {
+            id: "payment-active",
+            company_id: CO,
+            qb_id: "77:130",
+            invoice_id: "invoice-130",
+          },
+          {
+            id: "payment-stale",
+            company_id: CO,
+            qb_id: "77:999",
+            invoice_id: "invoice-999",
+            voided_at: null,
+          },
+        ],
+      },
+    });
+    fetchEntityById.mockImplementation(async (entity: string, id: string) => {
+      if (entity === "Payment") return SANDBOX_PAYMENT;
+      if (entity === "Invoice" && id === "130") return SANDBOX_INVOICE;
+      if (entity === "Invoice" && id === "999") {
+        return { ...SANDBOX_INVOICE, Id: "999", DocNumber: "999", Balance: 100, TotalAmt: 100 };
+      }
+      return null;
+    });
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Payment", "77", "Update");
+
+    expect(result.status).toBe("success");
+    expect(result.afterSnapshot).toMatchObject({ stalePaymentsVoided: 1 });
+    expect(captured.updates.find((u) => u.table === "payments" && u.patch.voided_at)?.patch.voided_at)
+      .toEqual(expect.any(String));
+    expect(captured.rpcs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          args: expect.objectContaining({ p_entity_type: "payment", p_entity_id: "payment-stale" }),
+        }),
+        expect.objectContaining({
+          args: expect.objectContaining({ p_entity_type: "invoice", p_entity_id: "invoice-999" }),
+        }),
+      ])
+    );
+  });
 });
 
 describe("QuickBooksWebhookApplyService.applyEntity — Delete / Void (soft)", () => {
@@ -666,13 +756,28 @@ describe("QuickBooksWebhookApplyService.applyEntity — Delete / Void (soft)", (
   });
 
   it("Delete on a Customer soft-deletes the OPS client (deleted_at)", async () => {
-    const { client, captured } = makeSupabase({});
+    const { client, captured } = makeSupabase({
+      rows: {
+        sub_clients: [
+          {
+            id: "sub-1",
+            company_id: CO,
+            client_id: "client-1",
+            qb_id: "1",
+            deleted_at: null,
+          },
+        ],
+      },
+      existingIds: { clients: "client-1" },
+    });
     const svc = new QuickBooksWebhookApplyService(client as never);
     const result = await svc.applyEntity(CONN, "Customer", "1", "Delete");
     expect(result.status).toBe("success");
     expect(fetchEntityById).not.toHaveBeenCalled();
-    const upd = captured.updates.find((u) => u.table === "clients");
-    expect(upd!.patch).toHaveProperty("deleted_at");
+    const clientUpdate = captured.updates.find((u) => u.table === "clients");
+    const subClientUpdate = captured.updates.find((u) => u.table === "sub_clients");
+    expect(clientUpdate!.patch).toHaveProperty("deleted_at");
+    expect(subClientUpdate!.patch).toHaveProperty("deleted_at");
   });
 
   it("Void on a Payment marks matching OPS payments voided and suppresses invoice echo", async () => {
@@ -706,6 +811,36 @@ describe("QuickBooksWebhookApplyService.applyEntity — Delete / Void (soft)", (
     );
     const upd = captured.updates.find((u) => u.table === "payments");
     expect(upd!.patch).toHaveProperty("voided_at");
+  });
+
+  it("Delete on an Estimate soft-deletes the OPS estimate (no QB fetch)", async () => {
+    const { client, captured } = makeSupabase({
+      rows: {
+        estimates: [
+          {
+            id: "estimate-99",
+            company_id: CO,
+            qb_id: "99",
+            deleted_at: null,
+          },
+        ],
+      },
+    });
+    const svc = new QuickBooksWebhookApplyService(client as never);
+    const result = await svc.applyEntity(CONN, "Estimate", "99", "Delete");
+
+    expect(result.status).toBe("success");
+    expect(fetchEntityById).not.toHaveBeenCalled();
+    expect(result.entityId).toBe("estimate-99");
+    expect(captured.rpcs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          args: expect.objectContaining({ p_entity_type: "estimate", p_entity_id: "estimate-99" }),
+        }),
+      ]),
+    );
+    const upd = captured.updates.find((u) => u.table === "estimates");
+    expect(upd!.patch).toHaveProperty("deleted_at");
   });
 
   it("skips Payment Void webhooks that echo a just-recorded OPS-to-QBO void", async () => {
