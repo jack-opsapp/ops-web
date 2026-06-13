@@ -4,7 +4,6 @@ import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { useWindowStore } from "@/stores/window-store";
-import { useClientDetailPopoverStore } from "@/stores/client-detail-popover-store";
 import { useInvoiceDetailPopoverStore } from "@/stores/invoice-detail-popover-store";
 import { useEstimateDetailPopoverStore } from "@/stores/estimate-detail-popover-store";
 import { WT } from "@/lib/widget-tokens";
@@ -38,7 +37,7 @@ export function useWidgetEntityOpen() {
   const router = useRouter();
   const openPipelineDetail = usePipelineModeStore((s) => s.openDetailPanel);
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
-  const openClientPopover = useClientDetailPopoverStore((s) => s.openPopover);
+  const openClientWindow = useWindowStore((s) => s.openClientWindow);
   const openInvoicePopover = useInvoiceDetailPopoverStore((s) => s.openPopover);
   const openEstimatePopover = useEstimateDetailPopoverStore((s) => s.openPopover);
 
@@ -65,7 +64,9 @@ export function useWidgetEntityOpen() {
           return;
 
         case "client":
-          openClientPopover(entityId, screenPos, title, color ?? WT.accent);
+          // P3.3 — clients open in the unified workspace window (the popover
+          // is retired). The window owns its own chrome/position.
+          openClientWindow({ clientId: entityId, mode: "viewing" });
           return;
 
         case "invoice":
@@ -99,7 +100,7 @@ export function useWidgetEntityOpen() {
       router,
       openPipelineDetail,
       openProjectWindow,
-      openClientPopover,
+      openClientWindow,
       openInvoicePopover,
       openEstimatePopover,
     ]

@@ -3,7 +3,6 @@
 import { create } from "zustand";
 
 export type FloatingWindowType =
-  | "create-client"
   | "create-task"
   | "create-estimate"
   | "create-lead"

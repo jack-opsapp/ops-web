@@ -55,6 +55,8 @@ export function QuickActionsDrawer() {
   // Phase 9.2 — project-workspace dispatch goes through the dedicated
   // openProjectWindow helper (centralised id derivation + meta packaging).
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
+  // Phase P3.3 — client-workspace dispatch mirrors the project opener.
+  const openClientWindow = useWindowStore((s) => s.openClientWindow);
   const reducedMotion = useReducedMotion();
   const actions = useQuickActions();
   const PANEL_H = computeQuickActionsPanelHeight(actions.length);
@@ -102,6 +104,11 @@ export function QuickActionsDrawer() {
           // (defaulting to "creating" — that's how the FAB lands here).
           openProjectWindow({
             projectId: null,
+            mode: action.meta?.initialMode ?? "creating",
+          });
+        } else if (action.target === "client-workspace") {
+          openClientWindow({
+            clientId: null,
             mode: action.meta?.initialMode ?? "creating",
           });
         } else {

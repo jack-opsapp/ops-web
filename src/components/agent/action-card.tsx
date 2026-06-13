@@ -138,7 +138,7 @@ function getSourceUrl(contextSource: string | null, sourceId: string | null): st
       return invId ? `/pipeline?invoice=${invId}` : null;
     }
     case "payment_analysis":
-      return `/clients/${sourceId.split(":")[0]}`;
+      return `/dashboard?openClient=${sourceId.split(":")[0]}`;
     case "schedule_optimization":
       return "/schedule";
     default:

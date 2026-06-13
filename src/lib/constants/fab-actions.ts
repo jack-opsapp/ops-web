@@ -44,7 +44,9 @@ export const ALL_ACTIONS: FABAction[] = [
   { id: "lead",           labelKey: "action.lead",      hintCode: "LED", icon: TrendingUp,    triggerAction: "leads",      handler: "window", target: "create-lead",              requiredPermission: "pipeline.manage" },
   { id: "estimate",       labelKey: "action.estimate",  hintCode: "EST", icon: Calculator,    triggerAction: "estimates",  handler: "window", target: "create-estimate",          requiredPermission: "estimates.create" },
   { id: "invoice",        labelKey: "action.invoice",   hintCode: "INV", icon: FileText,      triggerAction: "invoices",   handler: "route",  target: "/books?segment=invoices&action=new", requiredPermission: "invoices.create" },
-  { id: "client",         labelKey: "action.client",    hintCode: "CLI", icon: Users,         triggerAction: "clients",    handler: "window", target: "create-client",            requiredPermission: "clients.create" },
+  // Phase P3.3 — "New Client" routes through the unified client workspace
+  // window in creating mode instead of the legacy create-client modal.
+  { id: "client",         labelKey: "action.client",    hintCode: "CLI", icon: Users,         triggerAction: "clients",    handler: "window", target: "client-workspace",          requiredPermission: "clients.create", meta: { initialMode: "creating" } },
   // Phase 9.1 — "New Project" routes through the unified workspace
   // window in creating mode instead of the legacy create-project modal.
   { id: "project",        labelKey: "action.project",   hintCode: "PRJ", icon: FolderKanban,  triggerAction: "projects",   handler: "window", target: "project-workspace",        requiredPermission: "projects.create", meta: { initialMode: "creating" } },
