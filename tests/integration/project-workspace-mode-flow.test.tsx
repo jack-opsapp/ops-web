@@ -242,7 +242,9 @@ describe("Project workspace — mode flow lifecycle", () => {
       const win = useWindowStore
         .getState()
         .windows.find((w) => w.id === NEW_WINDOW_ID);
-      expect(win?.meta?.projectId).toBe("p-fresh");
+      expect(
+        (win?.meta as { projectId?: string | null } | undefined)?.projectId,
+      ).toBe("p-fresh");
       expect(win?.meta?.initialMode).toBe("viewing");
     });
     // Editing body is gone; viewing body is on screen.
