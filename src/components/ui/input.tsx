@@ -31,7 +31,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             "border border-[rgba(255,255,255,0.10)]",
             "transition-all duration-150",
             "focus-within:border-[rgba(255,255,255,0.20)]",
-            error && "border-[#B58289] focus-within:border-[#B58289]",
+            error && "border-rose-line focus-within:border-rose-line",
             prefixIcon ? "pl-3" : "pl-2",
             suffixIcon ? "pr-3" : "pr-2",
           )}
@@ -65,7 +65,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
         {error && (
-          <p id={`${inputId}-error`} className="text-caption-sm text-[#B58289] font-mono" role="alert">
+          <p id={`${inputId}-error`} className="text-caption-sm text-rose font-mono" role="alert">
             {error}
           </p>
         )}

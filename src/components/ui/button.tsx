@@ -36,8 +36,8 @@ const buttonVariants = cva(
           "hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.18)] hover:text-text",
         ],
         destructive: [
-          "bg-[rgba(181,130,137,0.12)] text-[#B58289] border border-[rgba(181,130,137,0.28)]",
-          "hover:bg-[rgba(181,130,137,0.18)]",
+          "bg-rose-soft text-rose border border-rose-line",
+          "hover:border-rose",
         ],
         ghost: [
           "bg-transparent text-text-2",
