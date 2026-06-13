@@ -139,6 +139,7 @@ export function CatalogPage() {
   const filterParam = searchParams.get("filter");
   const viewParam = searchParams.get("view");
   const drillParam = searchParams.get("drill");
+  const actionParam = searchParams.get("action");
 
   const segmentCounts = useMemo(
     () => ({
@@ -173,6 +174,8 @@ export function CatalogPage() {
           view={viewParam === "counts" ? "counts" : "list"}
           onClearDrill={() => updateParams({ drill: null })}
           onCloseCounts={() => updateParams({ view: null })}
+          openCreate={actionParam === "new"}
+          onCreateHandled={() => updateParams({ action: null })}
           rows={stockRows}
           loading={stockLoading}
         />

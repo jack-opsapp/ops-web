@@ -14,8 +14,11 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   // paths stay listed through the redirect window — middleware 308s them
   // before render, but the flag must keep gating both ends of the hop.
   accounting: ["/books", "/accounting", "/estimates", "/invoices"],
-  products: ["/products"],
-  inventory: ["/inventory"],
+  // products/inventory were never real feature_flags rows (only pipeline +
+  // accounting exist in the DB) — their static entries were dead config. The
+  // surfaces collapsed into /catalog (P3.2), which is RBAC-gated only
+  // (anyOf products.view / inventory.view in the route registry), not
+  // commercially flag-gated.
   // ai_email_review removed 2026-04-24 — collapsed into phase_c
   // (migration 20260424000000). phase_c gates the Phase C operator
   // surfaces: /calibration and the /agent queue (WEB OVERHAUL P2 —
@@ -57,8 +60,8 @@ export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
     "expenses.configure",
     "documents.manage_templates",
   ],
-  products: ["products.view", "products.manage"],
-  inventory: ["inventory.view", "inventory.manage", "inventory.import"],
+  // products/inventory: see FEATURE_FLAG_ROUTES note — dead config removed;
+  // these permissions gate via RBAC only, never a (nonexistent) flag.
   portal: ["portal.view", "portal.manage_branding"],
   // ai_email_review removed — all AI gating now on phase_c.
   phase_c: ["email.configure_ai"],

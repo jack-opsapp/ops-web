@@ -83,6 +83,8 @@ export interface StockSegmentProps {
   view: "list" | "counts";
   onClearDrill: () => void;
   onCloseCounts: () => void;
+  openCreate: boolean;
+  onCreateHandled: () => void;
   rows: CatalogStockRow[];
   loading: boolean;
 }
@@ -98,6 +100,8 @@ export function StockSegment({
   view,
   onClearDrill,
   onCloseCounts,
+  openCreate,
+  onCreateHandled,
   rows,
   loading,
 }: StockSegmentProps) {
@@ -122,6 +126,14 @@ export function StockSegment({
     const g = window.localStorage.getItem(GROUP_KEY);
     if (g === "1") setGroupByFamily(true);
   }, []);
+
+  // FAB / legacy /inventory?action=new deep link auto-opens the add dialog.
+  useEffect(() => {
+    if (openCreate && canManage) {
+      setAddOpen(true);
+      onCreateHandled();
+    }
+  }, [openCreate, canManage, onCreateHandled]);
   const toggleGroup = useCallback(() => {
     setGroupByFamily((prev) => {
       const next = !prev;

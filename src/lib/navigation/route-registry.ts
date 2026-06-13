@@ -35,8 +35,7 @@ import {
   CalendarDays,
   GitBranch,
   Calculator,
-  Package,
-  Boxes,
+  Library,
   Users,
   UserCog,
   Mail,
@@ -177,24 +176,29 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     ],
   },
   {
-    key: "products",
-    href: "/products",
-    icon: Package,
-    labelKey: "nav.products",
-    paletteKeywords: ["catalog", "pricing"],
+    // CATALOG — the variant-aware price book + stock hub (P3.2). Absorbed
+    // Products and Inventory into PRODUCTS / STOCK segments mirroring the iOS
+    // Catalog tab. Icon traces to the OPS-ICON-SET-BRIEF `nav-catalog`
+    // concept (Carbon `Catalog`); ships lucide `Library` until the Carbon swap.
+    key: "catalog",
+    href: "/catalog",
+    icon: Library,
+    labelKey: "nav.catalog",
+    paletteKeywords: [
+      "products",
+      "inventory",
+      "stock",
+      "items",
+      "materials",
+      "pricing",
+      "price book",
+      "skus",
+      "variants",
+    ],
     nav: { order: 9, group: "command" },
-    permission: "products.view",
-    absorbedBy: { phase: "3.2", target: "/catalog?segment=products" },
-  },
-  {
-    key: "inventory",
-    href: "/inventory",
-    icon: Boxes,
-    labelKey: "nav.inventory",
-    paletteKeywords: ["stock", "items", "materials"],
-    nav: { order: 10, group: "command" },
-    permission: "inventory.view",
-    absorbedBy: { phase: "3.2", target: "/catalog?segment=stock" },
+    // Any-of across the two segments' gates (mirrors iOS catalog access):
+    // visible when the user can see products OR stock.
+    anyOfPermissions: ["products.view", "inventory.view"],
   },
   {
     key: "clients",
