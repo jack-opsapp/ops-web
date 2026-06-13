@@ -243,7 +243,7 @@ export function ContactTab({
               <Inline key={sc.id} justify="between" align="center" className="group py-2">
                 <Inline gap={1.5} align="center" className="min-w-0">
                   <Avatar className="h-[24px] w-[24px] shrink-0">
-                    <AvatarFallback className="font-mono text-[10px] uppercase tracking-wider">
+                    <AvatarFallback className="font-mono text-[11px] uppercase tracking-wider">
                       {getInitials(sc.name) || "?"}
                     </AvatarFallback>
                   </Avatar>

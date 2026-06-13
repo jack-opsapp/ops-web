@@ -325,7 +325,7 @@ export default function ClientsPage() {
       {showLoading ? (
         <ListSkeleton />
       ) : isEmptyAll ? (
-        <div className="flex items-start gap-2 border-l-2 border-l-[rgba(255,255,255,0.08)] px-3 py-3">
+        <div className="flex items-start gap-2 border-l-2 border-l-border px-3 py-3">
           <Users className="mt-[2px] h-[20px] w-[20px] shrink-0 text-text-mute" aria-hidden />
           <div className="flex flex-col items-start gap-0.5">
             <h3 className="font-mohave text-body-lg text-text-2">{t("empty.title")}</h3>
@@ -345,7 +345,7 @@ export default function ClientsPage() {
           </div>
         </div>
       ) : isEmptyFiltered ? (
-        <div className="flex items-start gap-2 border-l-2 border-l-[rgba(255,255,255,0.08)] px-3 py-3">
+        <div className="flex items-start gap-2 border-l-2 border-l-border px-3 py-3">
           <Search className="mt-[2px] h-[20px] w-[20px] shrink-0 text-text-mute" aria-hidden />
           <div>
             <h3 className="font-mohave text-body-lg text-text-2">{t("empty.noMatch")}</h3>
