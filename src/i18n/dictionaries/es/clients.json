@@ -23,6 +23,7 @@
   "table.contact": "Contacto",
   "table.outstanding": "Pendiente",
   "table.lastSeen": "Visto",
+  "lastSeen.today": "hoy",
 
   "list.count": "{count} clientes",
   "list.countOne": "{count} cliente",

@@ -23,6 +23,7 @@
   "table.contact": "Contact",
   "table.outstanding": "Outstanding",
   "table.lastSeen": "Last seen",
+  "lastSeen.today": "today",
 
   "list.count": "{count} clients",
   "list.countOne": "{count} client",
