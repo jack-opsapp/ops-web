@@ -9,8 +9,7 @@
  * Approved pixels: docs/design/2026-06-11-books-mockups/direction-a-instrument-strip.html
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { animate } from "framer-motion";
+import { useEffect, useMemo, useRef } from "react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import { useBooksLedger } from "@/lib/hooks";
@@ -18,6 +17,16 @@ import type { BooksLedger, BooksPeriod } from "@/lib/api/services/books-service"
 import { useReducedMotion } from "@/components/dashboard/widgets/shared/use-reduced-motion";
 import { PeriodPill } from "./period-pill";
 import { cn } from "@/lib/utils/cn";
+import {
+  InstrumentStrip,
+  GlanceGrid,
+  GlanceTile,
+  TileHero,
+  TileSub,
+  ScopeBadge,
+  GlanceTileSkeleton,
+  useCountUp,
+} from "@/components/ui/instrument-strip";
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
 
@@ -40,93 +49,6 @@ function fmtMoney(
 
 function fmtPct(value: number): string {
   return `${Math.round(value)}%`;
-}
-
-// ─── Count-up (800ms hero count-up, exact EASE_SMOOTH, reduced-motion aware) ──
-
-function useCountUp(target: number, enabled: boolean, duration = 800): number {
-  const [value, setValue] = useState(enabled ? 0 : target);
-  const prev = useRef(0);
-
-  useEffect(() => {
-    if (!enabled) {
-      setValue(target);
-      return;
-    }
-    const from = prev.current;
-    prev.current = target;
-    // framer-motion evaluates the real cubic-bezier(0.22, 1, 0.36, 1) — one
-    // easing curve everywhere (DESIGN.md §8), no hand-rolled approximation.
-    const controls = animate(from, target, {
-      duration: duration / 1000,
-      ease: [0.22, 1, 0.36, 1],
-      onUpdate: (v) => setValue(v),
-    });
-    return () => controls.stop();
-  }, [target, enabled, duration]);
-
-  return value;
-}
-
-// ─── Tile shell ───────────────────────────────────────────────────────────────
-
-function TileShell({
-  label,
-  right,
-  onClick,
-  children,
-}: {
-  label: string;
-  right?: React.ReactNode;
-  onClick?: () => void;
-  children: React.ReactNode;
-}) {
-  const Tag = onClick ? "button" : "div";
-  return (
-    <Tag
-      type={onClick ? "button" : undefined}
-      onClick={onClick}
-      className={cn(
-        // SM widget zone: 14px top / 18px sides / 12px bottom (DESIGN.md §7).
-        "glass-surface flex min-h-[132px] flex-col px-[18px] pb-[12px] pt-[14px] text-left",
-        onClick &&
-          "cursor-pointer transition-colors duration-150 ease-smooth hover:bg-surface-hover focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
-      )}
-    >
-      <div className="mb-1 flex items-baseline justify-between gap-1">
-        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-          <span className="text-text-mute">{"// "}</span>
-          {label}
-        </span>
-        {right}
-      </div>
-      {children}
-    </Tag>
-  );
-}
-
-function TileHero({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="font-mono text-data-lg leading-tight text-text tabular-nums">
-      {children}
-    </span>
-  );
-}
-
-function TileSub({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mt-auto font-mono text-micro tracking-[0.06em] text-text-3 tabular-nums">
-      {children}
-    </div>
-  );
-}
-
-function ScopeBadge({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="rounded-[4px] border border-border px-[5px] py-px font-mono text-micro uppercase tracking-[0.14em] text-text-3">
-      {children}
-    </span>
-  );
 }
 
 // ─── Mini-viz ─────────────────────────────────────────────────────────────────
@@ -275,19 +197,6 @@ function DivergingBars({
   );
 }
 
-// ─── Skeleton / error ─────────────────────────────────────────────────────────
-
-function TileSkeleton() {
-  return (
-    <div className="glass-surface min-h-[132px] animate-pulse px-[18px] pb-[12px] pt-[14px] motion-reduce:animate-none">
-      <div className="mb-2 h-[11px] w-[72px] rounded bg-fill-neutral-dim" />
-      <div className="mb-2 h-[24px] w-[120px] rounded bg-fill-neutral-dim" />
-      <div className="mb-2 h-[16px] w-full rounded bg-fill-neutral-dim/60" />
-      <div className="h-[11px] w-[140px] rounded bg-fill-neutral-dim" />
-    </div>
-  );
-}
-
 // ─── Strip ────────────────────────────────────────────────────────────────────
 
 export interface LedgerStripProps {
@@ -311,22 +220,17 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
   const arTotal = useCountUp(data?.ar.total ?? 0, animate && !!data);
 
   return (
-    <section aria-label={t("ledger.title")}>
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-          <span className="text-text-mute">{"// "}</span>
-          {t("ledger.title")}
-        </span>
-        <PeriodPill value={period} onChange={onPeriodChange} />
-      </div>
-
+    <InstrumentStrip
+      label={t("ledger.title")}
+      right={<PeriodPill value={period} onChange={onPeriodChange} />}
+    >
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
-          <TileSkeleton />
-          <TileSkeleton />
-          <TileSkeleton />
-          <TileSkeleton />
-        </div>
+        <GlanceGrid className="grid-cols-2 xl:grid-cols-4">
+          <GlanceTileSkeleton />
+          <GlanceTileSkeleton />
+          <GlanceTileSkeleton />
+          <GlanceTileSkeleton />
+        </GlanceGrid>
       ) : isError || !data ? (
         <div className="glass-surface flex min-h-[80px] items-center justify-between px-[18px] pb-[12px] pt-[14px]">
           <span className="font-mono text-micro uppercase tracking-[0.16em] text-rose">
@@ -342,9 +246,9 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+        <GlanceGrid className="grid-cols-2 xl:grid-cols-4">
           {/* ── NET ── */}
-          <TileShell
+          <GlanceTile
             label={t("ledger.net")}
             right={
               <span className="font-mono text-micro text-text-3 tabular-nums">
@@ -364,10 +268,10 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
                 </span>
               </span>
             </TileSub>
-          </TileShell>
+          </GlanceTile>
 
           {/* ── CASH FLOW ── */}
-          <TileShell label={t("ledger.cashflow")}>
+          <GlanceTile label={t("ledger.cashflow")}>
             <TileHero>
               {data.weeklyNets.length === 0 ? "—" : fmtMoney(data.avgPerWeek, numLocale, { signed: true })}
               {data.weeklyNets.length > 0 && (
@@ -391,10 +295,10 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
                 "—"
               )}
             </TileSub>
-          </TileShell>
+          </GlanceTile>
 
           {/* ── A/R ── */}
-          <TileShell
+          <GlanceTile
             label={t("ledger.ar")}
             right={<ScopeBadge>{t("ledger.allOpen")}</ScopeBadge>}
             onClick={onDrillOverdue}
@@ -414,10 +318,10 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
                 </>
               ) : null}
             </TileSub>
-          </TileShell>
+          </GlanceTile>
 
           {/* ── JOBS ── */}
-          <TileShell label={t("ledger.jobs")}>
+          <GlanceTile label={t("ledger.jobs")}>
             <TileHero>
               {data.jobs.profitable}
               <span className="ml-0.5 text-micro text-text-3">
@@ -433,9 +337,9 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
                 ? t("ledger.oneLoser")
                 : t("ledger.losers", { n: data.jobs.losers })}
             </TileSub>
-          </TileShell>
-        </div>
+          </GlanceTile>
+        </GlanceGrid>
       )}
-    </section>
+    </InstrumentStrip>
   );
 }
