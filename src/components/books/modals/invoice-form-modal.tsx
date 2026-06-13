@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   LineItemEditor,
   createEmptyLineItem,
   type LineItemRow,
@@ -27,6 +34,10 @@ import {
   PAYMENT_TERMS_OPTIONS,
 } from "@/lib/types/pipeline";
 import type { Invoice, Product, CreateInvoice, CreateLineItem } from "@/lib/types/pipeline";
+
+/** Radix Select forbids an empty-string item value; this sentinel represents
+ *  the optional "no project" choice and maps back to "" on change. */
+const PROJECT_NONE = "__none__";
 
 /** Dictionary key for a payment-terms enum value ("Due on Receipt" →
  *  form.paymentTerms.due_on_receipt). Option values stay the stable enum;
@@ -222,17 +233,22 @@ export function InvoiceFormModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="space-y-0.5">
               <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.client")}</label>
-              <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
-                <option value="">{t("form.selectClient")}</option>
-                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <Select value={clientId} onValueChange={setClientId}>
+                <SelectTrigger className="h-9"><SelectValue placeholder={t("form.selectClient")} /></SelectTrigger>
+                <SelectContent>
+                  {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-0.5">
               <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.project")}</label>
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
-                <option value="">{t("form.selectProjectOptional")}</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
+              <Select value={projectId || PROJECT_NONE} onValueChange={(v) => setProjectId(v === PROJECT_NONE ? "" : v)}>
+                <SelectTrigger className="h-9"><SelectValue placeholder={t("form.selectProjectOptional")} /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PROJECT_NONE}>{t("form.selectProjectOptional")}</SelectItem>
+                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -244,9 +260,12 @@ export function InvoiceFormModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.paymentTerms")}</label>
-              <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
-                {PAYMENT_TERMS_OPTIONS.map((term) => <option key={term} value={term}>{t(paymentTermKey(term))}</option>)}
-              </select>
+              <Select value={paymentTerms} onValueChange={setPaymentTerms}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_TERMS_OPTIONS.map((term) => <SelectItem key={term} value={term}>{t(paymentTermKey(term))}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-0.5">
               <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.dueDate")}</label>

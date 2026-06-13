@@ -17,6 +17,13 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   LineItemEditor,
   createEmptyLineItem,
   computeAmount,
@@ -25,6 +32,10 @@ import {
 import { EstimateStatus } from "@/lib/types/pipeline";
 import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/types/pipeline";
 import { formatDateOnly } from "@/lib/utils/format";
+
+/** Radix Select forbids an empty-string item value; this sentinel represents
+ *  the optional "no project" choice and maps back to "" on change. */
+const PROJECT_NONE = "__none__";
 
 export function EstimateFormModal({
   open,
@@ -208,31 +219,32 @@ export function EstimateFormModal({
               <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                 {t("estimates.form.client")}
               </label>
-              <select
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
-              >
-                <option value="">{t("form.selectClient")}</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <Select value={clientId} onValueChange={setClientId}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={t("form.selectClient")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-0.5">
               <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                 {t("estimates.form.project")}
               </label>
-              <select
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text"
-              >
-                <option value="">{t("form.selectProjectOptional")}</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.title}</option>
-                ))}
-              </select>
+              <Select value={projectId || PROJECT_NONE} onValueChange={(v) => setProjectId(v === PROJECT_NONE ? "" : v)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder={t("form.selectProjectOptional")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={PROJECT_NONE}>{t("form.selectProjectOptional")}</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

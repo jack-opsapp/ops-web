@@ -17,6 +17,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatCurrency, PaymentMethod } from "@/lib/types/pipeline";
 import type { Invoice, CreatePayment } from "@/lib/types/pipeline";
 
@@ -105,11 +112,14 @@ export function RecordPaymentModal({
             </div>
             <div className="space-y-0.5">
               <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.payment.method")}</label>
-              <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full bg-surface-input border border-border rounded px-2 py-1.5 font-mohave text-body text-text">
-                {Object.entries(PAYMENT_METHOD_KEYS).map(([k, key]) => (
-                  <option key={k} value={k}>{t(key)}</option>
-                ))}
-              </select>
+              <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PAYMENT_METHOD_KEYS).map(([k, key]) => (
+                    <SelectItem key={k} value={k}>{t(key)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
