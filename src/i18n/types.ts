@@ -40,7 +40,8 @@ export type Namespace =
   | 'quick-actions'
   | 'server-emails'
   | 'unsubscribe'
-  | 'project-workspace';
+  | 'project-workspace'
+  | 'catalog-setup';
 
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;
