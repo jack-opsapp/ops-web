@@ -29,6 +29,7 @@
   --color-financial-cost: #B58289;
   --color-financial-receivables: #D4A574;
   --color-financial-overdue: #93321A;
+  --color-financial-current: #9DB582;   /* current / not-yet-due A/R (healthy) — = olive / financial-profit */
   --color-ops-accent: rgb(var(--ops-accent-rgb));
 
   /* RGB splits for opacity-modulated chart fills */

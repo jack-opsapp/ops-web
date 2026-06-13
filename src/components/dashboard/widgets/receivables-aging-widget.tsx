@@ -21,15 +21,20 @@ import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------
-// Aging buckets — colors from WT tokens per severity tier
-// 31-60 uses WT.cost (muted rose #B58289) for contrast against 1-30 WT.warning
+// Aging buckets — the canonical OPS A/R aging ramp (healthy → destructive),
+// identical to the Books AGING view (ar-aging-view.tsx): current is olive, NOT
+// the steel-blue accent. Accent is CTA + focus only (DESIGN.md §3 — it never
+// appears on data bars). Each WT token below resolves to the matching Books
+// class hex: current=olive #9DB582 (bg-olive), 1-30=tan #C4A868 (bg-tan),
+// 31-60=#D4A574 (bg-financial-receivables), 61-90=rose #B58289 (bg-rose),
+// 90+=brick #93321A (bg-financial-overdue).
 // ---------------------------------------------------------------------------
 const BUCKETS = [
-  { key: "current", labelKey: "receivablesAging.current", fallback: "Current", min: -Infinity, max: 0, color: WT.accent },
+  { key: "current", labelKey: "receivablesAging.current", fallback: "Current", min: -Infinity, max: 0, color: WT.current },
   { key: "1-30", labelKey: "invoiceAging.bucket1to30", fallback: "1-30", min: 1, max: 30, color: WT.warning },
-  { key: "31-60", labelKey: "invoiceAging.bucket31to60", fallback: "31-60", min: 31, max: 60, color: WT.cost },
-  { key: "61-90", labelKey: "invoiceAging.bucket61to90", fallback: "61-90", min: 61, max: 90, color: WT.errorMuted },
-  { key: "90+", labelKey: "invoiceAging.bucket90plus", fallback: "90+", min: 91, max: Infinity, color: WT.error },
+  { key: "31-60", labelKey: "invoiceAging.bucket31to60", fallback: "31-60", min: 31, max: 60, color: WT.receivables },
+  { key: "61-90", labelKey: "invoiceAging.bucket61to90", fallback: "61-90", min: 61, max: 90, color: WT.cost },
+  { key: "90+", labelKey: "invoiceAging.bucket90plus", fallback: "90+", min: 91, max: Infinity, color: WT.overdue },
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -126,7 +131,9 @@ export function ReceivablesAgingWidget({
   }, [invoices, size]);
 
   const animatedTotal = useAnimatedValue(isVisible ? Math.round(aging.totalAmount) : 0, 1000);
-  const heroColor = aging.worstBucket?.color ?? WT.accent;
+  // Worst non-empty bucket drives the hero + outstanding bar; when nothing is
+  // outstanding it falls back to the healthy "current" olive, never the accent.
+  const heroColor = aging.worstBucket?.color ?? WT.current;
 
   // ── Loading ───────────────────────────────────────────────────────────
   if (isLoading) {

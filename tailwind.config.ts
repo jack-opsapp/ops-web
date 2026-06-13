@@ -124,6 +124,7 @@ const config: Config = {
           cost: "#B58289",
           receivables: "#D4A574",
           overdue: "#93321A",
+          current: "#9DB582",            // current / not-yet-due A/R (healthy) — = olive/profit
         },
 
         // === Neutral Fills (non-interactive data: bars, tracks, skeletons) ===
