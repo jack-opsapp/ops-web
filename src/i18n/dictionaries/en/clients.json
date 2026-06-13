@@ -44,6 +44,8 @@
   "empty.description": "Add your first client to start tracking contacts, jobs, and what they owe.",
   "empty.noMatch": "No matching clients",
   "empty.noMatchDesc": "Adjust your search or filters",
+  "empty.noun": "Clients",
+  "empty.matches": "Matches",
 
   "window.crumb": "Client",
   "window.owes": "Owes {amount}",

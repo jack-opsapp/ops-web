@@ -44,6 +44,8 @@
   "empty.description": "Agrega tu primer cliente para empezar a seguir contactos, trabajos y lo que deben.",
   "empty.noMatch": "Sin clientes coincidentes",
   "empty.noMatchDesc": "Ajusta tu búsqueda o filtros",
+  "empty.noun": "Clientes",
+  "empty.matches": "Coincidencias",
 
   "window.crumb": "Cliente",
   "window.owes": "Debe {amount}",

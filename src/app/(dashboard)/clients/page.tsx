@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Plus, Search, Users } from "lucide-react";
+import { Plus } from "lucide-react";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary } from "@/i18n/client";
 import { trackScreenView } from "@/lib/analytics/analytics";
@@ -19,6 +19,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { FilterChips } from "@/components/ui/filter-chip";
 import {
   RegisterTable,
+  RegisterEmpty,
   TablePrimary,
   TableMeta,
   TableMono,
@@ -322,33 +323,11 @@ export default function ClientsPage() {
       {showLoading ? (
         <ListSkeleton />
       ) : isEmptyAll ? (
-        <div className="flex items-start gap-2 border-l-2 border-l-border px-3 py-3">
-          <Users className="mt-[2px] h-[20px] w-[20px] shrink-0 text-text-mute" aria-hidden />
-          <div className="flex flex-col items-start gap-0.5">
-            <h3 className="font-mohave text-body-lg text-text-2">{t("empty.title")}</h3>
-            <p className="max-w-[360px] font-mohave text-body-sm text-text-3">
-              {t("empty.description")}
-            </p>
-            {canCreate && (
-              <button
-                type="button"
-                onClick={gatedCreate}
-                className="mt-1.5 inline-flex h-[34px] items-center gap-[6px] rounded-[5px] border border-ops-accent bg-transparent px-3 font-cakemono text-[13px] font-light uppercase text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-              >
-                <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
-                {t("newClient")}
-              </button>
-            )}
-          </div>
-        </div>
+        /* Empty state — DESIGN.md §2: state the fact only, no coach-mark, no button.
+           Create lives in the workbar CTA + the FAB, not the empty register. */
+        <RegisterEmpty noun={t("empty.noun")} />
       ) : isEmptyFiltered ? (
-        <div className="flex items-start gap-2 border-l-2 border-l-border px-3 py-3">
-          <Search className="mt-[2px] h-[20px] w-[20px] shrink-0 text-text-mute" aria-hidden />
-          <div>
-            <h3 className="font-mohave text-body-lg text-text-2">{t("empty.noMatch")}</h3>
-            <p className="font-mohave text-body-sm text-text-3">{t("empty.noMatchDesc")}</p>
-          </div>
-        </div>
+        <RegisterEmpty noun={t("empty.matches")} />
       ) : (
         <RegisterTable
           columns={columns}
