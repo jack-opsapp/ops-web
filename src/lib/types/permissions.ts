@@ -170,6 +170,21 @@ const productsModule: PermissionModule = {
   ],
 };
 
+// Client home for the DB `catalog.*` namespace (catalog.manage, catalog.import,
+// catalog.run_setup, …) that ships in role_permissions but was previously absent
+// from this catalog. Registering catalog.run_setup here is load-bearing:
+// account-holders & company-admins derive their grants from ALL_PERMISSIONS at
+// scope 'all' (usePermissionStore.fetchPermissions), NOT from role_permissions —
+// so an unregistered bit silently denies the wizard's primary audience (the
+// owner). See client-permission-catalog-sync rule.
+const catalogModule: PermissionModule = {
+  id: "catalog",
+  label: "Catalog",
+  actions: [
+    { id: "catalog.run_setup", label: "Run catalog setup", scopes: ["all"] },
+  ],
+};
+
 const expensesModule: PermissionModule = {
   id: "expenses",
   label: "Expenses",
@@ -314,7 +329,7 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "financial",
     label: "Financial",
-    modules: [estimatesModule, invoicesModule, pipelineModule, productsModule, expensesModule, accountingModule],
+    modules: [estimatesModule, invoicesModule, pipelineModule, productsModule, catalogModule, expensesModule, accountingModule],
   },
   {
     id: "resources",
