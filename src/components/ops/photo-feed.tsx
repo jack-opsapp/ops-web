@@ -23,7 +23,7 @@ import { CompanyService } from "@/lib/api/services/company-service";
 import { getUserFullName } from "@/lib/types/models";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { UserAvatar } from "@/components/ops/user-avatar";
-import { EmptyState } from "@/components/ops/empty-state";
+import { OnboardingHint } from "@/components/ops/onboarding-hint";
 import { Button } from "@/components/ui/button";
 import { PermissionGate } from "@/components/ops/permission-gate";
 import {
@@ -277,7 +277,7 @@ export function PhotoFeed({ projectId, className }: PhotoFeedProps) {
     return (
       <div className={cn(className)}>
         {hiddenFileInput}
-        <EmptyState
+        <OnboardingHint
           icon={<Camera className="h-4 w-4" />}
           title={t("photoFeed.noPhotos")}
           description={t("photoFeed.noPhotosDesc")}
@@ -326,7 +326,7 @@ export function PhotoFeed({ projectId, className }: PhotoFeedProps) {
 
       {/* Photo cards */}
       {filteredPhotos.length === 0 ? (
-        <EmptyState
+        <OnboardingHint
           icon={<Camera className="h-4 w-4" />}
           title={t("photoFeed.noPhotos")}
           description={t("photoFeed.noPhotosDesc")}

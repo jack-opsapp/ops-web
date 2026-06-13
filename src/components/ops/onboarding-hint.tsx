@@ -2,7 +2,23 @@ import * as React from "react";
 import { cn } from "@/lib/utils/cn";
 import { Button, type ButtonProps } from "@/components/ui/button";
 
-export interface EmptyStateProps {
+/**
+ * OnboardingHint — the soft, guidance-bearing affordance: icon + title + optional
+ * description + optional action, on a left-border strip.
+ *
+ * NOT for register/segment tables. DESIGN.md §2 bans this coach-mark form for empty
+ * registers ("$0, 0%, or —. No illustrations. No coach-marks."). A register that is
+ * simply empty uses `RegisterEmpty` (@/components/ui/register-table) — the tactical
+ * "0 // NOUN" fact. Reach for OnboardingHint only on non-register surfaces where
+ * guiding the user toward a first action is the point: onboarding nudges, panel /
+ * widget placeholders.
+ *
+ * (Renamed from `EmptyState` on 2026-06-13 — WEB OVERHAUL P4-1 — so it can never be
+ * grabbed as the default empty state for a register. See the cross-surface visual
+ * cohesion audit §5.2.)
+ */
+
+export interface OnboardingHintProps {
   icon?: React.ReactNode;
   title: string;
   description?: string;
@@ -14,13 +30,13 @@ export interface EmptyStateProps {
   className?: string;
 }
 
-const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
+const OnboardingHint = React.forwardRef<HTMLDivElement, OnboardingHintProps>(
   ({ icon, title, description, action, className }, ref) => (
     <div
       ref={ref}
       className={cn(
         "flex items-start gap-2 py-3 px-3",
-        "border-l-2 border-l-[rgba(255,255,255,0.08)]",
+        "border-l-2 border-l-border",
         className
       )}
     >
@@ -50,6 +66,6 @@ const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
     </div>
   )
 );
-EmptyState.displayName = "EmptyState";
+OnboardingHint.displayName = "OnboardingHint";
 
-export { EmptyState };
+export { OnboardingHint };

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Camera, ChevronRight, Archive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/ops/empty-state";
+import { OnboardingHint } from "@/components/ops/onboarding-hint";
 import {
   useInventorySnapshots,
   useSnapshotItems,
@@ -191,7 +191,7 @@ export function SnapshotsTab() {
           </span>
         </div>
       ) : sorted.length === 0 ? (
-        <EmptyState
+        <OnboardingHint
           icon={<Archive className="w-[32px] h-[32px]" />}
           title="No snapshots yet"
           description="Create a snapshot to capture a point-in-time record of your inventory."
