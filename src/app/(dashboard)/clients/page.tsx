@@ -207,7 +207,8 @@ export default function ClientsPage() {
               <TablePrimary>{r.name}</TablePrimary>
               {r.subContactCount > 0 ? (
                 <TableMeta>
-                  {r.subContactCount}&nbsp;{t("subContacts")}
+                  {r.subContactCount}&nbsp;
+                  {r.subContactCount === 1 ? t("subContact") : t("subContacts")}
                 </TableMeta>
               ) : null}
             </div>

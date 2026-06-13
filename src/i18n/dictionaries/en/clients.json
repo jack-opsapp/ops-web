@@ -1,6 +1,7 @@
 {
   "title": "Clients",
   "subContacts": "sub-contacts",
+  "subContact": "sub-contact",
   "newClient": "New Client",
 
   "filter.all": "All",
