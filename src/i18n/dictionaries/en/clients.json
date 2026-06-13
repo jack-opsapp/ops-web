@@ -47,6 +47,9 @@
 
   "window.crumb": "Client",
   "window.owes": "Owes {amount}",
+  "window.notFound": "Client not found",
+  "form.noAccess": "No access",
+  "form.noAccessBody": "You don't have permission for this.",
   "window.tab.contact": "Contact",
   "window.tab.projects": "Projects",
   "window.tab.money": "Money",

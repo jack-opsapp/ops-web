@@ -9,7 +9,9 @@ import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { useClient, type useCreateClient, type useUpdateClient } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useGeolocationAddress } from "@/lib/hooks/use-geolocation-address";
+import { trackClientCreated, trackFormAbandoned } from "@/lib/analytics/analytics";
 import { Stack } from "@/components/ops/projects/workspace/atoms/stack";
 import { Section } from "@/components/ops/projects/workspace/atoms/section";
 import { Field } from "@/components/ops/projects/workspace/atoms/field";
@@ -55,7 +57,12 @@ export const ClientEditCreateBody = React.forwardRef<
 ) {
   const { t } = useDictionary("clients");
   const { company } = useAuthStore();
+  const can = usePermissionStore((s) => s.can);
   const isEditing = mode === "editing";
+  // Gate the form the same way the project edit/create body does: editing
+  // needs clients.edit, creating needs clients.create. RLS rejects the write
+  // regardless, but showing an unsaveable form is poor UX.
+  const isAllowed = isEditing ? can("clients.edit") : can("clients.create");
 
   const schema = React.useMemo(
     () =>
@@ -80,7 +87,7 @@ export const ClientEditCreateBody = React.forwardRef<
     reset,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: EMPTY,
@@ -120,8 +127,30 @@ export const ClientEditCreateBody = React.forwardRef<
   const phoneValue = watch("phone");
   const addressValue = watch("address");
 
+  // Form-abandon telemetry (parity with the legacy create modal): if a dirty
+  // create form is dismissed (CANCEL/close/window dismiss) without saving,
+  // report it on unmount. A ref mirrors latest state so the cleanup reads
+  // current values, not the mount-time closure.
+  const allValues = watch();
+  const abandonRef = React.useRef({ dirty: false, filled: 0, submitted: false });
+  abandonRef.current.dirty = isDirty;
+  abandonRef.current.filled = Object.values(allValues).filter(Boolean).length;
+  React.useEffect(() => {
+    return () => {
+      // abandonRef is a stable data ref (not a DOM node); reading .current at
+      // unmount is the intent — we want the latest dirty/filled snapshot.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      const s = abandonRef.current;
+      if (!isEditing && s.dirty && !s.submitted) {
+        trackFormAbandoned("create_client", s.filled);
+      }
+    };
+  }, [isEditing]);
+
   const onSubmit = (data: FormValues) => {
     setServerError(null);
+    // Mark submitted so the unmount cleanup doesn't log a false abandon.
+    abandonRef.current.submitted = true;
     const fail = () => {
       setServerError(t("form.saveFailed"));
       toast.error(t("form.saveFailed"));
@@ -159,6 +188,7 @@ export const ClientEditCreateBody = React.forwardRef<
         },
         {
           onSuccess: (created) => {
+            trackClientCreated();
             toast.success(t("toast.created"));
             onSaved(created.id);
           },
@@ -172,6 +202,21 @@ export const ClientEditCreateBody = React.forwardRef<
     const addr = await geo.getAddress();
     if (addr) setValue("address", addr, { shouldDirty: true, shouldValidate: false });
   };
+
+  if (!isAllowed) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <Stack gap={1} align="center">
+          <Mono size={11} color="text-3">
+            {t("form.noAccess")}
+          </Mono>
+          <Body size={14} color="text-3">
+            {t("form.noAccessBody")}
+          </Body>
+        </Stack>
+      </div>
+    );
+  }
 
   if (isEditing && !client) {
     return (

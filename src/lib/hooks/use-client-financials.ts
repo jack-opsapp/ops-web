@@ -68,11 +68,16 @@ export function useClientOutstandingMap(): ClientOutstandingResult {
     const map = new Map<string, ClientOutstanding>();
     let amount = 0;
     let oldestDueDate: Date | null = null;
+    // "Oldest" means oldest OVERDUE — a future-dated unpaid invoice is owed
+    // but not yet stale, so it must not become the oldest-due reference (which
+    // would zero the banner's "oldest Nd" and hide genuinely overdue debt).
+    const now = Date.now();
 
     for (const inv of invoices ?? []) {
       if (!inv.clientId || !isOutstanding(inv.status) || inv.balanceDue <= 0) {
         continue;
       }
+      const isOverdue = inv.dueDate.getTime() < now;
       const entry = map.get(inv.clientId) ?? {
         outstanding: 0,
         openCount: 0,
@@ -80,13 +85,13 @@ export function useClientOutstandingMap(): ClientOutstandingResult {
       };
       entry.outstanding += inv.balanceDue;
       entry.openCount += 1;
-      if (!entry.oldestDueDate || inv.dueDate < entry.oldestDueDate) {
+      if (isOverdue && (!entry.oldestDueDate || inv.dueDate < entry.oldestDueDate)) {
         entry.oldestDueDate = inv.dueDate;
       }
       map.set(inv.clientId, entry);
 
       amount += inv.balanceDue;
-      if (!oldestDueDate || inv.dueDate < oldestDueDate) {
+      if (isOverdue && (!oldestDueDate || inv.dueDate < oldestDueDate)) {
         oldestDueDate = inv.dueDate;
       }
     }
@@ -230,6 +235,14 @@ export function useClientActivity(
           kind: "payment",
           ref: inv.invoiceNumber,
           amount: inv.total,
+        });
+      }
+      if (inv.status === InvoiceStatus.PastDue) {
+        events.push({
+          id: `inv-pastdue:${inv.id}`,
+          date: inv.dueDate,
+          kind: "past_due",
+          ref: inv.invoiceNumber,
         });
       }
     }

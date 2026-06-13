@@ -48,10 +48,12 @@ function Metric({
         : "text-text";
   return (
     <div className="rounded-[6px] bg-surface-input px-2.5 py-2">
-      <Mono size={10} color="text-3" className="block">
+      <Mono size={9} color="text-3" className="block">
         {label}
       </Mono>
-      <span className={`mt-0.5 block font-mono text-[15px] font-medium tabular-nums ${valueClass}`}>
+      <span
+        className={`mt-0.5 block font-mono text-[18px] font-medium leading-[1.1] tabular-nums ${valueClass}`}
+      >
         {value}
       </span>
     </div>

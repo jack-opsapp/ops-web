@@ -62,7 +62,7 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
   const isViewing = mode === "viewing";
   const isCreating = mode === "creating";
 
-  const { data: client } = useClient(
+  const { data: client, isLoading: clientLoading } = useClient(
     clientId && !isCreating ? clientId : undefined,
   );
   const createClient = useCreateClient();
@@ -71,6 +71,7 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
   const fin = useClientFinancials(isCreating ? null : clientId);
 
   const can = usePermissionStore((s) => s.can);
+  const canEdit = can("clients.edit");
   const canDelete = can("clients.delete");
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
@@ -115,13 +116,17 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
 
   let footerConfig: ModeFooterConfig;
   if (isViewing) {
+    // EDIT is the only viewing action; hide it entirely for operators
+    // without clients.edit (read-only viewer) rather than show a dead button.
     footerConfig = {
       secondary: [],
-      primary: {
-        label: t("footer.edit"),
-        onClick: () => setMode("editing"),
-        disabled: !client,
-      },
+      primary: canEdit
+        ? {
+            label: t("footer.edit"),
+            onClick: () => setMode("editing"),
+            disabled: !client,
+          }
+        : undefined,
     };
   } else if (mode === "editing") {
     footerConfig = {
@@ -179,10 +184,19 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
         {isViewing ? (
           client && clientId ? (
             <ClientViewingBody client={client} clientId={clientId} />
-          ) : (
+          ) : clientLoading ? (
             <div className="p-5">
               <Mono size={11} color="mute">
                 —
+              </Mono>
+            </div>
+          ) : (
+            // Settled with no row — either no id, or RLS scoped this client
+            // out of reach for this operator. Show a clear not-found, not a
+            // permanent dash that reads as a stuck loader.
+            <div className="flex h-full items-center justify-center p-6">
+              <Mono size={11} color="text-3">
+                {t("window.notFound")}
               </Mono>
             </div>
           )
