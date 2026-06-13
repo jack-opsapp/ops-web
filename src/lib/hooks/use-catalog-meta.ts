@@ -16,6 +16,7 @@ import {
   CatalogCategoryService,
   CatalogUnitService,
   CatalogSnapshotService,
+  CatalogProductService,
   CATALOG_UNIT_DIMENSIONS,
 } from "../api/services";
 import type { CatalogUnitDimension } from "../api/services";
@@ -188,6 +189,18 @@ export function useSnapshotItems(snapshotId: string | null) {
     queryKey: queryKeys.catalog.snapshotItems(snapshotId ?? ""),
     queryFn: () => CatalogSnapshotService.fetchSnapshotItems(snapshotId!),
     enabled: !!snapshotId,
+  });
+}
+
+// ─── Product config counts (CONFIG column + PRODUCTS tile) ─────────────────────
+
+export function useProductConfigCounts() {
+  const { company } = useAuthStore();
+  const companyId = company?.id ?? "";
+  return useQuery({
+    queryKey: queryKeys.catalog.productMargins(companyId),
+    queryFn: () => CatalogProductService.fetchConfigCounts(companyId),
+    enabled: !!companyId,
   });
 }
 

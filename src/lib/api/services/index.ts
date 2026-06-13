@@ -46,6 +46,8 @@ export type {
 export { CatalogStockService } from "./catalog-stock-service";
 export { CatalogSnapshotService } from "./catalog-snapshot-service";
 export { CatalogMetaService } from "./catalog-meta-service";
+export { CatalogProductService } from "./catalog-product-service";
+export type { ProductConfigCount } from "./catalog-product-service";
 
 export { uploadImage, uploadMultipleImages, ImageUploadError } from "./image-service";
 export type { ImageUploadErrorCode } from "./image-service";
