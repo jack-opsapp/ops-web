@@ -104,7 +104,7 @@ export function RegisterTable<Row>({
                   className={cn(
                     "border-b border-border-subtle last:border-b-0",
                     interactive &&
-                      "cursor-pointer hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none",
+                      "cursor-pointer hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-inset",
                   )}
                 >
                   {columns.map((col) => (
