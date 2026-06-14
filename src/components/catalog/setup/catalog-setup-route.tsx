@@ -29,6 +29,10 @@ import {
   CommitError,
   useCommitCatalogSetup,
 } from "@/lib/hooks/use-commit-catalog-setup";
+import {
+  AgentUnavailableError,
+  useSetupAgent,
+} from "@/lib/hooks/use-setup-agent";
 import { commitsHeld } from "@/lib/catalog-setup/agent-fallback";
 import { catalogCommitToastMessage } from "@/lib/catalog-setup/commit/completion-notification";
 import { SetupWizardShell } from "@/components/catalog-setup/setup-wizard-shell";
@@ -37,8 +41,16 @@ import type { SetupSource } from "@/components/catalog-setup/DriverPane";
 import type { StepContext } from "@/lib/catalog-setup/step-machine";
 import type { StagingCard } from "@/lib/catalog-setup/staging-card";
 
-/** Lanes wired end-to-end in this slice. Expand as each source phase lands. */
-const AVAILABLE_SOURCES: SetupSource[] = ["manual"];
+/**
+ * Lanes wired end-to-end. The guided "describe" (agent) lane appears only when
+ * it's configured (NEXT_PUBLIC_CATALOG_AGENT_ENABLED + a server OPENAI_API_KEY) —
+ * honest, never a lane that 503s. Manual is always the floor. More lanes
+ * (file upload, template, QuickBooks) join as their phases land.
+ */
+const AGENT_ENABLED = process.env.NEXT_PUBLIC_CATALOG_AGENT_ENABLED === "true";
+const AVAILABLE_SOURCES: SetupSource[] = AGENT_ENABLED
+  ? ["describe", "manual"]
+  : ["manual"];
 
 const SESSION_KEY = "ops-catalog-setup-session-id";
 
@@ -85,9 +97,11 @@ export function CatalogSetupRoute() {
   const { data: inventory } = useInventoryMode();
   const online = useOnlineStatus();
   const commit = useCommitCatalogSetup();
+  const agent = useSetupAgent();
   const [driverMode, setDriverMode] = useState<"picker" | "conversation">(
     "picker",
   );
+  const [turns, setTurns] = useState<string[]>([]);
 
   const onPickSource = useCallback(
     (source: SetupSource) => {
@@ -95,9 +109,54 @@ export function CatalogSetupRoute() {
         dispatch({ type: "ADD_CARDS", cards: [blankSellCard()] });
         // Leave the picker — the canvas now holds a row to fill + accept.
         setDriverMode("conversation");
+      } else if (source === "describe") {
+        // Open the guided conversation; the live input drives the agent.
+        setDriverMode("conversation");
       }
     },
     [dispatch],
+  );
+
+  const onSend = useCallback(
+    (text: string) => {
+      if (agent.isPending) return;
+      const priorTurns = turns;
+      setTurns((prev) => [...prev, text]);
+      agent.mutate(
+        { description: text, priorTurns },
+        {
+          onSuccess: (res) => {
+            if (res.cards.length > 0) {
+              dispatch({ type: "ADD_CARDS", cards: res.cards });
+              toast.success(
+                t("agent.added", "Added {n} — review and edit").replace(
+                  "{n}",
+                  String(res.cards.length),
+                ),
+              );
+            } else {
+              toast(
+                t(
+                  "agent.none",
+                  "Couldn't pull anything from that — try describing what you sell",
+                ),
+              );
+            }
+          },
+          onError: (err) => {
+            if (err instanceof AgentUnavailableError) {
+              toast.error(
+                t("agent.unavailable", "Guided setup is unavailable — add manually"),
+              );
+              setDriverMode("picker");
+            } else {
+              toast.error(err.message || t("agent.error", "Couldn't generate — try again"));
+            }
+          },
+        },
+      );
+    },
+    [agent, turns, dispatch, t],
   );
 
   const onBuild = useCallback(() => {
@@ -169,6 +228,9 @@ export function CatalogSetupRoute() {
         availableSources={AVAILABLE_SOURCES}
         onPickSource={onPickSource}
         onSwitchToGuided={() => setDriverMode("picker")}
+        onSend={AGENT_ENABLED ? onSend : undefined}
+        agentBusy={agent.isPending}
+        conversationTurns={turns}
         onBuild={onBuild}
         onSetupLater={onSetupLater}
       />

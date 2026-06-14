@@ -94,6 +94,12 @@ export interface SetupWizardShellProps {
   availableSources?: SetupSource[];
   /** Offline / declined → hand off to the deterministic guided path. */
   onSwitchToGuided?: () => void;
+  /** Submit a description to the Setup Agent (conversation mode). */
+  onSend?: (text: string) => void;
+  /** Agent generating — disables the input + shows the "on it" turn. */
+  agentBusy?: boolean;
+  /** Real conversation turns (owner messages), oldest first. */
+  conversationTurns?: string[];
   className?: string;
 }
 
@@ -136,6 +142,9 @@ export function SetupWizardShell({
   onPickSource,
   availableSources,
   onSwitchToGuided,
+  onSend,
+  agentBusy,
+  conversationTurns,
   className,
 }: SetupWizardShellProps) {
   const { t } = useDictionary("catalog-setup");
@@ -319,6 +328,9 @@ export function SetupWizardShell({
                 onPickSource={onPickSource}
                 availableSources={availableSources}
                 onSwitchToGuided={onSwitchToGuided}
+                onSend={onSend}
+                busy={agentBusy}
+                turns={conversationTurns}
                 className="min-h-0 flex-1"
               />
             )}

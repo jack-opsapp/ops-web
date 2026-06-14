@@ -27,11 +27,13 @@
 // All strings via useDictionary("catalog-setup") with English fallbacks so the
 // pane renders correctly before the dictionary resolves (the hook loads async).
 
+import { useState } from "react";
 import {
   ArrowUp,
   FileSpreadsheet,
   LayoutTemplate,
   Link2,
+  Loader2,
   MessageSquareText,
   Plus,
   type LucideIcon,
@@ -71,6 +73,18 @@ export interface DriverPaneProps {
    * optional no-op so the standalone preview renders the affordance honestly.
    */
   onSwitchToGuided?: () => void;
+  /**
+   * Submit a description to the Setup Agent (conversation mode). When provided,
+   * the message input is LIVE; otherwise it stays disabled (no agent backs it).
+   */
+  onSend?: (text: string) => void;
+  /** Agent generating — disables the input + shows the "on it" turn. */
+  busy?: boolean;
+  /**
+   * Real conversation turns (the owner's submitted messages, oldest first). When
+   * provided, the transcript renders these instead of the preview sample.
+   */
+  turns?: string[];
   className?: string;
 }
 
@@ -85,10 +99,24 @@ export function DriverPane({
   onPickSource,
   availableSources,
   onSwitchToGuided,
+  onSend,
+  busy = false,
+  turns,
   className,
 }: DriverPaneProps) {
   const { t } = useDictionary("catalog-setup");
   const reduced = useReducedMotion();
+  const [draft, setDraft] = useState("");
+  // The input is LIVE only when a send handler is wired and the agent isn't busy.
+  const inputLive = !!onSend && !busy;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = draft.trim();
+    if (!text || !onSend || busy) return;
+    onSend(text);
+    setDraft("");
+  };
 
   // Entry beat (animation-architect: ARRIVAL) — the pane lands with precision,
   // no bounce. Reduced motion serves the same beat through opacity alone.
@@ -135,35 +163,56 @@ export function DriverPane({
                 availableSources={availableSources}
               />
             ) : (
-              <Conversation key="conversation" t={t} reduced={!!reduced} />
+              <Conversation
+                key="conversation"
+                t={t}
+                reduced={!!reduced}
+                turns={turns}
+                busy={busy}
+              />
             )}
           </AnimatePresence>
         </div>
 
         {/* Footer — disabled message input + offline/guided-setup escape. */}
         <footer className="mt-6 flex flex-col gap-3">
-          {/* Disabled message input. surface-input row, line border, 5px radius,
-              send glyph in text-2 (NOT accent). Disabled — no agent backs it in
-              this phase. */}
-          <div
-            className="flex items-center gap-2 rounded-[5px] border border-line bg-surface-input px-3 py-2 opacity-60"
-            aria-disabled="true"
+          {/* Message input. LIVE when a send handler is wired (agent mode); the
+              send glyph stays text-2 (NOT accent). Disabled when no agent backs
+              it or while generating. */}
+          <form
+            onSubmit={handleSubmit}
+            className={cn(
+              "flex items-center gap-2 rounded-[5px] border border-line bg-surface-input px-3 py-2",
+              inputLive ? "" : "opacity-60",
+            )}
+            aria-disabled={!inputLive}
           >
             <input
               type="text"
-              disabled
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={!inputLive}
               aria-label={t("driver.prompt.placeholder", "Describe what you sell")}
               placeholder={t("driver.prompt.placeholder", "Describe what you sell")}
-              className="flex-1 cursor-not-allowed bg-transparent font-mohave text-body-sm text-text placeholder:text-text-3 outline-none disabled:cursor-not-allowed"
+              className={cn(
+                "flex-1 bg-transparent font-mohave text-body-sm text-text placeholder:text-text-3 outline-none",
+                inputLive ? "" : "cursor-not-allowed disabled:cursor-not-allowed",
+              )}
             />
-            <span
+            <button
+              type="submit"
               data-testid="driver-send"
               aria-label={t("driver.prompt.send", "send")}
-              className="flex h-5 w-5 shrink-0 items-center justify-center text-text-2"
+              disabled={!inputLive || draft.trim().length === 0}
+              className="flex h-5 w-5 shrink-0 items-center justify-center text-text-2 transition-opacity duration-150 disabled:opacity-40"
             >
-              <ArrowUp size={16} strokeWidth={2} aria-hidden="true" />
-            </span>
-          </div>
+              {busy ? (
+                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <ArrowUp size={16} strokeWidth={2} aria-hidden="true" />
+              )}
+            </button>
+          </form>
 
           {/* Offline → guided-setup affordance. Bracket micro-text, text-3,
               brightens to text-2 on hover. A real button (keyboard + a11y). */}
@@ -293,7 +342,20 @@ function SourcePicker({
 
 // ── conversation (presentational) ────────────────────────────────────────────
 
-function Conversation({ t, reduced }: { t: Tt; reduced: boolean }) {
+function Conversation({
+  t,
+  reduced,
+  turns,
+  busy,
+}: {
+  t: Tt;
+  reduced: boolean;
+  turns?: string[];
+  busy?: boolean;
+}) {
+  // Live mode: a real transcript (the owner's submitted turns) is threaded in.
+  // Preview mode: `turns` is undefined → render the static sample + seam marker.
+  const live = turns !== undefined;
   return (
     <motion.div
       data-testid="driver-conversation"
@@ -307,28 +369,40 @@ function Conversation({ t, reduced }: { t: Tt; reduced: boolean }) {
       <Bubble who="agent">
         {t("driver.convo.lead", "What do you sell, and how do you charge for it?")}
       </Bubble>
-      {/* user bubble — neutral, labelled */}
-      <Bubble who="user" label={t("driver.convo.you", "you")}>
-        {t("driver.convo.user.sample", "Vehicle wraps. Full wraps by the vehicle, materials by the foot.")}
-      </Bubble>
-      {/* agent reply */}
-      <Bubble who="agent">
-        {t(
-          "driver.convo.reply",
-          "On it. Here's your catalog — skim it, fix anything off, then build it.",
-        )}
-      </Bubble>
 
-      {/* DEFERRED(phase-4): the LIVE conversation stream + agent proposal hooks
-          mount here. This phase renders static bubbles only — no model call, no
-          network. Replace this seam with the streaming transcript in Phase 4. */}
-      <span
-        data-testid="driver-agent-seam"
-        data-deferred-phase="4"
-        className="pt-1 font-mono text-micro-sm uppercase tracking-wider text-agent-text2"
-      >
-        {t("driver.agentSeam", "// guided assistant lands here")}
-      </span>
+      {live ? (
+        <>
+          {turns!.map((text, i) => (
+            <Bubble key={i} who="user" label={t("driver.convo.you", "you")}>
+              {text}
+            </Bubble>
+          ))}
+          {busy && (
+            <Bubble who="agent">
+              {t("driver.convo.generating", "On it — building your catalog…")}
+            </Bubble>
+          )}
+        </>
+      ) : (
+        <>
+          <Bubble who="user" label={t("driver.convo.you", "you")}>
+            {t("driver.convo.user.sample", "Vehicle wraps. Full wraps by the vehicle, materials by the foot.")}
+          </Bubble>
+          <Bubble who="agent">
+            {t(
+              "driver.convo.reply",
+              "On it. Here's your catalog — skim it, fix anything off, then build it.",
+            )}
+          </Bubble>
+          <span
+            data-testid="driver-agent-seam"
+            data-deferred-phase="4"
+            className="pt-1 font-mono text-micro-sm uppercase tracking-wider text-agent-text2"
+          >
+            {t("driver.agentSeam", "// guided assistant lands here")}
+          </span>
+        </>
+      )}
     </motion.div>
   );
 }

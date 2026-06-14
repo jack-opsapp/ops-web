@@ -18,6 +18,10 @@ vi.mock("@/lib/hooks/use-commit-catalog-setup", () => ({
   useCommitCatalogSetup: () => ({ mutate: vi.fn(), isPending: false }),
   CommitError: class extends Error {},
 }));
+vi.mock("@/lib/hooks/use-setup-agent", () => ({
+  useSetupAgent: () => ({ mutate: vi.fn(), isPending: false }),
+  AgentUnavailableError: class extends Error {},
+}));
 vi.mock("@/components/catalog-setup/setup-wizard-shell", () => ({
   SetupWizardShell: (props: { inventoryTracked?: boolean }) => (
     <div data-testid="wizard-shell-stub" data-tracked={String(props.inventoryTracked)} />

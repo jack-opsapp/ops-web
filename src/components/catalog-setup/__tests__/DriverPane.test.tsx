@@ -80,3 +80,33 @@ describe("DriverPane", () => {
     expect(onPick).toHaveBeenCalledWith("quickbooks");
   });
 });
+
+describe("DriverPane — live agent conversation", () => {
+  it("enables the input + submits the description via onSend, then clears", async () => {
+    const onSend = vi.fn();
+    const user = userEvent.setup();
+    render(<DriverPane onSend={onSend} turns={[]} />);
+    const input = screen.getByPlaceholderText("Describe what you sell");
+    expect(input).toBeEnabled();
+    await user.type(input, "I install roofs");
+    await user.click(screen.getByTestId("driver-send"));
+    expect(onSend).toHaveBeenCalledWith("I install roofs");
+    expect(input).toHaveValue("");
+  });
+
+  it("renders real owner turns as user bubbles (no preview sample/seam)", () => {
+    render(<DriverPane onSend={() => {}} turns={["I'm a plumber"]} />);
+    expect(screen.getByText("I'm a plumber")).toBeInTheDocument();
+    // live mode drops the phase-4 seam + the canned sample
+    expect(screen.queryByTestId("driver-agent-seam")).toBeNull();
+    expect(
+      screen.queryByText(/Vehicle wraps\. Full wraps/),
+    ).toBeNull();
+  });
+
+  it("shows the generating turn + disables send while busy", () => {
+    render(<DriverPane onSend={() => {}} turns={["roofing"]} busy />);
+    expect(screen.getByText(/building your catalog/i)).toBeInTheDocument();
+    expect(screen.getByTestId("driver-send")).toBeDisabled();
+  });
+});

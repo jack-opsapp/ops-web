@@ -11,6 +11,11 @@
   "offline.title": "Sin conexión",
   "offline.detail": "[ la creación espera a que vuelvas — no se pierde nada ]",
   "offline.held": "Estás sin conexión — tu catálogo está guardado, créalo cuando vuelvas",
+  "agent.added": "Agregados {n} — revisa y edita",
+  "agent.none": "No pude sacar nada de eso — describe qué vendes",
+  "agent.unavailable": "La configuración guiada no está disponible — agrégalo manualmente",
+  "agent.error": "No se pudo generar — inténtalo de nuevo",
+  "driver.convo.generating": "En ello — armando tu catálogo…",
 
   "rail.title": "// barra de módulos",
   "rail.hint": "[retoma donde lo dejaste]",
