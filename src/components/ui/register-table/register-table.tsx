@@ -26,8 +26,13 @@ import { cn } from "@/lib/utils/cn";
 export interface RegisterTableColumn<Row> {
   /** Stable identity for the column. */
   id: string;
-  /** Localized header label. Empty string for the trailing actions column. */
-  header: string;
+  /**
+   * Header content. A localized label string in the common case; a `ReactNode`
+   * when the header carries a control instead of text (e.g. a select-all
+   * checkbox for a bulk-select column). Empty string for the trailing actions
+   * column.
+   */
+  header: ReactNode;
   /** Cell content — compose with the `./register-table-cells` atoms. */
   cell: (row: Row) => ReactNode;
   align?: "left" | "right";
@@ -43,6 +48,12 @@ export interface RegisterTableProps<Row> {
   onRowClick?: (row: Row) => void;
   /** Per-row interactivity gate (e.g. requires edit permission). Defaults to true. */
   isRowInteractive?: (row: Row) => boolean;
+  /**
+   * Master-detail / selection affordance: tint a row with the active surface
+   * (e.g. the row whose detail drawer is open, or the focused record). Purely
+   * presentational — reusable by any register that pairs a list with a panel.
+   */
+  isRowActive?: (row: Row) => boolean;
   /** Minimum width before the table scrolls horizontally. */
   minWidth?: number;
   /** Accessible name for the table. */
@@ -56,6 +67,7 @@ export function RegisterTable<Row>({
   getRowId,
   onRowClick,
   isRowInteractive,
+  isRowActive,
   minWidth = 760,
   ariaLabel,
   className,
@@ -103,6 +115,7 @@ export function RegisterTable<Row>({
                   }
                   className={cn(
                     "border-b border-border-subtle last:border-b-0",
+                    isRowActive?.(row) && "bg-surface-active",
                     interactive &&
                       "cursor-pointer hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-inset",
                   )}
