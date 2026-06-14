@@ -472,7 +472,7 @@ function SortableOptionRow({
     <li
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 rounded border border-border bg-[rgba(255,255,255,0.02)] px-2 py-1.5"
+      className="flex items-center gap-2 rounded border border-border bg-surface-hover-subtle px-2 py-1.5"
     >
       <button
         type="button"
