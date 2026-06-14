@@ -37,6 +37,7 @@ export function CatalogKebab({
   const can = usePermissionStore((s) => s.can);
   const canManage = can("inventory.manage");
   const canImport = can("inventory.import");
+  const canSetup = can("catalog.run_setup");
 
   const [manageTab, setManageTab] = useState<ManageTab | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -54,6 +55,14 @@ export function CatalogKebab({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[200px]">
+          {canSetup && (
+            <>
+              <DropdownMenuItem onSelect={() => router.push("/catalog/setup")}>
+                {t("kebab.setup", "Set up catalog")}
+              </DropdownMenuItem>
+              {(canManage || segment === "stock") && <DropdownMenuSeparator />}
+            </>
+          )}
           {canManage && (
             <>
               <DropdownMenuLabel className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">

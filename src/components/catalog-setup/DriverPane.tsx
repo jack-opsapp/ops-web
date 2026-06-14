@@ -59,6 +59,13 @@ export interface DriverPaneProps {
   /** Choose a source (picker mode). Optional in this presentational phase. */
   onPickSource?: (source: SetupSource) => void;
   /**
+   * Restrict the picker to the lanes that are wired end-to-end. Omitted → all
+   * sources show (the standalone preview). The /catalog/setup mount passes only
+   * the ready lanes so a not-yet-built source is never a dead button — each lane
+   * appears as its phase lands (state-aware, not "coming soon").
+   */
+  availableSources?: SetupSource[];
+  /**
    * Routes the operator to the deterministic guided-setup flow (the offline /
    * no-agent path). Phase 1 wires this to the wizard rail; until then it is an
    * optional no-op so the standalone preview renders the affordance honestly.
@@ -76,6 +83,7 @@ export interface DriverPaneProps {
 export function DriverPane({
   mode = "conversation",
   onPickSource,
+  availableSources,
   onSwitchToGuided,
   className,
 }: DriverPaneProps) {
@@ -119,7 +127,13 @@ export function DriverPane({
         <div className="mt-6 min-h-0 flex-1 overflow-y-auto scrollbar-hide">
           <AnimatePresence mode="wait" initial={false}>
             {mode === "picker" ? (
-              <SourcePicker key="picker" t={t} reduced={!!reduced} onPickSource={onPickSource} />
+              <SourcePicker
+                key="picker"
+                t={t}
+                reduced={!!reduced}
+                onPickSource={onPickSource}
+                availableSources={availableSources}
+              />
             ) : (
               <Conversation key="conversation" t={t} reduced={!!reduced} />
             )}
@@ -221,11 +235,16 @@ function SourcePicker({
   t,
   reduced,
   onPickSource,
+  availableSources,
 }: {
   t: Tt;
   reduced: boolean;
   onPickSource?: (source: SetupSource) => void;
+  availableSources?: SetupSource[];
 }) {
+  const sources = availableSources
+    ? SOURCES.filter((s) => availableSources.includes(s.key))
+    : SOURCES;
   return (
     <motion.div
       data-testid="driver-source-picker"
@@ -245,7 +264,7 @@ function SourcePicker({
       </div>
 
       <ul className="flex flex-col gap-2" role="list">
-        {SOURCES.map(({ key, icon: Icon, titleKey, titleFb, descKey }) => (
+        {sources.map(({ key, icon: Icon, titleKey, titleFb, descKey }) => (
           <li key={key}>
             <button
               type="button"

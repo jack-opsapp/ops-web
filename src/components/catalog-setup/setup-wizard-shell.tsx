@@ -90,6 +90,8 @@ export interface SetupWizardShellProps {
   driverMode?: "picker" | "conversation";
   /** Source chosen in the picker (pre-conversation). */
   onPickSource?: (source: SetupSource) => void;
+  /** Restrict the source picker to the lanes wired end-to-end (omit → all). */
+  availableSources?: SetupSource[];
   /** Offline / declined → hand off to the deterministic guided path. */
   onSwitchToGuided?: () => void;
   className?: string;
@@ -132,6 +134,7 @@ export function SetupWizardShell({
   onSetupLater,
   driverMode = "conversation",
   onPickSource,
+  availableSources,
   onSwitchToGuided,
   className,
 }: SetupWizardShellProps) {
@@ -314,6 +317,7 @@ export function SetupWizardShell({
                 key="driver"
                 mode={driverMode}
                 onPickSource={onPickSource}
+                availableSources={availableSources}
                 onSwitchToGuided={onSwitchToGuided}
                 className="min-h-0 flex-1"
               />

@@ -1,6 +1,13 @@
 {
   "title": "// your operating system",
   "subtitle": "[everything you sell, stock, and schedule — built once, used everywhere]",
+  "firstRun.kicker": "nothing here yet",
+  "firstRun.headline": "Stand up your catalog",
+  "firstRun.sub": "Your price book, your stock, your trades — set up once, ready for every estimate.",
+  "firstRun.cta": "Start setup",
+  "firstRun.later": "Set up later",
+  "denied": "NO ACCESS",
+  "commitError": "Catalog commit failed",
 
   "rail.title": "// module rail",
   "rail.hint": "[pick up where you left off]",

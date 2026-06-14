@@ -128,6 +128,7 @@
   "kebab.views": "VIEWS",
   "kebab.savedCounts": "Saved counts",
   "kebab.import": "Import CSV",
+  "kebab.setup": "Set up catalog",
 
   "manage.categories.title": "// CATEGORIES",
   "manage.tags.title": "// TAGS",

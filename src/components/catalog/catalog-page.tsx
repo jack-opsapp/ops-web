@@ -24,9 +24,11 @@ import {
   useProductConfigCounts,
 } from "@/lib/hooks/use-catalog-meta";
 import { productMargin } from "@/lib/types/catalog";
+import { useCatalogSetupStatus } from "@/lib/hooks/use-catalog-setup-status";
 import { SupplyStrip, type ProductAggregate } from "./supply-strip";
 import { StockSegment } from "./segments/stock-segment";
 import { ProductsSegment } from "./segments/products-segment";
+import { CatalogSetupLauncher } from "./setup/catalog-setup-launcher";
 
 export type CatalogSegment = "products" | "stock";
 
@@ -84,9 +86,17 @@ export function CatalogPage() {
   const { data: stockRows = [], isLoading: stockLoading } = useCatalogStock();
   const health = useStockHealth(stockRows);
   const onHand = useOnHand(stockRows);
-  const { data: products = [] } = useProducts(false);
+  const { data: products = [], isLoading: productsLoading } = useProducts(false);
   const { data: configCounts } = useProductConfigCounts();
   const { data: snapshots = [] } = useCatalogSnapshots();
+
+  // First-run: a 0/0 catalog invites (never blocks) the setup wizard instead of
+  // the empty segment tables (spec §6). Suppressed once setup is completed
+  // (company-scoped flag) or dismissed this session — a one-time setup is never
+  // re-imposed. The launcher self-gates on catalog.run_setup (crew see the plain
+  // empty catalog).
+  const { data: setupStatus } = useCatalogSetupStatus();
+  const [setupDismissed, setSetupDismissed] = useState(false);
 
   const lastCountDate = useMemo(() => {
     const latest = snapshots[0]?.createdAt;
@@ -148,6 +158,27 @@ export function CatalogPage() {
     }),
     [products, stockRows],
   );
+
+  // First-run takeover: a 0/0 catalog (after data settles) invites the setup
+  // wizard in place of the empty supply strip + segment tables. Gated on
+  // catalog.run_setup so crew see the plain empty catalog, not a dead CTA;
+  // suppressed once completed (company flag) or dismissed this session.
+  const catalogIsEmpty = productAgg.total === 0 && stockRows.length === 0;
+  const showFirstRun =
+    catalogIsEmpty &&
+    !productsLoading &&
+    !stockLoading &&
+    !setupStatus?.completedAt &&
+    !setupDismissed &&
+    can("catalog.run_setup");
+
+  if (showFirstRun) {
+    return (
+      <div className="flex justify-start pt-6">
+        <CatalogSetupLauncher onDismiss={() => setSetupDismissed(true)} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

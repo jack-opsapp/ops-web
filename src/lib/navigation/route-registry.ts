@@ -201,6 +201,20 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     anyOfPermissions: ["products.view", "inventory.view"],
   },
   {
+    // /catalog/setup — the full-page Catalog Setup Wizard. NOT a nav entry
+    // (launched from the first-run takeover + the catalog kebab), registered so
+    // the layout gate enforces catalog.run_setup (tighter than /catalog's
+    // products.view|inventory.view) and the top bar resolves a page title.
+    // BY_SPECIFICITY matches this before /catalog.
+    key: "catalog-setup",
+    href: "/catalog/setup",
+    icon: Library,
+    labelKey: "nav.catalogSetup",
+    nav: false,
+    permission: "catalog.run_setup",
+    fullHeight: "bleed",
+  },
+  {
     key: "clients",
     href: "/clients",
     icon: Users,

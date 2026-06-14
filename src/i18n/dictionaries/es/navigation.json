@@ -6,6 +6,7 @@
   "nav.pipeline": "Pipeline",
   "nav.books": "Libros",
   "nav.catalog": "Catálogo",
+  "nav.catalogSetup": "Configurar catálogo",
   "nav.clients": "Clientes",
   "nav.team": "Equipo",
   "nav.calibration": "Calibración",

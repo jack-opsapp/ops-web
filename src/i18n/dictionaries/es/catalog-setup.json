@@ -1,6 +1,13 @@
 {
   "title": "// tu sistema operativo",
   "subtitle": "[todo lo que vendes, almacenas y programas — armado una vez, usado en todas partes]",
+  "firstRun.kicker": "aún no hay nada",
+  "firstRun.headline": "Arma tu catálogo",
+  "firstRun.sub": "Tu lista de precios, tu inventario, tus oficios: configúralo una vez, listo para cada presupuesto.",
+  "firstRun.cta": "Comenzar",
+  "firstRun.later": "Configurar más tarde",
+  "denied": "SIN ACCESO",
+  "commitError": "No se pudo guardar el catálogo",
 
   "rail.title": "// barra de módulos",
   "rail.hint": "[retoma donde lo dejaste]",
