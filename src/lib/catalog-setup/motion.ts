@@ -222,6 +222,15 @@ export function useCountUp(
       return;
     }
 
+    // rAF is paused in hidden/throttled tabs, which would otherwise freeze the
+    // tween on a stale number. Snap to the target when the document is hidden —
+    // same end state, no orphaned loop; it animates normally while visible, so a
+    // returning operator always sees the correct count, never a frozen one.
+    if (typeof document !== "undefined" && document.hidden) {
+      setDisplay(value);
+      return;
+    }
+
     // Re-target: tween from whatever is currently on screen → new value.
     fromRef.current = displayRef.current;
     startRef.current = null;
