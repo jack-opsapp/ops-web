@@ -51,7 +51,7 @@ export function RequestButton({
           : `${userName} is requesting seat restoration`,
         is_read: false,
         persistent: true,
-        action_url: isReactivation ? "/settings?tab=subscription" : "/team",
+        action_url: isReactivation ? "/settings?section=billing" : "/settings?section=team",
         action_label: isReactivation ? "Manage Subscription" : "Manage Team",
       }));
 

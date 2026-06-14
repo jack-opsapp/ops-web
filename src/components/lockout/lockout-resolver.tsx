@@ -37,7 +37,10 @@ export function LockoutResolver({ variant }: LockoutResolverProps) {
   const isExemptRoute = LOCKOUT_EXEMPT_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
-  const isOnTeamPage = pathname === "/team" || pathname.startsWith("/team/");
+  // Team management was absorbed into Settings (P3.4): /team → /settings?section=team.
+  // The `?section=` query isn't in pathname, so exempt the whole /settings surface —
+  // an unseated admin reaches the seat controls only by coming here to fix it.
+  const isOnTeamPage = pathname === "/settings";
   const reason = useMemo(() => {
     if (variant === "page") return rawReason;
     if (!rawReason) return null;

@@ -143,6 +143,19 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
+  // ─── TEAM absorption (P3.4) — 308 permanent, param-preserving ────────────
+  // master plan §2 row 8: Team (members, invites, roles, permissions) collapses
+  // into Settings. Stored deep links (/team, /team?action=invite, the
+  // role_needed / unseated-admin lockout action_urls) must keep resolving onto
+  // SETTINGS › TEAM › Members. ?action=invite + ?assignRole carry through via
+  // the clone — TeamSection reads both.
+  if (pathname === "/team" || pathname.startsWith("/team/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/settings";
+    url.searchParams.set("section", "team");
+    return NextResponse.redirect(url, 308);
+  }
+
   // ─── Portal Routes ───────────────────────────────────────────────────────
   if (pathname.startsWith("/portal")) {
     // Public portal pages (verification flow)

@@ -20,10 +20,10 @@ export function UnseatedAdminState({ variant }: UnseatedAdminStateProps) {
       fingerprint={t("lockout.unseatedAdmin.fingerprint")}
       showSwitchAccount={false}
     >
-      {/* Hard navigation — clicking should unmount the lockout overlay
-          and let the (dashboard)/team page take over (where the overlay
-          is exempted for admins). */}
-      <a href="/team" className="block">
+      {/* Hard navigation — clicking should unmount the lockout overlay and land
+          on Settings › Team (P3.4 absorption), where the overlay is exempted for
+          admins so they can assign themselves a seat. */}
+      <a href="/settings?section=team" className="block">
         <Button variant="primary" size="sm" className="w-full">
           {t("lockout.unseatedAdmin.cta")}
         </Button>

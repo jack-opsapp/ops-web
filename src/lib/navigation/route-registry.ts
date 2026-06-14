@@ -37,7 +37,6 @@ import {
   Calculator,
   Library,
   Users,
-  UserCog,
   Mail,
   Radar,
   BrainCircuit,
@@ -209,16 +208,10 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     nav: { order: 11, group: "command" },
     permission: "clients.view",
   },
-  {
-    key: "team",
-    href: "/team",
-    icon: UserCog,
-    labelKey: "nav.team",
-    paletteKeywords: ["crew", "members", "staff"],
-    nav: { order: 12, group: "command" },
-    permission: "team.view",
-    absorbedBy: { phase: "3.4", target: "/settings?section=team" },
-  },
+  // Team was absorbed into Settings (P3.4): it is now SETTINGS › TEAM ›
+  // Members, deep-linked via `/settings?section=team`. The standalone /team
+  // route 308-redirects there (src/middleware.ts); its palette keywords moved
+  // onto the `settings` entry so "team" / "crew" still surface the destination.
 
   // ── // OPS group ──────────────────────────────────────────────────────────
   {
@@ -247,7 +240,7 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/settings",
     icon: Settings,
     labelKey: "nav.settings",
-    paletteKeywords: ["preferences", "profile", "account"],
+    paletteKeywords: ["preferences", "profile", "account", "team", "crew", "members", "staff", "roles", "permissions", "invite", "seats"],
     nav: { order: 22, group: "ops" },
   },
 
