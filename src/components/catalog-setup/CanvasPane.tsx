@@ -18,6 +18,7 @@
 
 import { useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Plus } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { ScrollFade } from "@/components/dashboard/widgets/shared/scroll-fade";
@@ -65,6 +66,16 @@ const SECTION_EMPTY_FALLBACK: Record<SectionKey, string> = {
   stock: "Nothing tracked yet. Import a count or add an item.",
   types: "No types yet. Pick your trade or add one.",
 };
+const SECTION_ADD_KEY: Record<SectionKey, string> = {
+  sell: "section.sell.add",
+  stock: "section.stock.add",
+  types: "section.types.add",
+};
+const SECTION_ADD_FALLBACK: Record<SectionKey, string> = {
+  sell: "add a line",
+  stock: "add an item",
+  types: "add a type",
+};
 
 export interface CardCallbacks {
   onAccept?: (id: string) => void;
@@ -84,6 +95,8 @@ export interface CanvasPaneProps {
   /** Live catalog rows a merge card matched, keyed by matchedExistingId. */
   existingRows?: Record<string, SellFields>;
   callbacks?: CardCallbacks;
+  /** Manual lane: add a blank row of the given module to the canvas. */
+  onAddRow?: (module: SectionKey) => void;
   className?: string;
 }
 
@@ -131,6 +144,7 @@ export function CanvasPane({
   inventoryTracked,
   existingRows,
   callbacks,
+  onAddRow,
   className,
 }: CanvasPaneProps) {
   const { t } = useDictionary("catalog-setup");
@@ -164,24 +178,37 @@ export function CanvasPane({
             const cards = byModule[section] ?? [];
             return (
               <section key={section} data-testid={`canvas-section-${section}`}>
-                {/* Section header — `//` slash voice */}
-                <div className="mb-2 flex items-baseline gap-2">
-                  <h3 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
-                    <span aria-hidden className="mr-[6px] font-mono text-text-mute">
-                      //
+                {/* Section header — `//` slash voice + a quiet manual add */}
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
+                      <span aria-hidden className="mr-[6px] font-mono text-text-mute">
+                        //
+                      </span>
+                      {t(SECTION_TITLE_KEY[section], SECTION_TITLE_FALLBACK[section])}
+                    </h3>
+                    <span className="font-mohave text-[12px] text-text-3">
+                      {t(SECTION_CAPTION_KEY[section], SECTION_CAPTION_FALLBACK[section])}
                     </span>
-                    {t(SECTION_TITLE_KEY[section], SECTION_TITLE_FALLBACK[section])}
-                  </h3>
-                  <span className="font-mohave text-[12px] text-text-3">
-                    {t(SECTION_CAPTION_KEY[section], SECTION_CAPTION_FALLBACK[section])}
-                  </span>
-                  {section === "stock" ? (
-                    <span
-                      data-testid="canvas-stock-tracked-tag"
-                      className="rounded-chip border border-glass-border px-[5px] py-[1px] font-mono text-[10px] uppercase tracking-wider text-text-3"
+                    {section === "stock" ? (
+                      <span
+                        data-testid="canvas-stock-tracked-tag"
+                        className="rounded-chip border border-glass-border px-[5px] py-[1px] font-mono text-[10px] uppercase tracking-wider text-text-3"
+                      >
+                        {t("state.tracked", "tracked")}
+                      </span>
+                    ) : null}
+                  </div>
+                  {onAddRow ? (
+                    <button
+                      type="button"
+                      data-testid={`canvas-add-${section}`}
+                      onClick={() => onAddRow(section)}
+                      className="flex shrink-0 items-center gap-1 font-mono text-[11px] lowercase tracking-[0.04em] text-text-3 transition-colors duration-150 hover:text-text-2"
                     >
-                      {t("state.tracked", "tracked")}
-                    </span>
+                      <Plus className="h-3.5 w-3.5" aria-hidden />
+                      {t(SECTION_ADD_KEY[section], SECTION_ADD_FALLBACK[section])}
+                    </button>
                   ) : null}
                 </div>
 

@@ -35,6 +35,21 @@
   "section.types.empty": "Sin tipos aún. Elige tu oficio o agrega uno.",
   "section.review.empty": "Nada en cola. Acepta una tarjeta para cargarla aquí.",
 
+  "section.sell.add": "agregar una línea",
+  "section.stock.add": "agregar un artículo",
+  "section.types.add": "agregar un tipo",
+
+  "inventoryOff.title": "Rastrear inventario",
+  "inventoryOff.lead": "Agregaste",
+  "inventoryOff.item": "artículo de stock",
+  "inventoryOff.items": "artículos de stock",
+  "inventoryOff.tail": "sin rastrear inventario. Actívalo para mantener los conteos — o déjalos como productos. No se pierde nada en ningún caso.",
+  "inventoryOff.keep": "DEJAR COMO PRODUCTOS",
+  "inventoryOff.track": "ACTIVAR",
+  "inventoryOff.tracked": "El rastreo de inventario está activado",
+  "inventoryOff.trackError": "No se pudo activar el rastreo — inténtalo de nuevo",
+  "inventoryOff.kept": "Dejados como productos — cantidades visibles en cada uno",
+
   "action.accept": "ACEPTAR",
   "action.edit": "EDITAR",
   "action.reject": "RECHAZAR",

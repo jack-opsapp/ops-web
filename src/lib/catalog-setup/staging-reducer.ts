@@ -14,6 +14,7 @@ import type {
   StagingCard,
   CardFieldsFor,
   ModuleKey,
+  SellFields,
 } from "./staging-card";
 
 export interface StagingState {
@@ -29,6 +30,7 @@ export type StagingAction =
   | { type: "REJECT_CARD"; id: string }
   | { type: "MERGE_CARD"; id: string; matchedExistingId: string }
   | { type: "UNRESOLVE_CARD"; id: string }
+  | { type: "DOWNSHIFT_STOCK_TO_PRODUCTS" }
   | { type: "RESET" };
 
 /**
@@ -92,6 +94,30 @@ export function stagingReducer(
         state: "proposed",
         matchedExistingId: undefined,
       }));
+    case "DOWNSHIFT_STOCK_TO_PRODUCTS": {
+      // Inventory-off + stock arrived, owner chose "keep as products": convert
+      // every stock card to a product, SURFACING the on-hand count in the
+      // description (spec §16 — quantities are never silently dropped). The card
+      // keeps its id/source/state; defaultPrice is null so a kept-but-unpriced
+      // product honestly blocks BUILD IT until priced.
+      if (!state.cards.some((c) => c.module === "stock")) return state;
+      const cards = state.cards.map((c): StagingCard => {
+        if (c.module !== "stock") return c;
+        const s = c.fields;
+        const fields: SellFields = {
+          name: s.name,
+          description: s.quantity != null ? `On hand: ${s.quantity}` : undefined,
+          defaultPrice: null,
+          unitCost: s.unitCost,
+          sku: s.sku,
+          isTaxable: true,
+          kind: "material",
+          type: "MATERIAL",
+        };
+        return { id: c.id, source: c.source, state: c.state, module: "sell", fields };
+      });
+      return { ...state, cards };
+    }
     case "RESET":
       return initialStagingState;
     default:

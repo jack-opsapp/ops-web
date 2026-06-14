@@ -59,6 +59,7 @@ import {
 import type { StagingState } from "@/lib/catalog-setup/staging-reducer";
 import type { StepContext } from "@/lib/catalog-setup/step-machine";
 import type { SellFields } from "@/lib/catalog-setup/staging-card";
+import { blankCard } from "@/lib/catalog-setup/blank-cards";
 import { ModuleRail } from "./ModuleRail";
 import { CanvasPane } from "./CanvasPane";
 import { DriverPane, type SetupSource } from "./DriverPane";
@@ -355,6 +356,12 @@ export function SetupWizardShell({
                 matchedExistingId:
                   cards.find((c) => c.id === id)?.matchedExistingId ?? "",
               }),
+          }}
+          onAddRow={(module) => {
+            const card = blankCard(module);
+            dispatch({ type: "ADD_CARDS", cards: [card] });
+            // Open the new blank row straight into the editor to fill it.
+            startEditing(card.id);
           }}
           className="min-h-0"
         />

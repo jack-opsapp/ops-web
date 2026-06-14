@@ -17,7 +17,7 @@
  *    guided agent land in their own phases and appear in the picker as they do.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
@@ -37,9 +37,12 @@ import {
 import { commitsHeld } from "@/lib/catalog-setup/agent-fallback";
 import { buildStepPlan, type StepContext } from "@/lib/catalog-setup/step-machine";
 import { entryAllowed, isStepAccessible } from "@/lib/catalog-setup/step-gates";
+import { blankCard } from "@/lib/catalog-setup/blank-cards";
 import { catalogCommitToastMessage } from "@/lib/catalog-setup/commit/completion-notification";
 import { SetupWizardShell } from "@/components/catalog-setup/setup-wizard-shell";
 import { OfflineBanner } from "@/components/catalog-setup/offline-banner";
+import { InventoryOffPrompt } from "@/components/catalog-setup/inventory-off-prompt";
+import { useSetInventoryMode } from "@/lib/hooks/use-set-inventory-mode";
 import type { SetupSource } from "@/components/catalog-setup/DriverPane";
 import type { StagingCard } from "@/lib/catalog-setup/staging-card";
 
@@ -71,24 +74,6 @@ function getSessionId(): string {
   return v;
 }
 
-/** A fresh, empty price-book row the operator fills via the item editor. */
-function blankSellCard(): StagingCard {
-  return {
-    id: crypto.randomUUID(),
-    source: "manual",
-    state: "proposed",
-    module: "sell",
-    fields: {
-      name: "",
-      defaultPrice: null,
-      unitCost: null,
-      isTaxable: true,
-      kind: "service",
-      type: "LABOR",
-    },
-  };
-}
-
 export function CatalogSetupRoute() {
   const { t } = useDictionary("catalog-setup");
   const router = useRouter();
@@ -100,10 +85,13 @@ export function CatalogSetupRoute() {
   const online = useOnlineStatus();
   const commit = useCommitCatalogSetup();
   const agent = useSetupAgent();
+  const setInventoryMode = useSetInventoryMode();
   const [driverMode, setDriverMode] = useState<"picker" | "conversation">(
     "picker",
   );
   const [turns, setTurns] = useState<string[]>([]);
+  const [inventoryPromptOpen, setInventoryPromptOpen] = useState(false);
+  const inventoryPromptShownRef = useRef(false);
 
   // ── Gates + analytics context (computed unconditionally — rules of hooks) ────
   // step-gates is the single source for which modules this operator can run;
@@ -145,11 +133,44 @@ export function CatalogSetupRoute() {
     }
   }, [cards, analytics]);
 
+  // ── Inventory-off prompt: stock arrived but tracking is off (spec §16) ───────
+  // A one-time forced fork — turn tracking on (counts stay) or keep as products
+  // (quantities surfaced via the down-shift, never silently dropped).
+  const stockCardCount = useMemo(
+    () => cards.filter((c) => c.module === "stock" && c.state !== "rejected").length,
+    [cards],
+  );
+  useEffect(() => {
+    if (!tracked && stockCardCount > 0 && !inventoryPromptShownRef.current) {
+      inventoryPromptShownRef.current = true;
+      setInventoryPromptOpen(true);
+    }
+  }, [tracked, stockCardCount]);
+
+  const onTrackInventory = useCallback(() => {
+    setInventoryMode.mutate("tracked", {
+      onSuccess: () => {
+        setInventoryPromptOpen(false);
+        toast.success(t("inventoryOff.tracked", "Inventory tracking is on"));
+      },
+      onError: () =>
+        toast.error(
+          t("inventoryOff.trackError", "Couldn't turn on tracking — try again"),
+        ),
+    });
+  }, [setInventoryMode, t]);
+
+  const onKeepAsProducts = useCallback(() => {
+    dispatch({ type: "DOWNSHIFT_STOCK_TO_PRODUCTS" });
+    setInventoryPromptOpen(false);
+    toast(t("inventoryOff.kept", "Kept as products — quantities shown on each"));
+  }, [dispatch, t]);
+
   const onPickSource = useCallback(
     (source: SetupSource) => {
       analytics.trackStarted();
       if (source === "manual") {
-        dispatch({ type: "ADD_CARDS", cards: [blankSellCard()] });
+        dispatch({ type: "ADD_CARDS", cards: [blankCard("sell")] });
         // Leave the picker — the canvas now holds a row to fill + accept.
         setDriverMode("conversation");
       } else if (source === "describe") {
@@ -273,6 +294,14 @@ export function CatalogSetupRoute() {
         conversationTurns={turns}
         onBuild={onBuild}
         onSetupLater={onSetupLater}
+      />
+      {/* One-time forced fork when stock arrives on an untracked company. No
+          onOpenChange → the owner must choose (counts are never dropped). */}
+      <InventoryOffPrompt
+        open={inventoryPromptOpen}
+        stockItemCount={stockCardCount}
+        onTrack={onTrackInventory}
+        onKeepAsProducts={onKeepAsProducts}
       />
     </>
   );

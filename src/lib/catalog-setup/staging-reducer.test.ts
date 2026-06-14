@@ -127,6 +127,48 @@ describe("stagingReducer", () => {
     expect(s.cards[0].matchedExistingId).toBeUndefined();
   });
 
+  // ─── Inventory-off down-shift (Task 6.11) ────────────────────────────────
+
+  function stockCard(id: string, over: Partial<StagingCard> = {}): StagingCard {
+    return {
+      id,
+      source: "import",
+      state: "accepted",
+      module: "stock",
+      fields: { name: "Shingle", sku: "SHGL", quantity: 40, unitCost: 12, reorderPoint: 10 },
+      ...over,
+    } as StagingCard;
+  }
+
+  it("DOWNSHIFT_STOCK_TO_PRODUCTS converts stock cards to products, surfacing the count", () => {
+    let s = stagingReducer(initialStagingState, {
+      type: "ADD_CARDS",
+      cards: [sellCard("p"), stockCard("k")],
+    });
+    s = stagingReducer(s, { type: "DOWNSHIFT_STOCK_TO_PRODUCTS" });
+    const kept = s.cards.find((c) => c.id === "k")!;
+    expect(kept.module).toBe("sell");
+    expect(kept.state).toBe("accepted"); // state preserved
+    if (kept.module === "sell") {
+      expect(kept.fields.name).toBe("Shingle");
+      expect(kept.fields.sku).toBe("SHGL");
+      expect(kept.fields.defaultPrice).toBeNull(); // honest: a product needs a price
+      expect(kept.fields.description).toContain("40"); // quantity surfaced, not dropped
+      expect(kept.fields.kind).toBe("material");
+    }
+    // the existing product is untouched
+    expect(s.cards.find((c) => c.id === "p")!.module).toBe("sell");
+  });
+
+  it("DOWNSHIFT_STOCK_TO_PRODUCTS is a no-op when there is no stock (same ref)", () => {
+    const s0 = stagingReducer(initialStagingState, {
+      type: "ADD_CARDS",
+      cards: [sellCard("p")],
+    });
+    const s1 = stagingReducer(s0, { type: "DOWNSHIFT_STOCK_TO_PRODUCTS" });
+    expect(s1).toBe(s0);
+  });
+
   it("RESET clears all cards", () => {
     let s = stagingReducer(initialStagingState, {
       type: "ADD_CARDS",

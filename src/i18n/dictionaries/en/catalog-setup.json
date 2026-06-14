@@ -35,6 +35,21 @@
   "section.types.empty": "No types yet. Pick your trade or add one.",
   "section.review.empty": "Nothing staged. Accept a card to load it here.",
 
+  "section.sell.add": "add a line",
+  "section.stock.add": "add an item",
+  "section.types.add": "add a type",
+
+  "inventoryOff.title": "Track inventory",
+  "inventoryOff.lead": "You've added",
+  "inventoryOff.item": "stock item",
+  "inventoryOff.items": "stock items",
+  "inventoryOff.tail": "without tracking inventory. Turn tracking on to keep counts — or keep them as products. Nothing's dropped either way.",
+  "inventoryOff.keep": "KEEP AS PRODUCTS",
+  "inventoryOff.track": "TRACK IT",
+  "inventoryOff.tracked": "Inventory tracking is on",
+  "inventoryOff.trackError": "Couldn't turn on tracking — try again",
+  "inventoryOff.kept": "Kept as products — quantities shown on each",
+
   "action.accept": "ACCEPT",
   "action.edit": "EDIT",
   "action.reject": "REJECT",
