@@ -290,7 +290,7 @@ function Conversation({ t, reduced }: { t: Tt; reduced: boolean }) {
       </Bubble>
       {/* user bubble — neutral, labelled */}
       <Bubble who="user" label={t("driver.convo.you", "you")}>
-        {t("driver.convo.user.sample", "Roofing. Tear-offs by the square, plus materials.")}
+        {t("driver.convo.user.sample", "Vehicle wraps. Full wraps by the vehicle, materials by the foot.")}
       </Bubble>
       {/* agent reply */}
       <Bubble who="agent">

@@ -121,7 +121,7 @@
   "driver.start.manual.desc": "Type a line at a time",
 
   "driver.convo.lead": "What do you sell, and how do you charge for it?",
-  "driver.convo.user.sample": "Roofing. Tear-offs by the square, plus materials.",
+  "driver.convo.user.sample": "Vehicle wraps. Full wraps by the vehicle, materials by the foot.",
   "driver.convo.reply": "On it. Here's your catalog — skim it, fix anything off, then build it.",
   "driver.convo.you": "you",
 
