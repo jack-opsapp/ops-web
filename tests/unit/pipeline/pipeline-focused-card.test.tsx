@@ -292,10 +292,13 @@ describe("<PipelineFocusedCard>", () => {
     expect(dndMocks.pointerDown).toHaveBeenCalledTimes(1);
   });
 
-  it("opens detail only from the explicit toolbar details action", () => {
+  it("opens detail from the ACTIONS overflow details action", () => {
     renderFocusedCard();
 
-    fireEvent.click(screen.getByRole("button", { name: "Open detail" }));
+    // Rows are for scanning — verbs (including details) live behind one
+    // labelled ACTIONS overflow, not as bare per-card icons.
+    fireEvent.click(screen.getByRole("button", { name: "Actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Open detail" }));
 
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
       "opp-1"

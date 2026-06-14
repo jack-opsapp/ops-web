@@ -7,7 +7,7 @@ import {
   MessageSquare,
   ExternalLink,
   StickyNote,
-  MoreHorizontal,
+  ChevronDown,
   Calendar,
   UserPlus,
   Trophy,
@@ -44,6 +44,15 @@ interface PipelineCardActionsProps {
   onConvert?: () => void;
 }
 
+/**
+ * Card action row — rows are for scanning; verbs live in ONE labelled `ACTIONS`
+ * overflow (DESIGN.md §11 — icons are metadata, not actions). Matches the Books
+ * register row treatment: stage-advance affordances stay visible (moving a deal
+ * is the kanban's primary verb), everything else folds behind the overflow.
+ * The menu stays a portaled popover (not the Radix primitive) because cards live
+ * in a drag/scroll context and the menu must open above its anchor near the
+ * board's bottom edge — but the trigger + items match the shared treatment.
+ */
 export function PipelineCardActions({
   opportunityId: _opportunityId,
   stage,
@@ -65,10 +74,10 @@ export function PipelineCardActions({
 
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [noteValue, setNoteValue] = useState("");
-  const [showMore, setShowMore] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   const noteInputRef = useRef<HTMLInputElement>(null);
-  const moreContainerRef = useRef<HTMLDivElement>(null);
+  const menuContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-focus note input
   useEffect(() => {
@@ -79,14 +88,17 @@ export function PipelineCardActions({
 
   // Close dropdown on outside click or Escape
   useEffect(() => {
-    if (!showMore) return;
+    if (!showMenu) return;
     function handleOutsideClick(e: MouseEvent) {
-      if (moreContainerRef.current && !moreContainerRef.current.contains(e.target as Node)) {
-        setShowMore(false);
+      if (
+        menuContainerRef.current &&
+        !menuContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowMenu(false);
       }
     }
     function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setShowMore(false);
+      if (e.key === "Escape") setShowMenu(false);
     }
     const frame = requestAnimationFrame(() => {
       document.addEventListener("mousedown", handleOutsideClick);
@@ -97,7 +109,7 @@ export function PipelineCardActions({
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [showMore]);
+  }, [showMenu]);
 
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
@@ -113,134 +125,168 @@ export function PipelineCardActions({
     }
   };
 
-  const handleDropdownAction = useCallback(
+  const handleMenuAction = useCallback(
     (e: React.MouseEvent, action: () => void) => {
       e.stopPropagation();
-      setShowMore(false);
+      setShowMenu(false);
       action();
     },
     []
   );
 
+  const showActiveActions = isActiveStage(stage);
+  const showConvert = stage === OpportunityStage.Won && Boolean(onConvert);
+
   return (
     <div onClick={stop} onMouseDown={stop}>
-      {/* Compact icon action row */}
+      {/* Stage affordances (left) + one labelled ACTIONS overflow (right) */}
       <div
         data-testid="pipeline-card-action-row"
-        className="grid min-w-0 grid-cols-[1fr_auto_1fr] items-center gap-4"
+        className="flex min-w-0 items-center justify-between gap-2"
       >
-        <div className="flex min-w-0 items-center gap-[6px]">
-          <ActionIcon
-            icon={<Phone className="w-[12px] h-[12px]" />}
-            label={t("actions.logCall", "Log call")}
-            onClick={(e) => { e.stopPropagation(); if (canManage) onLogCall(); }}
-            disabled={!canManage}
-          />
-          <ActionIcon
-            icon={<MessageSquare className="w-[12px] h-[12px]" />}
-            label={t("actions.logText", "Log text")}
-            onClick={(e) => { e.stopPropagation(); if (canManage) onLogText(); }}
-            disabled={!canManage}
-          />
-          <ActionIcon
-            icon={<ExternalLink className="w-[12px] h-[12px]" />}
-            label={t("actions.openDetail", "Details")}
-            onClick={(e) => { e.stopPropagation(); onOpenDetail(); }}
-          />
-          <ActionIcon
-            icon={<StickyNote className="w-[12px] h-[12px]" />}
-            label={t("actions.addNote", "Add note")}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (canManage) setShowNoteInput((prev) => !prev);
-            }}
-            disabled={!canManage}
-            isActive={showNoteInput}
-          />
-        </div>
         {stageActions ? (
           <div
             data-testid="pipeline-card-stage-actions"
-            className="flex min-w-0 items-center justify-center gap-[6px]"
+            className="flex min-w-0 items-center gap-[6px]"
           >
             {stageActions}
           </div>
         ) : (
-          <div />
+          <span aria-hidden="true" />
         )}
 
-        {/* More menu */}
-        <div ref={moreContainerRef} className="relative flex justify-end">
-          <ActionIcon
-            icon={<MoreHorizontal className="w-[12px] h-[12px]" />}
-            label={t("actions.more", "More")}
-            onClick={(e) => { e.stopPropagation(); if (canManage) setShowMore((prev) => !prev); }}
-            disabled={!canManage}
-            isActive={showMore}
-          />
+        <div ref={menuContainerRef} className="relative flex shrink-0 justify-end">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu((prev) => !prev);
+            }}
+            aria-haspopup="menu"
+            aria-expanded={showMenu}
+            className={cn(
+              "inline-flex h-[28px] items-center gap-[4px] rounded-[5px] border px-[8px]",
+              "font-mono text-micro font-medium uppercase tracking-[0.12em]",
+              "transition-colors duration-150 ease-smooth",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+              showMenu
+                ? "border-line-hi bg-surface-active text-text"
+                : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2"
+            )}
+          >
+            {t("actions.menu", "Actions")}
+            <ChevronDown
+              className={cn(
+                "h-[12px] w-[12px] shrink-0 transition-transform duration-150",
+                showMenu && "rotate-180"
+              )}
+              strokeWidth={1.5}
+            />
+          </button>
 
-          {showMore && createPortal(
-            <PortaledDropdown
-              anchorRef={moreContainerRef}
-              onClose={() => setShowMore(false)}
-            >
-              <DropdownItem
-                icon={<Calendar size={13} />}
-                label={t("actions.scheduleFollowUp", "Schedule follow-up")}
-                onClick={(e) => handleDropdownAction(e, onScheduleFollowUp)}
-              />
-              <DropdownItem
-                icon={<UserPlus size={13} />}
-                label={t("actions.assignTo", "Assign to")}
-                onClick={(e) => handleDropdownAction(e, onAssign)}
-              />
-              {isActiveStage(stage) && (
-                <>
-                  <div className="my-[2px] border-t border-[rgba(255,255,255,0.06)]" />
-                  <DropdownItem
-                    icon={<Trophy size={13} />}
-                    label={t("actions.markWon", "Mark won")}
-                    onClick={(e) => handleDropdownAction(e, onMarkWon)}
-                  />
-                  <DropdownItem
-                    icon={<XCircle size={13} />}
-                    label={t("actions.markLost", "Mark lost")}
-                    onClick={(e) => handleDropdownAction(e, onMarkLost)}
-                  />
-                  <DropdownItem
-                    icon={<Ban size={13} />}
-                    label={t("actions.discard", "Discard")}
-                    onClick={(e) => handleDropdownAction(e, onDiscard)}
-                  />
-                </>
-              )}
-              {stage === OpportunityStage.Won && onConvert && (
-                <>
-                  <div className="my-[2px] border-t border-[rgba(255,255,255,0.06)]" />
-                  <DropdownItem
-                    icon={<FolderInput size={13} />}
-                    label={t("actions.convert", "Convert")}
-                    onClick={(e) => handleDropdownAction(e, onConvert)}
-                    testId="card-action-convert"
-                  />
-                </>
-              )}
-              <div className="my-[2px] border-t border-[rgba(255,255,255,0.06)]" />
-              <DropdownItem
-                icon={<Archive size={13} />}
-                label={t("actions.archive", "Archive")}
-                onClick={(e) => handleDropdownAction(e, onArchive)}
-              />
-            </PortaledDropdown>,
-            document.body
-          )}
+          {showMenu &&
+            createPortal(
+              <PortaledMenu
+                anchorRef={menuContainerRef}
+                onClose={() => setShowMenu(false)}
+              >
+                <MenuItem
+                  icon={<Phone size={13} />}
+                  label={t("actions.logCall", "Log call")}
+                  onClick={(e) => handleMenuAction(e, onLogCall)}
+                  disabled={!canManage}
+                />
+                <MenuItem
+                  icon={<MessageSquare size={13} />}
+                  label={t("actions.logText", "Log text")}
+                  onClick={(e) => handleMenuAction(e, onLogText)}
+                  disabled={!canManage}
+                />
+                <MenuItem
+                  icon={<StickyNote size={13} />}
+                  label={t("actions.addNote", "Add note")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    setShowNoteInput(true);
+                  }}
+                  disabled={!canManage}
+                />
+                <MenuItem
+                  icon={<ExternalLink size={13} />}
+                  label={t("actions.openDetail", "Details")}
+                  onClick={(e) => handleMenuAction(e, onOpenDetail)}
+                />
+
+                {canManage && (
+                  <>
+                    <MenuDivider />
+                    <MenuItem
+                      icon={<Calendar size={13} />}
+                      label={t("actions.scheduleFollowUp", "Schedule follow-up")}
+                      onClick={(e) => handleMenuAction(e, onScheduleFollowUp)}
+                    />
+                    <MenuItem
+                      icon={<UserPlus size={13} />}
+                      label={t("actions.assignTo", "Assign to")}
+                      onClick={(e) => handleMenuAction(e, onAssign)}
+                    />
+                  </>
+                )}
+
+                {canManage && showActiveActions && (
+                  <>
+                    <MenuDivider />
+                    <MenuItem
+                      icon={<Trophy size={13} />}
+                      label={t("actions.markWon", "Mark won")}
+                      onClick={(e) => handleMenuAction(e, onMarkWon)}
+                    />
+                    <MenuItem
+                      icon={<XCircle size={13} />}
+                      label={t("actions.markLost", "Mark lost")}
+                      onClick={(e) => handleMenuAction(e, onMarkLost)}
+                    />
+                    <MenuItem
+                      icon={<Ban size={13} />}
+                      label={t("actions.discard", "Discard")}
+                      onClick={(e) => handleMenuAction(e, onDiscard)}
+                    />
+                  </>
+                )}
+
+                {canManage && showConvert && (
+                  <>
+                    <MenuDivider />
+                    <MenuItem
+                      icon={<FolderInput size={13} />}
+                      label={t("actions.convert", "Convert")}
+                      onClick={(e) => handleMenuAction(e, onConvert!)}
+                      testId="card-action-convert"
+                    />
+                  </>
+                )}
+
+                {canManage && (
+                  <>
+                    <MenuDivider />
+                    <MenuItem
+                      icon={<Archive size={13} />}
+                      label={t("actions.archive", "Archive")}
+                      onClick={(e) => handleMenuAction(e, onArchive)}
+                    />
+                  </>
+                )}
+              </PortaledMenu>,
+              document.body
+            )}
         </div>
       </div>
 
       {/* Inline note input — submit button lives inside the input gutter so
           it can never be clipped by narrow card widths */}
       {showNoteInput && (
-        <div className="mt-[4px] relative">
+        <div className="relative mt-[4px]">
           <input
             ref={noteInputRef}
             type="text"
@@ -249,7 +295,7 @@ export function PipelineCardActions({
             onClick={stop}
             onKeyDown={handleNoteKeyDown}
             placeholder={t("actions.notePlaceholder", "Type a note...")}
-            className="w-full pl-[6px] pr-[26px] py-[4px] rounded-panel bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mohave text-caption-sm text-text placeholder:text-text-3 focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
+            className="w-full rounded-panel border border-line bg-fill-neutral-dim py-[4px] pl-[6px] pr-[26px] font-mohave text-caption-sm text-text outline-none transition-colors duration-150 placeholder:text-text-3 focus:border-line-hi"
           />
           <button
             type="button"
@@ -262,9 +308,9 @@ export function PipelineCardActions({
               setShowNoteInput(false);
             }}
             disabled={!noteValue.trim()}
-            className="absolute right-[3px] top-1/2 -translate-y-1/2 p-[3px] rounded-panel text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="absolute right-[3px] top-1/2 -translate-y-1/2 rounded-panel p-[3px] text-text-2 transition-colors hover:bg-surface-active hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
           >
-            <Send className="w-[12px] h-[12px]" />
+            <Send className="h-[12px] w-[12px]" />
           </button>
         </div>
       )}
@@ -274,40 +320,7 @@ export function PipelineCardActions({
 
 // ── Sub-components ──
 
-function ActionIcon({
-  icon,
-  label,
-  onClick,
-  disabled,
-  isActive,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: (e: React.MouseEvent) => void;
-  disabled?: boolean;
-  isActive?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={label}
-      aria-label={label}
-      className={cn(
-        "p-[5px] rounded-panel transition-colors duration-150 cursor-pointer",
-        isActive
-          ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
-          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] border border-transparent",
-        disabled && "opacity-40 pointer-events-none"
-      )}
-    >
-      {icon}
-    </button>
-  );
-}
-
-function PortaledDropdown({
+function PortaledMenu({
   anchorRef,
   onClose,
   children,
@@ -322,9 +335,9 @@ function PortaledDropdown({
   useEffect(() => {
     if (anchorRef.current) {
       const rect = anchorRef.current.getBoundingClientRect();
-      // Position above the anchor, right-aligned
+      // Position above the anchor, right-aligned (cards sit near the board edge).
       setPos({
-        x: Math.max(0, rect.right - 180),
+        x: Math.max(0, rect.right - 200),
         y: Math.max(0, rect.top - 4),
       });
     }
@@ -333,8 +346,12 @@ function PortaledDropdown({
   // Close on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
-          anchorRef.current && !anchorRef.current.contains(e.target as Node)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        anchorRef.current &&
+        !anchorRef.current.contains(e.target as Node)
+      ) {
         onClose();
       }
     }
@@ -350,15 +367,12 @@ function PortaledDropdown({
   return (
     <div
       ref={menuRef}
-      className="fixed z-[3000] min-w-[180px] rounded-[4px] p-[4px]"
+      role="menu"
+      className="glass-dense fixed z-[3000] min-w-[200px] overflow-hidden p-0.5 [&::before]:rounded-modal"
       style={{
         left: pos.x,
         top: pos.y,
         transform: "translateY(-100%)",
-        background: "var(--surface-glass-dense)",
-        backdropFilter: "blur(28px) saturate(1.3)",
-        WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-        border: "1px solid rgba(255, 255, 255, 0.10)",
       }}
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
@@ -368,26 +382,34 @@ function PortaledDropdown({
   );
 }
 
-function DropdownItem({
+function MenuItem({
   icon,
   label,
   onClick,
+  disabled,
   testId,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: (e: React.MouseEvent) => void;
+  disabled?: boolean;
   testId?: string;
 }) {
+  if (disabled) return null;
   return (
     <button
       type="button"
+      role="menuitem"
       data-testid={testId}
       onClick={onClick}
-      className="flex items-center gap-[8px] w-full px-[8px] py-[5px] font-mohave text-caption-sm text-text-2 hover:bg-[rgba(255,255,255,0.06)] rounded-panel transition-colors cursor-pointer"
+      className="flex w-full cursor-pointer select-none items-center gap-[8px] rounded-sm px-[8px] py-[6px] font-mohave text-body-sm text-text-2 transition-colors duration-100 hover:bg-fill-neutral-dim hover:text-text"
     >
-      <span className="text-text-3 shrink-0">{icon}</span>
+      <span className="shrink-0 text-text-3">{icon}</span>
       {label}
     </button>
   );
+}
+
+function MenuDivider() {
+  return <div className="-mx-0.5 my-0.5 h-px bg-border" />;
 }

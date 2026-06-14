@@ -45,7 +45,7 @@ describe("<PipelineCardActions> — convert an already-won card", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("button", { name: /Actions/i }));
     await userEvent.click(screen.getByTestId("card-action-convert"));
     expect(onConvert).toHaveBeenCalledTimes(1);
   });
@@ -54,7 +54,7 @@ describe("<PipelineCardActions> — convert an already-won card", () => {
     render(
       <PipelineCardActions {...baseProps} stage={OpportunityStage.Won} />,
     );
-    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("button", { name: /Actions/i }));
     expect(screen.queryByTestId("card-action-convert")).not.toBeInTheDocument();
   });
 
@@ -66,7 +66,7 @@ describe("<PipelineCardActions> — convert an already-won card", () => {
         onConvert={vi.fn()}
       />,
     );
-    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("button", { name: /Actions/i }));
     expect(screen.queryByTestId("card-action-convert")).not.toBeInTheDocument();
   });
 });
