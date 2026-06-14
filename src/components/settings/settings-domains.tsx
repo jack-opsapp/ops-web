@@ -41,7 +41,7 @@ import { NotificationsTab } from "./notifications-tab";
 import { AppearanceTab } from "./appearance-tab";
 import { PreferencesTab } from "./preferences-tab";
 import { ShortcutsTab } from "./shortcuts-tab";
-import { TeamTab } from "./team-tab";
+import { TeamSection } from "./team-section";
 import { RolesTab } from "./roles-tab";
 import { CompanyTab } from "./company-tab";
 import { TaskTypesTab } from "./task-types-tab";
@@ -132,7 +132,7 @@ export const SETTINGS_DOMAINS: SettingsDomain[] = [
     labelKey: "domains.team",
     icon: Users,
     sections: [
-      { id: "team", labelKey: "sections.members", permission: "team.view", component: TeamTab, legacyTabIds: ["team"] },
+      { id: "team", labelKey: "sections.members", permission: "team.view", component: TeamSection, legacyTabIds: ["team"] },
       { id: "roles", labelKey: "sections.roles", permission: "team.assign_roles", component: RolesTab, legacyTabIds: ["roles"] },
     ],
   },
