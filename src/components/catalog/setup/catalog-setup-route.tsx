@@ -17,7 +17,7 @@
  *    guided agent land in their own phases and appear in the picker as they do.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
@@ -25,6 +25,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useCatalogSetupStore } from "@/stores/catalog-setup-store";
 import { useInventoryMode } from "@/lib/hooks/use-inventory-mode";
 import { useOnlineStatus } from "@/lib/hooks/use-online-status";
+import { useCatalogSetupAnalytics } from "@/lib/hooks/use-catalog-setup-analytics";
 import {
   CommitError,
   useCommitCatalogSetup,
@@ -34,11 +35,12 @@ import {
   useSetupAgent,
 } from "@/lib/hooks/use-setup-agent";
 import { commitsHeld } from "@/lib/catalog-setup/agent-fallback";
+import { buildStepPlan, type StepContext } from "@/lib/catalog-setup/step-machine";
+import { entryAllowed, isStepAccessible } from "@/lib/catalog-setup/step-gates";
 import { catalogCommitToastMessage } from "@/lib/catalog-setup/commit/completion-notification";
 import { SetupWizardShell } from "@/components/catalog-setup/setup-wizard-shell";
 import { OfflineBanner } from "@/components/catalog-setup/offline-banner";
 import type { SetupSource } from "@/components/catalog-setup/DriverPane";
-import type { StepContext } from "@/lib/catalog-setup/step-machine";
 import type { StagingCard } from "@/lib/catalog-setup/staging-card";
 
 /**
@@ -103,8 +105,49 @@ export function CatalogSetupRoute() {
   );
   const [turns, setTurns] = useState<string[]>([]);
 
+  // ── Gates + analytics context (computed unconditionally — rules of hooks) ────
+  // step-gates is the single source for which modules this operator can run;
+  // the StepContext (rail) + analytics totalSteps both derive from it, so the
+  // route never re-implements the permission matrix.
+  const allowed = entryAllowed(can);
+  const tracked = inventory?.tracked ?? false;
+  const context: StepContext = useMemo(
+    () => ({
+      inventoryTracked: tracked,
+      canSell: isStepAccessible("SELL", can),
+      canStock: isStepAccessible("STOCK", can),
+      canTypes: isStepAccessible("TYPES", can),
+    }),
+    [tracked, can],
+  );
+  const totalSteps = useMemo(() => buildStepPlan(context).length, [context]);
+  const sessionId = useMemo(() => getSessionId(), []);
+  const analytics = useCatalogSetupAnalytics({
+    sessionId,
+    totalSteps,
+    triggerType: "catalog_setup",
+  });
+
+  // shown: the wizard surface mounted (only for an operator who may run it).
+  useEffect(() => {
+    if (allowed) analytics.trackShown();
+  }, [allowed, analytics]);
+
+  // step_completed: fire once per module the moment it gains a committed card.
+  useEffect(() => {
+    for (const key of ["sell", "stock", "types"] as const) {
+      const hasAdded = cards.some(
+        (c) =>
+          c.module === key &&
+          (c.state === "accepted" || c.state === "edited" || c.state === "merge"),
+      );
+      if (hasAdded) analytics.trackStepCompleted(key);
+    }
+  }, [cards, analytics]);
+
   const onPickSource = useCallback(
     (source: SetupSource) => {
+      analytics.trackStarted();
       if (source === "manual") {
         dispatch({ type: "ADD_CARDS", cards: [blankSellCard()] });
         // Leave the picker — the canvas now holds a row to fill + accept.
@@ -114,12 +157,13 @@ export function CatalogSetupRoute() {
         setDriverMode("conversation");
       }
     },
-    [dispatch],
+    [dispatch, analytics],
   );
 
   const onSend = useCallback(
     (text: string) => {
       if (agent.isPending) return;
+      analytics.trackStarted();
       const priorTurns = turns;
       setTurns((prev) => [...prev, text]);
       agent.mutate(
@@ -156,7 +200,7 @@ export function CatalogSetupRoute() {
         },
       );
     },
-    [agent, turns, dispatch, t],
+    [agent, turns, dispatch, t, analytics],
   );
 
   const onBuild = useCallback(() => {
@@ -173,6 +217,7 @@ export function CatalogSetupRoute() {
       { sessionId: getSessionId(), cards },
       {
         onSuccess: (res) => {
+          analytics.trackCompleted();
           toast.success(catalogCommitToastMessage(res.counts));
           reset();
           window.sessionStorage.removeItem(SESSION_KEY);
@@ -190,13 +235,16 @@ export function CatalogSetupRoute() {
         },
       },
     );
-  }, [commit, cards, reset, router, t, online]);
+  }, [commit, cards, reset, router, t, online, analytics]);
 
-  const onSetupLater = useCallback(() => router.push("/catalog"), [router]);
+  const onSetupLater = useCallback(() => {
+    analytics.trackSkipped();
+    router.push("/catalog");
+  }, [router, analytics]);
 
   // Permission gate — defense-in-depth. The tactical denied state mirrors
   // catalog-page.tsx's no-access treatment.
-  if (!can("catalog.run_setup")) {
+  if (!allowed) {
     return (
       <div
         data-testid="catalog-setup-denied"
@@ -209,14 +257,6 @@ export function CatalogSetupRoute() {
       </div>
     );
   }
-
-  const tracked = inventory?.tracked ?? false;
-  const context: StepContext = {
-    inventoryTracked: tracked,
-    canSell: can("products.manage"),
-    canStock: can("inventory.manage"),
-    canTypes: can("products.manage"),
-  };
 
   return (
     <>

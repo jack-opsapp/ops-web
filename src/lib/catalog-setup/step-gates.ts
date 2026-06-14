@@ -15,8 +15,13 @@
 /** The wizard's modules, in canvas order. REVIEW is the commit gate, not a write. */
 export type WizardModule = "SELL" | "STOCK" | "TYPES" | "REVIEW";
 
-/** A `can`-style predicate: granted when the permission holds at the given scope. */
-export type CanFn = (permission: string, scope?: string) => boolean;
+/**
+ * A `can`-style predicate: granted when the permission holds at the given scope.
+ * The scope is the literal "all" (a valid PermissionScope) so the real store
+ * `can(permission, PermissionScope)` is assignable here without this pure module
+ * importing the permissions types.
+ */
+export type CanFn = (permission: string, scope?: "all") => boolean;
 
 /**
  * Each module's required permissions. Trade & task types are catalog setup, not

@@ -14787,6 +14787,7 @@ export type Database = {
       }
       wizard_analytics: {
         Row: {
+          company_id: string | null
           created_at: string | null
           duration_ms: number | null
           event: string
@@ -14805,6 +14806,7 @@ export type Database = {
           wizard_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string | null
           duration_ms?: number | null
           event: string
@@ -14823,6 +14825,7 @@ export type Database = {
           wizard_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string | null
           duration_ms?: number | null
           event?: string
@@ -14840,7 +14843,15 @@ export type Database = {
           user_role?: string | null
           wizard_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wizard_analytics_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wizard_states: {
         Row: {
