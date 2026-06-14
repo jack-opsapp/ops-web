@@ -29,19 +29,25 @@ export function SegmentControl<T extends string = string>({
   value,
   onChange,
   className,
+  disabled = false,
 }: {
   options: SegmentControlOption<T>[];
   value: T;
   onChange: (value: T) => void;
   className?: string;
+  /** Locks the control (e.g. while a mode mutation is in flight) — prevents
+   *  rapid re-toggles that could race out-of-order server responses. */
+  disabled?: boolean;
 }) {
   return (
     <div
       className={cn(
         "inline-flex h-[28px] items-center gap-[2px] rounded-[5px] border border-border p-[2px]",
+        disabled && "pointer-events-none opacity-40",
         className,
       )}
       role="tablist"
+      aria-disabled={disabled || undefined}
     >
       {options.map((opt) => {
         const active = opt.value === value;
@@ -51,6 +57,7 @@ export function SegmentControl<T extends string = string>({
             type="button"
             role="tab"
             aria-selected={active}
+            disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={cn(
               "inline-flex h-[22px] items-center gap-1 rounded-[5px] px-1.5",
