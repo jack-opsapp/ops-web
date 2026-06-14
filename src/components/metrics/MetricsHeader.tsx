@@ -15,6 +15,11 @@ interface MetricsHeaderFullProps {
   isLoading?: boolean;
   actions?: React.ReactNode;
   className?: string;
+  /**
+   * Opt-in `// LABEL` tactical grammar for the metric labels (WEB OVERHAUL
+   * P3-7, additive). Off by default so every other consumer is unchanged.
+   */
+  slashLabels?: boolean;
 }
 
 interface MetricsHeaderCompactProps {
@@ -94,7 +99,7 @@ function CompactMetricsSkeleton() {
   );
 }
 
-function FullMetricsHeader({ title: _title, metrics, isLoading, actions, className }: MetricsHeaderFullProps) {
+function FullMetricsHeader({ title: _title, metrics, isLoading, actions, className, slashLabels }: MetricsHeaderFullProps) {
   const showSkeleton = isLoading || metrics.length === 0;
 
   return (
@@ -117,7 +122,7 @@ function FullMetricsHeader({ title: _title, metrics, isLoading, actions, classNa
         <div className="flex gap-7">
           {metrics.map((metric, i) => (
             <div key={metric.label} className="contents">
-              <MetricColumn config={metric} />
+              <MetricColumn config={metric} slashLabels={slashLabels} />
               {i < metrics.length - 1 && (
                 <div className="self-stretch w-px bg-white/[0.05]" />
               )}

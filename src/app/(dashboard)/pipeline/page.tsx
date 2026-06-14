@@ -1023,6 +1023,7 @@ export default function PipelinePage() {
             title="Pipeline"
             metrics={pipelineMetrics}
             isLoading={pipelineMetricsLoading}
+            slashLabels
           />
         </div>
         {/* Mode switcher — focused | table (flag-gated; hidden entirely off) */}

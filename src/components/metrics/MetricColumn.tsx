@@ -11,9 +11,39 @@ import { SeverityDots } from "./viz/SeverityDots";
 
 interface MetricColumnProps {
   config: MetricColumnConfig;
+  /**
+   * Opt-in `// LABEL` tactical grammar (WEB OVERHAUL P3-7, additive). When set,
+   * the metric label renders with the canonical instrument-strip grammar —
+   * `//` prefix in text-mute, `tracking-[0.16em]`, `text-text-3` — instead of
+   * the legacy `tracking-[2px]` / `#6B6B6B`. Default (unset) leaves every other
+   * MetricsHeader consumer (map / projects / schedule) byte-identical.
+   */
+  slashLabels?: boolean;
 }
 
-export function MetricColumn({ config }: MetricColumnProps) {
+function MetricColumnLabel({
+  label,
+  slashLabels,
+}: {
+  label: string;
+  slashLabels?: boolean;
+}) {
+  if (slashLabels) {
+    return (
+      <div className="mb-1 font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+        <span className="text-text-mute">{"// "}</span>
+        {label}
+      </div>
+    );
+  }
+  return (
+    <div className="mb-1 font-mono text-micro uppercase tracking-[2px] text-[#6B6B6B]">
+      {label}
+    </div>
+  );
+}
+
+export function MetricColumn({ config, slashLabels }: MetricColumnProps) {
   const { label, value, formatType, trend, viz, color, breakdown } = config;
   const animatedValue = useAnimatedValue(value);
   const displayValue = formatMetricValue(animatedValue, formatType);
@@ -61,9 +91,7 @@ export function MetricColumn({ config }: MetricColumnProps) {
       >
         {/* ── Front face ── */}
         <div style={{ backfaceVisibility: "hidden" }}>
-          <div className="mb-1 font-mono text-micro uppercase tracking-[2px] text-[#6B6B6B]">
-            {label}
-          </div>
+          <MetricColumnLabel label={label} slashLabels={slashLabels} />
 
           <div className="flex items-baseline gap-1.5">
             <span
@@ -98,9 +126,7 @@ export function MetricColumn({ config }: MetricColumnProps) {
               transform: "rotateY(180deg)",
             }}
           >
-            <div className="mb-1 font-mono text-micro uppercase tracking-[2px] text-[#6B6B6B]">
-              {label}
-            </div>
+            <MetricColumnLabel label={label} slashLabels={slashLabels} />
             <div
               className="font-mono text-[13px] leading-relaxed tracking-wide"
               style={{ color: "rgba(255,255,255,0.55)" }}
