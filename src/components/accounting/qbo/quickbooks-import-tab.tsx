@@ -67,7 +67,12 @@ export function QuickBooksImportTab() {
   // Connection status for the run header (I6). The owner connects QuickBooks on
   // the Integrations tab; until then the Import tab shows a not-connected state.
   const { data: connections } = useAccountingConnections();
-  const qbConnection = connections?.find((c) => c.provider === "quickbooks");
+  // Prefer the live QuickBooks row (a company can hold both sandbox + production
+  // rows); fall back to any QB row so the reconnect prompt still surfaces when
+  // none is connected. Matches the SYNC segment's active-connection selection.
+  const qbConnection =
+    connections?.find((c) => c.provider === AccountingProvider.QuickBooks && c.isConnected) ??
+    connections?.find((c) => c.provider === AccountingProvider.QuickBooks);
   const isConnected = qbConnection?.isConnected ?? false;
   // A connection row that exists but is no longer connected means the token
   // expired or was revoked (invalid_grant flips is_connected=false): the
@@ -208,7 +213,7 @@ export function QuickBooksImportTab() {
             data-testid="qbo-write-calls"
             className={cn(
               "flex items-center gap-1.5 font-mono text-caption-sm tabular-nums",
-              writeCalls === 0 ? "text-status-success" : "text-[#B58289]"
+              writeCalls === 0 ? "text-status-success" : "text-rose"
             )}
           >
             {writeCalls === 0 ? (
@@ -287,8 +292,8 @@ export function QuickBooksImportTab() {
 
       {runId && isError && (
         <Card variant="default" className="p-3 flex items-center gap-1.5">
-          <AlertCircle className="w-[14px] h-[14px] text-[#B58289]" />
-          <span className="font-mono text-caption-sm text-[#B58289]">
+          <AlertCircle className="w-[14px] h-[14px] text-rose" />
+          <span className="font-mono text-caption-sm text-rose">
             {t("qbo.error")}
           </span>
         </Card>
@@ -361,7 +366,7 @@ export function QuickBooksImportTab() {
             {hasUnresolved && !applied && (
               <p
                 data-testid="qbo-needs-review-hint"
-                className="flex items-center gap-1.5 font-mono text-caption-sm text-[#C4A868]"
+                className="flex items-center gap-1.5 font-mono text-caption-sm text-tan"
               >
                 <Link2Off className="w-[12px] h-[12px]" />
                 {t("qbo.needsReviewBlock", {
