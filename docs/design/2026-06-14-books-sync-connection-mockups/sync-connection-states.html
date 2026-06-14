@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BOOKS · SYNC — connection UX redesign (mockup, WEB OVERHAUL P3-4)</title>
+<!--
+  Mockup for Jackson's approval — the canonical UX-judgment-gate redesign.
+  Faithful to ops-design-system/project/colors_and_type.css tokens (inlined).
+  NOTE: Cake Mono ships from Typekit in-app; here it falls back to Mohave
+  uppercase. Layout, hierarchy, color, and voice are production-faithful.
+  Three states: (1) NOT CONNECTED  (2) PROVIDER PICKER  (3) CONNECTED + SETTINGS
+-->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Mohave:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --font-mohave:"Mohave",system-ui,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --font-cakemono:"Mohave",system-ui,sans-serif; /* Typekit Cake Mono stand-in */
+  --bg:#000; --glass:rgba(18,18,20,.58); --glass-dense:rgba(18,18,20,.78);
+  --glass-border:rgba(255,255,255,.09);
+  --surface-input:rgba(255,255,255,.04); --surface-hover:rgba(255,255,255,.05); --surface-active:rgba(255,255,255,.08);
+  --text:#EDEDED; --text-2:#B5B5B5; --text-3:#8A8A8A; --text-mute:#6A6A6A;
+  --ops-accent:#6F94B0; --ops-accent-hover:#7fa3bd;
+  --olive:#9DB582; --tan:#C4A868; --rose:#B58289; --brick:#93321A;
+  --olive-soft:rgba(157,181,130,.12); --olive-line:rgba(157,181,130,.30);
+  --tan-soft:rgba(196,168,104,.12); --tan-line:rgba(196,168,104,.30);
+  --rose-soft:rgba(181,130,137,.12); --rose-line:rgba(181,130,137,.30);
+  --line:rgba(255,255,255,.10);
+  --fill-neutral:rgba(255,255,255,.14); --fill-neutral-dim:rgba(255,255,255,.06);
+  --r-panel:10px; --r-modal:12px; --r-btn:5px; --r-chip:4px; --r-bar:2px;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font-mohave);margin:0;-webkit-font-smoothing:antialiased}
+.mono{font-family:var(--font-mono);font-feature-settings:"tnum" 1,"zero" 1}
+.wrap{max-width:1180px;margin:0 auto;padding:40px 44px 80px}
+
+/* ---- spec-frame chrome ---- */
+.spec-label{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin:0 0 4px}
+.spec-label b{color:var(--text);font-weight:600}
+.spec-note{font-family:var(--font-mono);font-size:11px;color:var(--text-3);letter-spacing:.02em;margin:0 0 14px;line-height:1.6}
+.slash{color:var(--text-mute)}
+.state{padding:22px;border:1px dashed rgba(255,255,255,.10);border-radius:14px;margin-bottom:30px;background:rgba(255,255,255,.012)}
+.state-head{display:flex;align-items:baseline;gap:10px;margin-bottom:16px}
+.state-num{font-family:var(--font-cakemono);font-weight:300;font-size:18px;text-transform:uppercase;color:var(--text)}
+.state-tag{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);border:1px solid var(--line);border-radius:4px;padding:2px 7px}
+
+/* ---- segment workbar (the Books chrome) ---- */
+.workbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px}
+.segctl{display:inline-flex;height:28px;align-items:center;gap:2px;border:1px solid var(--line);border-radius:5px;padding:2px}
+.seg{display:inline-flex;height:22px;align-items:center;gap:6px;border-radius:5px;padding:0 9px;border:1px solid transparent;
+  font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}
+.seg .c{color:var(--text-mute)}
+.seg.active{border-color:rgba(255,255,255,.18);background:var(--surface-active);color:var(--text)}
+
+/* ---- glass surfaces ---- */
+.glass{position:relative;background:var(--glass);backdrop-filter:blur(28px) saturate(1.3);-webkit-backdrop-filter:blur(28px) saturate(1.3);border:1px solid var(--glass-border);border-radius:var(--r-panel)}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.04),transparent 40%);pointer-events:none}
+.dense{position:relative;background:var(--glass-dense);backdrop-filter:blur(28px) saturate(1.3);-webkit-backdrop-filter:blur(28px) saturate(1.3);border:1px solid var(--glass-border);border-radius:var(--r-modal)}
+.dense::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 35%);pointer-events:none}
+
+/* ---- type roles ---- */
+.panel-title{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin:0}
+.panel-title .slash{color:var(--text-mute)}
+.t-section{font-family:var(--font-cakemono);font-weight:300;font-size:18px;letter-spacing:.02em;text-transform:uppercase;color:var(--text)}
+.t-body2{font-family:var(--font-mohave);font-size:14px;color:var(--text-2);line-height:1.5}
+.t-body{font-family:var(--font-mohave);font-size:14px;color:var(--text);line-height:1.5}
+.meta{font-family:var(--font-mono);font-size:11px;color:var(--text-3);letter-spacing:.02em}
+.micro{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3)}
+.data{font-family:var(--font-mono);font-size:13px;color:var(--text);font-feature-settings:"tnum" 1,"zero" 1}
+.bracket{font-family:var(--font-mono);color:var(--text-3);font-size:12px}
+
+/* ---- buttons ---- */
+.btn{font-family:var(--font-cakemono);font-weight:300;font-size:14px;letter-spacing:.02em;text-transform:uppercase;
+  padding:9px 16px;border-radius:var(--r-btn);min-height:36px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+  transition:all 150ms var(--ease);background:transparent;border:1px solid transparent}
+.btn svg{width:15px;height:15px}
+.btn-primary{color:var(--ops-accent);border-color:var(--ops-accent)}
+.btn-primary:hover{background:var(--ops-accent);color:#000}
+.btn-default{background:rgba(255,255,255,.07);color:var(--text-2);border-color:var(--line)}
+.btn-default:hover{background:rgba(255,255,255,.12);color:var(--text)}
+.btn-ghost{color:var(--text-2)}
+.btn-ghost:hover{background:rgba(255,255,255,.05);color:var(--text)}
+.btn-destructive{background:var(--rose-soft);color:var(--rose);border-color:var(--rose-line)}
+.btn-destructive:hover{border-color:var(--rose)}
+.btn-sm{min-height:28px;padding:5px 12px}
+.btn-block{width:100%;justify-content:center}
+
+/* ---- tag / badge ---- */
+.tag{font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;
+  padding:2px 6px;border-radius:var(--r-chip);border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text-2);
+  display:inline-flex;align-items:center;gap:5px}
+.tag .dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.tag-olive{color:var(--olive);background:var(--olive-soft);border-color:var(--olive-line)}
+.tag-tan{color:var(--tan);background:var(--tan-soft);border-color:var(--tan-line)}
+.tag-rose{color:var(--rose);background:var(--rose-soft);border-color:var(--rose-line)}
+.badge-btn{cursor:pointer;transition:background 150ms var(--ease)}
+.badge-btn:hover{background:rgba(157,181,130,.18)}
+
+/* live badge — the signature instrument */
+.livebadge{font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;
+  display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:5px;border:1px solid var(--olive-line);
+  background:var(--olive-soft);color:var(--olive);cursor:pointer;transition:background 150ms var(--ease)}
+.livebadge:hover{background:rgba(157,181,130,.18)}
+.livebadge .sep{color:var(--olive);opacity:.5}
+.livebadge .pname{color:var(--text-2)}
+.livebadge .dot{width:6px;height:6px;border-radius:50%;background:var(--olive)}
+.livebadge.off{border-color:var(--tan-line);background:var(--tan-soft);color:var(--tan)}
+.livebadge.off .dot{background:var(--tan)} .livebadge.off .pname{color:var(--text-2)}
+.livebadge .chev{width:12px;height:12px;opacity:.6}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
+.livebadge:not(.off) .dot{animation:livepulse 2.4s var(--ease) infinite}
+@media (prefers-reduced-motion:reduce){.livebadge .dot{animation:none}}
+.speclabel{flex:0 0 88px;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);padding-top:2px}
+
+/* ---- numbered how-it-works ---- */
+.steps{display:flex;flex-direction:column;gap:10px;margin-top:2px}
+.step{display:flex;gap:10px;align-items:flex-start}
+.step .n{flex:0 0 auto;width:20px;height:20px;border:1px solid var(--line);border-radius:4px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:11px;color:var(--text-3);font-feature-settings:"tnum" 1}
+.step .txt{font-family:var(--font-mohave);font-size:14px;color:var(--text-2);line-height:1.5}
+.step .txt b{color:var(--text);font-weight:500}
+
+/* ---- provider rows in picker ---- */
+.prow{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid var(--line);border-radius:8px;cursor:pointer;
+  background:transparent;transition:background 150ms var(--ease),border-color 150ms var(--ease)}
+.prow:hover{background:var(--surface-hover)}
+.prow.sel{border-color:rgba(255,255,255,.20);background:var(--surface-active)}
+.prow .ico{flex:0 0 auto;width:38px;height:38px;border-radius:6px;background:var(--fill-neutral-dim);display:flex;align-items:center;justify-content:center;color:var(--text-2)}
+.prow .pn{font-family:var(--font-mohave);font-size:14px;color:var(--text);font-weight:500}
+.prow .pd{font-family:var(--font-mohave);font-size:13px;color:var(--text-3);margin-top:1px;line-height:1.4}
+.radio{flex:0 0 auto;width:16px;height:16px;border-radius:50%;border:1px solid var(--text-3);display:flex;align-items:center;justify-content:center}
+.prow.sel .radio{border-color:var(--text)}
+.prow.sel .radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--text)}
+
+/* ---- settings modal rows ---- */
+.srow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid var(--line)}
+.srow:first-of-type{border-top:none}
+.srow .k{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3)}
+.srow .v{font-family:var(--font-mono);font-size:13px;color:var(--text-2);font-feature-settings:"tnum" 1}
+.toggle{width:34px;height:18px;border-radius:9px;background:var(--surface-active);border:1px solid var(--line);position:relative;cursor:pointer}
+.toggle::after{content:"";position:absolute;top:1px;left:1px;width:14px;height:14px;border-radius:50%;background:var(--text-3);transition:all 150ms var(--ease)}
+.toggle.on{background:var(--olive-soft);border-color:var(--olive-line)}
+.toggle.on::after{left:17px;background:var(--olive)}
+
+/* sync-history rows */
+.hrow{display:flex;align-items:center;gap:10px;padding:6px 4px;border-radius:4px}
+.hrow:hover{background:rgba(255,255,255,.03)}
+.hrow .st{width:11px;height:11px;border-radius:50%;flex:0 0 auto}
+.hrow .lbl{flex:1;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-2)}
+.hrow .ts{font-family:var(--font-mono);font-size:11px;color:var(--text-3);font-feature-settings:"tnum" 1}
+
+/* records grid (connected body) */
+.rgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.rstat{padding:9px 10px;border:1px solid var(--line);border-radius:6px;background:rgba(255,255,255,.02);display:flex;flex-direction:column;gap:3px}
+.rstat .rl{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-mute)}
+.rstat .rv{font-family:var(--font-mono);font-size:18px;color:var(--text);font-weight:600;font-feature-settings:"tnum" 1}
+
+.divlabel{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+.guard{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--olive)}
+.readonly{font-family:var(--font-mono);font-size:11px;color:var(--text-3)}
+
+.modal-shell{display:flex;justify-content:center;padding:14px;background:repeating-linear-gradient(135deg,rgba(255,255,255,.012) 0 10px,transparent 10px 20px);border-radius:12px}
+.modal{width:520px;max-width:100%;padding:18px}
+.modal-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.modal-foot{display:flex;justify-content:space-between;gap:10px;padding-top:14px;margin-top:16px;border-top:1px solid var(--line)}
+.x{margin-left:auto;color:var(--text-3);cursor:pointer;font-family:var(--font-mono)}
+.callout{font-family:var(--font-mono);font-size:11px;color:var(--text-3);letter-spacing:.02em;line-height:1.6}
+.sub{font-family:var(--font-mohave);font-size:13px;color:var(--text-3);line-height:1.5}
+hr.soft{border:none;border-top:1px solid var(--line);margin:14px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="spec-label"><b>BOOKS · SYNC</b> — accounting-connection UX redesign <span class="slash">//</span> WEB OVERHAUL P3-4</p>
+  <p class="spec-note">Replaces the two side-by-side QuickBooks + Sage connection cards (the §6 canonical failure — a user picks ONE provider, once).<br/>
+  One entry point → brief provider flow → live badge → settings/disconnect/switch behind the badge. State-aware: nothing renders for a reality the operator isn't in.<br/>
+  <span style="color:var(--olive)">Built as full CRUD (two-way sync).</span> Read-only is the current testing posture only — surfaced honestly as a paused mode, never hardcoded.</p>
+
+  <!-- ============ STATE 1 — NOT CONNECTED ============ -->
+  <section class="state">
+    <div class="state-head">
+      <span class="state-num">State 1</span>
+      <span class="state-tag">Not connected</span>
+      <span class="meta">— first run. No cards. No view toggle (nothing to import yet). One decision.</span>
+    </div>
+
+    <div class="workbar">
+      <div class="segctl">
+        <span class="seg">Invoices <span class="c">14</span></span>
+        <span class="seg">Estimates <span class="c">9</span></span>
+        <span class="seg">Expenses</span>
+        <span class="seg active">Sync</span>
+      </div>
+      <!-- right slot empty: no chips, no badge -->
+    </div>
+
+    <div class="glass" style="padding:26px 28px;max-width:640px">
+      <p class="panel-title"><span class="slash">// </span>CONNECT YOUR BOOKS</p>
+      <h2 class="t-section" style="margin:10px 0 6px">Keep your books in step</h2>
+      <p class="t-body2" style="max-width:500px;margin:0 0 18px">Link QuickBooks or Sage. Invoices, estimates, payments, and customers stay matched across OPS and your accounting software — both ways.</p>
+
+      <button class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        Connect accounting software
+      </button>
+
+      <hr class="soft"/>
+      <p class="panel-title" style="margin-bottom:10px"><span class="slash">// </span>WHAT HAPPENS</p>
+      <div class="steps">
+        <div class="step"><span class="speclabel">SYNC</span><span class="txt">Invoices, estimates, payments, and customers stay matched across OPS and your accounting software.</span></div>
+        <div class="step"><span class="speclabel">BOTH WAYS</span><span class="txt">Create or change a record in either place — it flows to the other, automatically.</span></div>
+        <div class="step"><span class="speclabel">YOUR CALL</span><span class="txt">You choose what syncs, and which side wins when both change the same record.</span></div>
+      </div>
+    </div>
+
+    <p class="spec-note" style="margin:16px 0 6px"><span class="slash">//</span> sub-variant — connection exists but went offline (token expired / revoked):</p>
+    <div class="workbar" style="max-width:640px">
+      <div class="segctl"><span class="seg active">Sync</span></div>
+      <span class="livebadge off"><span class="dot"></span>QuickBooks<span class="sep">·</span>Offline<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+    </div>
+    <div class="glass" style="padding:22px 28px;max-width:640px">
+      <p class="panel-title"><span class="slash">// </span>RECONNECT REQUIRED</p>
+      <p class="t-body2" style="max-width:480px;margin:8px 0 16px">QuickBooks went offline — the connection expired or was revoked. Reconnect to put your books back in sync. Nothing already synced is lost.</p>
+      <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Reconnect QuickBooks</button>
+    </div>
+  </section>
+
+  <!-- ============ STATE 1b — PROVIDER PICKER ============ -->
+  <section class="state">
+    <div class="state-head">
+      <span class="state-num">State 1b</span>
+      <span class="state-tag">Provider flow</span>
+      <span class="meta">— the brief flow behind CONNECT. Pick one. Glass-dense modal (same primitive as settings, for consistency).</span>
+    </div>
+    <div class="modal-shell">
+      <div class="dense modal">
+        <div class="modal-head">
+          <p class="panel-title"><span class="slash">// </span>CONNECT ACCOUNTING SOFTWARE</p>
+          <span class="x">✕</span>
+        </div>
+        <p class="bracket" style="margin:0 0 16px">[ pick your accounting software — you can switch later ]</p>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="prow sel">
+            <div class="ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9v6M12 9v6M17 9v6"/></svg></div>
+            <div style="flex:1"><div class="pn">QuickBooks Online</div><div class="pd">Invoices, estimates, payments, and customers from Intuit QuickBooks.</div></div>
+            <span class="radio"></span>
+          </div>
+          <div class="prow">
+            <div class="ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9v6M12 9v6M17 9v6"/></svg></div>
+            <div style="flex:1"><div class="pn">Sage Business Cloud</div><div class="pd">Invoices, quotes, payments, and contacts from Sage.</div></div>
+            <span class="radio"></span>
+          </div>
+        </div>
+
+        <p class="callout" style="margin:14px 0 0">[ two-way sync — OPS and your accounting software stay in step, both ways ]</p>
+
+        <div class="modal-foot">
+          <button class="btn btn-ghost">Cancel</button>
+          <button class="btn btn-primary">Connect QuickBooks
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <p class="spec-note" style="margin-top:12px"><span class="slash">//</span> CONNECT is disabled until a provider is picked. On click → provider OAuth (browser redirect). Sage is fully selectable — its route exists; not hardcoded QB-only.</p>
+  </section>
+
+  <!-- ============ STATE 2 — CONNECTED ============ -->
+  <section class="state">
+    <div class="state-head">
+      <span class="state-num">State 2</span>
+      <span class="state-tag">Connected</span>
+      <span class="meta">— "what would Apple do": invisible when it works. The badge is the only ambient signal; the body speaks up only when it needs you.</span>
+    </div>
+
+    <!-- 2a · healthy — the 99% case (BUILD NOW, fully backed) -->
+    <p class="spec-note" style="margin:0 0 8px"><span class="slash">//</span> 2a — healthy <span style="color:var(--olive)">[build now]</span>. No stats grid. The machine doesn't perform its own competence — a glance says "handled," and the operator moves to Invoices where the real work is. A quiet recent-sync log is the only reassurance (Time-Machine, not dashboard).</p>
+    <div class="workbar">
+      <div class="segctl">
+        <span class="seg">Invoices <span class="c">14</span></span>
+        <span class="seg">Estimates <span class="c">9</span></span>
+        <span class="seg">Expenses</span>
+        <span class="seg active">Sync</span>
+      </div>
+      <span class="livebadge"><span class="dot"></span><span class="pname">QuickBooks</span><span class="sep">·</span>Live<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+    </div>
+    <div class="glass" style="padding:16px 20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="width:30px;height:30px;border-radius:7px;background:var(--olive-soft);border:1px solid var(--olive-line);display:flex;align-items:center;justify-content:center;color:var(--olive);flex:0 0 auto">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>
+          </span>
+          <div>
+            <div class="micro" style="color:var(--olive);letter-spacing:.16em">SYS :: SYNCED · <span class="data" style="font-size:11px;color:var(--olive)">08:42</span></div>
+            <div class="meta" style="margin-top:3px">Invoices, estimates, payments, customers — all matched</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="flex:0 0 auto">Reconcile &amp; import
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <p class="panel-title" style="margin:0 0 4px"><span class="slash">// </span>RECENT SYNCS</p>
+      <div class="hrow"><span class="st" style="background:var(--olive)"></span><span class="lbl">QuickBooks — Success</span><span class="ts">Today · 08:42</span></div>
+      <div class="hrow"><span class="st" style="background:var(--olive)"></span><span class="lbl">QuickBooks — Success</span><span class="ts">Jun 13 · 08:41</span></div>
+      <div class="hrow"><span class="st" style="background:var(--rose)"></span><span class="lbl">QuickBooks — Error</span><span class="ts">Jun 12 · 08:40</span></div>
+    </div>
+    <p class="spec-note" style="margin:8px 0 0"><span class="slash">//</span> The primary action adapts to the live mode: today (read-only testing) it's <b style="color:var(--text-2)">Reconcile &amp; import</b> — the working Pull→Review→Apply flow (the only mechanism that syncs while writes are gated). When two-way writes go live it becomes <b style="color:var(--text-2)">Sync now</b> (push+pull). Same slot, honest label.</p>
+
+    <!-- 2b · needs you — when two-way writes are live (DESIGN LOCKED, wired when backend lands) -->
+    <p class="spec-note" style="margin:22px 0 8px"><span class="slash">//</span> 2b — needs you <span style="color:var(--tan)">[future — activates with two-way writes]</span>. Most conflicts auto-resolve on your default rule; only a genuine fork surfaces. The badge escalates to tan; the body shows one clear human prompt — nothing else. <b style="color:var(--text-2)">No stub ships now:</b> the sync-issues API is read-only today (no resolve endpoint) and pull-only can't create write-conflicts, so this wires up with the two-way backend.</p>
+    <div class="workbar">
+      <div class="segctl">
+        <span class="seg">Invoices <span class="c">14</span></span>
+        <span class="seg">Estimates <span class="c">9</span></span>
+        <span class="seg">Expenses</span>
+        <span class="seg active">Sync</span>
+      </div>
+      <span class="livebadge off"><span class="dot"></span><span class="pname">QuickBooks</span><span class="sep">·</span>2 to review<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+    </div>
+    <div class="glass" style="padding:16px 20px;opacity:.92">
+      <p class="panel-title" style="margin:0 0 10px"><span class="slash">// </span>2 RECORDS CHANGED IN BOTH PLACES — WHICH WINS?</p>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="hrow" style="border:1px solid var(--tan-line);background:var(--tan-soft);padding:10px 12px;border-radius:6px">
+          <span class="lbl" style="color:var(--text);letter-spacing:0;text-transform:none;font-size:14px;font-family:var(--font-mohave)">INV-00284 — amount differs</span>
+          <span class="meta" style="flex:0 0 auto">OPS $4,200 · QB $4,050</span>
+          <button class="btn btn-ghost btn-sm" style="flex:0 0 auto">Resolve</button>
+        </div>
+        <div class="hrow" style="border:1px solid var(--tan-line);background:var(--tan-soft);padding:10px 12px;border-radius:6px">
+          <span class="lbl" style="color:var(--text);letter-spacing:0;text-transform:none;font-size:14px;font-family:var(--font-mohave)">Northside Builders — edited in both places</span>
+          <button class="btn btn-ghost btn-sm" style="flex:0 0 auto">Resolve</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STATE 3 — SETTINGS MODAL ============ -->
+  <section class="state">
+    <div class="state-head">
+      <span class="state-num">State 3</span>
+      <span class="state-tag">Settings (badge → modal)</span>
+      <span class="meta">— every connection verb lives here, off the scan surface. Absorbs the old card + history + dormant capabilities.</span>
+    </div>
+    <div class="modal-shell">
+      <div class="dense modal">
+        <div class="modal-head">
+          <span class="t-section" style="font-size:18px">QuickBooks</span>
+          <span class="tag tag-olive"><span class="dot"></span>Live</span>
+          <span class="x">✕</span>
+        </div>
+        <p class="sub" style="margin:2px 0 14px">Intuit QuickBooks Online · production</p>
+
+        <div class="srow"><span class="k">Last sync</span><span class="v">Jun 14 · 08:42</span></div>
+        <div class="srow"><span class="k">Auto-sync</span><span class="toggle on"></span></div>
+        <div class="srow"><span class="k">Sync mode</span>
+          <span class="segctl" style="height:24px">
+            <span class="seg active" style="height:20px">Read-only</span>
+            <span class="seg" style="height:20px">Two-way</span>
+          </span>
+        </div>
+        <div class="srow"><span class="k" style="color:var(--text-mute)">Mirror deletes</span><span class="toggle" style="opacity:.45"></span></div>
+        <div style="padding:8px 0 0"><p class="callout" style="color:var(--tan)">[ two-way writes are paused while we finish testing — your choice is saved and switches on the moment it's live ]</p></div>
+
+        <div class="modal-foot">
+          <button class="btn btn-ghost">Switch provider</button>
+          <button class="btn btn-destructive"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0M12 2v10"/></svg>Disconnect</button>
+        </div>
+      </div>
+    </div>
+    <p class="spec-note" style="margin-top:12px"><span class="slash">//</span> Built for full CRUD: SYNC MODE (read-only ↔ two-way) + MIRROR DELETES drive the existing <code style="color:var(--text-2)">updateSyncMode(syncDirection, propagateDeletes)</code>; the testing note keys off <code style="color:var(--text-2)">writesEnabled</code> so the choice is recorded now and activates when the server flag flips — no read-only baked in. The modal is config + danger only: status, AUTO-SYNC, MODE, MIRROR DELETES, DISCONNECT ("syncing stops — synced data stays"), SWITCH PROVIDER (disconnect + reopen the picker). Recent activity lives on the body (no duplication); a "Sync now" button is deliberately absent here — it errors on read-only connections, so the body's adaptive action owns it. AUTO-SYNC + MODE were live data-layer capabilities the old cards never surfaced.</p>
+  </section>
+
+</div>
+</body>
+</html>
