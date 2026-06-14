@@ -5,14 +5,27 @@
  * (Direction D). Flat per-variant rows by default (every column globally
  * sortable for triage); an opt-in GROUP::FAMILY mode clusters variants.
  * Inline QTY editing writes audited adjustments; row click opens the drawer.
+ *
+ * The flat table is built on the shared `RegisterTable` row anatomy (WEB
+ * OVERHAUL P4-2) — same primitive Books + Clients use — with the inline QTY
+ * cell composed inside the shell and the drawer-open row tinted via the
+ * primitive's `isRowActive`. The clustered GROUP::FAMILY view stays bespoke
+ * (RegisterTable models flat rows, not grouping).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
-import { RegisterEmpty } from "@/components/ui/register-table";
+import { Plus } from "lucide-react";
+import {
+  RegisterTable,
+  RegisterEmpty,
+  TablePrimary,
+  Tag,
+  type RegisterTableColumn,
+  type TagProps,
+} from "@/components/ui/register-table";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useDictionary } from "@/i18n/client";
@@ -45,11 +58,11 @@ const STATUS_ORDER: Record<CatalogStatus, number> = {
   untracked: 3,
 };
 
-const STATUS_TAG: Record<CatalogStatus, string> = {
-  critical: "border-rose-line bg-rose-soft text-rose",
-  warning: "border-tan-line bg-tan-soft text-tan",
-  normal: "border-border bg-[rgba(255,255,255,0.05)] text-text-3",
-  untracked: "border-border bg-transparent text-text-mute",
+const STATUS_VARIANT: Record<CatalogStatus, TagProps["variant"]> = {
+  critical: "rose",
+  warning: "tan",
+  normal: "neutral",
+  untracked: "mute",
 };
 
 function StatusTag({ status }: { status: CatalogStatus }) {
@@ -62,17 +75,7 @@ function StatusTag({ status }: { status: CatalogStatus }) {
         : status === "untracked"
           ? t("stock.status.untracked", "UNTRACKED")
           : t("stock.status.ok", "OK");
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-[4px] border px-[6px] py-[2px]",
-        "font-mono text-[11px] font-medium uppercase tracking-[0.12em]",
-        STATUS_TAG[status],
-      )}
-    >
-      {label}
-    </span>
-  );
+  return <Tag variant={STATUS_VARIANT[status]}>{label}</Tag>;
 }
 
 export interface StockSegmentProps {
@@ -309,21 +312,16 @@ export function StockSegment({
             </>
           ) : (
             <>
-              <div className="w-[260px] max-w-full">
-                <Input
-                  placeholder={t("stock.search", "Search stock…")}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  prefixIcon={<Search className="h-[16px] w-[16px]" />}
-                />
-              </div>
+              <SearchInput
+                placeholder={t("stock.search", "Search stock…")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                wrapperClassName="w-[220px] max-w-full"
+              />
               {canManage && (
-                <Button
-                  variant="secondary"
-                  className="gap-[6px] border-ops-accent bg-transparent font-cakemono font-light uppercase text-ops-accent hover:border-ops-accent hover:bg-ops-accent hover:text-black"
-                  onClick={() => setAddOpen(true)}
-                >
-                  {t("stock.add", "+ ADD")}
+                <Button variant="primary" size="sm" type="button" onClick={() => setAddOpen(true)}>
+                  <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+                  {t("stock.add", "ADD")}
                 </Button>
               )}
               <CatalogKebab segment="stock" rows={rows} />
@@ -337,11 +335,11 @@ export function StockSegment({
         {drilled ? (
           <>
             <DrillChip label={t("filter.belowThreshold", "BELOW THRESHOLD")} onClear={onClearDrill} />
-            <span className="font-mono text-[11px] text-text-3 tabular-nums">
+            <span className="font-mono text-micro text-text-3 tabular-nums">
               {t("stock.criticalFirst", { n: filtered.length, total: rows.length })}
             </span>
             {buyTotal && (
-              <span className="ml-auto font-mono text-[11px] uppercase tracking-[0.08em] text-text-3 tabular-nums">
+              <span className="ml-auto font-mono text-micro uppercase tracking-[0.08em] text-text-3 tabular-nums">
                 {t("stock.buyToThreshold", "BUY TO THRESHOLD")} ::{" "}
                 <span className="text-text-2">{fmtMoney(buyTotal.total)}</span>
                 {buyTotal.uncosted > 0 && (
@@ -356,15 +354,15 @@ export function StockSegment({
         ) : (
           <>
             <FilterChips options={categoryOptions} value={categoryFilter} onChange={setCategoryFilter} />
-            <span className="font-mono text-[11px] text-text-3 tabular-nums">
+            <span className="font-mono text-micro text-text-3 tabular-nums">
               {t("stock.skuCount", { n: filtered.length })}
             </span>
             <button
               type="button"
               onClick={toggleGroup}
               className={cn(
-                "ml-auto rounded-[4px] border px-[10px] py-[4px]",
-                "font-mono text-[11px] font-medium uppercase tracking-[0.12em]",
+                "ml-auto inline-flex h-3 items-center rounded-[4px] border px-1",
+                "font-mono text-micro font-medium uppercase tracking-[0.12em]",
                 "transition-colors duration-150 ease-smooth",
                 effectiveGroup
                   ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
@@ -379,8 +377,8 @@ export function StockSegment({
 
       {/* Bulk bar */}
       {selectedIds.size > 0 && canManage && (
-        <div className="flex items-center gap-3 rounded-[8px] border border-border bg-[rgba(255,255,255,0.03)] px-3 py-1.5">
-          <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-2 tabular-nums">
+        <div className="flex items-center gap-3 rounded-[8px] border border-border bg-surface-hover-subtle px-3 py-1.5">
+          <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-2 tabular-nums">
             {t("bulk.selected", { n: selectedIds.size })}
           </span>
           <Button
@@ -401,38 +399,35 @@ export function StockSegment({
           drawerRow ? "grid-cols-1 xl:grid-cols-[1fr_312px]" : "grid-cols-1",
         )}
       >
-        <div className="glass-surface overflow-hidden">
-          {loading ? (
-            <div className="animate-pulse space-y-[2px] p-1">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-[44px] rounded bg-fill-neutral-dim/40" />
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <EmptyStock filtered={!!search || categoryFilter !== "all" || drilled} />
-          ) : effectiveGroup ? (
-            <GroupedTable
-              rows={filtered}
-              onOpenDrawer={setDrawerVariantId}
-            />
-          ) : (
-            <FlatTable
-              rows={filtered}
-              drilled={drilled}
-              canManage={canManage}
-              selectedIds={selectedIds}
-              allSelected={allSelected}
-              onToggleAll={toggleAll}
-              onToggleRow={toggleRow}
-              editId={editId}
-              onRequestEdit={setEditId}
-              onCommitQty={commitQty}
-              onCancelEdit={() => setEditId(null)}
-              onOpenDrawer={setDrawerVariantId}
-              activeDrawerId={drawerVariantId}
-            />
-          )}
-        </div>
+        {loading ? (
+          <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="glass-surface h-[44px]" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyStock filtered={!!search || categoryFilter !== "all" || drilled} />
+        ) : effectiveGroup ? (
+          <div className="glass-surface overflow-hidden">
+            <GroupedTable rows={filtered} onOpenDrawer={setDrawerVariantId} />
+          </div>
+        ) : (
+          <FlatTable
+            rows={filtered}
+            drilled={drilled}
+            canManage={canManage}
+            selectedIds={selectedIds}
+            allSelected={allSelected}
+            onToggleAll={toggleAll}
+            onToggleRow={toggleRow}
+            editId={editId}
+            onRequestEdit={setEditId}
+            onCommitQty={commitQty}
+            onCancelEdit={() => setEditId(null)}
+            onOpenDrawer={setDrawerVariantId}
+            activeDrawerId={drawerVariantId}
+          />
+        )}
 
         {drawerRow && (
           <StockDrawer row={drawerRow} canManage={canManage} onClose={() => setDrawerVariantId(null)} />
@@ -462,7 +457,7 @@ export function StockSegment({
   );
 }
 
-// ─── Flat table ────────────────────────────────────────────────────────────────
+// ─── Flat table (shared RegisterTable) ───────────────────────────────────────
 
 function FlatTable({
   rows,
@@ -494,101 +489,128 @@ function FlatTable({
   activeDrawerId: string | null;
 }) {
   const { t } = useDictionary("catalog");
-  const th =
-    "px-2 py-1.5 text-left font-mono text-[11px] font-normal uppercase tracking-[0.16em] text-text-3";
+  const showCheckbox = !drilled && canManage;
+
+  const columns: RegisterTableColumn<CatalogStockRow>[] = [];
+
+  if (showCheckbox) {
+    columns.push({
+      id: "select",
+      className: "w-[34px]",
+      header: (
+        <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
+          <Checkbox checked={allSelected} onCheckedChange={onToggleAll} aria-label="Select all" />
+        </span>
+      ),
+      cell: (r) => (
+        <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={selectedIds.has(r.variantId)}
+            onCheckedChange={() => onToggleRow(r.variantId)}
+            aria-label={`Select ${r.familyName}`}
+          />
+        </span>
+      ),
+    });
+  }
+
+  columns.push({
+    id: "item",
+    header: t("stock.col.item", "ITEM"),
+    cell: (r) => (
+      <div className="min-w-0">
+        <TablePrimary>{r.familyName}</TablePrimary>
+        <span className="block font-mono text-micro uppercase tracking-[0.1em] text-text-3 tabular-nums">
+          {r.variantLabel ?? "—"}
+        </span>
+      </div>
+    ),
+  });
+
+  columns.push({
+    id: "qty",
+    header: t("stock.col.qty", "QTY"),
+    align: "right",
+    cell: (r) => (
+      <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
+        <InlineQtyCell
+          value={r.quantity}
+          unit={r.unitAbbreviation ?? r.unitDisplay}
+          status={r.status}
+          editable={canManage}
+          editing={editId === r.variantId}
+          onRequestEdit={() => onRequestEdit(r.variantId)}
+          onCommit={(result) => onCommitQty(r.variantId, result)}
+          onCancel={onCancelEdit}
+        />
+      </span>
+    ),
+  });
+
+  if (drilled) {
+    columns.push({
+      id: "threshold",
+      header: t("stock.col.threshold", "THRESHOLD"),
+      align: "right",
+      cell: (r) => {
+        const ref = r.effectiveCritical ?? r.effectiveWarning;
+        return (
+          <span className="font-mono text-data-sm text-text-3 tabular-nums">
+            {ref != null ? fmtQty(ref) : "—"}
+          </span>
+        );
+      },
+    });
+    columns.push({
+      id: "short",
+      header: t("stock.col.short", "SHORT"),
+      align: "right",
+      cell: (r) => {
+        const ref = r.effectiveCritical ?? r.effectiveWarning;
+        const short = ref != null ? Math.max(0, ref - r.quantity) : 0;
+        return (
+          <span
+            className={cn(
+              "font-mono text-data-sm tabular-nums",
+              r.status === "critical" ? "text-rose" : "text-tan",
+            )}
+          >
+            {fmtQty(short)}
+          </span>
+        );
+      },
+    });
+  }
+
+  columns.push({
+    id: "sku",
+    header: t("stock.col.sku", "SKU"),
+    className: "hidden sm:table-cell",
+    cell: (r) => (
+      <span className="font-mono text-micro text-text-3 tabular-nums">{r.sku ?? "—"}</span>
+    ),
+  });
+
+  columns.push({
+    id: "status",
+    header: t("stock.col.status", "STATUS"),
+    cell: (r) => <StatusTag status={r.status} />,
+  });
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px]">
-        <thead>
-          <tr className="border-b border-border">
-            {!drilled && canManage && (
-              <th className="w-[36px] px-2 py-1.5">
-                <Checkbox checked={allSelected} onCheckedChange={onToggleAll} aria-label="Select all" />
-              </th>
-            )}
-            <th className={th}>{t("stock.col.item", "ITEM")}</th>
-            <th className={cn(th, "text-right")}>{t("stock.col.qty", "QTY")}</th>
-            {drilled && <th className={cn(th, "text-right")}>{t("stock.col.threshold", "THRESHOLD")}</th>}
-            {drilled && <th className={cn(th, "text-right")}>{t("stock.col.short", "SHORT")}</th>}
-            <th className={cn(th, "hidden sm:table-cell")}>{t("stock.col.sku", "SKU")}</th>
-            <th className={th}>{t("stock.col.status", "STATUS")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => {
-            const ref = r.effectiveCritical ?? r.effectiveWarning;
-            const short = ref != null ? Math.max(0, ref - r.quantity) : 0;
-            const selected = selectedIds.has(r.variantId);
-            return (
-              <tr
-                key={r.variantId}
-                className={cn(
-                  "border-b border-[rgba(255,255,255,0.05)] transition-colors last:border-b-0 hover:bg-surface-hover",
-                  activeDrawerId === r.variantId && "bg-surface-active",
-                )}
-              >
-                {!drilled && canManage && (
-                  <td className="w-[36px] px-2 py-[11px]">
-                    <Checkbox
-                      checked={selected}
-                      onCheckedChange={() => onToggleRow(r.variantId)}
-                      aria-label={`Select ${r.familyName}`}
-                    />
-                  </td>
-                )}
-                <td
-                  className="cursor-pointer px-2 py-[11px]"
-                  onClick={() => onOpenDrawer(r.variantId)}
-                >
-                  <span className="block font-mohave text-[14px] text-text">{r.familyName}</span>
-                  <span className="block font-mono text-[11px] uppercase tracking-[0.1em] text-text-3 tabular-nums">
-                    {r.variantLabel ?? "—"}
-                  </span>
-                </td>
-                <td className="px-2 py-[11px] text-right">
-                  <InlineQtyCell
-                    value={r.quantity}
-                    unit={r.unitAbbreviation ?? r.unitDisplay}
-                    status={r.status}
-                    editable={canManage}
-                    editing={editId === r.variantId}
-                    onRequestEdit={() => onRequestEdit(r.variantId)}
-                    onCommit={(result) => onCommitQty(r.variantId, result)}
-                    onCancel={onCancelEdit}
-                  />
-                </td>
-                {drilled && (
-                  <td className="px-2 py-[11px] text-right font-mono text-[13px] text-text-3 tabular-nums">
-                    {ref != null ? fmtQty(ref) : "—"}
-                  </td>
-                )}
-                {drilled && (
-                  <td
-                    className={cn(
-                      "px-2 py-[11px] text-right font-mono text-[13px] tabular-nums",
-                      r.status === "critical" ? "text-rose" : "text-tan",
-                    )}
-                  >
-                    {fmtQty(short)}
-                  </td>
-                )}
-                <td className="hidden px-2 py-[11px] sm:table-cell">
-                  <span className="font-mono text-[11px] text-text-3 tabular-nums">{r.sku ?? "—"}</span>
-                </td>
-                <td className="px-2 py-[11px]">
-                  <StatusTag status={r.status} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <RegisterTable<CatalogStockRow>
+      columns={columns}
+      rows={rows}
+      getRowId={(r) => r.variantId}
+      onRowClick={(r) => onOpenDrawer(r.variantId)}
+      isRowActive={(r) => r.variantId === activeDrawerId}
+      minWidth={640}
+      ariaLabel={t("segment.stock", "Stock")}
+    />
   );
 }
 
-// ─── Grouped (family) table ─────────────────────────────────────────────────────
+// ─── Grouped (family) table — bespoke clustered view, RegisterTable has no grouping ──
 
 function GroupedTable({
   rows,
@@ -608,7 +630,7 @@ function GroupedTable({
   }, [rows]);
 
   return (
-    <div className="divide-y divide-[rgba(255,255,255,0.05)]">
+    <div className="divide-y divide-border-subtle">
       {families.map((variants) => {
         const head = variants[0];
         const totalQty = variants.reduce((s, v) => s + v.quantity, 0);
@@ -617,17 +639,17 @@ function GroupedTable({
             <div className="flex items-center gap-3">
               <span className="font-mohave text-[15px] text-text">{head.familyName}</span>
               {head.categoryName && (
-                <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-mute">
+                <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-mute">
                   {head.categoryName}
                 </span>
               )}
               <span className="ml-auto font-mono text-[12px] text-text-2 tabular-nums">
                 {fmtQty(totalQty)}{" "}
-                <span className="text-[11px] uppercase text-text-mute">
+                <span className="text-micro uppercase text-text-mute">
                   {head.unitAbbreviation ?? head.unitDisplay ?? ""}
                 </span>
               </span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-text-mute tabular-nums">
+              <span className="font-mono text-micro uppercase tracking-[0.1em] text-text-mute tabular-nums">
                 {variants.length} VARIANT{variants.length === 1 ? "" : "S"}
               </span>
             </div>
@@ -639,11 +661,11 @@ function GroupedTable({
                     className="cursor-pointer hover:bg-surface-hover"
                     onClick={() => onOpenDrawer(v.variantId)}
                   >
-                    <td className="py-1 pl-4 font-mono text-[11px] uppercase tracking-[0.1em] text-text-3">
+                    <td className="py-1 pl-4 font-mono text-micro uppercase tracking-[0.1em] text-text-3">
                       {v.variantLabel ?? "—"}
                     </td>
-                    <td className="py-1 font-mono text-[11px] text-text-mute tabular-nums">{v.sku ?? "—"}</td>
-                    <td className="py-1 text-right font-mono text-[13px] text-text tabular-nums">
+                    <td className="py-1 font-mono text-micro text-text-mute tabular-nums">{v.sku ?? "—"}</td>
+                    <td className="py-1 text-right font-mono text-data-sm text-text tabular-nums">
                       {fmtQty(v.quantity)}
                     </td>
                     <td className="py-1 pl-3 text-right">
@@ -664,7 +686,5 @@ function GroupedTable({
 
 function EmptyStock({ filtered }: { filtered: boolean }) {
   const { t } = useDictionary("catalog");
-  return (
-    <RegisterEmpty noun={filtered ? t("stock.empty.matches") : t("stock.empty.noun")} />
-  );
+  return <RegisterEmpty noun={filtered ? t("stock.empty.matches") : t("stock.empty.noun")} />;
 }

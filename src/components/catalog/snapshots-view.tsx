@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { ChevronRight, Camera, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RegisterEmpty } from "@/components/ui/register-table";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -64,12 +65,8 @@ export function SnapshotsView({
             {t("filter.all", "STOCK")}
           </Button>
           {canManage && (
-            <Button
-              variant="secondary"
-              className="gap-[6px] border-ops-accent bg-transparent font-cakemono font-light uppercase text-ops-accent hover:border-ops-accent hover:bg-ops-accent hover:text-black"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Camera className="h-[14px] w-[14px]" />
+            <Button variant="primary" size="sm" className="gap-[6px]" onClick={() => setCreateOpen(true)}>
+              <Camera className="h-[14px] w-[14px]" aria-hidden />
               {t("snapshots.create", "TAKE COUNT")}
             </Button>
           )}
@@ -88,15 +85,7 @@ export function SnapshotsView({
           ))}
         </div>
       ) : snapshots.length === 0 ? (
-        <div className="glass-surface flex flex-col items-start gap-1 px-4 py-8">
-          <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-            <span className="text-text-mute">{"// "}</span>
-            {t("tile.noSnapshots", "NO COUNTS SAVED")}
-          </span>
-          <p className="max-w-[400px] font-mohave text-[13px] text-text-3">
-            {t("snapshots.empty", "")}
-          </p>
-        </div>
+        <RegisterEmpty noun={t("snapshots.empty.noun", "Counts")} />
       ) : (
         <div className="glass-surface overflow-hidden">
           <table className="w-full">
@@ -190,7 +179,7 @@ function SnapshotRow({
   return (
     <>
       <tr
-        className="cursor-pointer border-b border-[rgba(255,255,255,0.05)] transition-colors last:border-b-0 hover:bg-surface-hover"
+        className="cursor-pointer border-b border-border-subtle transition-colors last:border-b-0 hover:bg-surface-hover"
         onClick={onToggle}
       >
         <td className="px-2 py-[11px] text-center">
@@ -223,14 +212,14 @@ function SnapshotRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={5} className="bg-[rgba(255,255,255,0.02)] px-2 py-2">
+          <td colSpan={5} className="bg-surface-hover-subtle px-2 py-2">
             {isLoading ? (
               <span className="font-mono text-[11px] text-text-mute">{t("loading", "Loading…")}</span>
             ) : (
               <table className="w-full">
                 <tbody>
                   {items.map((it) => (
-                    <tr key={it.id} className="border-b border-[rgba(255,255,255,0.04)] last:border-b-0">
+                    <tr key={it.id} className="border-b border-border-subtle last:border-b-0">
                       <td className="py-1 pl-6 font-mohave text-[13px] text-text">{it.familyName}</td>
                       <td className="py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-text-3">
                         {it.variantLabel ?? "—"}
