@@ -17,7 +17,9 @@ import {
   Trash2,
   Download,
   Loader2,
+  Plus,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   useEstimates,
@@ -353,12 +355,22 @@ export function EstimatesSegment({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         {segmentControl}
-        <SearchInput
-          placeholder={t("estimates.search")}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          wrapperClassName="w-[220px] max-w-full"
-        />
+        <div className="flex items-center gap-1.5">
+          <SearchInput
+            placeholder={t("estimates.search")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            wrapperClassName="w-[220px] max-w-full"
+          />
+          {/* One inline create CTA per register (Jackson 2026-06-13) — single
+              accent action; the FAB stays the global shortcut. */}
+          {can("estimates.create") && (
+            <Button variant="primary" size="sm" type="button" onClick={gatedOpenCreate}>
+              <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+              {t("estimates.newEstimate")}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-[12px]">

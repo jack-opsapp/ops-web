@@ -11,7 +11,8 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
-import { Send, DollarSign, Ban, Trash2, Download, Loader2 } from "lucide-react";
+import { Send, DollarSign, Ban, Trash2, Download, Loader2, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   useInvoices,
@@ -422,11 +423,15 @@ export function InvoicesSegment({
   // State-aware: shown only when the user can reach BOTH views.
   const showViewToggle = listAllowed && canAging;
   const showSearch = listAllowed && view === "list";
+  const canCreate = can("invoices.create");
 
+  // One inline create CTA per register (Jackson 2026-06-13) — the single accent
+  // action; the FAB stays the global shortcut. Sits left of the LIST|AGING
+  // toggle so the toggle keeps its far-right pin (P3-5).
   const workbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
       {segmentControl}
-      {(showSearch || showViewToggle) && (
+      {(showSearch || canCreate || showViewToggle) && (
         <div className="flex items-center gap-1.5">
           {showSearch && (
             <SearchInput
@@ -435,6 +440,12 @@ export function InvoicesSegment({
               onChange={(e) => setSearchQuery(e.target.value)}
               wrapperClassName="w-[220px] max-w-full"
             />
+          )}
+          {canCreate && (
+            <Button variant="primary" size="sm" type="button" onClick={gatedOpenCreate}>
+              <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+              {t("invoices.newInvoice")}
+            </Button>
           )}
           {showViewToggle && (
             <SegmentControl<InvoicesView>
