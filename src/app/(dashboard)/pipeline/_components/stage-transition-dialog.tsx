@@ -63,7 +63,7 @@ interface StageTransitionDialogProps {
 // ---------------------------------------------------------------------------
 
 const LABEL_CLASS =
-  "font-mono text-micro text-text-2 uppercase tracking-widest";
+  "font-mono text-micro text-text-2 uppercase tracking-[0.16em]";
 
 const INPUT_CLASS = cn(
   "w-full bg-surface-input text-text font-mono text-body",
@@ -75,7 +75,7 @@ const INPUT_CLASS = cn(
 /** Section title in the tactical `// LABEL` treatment. */
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div className="font-mono text-micro uppercase tracking-wider text-text-2">
+    <div className="font-mono text-micro uppercase tracking-[0.16em] text-text-2">
       <span className="text-text-mute">{"// "}</span>
       {children}
     </div>
@@ -255,7 +255,7 @@ function WonContent({
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 font-mono text-micro">
                 <span className="text-text-mute">{"// "}</span>
-                <span className="uppercase tracking-widest text-text-3">
+                <span className="uppercase tracking-[0.16em] text-text-3">
                   {t("transition.nameAuto", "Name")}
                 </span>
                 <span className="text-text-mute"> · </span>
@@ -350,7 +350,7 @@ function WonContent({
                       className={cn(
                         "w-full rounded-[5px] border px-2.5 py-2 text-left transition-colors",
                         selected
-                          ? "border-[rgba(255,255,255,0.18)] bg-surface-active"
+                          ? "border-line-hi bg-surface-active"
                           : "border-border bg-surface-input hover:bg-surface-hover",
                       )}
                     >
@@ -377,7 +377,7 @@ function WonContent({
                   className={cn(
                     "w-full rounded-[5px] border px-2.5 py-2 text-left font-mohave text-body-sm transition-colors",
                     selectedCandidateId === null
-                      ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
+                      ? "border-line-hi bg-surface-active text-text"
                       : "border-border bg-surface-input text-text-2 hover:bg-surface-hover",
                   )}
                 >
@@ -394,7 +394,7 @@ function WonContent({
                 type="button"
                 data-testid="won-other-projects-toggle"
                 onClick={() => setOthersOpen((o) => !o)}
-                className="flex items-center gap-1 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:text-text-2"
+                className="flex items-center gap-1 font-mono text-micro uppercase tracking-[0.16em] text-text-3 transition-colors hover:text-text-2"
               >
                 <ChevronRight
                   className={cn(

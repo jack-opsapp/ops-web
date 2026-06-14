@@ -133,12 +133,12 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
           data-testid="pipeline-focused-error"
           className={`flex min-h-full flex-col items-start gap-3 ${FOCUSED_LIST_END_PADDING} pt-[24px]`}
         >
-          <p className="font-mono text-caption-sm uppercase text-text">
+          <p className="font-mono text-caption-sm uppercase tracking-[0.16em] text-text">
             {t("focused.error.title", "// PIPELINE UNREACHABLE")}
           </p>
           <button
             type="button"
-            className="rounded-chip border border-line px-3 py-2 font-cakemono text-caption-sm font-light uppercase text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            className="rounded-chip border border-line px-3 py-2 font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
             onClick={() => {
               onRetry?.();
             }}
@@ -206,12 +206,12 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         <div
           className={`flex min-h-full flex-col items-start gap-3 ${FOCUSED_LIST_END_PADDING} pt-[24px]`}
         >
-          <p className="font-mono text-caption-sm uppercase text-text">
+          <p className="font-mono text-caption-sm uppercase tracking-[0.16em] text-text">
             {emptyTitle}
           </p>
           <button
             type="button"
-            className="rounded-chip border border-line px-3 py-2 font-cakemono text-caption-sm font-light uppercase text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            className="rounded-chip border border-line px-3 py-2 font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
             onClick={emptyActionHandler}
           >
             {emptyAction}
@@ -233,7 +233,7 @@ function FocusedListSummary({
   return (
     <div
       data-testid="pipeline-focused-list-summary"
-      className="mt-3 flex w-full items-center gap-2 border-t border-border-subtle pt-3 font-mono text-[11px] uppercase tabular-nums text-text-mute"
+      className="mt-3 flex w-full items-center gap-2 border-t border-border-subtle pt-3 font-mono text-micro uppercase tracking-[0.16em] tabular-nums text-text-mute"
     >
       <span
         aria-hidden="true"
@@ -256,7 +256,7 @@ function FocusedLoadingCard({ stageColor }: { stageColor: string }) {
         className="absolute bottom-2 left-0 top-2 w-[2px]"
         style={{ backgroundColor: stageColor }}
       />
-      <div className="flex h-full animate-pulse flex-col gap-2 pl-2">
+      <div className="flex h-full animate-pulse flex-col gap-2 pl-2 motion-reduce:animate-none">
         <div className="h-[18px] w-2/3 rounded-bar bg-fill-neutral-dim" />
         <div className="h-[12px] w-1/2 rounded-bar bg-fill-neutral-dim" />
         <div className="mt-auto grid grid-cols-3 gap-2">

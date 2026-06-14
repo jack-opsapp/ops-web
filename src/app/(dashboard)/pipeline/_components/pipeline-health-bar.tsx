@@ -23,13 +23,14 @@ function getHealthZone(percentage: number): HealthZone {
 }
 
 function getZoneColor(zone: HealthZone): string {
+  // Semantic health ramp via the financial tokens (olive → tan → brick).
   switch (zone) {
     case "healthy":
-      return "#A5B368";
+      return "var(--color-financial-profit)";
     case "atRisk":
-      return "#C4A868";
+      return "var(--color-financial-revenue)";
     case "overdue":
-      return "#93321A";
+      return "var(--color-financial-overdue)";
   }
 }
 
@@ -51,7 +52,7 @@ export function PipelineHealthBar({
         aria-valuenow={0}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="h-[4px] w-full rounded-full bg-[rgba(255,255,255,0.06)]"
+        className="h-[4px] w-full rounded-bar bg-fill-neutral-dim"
       />
     );
   }
@@ -78,7 +79,7 @@ export function PipelineHealthBar({
   // Transition: applied only when the user has NOT requested reduced motion.
   const transitionStyle = prefersReducedMotion
     ? undefined
-    : { transition: "width 0.6s cubic-bezier(0.22, 1, 0.36, 1)" };
+    : { transition: "width 0.6s var(--ease-smooth)" };
 
   return (
     <div
@@ -87,7 +88,7 @@ export function PipelineHealthBar({
       aria-valuenow={Math.round(rawPercentage)}
       aria-valuemin={0}
       aria-valuemax={150}
-      className="h-[4px] w-full rounded-full bg-[rgba(255,255,255,0.06)]"
+      className="h-[4px] w-full rounded-bar bg-fill-neutral-dim"
     >
       <div
         style={{
@@ -95,7 +96,7 @@ export function PipelineHealthBar({
           backgroundColor: fillColor,
           ...transitionStyle,
         }}
-        className="h-full rounded-full"
+        className="h-full rounded-bar"
       />
     </div>
   );

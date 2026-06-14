@@ -186,7 +186,7 @@ export function PipelineFocusedDetailWindow({
       secondary: [],
       meta:
         meta.length > 0 ? (
-          <span className="font-mono text-micro uppercase text-text-3">
+          <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
             {meta.join(" · ")}
           </span>
         ) : undefined,
@@ -261,7 +261,7 @@ function PipelineDetailContactStrip({
     !opportunity.contactEmail
   ) {
     return (
-      <div className="border-b border-border-subtle px-3 py-2 font-mono text-micro text-text-mute">
+      <div className="border-b border-border-subtle px-3 py-2 font-mono text-micro text-text-3">
         {t("detail.noContact")}
       </div>
     );

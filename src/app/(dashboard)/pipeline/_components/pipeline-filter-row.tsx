@@ -98,12 +98,12 @@ function StageDropdown({
         className={cn(
           "flex items-center gap-[5px] rounded-[4px] px-[8px] font-mono transition-colors",
           isToolbar
-            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] [font-size:10px]"
+            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] text-micro"
             : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
           isToolbar
             ? open || value !== "all"
-              ? "bg-white/[0.04] text-text hover:bg-white/[0.06]"
-              : "text-text-2 hover:bg-white/[0.04] hover:text-text"
+              ? "bg-surface-input text-text hover:bg-surface-hover"
+              : "text-text-2 hover:bg-surface-input hover:text-text"
             : "border-border text-text hover:border-line-hi",
           !isToolbar && open && "border-line-hi"
         )}
@@ -237,12 +237,12 @@ function AssigneeDropdown({
         className={cn(
           "flex items-center gap-[5px] rounded-[4px] px-[8px] font-mono transition-colors",
           isToolbar
-            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] [font-size:10px]"
+            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] text-micro"
             : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
           isToolbar
             ? open || value !== "all"
-              ? "bg-white/[0.04] text-text hover:bg-white/[0.06]"
-              : "text-text-2 hover:bg-white/[0.04] hover:text-text"
+              ? "bg-surface-input text-text hover:bg-surface-hover"
+              : "text-text-2 hover:bg-surface-input hover:text-text"
             : "border-border text-text hover:border-line-hi",
           !isToolbar && open && "border-line-hi"
         )}
@@ -339,9 +339,9 @@ export function PipelineFilterRow({
         className={cn(
           "flex items-center gap-[5px] rounded-[4px] px-[8px] transition-colors",
           isToolbar
-            ? "h-[26px] w-[150px] min-w-[145px] bg-transparent focus-within:bg-white/[0.04]"
+            ? "h-[26px] w-[150px] min-w-[145px] bg-transparent focus-within:bg-surface-input"
             : "h-[30px] w-full min-w-[220px] border border-border bg-fill-neutral-dim focus-within:border-line-hi sm:w-[240px] sm:min-w-[240px]",
-          isToolbar && searchQuery.length > 0 && "bg-white/[0.04]"
+          isToolbar && searchQuery.length > 0 && "bg-surface-input"
         )}
       >
         <Search
@@ -357,7 +357,7 @@ export function PipelineFilterRow({
           className={cn(
             "h-full min-w-0 flex-1 bg-transparent font-mono text-text outline-none placeholder:text-text-3",
             isToolbar
-              ? "uppercase leading-none tracking-[0.12em] [font-size:10px]"
+              ? "uppercase leading-none tracking-[0.12em] text-micro"
               : "text-caption-sm"
           )}
         />
@@ -392,10 +392,10 @@ export function PipelineFilterRow({
           type="button"
           onClick={onAddLead}
           className={cn(
-            "flex shrink-0 items-center gap-[5px] rounded-[4px] border px-[8px] font-mono uppercase transition-colors",
+            "flex shrink-0 items-center gap-[5px] rounded-[4px] border border-ops-accent bg-ops-accent px-[8px] font-mono uppercase text-black transition-colors hover:bg-ops-accent-hover hover:border-ops-accent-hover",
             isToolbar
-              ? "h-[26px] whitespace-nowrap border-ops-accent/45 bg-ops-accent/10 leading-none tracking-[0.12em] text-ops-accent hover:border-ops-accent/70 hover:bg-ops-accent/15 hover:text-text [font-size:10px]"
-              : "h-[30px] border-ops-accent text-caption-sm text-ops-accent hover:bg-ops-accent hover:text-background"
+              ? "h-[26px] whitespace-nowrap leading-none tracking-[0.12em] text-micro"
+              : "h-[30px] text-caption-sm"
           )}
         >
           <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} />

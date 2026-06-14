@@ -55,7 +55,7 @@ export function PipelineModeSwitcher() {
             aria-pressed={active}
             onClick={() => setMode(option.mode)}
             className={cn(
-              "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded-[5px] px-1.5 font-cakemono text-[10px] font-light uppercase transition-colors",
+              "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded-[5px] px-1.5 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors duration-150 ease-smooth",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
               active
                 ? "bg-surface-active text-text"

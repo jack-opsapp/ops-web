@@ -37,10 +37,10 @@ export function PipelineFocusedToolbar({
         <>
           <ToolbarAction onClick={onReviewEmails}>
             <Mail className="h-[11px] w-[11px]" strokeWidth={1.5} />
-            <span className="font-mono uppercase leading-none tracking-[0.12em] [font-size:10px]">
+            <span className="font-mono text-micro uppercase leading-none tracking-[0.12em]">
               {t("gmail.reviewEmails")}
             </span>
-            <span className="inline-flex h-[14px] min-w-[14px] items-center justify-center rounded-chip border border-line-hi bg-surface-active px-1 font-mono leading-none text-text [font-size:9px]">
+            <span className="inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-chip border border-line-hi bg-surface-active px-1 font-mono text-micro leading-none tabular-nums text-text">
               {reviewCount > 99 ? "99+" : reviewCount}
             </span>
           </ToolbarAction>
@@ -50,7 +50,7 @@ export function PipelineFocusedToolbar({
 
       <ToolbarAction onClick={toggleMode} isModeToggle>
         <Maximize2 className="h-[11px] w-[11px]" strokeWidth={1.5} />
-        <span className="font-mono uppercase leading-none tracking-[0.12em] [font-size:10px]">
+        <span className="font-mono text-micro uppercase leading-none tracking-[0.12em]">
           {t("focused.modeButton.table")}
         </span>
       </ToolbarAction>
@@ -74,10 +74,10 @@ function ToolbarAction({
       type="button"
       data-pipeline-mode-toggle={isModeToggle ? "true" : undefined}
       className={cn(
-        "flex h-[26px] shrink-0 items-center gap-[4px] whitespace-nowrap rounded-[4px] px-[8px] transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+        "flex h-[26px] shrink-0 items-center gap-[4px] whitespace-nowrap rounded-[4px] px-[8px] transition-colors duration-150 ease-smooth focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
         isModeToggle || isActive
-          ? "bg-transparent text-text hover:bg-white/[0.04]"
-          : "text-text-2 hover:bg-white/[0.04] hover:text-text"
+          ? "bg-transparent text-text hover:bg-surface-input"
+          : "text-text-2 hover:bg-surface-input hover:text-text"
       )}
       onClick={onClick}
     >

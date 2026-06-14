@@ -178,10 +178,10 @@ function SwipeableCard({
       {/* Advance hint strip (behind card, right swipe) */}
       {swipeEnabled && next && (
         <motion.div
-          className="absolute inset-0 flex items-center justify-end px-[12px] rounded-[4px] bg-[rgba(157,181,130,0.15)] border border-[rgba(157,181,130,0.3)]"
+          className="absolute inset-0 flex items-center justify-end px-[12px] rounded-chip bg-olive-soft border border-olive-line"
           style={{ opacity: advanceOpacity }}
         >
-          <span className="font-mono text-micro text-[#9DB582]">
+          <span className="font-mono text-micro text-olive">
             {t("mobile.swipeAdvance").replace(
               "{stage}",
               getStageDisplayName(next)
@@ -193,10 +193,10 @@ function SwipeableCard({
       {/* Retreat hint strip (behind card, left swipe) */}
       {swipeEnabled && prev && (
         <motion.div
-          className="absolute inset-0 flex items-center justify-start px-[12px] rounded-[4px] bg-[rgba(181,130,137,0.15)] border border-[rgba(181,130,137,0.3)]"
+          className="absolute inset-0 flex items-center justify-start px-[12px] rounded-chip bg-rose-soft border border-rose-line"
           style={{ opacity: retreatOpacity }}
         >
-          <span className="font-mono text-micro text-[#B58289]">
+          <span className="font-mono text-micro text-rose">
             {t("mobile.swipeRetreat").replace(
               "{stage}",
               getStageDisplayName(prev)
@@ -328,7 +328,7 @@ export function PipelineMobile({
   return (
     <div className="flex flex-col h-full">
       {/* Tab bar */}
-      <div className="shrink-0 border-b border-[rgba(255,255,255,0.06)]">
+      <div className="shrink-0 border-b border-border-subtle">
         <PipelineStageTabBar
           stages={ALL_STAGES}
           counts={stageCounts}

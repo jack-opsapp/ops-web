@@ -132,7 +132,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
       ? `2px solid ${stageColor}`
       : isHovered || isExpanded
         ? `1px solid ${stageColor}50`
-        : "1px solid rgba(255,255,255,0.08)";
+        : "1px solid var(--glass-border)";
 
     return (
       <div
@@ -141,14 +141,13 @@ export const PipelineCardContent = memo(function PipelineCardContent({
           !reduced && "transition-[border-color,box-shadow] duration-150"
         )}
         style={{
-          background: "rgba(13,13,13,0.6)",
+          background: "var(--surface-glass)",
           backdropFilter: "blur(28px) saturate(1.3)",
           WebkitBackdropFilter: "blur(28px) saturate(1.3)",
           borderTop: cardEdgeBorder,
           borderRight: cardEdgeBorder,
           borderBottom: cardEdgeBorder,
           borderLeft: `3px solid ${stageColor}`,
-          boxShadow: isSelected ? `0 0 12px ${stageColor}40` : undefined,
           padding: "8px 10px",
         }}
       >
@@ -206,8 +205,8 @@ export const PipelineCardContent = memo(function PipelineCardContent({
           : `4px solid ${stageBorderColor}`,
         borderColor: isFocusedSurface
           ? activeSurface
-            ? "rgba(255,255,255,0.18)"
-            : "rgba(255,255,255,0.10)"
+            ? "var(--glass-border-active)"
+            : "var(--glass-border)"
           : undefined,
       }}
     >
@@ -416,7 +415,7 @@ function InlineTitleEditor({
           }
           commit();
         }}
-        className="block w-full min-w-0 cursor-text border-0 border-b border-line bg-transparent px-0 py-[1px] font-cakemono text-caption-sm font-light uppercase text-text caret-text outline-none transition-colors duration-150 focus:border-line-hi focus:ring-0 focus-visible:outline-none"
+        className="block w-full min-w-0 cursor-text border-0 border-b border-line bg-transparent px-0 py-[1px] font-cakemono text-[14px] font-light uppercase text-text caret-text outline-none transition-colors duration-150 focus:border-line-hi focus:ring-0 focus-visible:outline-none"
         style={{ outline: "none", outlineOffset: 0 }}
       />
     );
@@ -424,7 +423,7 @@ function InlineTitleEditor({
 
   if (!canManage || !onTitleSave) {
     return (
-      <p className="truncate font-cakemono text-caption-sm font-light uppercase text-text">
+      <p className="truncate font-cakemono text-[14px] font-light uppercase text-text">
         {displayTitle}
       </p>
     );
@@ -434,7 +433,7 @@ function InlineTitleEditor({
     <button
       type="button"
       aria-label={titleLabel}
-      className="block w-full min-w-0 cursor-text truncate border-b border-transparent bg-transparent px-0 py-[1px] text-left font-cakemono text-caption-sm font-light uppercase text-text transition-[border-color,color] duration-150 hover:border-line focus:border-line-hi focus-visible:border-line-hi focus-visible:outline-none"
+      className="block w-full min-w-0 cursor-text truncate border-b border-transparent bg-transparent px-0 py-[1px] text-left font-cakemono text-[14px] font-light uppercase text-text transition-[border-color,color] duration-150 hover:border-line focus:border-line-hi focus-visible:border-line-hi focus-visible:outline-none"
       onFocus={() => setEditing(true)}
       onClick={(event) => {
         event.stopPropagation();
@@ -908,7 +907,7 @@ function InlineAddressEditor({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="truncate font-mono text-micro uppercase text-text-3">
+      <p className="truncate font-mono text-micro uppercase tracking-[0.16em] text-text-3">
         {label}
       </p>
       <p className="truncate font-mono text-data-sm text-text-2">{value}</p>

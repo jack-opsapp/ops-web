@@ -64,7 +64,7 @@ export function PipelineStageTabBar({
         return (
           <div key={stage} className="flex items-center shrink-0">
             {shouldInsertDivider && (
-              <div className="w-px h-[24px] bg-[rgba(255,255,255,0.06)] self-center mx-[4px] shrink-0" />
+              <div className="w-px h-[24px] bg-fill-neutral-dim self-center mx-[4px] shrink-0" />
             )}
 
             <button
@@ -79,10 +79,10 @@ export function PipelineStageTabBar({
               role="tab"
               type="button"
             >
-              <span className="font-mono text-micro uppercase tracking-wider">
+              <span className="font-mono text-micro uppercase tracking-[0.16em]">
                 {abbreviation}
               </span>
-              <span className="font-mohave text-body-sm">{count}</span>
+              <span className="font-mono text-body-sm tabular-nums">{count}</span>
 
               {isActive && (
                 <div

@@ -711,8 +711,8 @@ function FocusedActionDropTarget({
         style={{
           borderColor: isOver
             ? destructive
-              ? "rgba(147, 50, 26, 0.58)"
-              : "rgba(143, 154, 163, 0.46)"
+              ? "rgb(var(--status-error-rgb) / 0.58)"
+              : "var(--glass-border-strong)"
             : "var(--glass-border)",
         }}
       />
@@ -721,8 +721,8 @@ function FocusedActionDropTarget({
         className="absolute inset-x-0 bottom-0 h-[52px] rounded-panel transition-opacity duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
         style={{
           backgroundColor: destructive
-            ? "rgba(147, 50, 26, 0.16)"
-            : "rgba(143, 154, 163, 0.14)",
+            ? "rgb(var(--status-error-rgb) / 0.16)"
+            : "var(--fill-neutral)",
           opacity: isOver ? 1 : 0,
         }}
       />
@@ -731,7 +731,7 @@ function FocusedActionDropTarget({
         className="absolute inset-x-1.5 bottom-[51px] h-px transition-opacity duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
         style={{
           background: `linear-gradient(90deg, transparent, ${
-            destructive ? "#93321A" : "#8F9AA3"
+            destructive ? "var(--brick)" : "var(--text-3)"
           }, transparent)`,
           opacity: isOver ? 0.86 : 0.32,
         }}
@@ -750,7 +750,7 @@ function FocusedActionDropTarget({
         >
           {icon}
         </span>
-        <span className="font-cakemono text-caption-sm font-light uppercase leading-none">
+        <span className="font-cakemono text-micro font-light uppercase tracking-[0.16em] leading-none">
           {label}
         </span>
         <div
@@ -763,7 +763,7 @@ function FocusedActionDropTarget({
                 key={index}
                 className="h-1.5 flex-1 rounded-bar"
                 style={{
-                  backgroundColor: destructive ? "#93321A" : "#8F9AA3",
+                  backgroundColor: destructive ? "var(--brick)" : "var(--text-3)",
                   opacity: isOver ? 0.72 : 0.18,
                 }}
               />
@@ -931,7 +931,7 @@ function SpineSlot({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <dt className="truncate font-mono text-micro uppercase text-text-3">
+      <dt className="truncate font-mono text-micro uppercase tracking-[0.16em] text-text-3">
         {label}
       </dt>
       <dd

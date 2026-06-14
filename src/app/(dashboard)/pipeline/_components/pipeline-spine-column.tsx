@@ -134,7 +134,7 @@ export const PipelineSpineColumn = memo(function PipelineSpineColumn({
 
       <div className="relative z-[1] flex h-full min-h-0 w-full flex-col items-center gap-1 px-0.5 py-1">
         <div className="relative h-[104px] w-full shrink-0">
-          <span className="absolute left-1/2 top-1/2 block origin-center -translate-x-1/2 -translate-y-1/2 rotate-90 whitespace-nowrap font-cakemono text-caption-sm font-light uppercase text-text-2">
+          <span className="absolute left-1/2 top-1/2 block origin-center -translate-x-1/2 -translate-y-1/2 rotate-90 whitespace-nowrap font-cakemono text-micro font-light uppercase tracking-[0.16em] text-text-2">
             {stageName}
           </span>
         </div>

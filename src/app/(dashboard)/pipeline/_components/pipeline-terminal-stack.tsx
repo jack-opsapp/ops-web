@@ -157,7 +157,7 @@ function TerminalItem({
       />
 
       <div className="relative z-[1] flex h-full min-h-0 w-full flex-col items-center gap-1">
-        <span className="font-cakemono text-caption-sm font-light uppercase text-text-2">
+        <span className="font-cakemono text-micro font-light uppercase tracking-[0.16em] text-text-2">
           {stageName}
         </span>
         <span className="font-mono text-data-sm text-text" style={NUMBER_STYLE}>

@@ -173,14 +173,14 @@ export function PipelineCard({
       const count = daysOverdue(followUpDate);
       return {
         text: t("card.overdue").replace("{count}", String(count)),
-        colorClass: "text-[#93321A]",
+        colorClass: "text-financial-overdue",
       };
     }
 
     if (followUpToday) {
       return {
         text: t("card.followUpToday"),
-        colorClass: "text-[#C4A868]",
+        colorClass: "text-tan",
       };
     }
 
@@ -229,20 +229,20 @@ export function PipelineCard({
       className={cn(
         // Surface
         "bg-glass glass-surface backdrop-blur-xl",
-        "border border-[rgba(255,255,255,0.08)] rounded-[4px]",
+        "border border-border rounded-[4px]",
         "border-l-[3px]",
         // Interaction
         "cursor-pointer group",
         // Stacking: expanded cards must sit above siblings so dropdowns aren't clipped
         isExpanded ? "relative z-20" : "relative z-0",
         // Hover
-        "hover:border-[rgba(255,255,255,0.15)]",
+        "hover:border-line-hi",
         // Stale pulse animation (active stages only)
         stale && !terminal && "animate-stale-pulse",
         // Drag placeholder state
         isDragging && "opacity-20",
         // Overlay state (being dragged)
-        isOverlay && "scale-[1.03] border-[rgba(255,255,255,0.20)]"
+        isOverlay && "scale-[1.03] border-border-strong"
       )}
     >
       {/* ── Collapsed content ────────────────────────────────────── */}
@@ -306,7 +306,7 @@ export function PipelineCard({
                 className={cn(
                   "p-[3px] rounded-[2px] cursor-pointer",
                   "text-text-mute hover:text-text",
-                  "hover:bg-[rgba(255,255,255,0.10)]",
+                  "hover:bg-surface-active",
                   "transition-all duration-150",
                   // Desktop: hidden until hover. Mobile: always visible.
                   "md:opacity-0 md:group-hover:opacity-100"
@@ -332,7 +332,7 @@ export function PipelineCard({
                 className={cn(
                   "p-[3px] rounded-[2px] cursor-pointer",
                   "text-text-mute hover:text-text",
-                  "hover:bg-[rgba(255,255,255,0.10)]",
+                  "hover:bg-surface-active",
                   "transition-all duration-150",
                   // Desktop: hidden until hover. Mobile: always visible.
                   "md:opacity-0 md:group-hover:opacity-100"
@@ -352,7 +352,7 @@ export function PipelineCard({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="border-t border-[rgba(255,255,255,0.06)]"
+            className="border-t border-border-subtle"
           >
             <div className="px-[10px] py-[8px] flex flex-col gap-[8px]">
               {/* Contact info */}
@@ -371,7 +371,7 @@ export function PipelineCard({
                     <a
                       href={`tel:${opportunity.contactPhone}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-mono text-micro text-[#6F94B0] hover:text-text transition-colors"
+                      className="flex items-center gap-[4px] font-mono text-micro text-text-2 hover:text-text transition-colors"
                     >
                       <Phone className="w-[12px] h-[12px]" />
                       {opportunity.contactPhone}
@@ -381,7 +381,7 @@ export function PipelineCard({
                     <a
                       href={`mailto:${opportunity.contactEmail}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-mono text-micro text-[#6F94B0] hover:text-text transition-colors"
+                      className="flex items-center gap-[4px] font-mono text-micro text-text-2 hover:text-text transition-colors"
                     >
                       <Mail className="w-[12px] h-[12px]" />
                       {opportunity.contactEmail}
@@ -461,7 +461,7 @@ export function PipelineCard({
                     e.stopPropagation();
                     onOpenDetail();
                   }}
-                  className="font-mohave text-body-sm text-[#6F94B0] hover:text-text transition-colors cursor-pointer"
+                  className="font-mohave text-body-sm text-text-2 hover:text-text transition-colors cursor-pointer"
                 >
                   {t("card.viewDetails")}
                 </button>
