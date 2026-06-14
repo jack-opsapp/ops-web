@@ -28,6 +28,8 @@ export interface CommitArgs {
 export interface CommitCounts {
   products: number;
   stock: number;
+  /** task_types newly created by the TYPES commit (additive; trade is separate). */
+  types?: number;
 }
 
 export interface CommitSuccess {

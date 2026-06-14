@@ -34,6 +34,10 @@ import {
   insertCatalogReadyNotification,
   stampCatalogSetupCompleted,
 } from "@/lib/catalog-setup/commit/completion-notification";
+import {
+  commitTaskTypes,
+  recordCompanyTrade,
+} from "@/lib/catalog-setup/commit/task-types-commit";
 
 interface CommitBody {
   token: string;
@@ -97,7 +101,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       externalSource: body.externalSource,
     });
 
-    if (products.length === 0 && stockFamilies.length === 0) {
+    if (
+      products.length === 0 &&
+      stockFamilies.length === 0 &&
+      typeCards.length === 0
+    ) {
       return NextResponse.json(
         { ok: false, error: "Nothing to commit — accept at least one card" },
         { status: 400 },
@@ -173,9 +181,57 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (counts.products === 0) counts.products = products.length;
     if (counts.stock === 0) counts.stock = stockFamilies.length;
 
+    const serviceDb = getServiceRoleClient();
+    const warnings: string[] = [];
+    let typesCount = 0;
+
+    // ── TYPES (trade + task_types) — committed outside catalog_setup_save ──────
+    // task_types via the same accessToken client (RLS company_isolation, any
+    // company member); trade provenance via service-role (companies UPDATE is
+    // admin-gated under the bridge). A task_types failure with nothing else
+    // committed is a hard 422; with SELL/STOCK already written it degrades to a
+    // warning — those rows are live and TYPES re-runs idempotently (merge).
+    if (typeCards.length > 0) {
+      const tt = await commitTaskTypes(client, companyId, typeCards);
+      if (tt.error) {
+        console.error("[api/catalog/setup/commit] task_types commit failed:", tt.error);
+        const hadCatalog = products.length > 0 || stockFamilies.length > 0;
+        if (!hadCatalog) {
+          return NextResponse.json(
+            {
+              ok: false,
+              blockers: [
+                {
+                  code: "task_types_error",
+                  message:
+                    tt.error instanceof Error
+                      ? tt.error.message
+                      : "Could not save task types",
+                },
+              ],
+            },
+            { status: 422 },
+          );
+        }
+        warnings.push("types_commit_failed");
+      } else {
+        typesCount = tt.inserted;
+        if (tt.trade) {
+          // Best-effort, non-blocking — the operator may not be permitted to
+          // update the company row, and task types are already saved.
+          void recordCompanyTrade(serviceDb, companyId, tt.trade).then(({ error }) => {
+            if (error)
+              console.error(
+                "[api/catalog/setup/commit] trade provenance failed:",
+                error,
+              );
+          });
+        }
+      }
+    }
+
     // Completion side-effects — service-role, fire-and-forget. A failure here
     // must never fail the commit (rows are already written).
-    const serviceDb = getServiceRoleClient();
     void stampCatalogSetupCompleted(serviceDb, companyId).then(({ error }) => {
       if (error) console.error("[api/catalog/setup/commit] completion stamp failed:", error);
     });
@@ -190,10 +246,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({
       ok: true,
-      counts,
-      // TYPES (trade / task_types) are committed outside catalog_setup_save —
-      // surfaced so the client knows they were not persisted by this call.
-      warnings: typeCards.length > 0 ? ["types_commit_deferred"] : [],
+      counts: { ...counts, types: typesCount },
+      warnings,
     });
   } catch (error) {
     console.error("[api/catalog/setup/commit] Error:", error);
