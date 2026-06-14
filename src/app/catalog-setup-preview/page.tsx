@@ -30,17 +30,22 @@ import { SetupWizardShell } from "@/components/catalog-setup/setup-wizard-shell"
 export default function CatalogSetupPreviewPage() {
   const dispatch = useCatalogSetupStore((s) => s.dispatch);
   const reset = useCatalogSetupStore((s) => s.reset);
+  // Gate the seed on rehydration: the store is `persist`-backed, and its async
+  // rehydrate would clobber a seed dispatched on mount. Seeding only after
+  // `_hydrated` (and resetting first) makes the demo deterministic — the
+  // canonical full-state set every load, never a stale or half-cleared canvas.
+  const hydrated = useCatalogSetupStore((s) => s._hydrated);
 
   const [inventoryTracked, setInventoryTracked] = useState(true);
   const [driverMode, setDriverMode] = useState<"picker" | "conversation">(
     "conversation",
   );
 
-  // Seed the canvas once with the foundations preview set (idempotent by id in
-  // the reducer, so a refresh or a re-render never duplicates a card).
   useEffect(() => {
+    if (!hydrated) return;
+    reset();
     dispatch({ type: "ADD_CARDS", cards: PREVIEW_STAGING_CARDS });
-  }, [dispatch]);
+  }, [hydrated, reset, dispatch]);
 
   const context: StepContext = {
     inventoryTracked,
@@ -52,7 +57,7 @@ export default function CatalogSetupPreviewPage() {
   return (
     <div className="relative min-h-screen bg-background">
       {/* Preview-only control bar — pinned, not part of the wizard surface. */}
-      <div className="fixed right-3 top-3 z-50 flex items-center gap-2 rounded-chip border border-glass-border bg-[rgba(18,18,20,0.92)] px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-text-3 backdrop-blur">
+      <div className="fixed bottom-3 right-3 z-50 flex items-center gap-2 rounded-chip border border-glass-border bg-[rgba(18,18,20,0.92)] px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-text-3 backdrop-blur">
         <span aria-hidden>// preview</span>
         <button
           type="button"
