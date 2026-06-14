@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SegmentControl } from "@/components/ui/segment-control";
 import { useDictionary } from "@/i18n/client";
-import { cn } from "@/lib/utils/cn";
 import { useCreateProduct } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import type { ProductKind } from "@/lib/types/pipeline";
@@ -78,21 +78,14 @@ export function ProductQuickAdd({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="inline-flex gap-[2px] rounded-[6px] border border-border p-[3px]">
-            {(["service", "good"] as ProductKind[]).map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setKind(k)}
-                className={cn(
-                  "rounded-[4px] px-[14px] py-[5px] font-mono text-[11px] uppercase tracking-[0.12em] transition-colors",
-                  kind === k ? "bg-surface-active text-text" : "text-text-3 hover:bg-surface-hover hover:text-text-2",
-                )}
-              >
-                {k === "service" ? t("filter.services", "SERVICE") : t("filter.goods", "GOOD")}
-              </button>
-            ))}
-          </div>
+          <SegmentControl<ProductKind>
+            options={[
+              { value: "service", label: t("filter.services", "SERVICE") },
+              { value: "good", label: t("filter.goods", "GOOD") },
+            ]}
+            value={kind}
+            onChange={setKind}
+          />
 
           <div className="space-y-1">
             <label className={labelCls}>{t("add.itemName", "Name")} *</label>

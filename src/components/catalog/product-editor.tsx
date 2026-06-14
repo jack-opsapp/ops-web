@@ -49,6 +49,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { ProductBomEditor } from "@/components/ops/product-bom-editor";
 import { ProductOptionFormDialog } from "@/components/ops/product-option-form-dialog";
@@ -64,8 +71,8 @@ import { fmtMargin } from "./format";
 import { cn } from "@/lib/utils/cn";
 
 const labelCls = "font-mono text-[11px] uppercase tracking-[0.14em] text-text-3";
-const selectCls =
-  "w-full rounded-[5px] border border-border bg-surface-input px-2 py-2 font-mohave text-[14px] text-text focus:border-[rgba(255,255,255,0.2)] focus:outline-none";
+/** Radix Select forbids an empty-string item value — sentinel for the "none" row. */
+const NONE = "__none__";
 
 export function ProductEditor({ productId }: { productId: string }) {
   const { t } = useDictionary("catalog");
@@ -242,14 +249,22 @@ export function ProductEditor({ productId }: { productId: string }) {
         </div>
         <div className="space-y-1">
           <label className={labelCls}>{t("products.col.task", "Task type")}</label>
-          <select value={taskTypeId} onChange={(e) => setTaskTypeId(e.target.value)} className={selectCls}>
-            <option value="">—</option>
-            {taskTypes.map((tt) => (
-              <option key={tt.id} value={tt.id}>
-                {tt.display}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={taskTypeId || NONE}
+            onValueChange={(v) => setTaskTypeId(v === NONE ? "" : v)}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>—</SelectItem>
+              {taskTypes.map((tt) => (
+                <SelectItem key={tt.id} value={tt.id}>
+                  {tt.display}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           {[
@@ -284,7 +299,7 @@ export function ProductEditor({ productId }: { productId: string }) {
         {optionsLoading ? (
           <span className="block px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">{"// LOADING…"}</span>
         ) : orderedOptions.length === 0 ? (
-          <span className="block border-l-2 border-l-[rgba(255,255,255,0.08)] px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
+          <span className="block border-l-2 border-l-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             {"// NO OPTIONS YET — TAP + ADD OPTION"}
           </span>
         ) : (
@@ -324,11 +339,11 @@ export function ProductEditor({ productId }: { productId: string }) {
           </Button>
         </div>
         {options.length === 0 ? (
-          <span className="block border-l-2 border-l-[rgba(255,255,255,0.08)] px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
+          <span className="block border-l-2 border-l-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             {"// ADD AN OPTION FIRST"}
           </span>
         ) : modifiers.length === 0 ? (
-          <span className="block border-l-2 border-l-[rgba(255,255,255,0.08)] px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
+          <span className="block border-l-2 border-l-border px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             {"// NO MODIFIERS YET"}
           </span>
         ) : (
@@ -336,7 +351,7 @@ export function ProductEditor({ productId }: { productId: string }) {
             {modifiers.map((modifier) => (
               <li
                 key={modifier.id}
-                className="flex items-center justify-between gap-2 rounded border border-border bg-[rgba(255,255,255,0.02)] px-2 py-1.5"
+                className="flex items-center justify-between gap-2 rounded border border-border bg-surface-hover-subtle px-2 py-1.5"
               >
                 <span className="truncate font-mohave text-[14px] text-text">
                   {formatModifierRule(modifier, options, values)}

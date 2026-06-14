@@ -15,13 +15,20 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { useDictionary } from "@/i18n/client";
 import { useCreateFamily } from "@/lib/hooks/use-catalog-stock";
 import { useCatalogCategories, useCatalogUnits } from "@/lib/hooks/use-catalog-meta";
 
 const labelCls = "font-mono text-[11px] uppercase tracking-[0.14em] text-text-3";
-const selectCls =
-  "w-full rounded-[5px] border border-border bg-surface-input px-2 py-2 font-mohave text-[14px] text-text focus:border-[rgba(255,255,255,0.2)] focus:outline-none";
+/** Radix Select forbids an empty-string item value — sentinel for the "none" row. */
+const NONE = "__none__";
 
 export function AddStockDialog({ onClose }: { onClose: () => void }) {
   const { t } = useDictionary("catalog");
@@ -81,14 +88,19 @@ export function AddStockDialog({ onClose }: { onClose: () => void }) {
             </div>
             <div className="space-y-1">
               <label className={labelCls}>{t("add.unit", "Unit")}</label>
-              <select value={unitId} onChange={(e) => setUnitId(e.target.value)} className={selectCls}>
-                <option value="">—</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.display}
-                  </option>
-                ))}
-              </select>
+              <Select value={unitId || NONE} onValueChange={(v) => setUnitId(v === NONE ? "" : v)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>—</SelectItem>
+                  {units.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.display}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -118,20 +130,21 @@ export function AddStockDialog({ onClose }: { onClose: () => void }) {
 
           <div className="space-y-1">
             <label className={labelCls}>{t("add.category", "Category")}</label>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className={selectCls}
-            >
-              <option value="">—</option>
-              {categories
-                .filter((c) => !c.parentId)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-            </select>
+            <Select value={categoryId || NONE} onValueChange={(v) => setCategoryId(v === NONE ? "" : v)}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="—" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>—</SelectItem>
+                {categories
+                  .filter((c) => !c.parentId)
+                  .map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex justify-end gap-1.5 pt-1">
