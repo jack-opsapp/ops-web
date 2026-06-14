@@ -353,7 +353,7 @@ export function PipelineTableRow({
                   aria-label={t("table.column.select")}
                   checked={selected}
                   onClick={handleSelect}
-                  className="rounded-[3px]"
+                  className="rounded-chip"
                 />
               ) : null
             ) : (

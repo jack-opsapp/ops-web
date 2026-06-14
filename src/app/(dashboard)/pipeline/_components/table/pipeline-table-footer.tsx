@@ -23,10 +23,10 @@ export function PipelineTableFooter({ total }: { total: GrandTotal }) {
       aria-label={t("table.footer.label")}
       className="flex shrink-0 items-center gap-4 border-t border-border bg-background px-[8px] py-[6px]"
     >
-      <span className="font-mono text-[11px] uppercase tracking-wider text-text-3">
+      <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
         {t("table.footer.deals").replace("{count}", formatNumber(total.count))}
       </span>
-      <span className="ml-auto flex shrink-0 items-center gap-4 font-mono text-[11px] uppercase tabular-nums tracking-wider">
+      <span className="ml-auto flex shrink-0 items-center gap-4 font-mono text-[11px] uppercase tabular-nums tracking-[0.16em]">
         <span className="flex items-center gap-1.5">
           <span className="text-text-mute">{t("table.footer.value")}</span>
           <span className="text-text">{formatCurrency(total.sumValue)}</span>

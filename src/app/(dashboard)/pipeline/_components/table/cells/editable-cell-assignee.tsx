@@ -214,7 +214,7 @@ export function EditableCellAssignee({
             })}
 
             {members.length === 0 ? (
-              <p className="px-2 py-2 font-mono text-micro uppercase tracking-wider text-text-3">
+              <p className="px-2 py-2 font-mono text-micro uppercase tracking-[0.16em] text-text-3">
                 {t("table.cell.assignee.empty")}
               </p>
             ) : null}

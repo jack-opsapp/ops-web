@@ -163,7 +163,7 @@ export function PipelineViewCreateDialog({
       <DialogContent className="glass-dense max-w-[420px] rounded-modal p-0" hideClose>
         <form onSubmit={handleSubmit} className="flex flex-col">
           <DialogHeader className="border-b border-border px-3 py-2">
-            <DialogTitle className="flex items-center gap-2 font-cakemono text-[18px] font-light uppercase text-text">
+            <DialogTitle className="flex items-center gap-2 font-cakemono text-[22px] font-light uppercase text-text">
               {isDuplicateMode ? <Copy className="h-4 w-4" /> : <FilePlus2 className="h-4 w-4" />}
               {title}
             </DialogTitle>
@@ -171,7 +171,7 @@ export function PipelineViewCreateDialog({
 
           <div className="flex flex-col gap-3 px-3 py-3">
             <label className="flex flex-col gap-1" htmlFor={inputId}>
-              <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
                 {t("table.views.nameLabel")}
               </span>
               <span className="flex min-h-9 items-center gap-2 rounded-[5px] border border-border bg-surface-input px-2 focus-within:border-ops-accent">
@@ -191,7 +191,7 @@ export function PipelineViewCreateDialog({
 
             {!isDuplicateMode ? (
               <fieldset className="flex flex-col gap-1">
-                <legend className="mb-1 font-mono text-micro uppercase tracking-wider text-text-3">
+                <legend className="mb-1 font-mono text-micro uppercase tracking-[0.16em] text-text-3">
                   {t("table.views.startingPointLabel")}
                 </legend>
                 <label
@@ -210,7 +210,7 @@ export function PipelineViewCreateDialog({
                     value="current"
                     checked={source === "current"}
                     onChange={() => setSource("current")}
-                    className="h-3.5 w-3.5 accent-ops-accent"
+                    className="h-3.5 w-3.5 accent-[var(--text-3)]"
                   />
                   <Layers className="h-3.5 w-3.5 text-text-3" />
                   {t("table.views.cloneCurrent")}
@@ -231,7 +231,7 @@ export function PipelineViewCreateDialog({
                     value="blank"
                     checked={source === "blank"}
                     onChange={() => setSource("blank")}
-                    className="h-3.5 w-3.5 accent-ops-accent"
+                    className="h-3.5 w-3.5 accent-[var(--text-3)]"
                   />
                   <Plus className="h-3.5 w-3.5 text-text-3" />
                   {t("table.views.blankDefault")}
@@ -249,14 +249,14 @@ export function PipelineViewCreateDialog({
           <DialogFooter className="border-t border-border px-3 py-2">
             <DialogClose
               type="button"
-              className="rounded-[5px] px-3 py-1.5 font-cakemono text-[12px] font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              className="rounded-[5px] px-3 py-1.5 font-cakemono text-[14px] font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
               {t("table.views.cancel")}
             </DialogClose>
             <button
               type="submit"
               disabled={pending}
-              className="rounded-[5px] border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-[12px] font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
+              className="rounded-[5px] border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-[14px] font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
             >
               {t("table.views.create")}
             </button>

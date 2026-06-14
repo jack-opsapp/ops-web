@@ -623,7 +623,7 @@ export function PipelineTableShell() {
   }, [handleSelectAllVisible, clearSelection]);
 
   const stateMessage = (key: string) => (
-    <div className="flex h-full items-center justify-center font-mono text-micro uppercase tracking-wider text-text-3">
+    <div className="flex h-full items-center justify-center font-mono text-micro uppercase tracking-[0.16em] text-text-3">
       {t(key)}
     </div>
   );
@@ -723,7 +723,7 @@ export function PipelineTableShell() {
                   onClick={() => {
                     void persistPendingViewDefinition();
                   }}
-                  className="inline-flex h-[28px] items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[12px] font-light uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
+                  className="inline-flex h-[28px] items-center gap-1 rounded-[5px] border border-ops-accent bg-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
                 >
                   <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
                   {t("table.views.save")}
@@ -757,7 +757,7 @@ export function PipelineTableShell() {
       {unavailableViewId ? (
         <div
           role="alert"
-          className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-wider text-rose"
+          className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-[0.16em] text-rose"
         >
           {t("table.views.unavailable")}
         </div>

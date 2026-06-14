@@ -77,7 +77,7 @@ export function PipelineToolbar({
           aria-pressed={grouped}
           onClick={() => onGroupedChange(!grouped)}
           className={cn(
-            "inline-flex h-[28px] items-center gap-1.5 rounded-[5px] border px-2 font-cakemono text-[10px] font-light uppercase transition-colors",
+            "inline-flex h-[28px] items-center gap-1.5 rounded-[5px] border px-2 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
             grouped
               ? "border-border bg-surface-active text-text"
@@ -93,7 +93,7 @@ export function PipelineToolbar({
           aria-pressed={closedDeals}
           onClick={() => onClosedDealsChange(!closedDeals)}
           className={cn(
-            "inline-flex h-[28px] items-center gap-1.5 rounded-[5px] border px-2 font-cakemono text-[10px] font-light uppercase transition-colors",
+            "inline-flex h-[28px] items-center gap-1.5 rounded-[5px] border px-2 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
             closedDeals
               ? "border-border bg-surface-active text-text"
@@ -103,7 +103,7 @@ export function PipelineToolbar({
           <CheckCircle className="h-[12px] w-[12px]" strokeWidth={1.5} aria-hidden="true" />
           <span className="hidden lg:inline">{t("table.toolbar.closed")}</span>
         </button>
-        <span className="font-mono text-[11px] uppercase tracking-wider text-text-3">
+        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
           {t("table.toolbar.deals").replace("{count}", String(dealCount))}
         </span>
         {saveAffordance}
@@ -124,7 +124,7 @@ export function PipelineToolbar({
                 disabled={densityDisabled}
                 onClick={() => onDensityChange(option.density)}
                 className={cn(
-                  "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded-[5px] px-1.5 font-cakemono text-[10px] font-light uppercase transition-colors",
+                  "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded-[5px] px-1.5 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors",
                   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
                   "disabled:pointer-events-none disabled:opacity-40",
                   active

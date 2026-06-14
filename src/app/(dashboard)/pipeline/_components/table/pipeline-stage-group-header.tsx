@@ -54,7 +54,7 @@ export function PipelineStageGroupHeader({
   const { t } = useDictionary("pipeline");
   const Chevron = collapsed ? ChevronRight : ChevronDown;
   const stageName = getStageDisplayName(stage);
-  const dotColor = OPPORTUNITY_STAGE_COLORS[stage] ?? "#8A8A8A";
+  const dotColor = OPPORTUNITY_STAGE_COLORS[stage] ?? "var(--text-3)";
 
   return (
     <button
@@ -85,16 +85,16 @@ export function PipelineStageGroupHeader({
         className="h-[7px] w-[7px] shrink-0 rounded-full"
         style={{ backgroundColor: dotColor }}
       />
-      <span className="min-w-0 truncate font-cakemono text-[11px] font-light uppercase tracking-wider text-text">
+      <span className="min-w-0 truncate font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-text">
         {stageName}
       </span>
-      <span className="font-mono text-[11px] uppercase tracking-wider text-text-3">
+      <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
         {t("table.group.count").replace("{count}", formatNumber(count))}
       </span>
 
       {/* Rollups, pinned right. Always show numbers (incl. $0 / 0) — never the
           "—" sentinel, since a present group always has a defined total. */}
-      <span className="ml-auto flex shrink-0 items-center gap-3 pr-1 font-mono text-[11px] uppercase tabular-nums tracking-wider">
+      <span className="ml-auto flex shrink-0 items-center gap-3 pr-1 font-mono text-[11px] uppercase tabular-nums tracking-[0.16em]">
         <span className="flex items-center gap-1">
           <span className="text-text-mute">{t("table.group.value")}</span>
           <span className="text-text-2">{formatCurrency(sumValue)}</span>

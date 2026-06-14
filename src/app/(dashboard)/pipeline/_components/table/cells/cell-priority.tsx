@@ -11,7 +11,7 @@ export function CellPriority({ value }: { value: string | null }) {
     return <span className="font-mono tabular-nums text-text-3">—</span>;
   }
   return (
-    <span className="inline-flex items-center rounded-chip bg-fill-neutral-dim px-[6px] py-[2px] font-mono text-micro uppercase tracking-wider text-text-2">
+    <span className="inline-flex items-center rounded-chip bg-fill-neutral-dim px-[6px] py-[2px] font-mono text-micro uppercase tracking-[0.16em] text-text-2">
       {trimmed}
     </span>
   );

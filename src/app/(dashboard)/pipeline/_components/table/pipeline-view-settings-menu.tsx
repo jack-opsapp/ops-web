@@ -265,7 +265,7 @@ export function PipelineViewSettingsMenu({
             }}
             className="glass-dense absolute right-0 top-8 z-[1000] flex w-[220px] flex-col gap-1 rounded-modal border border-border p-1"
           >
-            <div className="flex items-center gap-1 border-b border-border px-2 py-1.5 font-mono text-micro uppercase tracking-wider text-text-3">
+            <div className="flex items-center gap-1 border-b border-border px-2 py-1.5 font-mono text-micro uppercase tracking-[0.16em] text-text-3">
               {badgeIcon}
               {badgeLabel}
             </div>
@@ -332,7 +332,7 @@ export function PipelineViewSettingsMenu({
         <DialogContent className="glass-dense max-w-[420px] rounded-modal p-0" hideClose>
           <form onSubmit={handleRename} className="flex flex-col">
             <DialogHeader className="border-b border-border px-3 py-2">
-              <DialogTitle className="flex items-center gap-2 font-cakemono text-[18px] font-light uppercase text-text">
+              <DialogTitle className="flex items-center gap-2 font-cakemono text-[22px] font-light uppercase text-text">
                 <Pencil className="h-4 w-4" />
                 {t("table.views.renameTitle")}
               </DialogTitle>
@@ -340,7 +340,7 @@ export function PipelineViewSettingsMenu({
 
             <div className="flex flex-col gap-2 px-3 py-3">
               <label htmlFor={inputId} className="flex flex-col gap-1">
-                <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+                <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
                   {t("table.views.nameLabel")}
                 </span>
                 <input
@@ -363,14 +363,14 @@ export function PipelineViewSettingsMenu({
             <DialogFooter className="border-t border-border px-3 py-2">
               <DialogClose
                 type="button"
-                className="rounded-[5px] px-3 py-1.5 font-cakemono text-[12px] font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                className="rounded-[5px] px-3 py-1.5 font-cakemono text-[14px] font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
               >
                 {t("table.views.cancel")}
               </DialogClose>
               <button
                 type="submit"
                 disabled={actions.renameView.isPending}
-                className="rounded-[5px] border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-[12px] font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
+                className="rounded-[5px] border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-[14px] font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
               >
                 {t("table.views.renameAction")}
               </button>
@@ -391,7 +391,7 @@ export function PipelineViewSettingsMenu({
       <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
         <AlertDialogContent className="glass-dense rounded-modal border border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-cakemono text-[18px] font-light uppercase text-text">
+            <AlertDialogTitle className="font-cakemono text-[22px] font-light uppercase text-text">
               {t("table.views.archiveTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>{t("table.views.archiveBody")}</AlertDialogDescription>
@@ -419,7 +419,7 @@ export function PipelineViewSettingsMenu({
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent className="glass-dense rounded-modal border border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-cakemono text-[18px] font-light uppercase text-text">
+            <AlertDialogTitle className="font-cakemono text-[22px] font-light uppercase text-text">
               {t("table.views.resetTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>{t("table.views.resetBody")}</AlertDialogDescription>

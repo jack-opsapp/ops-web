@@ -68,7 +68,7 @@ function BulkButton({
       onClick={onClick}
       className={cn(
         "inline-flex h-[32px] shrink-0 items-center gap-1 rounded-[5px] border border-border px-2",
-        "font-cakemono text-[12px] font-light uppercase text-text-2 transition-colors",
+        "font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors",
         "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         "disabled:pointer-events-none disabled:opacity-40",
         className,
@@ -229,7 +229,7 @@ export function PipelineBulkBar({
   return (
     <div className="glass-dense absolute bottom-3 left-1/2 z-[1500] flex h-[48px] max-w-[calc(100%-24px)] -translate-x-1/2 items-center overflow-visible rounded-modal border border-border px-3 py-2">
       <div className="flex h-[32px] min-w-0 items-center gap-2">
-        <div className="mr-1 flex shrink-0 items-center gap-2 font-mono text-micro uppercase tracking-wider text-text">
+        <div className="mr-1 flex shrink-0 items-center gap-2 font-mono text-micro uppercase tracking-[0.16em] text-text">
           <Check className="h-[14px] w-[14px] text-text-3" strokeWidth={1.5} />
           <span>{selectedCountLabel}</span>
         </div>

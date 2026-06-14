@@ -91,7 +91,7 @@ export function PipelineViewTabs({
   return (
     <div className="flex min-w-0 items-center gap-1 overflow-x-auto px-0 py-[4px]">
       {statusLabel ? (
-        <div className="shrink-0 px-2 py-1 font-mono text-micro uppercase tracking-wider text-text-3">
+        <div className="shrink-0 px-2 py-1 font-mono text-micro uppercase tracking-[0.16em] text-text-3">
           {statusLabel}
         </div>
       ) : (
@@ -102,7 +102,7 @@ export function PipelineViewTabs({
             <div
               key={view.id}
               className={cn(
-                "inline-flex h-[28px] shrink-0 items-center rounded-chip border font-mono text-[11px] uppercase tracking-wider transition-colors",
+                "inline-flex h-[28px] shrink-0 items-center rounded-chip border font-mono text-[11px] uppercase tracking-[0.16em] transition-colors",
                 active
                   ? "border-border bg-surface-active text-text"
                   : "border-border text-text-3 hover:text-text-2",
@@ -159,7 +159,7 @@ export function PipelineViewTabs({
       <button
         type="button"
         onClick={onCreateView}
-        className="ml-auto inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-border px-2 font-cakemono text-[12px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+        className="ml-auto inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-border px-2 font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
       >
         <Plus className="h-[12px] w-[12px]" strokeWidth={1.5} />
         {t("table.views.newView")}

@@ -133,7 +133,7 @@ export function CellStageAction({
           {STAGE_MENU_ORDER.map((option) => {
             const selected = option === stage;
             const color =
-              OPPORTUNITY_STAGE_COLORS[option] ?? "#8A8A8A";
+              OPPORTUNITY_STAGE_COLORS[option] ?? "var(--text-3)";
             return (
               <button
                 key={option}
@@ -142,7 +142,7 @@ export function CellStageAction({
                 aria-selected={selected}
                 onClick={(event) => handleSelect(event, option)}
                 className={cn(
-                  "flex w-full min-w-0 items-center gap-[6px] rounded-chip px-2 py-1.5 text-left font-mono text-micro uppercase tracking-wider transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                  "flex w-full min-w-0 items-center gap-[6px] rounded-chip px-2 py-1.5 text-left font-mono text-micro uppercase tracking-[0.16em] transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
                   selected ? "bg-surface-active text-text" : "text-text-2",
                 )}
               >
@@ -167,7 +167,7 @@ export function CellStageAction({
                   setOpen(false);
                   onConvert();
                 }}
-                className="flex w-full min-w-0 items-center gap-[6px] rounded-chip px-2 py-1.5 text-left font-mono text-micro uppercase tracking-wider text-text-2 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                className="flex w-full min-w-0 items-center gap-[6px] rounded-chip px-2 py-1.5 text-left font-mono text-micro uppercase tracking-[0.16em] text-text-2 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
               >
                 <span aria-hidden="true" className="text-text-mute">
                   {"//"}

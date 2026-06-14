@@ -40,7 +40,7 @@ export function CellDate({
       <AlertTriangle aria-hidden="true" className="size-3 shrink-0" strokeWidth={2} />
       <span className="font-mono tabular-nums">{formatDate(value)}</span>
       <span
-        className={cn("font-mono text-micro uppercase tracking-wider")}
+        className={cn("font-mono text-micro uppercase tracking-[0.16em]")}
         role="img"
         aria-label={ariaLabel}
       >

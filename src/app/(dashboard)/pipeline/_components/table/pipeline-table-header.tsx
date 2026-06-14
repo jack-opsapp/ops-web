@@ -72,7 +72,7 @@ export function PipelineTableHeader({
                     event.stopPropagation();
                     onToggleSelectAllVisible();
                   }}
-                  className="rounded-[3px]"
+                  className="rounded-chip"
                 />
               ) : null
             ) : (
@@ -81,7 +81,7 @@ export function PipelineTableHeader({
                 disabled={!column.sortable}
                 onClick={() => onSortChange(column)}
                 className={cn(
-                  "flex min-w-0 items-center gap-1 font-mono uppercase tracking-wider text-text-3",
+                  "flex min-w-0 items-center gap-1 font-mono uppercase tracking-[0.16em] text-text-3",
                   column.sortable && "hover:text-text-2",
                   sorted && "text-text",
                 )}

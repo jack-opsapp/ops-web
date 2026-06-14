@@ -87,7 +87,7 @@ export function PipelineUndoToast({
       <div aria-hidden className="w-1 shrink-0" style={{ backgroundColor: "var(--text-2)" }} />
       <div className="relative flex min-w-0 flex-1 flex-col gap-2 p-2.5">
         <div className="min-w-0">
-          <p className="font-mono text-micro uppercase tracking-wider text-text">
+          <p className="font-mono text-micro uppercase tracking-[0.16em] text-text">
             {t("table.undo.label")}
           </p>
           <p className="mt-0.5 truncate font-mohave text-body-sm text-text-2">{body}</p>
@@ -97,14 +97,14 @@ export function PipelineUndoToast({
           <button
             type="button"
             onClick={onUndo}
-            className="rounded-[5px] border border-border px-2 py-1 font-cakemono text-[12px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+            className="rounded-[5px] border border-border px-2 py-1 font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
           >
             {t("table.undo.action")}
           </button>
           <button
             type="button"
             onClick={onDismiss}
-            className="rounded-[5px] px-2 py-1 font-cakemono text-[12px] font-light uppercase text-text-mute transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+            className="rounded-[5px] px-2 py-1 font-cakemono text-[14px] font-light uppercase text-text-mute transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
           >
             {t("table.undo.dismiss")}
           </button>
