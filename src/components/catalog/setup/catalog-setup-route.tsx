@@ -24,12 +24,15 @@ import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useCatalogSetupStore } from "@/stores/catalog-setup-store";
 import { useInventoryMode } from "@/lib/hooks/use-inventory-mode";
+import { useOnlineStatus } from "@/lib/hooks/use-online-status";
 import {
   CommitError,
   useCommitCatalogSetup,
 } from "@/lib/hooks/use-commit-catalog-setup";
+import { commitsHeld } from "@/lib/catalog-setup/agent-fallback";
 import { catalogCommitToastMessage } from "@/lib/catalog-setup/commit/completion-notification";
 import { SetupWizardShell } from "@/components/catalog-setup/setup-wizard-shell";
+import { OfflineBanner } from "@/components/catalog-setup/offline-banner";
 import type { SetupSource } from "@/components/catalog-setup/DriverPane";
 import type { StepContext } from "@/lib/catalog-setup/step-machine";
 import type { StagingCard } from "@/lib/catalog-setup/staging-card";
@@ -80,6 +83,7 @@ export function CatalogSetupRoute() {
   const dispatch = useCatalogSetupStore((s) => s.dispatch);
   const reset = useCatalogSetupStore((s) => s.reset);
   const { data: inventory } = useInventoryMode();
+  const online = useOnlineStatus();
   const commit = useCommitCatalogSetup();
   const [driverMode, setDriverMode] = useState<"picker" | "conversation">(
     "picker",
@@ -98,6 +102,14 @@ export function CatalogSetupRoute() {
 
   const onBuild = useCallback(() => {
     if (commit.isPending) return;
+    // Hold the commit while offline — staged cards are safe client-side and the
+    // build goes through once connectivity returns (spec §16).
+    if (commitsHeld(online)) {
+      toast.error(
+        t("offline.held", "You're offline — your catalog is saved, build when you're back"),
+      );
+      return;
+    }
     commit.mutate(
       { sessionId: getSessionId(), cards },
       {
@@ -119,7 +131,7 @@ export function CatalogSetupRoute() {
         },
       },
     );
-  }, [commit, cards, reset, router, t]);
+  }, [commit, cards, reset, router, t, online]);
 
   const onSetupLater = useCallback(() => router.push("/catalog"), [router]);
 
@@ -148,16 +160,19 @@ export function CatalogSetupRoute() {
   };
 
   return (
-    <SetupWizardShell
-      context={context}
-      inventoryTracked={tracked}
-      driverMode={driverMode}
-      availableSources={AVAILABLE_SOURCES}
-      onPickSource={onPickSource}
-      onSwitchToGuided={() => setDriverMode("picker")}
-      onBuild={onBuild}
-      onSetupLater={onSetupLater}
-    />
+    <>
+      <OfflineBanner online={online} className="mx-[44px] mt-[20px]" />
+      <SetupWizardShell
+        context={context}
+        inventoryTracked={tracked}
+        driverMode={driverMode}
+        availableSources={AVAILABLE_SOURCES}
+        onPickSource={onPickSource}
+        onSwitchToGuided={() => setDriverMode("picker")}
+        onBuild={onBuild}
+        onSetupLater={onSetupLater}
+      />
+    </>
   );
 }
 

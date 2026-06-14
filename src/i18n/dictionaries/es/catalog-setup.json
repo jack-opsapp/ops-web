@@ -8,6 +8,9 @@
   "firstRun.later": "Configurar más tarde",
   "denied": "SIN ACCESO",
   "commitError": "No se pudo guardar el catálogo",
+  "offline.title": "Sin conexión",
+  "offline.detail": "[ la creación espera a que vuelvas — no se pierde nada ]",
+  "offline.held": "Estás sin conexión — tu catálogo está guardado, créalo cuando vuelvas",
 
   "rail.title": "// barra de módulos",
   "rail.hint": "[retoma donde lo dejaste]",

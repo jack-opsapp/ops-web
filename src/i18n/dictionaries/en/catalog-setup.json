@@ -8,6 +8,9 @@
   "firstRun.later": "Set up later",
   "denied": "NO ACCESS",
   "commitError": "Catalog commit failed",
+  "offline.title": "Offline",
+  "offline.detail": "[ build holds until you're back — nothing's lost ]",
+  "offline.held": "You're offline — your catalog is saved, build when you're back",
 
   "rail.title": "// module rail",
   "rail.hint": "[pick up where you left off]",
