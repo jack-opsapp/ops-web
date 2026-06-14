@@ -1,4 +1,14 @@
 {
+  "domains.you": "Cuenta",
+  "domains.team": "Equipo",
+  "domains.company": "Empresa",
+  "domains.financial": "Finanzas",
+  "domains.comms": "Comunicación",
+  "domains.advanced": "Avanzado",
+  "sections.members": "Miembros",
+  "sections.billing": "Facturación",
+  "sections.automation": "Automatización",
+
   "tabs.account": "Cuenta",
   "tabs.company": "Empresa",
   "tabs.operations": "Operaciones",
@@ -11,7 +21,7 @@
   "sections.profile": "Perfil",
   "sections.appearance": "Apariencia",
   "sections.shortcuts": "Atajos de teclado",
-  "sections.companyDetails": "Datos de la empresa",
+  "sections.companyDetails": "Datos",
   "sections.teamMembers": "Miembros del equipo",
   "sections.roles": "Roles",
   "sections.taskTypes": "Tipos de tarea",

@@ -1,4 +1,14 @@
 {
+  "domains.you": "You",
+  "domains.team": "Team",
+  "domains.company": "Company",
+  "domains.financial": "Financial",
+  "domains.comms": "Comms",
+  "domains.advanced": "Advanced",
+  "sections.members": "Members",
+  "sections.billing": "Billing",
+  "sections.automation": "Automation",
+
   "tabs.account": "Account",
   "tabs.company": "Company",
   "tabs.operations": "Operations",
@@ -11,7 +21,7 @@
   "sections.profile": "Profile",
   "sections.appearance": "Appearance",
   "sections.shortcuts": "Keyboard Shortcuts",
-  "sections.companyDetails": "Company Details",
+  "sections.companyDetails": "Details",
   "sections.teamMembers": "Team Members",
   "sections.roles": "Roles",
   "sections.taskTypes": "Task Types",
