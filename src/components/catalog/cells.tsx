@@ -84,7 +84,7 @@ export function InlineQtyCell({
         placeholder={fmtQty(value)}
         inputMode="numeric"
         className={cn(
-          "w-[68px] rounded-[5px] border border-[rgba(255,255,255,0.20)] bg-surface-input",
+          "w-[68px] rounded-[5px] border border-line-hi bg-surface-input",
           "px-2 py-[3px] text-right font-mono text-[13px] text-text tabular-nums",
           "focus:outline-none",
         )}
@@ -99,10 +99,10 @@ export function InlineQtyCell({
       onClick={onRequestEdit}
       title={editable ? "Click to count or +/- receive" : undefined}
       className={cn(
-        "inline-flex items-baseline gap-[3px] rounded-[3px] px-1 font-mono text-[13px] tabular-nums",
+        "inline-flex items-baseline gap-[3px] rounded-[4px] px-1 font-mono text-[13px] tabular-nums",
         STATUS_QTY_CLASS[status] ?? "text-text",
         editable &&
-          "cursor-text border-b border-dashed border-[rgba(255,255,255,0.14)] hover:bg-surface-hover",
+          "cursor-text border-b border-dashed border-fill-neutral hover:bg-surface-hover",
       )}
     >
       {fmtQty(value)}
@@ -170,7 +170,7 @@ export function InlineMoneyCell({
         onBlur={() => onCommit(parseMoneyInput(draft))}
         inputMode="decimal"
         className={cn(
-          "w-[72px] rounded-[5px] border border-[rgba(255,255,255,0.20)] bg-surface-input",
+          "w-[72px] rounded-[5px] border border-line-hi bg-surface-input",
           "px-2 py-[3px] text-right font-mono text-[13px] text-text tabular-nums",
           "focus:outline-none",
         )}
@@ -185,7 +185,7 @@ export function InlineMoneyCell({
       disabled={!editable}
       onClick={onRequestEdit}
       className={cn(
-        "rounded-[3px] px-1 font-mono text-[13px] tabular-nums",
+        "rounded-[4px] px-1 font-mono text-[13px] tabular-nums",
         isEmpty
           ? emptyTone === "rose"
             ? "text-rose"
@@ -194,7 +194,7 @@ export function InlineMoneyCell({
             ? "text-text-3"
             : "text-text",
         editable &&
-          "cursor-text border-b border-dashed border-[rgba(255,255,255,0.14)] hover:bg-surface-hover",
+          "cursor-text border-b border-dashed border-fill-neutral hover:bg-surface-hover",
       )}
     >
       {fmtMoneyPrecise(value)}

@@ -84,7 +84,7 @@ export function ManageModal({
 
 function RowShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.05)] py-1.5 last:border-b-0">
+    <div className="flex items-center gap-2 border-b border-border-subtle py-1.5 last:border-b-0">
       {children}
     </div>
   );
@@ -290,7 +290,7 @@ function ThresholdsPanel() {
                 if (v !== c.defaultWarningThreshold)
                   update.mutate({ id: c.id, patch: { defaultWarningThreshold: v } });
               }}
-              className="w-[72px] rounded-[5px] border border-border bg-surface-input px-2 py-1 text-right font-mono text-[12px] text-text tabular-nums focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
+              className="w-[72px] rounded-[5px] border border-border bg-surface-input px-2 py-1 text-right font-mono text-[12px] text-text tabular-nums focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
             />
             <input
               type="number"
@@ -300,7 +300,7 @@ function ThresholdsPanel() {
                 if (v !== c.defaultCriticalThreshold)
                   update.mutate({ id: c.id, patch: { defaultCriticalThreshold: v } });
               }}
-              className="w-[72px] rounded-[5px] border border-border bg-surface-input px-2 py-1 text-right font-mono text-[12px] text-text tabular-nums focus:border-[rgba(255,255,255,0.2)] focus:outline-none"
+              className="w-[72px] rounded-[5px] border border-border bg-surface-input px-2 py-1 text-right font-mono text-[12px] text-text tabular-nums focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
             />
           </RowShell>
         ))}

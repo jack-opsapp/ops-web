@@ -181,7 +181,7 @@ export function StockDrawer({
               }}
               onBlur={commitCost}
               inputMode="decimal"
-              className="w-[80px] rounded-[5px] border border-[rgba(255,255,255,0.20)] bg-surface-input px-2 py-[2px] text-right font-mono text-[12px] text-text tabular-nums focus:outline-none"
+              className="w-[80px] rounded-[5px] border border-line-hi bg-surface-input px-2 py-[2px] text-right font-mono text-[12px] text-text tabular-nums focus:outline-none"
             />
           ) : (
             <button
@@ -191,7 +191,7 @@ export function StockDrawer({
               className={cn(
                 "font-mono text-[12px] tabular-nums",
                 row.effectiveCost == null ? "text-rose" : "text-text-2",
-                canManage && "border-b border-dashed border-[rgba(255,255,255,0.14)] hover:bg-surface-hover",
+                canManage && "border-b border-dashed border-fill-neutral hover:bg-surface-hover",
               )}
             >
               {fmtMoneyPrecise(row.effectiveCost)}
@@ -225,7 +225,7 @@ export function StockDrawer({
       {usedIn.length > 0 && (
         <Section title={t("drawer.usedIn", "USED IN")}>
           {usedIn.map((u) => (
-            <span key={u.productId} className="block py-[3px] font-mohave text-[13px] text-text-2">
+            <span key={u.productId} className="block py-[3px] font-mohave text-[14px] text-text-2">
               {u.productName} →
             </span>
           ))}
