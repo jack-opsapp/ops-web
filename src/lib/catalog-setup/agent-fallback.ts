@@ -30,11 +30,7 @@ export function commitsHeld(online: boolean): boolean {
   return !online;
 }
 
-/**
- * The no-data-loss guarantee: an agent failure mid-session returns the exact
- * set of already-accepted cards, untouched (same reference). The owner keeps
- * every row they accepted and simply continues on the guided path.
- */
-export function preserveAcceptedOnFailure<T>(prevAccepted: T): T {
-  return prevAccepted;
-}
+// No-data-loss on agent failure is structural, not a helper: accepted cards live
+// in the persisted Zustand store, independent of the agent mutation, so a failed
+// (or unavailable) agent never touches them — the route just flips the driver to
+// guided via resolveDriver and the canvas is untouched.

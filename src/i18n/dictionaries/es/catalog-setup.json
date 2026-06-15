@@ -31,7 +31,7 @@
   "agent.added": "Agregados {n} — revisa y edita",
   "agent.none": "No pude sacar nada de eso — describe qué vendes",
   "agent.unavailable": "La configuración guiada no está disponible — agrégalo manualmente",
-  "agent.error": "No se pudo generar — inténtalo de nuevo",
+  "agent.error": "No se pudo generar — se cambió a configuración guiada",
   "driver.convo.generating": "En ello — armando tu catálogo…",
 
   "rail.title": "// barra de módulos",

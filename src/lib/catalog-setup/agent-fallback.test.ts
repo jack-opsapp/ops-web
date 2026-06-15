@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  commitsHeld,
-  preserveAcceptedOnFailure,
-  resolveDriver,
-} from "./agent-fallback";
+import { commitsHeld, resolveDriver } from "./agent-fallback";
 
 describe("resolveDriver", () => {
   it("uses the agent when online + enabled + no error", () => {
@@ -32,12 +28,5 @@ describe("commitsHeld", () => {
   it("holds commits while offline", () => {
     expect(commitsHeld(false)).toBe(true);
     expect(commitsHeld(true)).toBe(false);
-  });
-});
-
-describe("preserveAcceptedOnFailure", () => {
-  it("returns the already-accepted set untouched (no data loss)", () => {
-    const accepted = [{ id: "a" }, { id: "b" }];
-    expect(preserveAcceptedOnFailure(accepted)).toBe(accepted);
   });
 });

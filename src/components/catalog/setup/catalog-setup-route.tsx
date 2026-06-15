@@ -40,7 +40,7 @@ import {
   AgentUnavailableError,
   useSetupAgent,
 } from "@/lib/hooks/use-setup-agent";
-import { commitsHeld } from "@/lib/catalog-setup/agent-fallback";
+import { commitsHeld, resolveDriver } from "@/lib/catalog-setup/agent-fallback";
 import { buildStepPlan, type StepContext } from "@/lib/catalog-setup/step-machine";
 import { entryAllowed, isStepAccessible } from "@/lib/catalog-setup/step-gates";
 import { deriveBlockingPrerequisite } from "@/lib/catalog-setup/prerequisites";
@@ -138,6 +138,10 @@ export function CatalogSetupRoute() {
   const [qbSummary, setQbSummary] = useState<{ pulled: number; matched: number } | null>(null);
   const [qbErrorKind, setQbErrorKind] = useState<"generic" | "reconnect">("generic");
   const [turns, setTurns] = useState<string[]>([]);
+  // Once the agent fails mid-session, it stays failed for the session: the driver
+  // falls to the deterministic guided path and the "describe" lane is withdrawn so
+  // the owner can't re-hit a broken agent (spec §16 "agent failure mid-session").
+  const [agentErrored, setAgentErrored] = useState(false);
   const [inventoryPromptOpen, setInventoryPromptOpen] = useState(false);
   const inventoryPromptShownRef = useRef(false);
 
@@ -147,6 +151,22 @@ export function CatalogSetupRoute() {
   // route never re-implements the permission matrix.
   const allowed = entryAllowed(can);
   const tracked = inventory?.tracked ?? false;
+
+  // The agent drives only while online, enabled, and not already failed this
+  // session; otherwise the deterministic lanes take over and "describe" is hidden
+  // so the lane is never a dead 503/repeat-failure (agent-fallback contract).
+  const agentDriver = resolveDriver({
+    online,
+    agentEnabled: AGENT_ENABLED,
+    agentErrored,
+  });
+  const availableSources = useMemo(
+    () =>
+      agentDriver === "agent"
+        ? AVAILABLE_SOURCES
+        : AVAILABLE_SOURCES.filter((s) => s !== "describe"),
+    [agentDriver],
+  );
 
   // ── Prerequisite gate (spec §16) — never a crash, always a calm reason ───────
   // companyExists + baselineSeeded are the live signals that actually gate a
@@ -397,14 +417,16 @@ export function CatalogSetupRoute() {
             }
           },
           onError: (err) => {
-            if (err instanceof AgentUnavailableError) {
-              toast.error(
-                t("agent.unavailable", "Guided setup is unavailable — add manually"),
-              );
-              setDriverMode("picker");
-            } else {
-              toast.error(err.message || t("agent.error", "Couldn't generate — try again"));
-            }
+            // Either failure mode withdraws the agent for the rest of the session
+            // and drops the owner back to the deterministic source picker — no
+            // re-hitting a broken/unavailable agent.
+            setAgentErrored(true);
+            setDriverMode("picker");
+            toast.error(
+              err instanceof AgentUnavailableError
+                ? t("agent.unavailable", "Guided setup is unavailable — add manually")
+                : t("agent.error", "Couldn't generate — switched to guided setup"),
+            );
           },
         },
       );
@@ -516,7 +538,7 @@ export function CatalogSetupRoute() {
         inventoryTracked={tracked}
         existingRows={existingRows}
         driverMode={driverMode}
-        availableSources={AVAILABLE_SOURCES}
+        availableSources={availableSources}
         onPickSource={onPickSource}
         onPickTrade={onPickTrade}
         onUpload={onUpload}
@@ -527,7 +549,7 @@ export function CatalogSetupRoute() {
         onPullQuickBooks={onPullQuickBooks}
         onConnectQuickBooks={onConnectQuickBooks}
         onSwitchToGuided={() => setDriverMode("picker")}
-        onSend={AGENT_ENABLED ? onSend : undefined}
+        onSend={agentDriver === "agent" ? onSend : undefined}
         agentBusy={agent.isPending}
         conversationTurns={turns}
         onBuild={onBuild}
