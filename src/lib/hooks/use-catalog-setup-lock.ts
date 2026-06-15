@@ -38,6 +38,25 @@ const HEARTBEAT_MS = 30_000;
 
 const LOCK_TABLE = "catalog_setup_session_locks";
 
+const LOCK_SESSION_KEY = "ops-catalog-setup-lock-session";
+
+/**
+ * Per-TAB stable lock session id (sessionStorage). A page reload re-reads the same
+ * id, so the operator reclaims their OWN still-fresh lock row (isHeldByOther is
+ * false for a matching id) instead of minting a new id that reads the orphan as
+ * held-by-other and walls the sole operator out of their own setup for up to the
+ * 120s TTL. A genuinely separate tab gets its own sessionStorage → its own id, so
+ * the one-session-per-company guard still holds.
+ */
+function getOrCreateLockSessionId(): string {
+  if (typeof window === "undefined") return buildSessionId();
+  const existing = window.sessionStorage.getItem(LOCK_SESSION_KEY);
+  if (existing) return existing;
+  const minted = buildSessionId();
+  window.sessionStorage.setItem(LOCK_SESSION_KEY, minted);
+  return minted;
+}
+
 interface LockRow {
   session_id: string;
   heartbeat_at: string;
@@ -107,7 +126,7 @@ export function useCatalogSetupLock(): CatalogSetupLock {
   const [heldByOther, setHeldByOther] = useState(false);
   const [ready, setReady] = useState(!LOCK_ENABLED || !companyId);
   const sessionIdRef = useRef<string | null>(null);
-  if (sessionIdRef.current === null) sessionIdRef.current = buildSessionId();
+  if (sessionIdRef.current === null) sessionIdRef.current = getOrCreateLockSessionId();
 
   useEffect(() => {
     if (!LOCK_ENABLED || !companyId) {
@@ -138,16 +157,20 @@ export function useCatalogSetupLock(): CatalogSetupLock {
       }
     })();
 
-    // Best-effort release on tab close (the TTL self-heals if this is missed).
+    // Best-effort release on tab close. pagehide covers mobile Safari / bfcache
+    // where beforeunload never fires; the TTL self-heals if both are missed, and
+    // the persisted per-tab session id lets a reload reclaim its own row anyway.
     const onUnload = () => {
       void releaseSessionLock(store, companyId, mySession);
     };
     window.addEventListener("beforeunload", onUnload);
+    window.addEventListener("pagehide", onUnload);
 
     return () => {
       cancelled = true;
       if (interval) clearInterval(interval);
       window.removeEventListener("beforeunload", onUnload);
+      window.removeEventListener("pagehide", onUnload);
       void releaseSessionLock(store, companyId, mySession);
     };
   }, [companyId, userId]);
