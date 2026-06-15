@@ -237,6 +237,15 @@ const config: Config = {
         "data-lg": ["20px", { lineHeight: "1.2", fontWeight: "600" }],
         "data": ["16px", { lineHeight: "1.3", fontWeight: "400" }],
         "data-sm": ["13px", { lineHeight: "1.3", fontWeight: "400" }],
+        // Cake Mono display (uppercase, weight 300 ONLY) — the three sanctioned
+        // Cake roles: display (page titles / section headers), button (buttons /
+        // card titles / form labels), badge. Size + weight 300 baked, NO
+        // line-height, so `font-cakemono text-cake-*` renders byte-identically to
+        // the legacy `font-light text-[Npx]` it replaces. Always pair with
+        // `font-cakemono`; never use the weight-baked Mohave tokens for Cake.
+        "cake-display": ["22px", { fontWeight: "300" }],
+        "cake-button": ["14px", { fontWeight: "300" }],
+        "cake-badge": ["11px", { fontWeight: "300" }],
       },
 
       // === Spacing (8-point grid) ===
