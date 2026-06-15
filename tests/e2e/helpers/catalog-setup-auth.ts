@@ -49,6 +49,11 @@ export interface WizardFixtures {
   productCount?: number;
   /** Whether the company already has stock variants. */
   stockCount?: number;
+  /**
+   * Live `products` rows the upload dedupe matches against. Default empty (0/0
+   * takeover); seed a SKU-matching row to exercise the re-import merge path.
+   */
+  existingProducts?: JsonRecord[];
   /** `company_inventory_settings.inventory_mode` — "off" hides the STOCK module. */
   inventoryMode?: "off" | "tracked";
   /** `company_settings.catalog_setup_completed_at` — non-null suppresses takeover. */
@@ -65,6 +70,7 @@ export function createFixtures(overrides: Partial<WizardFixtures> = {}): WizardF
     stockCount: 0,
     inventoryMode: "off",
     catalogSetupCompletedAt: null,
+    existingProducts: [],
     commitCalls: [],
     analyticsInserts: [],
     ...overrides,
@@ -402,6 +408,29 @@ export async function mockWizardRoutes(
       return;
     }
 
+    // HEAD count reads (useBaselineSeeded uses `head:true,count:exact`). The
+    // prerequisite gate refuses to run the wizard until task_types AND
+    // catalog_units exist; report a seeded baseline so the gate opens. The count
+    // rides in the Content-Range total; the body is empty for a HEAD.
+    if (method === "HEAD") {
+      const total =
+        table === "task_types" || table === "catalog_units" ? 1 : 0;
+      await route.fulfill({
+        status: 206,
+        contentType: "application/json",
+        headers: {
+          "content-range": `*/${total}`,
+          "range-unit": "items",
+          // Content-Range is a CORS-protected response header; the count read
+          // (head:true,count:exact) only sees it cross-origin if it's exposed.
+          "access-control-allow-origin": "*",
+          "access-control-expose-headers": "content-range, range-unit",
+        },
+        body: "",
+      });
+      return;
+    }
+
     // Other inserts/rpc → benign empty success.
     if (method !== "GET") {
       await fulfillJson(route, []);
@@ -433,7 +462,35 @@ export async function mockWizardRoutes(
       return;
     }
 
-    // products / catalog_* / everything else → empty so the 0/0 takeover shows.
+    if (table === "products") {
+      // Both the launcher's count read and the wizard's dedupe read hit this;
+      // default empty keeps the 0/0 takeover, a seeded row drives the merge path.
+      await fulfillRange(route, fixtures.existingProducts ?? []);
+      return;
+    }
+
+    // Baseline primitives — the prerequisite gate refuses to run the wizard
+    // until task_types AND catalog_units exist (useBaselineSeeded count reads).
+    // A provisioned company always has these; seed one row each so the gate
+    // opens (without them the wizard shell never renders).
+    if (table === "task_types") {
+      await fulfillRange(route, [
+        { id: "00000000-0000-4000-8000-0000000000a1" },
+      ]);
+      return;
+    }
+    if (table === "catalog_units") {
+      await fulfillRange(route, [
+        {
+          id: "00000000-0000-4000-8000-0000000000a2",
+          display: "ea",
+          abbreviation: "ea",
+        },
+      ]);
+      return;
+    }
+
+    // catalog_* / everything else → empty so the 0/0 takeover shows.
     await fulfillRange(route, []);
   });
 
