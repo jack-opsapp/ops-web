@@ -100,15 +100,37 @@ export interface CanvasPaneProps {
   className?: string;
 }
 
-/** Build the per-field old→new diff for a merge (duplicate) SELL card. */
-function buildDiff(
+export interface DiffLabels {
+  name: string;
+  price: string;
+  cost: string;
+  taxable: string;
+  taxableYes: string;
+  taxableNo: string;
+}
+
+/**
+ * Build the per-field old→new diff for a merge (duplicate) SELL card. Covers
+ * every field a MERGE overwrites on the live row — name, price, cost, taxable —
+ * not just price/cost: a re-import that renames or re-taxes a matched product
+ * must SHOW that change before BUILD IT applies it (the panel only renders when
+ * there's at least one diff row, so a pure rename was previously silent).
+ */
+export function buildDiff(
   card: StagingCard,
   existing: SellFields | undefined,
-  labels: { price: string; cost: string },
+  labels: DiffLabels,
 ): DiffField[] {
   if (!existing || card.module !== "sell") return [];
   const incoming = card.fields;
   const out: DiffField[] = [];
+  if ((incoming.name ?? "") !== (existing.name ?? "")) {
+    out.push({
+      label: labels.name,
+      oldValue: existing.name ?? "—",
+      newValue: incoming.name ?? "—",
+    });
+  }
   if (incoming.defaultPrice !== existing.defaultPrice) {
     out.push({
       label: labels.price,
@@ -121,6 +143,13 @@ function buildDiff(
       label: labels.cost,
       oldValue: formatMoney(existing.unitCost),
       newValue: formatMoney(incoming.unitCost),
+    });
+  }
+  if (incoming.isTaxable !== existing.isTaxable) {
+    out.push({
+      label: labels.taxable,
+      oldValue: existing.isTaxable ? labels.taxableYes : labels.taxableNo,
+      newValue: incoming.isTaxable ? labels.taxableYes : labels.taxableNo,
     });
   }
   return out;
@@ -151,7 +180,14 @@ export function CanvasPane({
   const m = useCatalogSetupMotion();
 
   const diffLabels = useMemo(
-    () => ({ price: t("data.price", "PRICE"), cost: t("data.cost", "COST") }),
+    () => ({
+      name: t("data.name", "NAME"),
+      price: t("data.price", "PRICE"),
+      cost: t("data.cost", "COST"),
+      taxable: t("data.taxable", "TAX"),
+      taxableYes: t("data.taxableYes", "taxable"),
+      taxableNo: t("data.taxableNo", "not taxable"),
+    }),
     [t],
   );
 

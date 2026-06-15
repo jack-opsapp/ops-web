@@ -110,6 +110,10 @@
 
   "data.cost": "COSTO",
   "data.price": "PRECIO",
+  "data.name": "NOMBRE",
+  "data.taxable": "IMP",
+  "data.taxableYes": "con impuesto",
+  "data.taxableNo": "sin impuesto",
   "data.margin": "MARGEN",
   "data.onHand": "A LA MANO",
   "data.reorder": "REORDENAR",

@@ -110,6 +110,10 @@
 
   "data.cost": "COST",
   "data.price": "PRICE",
+  "data.name": "NAME",
+  "data.taxable": "TAX",
+  "data.taxableYes": "taxable",
+  "data.taxableNo": "not taxable",
   "data.margin": "MARGIN",
   "data.onHand": "ON HAND",
   "data.reorder": "REORDER",
