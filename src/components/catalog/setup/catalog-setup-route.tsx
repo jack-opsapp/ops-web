@@ -22,8 +22,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { SubscriptionStatus } from "@/lib/types/models";
 import { useCatalogSetupStore } from "@/stores/catalog-setup-store";
 import { useInventoryMode } from "@/lib/hooks/use-inventory-mode";
+import { useBaselineSeeded } from "@/lib/hooks/use-baseline-seeded";
 import { useOnlineStatus } from "@/lib/hooks/use-online-status";
 import { useCatalogSetupAnalytics } from "@/lib/hooks/use-catalog-setup-analytics";
 import {
@@ -37,10 +40,12 @@ import {
 import { commitsHeld } from "@/lib/catalog-setup/agent-fallback";
 import { buildStepPlan, type StepContext } from "@/lib/catalog-setup/step-machine";
 import { entryAllowed, isStepAccessible } from "@/lib/catalog-setup/step-gates";
+import { deriveBlockingPrerequisite } from "@/lib/catalog-setup/prerequisites";
 import { blankCard } from "@/lib/catalog-setup/blank-cards";
 import { catalogCommitToastMessage } from "@/lib/catalog-setup/commit/completion-notification";
 import { SetupWizardShell } from "@/components/catalog-setup/setup-wizard-shell";
 import { OfflineBanner } from "@/components/catalog-setup/offline-banner";
+import { PrerequisiteGate } from "@/components/catalog-setup/prerequisite-gate";
 import { InventoryOffPrompt } from "@/components/catalog-setup/inventory-off-prompt";
 import { useSetInventoryMode } from "@/lib/hooks/use-set-inventory-mode";
 import type { SetupSource } from "@/components/catalog-setup/DriverPane";
@@ -78,10 +83,12 @@ export function CatalogSetupRoute() {
   const { t } = useDictionary("catalog-setup");
   const router = useRouter();
   const can = usePermissionStore((s) => s.can);
+  const company = useAuthStore((s) => s.company);
   const cards = useCatalogSetupStore((s) => s.cards);
   const dispatch = useCatalogSetupStore((s) => s.dispatch);
   const reset = useCatalogSetupStore((s) => s.reset);
   const { data: inventory } = useInventoryMode();
+  const { data: baseline } = useBaselineSeeded();
   const online = useOnlineStatus();
   const commit = useCommitCatalogSetup();
   const agent = useSetupAgent();
@@ -99,6 +106,28 @@ export function CatalogSetupRoute() {
   // route never re-implements the permission matrix.
   const allowed = entryAllowed(can);
   const tracked = inventory?.tracked ?? false;
+
+  // ── Prerequisite gate (spec §16) — never a crash, always a calm reason ───────
+  // companyExists + baselineSeeded are the live signals that actually gate a
+  // brand-new / mid-provisioning company. The catalog surface is, by
+  // construction, deployed when this route renders (it lives inside /catalog),
+  // and an expired-subscription lockout is enforced app-wide before any
+  // dashboard route — both are defensive here. Inputs fail OPEN while loading
+  // (baseline undefined → treated present) so a legitimate operator never sees a
+  // flash of the gate.
+  const blocker = useMemo(
+    () =>
+      deriveBlockingPrerequisite({
+        companyExists: !!company?.id,
+        baselineSeeded: baseline ?? true,
+        catalogSurfaceDeployed: true,
+        subscriptionLocked:
+          company?.subscriptionStatus === SubscriptionStatus.Expired ||
+          company?.subscriptionStatus === SubscriptionStatus.Cancelled,
+      }),
+    [company?.id, company?.subscriptionStatus, baseline],
+  );
+
   const context: StepContext = useMemo(
     () => ({
       inventoryTracked: tracked,
@@ -280,7 +309,11 @@ export function CatalogSetupRoute() {
   }
 
   return (
-    <>
+    <PrerequisiteGate
+      blocker={blocker}
+      onReload={() => window.location.reload()}
+      onExit={() => router.push("/catalog")}
+    >
       <OfflineBanner online={online} className="mx-[44px] mt-[20px]" />
       <SetupWizardShell
         context={context}
@@ -303,7 +336,7 @@ export function CatalogSetupRoute() {
         onTrack={onTrackInventory}
         onKeepAsProducts={onKeepAsProducts}
       />
-    </>
+    </PrerequisiteGate>
   );
 }
 
