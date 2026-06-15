@@ -121,7 +121,7 @@ This structure is the answer to the data-model trap: import, agent, template, an
 | **Upload a spreadsheet (CSV/XLSX)** | deterministic mapper | port iOS `CatalogCSVMapper` (family-grouping, header alias auto-map, name→category/unit resolution) → cards | logic exists in Swift; web port NET-NEW |
 | **Upload a document / photo** | agent extraction | the always-on Setup Agent reads a PDF price list / photo of a parts list / pasted text → cards | NET-NEW (agent capability) |
 | **Describe it to the agent** | agent generation | conversational generate + enrich | NET-NEW (agent) |
-| **Start from a template** | per-trade preset | the offline/decline floor — a curated per-trade starter the owner trims | preset content NET-NEW |
+| **Start from a template** | per-trade preset | the offline/decline floor — a curated per-trade starter the owner trims | **BUILT 2026-06-14** — `trade-picker` mode in `DriverPane` over `WIZARD_TRADES`; `selectTradeTemplate` stages a trade card + task-type cards + SELL seeds (all `proposed`). Building blocks committed; route/shell/i18n wiring held (parallel-session commingle). |
 | **Add manually** | direct entry | reuse `ProductQuickAdd` / `AddStockDialog` / inline-create pickers | EXISTS |
 
 Uploads **auto-route**: a clean CSV/XLSX goes to the deterministic mapper (exact, instant, free, handles hundreds of rows); a messy doc/photo goes to the agent. The owner never picks a lane — they just hand over what they have.
