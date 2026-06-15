@@ -607,6 +607,8 @@ Steps:
 
 ### Task 2.13: `template-source.tsx` — trade picker → editable starter cards (UI)
 
+> **SHIPPED 2026-06-14 — implemented as a DriverPane `mode:"trade-picker"`, not a standalone `template-source.tsx`.** The converged Phase-1 surface routes every source through the DriverPane's left-pane modes, so the trade picker lives there (single-select `WIZARD_TRADES` grid, olive selected state, count preview via `previewTradeTemplate`, secondary confirm, back → source picker) with `onPickTrade` threaded route→shell→DriverPane. `selectTradeTemplate` also now emits a leading trade card (`isTrade`). Building blocks committed (`fe4ef016`/`aad82eff`/`4ea117fb`); route/shell/i18n wiring held in the working tree (parallel-session commingle).
+
 Trade picker over `WIZARD_TRADES`; selecting a trade runs `selectTradeTemplate(tradeId)` and pushes the editable starter cards to the canvas (the owner trims on the canvas — no separate edit grid here). The offline/declined floor.
 
 **Skills:** `interface-design`, `frontend-design`, `ops-copywriter`, `audit-design-system`.
