@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -15,7 +16,7 @@ import {
 } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTeamMembers } from "@/lib/hooks/use-users";
-import { useInvoices, useProjectMetrics, useTasks, useEstimates } from "@/lib/hooks";
+import { useInvoices, useProjectMetrics, useTasks, useEstimates, useMapMetrics } from "@/lib/hooks";
 import { MetricsHeader } from "@/components/metrics";
 import {
   type Project,
@@ -50,7 +51,8 @@ import { ProjectDragOverlay } from "./_components/project-drag-overlay";
 import { ProjectMarqueeSelect, isCardInMarquee } from "./_components/project-marquee-select";
 import { ProjectContextMenu } from "./_components/project-context-menu";
 import { ProjectArchiveTray } from "./_components/project-archive-tray";
-import { ProjectFloatingToolbar } from "./_components/project-floating-toolbar";
+import { ProjectFloatingToolbar, type ProjectsViewMode } from "./_components/project-floating-toolbar";
+import { ProjectMapView } from "./_components/map/project-map-view";
 import { ProjectDragConfirmation } from "./_components/project-drag-confirmation";
 import { ProjectSpreadsheet } from "./_components/project-spreadsheet";
 import { ProjectsTableShell } from "./_components/table-v2/projects-table-shell";
@@ -162,6 +164,10 @@ const ProjectCardWrapper = memo(function ProjectCardWrapper({
 
 // ── Main Page ──
 
+function isProjectsViewMode(v: string | null): v is ProjectsViewMode {
+  return v === "canvas" || v === "spreadsheet" || v === "map";
+}
+
 export default function ProjectsPage() {
   usePageTitle("Projects");
   const { t } = useDictionary("projects-canvas");
@@ -175,6 +181,7 @@ export default function ProjectsPage() {
   const canCreateTasks = can("tasks.create");
   const canRecordPayment = can("accounting.edit");
   const canDelete = can("projects.delete");
+  const canViewMap = can("map.view");
   const projectsTableV2Enabled = useProjectsTableV2Flag();
 
   // ── Data fetching ──
@@ -185,6 +192,7 @@ export default function ProjectsPage() {
   const { data: estimatesData } = useEstimates();
   const { data: tasksData } = useTasks();
   const { data: projectMetrics } = useProjectMetrics();
+  const { data: mapMetrics = [], isLoading: mapMetricsLoading } = useMapMetrics();
   const updateStatusMutation = useUpdateProjectStatus();
   const deleteProjectMutation = useDeleteProject();
 
@@ -199,19 +207,42 @@ export default function ProjectsPage() {
   const startDrag = useProjectCanvasStore((s) => s.startDrag);
   const endDrag = useProjectCanvasStore((s) => s.endDrag);
 
-  // ── View mode ──
-  const storedViewModeRef = useRef<"canvas" | "spreadsheet" | null>(null);
-  const [viewMode, setViewModeState] = useState<"canvas" | "spreadsheet">(() => {
+  // ── View mode (canvas / spreadsheet / map) — URL-addressable via ?view= ──
+  // The /map → /projects?view=map absorption redirect lands here, so the URL
+  // param is the source of truth when present; localStorage holds the default.
+  const searchParams = useSearchParams();
+  const resolveMode = useCallback(
+    (mode: ProjectsViewMode): ProjectsViewMode => (mode === "map" && !canViewMap ? "canvas" : mode),
+    [canViewMap],
+  );
+
+  const storedViewModeRef = useRef<ProjectsViewMode | null>(null);
+  const [viewMode, setViewModeState] = useState<ProjectsViewMode>(() => {
     if (typeof window === "undefined") return "canvas";
+    const urlView = new URLSearchParams(window.location.search).get("view");
+    if (isProjectsViewMode(urlView)) {
+      storedViewModeRef.current = urlView;
+      return urlView === "map" && !canViewMap ? "canvas" : urlView;
+    }
     const stored = localStorage.getItem("ops_projects_view_mode");
-    if (stored === "canvas" || stored === "spreadsheet") {
+    if (isProjectsViewMode(stored)) {
       storedViewModeRef.current = stored;
-      return stored;
+      return stored === "map" && !canViewMap ? "canvas" : stored;
     }
     return "canvas";
   });
   const [spreadsheetStatusFilter, setSpreadsheetStatusFilter] = useState<"active" | "archived" | "closed">("active");
   const [spreadsheetSelectedIds, setSpreadsheetSelectedIds] = useState<Set<string>>(new Set());
+
+  // Sync from the URL (?view= redirect landing, back/forward, late permission
+  // hydration). URL-driven changes do not persist — only explicit toggles do.
+  useEffect(() => {
+    const urlView = searchParams.get("view");
+    if (!isProjectsViewMode(urlView)) return;
+    const resolved = resolveMode(urlView);
+    storedViewModeRef.current = resolved;
+    setViewModeState((cur) => (cur === resolved ? cur : resolved));
+  }, [searchParams, resolveMode]);
 
   useEffect(() => {
     if (!projectsTableV2Enabled || typeof window === "undefined") return;
@@ -221,17 +252,20 @@ export default function ProjectsPage() {
     setViewModeState("spreadsheet");
   }, [projectsTableV2Enabled]);
 
-  const setViewMode = useCallback((nextViewMode: "canvas" | "spreadsheet") => {
+  const setViewMode = useCallback((nextViewMode: ProjectsViewMode) => {
     storedViewModeRef.current = nextViewMode;
     if (typeof window !== "undefined") {
       localStorage.setItem("ops_projects_view_mode", nextViewMode);
+      const url = new URL(window.location.href);
+      url.searchParams.set("view", nextViewMode);
+      window.history.replaceState(window.history.state, "", url.toString());
     }
     setViewModeState(nextViewMode);
   }, []);
 
-  // Clear spreadsheet selection when switching to canvas
+  // Clear spreadsheet selection when leaving the spreadsheet.
   useEffect(() => {
-    if (viewMode === "canvas") setSpreadsheetSelectedIds(new Set());
+    if (viewMode !== "spreadsheet") setSpreadsheetSelectedIds(new Set());
   }, [viewMode]);
 
   // ── Local state ──
@@ -693,6 +727,39 @@ export default function ProjectsPage() {
     ? selectedCount
     : 1;
 
+  // ── Shared toolbar props — same workbar in the floating HUD (canvas /
+  //    legacy spreadsheet) and the map top-bar; the toolbar shows mode-
+  //    appropriate tools off `viewMode`. ──
+  const sharedToolbarProps = {
+    searchQuery,
+    onSearchChange: setSearchQuery,
+    teamMembers: teamMemberList,
+    clients: clientList,
+    selectedMemberId,
+    onMemberFilterChange: setSelectedMemberId,
+    selectedClientId,
+    onClientFilterChange: setSelectedClientId,
+    canViewAccounting,
+    canManage,
+    canDelete,
+    canViewMap,
+    viewMode,
+    onViewModeChange: setViewMode,
+    onArchivedToggle: viewMode === "canvas"
+      ? () => useProjectCanvasStore.getState().toggleArchiveTray()
+      : () => setSpreadsheetStatusFilter((prev) => (prev === "archived" ? "active" : "archived")),
+    isArchivedActive: viewMode === "canvas"
+      ? useProjectCanvasStore.getState().isArchiveTrayOpen
+      : spreadsheetStatusFilter === "archived",
+    onClosedToggle: () => setSpreadsheetStatusFilter((prev) => (prev === "closed" ? "active" : "closed")),
+    isClosedActive: spreadsheetStatusFilter === "closed",
+    selectedCount: spreadsheetSelectedIds.size,
+    onBulkChangeStatus: handleSpreadsheetBulkChangeStatus,
+    onBulkArchive: handleSpreadsheetBulkArchive,
+    onBulkDelete: handleSpreadsheetBulkDelete,
+    onBulkClear: () => setSpreadsheetSelectedIds(new Set()),
+  };
+
   // ── Loading ──
   if (isLoading) {
     return (
@@ -848,8 +915,31 @@ export default function ProjectsPage() {
         </div>
       )}
 
+      {/* ── Map — third view mode (absorbs the standalone /map, P3.5) ── */}
+      {viewMode === "map" && (
+        <div className="absolute inset-0 flex flex-col overflow-hidden">
+          <div className="px-3 pt-3">
+            <MetricsHeader variant="compact" tabId="map" title="Map" metrics={mapMetrics} isLoading={mapMetricsLoading} />
+          </div>
+          <div className="px-3 py-1.5">
+            <div className="inline-flex max-w-full overflow-x-auto overscroll-x-contain py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
+              style={{
+                background: "rgba(10, 10, 10, 0.50)",
+                backdropFilter: "blur(12px) saturate(1.1)",
+                WebkitBackdropFilter: "blur(12px) saturate(1.1)",
+              }}
+            >
+              <ProjectFloatingToolbar {...sharedToolbarProps} />
+            </div>
+          </div>
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <ProjectMapView projects={filteredProjects} onOpenProject={handleOpenDetail} />
+          </div>
+        </div>
+      )}
+
       {/* ── Page HUD — metrics + toolbar float on top of canvas ── */}
-      {(viewMode === "canvas" || !projectsTableV2Enabled) && (
+      {(viewMode === "canvas" || (viewMode === "spreadsheet" && !projectsTableV2Enabled)) && (
         <div className="absolute top-[62px] left-0 right-0 z-[2] pointer-events-none">
           <div className="pointer-events-auto">
             <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
@@ -862,36 +952,7 @@ export default function ProjectsPage() {
                 WebkitBackdropFilter: "blur(12px) saturate(1.1)",
               }}
             >
-              <ProjectFloatingToolbar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                teamMembers={teamMemberList}
-                clients={clientList}
-                selectedMemberId={selectedMemberId}
-                onMemberFilterChange={setSelectedMemberId}
-                selectedClientId={selectedClientId}
-                onClientFilterChange={setSelectedClientId}
-                canViewAccounting={canViewAccounting}
-                canManage={canManage}
-                canDelete={canDelete}
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-                onArchivedToggle={viewMode === "canvas"
-                  ? () => useProjectCanvasStore.getState().toggleArchiveTray()
-                  : () => setSpreadsheetStatusFilter((prev) => prev === "archived" ? "active" : "archived")
-                }
-                isArchivedActive={viewMode === "canvas"
-                  ? useProjectCanvasStore.getState().isArchiveTrayOpen
-                  : spreadsheetStatusFilter === "archived"
-                }
-                onClosedToggle={() => setSpreadsheetStatusFilter((prev) => prev === "closed" ? "active" : "closed")}
-                isClosedActive={spreadsheetStatusFilter === "closed"}
-                selectedCount={spreadsheetSelectedIds.size}
-                onBulkChangeStatus={handleSpreadsheetBulkChangeStatus}
-                onBulkArchive={handleSpreadsheetBulkArchive}
-                onBulkDelete={handleSpreadsheetBulkDelete}
-                onBulkClear={() => setSpreadsheetSelectedIds(new Set())}
-              />
+              <ProjectFloatingToolbar {...sharedToolbarProps} />
             </div>
           </div>
         </div>

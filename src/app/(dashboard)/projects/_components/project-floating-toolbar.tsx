@@ -2,12 +2,15 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Maximize2, Search, SlidersHorizontal, Archive, ArrowUpDown, LayoutGrid, Table2, X } from "lucide-react";
+import { Maximize2, Search, SlidersHorizontal, Archive, ArrowUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { SegmentControl, type SegmentControlOption } from "@/components/ui/segment-control";
 import { useProjectCanvasStore, type ProjectSortOption } from "./project-canvas-store";
 import { ProjectStatus, PROJECT_STATUS_COLORS } from "@/lib/types/models";
 import { getProjectStatusDisplayName } from "./project-stage-stack";
+
+export type ProjectsViewMode = "canvas" | "spreadsheet" | "map";
 import {
   toolbarVariants,
   toolbarVariantsReduced,
@@ -27,8 +30,9 @@ interface ProjectFloatingToolbarProps {
   canViewAccounting: boolean;
   canManage: boolean;
   canDelete: boolean;
-  viewMode: "canvas" | "spreadsheet";
-  onViewModeChange: (mode: "canvas" | "spreadsheet") => void;
+  canViewMap: boolean;
+  viewMode: ProjectsViewMode;
+  onViewModeChange: (mode: ProjectsViewMode) => void;
   onArchivedToggle: () => void;
   isArchivedActive: boolean;
   onClosedToggle: () => void;
@@ -64,6 +68,7 @@ export function ProjectFloatingToolbar({
   canViewAccounting,
   canManage,
   canDelete,
+  canViewMap,
   viewMode,
   onViewModeChange,
   onArchivedToggle,
@@ -242,23 +247,27 @@ export function ProjectFloatingToolbar({
 
       <div className="w-[1px] h-[18px] bg-border-subtle" />
 
-      {/* ── SHARED: Archived + Closed ── */}
-      <ToolbarAction onClick={onArchivedToggle} isActive={isArchivedActive}>
-        <Archive className="w-[13px] h-[13px]" />
-        <span className="font-mono text-micro uppercase tracking-wider">
-          Archived
-        </span>
-      </ToolbarAction>
+      {/* ── SHARED: Archived + Closed (not on the map — it excludes archived) ── */}
+      {viewMode !== "map" && (
+        <>
+          <ToolbarAction onClick={onArchivedToggle} isActive={isArchivedActive}>
+            <Archive className="w-[13px] h-[13px]" />
+            <span className="font-mono text-micro uppercase tracking-wider">
+              Archived
+            </span>
+          </ToolbarAction>
 
-      {viewMode === "spreadsheet" && (
-        <ToolbarAction onClick={onClosedToggle} isActive={isClosedActive}>
-          <span className="font-mono text-micro uppercase tracking-wider">
-            Closed
-          </span>
-        </ToolbarAction>
+          {viewMode === "spreadsheet" && (
+            <ToolbarAction onClick={onClosedToggle} isActive={isClosedActive}>
+              <span className="font-mono text-micro uppercase tracking-wider">
+                Closed
+              </span>
+            </ToolbarAction>
+          )}
+
+          <div className="w-[1px] h-[18px] bg-border-subtle" />
+        </>
       )}
-
-      <div className="w-[1px] h-[18px] bg-border-subtle" />
 
       {/* ── CANVAS ONLY: Fit All + Sort ── */}
       {viewMode === "canvas" && (
@@ -377,13 +386,16 @@ export function ProjectFloatingToolbar({
         </>
       )}
 
-      {/* ── View toggle (always last) ── */}
-      <ToolbarAction onClick={() => onViewModeChange("canvas")} isActive={viewMode === "canvas"}>
-        <LayoutGrid className="w-[13px] h-[13px]" />
-      </ToolbarAction>
-      <ToolbarAction onClick={() => onViewModeChange("spreadsheet")} isActive={viewMode === "spreadsheet"}>
-        <Table2 className="w-[13px] h-[13px]" />
-      </ToolbarAction>
+      {/* ── View switcher (always last) — shared SegmentControl; MAP gated on map.view ── */}
+      <SegmentControl<ProjectsViewMode>
+        value={viewMode}
+        onChange={onViewModeChange}
+        options={[
+          { value: "canvas", label: t("toolbar.canvas") },
+          { value: "spreadsheet", label: t("toolbar.spreadsheet") },
+          ...(canViewMap ? [{ value: "map", label: t("toolbar.map") }] : []),
+        ] as SegmentControlOption<ProjectsViewMode>[]}
+      />
     </motion.div>
   );
 }
