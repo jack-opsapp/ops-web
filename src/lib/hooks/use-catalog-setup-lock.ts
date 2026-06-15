@@ -60,6 +60,7 @@ function getOrCreateLockSessionId(): string {
 interface LockRow {
   session_id: string;
   heartbeat_at: string;
+  user_id: string | null;
 }
 
 /**
@@ -75,7 +76,7 @@ export function createSupabaseLockStore(userId?: string | null): LockStore {
   return {
     async read(companyId) {
       const { data, error } = await table()
-        .select("session_id, heartbeat_at")
+        .select("session_id, heartbeat_at, user_id")
         .eq("company_id", companyId)
         .maybeSingle();
       if (error) throw error;
@@ -85,6 +86,7 @@ export function createSupabaseLockStore(userId?: string | null): LockStore {
       const lock: LockState = {
         sessionId: row.session_id,
         heartbeatAt: Number.isNaN(parsed) ? 0 : parsed,
+        userId: row.user_id,
       };
       return lock;
     },
@@ -144,6 +146,7 @@ export function useCatalogSetupLock(): CatalogSetupLock {
         companyId,
         mySession,
         Date.now(),
+        userId,
       );
       if (cancelled) return;
       setHeldByOther(probe.heldByOther);

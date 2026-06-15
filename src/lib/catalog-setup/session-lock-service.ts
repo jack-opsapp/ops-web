@@ -45,10 +45,14 @@ export async function probeSessionLock(
   companyId: string,
   mySessionId: string,
   nowMs: number,
+  myUserId?: string | null,
 ): Promise<LockProbe> {
   try {
     const current = await store.read(companyId);
-    return { heldByOther: isHeldByOther(current, mySessionId, nowMs), current };
+    return {
+      heldByOther: isHeldByOther(current, mySessionId, nowMs, myUserId),
+      current,
+    };
   } catch {
     return { heldByOther: false, current: null };
   }
@@ -67,8 +71,9 @@ export async function acquireSessionLock(
   companyId: string,
   mySessionId: string,
   nowMs: number,
+  myUserId?: string | null,
 ): Promise<LockProbe> {
-  const probe = await probeSessionLock(store, companyId, mySessionId, nowMs);
+  const probe = await probeSessionLock(store, companyId, mySessionId, nowMs, myUserId);
   if (probe.heldByOther) return probe;
   try {
     await store.write(companyId, mySessionId, nowMs);

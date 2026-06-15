@@ -20,6 +20,14 @@ describe("isHeldByOther", () => {
     const lock: LockState = { sessionId: "cw_other", heartbeatAt: now - 121_000 };
     expect(isHeldByOther(lock, mine, now)).toBe(false);
   });
+  it("free when the same user holds it in another tab (different session, same userId)", () => {
+    const lock: LockState = { sessionId: "cw_other", heartbeatAt: now - 5000, userId: "u-1" };
+    expect(isHeldByOther(lock, mine, now, "u-1")).toBe(false);
+  });
+  it("held when a DIFFERENT user in the company owns a live lock", () => {
+    const lock: LockState = { sessionId: "cw_other", heartbeatAt: now - 5000, userId: "u-2" };
+    expect(isHeldByOther(lock, mine, now, "u-1")).toBe(true);
+  });
 });
 
 describe("buildSessionId", () => {
