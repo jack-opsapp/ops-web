@@ -185,7 +185,7 @@ export function EstimateFormModal({
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
+            <DialogTitle className="font-cakemono text-cake-display font-light uppercase">
               {isEditing ? `${t("estimates.modal.edit")} ${estimate?.estimateNumber ?? ""}` : t("estimates.modal.new")}
             </DialogTitle>
           </DialogHeader>
@@ -207,7 +207,7 @@ export function EstimateFormModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
+          <DialogTitle className="font-cakemono text-cake-display font-light uppercase">
             {isEditing ? `${t("estimates.modal.edit")} ${estimate?.estimateNumber}` : t("estimates.modal.new")}
           </DialogTitle>
         </DialogHeader>

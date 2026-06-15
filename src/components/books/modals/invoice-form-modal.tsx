@@ -201,7 +201,7 @@ export function InvoiceFormModal({
       <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
         <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
+            <DialogTitle className="font-cakemono text-cake-display font-light uppercase">
               {isEditing ? `${t("invoices.modal.edit")} ${invoice?.invoiceNumber ?? ""}` : t("invoices.modal.new")}
             </DialogTitle>
           </DialogHeader>
@@ -223,7 +223,7 @@ export function InvoiceFormModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
+          <DialogTitle className="font-cakemono text-cake-display font-light uppercase">
             {isEditing ? `${t("invoices.modal.edit")} ${invoice?.invoiceNumber}` : t("invoices.modal.new")}
           </DialogTitle>
         </DialogHeader>

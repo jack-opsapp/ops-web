@@ -76,7 +76,7 @@ export function RecordPaymentModal({
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[440px]">
         <DialogHeader>
-          <DialogTitle className="font-cakemono text-[22px] font-light uppercase">
+          <DialogTitle className="font-cakemono text-cake-display font-light uppercase">
             {t("invoices.payment.title")}
           </DialogTitle>
         </DialogHeader>
