@@ -1,5 +1,7 @@
 import { test, type Page } from "@playwright/test";
+import * as XLSX from "xlsx";
 import {
+  COMPANY_ID,
   createFixtures,
   expect,
   mockWizardRoutes,
@@ -27,11 +29,12 @@ import {
  *      mode) and that a wizard_analytics `completed` insert was attempted.
  *   2. Resume — accept 1 card, reload, assert the staged card restores (persisted
  *      Zustand) and the commit route was never called pre-reload.
- *   3. Dedupe — test.fixme: the wired /catalog/setup route never surfaces a
- *      duplicate/merge card (it passes no existingRows and the agent lane that
- *      could emit merge cards is off in this env), so it isn't deterministically
- *      reachable through the real UI.
- *   4. Offline — setOffline(true) → offline banner shows + BUILD IT is held
+ *   3. Upload — pick the file-upload lane, drop a clean CSV → it auto-routes,
+ *      maps, and stages proposed SELL cards onto the canvas.
+ *   4. Dedupe — seed a live product, upload a CSV whose SKU matches it → the row
+ *      stages as a DUPLICATE / merge card (show-diff), and BUILD IT sends a merge
+ *      bound to the live row (an UPSERT), not a second create.
+ *   5. Offline — setOffline(true) → offline banner shows + BUILD IT is held
  *      (commit not called); setOffline(false) → BUILD IT recovers and commits.
  *
  * SKIPPED: the agent-off / guided-describe scenario — the OpenAI key is not set
@@ -48,6 +51,9 @@ import {
 
 const FIRST_SELL_NAME = "Vehicle wrap";
 const SECOND_SELL_NAME = "Decal install";
+
+/** A stable id for the seeded live product the dedupe test re-imports against. */
+const EXISTING_PRODUCT_ID = "00000000-0000-4000-8000-0000000009f1";
 
 /** Land on /catalog with a 0/0 company and wait for the first-run takeover. */
 async function gotoCatalogTakeover(page: Page, fixtures: WizardFixtures) {
@@ -216,18 +222,170 @@ test.describe("Catalog Setup Wizard", () => {
     expect(fixtures.commitCalls).toHaveLength(0);
   });
 
-  test.fixme(
-    "dedupe: a matched duplicate renders in merge mode and BUILD IT sends a merge, not a second create",
-    async () => {
-      // The wired /catalog/setup route surfaces NO merge cards: CatalogSetupRoute
-      // passes no `existingRows` to SetupWizardShell, and the only source that
-      // emits merge-state cards (the guided agent) is disabled in this env. A
-      // merge card is therefore not deterministically reachable through the real
-      // UI — exercising it would require faking store state, which this harness
-      // refuses. Re-enable once the import/QuickBooks dedupe lane lands and the
-      // route wires existingRows + merge cards.
-    },
-  );
+  test("upload: a clean CSV auto-routes, maps, and stages products onto the canvas", async ({
+    page,
+  }) => {
+    const fixtures = createFixtures();
+    const errors = await gotoCatalogTakeover(page, fixtures);
+
+    await page.getByTestId("catalog-setup-start").click();
+    await expect(page.getByTestId("setup-wizard-shell")).toBeVisible({
+      timeout: 20000,
+    });
+
+    // Pick the file-upload lane and drop a clean two-row price list.
+    await expect(page.getByTestId("driver-source-upload")).toBeVisible({
+      timeout: 10000,
+    });
+    await page.getByTestId("driver-source-upload").click();
+    await expect(page.getByTestId("upload-dropzone")).toBeVisible();
+
+    await page.getByTestId("upload-input").setInputFiles({
+      name: "pricelist.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        `Name,Price\n${FIRST_SELL_NAME},1200\n${SECOND_SELL_NAME},150\n`,
+      ),
+    });
+
+    // Both rows auto-map to SELL cards on the canvas; the pane confirms the stage.
+    await expect(page.getByTestId("upload-staged")).toBeVisible({ timeout: 15000 });
+    const sell = page.getByTestId("canvas-section-sell");
+    await expect(sell).toContainText(FIRST_SELL_NAME);
+    await expect(sell).toContainText(SECOND_SELL_NAME);
+    await expect(page.getByTestId("staging-card")).toHaveCount(2);
+
+    // Ignore incidental 401s from background reads the harness doesn't mock
+    // (real Supabase + the fake token); assert no real page / JS errors.
+    const realErrors = errors.filter(
+      (e) => !/Failed to load resource|401|Unauthorized/i.test(e),
+    );
+    expect(realErrors, realErrors.join("\n")).toHaveLength(0);
+  });
+
+  test("upload (xlsx): an Excel workbook parses (SheetJS) and stages products onto the canvas", async ({
+    page,
+  }) => {
+    const fixtures = createFixtures();
+    await gotoCatalogTakeover(page, fixtures);
+
+    await page.getByTestId("catalog-setup-start").click();
+    await expect(page.getByTestId("setup-wizard-shell")).toBeVisible({
+      timeout: 20000,
+    });
+    await page.getByTestId("driver-source-upload").click();
+    await expect(page.getByTestId("upload-dropzone")).toBeVisible();
+
+    // Build a real .xlsx binary in-test and drop it.
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Name", "Price"],
+      [FIRST_SELL_NAME, 1200],
+      [SECOND_SELL_NAME, 150],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    const buffer = Buffer.from(
+      XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer,
+    );
+
+    await page.getByTestId("upload-input").setInputFiles({
+      name: "pricelist.xlsx",
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer,
+    });
+
+    await expect(page.getByTestId("upload-staged")).toBeVisible({ timeout: 15000 });
+    const sell = page.getByTestId("canvas-section-sell");
+    await expect(sell).toContainText(FIRST_SELL_NAME);
+    await expect(sell).toContainText(SECOND_SELL_NAME);
+    await expect(page.getByTestId("staging-card")).toHaveCount(2);
+  });
+
+  test("dedupe: an uploaded SKU that matches a live product stages as a merge card and BUILD IT sends a merge target, not a second create", async ({
+    page,
+  }) => {
+    const fixtures = createFixtures({
+      existingProducts: [
+        {
+          id: EXISTING_PRODUCT_ID,
+          company_id: COMPANY_ID,
+          sku: "WRAP-001",
+          name: FIRST_SELL_NAME,
+          base_price: 1000,
+          unit_cost: 600,
+          is_taxable: true,
+          kind: "service",
+          external_source: null,
+          external_id: null,
+          is_active: true,
+          deleted_at: null,
+        },
+      ],
+    });
+
+    const errors = trackBrowserErrors(page);
+    await useDesktopViewport(page);
+    await seedCatalogWizardAuth(page);
+    await mockWizardRoutes(page, fixtures);
+
+    // The company already has a product → past first-run, so the launcher
+    // takeover wouldn't show. The wizard route itself is always reachable; go
+    // straight to it.
+    await page.goto("/catalog/setup", {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
+    await expect(page.getByTestId("setup-wizard-shell")).toBeVisible({
+      timeout: 20000,
+    });
+
+    await expect(page.getByTestId("driver-source-upload")).toBeVisible({
+      timeout: 10000,
+    });
+    await page.getByTestId("driver-source-upload").click();
+    await expect(page.getByTestId("upload-dropzone")).toBeVisible();
+
+    // Same SKU as the live row, but a changed price — re-import must re-sync.
+    await page.getByTestId("upload-input").setInputFiles({
+      name: "pricelist.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(`Name,Price,Cost,SKU\n${FIRST_SELL_NAME},1200,650,WRAP-001\n`),
+    });
+
+    // The matched row stages as a DUPLICATE / merge card (show-diff), not a new
+    // create. The on-file → incoming diff renders.
+    const mergeCard = page
+      .locator('[data-testid="staging-card"][data-duplicate="true"]')
+      .first();
+    await expect(mergeCard).toBeVisible({ timeout: 15000 });
+    await expect(mergeCard).toHaveAttribute("data-state", "merge");
+    await expect(mergeCard.getByTestId("staging-card-diff")).toBeVisible();
+
+    // A merge card is committable on its own → BUILD IT enables with no extra step.
+    await expect(page.getByTestId("running-totals-added")).toContainText("1");
+    const buildIt = page.getByTestId("wizard-build-it");
+    await expect(buildIt).toBeEnabled({ timeout: 10000 });
+    await buildIt.click();
+
+    // The commit carries the card as a MERGE bound to the live row id — an
+    // UPSERT, never a second create.
+    await expect
+      .poll(() => fixtures.commitCalls.length, { timeout: 15000 })
+      .toBe(1);
+    const cards =
+      (fixtures.commitCalls[0].body.cards as Record<string, unknown>[]) ?? [];
+    expect(cards).toHaveLength(1);
+    expect(cards[0].state).toBe("merge");
+    expect(cards[0].matchedExistingId).toBe(EXISTING_PRODUCT_ID);
+
+    // Ignore incidental 401s from background reads the harness doesn't mock
+    // (real Supabase + the fake token); assert no real page / JS errors.
+    const realErrors = errors.filter(
+      (e) => !/Failed to load resource|401|Unauthorized/i.test(e),
+    );
+    expect(realErrors, realErrors.join("\n")).toHaveLength(0);
+  });
 
   test("offline: BUILD IT is held while offline, then recovers when back online", async ({
     page,
@@ -269,5 +427,71 @@ test.describe("Catalog Setup Wizard", () => {
     await expect
       .poll(() => fixtures.commitCalls.length, { timeout: 15000 })
       .toBe(1);
+  });
+
+  test("template: pick a trade → accept TYPES cards → BUILD IT commits task_type + trade cards", async ({
+    page,
+  }) => {
+    const fixtures = createFixtures();
+    await gotoCatalogTakeover(page, fixtures);
+
+    // Enter the per-trade TEMPLATE lane (the always-available deterministic floor).
+    await page.getByTestId("catalog-setup-start").click();
+    await expect(page.getByTestId("setup-wizard-shell")).toBeVisible({
+      timeout: 20000,
+    });
+    await page.getByTestId("driver-source-template").click();
+    await expect(page.getByTestId("driver-trade-picker")).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Pick a trade → preview appears → confirm → starter cards stage on the canvas.
+    await page.getByTestId("driver-trade-roofing").click();
+    await expect(page.getByTestId("driver-trade-preview")).toBeVisible();
+    await page.getByTestId("driver-trade-confirm").click();
+
+    // The TYPES section carries the trade card (first) + task-type cards.
+    await expect(page.getByTestId("canvas-section-types")).toBeVisible({
+      timeout: 10000,
+    });
+    const typeCards = page.locator(
+      '[data-testid="staging-card"][data-module="types"]',
+    );
+    await expect(typeCards.first()).toBeVisible({ timeout: 10000 });
+    expect(await typeCards.count()).toBeGreaterThan(1);
+
+    // Accept the trade card (nth 0) + the first task-type card (nth 1).
+    await typeCards.nth(0).getByTestId("staging-card-accept").click();
+    await expect(typeCards.nth(0)).toHaveAttribute("data-state", "accepted", {
+      timeout: 10000,
+    });
+    await typeCards.nth(1).getByTestId("staging-card-accept").click();
+    await expect(typeCards.nth(1)).toHaveAttribute("data-state", "accepted", {
+      timeout: 10000,
+    });
+
+    await expect(page.getByTestId("running-totals-added")).toContainText("2");
+    const buildIt = page.getByTestId("wizard-build-it");
+    await expect(buildIt).toBeEnabled({ timeout: 10000 });
+    await buildIt.click();
+
+    // The commit body carries the accepted TYPES cards: a trade card (provenance,
+    // isTrade) AND a real task_type card (isTrade falsy) — the route's
+    // card-to-builder-input surfaces them as typeCards for commitTaskTypes.
+    await expect
+      .poll(() => fixtures.commitCalls.length, { timeout: 15000 })
+      .toBe(1);
+    const cards =
+      (fixtures.commitCalls[0].body.cards as Record<string, unknown>[]) ?? [];
+    const acceptedTypes = cards.filter(
+      (c) =>
+        c.module === "types" && (c.state === "accepted" || c.state === "edited"),
+    );
+    const isTradeOf = (c: Record<string, unknown>) =>
+      (c.fields as { isTrade?: boolean })?.isTrade === true;
+    expect(acceptedTypes.some(isTradeOf)).toBe(true); // trade card committed
+    expect(acceptedTypes.some((c) => !isTradeOf(c))).toBe(true); // a task_type committed
+
+    await expect(page).toHaveURL(/\/catalog(\?|$)/, { timeout: 15000 });
   });
 });

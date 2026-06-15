@@ -25,6 +25,8 @@ import {
   PREVIEW_STAGING_CARDS,
   PREVIEW_EXISTING_ROWS,
 } from "@/lib/catalog-setup/__mocks__/preview-cards";
+import { selectTradeTemplate } from "@/lib/catalog-setup/trade-templates";
+import type { WizardTradeId } from "@/lib/catalog-setup/trade-list";
 import { SetupWizardShell } from "@/components/catalog-setup/setup-wizard-shell";
 
 export default function CatalogSetupPreviewPage() {
@@ -37,9 +39,9 @@ export default function CatalogSetupPreviewPage() {
   const hydrated = useCatalogSetupStore((s) => s._hydrated);
 
   const [inventoryTracked, setInventoryTracked] = useState(true);
-  const [driverMode, setDriverMode] = useState<"picker" | "conversation">(
-    "conversation",
-  );
+  const [driverMode, setDriverMode] = useState<
+    "picker" | "trade-picker" | "conversation"
+  >("conversation");
 
   useEffect(() => {
     if (!hydrated) return;
@@ -69,7 +71,13 @@ export default function CatalogSetupPreviewPage() {
         <button
           type="button"
           onClick={() =>
-            setDriverMode((m) => (m === "picker" ? "conversation" : "picker"))
+            setDriverMode((m) =>
+              m === "picker"
+                ? "trade-picker"
+                : m === "trade-picker"
+                  ? "conversation"
+                  : "picker",
+            )
           }
           className="rounded-chip border border-glass-border px-2 py-[2px] text-text-2 transition-colors hover:bg-surface-hover hover:text-text"
         >
@@ -92,9 +100,15 @@ export default function CatalogSetupPreviewPage() {
         inventoryTracked={inventoryTracked}
         existingRows={PREVIEW_EXISTING_ROWS}
         driverMode={driverMode}
-        onPickSource={() => {
-          // DEV PREVIEW — picking a source advances to the guided-setup
-          // conversation (real source flows land in a later phase).
+        onPickSource={(source) => {
+          // DEV PREVIEW — template opens the per-trade sub-flow; any other source
+          // advances to the guided-setup conversation.
+          setDriverMode(source === "template" ? "trade-picker" : "conversation");
+        }}
+        onPickTrade={(trade: WizardTradeId) => {
+          // DEV PREVIEW — stage the trade's starter cards onto the canvas, then
+          // drop into the live-building view (mirrors the real route).
+          dispatch({ type: "ADD_CARDS", cards: selectTradeTemplate(trade) });
           setDriverMode("conversation");
         }}
         onSwitchToGuided={() => {
