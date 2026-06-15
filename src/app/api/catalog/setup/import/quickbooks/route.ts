@@ -14,15 +14,23 @@
  * shared /api/catalog/setup/commit (which stamps external_source/external_id so
  * the NEXT pull re-syncs the same rows instead of duplicating).
  *
- * ── GATE (HARD — surfaced to Jackson) ─────────────────────────────────────────
- * Enabling QuickBooks import BEYOND the Canpro tenant is gated on the plaintext-
- * token remediation (bug 7600a1a2 / branch feat/qb-token-encryption). The token
- * cipher IS in-branch and fail-closed (token-cipher.ts), but broad rollout needs
- * the operational sign-off. This route is therefore DARK BY DEFAULT:
+ * ── GATE (surfaced to + decided by Jackson) ───────────────────────────────────
+ * DECISION (Jackson, 2026-06-15): BROAD enablement is authorized — the route is
+ * NOT restricted to Canpro (leave CATALOG_QB_IMPORT_COMPANY_ALLOWLIST unset). The
+ * original gate (plaintext OAuth tokens, bug 7600a1a2 / feat/qb-token-encryption)
+ * is remediated by the in-branch, fail-closed AES-256-GCM cipher (token-cipher.ts):
+ * a QB connect/pull already requires QB_TOKEN_ENC_KEY (no key → decrypt throws →
+ * the run fails, never leaks). So broad rollout is safe PROVIDED QB_TOKEN_ENC_KEY
+ * is set in the deploy environment.
+ *
+ * Still DARK BY DEFAULT in code (the codebase idiom for token-sensitive switches,
+ * cf. ACCOUNTING_WRITE_ENABLED) — "enable" is a deploy-time env action, not a
+ * hardcoded default:
  *   • CATALOG_QB_IMPORT_ENABLED must be "true" (server), else 404 — never reveal.
- *   • CATALOG_QB_IMPORT_COMPANY_ALLOWLIST (optional, comma-separated company ids)
- *     restricts the route to those companies when set (the Canpro scope lever).
- *   • A live QuickBooks connection is required — only Canpro has one today.
+ *   • NEXT_PUBLIC_CATALOG_QB_IMPORT_ENABLED gates the picker button (client).
+ *   • CATALOG_QB_IMPORT_COMPANY_ALLOWLIST (optional) can still scope to specific
+ *     company ids if a narrower rollout is ever wanted; unset = broad (the call).
+ *   • A live QuickBooks connection is required.
  * READ-ONLY ONLY: the pull service issues GET only; a non-zero qbWriteCalls fails
  * the run. Nothing is ever written back to QuickBooks in this lane.
  */
