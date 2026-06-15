@@ -182,7 +182,7 @@
   "upload.rowsRead": "[ read {count} rows ]",
   "upload.errorsTitle": "// some rows need a fix first",
   "upload.errorsHint": "[ fix them in your file, then upload again ]",
-  "upload.xlsx": "That file type isn't supported — save it as a CSV and upload that",
+  "upload.tooLarge": "That file's too big — keep it under {max}MB, or split it.",
   "upload.cantRead": "Couldn't read that one — save it as a CSV with a name and a price, or add items by hand",
   "upload.addManually": "[ add it yourself ]",
   "upload.another": "[ upload another file ]",

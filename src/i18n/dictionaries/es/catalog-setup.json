@@ -182,7 +182,7 @@
   "upload.rowsRead": "[ {count} filas leídas ]",
   "upload.errorsTitle": "// algunas filas necesitan un ajuste primero",
   "upload.errorsHint": "[ corrígelas en tu archivo y súbelo otra vez ]",
-  "upload.xlsx": "Ese tipo de archivo no se admite — guárdalo como CSV y súbelo",
+  "upload.tooLarge": "Ese archivo es muy grande — manténlo bajo {max}MB, o divídelo.",
   "upload.cantRead": "No se pudo leer ese — guárdalo como CSV con un nombre y un precio, o agrega artículos a mano",
   "upload.addManually": "[ hazlo tú mismo ]",
   "upload.another": "[ subir otro archivo ]",

@@ -59,15 +59,16 @@ describe("<UploadPane>", () => {
     expect(screen.getByTestId("upload-error-row")).toHaveTextContent(/base_price/i);
   });
 
-  it("tells the owner Excel isn't supported yet (CSV-first ship)", async () => {
-    render(
-      <UploadPane
-        onUpload={async () => ({ kind: "unsupported_binary", ext: "xlsx" })}
-      />,
-    );
-    selectFile("book.xlsx");
+  it("rejects an oversized file before reading it (size guard)", async () => {
+    const onUpload = vi.fn(async (): Promise<UploadPaneOutcome> => ({ kind: "cant_read" }));
+    render(<UploadPane onUpload={onUpload} />);
+    const input = screen.getByTestId("upload-input") as HTMLInputElement;
+    const big = new File(["x"], "huge.csv", { type: "text/csv" });
+    Object.defineProperty(big, "size", { value: 6 * 1024 * 1024 });
+    fireEvent.change(input, { target: { files: [big] } });
 
-    await waitFor(() => expect(screen.getByTestId("upload-unsupported")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("upload-too-large")).toBeInTheDocument());
+    expect(onUpload).not.toHaveBeenCalled(); // never read/parsed
   });
 
   it("offers a manual escape when a file can't be auto-read", async () => {

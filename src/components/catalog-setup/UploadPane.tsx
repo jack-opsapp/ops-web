@@ -31,6 +31,14 @@
 // (the trades). Strings via useDictionary("catalog-setup").
 
 import { useCallback, useRef, useState } from "react";
+
+/**
+ * Hard ceiling on an uploaded file. A trades price list is small (KBs); this
+ * rejects a tens-of-MB vendor export BEFORE file.text()/parse pull it into memory
+ * and stage a card per row — which would freeze or OOM the tab with no bound.
+ */
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_MB = 5;
 import {
   AlertTriangle,
   ArrowUpFromLine,
@@ -56,8 +64,8 @@ export type UploadPaneOutcome =
   | { kind: "staged"; staged: number; merged: number; rowsRead: number }
   /** The deterministic mapper found problems — nothing staged. */
   | { kind: "errors"; errors: string[] }
-  /** An .xlsx/.xls binary — CSV-first ship can't read it yet. */
-  | { kind: "unsupported_binary"; ext: string }
+  /** File over the size ceiling — rejected before parse to protect the tab. */
+  | { kind: "too_large"; maxMb: number }
   /** Couldn't auto-read (a PDF/photo/odd sheet) and guided extraction is off. */
   | { kind: "cant_read" };
 
@@ -89,6 +97,12 @@ export function UploadPane({
   const handleFile = useCallback(
     async (file: File | undefined | null) => {
       if (!file || phase === "working") return;
+      if (file.size > MAX_FILE_BYTES) {
+        // Reject the oversized file up front — never read/parse it.
+        setOutcome({ kind: "too_large", maxMb: MAX_FILE_MB });
+        setPhase("result");
+        return;
+      }
       setPhase("working");
       try {
         const result = await onUpload(file);
@@ -251,7 +265,7 @@ function Dropzone({
         className={cn(
           // DISCOVERY beat: the border + tint brighten the instant a file is over
           // the zone — Tier-1 CSS, 150ms, no spring.
-          "flex w-full flex-col items-center gap-3 rounded-panel border border-dashed px-5 py-10 text-center transition-colors duration-150",
+          "flex w-full flex-col items-start gap-3 rounded-panel border border-dashed px-5 py-10 text-left transition-colors duration-150",
           dragActive
             ? "border-[rgba(255,255,255,0.22)] bg-surface-hover"
             : "border-glass-border bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.18)] hover:bg-surface-hover",
@@ -310,15 +324,15 @@ function Result({
         <StagedSummary t={t} outcome={outcome} />
       ) : outcome.kind === "errors" ? (
         <ErrorsSummary t={t} errors={outcome.errors} />
-      ) : outcome.kind === "unsupported_binary" ? (
+      ) : outcome.kind === "too_large" ? (
         <Notice
           t={t}
           tone="tan"
-          testid="upload-unsupported"
+          testid="upload-too-large"
           message={t(
-            "upload.xlsx",
-            "Excel files aren't supported yet — save it as CSV and upload that",
-          )}
+            "upload.tooLarge",
+            "That file's too big — keep it under {max}MB, or split it.",
+          ).replace("{max}", String(outcome.maxMb))}
         />
       ) : (
         <CantReadNotice t={t} onAddManually={onAddManually} />
