@@ -1,10 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, RefreshCw, Link2, Unlink, Clock, CheckCircle2, XCircle, AlertTriangle, ShieldAlert } from "lucide-react";
+/**
+ * AccountingTab — SETTINGS › FINANCIAL › Accounting (WEB OVERHAUL P3-6).
+ *
+ * Design-judgment fix (CLAUDE.md canonical failure): a company picks ONE
+ * accounting provider, once. The old surface rendered QuickBooks AND Sage
+ * connect cards side-by-side permanently (the data model rendered into UI).
+ * Correct: a SINGLE connect entry point → brief provider choice → a compact
+ * live badge once connected → sync settings / disconnect / switch behind the
+ * badge (a modal). Sync history + issues sit below, only when they have content.
+ */
+
+import { useMemo, useState } from "react";
+import {
+  Loader2,
+  RefreshCw,
+  Link2,
+  Unlink,
+  Clock,
+  AlertTriangle,
+  ShieldAlert,
+  Settings2,
+} from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Tag } from "@/components/ui/tag";
+import { SegmentControl, type SegmentControlOption } from "@/components/ui/segment-control";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   useAccountingConnections,
   useInitiateOAuth,
@@ -21,43 +49,97 @@ import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { AccountingProvider } from "@/lib/types/pipeline";
 
-const STATUS_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  success: CheckCircle2,
-  partial: AlertTriangle,
-  error: XCircle,
+const PROVIDER_LABEL: Record<AccountingProvider, string> = {
+  [AccountingProvider.QuickBooks]: "QuickBooks",
+  [AccountingProvider.Sage]: "Sage",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  success: "text-green-400",
-  partial: "text-yellow-400",
-  error: "text-red-400",
-};
-
-function issueStatusLabel(status: string, t: (key: string) => string): string {
-  return status === "blocked"
-    ? t("accounting.issueBlocked")
-    : t("accounting.issueNeedsReview");
+/** A `// TITLE` section header — the canonical settings/register grammar. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
+  );
 }
 
-function ProviderCard({ provider, label }: { provider: AccountingProvider; label: string }) {
+const STATUS_TONE: Record<string, "olive" | "tan" | "rose"> = {
+  success: "olive",
+  partial: "tan",
+  error: "rose",
+};
+
+// ── Connect entry point (no provider connected) ─────────────────────────────
+
+function ConnectPanel() {
   const { t } = useDictionary("settings");
   const can = usePermissionStore((s) => s.can);
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
-  const { data: connections, isLoading } = useAccountingConnections();
   const initiateOAuth = useInitiateOAuth();
+  const [provider, setProvider] = useState<AccountingProvider>(AccountingProvider.QuickBooks);
+
+  const providerOptions: SegmentControlOption<AccountingProvider>[] = [
+    { value: AccountingProvider.QuickBooks, label: PROVIDER_LABEL[AccountingProvider.QuickBooks] },
+    { value: AccountingProvider.Sage, label: PROVIDER_LABEL[AccountingProvider.Sage] },
+  ];
+
+  return (
+    <div className="glass-surface rounded-panel p-3">
+      <SectionTitle>{t("accounting.title")}</SectionTitle>
+      <p className="mt-2 font-mohave text-body-sm text-text-2">{t("accounting.connectIntro")}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <SegmentControl options={providerOptions} value={provider} onChange={setProvider} />
+        <Button
+          variant="primary"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => {
+            if (!can("accounting.manage_connections")) return;
+            initiateOAuth.mutate({ companyId, provider });
+          }}
+          disabled={initiateOAuth.isPending}
+        >
+          {initiateOAuth.isPending ? (
+            <Loader2 className="h-[14px] w-[14px] animate-spin" />
+          ) : (
+            <Link2 className="h-[14px] w-[14px]" />
+          )}
+          {t("accounting.connect")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ── Live badge + settings modal (a provider is connected) ───────────────────
+
+interface AccountingConnection {
+  provider: AccountingProvider;
+  isConnected: boolean;
+  lastSyncAt: Date | string | null;
+  syncEnabled: boolean;
+  syncDirection: "pull_only" | "push_only" | "bidirectional";
+  propagateDeletes: boolean;
+  providerEnvironment?: "production" | "sandbox";
+}
+
+function ConnectedAccounting({ connection }: { connection: AccountingConnection }) {
+  const { t } = useDictionary("settings");
+  const can = usePermissionStore((s) => s.can);
+  const { company } = useAuthStore();
+  const companyId = company?.id ?? "";
+  const provider = connection.provider;
   const disconnect = useDisconnectProvider();
   const updateSyncEnabled = useUpdateSyncEnabled();
   const updateSyncMode = useUpdateSyncMode();
   const triggerSync = useTriggerSync();
+  const [manageOpen, setManageOpen] = useState(false);
   const [confirmFullCrud, setConfirmFullCrud] = useState(false);
 
-  const connection =
-    connections?.find((c) => c.provider === provider && c.isConnected) ??
-    connections?.find((c) => c.provider === provider);
-  const isConnected = connection?.isConnected ?? false;
-  const isFullCrud = connection?.syncDirection === "bidirectional";
-  const propagateDeletes = connection?.propagateDeletes ?? false;
+  const isFullCrud = connection.syncDirection === "bidirectional";
+  const propagateDeletes = connection.propagateDeletes;
 
   function setMode(syncDirection: "pull_only" | "bidirectional", deletes: boolean) {
     if (!can("accounting.manage_connections")) return;
@@ -66,124 +148,114 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
       {
         onSuccess: () => toast.success(t("accounting.toast.syncModeUpdated")),
         onError: (err) => toast.error(t("preferences.toast.updateFailed"), { description: err.message }),
-      }
+      },
     );
   }
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-6">
-          <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
-        </CardContent>
-      </Card>
-    );
-  }
+  const modeOptions: SegmentControlOption<"pull_only" | "bidirectional">[] = [
+    { value: "pull_only", label: t("accounting.modeReadOnly") },
+    { value: "bidirectional", label: t("accounting.modeFullCrud") },
+  ];
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>{label}</CardTitle>
-          {isConnected && (
-            <span className="flex items-center gap-1 text-green-400 font-mono text-[11px]">
-              <CheckCircle2 className="w-[14px] h-[14px]" />
-              {t("integrations.connected")}
-            </span>
-          )}
+    <div className="glass-surface rounded-panel p-3">
+      <SectionTitle>{t("accounting.title")}</SectionTitle>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className="font-mohave text-body text-text">{PROVIDER_LABEL[provider]}</span>
+        <Tag variant="olive">{t("integrations.connected")}</Tag>
+        {connection.lastSyncAt && (
+          <span className="flex items-center gap-1 font-mono text-micro text-text-3">
+            <Clock className="h-[12px] w-[12px]" />
+            {t("integrations.lastSynced")} {new Date(connection.lastSyncAt).toLocaleString()}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => {
+              if (!can("accounting.manage_connections")) return;
+              triggerSync.mutate(
+                { companyId, provider },
+                {
+                  onSuccess: () => toast.success(t("accounting.toast.syncTriggered")),
+                  onError: (err) => toast.error(t("accounting.toast.syncFailed"), { description: err.message }),
+                },
+              );
+            }}
+            disabled={triggerSync.isPending}
+          >
+            <RefreshCw className={cn("h-[14px] w-[14px]", triggerSync.isPending && "animate-spin")} />
+            {t("integrations.syncNow")}
+          </Button>
+          <Button variant="secondary" size="sm" className="gap-1.5" onClick={() => setManageOpen(true)}>
+            <Settings2 className="h-[14px] w-[14px]" />
+            {t("accounting.manage")}
+          </Button>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {isConnected ? (
-          <>
-            {connection?.lastSyncAt && (
-              <div className="flex items-center gap-1.5 text-text-3 font-mono text-[11px]">
-                <Clock className="w-[12px] h-[12px]" />
-                {t("integrations.lastSynced")} {new Date(connection.lastSyncAt).toLocaleString()}
-              </div>
-            )}
+      </div>
 
-            <div className="flex items-center justify-between py-[6px]">
+      <Dialog open={manageOpen} onOpenChange={setManageOpen}>
+        <DialogContent className="max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>{t("accounting.settingsTitle")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {/* Sync enabled */}
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="font-mohave text-body text-text">{t("accounting.syncEnabled")}</p>
-                <p className="font-mono text-[11px] text-text-mute">{t("accounting.syncEnabledDesc")}</p>
+                <p className="font-mono text-micro text-text-mute">{t("accounting.syncEnabledDesc")}</p>
               </div>
-              <button
-                onClick={() => {
+              <Switch
+                checked={connection.syncEnabled}
+                disabled={updateSyncEnabled.isPending || !can("accounting.manage_connections")}
+                onCheckedChange={(value) => {
                   if (!can("accounting.manage_connections")) return;
-                  const newValue = !(connection?.syncEnabled ?? false);
                   updateSyncEnabled.mutate(
-                    { companyId, provider, syncEnabled: newValue },
+                    { companyId, provider, syncEnabled: value },
                     {
-                      onSuccess: () => toast.success(t(newValue ? "accounting.toast.syncEnabled" : "accounting.toast.syncDisabled")),
+                      onSuccess: () =>
+                        toast.success(t(value ? "accounting.toast.syncEnabled" : "accounting.toast.syncDisabled")),
                       onError: (err) => toast.error(t("preferences.toast.updateFailed"), { description: err.message }),
-                    }
+                    },
                   );
                 }}
-                disabled={updateSyncEnabled.isPending}
-                className={cn(
-                  "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                  connection?.syncEnabled ? "bg-text-2" : "bg-fill-neutral-dim"
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
-                    connection?.syncEnabled ? "right-[2px]" : "left-[2px]"
-                  )}
-                />
-              </button>
+              />
             </div>
 
-            {/* Sync mode: read-only ↔ full CRUD (two-way). Full CRUD writes are
-                gated server-side until the outbound engine ships. */}
-            <div className="space-y-1.5 py-[6px] border-t border-border">
+            {/* Sync mode */}
+            <div className="space-y-1.5 border-t border-border pt-3">
               <p className="font-mohave text-body text-text">{t("accounting.syncMode")}</p>
-              <p className="font-mono text-[11px] text-text-mute">{t("accounting.syncModeDesc")}</p>
-              <div className="inline-flex rounded-btn border border-border overflow-hidden">
-                <button
-                  data-testid={`sync-mode-readonly-${provider}`}
-                  onClick={() => {
+              <p className="font-mono text-micro text-text-mute">{t("accounting.syncModeDesc")}</p>
+              <SegmentControl
+                options={modeOptions}
+                value={isFullCrud ? "bidirectional" : "pull_only"}
+                onChange={(mode) => {
+                  if (mode === "bidirectional") {
+                    if (!isFullCrud) setConfirmFullCrud(true);
+                  } else {
                     setConfirmFullCrud(false);
                     if (isFullCrud) setMode("pull_only", false);
-                  }}
-                  disabled={updateSyncMode.isPending}
-                  className={cn(
-                    "px-2.5 h-[28px] font-mono text-[11px] transition-colors",
-                    !isFullCrud ? "bg-text-2 text-black" : "text-text-3 hover:text-text-2"
-                  )}
-                >
-                  {t("accounting.modeReadOnly")}
-                </button>
-                <button
-                  data-testid={`sync-mode-fullcrud-${provider}`}
-                  onClick={() => { if (!isFullCrud) setConfirmFullCrud(true); }}
-                  disabled={updateSyncMode.isPending}
-                  className={cn(
-                    "px-2.5 h-[28px] font-mono text-[11px] transition-colors border-l border-border",
-                    isFullCrud ? "bg-text-2 text-black" : "text-text-3 hover:text-text-2"
-                  )}
-                >
-                  {t("accounting.modeFullCrud")}
-                </button>
-              </div>
+                  }
+                }}
+              />
 
               {confirmFullCrud && !isFullCrud && (
-                <div
-                  data-testid={`sync-mode-confirm-${provider}`}
-                  className="rounded-panel border border-[#C4A868] p-2.5 space-y-2"
-                >
+                <div className="space-y-2 rounded-panel border border-tan-line bg-tan-soft p-2.5">
                   <div className="flex items-start gap-1.5">
-                    <ShieldAlert className="w-[14px] h-[14px] text-[#C4A868] mt-0.5 shrink-0" />
-                    <p className="font-mono text-[11px] text-text-2 leading-snug">
-                      {t("accounting.fullCrudWarning")}
-                    </p>
+                    <ShieldAlert className="mt-0.5 h-[14px] w-[14px] shrink-0 text-tan" />
+                    <p className="font-mono text-micro leading-snug text-text-2">{t("accounting.fullCrudWarning")}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant="default"
-                      onClick={() => { setConfirmFullCrud(false); setMode("bidirectional", propagateDeletes); }}
+                      onClick={() => {
+                        setConfirmFullCrud(false);
+                        setMode("bidirectional", propagateDeletes);
+                      }}
                       disabled={updateSyncMode.isPending}
                     >
                       {t("accounting.fullCrudConfirm")}
@@ -196,162 +268,82 @@ function ProviderCard({ provider, label }: { provider: AccountingProvider; label
               )}
 
               {isFullCrud && (
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center justify-between gap-3 pt-1">
                   <div>
                     <p className="font-mohave text-body-sm text-text">{t("accounting.propagateDeletes")}</p>
-                    <p className="font-mono text-[11px] text-text-mute">{t("accounting.propagateDeletesDesc")}</p>
+                    <p className="font-mono text-micro text-text-mute">{t("accounting.propagateDeletesDesc")}</p>
                   </div>
-                  <button
-                    data-testid={`propagate-deletes-${provider}`}
-                    onClick={() => setMode("bidirectional", !propagateDeletes)}
+                  <Switch
+                    checked={propagateDeletes}
                     disabled={updateSyncMode.isPending}
-                    className={cn(
-                      "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                      propagateDeletes ? "bg-text-2" : "bg-fill-neutral-dim"
-                    )}
-                  >
-                    <span className={cn(
-                      "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
-                      propagateDeletes ? "right-[2px]" : "left-[2px]"
-                    )} />
-                  </button>
+                    onCheckedChange={(value) => setMode("bidirectional", value)}
+                  />
                 </div>
               )}
             </div>
 
-            <div className="flex gap-2">
+            {/* Disconnect / switch */}
+            <div className="border-t border-border pt-3">
               <Button
-                variant="default"
+                variant="destructive"
                 size="sm"
-                onClick={() => {
-                  if (!can("accounting.manage_connections")) return;
-                  triggerSync.mutate(
-                    { companyId, provider },
-                    {
-                      onSuccess: () => toast.success(t("accounting.toast.syncTriggered")),
-                      onError: (err) => toast.error(t("accounting.toast.syncFailed"), { description: err.message }),
-                    }
-                  );
-                }}
-                disabled={triggerSync.isPending}
-              >
-                <RefreshCw className={cn("w-[14px] h-[14px] mr-1", triggerSync.isPending && "animate-spin")} />
-                {t("integrations.syncNow")}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
+                className="gap-1.5"
                 onClick={() => {
                   if (!can("accounting.manage_connections")) return;
                   disconnect.mutate(
+                    { companyId, provider, providerEnvironment: connection.providerEnvironment },
                     {
-                      companyId,
-                      provider,
-                      providerEnvironment: connection?.providerEnvironment,
-                    },
-                    {
-                      onSuccess: () => toast.success(t("accounting.toast.disconnected")),
+                      onSuccess: () => {
+                        toast.success(t("accounting.toast.disconnected"));
+                        setManageOpen(false);
+                      },
                       onError: (err) => toast.error(t("accounting.toast.disconnectFailed"), { description: err.message }),
-                    }
+                    },
                   );
                 }}
                 disabled={disconnect.isPending}
-                className="text-red-400 hover:text-red-300"
               >
-                <Unlink className="w-[14px] h-[14px] mr-1" />
+                <Unlink className="h-[14px] w-[14px]" />
                 {t("accounting.disconnect")}
               </Button>
             </div>
-          </>
-        ) : (
-          <Button
-            onClick={() => { if (!can("accounting.manage_connections")) return; initiateOAuth.mutate({ companyId, provider }); }}
-            disabled={initiateOAuth.isPending}
-          >
-            <Link2 className="w-[14px] h-[14px] mr-1" />
-            {t("accounting.connect")} {label}
-          </Button>
-        )}
-      </CardContent>
-    </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
-function SyncHistoryCard() {
-  const { t } = useDictionary("settings");
-  const { data: history, isLoading } = useSyncHistory();
+// ── Sync history + issues ────────────────────────────────────────────────────
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("accounting.syncHistory")}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
-          </div>
-        ) : !history || history.length === 0 ? (
-          <p className="font-mono text-[11px] text-text-mute">{t("accounting.noSyncHistory")}</p>
-        ) : (
-          <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
-            {history.map((entry) => {
-              const StatusIcon = STATUS_ICONS[entry.status] ?? CheckCircle2;
-              return (
-                <div key={entry.id} className="flex items-start gap-2 py-1.5 border-b border-border last:border-0">
-                  <StatusIcon className={cn("w-[14px] h-[14px] mt-0.5 shrink-0", STATUS_COLORS[entry.status] ?? "text-text-3")} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mohave text-body-sm text-text capitalize">{entry.provider}</span>
-                      <span className="font-mono text-micro text-text-mute">
-                        {new Date(entry.timestamp).toLocaleString()}
-                      </span>
-                    </div>
-                    {entry.details && (
-                      <p className="font-mono text-[11px] text-text-3 truncate">{entry.details}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function SyncIssuesCard() {
+function SyncIssues() {
   const { t } = useDictionary("settings");
   const { data: issues, isLoading } = useAccountingSyncIssues();
-
   if (!isLoading && (!issues || issues.length === 0)) return null;
 
   return (
-    <Card className="lg:col-span-2 border-red-400/30">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="w-[16px] h-[16px] text-red-400" />
-          <CardTitle>{t("accounting.syncIssuesTitle")}</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent>
+    <section aria-label={t("accounting.syncIssuesTitle")}>
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <AlertTriangle className="h-[14px] w-[14px] text-rose" />
+        <SectionTitle>{t("accounting.syncIssuesTitle")}</SectionTitle>
+      </div>
+      <div className="glass-surface rounded-panel p-3">
         {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
+          <div className="flex items-center justify-center py-3">
+            <Loader2 className="h-[18px] w-[18px] animate-spin text-text-2 motion-reduce:animate-none" />
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="font-mono text-[11px] text-text-mute">{t("accounting.syncIssuesDesc")}</p>
+            <p className="font-mono text-micro text-text-mute">{t("accounting.syncIssuesDesc")}</p>
             <div className="space-y-1.5">
               {(issues ?? []).map((issue) => {
                 const recordRef = issue.externalId ? `QB ${issue.externalId}` : issue.entityId.slice(0, 8);
                 return (
-                  <div key={issue.id} className="border border-border rounded-panel p-2.5">
+                  <div key={issue.id} className="rounded-[5px] border border-border-subtle p-2.5">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono text-micro text-red-300">
-                        {issueStatusLabel(issue.status, t)}
-                      </span>
+                      <Tag variant="rose">
+                        {issue.status === "blocked" ? t("accounting.issueBlocked") : t("accounting.issueNeedsReview")}
+                      </Tag>
                       <span className="font-mono text-micro text-text-3">
                         {issue.entityType.toUpperCase()} · {issue.operation.toUpperCase()} · {recordRef}
                       </span>
@@ -360,9 +352,7 @@ function SyncIssuesCard() {
                       </span>
                     </div>
                     {issue.lastError && (
-                      <p className="mt-1 font-mono text-[11px] leading-snug text-text-2">
-                        {issue.lastError}
-                      </p>
+                      <p className="mt-1 font-mono text-micro leading-snug text-text-2">{issue.lastError}</p>
                     )}
                   </div>
                 );
@@ -370,18 +360,73 @@ function SyncIssuesCard() {
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
-export function AccountingTab() {
+function SyncHistory() {
+  const { t } = useDictionary("settings");
+  const { data: history, isLoading } = useSyncHistory();
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-      <SyncIssuesCard />
-      <ProviderCard provider={AccountingProvider.QuickBooks} label="QuickBooks" />
-      <ProviderCard provider={AccountingProvider.Sage} label="Sage" />
-      <SyncHistoryCard />
+    <section aria-label={t("accounting.syncHistory")}>
+      <div className="mb-1.5">
+        <SectionTitle>{t("accounting.syncHistory")}</SectionTitle>
+      </div>
+      <div className="glass-surface rounded-panel p-3">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-3">
+            <Loader2 className="h-[18px] w-[18px] animate-spin text-text-2 motion-reduce:animate-none" />
+          </div>
+        ) : !history || history.length === 0 ? (
+          <p className="font-mono text-micro text-text-mute">{t("accounting.noSyncHistory")}</p>
+        ) : (
+          <div className="max-h-[300px] space-y-1.5 overflow-y-auto scrollbar-hide">
+            {history.map((entry) => (
+              <div key={entry.id} className="flex items-start gap-2 border-b border-border-subtle py-1.5 last:border-0">
+                <span className="mt-0.5 shrink-0">
+                  <Tag variant={STATUS_TONE[entry.status] ?? "neutral"}>{entry.status}</Tag>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mohave text-body-sm capitalize text-text">{entry.provider}</span>
+                    <span className="font-mono text-micro text-text-mute">{new Date(entry.timestamp).toLocaleString()}</span>
+                  </div>
+                  {entry.details && <p className="truncate font-mono text-micro text-text-3">{entry.details}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ── Tab ──────────────────────────────────────────────────────────────────────
+
+export function AccountingTab() {
+  const { data: connections, isLoading } = useAccountingConnections();
+
+  const connected = useMemo(
+    () => connections?.find((c) => c.isConnected) ?? null,
+    [connections],
+  );
+
+  return (
+    <div className="space-y-3">
+      {isLoading ? (
+        <div className="glass-surface flex items-center justify-center rounded-panel py-8">
+          <Loader2 className="h-[20px] w-[20px] animate-spin text-text-2 motion-reduce:animate-none" />
+        </div>
+      ) : connected ? (
+        <ConnectedAccounting connection={connected as AccountingConnection} />
+      ) : (
+        <ConnectPanel />
+      )}
+      <SyncIssues />
+      <SyncHistory />
     </div>
   );
 }
