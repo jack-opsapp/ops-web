@@ -60,12 +60,24 @@ import type { StagingState } from "@/lib/catalog-setup/staging-reducer";
 import type { StepContext } from "@/lib/catalog-setup/step-machine";
 import type { SellFields } from "@/lib/catalog-setup/staging-card";
 import { blankCard } from "@/lib/catalog-setup/blank-cards";
+import type { WizardTradeId } from "@/lib/catalog-setup/trade-list";
 import { ModuleRail } from "./ModuleRail";
 import { CanvasPane } from "./CanvasPane";
 import { DriverPane, type SetupSource } from "./DriverPane";
 import { ItemEditor } from "./ItemEditor";
+import { UploadPane, type UploadPaneOutcome } from "./UploadPane";
+import {
+  QuickBooksPane,
+  type QuickBooksPaneStatus,
+  type QuickBooksPaneSummary,
+} from "./QuickBooksPane";
 
 const MONO_NUM: React.CSSProperties = { fontFeatureSettings: '"tnum" 1, "zero" 1' };
+
+/** Type-safety fallback when the shell renders standalone (preview) without an
+ *  upload handler — the upload lane is only reachable via the route, which always
+ *  passes a real `onUpload`. */
+const NOOP_UPLOAD = async (): Promise<UploadPaneOutcome> => ({ kind: "cant_read" });
 
 export interface SetupWizardShellProps {
   /**
@@ -85,12 +97,30 @@ export interface SetupWizardShellProps {
   onSetupLater?: () => void;
   /**
    * Left-pane driver state when no card is being edited: "picker" shows the
-   * source picker ("How do you want to start?"); "conversation" shows the
-   * guided-setup transcript. Defaults to "conversation".
+   * source picker ("How do you want to start?"); "trade-picker" shows the
+   * per-trade TEMPLATE sub-flow; "upload" shows the file-upload lane;
+   * "quickbooks" shows the QuickBooks read-only pull lane; "conversation" shows
+   * the guided-setup transcript. Defaults to "conversation".
    */
-  driverMode?: "picker" | "conversation";
+  driverMode?: "picker" | "trade-picker" | "upload" | "quickbooks" | "conversation";
   /** Source chosen in the picker (pre-conversation). */
   onPickSource?: (source: SetupSource) => void;
+  /** Trade confirmed in the TEMPLATE sub-flow → stages that trade's starter cards. */
+  onPickTrade?: (trade: WizardTradeId) => void;
+  /** File-upload lane: parse + stage a dropped file (resolves to the pane's outcome). */
+  onUpload?: (file: File) => Promise<UploadPaneOutcome>;
+  /** File-upload lane: a can't-read file → seed a manual entry instead. */
+  onUploadAddManually?: () => void;
+  /** QuickBooks lane: pull lifecycle (checking/connect/ready/pulling/result/error). */
+  qbStatus?: QuickBooksPaneStatus;
+  /** QuickBooks lane: counts surfaced after a successful pull. */
+  qbSummary?: QuickBooksPaneSummary | null;
+  /** QuickBooks lane: transient failure (retry) vs stale token (reconnect). */
+  qbErrorKind?: "generic" | "reconnect";
+  /** QuickBooks lane: run the read-only pull. */
+  onPullQuickBooks?: () => void;
+  /** QuickBooks lane: connect / reconnect via the accounting OAuth. */
+  onConnectQuickBooks?: () => void;
   /** Restrict the source picker to the lanes wired end-to-end (omit → all). */
   availableSources?: SetupSource[];
   /** Offline / declined → hand off to the deterministic guided path. */
@@ -141,6 +171,14 @@ export function SetupWizardShell({
   onSetupLater,
   driverMode = "conversation",
   onPickSource,
+  onPickTrade,
+  onUpload,
+  onUploadAddManually,
+  qbStatus,
+  qbSummary,
+  qbErrorKind,
+  onPullQuickBooks,
+  onConnectQuickBooks,
   availableSources,
   onSwitchToGuided,
   onSend,
@@ -322,11 +360,31 @@ export function SetupWizardShell({
                 }
                 className="min-h-0 flex-1"
               />
+            ) : driverMode === "upload" ? (
+              <UploadPane
+                key="upload"
+                onUpload={onUpload ?? NOOP_UPLOAD}
+                onAddManually={onUploadAddManually}
+                onBack={onSwitchToGuided}
+                className="min-h-0 flex-1"
+              />
+            ) : driverMode === "quickbooks" ? (
+              <QuickBooksPane
+                key="quickbooks"
+                status={qbStatus ?? "ready"}
+                summary={qbSummary}
+                errorKind={qbErrorKind}
+                onPull={onPullQuickBooks}
+                onConnect={onConnectQuickBooks}
+                onBack={onSwitchToGuided}
+                className="min-h-0 flex-1"
+              />
             ) : (
               <DriverPane
                 key="driver"
                 mode={driverMode}
                 onPickSource={onPickSource}
+                onPickTrade={onPickTrade}
                 availableSources={availableSources}
                 onSwitchToGuided={onSwitchToGuided}
                 onSend={onSend}
