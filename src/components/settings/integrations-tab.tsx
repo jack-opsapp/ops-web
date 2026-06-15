@@ -8,8 +8,6 @@ import {
   RefreshCw,
   Trash2,
   Loader2,
-  ToggleLeft,
-  ToggleRight,
   Clock,
   AlertTriangle,
   CheckCircle,
@@ -17,8 +15,22 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  RegisterTable,
+  Tag,
+  TablePrimary,
+  TableMono,
+} from "@/components/ui/register-table";
 import { ImportPipelineWizard } from "./import-pipeline-wizard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   useGmailConnections,
@@ -42,13 +54,26 @@ import { Brain } from "lucide-react";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-function formatTimeAgo(date: Date | null): string {
-  if (!date) return "Never";
+type Translate = (key: string, fallback?: string) => string;
+
+function formatTimeAgo(date: Date | null, t: Translate): string {
+  if (!date) return t("integrations.timeAgo.never", "Never");
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return "Just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
+  if (seconds < 60) return t("integrations.timeAgo.justNow", "Just now");
+  if (seconds < 3600)
+    return t("integrations.timeAgo.minutes", "{{n}} min ago").replace(
+      "{{n}}",
+      String(Math.floor(seconds / 60)),
+    );
+  if (seconds < 86400)
+    return t("integrations.timeAgo.hours", "{{n}}h ago").replace(
+      "{{n}}",
+      String(Math.floor(seconds / 3600)),
+    );
+  return t("integrations.timeAgo.days", "{{n}}d ago").replace(
+    "{{n}}",
+    String(Math.floor(seconds / 86400)),
+  );
 }
 
 // ─── Analysis Progress Banner ─────────────────────────────────────────────────
@@ -62,8 +87,9 @@ interface AnalysisProgressBannerProps {
 }
 
 function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: AnalysisProgressBannerProps) {
+  const { t } = useDictionary("settings");
   const [progress, setProgress] = useState(0);
-  const [message, setMessage] = useState("Analyzing...");
+  const [message, setMessage] = useState(t("integrations.analysis.analyzing", "Analyzing..."));
   const [status, setStatus] = useState<string>("pending");
   const [leadCount, setLeadCount] = useState<number | null>(null);
   const [totalScanned, setTotalScanned] = useState<number | null>(null);
@@ -127,7 +153,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
         }
 
         if (data.status === "error") {
-          setMessage(data.error || "Analysis failed");
+          setMessage(data.error || t("integrations.analysis.failed", "Analysis failed"));
           return;
         }
 
@@ -141,7 +167,8 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current);
     };
-  }, [jobId, wizardOpen]); // Only re-run when jobId or wizardOpen changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- t is stable; only re-run when jobId or wizardOpen changes
+  }, [jobId, wizardOpen]);
 
   const isComplete = status === "complete";
   const isError = status === "error";
@@ -150,19 +177,19 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
     return (
       <button
         onClick={onClick}
-        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[rgba(157,181,130,0.3)] bg-[rgba(157,181,130,0.08)] hover:bg-[rgba(157,181,130,0.15)] transition-colors text-left"
+        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded-[5px] border border-olive-line bg-olive-soft hover:bg-olive-soft transition-colors text-left"
       >
-        <CheckCircle className="w-[16px] h-[16px] text-[#9DB582] shrink-0" />
+        <CheckCircle className="w-[16px] h-[16px] text-olive shrink-0" />
         <div className="flex-1 min-w-0">
-          <span className="font-mohave text-body-sm text-[#9DB582] block">
-            Analysis complete — {leadCount} lead{leadCount !== 1 ? "s" : ""} found
+          <span className="font-mohave text-body-sm text-olive block">
+            {t("integrations.analysis.completeLeads").replace("{{n}}", String(leadCount ?? 0))}
           </span>
           <span className="font-mono text-micro text-text-mute">
-            {totalScanned} emails scanned
+            {t("integrations.analysis.emailsScanned").replace("{{n}}", String(totalScanned ?? 0))}
           </span>
         </div>
-        <span className="font-mohave text-[12px] text-[#6F94B0] shrink-0">
-          Review Leads
+        <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-2 shrink-0">
+          {t("integrations.analysis.reviewLeads")}
         </span>
       </button>
     );
@@ -172,19 +199,19 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
     return (
       <button
         onClick={onClick}
-        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[#93321A]/30 bg-[#93321A]/08 hover:bg-[#93321A]/15 transition-colors text-left"
+        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded-[5px] border border-rose-line bg-rose-soft hover:bg-rose-soft transition-colors text-left"
       >
-        <AlertTriangle className="w-[16px] h-[16px] text-[#FF6B4A] shrink-0" />
+        <AlertTriangle className="w-[16px] h-[16px] text-rose shrink-0" />
         <div className="flex-1 min-w-0">
-          <span className="font-mohave text-body-sm text-[#FF6B4A] block">
-            Analysis failed
+          <span className="font-mohave text-body-sm text-rose block">
+            {t("integrations.analysis.failed")}
           </span>
           <span className="font-mono text-micro text-text-mute">
             {message}
           </span>
         </div>
-        <span className="font-mohave text-[12px] text-[#6F94B0] shrink-0">
-          Retry
+        <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-2 shrink-0">
+          {t("integrations.analysis.retry")}
         </span>
       </button>
     );
@@ -194,19 +221,19 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.05)] transition-colors text-left"
+      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded-[5px] border border-[rgba(255,255,255,0.18)] bg-surface-input hover:bg-surface-hover transition-colors text-left"
     >
       <Search className="w-[16px] h-[16px] text-text-2 shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-mohave text-body-sm text-text-2 block">
-            Analyzing your inbox...
+            {t("integrations.analysis.analyzingInbox")}
           </span>
-          <span className="font-mohave text-[11px] text-text-mute">
+          <span className="font-mono text-micro tabular-nums text-text-mute">
             {progress}%
           </span>
         </div>
-        <div className="mt-1 h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
+        <div className="mt-1 h-[2px] w-full bg-fill-neutral-dim overflow-hidden rounded-[2px]">
           <motion.div
             className="h-full bg-text-2"
             animate={{ width: `${progress}%` }}
@@ -221,6 +248,8 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
 export function IntegrationsTab() {
   const { t } = useDictionary("settings");
   const can = usePermissionStore((s) => s.can);
+  const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
+  const phaseCEnabled = canAccessFeature("phase_c");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const { data: connections = [], isLoading: connectionsLoading } = useGmailConnections();
@@ -316,8 +345,8 @@ export function IntegrationsTab() {
     updateConnection.mutate(
       { id, data: { id, syncIntervalMinutes: minutes } },
       {
-        onSuccess: () => toast.success("Sync frequency updated"),
-        onError: (err) => toast.error("Failed to update", { description: err.message }),
+        onSuccess: () => toast.success(t("integrations.frequencyUpdated")),
+        onError: (err) => toast.error(t("integrations.toast.updateFailed"), { description: err.message }),
       }
     );
   }
@@ -339,7 +368,7 @@ export function IntegrationsTab() {
         companyId={companyId}
         onComplete={async () => {
           setWizardOpen(false);
-          toast.success("Pipeline import complete");
+          toast.success(t("integrations.toast.importComplete"));
           // Await both invalidation AND refetch so the tile re-renders with the
           // post-activation connection data (status='active', syncFilters.wizardCompleted=true)
           // before any other guard reads stale cache.
@@ -352,12 +381,15 @@ export function IntegrationsTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>{t("integrations.companyGmail")}</CardTitle>
+            <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+              <span className="text-text-mute">{"// "}</span>
+              {t("integrations.companyGmail")}
+            </span>
             {companyConnections.length > 0 && (
-              <span className="inline-flex items-center gap-[4px] px-1 py-[3px] rounded-sm font-mono text-micro uppercase tracking-wider bg-[rgba(107,143,113,0.15)] text-[#6B8F71]">
+              <Tag variant="olive">
                 <Check className="w-[12px] h-[12px]" />
                 {t("integrations.connected")}
-              </span>
+              </Tag>
             )}
           </div>
         </CardHeader>
@@ -369,46 +401,44 @@ export function IntegrationsTab() {
           {connectionsLoading ? (
             <div className="flex items-center gap-[6px] py-1">
               <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
-              <span className="font-mohave text-body-sm text-text-mute">Loading...</span>
+              <span className="font-mohave text-body-sm text-text-mute">{t("integrations.loading")}</span>
             </div>
           ) : companyConnections.length > 0 ? (
             <div className="space-y-1">
               {companyConnections.map((conn) => (
                 <div
                   key={conn.id}
-                  className="flex items-center justify-between px-1.5 py-1 bg-[rgba(107,143,113,0.08)] border border-[rgba(107,143,113,0.2)] rounded"
+                  className="flex items-center justify-between px-1.5 py-1 bg-olive-soft border border-olive-line rounded-[5px]"
                 >
                   <div className="flex items-center gap-[6px] min-w-0">
-                    <Mail className="w-[16px] h-[16px] text-[#6B8F71] shrink-0" />
+                    <Mail className="w-[16px] h-[16px] text-olive shrink-0" />
                     <div className="min-w-0">
-                      <span className="font-mono text-data-sm text-[#6B8F71] block truncate">
+                      <span className="font-mono text-data-sm text-olive block truncate">
                         {conn.email}
                       </span>
                       <span className="font-mono text-micro text-text-mute">
-                        {t("integrations.lastSynced")} {formatTimeAgo(conn.lastSyncedAt)}
+                        {t("integrations.lastSynced")} {formatTimeAgo(conn.lastSyncedAt, t)}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-[4px] shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => wizardDone && handleToggleSync(conn.id, conn.syncEnabled)}
-                      title={!wizardDone ? "Complete pipeline import first" : conn.syncEnabled ? t("integrations.pauseSync") : t("integrations.enableSync")}
-                      className={!wizardDone ? "opacity-40 cursor-not-allowed" : ""}
+                  <div className="flex items-center gap-[8px] shrink-0">
+                    <Switch
+                      checked={conn.syncEnabled && wizardDone}
+                      onCheckedChange={() => handleToggleSync(conn.id, conn.syncEnabled)}
                       disabled={!wizardDone}
-                    >
-                      {conn.syncEnabled && wizardDone ? (
-                        <ToggleRight className="w-[28px] h-[28px] text-[#6B8F71]" />
-                      ) : (
-                        <ToggleLeft className="w-[28px] h-[28px] text-text-mute" />
-                      )}
-                    </Button>
+                      title={
+                        !wizardDone
+                          ? t("integrations.completeImportFirst")
+                          : conn.syncEnabled
+                            ? t("integrations.pauseSync")
+                            : t("integrations.enableSync")
+                      }
+                    />
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDisconnect(conn.id)}
-                      className="text-text-mute hover:text-ops-error"
+                      className="text-text-mute hover:text-rose"
                     >
                       <Trash2 className="w-[14px] h-[14px]" />
                     </Button>
@@ -419,32 +449,32 @@ export function IntegrationsTab() {
           ) : activeJobId && !wizardDone ? (
             <button
               onClick={() => openWizard()}
-              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
+              className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
             >
               <div className="relative w-[18px] h-[18px] shrink-0">
-                <div className="w-full h-full border-2 border-[rgba(255,255,255,0.15)] border-t-text-2 rounded-full animate-spin" />
+                <div className="w-full h-full border-2 border-border border-t-text-2 rounded-full animate-spin" />
               </div>
               <div className="flex-1 min-w-0">
                 <span className="font-mohave text-body text-text-2 block">
-                  Analysis in progress...
+                  {t("integrations.analysisInProgress")}
                 </span>
                 <span className="font-mono text-micro text-text-mute">
-                  Click to view progress
+                  {t("integrations.clickToViewProgress")}
                 </span>
               </div>
             </button>
           ) : !wizardDone ? (
             <button
               onClick={() => openWizard()}
-              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
+              className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
             >
               <Mail className="w-[18px] h-[18px] text-text-2 shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="font-mohave text-body text-text block">
-                  Import Your Pipeline
+                  {t("integrations.importPipeline")}
                 </span>
                 <span className="font-mono text-micro text-text-mute">
-                  Connect your email and automatically import leads into your pipeline
+                  {t("integrations.importPipelineDesc")}
                 </span>
               </div>
             </button>
@@ -481,7 +511,7 @@ export function IntegrationsTab() {
                   className="gap-[6px]"
                 >
                   <Mail className="w-[14px] h-[14px]" />
-                  Complete Setup
+                  {t("integrations.completeSetup")}
                 </Button>
               ) : !wizardDone && importComplete ? (
                 <Button
@@ -491,31 +521,35 @@ export function IntegrationsTab() {
                   className="gap-[6px]"
                 >
                   <CheckCircle className="w-[14px] h-[14px]" />
-                  Activate Sync
+                  {t("integrations.activateSync")}
                 </Button>
               ) : null}
             </div>
           )}
 
           {companyConnections.length > 0 && (
-            <div className="pt-[4px]">
-              <label className="flex items-center gap-[6px] font-mono text-[11px] text-text-2">
+            <div className="pt-[4px] space-y-[4px]">
+              <label className="flex items-center gap-[6px] font-mono text-micro text-text-2">
                 <Clock className="w-[14px] h-[14px] text-text-mute" />
-                Sync Frequency
+                {t("integrations.syncFrequency")}
               </label>
-              <select
-                className="mt-[4px] w-full bg-surface-input border border-border rounded px-1.5 py-[6px] font-mohave text-body-sm text-text"
-                value={companyConnections[0].syncIntervalMinutes}
-                onChange={(e) =>
-                  handleUpdateSyncInterval(companyConnections[0].id, Number(e.target.value))
+              <Select
+                value={String(companyConnections[0].syncIntervalMinutes)}
+                onValueChange={(v) =>
+                  handleUpdateSyncInterval(companyConnections[0].id, Number(v))
                 }
               >
-                <option value={15}>Every 15 min</option>
-                <option value={30}>Every 30 min</option>
-                <option value={60}>Every hour</option>
-                <option value={240}>Every 4 hours</option>
-                <option value={0}>Manual only</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">{t("integrations.every15Min")}</SelectItem>
+                  <SelectItem value="30">{t("integrations.every30Min")}</SelectItem>
+                  <SelectItem value="60">{t("integrations.everyHour")}</SelectItem>
+                  <SelectItem value="240">{t("integrations.every4Hours")}</SelectItem>
+                  <SelectItem value="0">{t("integrations.manualOnly")}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
 
@@ -526,43 +560,43 @@ export function IntegrationsTab() {
                 /* Import done but activation pending — prompt to finish */
                 <button
                   onClick={() => openWizard()}
-                  className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(157,181,130,0.3)] bg-[rgba(157,181,130,0.08)] hover:bg-[rgba(157,181,130,0.15)] transition-colors text-left"
+                  className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-olive-line bg-olive-soft hover:bg-olive-soft transition-colors text-left"
                 >
-                  <CheckCircle className="w-[18px] h-[18px] text-[#9DB582] shrink-0" />
+                  <CheckCircle className="w-[18px] h-[18px] text-olive shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <span className="font-mohave text-body text-[#9DB582] block">
-                      Import complete — activate sync
+                    <span className="font-mohave text-body text-olive block">
+                      {t("integrations.importCompleteActivate")}
                     </span>
                     <span className="font-mono text-micro text-text-mute">
-                      Your leads are in the pipeline. Finish setup to enable ongoing sync.
+                      {t("integrations.importCompleteActivateDesc")}
                     </span>
                   </div>
                 </button>
               ) : (
                 <>
-                  <div className="flex items-start gap-[8px] px-2 py-1.5 rounded border border-amber-500/30 bg-amber-500/8">
-                    <AlertTriangle className="w-[16px] h-[16px] text-amber-500 shrink-0 mt-[2px]" />
+                  <div className="flex items-start gap-[8px] px-2 py-1.5 rounded-[5px] border border-tan-line bg-tan-soft">
+                    <AlertTriangle className="w-[16px] h-[16px] text-tan shrink-0 mt-[2px]" />
                     <div className="flex-1 min-w-0">
-                      <span className="font-mohave text-body-sm text-amber-600 dark:text-amber-400 block">
-                        Pipeline import not configured
+                      <span className="font-mohave text-body-sm text-tan block">
+                        {t("integrations.importNotConfigured")}
                       </span>
                       <span className="font-mono text-micro text-text-mute">
-                        Run the import wizard to discover leads in your inbox and activate ongoing sync.
+                        {t("integrations.importNotConfiguredDesc")}
                       </span>
                     </div>
                   </div>
 
                   <button
                     onClick={() => openWizard()}
-                    className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
+                    className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
                   >
                     <Mail className="w-[18px] h-[18px] text-text-2 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <span className="font-mohave text-body text-text block">
-                        Import Your Pipeline
+                        {t("integrations.importPipeline")}
                       </span>
                       <span className="font-mono text-micro text-text-mute">
-                        Automatically discover leads, classify with AI, and import into your pipeline
+                        {t("integrations.importPipelineSortDesc")}
                       </span>
                     </div>
                   </button>
@@ -575,16 +609,16 @@ export function IntegrationsTab() {
           {hasAnyConnection && wizardDone && (
             <>
               <div className="pt-[4px]">
-                <div className="flex items-center gap-[6px] px-2 py-1.5 rounded border border-[rgba(107,143,113,0.2)] bg-[rgba(107,143,113,0.08)]">
-                  <CheckCircle className="w-[16px] h-[16px] text-[#6B8F71] shrink-0" />
-                  <span className="font-mohave text-body-sm text-[#6B8F71]">
-                    Pipeline sync is active
+                <div className="flex items-center gap-[6px] px-2 py-1.5 rounded-[5px] border border-olive-line bg-olive-soft">
+                  <CheckCircle className="w-[16px] h-[16px] text-olive shrink-0" />
+                  <span className="font-mohave text-body-sm text-olive">
+                    {t("integrations.syncActive")}
                   </span>
                   <button
                     onClick={() => openWizard()}
-                    className="ml-auto font-mono text-micro text-text-mute/50 hover:text-text-mute transition-colors"
+                    className="ml-auto font-mono text-micro text-text-3 hover:text-text-2 transition-colors"
                   >
-                    re-scan
+                    {t("integrations.reScan")}
                   </button>
                 </div>
               </div>
@@ -592,77 +626,87 @@ export function IntegrationsTab() {
               {/* Sync History — last 3 import jobs */}
               {importHistory.length > 0 && (
                 <div className="pt-[4px] space-y-[6px]">
-                  <label className="flex items-center gap-[6px] font-mono text-[11px] text-text-2">
+                  <label className="flex items-center gap-[6px] font-mono text-micro text-text-2">
                     <Clock className="w-[14px] h-[14px] text-text-mute" />
-                    Recent Import History
+                    {t("integrations.recentImportHistory")}
                   </label>
-                  <div className="space-y-[4px]">
-                    {importHistory.map((job) => (
-                      <div
-                        key={job.id}
-                        className="flex items-center justify-between px-1.5 py-[6px] rounded border border-border bg-fill-neutral-dim/40"
-                      >
-                        <div className="flex items-center gap-[6px] min-w-0">
-                          {job.status === "completed" ? (
-                            <CheckCircle className="w-[14px] h-[14px] text-[#6B8F71] shrink-0" />
-                          ) : job.status === "running" ? (
-                            <Loader2 className="w-[14px] h-[14px] text-text-2 shrink-0 animate-spin" />
-                          ) : (
-                            <AlertTriangle className="w-[14px] h-[14px] text-ops-error shrink-0" />
-                          )}
+                  <RegisterTable
+                    ariaLabel={t("integrations.recentImportHistory")}
+                    rows={importHistory}
+                    getRowId={(job) => job.id}
+                    minWidth={420}
+                    columns={[
+                      {
+                        id: "summary",
+                        header: t("integrations.colImport"),
+                        cell: (job) => (
                           <div className="min-w-0">
-                            <span className="font-mohave text-body-sm text-text block">
+                            <TablePrimary className="max-w-none">
                               {job.status === "completed"
-                                ? `${job.processed} emails · ${job.clientsCreated} client${job.clientsCreated !== 1 ? "s" : ""} · ${job.leadsCreated} lead${job.leadsCreated !== 1 ? "s" : ""}`
+                                ? t("integrations.importSummary.completed")
+                                    .replace("{{emails}}", String(job.processed))
+                                    .replace("{{clients}}", String(job.clientsCreated))
+                                    .replace("{{leads}}", String(job.leadsCreated))
                                 : job.status === "running"
-                                  ? `Importing... ${job.processed}/${job.totalEmails} emails`
-                                  : `Failed${job.error ? `: ${job.error}` : ""}`}
-                            </span>
-                            <span className="font-mono text-micro text-text-mute">
-                              {formatTimeAgo(new Date(job.createdAt))}
-                            </span>
+                                  ? t("integrations.importSummary.running")
+                                      .replace("{{processed}}", String(job.processed))
+                                      .replace("{{total}}", String(job.totalEmails))
+                                  : t("integrations.importSummary.failed").replace(
+                                      "{{error}}",
+                                      job.error ?? "",
+                                    )}
+                            </TablePrimary>
+                            <TableMono>{formatTimeAgo(new Date(job.createdAt), t)}</TableMono>
                           </div>
-                        </div>
-                        <span
-                          className={cn(
-                            "px-[6px] py-[2px] rounded-sm font-mono text-micro uppercase tracking-wider shrink-0",
-                            job.status === "completed" && "bg-[rgba(107,143,113,0.15)] text-[#6B8F71]",
-                            job.status === "running" && "bg-[rgba(255,255,255,0.06)] text-text-2",
-                            job.status === "failed" && "bg-ops-error/15 text-ops-error",
-                          )}
-                        >
-                          {job.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                        ),
+                      },
+                      {
+                        id: "status",
+                        header: t("integrations.colStatus"),
+                        align: "right",
+                        cell: (job) => (
+                          <Tag
+                            variant={
+                              job.status === "completed"
+                                ? "olive"
+                                : job.status === "failed"
+                                  ? "rose"
+                                  : "neutral"
+                            }
+                          >
+                            {t(`integrations.jobStatus.${job.status}`)}
+                          </Tag>
+                        ),
+                      },
+                    ]}
+                  />
                 </div>
               )}
             </>
           )}
 
-          <p className="font-mono text-[11px] text-text-mute">
+          <p className="font-mono text-micro text-text-mute">
             {t("integrations.gmailHelper")}
           </p>
 
-          {/* AI Autonomy Status + Auto-Draft + Per-Category — visible after wizard is done */}
-          {hasAnyConnection && wizardDone && companyConnections[0] && (
-            <div className="pt-2 border-t border-[rgba(255,255,255,0.04)]">
+          {/* Autonomy Status + Auto-Draft + Per-Category — Phase C only, after wizard */}
+          {phaseCEnabled && hasAnyConnection && wizardDone && companyConnections[0] && (
+            <div className="pt-2 border-t border-border-subtle">
               <AutonomyStatusPanel connectionId={companyConnections[0].id} />
             </div>
           )}
 
-          {/* Auto-Send Settings — visible after wizard is done */}
-          {hasAnyConnection && wizardDone && companyConnections[0] && (
-            <div className="pt-2 border-t border-[rgba(255,255,255,0.04)]">
+          {/* Auto-Send Settings — Phase C only, after wizard */}
+          {phaseCEnabled && hasAnyConnection && wizardDone && companyConnections[0] && (
+            <div className="pt-2 border-t border-border-subtle">
               <AutoSendSettings connectionId={companyConnections[0].id} />
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* AI Setup Card */}
-      <AiSetupCard />
+      {/* AI Setup Card — Phase C only */}
+      {phaseCEnabled && <AiSetupCard />}
 
     </div>
   );
@@ -681,23 +725,19 @@ function AiSetupCard() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>
-            <div className="flex items-center gap-[6px]">
-              <Brain className="w-[16px] h-[16px] text-[#6F94B0]" />
-              {t("nav.cardTitle")}
-            </div>
-          </CardTitle>
-        </div>
+        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+          <span className="text-text-mute">{"// "}</span>
+          {t("nav.cardTitle")}
+        </span>
       </CardHeader>
       <CardContent>
         <button
           onClick={() => router.push("/settings/integrations/ai-setup")}
-          className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-[rgba(111, 148, 176,0.2)] bg-[rgba(111, 148, 176,0.06)] hover:bg-[rgba(111, 148, 176,0.12)] hover:border-[rgba(111, 148, 176,0.3)] transition-colors text-left"
+          className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
         >
-          <Brain className="w-[18px] h-[18px] text-[#6F94B0] shrink-0" />
+          <Brain className="w-[18px] h-[18px] text-text-2 shrink-0" />
           <div className="flex-1 min-w-0">
-            <span className="font-mohave text-body text-[#6F94B0] block">
+            <span className="font-mohave text-body text-text block">
               {t("nav.cardAction")}
             </span>
             <span className="font-mono text-micro text-text-mute">

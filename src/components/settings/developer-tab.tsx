@@ -7,22 +7,25 @@ export function DeveloperTab() {
   const { t } = useDictionary("settings");
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="max-w-3xl space-y-3">
       <div>
-        <h2 className="text-lg font-semibold text-[#EDEDED]">{t("developer.title")}</h2>
-        <p className="text-sm text-[#999] mt-1">
+        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+          <span className="text-text-mute">{"// "}</span>
+          {t("developer.title")}
+        </span>
+        <p className="mt-1 font-mohave text-body-sm text-text-2">
           {t("developer.description")}
         </p>
       </div>
 
-      <div className="rounded-lg border border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.03)] p-5">
+      <div className="glass-surface rounded-panel p-3">
         <div className="flex items-start gap-3">
-          <Database className="h-5 w-5 text-[#417394] mt-0.5 shrink-0" />
+          <Database className="mt-0.5 h-[20px] w-[20px] shrink-0 text-text-3" />
           <div className="flex-1">
-            <h3 className="text-sm font-medium text-[#EDEDED]">
+            <p className="font-mohave text-body text-text">
               {t("developer.database")}
-            </h3>
-            <p className="text-sm text-[#999] mt-1">
+            </p>
+            <p className="mt-1 font-mohave text-body-sm text-text-2">
               {t("developer.databaseDesc")}
             </p>
           </div>

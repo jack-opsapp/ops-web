@@ -2,13 +2,20 @@
 
 import { useState } from "react";
 import { Loader2, Plus, Trash2, Package } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  RegisterTable,
+  RegisterEmpty,
+  Tag,
+  TablePrimary,
+  type RegisterTableColumn,
+} from "@/components/ui/register-table";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
+import type { InventoryUnit } from "@/lib/types/inventory";
 
 // Direct imports since these aren't in the hooks barrel yet
 import { useInventoryUnits, useCreateInventoryUnit, useDeleteInventoryUnit } from "@/lib/hooks/use-inventory";
@@ -59,19 +66,51 @@ export function InventoryTab() {
 
   const sortedUnits = [...(units ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
 
+  const columns: RegisterTableColumn<InventoryUnit>[] = [
+    {
+      id: "unit",
+      header: t("inventory.unitColumn"),
+      cell: (unit) => (
+        <div className="flex items-center gap-2">
+          <TablePrimary>{unit.display}</TablePrimary>
+          {unit.isDefault && <Tag variant="dim">{t("inventory.default")}</Tag>}
+        </div>
+      ),
+    },
+    {
+      id: "actions",
+      header: "",
+      align: "right",
+      className: "w-[1%]",
+      cell: (unit) => (
+        <button
+          type="button"
+          onClick={() => handleDelete(unit.id, unit.display)}
+          disabled={deleteUnit.isPending}
+          aria-label={t("inventory.removeUnit")}
+          className="text-text-mute hover:text-rose transition-colors p-1 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <Trash2 className="w-[14px] h-[14px]" />
+        </button>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-3 max-w-3xl">
       <Card>
-        <CardHeader>
+        <CardContent className="space-y-2">
           <div className="flex items-center gap-2">
-            <Package className="w-[16px] h-[16px] text-text-2" />
-            <CardTitle>{t("inventory.unitsTitle")}</CardTitle>
+            <Package className="w-[16px] h-[16px] text-text-3" />
+            <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+              <span className="text-text-mute">{"// "}</span>
+              {t("inventory.unitsTitle")}
+            </span>
           </div>
-          <p className="font-mono text-[11px] text-text-mute mt-1">
+          <p className="font-mono text-[11px] text-text-mute">
             {t("inventory.unitsDescription")}
           </p>
-        </CardHeader>
-        <CardContent className="space-y-2">
+
           {/* Add new unit */}
           <div className="flex gap-2">
             <Input
@@ -82,45 +121,28 @@ export function InventoryTab() {
               className="flex-1"
             />
             <Button
+              variant="primary"
               size="sm"
               onClick={handleAdd}
               disabled={!newUnitName.trim() || createUnit.isPending}
+              className="gap-1"
             >
-              <Plus className="w-[14px] h-[14px] mr-1" />
+              <Plus className="w-[14px] h-[14px]" />
               {t("inventory.addUnit")}
             </Button>
           </div>
 
           {/* Unit list */}
           {sortedUnits.length === 0 ? (
-            <p className="font-mono text-[11px] text-text-mute py-4 text-center">
-              {t("inventory.noUnits")}
-            </p>
+            <RegisterEmpty noun={t("inventory.unitsNoun")} hint={t("inventory.noUnits")} />
           ) : (
-            <div className="space-y-1">
-              {sortedUnits.map((unit) => (
-                <div
-                  key={unit.id}
-                  className="flex items-center justify-between px-2 py-1.5 rounded border border-border bg-surface-input"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-mohave text-body text-text">{unit.display}</span>
-                    {unit.isDefault && (
-                      <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-1.5 py-0.5 rounded">
-                        {t("inventory.default")}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleDelete(unit.id, unit.display)}
-                    disabled={deleteUnit.isPending}
-                    className="text-text-mute hover:text-red-400 transition-colors p-1"
-                  >
-                    <Trash2 className="w-[14px] h-[14px]" />
-                  </button>
-                </div>
-              ))}
-            </div>
+            <RegisterTable
+              columns={columns}
+              rows={sortedUnits}
+              getRowId={(unit) => unit.id}
+              minWidth={320}
+              ariaLabel={t("inventory.unitsTitle")}
+            />
           )}
         </CardContent>
       </Card>

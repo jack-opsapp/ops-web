@@ -3,44 +3,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, Bell, BellOff, Smartphone, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { useNotificationPreferences, useUpdateNotificationPreferences } from "@/lib/hooks";
 import type { EventType, ChannelPreferences } from "@/lib/api/services/notification-preferences-service";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 
-// ─── Toggle Component ────────────────────────────────────────────────────────
+// ─── Section header (// TITLE) ───────────────────────────────────────────────
 
-interface ToggleSwitchProps {
-  enabled: boolean;
-  onToggle: () => void;
-  disabled?: boolean;
-  size?: "default" | "small";
-}
-
-function ToggleSwitch({ enabled, onToggle, disabled, size = "default" }: ToggleSwitchProps) {
-  const isDefault = size === "default";
+function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <button
-      onClick={onToggle}
-      disabled={disabled}
-      className={cn(
-        "rounded-full transition-colors relative shrink-0",
-        isDefault ? "w-[40px] h-[22px]" : "w-[32px] h-[18px]",
-        disabled && "opacity-30 cursor-not-allowed",
-        enabled ? "bg-text-2" : "bg-fill-neutral-dim"
-      )}
-    >
-      <span
-        className={cn(
-          "absolute rounded-full bg-white transition-all",
-          isDefault ? "top-[2px] w-[18px] h-[18px]" : "top-[2px] w-[14px] h-[14px]",
-          enabled
-            ? isDefault ? "right-[2px]" : "right-[2px]"
-            : isDefault ? "left-[2px]" : "left-[2px]"
-        )}
-      />
-    </button>
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
   );
 }
 
@@ -75,21 +52,19 @@ function CategoryRow({
         <p className="font-mono text-micro text-text-mute leading-tight">{description}</p>
       </div>
       {/* Phone toggle */}
-      <div className="w-[40px] flex justify-center">
-        <ToggleSwitch
-          enabled={pushEnabled}
-          onToggle={onTogglePush}
+      <div className="w-[44px] flex justify-center">
+        <Switch
+          checked={pushEnabled}
+          onCheckedChange={onTogglePush}
           disabled={globalPushOff}
-          size="small"
         />
       </div>
       {/* Email toggle */}
-      <div className="w-[40px] flex justify-center">
-        <ToggleSwitch
-          enabled={emailEnabled}
-          onToggle={onToggleEmail}
+      <div className="w-[44px] flex justify-center">
+        <Switch
+          checked={emailEnabled}
+          onCheckedChange={onToggleEmail}
           disabled={globalEmailOff}
-          size="small"
         />
       </div>
     </div>
@@ -214,12 +189,10 @@ export function NotificationsTab() {
     <div className="space-y-3">
       {/* Global Kill Switches */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Bell className="w-[16px] h-[16px] text-text-2" />
-            <CardTitle>{t("notifications.globalControls")}</CardTitle>
-          </div>
-        </CardHeader>
+        <div className="flex items-center gap-2 pb-2">
+          <Bell className="w-[16px] h-[16px] text-text-2" />
+          <SectionTitle>{t("notifications.globalControls")}</SectionTitle>
+        </div>
         <CardContent className="space-y-1">
           <div className="flex items-center justify-between py-[6px]">
             <div className="flex items-center gap-2">
@@ -229,9 +202,9 @@ export function NotificationsTab() {
                 <p className="font-mono text-micro text-text-mute">{t("notifications.pushDesc")}</p>
               </div>
             </div>
-            <ToggleSwitch
-              enabled={prefs.pushEnabled}
-              onToggle={() => toggleGlobal("pushEnabled")}
+            <Switch
+              checked={prefs.pushEnabled}
+              onCheckedChange={() => toggleGlobal("pushEnabled")}
             />
           </div>
           <div className="flex items-center justify-between py-[6px]">
@@ -242,9 +215,9 @@ export function NotificationsTab() {
                 <p className="font-mono text-micro text-text-mute">{t("notifications.emailDesc")}</p>
               </div>
             </div>
-            <ToggleSwitch
-              enabled={prefs.emailEnabled}
-              onToggle={() => toggleGlobal("emailEnabled")}
+            <Switch
+              checked={prefs.emailEnabled}
+              onCheckedChange={() => toggleGlobal("emailEnabled")}
             />
           </div>
         </CardContent>
@@ -252,15 +225,15 @@ export function NotificationsTab() {
 
       {/* Per-Category, Per-Channel Preferences */}
       <Card>
-        <CardHeader>
-          <CardTitle>{t("notifications.categories")}</CardTitle>
+        <div className="flex flex-col gap-0.5 pb-2">
+          <SectionTitle>{t("notifications.categories")}</SectionTitle>
           <p className="font-mono text-micro text-text-mute">{t("notifications.categoriesDesc")}</p>
-        </CardHeader>
+        </div>
         <CardContent>
           {/* Column headers */}
           <div className="flex items-center gap-3 pb-[6px] mb-[2px] border-b border-[rgba(255,255,255,0.08)]">
             <div className="flex-1" />
-            <div className="w-[40px] flex justify-center">
+            <div className="w-[44px] flex justify-center">
               <div className="flex flex-col items-center gap-0.5">
                 <Smartphone className={cn("w-[12px] h-[12px]", globalPushOff ? "text-text-mute" : "text-text-2")} />
                 <span className={cn("font-mono text-micro uppercase", globalPushOff ? "text-text-mute" : "text-text-3")}>
@@ -268,7 +241,7 @@ export function NotificationsTab() {
                 </span>
               </div>
             </div>
-            <div className="w-[40px] flex justify-center">
+            <div className="w-[44px] flex justify-center">
               <div className="flex flex-col items-center gap-0.5">
                 <Mail className={cn("w-[12px] h-[12px]", globalEmailOff ? "text-text-mute" : "text-text-2")} />
                 <span className={cn("font-mono text-micro uppercase", globalEmailOff ? "text-text-mute" : "text-text-3")}>
@@ -280,12 +253,12 @@ export function NotificationsTab() {
 
           {/* Global off warnings */}
           {globalPushOff && (
-            <p className="font-mono text-micro text-yellow-400/70 py-1">
+            <p className="font-mono text-micro text-tan py-1">
               {t("notifications.globalOff").replace("{channel}", t("notifications.colPhone").toLowerCase())}
             </p>
           )}
           {globalEmailOff && (
-            <p className="font-mono text-micro text-yellow-400/70 py-1">
+            <p className="font-mono text-micro text-tan py-1">
               {t("notifications.globalOff").replace("{channel}", t("notifications.colEmail").toLowerCase())}
             </p>
           )}
@@ -309,21 +282,19 @@ export function NotificationsTab() {
 
       {/* Digest & Quiet Hours */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <BellOff className="w-[16px] h-[16px] text-text-2" />
-            <CardTitle>{t("notifications.digestQuietHours")}</CardTitle>
-          </div>
-        </CardHeader>
+        <div className="flex items-center gap-2 pb-2">
+          <BellOff className="w-[16px] h-[16px] text-text-2" />
+          <SectionTitle>{t("notifications.digestQuietHours")}</SectionTitle>
+        </div>
         <CardContent className="space-y-2">
           <div className="flex items-center justify-between py-[6px]">
             <div>
               <p className="font-mohave text-body text-text">{t("notifications.dailyDigest")}</p>
               <p className="font-mono text-micro text-text-mute">{t("notifications.dailyDigestDesc")}</p>
             </div>
-            <ToggleSwitch
-              enabled={prefs.channelPreferences.daily_digest.email || prefs.channelPreferences.daily_digest.push}
-              onToggle={toggleDailyDigest}
+            <Switch
+              checked={prefs.channelPreferences.daily_digest.email || prefs.channelPreferences.daily_digest.push}
+              onCheckedChange={toggleDailyDigest}
             />
           </div>
 
@@ -339,20 +310,20 @@ export function NotificationsTab() {
                   value={localStart}
                   onChange={(e) => setLocalStart(e.target.value)}
                   onBlur={() => saveQuietHours("quietHoursStart", localStart)}
-                  className="bg-surface-input border border-border rounded px-2 py-1 font-mono text-[11px] text-text w-[90px]"
+                  className="bg-surface-input border border-border rounded-[5px] px-2 py-1 font-mono text-micro tabular-nums text-text w-[90px]"
                 />
-                <span className="font-mono text-[11px] text-text-mute">–</span>
+                <span className="font-mono text-micro text-text-mute">–</span>
                 <input
                   type="time"
                   value={localEnd}
                   onChange={(e) => setLocalEnd(e.target.value)}
                   onBlur={() => saveQuietHours("quietHoursEnd", localEnd)}
-                  className="bg-surface-input border border-border rounded px-2 py-1 font-mono text-[11px] text-text w-[90px]"
+                  className="bg-surface-input border border-border rounded-[5px] px-2 py-1 font-mono text-micro tabular-nums text-text w-[90px]"
                 />
               </div>
             </div>
             {quietHoursWarning && (
-              <p className="font-mono text-micro text-yellow-400 mt-1">{t("notifications.quietHoursSameWarning")}</p>
+              <p className="font-mono text-micro text-tan mt-1">{t("notifications.quietHoursSameWarning")}</p>
             )}
           </div>
         </CardContent>

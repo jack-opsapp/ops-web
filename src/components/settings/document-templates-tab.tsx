@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-  Check,
   Loader2,
   Save,
   Plus,
@@ -14,7 +13,15 @@ import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { SegmentControl } from "@/components/ui/segment-control";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  RegisterTable,
+  RegisterEmpty,
+  TablePrimary,
+  Tag,
+  type RegisterTableColumn,
+} from "@/components/ui/register-table";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentTemplateKeys } from "@/lib/api/services/document-template-service";
@@ -358,7 +365,7 @@ export function DocumentTemplatesTab() {
     return (
       <Card>
         <CardContent className="py-3">
-          <p className="font-mohave text-body text-ops-error">
+          <p className="font-mohave text-body text-rose">
             {t("templates.loadFailed")}
             {error instanceof Error ? `: ${error.message}` : ""}
           </p>
@@ -368,6 +375,35 @@ export function DocumentTemplatesTab() {
   }
 
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(accentColor);
+
+  const templateColumns: RegisterTableColumn<DocumentTemplate>[] = [
+    {
+      id: "name",
+      header: t("templates.templateName"),
+      cell: (tmpl) => <TablePrimary>{tmpl.name}</TablePrimary>,
+    },
+    {
+      id: "type",
+      header: t("templates.documentType"),
+      align: "right",
+      cell: (tmpl) => (
+        <Tag variant="neutral">
+          {tmpl.documentType === "invoice"
+            ? t("templates.invoice")
+            : tmpl.documentType === "estimate"
+            ? t("templates.estimate")
+            : t("templates.both")}
+        </Tag>
+      ),
+    },
+    {
+      id: "default",
+      header: "",
+      align: "right",
+      cell: (tmpl) =>
+        tmpl.isDefault ? <Tag variant="olive">{t("templates.default")}</Tag> : null,
+    },
+  ];
 
   return (
     <div className="space-y-3">
@@ -388,41 +424,18 @@ export function DocumentTemplatesTab() {
         </CardHeader>
         <CardContent>
           {templates.length === 0 ? (
-            <p className="font-mono text-[11px] text-text-mute text-center py-2">
-              {t("templates.emptyState")}
-            </p>
+            <RegisterEmpty noun={t("templates.title")} hint={t("templates.emptyState")} />
           ) : (
-            <div className="space-y-1">
-              {templates.map((tmpl) => (
-                <button
-                  key={tmpl.id}
-                  onClick={() => setSelectedId(tmpl.id)}
-                  className={cn(
-                    "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all text-left",
-                    selectedId === tmpl.id
-                      ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
-                      : "bg-surface-input border-border hover:border-border-medium"
-                  )}
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <p className="font-mohave text-body text-text truncate">
-                      {tmpl.name}
-                    </p>
-                    <span className="font-mono text-micro text-text-3 px-1 py-0.5 rounded bg-fill-neutral-dim shrink-0 uppercase">
-                      {tmpl.documentType}
-                    </span>
-                    {tmpl.isDefault && (
-                      <span className="font-mono text-micro text-text px-1 py-0.5 rounded bg-[rgba(255,255,255,0.08)] shrink-0">
-                        {t("templates.default")}
-                      </span>
-                    )}
-                  </div>
-                  {selectedId === tmpl.id && (
-                    <Check className="w-[14px] h-[14px] text-text shrink-0" />
-                  )}
-                </button>
-              ))}
-            </div>
+            <RegisterTable
+              columns={templateColumns}
+              rows={templates}
+              getRowId={(tmpl) => tmpl.id}
+              onRowClick={(tmpl) => setSelectedId(tmpl.id)}
+              isRowActive={(tmpl) => tmpl.id === selectedId}
+              minWidth={360}
+              ariaLabel={t("templates.title")}
+              className="rounded-panel border border-border"
+            />
           )}
         </CardContent>
       </Card>
@@ -445,33 +458,30 @@ export function DocumentTemplatesTab() {
 
               <div>
                 <p className="font-mohave text-body-sm text-text-2 mb-0.5">
-                  Document Type
+                  {t("templates.documentType")}
                 </p>
-                <div className="flex gap-1">
-                  {DOC_TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => { setDocumentType(opt.id); markDirty(); }}
-                      className={cn(
-                        "flex-1 py-[8px] rounded border transition-all font-mohave text-body-sm text-center",
-                        documentType === opt.id
-                          ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
-                          : "bg-surface-input border-border text-text-2 hover:border-border-medium"
-                      )}
-                    >
-                      {t(opt.labelKey)}
-                    </button>
-                  ))}
-                </div>
+                <SegmentControl
+                  options={DOC_TYPE_OPTIONS.map((opt) => ({
+                    value: opt.id,
+                    label: t(opt.labelKey),
+                  }))}
+                  value={documentType}
+                  onChange={(id) => { setDocumentType(id as DocumentType); markDirty(); }}
+                />
               </div>
 
-              <div className="flex items-center justify-between pt-0.5">
-                <div>
+              <div className="flex items-center justify-between gap-4 pt-0.5">
+                <div className="min-w-0">
                   <p className="font-mohave text-body-sm text-text">
                     {t("templates.setAsDefault")}
                   </p>
                   <p className="font-mono text-[11px] text-text-mute">
-                    {t("templates.autoApply")} {documentType === "both" ? "invoices & estimates" : `${documentType}s`}
+                    {t("templates.autoApply")}{" "}
+                    {documentType === "both"
+                      ? t("templates.autoApplyBoth")
+                      : documentType === "invoice"
+                      ? t("templates.autoApplyInvoices")
+                      : t("templates.autoApplyEstimates")}
                   </p>
                 </div>
                 <Switch
@@ -536,14 +546,14 @@ export function DocumentTemplatesTab() {
                           key={preset.value}
                           onClick={() => { setAccentColor(preset.value); markDirty(); }}
                           className={cn(
-                            "flex items-center gap-[4px] px-1 py-[6px] rounded border transition-all",
+                            "flex items-center gap-[4px] px-1 py-[6px] rounded-[4px] border transition-all",
                             accentColor === preset.value
-                              ? "border-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.06)]"
+                              ? "border-[rgba(255,255,255,0.18)] bg-surface-active"
                               : "border-border hover:border-border-medium"
                           )}
                         >
                           <span
-                            className="w-[14px] h-[14px] rounded-full border border-[rgba(255,255,255,0.2)]"
+                            className="w-[14px] h-[14px] rounded-[4px] border border-[rgba(255,255,255,0.2)]"
                             style={{ backgroundColor: preset.value }}
                           />
                           <span className="font-mohave text-[11px] text-text-2">
@@ -562,7 +572,7 @@ export function DocumentTemplatesTab() {
                       />
                       {isValidHex && (
                         <div
-                          className="w-7 h-7 rounded border border-[rgba(255,255,255,0.2)] shrink-0"
+                          className="w-7 h-7 rounded-[5px] border border-[rgba(255,255,255,0.2)] shrink-0"
                           style={{ backgroundColor: accentColor }}
                         />
                       )}
@@ -605,21 +615,15 @@ export function DocumentTemplatesTab() {
                   />
                 </div>
                 {overrideTemplateToggle && (
-                  <div className="pl-1 flex gap-1">
-                    {TEMPLATES.map((tmpl) => (
-                      <button
-                        key={tmpl.id}
-                        onClick={() => { setTemplateChoice(tmpl.id); markDirty(); }}
-                        className={cn(
-                          "flex-1 py-[8px] rounded border transition-all font-mohave text-body-sm text-center",
-                          templateChoice === tmpl.id
-                            ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
-                            : "bg-surface-input border-border text-text-2 hover:border-border-medium"
-                        )}
-                      >
-                        {t(tmpl.labelKey)}
-                      </button>
-                    ))}
+                  <div className="pl-1">
+                    <SegmentControl
+                      options={TEMPLATES.map((tmpl) => ({
+                        value: tmpl.id,
+                        label: t(tmpl.labelKey),
+                      }))}
+                      value={templateChoice}
+                      onChange={(id) => { setTemplateChoice(id as PortalTemplate); markDirty(); }}
+                    />
                   </div>
                 )}
               </div>
@@ -645,9 +649,9 @@ export function DocumentTemplatesTab() {
                         key={mode.id}
                         onClick={() => { setThemeMode(mode.id); markDirty(); }}
                         className={cn(
-                          "flex items-center justify-center gap-[6px] py-[8px] rounded border transition-all",
+                          "flex items-center justify-center gap-[6px] py-[8px] rounded-[5px] border transition-all",
                           themeMode === mode.id
-                            ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
+                            ? "bg-surface-active border-[rgba(255,255,255,0.18)]"
                             : "bg-surface-input border-border hover:border-border-medium"
                         )}
                       >
@@ -681,7 +685,7 @@ export function DocumentTemplatesTab() {
               onClick={handleDelete}
               disabled={deleteMutation.isPending}
               loading={deleteMutation.isPending}
-              className="text-ops-error hover:bg-ops-error/10"
+              className="text-rose hover:bg-rose-soft"
             >
               <Trash2 className="w-[14px] h-[14px]" />
               {t("templates.deleteTemplate")}

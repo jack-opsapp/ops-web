@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { SegmentControl } from "@/components/ui/segment-control";
+import { Tag } from "@/components/ui/tag";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   useExpenseSettings,
   useUpdateExpenseSettings,
@@ -19,6 +22,17 @@ import { AutoApproveRuleType } from "@/lib/types/expense-approval";
 import { AutoApproveRuleForm } from "@/components/expenses/auto-approve-rule-form";
 
 type ReviewFrequency = "daily" | "weekly" | "biweekly" | "monthly";
+
+// ─── Section header (canonical `// TITLE`) ──────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
+  );
+}
 
 export function ExpenseSettingsTab() {
   const { t } = useDictionary("settings");
@@ -99,43 +113,36 @@ export function ExpenseSettingsTab() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <Card>
-        <CardHeader>
-          <CardTitle>{t("expenses.reviewFrequency")}</CardTitle>
-        </CardHeader>
+        <div className="pb-2">
+          <SectionLabel>{t("expenses.reviewFrequency")}</SectionLabel>
+        </div>
         <CardContent>
-          <div className="flex gap-2">
-            {frequencies.map((freq) => (
-              <button
-                key={freq.id}
-                disabled={!can("expenses.configure")}
-                onClick={() => {
-                  if (!can("expenses.configure")) return;
-                  updateSettings.mutate(
-                    { reviewFrequency: freq.id },
-                    {
-                      onSuccess: () => toast.success(`${t("expenses.toast.frequencySet")} ${freq.label}`),
-                      onError: (err) => toast.error(t("preferences.toast.updateFailed"), { description: err.message }),
-                    }
-                  );
-                }}
-                className={cn(
-                  "flex-1 px-3 py-2 rounded border text-center font-mohave text-body transition-all disabled:opacity-40 disabled:cursor-not-allowed",
-                  reviewFrequency === freq.id
-                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
-                    : "bg-surface-input border-border text-text-2 hover:border-border-medium"
-                )}
-              >
-                {freq.label}
-              </button>
-            ))}
+          <div className={cn(!can("expenses.configure") && "opacity-40 pointer-events-none")}>
+            <SegmentControl
+              options={frequencies.map((freq) => ({ value: freq.id, label: freq.label }))}
+              value={reviewFrequency}
+              onChange={(id) => {
+                if (!can("expenses.configure")) return;
+                const freq = frequencies.find((f) => f.id === id);
+                updateSettings.mutate(
+                  { reviewFrequency: id },
+                  {
+                    onSuccess: () =>
+                      toast.success(`${t("expenses.toast.frequencySet")} ${freq?.label ?? id}`),
+                    onError: (err) =>
+                      toast.error(t("preferences.toast.updateFailed"), { description: err.message }),
+                  }
+                );
+              }}
+            />
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{t("expenses.thresholds")}</CardTitle>
-        </CardHeader>
+        <div className="pb-2">
+          <SectionLabel>{t("expenses.thresholds")}</SectionLabel>
+        </div>
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -182,61 +189,43 @@ export function ExpenseSettingsTab() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{t("expenses.requirements")}</CardTitle>
-        </CardHeader>
+        <div className="pb-2">
+          <SectionLabel>{t("expenses.requirements")}</SectionLabel>
+        </div>
         <CardContent className="space-y-2">
-          <div className="flex items-center justify-between py-[6px]">
-            <div>
+          <div className="flex items-center justify-between gap-4 py-[6px]">
+            <div className="min-w-0">
               <p className="font-mohave text-body text-text">{t("expenses.requireReceipt")}</p>
               <p className="font-mono text-[11px] text-text-mute">{t("expenses.requireReceiptDesc")}</p>
             </div>
-            <button
+            <Switch
+              checked={requireReceiptPhoto}
               disabled={!can("expenses.configure")}
-              onClick={() => handleToggle("requireReceiptPhoto", requireReceiptPhoto)}
-              className={cn(
-                "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
-                requireReceiptPhoto ? "bg-text-2" : "bg-fill-neutral-dim"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
-                  requireReceiptPhoto ? "right-[2px]" : "left-[2px]"
-                )}
-              />
-            </button>
+              onCheckedChange={() => handleToggle("requireReceiptPhoto", requireReceiptPhoto)}
+              className="shrink-0"
+            />
           </div>
 
-          <div className="flex items-center justify-between py-[6px]">
-            <div>
+          <div className="flex items-center justify-between gap-4 py-[6px]">
+            <div className="min-w-0">
               <p className="font-mohave text-body text-text">{t("expenses.requireProject")}</p>
               <p className="font-mono text-[11px] text-text-mute">{t("expenses.requireProjectDesc")}</p>
             </div>
-            <button
+            <Switch
+              checked={requireProjectAssignment}
               disabled={!can("expenses.configure")}
-              onClick={() => handleToggle("requireProjectAssignment", requireProjectAssignment)}
-              className={cn(
-                "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
-                requireProjectAssignment ? "bg-text-2" : "bg-fill-neutral-dim"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
-                  requireProjectAssignment ? "right-[2px]" : "left-[2px]"
-                )}
-              />
-            </button>
+              onCheckedChange={() => handleToggle("requireProjectAssignment", requireProjectAssignment)}
+              className="shrink-0"
+            />
           </div>
         </CardContent>
       </Card>
 
       {/* Auto-Approve Rules — full width */}
       <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>{t("expenses.autoApproveRules")}</CardTitle>
-        </CardHeader>
+        <div className="pb-2">
+          <SectionLabel>{t("expenses.autoApproveRules")}</SectionLabel>
+        </div>
         <CardContent className="space-y-2">
           <p className="font-mono text-[11px] text-text-mute">
             {t("expenses.autoApproveRulesDesc")}
@@ -256,21 +245,14 @@ export function ExpenseSettingsTab() {
             >
               <div className="flex items-center gap-2">
                 {/* Rule type pill */}
-                <span
-                  className={cn(
-                    "px-1.5 py-0.5 rounded font-mono text-micro uppercase tracking-wider",
-                    rule.ruleType === AutoApproveRuleType.Invoice
-                      ? "bg-[rgba(129,149,181,0.15)] text-[#D99A3E]"
-                      : "bg-[rgba(196,168,104,0.15)] text-[#C4A868]"
-                  )}
-                >
+                <Tag variant="tan">
                   {rule.ruleType === AutoApproveRuleType.Invoice
                     ? t("expenses.ruleTypeInvoice")
                     : t("expenses.ruleTypeLineItem")}
-                </span>
+                </Tag>
 
                 {/* Threshold */}
-                <span className="font-mono text-data-sm text-text">
+                <span className="font-mono text-data-sm text-text tabular-nums">
                   {new Intl.NumberFormat("en-US", {
                     style: "currency",
                     currency: "USD",
@@ -278,7 +260,7 @@ export function ExpenseSettingsTab() {
                 </span>
 
                 {/* Members */}
-                <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-3 uppercase tracking-wider tabular-nums">
                   {rule.appliesToAll
                     ? t("expenses.allMembers")
                     : `${rule.members.length} ${t("expenses.members").toLowerCase()}`}
@@ -287,9 +269,10 @@ export function ExpenseSettingsTab() {
 
               <div className="flex items-center gap-2">
                 {/* Active toggle */}
-                <button
+                <Switch
+                  checked={rule.isActive}
                   disabled={!can("expenses.configure")}
-                  onClick={() => {
+                  onCheckedChange={() => {
                     if (!can("expenses.configure")) return;
                     toggleRule.mutate(
                       { ruleId: rule.id, isActive: !rule.isActive },
@@ -299,18 +282,8 @@ export function ExpenseSettingsTab() {
                       }
                     );
                   }}
-                  className={cn(
-                    "w-[36px] h-[20px] rounded-full transition-colors relative shrink-0 disabled:opacity-40 disabled:cursor-not-allowed",
-                    rule.isActive ? "bg-text-2" : "bg-fill-neutral-dim"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-[2px] w-[16px] h-[16px] rounded-full bg-white transition-all",
-                      rule.isActive ? "right-[2px]" : "left-[2px]"
-                    )}
-                  />
-                </button>
+                  className="shrink-0"
+                />
 
                 {/* Delete */}
                 <button
@@ -322,7 +295,7 @@ export function ExpenseSettingsTab() {
                       onError: () => toast.error(t("expenses.toast.error")),
                     });
                   }}
-                  className="text-text-mute hover:text-[#93321A] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-text-mute"
+                  className="text-text-mute hover:text-rose transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-text-mute"
                 >
                   <Trash2 className="w-[14px] h-[14px]" />
                 </button>

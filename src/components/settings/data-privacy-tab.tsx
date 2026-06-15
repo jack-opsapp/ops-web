@@ -3,12 +3,20 @@
 import { useState } from "react";
 import { Download, Trash2, Database, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+
+/** A `// TITLE` section header — the canonical settings/register grammar. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
+  );
+}
 
 export function DataPrivacyTab() {
   const { t } = useDictionary("settings");
@@ -94,12 +102,12 @@ export function DataPrivacyTab() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("dataPrivacy.exportTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1.5">
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <div className="glass-surface rounded-panel p-3">
+        <div className="pb-3">
+          <SectionTitle>{t("dataPrivacy.exportTitle")}</SectionTitle>
+        </div>
+        <div className="space-y-1.5">
           <p className="font-mohave text-body-sm text-text-2">
             {t("dataPrivacy.exportDesc")}
           </p>
@@ -110,60 +118,58 @@ export function DataPrivacyTab() {
             disabled={exporting}
           >
             {exporting ? (
-              <Loader2 className="w-[16px] h-[16px] animate-spin" />
+              <Loader2 className="h-[16px] w-[16px] animate-spin" />
             ) : (
-              <Download className="w-[16px] h-[16px]" />
+              <Download className="h-[16px] w-[16px]" />
             )}
             {exporting ? t("dataPrivacy.exporting") : t("dataPrivacy.downloadExport")}
           </Button>
-          <p className="font-mono text-[11px] text-text-mute">
+          <p className="font-mono text-micro text-text-mute">
             {t("dataPrivacy.exportHelper")}
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("dataPrivacy.retentionTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5 py-[6px]">
-              <Database className="w-[16px] h-[16px] text-text-2 shrink-0" />
-              <div>
-                <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.activeData")}</p>
-                <p className="font-mono text-[11px] text-text-mute">
-                  {t("dataPrivacy.activeDataDesc")}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 py-[6px]">
-              <Clock className="w-[16px] h-[16px] text-ops-amber shrink-0" />
-              <div>
-                <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.deletedData")}</p>
-                <p className="font-mono text-[11px] text-text-mute">
-                  {t("dataPrivacy.deletedDataDesc")}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 py-[6px]">
-              <Trash2 className="w-[16px] h-[16px] text-text-mute shrink-0" />
-              <div>
-                <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.closedAccounts")}</p>
-                <p className="font-mono text-[11px] text-text-mute">
-                  {t("dataPrivacy.closedAccountsDesc")}
-                </p>
-              </div>
+      <div className="glass-surface rounded-panel p-3">
+        <div className="pb-3">
+          <SectionTitle>{t("dataPrivacy.retentionTitle")}</SectionTitle>
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 py-[6px]">
+            <Database className="h-[16px] w-[16px] shrink-0 text-text-3" />
+            <div>
+              <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.activeData")}</p>
+              <p className="font-mono text-micro text-text-mute">
+                {t("dataPrivacy.activeDataDesc")}
+              </p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-1.5 py-[6px]">
+            <Clock className="h-[16px] w-[16px] shrink-0 text-tan" />
+            <div>
+              <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.deletedData")}</p>
+              <p className="font-mono text-micro text-text-mute">
+                {t("dataPrivacy.deletedDataDesc")}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 py-[6px]">
+            <Trash2 className="h-[16px] w-[16px] shrink-0 text-text-mute" />
+            <div>
+              <p className="font-mohave text-body-sm text-text-2">{t("dataPrivacy.closedAccounts")}</p>
+              <p className="font-mono text-micro text-text-mute">
+                {t("dataPrivacy.closedAccountsDesc")}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("dataPrivacy.deleteTitle")}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-1.5">
+      <div className="glass-surface rounded-panel p-3">
+        <div className="pb-3">
+          <SectionTitle>{t("dataPrivacy.deleteTitle")}</SectionTitle>
+        </div>
+        <div className="space-y-1.5">
           <p className="font-mohave text-body-sm text-text-2">
             {t("dataPrivacy.deleteDesc")}
           </p>
@@ -172,11 +178,11 @@ export function DataPrivacyTab() {
             className="gap-[6px]"
             onClick={() => setDeleteAccountOpen(true)}
           >
-            <Trash2 className="w-[16px] h-[16px]" />
-            Delete Account
+            <Trash2 className="h-[16px] w-[16px]" />
+            {t("dataPrivacy.deleteAccountButton")}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <ConfirmDialog
         open={deleteAccountOpen}

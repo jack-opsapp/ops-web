@@ -23,6 +23,8 @@ import { Loader2, ArrowUpRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
+import { Tag } from "@/components/ui/tag";
+import { SegmentControl } from "@/components/ui/segment-control";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -94,49 +96,14 @@ function StatusPill({
       tone: "olive",
     },
     cancelled: {
-      label: "Cancelled",
+      label: t("addons.dataSetup.statusCancelled.pill") ?? "Cancelled",
       tone: "neutral",
     },
   };
 
   const { label, tone } = config[status];
 
-  const toneClasses =
-    tone === "olive"
-      ? "text-olive bg-olive-soft border-olive-line"
-      : tone === "tan"
-      ? "text-tan bg-tan-soft border-tan-line"
-      : "text-text-2 bg-[rgba(255,255,255,0.05)] border-line";
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center px-1 py-[1px] rounded-chip",
-        "font-mono text-micro uppercase tracking-wide",
-        "border",
-        toneClasses
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-// ─── Section badge ───────────────────────────────────────────────────────────
-
-function AddonBadge({ children }: { children: React.ReactNode }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center px-1.5 py-[1px] rounded-chip",
-        "font-cakemono font-light uppercase",
-        "text-[10px] tracking-wider",
-        "border border-line bg-[rgba(255,255,255,0.04)] text-text-3"
-      )}
-    >
-      {children}
-    </span>
-  );
+  return <Tag variant={tone}>{label}</Tag>;
 }
 
 // ─── Data Setup card ─────────────────────────────────────────────────────────
@@ -177,9 +144,9 @@ function DataSetupCard({ prices }: { prices: AddOnPriceMap | undefined }) {
           <h4 className="font-cakemono font-light uppercase text-[15px] text-text leading-none">
             {t("addons.dataSetup.title") ?? "Data Setup"}
           </h4>
-          <AddonBadge>
+          <Tag variant="dim">
             {t("addons.dataSetup.badge") ?? "ONE-TIME"}
-          </AddonBadge>
+          </Tag>
         </div>
         <div
           className={cn(
@@ -341,9 +308,9 @@ function PrioritySupportCard({ prices }: { prices: AddOnPriceMap | undefined }) 
           <h4 className="font-cakemono font-light uppercase text-[15px] text-text leading-none">
             {t("addons.prioritySupport.title") ?? "Priority Support"}
           </h4>
-          <AddonBadge>
+          <Tag variant="dim">
             {t("addons.prioritySupport.badge") ?? "MONTHLY / ANNUAL"}
-          </AddonBadge>
+          </Tag>
         </div>
         <div
           className={cn(
@@ -367,28 +334,21 @@ function PrioritySupportCard({ prices }: { prices: AddOnPriceMap | undefined }) 
 
       {/* Period toggle (only when not yet active) */}
       {!prioritySupport.active && (
-        <div className="flex items-center gap-1 pt-0.5">
-          {(["monthly", "annual"] as const).map((p) => {
-            const isActive = period === p;
-            return (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPeriod(p)}
-                className={cn(
-                  "font-mono text-micro uppercase tracking-wider",
-                  "px-1.5 py-[3px] rounded-chip border transition-colors duration-150",
-                  isActive
-                    ? "bg-surface-active text-text border-[rgba(255,255,255,0.18)]"
-                    : "border-transparent text-text-3 hover:text-text-2"
-                )}
-              >
-                {p === "annual"
-                  ? t("addons.prioritySupport.toggleAnnual") ?? "Annual"
-                  : t("addons.prioritySupport.toggleMonthly") ?? "Monthly"}
-              </button>
-            );
-          })}
+        <div className="pt-0.5">
+          <SegmentControl
+            options={[
+              {
+                value: "monthly",
+                label: t("addons.prioritySupport.toggleMonthly") ?? "Monthly",
+              },
+              {
+                value: "annual",
+                label: t("addons.prioritySupport.toggleAnnual") ?? "Annual",
+              },
+            ]}
+            value={period}
+            onChange={(v) => setPeriod(v as "monthly" | "annual")}
+          />
         </div>
       )}
 
@@ -396,27 +356,15 @@ function PrioritySupportCard({ prices }: { prices: AddOnPriceMap | undefined }) 
       {prioritySupport.active ? (
         <div className="pt-1 space-y-1.5">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              className={cn(
-                "inline-flex items-center px-1 py-[1px] rounded-chip",
-                "font-mono text-micro uppercase tracking-wide",
-                "border text-olive bg-olive-soft border-olive-line"
-              )}
-            >
+            <Tag variant="olive">
               {t("addons.prioritySupport.activePill") ?? "Active"}
-            </span>
+            </Tag>
             {prioritySupport.period && (
-              <span
-                className={cn(
-                  "inline-flex items-center px-1 py-[1px] rounded-chip",
-                  "font-mono text-micro uppercase tracking-wide",
-                  "border border-line text-text-2 bg-[rgba(255,255,255,0.04)]"
-                )}
-              >
+              <Tag variant="neutral">
                 {prioritySupport.period === "annual"
                   ? t("addons.prioritySupport.toggleAnnual") ?? "Annual"
                   : t("addons.prioritySupport.toggleMonthly") ?? "Monthly"}
-              </span>
+              </Tag>
             )}
             <span className="font-mono text-micro text-text-3">
               {t("addons.prioritySupport.activeCopy") ??

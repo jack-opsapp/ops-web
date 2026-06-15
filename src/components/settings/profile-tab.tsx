@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Camera, Save, Loader2, Lock, ShieldCheck, Eye, EyeOff, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useCurrentUser, useUpdateUser, useImageUpload } from "@/lib/hooks";
 import { getUserFullName } from "@/lib/types/models";
@@ -12,6 +12,18 @@ import { isEmailPasswordUser, getAuthProvider, changePassword } from "@/lib/fire
 import { useResetPassword } from "@/lib/hooks/use-users";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+
+// ---------------------------------------------------------------------------
+// Section header (// TITLE) — canonical settings/register grammar
+// ---------------------------------------------------------------------------
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Password input with toggle visibility
@@ -133,13 +145,13 @@ function ChangePasswordSection() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-[6px]">
-          <Lock className="w-[16px] h-[16px]" />
-          {t("password.title")}
-        </CardTitle>
+      <div className="flex flex-col gap-0.5 pb-2">
+        <div className="flex items-center gap-[6px]">
+          <Lock className="w-[16px] h-[16px] text-text-2" />
+          <SectionTitle>{t("password.title")}</SectionTitle>
+        </div>
         <CardDescription>{t("password.description")}</CardDescription>
-      </CardHeader>
+      </div>
       <CardContent className="space-y-2 p-2 pt-0">
         <PasswordInput
           label={t("password.currentPassword")}
@@ -275,7 +287,7 @@ export function ProfileTab() {
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded-full bg-[rgba(255,255,255,0.18)] flex items-center justify-center hover:bg-[rgba(255,255,255,0.25)] transition-colors"
+                className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded-[5px] bg-[rgba(255,255,255,0.18)] flex items-center justify-center hover:bg-[rgba(255,255,255,0.25)] transition-colors"
               >
                 <Camera className="w-[14px] h-[14px] text-text" />
               </button>
@@ -327,7 +339,7 @@ export function ProfileTab() {
           <div className="pt-1">
             <Button onClick={handleSave} loading={updateUser.isPending} className="gap-[6px]">
               <Save className="w-[16px] h-[16px]" />
-              Save Changes
+              {t("profile.save")}
             </Button>
           </div>
         </CardContent>

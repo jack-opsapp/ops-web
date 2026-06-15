@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { Building2, Save, Upload, Loader2, Copy, Check, Crosshair, Search, X } from "lucide-react";
+import { Save, Upload, Loader2, Copy, Check, Crosshair, Search, X } from "lucide-react";
 import { INDUSTRIES } from "@/lib/data/industries";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tag } from "@/components/ui/tag";
+import { SegmentControl, type SegmentControlOption } from "@/components/ui/segment-control";
 import { useCompany, useUpdateCompany, useImageUpload } from "@/lib/hooks";
 import { useGeolocationAddress } from "@/lib/hooks/use-geolocation-address";
 import { toast } from "sonner";
@@ -30,6 +32,7 @@ function IndustryPicker({
   setSearch: (s: string) => void;
   disabled: boolean;
 }) {
+  const { t } = useDictionary("settings");
   const filtered = useMemo(() => {
     if (!search.trim()) return INDUSTRIES;
     const q = search.trim().toLowerCase();
@@ -44,9 +47,10 @@ function IndustryPicker({
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        Industries
-      </label>
+      <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+        <span className="text-text-mute">{"// "}</span>
+        {t("company.industries")}
+      </span>
 
       {/* Selected tags */}
       {industries.length > 0 && (
@@ -57,23 +61,25 @@ function IndustryPicker({
               type="button"
               disabled={disabled}
               onClick={() => toggle(ind)}
-              className="flex items-center gap-[4px] px-[8px] py-[3px] rounded-chip border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.05)] text-text font-mohave text-caption transition-colors hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-[4px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
-              {ind}
-              <X className="w-[10px] h-[10px]" />
+              <Tag className="gap-[4px]">
+                {ind}
+                <X className="w-[10px] h-[10px]" />
+              </Tag>
             </button>
           ))}
         </div>
       )}
 
       {/* Search */}
-      <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-sm border border-border bg-surface-input">
+      <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-[5px] border border-border bg-surface-input">
         <Search className="w-[14px] h-[14px] text-text-mute shrink-0" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search trades..."
+          placeholder={t("company.industrySearchPlaceholder")}
           className="flex-1 bg-transparent text-text font-mohave text-body-sm placeholder:text-text-mute outline-none"
         />
         {search && (
@@ -84,7 +90,7 @@ function IndustryPicker({
       </div>
 
       {/* Scrollable options grid */}
-      <div className="max-h-[180px] overflow-y-auto scrollbar-hide rounded-sm border border-border bg-surface-input/50 p-1">
+      <div className="max-h-[180px] overflow-y-auto scrollbar-hide rounded-[5px] border border-border bg-surface-input/50 p-1">
         <div className="flex flex-wrap gap-[4px]">
           {filtered.map((ind) => {
             const isSelected = industries.includes(ind);
@@ -95,9 +101,9 @@ function IndustryPicker({
                 disabled={disabled}
                 onClick={() => toggle(ind)}
                 className={cn(
-                  "px-[8px] py-[3px] rounded-sm font-mohave text-caption transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
+                  "px-[8px] py-[3px] rounded-[4px] font-mohave text-caption transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
                   isSelected
-                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
+                    ? "bg-surface-active border-[rgba(255,255,255,0.18)] text-text"
                     : "bg-transparent border-border text-text-3 hover:text-text-2 hover:border-[rgba(255,255,255,0.18)]"
                 )}
               >
@@ -107,7 +113,7 @@ function IndustryPicker({
           })}
           {filtered.length === 0 && (
             <span className="font-mono text-[11px] text-text-mute px-1 py-2">
-              No trades found
+              {t("company.noTradesFound")}
             </span>
           )}
         </div>
@@ -200,6 +206,24 @@ export function CompanyTab() {
     );
   }
 
+  // Team size codes double as label + stored value (stable, never translated).
+  const teamSizeOptions: SegmentControlOption<string>[] = [
+    { value: "1-5", label: "1-5" },
+    { value: "6-15", label: "6-15" },
+    { value: "16-50", label: "16-50" },
+    { value: "51-200", label: "51-200" },
+    { value: "200+", label: "200+" },
+  ];
+  // Years-in-business: label is translated, value is the persisted string — the
+  // stored value must stay byte-stable, only the display label is localized.
+  const companyAgeOptions: SegmentControlOption<string>[] = [
+    { value: "Less than 1 year", label: t("company.age.lt1") },
+    { value: "1-3 years", label: t("company.age.1to3") },
+    { value: "3-5 years", label: t("company.age.3to5") },
+    { value: "5-10 years", label: t("company.age.5to10") },
+    { value: "10+", label: t("company.age.10plus") },
+  ];
+
   if (isCompanyLoading && !company) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -211,16 +235,17 @@ export function CompanyTab() {
   return (
     <div className="space-y-3 max-w-3xl">
       <Card>
-        <CardHeader>
-          <CardTitle>{t("company.title")}</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-2">
+          <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+            <span className="text-text-mute">{"// "}</span>
+            {t("company.title")}
+          </span>
           <div className="flex flex-col gap-0.5">
-            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
+            <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
               {t("company.logo")}
             </label>
             <div className="flex items-center gap-1.5">
-              <div className="relative w-[56px] h-[56px] rounded-lg bg-fill-neutral-dim border border-border flex items-center justify-center overflow-hidden">
+              <div className="relative w-[56px] h-[56px] rounded-panel bg-fill-neutral-dim border border-border flex items-center justify-center overflow-hidden">
                 {logoUpload.isUploading ? (
                   <>
                     {/* Show preview as background while uploading */}
@@ -309,8 +334,8 @@ export function CompanyTab() {
                 {t("company.companyCode")}
               </label>
               <div className="flex items-center gap-1">
-                <div className="flex-1 flex items-center px-1.5 py-[10px] rounded-sm border border-border bg-fill-neutral-dim">
-                  <span className="font-mono text-body-sm text-text tracking-wider">
+                <div className="flex-1 flex items-center px-1.5 py-[10px] rounded-[5px] border border-border bg-fill-neutral-dim">
+                  <span className="font-mono text-body-sm text-text tracking-wider tabular-nums">
                     {company.companyCode}
                   </span>
                 </div>
@@ -322,10 +347,10 @@ export function CompanyTab() {
                     toast.success(t("company.toast.codeCopied"));
                     setTimeout(() => setCodeCopied(false), 2000);
                   }}
-                  className="p-[10px] rounded-sm border border-border bg-surface-input hover:bg-fill-neutral-dim transition-colors"
+                  className="p-[10px] rounded-[5px] border border-border bg-surface-input hover:bg-fill-neutral-dim transition-colors"
                 >
                   {codeCopied ? (
-                    <Check className="w-[16px] h-[16px] text-status-success" />
+                    <Check className="w-[16px] h-[16px] text-olive" />
                   ) : (
                     <Copy className="w-[16px] h-[16px] text-text-3" />
                   )}
@@ -350,9 +375,9 @@ export function CompanyTab() {
                   if (addr) setCompanyAddress(addr);
                 }}
                 disabled={locating}
-                className="flex items-center justify-center w-[36px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-text hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-                title="Use my location"
-                aria-label="Auto-fill address from current location"
+                className="flex items-center justify-center w-[36px] shrink-0 rounded-[5px] border border-border bg-surface-input text-text-3 hover:text-text hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+                title={t("company.useLocation")}
+                aria-label={t("company.useLocationAria")}
               >
                 {locating ? (
                   <Loader2 className="w-[16px] h-[16px] animate-spin" />
@@ -384,7 +409,7 @@ export function CompanyTab() {
             </label>
             <div className="flex items-center gap-1.5">
               <Input value={openHour} onChange={(e) => setOpenHour(e.target.value)} placeholder={t("company.hoursStartPlaceholder")} className="flex-1" />
-              <span className="font-mohave text-body text-text-3 shrink-0">to</span>
+              <span className="font-mohave text-body text-text-3 shrink-0">{t("company.hoursSeparator")}</span>
               <Input value={closeHour} onChange={(e) => setCloseHour(e.target.value)} placeholder={t("company.hoursEndPlaceholder")} className="flex-1" />
             </div>
           </div>
@@ -401,64 +426,48 @@ export function CompanyTab() {
           {/* ── Company Size & Age — side by side ─────────────── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
-              <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-                Team Size
-              </label>
-              <div className="flex gap-1">
-                {["1-5", "6-15", "16-50", "51-200", "200+"].map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    disabled={!can("settings.company")}
-                    onClick={() => setCompanySize(opt)}
-                    className={cn(
-                      "flex-1 px-2 py-[6px] rounded-sm font-mohave text-body-sm transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
-                      companySize === opt
-                        ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
-                        : "bg-transparent border-border text-text-3 hover:text-text-2"
-                    )}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
+              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+                <span className="text-text-mute">{"// "}</span>
+                {t("company.teamSize")}
+              </span>
+              <SegmentControl
+                className={cn(
+                  "h-auto flex-wrap",
+                  !can("settings.company") && "pointer-events-none opacity-40",
+                )}
+                options={teamSizeOptions}
+                value={companySize}
+                onChange={(v) => {
+                  if (!can("settings.company")) return;
+                  setCompanySize(v);
+                }}
+              />
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-                Years in Business
-              </label>
-              <div className="flex gap-1">
-                {[
-                  { label: "<1 yr", value: "Less than 1 year" },
-                  { label: "1-3 yr", value: "1-3 years" },
-                  { label: "3-5 yr", value: "3-5 years" },
-                  { label: "5-10 yr", value: "5-10 years" },
-                  { label: "10+", value: "10+" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    disabled={!can("settings.company")}
-                    onClick={() => setCompanyAge(opt.value)}
-                    className={cn(
-                      "flex-1 px-2 py-[6px] rounded-sm font-mohave text-body-sm transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
-                      companyAge === opt.value
-                        ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
-                        : "bg-transparent border-border text-text-3 hover:text-text-2"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+                <span className="text-text-mute">{"// "}</span>
+                {t("company.yearsInBusiness")}
+              </span>
+              <SegmentControl
+                className={cn(
+                  "h-auto flex-wrap",
+                  !can("settings.company") && "pointer-events-none opacity-40",
+                )}
+                options={companyAgeOptions}
+                value={companyAge}
+                onChange={(v) => {
+                  if (!can("settings.company")) return;
+                  setCompanyAge(v);
+                }}
+              />
             </div>
           </div>
 
           <div className="pt-1">
-            <Button onClick={handleSave} loading={updateCompany.isPending} className="gap-[6px]">
+            <Button variant="primary" onClick={handleSave} loading={updateCompany.isPending} className="gap-[6px]">
               <Save className="w-[16px] h-[16px]" />
-              Save Changes
+              {t("company.save")}
             </Button>
           </div>
         </CardContent>

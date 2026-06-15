@@ -9,19 +9,17 @@
  * current settings. Each section shows current config as read-only summary
  * with an "Edit" link that jumps into the corresponding wizard step.
  *
- * Design system:
- *   - Dark theme #0D0D0D, frosted glass panels
- *   - Mohave UPPERCASE section headers
- *   - Kosugi [bracket] captions for metadata
- *   - 56dp minimum touch targets
- *   - Accent (#6F94B0) on Re-run button only — primary action
+ * Design system (spec v2):
+ *   - glass-surface panels, // TITLE section headers (mono micro)
+ *   - JetBrains Mono [bracket] captions + tabular summaries
+ *   - Shared Button kit: primary (Re-run, the one CTA) + secondary (Edit)
  *   - Borders-only — no shadows
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Settings2 } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useDictionary } from "@/i18n/client";
 import {
@@ -143,10 +141,11 @@ export function ClientCommsSettingsTab() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <h2 className="font-mohave text-[16px] text-text uppercase tracking-[0.04em]">
+          <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+            <span className="text-text-mute">{"// "}</span>
             {t("settings.title")}
-          </h2>
-          <p className="font-mono text-[12px] text-text-3 mt-1">
+          </span>
+          <p className="font-mono text-micro text-text-3 mt-1">
             [
             {configuredAt
               ? t("settings.configuredOn").replace("{{date}}", configuredAt)
@@ -154,20 +153,14 @@ export function ClientCommsSettingsTab() {
             ]
           </p>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="default"
           onClick={() => router.push("/agent/comms-config")}
-          className={cn(
-            "flex items-center gap-2 min-h-[36px] px-5 rounded-[5px]",
-            "border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)]",
-            "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
-            "transition-colors duration-150 motion-reduce:transition-none",
-            "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
-          )}
         >
           <Settings2 className="w-[14px] h-[14px]" />
           {t("settings.rerunWizard")}
-        </button>
+        </Button>
       </div>
 
       {/* Sections */}
@@ -175,34 +168,29 @@ export function ClientCommsSettingsTab() {
         {sections.map((section) => (
           <div
             key={section.id}
-            className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]"
+            className="glass-surface rounded-panel p-4"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="font-mohave text-[13px] text-text-3 uppercase tracking-[0.06em]">
+                <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+                  <span className="text-text-mute">{"// "}</span>
                   {section.title}
-                </div>
-                <div className="font-mono text-[13px] text-text mt-1">
+                </span>
+                <div className="font-mono text-data-sm text-text mt-1 tabular-nums">
                   {section.summary}
                 </div>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() =>
                   router.push(
                     `/agent/comms-config?step=${section.wizardStep}`
                   )
                 }
-                className={cn(
-                  "min-h-[36px] px-4 rounded-[5px]",
-                  "border border-[rgba(255,255,255,0.12)] bg-transparent",
-                  "font-mohave text-[12px] text-text-2 uppercase tracking-[0.06em]",
-                  "transition-colors duration-150 motion-reduce:transition-none",
-                  "hover:border-[rgba(255,255,255,0.24)]"
-                )}
               >
                 {t("settings.edit")}
-              </button>
+              </Button>
             </div>
           </div>
         ))}

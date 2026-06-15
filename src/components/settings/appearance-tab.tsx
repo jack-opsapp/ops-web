@@ -1,23 +1,36 @@
 "use client";
 
-import { Check, Monitor, Moon, Sun } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { SegmentControl } from "@/components/ui/segment-control";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import {
   usePreferencesStore,
-  ACCENT_COLOR_VALUES,
-  FONT_SIZE_SCALES,
   type FontSizeId,
 } from "@/stores/preferences-store";
 import { ACCENT_COLORS } from "@/lib/data/curated-colors";
+
+// ─── Section header (// TITLE) ───────────────────────────────────────────────
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
+  );
+}
 
 const FONT_SIZES: { id: FontSizeId; labelKey: string; scale: string }[] = [
   { id: "small", labelKey: "appearance.small", scale: "90%" },
   { id: "default", labelKey: "appearance.default", scale: "100%" },
   { id: "large", labelKey: "appearance.large", scale: "110%" },
 ];
+
+type ThemeId = "dark" | "light" | "system";
 
 export function AppearanceTab() {
   const { t } = useDictionary("settings");
@@ -28,81 +41,76 @@ export function AppearanceTab() {
   const setFontSize = usePreferencesStore((s) => s.setFontSize);
   const setCompactMode = usePreferencesStore((s) => s.setCompactMode);
 
+  const themeOptions: { value: ThemeId; label: string }[] = [
+    { value: "dark", label: t("appearance.dark") },
+    { value: "light", label: t("appearance.light") },
+    { value: "system", label: t("appearance.system") },
+  ];
+
+  const fontSizeOptions = FONT_SIZES.map((size) => ({
+    value: size.id,
+    label: `${t(size.labelKey)} ${size.scale}`,
+  }));
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <Card>
-        <CardHeader>
-          <CardTitle>{t("appearance.theme")}</CardTitle>
-        </CardHeader>
+        <div className="pb-2">
+          <SectionTitle>{t("appearance.theme")}</SectionTitle>
+        </div>
         <CardContent>
-          <div className="grid grid-cols-3 gap-1">
-            {([
-              { id: "dark" as const, label: t("appearance.dark"), icon: Moon },
-              { id: "light" as const, label: t("appearance.light"), icon: Sun },
-              { id: "system" as const, label: t("appearance.system"), icon: Monitor },
-            ]).map((themeOpt) => (
-              <button
-                key={themeOpt.id}
-                onClick={() => {
-                  if (themeOpt.id !== "dark") {
-                    toast.info(t("appearance.lightComingSoon"));
-                    return;
-                  }
-                }}
-                className={cn(
-                  "flex flex-col items-center gap-[6px] py-1.5 rounded border transition-all",
-                  themeOpt.id === "dark"
-                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
-                    : "bg-surface-input border-border hover:border-border-medium opacity-50"
-                )}
-              >
-                <themeOpt.icon className={cn("w-[20px] h-[20px]", themeOpt.id === "dark" ? "text-text" : "text-text-3")} />
-                <span className={cn("font-mohave text-body-sm", themeOpt.id === "dark" ? "text-text" : "text-text-2")}>
-                  {themeOpt.label}
-                </span>
-              </button>
-            ))}
-          </div>
-          <p className="font-mono text-[11px] text-text-mute mt-1">
+          <SegmentControl<ThemeId>
+            options={themeOptions}
+            value="dark"
+            onChange={(v) => {
+              if (v !== "dark") {
+                toast.info(t("appearance.lightComingSoon"));
+              }
+            }}
+          />
+          <p className="font-mono text-micro text-text-mute mt-1">
             {t("appearance.lightComingSoonDesc")}
           </p>
         </CardContent>
       </Card>
 
       <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>{t("appearance.accentColor")}</CardTitle>
-        </CardHeader>
+        <div className="pb-2">
+          <SectionTitle>{t("appearance.accentColor")}</SectionTitle>
+        </div>
         <CardContent>
           <div className="grid grid-cols-4 lg:grid-cols-8 gap-1.5">
             {ACCENT_COLORS.map((color) => {
               const isActive = accentColor === color.id;
               return (
-              <button
-                key={color.id}
-                onClick={() => {
-                  setAccentColor(color.id);
-                  toast.success(`${t("appearance.toast.accent")} ${color.name}`);
-                }}
-                className={cn(
-                  "relative flex items-center gap-[6px] px-1.5 py-[8px] rounded border transition-all",
-                  isActive
-                    ? "border-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.06)]"
-                    : "border-border hover:border-border-medium"
-                )}
-              >
-                <span
+                <button
+                  key={color.id}
+                  onClick={() => {
+                    setAccentColor(color.id);
+                    toast.success(`${t("appearance.toast.accent")} ${color.name}`);
+                  }}
                   className={cn(
-                    "w-[16px] h-[16px] rounded-full shrink-0",
-                    isActive ? "ring-2 ring-white/40 ring-offset-1 ring-offset-background-card" : "border border-[rgba(255,255,255,0.2)]"
+                    "relative flex items-center gap-[6px] px-1.5 py-[8px] rounded-[5px] border transition-all",
+                    isActive
+                      ? "border-[rgba(255,255,255,0.18)] bg-surface-active"
+                      : "border-border hover:border-border-medium"
                   )}
-                  style={{ backgroundColor: color.hex }}
-                />
-                <span className="font-mohave text-body-sm text-text-2 truncate">{color.name}</span>
-                {isActive && (
-                  <Check className="w-[12px] h-[12px] text-text absolute right-[6px] shrink-0" />
-                )}
-              </button>
+                >
+                  {/* Accent swatch is intentionally color-driven — this IS the accent picker */}
+                  <span
+                    className={cn(
+                      "w-[16px] h-[16px] rounded-full shrink-0",
+                      isActive
+                        ? "ring-2 ring-[rgba(255,255,255,0.4)] ring-offset-1 ring-offset-background-card"
+                        : "border border-[rgba(255,255,255,0.2)]"
+                    )}
+                    style={{ backgroundColor: color.hex }}
+                  />
+                  <span className="font-mohave text-body-sm text-text-2 truncate">{color.name}</span>
+                  {isActive && (
+                    <Check className="w-[12px] h-[12px] text-text absolute right-[6px] shrink-0" />
+                  )}
+                </button>
               );
             })}
           </div>
@@ -110,32 +118,19 @@ export function AppearanceTab() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>{t("appearance.fontSize")}</CardTitle>
-        </CardHeader>
+        <div className="pb-2">
+          <SectionTitle>{t("appearance.fontSize")}</SectionTitle>
+        </div>
         <CardContent>
-          <div className="flex items-center gap-1">
-            {FONT_SIZES.map((size) => {
-              const sizeLabel = t(size.labelKey);
-              return (
-              <button
-                key={size.id}
-                onClick={() => {
-                  setFontSize(size.id);
-                  toast.success(`${t("appearance.toast.fontSize")} ${sizeLabel}`);
-                }}
-                className={cn(
-                  "flex-1 py-[8px] rounded border font-mohave text-body-sm transition-all",
-                  fontSize === size.id
-                    ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.18)]"
-                    : "bg-surface-input border-border text-text-3 hover:text-text-2"
-                )}
-              >
-                {sizeLabel} ({size.scale})
-              </button>
-              );
-            })}
-          </div>
+          <SegmentControl<FontSizeId>
+            options={fontSizeOptions}
+            value={fontSize}
+            onChange={(id) => {
+              const label = t(FONT_SIZES.find((s) => s.id === id)!.labelKey);
+              setFontSize(id);
+              toast.success(`${t("appearance.toast.fontSize")} ${label}`);
+            }}
+          />
         </CardContent>
       </Card>
 
@@ -144,27 +139,17 @@ export function AppearanceTab() {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-mohave text-body text-text">{t("appearance.compact")}</p>
-              <p className="font-mono text-[11px] text-text-3">
+              <p className="font-mono text-micro text-text-3">
                 {t("appearance.compactDesc")}
               </p>
             </div>
-            <button
-              onClick={() => {
-                setCompactMode(!compactMode);
-                toast.success(!compactMode ? t("appearance.toast.compactEnabled") : t("appearance.toast.compactDisabled"));
+            <Switch
+              checked={compactMode}
+              onCheckedChange={(v) => {
+                setCompactMode(v);
+                toast.success(v ? t("appearance.toast.compactEnabled") : t("appearance.toast.compactDisabled"));
               }}
-              className={cn(
-                "w-[40px] h-[22px] rounded-full transition-colors relative",
-                compactMode ? "bg-text-2" : "bg-fill-neutral-dim"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
-                  compactMode ? "right-[2px]" : "left-[2px]"
-                )}
-              />
-            </button>
+            />
           </div>
         </CardContent>
       </Card>

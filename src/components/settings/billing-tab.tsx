@@ -12,13 +12,24 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  RegisterTable,
+  RegisterEmpty,
+  TablePrimary,
+  TableMeta,
+  TableMono,
+  Tag,
+  type TagProps,
+  type RegisterTableColumn,
+} from "@/components/ui/register-table";
 import {
   usePaymentMethods,
   useStripeInvoices,
   useCreateSetupIntent,
   useRemovePaymentMethod,
   type PaymentMethod,
+  type StripeInvoice,
 } from "@/lib/hooks/use-billing";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
@@ -37,6 +48,17 @@ import {
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 );
+
+// ─── Section header (canonical `// TITLE`) ──────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
+  );
+}
 
 // ─── Card Brand Display ──────────────────────────────────────────────────────
 
@@ -70,15 +92,13 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
       </div>
       <div className="flex items-center gap-1">
         {method.isDefault && (
-          <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider">
-            {t("billing.defaultBadge")}
-          </span>
+          <Tag variant="neutral">{t("billing.defaultBadge")}</Tag>
         )}
         <button
           onClick={() => onRemove(method.id)}
           disabled={isRemoving}
-          className="p-[4px] rounded hover:bg-fill-neutral-dim transition-colors text-text-mute hover:text-red-400"
-          title="Remove card"
+          className="p-[4px] rounded-[4px] hover:bg-fill-neutral-dim transition-colors text-text-mute hover:text-rose"
+          title={t("billing.removeCard")}
         >
           {isRemoving ? (
             <Loader2 className="w-[14px] h-[14px] animate-spin" />
@@ -136,9 +156,14 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
-      <div className="bg-surface-input border border-border rounded-lg p-1.5">
+      <div className="bg-surface-input border border-border rounded-[5px] p-1.5">
         <CardElement
           options={{
+            // Stripe's CardElement renders inside an iframe and only accepts
+            // literal CSS color strings — it cannot read our Tailwind tokens or
+            // CSS variables. These hexes mirror the design tokens: #ededed = text,
+            // #6b7280 ≈ text-3 placeholder, #ef4444 = rose error. (Acceptable
+            // exception per the conformance pass — Stripe requires literal hex.)
             style: {
               base: {
                 fontSize: "15px",
@@ -152,7 +177,7 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
         />
       </div>
       <div className="flex items-center gap-1">
-        <Button type="submit" disabled={!stripe || submitting} className="gap-[6px]">
+        <Button type="submit" variant="primary" disabled={!stripe || submitting} className="gap-[6px]">
           {submitting ? (
             <Loader2 className="w-[14px] h-[14px] animate-spin" />
           ) : (
@@ -161,7 +186,7 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
           {t("billing.saveCard")}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={submitting}>
-          Cancel
+          {t("billing.cancel")}
         </Button>
       </div>
     </form>
@@ -172,16 +197,18 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
 
 function InvoiceStatusBadge({ status }: { status: string | null }) {
   const { t } = useDictionary("settings");
-  const styles: Record<string, string> = {
-    paid: "text-status-success bg-status-success/10",
-    open: "text-ops-amber bg-ops-amber/10",
-    draft: "text-text-mute bg-fill-neutral-dim",
-    void: "text-text-mute bg-fill-neutral-dim",
-    uncollectible: "text-ops-error bg-ops-error-muted",
+  // Earth-tone semantics: paid=olive(positive), open=tan(attention),
+  // draft/void=dim(inert), uncollectible=rose(negative).
+  const variants: Record<string, TagProps["variant"]> = {
+    paid: "olive",
+    open: "tan",
+    draft: "dim",
+    void: "dim",
+    uncollectible: "rose",
   };
 
   const s = status ?? "unknown";
-  const className = styles[s] ?? "text-text-mute bg-fill-neutral-dim";
+  const variant = variants[s] ?? "dim";
   const statusLabels: Record<string, string> = {
     paid: t("billing.paid"),
     open: t("billing.open"),
@@ -190,11 +217,7 @@ function InvoiceStatusBadge({ status }: { status: string | null }) {
     uncollectible: t("billing.uncollectible"),
   };
 
-  return (
-    <span className={`font-mono text-micro uppercase tracking-wider px-[6px] py-[2px] rounded-full ${className}`}>
-      {statusLabels[s] ?? s}
-    </span>
-  );
+  return <Tag variant={variant}>{statusLabels[s] ?? s}</Tag>;
 }
 
 // ─── Main Billing Tab ────────────────────────────────────────────────────────
@@ -224,13 +247,80 @@ export function BillingTab() {
 
   const hasPaymentMethod = methods && methods.length > 0;
 
+  const invoiceColumns: RegisterTableColumn<StripeInvoice>[] = [
+    {
+      id: "invoice",
+      header: t("billing.invoiceColumn"),
+      cell: (invoice) => (
+        <div className="flex items-center gap-1.5">
+          <FileText className="w-[16px] h-[16px] text-text-3 shrink-0" />
+          <div className="min-w-0">
+            <TablePrimary>{invoice.number ?? t("billing.invoiceFallback")}</TablePrimary>
+            <TableMeta>
+              {invoice.date
+                ? new Date(invoice.date).toLocaleDateString(getDateLocale(locale), {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : "—"}
+            </TableMeta>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "amount",
+      header: t("billing.amountColumn"),
+      align: "right",
+      cell: (invoice) => <TableMono tone="default">${invoice.amount.toFixed(2)}</TableMono>,
+    },
+    {
+      id: "status",
+      header: t("billing.statusColumn"),
+      align: "right",
+      cell: (invoice) => <InvoiceStatusBadge status={invoice.status} />,
+    },
+    {
+      id: "actions",
+      header: "",
+      align: "right",
+      cell: (invoice) => (
+        <div className="flex items-center justify-end gap-1">
+          {invoice.hostedUrl && (
+            <a
+              href={invoice.hostedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="p-[4px] rounded-[4px] hover:bg-fill-neutral-dim transition-colors"
+            >
+              <ExternalLink className="w-[14px] h-[14px] text-text-2" />
+            </a>
+          )}
+          {invoice.pdfUrl && (
+            <a
+              href={invoice.pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="p-[4px] rounded-[4px] hover:bg-fill-neutral-dim transition-colors"
+            >
+              <Download className="w-[14px] h-[14px] text-text-3" />
+            </a>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {/* Payment Method */}
       <Card>
-        <CardHeader>
-          <CardTitle>{t("billing.paymentMethod")}</CardTitle>
-        </CardHeader>
+        <div className="pb-2">
+          <SectionLabel>{t("billing.paymentMethod")}</SectionLabel>
+        </div>
         <CardContent>
           {methodsLoading ? (
             <div className="flex items-center justify-center py-4">
@@ -293,75 +383,28 @@ export function BillingTab() {
 
       {/* Billing History */}
       <Card>
-        <CardHeader>
-          <CardTitle>{t("billing.billingHistory")}</CardTitle>
-        </CardHeader>
+        <div className="pb-2">
+          <SectionLabel>{t("billing.billingHistory")}</SectionLabel>
+        </div>
         <CardContent>
           {invoicesLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
             </div>
           ) : invoices && invoices.length > 0 ? (
-            <div className="space-y-0">
-              {invoices.map((invoice) => (
-                <div
-                  key={invoice.id}
-                  className="flex items-center justify-between py-[8px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <FileText className="w-[16px] h-[16px] text-text-3 shrink-0" />
-                    <div>
-                      <p className="font-mohave text-body-sm text-text">
-                        {invoice.number ?? "Invoice"}
-                      </p>
-                      <p className="font-mono text-micro text-text-mute">
-                        {invoice.date
-                          ? new Date(invoice.date).toLocaleDateString(getDateLocale(locale), {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })
-                          : "—"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono text-body-sm text-text">
-                      ${invoice.amount.toFixed(2)}
-                    </span>
-                    <InvoiceStatusBadge status={invoice.status} />
-                    {invoice.hostedUrl && (
-                      <a
-                        href={invoice.hostedUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-[4px] rounded hover:bg-fill-neutral-dim transition-colors"
-                      >
-                        <ExternalLink className="w-[14px] h-[14px] text-text-2" />
-                      </a>
-                    )}
-                    {invoice.pdfUrl && (
-                      <a
-                        href={invoice.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-[4px] rounded hover:bg-fill-neutral-dim transition-colors"
-                      >
-                        <Download className="w-[14px] h-[14px] text-text-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <RegisterTable
+              columns={invoiceColumns}
+              rows={invoices}
+              getRowId={(invoice) => invoice.id}
+              minWidth={360}
+              ariaLabel={t("billing.billingHistory")}
+              className="rounded-panel border border-border"
+            />
           ) : (
-            <div className="flex flex-col items-center py-3">
-              <FileText className="w-[32px] h-[32px] text-text-mute mb-1" />
-              <p className="font-mohave text-body text-text-3">{t("billing.noBillingHistory")}</p>
-              <p className="font-mono text-[11px] text-text-mute mt-0.5">
-                {t("billing.invoicesHelper")}
-              </p>
-            </div>
+            <RegisterEmpty
+              noun={t("billing.billingHistory")}
+              hint={t("billing.invoicesHelper")}
+            />
           )}
         </CardContent>
       </Card>

@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Trash2, GripVertical, Loader2, Save, X, Users, Clock, Wand2 } from "lucide-react";
+import { Plus, Trash2, GripVertical, Loader2, Save, X, Users, Clock, Wand2, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tag } from "@/components/ui/tag";
+import { Card, CardContent } from "@/components/ui/card";
+import { ACCENT_COLOR_VALUES } from "@/lib/data/curated-colors";
 import {
   useTaskTypes,
   useCreateTaskType,
   useUpdateTaskType,
-  useDeleteTaskType,
   useTeamMembers,
 } from "@/lib/hooks";
 import {
@@ -60,17 +61,24 @@ function CrewPicker({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-[6px] px-1.5 py-[8px] bg-surface-input border border-border rounded font-mohave text-body-sm text-text text-left"
+        aria-expanded={open}
+        className="w-full flex h-7 items-center gap-[6px] px-1.5 py-1.5 bg-surface-input border border-[rgba(255,255,255,0.10)] rounded-[5px] font-mohave text-body text-text text-left transition-colors duration-150 focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
       >
         <Users className="w-[14px] h-[14px] text-text-mute shrink-0" />
         {selectedNames.length > 0 ? (
-          <span className="truncate">{selectedNames.join(", ")}</span>
+          <span className="flex-1 truncate">{selectedNames.join(", ")}</span>
         ) : (
-          <span className="text-text-mute">{t("taskTypes.crewPlaceholder")}</span>
+          <span className="flex-1 text-text-3">{t("taskTypes.crewPlaceholder")}</span>
         )}
+        <ChevronDown
+          className={cn(
+            "w-[16px] h-[16px] text-text-3 shrink-0 transition-transform duration-150",
+            open && "rotate-180",
+          )}
+        />
       </button>
       {open && (
-        <div className="absolute z-50 top-full mt-[4px] left-0 w-full max-h-[200px] overflow-y-auto bg-fill-neutral-dim border border-border rounded shadow-lg">
+        <div className="absolute z-[1000] top-full mt-[4px] left-0 w-full max-h-[200px] overflow-y-auto glass-dense rounded-[5px] p-0.5">
           {members.map((member) => {
             const name = getUserFullName(member);
             const selected = selectedIds.includes(member.id);
@@ -80,20 +88,20 @@ function CrewPicker({
                 type="button"
                 onClick={() => toggle(member.id)}
                 className={cn(
-                  "w-full flex items-center gap-1 px-1.5 py-[8px] text-left font-mohave text-body-sm transition-colors",
+                  "w-full flex items-center gap-1 px-1.5 py-[8px] rounded-[4px] text-left font-mohave text-body-sm transition-colors duration-100",
                   selected
-                    ? "bg-[rgba(255,255,255,0.08)] text-text"
-                    : "text-text hover:bg-[rgba(255,255,255,0.04)]"
+                    ? "bg-surface-active text-text"
+                    : "text-text hover:bg-surface-hover"
                 )}
               >
-                <div
+                <span
                   className={cn(
-                    "w-[16px] h-[16px] rounded-sm border flex items-center justify-center shrink-0",
+                    "w-[16px] h-[16px] rounded-[4px] border flex items-center justify-center shrink-0",
                     selected ? "bg-text-2 border-[rgba(255,255,255,0.30)]" : "border-border"
                   )}
                 >
-                  {selected && <span className="text-micro text-background font-bold">✓</span>}
-                </div>
+                  {selected && <Check className="w-[12px] h-[12px] text-background" strokeWidth={3} />}
+                </span>
                 {name}
               </button>
             );
@@ -197,9 +205,10 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
 
   return (
     <div className="space-y-1">
-      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
+      <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+        <span className="text-text-mute">{"// "}</span>
         {t("taskTypes.taskTemplates")}
-      </label>
+      </span>
       <p className="font-mono text-[11px] text-text-mute">
         {t("taskTypes.templateHelper")}
       </p>
@@ -209,7 +218,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
           {templates.map((template) => (
             <div
               key={template.id}
-              className="flex items-center gap-1 py-[6px] border-b border-[rgba(255,255,255,0.04)] last:border-0"
+              className="flex items-center gap-1 py-[6px] border-b border-border-subtle last:border-0"
             >
               <GripVertical className="w-[14px] h-[14px] text-text-mute shrink-0" />
               {editingId === template.id ? (
@@ -254,7 +263,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
                     {template.title}
                   </button>
                   {template.estimatedHours != null && (
-                    <span className="flex items-center gap-[2px] font-mono text-micro text-text-mute shrink-0">
+                    <span className="flex items-center gap-[2px] font-mono text-micro text-text-mute shrink-0 tabular-nums">
                       <Clock className="w-[10px] h-[10px]" />
                       {template.estimatedHours}h
                     </span>
@@ -263,7 +272,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDelete(template.id)}
-                    className="text-text-mute hover:text-ops-error shrink-0"
+                    className="text-text-mute hover:text-rose shrink-0"
                   >
                     <Trash2 className="w-[14px] h-[14px]" />
                   </Button>
@@ -285,7 +294,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
         <Input
           value={newHours}
           onChange={(e) => setNewHours(e.target.value)}
-          placeholder="hrs"
+          placeholder={t("taskTypes.hrs")}
           className="w-[72px]"
           type="number"
           step="0.5"
@@ -298,7 +307,7 @@ function TaskTemplatesSection({ taskType }: { taskType: TaskType }) {
           className="gap-[4px] shrink-0"
         >
           <Plus className="w-[14px] h-[14px]" />
-          Add
+          {t("taskTypes.addTemplate")}
         </Button>
       </div>
     </div>
@@ -324,42 +333,36 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
   }
 
   return (
-    <div className="border border-[rgba(255,255,255,0.08)] rounded overflow-hidden">
+    <div className="border border-border rounded-[5px] overflow-hidden">
       {/* Header — always visible, click to expand */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-1.5 p-2 text-left hover:bg-[rgba(255,255,255,0.02)] transition-colors"
+        className="w-full flex items-center gap-1.5 p-2 text-left hover:bg-surface-hover transition-colors"
       >
-        <div
-          className="w-[12px] h-[12px] rounded-full shrink-0"
+        <span
+          className="w-[12px] h-[12px] rounded-[2px] shrink-0"
           style={{ backgroundColor: taskType.color }}
         />
         <h4 className="font-mohave text-body text-text flex-1">{taskType.display}</h4>
-        {taskType.isDefault && (
-          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
-            {t("taskTypes.default")}
-          </span>
-        )}
-        <svg
+        {taskType.isDefault && <Tag variant="dim">{t("taskTypes.default")}</Tag>}
+        <ChevronDown
           className={cn(
             "w-[14px] h-[14px] text-text-mute transition-transform duration-200",
             expanded && "rotate-180"
           )}
-          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        />
       </button>
 
       {/* Expandable content */}
       {expanded && (
-        <div className="px-2 pb-2 space-y-2 border-t border-[rgba(255,255,255,0.04)]">
+        <div className="px-2 pb-2 space-y-2 border-t border-border-subtle">
           {/* Section: Default Crew */}
           <div className="space-y-1 pt-1.5">
-            <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
+            <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+              <span className="text-text-mute">{"// "}</span>
               {t("taskTypes.defaultCrew")}
-            </label>
+            </span>
             <CrewPicker
               selectedIds={taskType.defaultTeamMemberIds ?? []}
               onChange={handleCrewChange}
@@ -367,7 +370,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
           </div>
 
           {/* Divider */}
-          <div className="border-t border-[rgba(255,255,255,0.06)]" />
+          <div className="border-t border-border-subtle" />
 
           {/* Section: Task Templates */}
           <TaskTemplatesSection taskType={taskType} />
@@ -389,7 +392,7 @@ export function TaskTypesTab() {
   const [showWizard, setShowWizard] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newColor, setNewColor] = useState("#417394");
+  const [newColor, setNewColor] = useState(ACCENT_COLOR_VALUES["steel-blue"]);
   const [forceWizard, setForceWizard] = useState(false);
 
   const activeTypes = taskTypes.filter((tt) => !tt.deletedAt);
@@ -409,7 +412,7 @@ export function TaskTypesTab() {
       {
         onSuccess: () => {
           setNewName("");
-          setNewColor("#417394");
+          setNewColor(ACCENT_COLOR_VALUES["steel-blue"]);
           setShowCreate(false);
           toast.success(t("taskTypes.toast.created"));
         },
@@ -421,9 +424,13 @@ export function TaskTypesTab() {
   return (
     <div className="space-y-3">
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{t("taskTypes.title")} ({activeTypes.length})</CardTitle>
+        <CardContent className="space-y-2">
+          <div className="flex items-center justify-between pb-1">
+            <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+              <span className="text-text-mute">{"// "}</span>
+              {t("taskTypes.title")}{" "}
+              <span className="text-text-2 tabular-nums">{activeTypes.length}</span>
+            </span>
             <Button
               variant="secondary"
               size="sm"
@@ -434,14 +441,12 @@ export function TaskTypesTab() {
               {t("taskTypes.addType")}
             </Button>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
           <p className="font-mohave text-body-sm text-text-2">
             {t("taskTypes.description")}
           </p>
 
           {showCreate && (
-            <div className="flex items-end gap-1 p-1.5 bg-[rgba(255,255,255,0.02)] border border-border rounded">
+            <div className="flex items-end gap-1 p-1.5 bg-surface-input border border-border rounded-[5px]">
               <Input
                 label={t("taskTypes.nameLabel")}
                 value={newName}
@@ -458,16 +463,17 @@ export function TaskTypesTab() {
                   type="color"
                   value={newColor}
                   onChange={(e) => setNewColor(e.target.value)}
-                  className="w-[40px] h-[36px] rounded border border-border bg-transparent cursor-pointer"
+                  className="w-[40px] h-[36px] rounded-[5px] border border-border bg-transparent cursor-pointer"
                 />
               </div>
               <Button
+                variant="primary"
                 onClick={handleCreate}
                 disabled={!newName.trim() || createTaskType.isPending}
                 loading={createTaskType.isPending}
                 size="sm"
               >
-                Create
+                {t("taskTypes.create")}
               </Button>
               <Button
                 variant="ghost"
@@ -495,7 +501,7 @@ export function TaskTypesTab() {
                 size="sm"
                 onClick={() => setShowWizard(true)}
               >
-                Run Setup
+                {t("taskTypes.runSetup")}
               </Button>
             </div>
           ) : (

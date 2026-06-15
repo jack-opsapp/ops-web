@@ -3,17 +3,30 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Shield,
   Check,
   Loader2,
   ArrowRight,
-  X,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { SegmentControl } from "@/components/ui/segment-control";
+import { Tag } from "@/components/ui/tag";
+import {
+  InstrumentStrip,
+  GlanceGrid,
+  GlanceTile,
+  TileHero,
+  TileSub,
+} from "@/components/ui/instrument-strip";
 import { useCompany } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -26,6 +39,17 @@ import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { AddonsSection } from "./addons-section";
+
+// ─── Section header (canonical `// TITLE`) ──────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
+  );
+}
 
 // ─── Plan Features Data ──────────────────────────────────────────────────────
 
@@ -66,11 +90,9 @@ const PLAN_FEATURES: Record<SubscriptionPlan, string[]> = {
 // ─── Upgrade Modal (pre-selected plan) ──────────────────────────────────────
 
 function UpgradeModal({
-  currentPlan,
   preSelectedPlan,
   onClose,
 }: {
-  currentPlan: SubscriptionPlan;
   preSelectedPlan: SubscriptionPlan;
   onClose: () => void;
 }) {
@@ -113,11 +135,10 @@ function UpgradeModal({
         // the user to Settings → Billing instead of the generic failure
         // message — and bail BEFORE showing the success toast.
         if (res.status === 402 || data?.code === "payment_method_required") {
-          toast.error("Payment method required", {
-            description:
-              "Add a card in Settings → Billing, then try the upgrade again.",
+          toast.error(t("subscription.toast.paymentRequired"), {
+            description: t("subscription.toast.paymentRequiredDesc"),
             action: {
-              label: "Open Billing",
+              label: t("subscription.toast.openBilling"),
               onClick: () => {
                 window.location.assign("/settings?tab=billing");
               },
@@ -139,52 +160,39 @@ function UpgradeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-glass glass-surface border border-border rounded-lg w-full max-w-[480px] mx-3">
-        {/* Header */}
-        <div className="flex items-center justify-between p-2 border-b border-border">
-          <h2 className="font-mohave text-heading text-text">
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>
             {t("subscription.upgradeTo")} {info.displayName}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-fill-neutral-dim transition-colors"
-          >
-            <X className="w-[20px] h-[20px] text-text-3" />
-          </button>
-        </div>
+          </DialogTitle>
+        </DialogHeader>
 
         {/* Plan summary */}
-        <div className="p-2 space-y-2">
+        <div className="space-y-2">
           {/* Period toggle */}
-          <div className="flex items-center justify-center gap-1">
-            {(["Monthly", "Annual"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={cn(
-                  "px-3 py-1 rounded font-mohave text-body-sm transition-all",
-                  period === p
-                    ? "bg-[rgba(255,255,255,0.08)] text-text"
-                    : "text-text-3 hover:text-text-2"
-                )}
-              >
-                {t(`subscription.${p.toLowerCase()}`)}
-                {p === "Annual" ? ` (${t("subscription.saveAnnual")})` : ""}
-              </button>
-            ))}
-          </div>
+          <SegmentControl
+            options={[
+              { value: "Monthly", label: t("subscription.monthly") },
+              {
+                value: "Annual",
+                label: `${t("subscription.annual")} (${t("subscription.saveAnnual")})`,
+              },
+            ]}
+            value={period}
+            onChange={(v) => setPeriod(v as "Monthly" | "Annual")}
+          />
 
           {/* Price */}
-          <div className="text-center">
-            <span className="font-mono text-[28px] text-text">
+          <div>
+            <span className="font-mono text-data-lg text-text tabular-nums">
               ${price}
             </span>
-            <span className="font-mono text-[12px] text-text-mute">
+            <span className="font-mono text-micro text-text-mute">
               {t("subscription.perMonth")}
             </span>
             {period === "Annual" && (
-              <p className="font-mono text-[11px] text-text-mute mt-[2px]">
+              <p className="font-mono text-micro text-text-mute mt-[2px] tabular-nums">
                 ${info.annualPrice}{t("subscription.perYear")}
               </p>
             )}
@@ -195,7 +203,7 @@ function UpgradeModal({
             {features.map((f) => (
               <div key={f} className="flex items-center gap-[6px]">
                 <Check className="w-[12px] h-[12px] text-text-2 shrink-0" />
-                <span className="font-mono text-[11px] text-text-2">
+                <span className="font-mono text-micro text-text-2">
                   {f}
                 </span>
               </div>
@@ -204,23 +212,20 @@ function UpgradeModal({
         </div>
 
         {/* Subscribe button */}
-        <div className="p-2 border-t border-border">
+        <div className="pt-2 border-t border-border">
           <Button
             variant="primary"
             className="w-full gap-[6px]"
             disabled={isSubscribing}
+            loading={isSubscribing}
             onClick={handleSubscribe}
           >
-            {isSubscribing ? (
-              <Loader2 className="w-[16px] h-[16px] animate-spin" />
-            ) : (
-              <ArrowRight className="w-[16px] h-[16px]" />
-            )}
+            {!isSubscribing && <ArrowRight className="w-[16px] h-[16px]" />}
             {t("subscription.upgradeTo")} {info.displayName}
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -246,9 +251,9 @@ function PlanCard({
   return (
     <div
       className={cn(
-        "border rounded transition-all duration-200",
+        "border rounded-[5px] transition-all duration-200",
         isCurrent
-          ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.04)]"
+          ? "border-[rgba(255,255,255,0.18)] bg-surface-active"
           : "border-border hover:border-[rgba(255,255,255,0.15)]"
       )}
     >
@@ -270,22 +275,22 @@ function PlanCard({
                 {info.displayName}
               </h4>
               {isCurrent && (
-                <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[2px] rounded-full uppercase tracking-wider shrink-0">
+                <Tag variant="neutral" className="shrink-0">
                   {t("subscription.currentBadge")}
-                </span>
+                </Tag>
               )}
             </div>
-            <p className="font-mono text-[11px] text-text-mute">
+            <p className="font-mono text-micro text-text-mute tabular-nums">
               {info.maxSeats} {t("subscription.seats")}
             </p>
           </div>
         </div>
         <div className="text-right shrink-0">
-          <p className="font-mono text-data-sm text-text">
+          <p className="font-mono text-data-sm text-text tabular-nums">
             ${info.monthlyPrice}{t("subscription.perMonth")}
           </p>
           {info.annualPrice > 0 && (
-            <p className="font-mono text-micro text-text-mute">
+            <p className="font-mono text-micro text-text-mute tabular-nums">
               ${info.annualPrice}{t("subscription.perYear")}
             </p>
           )}
@@ -294,12 +299,12 @@ function PlanCard({
 
       {/* Expanded content — features + upgrade */}
       {expanded && (
-        <div className="px-2 pb-2 pt-0 border-t border-[rgba(255,255,255,0.04)] motion-safe:animate-anchored-in">
+        <div className="px-2 pb-2 pt-0 border-t border-border-subtle motion-safe:animate-anchored-in">
           <div className="space-y-[6px] py-1.5">
             {features.map((f) => (
               <div key={f} className="flex items-center gap-[6px]">
                 <Check className="w-[12px] h-[12px] text-text-2 shrink-0" />
-                <span className="font-mono text-[11px] text-text-2">
+                <span className="font-mono text-micro text-text-2">
                   {f}
                 </span>
               </div>
@@ -343,12 +348,12 @@ export function SubscriptionTab() {
     if (!result) return;
 
     if (result === "success") {
-      toast.success("Subscription active", {
-        description: "Welcome aboard. Refreshing your account…",
+      toast.success(t("subscription.toast.active"), {
+        description: t("subscription.toast.activeDesc"),
       });
       refetch();
     } else if (result === "cancelled") {
-      toast("Checkout cancelled");
+      toast(t("subscription.toast.checkoutCancelled"));
     }
 
     queueMicrotask(() => {
@@ -358,7 +363,7 @@ export function SubscriptionTab() {
       const next = params.toString();
       router.replace(next ? `/settings?${next}` : "/settings", { scroll: false });
     });
-  }, [searchParams, router, refetch]);
+  }, [searchParams, router, refetch, t]);
 
   if (isCompanyLoading && !company) {
     return (
@@ -414,110 +419,107 @@ export function SubscriptionTab() {
   return (
     <>
       <div className="space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Current Plan + Features + Seat Usage (combined) */}
-        <Card variant="accent">
-          <CardContent className="p-2 space-y-2">
-            {/* Plan header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="font-mono text-micro text-text-3 uppercase tracking-widest">
-                  {t("subscription.currentPlan")}
-                </span>
-                <h3 className="font-mohave text-heading text-text">
-                  {planInfo.displayName}
-                </h3>
-                <p className="font-mono text-data text-text">
-                  {priceDisplay}
-                </p>
-                {isTrial && trialDaysRemaining > 0 && (
-                  <p className="font-mono text-[11px] text-ops-amber mt-[4px]">
-                    {trialDaysRemaining} {t("subscription.trialRemaining")}
-                  </p>
-                )}
-                {nextBillingDate && !isTrial && (
-                  <p className="font-mono text-[11px] text-text-mute mt-[4px]">
-                    {t("subscription.nextBilling")}: {nextBillingDate}
-                  </p>
-                )}
-              </div>
-              <div className="w-[48px] h-[48px] rounded-lg bg-[rgba(255,255,255,0.08)] flex items-center justify-center">
-                <Shield className="w-[24px] h-[24px] text-text-2" />
-              </div>
-            </div>
+        {/* Glance band — PLAN / SEATS / NEXT BILLING */}
+        <InstrumentStrip label={t("subscription.currentPlan")}>
+          <GlanceGrid className="grid-cols-1 sm:grid-cols-3">
+            {/* Plan + price */}
+            <GlanceTile label={t("subscription.currentPlan")}>
+              <TileHero>{planInfo.displayName}</TileHero>
+              <TileSub>{priceDisplay}</TileSub>
+            </GlanceTile>
 
             {/* Seat usage */}
-            <div className="pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
-                  {t("subscription.seatUsage")}
+            <GlanceTile
+              label={t("subscription.seatUsage")}
+              right={
+                <span className="font-mono text-micro text-text-3 tabular-nums">
+                  {seatPercentage}%
                 </span>
-                <span className="font-mono text-data-sm text-text">
-                  {seatedCount} / {maxSeats}
-                </span>
-              </div>
-              <div className="h-[6px] bg-fill-neutral-dim rounded-full overflow-hidden">
+              }
+            >
+              <TileHero>
+                {seatedCount} / {maxSeats}
+              </TileHero>
+              <div className="my-1.5 h-[2px] overflow-hidden rounded-[2px] bg-fill-neutral-dim">
                 <div
-                  className="h-full bg-text-2 rounded-full transition-all duration-300"
+                  className="h-full rounded-[2px] bg-fill-neutral transition-all duration-300 motion-reduce:transition-none"
                   style={{ width: `${seatPercentage}%` }}
                 />
               </div>
-              <p className="font-mono text-micro text-text-mute mt-[4px]">
+              <TileSub>
                 {seatsRemaining} {t("subscription.seatsRemaining")}
-              </p>
+              </TileSub>
+            </GlanceTile>
+
+            {/* Next billing / trial */}
+            <GlanceTile
+              label={
+                isTrial
+                  ? t("subscription.trialRemaining")
+                  : t("subscription.nextBilling")
+              }
+            >
+              {isTrial && trialDaysRemaining > 0 ? (
+                <TileHero tone="olive">{trialDaysRemaining}</TileHero>
+              ) : nextBillingDate && !isTrial ? (
+                <TileHero>{nextBillingDate}</TileHero>
+              ) : (
+                <TileHero>—</TileHero>
+              )}
+              <TileSub>{priceDisplay}</TileSub>
+            </GlanceTile>
+          </GlanceGrid>
+        </InstrumentStrip>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Current plan features */}
+          <Card>
+            <div className="pb-2">
+              <SectionLabel>{t("subscription.planFeatures")}</SectionLabel>
             </div>
+            <CardContent className="space-y-[6px]">
+              {features.map((feature) => (
+                <div key={feature} className="flex items-center gap-[6px]">
+                  <Check className="w-[14px] h-[14px] text-text-2 shrink-0" />
+                  <span className="font-mono text-micro text-text-2">
+                    {feature}
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
 
-            {/* Features */}
-            <div className="pt-1.5 border-t border-[rgba(255,255,255,0.06)]">
-              <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
-                {t("subscription.planFeatures")}
-              </span>
-              <div className="space-y-[6px] mt-1">
-                {features.map((feature) => (
-                  <div key={feature} className="flex items-center gap-[6px]">
-                    <Check className="w-[14px] h-[14px] text-text-2 shrink-0" />
-                    <span className="font-mono text-[11px] text-text-2">
-                      {feature}
-                    </span>
-                  </div>
-                ))}
-              </div>
+          {/* Available Plans (expandable) */}
+          <Card>
+            <div className="pb-2">
+              <SectionLabel>{t("subscription.availablePlans")}</SectionLabel>
             </div>
-          </CardContent>
-        </Card>
+            <CardContent className="space-y-1">
+              {availablePlans.map((planId) => {
+                const isCurrent = planId === plan;
+                const isDowngrade =
+                  planOrder.indexOf(planId) < currentPlanIndex;
 
-        {/* Available Plans (expandable) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("subscription.availablePlans")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {availablePlans.map((planId) => {
-              const isCurrent = planId === plan;
-              const isDowngrade =
-                planOrder.indexOf(planId) < currentPlanIndex;
+                return (
+                  <PlanCard
+                    key={planId}
+                    planId={planId}
+                    isCurrent={isCurrent}
+                    isDowngrade={isDowngrade}
+                    onUpgrade={() => setUpgradePlan(planId)}
+                  />
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
 
-              return (
-                <PlanCard
-                  key={planId}
-                  planId={planId}
-                  isCurrent={isCurrent}
-                  isDowngrade={isDowngrade}
-                  onUpgrade={() => setUpgradePlan(planId)}
-                />
-              );
-            })}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Add-ons — Data Setup + Priority Support */}
-      <AddonsSection />
+        {/* Add-ons — Data Setup + Priority Support */}
+        <AddonsSection />
       </div>
 
       {upgradePlan && (
         <UpgradeModal
-          currentPlan={plan}
           preSelectedPlan={upgradePlan}
           onClose={() => setUpgradePlan(null)}
         />

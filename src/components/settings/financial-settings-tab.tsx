@@ -13,8 +13,22 @@ import { Save, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import type { FinancialIntelligenceSettings } from "@/lib/types/approval-queue";
 import { DEFAULT_FINANCIAL_SETTINGS } from "@/lib/types/approval-queue";
+
+// ─── Section header (canonical `// TITLE`) ──────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -110,7 +124,7 @@ export function FinancialSettingsTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h2 className="font-mohave text-[16px] text-text uppercase tracking-wider">
             {t("financial.settings.title")}
@@ -119,58 +133,34 @@ export function FinancialSettingsTab() {
             [{t("financial.settings.description")}]
           </p>
         </div>
-        <button
+        <Button
+          variant="primary"
           onClick={handleSave}
           disabled={!dirty || saving}
-          className="flex items-center gap-2 px-4 min-h-[36px] rounded-[5px] border font-mohave text-[14px] uppercase tracking-wider transition-colors duration-150"
-          style={{
-            backgroundColor: dirty ? "#6F94B0" : "transparent",
-            borderColor: dirty ? "#6F94B0" : "rgba(255,255,255,0.08)",
-            color: dirty ? "#fff" : "var(--text-tertiary)",
-            opacity: saving ? 0.6 : 1,
-            cursor: dirty && !saving ? "pointer" : "default",
-          }}
+          loading={saving}
+          className="gap-2 shrink-0"
         >
-          {saving ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Save className="w-4 h-4" />
-          )}
+          {!saving && <Save className="w-4 h-4" />}
           {saving ? t("financial.settings.saving") : t("financial.settings.save")}
-        </button>
+        </Button>
       </div>
 
       {/* Enable/disable toggle */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
-        <label className="flex items-center justify-between min-h-[36px] cursor-pointer">
+      <div className="glass-surface rounded-panel p-4">
+        <div className="flex items-center justify-between gap-4 min-h-[36px]">
           <span className="font-mohave text-[14px] text-text">
             {t("financial.settings.enableDigest")}
           </span>
-          <button
-            role="switch"
-            aria-checked={settings.enabled}
-            onClick={() => update({ enabled: !settings.enabled })}
-            className="relative w-[44px] h-[24px] rounded-full border transition-colors duration-150"
-            style={{
-              backgroundColor: settings.enabled ? "#6F94B0" : "rgba(255,255,255,0.06)",
-              borderColor: settings.enabled ? "#6F94B0" : "rgba(255,255,255,0.12)",
-            }}
-          >
-            <span
-              className="absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-transform duration-150"
-              style={{
-                transform: settings.enabled ? "translateX(22px)" : "translateX(2px)",
-              }}
-            />
-          </button>
-        </label>
+          <Switch
+            checked={settings.enabled}
+            onCheckedChange={(v) => update({ enabled: v })}
+          />
+        </div>
       </div>
 
       {/* Alert thresholds */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
-        <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider">
-          {t("financial.settings.alertThresholds")}
-        </h3>
+      <div className="glass-surface rounded-panel p-4 space-y-4">
+        <SectionLabel>{t("financial.settings.alertThresholds")}</SectionLabel>
 
         {/* Overdue threshold */}
         <ThresholdInput
@@ -214,10 +204,8 @@ export function FinancialSettingsTab() {
       </div>
 
       {/* Pricing optimization */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4 space-y-4">
-        <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider">
-          {t("financial.settings.pricingTitle")}
-        </h3>
+      <div className="glass-surface rounded-panel p-4 space-y-4">
+        <SectionLabel>{t("financial.settings.pricingTitle")}</SectionLabel>
 
         {/* Win rate increase threshold */}
         <ThresholdInput
@@ -276,17 +264,19 @@ function ThresholdInput({
         {label}
       </span>
       <div className="flex items-center gap-2">
-        <input
-          type="number"
-          value={value}
-          min={min}
-          max={max}
-          onChange={(e) => {
-            const v = Math.max(min, Math.min(max, Number(e.target.value) || min));
-            onChange(v);
-          }}
-          className="w-[72px] min-h-[36px] px-3 rounded-[5px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[13px] text-text text-right outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors duration-150"
-        />
+        <div className="w-[72px]">
+          <Input
+            type="number"
+            value={value}
+            min={min}
+            max={max}
+            onChange={(e) => {
+              const v = Math.max(min, Math.min(max, Number(e.target.value) || min));
+              onChange(v);
+            }}
+            className="font-mono tabular-nums text-right [color-scheme:dark]"
+          />
+        </div>
         <span className="font-mono text-[11px] text-text-3 min-w-[60px]">
           {suffix}
         </span>

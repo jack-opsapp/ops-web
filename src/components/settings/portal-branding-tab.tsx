@@ -5,12 +5,9 @@ import {
   Check,
   Loader2,
   Save,
-  Moon,
-  Sun,
   Eye,
   RotateCcw,
   FileText,
-  Receipt,
   FolderOpen,
   Home,
   MessageSquare,
@@ -20,7 +17,8 @@ import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SegmentControl } from "@/components/ui/segment-control";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
@@ -208,6 +206,17 @@ const TEMPLATES: { id: PortalTemplate; labelKey: string; descKey: string }[] = [
   },
 ];
 
+// ─── Section header — the canonical "// TITLE" grammar ──────────────────────
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </span>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function PortalBrandingTab() {
@@ -340,8 +349,8 @@ export function PortalBrandingTab() {
       const { token: previewToken } = await res.json();
       window.open(`/portal/${previewToken}`, "_blank");
     } catch (err) {
-      toast.error("Failed to open preview", {
-        description: err instanceof Error ? err.message : "Please try again",
+      toast.error(t("portalBranding.previewFailed"), {
+        description: err instanceof Error ? err.message : t("portalBranding.toast.tryAgain"),
       });
     } finally {
       setIsPreviewLoading(false);
@@ -363,7 +372,7 @@ export function PortalBrandingTab() {
     return (
       <Card>
         <CardContent className="py-3">
-          <p className="font-mohave text-body text-ops-error">
+          <p className="font-mohave text-body text-rose">
             {t("portalBranding.loadFailed")}
             {error instanceof Error ? `: ${error.message}` : ""}
           </p>
@@ -390,7 +399,7 @@ export function PortalBrandingTab() {
   const previewBlock = (
     <Card>
       <CardHeader>
-        <CardTitle>Preview</CardTitle>
+        <SectionTitle>{t("portalBranding.previewTitle")}</SectionTitle>
       </CardHeader>
       <CardContent>
         {/* Load template fonts */}
@@ -560,8 +569,8 @@ export function PortalBrandingTab() {
             ))}
           </div>
         </div>
-        <p className="font-mono text-[11px] text-text-mute mt-1.5">
-          Live preview of your client portal. Changes update instantly.
+        <p className="font-mono text-micro text-text-3 mt-1.5">
+          {t("portalBranding.previewCaption")}
         </p>
       </CardContent>
     </Card>
@@ -574,27 +583,27 @@ export function PortalBrandingTab() {
       {/* ── Portal Logo ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("portalBranding.logoTitle")}</CardTitle>
+          <SectionTitle>{t("portalBranding.logoTitle")}</SectionTitle>
         </CardHeader>
         <CardContent>
-          <div className="p-2 rounded border border-border bg-surface-input flex items-center gap-2 min-h-[56px]">
+          <div className="p-2 rounded-[5px] border border-border bg-surface-input flex items-center gap-2 min-h-[56px]">
             {company?.logoURL ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={company.logoURL}
-                  alt="Company logo"
+                  alt={t("portalBranding.logoAlt")}
                   className="max-h-[40px] max-w-[120px] object-contain"
                 />
-                <span className="font-mono text-[11px] text-text-mute">
-                  Using your company logo
+                <span className="font-mono text-micro text-text-3">
+                  {t("portalBranding.usingCompanyLogo")}
                 </span>
               </>
             ) : (
               <div className="flex items-center gap-1.5">
                 <Building2 className="w-[20px] h-[20px] text-text-mute" />
-                <span className="font-mono text-[11px] text-text-mute">
-                  No company logo set — upload one in Company Details
+                <span className="font-mono text-micro text-text-3">
+                  {t("portalBranding.noLogoSet")}
                 </span>
               </div>
             )}
@@ -605,14 +614,14 @@ export function PortalBrandingTab() {
       {/* ── Accent Color ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("portalBranding.accentTitle")}</CardTitle>
+          <SectionTitle>{t("portalBranding.accentTitle")}</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {/* Suggested colors from logo */}
           {suggestedColors.length > 0 && (
             <div className="space-y-1">
-              <p className="font-mono text-micro text-text-mute uppercase tracking-wider">
-                Suggested from your logo
+              <p className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
+                {t("portalBranding.suggestedFromLogo")}
               </p>
               <div className="flex gap-1.5">
                 {suggestedColors.map((hex) => (
@@ -625,17 +634,17 @@ export function PortalBrandingTab() {
                       markDirty();
                     }}
                     className={cn(
-                      "relative w-[36px] h-[36px] rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
+                      "relative w-[36px] h-[36px] rounded-[4px] border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                       accentColor === hex
-                        ? "border-[rgba(255,255,255,0.4)] ring-1 ring-[rgba(255,255,255,0.2)]"
-                        : "border-[rgba(255,255,255,0.15)] hover:border-[rgba(255,255,255,0.3)]"
+                        ? "border-[rgba(255,255,255,0.4)] ring-1 ring-[rgba(255,255,255,0.18)]"
+                        : "border-border hover:border-[rgba(255,255,255,0.3)]"
                     )}
                     style={{ backgroundColor: hex }}
                     title={hex}
                   >
                     {accentColor === hex && (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Check className="w-[14px] h-[14px] text-white drop-shadow-sm" />
+                        <Check className="w-[14px] h-[14px] text-text drop-shadow-sm" />
                       </div>
                     )}
                   </button>
@@ -655,22 +664,22 @@ export function PortalBrandingTab() {
                   markDirty();
                 }}
                 className={cn(
-                  "relative flex flex-col items-center gap-1 py-1.5 rounded-lg border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
+                  "relative flex flex-col items-center gap-1 py-1.5 rounded-[4px] border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                   accentColor === color.hex
-                    ? "border-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.06)]"
+                    ? "border-[rgba(255,255,255,0.18)] bg-surface-active"
                     : "border-border hover:border-border-medium"
                 )}
               >
                 <span
-                  className="w-[32px] h-[32px] rounded-lg border border-[rgba(255,255,255,0.15)]"
+                  className="w-[32px] h-[32px] rounded-[4px] border border-border"
                   style={{ backgroundColor: color.hex }}
                 />
                 <span className="font-mono text-micro text-text-3 leading-tight">
                   {color.name}
                 </span>
                 {accentColor === color.hex && (
-                  <div className="absolute top-1 right-1 w-[14px] h-[14px] rounded-full bg-white/20 flex items-center justify-center">
-                    <Check className="w-[10px] h-[10px] text-white" />
+                  <div className="absolute top-1 right-1 flex h-[14px] w-[14px] items-center justify-center rounded-full bg-surface-active">
+                    <Check className="w-[10px] h-[10px] text-text" />
                   </div>
                 )}
               </button>
@@ -680,7 +689,7 @@ export function PortalBrandingTab() {
           {/* Custom hex input */}
           <div className="flex items-center gap-1.5 pt-0.5">
             <div
-              className="w-[32px] h-[32px] rounded-lg border border-[rgba(255,255,255,0.15)] shrink-0"
+              className="w-[32px] h-[32px] rounded-[4px] border border-border shrink-0"
               style={{ backgroundColor: isValidHex ? accentColor : "#333" }}
             />
             <Input
@@ -695,8 +704,8 @@ export function PortalBrandingTab() {
               className="w-[140px] font-mono"
               error={!isValidHex && accentColor.length > 0 ? t("portalBranding.invalidColor") : undefined}
             />
-            <span className="font-mono text-micro text-text-mute">
-              Custom
+            <span className="font-mono text-micro text-text-3">
+              {t("portalBranding.customColor")}
             </span>
           </div>
         </CardContent>
@@ -705,85 +714,49 @@ export function PortalBrandingTab() {
       {/* ── Template Selector ─────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("portalBranding.templateTitle")}</CardTitle>
+          <SectionTitle>{t("portalBranding.templateTitle")}</SectionTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-1">
-            {TEMPLATES.map((tmpl) => (
-              <button
-                key={tmpl.id}
-                disabled={!canManage}
-                onClick={() => {
-                  if (!canManage) return;
-                  setTemplate(tmpl.id);
-                  markDirty();
-                }}
-                className={cn(
-                  "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed",
-                  template === tmpl.id
-                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
-                    : "bg-surface-input border-border hover:border-border-medium"
-                )}
-              >
-                <div>
-                  <p className="font-mohave text-body text-text">{t(tmpl.labelKey)}</p>
-                  <p className="font-mono text-[11px] text-text-3">{t(tmpl.descKey)}</p>
-                </div>
-                {template === tmpl.id && (
-                  <div className="w-[20px] h-[20px] rounded-full bg-text-2 flex items-center justify-center shrink-0 ml-1">
-                    <Check className="w-[12px] h-[12px] text-background" />
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
+        <CardContent className="space-y-1.5">
+          <SegmentControl
+            options={TEMPLATES.map((tmpl) => ({
+              value: tmpl.id,
+              label: t(tmpl.labelKey),
+            }))}
+            value={template}
+            onChange={(id) => {
+              if (!canManage) return;
+              setTemplate(id);
+              markDirty();
+            }}
+          />
+          <p className="font-mono text-micro text-text-3">
+            {t(
+              TEMPLATES.find((tmpl) => tmpl.id === template)?.descKey ??
+                "portalBranding.modernDesc"
+            )}
+          </p>
         </CardContent>
       </Card>
 
       {/* ── Theme Mode ────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("portalBranding.themeTitle")}</CardTitle>
+          <SectionTitle>{t("portalBranding.themeTitle")}</SectionTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-1">
-            {([
-              { id: "light" as PortalThemeMode, label: t("portalBranding.themeLight"), icon: Sun },
-              { id: "dark" as PortalThemeMode, label: t("portalBranding.themeDark"), icon: Moon },
-            ]).map((mode) => (
-              <button
-                key={mode.id}
-                disabled={!canManage}
-                onClick={() => {
-                  if (!canManage) return;
-                  setThemeMode(mode.id);
-                  markDirty();
-                }}
-                className={cn(
-                  "flex flex-col items-center gap-[6px] py-1.5 rounded border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
-                  themeMode === mode.id
-                    ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)]"
-                    : "bg-surface-input border-border hover:border-border-medium"
-                )}
-              >
-                <mode.icon
-                  className={cn(
-                    "w-[20px] h-[20px]",
-                    themeMode === mode.id ? "text-text" : "text-text-3"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "font-mohave text-body-sm",
-                    themeMode === mode.id ? "text-text" : "text-text-2"
-                  )}
-                >
-                  {mode.label}
-                </span>
-              </button>
-            ))}
-          </div>
-          <p className="font-mono text-[11px] text-text-mute mt-1">
+        <CardContent className="space-y-1.5">
+          <SegmentControl
+            options={[
+              { value: "light" as PortalThemeMode, label: t("portalBranding.themeLight") },
+              { value: "dark" as PortalThemeMode, label: t("portalBranding.themeDark") },
+            ]}
+            value={themeMode}
+            onChange={(mode) => {
+              if (!canManage) return;
+              setThemeMode(mode);
+              markDirty();
+            }}
+          />
+          <p className="font-mono text-micro text-text-3">
             {t("portalBranding.themeHelper")}
           </p>
         </CardContent>
@@ -792,7 +765,7 @@ export function PortalBrandingTab() {
       {/* ── Welcome Message ───────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("portalBranding.welcomeTitle")}</CardTitle>
+          <SectionTitle>{t("portalBranding.welcomeTitle")}</SectionTitle>
         </CardHeader>
         <CardContent>
           <Textarea
@@ -813,10 +786,10 @@ export function PortalBrandingTab() {
       {/* ── Document Display — Visibility Overrides ──────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>{t("portalBranding.visibilityTitle")}</CardTitle>
+          <SectionTitle>{t("portalBranding.visibilityTitle")}</SectionTitle>
         </CardHeader>
         <CardContent className="space-y-1">
-          <p className="font-mono text-[11px] text-text-mute mb-2">
+          <p className="font-mono text-micro text-text-3 mb-2">
             {t("portalBranding.visibilityDesc")}
           </p>
 
@@ -828,35 +801,23 @@ export function PortalBrandingTab() {
             { key: "showTax" as const, labelKey: "portalBranding.tax", state: showTax, setter: setShowTax },
             { key: "showDiscount" as const, labelKey: "portalBranding.discount", state: showDiscount, setter: setShowDiscount },
           ]).map(({ key, labelKey, state, setter }) => (
-            <div key={key} className="flex items-center justify-between py-1.5">
+            <div key={key} className="flex items-center justify-between gap-2 py-1.5">
               <span className="font-mohave text-body-sm text-text-2">
                 {t(labelKey)}
               </span>
-              <div className="flex rounded border border-border overflow-hidden">
-                {([
-                  { value: null, label: t("portalBranding.useTemplate") },
-                  { value: true, label: t("portalBranding.alwaysShow") },
-                  { value: false, label: t("portalBranding.alwaysHide") },
-                ] as { value: boolean | null; label: string }[]).map((opt) => (
-                  <button
-                    key={String(opt.value)}
-                    disabled={!canManage}
-                    onClick={() => {
-                      if (!canManage) return;
-                      setter(opt.value);
-                      markDirty();
-                    }}
-                    className={cn(
-                      "px-2 py-1 text-[11px] font-mono transition-all border-r last:border-r-0 border-border disabled:opacity-40 disabled:cursor-not-allowed",
-                      state === opt.value
-                        ? "bg-[rgba(255,255,255,0.08)] text-text"
-                        : "bg-surface-input text-text-3 hover:text-text-2"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+              <SegmentControl
+                options={[
+                  { value: "template", label: t("portalBranding.useTemplate") },
+                  { value: "show", label: t("portalBranding.alwaysShow") },
+                  { value: "hide", label: t("portalBranding.alwaysHide") },
+                ]}
+                value={state === null ? "template" : state ? "show" : "hide"}
+                onChange={(v) => {
+                  if (!canManage) return;
+                  setter(v === "template" ? null : v === "show");
+                  markDirty();
+                }}
+              />
             </div>
           ))}
         </CardContent>
@@ -869,7 +830,7 @@ export function PortalBrandingTab() {
 
       {/* ── Actions ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between pt-1">
-        <p className="font-mono text-[11px] text-text-mute">
+        <p className="font-mono text-micro text-text-3">
           {isDirty
             ? t("portalBranding.unsavedChanges")
             : t("portalBranding.allSaved")}
@@ -882,7 +843,7 @@ export function PortalBrandingTab() {
             loading={isPreviewLoading}
           >
             <Eye className="w-[16px] h-[16px]" />
-            Preview Portal
+            {t("portalBranding.previewPortal")}
           </Button>
           {isDirty && (
             <Button
@@ -890,7 +851,7 @@ export function PortalBrandingTab() {
               onClick={handleDiscard}
             >
               <RotateCcw className="w-[16px] h-[16px]" />
-              Discard
+              {t("portalBranding.discard")}
             </Button>
           )}
           <Button

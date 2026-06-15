@@ -1,8 +1,7 @@
 "use client";
 
 import { Map } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
@@ -18,20 +17,22 @@ export function MapPreferencesTab() {
   const setMapShowCrewLabels = usePreferencesStore((s) => s.setMapShowCrewLabels);
 
   return (
-    <div className="space-y-3 max-w-3xl">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Map className="w-[16px] h-[16px] text-text-2" />
-            <CardTitle>{t("map.title")}</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
+    <div className="max-w-3xl space-y-3">
+      <div className="glass-surface rounded-panel p-3">
+        <div className="flex items-center gap-2 pb-3">
+          <Map className="h-[16px] w-[16px] text-text-3" />
+          <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+            <span className="text-text-mute">{"// "}</span>
+            {t("map.title")}
+          </span>
+        </div>
+
+        <div className="space-y-3">
           {/* Zoom Level Slider */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <p className="font-mohave text-body text-text">{t("map.defaultZoom")}</p>
-              <span className="font-mono text-[11px] text-text-3">{mapDefaultZoom}x</span>
+              <span className="font-mono text-micro tabular-nums text-text-3">{mapDefaultZoom}x</span>
             </div>
             <input
               type="range"
@@ -54,58 +55,36 @@ export function MapPreferencesTab() {
           </div>
 
           {/* Traffic Toggle */}
-          <div className="flex items-center justify-between py-[6px]">
+          <div className="flex items-center justify-between gap-3 border-t border-border py-[6px] pt-3">
             <div>
               <p className="font-mohave text-body text-text">{t("map.showTraffic")}</p>
-              <p className="font-mono text-[11px] text-text-mute">{t("map.showTrafficDesc")}</p>
+              <p className="font-mono text-micro text-text-mute">{t("map.showTrafficDesc")}</p>
             </div>
-            <button
-              onClick={() => {
-                const newValue = !mapShowTraffic;
-                setMapShowTraffic(newValue);
-                toast.success(newValue ? t("map.toast.trafficEnabled") : t("map.toast.trafficDisabled"));
+            <Switch
+              checked={mapShowTraffic}
+              onCheckedChange={(value) => {
+                setMapShowTraffic(value);
+                toast.success(value ? t("map.toast.trafficEnabled") : t("map.toast.trafficDisabled"));
               }}
-              className={cn(
-                "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                mapShowTraffic ? "bg-text-2" : "bg-fill-neutral-dim"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
-                  mapShowTraffic ? "right-[2px]" : "left-[2px]"
-                )}
-              />
-            </button>
+            />
           </div>
 
           {/* Crew Labels Toggle */}
-          <div className="flex items-center justify-between py-[6px]">
+          <div className="flex items-center justify-between gap-3 border-t border-border py-[6px] pt-3">
             <div>
               <p className="font-mohave text-body text-text">{t("map.showCrewLabels")}</p>
-              <p className="font-mono text-[11px] text-text-mute">{t("map.showCrewLabelsDesc")}</p>
+              <p className="font-mono text-micro text-text-mute">{t("map.showCrewLabelsDesc")}</p>
             </div>
-            <button
-              onClick={() => {
-                const newValue = !mapShowCrewLabels;
-                setMapShowCrewLabels(newValue);
-                toast.success(newValue ? t("map.toast.labelsEnabled") : t("map.toast.labelsDisabled"));
+            <Switch
+              checked={mapShowCrewLabels}
+              onCheckedChange={(value) => {
+                setMapShowCrewLabels(value);
+                toast.success(value ? t("map.toast.labelsEnabled") : t("map.toast.labelsDisabled"));
               }}
-              className={cn(
-                "w-[40px] h-[22px] rounded-full transition-colors relative shrink-0",
-                mapShowCrewLabels ? "bg-text-2" : "bg-fill-neutral-dim"
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-[2px] w-[18px] h-[18px] rounded-full bg-white transition-all",
-                  mapShowCrewLabels ? "right-[2px]" : "left-[2px]"
-                )}
-              />
-            </button>
+            />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
