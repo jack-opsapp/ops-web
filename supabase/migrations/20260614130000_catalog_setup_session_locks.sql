@@ -1,8 +1,10 @@
 -- Catalog Setup Wizard — single-session-per-company lock (plan Task 6.3 / spec
 -- §16 "only one setup session at a time per company").
 --
--- NOT YET APPLIED. The lock substrate is a decision for Jackson (see the session
--- summary): neither existing table fits cleanly —
+-- APPLIED to prod (ijeekuhbatykdomumfjx) 2026-06-15 — Jackson chose "apply + turn
+-- the lock on" (verified: 6 cols, RLS on, both authenticated + anon bridge
+-- policies, anon/authenticated CRUD grants). The lock hook is now on by default.
+-- Substrate rationale (neither existing table fits cleanly):
 --   • wizard_states has session+heartbeat columns (current_session_id /
 --     last_active_at) but is USER-scoped (no company_id) and its RLS is
 --     auth.uid()-based, which throws under the OPS Firebase bridge; web can't
@@ -16,9 +18,9 @@
 -- RLS the commit ledger already proves works for the anon web role. It is a NET-
 -- NEW table → fully additive and App-Store-safe (iOS never reads it).
 --
--- Activation: apply this migration, then set NEXT_PUBLIC_CATALOG_SETUP_LOCK_ENABLED
--- =true. Until both are done the wizard's lock hook is a no-op (it never touches
--- the network), so shipping the code ahead of this migration changes nothing.
+-- The SQL is idempotent (create-if-not-exists / drop-policy-if-exists), so a
+-- future `supabase db push` re-apply is a safe no-op. Kill-switch: set
+-- NEXT_PUBLIC_CATALOG_SETUP_LOCK_ENABLED="false" to disable the lock hook.
 
 create table if not exists public.catalog_setup_session_locks (
   company_id   uuid primary key references public.companies(id) on delete cascade,

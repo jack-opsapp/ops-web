@@ -7,13 +7,15 @@
  * company"; plan Task 6.3). Pairs with the pure `isHeldByOther` predicate + the
  * fail-open `session-lock-service` wrapper.
  *
- * FAIL-OPEN + ENV-GATED. The lock is a courtesy guard, never a barrier: every
- * store error is swallowed by the service, so the only thing this can do is ADD
- * the honest "already in setup" panel. It is also gated OFF until the
- * catalog_setup_session_locks migration is applied — while off it never touches
- * the network and reports not-held, so the wizard is unaffected by shipping the
- * code ahead of the (Jackson-pending) substrate decision. Mirrors the wizard's
- * other honest lane gate (NEXT_PUBLIC_CATALOG_AGENT_ENABLED).
+ * FAIL-OPEN. The lock is a courtesy guard, never a barrier: every store error is
+ * swallowed by the service, so the only thing this can do is ADD the honest
+ * "already in setup" panel. The substrate (catalog_setup_session_locks) is LIVE
+ * on prod (applied 2026-06-15) and the lock is ON BY DEFAULT — set
+ * NEXT_PUBLIC_CATALOG_SETUP_LOCK_ENABLED="false" as a kill-switch if it ever
+ * needs disabling. When off the hook never touches the network and reports
+ * not-held. (It is also inert wherever the wizard isn't mounted: the shell-only
+ * dev preview and the gate preview render their components directly, not this
+ * route, so they never acquire a lock.)
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -27,8 +29,9 @@ import {
   type LockStore,
 } from "@/lib/catalog-setup/session-lock-service";
 
+// On by default now the substrate is live; the env var is a kill-switch (="false").
 const LOCK_ENABLED =
-  process.env.NEXT_PUBLIC_CATALOG_SETUP_LOCK_ENABLED === "true";
+  process.env.NEXT_PUBLIC_CATALOG_SETUP_LOCK_ENABLED !== "false";
 
 /** Refresh well under the 120s staleness TTL so a live session never expires. */
 const HEARTBEAT_MS = 30_000;
