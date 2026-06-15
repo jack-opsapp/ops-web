@@ -840,3 +840,29 @@ Steps:
 6. Final commit if any fixes landed: `chore(catalog-wizard): phase 6 done-gate (audit + suite green)`.
 
 **Confirm at execution time:** whether `next lint` errors in touched files are pre-existing (compare against the base) — fix Phase-6-introduced lint, leave pre-existing alone (do not step on sibling WIP).
+
+---
+
+## Red-team / QA pass — findings & fixes (2026-06-15)
+
+Adversarial 13-finder review + per-finding verification. **51 findings: 0 P0, 25 P1 (20 confirmed / 5 refuted), 26 P2.** Final state: unit 341 (official glob) / 372 all-areas, 0 src tsc errors, E2E 7/7 ×2, tree clean. 8 atomic commits `94aa18ca..ad95186e`.
+
+### Fixed (high-confidence, committed)
+- **Commit idempotency dead-end** — key was content-independent (`${sid}:${mode}:products` / positional `:family:${i}`); fix-a-blocker-and-retry or reorder/remove a family within one tab session hit `catalog_setup_save`'s hard `idempotency_conflict` (sessionStorage survives reload → no in-tab recovery). Fix: payload sha256 folded into each key + family slot = stable `card.id` (`FamilyInput.clientId`). `94aa18ca`.
+- **Commit honesty** — degraded TYPES commit reported unqualified success (task types silently lost); partial commit (products live, later call fails) reported flat "Commit failed". Now: warning toast on `types_commit_failed`, `partial:{products,stock}` in the 422, UI leads with "Saved N…". Generic 500 (no raw-error leak). `cdd77deb`.
+- **Analytics `steps_skipped` +1** — REVIEW gate (never completable) inflated every funnel row; denominator now excludes it. `07147e10`.
+- **Setup Agent cost-DoS / trust boundary** — capped description (≤4000) + priorTurns (≤12×4000) with a runtime guard (400 not 500); generic 500. `5ee21250`.
+- **Show-diff** — `buildDiff` only diffed price+cost; a rename/taxable change merged silently. Now emits name + is_taxable. `33061c2a`.
+- **Session-lock self-lockout** — fresh per-mount id → reload read own orphan row as held-by-other (120s lockout). Persist lock session id in sessionStorage + pagehide release. `e9037a83`.
+- **Upload** — 5MB size guard before parse (OOM/hang), left-align dropzone, removed dead lying "Excel not supported" copy. `ad95186e`.
+
+### Open — flagged for Jackson (judgment / infra / product, NOT auto-fixed)
+- **xlsx dependency drift (P1-3):** ops-web's package.json+lockfile lack `xlsx`; the symlinked node_modules has it only by hand-copy → next `npm install`/`npm ci` in ops-web prunes it (`.xlsx` path breaks, branch can't merge cleanly). xlsx@0.18.5 is also the deprecated CVE-flagged SheetJS npm build. Needs ops-web manifest+lock update + a CVE decision.
+- **RLS resolver (P1-7):** prod `get_user_company_id()` is `sub`-only (no email); ~40% of users have no auth_id/firebase_uid backfilled → NULL company → commit/lock hard-fail for them (dormant, bounded). Backfill + surface `company_scope_mismatch` as "account not provisioned".
+- **CSV header mis-map (P1-1)** + **ambiguous inventory sheet (P1-2):** substring auto-map can assign the wrong column; products-wins-ties silently drops on-hand quantities. Needs a "columns we read" disclosure strip / lane-choice prompt (no safe pure-heuristic fix).
+- **Dead code honesty (P1-13 per-field show-diff, P1-16 agent-fallback):** wire the feature or delete + correct the comments.
+- **QB lane (P1-17/18, dark-by-default):** Group/bundle commits as empty package (components dropped, comment lies); pull summary drops blockers/needsReview counts.
+- **Second-tab lock (P1-22):** per-company vs per-user lock. Plus residual P2s (deferred agent `max_tokens`/rate-limit, TOCTOU task_types dedup, clock-skew TTL, unvirtualized canvas render, QB-route 500 leak, negative qty/cost validator gap).
+
+### Refuted by adversarial verify (prod-RPC-backed — do not chase)
+counts-overstate (RPC counts processed unconditionally); create-mode-ignores-merge (doc.id pre-pass upserts); SELL soft-delete resurrect (id validated; residual deleted_at=null is symmetric → P2); entry-gate dead BUILD IT (staging decoupled from perm context); shown-event race (auth set before perm map).

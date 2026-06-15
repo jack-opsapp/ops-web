@@ -253,3 +253,7 @@ This is a **net-new feature initiative** that *depends on* the P3-2 Catalog surf
 - Phase C: `/api/feature-flags/route.ts`, `admin-feature-override-service.ts`, `approval-queue-service.ts`.
 - Design: `ops-design-system/project/DESIGN.md`.
 - Sage fast-follow: `bug_reports` `fd9052b8-4ece-42d7-8ed3-324ab9bc3df7`.
+
+## Red-team / QA (2026-06-15)
+
+Adversarial review of the built wizard — 51 findings (0 P0, 25 P1, 26 P2). 8 high-confidence fixes committed (`94aa18ca..ad95186e`): commit idempotency dead-end, commit honesty (partial + degraded TYPES), analytics off-by-one, Setup Agent input caps, show-diff name/taxable, session-lock reload self-lockout, upload size cap. Open judgment/infra/product items (xlsx dependency drift, `sub`-only RLS resolver + firebase_uid backfill, CSV header mis-map disclosure UI, ambiguous-inventory routing, per-field show-diff + agent-fallback dead code, QB bundle/summary honesty, per-user lock) are recorded with full repro/fix in `docs/plans/2026-06-13-catalog-setup-wizard/06-failure-mode-hardening-analytics-test-strategy.md` § "Red-team / QA pass — findings & fixes (2026-06-15)".
