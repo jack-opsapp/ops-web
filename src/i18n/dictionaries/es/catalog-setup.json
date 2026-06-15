@@ -8,6 +8,8 @@
   "firstRun.later": "Configurar más tarde",
   "denied": "SIN ACCESO",
   "commitError": "No se pudo guardar el catálogo",
+  "commitPartial": "Se guardó {saved}. Algunos elementos necesitan corrección — vuelve a construir.",
+  "commitTypesWarning": "El catálogo está activo — los tipos de tarea no se guardaron. Vuelve a ejecutar la configuración para agregarlos.",
   "offline.title": "Sin conexión",
   "offline.detail": "[ la creación espera a que vuelvas — no se pierde nada ]",
   "offline.held": "Estás sin conexión — tu catálogo está guardado, créalo cuando vuelvas",

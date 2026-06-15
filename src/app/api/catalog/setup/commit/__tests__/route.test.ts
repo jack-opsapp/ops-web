@@ -120,6 +120,26 @@ describe("POST /api/catalog/setup/commit", () => {
     expect(json.blockers[0].code).toBe("company_scope_mismatch");
   });
 
+  it("discloses partial counts when a later call fails after products committed", async () => {
+    rpc
+      .mockResolvedValueOnce({ data: { ok: true, counts: { products: 2 } }, error: null })
+      .mockResolvedValueOnce({ data: null, error: { code: "23505", message: "duplicate key" } });
+    const stockCard = {
+      id: "s1",
+      source: "manual",
+      state: "accepted",
+      module: "stock",
+      fields: { name: "Screws", quantity: 5, unitCost: 1, reorderPoint: 1 },
+    };
+    const res = await POST(
+      makeReq({ token: "t", sessionId: "sp", cards: [sellCard, stockCard] }),
+    );
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+    expect(json.partial.products).toBe(2); // products are live; do not imply "nothing saved"
+  });
+
   it("loops one RPC call per stock family (single-family contract)", async () => {
     const stockCard = (id: string) => ({
       id,

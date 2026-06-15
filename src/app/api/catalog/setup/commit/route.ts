@@ -184,6 +184,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           {
             ok: false,
             error: isScope ? "Catalog scope check failed" : "Commit failed",
+            // Calls commit sequentially and each is its own transaction, so an
+            // earlier call may already be live when a later one fails. Disclose
+            // it so the UI never claims a flat "nothing saved" over live rows.
+            partial: { products: counts.products, stock: counts.stock },
             blockers: [{ code: isScope ? SCOPE_MISMATCH : "rpc_error", message: error.message }],
           },
           { status: 422 },
@@ -203,8 +207,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     if (blockers.length > 0) {
-      // Required-field / scope blockers — do NOT stamp completion.
-      return NextResponse.json({ ok: false, blockers }, { status: 422 });
+      // Required-field / scope blockers — do NOT stamp completion. Disclose any
+      // calls that already committed so the UI doesn't report flat failure.
+      return NextResponse.json(
+        { ok: false, partial: { products: counts.products, stock: counts.stock }, blockers },
+        { status: 422 },
+      );
     }
 
     // The RPC may not echo per-key counts; fall back to what we committed so the
@@ -301,9 +309,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 401 },
       );
     }
-    return NextResponse.json(
-      { ok: false, error: error instanceof Error ? error.message : "Internal error" },
-      { status: 500 },
-    );
+    // Generic message only — never echo raw DB/RPC error text to the client.
+    return NextResponse.json({ ok: false, error: "Internal error" }, { status: 500 });
   }
 }

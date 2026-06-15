@@ -46,11 +46,19 @@ export interface CommitBlocker {
 export class CommitError extends Error {
   readonly blockers: CommitBlocker[];
   readonly status: number;
-  constructor(message: string, blockers: CommitBlocker[], status: number) {
+  /** Counts that DID commit before the failure (sequential, per-transaction calls). */
+  readonly partial?: CommitCounts;
+  constructor(
+    message: string,
+    blockers: CommitBlocker[],
+    status: number,
+    partial?: CommitCounts,
+  ) {
     super(message);
     this.name = "CommitError";
     this.blockers = blockers;
     this.status = status;
+    this.partial = partial;
   }
 }
 
@@ -70,7 +78,7 @@ export function useCommitCatalogSetup() {
       });
       const json = (await res.json().catch(() => null)) as
         | (CommitSuccess & { error?: string; blockers?: CommitBlocker[] })
-        | { ok: false; error?: string; blockers?: CommitBlocker[] }
+        | { ok: false; error?: string; blockers?: CommitBlocker[]; partial?: CommitCounts }
         | null;
 
       if (!res.ok || !json || json.ok !== true) {
@@ -78,6 +86,7 @@ export function useCommitCatalogSetup() {
           json?.error ?? "Catalog commit failed",
           json?.blockers ?? [],
           res.status,
+          (json && "partial" in json ? json.partial : undefined) as CommitCounts | undefined,
         );
       }
       return json;

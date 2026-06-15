@@ -51,7 +51,10 @@ import { parseCsv } from "@/lib/catalog-setup/csv-parse";
 import { parseXlsx } from "@/lib/catalog-setup/xlsx-parse";
 import { buildUploadCards } from "@/lib/catalog-setup/upload-stage";
 import { toExistingCatalog } from "@/lib/catalog-setup/existing-rows";
-import { catalogCommitToastMessage } from "@/lib/catalog-setup/commit/completion-notification";
+import {
+  catalogCommitToastMessage,
+  commitCountPhrase,
+} from "@/lib/catalog-setup/commit/completion-notification";
 import { SetupWizardShell } from "@/components/catalog-setup/setup-wizard-shell";
 import { OfflineBanner } from "@/components/catalog-setup/offline-banner";
 import {
@@ -425,6 +428,16 @@ export function CatalogSetupRoute() {
         onSuccess: (res) => {
           analytics.trackCompleted();
           toast.success(catalogCommitToastMessage(res.counts));
+          // Products/stock are live, but a degraded TYPES commit returns ok:true
+          // with a warning — surface it honestly instead of a silent clean success.
+          if (res.warnings?.includes("types_commit_failed")) {
+            toast.warning(
+              t(
+                "commitTypesWarning",
+                "Catalog's live — task types didn't save. Re-run setup to add them.",
+              ),
+            );
+          }
           reset();
           window.sessionStorage.removeItem(SESSION_KEY);
           router.push("/catalog");
@@ -437,7 +450,21 @@ export function CatalogSetupRoute() {
                   .filter(Boolean)
                   .join(" · ")
               : err.message;
-          toast.error(detail || t("commitError", "Catalog commit failed"));
+          // Sequential per-transaction calls: some may be live even on failure.
+          // Lead with what saved so we never imply "nothing saved" over live rows.
+          const partial =
+            err instanceof CommitError ? err.partial : undefined;
+          const savedPhrase = partial ? commitCountPhrase(partial) : "";
+          if (savedPhrase) {
+            toast.error(
+              t("commitPartial", "Saved {saved}. Some items need a fix — build again.").replace(
+                "{saved}",
+                savedPhrase,
+              ),
+            );
+          } else {
+            toast.error(detail || t("commitError", "Catalog commit failed"));
+          }
         },
       },
     );
