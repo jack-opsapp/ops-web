@@ -31,7 +31,6 @@ import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   FolderKanban,
-  MapPin,
   CalendarDays,
   GitBranch,
   Calculator,
@@ -102,25 +101,20 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     nav: { order: 1, group: "command" },
   },
   {
+    // Map was absorbed into Projects (P3.5): it is now the PROJECTS › MAP view
+    // mode, deep-linked via `/projects?view=map`. The standalone /map route
+    // 308-redirects there (src/middleware.ts, param-preserving); its palette
+    // keywords moved here so "map" / "locations" / "tracking" / "gps" still
+    // surface the destination. The MAP view itself is gated on `map.view` at
+    // the Projects page (the switcher hides the segment without it).
     key: "projects",
     href: "/projects",
     icon: FolderKanban,
     labelKey: "nav.projects",
-    paletteKeywords: ["jobs", "work"],
+    paletteKeywords: ["jobs", "work", "map", "locations", "tracking", "gps"],
     nav: { order: 2, group: "command" },
     permission: "projects.view",
     fullHeight: "bleed",
-  },
-  {
-    key: "map",
-    href: "/map",
-    icon: MapPin,
-    labelKey: "nav.map",
-    paletteKeywords: ["locations", "tracking", "gps"],
-    nav: { order: 3, group: "command" },
-    permission: "map.view",
-    fullHeight: "bleed",
-    absorbedBy: { phase: "3.5", target: "/projects?view=map" },
   },
   {
     key: "schedule",

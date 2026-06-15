@@ -156,6 +156,18 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
+  // ─── MAP absorption (P3.5) — 308 permanent, param-preserving ─────────────
+  // master plan §2 row 2: the standalone Map collapses into Projects as a third
+  // view mode. Stored notification action_urls / deep links to /map (and any
+  // /map/* sub-path) must keep resolving onto the Projects MAP view. Any query
+  // state carries through via the clone, then ?view=map selects the mode.
+  if (pathname === "/map" || pathname.startsWith("/map/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/projects";
+    url.searchParams.set("view", "map");
+    return NextResponse.redirect(url, 308);
+  }
+
   // ─── Portal Routes ───────────────────────────────────────────────────────
   if (pathname.startsWith("/portal")) {
     // Public portal pages (verification flow)
