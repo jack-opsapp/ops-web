@@ -68,7 +68,7 @@ function BulkButton({
       onClick={onClick}
       className={cn(
         "inline-flex h-[32px] shrink-0 items-center gap-1 rounded-[5px] border border-border px-2",
-        "font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors",
+        "font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors",
         "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         "disabled:pointer-events-none disabled:opacity-40",
         className,

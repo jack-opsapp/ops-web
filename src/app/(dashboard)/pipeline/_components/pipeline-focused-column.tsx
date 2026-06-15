@@ -138,7 +138,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
           </p>
           <button
             type="button"
-            className="rounded-chip border border-line px-3 py-2 font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            className="rounded-chip border border-line px-3 py-2 font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
             onClick={() => {
               onRetry?.();
             }}
@@ -211,7 +211,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
           </p>
           <button
             type="button"
-            className="rounded-chip border border-line px-3 py-2 font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            className="rounded-chip border border-line px-3 py-2 font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
             onClick={emptyActionHandler}
           >
             {emptyAction}

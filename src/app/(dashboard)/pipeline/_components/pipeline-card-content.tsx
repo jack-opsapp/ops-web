@@ -415,7 +415,7 @@ function InlineTitleEditor({
           }
           commit();
         }}
-        className="block w-full min-w-0 cursor-text border-0 border-b border-line bg-transparent px-0 py-[1px] font-cakemono text-[14px] font-light uppercase text-text caret-text outline-none transition-colors duration-150 focus:border-line-hi focus:ring-0 focus-visible:outline-none"
+        className="block w-full min-w-0 cursor-text border-0 border-b border-line bg-transparent px-0 py-[1px] font-cakemono text-cake-button font-light uppercase text-text caret-text outline-none transition-colors duration-150 focus:border-line-hi focus:ring-0 focus-visible:outline-none"
         style={{ outline: "none", outlineOffset: 0 }}
       />
     );
@@ -423,7 +423,7 @@ function InlineTitleEditor({
 
   if (!canManage || !onTitleSave) {
     return (
-      <p className="truncate font-cakemono text-[14px] font-light uppercase text-text">
+      <p className="truncate font-cakemono text-cake-button font-light uppercase text-text">
         {displayTitle}
       </p>
     );
@@ -433,7 +433,7 @@ function InlineTitleEditor({
     <button
       type="button"
       aria-label={titleLabel}
-      className="block w-full min-w-0 cursor-text truncate border-b border-transparent bg-transparent px-0 py-[1px] text-left font-cakemono text-[14px] font-light uppercase text-text transition-[border-color,color] duration-150 hover:border-line focus:border-line-hi focus-visible:border-line-hi focus-visible:outline-none"
+      className="block w-full min-w-0 cursor-text truncate border-b border-transparent bg-transparent px-0 py-[1px] text-left font-cakemono text-cake-button font-light uppercase text-text transition-[border-color,color] duration-150 hover:border-line focus:border-line-hi focus-visible:border-line-hi focus-visible:outline-none"
       onFocus={() => setEditing(true)}
       onClick={(event) => {
         event.stopPropagation();
@@ -663,7 +663,7 @@ function ClientLinkControl({
                   setPopoverPosition(null);
                 }}
               >
-                <span className="font-cakemono text-[11px] font-light uppercase text-text-2">
+                <span className="font-cakemono text-cake-badge font-light uppercase text-text-2">
                   {t("card.clientCurrent", "Current client")}
                 </span>
                 <span className="truncate font-mohave text-body-sm text-text">
@@ -683,7 +683,7 @@ function ClientLinkControl({
                   createAndLink(createName);
                 }}
               >
-                <span className="font-cakemono text-[11px] font-light uppercase text-text-2">
+                <span className="font-cakemono text-cake-badge font-light uppercase text-text-2">
                   {createNewLabel}
                 </span>
                 <span className="truncate font-mohave text-body-sm text-text-3">
@@ -787,7 +787,7 @@ function ClientLinkControl({
                 className="mt-1 flex w-full shrink-0 flex-col rounded-[5px] border border-line px-2 py-1.5 text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
                 onClick={() => createAndLink()}
               >
-                <span className="font-cakemono text-[11px] font-light uppercase text-text-2">
+                <span className="font-cakemono text-cake-badge font-light uppercase text-text-2">
                   {createLabel}
                 </span>
                 <span className="truncate font-mohave text-body-sm text-text">

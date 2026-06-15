@@ -85,7 +85,7 @@ export function PipelineStageGroupHeader({
         className="h-[7px] w-[7px] shrink-0 rounded-full"
         style={{ backgroundColor: dotColor }}
       />
-      <span className="min-w-0 truncate font-cakemono text-[11px] font-light uppercase tracking-[0.16em] text-text">
+      <span className="min-w-0 truncate font-cakemono text-cake-badge font-light uppercase tracking-[0.16em] text-text">
         {stageName}
       </span>
       <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">

@@ -415,7 +415,7 @@ const PipelineDetailHeader = memo(function PipelineDetailHeader({
 
       <div className="flex min-w-0 items-start justify-between gap-3 pl-2">
         <div className="min-w-0 space-y-1">
-          <p className="truncate font-cakemono text-[14px] font-light uppercase text-text">
+          <p className="truncate font-cakemono text-cake-button font-light uppercase text-text">
             {titleText}
           </p>
           <div className="flex flex-wrap items-center gap-1.5 font-mono text-micro text-text-mute">

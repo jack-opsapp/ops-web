@@ -276,7 +276,7 @@ function QuickStageButton({
         } as CSSProperties
       }
       className={cn(
-        "group inline-flex h-[28px] max-w-[132px] min-w-0 items-center gap-[5px] rounded-[5px] border px-[7px] font-cakemono text-[11px] font-light uppercase leading-none",
+        "group inline-flex h-[28px] max-w-[132px] min-w-0 items-center gap-[5px] rounded-[5px] border px-[7px] font-cakemono text-cake-badge font-light uppercase leading-none",
         "border-line bg-transparent text-text-3 transition-[background-color,border-color,color,opacity] duration-150",
         "hover:border-[var(--target-stage)] hover:bg-[var(--target-stage-hover)] hover:text-text",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
@@ -332,7 +332,7 @@ function FocusedStageMenu({
         title={t("card.stageMenuLabel", "Choose stage")}
         disabled={!canManage}
         className={cn(
-          "inline-flex h-[28px] items-center gap-[5px] rounded-[5px] border border-line bg-transparent px-[7px] font-cakemono text-[11px] font-light uppercase leading-none text-text-3",
+          "inline-flex h-[28px] items-center gap-[5px] rounded-[5px] border border-line bg-transparent px-[7px] font-cakemono text-cake-badge font-light uppercase leading-none text-text-3",
           "transition-[background-color,border-color,color,opacity] duration-150 hover:border-line-hi hover:bg-surface-hover hover:text-text",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
           !canManage && "cursor-not-allowed opacity-40"
@@ -479,7 +479,7 @@ function StageMenuItem({
         className="h-1.5 w-5 shrink-0 rounded-bar transition-opacity duration-150 group-hover:opacity-100"
         style={{ backgroundColor: stageColor, opacity: 0.62 }}
       />
-      <span className="min-w-0 truncate font-cakemono text-[11px] font-light uppercase leading-none text-text-2 group-hover:text-text">
+      <span className="min-w-0 truncate font-cakemono text-cake-badge font-light uppercase leading-none text-text-2 group-hover:text-text">
         {stageName}
       </span>
     </button>

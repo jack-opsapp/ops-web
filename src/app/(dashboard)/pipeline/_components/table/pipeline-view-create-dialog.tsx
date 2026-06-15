@@ -163,7 +163,7 @@ export function PipelineViewCreateDialog({
       <DialogContent className="glass-dense max-w-[420px] rounded-modal p-0" hideClose>
         <form onSubmit={handleSubmit} className="flex flex-col">
           <DialogHeader className="border-b border-border px-3 py-2">
-            <DialogTitle className="flex items-center gap-2 font-cakemono text-[22px] font-light uppercase text-text">
+            <DialogTitle className="flex items-center gap-2 font-cakemono text-cake-display font-light uppercase text-text">
               {isDuplicateMode ? <Copy className="h-4 w-4" /> : <FilePlus2 className="h-4 w-4" />}
               {title}
             </DialogTitle>
@@ -249,14 +249,14 @@ export function PipelineViewCreateDialog({
           <DialogFooter className="border-t border-border px-3 py-2">
             <DialogClose
               type="button"
-              className="rounded-[5px] px-3 py-1.5 font-cakemono text-[14px] font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              className="rounded-[5px] px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
               {t("table.views.cancel")}
             </DialogClose>
             <button
               type="submit"
               disabled={pending}
-              className="rounded-[5px] border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-[14px] font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
+              className="rounded-[5px] border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
             >
               {t("table.views.create")}
             </button>
