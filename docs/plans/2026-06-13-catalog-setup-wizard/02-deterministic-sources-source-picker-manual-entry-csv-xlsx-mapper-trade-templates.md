@@ -575,6 +575,8 @@ Steps:
 
 ### Task 2.11: `upload-source.tsx` + `column-map-step.tsx` — upload → route → map → stage (UI)
 
+> **BUILT 2026-06-14 (CSV) as `UploadPane.tsx` + pure `upload-stage.ts` — commits `29acc34b`/`2e7f6fff`; route/shell/i18n wiring held (parallel-session commingle).** **Design-judgment divergence (deliberate):** the planned `column-map-step` (confirm/override auto-mapping) was NOT built — the canvas IS the review surface (every uploaded row lands as a `proposed` card the owner accepts/edits/rejects), so a separate column-map gate would duplicate it. `UploadPane` auto-maps the clean CSV and stages straight to the canvas; mapper errors render inline (rose), an unreadable file offers a manual escape (tan). The pure `buildUploadCards` also runs the products lane through the show-diff `matchCards` so a re-import binds to its live match (merge) instead of double-creating. **XLSX deferred** (the `xlsx` pkg would mutate the shared symlinked `node_modules` — flagged to Jackson; `xlsx-parse.ts` stays a stub). **STOCK dedupe deferred** (products-only matcher avoids cross-module SKU mis-bind + the variant-id-vs-family-id UPSERT landmine).
+
 Drag/drop or browse → read file → parse (csv/xlsx) → `routeUpload`: deterministic shows the `column-map-step` (confirm/override the auto-mapping, then run the mapper and push cards to the canvas); agent hands the raw file to the Phase-4 callback. Mapper errors render inline (uniform `MapError` list); only error-free results stage.
 
 **Skills:** `interface-design`, `frontend-design`, `ops-copywriter`, `animation-architect`/`elite-animations` (the stage-in count-up handoff), `audit-design-system`.
