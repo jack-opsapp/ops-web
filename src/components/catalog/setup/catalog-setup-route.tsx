@@ -27,6 +27,7 @@ import { SubscriptionStatus } from "@/lib/types/models";
 import { useCatalogSetupStore } from "@/stores/catalog-setup-store";
 import { useInventoryMode } from "@/lib/hooks/use-inventory-mode";
 import { useBaselineSeeded } from "@/lib/hooks/use-baseline-seeded";
+import { useCatalogSetupLock } from "@/lib/hooks/use-catalog-setup-lock";
 import { useOnlineStatus } from "@/lib/hooks/use-online-status";
 import { useCatalogSetupAnalytics } from "@/lib/hooks/use-catalog-setup-analytics";
 import {
@@ -45,7 +46,10 @@ import { blankCard } from "@/lib/catalog-setup/blank-cards";
 import { catalogCommitToastMessage } from "@/lib/catalog-setup/commit/completion-notification";
 import { SetupWizardShell } from "@/components/catalog-setup/setup-wizard-shell";
 import { OfflineBanner } from "@/components/catalog-setup/offline-banner";
-import { PrerequisiteGate } from "@/components/catalog-setup/prerequisite-gate";
+import {
+  PrerequisiteGate,
+  GatePanel,
+} from "@/components/catalog-setup/prerequisite-gate";
 import { InventoryOffPrompt } from "@/components/catalog-setup/inventory-off-prompt";
 import { useSetInventoryMode } from "@/lib/hooks/use-set-inventory-mode";
 import type { SetupSource } from "@/components/catalog-setup/DriverPane";
@@ -89,6 +93,7 @@ export function CatalogSetupRoute() {
   const reset = useCatalogSetupStore((s) => s.reset);
   const { data: inventory } = useInventoryMode();
   const { data: baseline } = useBaselineSeeded();
+  const lock = useCatalogSetupLock();
   const online = useOnlineStatus();
   const commit = useCommitCatalogSetup();
   const agent = useSetupAgent();
@@ -305,6 +310,19 @@ export function CatalogSetupRoute() {
           {t("denied", "NO ACCESS")}
         </span>
       </div>
+    );
+  }
+
+  // Single-session lock — another live setup session in this company already
+  // holds it (spec §16). Calm panel, never a crash. Optimistic until the first
+  // probe resolves (ready); fail-open so the lock can only ever ADD this panel.
+  if (lock.ready && lock.heldByOther) {
+    return (
+      <GatePanel
+        reason="session_locked"
+        onReload={() => window.location.reload()}
+        onExit={() => router.push("/catalog")}
+      />
     );
   }
 

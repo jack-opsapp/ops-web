@@ -1,0 +1,153 @@
+"use client";
+
+/**
+ * useCatalogSetupLock — acquire + heartbeat the company's single setup-session
+ * lock for the lifetime of the wizard, and report when another LIVE session in
+ * the company already holds it (spec §16 "only one setup session at a time per
+ * company"; plan Task 6.3). Pairs with the pure `isHeldByOther` predicate + the
+ * fail-open `session-lock-service` wrapper.
+ *
+ * FAIL-OPEN + ENV-GATED. The lock is a courtesy guard, never a barrier: every
+ * store error is swallowed by the service, so the only thing this can do is ADD
+ * the honest "already in setup" panel. It is also gated OFF until the
+ * catalog_setup_session_locks migration is applied — while off it never touches
+ * the network and reports not-held, so the wizard is unaffected by shipping the
+ * code ahead of the (Jackson-pending) substrate decision. Mirrors the wizard's
+ * other honest lane gate (NEXT_PUBLIC_CATALOG_AGENT_ENABLED).
+ */
+
+import { useEffect, useRef, useState } from "react";
+import { requireSupabase } from "@/lib/supabase/helpers";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { buildSessionId, type LockState } from "@/lib/catalog-setup/session-lock";
+import {
+  acquireSessionLock,
+  heartbeatSessionLock,
+  releaseSessionLock,
+  type LockStore,
+} from "@/lib/catalog-setup/session-lock-service";
+
+const LOCK_ENABLED =
+  process.env.NEXT_PUBLIC_CATALOG_SETUP_LOCK_ENABLED === "true";
+
+/** Refresh well under the 120s staleness TTL so a live session never expires. */
+const HEARTBEAT_MS = 30_000;
+
+const LOCK_TABLE = "catalog_setup_session_locks";
+
+interface LockRow {
+  session_id: string;
+  heartbeat_at: string;
+}
+
+/**
+ * Supabase-backed LockStore against the dedicated catalog_setup_session_locks
+ * table (company_id PK → one row per company; upsert = claim/refresh). Addressed
+ * through a narrow cast because the table is provisioned by a not-yet-applied
+ * migration and isn't in the generated Database types yet; the hook is env-gated
+ * off until that migration lands, so this path is dormant in prod until then.
+ */
+export function createSupabaseLockStore(userId?: string | null): LockStore {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const table = () => (requireSupabase() as any).from(LOCK_TABLE);
+  return {
+    async read(companyId) {
+      const { data, error } = await table()
+        .select("session_id, heartbeat_at")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const row = data as LockRow;
+      const parsed = Date.parse(row.heartbeat_at);
+      const lock: LockState = {
+        sessionId: row.session_id,
+        heartbeatAt: Number.isNaN(parsed) ? 0 : parsed,
+      };
+      return lock;
+    },
+    async write(companyId, sessionId, heartbeatAt) {
+      const iso = new Date(heartbeatAt).toISOString();
+      const { error } = await table().upsert(
+        {
+          company_id: companyId,
+          session_id: sessionId,
+          user_id: userId ?? null,
+          heartbeat_at: iso,
+          updated_at: iso,
+        },
+        { onConflict: "company_id" },
+      );
+      if (error) throw error;
+    },
+    async release(companyId, sessionId) {
+      const { error } = await table()
+        .delete()
+        .eq("company_id", companyId)
+        .eq("session_id", sessionId);
+      if (error) throw error;
+    },
+  };
+}
+
+export interface CatalogSetupLock {
+  /** Another live session in this company is running setup. */
+  heldByOther: boolean;
+  /** The first probe has resolved (until then, render the wizard optimistically). */
+  ready: boolean;
+}
+
+export function useCatalogSetupLock(): CatalogSetupLock {
+  const company = useAuthStore((s) => s.company);
+  const companyId = company?.id ?? "";
+  const userId = useAuthStore((s) => s.currentUser?.id ?? null);
+  const [heldByOther, setHeldByOther] = useState(false);
+  const [ready, setReady] = useState(!LOCK_ENABLED || !companyId);
+  const sessionIdRef = useRef<string | null>(null);
+  if (sessionIdRef.current === null) sessionIdRef.current = buildSessionId();
+
+  useEffect(() => {
+    if (!LOCK_ENABLED || !companyId) {
+      setReady(true);
+      return;
+    }
+    const store = createSupabaseLockStore(userId);
+    const mySession = sessionIdRef.current as string;
+    let cancelled = false;
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    void (async () => {
+      const probe = await acquireSessionLock(
+        store,
+        companyId,
+        mySession,
+        Date.now(),
+      );
+      if (cancelled) return;
+      setHeldByOther(probe.heldByOther);
+      setReady(true);
+      // Only heartbeat when WE hold it — a session that lost the race must not
+      // keep a row alive and starve the holder.
+      if (!probe.heldByOther) {
+        interval = setInterval(() => {
+          void heartbeatSessionLock(store, companyId, mySession, Date.now());
+        }, HEARTBEAT_MS);
+      }
+    })();
+
+    // Best-effort release on tab close (the TTL self-heals if this is missed).
+    const onUnload = () => {
+      void releaseSessionLock(store, companyId, mySession);
+    };
+    window.addEventListener("beforeunload", onUnload);
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+      window.removeEventListener("beforeunload", onUnload);
+      void releaseSessionLock(store, companyId, mySession);
+    };
+  }, [companyId, userId]);
+
+  return { heldByOther, ready };
+}
