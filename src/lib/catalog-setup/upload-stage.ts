@@ -50,6 +50,26 @@ export interface BuildUploadCardsInput {
   liveProductRows: LiveCatalogRow[];
 }
 
+/**
+ * Which spreadsheet headers the auto-map actually read into the required fields,
+ * plus any present-but-unused columns the owner likely cares about. There is no
+ * column-confirmation step on web (the canvas reviews VALUES, not column
+ * ASSIGNMENTS), so this lets the staged summary DISCLOSE the mapping — the owner
+ * can catch a substring mis-map ("Customer Name" → name) or a silently-dropped
+ * inventory column ("On Hand" on a products upload) before BUILD IT.
+ */
+export interface UploadReadColumns {
+  /** Header mapped to the product/family NAME. */
+  name?: string;
+  /** Header mapped to the base PRICE. */
+  price?: string;
+  /** Header mapped to QUANTITY (stock lane). */
+  quantity?: string;
+  /** Present-but-unused headers the owner likely expected to import (e.g. a
+   *  quantity/on-hand column on a products upload → inventory silently dropped). */
+  dropped?: string[];
+}
+
 export type UploadStageResult =
   | {
       lane: "deterministic";
@@ -60,6 +80,8 @@ export type UploadStageResult =
       mergedCount: number;
       /** How many data rows the file held. */
       rowsRead: number;
+      /** The headers auto-map read + any dropped columns (disclosure). */
+      read: UploadReadColumns;
       /** Local mapping errors — non-empty ⇒ `cards` empty (payload-or-nil). */
       errors: MapError[];
     }
@@ -118,6 +140,18 @@ export function buildUploadCards(
 
   if (decision.kind === "products") {
     const mapping = suggestProductsMapping(parsed.headers);
+    // A quantity/on-hand column present on a PRODUCTS upload is dropped (products
+    // carry no stock count) — surface it so the owner knows inventory wasn't read.
+    const stockMap = suggestStockMapping(parsed.headers);
+    const droppedQty =
+      stockMap.quantity && stockMap.quantity !== mapping.basePrice
+        ? [stockMap.quantity]
+        : undefined;
+    const read: UploadReadColumns = {
+      name: mapping.name,
+      price: mapping.basePrice,
+      dropped: droppedQty,
+    };
     const { cards, errors } = mapProductsCsv({
       rows: parsed.rows,
       lineNumbers: parsed.lineNumbers,
@@ -133,6 +167,7 @@ export function buildUploadCards(
         cards: [],
         mergedCount: 0,
         rowsRead,
+        read,
         errors,
       };
     }
@@ -144,12 +179,18 @@ export function buildUploadCards(
       cards: bound,
       mergedCount,
       rowsRead,
+      read,
       errors: [],
     };
   }
 
   // Stock — no dedupe in v1 (see DEDUPE SCOPE note above).
   const mapping = suggestStockMapping(parsed.headers);
+  const read: UploadReadColumns = {
+    name: mapping.familyName,
+    price: mapping.defaultPrice,
+    quantity: mapping.quantity,
+  };
   const { cards, errors } = mapStockCsv({
     rows: parsed.rows,
     lineNumbers: parsed.lineNumbers,
@@ -165,6 +206,7 @@ export function buildUploadCards(
       cards: [],
       mergedCount: 0,
       rowsRead,
+      read,
       errors,
     };
   }
@@ -174,6 +216,7 @@ export function buildUploadCards(
     cards,
     mergedCount: 0,
     rowsRead,
+    read,
     errors: [],
   };
 }

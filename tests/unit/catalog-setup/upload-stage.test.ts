@@ -44,6 +44,26 @@ describe("buildUploadCards", () => {
     expect(names).toContain("Decal install");
   });
 
+  it("discloses the columns it read and flags a dropped inventory column (products lane)", () => {
+    // name + price map cleanly; "On Hand" is a quantity column products can't hold.
+    const sheet = parseCsv(`Name,Price,On Hand\nWidget,10,5\nGizmo,20,3\n`);
+    const res = buildUploadCards({
+      filename: "list.csv",
+      mime: "text/csv",
+      sheet,
+      categories: [],
+      units: [],
+      liveProductRows: [],
+    });
+    expect(res.lane).toBe("deterministic");
+    if (res.lane !== "deterministic") return;
+    expect(res.kind).toBe("products"); // products wins the tie
+    expect(res.read.name).toBe("Name");
+    expect(res.read.price).toBe("Price");
+    // the on-hand column is surfaced as dropped, not silently lost
+    expect(res.read.dropped).toContain("On Hand");
+  });
+
   it("binds a product card whose SKU matches a live row to merge state (re-import re-syncs, never doubles)", () => {
     const sheet = parseCsv(PRODUCTS_CSV);
     const live: LiveCatalogRow[] = [

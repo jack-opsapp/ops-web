@@ -342,6 +342,7 @@ export function CatalogSetupRoute() {
         staged: result.cards.length,
         merged: result.mergedCount,
         rowsRead: result.rowsRead,
+        read: result.read,
       };
     },
     [analytics, categories, units, liveRows, dispatch],

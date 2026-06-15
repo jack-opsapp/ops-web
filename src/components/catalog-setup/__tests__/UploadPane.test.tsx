@@ -44,6 +44,25 @@ describe("<UploadPane>", () => {
     expect(screen.getByTestId("upload-merged")).toBeInTheDocument();
   });
 
+  it("discloses which columns it read and any dropped inventory column", async () => {
+    const onUpload = vi.fn(
+      async (): Promise<UploadPaneOutcome> => ({
+        kind: "staged",
+        staged: 2,
+        merged: 0,
+        rowsRead: 2,
+        read: { name: "Customer Name", price: "Rate", dropped: ["On Hand"] },
+      }),
+    );
+    render(<UploadPane onUpload={onUpload} />);
+    selectFile();
+
+    await waitFor(() => expect(screen.getByTestId("upload-read-cols")).toBeInTheDocument());
+    // the operator can SEE a substring mis-map (name ← "Customer Name") before BUILD IT
+    expect(screen.getByTestId("upload-read-cols")).toHaveTextContent(/Customer Name/);
+    expect(screen.getByTestId("upload-dropped-cols")).toHaveTextContent(/On Hand/);
+  });
+
   it("surfaces mapper errors and stages nothing", async () => {
     render(
       <UploadPane

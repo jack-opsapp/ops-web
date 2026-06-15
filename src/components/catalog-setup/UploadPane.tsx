@@ -51,6 +51,7 @@ import { useDictionary } from "@/i18n/client";
 import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import type { UploadReadColumns } from "@/lib/catalog-setup/upload-stage";
 
 const MONO_NUM: React.CSSProperties = { fontFeatureSettings: '"tnum" 1, "zero" 1' };
 
@@ -61,7 +62,14 @@ const MONO_NUM: React.CSSProperties = { fontFeatureSettings: '"tnum" 1, "zero" 1
  */
 export type UploadPaneOutcome =
   /** Rows mapped + staged onto the canvas (some may have matched live rows). */
-  | { kind: "staged"; staged: number; merged: number; rowsRead: number }
+  | {
+      kind: "staged";
+      staged: number;
+      merged: number;
+      rowsRead: number;
+      /** Which headers were read + any dropped columns (disclosure). */
+      read?: UploadReadColumns;
+    }
   /** The deterministic mapper found problems — nothing staged. */
   | { kind: "errors"; errors: string[] }
   /** File over the size ceiling — rejected before parse to protect the tab. */
@@ -389,6 +397,39 @@ function StagedSummary({
           String(outcome.rowsRead),
         )}
       </span>
+      {outcome.read ? <ReadColumns t={t} read={outcome.read} /> : null}
+    </div>
+  );
+}
+
+/**
+ * DISCLOSURE: which headers the auto-map read into name/price/quantity, plus any
+ * dropped column. There's no column-confirm step on web, so this is how the owner
+ * catches a wrong-column mis-map or a silently-skipped inventory column before
+ * BUILD IT. Left-aligned, neutral; the dropped note rides tan (a heads-up, not an
+ * error). Values quoted so a header like "Customer Name" reads as a clear flag.
+ */
+function ReadColumns({ t, read }: { t: Tt; read: UploadReadColumns }) {
+  const cols: string[] = [];
+  if (read.name) cols.push(`${t("upload.col.name", "name")} ← "${read.name}"`);
+  if (read.price) cols.push(`${t("upload.col.price", "price")} ← "${read.price}"`);
+  if (read.quantity)
+    cols.push(`${t("upload.col.quantity", "quantity")} ← "${read.quantity}"`);
+  return (
+    <div className="flex flex-col gap-1 border-t border-glass-border pt-2 text-left">
+      {cols.length > 0 ? (
+        <span data-testid="upload-read-cols" className="font-mono text-micro tracking-wide text-text-3">
+          {t("upload.readCols", "[ read: {cols} ]").replace("{cols}", cols.join("  ·  "))}
+        </span>
+      ) : null}
+      {read.dropped && read.dropped.length > 0 ? (
+        <span data-testid="upload-dropped-cols" className="font-mohave text-micro text-tan">
+          {t("upload.dropped", "Skipped {cols} — not imported as inventory").replace(
+            "{cols}",
+            read.dropped.map((c) => `"${c}"`).join(", "),
+          )}
+        </span>
+      ) : null}
     </div>
   );
 }
