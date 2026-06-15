@@ -144,6 +144,14 @@ function makeBuilder(table: string) {
     },
     eq: (column: string, value: unknown) => {
       state.calls.push({ table, method: "eq", args: [column, value] });
+      if (value === null) {
+        // Faithful to PostgREST + Postgres: `.eq(col, null)` renders as
+        // `col=eq.null` → `col = 'null'::<coltype>` and throws on typed columns
+        // (e.g. timestamptz). NULL comparisons MUST use `.is(col, null)`.
+        throw new Error(
+          `invalid input syntax: ${table}.${column} eq(null) must use is(null)`,
+        );
+      }
       filters.push([column, value]);
       return builder;
     },
@@ -356,6 +364,73 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
     await expect(res.json()).resolves.toEqual(
       expect.objectContaining({ processed: 0, failed: 0, succeeded: 0 }),
     );
+  });
+
+  it("pushes a customer and fetches active contacts via is(deleted_at,null) [regression: selectRows null filter]", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    claimDue.mockResolvedValue([
+      queueRow({
+        id: "q-cust",
+        entityType: "customer",
+        entityId: CUSTOMER_ID,
+        operation: "create",
+        sourceTable: "clients",
+        sourceAction: "insert",
+        idempotencyKey: `customer:${CUSTOMER_ID}`,
+      }),
+    ]);
+    state.clients.push({
+      id: CUSTOMER_ID,
+      company_id: COMPANY_ID,
+      name: "Maverick Projects",
+      email: "ops@example.com",
+      phone_number: "555-0100",
+      qb_id: null,
+      updated_at: "2026-06-05T10:00:00.000Z",
+    });
+    // One active contact + one soft-deleted contact (must be excluded by the filter).
+    state.sub_clients.push(
+      {
+        id: "sc-active",
+        client_id: CUSTOMER_ID,
+        company_id: COMPANY_ID,
+        name: "Active Contact",
+        email: "c@example.com",
+        phone_number: "555-0101",
+        deleted_at: null,
+        created_at: "2026-06-05T09:00:00.000Z",
+      },
+      {
+        id: "sc-deleted",
+        client_id: CUSTOMER_ID,
+        company_id: COMPANY_ID,
+        name: "Old Contact",
+        deleted_at: "2026-06-01T00:00:00.000Z",
+        created_at: "2026-06-04T09:00:00.000Z",
+      },
+    );
+    writeCreate.mockResolvedValue({ qbId: "777", syncToken: "0", metaUpdatedAt: "2026-06-05T10:01:00Z" });
+
+    const POST = await loadPost();
+    const res = await POST(authorizedRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual(expect.objectContaining({ succeeded: 1, failed: 0, needsReview: 0 }));
+    expect(writeCreate).toHaveBeenCalledTimes(1);
+
+    // The contact fetch MUST use is(deleted_at,null); eq(deleted_at,null) is a Postgres error.
+    const subClientCalls = state.calls.filter((c) => c.table === "sub_clients");
+    expect(subClientCalls).toContainEqual(
+      expect.objectContaining({ method: "is", args: ["deleted_at", null] }),
+    );
+    expect(subClientCalls).not.toContainEqual(
+      expect.objectContaining({ method: "eq", args: ["deleted_at", null] }),
+    );
+
+    // qb_id written back to the OPS client; queue marked succeeded.
+    expect(state.clients[0].qb_id).toBe("777");
+    expect(markSucceeded).toHaveBeenCalledWith("q-cust", expect.objectContaining({ externalId: "777" }));
   });
 
   it("blocks an invoice row when the linked customer has no QuickBooks id", async () => {

@@ -212,7 +212,10 @@ async function selectRows(
 ): Promise<DbRow[]> {
   let query = supabase.from(table).select("*");
   for (const [column, value] of filters) {
-    query = query.eq(column, value);
+    // `.eq(col, null)` renders as `col=eq.null`, which Postgres evaluates as
+    // `col = 'null'::<coltype>` and throws on typed columns (e.g. timestamptz).
+    // NULL filters must use `.is()` — mirror maybeSingle()'s null handling.
+    query = value === null ? query.is(column, null) : query.eq(column, value);
   }
   if (orderColumn) {
     query = query.order(orderColumn, { ascending: true });
