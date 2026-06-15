@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+import * as XLSX from "xlsx";
 import { parseCsv } from "@/lib/catalog-setup/csv-parse";
+import { parseXlsx } from "@/lib/catalog-setup/xlsx-parse";
 import { buildUploadCards } from "@/lib/catalog-setup/upload-stage";
 import type { LiveCatalogRow } from "@/lib/catalog-setup/commit/dedupe-matcher.types";
 
@@ -138,6 +140,35 @@ describe("buildUploadCards", () => {
     expect(res.cards[0].state).toBe("proposed");
     expect(res.cards[0].matchedExistingId).toBeUndefined();
     expect(res.mergedCount).toBe(0);
+  });
+
+  it("stages products from a parsed XLSX sheet exactly like CSV (source-agnostic)", async () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Name", "Price", "SKU"],
+      ["Vehicle wrap", 1200, "WRAP-001"],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+    const sheet = await parseXlsx(buf);
+
+    const res = buildUploadCards({
+      filename: "pricelist.xlsx",
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      sheet,
+      categories: [],
+      units: [],
+      liveProductRows: [],
+    });
+
+    expect(res.lane).toBe("deterministic");
+    if (res.lane !== "deterministic") return;
+    expect(res.kind).toBe("products");
+    expect(res.cards).toHaveLength(1);
+    const card = res.cards[0];
+    expect(card.module).toBe("sell");
+    expect(card.module === "sell" && card.fields.name).toBe("Vehicle wrap");
+    expect(card.module === "sell" && card.fields.defaultPrice).toBe(1200);
   });
 
   it("sends a non-spreadsheet (no parsed sheet) to the agent lane", () => {

@@ -48,6 +48,7 @@ import { blankCard } from "@/lib/catalog-setup/blank-cards";
 import { selectTradeTemplate } from "@/lib/catalog-setup/trade-templates";
 import type { WizardTradeId } from "@/lib/catalog-setup/trade-list";
 import { parseCsv } from "@/lib/catalog-setup/csv-parse";
+import { parseXlsx } from "@/lib/catalog-setup/xlsx-parse";
 import { buildUploadCards } from "@/lib/catalog-setup/upload-stage";
 import { toExistingCatalog } from "@/lib/catalog-setup/existing-rows";
 import { catalogCommitToastMessage } from "@/lib/catalog-setup/commit/completion-notification";
@@ -280,19 +281,22 @@ export function CatalogSetupRoute() {
     [dispatch],
   );
 
-  // UPLOAD lane: read the file, auto-route (clean CSV → deterministic mapper),
-  // map → dedupe-bind against the live catalog → stage onto the canvas. XLSX is
-  // CSV-first-deferred; a file we can't auto-read returns an honest "save as CSV
-  // or add by hand" outcome (doc/photo agent extraction is a separate lane).
+  // UPLOAD lane: read the file, auto-route (clean CSV/XLSX → deterministic
+  // mapper), map → dedupe-bind against the live catalog → stage onto the canvas.
+  // CSV parses inline; .xlsx/.xls lazy-loads SheetJS (parseXlsx) only on demand.
+  // A file we can't auto-read returns an honest "save as CSV or add by hand"
+  // outcome (doc/photo agent extraction is a separate lane).
   const onUpload = useCallback(
     async (file: File): Promise<UploadPaneOutcome> => {
       analytics.trackStarted();
       const lower = file.name.toLowerCase();
-      if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
-        return { kind: "unsupported_binary", ext: lower.endsWith(".xlsx") ? "xlsx" : "xls" };
-      }
+      const isXlsx = lower.endsWith(".xlsx") || lower.endsWith(".xls");
       const isCsv = lower.endsWith(".csv") || file.type.includes("csv");
-      const sheet = isCsv ? parseCsv(await file.text()) : null;
+      const sheet = isCsv
+        ? parseCsv(await file.text())
+        : isXlsx
+          ? await parseXlsx(await file.arrayBuffer())
+          : null;
       const result = buildUploadCards({
         filename: file.name,
         mime: file.type,

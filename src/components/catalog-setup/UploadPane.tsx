@@ -155,7 +155,7 @@ export function UploadPane({
           <input
             ref={inputRef}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             data-testid="upload-input"
             className="sr-only"
             onChange={(e) => void handleFile(e.target.files?.[0])}
@@ -275,7 +275,7 @@ function Dropzone({
               : t("upload.drop", "Drop a price list here, or click to browse")}
         </span>
         <span className="font-mono text-micro tracking-wide text-text-3">
-          {t("upload.hint", "[ CSV with a name and a price column ]")}
+          {t("upload.hint", "[ CSV or Excel with a name and a price column ]")}
         </span>
       </button>
     </motion.div>
