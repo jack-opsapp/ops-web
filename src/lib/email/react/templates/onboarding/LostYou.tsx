@@ -40,9 +40,9 @@ export function LostYou({
       {"\n\n"}
       {gapLine}
       {"\n\n"}
-      That's a long enough gap that I want to ask straight: is something stopping you, or is the timing just wrong?
+      That&apos;s a long enough gap that I want to ask straight: is something stopping you, or is the timing just wrong?
       {"\n\n"}
-      If setup tripped you up, I can usually point you at the move that gets you unstuck. If OPS isn't the right fit, no hard feelings — I'd just want to know what you were looking for.
+      If setup tripped you up, I can usually point you at the move that gets you unstuck. If OPS isn&apos;t the right fit, no hard feelings — I&apos;d just want to know what you were looking for.
       {"\n\n"}
       Hit reply with one sentence. Goes to my inbox.
       {"\n\n"}

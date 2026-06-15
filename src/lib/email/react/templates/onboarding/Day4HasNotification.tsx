@@ -29,7 +29,7 @@ export function Day4HasNotification({
         <Container style={{ maxWidth: "560px", margin: "0 auto", padding: "32px 24px" }}>
           <Section>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "0 0 16px 0" }}>
-              Day 4. At least one crew member has tapped DONE in the field and you've seen the notification land.
+              Day 4. At least one crew member has tapped DONE in the field and you&apos;ve seen the notification land.
             </Text>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "0 0 16px 0" }}>
               Most operators are surprised by how good that feels — the quiet of not having to chase.
@@ -44,7 +44,7 @@ export function Day4HasNotification({
               &nbsp;&nbsp;→ Adding more crew, so the same setup covers more work
             </Text>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "0 0 24px 0" }}>
-              &nbsp;&nbsp;→ Templates so you don't rebuild the same tasks every time
+              &nbsp;&nbsp;→ Templates so you don&apos;t rebuild the same tasks every time
             </Text>
             <Section style={{ textAlign: "left", margin: "24px 0" }}>
               <Button
@@ -66,7 +66,7 @@ export function Day4HasNotification({
               </Button>
             </Section>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "16px 0 0 0" }}>
-              You're past the first hill. The next 26 days is about putting the rest of your business in.
+              You&apos;re past the first hill. The next 26 days is about putting the rest of your business in.
             </Text>
           </Section>
           <FounderFooter unsubscribeUrl={unsubscribeUrl} />

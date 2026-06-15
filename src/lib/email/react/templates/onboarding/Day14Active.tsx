@@ -59,13 +59,13 @@ export function Day14Active({
       {"\n\n"}
       I want to know two things:
       {"\n\n"}
-      &nbsp;&nbsp;1. What's working that you didn't expect?
+      &nbsp;&nbsp;1. What&apos;s working that you didn&apos;t expect?
       {"\n"}
-      &nbsp;&nbsp;2. What's broken, missing, or in the way?
+      &nbsp;&nbsp;2. What&apos;s broken, missing, or in the way?
       {"\n\n"}
       Hit reply — goes to my inbox. One sentence per question is enough.
       {"\n\n"}
-      The product gets better when operators tell me what's grinding their gears.
+      The product gets better when operators tell me what&apos;s grinding their gears.
       {"\n\n"}
       — Jack
     </PlainTextLayout>
