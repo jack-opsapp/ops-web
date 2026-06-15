@@ -43,7 +43,7 @@ function formatPulledTime(value: Date | string | null | undefined): string | nul
 
 function RecordStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-col gap-0.5 p-1.5 rounded bg-[rgba(255,255,255,0.02)] border border-border">
+    <div className="flex flex-col gap-0.5 p-1.5 rounded bg-fill-neutral-dim border border-border">
       <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
         {label}
       </span>
