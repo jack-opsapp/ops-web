@@ -9,8 +9,8 @@
  *   - recordDraftOutcome routes the edit delta through learnFromEdits (P4-D
  *     pipeline reuse).
  *   - recordLifecycleDraftOutcome bridges a never-AI template draft and learns
- *     only on SENT (P4-D machinery; invocation deferred behind a flag).
- *   - LIFECYCLE_LEARNING_ENABLED defaults false (P4-D deferral).
+ *     only on SENT (P4-D machinery; invoked from the P3 operator-send path).
+ *   - LIFECYCLE_LEARNING_ENABLED is true at go-live (P3 send-transition landed).
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -287,8 +287,8 @@ describe("P4-B — recordDraftOutcome provenance stamping", () => {
 });
 
 describe("P4-D — recordLifecycleDraftOutcome (deferred machinery)", () => {
-  it("LIFECYCLE_LEARNING_ENABLED is deferred (false) until P3 send-transition lands", () => {
-    expect(LIFECYCLE_LEARNING_ENABLED).toBe(false);
+  it("LIFECYCLE_LEARNING_ENABLED is enabled (true) at go-live with the P3 send-transition landed", () => {
+    expect(LIFECYCLE_LEARNING_ENABLED).toBe(true);
   });
 
   it("bridges a never-AI template draft (creates ai_draft_history) and flips it to sent", async () => {
