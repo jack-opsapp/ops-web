@@ -232,7 +232,7 @@ describe("<ThreadDetail>", () => {
     render(
       <ThreadDetail
         {...baseProps}
-        floatingBadgeSlot={<span data-testid="badge-probe">// YOUR TURN</span>}
+        floatingBadgeSlot={<span data-testid="badge-probe">{"// YOUR TURN"}</span>}
       >
         <section data-testid="commitments-probe">commitments</section>
       </ThreadDetail>,

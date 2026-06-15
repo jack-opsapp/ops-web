@@ -56,7 +56,7 @@ export const HeaderChip = forwardRef<HTMLButtonElement, HeaderChipProps>(
         )}
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
-        <span aria-hidden>//</span>
+        <span aria-hidden>{"//"}</span>
         <span className="shrink-0">{count}</span>
         <span className="truncate">{label}</span>
         <span aria-hidden>▾</span>

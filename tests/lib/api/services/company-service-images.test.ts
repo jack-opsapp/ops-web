@@ -47,7 +47,7 @@ describe("CompanyService.getPresignedUrlProfile (post-migration)", () => {
     const body = JSON.parse(
       vi.mocked(global.fetch).mock.calls[0][1]?.body as string
     );
-    expect(body.folder).toBe("profiles/co-uuid");
+    expect(body.folder).toBe("profiles");
     expect(result.publicUrl).toContain("logo.jpg");
   });
 });
@@ -77,23 +77,50 @@ describe("CompanyService.getPresignedUrlProject (post-migration)", () => {
 });
 
 describe("CompanyService.registerProjectImages (post-migration)", () => {
-  it("updates project_images in Supabase directly", async () => {
+  it("appends to project_images in Supabase directly (read-modify-write)", async () => {
     // This should call Supabase, not fetch — mock fetch to throw so we'd know
     vi.mocked(global.fetch).mockImplementation(() => {
       throw new Error("Should not call fetch for registerProjectImages");
     });
 
+    const existingImage =
+      "https://s3.amazonaws.com/bucket/projects/proj-uuid/existing.jpg";
+    const newImage =
+      "https://s3.amazonaws.com/bucket/projects/proj-uuid/img1.jpg";
+
+    // Source does:
+    //   .from('projects').select('project_images').eq('id', id).single()
+    //   .from('projects').update({ project_images }).eq('id', id)
+    // .eq() terminates two distinct chains: one with .single() (read),
+    // one awaited directly (write). The shared chain object supports both.
+    const updateEq = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq: updateEq });
+
+    const single = vi
+      .fn()
+      .mockResolvedValue({
+        data: { project_images: [existingImage] },
+        error: null,
+      });
+    const selectEq = vi.fn().mockReturnValue({ single });
+    const select = vi.fn().mockReturnValue({ eq: selectEq });
+
     const mockSb = {
-      from: vi.fn().mockReturnThis(),
-      update: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockResolvedValueOnce({ error: null }),
+      from: vi.fn().mockReturnValue({ select, update }),
     };
     vi.mocked(requireSupabase).mockReturnValue(mockSb as never);
 
     await expect(
-      CompanyService.registerProjectImages("proj-uuid", [
-        "https://s3.amazonaws.com/bucket/projects/proj-uuid/img1.jpg",
-      ])
+      CompanyService.registerProjectImages("proj-uuid", [newImage])
     ).resolves.not.toThrow();
+
+    // Reads current images then writes the appended array (existing + new).
+    expect(select).toHaveBeenCalledWith("project_images");
+    expect(selectEq).toHaveBeenCalledWith("id", "proj-uuid");
+    expect(single).toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith({
+      project_images: [existingImage, newImage],
+    });
+    expect(updateEq).toHaveBeenCalledWith("id", "proj-uuid");
   });
 });
