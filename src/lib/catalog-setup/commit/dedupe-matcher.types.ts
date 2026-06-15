@@ -2,9 +2,10 @@
 //
 // On commit, the wizard matches each accepted StagingCard against the live
 // catalog rows (passed IN — the live read is DEFERRED to the route/wave-2)
-// and classifies it NEW vs MATCH, producing per-field DIFF descriptors so the
-// canvas can render the show-diff UI (spec §11, §17.2: default action on a
-// match is show-diff; merge-all + skip also offered).
+// and classifies it NEW vs MATCH, producing per-field DIFF descriptors for
+// DISPLAY (spec §11, §17.2). NOTE: the shipped resolution is whole-card
+// take-incoming (a `merge` card UPSERTs all its fields); per-field accept is
+// scaffolding, not yet wired — see the DedupeAction / CardResolution notes below.
 //
 // SELF-CONTAINED on purpose (like staging-card.ts / payload-builder.types.ts):
 // imports nothing from the overhaul-branch `catalog.ts`. The only cross-module
@@ -30,9 +31,16 @@ export type { StagingCard };
 /**
  * Owner's resolution for a card during dedupe (spec §11, §17.2).
  * - create:    no live match → insert a new row (still stamps external_*).
- * - show-diff: matched a live row → per-field accept (the DEFAULT on a match).
+ * - show-diff: matched a live row → per-field accept.
  * - merge-all: matched → take every incoming field over the live row.
  * - skip:      matched → keep the live row untouched; drop the card.
+ *
+ * SHIPPED REALITY (do not trust the per-field framing above as live): the
+ * production commit path is whole-card take-incoming — a `merge`-state card maps
+ * its matchedExistingId → UPSERT and sends ALL its fields (card-to-builder-input).
+ * The per-field `show-diff` resolution (applyDedupe + CardResolution.fieldSelections
+ * below) is unit-tested SCAFFOLDING for a not-yet-built per-field accept UI; nothing
+ * in the commit pipeline calls it yet.
  */
 export type DedupeAction = "create" | "show-diff" | "merge-all" | "skip";
 
@@ -116,10 +124,11 @@ export interface DedupeResult {
 export type FieldSelections = Record<string, boolean>;
 
 /**
- * How the owner resolved one card after seeing its match (the canvas wires
- * this from the show-diff UI). `action` defaults to the match's `defaultAction`.
- * `fieldSelections` is consulted only for `show-diff` (which incoming fields to
- * apply over the live row).
+ * How the owner would resolve one card after seeing its match. SCAFFOLDING only —
+ * the canvas does NOT yet wire a per-field show-diff UI, so nothing in the
+ * production commit constructs this; `applyDedupe` (which consumes it) is exercised
+ * by unit tests but not by the live pipeline. `action` defaults to the match's
+ * `defaultAction`; `fieldSelections` is consulted only for `show-diff`.
  */
 export interface CardResolution {
   action: DedupeAction;
