@@ -1,5 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+// The route mounts several useQuery/useMutation hooks (baseline, lock, lookups,
+// existing-rows, QB pull) beyond the few mocked below — they need a QueryClient
+// in scope or the render throws "No QueryClient" before the permission gate runs.
+function renderRoute() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <CatalogSetupRoute />
+    </QueryClientProvider>,
+  );
+}
 
 const { canMock, pushMock } = vi.hoisted(() => ({
   canMock: vi.fn(),
@@ -11,6 +26,17 @@ vi.mock("@/lib/store/permissions-store", () => ({
     sel({ can: canMock }),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: pushMock }) }));
+// Provide a company/user so the prerequisite gate (companyExists, subscription)
+// passes and the wizard mounts — supports both selector and no-arg call styles.
+vi.mock("@/lib/store/auth-store", () => ({
+  useAuthStore: (sel?: (s: unknown) => unknown) => {
+    const state = {
+      company: { id: "co-1", subscriptionStatus: "active" },
+      currentUser: { id: "u-1", role: "owner" },
+    };
+    return sel ? sel(state) : state;
+  },
+}));
 vi.mock("@/lib/hooks/use-inventory-mode", () => ({
   useInventoryMode: () => ({ data: { mode: "off", tracked: false } }),
 }));
@@ -35,7 +61,7 @@ beforeEach(() => canMock.mockReset());
 describe("CatalogSetupRoute permission gate", () => {
   it("renders // NO ACCESS without catalog.run_setup", () => {
     canMock.mockReturnValue(false);
-    render(<CatalogSetupRoute />);
+    renderRoute();
     expect(screen.getByTestId("catalog-setup-denied")).toBeInTheDocument();
     expect(screen.queryByTestId("wizard-shell-stub")).toBeNull();
   });
@@ -44,13 +70,13 @@ describe("CatalogSetupRoute permission gate", () => {
     canMock.mockImplementation(
       (p: string) => p === "catalog.run_setup" || p === "products.manage",
     );
-    render(<CatalogSetupRoute />);
+    renderRoute();
     expect(screen.getByTestId("wizard-shell-stub")).toBeInTheDocument();
   });
 
   it("passes inventoryTracked=false when inventory is off (STOCK omitted)", () => {
     canMock.mockReturnValue(true);
-    render(<CatalogSetupRoute />);
+    renderRoute();
     expect(screen.getByTestId("wizard-shell-stub")).toHaveAttribute(
       "data-tracked",
       "false",
