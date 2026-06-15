@@ -143,4 +143,35 @@ describe("<StagingCardView>", () => {
     );
     expect(container.querySelector('[class*="ops-accent"]')).toBeNull();
   });
+
+  it("renders a trade card by its human label, not the stored slug", () => {
+    // A template/agent trade card stores the stable SLUG in `display`; the canvas
+    // presents the label (data vs. presentation — OPS design law).
+    const tradeCard: StagingCard = {
+      id: "tpl_roofing_trade_1",
+      module: "types",
+      source: "template",
+      state: "proposed",
+      fields: { display: "roofing", isTrade: true },
+    };
+    render(<StagingCardView card={tradeCard} />);
+    expect(screen.getByText("Roofing")).toBeInTheDocument();
+    expect(screen.queryByText("roofing")).toBeNull();
+    // the TRADE config chip marks it as the trade, not a task type
+    expect(screen.getByTestId("staging-card-config-chip")).toHaveTextContent(
+      "TRADE",
+    );
+  });
+
+  it("falls through to the stored display for a non-slug trade card", () => {
+    const tradeCard: StagingCard = {
+      id: "tpl_custom_trade_1",
+      module: "types",
+      source: "agent",
+      state: "proposed",
+      fields: { display: "Vinyl & graphics", isTrade: true },
+    };
+    render(<StagingCardView card={tradeCard} />);
+    expect(screen.getByText("Vinyl & graphics")).toBeInTheDocument();
+  });
 });

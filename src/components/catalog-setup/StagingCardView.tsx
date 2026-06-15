@@ -36,6 +36,7 @@ import type {
   SellFields,
   StockFields,
 } from "@/lib/catalog-setup/staging-card";
+import { getTradeLabel, isWizardTrade } from "@/lib/catalog-setup/trade-list";
 import { useCatalogSetupMotion } from "@/lib/catalog-setup/motion";
 import { formatMoney, formatMargin, formatCount } from "./format";
 
@@ -82,9 +83,18 @@ const SOURCE_TAG_FALLBACK: Record<StagingCard["source"], string> = {
   manual: "MANUAL",
 };
 
-/** Card name across modules (SELL/STOCK use `name`, TYPES uses `display`). */
+/**
+ * Card name across modules (SELL/STOCK use `name`, TYPES uses `display`). A trade
+ * card stores the stable SLUG in `display` (the commit contract) but the canvas
+ * presents the human LABEL ("roofing" → "Roofing") — data vs. presentation
+ * (OPS design law: never render the data model literally). Unknown slugs / a
+ * label-bearing trade card fall through to the stored display unchanged.
+ */
 function cardName(card: StagingCard): string {
-  return card.module === "types" ? card.fields.display : card.fields.name;
+  if (card.module !== "types") return card.fields.name;
+  const { display, isTrade } = card.fields;
+  if (isTrade && isWizardTrade(display)) return getTradeLabel(display);
+  return display;
 }
 
 /** Config chip text, e.g. "3 SIZES" / "ROLL" / "TRADE". Null = no chip. */
