@@ -5,6 +5,7 @@ import { useReducedMotion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import type { Project } from "@/lib/types/models";
+import { projectProgressColor } from "./project-progress-color";
 import { CARD_WIDTH, CARD_HEIGHT, CARD_PILL_HEIGHT } from "./project-canvas-store";
 
 // ── Helpers ──
@@ -220,7 +221,7 @@ export const ProjectCard = memo(function ProjectCard({
             style={{
               width: `${progressFraction * 100}%`,
               height: "100%",
-              background: statusColor,
+              background: projectProgressColor(project.status, progressFraction),
               borderRadius: 1,
               transition: "width 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
             }}

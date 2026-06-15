@@ -1,9 +1,11 @@
-import { PROJECT_STATUS_COLORS, ProjectStatus } from "@/lib/types/models";
+import { PROGRESS_COMPLETE_COLOR } from "../../project-progress-color";
 
 export function CellProgress({ value }: { value: number | null }) {
   const pct = value == null ? null : Math.max(0, Math.min(100, Math.round(value * 100)));
   const completed = pct === 100;
-  const completedColor = PROJECT_STATUS_COLORS[ProjectStatus.Completed];
+  // Olive (healthy/complete), not the rose of the Completed status — a full
+  // bar must read positive (cohesion audit §6).
+  const completedColor = PROGRESS_COMPLETE_COLOR;
   return (
     <div className="flex w-full min-w-0 items-center gap-[8px]">
       <div className="h-[6px] min-w-[44px] flex-1 overflow-hidden rounded-bar bg-fill-neutral-dim">

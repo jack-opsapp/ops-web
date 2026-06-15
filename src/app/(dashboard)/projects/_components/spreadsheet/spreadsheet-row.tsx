@@ -9,6 +9,7 @@ import {
   PROJECT_STATUS_COLORS,
 } from "@/lib/types/models";
 import { getProjectStatusDisplayName } from "../project-stage-stack";
+import { projectProgressColor } from "../project-progress-color";
 import { SPREADSHEET_COLUMNS } from "./spreadsheet-columns";
 import { SpreadsheetCellText } from "./spreadsheet-cell-text";
 import { SpreadsheetCellStatus } from "./spreadsheet-cell-status";
@@ -177,7 +178,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
             <div className="flex-1 h-[2px] bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all"
-                style={{ width: `${pct}%`, backgroundColor: statusColor }}
+                style={{ width: `${pct}%`, backgroundColor: projectProgressColor(project.status, completedTasks / totalTasks) }}
               />
             </div>
             <span className="font-mono text-data-sm text-text-2 whitespace-nowrap">
