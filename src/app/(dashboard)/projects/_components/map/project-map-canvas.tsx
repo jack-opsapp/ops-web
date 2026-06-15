@@ -159,7 +159,7 @@ export function ProjectMapCanvas({
       >
         {groups.map((g) => {
           const primary = g.projects[0];
-          const color = PROJECT_STATUS_COLORS[primary.status] ?? "#8F9AA3";
+          const color = PROJECT_STATUS_COLORS[primary.status];
           const isSelected = g.projects.some((p) => p.id === selectedProjectId);
           const dimmed = g.projects.every((p) => !isActiveProjectStatus(p.status));
           const hovered = hoveredKey === g.key;
@@ -272,7 +272,7 @@ function MapStatusLegend() {
   const { t } = useDictionary("projects-canvas");
   return (
     <div className="glass-dense absolute bottom-3 left-3 rounded-[5px] p-2">
-      <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+      <div className="mb-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
         {t("map.legend.title")}
       </div>
       <div className="flex flex-col gap-[3px]">

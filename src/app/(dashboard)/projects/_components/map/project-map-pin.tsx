@@ -105,17 +105,17 @@ export const ProjectMapPin = memo(function ProjectMapPin({
           className="font-mono"
           style={{
             position: "absolute",
-            top: -half - 6,
+            top: -half - 7,
             left: half - 2,
-            minWidth: 15,
-            height: 15,
+            minWidth: 16,
+            height: 16,
             padding: "0 3px",
             borderRadius: "50%",
             background: "var(--surface-glass-dense)",
             border: "1px solid rgba(255,255,255,0.2)",
             color: "var(--text)",
-            fontSize: 10,
-            lineHeight: "13px",
+            fontSize: 11,
+            lineHeight: "14px",
             textAlign: "center",
             fontVariantNumeric: "tabular-nums",
           }}

@@ -112,7 +112,7 @@ export function ProjectSitesDrawer({
               {noGps.length > 0 && (
                 <div className="my-2.5 flex items-center gap-2 px-1">
                   <span className="h-px flex-1 bg-border-subtle" />
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
                     {t("map.noGps")} · {noGps.length}
                   </span>
                   <span className="h-px flex-1 bg-border-subtle" />
@@ -149,7 +149,7 @@ export function ProjectSitesDrawer({
         aria-expanded={!collapsed}
         aria-label={collapsed ? t("map.showSites") : t("map.hideSites")}
         className={cn(
-          "glass-dense absolute top-3 z-[11] flex h-8 w-[22px] items-center justify-center rounded-r-[5px] border border-l-2 border-border border-l-ops-accent text-text-3",
+          "glass-dense absolute top-3 z-[11] flex h-8 w-[22px] items-center justify-center rounded-r-[5px] border border-border text-text-3",
           "transition-[left,color] duration-[250ms] ease-smooth hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
           collapsed ? "left-0" : "left-[236px]",
         )}
@@ -177,16 +177,16 @@ function SiteRow({
   locateTitle: string;
   openInMapsTitle: string;
 }) {
-  const color = PROJECT_STATUS_COLORS[project.status] ?? "#8F9AA3";
+  const color = PROJECT_STATUS_COLORS[project.status];
   return (
     <button
       type="button"
       onClick={onClick}
       title={locateTitle}
       className={cn(
-        "group flex w-full items-start gap-2 rounded-[6px] border border-transparent px-2 py-1.5 text-left transition-colors",
+        "group flex w-full items-start gap-2 rounded-[6px] border border-transparent px-2 py-1.5 text-left transition-colors duration-150 ease-smooth",
         "hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
-        selected && "border-[rgba(255,255,255,0.12)] bg-surface-active shadow-[inset_2px_0_0_0_var(--ops-accent)]",
+        selected && "border-[rgba(255,255,255,0.18)] bg-surface-active",
       )}
     >
       <span
@@ -205,7 +205,7 @@ function SiteRow({
           title={openInMapsTitle}
           onClick={(e) => { e.stopPropagation(); onOpenInMaps(); }}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); onOpenInMaps(); } }}
-          className="text-text-mute opacity-0 transition-opacity hover:text-text group-hover:opacity-100"
+          className="text-text-mute opacity-0 transition-opacity duration-150 ease-smooth hover:text-text group-hover:opacity-100"
         >
           <ExternalLink className="h-[12px] w-[12px]" strokeWidth={1.5} />
         </span>
@@ -220,7 +220,7 @@ function NoGpsRow({ project, onClick, hint }: { project: Project; onClick: () =>
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-start gap-2 rounded-[6px] border border-transparent px-2 py-1.5 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+      className="flex w-full items-start gap-2 rounded-[6px] border border-transparent px-2 py-1.5 text-left transition-colors duration-150 ease-smooth hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
     >
       <span className="mt-[3px] h-[8px] w-[8px] shrink-0 rounded-full border border-dashed border-text-mute" />
       <span className="min-w-0 flex-1">
