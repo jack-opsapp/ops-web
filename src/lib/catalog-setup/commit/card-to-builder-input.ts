@@ -83,6 +83,7 @@ function mapStock(
   if (externalSource) variant.externalSource = externalSource;
 
   const family: FamilyInput = {
+    clientId: card.id,
     name: f.name,
     variants: [variant],
   };

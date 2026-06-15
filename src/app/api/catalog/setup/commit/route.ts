@@ -20,6 +20,7 @@
  * SELL products commit in a single call.
  */
 
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
@@ -63,6 +64,20 @@ interface RpcResult {
 }
 
 const SCOPE_MISMATCH = "company_scope_mismatch";
+
+/**
+ * Short, stable content hash of a commit payload. Folded into the idempotency
+ * key so the key is CONTENT-addressed: an exact re-submit of the same set reuses
+ * the key (the RPC replays its cached success — no double-commit), but a CHANGED
+ * set (the operator fixed a blocker, edited, added, or reordered cards and hit
+ * BUILD IT again) gets a fresh key and is reprocessed instead of dead-ending on
+ * the RPC's `idempotency_conflict` guard (which rejects a reused key carrying a
+ * different payload hash). buildCatalogSetupPayload is deterministic, so equal
+ * inputs hash equal.
+ */
+function payloadHash(payload: unknown): string {
+  return createHash("sha256").update(JSON.stringify(payload)).digest("hex").slice(0, 16);
+}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -124,15 +139,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // uuid), so a retry of the SAME set hits the RPC's idempotency cache.
     const calls: Array<{ key: string; payload: ReturnType<typeof buildCatalogSetupPayload> }> = [];
     if (products.length > 0) {
+      const payload = buildCatalogSetupPayload({ mode, products });
       calls.push({
-        key: `${sessionId}:${mode}:products`,
-        payload: buildCatalogSetupPayload({ mode, products }),
+        key: `${sessionId}:${mode}:products:${payloadHash(payload)}`,
+        payload,
       });
     }
     stockFamilies.forEach((family, i) => {
+      const payload = buildCatalogSetupPayload({ mode, family });
+      // Slot = the family's stable card id (NOT the array index), so removing or
+      // reordering families between attempts can't collide one family's key
+      // against another's prior payload; the content hash lets a fixed retry of
+      // the same family reprocess instead of dead-ending.
+      const slot = family.clientId ?? family.id ?? String(i);
       calls.push({
-        key: `${sessionId}:${mode}:family:${i}`,
-        payload: buildCatalogSetupPayload({ mode, family }),
+        key: `${sessionId}:${mode}:family:${slot}:${payloadHash(payload)}`,
+        payload,
       });
     });
 

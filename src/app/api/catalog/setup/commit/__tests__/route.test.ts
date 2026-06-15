@@ -62,7 +62,8 @@ describe("POST /api/catalog/setup/commit", () => {
 
     const args = rpc.mock.calls[0][1];
     expect(args.p_company_id).toBe("co-1");
-    expect(args.p_idempotency_key).toBe("sess-1:edit:products");
+    // Content-addressed key: session:mode:products:<16-hex payload hash>.
+    expect(args.p_idempotency_key).toMatch(/^sess-1:edit:products:[0-9a-f]{16}$/);
     expect(args.p_payload.mode).toBe("edit");
     expect(args.p_payload.products).toHaveLength(1);
     // completion stamp + rail notification fired (service-role)
@@ -131,7 +132,22 @@ describe("POST /api/catalog/setup/commit", () => {
       makeReq({ token: "t", sessionId: "sess-9", cards: [stockCard("a"), stockCard("b")] }),
     );
     const keys = rpc.mock.calls.map((c) => c[1].p_idempotency_key);
-    expect(keys).toContain("sess-9:edit:family:0");
-    expect(keys).toContain("sess-9:edit:family:1");
+    // Keyed by stable card id (a, b), not array index, plus a payload hash.
+    expect(keys.some((k) => /^sess-9:edit:family:a:[0-9a-f]{16}$/.test(k))).toBe(true);
+    expect(keys.some((k) => /^sess-9:edit:family:b:[0-9a-f]{16}$/.test(k))).toBe(true);
+  });
+
+  it("content-addressed key: identical set replays the key, a changed set gets a fresh one", async () => {
+    const base = { token: "t", sessionId: "sess-c", cards: [sellCard] };
+    await POST(makeReq(base));
+    await POST(makeReq(base)); // identical payload → same key (RPC replays, no double-commit)
+    const edited = {
+      ...base,
+      cards: [{ ...sellCard, fields: { ...sellCard.fields, defaultPrice: 120 } }],
+    };
+    await POST(makeReq(edited)); // changed payload → fresh key (reprocess, not idempotency_conflict)
+    const keys = rpc.mock.calls.map((c) => c[1].p_idempotency_key);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
   });
 });

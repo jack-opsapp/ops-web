@@ -135,6 +135,13 @@ export interface VariantInput {
 /** The SINGLE stock family (STOCK). */
 export interface FamilyInput {
   id?: string;
+  /**
+   * Stable client id of the source card (NOT serialized to the wire payload).
+   * The commit route uses it as the family's idempotency-key slot so the key
+   * follows card identity, not array position — reordering/removing families
+   * can't collide one family's key against another's prior payload.
+   */
+  clientId?: string;
   name: string;
   categoryId?: string;
   defaultUnitId?: string;
