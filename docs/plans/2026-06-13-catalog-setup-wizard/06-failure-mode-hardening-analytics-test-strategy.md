@@ -866,3 +866,18 @@ Adversarial 13-finder review + per-finding verification. **51 findings: 0 P0, 25
 
 ### Refuted by adversarial verify (prod-RPC-backed — do not chase)
 counts-overstate (RPC counts processed unconditionally); create-mode-ignores-merge (doc.id pre-pass upserts); SELL soft-delete resurrect (id validated; residual deleted_at=null is symmetric → P2); entry-gate dead BUILD IT (staging decoupled from perm context); shown-event race (auth set before perm map).
+
+### Wave 2 — flagged items executed (2026-06-15, Jackson's go-ahead)
+
+7 more atomic commits. Now FIXED (were "open" above):
+- **agent-fallback wired** — resolveDriver drives source availability; any agent failure withdraws the "describe" lane and drops to guided (session-sticky agentErrored). Removed the no-op preserveAcceptedOnFailure.
+- **per-user lock** — isHeldByOther reads user_id back; the same operator's second tab/reload is free, a different user still blocks.
+- **upload column disclosure (P1-1 + P1-2)** — the staged summary shows the headers read (name/price/quantity) + a tan "skipped {col}" for a dropped on-hand column, so a substring mis-map or a dropped inventory column is catchable before BUILD IT.
+- **xlsx lockfile (P1-3)** — reconciled the branch's package-lock.json (`--package-lock-only`, +9 entries, node_modules untouched) → merge-clean. CVE migration to the maintained SheetJS CDN build remains a flagged follow-up (kept 0.18.5).
+- **QB honesty (P1-17/18)** — pull summary surfaces blockers + needs-review; Group bundles flag needsReview (no silent empty package).
+- **scope-mismatch surfacing** — actionable "ask your admin" message instead of raw RPC text.
+- **dedupe per-field docs (P1-13)** — corrected the misleading "DEFAULT on a match" comment to mark applyDedupe/fieldSelections as unwired scaffolding (code retained).
+
+Still open (Jackson's call): xlsx CVE migration; firebase_uid backfill (prod data, app-wide); building the actual per-field show-diff UI.
+
+Final verify: 344 unit (official glob) / 499 across all catalog-setup surfaces incl tests/unit, 0 src tsc errors, E2E 7/7 ×2, tree clean.
