@@ -73,6 +73,16 @@ interface BaseCard {
   state: CardState;
   /** present when this card matched a live catalog row (spec §11 dedupe) */
   matchedExistingId?: string;
+  /**
+   * Re-import identity (spec §11, §15). The source system this row came from
+   * ("quickbooks") and that system's stable id for it (the QB `Item.Id`).
+   * Stamped by structured-import lanes so a re-pull re-syncs the SAME catalog
+   * row instead of duplicating it — the dedupe-matcher keys on this FIRST, ahead
+   * of sku/name, so it survives a rename or sku drift (avoids the won-conversion
+   * class of bug). Absent for manual / agent-authored cards (no external origin).
+   */
+  externalSource?: string;
+  externalId?: string;
 }
 
 export type StagingCard =
