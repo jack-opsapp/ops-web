@@ -9,6 +9,7 @@
   "denied": "NO ACCESS",
   "commitError": "Catalog commit failed",
   "commitPartial": "Saved {saved}. Some items need a fix — build again.",
+  "commitScopeMismatch": "Your account isn't set up for catalog changes yet — ask your admin to finish your setup.",
   "commitTypesWarning": "Catalog's live — task types didn't save. Re-run setup to add them.",
   "offline.title": "Offline",
   "offline.detail": "[ build holds until you're back — nothing's lost ]",

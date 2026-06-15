@@ -474,6 +474,21 @@ export function CatalogSetupRoute() {
           router.push("/catalog");
         },
         onError: (err) => {
+          // A scope-guard failure means this account isn't fully provisioned for
+          // catalog writes (its firebase_uid/auth_id resolves no company) — surface
+          // an actionable state, not the raw RPC text (spec §16 next-move rule).
+          if (
+            err instanceof CommitError &&
+            err.blockers.some((b) => b.code === "company_scope_mismatch")
+          ) {
+            toast.error(
+              t(
+                "commitScopeMismatch",
+                "Your account isn't set up for catalog changes yet — ask your admin to finish your setup.",
+              ),
+            );
+            return;
+          }
           const detail =
             err instanceof CommitError && err.blockers.length
               ? err.blockers
