@@ -69,6 +69,30 @@ describe("POST /api/catalog/setup/agent", () => {
     expect(generate).not.toHaveBeenCalled();
   });
 
+  it("400 when description exceeds the input cap (cost-DoS guard)", async () => {
+    const res = await POST(
+      makeReq({ token: "t", description: "x".repeat(4001) }),
+    );
+    expect(res.status).toBe(400);
+    expect(generate).not.toHaveBeenCalled();
+  });
+
+  it("400 when priorTurns is not an array of bounded strings (trust-boundary guard)", async () => {
+    const bad = await POST(
+      makeReq({ token: "t", description: "x", priorTurns: "oops" }),
+    );
+    expect(bad.status).toBe(400);
+    const tooMany = await POST(
+      makeReq({ token: "t", description: "x", priorTurns: Array(13).fill("a") }),
+    );
+    expect(tooMany.status).toBe(400);
+    const tooLong = await POST(
+      makeReq({ token: "t", description: "x", priorTurns: ["x".repeat(4001)] }),
+    );
+    expect(tooLong.status).toBe(400);
+    expect(generate).not.toHaveBeenCalled();
+  });
+
   it("503 with a guided fallback when the API key is missing", async () => {
     generate.mockRejectedValue(new SetupAgentConfigError("OPENAI_API_KEY is not configured"));
     const res = await POST(makeReq({ token: "t", description: "x" }));

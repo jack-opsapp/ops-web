@@ -39,6 +39,13 @@ interface AgentBody {
   priorTurns?: string[];
 }
 
+// Hard input bounds at the trust boundary — `body` is attacker-controlled JSON.
+// They cap per-request OpenAI prompt cost (a paid call) and reject malformed
+// shapes with a clean 400 instead of a 500 deep in the generation call.
+const MAX_DESCRIPTION_CHARS = 4_000;
+const MAX_PRIOR_TURNS = 12;
+const MAX_TURN_CHARS = 4_000;
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = (await req.json()) as AgentBody;
@@ -48,6 +55,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { error: "Missing required fields: token, description" },
         { status: 400 },
       );
+    }
+    if (description.length > MAX_DESCRIPTION_CHARS) {
+      return NextResponse.json(
+        { error: `description exceeds ${MAX_DESCRIPTION_CHARS} characters` },
+        { status: 400 },
+      );
+    }
+    // priorTurns is typed string[] but the runtime body is untrusted — a non-array
+    // or non-string entry would crash the generation call into a 500. Guard it.
+    if (body.priorTurns !== undefined) {
+      if (
+        !Array.isArray(body.priorTurns) ||
+        body.priorTurns.length > MAX_PRIOR_TURNS ||
+        body.priorTurns.some(
+          (t) => typeof t !== "string" || t.length > MAX_TURN_CHARS,
+        )
+      ) {
+        return NextResponse.json(
+          {
+            error: `priorTurns must be an array of at most ${MAX_PRIOR_TURNS} strings, each up to ${MAX_TURN_CHARS} characters`,
+          },
+          { status: 400 },
+        );
+      }
     }
 
     const verified = await verifyAuthToken(token);
@@ -99,9 +130,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (error instanceof Error && error.message.toLowerCase().includes("token")) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
     }
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal error" },
-      { status: 500 },
-    );
+    // Generic message only — never echo raw DB/RPC/provider error text to the client.
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
