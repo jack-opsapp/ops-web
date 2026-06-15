@@ -67,6 +67,10 @@ export interface QuickBooksPaneSummary {
   pulled: number;
   /** Of those, how many matched a row already in the catalog (merge cards). */
   matched: number;
+  /** Rows that can't commit until fixed (e.g. missing a name). */
+  blockers?: number;
+  /** Safe-defaulted rows the owner should confirm (e.g. bundles, unknown types). */
+  needsReview?: number;
 }
 
 export interface QuickBooksPaneProps {
@@ -328,6 +332,30 @@ function ResultState({
               "qb.matched",
               "{count} already in your catalog — merge or skip on each",
             ).replace("{count}", String(summary.matched))}
+          </span>
+        ) : null}
+        {summary.blockers ? (
+          <span
+            data-testid="quickbooks-blockers"
+            className="font-mohave text-micro text-rose"
+            style={MONO_NUM}
+          >
+            {t("qb.blockers", "{count} need a name before they can save").replace(
+              "{count}",
+              String(summary.blockers),
+            )}
+          </span>
+        ) : null}
+        {summary.needsReview ? (
+          <span
+            data-testid="quickbooks-needs-review"
+            className="font-mohave text-micro text-tan"
+            style={MONO_NUM}
+          >
+            {t("qb.needsReview", "{count} to confirm — we made a best guess").replace(
+              "{count}",
+              String(summary.needsReview),
+            )}
           </span>
         ) : null}
       </div>

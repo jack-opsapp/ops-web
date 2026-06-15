@@ -197,7 +197,9 @@ export function mapQbItem(raw: QboRawRecord, opts: MapQbItemOptions): QbItemDraf
     };
   }
 
-  // Group/bundle.
+  // Group/bundle. Its component lines are derived but the StagingCard model can't
+  // yet carry them, so the package commits without contents — flag it for review
+  // (needsReview) so the owner is told, instead of a silent empty package.
   if (rawType === "Group") {
     return {
       ...base,
@@ -207,7 +209,7 @@ export function mapQbItem(raw: QboRawRecord, opts: MapQbItemOptions): QbItemDraf
       linkedCatalogItem: false,
       pendingInventoryDecision: false,
       bundleItems: deriveBundleItems(raw),
-      needsReview: false,
+      needsReview: true,
     };
   }
 

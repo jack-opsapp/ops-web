@@ -211,6 +211,8 @@
   "qb.connect": "CONNECT QUICKBOOKS",
   "qb.pulled": "Pulled {count} — review them on the right",
   "qb.matched": "{count} already in your catalog — merge or skip on each",
+  "qb.blockers": "{count} need a name before they can save",
+  "qb.needsReview": "{count} to confirm — we made a best guess",
   "qb.pullAgain": "[ pull again ]",
   "qb.reconnectLead": "QuickBooks needs reconnecting before you can pull.",
   "qb.errorLead": "Couldn't reach QuickBooks. Try again in a moment.",

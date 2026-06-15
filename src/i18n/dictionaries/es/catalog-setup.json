@@ -211,6 +211,8 @@
   "qb.connect": "CONECTAR QUICKBOOKS",
   "qb.pulled": "Trajimos {count} — revísalos a la derecha",
   "qb.matched": "{count} ya están en tu catálogo — combina u omite en cada uno",
+  "qb.blockers": "{count} necesitan un nombre antes de guardarse",
+  "qb.needsReview": "{count} por confirmar — hicimos una estimación",
   "qb.pullAgain": "[ traer de nuevo ]",
   "qb.reconnectLead": "QuickBooks necesita reconectarse antes de traer.",
   "qb.errorLead": "No se pudo conectar con QuickBooks. Inténtalo de nuevo en un momento.",

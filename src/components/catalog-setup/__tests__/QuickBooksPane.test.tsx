@@ -50,6 +50,17 @@ describe("<QuickBooksPane>", () => {
     expect(screen.queryByTestId("quickbooks-matched")).not.toBeInTheDocument();
   });
 
+  it("result: surfaces blockers + needs-review so pulled-but-unbuildable rows aren't silent", () => {
+    render(
+      <QuickBooksPane
+        status="result"
+        summary={{ pulled: 10, matched: 0, blockers: 2, needsReview: 3 }}
+      />,
+    );
+    expect(screen.getByTestId("quickbooks-blockers")).toHaveTextContent(/2/);
+    expect(screen.getByTestId("quickbooks-needs-review")).toHaveTextContent(/3/);
+  });
+
   it("error (generic): offers a retry", () => {
     const onPull = vi.fn();
     render(<QuickBooksPane status="error" errorKind="generic" onPull={onPull} />);

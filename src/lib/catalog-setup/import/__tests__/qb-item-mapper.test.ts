@@ -172,7 +172,9 @@ describe("mapQbItems — batch wrapper", () => {
     // so the owner can see + fix it; it is ALSO listed under blockers).
     expect(out.cards).toHaveLength(6);
     expect(out.blockers.map((b) => b.externalId)).toEqual(["99"]);
-    expect(out.needsReview.map((n) => n.externalId)).toEqual(["101"]);
+    // Group (70) now flags for review (its bundle components can't be carried),
+    // alongside the unknown-Type safe default (101).
+    expect(out.needsReview.map((n) => n.externalId)).toEqual(["70", "101"]);
   });
 
   it("never includes a dropped Category card in the output", () => {

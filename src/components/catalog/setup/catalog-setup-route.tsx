@@ -70,7 +70,10 @@ import { useInitiateOAuth } from "@/lib/hooks/use-accounting";
 import { AccountingProvider } from "@/lib/types/pipeline";
 import type { SetupSource } from "@/components/catalog-setup/DriverPane";
 import type { UploadPaneOutcome } from "@/components/catalog-setup/UploadPane";
-import type { QuickBooksPaneStatus } from "@/components/catalog-setup/QuickBooksPane";
+import type {
+  QuickBooksPaneStatus,
+  QuickBooksPaneSummary,
+} from "@/components/catalog-setup/QuickBooksPane";
 import type { StagingCard } from "@/lib/catalog-setup/staging-card";
 
 /**
@@ -135,7 +138,7 @@ export function CatalogSetupRoute() {
   >("picker");
   // QuickBooks lane view-state (the route owns the lifecycle; the pane renders it).
   const [qbStatus, setQbStatus] = useState<QuickBooksPaneStatus>("ready");
-  const [qbSummary, setQbSummary] = useState<{ pulled: number; matched: number } | null>(null);
+  const [qbSummary, setQbSummary] = useState<QuickBooksPaneSummary | null>(null);
   const [qbErrorKind, setQbErrorKind] = useState<"generic" | "reconnect">("generic");
   const [turns, setTurns] = useState<string[]>([]);
   // Once the agent fails mid-session, it stays failed for the session: the driver
@@ -373,7 +376,12 @@ export function CatalogSetupRoute() {
         if (res.cards.length > 0) {
           dispatch({ type: "ADD_CARDS", cards: res.cards });
         }
-        setQbSummary({ pulled: res.summary.staged, matched: res.summary.matched });
+        setQbSummary({
+          pulled: res.summary.staged,
+          matched: res.summary.matched,
+          blockers: res.summary.blockers,
+          needsReview: res.summary.needsReview,
+        });
         setQbStatus("result");
       },
       onError: () => {
