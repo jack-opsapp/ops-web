@@ -29,6 +29,9 @@ import type { StagingCard, SellFields } from "@/lib/catalog-setup/staging-card";
 import type { QbItemDraft } from "./qb-item-mapper";
 import { QB_EXTERNAL_SOURCE } from "./qb-item-mapper";
 
+/** Public re-export of the QB run-level external_source stamp ("quickbooks"). */
+export { QB_EXTERNAL_SOURCE as QB_IMPORT_SOURCE } from "./qb-item-mapper";
+
 /** Stable client id for a QB-sourced card — deterministic across re-pulls. */
 export function qbCardId(externalId: string): string {
   return `qb:${externalId}`;

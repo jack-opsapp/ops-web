@@ -38,6 +38,10 @@ import {
   commitTaskTypes,
   recordCompanyTrade,
 } from "@/lib/catalog-setup/commit/task-types-commit";
+import {
+  collectExternalStampTargets,
+  stampExternalIdentity,
+} from "@/lib/catalog-setup/commit/external-identity-stamp";
 
 interface CommitBody {
   token: string;
@@ -134,6 +138,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const counts = { products: 0, stock: 0 };
     const blockers: Array<{ code?: string; message?: string }> = [];
+    // client_id → committed row id, accumulated across calls. Product client ids
+    // (= card.id) only appear in the products call's map; merging all is safe and
+    // lets the external-identity stamp resolve fresh-create rows (spec §11).
+    const idMap: Record<string, unknown> = {};
 
     for (const call of calls) {
       const { data, error } = await client.rpc("catalog_setup_save", {
@@ -161,6 +169,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
 
       const result = (data ?? {}) as RpcResult;
+      if (result.id_map) Object.assign(idMap, result.id_map);
       if (result.blockers?.length) {
         blockers.push(...result.blockers);
         continue;
@@ -228,6 +237,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           });
         }
       }
+    }
+
+    // Re-import identity stamp — service-role, fire-and-forget. catalog_setup_save
+    // ignores external_*; stamp it onto the committed import rows so the NEXT pull
+    // re-syncs the same row (matchCards keys external_id first) instead of a
+    // duplicate the partial unique index would reject (spec §11). Non-fatal: the
+    // rows are already live; a miss only degrades the next pull to sku/name match.
+    const stampTargets = collectExternalStampTargets(cards, idMap);
+    if (stampTargets.length > 0) {
+      void stampExternalIdentity(serviceDb, companyId, stampTargets).then(({ error }) => {
+        if (error)
+          console.error("[api/catalog/setup/commit] external-id stamp failed:", error);
+      });
     }
 
     // Completion side-effects — service-role, fire-and-forget. A failure here
