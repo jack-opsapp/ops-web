@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { WIZARD_TRADES } from "@/lib/catalog-setup/trade-list";
 import {
+  previewTradeTemplate,
   selectTradeTemplate,
   TRADE_SEED_PRODUCTS,
 } from "@/lib/catalog-setup/trade-templates";
@@ -28,11 +29,27 @@ describe("selectTradeTemplate — roofing (the authored pattern)", () => {
     expect(cards.every((c) => c.state === "proposed")).toBe(true);
   });
 
-  it("gives every TYPES card an auto-assigned color hex (autoAssignColors)", () => {
-    const types = cards.filter((c) => c.module === "types");
-    expect(types.length).toBeGreaterThan(0);
+  it("leads with exactly one trade card carrying the trade slug (isTrade)", () => {
+    const tradeCards = cards.filter(
+      (c) => c.module === "types" && c.fields.isTrade,
+    );
+    expect(tradeCards).toHaveLength(1);
+    const tradeCard = tradeCards[0];
+    // The trade card is FIRST (the company's trade leads its task types).
+    expect(cards[0]).toBe(tradeCard);
+    if (tradeCard.module !== "types") throw new Error("unreachable");
+    // `display` holds the stable SLUG (commit contract), not the human label.
+    expect(tradeCard.fields.display).toBe("roofing");
+    expect(tradeCard.fields.isTrade).toBe(true);
+  });
+
+  it("gives every task-type card (not the trade card) an auto-assigned color hex", () => {
+    const taskTypes = cards.filter(
+      (c) => c.module === "types" && !c.fields.isTrade,
+    );
+    expect(taskTypes.length).toBeGreaterThan(0);
     expect(
-      types.every(
+      taskTypes.every(
         (c) =>
           c.module === "types" &&
           typeof c.fields.color === "string" &&
@@ -41,9 +58,17 @@ describe("selectTradeTemplate — roofing (the authored pattern)", () => {
     ).toBe(true);
   });
 
+  it("the trade card carries no color (it is the trade, not a task type)", () => {
+    const tradeCard = cards.find((c) => c.module === "types" && c.fields.isTrade);
+    expect(tradeCard).toBeDefined();
+    if (tradeCard?.module === "types") {
+      expect(tradeCard.fields.color).toBeUndefined();
+    }
+  });
+
   it("mirrors the roofing preset task types in order, by display name", () => {
     const typeNames = cards
-      .filter((c) => c.module === "types")
+      .filter((c) => c.module === "types" && !c.fields.isTrade)
       .map((c) => (c.module === "types" ? c.fields.display : ""));
     expect(typeNames).toEqual(
       INDUSTRY_PRESETS.Roofing.taskTypes.map((t) => t.name),
@@ -86,6 +111,37 @@ describe("selectTradeTemplate — coverage across every wizard trade", () => {
         expect(c.source).toBe("template");
         expect(c.state).toBe("proposed");
       }
+    }
+  });
+
+  it("emits exactly one trade card per trade, slug = the trade token", () => {
+    for (const t of WIZARD_TRADES) {
+      const tradeCards = selectTradeTemplate(t.id).filter(
+        (c) => c.module === "types" && c.fields.isTrade,
+      );
+      expect(tradeCards).toHaveLength(1);
+      const card = tradeCards[0];
+      if (card.module === "types") {
+        expect(card.fields.display).toBe(t.id);
+      }
+    }
+  });
+});
+
+describe("previewTradeTemplate — counts match selectTradeTemplate (no minting)", () => {
+  it("returns the preset task-type count and the seed line count per trade", () => {
+    for (const t of WIZARD_TRADES) {
+      const preview = previewTradeTemplate(t.id);
+      const cards = selectTradeTemplate(t.id);
+      const taskTypeCards = cards.filter(
+        (c) => c.module === "types" && !c.fields.isTrade,
+      );
+      const sellCards = cards.filter((c) => c.module === "sell");
+      // The preview EXCLUDES the trade card (it's the trade, not a task type).
+      expect(preview.taskTypes).toBe(taskTypeCards.length);
+      expect(preview.sell).toBe(sellCards.length);
+      expect(preview.taskTypes).toBeGreaterThan(0);
+      expect(preview.sell).toBeGreaterThan(0);
     }
   });
 });

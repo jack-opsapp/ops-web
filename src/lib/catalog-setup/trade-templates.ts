@@ -24,6 +24,7 @@ import {
 import type {
   SellFields,
   StagingCard,
+  TypeFields,
 } from "@/lib/catalog-setup/staging-card";
 
 // ─── Seed product authoring ─────────────────────────────────────────────────
@@ -144,16 +145,36 @@ function mintId(tradeId: WizardTradeId, kind: string): string {
 /**
  * Resolve a trade's editable starter cards for the canvas.
  *
- * Returns TYPES cards (one per preset task type, in dependency order, with an
- * auto-assigned color) followed by SELL cards (the trade's seed line items).
- * Every card is `source: "template"`, `state: "proposed"`. Always non-empty:
- * each trade maps to a real `INDUSTRY_PRESETS` family (guaranteed by the
- * trade-list contract) and a non-empty seed set, so the picker never offers a
- * dead option (spec §8, §9).
+ * Returns, in this order, all `source: "template"` / `state: "proposed"`:
+ *   1. ONE trade card (`isTrade: true`, `display` = the stable trade slug) — the
+ *      company's trade selection. `display` holds the SLUG (not the label) to
+ *      match the agent's trade card (proposal-validator) and the commit contract
+ *      (`planTaskTypeCommit` reads it as the trade; `recordCompanyTrade`
+ *      slug→label). The canvas renders the human label (StagingCardView).
+ *   2. TYPES cards — one per preset task type, in dependency order, each with an
+ *      auto-assigned color (the same engine the task-types wizard uses).
+ *   3. SELL cards — the trade's seed line items (prices null → honest `—`).
+ *
+ * Always non-empty: each trade maps to a real `INDUSTRY_PRESETS` family
+ * (guaranteed by the trade-list contract) and a non-empty seed set, so the
+ * picker never offers a dead option (spec §8, §9). The owner accepts / edits /
+ * rejects every card on the canvas — nothing here is pre-accepted (spec §7).
  */
 export function selectTradeTemplate(tradeId: WizardTradeId): StagingCard[] {
   const trade = TRADE_BY_ID[tradeId];
   const preset = INDUSTRY_PRESETS[trade.presetKey];
+
+  // TRADE — the owner's trade selection. `display` = the stable slug; the commit
+  // (`planTaskTypeCommit`) folds it into the company's trade, never a task_types
+  // row, and the canvas presents the human label.
+  const tradeFields: TypeFields = { display: trade.id, isTrade: true };
+  const tradeCard: StagingCard = {
+    module: "types",
+    id: mintId(tradeId, "trade"),
+    source: "template",
+    state: "proposed",
+    fields: tradeFields,
+  };
 
   // TYPES — one card per preset task type, colored via the shared auto-assigner
   // (same engine the task-types wizard uses, so colors stay on-system).
@@ -188,5 +209,30 @@ export function selectTradeTemplate(tradeId: WizardTradeId): StagingCard[] {
     },
   }));
 
-  return [...typeCards, ...sellCards];
+  return [tradeCard, ...typeCards, ...sellCards];
+}
+
+/** Headline counts the trade picker previews before the owner commits a trade. */
+export interface TradeTemplatePreview {
+  /** Preset task types seeded (EXCLUDES the trade card — that's the trade). */
+  taskTypes: number;
+  /** Seed SELL line items (price-book starter lines). */
+  sell: number;
+}
+
+/**
+ * Count what a trade's starter set will stage, WITHOUT minting cards — pure, so
+ * the picker can preview "N task types · M starter lines" on hover/select
+ * without churning the id counter or building throwaway cards. Mirrors exactly
+ * what `selectTradeTemplate` produces (sans the single trade card).
+ */
+export function previewTradeTemplate(
+  tradeId: WizardTradeId,
+): TradeTemplatePreview {
+  const trade = TRADE_BY_ID[tradeId];
+  const preset = INDUSTRY_PRESETS[trade.presetKey];
+  return {
+    taskTypes: preset.taskTypes.length,
+    sell: TRADE_SEED_PRODUCTS[tradeId].length,
+  };
 }
