@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DriverPane } from "@/components/catalog-setup/DriverPane";
+import { WIZARD_TRADES } from "@/lib/catalog-setup/trade-list";
 
 // useDictionary loads its JSON asynchronously (useEffect import), so on first
 // render the dict is empty and t(key, fallback) returns the English fallback.
@@ -108,5 +109,67 @@ describe("DriverPane — live agent conversation", () => {
     render(<DriverPane onSend={() => {}} turns={["roofing"]} busy />);
     expect(screen.getByText(/building your catalog/i)).toBeInTheDocument();
     expect(screen.getByTestId("driver-send")).toBeDisabled();
+  });
+});
+
+describe("DriverPane — trade picker (TEMPLATE lane)", () => {
+  it("renders every wizard trade as a single-select chip in trade-picker mode", () => {
+    render(<DriverPane mode="trade-picker" />);
+    expect(screen.getByTestId("driver-trade-picker")).toBeInTheDocument();
+    expect(screen.getByText("Pick your trade")).toBeInTheDocument();
+    for (const trade of WIZARD_TRADES) {
+      expect(screen.getByTestId(`driver-trade-${trade.id}`)).toBeInTheDocument();
+    }
+    // the source picker + conversation are not shown while picking a trade
+    expect(screen.queryByTestId("driver-source-picker")).toBeNull();
+    expect(screen.queryByTestId("driver-conversation")).toBeNull();
+  });
+
+  it("hides the agent input footer in trade-picker mode (self-contained)", () => {
+    render(<DriverPane mode="trade-picker" />);
+    expect(screen.queryByTestId("driver-send")).toBeNull();
+    expect(screen.queryByTestId("driver-offline-switch")).toBeNull();
+  });
+
+  it("shows no preview/confirm until a trade is selected", () => {
+    render(<DriverPane mode="trade-picker" onPickTrade={() => {}} />);
+    expect(screen.queryByTestId("driver-trade-confirm-row")).toBeNull();
+    expect(screen.queryByTestId("driver-trade-confirm")).toBeNull();
+  });
+
+  it("reveals the count preview + marks the chip pressed on select", async () => {
+    const user = userEvent.setup();
+    render(<DriverPane mode="trade-picker" onPickTrade={() => {}} />);
+    const roofing = screen.getByTestId("driver-trade-roofing");
+    expect(roofing).toHaveAttribute("aria-pressed", "false");
+    await user.click(roofing);
+    expect(roofing).toHaveAttribute("aria-pressed", "true");
+    const preview = screen.getByTestId("driver-trade-preview");
+    // honest count copy — never "AI"; the digits come from previewTradeTemplate
+    expect(preview).toHaveTextContent(/task types/i);
+    expect(preview).toHaveTextContent(/starter lines/i);
+    expect(preview.textContent ?? "").toMatch(/\d/);
+  });
+
+  it("fires onPickTrade with the selected trade on confirm", async () => {
+    const onPickTrade = vi.fn();
+    const user = userEvent.setup();
+    render(<DriverPane mode="trade-picker" onPickTrade={onPickTrade} />);
+    await user.click(screen.getByTestId("driver-trade-plumbing"));
+    await user.click(screen.getByTestId("driver-trade-confirm"));
+    expect(onPickTrade).toHaveBeenCalledWith("plumbing");
+  });
+
+  it("returns to the source picker via back (onSwitchToGuided)", async () => {
+    const onBack = vi.fn();
+    const user = userEvent.setup();
+    render(<DriverPane mode="trade-picker" onSwitchToGuided={onBack} />);
+    await user.click(screen.getByTestId("driver-trade-back"));
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("never says 'AI' in the trade picker", () => {
+    render(<DriverPane mode="trade-picker" />);
+    expect(screen.queryByText(/\bAI\b/)).toBeNull();
   });
 });

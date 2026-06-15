@@ -43,6 +43,16 @@ import { useDictionary } from "@/i18n/client";
 import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import {
+  WIZARD_TRADES,
+  type WizardTradeId,
+} from "@/lib/catalog-setup/trade-list";
+import { previewTradeTemplate } from "@/lib/catalog-setup/trade-templates";
+
+/** Mono tabular-lining / slashed-zero — the trade-picker count preview. */
+const MONO_NUM: React.CSSProperties = {
+  fontFeatureSettings: '"tnum" 1, "zero" 1',
+};
 
 export type SetupSource =
   | "quickbooks"
@@ -53,13 +63,22 @@ export type SetupSource =
 
 export interface DriverPaneProps {
   /**
-   * "picker" = pre-conversation source choice; "conversation" = post-pick
-   * guided-setup transcript. Defaults to "conversation" so the standalone
-   * preview shows the live-building state (cards already on the canvas).
+   * "picker"       = pre-conversation source choice ("How do you want to start?").
+   * "trade-picker" = the per-trade TEMPLATE sub-flow: pick your trade → preview →
+   *                  use this starter (spec §8 template lane, §9 TYPES).
+   * "conversation" = post-pick guided-setup transcript.
+   * Defaults to "conversation" so the standalone preview shows the live-building
+   * state (cards already on the canvas).
    */
-  mode?: "picker" | "conversation";
+  mode?: "picker" | "trade-picker" | "conversation";
   /** Choose a source (picker mode). Optional in this presentational phase. */
   onPickSource?: (source: SetupSource) => void;
+  /**
+   * Confirm a trade in the TEMPLATE sub-flow (trade-picker mode) → the caller
+   * stages that trade's starter cards onto the canvas (spec §8/§9). Optional so
+   * the standalone preview can render the picker without a live handler.
+   */
+  onPickTrade?: (trade: WizardTradeId) => void;
   /**
    * Restrict the picker to the lanes that are wired end-to-end. Omitted → all
    * sources show (the standalone preview). The /catalog/setup mount passes only
@@ -97,6 +116,7 @@ export interface DriverPaneProps {
 export function DriverPane({
   mode = "conversation",
   onPickSource,
+  onPickTrade,
   availableSources,
   onSwitchToGuided,
   onSend,
@@ -162,6 +182,14 @@ export function DriverPane({
                 onPickSource={onPickSource}
                 availableSources={availableSources}
               />
+            ) : mode === "trade-picker" ? (
+              <TradePicker
+                key="trade-picker"
+                t={t}
+                reduced={!!reduced}
+                onPickTrade={onPickTrade}
+                onBack={onSwitchToGuided}
+              />
             ) : (
               <Conversation
                 key="conversation"
@@ -174,7 +202,10 @@ export function DriverPane({
           </AnimatePresence>
         </div>
 
-        {/* Footer — disabled message input + offline/guided-setup escape. */}
+        {/* Footer — disabled message input + offline/guided-setup escape. Hidden
+            in the trade-picker sub-flow, which carries its own back + confirm
+            (the agent input is irrelevant while picking a trade). */}
+        {mode !== "trade-picker" ? (
         <footer className="mt-6 flex flex-col gap-3">
           {/* Message input. LIVE when a send handler is wired (agent mode); the
               send glyph stays text-2 (NOT accent). Disabled when no agent backs
@@ -225,6 +256,7 @@ export function DriverPane({
             {t("driver.offline", "[ offline? switch to guided setup ]")}
           </button>
         </footer>
+        ) : null}
       </Surface>
     </motion.aside>
   );
@@ -336,6 +368,126 @@ function SourcePicker({
           </li>
         ))}
       </ul>
+    </motion.div>
+  );
+}
+
+// ── trade picker (TEMPLATE lane) ─────────────────────────────────────────────
+//
+// The offline / declined / "I'll do it myself" FLOOR (spec §8): the owner picks
+// the ONE trade their business does (either/or → single-select, one confirm —
+// the design-judgment rule), previews what they'll get, then stages the trade's
+// starter cards onto the canvas. A starting point, not a finished catalog — the
+// reassurance copy says so, and every card lands "proposed" to trim.
+//
+// MOTION: the grid mirrors the source picker's TRANSITION entry/exit; selecting
+// a trade is a DISCOVERY beat (instant olive selection, no accent — accent is
+// the one BUILD IT CTA), and the preview + confirm reveal on first selection.
+// EASE_SMOOTH throughout, reduced-motion → opacity only.
+
+function TradePicker({
+  t,
+  reduced,
+  onPickTrade,
+  onBack,
+}: {
+  t: Tt;
+  reduced: boolean;
+  onPickTrade?: (trade: WizardTradeId) => void;
+  onBack?: () => void;
+}) {
+  const [selected, setSelected] = useState<WizardTradeId | null>(null);
+  const preview = selected ? previewTradeTemplate(selected) : null;
+
+  return (
+    <motion.div
+      data-testid="driver-trade-picker"
+      initial={reduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
+      transition={{ duration: 0.2, ease: EASE_SMOOTH }}
+      className="flex flex-col gap-3"
+    >
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="font-mohave text-body text-text">
+            {t("driver.trade.title", "Pick your trade")}
+          </h3>
+          {/* Back to the source picker. Bracket micro-text, text-3 → text-2. */}
+          <button
+            type="button"
+            data-testid="driver-trade-back"
+            onClick={onBack}
+            className="shrink-0 font-mono text-micro tracking-wide text-text-3 transition-colors duration-150 hover:text-text-2"
+          >
+            {t("driver.trade.back", "[ back ]")}
+          </button>
+        </div>
+        <span className="font-mono text-micro tracking-wide text-text-3">
+          {t("driver.trade.hint", "[a starting point — trim what doesn't fit]")}
+        </span>
+      </div>
+
+      {/* Two-column grid — single-select. Selected = olive (positive), never
+          accent. Cake Mono Light UPPERCASE label per the trade-label tier. */}
+      <ul className="grid grid-cols-2 gap-2" role="list">
+        {WIZARD_TRADES.map((trade) => {
+          const isSelected = selected === trade.id;
+          return (
+            <li key={trade.id}>
+              <button
+                type="button"
+                data-testid={`driver-trade-${trade.id}`}
+                aria-pressed={isSelected}
+                onClick={() => setSelected(trade.id)}
+                className={cn(
+                  "flex w-full items-center rounded-chip border px-3 py-2 text-left font-cakemono text-[12px] font-light uppercase tracking-wide transition-colors duration-150",
+                  isSelected
+                    ? "border-olive-line bg-olive-soft text-olive"
+                    : "border-glass-border bg-[rgba(255,255,255,0.02)] text-text-2 hover:border-[rgba(255,255,255,0.18)] hover:bg-surface-hover hover:text-text",
+                )}
+              >
+                <span className="truncate">{trade.label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Preview + confirm — revealed once a trade is selected. The count is the
+          honest "this is what you'll get"; the confirm is SECONDARY (neutral
+          outline), never the accent — that belongs to BUILD IT alone. */}
+      <AnimatePresence initial={false}>
+        {selected && preview ? (
+          <motion.div
+            key="trade-confirm"
+            data-testid="driver-trade-confirm-row"
+            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
+            transition={{ duration: 0.18, ease: EASE_SMOOTH }}
+            className="mt-1 flex items-center justify-between gap-3 border-t border-glass-border pt-3"
+          >
+            <span
+              data-testid="driver-trade-preview"
+              className="font-mono text-micro tracking-wide text-text-2"
+              style={MONO_NUM}
+            >
+              {t("driver.trade.preview", "{types} task types · {sell} starter lines")
+                .replace("{types}", String(preview.taskTypes))
+                .replace("{sell}", String(preview.sell))}
+            </span>
+            <button
+              type="button"
+              data-testid="driver-trade-confirm"
+              onClick={onPickTrade ? () => onPickTrade(selected) : undefined}
+              className="shrink-0 rounded-[5px] border border-glass-border px-4 py-2 font-cakemono text-[12px] font-light uppercase tracking-wide text-text-2 transition-colors duration-150 hover:border-[rgba(255,255,255,0.18)] hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            >
+              {t("driver.trade.confirm", "USE THIS STARTER")}
+            </button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </motion.div>
   );
 }
