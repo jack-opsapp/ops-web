@@ -23,6 +23,17 @@ import {
 /** Canvas module → analytics step index (stable order for the funnel). */
 const STEP_INDEX: Record<string, number> = { sell: 0, stock: 1, types: 2, review: 3 };
 
+/**
+ * Steps skipped = buildable modules the operator never completed. `totalSteps`
+ * (buildStepPlan length) always includes the trailing REVIEW commit gate, which
+ * is never a completable module (trackStepCompleted only ever fires sell/stock/
+ * types), so the buildable denominator is totalSteps - 1. Without this, a 100%
+ * run always reports +1 skipped (the un-completable REVIEW), corrupting the funnel.
+ */
+function skippedCount(totalSteps: number, stepsFiredCount: number): number {
+  return Math.max(0, totalSteps - 1 - stepsFiredCount);
+}
+
 export interface CatalogSetupAnalyticsParams {
   sessionId: string;
   /** Number of visible modules the operator could complete (gates-aware). */
@@ -120,7 +131,7 @@ export function useCatalogSetupAnalytics(
     const p = ctxRef.current.params;
     fire("completed", {
       durationMs: Date.now() - startedAtRef.current,
-      stepsSkipped: Math.max(0, p.totalSteps - stepsFired.current.size),
+      stepsSkipped: skippedCount(p.totalSteps, stepsFired.current.size),
       isRestart: p.isRestart,
     });
   }, [fire]);
@@ -133,9 +144,9 @@ export function useCatalogSetupAnalytics(
         terminalRef.current = true;
         fire("abandoned", {
           durationMs: Date.now() - startedAtRef.current,
-          stepsSkipped: Math.max(
-            0,
-            ctxRef.current.params.totalSteps - stepsFired.current.size,
+          stepsSkipped: skippedCount(
+            ctxRef.current.params.totalSteps,
+            stepsFired.current.size,
           ),
         });
       }
