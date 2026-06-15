@@ -86,4 +86,19 @@ describe("GatePanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /back to catalog/i }));
     expect(onExit).toHaveBeenCalledTimes(1);
   });
+
+  // Accessibility — the panel REPLACES the wizard, so it is the page's primary
+  // content when shown (the wizard's own h1 never mounts in this state).
+  it("titles the panel as the page's primary heading (h1)", () => {
+    render(<GatePanel reason="catalog_surface_absent" />);
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toHaveTextContent(/catalog offline/i);
+  });
+
+  it("is a labelled region that receives focus on mount (keyboard/SR land on it)", () => {
+    render(<GatePanel reason="session_locked" />);
+    const region = screen.getByRole("region", { name: /already in setup/i });
+    expect(region).toBeInTheDocument();
+    expect(region).toHaveFocus();
+  });
 });

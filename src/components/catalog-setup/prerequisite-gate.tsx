@@ -28,7 +28,7 @@
  *     the panel reads correctly before the namespace hydrates.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Building2,
@@ -110,6 +110,18 @@ export function GatePanel({ reason, onReload, onExit, className }: GatePanelProp
   const showReload = RETRYABLE.has(reason) && !!onReload;
   const showExit = !!onExit;
 
+  // The panel REPLACES the wizard (gate and shell never coexist), so it is the
+  // page's primary content when shown. Move focus to it on mount so keyboard /
+  // screen-reader users land on the new content and can reach RELOAD/exit — the
+  // same focus-management pattern the onboarding setup screen uses. The labelled
+  // region (title + body) is then announced on focus.
+  const titleId = useId();
+  const bodyId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    panelRef.current?.focus();
+  }, []);
+
   return (
     <div
       className={cn(
@@ -118,13 +130,17 @@ export function GatePanel({ reason, onReload, onExit, className }: GatePanelProp
       )}
     >
       <motion.div
-        role="status"
+        ref={panelRef}
+        role="region"
+        tabIndex={-1}
+        aria-labelledby={titleId}
+        aria-describedby={bodyId}
         data-testid="catalog-setup-gate"
         data-reason={reason}
         initial={reduced ? { opacity: 0 } : { opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: reduced ? 0.15 : 0.25, ease: EASE_SMOOTH }}
-        className="glass-surface w-full max-w-[520px] px-[28px] py-[26px]"
+        className="glass-surface w-full max-w-[520px] px-[28px] py-[26px] outline-none"
       >
         <div className="mb-[18px] flex items-center gap-[10px]">
           <span className="flex h-[36px] w-[36px] items-center justify-center rounded-md border border-line">
@@ -135,10 +151,16 @@ export function GatePanel({ reason, onReload, onExit, className }: GatePanelProp
           </span>
         </div>
 
-        <h2 className="font-cakemono text-[20px] font-light uppercase leading-tight tracking-[0.02em] text-text">
+        <h1
+          id={titleId}
+          className="font-cakemono text-[20px] font-light uppercase leading-tight tracking-[0.02em] text-text"
+        >
           {t(`gate.${reason}.title`, fb.title)}
-        </h2>
-        <p className="mt-[10px] max-w-[44ch] font-mohave text-[14px] leading-relaxed text-text-2">
+        </h1>
+        <p
+          id={bodyId}
+          className="mt-[10px] max-w-[44ch] font-mohave text-[14px] leading-relaxed text-text-2"
+        >
           {t(`gate.${reason}.body`, fb.body)}
         </p>
 
