@@ -21,9 +21,9 @@ interface DayTimeOffCardProps {
 // ── Status color map ───────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<TimeOffStatus, string> = {
-  pending: "#999999",
-  approved: "#A5B368",
-  denied: "#93321A",
+  pending: "var(--text-3)",
+  approved: "var(--olive)",
+  denied: "var(--brick)",
 };
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export function DayTimeOffCard({
       style={{
         minHeight: 52,
         borderRadius: 2,
-        background: "rgba(196, 168, 104, 0.12)",
+        background: "var(--tan-soft)",
         border: `1px solid rgba(196, 168, 104, ${isHovered ? 0.5 : 0.35})`,
         padding: "14px 16px",
         transition: "border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -92,7 +92,7 @@ export function DayTimeOffCard({
 
         {/* Status badge */}
         <div
-          className="shrink-0 flex items-center px-[6px] py-[2px] font-mono text-micro uppercase tracking-wider leading-tight ml-[8px]"
+          className="shrink-0 flex items-center px-[6px] py-[2px] font-mono text-micro uppercase tracking-[0.16em] leading-tight ml-[8px]"
           style={{
             color: statusColor,
             borderRadius: 2,
@@ -119,7 +119,7 @@ export function DayTimeOffCard({
         <div className="mt-[4px]">
           <span
             className="font-mono text-[11px] leading-tight"
-            style={{ color: "#999999" }}
+            style={{ color: "var(--text-3)" }}
           >
             {reason}
           </span>

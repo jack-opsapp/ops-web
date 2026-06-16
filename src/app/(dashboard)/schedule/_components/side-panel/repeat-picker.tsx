@@ -306,7 +306,7 @@ export function RepeatPicker({
               type="button"
               disabled={disabled}
               onClick={() => handlePresetChange(opt.value)}
-              className="text-left px-[10px] py-[6px] font-mono text-micro uppercase tracking-wider transition-colors"
+              className="text-left px-[10px] py-[6px] font-mono text-micro uppercase tracking-[0.16em] transition-colors"
               style={{
                 color: isActive ? "var(--text)" : "var(--text-3)",
                 background: isActive
@@ -336,7 +336,7 @@ export function RepeatPicker({
           {/* Frequency + Interval */}
           <div className="flex items-center gap-[6px]">
             <span
-              className="font-mono text-micro uppercase tracking-wider"
+              className="font-mono text-micro uppercase tracking-[0.16em]"
               style={{ color: "var(--text-3)" }}
             >
               EVERY
@@ -353,7 +353,7 @@ export function RepeatPicker({
               }
               className="w-[56px] px-[6px] py-[3px] rounded-[5px] font-mono text-[13px] outline-none tabular-nums"
               style={{
-                backgroundColor: "rgba(255,255,255,0.04)",
+                backgroundColor: "var(--surface-input)",
                 border: "1px solid var(--line)",
                 color: "var(--text)",
                 colorScheme: "dark",
@@ -367,9 +367,9 @@ export function RepeatPicker({
                   freq: Number(e.target.value) as Frequency,
                 }))
               }
-              className="flex-1 px-[6px] py-[3px] rounded-[5px] font-mono text-micro uppercase tracking-wider outline-none"
+              className="flex-1 px-[6px] py-[3px] rounded-[5px] font-mono text-micro uppercase tracking-[0.16em] outline-none"
               style={{
-                backgroundColor: "rgba(255,255,255,0.04)",
+                backgroundColor: "var(--surface-input)",
                 border: "1px solid var(--line)",
                 color: "var(--text)",
                 colorScheme: "dark",
@@ -386,7 +386,7 @@ export function RepeatPicker({
           {custom.freq === Frequency.WEEKLY && (
             <div className="flex flex-col gap-[4px]">
               <span
-                className="font-mono text-micro uppercase tracking-wider"
+                className="font-mono text-micro uppercase tracking-[0.16em]"
                 style={{ color: "var(--text-3)" }}
               >
                 ON
@@ -399,7 +399,7 @@ export function RepeatPicker({
                       key={d.code}
                       type="button"
                       onClick={() => toggleWeekday(d.code)}
-                      className="px-[8px] py-[3px] rounded-[4px] font-mono text-micro uppercase tracking-wider transition-colors"
+                      className="px-[8px] py-[3px] rounded-[4px] font-mono text-micro uppercase tracking-[0.16em] transition-colors"
                       style={{
                         color: active ? "var(--text)" : "var(--text-3)",
                         background: active
@@ -422,7 +422,7 @@ export function RepeatPicker({
           {custom.freq === Frequency.MONTHLY && (
             <div className="flex items-center gap-[6px]">
               <span
-                className="font-mono text-micro uppercase tracking-wider"
+                className="font-mono text-micro uppercase tracking-[0.16em]"
                 style={{ color: "var(--text-3)" }}
               >
                 ON DAY
@@ -443,7 +443,7 @@ export function RepeatPicker({
                 }
                 className="w-[64px] px-[6px] py-[3px] rounded-[5px] font-mono text-[13px] outline-none tabular-nums"
                 style={{
-                  backgroundColor: "rgba(255,255,255,0.04)",
+                  backgroundColor: "var(--surface-input)",
                   border: "1px solid var(--line)",
                   color: "var(--text)",
                   colorScheme: "dark",
@@ -455,7 +455,7 @@ export function RepeatPicker({
           {/* End condition */}
           <div className="flex flex-col gap-[4px]">
             <span
-              className="font-mono text-micro uppercase tracking-wider"
+              className="font-mono text-micro uppercase tracking-[0.16em]"
               style={{ color: "var(--text-3)" }}
             >
               ENDS
@@ -470,7 +470,7 @@ export function RepeatPicker({
                     onClick={() =>
                       setCustom((s) => ({ ...s, endMode: mode }))
                     }
-                    className="px-[8px] py-[3px] rounded-[4px] font-mono text-micro uppercase tracking-wider transition-colors"
+                    className="px-[8px] py-[3px] rounded-[4px] font-mono text-micro uppercase tracking-[0.16em] transition-colors"
                     style={{
                       color: active ? "var(--text)" : "var(--text-3)",
                       background: active
@@ -499,7 +499,7 @@ export function RepeatPicker({
                 }
                 className="px-[6px] py-[3px] rounded-[5px] font-mono text-[13px] outline-none"
                 style={{
-                  backgroundColor: "rgba(255,255,255,0.04)",
+                  backgroundColor: "var(--surface-input)",
                   border: "1px solid var(--line)",
                   color: "var(--text)",
                   colorScheme: "dark",
@@ -520,14 +520,14 @@ export function RepeatPicker({
                   }
                   className="w-[64px] px-[6px] py-[3px] rounded-[5px] font-mono text-[13px] outline-none tabular-nums"
                   style={{
-                    backgroundColor: "rgba(255,255,255,0.04)",
+                    backgroundColor: "var(--surface-input)",
                     border: "1px solid var(--line)",
                     color: "var(--text)",
                     colorScheme: "dark",
                   }}
                 />
                 <span
-                  className="font-mono text-micro uppercase tracking-wider"
+                  className="font-mono text-micro uppercase tracking-[0.16em]"
                   style={{ color: "var(--text-3)" }}
                 >
                   OCCURRENCES
@@ -541,7 +541,7 @@ export function RepeatPicker({
             type="button"
             onClick={handleApplyCustom}
             disabled={disabled}
-            className="w-full px-[10px] py-[6px] rounded-[5px] font-cakemono font-light uppercase tracking-wider transition-colors"
+            className="w-full px-[10px] py-[6px] rounded-[5px] font-cakemono font-light uppercase tracking-[0.16em] transition-colors"
             style={{
               fontSize: 12,
               color: "var(--ops-accent)",

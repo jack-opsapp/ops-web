@@ -15,7 +15,7 @@ import { EventHoverPopover } from "../event-hover-popover";
 // Spec: every calendar badge renders on a frosted-glass tint with a hairline
 // of the status hue, so the day cell's grid never bleeds through. See the
 // canonical comment in `month-event-bar.tsx`.
-const BADGE_BG = "rgba(255, 255, 255, 0.04)";
+const BADGE_BG = "var(--surface-input)";
 const BADGE_BORDER_ALPHA = 0.3;
 function hairlineBorder(border: string): string {
   const rgbMatch = border.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
@@ -42,8 +42,8 @@ const PERSONAL_BG = "rgba(255, 255, 255, 0.10)";
 const PERSONAL_BORDER = "rgba(255, 255, 255, 0.20)";
 const PERSONAL_TEXT = "#FFFFFF";
 const TIMEOFF_BG = "rgba(196, 168, 104, 0.06)";
-const TIMEOFF_BORDER = "rgba(196, 168, 104, 0.30)";
-const TIMEOFF_TEXT = "#C4A868";
+const TIMEOFF_BORDER = "var(--tan-line)";
+const TIMEOFF_TEXT = "var(--tan)";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -292,21 +292,21 @@ export function DayTaskCard({
         // status.task-completed (spec v2 token) — distinct from
         // generic --olive so completed reads as its own status.
         // Bug 06e00bb2.
-        bg: "#95B07A",
+        bg: "var(--status-task-completed)",
         text: "#000",
       };
     }
     if (event.statusKey === "cancelled") {
       return {
         label: "CANCELLED",
-        bg: "#6A6A6A", // text-mute solid (iOS inactiveStatus)
+        bg: "var(--text-mute)", // text-mute solid (iOS inactiveStatus)
         text: "#000",
       };
     }
     // Time-off: surface approval state in the same slot.
     if (event.kind === "time_off") {
       if (event.statusKey === "in_progress") {
-        return { label: "PENDING", bg: "#C4A868", text: "#000" };
+        return { label: "PENDING", bg: "var(--tan)", text: "#000" };
       }
     }
     return null;
@@ -447,7 +447,7 @@ export function DayTaskCard({
           {/* Line 3 — short address (street, municipality) */}
           {!isUserEvent && formattedAddress && (
             <span
-              className="font-mono text-[11px] uppercase tracking-wider truncate leading-tight mt-[2px]"
+              className="font-mono text-[11px] uppercase tracking-[0.16em] truncate leading-tight mt-[2px]"
               style={{
                 color: "rgba(237, 237, 237, 0.45)",
                 letterSpacing: "0.06em",
@@ -501,7 +501,7 @@ export function DayTaskCard({
                 </div>
               ) : (
                 <span
-                  className="font-mono text-[10px] uppercase tracking-wider"
+                  className="font-mono text-[11px] uppercase tracking-[0.16em]"
                   style={{
                     color: "var(--text-mute)",
                     letterSpacing: "0.06em",

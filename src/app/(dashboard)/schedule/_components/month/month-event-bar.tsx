@@ -19,12 +19,12 @@ const PERSONAL_BORDER = "rgba(255, 255, 255, 0.20)";
 const PERSONAL_TEXT = "#FFFFFF";
 
 // Time-off events also can't ride task-type colors (they're not tasks). The
-// canonical PTO/vacation signal is `--tan` (#C4A868) hairline + TreePalm
+// canonical PTO/vacation signal is `--tan` (var(--tan)) hairline + TreePalm
 // glyph — keeps them recognizable at a glance and distinct from personal
 // events (Star + white). (Bug 0342efaf.)
 const TIMEOFF_BG = "rgba(196, 168, 104, 0.06)";
-const TIMEOFF_BORDER = "rgba(196, 168, 104, 0.30)";
-const TIMEOFF_TEXT = "#C4A868";
+const TIMEOFF_BORDER = "var(--tan-line)";
+const TIMEOFF_TEXT = "var(--tan)";
 
 // ─── Calendar badge surface ─────────────────────────────────────────────────
 //
@@ -32,13 +32,13 @@ const TIMEOFF_TEXT = "#C4A868";
 // frosted-glass tint with a hairline of the status hue, so the day cell's
 // own grid + weekend tint never bleeds through the badge fill.
 //
-//   background: dense-glass alpha (rgba(255,255,255,0.04))
+//   background: dense-glass alpha (var(--surface-input))
 //   border:     status hue at alpha 0.30 (hairline)
 //   text:       status-tone color (typeColors.text)
 //
 // The full-strength type stripe still renders on the leading edge as the
 // primary type signal — this rule changes the BAR FILL only.
-const BADGE_BG = "rgba(255, 255, 255, 0.04)";
+const BADGE_BG = "var(--surface-input)";
 const BADGE_BORDER_ALPHA = 0.3;
 
 /**

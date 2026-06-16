@@ -105,7 +105,7 @@ function DarkSelect({
                 onChange(opt.value);
                 setIsOpen(false);
               }}
-              className="w-full text-left px-[10px] py-[6px] text-[12px] font-mono text-[#999999] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+              className="w-full text-left px-[10px] py-[6px] text-[12px] font-mono text-[var(--text-3)] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-colors"
               style={opt.value === value ? { color: "#FFFFFF" } : undefined}
             >
               {opt.label}
@@ -121,7 +121,7 @@ function DarkSelect({
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <span className="font-mono text-micro uppercase tracking-[0.08em] text-[#999999] block mb-[6px]">
+    <span className="font-mono text-micro uppercase tracking-[0.08em] text-[var(--text-3)] block mb-[6px]">
       {children}
     </span>
   );
@@ -147,13 +147,13 @@ function TeamPill({
         border: "1px solid rgba(255,255,255,0.10)",
       }}
     >
-      <span className="font-mono text-micro uppercase text-[#999999]">
+      <span className="font-mono text-micro uppercase text-[var(--text-3)]">
         {initials}
       </span>
       <span className="font-mono text-micro uppercase">{name}</span>
       <button
         onClick={onRemove}
-        className="ml-[2px] text-[#999999] hover:text-white transition-colors"
+        className="ml-[2px] text-[var(--text-3)] hover:text-white transition-colors"
         aria-label={`Remove ${name}`}
       >
         <X className="w-[10px] h-[10px]" />
@@ -793,7 +793,7 @@ export function TaskDetailPanel() {
                     setTitleValue(displayTitle);
                     setEditingTitle(true);
                   }}
-                  className="flex-1 text-left font-mohave font-semibold text-[16px] text-white hover:text-[#999999] transition-colors truncate"
+                  className="flex-1 text-left font-mohave font-semibold text-[16px] text-white hover:text-[var(--text-3)] transition-colors truncate"
                 >
                   {displayTitle}
                 </button>
@@ -854,14 +854,14 @@ export function TaskDetailPanel() {
                 />
               ))}
               {teamMembers.length === 0 && !showTeamAdd && (
-                <span className="font-mono text-micro uppercase text-[#999999]">
+                <span className="font-mono text-micro uppercase text-[var(--text-3)]">
                   No team assigned
                 </span>
               )}
               <div className="relative">
                 <button
                   onClick={() => setShowTeamAdd(!showTeamAdd)}
-                  className="inline-flex items-center gap-[2px] px-[8px] py-[3px] rounded-full text-micro font-mono uppercase text-[#999999] hover:text-white transition-colors"
+                  className="inline-flex items-center gap-[2px] px-[8px] py-[3px] rounded-full text-micro font-mono uppercase text-[var(--text-3)] hover:text-white transition-colors"
                   style={{
                     border: "1px solid rgba(255,255,255,0.10)",
                   }}
@@ -882,7 +882,7 @@ export function TaskDetailPanel() {
                       <button
                         key={m.id}
                         onClick={() => handleAddTeamMember(m.id)}
-                        className="w-full text-left px-[10px] py-[6px] text-[11px] font-mono uppercase text-[#999999] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                        className="w-full text-left px-[10px] py-[6px] text-[11px] font-mono uppercase text-[var(--text-3)] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-colors"
                       >
                         {m.firstName} {m.lastName}
                       </button>
@@ -917,7 +917,7 @@ export function TaskDetailPanel() {
                     colorScheme: "dark",
                   }}
                 />
-                <ArrowRight className="w-[12px] h-[12px] text-[#999999] shrink-0" />
+                <ArrowRight className="w-[12px] h-[12px] text-[var(--text-3)] shrink-0" />
                 <input
                   type="datetime-local"
                   value={
@@ -946,7 +946,7 @@ export function TaskDetailPanel() {
                     type="button"
                     onClick={() => handleAllDayToggle(true)}
                     aria-pressed={!!task?.allDay}
-                    className="px-[10px] py-[3px] font-mono text-micro uppercase tracking-wider transition-colors"
+                    className="px-[10px] py-[3px] font-mono text-micro uppercase tracking-[0.16em] transition-colors"
                     style={{
                       color: task?.allDay ? "var(--text)" : "var(--text-3)",
                       background: task?.allDay
@@ -964,7 +964,7 @@ export function TaskDetailPanel() {
                     type="button"
                     onClick={() => handleAllDayToggle(false)}
                     aria-pressed={!task?.allDay}
-                    className="px-[10px] py-[3px] font-mono text-micro uppercase tracking-wider transition-colors"
+                    className="px-[10px] py-[3px] font-mono text-micro uppercase tracking-[0.16em] transition-colors"
                     style={{
                       color: !task?.allDay ? "var(--text)" : "var(--text-3)",
                       background: !task?.allDay
@@ -986,7 +986,7 @@ export function TaskDetailPanel() {
               <div className="flex items-center gap-[8px]">
                 <div className="flex-1 flex flex-col gap-[2px]">
                   <span
-                    className="font-mono text-[10px] uppercase tracking-[0.08em]"
+                    className="font-mono text-[11px] uppercase tracking-[0.08em]"
                     style={{
                       color: task?.allDay ? "var(--text-mute)" : "var(--text-3)",
                     }}
@@ -1005,7 +1005,7 @@ export function TaskDetailPanel() {
                     onChange={(e) => handleStartTimeChange(e.target.value)}
                     className="w-full px-[8px] py-[4px] rounded-[5px] text-[13px] font-mono outline-none tabular-nums"
                     style={{
-                      backgroundColor: "rgba(255,255,255,0.04)",
+                      backgroundColor: "var(--surface-input)",
                       border: "1px solid var(--line)",
                       colorScheme: "dark",
                       color: task?.allDay
@@ -1024,7 +1024,7 @@ export function TaskDetailPanel() {
                 />
                 <div className="flex-1 flex flex-col gap-[2px]">
                   <span
-                    className="font-mono text-[10px] uppercase tracking-[0.08em]"
+                    className="font-mono text-[11px] uppercase tracking-[0.08em]"
                     style={{
                       color: task?.allDay ? "var(--text-mute)" : "var(--text-3)",
                     }}
@@ -1043,7 +1043,7 @@ export function TaskDetailPanel() {
                     onChange={(e) => handleEndTimeChange(e.target.value)}
                     className="w-full px-[8px] py-[4px] rounded-[5px] text-[13px] font-mono outline-none tabular-nums"
                     style={{
-                      backgroundColor: "rgba(255,255,255,0.04)",
+                      backgroundColor: "var(--surface-input)",
                       border: "1px solid var(--line)",
                       colorScheme: "dark",
                       color: task?.allDay
@@ -1057,7 +1057,7 @@ export function TaskDetailPanel() {
               </div>
 
               {durationLabel && (
-                <span className="font-mono text-micro uppercase text-[#999999]">
+                <span className="font-mono text-micro uppercase text-[var(--text-3)]">
                   Duration: {durationLabel}
                 </span>
               )}
@@ -1081,13 +1081,13 @@ export function TaskDetailPanel() {
                 }
               />
             ) : (
-              <span className="font-mono text-micro uppercase text-[#999999]">
+              <span className="font-mono text-micro uppercase text-[var(--text-3)]">
                 Set a start date to enable repeat
               </span>
             )}
             {task?.recurrenceId && task.recurrenceOriginDate && (
               <span
-                className="block mt-[6px] font-mono text-micro uppercase tracking-wider"
+                className="block mt-[6px] font-mono text-micro uppercase tracking-[0.16em]"
                 style={{ color: "var(--text-mute)" }}
               >
                 {`// PART OF SERIES — ORIGIN ${task.recurrenceOriginDate}`}
@@ -1103,7 +1103,7 @@ export function TaskDetailPanel() {
             <SectionLabel>DEPENDENCIES</SectionLabel>
             {dependencies.predecessors.length === 0 &&
             dependencies.successors.length === 0 ? (
-              <span className="font-mono text-micro uppercase text-[#999999]">
+              <span className="font-mono text-micro uppercase text-[var(--text-3)]">
                 None
               </span>
             ) : (
@@ -1113,14 +1113,14 @@ export function TaskDetailPanel() {
                     key={dep.typeId}
                     className="flex items-center gap-[6px] text-[11px]"
                   >
-                    <ArrowLeft className="w-[10px] h-[10px] text-[#999999]" />
+                    <ArrowLeft className="w-[10px] h-[10px] text-[var(--text-3)]" />
                     <span className="font-mono uppercase text-white">
                       {dep.typeName}
                     </span>
                     {dep.isCompleted ? (
-                      <Check className="w-[10px] h-[10px] text-[#9DB582]" />
+                      <Check className="w-[10px] h-[10px] text-[var(--olive)]" />
                     ) : (
-                      <ArrowRight className="w-[10px] h-[10px] text-[#C4A868]" />
+                      <ArrowRight className="w-[10px] h-[10px] text-[var(--tan)]" />
                     )}
                   </div>
                 ))}
@@ -1129,7 +1129,7 @@ export function TaskDetailPanel() {
                     key={dep.typeId}
                     className="flex items-center gap-[6px] text-[11px]"
                   >
-                    <ArrowRight className="w-[10px] h-[10px] text-[#999999]" />
+                    <ArrowRight className="w-[10px] h-[10px] text-[var(--text-3)]" />
                     <span className="font-mono uppercase text-white">
                       {dep.typeName}
                     </span>
@@ -1171,7 +1171,7 @@ export function TaskDetailPanel() {
               onBlur={handleNotesBlur}
               rows={3}
               placeholder="Add notes..."
-              className="w-full px-[8px] py-[6px] rounded-panel text-[12px] text-white placeholder-[#666666] outline-none resize-none"
+              className="w-full px-[8px] py-[6px] rounded-panel text-[12px] text-white placeholder-[var(--text-mute)] outline-none resize-none"
               style={{
                 backgroundColor: "#141414",
                 border: "1px solid rgba(255,255,255,0.10)",
@@ -1241,7 +1241,7 @@ export function TaskDetailPanel() {
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-[10px] py-[4px] rounded-panel font-mono text-micro uppercase text-[#999999] hover:text-white transition-colors"
+                className="px-[10px] py-[4px] rounded-panel font-mono text-micro uppercase text-[var(--text-3)] hover:text-white transition-colors"
                 style={{ border: "1px solid rgba(255,255,255,0.10)" }}
               >
                 Cancel

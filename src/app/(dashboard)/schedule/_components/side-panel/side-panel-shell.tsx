@@ -74,7 +74,7 @@ export function SidePanelShell({
             </h2>
             <button
               onClick={onClose}
-              className="p-[4px] rounded-sm text-[#999999] hover:text-white transition-colors"
+              className="p-[4px] rounded-sm text-[var(--text-3)] hover:text-white transition-colors"
               style={{ marginRight: "-4px" }}
               aria-label="Close panel"
             >

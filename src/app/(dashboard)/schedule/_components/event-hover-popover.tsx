@@ -155,10 +155,10 @@ function PopoverBody({ event }: { event: InternalScheduleEvent }) {
         </div>
         {(event.statusKey === "completed" || event.statusKey === "cancelled") && (
           <div
-            className="px-[6px] py-[2px] font-mono uppercase tracking-wider"
+            className="px-[6px] py-[2px] font-mono uppercase tracking-[0.16em]"
             style={{
               color: "#000",
-              // Completed → status.task-completed (#95B07A — distinct
+              // Completed → status.task-completed (var(--status-task-completed) — distinct
               // status hue, not the generic --olive earth tone),
               // cancelled → text-mute (decorative neutral). Both pulled
               // from CSS custom properties so any future token shift
@@ -189,7 +189,7 @@ function PopoverBody({ event }: { event: InternalScheduleEvent }) {
       {event.clientName && (
         <div className="mb-[6px]">
           <div
-            className="font-mono uppercase tracking-wider mb-[2px]"
+            className="font-mono uppercase tracking-[0.16em] mb-[2px]"
             style={{ color: "var(--text-mute)", fontSize: 10 }}
           >
             {"// CLIENT"}
@@ -219,7 +219,7 @@ function PopoverBody({ event }: { event: InternalScheduleEvent }) {
 
       {/* Date range */}
       <div
-        className="font-mono uppercase tracking-wider tabular-nums"
+        className="font-mono uppercase tracking-[0.16em] tabular-nums"
         style={{
           color: "var(--text-3)",
           fontSize: 11,
@@ -233,7 +233,7 @@ function PopoverBody({ event }: { event: InternalScheduleEvent }) {
       {crewNames.length > 0 && (
         <div className="mt-[10px]">
           <div
-            className="font-mono uppercase tracking-wider mb-[4px]"
+            className="font-mono uppercase tracking-[0.16em] mb-[4px]"
             style={{ color: "var(--text-mute)", fontSize: 10 }}
           >
             {"// CREW"}
@@ -255,7 +255,7 @@ function PopoverBody({ event }: { event: InternalScheduleEvent }) {
       {event.address && (
         <div className="mt-[8px]">
           <div
-            className="font-mono uppercase tracking-wider mb-[2px]"
+            className="font-mono uppercase tracking-[0.16em] mb-[2px]"
             style={{ color: "var(--text-mute)", fontSize: 10 }}
           >
             {"// SITE"}
@@ -308,7 +308,7 @@ function ProjectPreviewSection({
           when the project simply hadn't uploaded any photos yet.) */}
       <div className="mt-[10px]">
         <div
-          className="font-mono uppercase tracking-wider mb-[4px]"
+          className="font-mono uppercase tracking-[0.16em] mb-[4px]"
           style={{ color: "var(--text-mute)", fontSize: 10 }}
         >
           {isLoading
@@ -331,7 +331,7 @@ function ProjectPreviewSection({
                   width: 70,
                   height: 70,
                   borderRadius: 4,
-                  background: "rgba(255, 255, 255, 0.04)",
+                  background: "var(--surface-input)",
                   border: "1px solid var(--line)",
                 }}
               />
@@ -359,7 +359,7 @@ function ProjectPreviewSection({
                   borderRadius: 4,
                   overflow: "hidden",
                   border: "1px solid var(--line)",
-                  background: "rgba(255, 255, 255, 0.04)",
+                  background: "var(--surface-input)",
                   display: "block",
                   flexShrink: 0,
                 }}
@@ -384,7 +384,7 @@ function ProjectPreviewSection({
       {/* Notes feed */}
       <div className="mt-[10px]">
         <div
-          className="font-mono uppercase tracking-wider mb-[4px]"
+          className="font-mono uppercase tracking-[0.16em] mb-[4px]"
           style={{ color: "var(--text-mute)", fontSize: 10 }}
         >
           {isLoading ? "// NOTES" : `// NOTES [${notes.length}]`}
@@ -396,7 +396,7 @@ function ProjectPreviewSection({
                 style={{
                   height: 32,
                   borderRadius: 4,
-                  background: "rgba(255, 255, 255, 0.04)",
+                  background: "var(--surface-input)",
                 }}
               />
             ) : notes.length === 0 ? (
@@ -432,7 +432,7 @@ function ProjectPreviewSection({
                       style={{ fontSize: 10 }}
                     >
                       <span
-                        className="font-mono uppercase tracking-wider truncate"
+                        className="font-mono uppercase tracking-[0.16em] truncate"
                         style={{ color: "var(--text-2)" }}
                       >
                         {authorName}

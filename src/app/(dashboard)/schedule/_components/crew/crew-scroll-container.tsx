@@ -207,7 +207,7 @@ export function CrewScrollContainer({
               width: "100%",
               minWidth: "100%",
               scrollSnapAlign: "start",
-              borderLeft: "1px solid rgba(255, 255, 255, 0.04)",
+              borderLeft: "1px solid var(--surface-input)",
             }}
           >
             <CrewGrid

@@ -268,7 +268,7 @@ function TimedBlock({
           {event.projectTitle ?? event.taskTitle}
         </span>
         <span
-          className="font-mono text-[10px] tabular-nums"
+          className="font-mono text-[11px] tabular-nums"
           style={{
             color: "var(--text-3)",
             fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -312,7 +312,7 @@ function AllDayStrip({
       }}
     >
       <span
-        className="font-mono text-micro uppercase tracking-wider mr-[4px] self-center"
+        className="font-mono text-micro uppercase tracking-[0.16em] mr-[4px] self-center"
         style={{ color: "var(--text-mute)" }}
       >
         {"// ALL-DAY"}
@@ -403,7 +403,7 @@ export function DayHourlyGrid({
     return (
       <div className="flex items-center justify-start pt-[48px] px-[16px]">
         <span
-          className="font-mono text-[12px] uppercase tracking-wider"
+          className="font-mono text-[12px] uppercase tracking-[0.16em]"
           style={{ color: "rgba(255, 255, 255, 0.30)" }}
         >
           NO TASKS SCHEDULED
@@ -433,7 +433,7 @@ export function DayHourlyGrid({
               }}
             >
               <span
-                className="font-mono text-[10px] uppercase tabular-nums shrink-0"
+                className="font-mono text-[11px] uppercase tabular-nums shrink-0"
                 style={{
                   color: "var(--text-mute)",
                   width: 56,

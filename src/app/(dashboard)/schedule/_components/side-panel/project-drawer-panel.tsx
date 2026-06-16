@@ -120,7 +120,7 @@ function DrawerTaskCard({
         {/* Grip handle */}
         <GripVertical
           className="w-[14px] h-[14px] shrink-0 mt-[1px]"
-          style={{ color: "#6A6A6A" }}
+          style={{ color: "var(--text-mute)" }}
         />
 
         {/* Color dot */}
@@ -140,16 +140,16 @@ function DrawerTaskCard({
           {dateRange ? (
             <span
               className="font-mono text-micro text-left"
-              style={{ color: "#999999", lineHeight: "1.4" }}
+              style={{ color: "var(--text-3)", lineHeight: "1.4" }}
             >
               {dateRange}
             </span>
           ) : (
             <span
               className="font-mono text-micro flex items-center gap-[3px] text-left"
-              style={{ color: "#999999", lineHeight: "1.4" }}
+              style={{ color: "var(--text-3)", lineHeight: "1.4" }}
             >
-              <Ban className="w-[9px] h-[9px]" style={{ color: "#666666" }} />
+              <Ban className="w-[9px] h-[9px]" style={{ color: "var(--text-mute)" }} />
               Not scheduled
             </span>
           )}
@@ -252,8 +252,8 @@ export function ProjectDrawerPanel() {
 
   // Status badge color
   const statusColor = project
-    ? PROJECT_STATUS_COLORS[project.status] ?? "#999999"
-    : "#999999";
+    ? PROJECT_STATUS_COLORS[project.status] ?? "var(--text-3)"
+    : "var(--text-3)";
 
   return (
     <SidePanelShell
@@ -271,7 +271,7 @@ export function ProjectDrawerPanel() {
           {client?.name && (
             <p
               className="font-mono text-[12px] text-left mb-[4px]"
-              style={{ color: "#999999", lineHeight: "1.4" }}
+              style={{ color: "var(--text-3)", lineHeight: "1.4" }}
             >
               {client.name}
             </p>
@@ -309,7 +309,7 @@ export function ProjectDrawerPanel() {
           <p
             className="font-mono text-micro uppercase text-left mb-[8px] px-[4px]"
             style={{
-              color: "#999999",
+              color: "var(--text-3)",
               letterSpacing: "0.08em",
               lineHeight: "1.4",
             }}
@@ -332,7 +332,7 @@ export function ProjectDrawerPanel() {
               <div className="px-[4px] py-[16px]">
                 <p
                   className="font-mono text-[11px] text-left"
-                  style={{ color: "#666666" }}
+                  style={{ color: "var(--text-mute)" }}
                 >
                   No tasks yet
                 </p>
@@ -350,8 +350,8 @@ export function ProjectDrawerPanel() {
           <button
             className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-panel font-mono text-micro uppercase transition-colors"
             style={{
-              color: "#6F94B0",
-              border: "1px solid #6F94B0",
+              color: "var(--ops-accent)",
+              border: "1px solid var(--ops-accent)",
               backgroundColor: "transparent",
               letterSpacing: "0.06em",
               lineHeight: "1.4",
@@ -385,7 +385,7 @@ export function ProjectDrawerPanel() {
                 }}
                 placeholder="Task name..."
                 autoFocus
-                className="w-full px-[10px] py-[6px] rounded-panel font-mono text-[11px] text-white placeholder:text-[#6A6A6A] focus:outline-none"
+                className="w-full px-[10px] py-[6px] rounded-panel font-mono text-[11px] text-white placeholder:text-[var(--text-mute)] focus:outline-none"
                 style={{
                   backgroundColor: "#141414",
                   border: "1px solid rgba(255,255,255,0.15)",
@@ -410,7 +410,7 @@ export function ProjectDrawerPanel() {
                   }}
                   className="px-[8px] py-[5px] rounded-panel font-mono text-micro uppercase transition-colors"
                   style={{
-                    color: "#999999",
+                    color: "var(--text-3)",
                     border: "1px solid rgba(255,255,255,0.08)",
                   }}
                 >
@@ -423,7 +423,7 @@ export function ProjectDrawerPanel() {
               onClick={() => setIsAddingTask(true)}
               className="w-full flex items-center justify-center gap-[6px] px-[12px] py-[8px] rounded-panel font-mono text-micro uppercase transition-colors"
               style={{
-                color: "#999999",
+                color: "var(--text-3)",
                 border: "1px solid rgba(255,255,255,0.08)",
                 backgroundColor: "transparent",
                 letterSpacing: "0.06em",
@@ -437,7 +437,7 @@ export function ProjectDrawerPanel() {
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.borderColor =
                   "rgba(255,255,255,0.08)";
-                (e.currentTarget as HTMLElement).style.color = "#999999";
+                (e.currentTarget as HTMLElement).style.color = "var(--text-3)";
               }}
             >
               <Plus className="w-[12px] h-[12px]" />

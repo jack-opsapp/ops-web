@@ -201,10 +201,10 @@ export function ScheduleHeader({ t }: ScheduleHeaderProps) {
           onClick={() => {
             console.log("[AutoSchedule] Triggered — hook will be wired in cleanup task");
           }}
-          className="relative flex items-center gap-[5px] px-[10px] py-[6px] rounded-panel font-mono text-micro uppercase tracking-wider transition-colors"
+          className="relative flex items-center gap-[5px] px-[10px] py-[6px] rounded-panel font-mono text-micro uppercase tracking-[0.16em] transition-colors"
           style={{
-            color: "#6F94B0",
-            border: "1px solid rgba(111, 148, 176,0.30)",
+            color: "var(--ops-accent)",
+            border: "1px solid var(--ops-accent-line)",
             backgroundColor: "transparent",
           }}
           onMouseEnter={(e) => {
@@ -226,7 +226,7 @@ export function ScheduleHeader({ t }: ScheduleHeaderProps) {
                 height: 16,
                 padding: "0 4px",
                 backgroundColor: "rgba(111, 148, 176,0.20)",
-                color: "#6F94B0",
+                color: "var(--ops-accent)",
               }}
             >
               {unscheduledCount}

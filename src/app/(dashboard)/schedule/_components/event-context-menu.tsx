@@ -559,7 +559,7 @@ function ContextMenuItem({
       }}
       className={cn(
         "w-full flex items-center gap-[8px] px-2 py-1.5 text-left",
-        "font-mono uppercase tracking-wider"
+        "font-mono uppercase tracking-[0.16em]"
       )}
       style={{
         fontSize: 11,
@@ -629,7 +629,7 @@ const CommentComposer = forwardRef<
       style={{ padding: "4px 4px 6px 4px" }}
     >
       <span
-        className="font-mono uppercase tracking-wider px-1"
+        className="font-mono uppercase tracking-[0.16em] px-1"
         style={{
           color: "var(--text-mute)",
           fontSize: 10,
@@ -649,7 +649,7 @@ const CommentComposer = forwardRef<
         className="w-full font-mohave resize-none"
         style={{
           padding: "8px 10px",
-          background: "rgba(255, 255, 255, 0.04)",
+          background: "var(--surface-input)",
           border: "1px solid rgba(255, 255, 255, 0.10)",
           borderRadius: 5,
           color: "var(--text)",
@@ -682,7 +682,7 @@ const CommentComposer = forwardRef<
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="font-mono uppercase tracking-wider"
+            className="font-mono uppercase tracking-[0.16em]"
             style={{
               padding: "4px 8px",
               background: "transparent",
@@ -708,14 +708,14 @@ const CommentComposer = forwardRef<
             type="button"
             onClick={onSubmit}
             disabled={!canSubmit}
-            className="font-mono uppercase tracking-wider flex items-center gap-[5px]"
+            className="font-mono uppercase tracking-[0.16em] flex items-center gap-[5px]"
             style={{
               padding: "4px 10px",
               background: canSubmit
-                ? "rgba(111, 148, 176, 0.12)"
-                : "rgba(255, 255, 255, 0.04)",
+                ? "var(--ops-accent-soft)"
+                : "var(--surface-input)",
               border: canSubmit
-                ? "1px solid rgba(111, 148, 176, 0.30)"
+                ? "1px solid var(--ops-accent-line)"
                 : "1px solid rgba(255, 255, 255, 0.08)",
               borderRadius: 4,
               color: canSubmit ? "var(--ops-accent)" : "var(--text-mute)",

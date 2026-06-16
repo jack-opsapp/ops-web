@@ -70,9 +70,9 @@ export function DayPersonalEventCard({ event, index }: DayPersonalEventCardProps
 
         {/* PERSONAL badge */}
         <div
-          className="shrink-0 flex items-center px-[6px] py-[2px] font-mono text-micro uppercase tracking-wider leading-tight ml-[8px]"
+          className="shrink-0 flex items-center px-[6px] py-[2px] font-mono text-micro uppercase tracking-[0.16em] leading-tight ml-[8px]"
           style={{
-            color: "#999999",
+            color: "var(--text-3)",
             borderRadius: 2,
             border: "1px dashed rgba(255, 255, 255, 0.25)",
           }}

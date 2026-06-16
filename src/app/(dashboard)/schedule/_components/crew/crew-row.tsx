@@ -79,7 +79,7 @@ export function CrewRow({
                 width: 28,
                 height: 28,
                 border: "1px solid rgba(255, 255, 255, 0.18)",
-                background: "rgba(255, 255, 255, 0.04)",
+                background: "var(--surface-input)",
                 color: "rgba(255, 255, 255, 0.9)",
               }}
               aria-hidden="true"
@@ -112,7 +112,7 @@ export function CrewRow({
                 {"SPECIAL EVENTS"}
               </span>
               <span
-                className="font-mono text-micro uppercase tracking-wider leading-tight"
+                className="font-mono text-micro uppercase tracking-[0.16em] leading-tight"
                 style={{ color: "var(--text-3)" }}
               >
                 personal · time off
@@ -139,8 +139,8 @@ export function CrewRow({
                 style={{
                   width: 28,
                   height: 28,
-                  border: "2px solid #59779F",
-                  color: "#59779F",
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  color: "var(--text-2)",
                 }}
               >
                 {initials}
@@ -152,7 +152,7 @@ export function CrewRow({
               <span className="font-mohave font-semibold text-[13px] text-text truncate leading-tight">
                 {fullName}
               </span>
-              <span className="font-mono text-micro uppercase tracking-wider text-text-2 leading-tight">
+              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-2 leading-tight">
                 {roleLabel}
               </span>
             </div>

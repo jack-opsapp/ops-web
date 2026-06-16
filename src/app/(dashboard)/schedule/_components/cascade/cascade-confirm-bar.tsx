@@ -45,7 +45,7 @@ export function CascadeConfirmBar() {
             padding: "12px 16px",
             background: "#141414",
             border: "1px solid rgba(255,255,255,0.15)",
-            borderRadius: 3,
+            borderRadius: 5,
           }}
         >
           {/* Left — warning icon + message */}
@@ -60,21 +60,21 @@ export function CascadeConfirmBar() {
             >
               <path
                 d="M7 1L13 12H1L7 1Z"
-                stroke="#6F94B0"
+                stroke="var(--tan)"
                 strokeWidth="1.2"
                 strokeLinejoin="round"
               />
               <path
                 d="M7 5.5V8"
-                stroke="#6F94B0"
+                stroke="var(--tan)"
                 strokeWidth="1.2"
                 strokeLinecap="round"
               />
-              <circle cx="7" cy="10" r="0.6" fill="#6F94B0" />
+              <circle cx="7" cy="10" r="0.6" fill="var(--tan)" />
             </svg>
             <span
               className="font-mohave text-[13px] leading-tight truncate"
-              style={{ color: "#FFFFFF" }}
+              style={{ color: "var(--text)" }}
             >
               {message}
             </span>
@@ -85,13 +85,13 @@ export function CascadeConfirmBar() {
             {/* Apply button */}
             <button
               onClick={handleApply}
-              className="font-mono text-micro uppercase tracking-wider leading-tight cursor-pointer"
+              className="font-mono text-micro uppercase tracking-[0.16em] leading-tight cursor-pointer"
               style={{
                 padding: "5px 12px",
-                background: "#6F94B0",
-                color: "#FFFFFF",
+                background: "var(--ops-accent)",
+                color: "#000",
                 border: "none",
-                borderRadius: 3,
+                borderRadius: 5,
               }}
             >
               APPLY
@@ -100,13 +100,13 @@ export function CascadeConfirmBar() {
             {/* Cancel button — ghost / border-only */}
             <button
               onClick={handleCancel}
-              className="font-mono text-micro uppercase tracking-wider leading-tight cursor-pointer"
+              className="font-mono text-micro uppercase tracking-[0.16em] leading-tight cursor-pointer"
               style={{
                 padding: "5px 12px",
                 background: "transparent",
-                color: "#999999",
+                color: "var(--text-3)",
                 border: "1px solid rgba(255,255,255,0.10)",
-                borderRadius: 3,
+                borderRadius: 5,
               }}
             >
               CANCEL

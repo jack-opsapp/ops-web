@@ -285,7 +285,7 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
               }}
             >
               <span
-                className="font-mono text-[11px] uppercase tracking-wider tabular-nums"
+                className="font-mono text-[11px] uppercase tracking-[0.16em] tabular-nums"
                 style={{
                   color: "var(--text-3)",
                   fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -319,7 +319,7 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
         style={{ borderBottom: "1px solid var(--line)" }}
       >
         <span
-          className="font-mono text-[11px] uppercase tracking-wider tabular-nums"
+          className="font-mono text-[11px] uppercase tracking-[0.16em] tabular-nums"
           style={{
             color: "var(--text)",
             fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -382,7 +382,7 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
         {count === 0 ? (
           <div className="pt-6">
             <span
-              className="font-mono text-[10px] uppercase tracking-wider"
+              className="font-mono text-[11px] uppercase tracking-[0.16em]"
               style={{ color: "var(--text-mute)" }}
             >
               {"// ALL TASKS SCHEDULED"}
@@ -396,13 +396,13 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
                   {unscheduledTrayGroupBy !== "none" && (
                     <div className="flex items-center justify-between">
                       <span
-                        className="font-mono text-[10px] uppercase tracking-wider truncate"
+                        className="font-mono text-[11px] uppercase tracking-[0.16em] truncate"
                         style={{ color: "var(--text-3)" }}
                       >
                         {`// ${group.label}`}
                       </span>
                       <span
-                        className="font-mono text-[10px] tabular-nums"
+                        className="font-mono text-[11px] tabular-nums"
                         style={{
                           color: "var(--text-mute)",
                           fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -504,7 +504,7 @@ function UnscheduledTrayCard({ task }: { task: ProjectTask }) {
           {projectName}
         </span>
         <span
-          className="font-mono text-[9px] uppercase tracking-wider shrink-0"
+          className="font-mono text-[11px] uppercase tracking-[0.16em] shrink-0"
           style={{ color: "var(--text-3)", letterSpacing: "0.04em" }}
         >
           {taskTypeLabel}
@@ -512,7 +512,7 @@ function UnscheduledTrayCard({ task }: { task: ProjectTask }) {
       </div>
       {clientName && (
         <div
-          className="font-mono text-[10px] uppercase truncate mt-1"
+          className="font-mono text-[11px] uppercase truncate mt-1"
           style={{
             color: "var(--text-3)",
             letterSpacing: "0.16em",
@@ -523,7 +523,7 @@ function UnscheduledTrayCard({ task }: { task: ProjectTask }) {
       )}
       {customTitle && customTitle !== task.taskType?.display && (
         <div
-          className="font-mono text-[10px] truncate mt-1"
+          className="font-mono text-[11px] truncate mt-1"
           style={{ color: "var(--text-3)" }}
         >
           {customTitle}
@@ -546,7 +546,7 @@ function TraySelect({ label, value, onChange, options }: TraySelectProps) {
   return (
     <label className="flex flex-col gap-1 flex-1 min-w-0">
       <span
-        className="font-mono text-[9px] uppercase tracking-wider"
+        className="font-mono text-[11px] uppercase tracking-[0.16em]"
         style={{ color: "var(--text-mute)" }}
       >
         {label}
@@ -554,7 +554,7 @@ function TraySelect({ label, value, onChange, options }: TraySelectProps) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full font-mono text-[10px] uppercase cursor-pointer"
+        className="w-full font-mono text-[11px] uppercase cursor-pointer"
         style={{
           background: "var(--surface-input)",
           border: "1px solid var(--line)",

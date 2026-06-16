@@ -36,7 +36,7 @@ export function CrewHeader({ startDate, daysShown }: CrewHeaderProps) {
         }}
       >
         <span
-          className="font-mono text-micro uppercase tracking-wider"
+          className="font-mono text-micro uppercase tracking-[0.16em]"
           style={{ color: "var(--text-2)" }}
         >
           {"// CREW"}
@@ -68,7 +68,7 @@ export function CrewHeader({ startDate, daysShown }: CrewHeaderProps) {
               }}
             >
               <span
-                className="font-mono text-micro uppercase tracking-wider"
+                className="font-mono text-micro uppercase tracking-[0.16em]"
                 style={{ color: "var(--text-3)" }}
               >
                 {format(day, "EEE")}

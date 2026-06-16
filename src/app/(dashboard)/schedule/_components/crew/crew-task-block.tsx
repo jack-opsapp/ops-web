@@ -15,7 +15,7 @@ import { useScheduleStore } from "@/stores/schedule-store";
 // Spec: every calendar badge renders on a frosted-glass tint with a hairline
 // of the status hue, so the day cell's grid + weekend tint never bleeds
 // through the bar fill. See `month-event-bar.tsx` for the canonical comment.
-const BADGE_BG = "rgba(255, 255, 255, 0.04)";
+const BADGE_BG = "var(--surface-input)";
 const BADGE_BORDER_ALPHA = 0.3;
 function hairlineBorder(border: string): string {
   const rgbMatch = border.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/);
@@ -42,8 +42,8 @@ const PERSONAL_BG = "rgba(255, 255, 255, 0.10)";
 const PERSONAL_BORDER = "rgba(255, 255, 255, 0.20)";
 const PERSONAL_TEXT = "#FFFFFF";
 const TIMEOFF_BG = "rgba(196, 168, 104, 0.06)";
-const TIMEOFF_BORDER = "rgba(196, 168, 104, 0.30)";
-const TIMEOFF_TEXT = "#C4A868";
+const TIMEOFF_BORDER = "var(--tan-line)";
+const TIMEOFF_TEXT = "var(--tan)";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -494,7 +494,7 @@ export function CrewTaskBlock({
             )}
             {!isNarrow && !isSpecial && event.address && (
               <span
-                className="font-mono text-[10px] uppercase tracking-wider truncate leading-tight mt-[1px]"
+                className="font-mono text-[11px] uppercase tracking-[0.16em] truncate leading-tight mt-[1px]"
                 style={{
                   color: "rgba(237, 237, 237, 0.45)",
                   letterSpacing: "0.06em",
@@ -539,7 +539,7 @@ export function CrewTaskBlock({
             )}
             {timeRange && !isNarrow && (
               <span
-                className="font-mono text-[10px] tabular-nums"
+                className="font-mono text-[11px] tabular-nums"
                 style={{
                   color: isPersonal
                     ? "rgba(255,255,255,0.65)"

@@ -358,8 +358,8 @@ export default function SchedulePage() {
             className="flex-1 bg-glass glass-surface border border-border rounded overflow-hidden flex flex-col min-h-0"
             style={{
               backgroundImage: [
-                "linear-gradient(rgba(65, 115, 148, 0.015) 1px, transparent 1px)",
-                "linear-gradient(90deg, rgba(65, 115, 148, 0.015) 1px, transparent 1px)",
+                "linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px)",
+                "linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px)",
               ].join(", "),
               backgroundSize: "24px 24px",
             }}

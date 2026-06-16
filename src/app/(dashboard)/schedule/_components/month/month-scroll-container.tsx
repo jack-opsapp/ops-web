@@ -410,7 +410,7 @@ function MonthPickerBadge({ monthStart, onJump }: MonthPickerProps) {
             {format(monthStart, "MMMM")}
           </span>
           <span
-            className="font-mono uppercase tracking-wider tabular-nums"
+            className="font-mono uppercase tracking-[0.16em] tabular-nums"
             style={{
               color: "var(--text-3)",
               fontSize: 10,
@@ -455,7 +455,7 @@ function MonthPickerBadge({ monthStart, onJump }: MonthPickerProps) {
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                "rgba(255, 255, 255, 0.04)";
+                "var(--surface-input)";
               (e.currentTarget as HTMLButtonElement).style.color = "var(--text)";
             }}
             onMouseLeave={(e) => {
@@ -467,7 +467,7 @@ function MonthPickerBadge({ monthStart, onJump }: MonthPickerProps) {
             <ChevronLeft size={12} strokeWidth={1.5} />
           </button>
           <span
-            className="font-mono uppercase tracking-wider tabular-nums"
+            className="font-mono uppercase tracking-[0.16em] tabular-nums"
             style={{
               color: "var(--text)",
               fontSize: 11,
@@ -495,7 +495,7 @@ function MonthPickerBadge({ monthStart, onJump }: MonthPickerProps) {
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                "rgba(255, 255, 255, 0.04)";
+                "var(--surface-input)";
               (e.currentTarget as HTMLButtonElement).style.color = "var(--text)";
             }}
             onMouseLeave={(e) => {
@@ -527,21 +527,21 @@ function MonthPickerBadge({ monthStart, onJump }: MonthPickerProps) {
                 aria-selected={isActive}
                 aria-current={isCurrent ? "date" : undefined}
                 onClick={() => handleSelect(m.index)}
-                className="font-mono uppercase tracking-wider"
+                className="font-mono uppercase tracking-[0.16em]"
                 style={{
                   fontSize: 11,
                   letterSpacing: "0.08em",
                   padding: "8px 0",
                   background: isActive
-                    ? "rgba(111, 148, 176, 0.10)"
+                    ? "rgba(255, 255, 255, 0.06)"
                     : "transparent",
                   border: isActive
-                    ? "1px solid rgba(111, 148, 176, 0.30)"
+                    ? "1px solid rgba(255, 255, 255, 0.30)"
                     : isCurrent
                       ? "1px solid rgba(255, 255, 255, 0.18)"
                       : "1px solid rgba(255, 255, 255, 0.06)",
                   borderRadius: 4,
-                  color: isActive ? "var(--ops-accent)" : "var(--text-2)",
+                  color: isActive ? "var(--text)" : "var(--text-2)",
                   cursor: "pointer",
                   transition:
                     "background-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), color 0.15s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -549,7 +549,7 @@ function MonthPickerBadge({ monthStart, onJump }: MonthPickerProps) {
                 onMouseEnter={(e) => {
                   if (isActive) return;
                   (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                    "rgba(255, 255, 255, 0.04)";
+                    "var(--surface-input)";
                   (e.currentTarget as HTMLButtonElement).style.color =
                     "var(--text)";
                 }}
@@ -662,7 +662,7 @@ function MonthDayCell({
             bottom: 2,
             left: 4,
             fontSize: 10,
-            color: "#999999",
+            color: "var(--text-3)",
             background: "none",
             border: "none",
             padding: 0,
@@ -1026,7 +1026,7 @@ export function MonthScrollContainer({
               className="font-mono uppercase text-left flex items-center"
               style={{
                 fontSize: 10,
-                color: "#999999",
+                color: "var(--text-3)",
                 padding: "0 4px",
                 letterSpacing: "0.15em",
                 backgroundColor: isWeekendHeader

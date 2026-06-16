@@ -178,7 +178,7 @@ export function WeekDayColumn({ day, events, onCardResize }: WeekDayColumnProps)
         {dayEvents.length === 0 ? (
           <div className="pt-[24px]">
             <span
-              className="font-mono text-[10px] uppercase tracking-wider"
+              className="font-mono text-[11px] uppercase tracking-[0.16em]"
               style={{ color: "var(--text-mute)" }}
             >
               —

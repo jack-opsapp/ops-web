@@ -13,8 +13,8 @@ import { SearchInput } from "@/components/ui/search-input";
 
 const EVENT_STATUS_OPTIONS = [
   { value: "upcoming", labelKey: "status.upcoming", color: "#D99A3E" },
-  { value: "in-progress", labelKey: "status.inProgress", color: "#C4A868" },
-  { value: "past", labelKey: "status.past", color: "#9DB582" },
+  { value: "in-progress", labelKey: "status.inProgress", color: "var(--tan)" },
+  { value: "past", labelKey: "status.past", color: "var(--olive)" },
 ] as const;
 
 // ─── Section Toggle ──────────────────────────────────────────────────────────
@@ -217,7 +217,7 @@ export function FilterSidebar() {
           {totalActiveFilters > 0 && (
             <button
               onClick={clearFilters}
-              className="font-mono text-micro text-text-2 uppercase tracking-wider hover:text-text transition-colors"
+              className="font-mono text-micro text-text-2 uppercase tracking-[0.16em] hover:text-text transition-colors"
             >
               {t("filter.clearAll")}
             </button>

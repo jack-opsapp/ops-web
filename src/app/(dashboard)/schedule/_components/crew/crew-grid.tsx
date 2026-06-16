@@ -175,7 +175,7 @@ function CurrentTimeIndicator({
       {/* Time label */}
       <div
         className="sticky top-0 -translate-x-1/2 z-30 px-[6px] py-[2px] rounded-b-sm"
-        style={{ background: "#6F94B0", width: "fit-content" }}
+        style={{ background: "var(--ops-accent)", width: "fit-content" }}
       >
         <span className="font-mohave text-micro font-semibold text-white whitespace-nowrap leading-none tracking-wide">
           {timeLabel}
@@ -184,7 +184,7 @@ function CurrentTimeIndicator({
       {/* Vertical line */}
       <div
         className="absolute top-0 bottom-0"
-        style={{ width: 2, background: "#6F94B0" }}
+        style={{ width: 2, background: "var(--ops-accent)" }}
       />
     </div>
   );

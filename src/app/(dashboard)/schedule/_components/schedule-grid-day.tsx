@@ -179,7 +179,7 @@ export function ScheduleGridDay({
             )}
           </div>
           <span
-            className="font-mono text-[12px] uppercase tracking-wider mt-[2px] leading-tight"
+            className="font-mono text-[12px] uppercase tracking-[0.16em] mt-[2px] leading-tight"
             style={{ color: "var(--text-3)" }}
           >
             {format(currentDate, "MMMM d, yyyy").toUpperCase()}
@@ -189,8 +189,8 @@ export function ScheduleGridDay({
         {/* Right: Task count */}
         <div className="flex items-center mt-[4px]">
           <span
-            className="font-mono text-[12px] uppercase tracking-wider leading-tight"
-            style={{ color: "#999999" }}
+            className="font-mono text-[12px] uppercase tracking-[0.16em] leading-tight"
+            style={{ color: "var(--text-3)" }}
           >
             {taskCountLabel}
           </span>
@@ -213,7 +213,7 @@ export function ScheduleGridDay({
                 key="empty"
               >
                 <span
-                  className="font-mono text-[12px] uppercase tracking-wider"
+                  className="font-mono text-[12px] uppercase tracking-[0.16em]"
                   style={{ color: "rgba(255, 255, 255, 0.30)" }}
                 >
                   NO TASKS SCHEDULED

@@ -191,10 +191,10 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
             ? `Show ${unscheduledCount} unscheduled tasks`
             : "Collapse unscheduled tray"
         }
-        className="font-mono text-[11px] uppercase tracking-wider tabular-nums px-2 py-1 cursor-pointer"
+        className="font-mono text-[11px] uppercase tracking-[0.16em] tabular-nums px-2 py-1 cursor-pointer"
         style={{
           color: unscheduledCount > 0 ? "var(--text-2)" : "var(--text-3)",
-          background: "rgba(255, 255, 255, 0.04)",
+          background: "var(--surface-input)",
           border: "1px solid var(--line)",
           borderRadius: 4,
           fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -206,7 +206,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
         }}
         onMouseLeave={(e) => {
           (e.currentTarget as HTMLElement).style.background =
-            "rgba(255, 255, 255, 0.04)";
+            "var(--surface-input)";
         }}
       >
         {`// UNSCHEDULED [${unscheduledCount}]`}
@@ -215,7 +215,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
 
       {/* Today / This Week counts */}
       <div className="flex items-center gap-[6px]">
-        <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
           {t("stats.today")}
         </span>
         <span className="font-mono text-data-sm text-text">
@@ -224,7 +224,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
       </div>
       <div className="w-[1px] h-[16px] bg-border-subtle" />
       <div className="flex items-center gap-[6px]">
-        <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
           {t("stats.thisWeek")}
         </span>
         <span className="font-mono text-data-sm text-text">
@@ -240,7 +240,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
             <button
               key={filter.label}
               onClick={filter.onRemove}
-              className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-[4px] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.18)] text-text font-mono text-micro uppercase tracking-wider hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-[4px] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.18)] text-text font-mono text-micro uppercase tracking-[0.16em] hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               {filter.label}
               <X className="w-[10px] h-[10px]" />
@@ -259,12 +259,12 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
           onClick={() => setTeamOpen((v) => !v)}
           aria-expanded={teamOpen}
           aria-haspopup="true"
-          className="flex items-center gap-[6px] px-2 py-1 cursor-pointer font-mono text-[11px] uppercase tracking-wider tabular-nums"
+          className="flex items-center gap-[6px] px-2 py-1 cursor-pointer font-mono text-[11px] uppercase tracking-[0.16em] tabular-nums"
           style={{
             color: teamOpen ? "var(--text)" : "var(--text-2)",
             background: teamOpen
               ? "rgba(255, 255, 255, 0.08)"
-              : "rgba(255, 255, 255, 0.04)",
+              : "var(--surface-input)",
             border: "1px solid var(--line)",
             borderRadius: 4,
             fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -277,13 +277,13 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background = teamOpen
               ? "rgba(255, 255, 255, 0.08)"
-              : "rgba(255, 255, 255, 0.04)";
+              : "var(--surface-input)";
           }}
         >
           <span style={{ color: "var(--text-mute)" }}>{"// TEAM"}</span>
           <span>{`[${teamMembers.length}]`}</span>
           {filterTeamMemberIds.length > 0 && (
-            <span style={{ color: "var(--ops-accent)" }}>
+            <span style={{ color: "var(--text-2)" }}>
               {`(${filterTeamMemberIds.length})`}
             </span>
           )}
@@ -314,7 +314,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
           >
             {teamMembers.length === 0 ? (
               <div
-                className="px-3 py-[6px] font-mono text-[10px] uppercase tracking-wider"
+                className="px-3 py-[6px] font-mono text-[11px] uppercase tracking-[0.16em]"
                 style={{ color: "var(--text-mute)" }}
               >
                 {"// NO TEAM MEMBERS"}
@@ -342,7 +342,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
                       className="flex items-center gap-[8px] px-3 py-[5px] cursor-pointer"
                       style={{
                         background: isFiltered
-                          ? "rgba(111, 148, 176, 0.10)"
+                          ? "rgba(255, 255, 255, 0.06)"
                           : "transparent",
                         transition:
                           "background 0.12s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -350,13 +350,13 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
                       onMouseOver={(e) => {
                         (e.currentTarget as HTMLElement).style.background =
                           isFiltered
-                            ? "rgba(111, 148, 176, 0.16)"
+                            ? "rgba(255, 255, 255, 0.10)"
                             : "rgba(255, 255, 255, 0.05)";
                       }}
                       onMouseOut={(e) => {
                         (e.currentTarget as HTMLElement).style.background =
                           isFiltered
-                            ? "rgba(111, 148, 176, 0.10)"
+                            ? "rgba(255, 255, 255, 0.06)"
                             : "transparent";
                       }}
                     >
@@ -375,7 +375,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
                         </div>
                       )}
                       <span
-                        className="font-mono text-[11px] uppercase tracking-wider flex-1 truncate"
+                        className="font-mono text-[11px] uppercase tracking-[0.16em] flex-1 truncate"
                         style={{
                           color: isFiltered ? "var(--text)" : "var(--text-2)",
                         }}
@@ -409,12 +409,12 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
           onClick={() => setLegendOpen((v) => !v)}
           aria-expanded={legendOpen}
           aria-haspopup="true"
-          className="flex items-center gap-[6px] px-2 py-1 cursor-pointer font-mono text-[11px] uppercase tracking-wider tabular-nums"
+          className="flex items-center gap-[6px] px-2 py-1 cursor-pointer font-mono text-[11px] uppercase tracking-[0.16em] tabular-nums"
           style={{
             color: legendOpen ? "var(--text)" : "var(--text-2)",
             background: legendOpen
               ? "rgba(255, 255, 255, 0.08)"
-              : "rgba(255, 255, 255, 0.04)",
+              : "var(--surface-input)",
             border: "1px solid var(--line)",
             borderRadius: 4,
             fontFeatureSettings: '"tnum" 1, "zero" 1',
@@ -427,7 +427,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLElement).style.background = legendOpen
               ? "rgba(255, 255, 255, 0.08)"
-              : "rgba(255, 255, 255, 0.04)";
+              : "var(--surface-input)";
           }}
         >
           <span style={{ color: "var(--text-mute)" }}>{"// LEGEND"}</span>
@@ -470,7 +470,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
                     role="button"
                     style={{
                       background: isFiltered
-                        ? "rgba(111, 148, 176, 0.10)"
+                        ? "rgba(255, 255, 255, 0.06)"
                         : "transparent",
                       transition:
                         "background 0.12s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -478,13 +478,13 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
                     onMouseOver={(e) => {
                       (e.currentTarget as HTMLElement).style.background =
                         isFiltered
-                          ? "rgba(111, 148, 176, 0.16)"
+                          ? "rgba(255, 255, 255, 0.10)"
                           : "rgba(255, 255, 255, 0.05)";
                     }}
                     onMouseOut={(e) => {
                       (e.currentTarget as HTMLElement).style.background =
                         isFiltered
-                          ? "rgba(111, 148, 176, 0.10)"
+                          ? "rgba(255, 255, 255, 0.06)"
                           : "transparent";
                     }}
                   >
@@ -493,7 +493,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
                       style={{ backgroundColor: color }}
                     />
                     <span
-                      className="font-mono text-[11px] uppercase tracking-wider flex-1 truncate"
+                      className="font-mono text-[11px] uppercase tracking-[0.16em] flex-1 truncate"
                       style={{
                         color: isFiltered ? "var(--text)" : "var(--text-2)",
                       }}
