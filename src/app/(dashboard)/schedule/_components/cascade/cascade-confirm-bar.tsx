@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useScheduleStore } from "@/stores/schedule-store";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
 
 /**
  * CascadeConfirmBar — fixed bar at top of calendar canvas.
@@ -16,6 +17,7 @@ export function CascadeConfirmBar() {
   const pendingAction = useScheduleStore((s) => s.pendingCascadeAction);
   const hideConfirmBar = useScheduleStore((s) => s.hideConfirmBar);
   const clearGhostPreviews = useScheduleStore((s) => s.clearGhostPreviews);
+  const reducedMotion = useReducedMotion();
 
   const handleApply = useCallback(async () => {
     if (pendingAction) {
@@ -33,10 +35,10 @@ export function CascadeConfirmBar() {
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          initial={{ y: -48, opacity: 0 }}
+          initial={reducedMotion ? { opacity: 0 } : { y: -48, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -48, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          exit={reducedMotion ? { opacity: 0 } : { y: -48, opacity: 0 }}
+          transition={{ duration: 0.28, ease: EASE_SMOOTH }}
           className="flex items-center justify-between"
           style={{
             height: 48,

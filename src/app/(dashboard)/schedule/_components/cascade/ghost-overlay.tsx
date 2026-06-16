@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { differenceInCalendarDays } from "date-fns";
 import { useScheduleStore } from "@/stores/schedule-store";
 import { CrewTaskBlock } from "../crew/crew-task-block";
 import { CREW_ROW_HEIGHT, CREW_GUTTER_WIDTH } from "@/lib/utils/crew-constants";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
 import type { TeamMember } from "@/lib/types/models";
 import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 
@@ -42,6 +43,7 @@ export function GhostOverlay({
   events,
 }: GhostOverlayProps) {
   const ghostPreviews = useScheduleStore((s) => s.ghostPreviews);
+  const reducedMotion = useReducedMotion();
 
   // Build a lookup: eventId → InternalScheduleEvent
   const eventMap = useMemo(() => {
@@ -125,12 +127,12 @@ export function GhostOverlay({
             right: 0,
             zIndex: 10,
           }}
-          animate={{ opacity: [0.3, 0.5, 0.3] }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
+          animate={reducedMotion ? { opacity: 0.4 } : { opacity: [0.3, 0.5, 0.3] }}
+          transition={
+            reducedMotion
+              ? { duration: 0.15, ease: EASE_SMOOTH }
+              : { duration: 2, repeat: Infinity, ease: EASE_SMOOTH }
+          }
         >
           <div className="relative w-full h-full">
             <CrewTaskBlock

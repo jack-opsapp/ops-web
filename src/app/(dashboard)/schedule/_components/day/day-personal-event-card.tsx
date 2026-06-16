@@ -2,9 +2,10 @@
 
 import { useMemo, useCallback, useState } from "react";
 import { format } from "date-fns";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { useScheduleStore } from "@/stores/schedule-store";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,7 @@ interface DayPersonalEventCardProps {
 export function DayPersonalEventCard({ event, index }: DayPersonalEventCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const setSidePanelTask = useScheduleStore((s) => s.setSidePanelTask);
+  const reducedMotion = useReducedMotion();
 
   // ── Time formatting ───────────────────────────────────────────────────
 
@@ -37,9 +39,13 @@ export function DayPersonalEventCard({ event, index }: DayPersonalEventCardProps
 
   return (
     <motion.div
-      initial={{ y: 14, opacity: 0 }}
+      initial={reducedMotion ? { opacity: 0 } : { y: 14, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.22, ease: "easeOut", delay: index * 0.06 }}
+      transition={{
+        duration: reducedMotion ? 0.15 : 0.22,
+        ease: EASE_SMOOTH,
+        delay: reducedMotion ? 0 : index * 0.06,
+      }}
       className="cursor-pointer"
       style={{
         minHeight: 52,
@@ -47,7 +53,7 @@ export function DayPersonalEventCard({ event, index }: DayPersonalEventCardProps
         background: "#0D0D0D",
         border: `1px dashed rgba(255, 255, 255, ${isHovered ? 0.35 : 0.25})`,
         padding: "14px 16px",
-        transition: "border-color 0.15s ease-out",
+        transition: "border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
