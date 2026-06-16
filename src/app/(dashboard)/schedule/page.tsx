@@ -58,7 +58,7 @@ import { ProjectDrawerPanel } from "./_components/side-panel/project-drawer-pane
 
 export default function SchedulePage() {
   usePageTitle("Schedule");
-  const { t } = useDictionary("calendar");
+  const { t } = useDictionary("schedule");
   const {
     currentDate,
     view,
@@ -319,7 +319,7 @@ export default function SchedulePage() {
     <div className="flex flex-col h-full min-w-0 overflow-hidden gap-3" data-schedule-motion-scope>
       <MetricsHeader
         variant="compact"
-        tabId="calendar"
+        tabId="schedule"
         title="Schedule"
         metrics={scheduleMetrics}
         isLoading={scheduleMetricsLoading}

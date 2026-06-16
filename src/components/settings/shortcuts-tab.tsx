@@ -22,7 +22,7 @@ const shortcutGroups = [
     shortcuts: [
       { keys: ["1"], descKey: "shortcuts.dashboard" },
       { keys: ["2"], descKey: "shortcuts.projects" },
-      { keys: ["3"], descKey: "shortcuts.calendar" },
+      { keys: ["3"], descKey: "shortcuts.schedule" },
       { keys: ["4"], descKey: "shortcuts.clients" },
       { keys: ["5"], descKey: "shortcuts.team" },
       { keys: ["6"], descKey: "shortcuts.map" },

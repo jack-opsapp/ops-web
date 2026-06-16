@@ -13,7 +13,6 @@ export type Namespace =
   | 'dashboard'
   | 'projects'
   | 'clients'
-  | 'calendar'
   | 'schedule'
   | 'pipeline'
   | 'accounting'

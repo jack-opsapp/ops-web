@@ -135,7 +135,7 @@ function FilterCheckbox({
 // ─── Main Sidebar ────────────────────────────────────────────────────────────
 
 export function FilterSidebar() {
-  const { t } = useDictionary("calendar");
+  const { t } = useDictionary("schedule");
   const {
     isFilterSidebarOpen,
     toggleFilterSidebar,
