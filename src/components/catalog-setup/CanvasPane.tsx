@@ -220,7 +220,7 @@ export function CanvasPane({
                   <div className="flex items-baseline gap-2">
                     <h3 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
                       <span aria-hidden className="mr-[6px] font-mono text-text-mute">
-                        //
+                        {"//"}
                       </span>
                       {t(SECTION_TITLE_KEY[section], SECTION_TITLE_FALLBACK[section])}
                     </h3>

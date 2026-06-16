@@ -74,7 +74,6 @@ import type {
   QuickBooksPaneStatus,
   QuickBooksPaneSummary,
 } from "@/components/catalog-setup/QuickBooksPane";
-import type { StagingCard } from "@/lib/catalog-setup/staging-card";
 import type { OnFileProduct } from "@/lib/catalog-setup/existing-rows";
 
 /**
