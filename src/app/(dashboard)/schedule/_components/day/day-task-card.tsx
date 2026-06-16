@@ -404,7 +404,9 @@ export function DayTaskCard({
             padding: isUserEvent ? "12px 14px" : "12px 14px 12px 18px",
           }}
         >
-          {/* Line 1 — project.title (or user-event title) with leading glyph */}
+          {/* Line 1 — title with leading glyph; the task-type chip trails as a
+              flow sibling (shrink-0) so a long title truncates BEFORE it and can
+              never slide underneath it. */}
           <div className="flex items-center gap-[8px] min-w-0">
             {isPersonal && (
               <Star
@@ -427,11 +429,29 @@ export function DayTaskCard({
               />
             )}
             <span
-              className="font-cakemono font-light text-[15px] uppercase truncate leading-tight"
+              className="flex-1 min-w-0 font-cakemono font-light text-[15px] uppercase truncate leading-tight"
               style={{ color: cardTitleColor }}
             >
               {primaryTitle}
             </span>
+            {/* Type chip — task events only. Special events use the leading
+                glyph + tinted hairline instead, so no chip here. */}
+            {!isUserEvent && (
+              <span
+                aria-hidden="true"
+                className="shrink-0 font-cakemono font-light text-[11px] uppercase leading-tight"
+                style={{
+                  padding: "2px 6px",
+                  borderRadius: 2,
+                  background: event.typeColors.bg,
+                  border: `1px solid ${event.typeColors.border}`,
+                  color: event.typeColors.text,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {event.typeLabel}
+              </span>
+            )}
           </div>
 
           {/* Line 2 — client.name */}
@@ -467,8 +487,10 @@ export function DayTaskCard({
             </span>
           )}
 
-          {/* Bottom row — crew avatars + (optional) time / multi-day */}
-          {(visibleCrew.length > 0 || timeRange || multiDayInfo) && (
+          {/* Bottom row — crew on the left; time/multi-day + the status chip
+              trail on the right as flow siblings (the status chip moved out of
+              absolute positioning so it can never overlap the time). */}
+          {(visibleCrew.length > 0 || timeRange || multiDayInfo || statusBadge) && (
             <div className="flex items-center justify-between mt-[8px] min-w-0 gap-2">
               {visibleCrew.length > 0 ? (
                 <div className="flex items-center min-w-0">
@@ -511,83 +533,54 @@ export function DayTaskCard({
                 </span>
               )}
 
-              {timeRange && (
-                <span
-                  className="font-mono text-[11px] shrink-0 leading-tight tabular-nums"
-                  style={{
-                    color: "var(--text-3)",
-                    fontFeatureSettings: '"tnum" 1, "zero" 1',
-                  }}
-                >
-                  {timeRange}
-                </span>
-              )}
-              {!timeRange && multiDayInfo && (
-                <span
-                  className="font-mono text-[11px] shrink-0 leading-tight tabular-nums"
-                  style={{
-                    color: "var(--text-3)",
-                    fontFeatureSettings: '"tnum" 1, "zero" 1',
-                  }}
-                >
-                  {`Day ${multiDayInfo.current} / ${multiDayInfo.total}`}
-                </span>
-              )}
+              <div className="flex items-center gap-[6px] shrink-0">
+                {timeRange && (
+                  <span
+                    className="font-mono text-[11px] leading-tight tabular-nums"
+                    style={{
+                      color: "var(--text-3)",
+                      fontFeatureSettings: '"tnum" 1, "zero" 1',
+                    }}
+                  >
+                    {timeRange}
+                  </span>
+                )}
+                {!timeRange && multiDayInfo && (
+                  <span
+                    className="font-mono text-[11px] leading-tight tabular-nums"
+                    style={{
+                      color: "var(--text-3)",
+                      fontFeatureSettings: '"tnum" 1, "zero" 1',
+                    }}
+                  >
+                    {`Day ${multiDayInfo.current} / ${multiDayInfo.total}`}
+                  </span>
+                )}
+                {/* Status chip — completed / cancelled / time-off pending.
+                    Trailing flow sibling, so it never overlaps the time. */}
+                {statusBadge && (
+                  <span
+                    aria-hidden="true"
+                    className="shrink-0 font-mono text-[11px] uppercase leading-none"
+                    style={{
+                      padding: "3px 8px",
+                      borderRadius: 2,
+                      background: statusBadge.bg,
+                      color: statusBadge.text,
+                      fontWeight: 600,
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {statusBadge.label}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>
 
-        {/* Type badge — top-right (task events only). Special events skip the
-            type badge — the leading glyph + tinted hairline already encodes
-            the kind, and the type label would clash with the white/tan
-            override surfaces. */}
-        {!isUserEvent && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              top: 8,
-              right: 8,
-              padding: "2px 6px",
-              borderRadius: 2,
-              background: event.typeColors.bg,
-              border: `1px solid ${event.typeColors.border}`,
-              color: event.typeColors.text,
-              fontFamily: "var(--font-cakemono), sans-serif",
-              fontWeight: 300,
-              fontSize: 10,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              lineHeight: 1.4,
-            }}
-          >
-            {event.typeLabel}
-          </div>
-        )}
-
-        {/* Status badge — bottom-right (completed/cancelled or time-off pending) */}
-        {statusBadge && (
-          <div
-            aria-hidden="true"
-            style={{
-              position: "absolute",
-              bottom: 8,
-              right: 8,
-              padding: "3px 8px",
-              borderRadius: 2,
-              background: statusBadge.bg,
-              color: statusBadge.text,
-              fontFamily: "var(--font-mono), monospace",
-              fontWeight: 600,
-              fontSize: 10,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              lineHeight: 1.2,
-            }}
-          >
-            {statusBadge.label}
-          </div>
-        )}
+        {/* Type + status chips now render inline in the body (title row /
+            bottom row) so they can never overlap the title or the time. */}
 
         {/* Dimming overlay — completed / cancelled cards. Mirrors iOS modalOverlay */}
         {dimmed && (
@@ -634,7 +627,7 @@ export function DayTaskCard({
               borderRadius: 4,
               border: `1px solid ${event.typeColors.border}`,
               color: "var(--text)",
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
               fontFeatureSettings: '"tnum" 1, "zero" 1',
