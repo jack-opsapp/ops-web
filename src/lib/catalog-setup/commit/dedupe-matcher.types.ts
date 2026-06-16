@@ -35,12 +35,13 @@ export type { StagingCard };
  * - merge-all: matched → take every incoming field over the live row.
  * - skip:      matched → keep the live row untouched; drop the card.
  *
- * SHIPPED REALITY (do not trust the per-field framing above as live): the
- * production commit path is whole-card take-incoming — a `merge`-state card maps
- * its matchedExistingId → UPSERT and sends ALL its fields (card-to-builder-input).
- * The per-field `show-diff` resolution (applyDedupe + CardResolution.fieldSelections
- * below) is unit-tested SCAFFOLDING for a not-yet-built per-field accept UI; nothing
- * in the commit pipeline calls it yet.
+ * The per-field show-diff IS wired in production — but through the canvas seam, not
+ * this resolver. A merge card carries the owner's per-field verdicts on
+ * `StagingCard.fieldSelections` (set by the canvas toggles), and the commit adapter
+ * (`card-to-builder-input` + the on-file `existingRows`) reverts each REJECTED field
+ * to its live value. `applyDedupe` + `CardResolution.fieldSelections` below are the
+ * equivalent PURE resolver for the matcher-driven lane (matchCards → applyDedupe),
+ * kept as a reusable primitive; the production commit uses the card-carried path.
  */
 export type DedupeAction = "create" | "show-diff" | "merge-all" | "skip";
 
@@ -124,11 +125,12 @@ export interface DedupeResult {
 export type FieldSelections = Record<string, boolean>;
 
 /**
- * How the owner would resolve one card after seeing its match. SCAFFOLDING only —
- * the canvas does NOT yet wire a per-field show-diff UI, so nothing in the
- * production commit constructs this; `applyDedupe` (which consumes it) is exercised
- * by unit tests but not by the live pipeline. `action` defaults to the match's
- * `defaultAction`; `fieldSelections` is consulted only for `show-diff`.
+ * How the owner would resolve one card after seeing its match. The live canvas
+ * expresses per-field verdicts directly on `StagingCard.fieldSelections` (same
+ * `Record<field, boolean>` shape as `fieldSelections` here); this `CardResolution`
+ * + `applyDedupe` is the equivalent PURE resolver for the matcher-driven lane.
+ * `action` defaults to the match's `defaultAction`; `fieldSelections` is consulted
+ * only for `show-diff` (true/absent ⇒ take incoming, false ⇒ keep on file).
  */
 export interface CardResolution {
   action: DedupeAction;

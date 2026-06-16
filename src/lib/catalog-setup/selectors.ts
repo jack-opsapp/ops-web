@@ -15,8 +15,8 @@ const isCommittable = (c: StagingCard): boolean =>
 
 /**
  * Header counters (spec §7 "N proposed · M added"). `added` rolls up every
- * committable state (accepted + edited + merge); rejected is tracked separately
- * for the undo affordance.
+ * committable state (accepted + edited + merge); rejected is counted separately
+ * (it never reaches the commit and drops out of the visible canvas).
  */
 export function selectRunningTotals(state: StagingState): RunningTotals {
   let proposed = 0;
@@ -32,8 +32,8 @@ export function selectRunningTotals(state: StagingState): RunningTotals {
 
 /**
  * Non-rejected cards grouped by module for the canvas columns (SELL / STOCK /
- * TYPES). Rejected cards drop out of the visible canvas (they remain in state
- * for undo via UNRESOLVE_CARD).
+ * TYPES). Rejected cards drop out of the visible canvas; they stay in state only
+ * so a re-fed source (idempotent ADD_CARDS) doesn't re-surface a dismissed row.
  */
 export function selectByModule(
   state: StagingState,

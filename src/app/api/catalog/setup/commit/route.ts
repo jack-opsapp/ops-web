@@ -28,6 +28,7 @@ import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAccessTokenClient } from "@/lib/supabase/accessToken-client";
 import type { StagingCard } from "@/lib/catalog-setup/staging-card";
+import type { OnFileProduct } from "@/lib/catalog-setup/existing-rows";
 import type { SetupMode } from "@/lib/catalog-setup/commit/payload-builder.types";
 import { cardsToBuilderInput } from "@/lib/catalog-setup/commit/card-to-builder-input";
 import { buildCatalogSetupPayload } from "@/lib/catalog-setup/commit/payload-builder";
@@ -53,6 +54,15 @@ interface CommitBody {
   mode?: SetupMode;
   /** Re-import dedupe provenance (e.g. "quickbooks"); absent for manual/template. */
   externalSource?: string;
+  /**
+   * On-file values for EVERY matched merge card (keyed by live product id),
+   * supplied by the client. The builder rebuilds each merge doc FROM these and
+   * overrides only the accepted show-diff fields, so a re-import never wipes the
+   * columns the diff didn't surface. The operator can only ever write their own
+   * scope-guarded catalog, so client-supplied on-file values add no authority the
+   * RPC's company-scope guard doesn't already bound.
+   */
+  existingRows?: Record<string, OnFileProduct>;
 }
 
 interface RpcResult {
@@ -118,6 +128,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { products, stockFamilies, typeCards } = cardsToBuilderInput(cards, {
       externalSource: body.externalSource,
+      existingRows: body.existingRows,
     });
 
     if (

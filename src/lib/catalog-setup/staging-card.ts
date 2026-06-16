@@ -74,6 +74,19 @@ interface BaseCard {
   /** present when this card matched a live catalog row (spec §11 dedupe) */
   matchedExistingId?: string;
   /**
+   * Per-field show-diff resolution for a `merge` card (spec §11, §17.2). Keyed by
+   * the canonical snake_case diff-field name (`name` / `base_price` / `unit_cost`
+   * / `is_taxable` — the same registry the dedupe matcher uses), the value is the
+   * owner's verdict for that changed field: `true` (or absent) TAKES the incoming
+   * value over the live row, `false` KEEPS the on-file value untouched. Absent
+   * map ⇒ every field takes the incoming value (the take-all default a freshly
+   * matched merge card carries). Non-destructive: the incoming values stay on
+   * `fields` so a toggle is reversible; the on-file value for a rejected field is
+   * sourced at commit (card-to-builder-input + existingRows), never by mutating
+   * the card. Only `sell` merge cards carry these (STOCK dedupe is deferred).
+   */
+  fieldSelections?: Record<string, boolean>;
+  /**
    * Re-import identity (spec §11, §15). The source system this row came from
    * ("quickbooks") and that system's stable id for it (the QB `Item.Id`).
    * Stamped by structured-import lanes so a re-pull re-syncs the SAME catalog

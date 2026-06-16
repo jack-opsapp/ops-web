@@ -16,6 +16,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { useAuthStore } from "../store/auth-store";
 import type { StagingCard } from "../catalog-setup/staging-card";
+import type { OnFileProduct } from "../catalog-setup/existing-rows";
 
 export interface CommitArgs {
   /** Stable wizard-session id → replay-safe idempotency key. */
@@ -23,6 +24,14 @@ export interface CommitArgs {
   cards: StagingCard[];
   mode?: "create" | "edit";
   externalSource?: string;
+  /**
+   * On-file values for EVERY matched merge card (keyed by live product id). The
+   * commit route rebuilds each merge doc FROM these so the per-field show-diff's
+   * "[ the rest stays on file ]" holds — a re-import overrides only the accepted
+   * fields and never wipes descriptions/categories or reactivates a retired
+   * product. Scoped to the merge targets — never the whole catalog.
+   */
+  existingRows?: Record<string, OnFileProduct>;
 }
 
 export interface CommitCounts {

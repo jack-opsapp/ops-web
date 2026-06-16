@@ -29,7 +29,10 @@ export type StagingAction =
   | { type: "EDIT_CARD"; id: string; fields: Partial<CardFieldsFor<ModuleKey>> }
   | { type: "REJECT_CARD"; id: string }
   | { type: "MERGE_CARD"; id: string; matchedExistingId: string }
-  | { type: "UNRESOLVE_CARD"; id: string }
+  // Per-field show-diff verdict on a merge card: TAKE the incoming value
+  // (accepted) or KEEP the on-file value (rejected) for one changed field
+  // (spec §11, §17.2). Keyed by the canonical snake_case diff-field name.
+  | { type: "SET_FIELD_SELECTION"; id: string; field: string; accepted: boolean }
   | { type: "DOWNSHIFT_STOCK_TO_PRODUCTS" }
   | { type: "RESET" };
 
@@ -45,8 +48,13 @@ function mapCard(
 ): StagingState {
   const idx = state.cards.findIndex((c) => c.id === id);
   if (idx === -1) return state; // no-op, same ref
+  const updated = fn(state.cards[idx]);
+  // If `fn` returns the SAME card ref (a deliberate no-op, e.g. a per-field
+  // verdict on a non-merge card), return the same state ref so React + callers
+  // can cheaply detect that nothing changed (spec §16).
+  if (updated === state.cards[idx]) return state;
   const next = state.cards.slice();
-  next[idx] = fn(state.cards[idx]);
+  next[idx] = updated;
   return { ...state, cards: next };
 }
 
@@ -81,19 +89,29 @@ export function stagingReducer(
     case "REJECT_CARD":
       return mapCard(state, action.id, (c) => ({ ...c, state: "rejected" }));
     case "MERGE_CARD":
+      // Bind (or re-bind) the card to its matched live row as a take-all merge.
+      // Resetting fieldSelections is the "TAKE ALL" semantics — every changed
+      // field reverts to the incoming-wins default (spec §11, §17.2).
       return mapCard(state, action.id, (c) => ({
         ...c,
         state: "merge",
         matchedExistingId: action.matchedExistingId,
+        fieldSelections: undefined,
       }));
-    case "UNRESOLVE_CARD":
-      // Undo: return a resolved card (rejected / merged) to the unacted
-      // "proposed" state and drop any recorded match (spec §11 undo).
-      return mapCard(state, action.id, (c) => ({
-        ...c,
-        state: "proposed",
-        matchedExistingId: undefined,
-      }));
+    case "SET_FIELD_SELECTION":
+      // Only a merge card carries per-field verdicts; on any other state this is
+      // a no-op clone (the canvas never renders the toggles off a non-merge card).
+      return mapCard(state, action.id, (c) =>
+        c.state === "merge"
+          ? {
+              ...c,
+              fieldSelections: {
+                ...(c.fieldSelections ?? {}),
+                [action.field]: action.accepted,
+              },
+            }
+          : c,
+      );
     case "DOWNSHIFT_STOCK_TO_PRODUCTS": {
       // Inventory-off + stock arrived, owner chose "keep as products": convert
       // every stock card to a product, SURFACING the on-hand count in the

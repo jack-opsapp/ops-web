@@ -102,6 +102,7 @@ export interface ProductInput {
   unitId?: string;
   isTaxable?: boolean;
   isActive?: boolean;
+  showInStorefront?: boolean;
   minimumCharge?: number;
   minimumQuantity?: number;
   linkedCatalogItemId?: string;
@@ -311,6 +312,8 @@ function mapProduct(input: ProductInput): ProductDoc {
   if (input.unitId != null) doc.unit_id = input.unitId;
   if (input.isTaxable != null) doc.is_taxable = input.isTaxable;
   if (input.isActive != null) doc.is_active = input.isActive;
+  if (input.showInStorefront != null)
+    doc.show_in_storefront = input.showInStorefront;
   if (input.minimumCharge != null) doc.minimum_charge = input.minimumCharge;
   if (input.minimumQuantity != null)
     doc.minimum_quantity = input.minimumQuantity;

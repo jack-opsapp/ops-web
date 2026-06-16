@@ -373,11 +373,17 @@ test.describe("Catalog Setup Wizard", () => {
     await expect
       .poll(() => fixtures.commitCalls.length, { timeout: 15000 })
       .toBe(1);
-    const cards =
-      (fixtures.commitCalls[0].body.cards as Record<string, unknown>[]) ?? [];
+    const body = fixtures.commitCalls[0].body as Record<string, unknown>;
+    const cards = (body.cards as Record<string, unknown>[]) ?? [];
     expect(cards).toHaveLength(1);
     expect(cards[0].state).toBe("merge");
     expect(cards[0].matchedExistingId).toBe(EXISTING_PRODUCT_ID);
+    // The on-file row is sent alongside so the commit rebuilds the merge doc FROM
+    // it — the per-field "[ the rest stays on file ]" guarantee (preserve columns
+    // the diff didn't surface, never reactivate a retired product).
+    const existingRows =
+      (body.existingRows as Record<string, unknown>) ?? {};
+    expect(existingRows[EXISTING_PRODUCT_ID]).toBeTruthy();
 
     // Ignore incidental 401s from background reads the harness doesn't mock
     // (real Supabase + the fake token); assert no real page / JS errors.

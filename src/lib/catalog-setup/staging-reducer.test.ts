@@ -102,29 +102,83 @@ describe("stagingReducer", () => {
     expect(s.cards[0].matchedExistingId).toBe("live-123");
   });
 
-  it("UNRESOLVE_CARD returns a rejected card to proposed (undo)", () => {
+  // ─── Per-field show-diff verdicts (SET_FIELD_SELECTION) ───────────────────
+
+  function mergedCard(id: string): ReturnType<typeof sellCard> {
+    return sellCard(id, { state: "merge", matchedExistingId: "live-1" });
+  }
+
+  it("SET_FIELD_SELECTION records a per-field verdict on a merge card", () => {
     let s = stagingReducer(initialStagingState, {
       type: "ADD_CARDS",
-      cards: [sellCard("a")],
+      cards: [mergedCard("a")],
     });
-    s = stagingReducer(s, { type: "REJECT_CARD", id: "a" });
-    s = stagingReducer(s, { type: "UNRESOLVE_CARD", id: "a" });
-    expect(s.cards[0].state).toBe("proposed");
+    s = stagingReducer(s, {
+      type: "SET_FIELD_SELECTION",
+      id: "a",
+      field: "base_price",
+      accepted: false,
+    });
+    expect(s.cards[0].fieldSelections).toEqual({ base_price: false });
   });
 
-  it("UNRESOLVE_CARD clears a prior merge match (undo of merge)", () => {
+  it("SET_FIELD_SELECTION merges verdicts without clobbering earlier ones", () => {
     let s = stagingReducer(initialStagingState, {
       type: "ADD_CARDS",
-      cards: [sellCard("a")],
+      cards: [mergedCard("a")],
+    });
+    s = stagingReducer(s, {
+      type: "SET_FIELD_SELECTION",
+      id: "a",
+      field: "base_price",
+      accepted: false,
+    });
+    s = stagingReducer(s, {
+      type: "SET_FIELD_SELECTION",
+      id: "a",
+      field: "unit_cost",
+      accepted: true,
+    });
+    expect(s.cards[0].fieldSelections).toEqual({
+      base_price: false,
+      unit_cost: true,
+    });
+  });
+
+  it("SET_FIELD_SELECTION on a non-merge card is a same-ref no-op (toggles only show on a merge)", () => {
+    const s0 = stagingReducer(initialStagingState, {
+      type: "ADD_CARDS",
+      cards: [sellCard("a")], // proposed, not a merge
+    });
+    const s1 = stagingReducer(s0, {
+      type: "SET_FIELD_SELECTION",
+      id: "a",
+      field: "base_price",
+      accepted: false,
+    });
+    // No verdict recorded AND the SAME state ref returned (spec §16 no-op).
+    expect(s1).toBe(s0);
+    expect(s1.cards[0].fieldSelections).toBeUndefined();
+    expect(s1.cards[0].state).toBe("proposed");
+  });
+
+  it("MERGE_CARD (TAKE ALL) resets any prior per-field verdicts to take-all", () => {
+    let s = stagingReducer(initialStagingState, {
+      type: "ADD_CARDS",
+      cards: [mergedCard("a")],
+    });
+    s = stagingReducer(s, {
+      type: "SET_FIELD_SELECTION",
+      id: "a",
+      field: "base_price",
+      accepted: false,
     });
     s = stagingReducer(s, {
       type: "MERGE_CARD",
       id: "a",
-      matchedExistingId: "live-123",
+      matchedExistingId: "live-1",
     });
-    s = stagingReducer(s, { type: "UNRESOLVE_CARD", id: "a" });
-    expect(s.cards[0].state).toBe("proposed");
-    expect(s.cards[0].matchedExistingId).toBeUndefined();
+    expect(s.cards[0].fieldSelections).toBeUndefined();
   });
 
   // ─── Inventory-off down-shift (Task 6.11) ────────────────────────────────

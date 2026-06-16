@@ -14,7 +14,8 @@
 // stays honest against the model — a field rename in `staging-card.ts` breaks
 // this file at compile time, not at runtime in the preview.
 
-import type { StagingCard, SellFields } from "@/lib/catalog-setup/staging-card";
+import type { StagingCard } from "@/lib/catalog-setup/staging-card";
+import type { OnFileProduct } from "@/lib/catalog-setup/existing-rows";
 
 // ── SELL — accepted ──────────────────────────────────────────────────────────
 // Owner already accepted this from their imported price list. Counts as "added".
@@ -218,7 +219,7 @@ export const PREVIEW_STAGING_CARDS: StagingCard[] = [
  * diff (on-file vs incoming) without a database round-trip. Typed to the SELL
  * field shape since the only duplicate in the seed is a SELL row.
  */
-export const PREVIEW_EXISTING_ROWS: Record<string, SellFields> = {
+export const PREVIEW_EXISTING_ROWS: Record<string, OnFileProduct> = {
   "existing-window-perf": {
     name: "Window perforated vinyl — 60/40",
     description: "Perforated rear-window print, 60/40.",
@@ -227,8 +228,8 @@ export const PREVIEW_EXISTING_ROWS: Record<string, SellFields> = {
     sku: "WIN-PERF-6040",
     isTaxable: true,
     kind: "material",
-    type: "MATERIAL",
     pricingUnit: "sqft",
+    isActive: true,
   },
 };
 

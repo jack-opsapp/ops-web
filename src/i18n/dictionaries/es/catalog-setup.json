@@ -126,6 +126,7 @@
   "dedupe.keepExisting": "CONSERVAR EN ARCHIVO",
   "dedupe.takeIncoming": "TOMAR ENTRANTE",
   "dedupe.hint": "[combinar conserva una fila e integra lo que cambió]",
+  "dedupe.fieldHint": "[ elige qué sobrescribir — el resto se queda en archivo ]",
 
   "field.name": "nombre",
   "field.description": "descripción",

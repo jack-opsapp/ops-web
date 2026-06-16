@@ -157,6 +157,63 @@ describe("POST /api/catalog/setup/commit", () => {
     expect(keys.some((k) => /^sess-9:edit:family:b:[0-9a-f]{16}$/.test(k))).toBe(true);
   });
 
+  it("merge commit: mixed per-field verdicts apply, and non-diffed columns + activation stay on file", async () => {
+    const mergeCard = {
+      id: "c1",
+      source: "import",
+      state: "merge",
+      module: "sell",
+      matchedExistingId: "live-7",
+      // keep the on-file PRICE, take the incoming NAME (is_taxable unspecified → take)
+      fieldSelections: { base_price: false, name: true },
+      fields: {
+        name: "Renamed by import",
+        defaultPrice: 95, // incoming price (rejected)
+        unitCost: 40,
+        sku: "NEW-SKU",
+        isTaxable: true, // incoming (accepted by default)
+        kind: "service",
+        type: "LABOR",
+      },
+    };
+    const res = await POST(
+      makeReq({
+        token: "t",
+        sessionId: "sess-r",
+        cards: [mergeCard],
+        existingRows: {
+          "live-7": {
+            name: "On-file name",
+            description: "On-file description", // not diffed → must survive
+            defaultPrice: 80, // on-file price (the verdict keeps this)
+            unitCost: 30,
+            sku: "OLD-SKU",
+            isTaxable: false, // owner takes incoming true over this
+            kind: "material",
+            categoryId: "cat-1",
+            isActive: false, // RETIRED — must NOT be reactivated
+            showInStorefront: false,
+          },
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const p = rpc.mock.calls[0][1].p_payload.products[0];
+    expect(p.id).toBe("live-7"); // UPSERT into the live row
+    // accepted verdicts → incoming; rejected → on-file
+    expect(p.name).toBe("Renamed by import");
+    expect(p.base_price).toBe(80); // rejected price kept on file (mirrored)
+    expect(p.default_price).toBe(80);
+    expect(p.is_taxable).toBe(true); // unspecified → take incoming
+    // the rest stays on file — never wiped, never reactivated
+    expect(p.description).toBe("On-file description");
+    expect(p.category_id).toBe("cat-1");
+    expect(p.sku).toBe("OLD-SKU");
+    expect(p.kind).toBe("material");
+    expect(p.is_active).toBe(false); // retired product is NOT reactivated
+    expect(p.show_in_storefront).toBe(false);
+  });
+
   it("content-addressed key: identical set replays the key, a changed set gets a fresh one", async () => {
     const base = { token: "t", sessionId: "sess-c", cards: [sellCard] };
     await POST(makeReq(base));

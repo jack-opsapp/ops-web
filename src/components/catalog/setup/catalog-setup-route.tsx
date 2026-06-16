@@ -75,6 +75,7 @@ import type {
   QuickBooksPaneSummary,
 } from "@/components/catalog-setup/QuickBooksPane";
 import type { StagingCard } from "@/lib/catalog-setup/staging-card";
+import type { OnFileProduct } from "@/lib/catalog-setup/existing-rows";
 
 /**
  * Lanes wired end-to-end. The guided "describe" (agent) lane appears only when
@@ -453,8 +454,29 @@ export function CatalogSetupRoute() {
       );
       return;
     }
+    // On-file values for EVERY matched SELL card (merge, or a merge the owner then
+    // edited — both keep matchedExistingId). The commit rebuilds each merge doc
+    // from these so a re-import overrides only the accepted show-diff fields and
+    // never wipes the columns the diff didn't surface (descriptions, category,
+    // activation). Scoped to the matched targets, never the whole catalog.
+    const mergeExisting: Record<string, OnFileProduct> = {};
+    for (const c of cards) {
+      if (
+        c.module === "sell" &&
+        c.matchedExistingId &&
+        existingRows[c.matchedExistingId]
+      ) {
+        mergeExisting[c.matchedExistingId] = existingRows[c.matchedExistingId];
+      }
+    }
     commit.mutate(
-      { sessionId: getSessionId(), cards },
+      {
+        sessionId: getSessionId(),
+        cards,
+        ...(Object.keys(mergeExisting).length > 0
+          ? { existingRows: mergeExisting }
+          : {}),
+      },
       {
         onSuccess: (res) => {
           analytics.trackCompleted();
@@ -514,7 +536,7 @@ export function CatalogSetupRoute() {
         },
       },
     );
-  }, [commit, cards, reset, router, t, online, analytics]);
+  }, [commit, cards, existingRows, reset, router, t, online, analytics]);
 
   const onSetupLater = useCallback(() => {
     analytics.trackSkipped();

@@ -58,7 +58,7 @@ import {
 } from "@/lib/catalog-setup/selectors";
 import type { StagingState } from "@/lib/catalog-setup/staging-reducer";
 import type { StepContext } from "@/lib/catalog-setup/step-machine";
-import type { SellFields } from "@/lib/catalog-setup/staging-card";
+import type { OnFileProduct } from "@/lib/catalog-setup/existing-rows";
 import { blankCard } from "@/lib/catalog-setup/blank-cards";
 import type { WizardTradeId } from "@/lib/catalog-setup/trade-list";
 import { ModuleRail } from "./ModuleRail";
@@ -88,8 +88,8 @@ export interface SetupWizardShellProps {
   context?: StepContext;
   /** Whether the STOCK canvas section + rail segment render (state-aware). */
   inventoryTracked?: boolean;
-  /** Live catalog rows a merge (duplicate) card matched, keyed by id. */
-  existingRows?: Record<string, SellFields>;
+  /** On-file values a merge (duplicate) card matched, keyed by id. */
+  existingRows?: Record<string, OnFileProduct>;
   /** The commit. Wired to the convert/commit pipeline after rebase; the preview
    *  passes a no-op so the disabled/enabled states still demo. */
   onBuild?: () => void;
@@ -406,7 +406,10 @@ export function SetupWizardShell({
             onAccept: (id) => dispatch({ type: "ACCEPT_CARD", id }),
             onReject: (id) => dispatch({ type: "REJECT_CARD", id }),
             onEdit: (id) => startEditing(id),
-            onKeep: (id) => dispatch({ type: "UNRESOLVE_CARD", id }),
+            // TAKE INCOMING (bulk): re-bind + clear any per-field verdicts back to
+            // the incoming-wins default — overwrite every changed field. KEEP ON
+            // FILE (bulk) is handled in-card by setting every verdict to keep, so
+            // it never destructively drops the card.
             onMerge: (id) =>
               dispatch({
                 type: "MERGE_CARD",
@@ -414,6 +417,9 @@ export function SetupWizardShell({
                 matchedExistingId:
                   cards.find((c) => c.id === id)?.matchedExistingId ?? "",
               }),
+            // Per-field verdict on a merge card (take incoming / keep on file).
+            onToggleDiffField: (id, field, accepted) =>
+              dispatch({ type: "SET_FIELD_SELECTION", id, field, accepted }),
           }}
           onAddRow={(module) => {
             const card = blankCard(module);

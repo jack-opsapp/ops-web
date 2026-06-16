@@ -24,9 +24,9 @@ import { cn } from "@/lib/utils/cn";
 import { ScrollFade } from "@/components/dashboard/widgets/shared/scroll-fade";
 import type {
   StagingCard,
-  SellFields,
   RunningTotals as RunningTotalsModel,
 } from "@/lib/catalog-setup/staging-card";
+import type { OnFileProduct } from "@/lib/catalog-setup/existing-rows";
 import { useCatalogSetupMotion } from "@/lib/catalog-setup/motion";
 import { StagingCardView, type DiffField } from "./StagingCardView";
 import { RunningTotals } from "./RunningTotals";
@@ -81,8 +81,8 @@ export interface CardCallbacks {
   onAccept?: (id: string) => void;
   onEdit?: (id: string) => void;
   onReject?: (id: string) => void;
-  onKeep?: (id: string) => void;
   onMerge?: (id: string) => void;
+  onToggleDiffField?: (id: string, field: string, accepted: boolean) => void;
 }
 
 export interface CanvasPaneProps {
@@ -92,8 +92,8 @@ export interface CanvasPaneProps {
   totals: RunningTotalsModel;
   /** Whether the STOCK section renders at all (state-aware). */
   inventoryTracked: boolean;
-  /** Live catalog rows a merge card matched, keyed by matchedExistingId. */
-  existingRows?: Record<string, SellFields>;
+  /** On-file values a merge card matched, keyed by matchedExistingId. */
+  existingRows?: Record<string, OnFileProduct>;
   callbacks?: CardCallbacks;
   /** Manual lane: add a blank row of the given module to the canvas. */
   onAddRow?: (module: SectionKey) => void;
@@ -103,29 +103,36 @@ export interface CanvasPaneProps {
 export interface DiffLabels {
   name: string;
   price: string;
-  cost: string;
   taxable: string;
   taxableYes: string;
   taxableNo: string;
 }
 
 /**
- * Build the per-field old→new diff for a merge (duplicate) SELL card. Covers
- * every field a MERGE overwrites on the live row — name, price, cost, taxable —
- * not just price/cost: a re-import that renames or re-taxes a matched product
- * must SHOW that change before BUILD IT applies it (the panel only renders when
- * there's at least one diff row, so a pure rename was previously silent).
+ * Build the per-field old→new diff for a merge (duplicate) SELL card. ONLY the
+ * fields `catalog_setup_save` actually overwrites on the live row appear here —
+ * name, price (base_price/default_price), and taxable. `unit_cost` is DELIBERATELY
+ * excluded: the commit RPC never writes products.unit_cost (it's absent from the
+ * INSERT + both UPDATE-SET clauses), so a cost "verdict" could not overwrite the
+ * row — surfacing a toggle for it would imply control the commit can't honor. The
+ * card's COST/MARGIN data row still shows the incoming cost as context; the diff
+ * panel is strictly "what BUILD IT will change." (The cost itself never persisting
+ * on a wizard commit is a separate, pre-existing pipeline gap — flagged, not fixed
+ * here, as it needs an additive change to the iOS-shared RPC.)
  */
 export function buildDiff(
   card: StagingCard,
-  existing: SellFields | undefined,
+  existing: OnFileProduct | undefined,
   labels: DiffLabels,
 ): DiffField[] {
   if (!existing || card.module !== "sell") return [];
   const incoming = card.fields;
   const out: DiffField[] = [];
+  // `field` is the canonical snake_case key — it ties each toggle to
+  // `StagingCard.fieldSelections` and the commit adapter's per-field revert.
   if ((incoming.name ?? "") !== (existing.name ?? "")) {
     out.push({
+      field: "name",
       label: labels.name,
       oldValue: existing.name ?? "—",
       newValue: incoming.name ?? "—",
@@ -133,20 +140,15 @@ export function buildDiff(
   }
   if (incoming.defaultPrice !== existing.defaultPrice) {
     out.push({
+      field: "base_price",
       label: labels.price,
       oldValue: formatMoney(existing.defaultPrice),
       newValue: formatMoney(incoming.defaultPrice),
     });
   }
-  if (incoming.unitCost !== existing.unitCost) {
-    out.push({
-      label: labels.cost,
-      oldValue: formatMoney(existing.unitCost),
-      newValue: formatMoney(incoming.unitCost),
-    });
-  }
   if (incoming.isTaxable !== existing.isTaxable) {
     out.push({
+      field: "is_taxable",
       label: labels.taxable,
       oldValue: existing.isTaxable ? labels.taxableYes : labels.taxableNo,
       newValue: incoming.isTaxable ? labels.taxableYes : labels.taxableNo,
@@ -183,7 +185,6 @@ export function CanvasPane({
     () => ({
       name: t("data.name", "NAME"),
       price: t("data.price", "PRICE"),
-      cost: t("data.cost", "COST"),
       taxable: t("data.taxable", "TAX"),
       taxableYes: t("data.taxableYes", "taxable"),
       taxableNo: t("data.taxableNo", "not taxable"),
@@ -275,11 +276,16 @@ export function CanvasPane({
                                 )
                               : undefined
                           }
+                          onFile={
+                            card.state === "merge"
+                              ? existingRows?.[card.matchedExistingId ?? ""]
+                              : undefined
+                          }
                           onAccept={callbacks?.onAccept}
                           onEdit={callbacks?.onEdit}
                           onReject={callbacks?.onReject}
-                          onKeep={callbacks?.onKeep}
                           onMerge={callbacks?.onMerge}
+                          onToggleDiffField={callbacks?.onToggleDiffField}
                         />
                       ))}
                     </AnimatePresence>

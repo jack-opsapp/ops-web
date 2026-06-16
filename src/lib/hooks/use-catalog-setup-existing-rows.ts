@@ -18,7 +18,7 @@ import { useAuthStore } from "../store/auth-store";
 import type { ExistingProductRow } from "@/lib/catalog-setup/existing-rows";
 
 const EXISTING_PRODUCT_COLUMNS =
-  "id, sku, name, base_price, unit_cost, is_taxable, kind, external_source, external_id";
+  "id, sku, name, base_price, unit_cost, is_taxable, kind, description, category_id, is_active, show_in_storefront, pricing_unit, external_source, external_id";
 
 export function useCatalogSetupExistingRows() {
   const { company } = useAuthStore();

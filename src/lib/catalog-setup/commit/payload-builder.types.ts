@@ -96,6 +96,7 @@ export interface ProductDoc {
   unit_id?: string | null;
   is_taxable?: boolean;
   is_active?: boolean;
+  show_in_storefront?: boolean;
   type?: "LABOR" | "MATERIAL" | "OTHER";
   kind?: "service" | "material" | "package";
   minimum_charge?: number | null;

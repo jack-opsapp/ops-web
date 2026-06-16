@@ -19,7 +19,7 @@
  *   proposed (needs review) tan dot, hairline border               → awaiting a verdict
  *   new (fresh, unacted)    hollow dot                              → just arrived
  *   agent-proposed          lavender provenance (source === "agent") + SUGGESTED tag
- *   duplicate (merge)       tan DUPLICATE tag + per-field struck→olive diff + KEEP/MERGE
+ *   duplicate (merge)       tan DUPLICATE tag + per-field verdict toggles (take incoming / keep on file)
  *
  * Every value traces to a token. Accent (#6F94B0) appears NOWHERE here — earth tones
  * carry semantics (rose cost / olive margin·positive / tan attention), lavender is
@@ -36,6 +36,7 @@ import type {
   SellFields,
   StockFields,
 } from "@/lib/catalog-setup/staging-card";
+import type { OnFileProduct } from "@/lib/catalog-setup/existing-rows";
 import { getTradeLabel, isWizardTrade } from "@/lib/catalog-setup/trade-list";
 import { useCatalogSetupMotion } from "@/lib/catalog-setup/motion";
 import { formatMoney, formatMargin, formatCount } from "./format";
@@ -110,11 +111,18 @@ function configChip(card: StagingCard): string | null {
 }
 
 export interface DiffField {
+  /**
+   * Canonical snake_case field key (`name` / `base_price` / `unit_cost` /
+   * `is_taxable`) — the toggle's identity, matching `StagingCard.fieldSelections`
+   * and the commit adapter so a verdict here maps straight to what overwrites the
+   * live row.
+   */
+  field: string;
   /** Field label, already localized by the caller. */
   label: string;
-  /** Value on the live row (struck through). */
+  /** Value on the live row. Struck when taking incoming; live when kept. */
   oldValue: string;
-  /** Incoming value (olive). */
+  /** Incoming value. Olive (live) when taken; struck when kept on file. */
   newValue: string;
 }
 
@@ -124,15 +132,26 @@ export interface StagingCardViewProps {
   index?: number;
   /** For a duplicate (merge) card: the per-field diff old→new. */
   diff?: DiffField[];
+  /** On-file values for a merge card — the COST/MARGIN row reads the on-file cost
+   *  (the RPC never changes it on a merge) so the row matches what BUILD IT commits. */
+  onFile?: OnFileProduct;
   onAccept?: (id: string) => void;
   onEdit?: (id: string) => void;
   onReject?: (id: string) => void;
-  /** Duplicate-resolution: keep the on-file row as-is (un-merge). */
-  onKeep?: (id: string) => void;
-  /** Duplicate-resolution: fold the incoming changes into the live row. */
+  /** Duplicate-resolution: take every incoming change over the live row (bulk). */
   onMerge?: (id: string) => void;
+  /** Per-field show-diff: toggle one changed field between take-incoming / keep-on-file. */
+  onToggleDiffField?: (id: string, field: string, accepted: boolean) => void;
   className?: string;
 }
+
+/** Neutral focus ring for the card's controls (WCAG 2.4.7). Never the steel
+ *  accent — that is reserved for the BUILD IT CTA and would trip the no-accent
+ *  card rule. A quiet white/40 hairline keeps keyboard focus visible on the dark
+ *  card (the OPS text tones live in `textColor`, not the base `colors` the ring
+ *  utility reads, so a named `ring-text-*` silently falls back to Tailwind blue). */
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-white/40";
 
 /** One mono data cell: LABEL over a colored value. */
 function DataCell({
@@ -162,11 +181,12 @@ export function StagingCardView({
   card,
   index = 0,
   diff,
+  onFile,
   onAccept,
   onEdit,
   onReject,
-  onKeep,
   onMerge,
+  onToggleDiffField,
   className,
 }: StagingCardViewProps) {
   const { t } = useDictionary("catalog-setup");
@@ -187,12 +207,16 @@ export function StagingCardView({
   const dataCells = useMemo(() => {
     if (card.module === "sell") {
       const f = card.fields as SellFields;
+      // On a merge the RPC never overwrites unit_cost, so the live cost stands —
+      // show the ON-FILE cost (and a margin derived from it) so the row matches
+      // what BUILD IT commits, not an incoming cost the wizard can't persist.
+      const cost = onFile ? onFile.unitCost : f.unitCost;
       return [
-        { label: t("data.cost", "COST"), value: formatMoney(f.unitCost), tone: "cost" as const },
+        { label: t("data.cost", "COST"), value: formatMoney(cost), tone: "cost" as const },
         { label: t("data.price", "PRICE"), value: formatMoney(f.defaultPrice), tone: "price" as const },
         {
           label: t("data.margin", "MARGIN"),
-          value: formatMargin(f.defaultPrice, f.unitCost),
+          value: formatMargin(f.defaultPrice, cost),
           tone: "margin" as const,
         },
       ];
@@ -205,7 +229,7 @@ export function StagingCardView({
       ];
     }
     return [];
-  }, [card, t]);
+  }, [card, onFile, t]);
 
   return (
     <motion.div
@@ -296,7 +320,10 @@ export function StagingCardView({
             data-testid="staging-card-reject"
             aria-label={t("action.reject", "REJECT")}
             onClick={() => onReject?.(card.id)}
-            className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2"
+            className={cn(
+              "flex h-[22px] w-[22px] items-center justify-center rounded-[5px] text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2",
+              FOCUS_RING,
+            )}
           >
             <X size={14} strokeWidth={1.75} aria-hidden />
           </button>
@@ -305,7 +332,10 @@ export function StagingCardView({
             data-testid="staging-card-edit"
             aria-label={t("action.edit", "EDIT")}
             onClick={() => onEdit?.(card.id)}
-            className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2"
+            className={cn(
+              "flex h-[22px] w-[22px] items-center justify-center rounded-[5px] text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2",
+              FOCUS_RING,
+            )}
           >
             <Pencil size={14} strokeWidth={1.75} aria-hidden />
           </button>
@@ -320,6 +350,7 @@ export function StagingCardView({
             animate={isAccepted ? "accepted" : "idle"}
             className={cn(
               "flex h-[22px] w-[22px] items-center justify-center rounded-[5px] border transition-colors",
+              FOCUS_RING,
               isAccepted
                 ? "border-olive-line bg-olive-soft text-olive"
                 : "border-glass-border text-text-3 hover:bg-surface-hover hover:text-text-2",
@@ -342,7 +373,10 @@ export function StagingCardView({
         </div>
       ) : null}
 
-      {/* Duplicate diff: per-field struck on-file value → olive incoming value */}
+      {/* Duplicate diff — a per-field decision ledger. Each changed field carries
+          a verdict toggle: TAKE INCOMING (olive check, overwrites the live row) or
+          KEEP ON FILE (hollow, the live value stands). A fresh merge defaults to
+          take-incoming on every field, so doing nothing = the old take-all merge. */}
       {isDuplicate && diff && diff.length > 0 ? (
         <div
           data-testid="staging-card-diff"
@@ -351,39 +385,96 @@ export function StagingCardView({
           <span className="font-mono text-[10px] uppercase tracking-wider text-text-3">
             {t("dedupe.title", "// matched a row you already have")}
           </span>
-          {diff.map((d) => (
-            <div key={d.label} className="flex items-baseline gap-2 font-mono text-[12px]" style={MONO_NUM}>
-              <span className="w-[64px] shrink-0 text-[10px] uppercase tracking-wider text-text-3">
-                {d.label}
-              </span>
-              <span data-testid="diff-old" className="text-text-mute line-through">
-                {d.oldValue}
-              </span>
-              <span aria-hidden className="text-text-mute">
-                →
-              </span>
-              <span data-testid="diff-new" className="text-olive">
-                {d.newValue}
-              </span>
-            </div>
-          ))}
-          {/* KEEP / MERGE resolution chips */}
-          <div className="mt-[2px] flex items-center gap-2">
+          <span className="font-mono text-[10px] tracking-wide text-text-3">
+            {t("dedupe.fieldHint", "[ pick what to overwrite — the rest stays on file ]")}
+          </span>
+          {diff.map((d) => {
+            // true / absent ⇒ take the incoming value; false ⇒ keep the on-file row.
+            const accepted = card.fieldSelections?.[d.field] ?? true;
+            return (
+              <div
+                key={d.field}
+                className="flex items-center gap-2 font-mono text-[12px]"
+                style={MONO_NUM}
+              >
+                <span className="w-[58px] shrink-0 text-[10px] uppercase tracking-wider text-text-3">
+                  {d.label}
+                </span>
+                {/* The LIVE value (what commits) is always the un-struck one. */}
+                <span
+                  data-testid="diff-old"
+                  className={cn(
+                    accepted ? "text-text-mute line-through" : "text-text-2",
+                  )}
+                >
+                  {d.oldValue}
+                </span>
+                <span aria-hidden className="text-text-mute">
+                  →
+                </span>
+                <span
+                  data-testid="diff-new"
+                  className={cn(
+                    accepted ? "text-olive" : "text-text-mute line-through",
+                  )}
+                >
+                  {d.newValue}
+                </span>
+                <span className="flex-1" />
+                {/* Verdict toggle — olive check = take incoming, hollow = keep mine.
+                    Olive is the positive semantic, never the steel accent. */}
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={accepted}
+                  data-testid={`staging-card-diff-toggle-${d.field}`}
+                  aria-label={`${d.label} — ${
+                    accepted
+                      ? t("dedupe.takeIncoming", "TAKE INCOMING")
+                      : t("dedupe.keepExisting", "KEEP ON FILE")
+                  }`}
+                  onClick={() => onToggleDiffField?.(card.id, d.field, !accepted)}
+                  className={cn(
+                    "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-chip border transition-colors duration-150",
+                    FOCUS_RING,
+                    accepted
+                      ? "border-olive-line bg-olive-soft text-olive"
+                      : "border-glass-border text-transparent hover:bg-surface-hover",
+                  )}
+                >
+                  <Check size={12} strokeWidth={2.5} aria-hidden />
+                </button>
+              </div>
+            );
+          })}
+          {/* Bulk shortcuts — symmetric "set every toggle" controls, one vocabulary
+              with the per-field toggles + the ON FILE / INCOMING columns:
+                KEEP ON FILE → every field reverts to the live value (non-destructive,
+                  the card stays visible + fully re-decidable — never a one-click drop).
+                TAKE INCOMING → re-bind + clear verdicts (overwrite every changed field).
+              To discard the whole dup, the card's REJECT (×) action stays available. */}
+          <div className="mt-[2px] flex items-center justify-between gap-2">
             <button
               type="button"
               data-testid="staging-card-keep"
-              onClick={() => onKeep?.(card.id)}
-              className="rounded-chip border border-glass-border px-2 py-[2px] font-cakemono text-[11px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text"
+              onClick={() => diff.forEach((d) => onToggleDiffField?.(card.id, d.field, false))}
+              className={cn(
+                "rounded-chip border border-glass-border px-2 py-[2px] font-cakemono text-[11px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text",
+                FOCUS_RING,
+              )}
             >
-              {t("action.keep", "KEEP")}
+              {t("dedupe.keepExisting", "KEEP ON FILE")}
             </button>
             <button
               type="button"
               data-testid="staging-card-merge"
               onClick={() => onMerge?.(card.id)}
-              className="rounded-chip border border-olive-line bg-olive-soft px-2 py-[2px] font-cakemono text-[11px] font-light uppercase text-olive transition-colors hover:bg-olive/[0.16]"
+              className={cn(
+                "rounded-chip border border-olive-line bg-olive-soft px-2 py-[2px] font-cakemono text-[11px] font-light uppercase text-olive transition-colors hover:bg-olive/[0.16]",
+                FOCUS_RING,
+              )}
             >
-              {t("action.merge", "MERGE")}
+              {t("dedupe.takeIncoming", "TAKE INCOMING")}
             </button>
           </div>
         </div>

@@ -126,6 +126,7 @@
   "dedupe.keepExisting": "KEEP ON FILE",
   "dedupe.takeIncoming": "TAKE INCOMING",
   "dedupe.hint": "[merge keeps one row and folds in what changed]",
+  "dedupe.fieldHint": "[ pick what to overwrite — the rest stays on file ]",
 
   "field.name": "name",
   "field.description": "description",

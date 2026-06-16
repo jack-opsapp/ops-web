@@ -80,23 +80,111 @@ describe("<StagingCardView>", () => {
     expect(tag).toHaveClass("text-agent-text");
   });
 
-  it("duplicate (merge) card: tan DUPLICATE tag + struck→olive diff + KEEP/MERGE", () => {
+  it("duplicate (merge) card: tan DUPLICATE tag + take-incoming diff (olive) + per-field toggles + bulk shortcuts", () => {
     const diff: DiffField[] = [
-      { label: "PRICE", oldValue: "$12", newValue: "$14" },
-      { label: "COST", oldValue: "—", newValue: "$6.50" },
+      { field: "base_price", label: "PRICE", oldValue: "$12", newValue: "$14" },
+      { field: "is_taxable", label: "TAX", oldValue: "taxable", newValue: "not taxable" },
     ];
     render(<StagingCardView card={PREVIEW_CARDS_BY_STATE.duplicate} diff={diff} />);
     expect(screen.getByTestId("staging-card")).toHaveAttribute("data-duplicate", "true");
     const dupTag = screen.getByTestId("staging-card-duplicate-tag");
     expect(dupTag).toHaveClass("text-tan");
-    // diff: old value struck, new value olive
+    // Default verdict on a fresh merge = take incoming: on-file struck/muted, incoming olive.
     const olds = screen.getAllByTestId("diff-old");
     expect(olds[0]).toHaveClass("line-through");
     expect(olds[0]).toHaveClass("text-text-mute");
     expect(screen.getAllByTestId("diff-new")[0]).toHaveClass("text-olive");
-    // KEEP / MERGE chips
+    // One verdict toggle per changed field, checked (take incoming) by default.
+    const priceToggle = screen.getByTestId("staging-card-diff-toggle-base_price");
+    const taxToggle = screen.getByTestId("staging-card-diff-toggle-is_taxable");
+    expect(priceToggle).toHaveAttribute("aria-checked", "true");
+    expect(taxToggle).toHaveAttribute("aria-checked", "true");
+    // Bulk shortcuts present.
     expect(screen.getByTestId("staging-card-keep")).toBeInTheDocument();
     expect(screen.getByTestId("staging-card-merge")).toBeInTheDocument();
+  });
+
+  it("rejected field (keep on file): on-file value goes live (un-struck), incoming is struck, toggle unchecked", () => {
+    // A merge card whose owner kept the on-file PRICE (base_price rejected).
+    const card: StagingCard = {
+      ...PREVIEW_CARDS_BY_STATE.duplicate,
+      fieldSelections: { base_price: false },
+    } as StagingCard;
+    const diff: DiffField[] = [
+      { field: "base_price", label: "PRICE", oldValue: "$12", newValue: "$14" },
+      { field: "is_taxable", label: "TAX", oldValue: "taxable", newValue: "not taxable" },
+    ];
+    render(<StagingCardView card={card} diff={diff} />);
+    // base_price rejected → the on-file value is the LIVE (un-struck) one.
+    const priceOld = screen.getAllByTestId("diff-old")[0];
+    const priceNew = screen.getAllByTestId("diff-new")[0];
+    expect(priceOld).not.toHaveClass("line-through");
+    expect(priceOld).toHaveClass("text-text-2");
+    expect(priceNew).toHaveClass("line-through");
+    expect(screen.getByTestId("staging-card-diff-toggle-base_price")).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    // is_taxable still defaults to take-incoming (olive), unaffected by the other verdict.
+    expect(screen.getAllByTestId("diff-new")[1]).toHaveClass("text-olive");
+    expect(screen.getByTestId("staging-card-diff-toggle-is_taxable")).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
+  it("fires onToggleDiffField with the snake_case field key + flipped verdict on a toggle click", () => {
+    const onToggleDiffField = vi.fn();
+    const diff: DiffField[] = [
+      { field: "base_price", label: "PRICE", oldValue: "$12", newValue: "$14" },
+    ];
+    render(
+      <StagingCardView
+        card={PREVIEW_CARDS_BY_STATE.duplicate}
+        diff={diff}
+        onToggleDiffField={onToggleDiffField}
+      />,
+    );
+    // Default accepted → clicking flips to keep-on-file (false).
+    fireEvent.click(screen.getByTestId("staging-card-diff-toggle-base_price"));
+    expect(onToggleDiffField).toHaveBeenCalledWith(
+      PREVIEW_CARDS_BY_STATE.duplicate.id,
+      "base_price",
+      false,
+    );
+  });
+
+  it("KEEP ON FILE (bulk) sets every diff field to keep-on-file (non-destructive); TAKE INCOMING fires onMerge", () => {
+    const onToggleDiffField = vi.fn();
+    const onMerge = vi.fn();
+    const diff: DiffField[] = [
+      { field: "base_price", label: "PRICE", oldValue: "$12", newValue: "$14" },
+      { field: "is_taxable", label: "TAX", oldValue: "taxable", newValue: "not taxable" },
+    ];
+    render(
+      <StagingCardView
+        card={PREVIEW_CARDS_BY_STATE.duplicate}
+        diff={diff}
+        onToggleDiffField={onToggleDiffField}
+        onMerge={onMerge}
+      />,
+    );
+    // KEEP ON FILE → a keep-on-file verdict (false) for EVERY changed field; the
+    // card is never destructively dropped (the × REJECT action does that).
+    fireEvent.click(screen.getByTestId("staging-card-keep"));
+    expect(onToggleDiffField).toHaveBeenCalledWith(
+      PREVIEW_CARDS_BY_STATE.duplicate.id,
+      "base_price",
+      false,
+    );
+    expect(onToggleDiffField).toHaveBeenCalledWith(
+      PREVIEW_CARDS_BY_STATE.duplicate.id,
+      "is_taxable",
+      false,
+    );
+    // TAKE INCOMING → re-bind + clear verdicts (take every change).
+    fireEvent.click(screen.getByTestId("staging-card-merge"));
+    expect(onMerge).toHaveBeenCalledWith(PREVIEW_CARDS_BY_STATE.duplicate.id);
   });
 
   it("SELL data row uses earth-tone semantics: COST rose, PRICE text, MARGIN olive", () => {
