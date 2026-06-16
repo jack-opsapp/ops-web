@@ -114,7 +114,7 @@
     "three": "^0.183.2",
     "twilio": "^5.13.1",
     "vaul": "^1.1.0",
-    "xlsx": "0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^3.24.0",
     "zod-to-json-schema": "^3.25.1",
     "zustand": "^5.0.0"
