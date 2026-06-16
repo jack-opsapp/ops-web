@@ -343,7 +343,7 @@ export function buildContactFormRepairDecision(
   let opportunityAction: ContactFormRepairDecision["proposed"]["opportunityAction"] =
     "keep";
   let proposedTargetClientId = targetClientId;
-  let proposedTargetOpportunityId =
+  const proposedTargetOpportunityId =
     currentOpportunityMatchesTarget && input.currentOpportunity
       ? input.currentOpportunity.id
       : (input.existingOpenOpportunityForTarget?.id ?? null);

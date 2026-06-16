@@ -47,7 +47,7 @@ export function Day4NoNotification({
               Day 4.
             </Text>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "0 0 16px 0" }}>
-              Here's the moment you're working toward:
+              Here&apos;s the moment you&apos;re working toward:
             </Text>
             <MockPushNotification
               completedByName="Jake"
@@ -55,7 +55,7 @@ export function Day4NoNotification({
               projectTitle="5611 Batu Rd"
             />
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "16px 0" }}>
-              That notification lands on your phone the first time someone on your crew taps DONE in the field. From a job you weren't on. On a task you didn't have to chase.
+              That notification lands on your phone the first time someone on your crew taps DONE in the field. From a job you weren&apos;t on. On a task you didn&apos;t have to chase.
             </Text>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "0 0 8px 0" }}>
               To get there:
@@ -89,7 +89,7 @@ export function Day4NoNotification({
               </Button>
             </Section>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "16px 0 0 0" }}>
-              The first time you hear that ping while you're somewhere else, you'll know why we built this.
+              The first time you hear that ping while you&apos;re somewhere else, you&apos;ll know why we built this.
             </Text>
           </Section>
           <FounderFooter unsubscribeUrl={unsubscribeUrl} />

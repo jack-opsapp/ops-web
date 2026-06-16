@@ -45,10 +45,10 @@ export function Day1NoProject({ ctaUrl, unsubscribeUrl }: Day1NoProjectProps) {
               The move that puts the rest of the system to work: drop your first project in. Real client, real address, real tasks.
             </Text>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "0 0 16px 0" }}>
-              Without a project, OPS has nothing to work from. Once a project's in, the schedule, the crew, the photos, the estimates, the invoices all hang off it.
+              Without a project, OPS has nothing to work from. Once a project&apos;s in, the schedule, the crew, the photos, the estimates, the invoices all hang off it.
             </Text>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "0 0 24px 0" }}>
-              Use a job you're actually running this week. Takes two minutes.
+              Use a job you&apos;re actually running this week. Takes two minutes.
             </Text>
             <Section style={{ textAlign: "left", margin: "24px 0" }}>
               <Button
