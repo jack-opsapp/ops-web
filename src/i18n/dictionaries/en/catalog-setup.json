@@ -11,7 +11,6 @@
   "commitPartial": "Saved {saved}. Some items need a fix — build again.",
   "commitScopeMismatch": "Your account isn't set up for catalog changes yet — ask your admin to finish your setup.",
   "commitTypesWarning": "Catalog's live — task types didn't save. Re-run setup to add them.",
-  "commitCostWarning": "Catalog's live — some costs didn't save. Open a product to set its cost.",
   "offline.title": "Offline",
   "offline.detail": "[ build holds until you're back — nothing's lost ]",
   "offline.held": "You're offline — your catalog is saved, build when you're back",

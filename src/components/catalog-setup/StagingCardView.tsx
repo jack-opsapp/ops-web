@@ -207,9 +207,10 @@ export function StagingCardView({
   const dataCells = useMemo(() => {
     if (card.module === "sell") {
       const f = card.fields as SellFields;
-      // On a merge the RPC never overwrites unit_cost, so the live cost stands —
-      // show the ON-FILE cost (and a margin derived from it) so the row matches
-      // what BUILD IT commits, not an incoming cost the wizard can't persist.
+      // On a merge the doc carries the on-file cost straight back (the RPC's
+      // coalesce re-writes the same value), so the live cost stands — show the
+      // ON-FILE cost (and a margin derived from it) so the row matches what BUILD
+      // IT commits, not the incoming cost (cost isn't a merge-diff field).
       const cost = onFile ? onFile.unitCost : f.unitCost;
       return [
         { label: t("data.cost", "COST"), value: formatMoney(cost), tone: "cost" as const },

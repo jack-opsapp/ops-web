@@ -112,12 +112,13 @@ export interface DiffLabels {
  * Build the per-field old→new diff for a merge (duplicate) SELL card. ONLY the
  * fields a MERGE actually overwrites appear here — name, price
  * (base_price/default_price), and taxable. `unit_cost` is DELIBERATELY excluded:
- * the commit RPC never writes products.unit_cost (absent from the INSERT + both
- * UPDATE-SET clauses), so on a merge the on-file cost is LEFT UNTOUCHED — there is
- * no cost change to accept or reject, and a toggle would imply control the merge
- * can't exercise. (A newly CREATED product's cost IS persisted, by the post-commit
- * `cost-stamp` — but a create has no diff. The merge data row shows the on-file
- * cost, which is what stands after commit.)
+ * a merge sends the on-file cost straight back, and catalog_setup_save resolves
+ * unit_cost on conflict via coalesce(excluded.unit_cost, products.unit_cost), so
+ * the on-file cost is preserved either way — there is no cost change to accept or
+ * reject, and a toggle would imply control the merge can't exercise. (A newly
+ * CREATED product's cost IS persisted — the RPC writes unit_cost on insert — but a
+ * create has no diff. The merge data row shows the on-file cost, which is what
+ * stands after commit.)
  */
 export function buildDiff(
   card: StagingCard,

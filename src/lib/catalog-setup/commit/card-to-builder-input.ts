@@ -71,7 +71,8 @@ function targetId(card: StagingCard): string | undefined {
  * false ⇒ keep on file). Every other committable column (description, category_id,
  * is_active, show_in_storefront, pricing_unit, kind, sku) stays the on-file value,
  * so a re-import never silently wipes data the diff didn't surface. `unit_cost` is
- * carried from on-file too, though the RPC ignores it (see CanvasPane.buildDiff).
+ * carried from on-file too, so the RPC's coalesce(excluded.unit_cost, …) on a
+ * merge just re-writes the live cost — a no-op (see CanvasPane.buildDiff).
  */
 function mapSell(
   card: Extract<StagingCard, { module: "sell" }>,

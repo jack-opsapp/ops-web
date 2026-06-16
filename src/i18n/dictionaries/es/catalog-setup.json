@@ -11,7 +11,6 @@
   "commitPartial": "Se guardó {saved}. Algunos elementos necesitan corrección — vuelve a construir.",
   "commitScopeMismatch": "Tu cuenta aún no está configurada para cambios en el catálogo — pídele a tu administrador que termine tu configuración.",
   "commitTypesWarning": "El catálogo está activo — los tipos de tarea no se guardaron. Vuelve a ejecutar la configuración para agregarlos.",
-  "commitCostWarning": "El catálogo está activo — algunos costos no se guardaron. Abre un producto para fijar su costo.",
   "offline.title": "Sin conexión",
   "offline.detail": "[ la creación espera a que vuelvas — no se pierde nada ]",
   "offline.held": "Estás sin conexión — tu catálogo está guardado, créalo cuando vuelvas",

@@ -491,14 +491,6 @@ export function CatalogSetupRoute() {
               ),
             );
           }
-          if (res.warnings?.includes("cost_stamp_failed")) {
-            toast.warning(
-              t(
-                "commitCostWarning",
-                "Catalog's live — some costs didn't save. Open a product to set its cost.",
-              ),
-            );
-          }
           reset();
           window.sessionStorage.removeItem(SESSION_KEY);
           router.push("/catalog");
