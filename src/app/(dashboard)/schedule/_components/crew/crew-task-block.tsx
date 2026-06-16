@@ -4,11 +4,11 @@ import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { differenceInCalendarDays, addDays, format } from "date-fns";
 import { Star, TreePalm } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { CREW_ROW_HEIGHT } from "@/lib/utils/crew-constants";
 import { laneVerticalLayout } from "@/lib/utils/lane-assignment";
 import { EventHoverPopover } from "../event-hover-popover";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 
 // ─── Calendar badge surface ─────────────────────────────────────────────────
 //
@@ -48,7 +48,7 @@ const TIMEOFF_TEXT = "#C4A868";
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface CrewTaskBlockProps {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   startDate: Date; // crew swimlane start date (first visible day)
   daysShown: number; // number of visible day columns
   isSelected?: boolean; // selected via click or multi-select
@@ -59,13 +59,13 @@ interface CrewTaskBlockProps {
   laneCount?: number;
   /** Total row height in px — block divides this evenly across laneCount */
   rowHeight?: number;
-  onClick?: (event: InternalCalendarEvent) => void;
+  onClick?: (event: InternalScheduleEvent) => void;
   onContextMenu?: (
-    event: InternalCalendarEvent,
+    event: InternalScheduleEvent,
     x: number,
     y: number
   ) => void;
-  onResize?: (event: InternalCalendarEvent, newStartDate: Date, newEndDate: Date) => void;
+  onResize?: (event: InternalScheduleEvent, newStartDate: Date, newEndDate: Date) => void;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -99,8 +99,8 @@ export function CrewTaskBlock({
   // calendar polish session). Mirror the logic in month-event-bar /
   // day-task-card so crew blocks dim and brighten consistently when the
   // toolbar dropdowns are hovered.
-  const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
-  const highlightedTeamMemberId = useCalendarStore(
+  const highlightedTaskType = useScheduleStore((s) => s.highlightedTaskType);
+  const highlightedTeamMemberId = useScheduleStore(
     (s) => s.highlightedTeamMemberId,
   );
 

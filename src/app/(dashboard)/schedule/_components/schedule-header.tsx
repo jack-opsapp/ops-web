@@ -24,17 +24,17 @@ import {
 } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { SegmentedPicker } from "@/components/ops/segmented-picker";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import type { SchedulerView } from "@/lib/types/scheduling";
 import { cn } from "@/lib/utils/cn";
 import { useTasks } from "@/lib/hooks";
 import { TaskStatus } from "@/lib/types/models";
 
-interface CalendarHeaderProps {
+interface ScheduleHeaderProps {
   t: (key: string) => string;
 }
 
-export function CalendarHeader({ t }: CalendarHeaderProps) {
+export function ScheduleHeader({ t }: ScheduleHeaderProps) {
   const {
     currentDate,
     view,
@@ -43,7 +43,7 @@ export function CalendarHeader({ t }: CalendarHeaderProps) {
     goToToday,
     isFilterSidebarOpen,
     toggleFilterSidebar,
-  } = useCalendarStore();
+  } = useScheduleStore();
 
   // Unscheduled count for auto-schedule badge
   const { data: taskData } = useTasks();

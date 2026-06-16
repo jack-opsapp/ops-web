@@ -3,13 +3,13 @@
 import { useMemo, useCallback, useState } from "react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { useCalendarStore } from "@/stores/calendar-store";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
+import { useScheduleStore } from "@/stores/schedule-store";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
 interface DayPersonalEventCardProps {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   index: number;
 }
 
@@ -17,7 +17,7 @@ interface DayPersonalEventCardProps {
 
 export function DayPersonalEventCard({ event, index }: DayPersonalEventCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const setSidePanelTask = useCalendarStore((s) => s.setSidePanelTask);
+  const setSidePanelTask = useScheduleStore((s) => s.setSidePanelTask);
 
   // ── Time formatting ───────────────────────────────────────────────────
 

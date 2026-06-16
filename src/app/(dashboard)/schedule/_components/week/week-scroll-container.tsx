@@ -13,9 +13,9 @@ import {
   isSameWeek,
   startOfWeek,
 } from "date-fns";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { WeekGrid } from "./week-grid";
-import { useCalendarDragState } from "../calendar-dnd-shell";
+import { useScheduleDragState } from "../schedule-dnd-shell";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -28,7 +28,7 @@ const WEEK_OPTS = { weekStartsOn: 1 as const };
 
 interface WeekScrollContainerProps {
   currentDate: Date;
-  events: InternalCalendarEvent[];
+  events: InternalScheduleEvent[];
   onCurrentDateChange: (date: Date) => void;
 }
 
@@ -183,7 +183,7 @@ export function WeekScrollContainer({
     didInitialScroll.current = false;
   }, [currentDate]);
 
-  const { isDragging } = useCalendarDragState();
+  const { isDragging } = useScheduleDragState();
 
   return (
     <div

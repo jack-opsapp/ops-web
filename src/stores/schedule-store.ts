@@ -25,7 +25,7 @@ export interface QuickCreateAnchor {
 export type UnscheduledTrayGroupBy = "project" | "client" | "type" | "none";
 export type UnscheduledTraySort = "created" | "title" | "project";
 
-interface CalendarStoreState {
+interface ScheduleStoreState {
   // View
   currentDate: Date;
   view: SchedulerView;
@@ -96,7 +96,7 @@ interface CalendarStoreState {
   updateFilters: (
     filters: Partial<
       Pick<
-        CalendarStoreState,
+        ScheduleStoreState,
         | "filterTeamMemberIds"
         | "filterTaskTypes"
         | "filterProjectIds"
@@ -140,7 +140,7 @@ interface CalendarStoreState {
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
-export const useCalendarStore = create<CalendarStoreState>()(
+export const useScheduleStore = create<ScheduleStoreState>()(
   persist(
     (set) => ({
       // View

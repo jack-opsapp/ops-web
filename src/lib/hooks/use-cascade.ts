@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { useUpdateTask } from "@/lib/hooks/use-tasks";
 import { calculateCascade } from "@/lib/scheduling/engine";
 import type {
@@ -18,10 +18,10 @@ import type {
  * 3. The confirm bar's "Apply" button calls the closure that persists changes via mutateAsync.
  */
 export function useCascade() {
-  const setGhostPreviews = useCalendarStore((s) => s.setGhostPreviews);
-  const clearGhostPreviews = useCalendarStore((s) => s.clearGhostPreviews);
-  const showConfirmBar = useCalendarStore((s) => s.showConfirmBar);
-  const hideConfirmBar = useCalendarStore((s) => s.hideConfirmBar);
+  const setGhostPreviews = useScheduleStore((s) => s.setGhostPreviews);
+  const clearGhostPreviews = useScheduleStore((s) => s.clearGhostPreviews);
+  const showConfirmBar = useScheduleStore((s) => s.showConfirmBar);
+  const hideConfirmBar = useScheduleStore((s) => s.hideConfirmBar);
   const updateTask = useUpdateTask();
 
   const previewCascade = useCallback(

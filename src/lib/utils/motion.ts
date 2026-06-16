@@ -139,10 +139,10 @@ export const actionPromptVariantsReduced: Variants = {
 // ── Calendar animations ──
 
 /** Calendar drag spring physics */
-export const SPRING_CALENDAR_DRAG = { type: "spring" as const, stiffness: 400, damping: 30 };
+export const SPRING_SCHEDULE_DRAG = { type: "spring" as const, stiffness: 400, damping: 30 };
 
 /** Calendar view switching — vertical fade */
-export const calendarViewVariants: Variants = {
+export const scheduleViewVariants: Variants = {
   enter: { opacity: 0, y: 8 },
   center: {
     opacity: 1,
@@ -157,14 +157,14 @@ export const calendarViewVariants: Variants = {
 };
 
 /** Calendar view switching — reduced motion (opacity only) */
-export const calendarViewVariantsReduced: Variants = {
+export const scheduleViewVariantsReduced: Variants = {
   enter: { opacity: 0 },
   center: { opacity: 1, transition: { duration: 0.15 } },
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
 
 /** Calendar event appear — scale + fade */
-export const calendarEventVariants: Variants = {
+export const scheduleEventVariants: Variants = {
   hidden: { opacity: 0, scale: 0.95 },
   visible: {
     opacity: 1,
@@ -174,7 +174,7 @@ export const calendarEventVariants: Variants = {
 };
 
 /** Calendar event appear — reduced motion */
-export const calendarEventVariantsReduced: Variants = {
+export const scheduleEventVariantsReduced: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.1 } },
 };

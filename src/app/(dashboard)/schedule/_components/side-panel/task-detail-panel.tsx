@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { format, differenceInCalendarDays } from "date-fns";
 import { toast } from "sonner";
 import { Trash2, Check, ArrowRight, ArrowLeft, Zap, Plus, X } from "lucide-react";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import {
   useTask,
   useUpdateTask,
@@ -165,7 +165,7 @@ function TeamPill({
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function TaskDetailPanel() {
-  const { sidePanelMode, selectedTaskId, closeSidePanel } = useCalendarStore();
+  const { sidePanelMode, selectedTaskId, closeSidePanel } = useScheduleStore();
 
   const isOpen = sidePanelMode === "task-detail" && !!selectedTaskId;
 

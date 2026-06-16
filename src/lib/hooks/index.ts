@@ -396,7 +396,7 @@ export {
   useTeamMetrics,
   useProductMetrics,
   useJobBoardMetrics,
-  useCalendarMetrics,
+  useScheduleMetrics,
   useMapMetrics,
   useInboxMetrics,
 } from "./use-metrics";

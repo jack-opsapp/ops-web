@@ -5,7 +5,7 @@ import { format, isSameMonth } from "date-fns";
 import { GripVertical, Ban, Zap, Plus } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import {
   useProject,
   useClient,
@@ -163,7 +163,7 @@ function DrawerTaskCard({
 
 export function ProjectDrawerPanel() {
   const { sidePanelMode, sidePanelProjectId, closeSidePanel } =
-    useCalendarStore();
+    useScheduleStore();
   const { company } = useAuthStore();
 
   const isOpen = sidePanelMode === "project-drawer" && !!sidePanelProjectId;

@@ -8,15 +8,15 @@
 
 import { useCallback } from "react";
 import { addDays, differenceInCalendarDays, isBefore, isAfter, isEqual } from "date-fns";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface InsertPoint {
   /** The event immediately before the insert position (null if inserting at the start) */
-  before: InternalCalendarEvent | null;
+  before: InternalScheduleEvent | null;
   /** The event immediately after the insert position (null if inserting at the end) */
-  after: InternalCalendarEvent | null;
+  after: InternalScheduleEvent | null;
 }
 
 export interface PushOffset {
@@ -40,7 +40,7 @@ export function useSmartInsert() {
       draggedTaskId: string,
       targetTeamMemberId: string,
       targetDate: Date,
-      allEvents: InternalCalendarEvent[],
+      allEvents: InternalScheduleEvent[],
       startDate: Date,
       daysShown: number
     ): InsertPoint | null => {
@@ -107,9 +107,9 @@ export function useSmartInsert() {
   const calculatePushOffsets = useCallback(
     (
       insertedDuration: number,
-      before: InternalCalendarEvent | null,
-      after: InternalCalendarEvent | null,
-      allEvents: InternalCalendarEvent[],
+      before: InternalScheduleEvent | null,
+      after: InternalScheduleEvent | null,
+      allEvents: InternalScheduleEvent[],
       targetTeamMemberId: string
     ): PushOffset[] => {
       if (!after) {

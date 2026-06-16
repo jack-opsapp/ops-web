@@ -3,19 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { isSameDay, startOfWeek, endOfWeek, isBefore, isAfter } from "date-fns";
 import {
-  type InternalCalendarEvent,
-} from "@/lib/utils/calendar-utils";
-import { useCalendarStore } from "@/stores/calendar-store";
+  type InternalScheduleEvent,
+} from "@/lib/utils/schedule-utils";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { useTasks, useTeamMembers } from "@/lib/hooks";
 import { TaskStatus } from "@/lib/types/models";
 import { ChevronDown, X } from "lucide-react";
 
-interface CalendarToolbarProps {
-  events: InternalCalendarEvent[];
+interface ScheduleToolbarProps {
+  events: InternalScheduleEvent[];
   t: (key: string) => string;
 }
 
-export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
+export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
   const {
     filterTeamMemberIds,
     filterTaskTypes,
@@ -26,7 +26,7 @@ export function CalendarToolbar({ events, t }: CalendarToolbarProps) {
     toggleUnscheduledTray,
     setHighlightedTaskType,
     setHighlightedTeamMemberId,
-  } = useCalendarStore();
+  } = useScheduleStore();
 
   // Legend dropdown — collapsed by default. Click summary chip to expand.
   const [legendOpen, setLegendOpen] = useState(false);

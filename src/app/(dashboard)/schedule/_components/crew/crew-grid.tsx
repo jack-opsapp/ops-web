@@ -10,14 +10,14 @@ import {
 } from "date-fns";
 import { useDroppable } from "@dnd-kit/core";
 import type { TeamMember } from "@/lib/types/models";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { UserRole } from "@/lib/types/models";
 import { CrewHeader } from "./crew-header";
 import { CrewRow } from "./crew-row";
 import { CrewTaskBlock } from "./crew-task-block";
 import { EventContextMenu } from "../event-context-menu";
 import { InlineEditor } from "../inline-editor";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { useUpdateTask } from "@/lib/hooks";
 import {
   CREW_DAYS_SHOWN,
@@ -53,11 +53,11 @@ const SPECIAL_EVENTS_MEMBER: TeamMember = {
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface CrewGridProps {
-  events: InternalCalendarEvent[];
+  events: InternalScheduleEvent[];
   teamMembers: TeamMember[];
   startDate: Date;
   daysShown?: number;
-  onEventClick?: (event: InternalCalendarEvent) => void;
+  onEventClick?: (event: InternalScheduleEvent) => void;
 }
 
 // ─── Droppable Row Wrapper ──────────────────────────────────────────────────
@@ -101,7 +101,7 @@ function DroppableCrewRow({
       teamMemberId: teamMember.id,
       gridWidth,
       // Bug 1b2942d5: bridge crew-row droppables into the outer
-      // CalendarDndShell so unscheduled-tray drags (registered in the
+      // ScheduleDndShell so unscheduled-tray drags (registered in the
       // outer context) can target this row. Carrying startDate +
       // daysShown lets the shell's handleDragEnd compute the dropped
       // calendar day from horizontal pixel offset without prop-drilling.
@@ -201,13 +201,13 @@ export function CrewGrid({
 }: CrewGridProps) {
   // ── Store ─────────────────────────────────────────────────────────────
 
-  const selectedTaskId = useCalendarStore((s) => s.selectedTaskId);
-  const selectedTaskIds = useCalendarStore((s) => s.selectedTaskIds);
+  const selectedTaskId = useScheduleStore((s) => s.selectedTaskId);
+  const selectedTaskIds = useScheduleStore((s) => s.selectedTaskIds);
 
   // ── Context menu state ──────────────────────────────────────────────
 
   const [contextMenuEvent, setContextMenuEvent] =
-    useState<InternalCalendarEvent | null>(null);
+    useState<InternalScheduleEvent | null>(null);
   const [contextMenuPosition, setContextMenuPosition] = useState<{
     x: number;
     y: number;
@@ -216,7 +216,7 @@ export function CrewGrid({
   // ── Mutations ─────────────────────────────────────────────────────────
   //
   // Bug 1b2942d5: drag-and-drop is now owned by the outer
-  // CalendarDndShell so cross-context drags (unscheduled-tray →
+  // ScheduleDndShell so cross-context drags (unscheduled-tray →
   // crew-row) work without forwarding. The crew-grid only handles the
   // local resize callback below — every other drag path lives in the
   // shell's handleDragEnd.
@@ -226,7 +226,7 @@ export function CrewGrid({
   // ── Resize callback ───────────────────────────────────────────────────
 
   const handleResize = useCallback(
-    (event: InternalCalendarEvent, newStart: Date, newEnd: Date) => {
+    (event: InternalScheduleEvent, newStart: Date, newEnd: Date) => {
       updateTask.mutate({
         id: event.id,
         data: { startDate: newStart, endDate: newEnd },
@@ -238,14 +238,14 @@ export function CrewGrid({
   // ── Event handlers ────────────────────────────────────────────────────
 
   const handleEventClick = useCallback(
-    (event: InternalCalendarEvent) => {
+    (event: InternalScheduleEvent) => {
       onEventClick?.(event);
     },
     [onEventClick]
   );
 
   const handleContextMenu = useCallback(
-    (event: InternalCalendarEvent, x: number, y: number) => {
+    (event: InternalScheduleEvent, x: number, y: number) => {
       setContextMenuEvent(event);
       setContextMenuPosition({ x, y });
     },
@@ -277,7 +277,7 @@ export function CrewGrid({
   //     member's row (and ALSO in the special events row when their kind
   //     is personal/time_off).
   const eventsByMember = useCallback(() => {
-    const map = new Map<string, InternalCalendarEvent[]>();
+    const map = new Map<string, InternalScheduleEvent[]>();
 
     for (const event of events) {
       const isSpecial = event.kind === "personal" || event.kind === "time_off";

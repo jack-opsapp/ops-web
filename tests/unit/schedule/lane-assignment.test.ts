@@ -4,16 +4,16 @@ import {
   rowHeightForLanes,
   laneVerticalLayout,
 } from "@/lib/utils/lane-assignment";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 
 // ─── Test fixture helper ────────────────────────────────────────────────────
 
 /**
- * Build a minimal InternalCalendarEvent for lane-assignment testing.
+ * Build a minimal InternalScheduleEvent for lane-assignment testing.
  * The algorithm only inspects id, startDate, and endDate — everything else
  * is filler to satisfy the type.
  */
-function event(id: string, startISO: string, endISO: string): InternalCalendarEvent {
+function event(id: string, startISO: string, endISO: string): InternalScheduleEvent {
   return {
     id,
     startDate: new Date(startISO),
@@ -29,7 +29,7 @@ function event(id: string, startISO: string, endISO: string): InternalCalendarEv
     allDay: true,
     recurrenceId: null,
     recurrenceOriginDate: null,
-  } as unknown as InternalCalendarEvent;
+  } as unknown as InternalScheduleEvent;
 }
 
 // ─── assignLanes ────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CalendarDndShell — single dnd-kit context for the entire calendar surface.
+ * ScheduleDndShell — single dnd-kit context for the entire calendar surface.
  *
  * Hoisted out of the per-view grids so cross-panel drag works in the
  * continuous-scroll Month / Week / Day containers. Also lets the unscheduled
@@ -38,31 +38,31 @@ import {
 } from "@dnd-kit/core";
 import { addDays, differenceInCalendarDays } from "date-fns";
 import { toast } from "sonner";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import {
   FIRST_HOUR,
   HOUR_HEIGHT,
   LAST_HOUR,
-} from "@/lib/utils/calendar-constants";
+} from "@/lib/utils/schedule-constants";
 import type { ProjectTask } from "@/lib/types/models";
 import { useUpdateTask, useTasks, useRecurrenceEdit } from "@/lib/hooks";
 import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
-import { useCalendarResize, type ResizePatch } from "./use-calendar-resize";
+import { useScheduleResize, type ResizePatch } from "./use-schedule-resize";
 
 // ─── Drag state context ─────────────────────────────────────────────────────
 
-interface CalendarDragState {
+interface ScheduleDragState {
   isDragging: boolean;
   activeType: string | null;
 }
 
-const DragStateContext = createContext<CalendarDragState>({
+const DragStateContext = createContext<ScheduleDragState>({
   isDragging: false,
   activeType: null,
 });
 
 /** Read live drag state — used by scroll containers to disable scroll-snap mid-drag. */
-export function useCalendarDragState() {
+export function useScheduleDragState() {
   return useContext(DragStateContext);
 }
 
@@ -71,22 +71,22 @@ export function useCalendarDragState() {
 // Hoisted out of each grid so we don't mount one RecurrenceEditPrompt per
 // scroll panel — the buffered Month / Week / Day containers can render up
 // to ~55 panels combined, each previously mounted its own prompt. One
-// useCalendarResize lives here; every grid consumes via this context.
+// useScheduleResize lives here; every grid consumes via this context.
 
-interface CalendarResizeAPI {
+interface ScheduleResizeAPI {
   commitResize: (
-    event: InternalCalendarEvent,
+    event: InternalScheduleEvent,
     patch: ResizePatch
   ) => Promise<void>;
 }
 
-const CalendarResizeContext = createContext<CalendarResizeAPI | null>(null);
+const ScheduleResizeContext = createContext<ScheduleResizeAPI | null>(null);
 
-export function useCalendarResizeContext(): CalendarResizeAPI {
-  const ctx = useContext(CalendarResizeContext);
+export function useScheduleResizeContext(): ScheduleResizeAPI {
+  const ctx = useContext(ScheduleResizeContext);
   if (!ctx) {
     throw new Error(
-      "useCalendarResizeContext must be used inside <CalendarDndShell>"
+      "useScheduleResizeContext must be used inside <ScheduleDndShell>"
     );
   }
   return ctx;
@@ -97,7 +97,7 @@ export function useCalendarResizeContext(): CalendarResizeAPI {
 interface ActiveDrag {
   id: string;
   type: string;
-  event?: InternalCalendarEvent;
+  event?: InternalScheduleEvent;
   task?: { id: string; duration: number; title?: string };
 }
 
@@ -116,19 +116,19 @@ function fmtHHmmss(d: Date): string {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-interface CalendarDndShellProps {
+interface ScheduleDndShellProps {
   children: React.ReactNode;
 }
 
-export function CalendarDndShell({ children }: CalendarDndShellProps) {
+export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
   const updateTask = useUpdateTask();
   const recurrenceEdit = useRecurrenceEdit();
   const recurrencePrompt = useRecurrenceEditPrompt();
 
   // Single shared resize API. Provided to descendants via context so each
   // grid panel doesn't mount its own copy.
-  const resize = useCalendarResize();
-  const resizeApi = useMemo<CalendarResizeAPI>(
+  const resize = useScheduleResize();
+  const resizeApi = useMemo<ScheduleResizeAPI>(
     () => ({ commitResize: resize.commitResize }),
     [resize.commitResize]
   );
@@ -152,7 +152,7 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
     const data = e.active.data?.current as
       | {
           type?: string;
-          event?: InternalCalendarEvent;
+          event?: InternalScheduleEvent;
           task?: { id: string; duration: number; title?: string };
         }
       | undefined;
@@ -179,7 +179,7 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
       const activeData = active.data?.current as
         | {
             type?: string;
-            event?: InternalCalendarEvent;
+            event?: InternalScheduleEvent;
             task?: { id: string; duration: number; teamMemberIds?: string[] };
           }
         | undefined;
@@ -534,7 +534,7 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
     [tasksById, updateTask, recurrenceEdit, recurrencePrompt]
   );
 
-  const dragState = useMemo<CalendarDragState>(
+  const dragState = useMemo<ScheduleDragState>(
     () => ({
       isDragging: activeDrag !== null,
       activeType: activeDrag?.type ?? null,
@@ -544,7 +544,7 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
 
   return (
     <DragStateContext.Provider value={dragState}>
-      <CalendarResizeContext.Provider value={resizeApi}>
+      <ScheduleResizeContext.Provider value={resizeApi}>
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
@@ -554,7 +554,7 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
             // Tight edge zone (~5% of axis = ~40-60px on typical layouts).
             // dnd-kit walks up to scrollable ancestors and scrolls them when
             // the pointer enters the threshold band. Each scroll container
-            // toggles off scroll-snap during drag (see useCalendarDragState),
+            // toggles off scroll-snap during drag (see useScheduleDragState),
             // which lets autoscroll move the viewport across panel boundaries
             // without the snap engine yanking it back.
             threshold: { x: 0.05, y: 0.05 },
@@ -568,14 +568,14 @@ export function CalendarDndShell({ children }: CalendarDndShellProps) {
           {recurrencePrompt.promptElement}
           {resize.promptElement}
         </DndContext>
-      </CalendarResizeContext.Provider>
+      </ScheduleResizeContext.Provider>
     </DragStateContext.Provider>
   );
 }
 
 // ─── Drag preview ───────────────────────────────────────────────────────────
 
-function DragPreview({ event }: { event: InternalCalendarEvent }) {
+function DragPreview({ event }: { event: InternalScheduleEvent }) {
   const title = event.projectTitle ?? event.taskTitle;
   return (
     <div

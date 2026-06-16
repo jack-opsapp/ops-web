@@ -3,11 +3,11 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { differenceInCalendarDays } from "date-fns";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { CrewTaskBlock } from "../crew/crew-task-block";
 import { CREW_ROW_HEIGHT, CREW_GUTTER_WIDTH } from "@/lib/utils/crew-constants";
 import type { TeamMember } from "@/lib/types/models";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -15,7 +15,7 @@ interface GhostOverlayProps {
   startDate: Date;
   daysShown: number;
   teamMembers: TeamMember[];
-  events: InternalCalendarEvent[];
+  events: InternalScheduleEvent[];
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -41,11 +41,11 @@ export function GhostOverlay({
   teamMembers,
   events,
 }: GhostOverlayProps) {
-  const ghostPreviews = useCalendarStore((s) => s.ghostPreviews);
+  const ghostPreviews = useScheduleStore((s) => s.ghostPreviews);
 
-  // Build a lookup: eventId → InternalCalendarEvent
+  // Build a lookup: eventId → InternalScheduleEvent
   const eventMap = useMemo(() => {
-    const map = new Map<string, InternalCalendarEvent>();
+    const map = new Map<string, InternalScheduleEvent>();
     for (const ev of events) {
       map.set(ev.id, ev);
     }
@@ -93,8 +93,8 @@ export function GhostOverlay({
         // Skip if completely out of view
         if (widthPercent <= 0) return null;
 
-        // Build a synthetic InternalCalendarEvent with the ghost's new dates
-        const ghostEvent: InternalCalendarEvent = {
+        // Build a synthetic InternalScheduleEvent with the ghost's new dates
+        const ghostEvent: InternalScheduleEvent = {
           ...originalEvent,
           startDate: ghost.newStart,
           endDate: ghost.newEnd,
@@ -104,7 +104,7 @@ export function GhostOverlay({
       })
       .filter(Boolean) as Array<{
         ghost: (typeof ghostPreviews)[number];
-        ghostEvent: InternalCalendarEvent;
+        ghostEvent: InternalScheduleEvent;
         rowIdx: number;
       }>;
   }, [ghostPreviews, eventMap, memberRowIndex, startDate, daysShown, teamMembers.length]);

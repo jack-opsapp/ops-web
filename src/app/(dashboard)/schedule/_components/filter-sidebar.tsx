@@ -3,8 +3,8 @@
 import { useState, useMemo } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { TASK_TYPE_COLORS } from "@/lib/utils/calendar-constants";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { TASK_TYPE_COLORS } from "@/lib/utils/schedule-constants";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { useTeamMembers, useProjects } from "@/lib/hooks";
 import { useDictionary } from "@/i18n/client";
 import { SearchInput } from "@/components/ui/search-input";
@@ -145,7 +145,7 @@ export function FilterSidebar() {
     filterStatuses,
     updateFilters,
     clearFilters,
-  } = useCalendarStore();
+  } = useScheduleStore();
 
   const [projectSearch, setProjectSearch] = useState("");
 

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { mapTaskToInternalEvent } from "@/lib/utils/calendar-utils";
+import { mapTaskToInternalEvent } from "@/lib/utils/schedule-utils";
 import { TaskStatus, type ProjectTask, type Project } from "@/lib/types/models";
 
 function makeProject(overrides: Partial<Project> = {}): Project {

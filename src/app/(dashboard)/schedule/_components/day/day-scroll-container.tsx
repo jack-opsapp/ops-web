@@ -8,9 +8,9 @@ import {
   useState,
 } from "react";
 import { addDays, format, startOfDay, isSameDay } from "date-fns";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { CalendarGridDay } from "../calendar-grid-day";
-import { useCalendarDragState } from "../calendar-dnd-shell";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
+import { ScheduleGridDay } from "../schedule-grid-day";
+import { useScheduleDragState } from "../schedule-dnd-shell";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -22,9 +22,9 @@ const EXTEND_STEP = 14;
 
 interface DayScrollContainerProps {
   currentDate: Date;
-  events: InternalCalendarEvent[];
+  events: InternalScheduleEvent[];
   onCurrentDateChange: (date: Date) => void;
-  onEventClick?: (event: InternalCalendarEvent) => void;
+  onEventClick?: (event: InternalScheduleEvent) => void;
   t: (key: string) => string;
 }
 
@@ -192,7 +192,7 @@ export function DayScrollContainer({
     didInitialScroll.current = false;
   }, [currentDate]);
 
-  const { isDragging } = useCalendarDragState();
+  const { isDragging } = useScheduleDragState();
 
   return (
     <div
@@ -221,7 +221,7 @@ export function DayScrollContainer({
               borderLeft: "1px solid rgba(255, 255, 255, 0.04)",
             }}
           >
-            <CalendarGridDay
+            <ScheduleGridDay
               currentDate={d}
               events={events}
               onEventClick={onEventClick}

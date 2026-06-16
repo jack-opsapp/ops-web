@@ -4,8 +4,8 @@ import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 import { format, differenceInCalendarDays, addDays } from "date-fns";
 import { motion } from "framer-motion";
 import { Star, TreePalm } from "lucide-react";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { useCalendarStore } from "@/stores/calendar-store";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { useTeamMembers } from "@/lib/hooks";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { EventHoverPopover } from "../event-hover-popover";
@@ -48,7 +48,7 @@ const TIMEOFF_TEXT = "#C4A868";
 // ── Props ──────────────────────────────────────────────────────────────────
 
 interface DayTaskCardProps {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   index: number;
   /**
    * When provided, the card grows a bottom-edge resize handle. Drag the
@@ -56,7 +56,7 @@ interface DayTaskCardProps {
    * commits via this callback on mouseup. Pass `undefined` (or omit) to
    * keep the card non-resizable (e.g. for completed/cancelled events).
    */
-  onResize?: (event: InternalCalendarEvent, newEndDate: Date) => void;
+  onResize?: (event: InternalScheduleEvent, newEndDate: Date) => void;
   /** Pixels per day for the resize gesture (default 32). */
   pxPerDay?: number;
 }
@@ -110,14 +110,14 @@ export function DayTaskCard({
   pxPerDay = DEFAULT_PX_PER_DAY,
 }: DayTaskCardProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const setSidePanelTask = useCalendarStore((s) => s.setSidePanelTask);
-  const setInlineEdit = useCalendarStore((s) => s.setInlineEdit);
+  const setSidePanelTask = useScheduleStore((s) => s.setSidePanelTask);
+  const setInlineEdit = useScheduleStore((s) => s.setInlineEdit);
 
   // Legend hover-to-highlight integration. Same combined logic as the month
   // bar — match either the highlighted task type or the highlighted team
   // member, dim everything that matches neither when one is set.
-  const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
-  const highlightedTeamMemberId = useCalendarStore(
+  const highlightedTaskType = useScheduleStore((s) => s.highlightedTaskType);
+  const highlightedTeamMemberId = useScheduleStore(
     (s) => s.highlightedTeamMemberId
   );
   const matchesType =
@@ -201,7 +201,7 @@ export function DayTaskCard({
     };
   }, [resize]);
 
-  // Team members — read from TanStack Query cache (CalendarPage already fetched)
+  // Team members — read from TanStack Query cache (SchedulePage already fetched)
   const { data: teamData } = useTeamMembers();
   const allUsers = teamData?.users ?? [];
 

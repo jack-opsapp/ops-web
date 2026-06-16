@@ -18,9 +18,9 @@ import {
 } from "react";
 import { addWeeks, format, isSameWeek, startOfWeek } from "date-fns";
 import type { TeamMember } from "@/lib/types/models";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { CrewGrid } from "./crew-grid";
-import { useCalendarDragState } from "../calendar-dnd-shell";
+import { useScheduleDragState } from "../schedule-dnd-shell";
 
 const INITIAL_BUFFER = 6;
 const EDGE_TRIGGER = 1;
@@ -29,10 +29,10 @@ const WEEK_OPTS = { weekStartsOn: 1 as const };
 
 interface CrewScrollContainerProps {
   currentDate: Date;
-  events: InternalCalendarEvent[];
+  events: InternalScheduleEvent[];
   teamMembers: TeamMember[];
   onCurrentDateChange: (date: Date) => void;
-  onEventClick?: (event: InternalCalendarEvent) => void;
+  onEventClick?: (event: InternalScheduleEvent) => void;
 }
 
 export function CrewScrollContainer({
@@ -181,7 +181,7 @@ export function CrewScrollContainer({
     didInitialScroll.current = false;
   }, [currentDate]);
 
-  const { isDragging } = useCalendarDragState();
+  const { isDragging } = useScheduleDragState();
 
   return (
     <div

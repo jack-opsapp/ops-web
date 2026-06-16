@@ -15,7 +15,7 @@ import {
   type TaskTypeColors,
   type TaskStatusColors,
   type TaskStatusKey,
-} from "./calendar-constants";
+} from "./schedule-constants";
 import { TaskStatus } from "@/lib/types/models";
 import type { ProjectTask, CalendarUserEvent } from "@/lib/types/models";
 
@@ -44,7 +44,7 @@ function cleanTaskTypeLabel(value: string | null | undefined): string | null {
  *   - Left accent stripe→ typeColors.border (type-driven)
  *   - Type badge        → typeLabel (uppercase Cake Mono Light)
  */
-export interface InternalCalendarEvent {
+export interface InternalScheduleEvent {
   id: string;
   /**
    * Primary display title. Equal to projectTitle ?? taskTitle.
@@ -294,7 +294,7 @@ function normalizeToLocalDate(d: Date): Date {
   return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent | null {
+export function mapTaskToInternalEvent(task: ProjectTask): InternalScheduleEvent | null {
   if (!task.startDate) return null;
 
   const rawStart = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
@@ -416,7 +416,7 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
 // ─── CalendarUserEvent → Internal Calendar Event ────────────────────────────
 
 /**
- * Map a personal / time-off event to the same InternalCalendarEvent shape so
+ * Map a personal / time-off event to the same InternalScheduleEvent shape so
  * Day / Week / Month / Crew views can render it alongside ProjectTasks. Per
  * iOS parity (CalendarViewModel.loadUserEvents), user events have:
  *   - no project / client / address relationships
@@ -426,7 +426,7 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalCalendarEvent
  */
 export function mapUserEventToInternalEvent(
   evt: CalendarUserEvent
-): InternalCalendarEvent {
+): InternalScheduleEvent {
   const start = evt.startDate instanceof Date ? evt.startDate : new Date(evt.startDate);
   const end = evt.endDate instanceof Date ? evt.endDate : new Date(evt.endDate);
 
@@ -522,14 +522,14 @@ export function isWithinVisibleHours(date: Date): boolean {
 
 // ─── Event Filtering ─────────────────────────────────────────────────────────
 
-export function getEventsForDay(events: InternalCalendarEvent[], day: Date): InternalCalendarEvent[] {
+export function getEventsForDay(events: InternalScheduleEvent[], day: Date): InternalScheduleEvent[] {
   return events.filter((e) => isSameDay(e.startDate, day));
 }
 
 // ─── Overlap Resolution ──────────────────────────────────────────────────────
 
 export interface ResolvedColumn {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   columnIndex: number;
   totalColumns: number;
 }
@@ -538,15 +538,15 @@ export interface ResolvedColumn {
  * Given a list of events for a single day, compute stacking columns for overlapping events.
  * Returns each event annotated with its column index and total columns in its overlap group.
  */
-export function resolveEventColumns(events: InternalCalendarEvent[]): ResolvedColumn[] {
+export function resolveEventColumns(events: InternalScheduleEvent[]): ResolvedColumn[] {
   if (events.length === 0) return [];
 
   const sorted = [...events].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
   const result: ResolvedColumn[] = [];
 
   // Group events into overlapping clusters
-  const clusters: InternalCalendarEvent[][] = [];
-  let currentCluster: InternalCalendarEvent[] = [sorted[0]];
+  const clusters: InternalScheduleEvent[][] = [];
+  let currentCluster: InternalScheduleEvent[] = [sorted[0]];
   let clusterEnd = sorted[0].endDate.getTime();
 
   for (let i = 1; i < sorted.length; i++) {
@@ -564,7 +564,7 @@ export function resolveEventColumns(events: InternalCalendarEvent[]): ResolvedCo
 
   // For each cluster, assign columns greedily
   for (const cluster of clusters) {
-    const columns: InternalCalendarEvent[][] = [];
+    const columns: InternalScheduleEvent[][] = [];
 
     for (const event of cluster) {
       let placed = false;
@@ -615,8 +615,8 @@ export function yOffsetToDate(y: number, day: Date): Date {
 // ─── Conflict Detection ─────────────────────────────────────────────────────
 
 export interface Conflict {
-  eventA: InternalCalendarEvent;
-  eventB: InternalCalendarEvent;
+  eventA: InternalScheduleEvent;
+  eventB: InternalScheduleEvent;
   memberId: string;
 }
 
@@ -624,11 +624,11 @@ export interface Conflict {
  * Detect scheduling conflicts: events that overlap in time for the same team member.
  * Returns a Set of event IDs that have at least one conflict.
  */
-export function detectConflicts(events: InternalCalendarEvent[]): Set<string> {
+export function detectConflicts(events: InternalScheduleEvent[]): Set<string> {
   const conflictingIds = new Set<string>();
 
   // Group events by team member
-  const byMember = new Map<string, InternalCalendarEvent[]>();
+  const byMember = new Map<string, InternalScheduleEvent[]>();
   for (const event of events) {
     for (const memberId of event.teamMemberIds) {
       if (!byMember.has(memberId)) byMember.set(memberId, []);

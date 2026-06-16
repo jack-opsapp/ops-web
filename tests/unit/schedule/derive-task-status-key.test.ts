@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { deriveTaskStatusKey } from "@/lib/utils/calendar-utils";
+import { deriveTaskStatusKey } from "@/lib/utils/schedule-utils";
 import { TaskStatus, type ProjectTask } from "@/lib/types/models";
 
 // Reference "now" used in every assertion below

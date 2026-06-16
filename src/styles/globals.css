@@ -535,9 +535,9 @@
    150ms per the .interface-design/system.md spec. Scope is keyed to the
    calendar page's data attribute. */
 @media (prefers-reduced-motion: reduce) {
-  [data-calendar-motion-scope] *,
-  [data-calendar-motion-scope] *::before,
-  [data-calendar-motion-scope] *::after {
+  [data-schedule-motion-scope] *,
+  [data-schedule-motion-scope] *::before,
+  [data-schedule-motion-scope] *::after {
     transition-duration: 0.15s !important;
     transition-timing-function: linear !important;
     transition-property: opacity !important;

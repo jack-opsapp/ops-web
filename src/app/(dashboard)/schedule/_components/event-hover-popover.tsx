@@ -5,12 +5,12 @@ import { format, formatDistanceToNowStrict } from "date-fns";
 import * as HoverCard from "@radix-ui/react-hover-card";
 import { useTeamMembers } from "@/lib/hooks";
 import { useProjectPreview } from "@/lib/hooks/use-project-preview";
-import { type InternalCalendarEvent, frostedBadgeStyle } from "@/lib/utils/calendar-utils";
+import { type InternalScheduleEvent, frostedBadgeStyle } from "@/lib/utils/schedule-utils";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface EventHoverPopoverProps {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   children: ReactNode;
   /** Optional explicit side. Defaults to top with auto-flip. */
   side?: "top" | "right" | "bottom" | "left";
@@ -81,7 +81,7 @@ export function EventHoverPopover({
 
 // ─── Body ───────────────────────────────────────────────────────────────────
 
-function PopoverBody({ event }: { event: InternalCalendarEvent }) {
+function PopoverBody({ event }: { event: InternalScheduleEvent }) {
   // Crew name resolution from cached useTeamMembers
   const { data: teamData } = useTeamMembers();
   const allUsers = teamData?.users ?? [];

@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { format } from "date-fns";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { useUpdateTask } from "@/lib/hooks/use-tasks";
 import { autoSchedule } from "@/lib/scheduling/engine";
 import type {
@@ -21,10 +21,10 @@ import type {
  * Follows the same pattern as `useCascade`.
  */
 export function useAutoSchedule() {
-  const setGhostPreviews = useCalendarStore((s) => s.setGhostPreviews);
-  const clearGhostPreviews = useCalendarStore((s) => s.clearGhostPreviews);
-  const showConfirmBar = useCalendarStore((s) => s.showConfirmBar);
-  const hideConfirmBar = useCalendarStore((s) => s.hideConfirmBar);
+  const setGhostPreviews = useScheduleStore((s) => s.setGhostPreviews);
+  const clearGhostPreviews = useScheduleStore((s) => s.clearGhostPreviews);
+  const showConfirmBar = useScheduleStore((s) => s.showConfirmBar);
+  const hideConfirmBar = useScheduleStore((s) => s.hideConfirmBar);
   const updateTask = useUpdateTask();
 
   const previewAutoSchedule = useCallback(

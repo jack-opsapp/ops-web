@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { useUpdateTask } from "@/lib/hooks";
 
 /**
@@ -21,7 +21,7 @@ import { useUpdateTask } from "@/lib/hooks";
  *  - Click outside → cancel
  */
 export function InlineEditor() {
-  const { inlineEdit, setInlineEdit } = useCalendarStore();
+  const { inlineEdit, setInlineEdit } = useScheduleStore();
   const updateMutation = useUpdateTask();
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState("");

@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 
 /**
  * CascadeConfirmBar — fixed bar at top of calendar canvas.
@@ -11,11 +11,11 @@ import { useCalendarStore } from "@/stores/calendar-store";
  * Reads isConfirmBarVisible, confirmBarMessage, pendingCascadeAction from the store.
  */
 export function CascadeConfirmBar() {
-  const isVisible = useCalendarStore((s) => s.isConfirmBarVisible);
-  const message = useCalendarStore((s) => s.confirmBarMessage);
-  const pendingAction = useCalendarStore((s) => s.pendingCascadeAction);
-  const hideConfirmBar = useCalendarStore((s) => s.hideConfirmBar);
-  const clearGhostPreviews = useCalendarStore((s) => s.clearGhostPreviews);
+  const isVisible = useScheduleStore((s) => s.isConfirmBarVisible);
+  const message = useScheduleStore((s) => s.confirmBarMessage);
+  const pendingAction = useScheduleStore((s) => s.pendingCascadeAction);
+  const hideConfirmBar = useScheduleStore((s) => s.hideConfirmBar);
+  const clearGhostPreviews = useScheduleStore((s) => s.clearGhostPreviews);
 
   const handleApply = useCallback(async () => {
     if (pendingAction) {

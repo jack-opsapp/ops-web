@@ -6,22 +6,22 @@ import { AnimatePresence } from "framer-motion";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
 import {
-  type InternalCalendarEvent,
+  type InternalScheduleEvent,
   getEventsForDay,
-} from "@/lib/utils/calendar-utils";
+} from "@/lib/utils/schedule-utils";
 import { DayTaskCard } from "./day/day-task-card";
 import { DayHourlyGrid } from "./day/day-hourly-grid";
-import { useCalendarResizeContext } from "./calendar-dnd-shell";
+import { useScheduleResizeContext } from "./schedule-dnd-shell";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
-interface CalendarGridDayProps {
+interface ScheduleGridDayProps {
   currentDate: Date;
-  events: InternalCalendarEvent[];
+  events: InternalScheduleEvent[];
   conflictIds?: Set<string>;
-  onEventClick?: (event: InternalCalendarEvent) => void;
-  onEventContextMenu?: (event: InternalCalendarEvent, x: number, y: number) => void;
-  onEventResize?: (event: InternalCalendarEvent, newEndDate: Date) => void;
+  onEventClick?: (event: InternalScheduleEvent) => void;
+  onEventContextMenu?: (event: InternalScheduleEvent, x: number, y: number) => void;
+  onEventResize?: (event: InternalScheduleEvent, newEndDate: Date) => void;
   onEmptySlotClick?: (date: Date, clientX: number, clientY: number) => void;
   onRangeSelect?: (startDate: Date, endDate: Date, clientX: number, clientY: number) => void;
   selectedEventId?: string | null;
@@ -35,9 +35,9 @@ function DraggableDayListCard({
   index,
   onResize,
 }: {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   index: number;
-  onResize: (event: InternalCalendarEvent, newEndDate: Date) => void;
+  onResize: (event: InternalScheduleEvent, newEndDate: Date) => void;
 }) {
   const locked =
     event.statusKey === "completed" || event.statusKey === "cancelled";
@@ -67,12 +67,12 @@ function DraggableDayListCard({
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function CalendarGridDay({
+export function ScheduleGridDay({
   currentDate,
   events,
   onEventClick,
   t,
-}: CalendarGridDayProps) {
+}: ScheduleGridDayProps) {
   const dayIsToday = isToday(currentDate);
 
   // ── Filter and sort events for this day ───────────────────────────────
@@ -109,17 +109,17 @@ export function CalendarGridDay({
   });
 
   const handleEventClick = useCallback(
-    (event: InternalCalendarEvent) => {
+    (event: InternalScheduleEvent) => {
       onEventClick?.(event);
     },
     [onEventClick]
   );
 
   // ── Resize commit (list-mode all-day cards) — provided by the hoisted
-  //    CalendarDndShell so we don't mount one prompt per day panel. ─────
-  const { commitResize } = useCalendarResizeContext();
+  //    ScheduleDndShell so we don't mount one prompt per day panel. ─────
+  const { commitResize } = useScheduleResizeContext();
   const handleListResize = useCallback(
-    (event: InternalCalendarEvent, newEndDate: Date) => {
+    (event: InternalScheduleEvent, newEndDate: Date) => {
       commitResize(event, { endDate: newEndDate });
     },
     [commitResize]

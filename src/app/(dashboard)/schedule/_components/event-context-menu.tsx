@@ -23,18 +23,18 @@ import { useCreateProjectNote } from "@/lib/hooks/use-project-notes";
 import { useCascade } from "@/lib/hooks/use-cascade";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
-  type InternalCalendarEvent,
-} from "@/lib/utils/calendar-utils";
-import { useCalendarStore } from "@/stores/calendar-store";
+  type InternalScheduleEvent,
+} from "@/lib/utils/schedule-utils";
+import { useScheduleStore } from "@/stores/schedule-store";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface EventContextMenuProps {
-  event: InternalCalendarEvent | null;
+  event: InternalScheduleEvent | null;
   position: { x: number; y: number } | null;
   onClose: () => void;
   /** All visible events — needed for cascade calculation */
-  allEvents?: InternalCalendarEvent[];
+  allEvents?: InternalScheduleEvent[];
 }
 
 type MenuItemId =
@@ -69,7 +69,7 @@ export function EventContextMenu({
   allEvents = [],
 }: EventContextMenuProps) {
   const { company, currentUser } = useAuthStore();
-  const { setSidePanelTask } = useCalendarStore();
+  const { setSidePanelTask } = useScheduleStore();
   const deleteMutation = useDeleteTask();
   const duplicateMutation = useCreateTask();
   const updateMutation = useUpdateTask();

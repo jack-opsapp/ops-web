@@ -46,15 +46,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  useCalendarDragState,
-  useCalendarResizeContext,
-} from "../calendar-dnd-shell";
+  useScheduleDragState,
+  useScheduleResizeContext,
+} from "../schedule-dnd-shell";
 import {
   MonthEventBar,
   type DisplayLevel,
   type MonthEventBarSpan,
 } from "./month-event-bar";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ const MONTH_LABEL_HEIGHT = 38;
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface EventPlacement {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   slotIndex: number;
   slotsConsumed: number;
   span: MonthEventBarSpan;
@@ -96,10 +96,10 @@ interface MonthSection {
 
 interface MonthScrollContainerProps {
   currentDate: Date;
-  events: InternalCalendarEvent[];
+  events: InternalScheduleEvent[];
   onCurrentDateChange: (date: Date) => void;
   onSelectDate?: (date: Date) => void;
-  onEventClick?: (event: InternalCalendarEvent) => void;
+  onEventClick?: (event: InternalScheduleEvent) => void;
   t?: (key: string) => string;
 }
 
@@ -135,7 +135,7 @@ function getMaxSlots(cellHeight: number, level: DisplayLevel): number {
   return Math.max(1, Math.floor((available + SLOT_GAP) / (baseHeight + SLOT_GAP)));
 }
 
-function isMultiDay(event: InternalCalendarEvent): boolean {
+function isMultiDay(event: InternalScheduleEvent): boolean {
   return !isSameDay(event.startDate, event.endDate);
 }
 
@@ -152,7 +152,7 @@ function buildWeekStarts(from: Date, to: Date): Date[] {
 
 function computeWeeklyPlacements(
   weekStarts: Date[],
-  events: InternalCalendarEvent[],
+  events: InternalScheduleEvent[],
   cellHeight: number,
   level: DisplayLevel
 ): ProcessedWeek[] {
@@ -705,7 +705,7 @@ function DraggableMonthEvent({
   disabled,
   children,
 }: {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   weekIndex: number;
   positionStyle: React.CSSProperties;
   disabled?: boolean;
@@ -942,12 +942,12 @@ export function MonthScrollContainer({
   }, [currentDate]);
 
   // ── Resize commit (left/right edge of month bars) — provided by the
-  //    hoisted CalendarDndShell so we don't mount one prompt per scroll
+  //    hoisted ScheduleDndShell so we don't mount one prompt per scroll
   //    panel (~14 sections in this view alone). ──────────────────────────
-  const { commitResize } = useCalendarResizeContext();
+  const { commitResize } = useScheduleResizeContext();
   const handleBarResize = useCallback(
     (
-      event: InternalCalendarEvent,
+      event: InternalScheduleEvent,
       edge: "left" | "right",
       dayDelta: number
     ) => {
@@ -998,7 +998,7 @@ export function MonthScrollContainer({
   const baseSlotHeight = displayLevel === "compact" ? 10 : 22;
 
   // Held for parity with week / day views; this view doesn't snap.
-  useCalendarDragState();
+  useScheduleDragState();
 
   // ── Render ──────────────────────────────────────────────────────────────
   return (

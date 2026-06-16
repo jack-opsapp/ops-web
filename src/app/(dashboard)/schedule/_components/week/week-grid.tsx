@@ -6,15 +6,15 @@ import {
   endOfWeek,
   eachDayOfInterval,
 } from "date-fns";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { WeekDayColumn } from "./week-day-column";
-import { useCalendarResizeContext } from "../calendar-dnd-shell";
+import { useScheduleResizeContext } from "../schedule-dnd-shell";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
 interface WeekGridProps {
   currentDate: Date;
-  events: InternalCalendarEvent[];
+  events: InternalScheduleEvent[];
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -26,12 +26,12 @@ interface WeekGridProps {
  * of DayTaskCards for events scheduled that day (or spanning that day for
  * multi-day events).
  *
- * Drag-drop is owned by the calendar-wide CalendarDndShell — this grid only
+ * Drag-drop is owned by the calendar-wide ScheduleDndShell — this grid only
  * hosts droppables (week-day per column) + draggables (week-event per card).
  * Cross-week drag falls out for free because the parent
  * WeekScrollContainer (and the shell above it) sees every panel's targets.
  *
- * Edge-resize on cards is wired here via useCalendarResize so each card in
+ * Edge-resize on cards is wired here via useScheduleResize so each card in
  * every column can extend / shrink duration without re-implementing the
  * recurrence prompt + mutation plumbing.
  */
@@ -43,10 +43,10 @@ export function WeekGrid({ currentDate, events }: WeekGridProps) {
     return eachDayOfInterval({ start, end });
   }, [currentDate]);
 
-  const { commitResize } = useCalendarResizeContext();
+  const { commitResize } = useScheduleResizeContext();
 
   const handleCardResize = useCallback(
-    (event: InternalCalendarEvent, newEndDate: Date) => {
+    (event: InternalScheduleEvent, newEndDate: Date) => {
       commitResize(event, { endDate: newEndDate });
     },
     [commitResize]

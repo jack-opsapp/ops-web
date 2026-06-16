@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * useCalendarResize — shared resize-commit logic for calendar surfaces.
+ * useScheduleResize — shared resize-commit logic for calendar surfaces.
  *
  * Handles the recurrence-aware mutation path: if the source task belongs to
  * a series, prompt the user for scope (this / following / all) before
@@ -15,7 +15,7 @@
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import type { ProjectTask } from "@/lib/types/models";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { useTasks, useUpdateTask, useRecurrenceEdit } from "@/lib/hooks";
 import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
 
@@ -26,7 +26,7 @@ export interface ResizePatch {
   endTime?: string;
 }
 
-export function useCalendarResize() {
+export function useScheduleResize() {
   const updateTask = useUpdateTask();
   const recurrenceEdit = useRecurrenceEdit();
   const recurrencePrompt = useRecurrenceEditPrompt();
@@ -39,7 +39,7 @@ export function useCalendarResize() {
   }, [taskData]);
 
   const commitResize = useCallback(
-    async (event: InternalCalendarEvent, patch: ResizePatch) => {
+    async (event: InternalScheduleEvent, patch: ResizePatch) => {
       const sourceTask = tasksById.get(event.id);
 
       if (sourceTask?.recurrenceId) {

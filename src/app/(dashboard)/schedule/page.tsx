@@ -22,28 +22,28 @@ import { trackScreenView } from "@/lib/analytics/analytics";
 import {
   useScheduledTasks,
   useTeamMembers,
-  useCalendarMetrics,
+  useScheduleMetrics,
 } from "@/lib/hooks";
 import { useScheduledUserEvents } from "@/lib/hooks/use-calendar-user-events";
 import { MetricsHeader } from "@/components/metrics";
 import { useSchedulerShortcuts } from "@/lib/hooks/use-scheduler-shortcuts";
 import {
-  type InternalCalendarEvent,
+  type InternalScheduleEvent,
   mapTaskToInternalEvent,
   mapUserEventToInternalEvent,
-} from "@/lib/utils/calendar-utils";
+} from "@/lib/utils/schedule-utils";
 import {
-  calendarViewVariants,
-  calendarViewVariantsReduced,
+  scheduleViewVariants,
+  scheduleViewVariantsReduced,
 } from "@/lib/utils/motion";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { queryKeys } from "@/lib/api/query-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { UserRole, type TeamMember } from "@/lib/types/models";
 
-import { CalendarHeader } from "./_components/calendar-header";
-import { CalendarToolbar } from "./_components/calendar-toolbar";
+import { ScheduleHeader } from "./_components/schedule-header";
+import { ScheduleToolbar } from "./_components/schedule-toolbar";
 import { CrewScrollContainer } from "./_components/crew/crew-scroll-container";
 import { MonthScrollContainer } from "./_components/month/month-scroll-container";
 import { WeekScrollContainer } from "./_components/week/week-scroll-container";
@@ -52,11 +52,11 @@ import { UnscheduledTray } from "./_components/unscheduled-tray";
 import { FilterSidebar } from "./_components/filter-sidebar";
 import { CascadeConfirmBar } from "./_components/cascade/cascade-confirm-bar";
 import { GhostOverlay } from "./_components/cascade/ghost-overlay";
-import { CalendarDndShell } from "./_components/calendar-dnd-shell";
+import { ScheduleDndShell } from "./_components/schedule-dnd-shell";
 import { TaskDetailPanel } from "./_components/side-panel/task-detail-panel";
 import { ProjectDrawerPanel } from "./_components/side-panel/project-drawer-panel";
 
-export default function CalendarPage() {
+export default function SchedulePage() {
   usePageTitle("Schedule");
   const { t } = useDictionary("calendar");
   const {
@@ -70,7 +70,7 @@ export default function CalendarPage() {
     filterStatuses,
     isConfirmBarVisible,
     ghostPreviews,
-  } = useCalendarStore();
+  } = useScheduleStore();
 
   const router = useRouter();
 
@@ -78,7 +78,7 @@ export default function CalendarPage() {
   useSchedulerShortcuts();
 
   useEffect(() => {
-    trackScreenView("calendar");
+    trackScreenView("schedule");
   }, []);
 
   // ── Realtime sync (bug 71308894) ────────────────────────────────────────
@@ -102,7 +102,7 @@ export default function CalendarPage() {
     if (!supabase) return;
 
     const channel = supabase
-      .channel(`calendar-realtime-${companyId}`)
+      .channel(`schedule-realtime-${companyId}`)
       .on(
         "postgres_changes",
         {
@@ -138,8 +138,8 @@ export default function CalendarPage() {
   // Animation: reduced motion preference
   const prefersReducedMotion = useReducedMotion();
   const viewVariants = prefersReducedMotion
-    ? calendarViewVariantsReduced
-    : calendarViewVariants;
+    ? scheduleViewVariantsReduced
+    : scheduleViewVariants;
 
   // Responsive: track window width
   const [windowWidth, setWindowWidth] = useState(
@@ -207,7 +207,7 @@ export default function CalendarPage() {
     }
   }, [currentDate, view]);
 
-  const { data: calendarMetrics = [], isLoading: calendarMetricsLoading } = useCalendarMetrics();
+  const { data: scheduleMetrics = [], isLoading: scheduleMetricsLoading } = useScheduleMetrics();
 
   const { data: scheduledTasks, isLoading } = useScheduledTasks(
     rangeStart,
@@ -243,16 +243,16 @@ export default function CalendarPage() {
 
   // Map + filter events. Combines ProjectTasks and CalendarUserEvents so the
   // grid renders both, matching iOS schedule parity.
-  const events: InternalCalendarEvent[] = useMemo(() => {
+  const events: InternalScheduleEvent[] = useMemo(() => {
     const taskEvents = (scheduledTasks ?? [])
       .map(mapTaskToInternalEvent)
-      .filter((e): e is InternalCalendarEvent => e !== null);
+      .filter((e): e is InternalScheduleEvent => e !== null);
 
     const userEvents = (scheduledUserEvents ?? []).map(
       mapUserEventToInternalEvent
     );
 
-    let mapped: InternalCalendarEvent[] = [...taskEvents, ...userEvents];
+    let mapped: InternalScheduleEvent[] = [...taskEvents, ...userEvents];
 
     if (filterTaskTypes.length > 0) {
       mapped = mapped.filter((e) => filterTaskTypes.includes(e.taskType));
@@ -301,7 +301,7 @@ export default function CalendarPage() {
   );
 
   const handleEventClick = useCallback(
-    (event: InternalCalendarEvent) => {
+    (event: InternalScheduleEvent) => {
       if (event.projectId) {
         router.push(`/projects/${event.projectId}`);
       }
@@ -316,22 +316,22 @@ export default function CalendarPage() {
   );
 
   return (
-    <div className="flex flex-col h-full min-w-0 overflow-hidden gap-3" data-calendar-motion-scope>
+    <div className="flex flex-col h-full min-w-0 overflow-hidden gap-3" data-schedule-motion-scope>
       <MetricsHeader
         variant="compact"
         tabId="calendar"
         title="Schedule"
-        metrics={calendarMetrics}
-        isLoading={calendarMetricsLoading}
+        metrics={scheduleMetrics}
+        isLoading={scheduleMetricsLoading}
       />
       <div className="flex flex-col flex-1 min-h-0 min-w-0 gap-1.5">
-      <CalendarHeader t={t} />
-      <CalendarToolbar events={events} t={t} />
+      <ScheduleHeader t={t} />
+      <ScheduleToolbar events={events} t={t} />
 
       {/* Main content area — wrapped in a single dnd-kit context so the
           unscheduled tray, project drawer, and continuous-scroll calendar
           panels all share one drag surface. */}
-      <CalendarDndShell>
+      <ScheduleDndShell>
       <div className="flex flex-1 min-h-0 min-w-0 gap-1.5">
         {/* Filter sidebar (left) — hidden on mobile */}
         {!isMobile && <FilterSidebar />}
@@ -447,7 +447,7 @@ export default function CalendarPage() {
           calendar droppables. */}
       <TaskDetailPanel />
       <ProjectDrawerPanel />
-      </CalendarDndShell>
+      </ScheduleDndShell>
       </div>
     </div>
   );

@@ -115,7 +115,7 @@ export function useJobBoardMetrics() {
   });
 }
 
-export function useCalendarMetrics() {
+export function useScheduleMetrics() {
   const companyId = useCompanyId();
   return useQuery({
     queryKey: queryKeys.metrics.tab("calendar", companyId),

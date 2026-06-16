@@ -9,7 +9,7 @@ import {
   addMonths,
   subMonths,
 } from "date-fns";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { useDeleteTask, useUpdateTask } from "@/lib/hooks";
 
 /**
@@ -54,7 +54,7 @@ export function useSchedulerShortcuts() {
         return;
       }
 
-      const state = useCalendarStore.getState();
+      const state = useScheduleStore.getState();
       const { view, selectedTaskId, inlineEdit } = state;
 
       // While inline-editing, only allow Escape through

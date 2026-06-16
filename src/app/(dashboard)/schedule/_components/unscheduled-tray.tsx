@@ -8,10 +8,10 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useTasks } from "@/lib/hooks";
 import { TaskStatus, type ProjectTask } from "@/lib/types/models";
 import {
-  useCalendarStore,
+  useScheduleStore,
   type UnscheduledTrayGroupBy,
   type UnscheduledTraySort,
-} from "@/stores/calendar-store";
+} from "@/stores/schedule-store";
 import type { SchedulerView } from "@/lib/types/scheduling";
 
 const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -45,7 +45,7 @@ interface UnscheduledTrayProps {
  *   - Day view  → left rail (mirrors Jobber/Housecall convention)
  *   - Week / Month / Crew → right rail
  *
- * State persists in calendar-store: collapsed flag, groupBy, sort. Search is
+ * State persists in schedule-store: collapsed flag, groupBy, sort. Search is
  * session-scoped (not persisted) per common UX expectation.
  *
  * Drag source: each card emits dnd-kit data { type: 'unscheduled-task', task }
@@ -62,7 +62,7 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
     setUnscheduledTrayGroupBy,
     setUnscheduledTraySort,
     setUnscheduledTraySearch,
-  } = useCalendarStore();
+  } = useScheduleStore();
 
   const { data: taskData } = useTasks();
 
@@ -201,7 +201,7 @@ export function UnscheduledTray({ view }: UnscheduledTrayProps) {
   // Drop target — calendar events dragged ONTO the tray are unscheduled
   // (start_date / end_date / start_time / end_time → null). The task
   // returns to the tray on the next render. (Bug cc515384.) Routed via
-  // CalendarDndShell.handleDragEnd.
+  // ScheduleDndShell.handleDragEnd.
   const { setNodeRef: setUnscheduleDropRef, isOver: isUnscheduleOver } =
     useDroppable({
       id: "unscheduled-dock",

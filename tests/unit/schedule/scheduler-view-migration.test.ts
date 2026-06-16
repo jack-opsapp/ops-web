@@ -1,5 +1,5 @@
 /**
- * Unit tests for the Zustand persist v2 migration in calendar-store.
+ * Unit tests for the Zustand persist v2 migration in schedule-store.
  *
  * v0/v1 stored view: 'timeline' | 'month' | 'day'
  * v2 stores view: 'day' | 'week' | 'month' | 'crew'
@@ -28,7 +28,7 @@ function migrate(persistedState: unknown, version: number): Record<string, unkno
   return s;
 }
 
-describe("calendar-store persist v2 migration", () => {
+describe("schedule-store persist v2 migration", () => {
   it("rewrites view: 'timeline' → 'crew' from version 0", () => {
     const result = migrate({ view: "timeline" }, 0);
     expect(result.view).toBe("crew");

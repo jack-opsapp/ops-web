@@ -4,21 +4,21 @@ import { useMemo } from "react";
 import { format, isToday, isWeekend, isSameDay, differenceInCalendarDays } from "date-fns";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
-import type { InternalCalendarEvent } from "@/lib/utils/calendar-utils";
+import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { DayTaskCard } from "../day/day-task-card";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
 interface WeekDayColumnProps {
   day: Date;
-  events: InternalCalendarEvent[];
+  events: InternalScheduleEvent[];
   /**
    * Bottom-edge resize callback — passed through to each DayTaskCard so the
    * user can extend / shrink an event's duration in whole-day increments.
    * The WeekGrid owns the recurrence-aware mutation path and provides this
-   * callback via useCalendarResize.
+   * callback via useScheduleResize.
    */
-  onCardResize?: (event: InternalCalendarEvent, newEndDate: Date) => void;
+  onCardResize?: (event: InternalScheduleEvent, newEndDate: Date) => void;
 }
 
 // ── Draggable card wrapper ──────────────────────────────────────────────
@@ -28,9 +28,9 @@ function DraggableWeekCard({
   index,
   onResize,
 }: {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   index: number;
-  onResize?: (event: InternalCalendarEvent, newEndDate: Date) => void;
+  onResize?: (event: InternalScheduleEvent, newEndDate: Date) => void;
 }) {
   const locked =
     event.statusKey === "completed" || event.statusKey === "cancelled";

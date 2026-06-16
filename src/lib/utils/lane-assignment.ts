@@ -12,7 +12,7 @@
  * ("Lan...INSTALLATION") and only the top-stacked event is clickable.
  */
 
-import type { InternalCalendarEvent } from "./calendar-utils";
+import type { InternalScheduleEvent } from "./schedule-utils";
 
 export interface LaneAssignment {
   /** eventId → lane index (0-based) */
@@ -29,7 +29,7 @@ export interface LaneAssignment {
  * Strict less-than comparison means an event ending on day N can share
  * a lane with one starting on day N+1 (back-to-back, not overlapping).
  */
-export function assignLanes(events: InternalCalendarEvent[]): LaneAssignment {
+export function assignLanes(events: InternalScheduleEvent[]): LaneAssignment {
   if (events.length === 0) return { lanes: new Map(), laneCount: 1 };
 
   const sorted = [...events].sort(

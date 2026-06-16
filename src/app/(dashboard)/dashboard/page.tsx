@@ -47,9 +47,9 @@ import {
   isActiveProjectStatus,
 } from "@/lib/types/models";
 import {
-  type InternalCalendarEvent,
+  type InternalScheduleEvent,
   mapTaskToInternalEvent,
-} from "@/lib/utils/calendar-utils";
+} from "@/lib/utils/schedule-utils";
 import {
   startOfWeek,
   endOfWeek,
@@ -276,11 +276,11 @@ export default function DashboardPage() {
     });
   }, [opportunitiesData, clientMap]);
   const expenses = expensesData ?? [];
-  const weekEvents: InternalCalendarEvent[] = useMemo(() => {
+  const weekEvents: InternalScheduleEvent[] = useMemo(() => {
     if (!scheduledTasks) return [];
     return scheduledTasks
       .map(mapTaskToInternalEvent)
-      .filter((e): e is InternalCalendarEvent => e !== null);
+      .filter((e): e is InternalScheduleEvent => e !== null);
   }, [scheduledTasks]);
 
   const activeProjectCount = useMemo(

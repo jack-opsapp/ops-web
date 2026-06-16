@@ -20,22 +20,22 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
 import { toast } from "sonner";
-import { useCalendarStore } from "@/stores/calendar-store";
-import { useCalendarResizeContext } from "../calendar-dnd-shell";
+import { useScheduleStore } from "@/stores/schedule-store";
+import { useScheduleResizeContext } from "../schedule-dnd-shell";
 import {
   HOURS,
   HOUR_HEIGHT,
   FIRST_HOUR,
   LAST_HOUR,
-} from "@/lib/utils/calendar-constants";
+} from "@/lib/utils/schedule-constants";
 import {
   formatHour,
   getEventTopOffset,
   getEventHeight,
   resolveEventColumns,
-  type InternalCalendarEvent,
+  type InternalScheduleEvent,
   frostedBadgeStyleFromBg,
-} from "@/lib/utils/calendar-utils";
+} from "@/lib/utils/schedule-utils";
 import { useTeamMembers } from "@/lib/hooks";
 import { UserAvatar } from "@/components/ops/user-avatar";
 
@@ -56,12 +56,12 @@ function formatTimeHHmm(d: Date): string {
 // ─── Timed task block ───────────────────────────────────────────────────────
 
 interface TimedBlockProps {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   columnIndex: number;
   totalColumns: number;
-  onClick: (event: InternalCalendarEvent) => void;
+  onClick: (event: InternalScheduleEvent) => void;
   onResize: (
-    event: InternalCalendarEvent,
+    event: InternalScheduleEvent,
     edge: "top" | "bottom",
     deltaMinutes: number
   ) => void;
@@ -92,8 +92,8 @@ function TimedBlock({
 
   // Legend hover-to-highlight integration. Combined logic — match either
   // the highlighted task type or the highlighted team member.
-  const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
-  const highlightedTeamMemberId = useCalendarStore(
+  const highlightedTaskType = useScheduleStore((s) => s.highlightedTaskType);
+  const highlightedTeamMemberId = useScheduleStore(
     (s) => s.highlightedTeamMemberId
   );
   const matchesType =
@@ -299,8 +299,8 @@ function AllDayStrip({
   events,
   onClick,
 }: {
-  events: InternalCalendarEvent[];
-  onClick: (event: InternalCalendarEvent) => void;
+  events: InternalScheduleEvent[];
+  onClick: (event: InternalScheduleEvent) => void;
 }) {
   if (events.length === 0) return null;
   return (
@@ -341,8 +341,8 @@ function AllDayStrip({
 
 interface DayHourlyGridProps {
   currentDate: Date;
-  events: InternalCalendarEvent[];
-  onEventClick: (event: InternalCalendarEvent) => void;
+  events: InternalScheduleEvent[];
+  onEventClick: (event: InternalScheduleEvent) => void;
 }
 
 export function DayHourlyGrid({
@@ -352,7 +352,7 @@ export function DayHourlyGrid({
 }: DayHourlyGridProps) {
   // Hourly resize delegates to the shell-hoisted commitResize so we don't
   // mount yet another RecurrenceEditPrompt instance per day panel.
-  const { commitResize } = useCalendarResizeContext();
+  const { commitResize } = useScheduleResizeContext();
 
   const allDay = events.filter((e) => e.allDay);
   const timed = events.filter((e) => !e.allDay);
@@ -361,7 +361,7 @@ export function DayHourlyGrid({
 
   const handleResize = useCallback(
     async (
-      event: InternalCalendarEvent,
+      event: InternalScheduleEvent,
       edge: "top" | "bottom",
       deltaMinutes: number
     ) => {

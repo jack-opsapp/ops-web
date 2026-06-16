@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { format } from "date-fns";
 import { Star, TreePalm } from "lucide-react";
-import { type InternalCalendarEvent } from "@/lib/utils/calendar-utils";
-import { useCalendarStore } from "@/stores/calendar-store";
+import { type InternalScheduleEvent } from "@/lib/utils/schedule-utils";
+import { useScheduleStore } from "@/stores/schedule-store";
 import { EventHoverPopover } from "../event-hover-popover";
 
 // Personal events ride on the same color pool as task types, which makes
@@ -77,10 +77,10 @@ export interface MonthEventBarSpan {
 }
 
 interface MonthEventBarProps {
-  event: InternalCalendarEvent;
+  event: InternalScheduleEvent;
   displayLevel: DisplayLevel;
   span: MonthEventBarSpan;
-  onClick?: (event: InternalCalendarEvent) => void;
+  onClick?: (event: InternalScheduleEvent) => void;
   /**
    * Edge resize callback. dayDelta is signed — positive extends, negative
    * shrinks. Edge "left" pulls the start; edge "right" pushes the end.
@@ -89,14 +89,14 @@ interface MonthEventBarProps {
    * column offsets so dragging the right edge of a Saturday badge into
    * the next week's Tuesday counts as +3 days (Sat→Sun→Mon→Tue), not
    * "back to Tuesday in the current row." Caller is responsible for
-   * applying the patch (typically via useCalendarResize).
+   * applying the patch (typically via useScheduleResize).
    *
    * Multi-day bars only render the matching handle on the boundary
    * segments: `left` on isFirstSegment, `right` on isLastSegment. Compact
    * (dot) bars render no handles regardless.
    */
   onResize?: (
-    event: InternalCalendarEvent,
+    event: InternalScheduleEvent,
     edge: "left" | "right",
     dayDelta: number
   ) => void;
@@ -128,12 +128,12 @@ function useEdgeResize(
   barRef: React.RefObject<HTMLDivElement | null>,
   onResize:
     | ((
-        event: InternalCalendarEvent,
+        event: InternalScheduleEvent,
         edge: "left" | "right",
         dayDelta: number
       ) => void)
     | undefined,
-  event: InternalCalendarEvent
+  event: InternalScheduleEvent
 ) {
   const [resize, setResize] = useState<{
     edge: "left" | "right";
@@ -330,8 +330,8 @@ export function MonthEventBar({
   // canvas per the design spec). Mirrors logic for the team-member dropdown
   // — when a team member is being hovered, dim every card whose crew does
   // not include them.
-  const highlightedTaskType = useCalendarStore((s) => s.highlightedTaskType);
-  const highlightedTeamMemberId = useCalendarStore(
+  const highlightedTaskType = useScheduleStore((s) => s.highlightedTaskType);
+  const highlightedTeamMemberId = useScheduleStore(
     (s) => s.highlightedTeamMemberId
   );
   const matchesType =
