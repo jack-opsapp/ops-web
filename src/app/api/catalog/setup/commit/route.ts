@@ -44,6 +44,10 @@ import {
   collectExternalStampTargets,
   stampExternalIdentity,
 } from "@/lib/catalog-setup/commit/external-identity-stamp";
+import {
+  collectCostStampTargets,
+  stampUnitCost,
+} from "@/lib/catalog-setup/commit/cost-stamp";
 
 interface CommitBody {
   token: string;
@@ -291,6 +295,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         if (error)
           console.error("[api/catalog/setup/commit] external-id stamp failed:", error);
       });
+    }
+
+    // unit_cost stamp — catalog_setup_save never writes products.unit_cost, so a
+    // freshly created product would land with a NULL cost the wizard captured.
+    // Write each created card's cost back (a merge keeps its on-file cost). AWAITED
+    // (cost is user data — don't risk a serverless freeze dropping it) but
+    // non-fatal: a miss only leaves the pre-existing NULL cost, surfaced honestly.
+    const costTargets = collectCostStampTargets(cards, idMap);
+    if (costTargets.length > 0) {
+      const { error: costError } = await stampUnitCost(serviceDb, companyId, costTargets);
+      if (costError) {
+        console.error("[api/catalog/setup/commit] unit_cost stamp failed:", costError);
+        warnings.push("cost_stamp_failed");
+      }
     }
 
     // Completion side-effects — service-role, fire-and-forget. A failure here

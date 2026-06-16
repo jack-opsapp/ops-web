@@ -110,15 +110,14 @@ export interface DiffLabels {
 
 /**
  * Build the per-field old→new diff for a merge (duplicate) SELL card. ONLY the
- * fields `catalog_setup_save` actually overwrites on the live row appear here —
- * name, price (base_price/default_price), and taxable. `unit_cost` is DELIBERATELY
- * excluded: the commit RPC never writes products.unit_cost (it's absent from the
- * INSERT + both UPDATE-SET clauses), so a cost "verdict" could not overwrite the
- * row — surfacing a toggle for it would imply control the commit can't honor. The
- * card's COST/MARGIN data row still shows the incoming cost as context; the diff
- * panel is strictly "what BUILD IT will change." (The cost itself never persisting
- * on a wizard commit is a separate, pre-existing pipeline gap — flagged, not fixed
- * here, as it needs an additive change to the iOS-shared RPC.)
+ * fields a MERGE actually overwrites appear here — name, price
+ * (base_price/default_price), and taxable. `unit_cost` is DELIBERATELY excluded:
+ * the commit RPC never writes products.unit_cost (absent from the INSERT + both
+ * UPDATE-SET clauses), so on a merge the on-file cost is LEFT UNTOUCHED — there is
+ * no cost change to accept or reject, and a toggle would imply control the merge
+ * can't exercise. (A newly CREATED product's cost IS persisted, by the post-commit
+ * `cost-stamp` — but a create has no diff. The merge data row shows the on-file
+ * cost, which is what stands after commit.)
  */
 export function buildDiff(
   card: StagingCard,

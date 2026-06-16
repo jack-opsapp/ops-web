@@ -25,6 +25,10 @@ import { POST } from "../route";
 const makeReq = (body: unknown): NextRequest =>
   ({ json: async () => body }) as unknown as NextRequest;
 
+// Captures the service-role UPDATE/INSERTs a commit issues (completion stamp,
+// external-id stamp, unit_cost stamp) so a test can assert what was written.
+let serviceWrites: Array<{ table: string; op: "update" | "insert"; values: Record<string, unknown> }>;
+
 const sellCard = {
   id: "c1",
   source: "manual",
@@ -42,10 +46,25 @@ const sellCard = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  serviceFrom.mockImplementation(() => ({
-    update: vi.fn(() => ({ eq: vi.fn(async () => ({ error: null })) })),
-    insert: vi.fn(async () => ({ error: null })),
-  }));
+  serviceWrites = [];
+  // Chainable query-builder stub: from().update()/insert().eq().eq() all return
+  // the same thenable chain (resolves { error: null }), so one- and two-eq scopes
+  // both work; update/insert payloads are captured for assertions.
+  serviceFrom.mockImplementation((table: string) => {
+    const chain: Record<string, unknown> = {
+      update(values: Record<string, unknown>) {
+        serviceWrites.push({ table, op: "update", values });
+        return chain;
+      },
+      insert(values: Record<string, unknown>) {
+        serviceWrites.push({ table, op: "insert", values });
+        return chain;
+      },
+      eq: () => chain,
+      then: (resolve: (v: { error: null }) => void) => resolve({ error: null }),
+    };
+    return chain;
+  });
   verifyAuthToken.mockResolvedValue({ uid: "fb-1", email: "op@co.com" });
   findUserByAuth.mockResolvedValue({ id: "u-1", company_id: "co-1" });
   checkPermissionById.mockResolvedValue(true);
@@ -212,6 +231,82 @@ describe("POST /api/catalog/setup/commit", () => {
     expect(p.kind).toBe("material");
     expect(p.is_active).toBe(false); // retired product is NOT reactivated
     expect(p.show_in_storefront).toBe(false);
+  });
+
+  it("stamps unit_cost on a CREATED product after commit (catalog_setup_save never writes it)", async () => {
+    rpc.mockResolvedValue({
+      data: { ok: true, counts: { products: 1 }, id_map: { c1: "row-new" } },
+      error: null,
+    });
+    const res = await POST(
+      makeReq({
+        token: "t",
+        sessionId: "sess-cost",
+        cards: [
+          {
+            id: "c1",
+            source: "manual",
+            state: "accepted",
+            module: "sell",
+            fields: {
+              name: "New service",
+              defaultPrice: 100,
+              unitCost: 40,
+              isTaxable: true,
+              kind: "service",
+              type: "LABOR",
+            },
+          },
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const costWrite = serviceWrites.find(
+      (w) => w.table === "products" && "unit_cost" in w.values,
+    );
+    expect(costWrite?.values).toEqual({ unit_cost: 40 });
+  });
+
+  it("does NOT stamp unit_cost on a merge card (the on-file cost is preserved, not overwritten)", async () => {
+    rpc.mockResolvedValue({
+      data: { ok: true, counts: { products: 1 }, id_map: {} },
+      error: null,
+    });
+    const res = await POST(
+      makeReq({
+        token: "t",
+        sessionId: "sess-cost2",
+        cards: [
+          {
+            id: "c1",
+            source: "import",
+            state: "merge",
+            module: "sell",
+            matchedExistingId: "live-7",
+            fields: {
+              name: "X",
+              defaultPrice: 95,
+              unitCost: 40, // incoming cost — must NOT overwrite the on-file 30
+              isTaxable: true,
+              kind: "service",
+              type: "LABOR",
+            },
+          },
+        ],
+        existingRows: {
+          "live-7": {
+            name: "X",
+            defaultPrice: 80,
+            unitCost: 30,
+            isTaxable: true,
+            kind: "service",
+            isActive: true,
+          },
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(serviceWrites.find((w) => "unit_cost" in w.values)).toBeUndefined();
   });
 
   it("content-addressed key: identical set replays the key, a changed set gets a fresh one", async () => {
