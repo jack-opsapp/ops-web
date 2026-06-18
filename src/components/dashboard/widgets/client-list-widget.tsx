@@ -408,8 +408,8 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
                           icon={Plus}
                           actions={[
                             { icon: FolderPlus, label: t("clientList.createProject") ?? "Create Project", onAction: () => navigate(`/projects/new?clientId=${client.id}`) },
-                            { icon: Receipt, label: t("clientList.createInvoice") ?? "Create Invoice", onAction: () => navigate(`/invoices/new?clientId=${client.id}`) },
-                            { icon: FileText, label: t("clientList.createEstimate") ?? "Create Estimate", onAction: () => navigate(`/estimates/new?clientId=${client.id}`) },
+                            { icon: Receipt, label: t("clientList.createInvoice") ?? "Create Invoice", onAction: () => navigate(`/books?segment=invoices&action=new&clientId=${client.id}`) },
+                            { icon: FileText, label: t("clientList.createEstimate") ?? "Create Estimate", onAction: () => navigate(`/books?segment=estimates&action=new&clientId=${client.id}`) },
                             { icon: ClipboardList, label: t("clientList.createTask") ?? "Create Task", onAction: () => navigate(`/tasks/new?clientId=${client.id}`) },
                             { icon: Trash2, label: t("clientList.deleteClient") ?? "Delete Client", onAction: () => handleDeleteClient(client.id, client.name) },
                           ]}

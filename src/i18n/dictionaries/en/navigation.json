@@ -4,11 +4,9 @@
   "nav.map": "Map",
   "nav.schedule": "Schedule",
   "nav.pipeline": "Pipeline",
-  "nav.estimates": "Estimates",
-  "nav.invoices": "Invoices",
-  "nav.accounting": "Accounting",
-  "nav.products": "Products",
-  "nav.inventory": "Inventory",
+  "nav.books": "Books",
+  "nav.catalog": "Catalog",
+  "nav.catalogSetup": "Catalog setup",
   "nav.clients": "Clients",
   "nav.team": "Team",
   "nav.calibration": "Calibration",
@@ -20,7 +18,7 @@
   "group.ops": "Ops",
 
   "gated.inDevelopment": "In development",
-  "gated.accessRequested": "Access requested — we'll be in touch",
+  "gated.accessRequested": "Access requested",
 
   "company.fallback": "My Company",
   "company.logoAlt": "Company",

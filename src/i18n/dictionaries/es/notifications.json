@@ -1,31 +1,30 @@
 {
-  "__": "TODO: ES translation pass — currently mirrors EN for consistent keys",
-  "tab.wordmarkClosed": "NOTIFICATIONS",
-  "tab.wordmarkOpen": "CLOSE",
-  "tab.ariaLabel": "Toggle notifications drawer",
-  "tab.tooltipTitle": "Notifications",
+  "tab.wordmarkClosed": "NOTIFICACIONES",
+  "tab.wordmarkOpen": "CERRAR",
+  "tab.ariaLabel": "Alternar panel de notificaciones",
+  "tab.tooltipTitle": "Notificaciones",
   "tab.shortcut": "N",
 
-  "drawer.ariaLabel": "Notifications",
-  "drawer.title": "NOTIFICATIONS",
-  "drawer.clearAllAriaLabel": "Clear all dismissable notifications",
+  "drawer.ariaLabel": "Notificaciones",
+  "drawer.title": "NOTIFICACIONES",
+  "drawer.clearAllAriaLabel": "Descartar todas las notificaciones",
 
-  "filters.ariaLabel": "Filter notifications by tone",
-  "filters.all": "ALL",
-  "filters.critical": "CRIT",
-  "filters.attn": "ATTN",
+  "filters.ariaLabel": "Filtrar notificaciones por tono",
+  "filters.all": "TODO",
+  "filters.critical": "CRÍT",
+  "filters.attn": "ATEN",
   "filters.ambient": "INFO",
 
   "list.eofMarker": "[ EOF ]",
 
-  "empty.allClear": "// NO NOTIFICATIONS",
-  "empty.noneInBucket": "// NONE IN {bucket}",
-  "empty.error": "// SYS :: SYNC ERROR",
-  "empty.retry": "RETRY",
+  "empty.allClear": "// SIN NOTIFICACIONES",
+  "empty.noneInBucket": "// NADA EN {bucket}",
+  "empty.error": "// SYS :: ERROR DE SINCR",
+  "empty.retry": "REINTENTAR",
 
-  "row.dismiss": "DISMISS",
-  "row.dismissAriaLabel": "Dismiss notification",
+  "row.dismiss": "DESCARTAR",
+  "row.dismissAriaLabel": "Descartar notificación",
 
-  "footer.lastSync": "LAST SYNC {time}",
-  "footer.clearAll": "CLEAR ALL"
+  "footer.lastSync": "SYS :: SINCR {time}",
+  "footer.clearAll": "BORRAR TODO"
 }

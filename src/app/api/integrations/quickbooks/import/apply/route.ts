@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
           `and ${created} clients imported into Books`,
         is_read: false,
         persistent: false,
-        action_url: "/accounting",
+        action_url: "/books?segment=sync&view=import",
         action_label: "View Books",
       });
     } catch (notifyErr) {

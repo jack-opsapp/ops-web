@@ -1,7 +1,9 @@
 // src/components/ui/edge-tab.types.ts
 import { type ReactNode } from "react";
 
-export type EdgeTabAccent = "critical" | "attn" | "accent" | "ambient";
+// No "accent" member: --ops-accent is the primary-CTA + focus-ring color only
+// (DESIGN.md §3) — the rail is navigation chrome and can never wear steel blue.
+export type EdgeTabAccent = "critical" | "attn" | "ambient";
 
 /**
  * Edge-tab prop surface (WEB OVERHAUL P2).
@@ -29,7 +31,8 @@ export interface EdgeTabProps {
   /** Count shown as vertical mono badge when closed. 0/undefined hides it. */
   count?: number;
 
-  /** Tone of the left accent stripe. Default "accent" (steel-blue). */
+  /** Tone of the left stripe. Default "ambient" (monochrome); rose/tan are
+   *  reserved for semantic critical/attn states. */
   accent?: EdgeTabAccent;
 
   /** Fixed tab height in px. Default 140. */
@@ -54,16 +57,17 @@ export interface EdgeTabProps {
   /**
    * Optional state-driven tint laid OVER the base `fill` — a 0.12-alpha
    * glaze that keeps the dense-glass blur intact while the tab picks up a
-   * hue matching its semantic state.
+   * hue matching its semantic state. Earth tones only (DESIGN.md §3) —
+   * color is meaning, never decoration.
    *
    *   "neutral" → no tint (default)
-   *   "rose"    → critical/attention notifications outstanding
-   *   "accent"  → primary CTA / pending review queued
+   *   "rose"    → critical notifications outstanding
+   *   "tan"     → attention: pending review / action queued
    *
-   * The accent stripe still carries the strong signal — the tint is an
-   * ambient cue, not a replacement. (Bug 82cc08e5.)
+   * The stripe still carries the strong signal — the tint is an ambient
+   * cue, not a replacement. (Bug 82cc08e5.)
    */
-  tint?: "neutral" | "rose" | "accent";
+  tint?: "neutral" | "rose" | "tan";
 
   /** Wordmark text (vertical). Rendered uppercase, Cake Mono 300. */
   wordmark: string;

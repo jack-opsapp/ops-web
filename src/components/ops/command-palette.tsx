@@ -25,6 +25,7 @@ import {
 import {
   getNavEntries,
   getNumberShortcutRoutes,
+  entryPermissions,
 } from "@/lib/navigation/route-registry";
 import { useDictionary } from "@/i18n/client";
 import { useSignOutStore } from "@/stores/signout-store";
@@ -170,6 +171,15 @@ export function CommandPalette() {
   );
   const navigationActions: CommandAction[] = getNavEntries()
     .filter((entry) => !entry.phaseCOnly || (flagsReady && canAccessFeature("phase_c")))
+    // Any-of entries (BOOKS) surface when at least one constituent
+    // permission is both flag-unlocked and RBAC-granted.
+    .filter((entry) => {
+      const perms = entryPermissions(entry);
+      return (
+        perms.length === 0 ||
+        perms.some((p) => isPermissionUnlocked(p) && can(p))
+      );
+    })
     .map((entry) => ({
       id: `nav-${entry.key}`,
       label: tNav(entry.labelKey),
@@ -177,13 +187,7 @@ export function CommandPalette() {
       shortcut: shortcutByHref[entry.href],
       onSelect: () => navigate(entry.href),
       keywords: entry.paletteKeywords,
-      requiredPermission: entry.permission,
-    }))
-    .filter(
-      (a) =>
-        !a.requiredPermission ||
-        (isPermissionUnlocked(a.requiredPermission) && can(a.requiredPermission))
-    );
+    }));
 
   const quickActions: CommandAction[] = ([
     {

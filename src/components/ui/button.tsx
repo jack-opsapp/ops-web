@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils/cn";
 const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-1",
-    "font-mohave text-button uppercase whitespace-nowrap",
+    // DESIGN.md §9: button label = Cake Mono 300, 14px, uppercase — at every
+    // size. Heights vary; the label voice does not.
+    "font-cakemono font-light text-[14px] uppercase whitespace-nowrap",
     "rounded-[5px] transition-all duration-150",
     "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
     "disabled:pointer-events-none disabled:opacity-40",
@@ -34,8 +36,8 @@ const buttonVariants = cva(
           "hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.18)] hover:text-text",
         ],
         destructive: [
-          "bg-[rgba(181,130,137,0.12)] text-[#B58289] border border-[rgba(181,130,137,0.28)]",
-          "hover:bg-[rgba(181,130,137,0.18)]",
+          "bg-rose-soft text-rose border border-rose-line",
+          "hover:border-rose",
         ],
         ghost: [
           "bg-transparent text-text-2",
@@ -53,8 +55,8 @@ const buttonVariants = cva(
         // unspecified-but-coherent derivations on a 32/36/40 ladder — never the
         // 44px touch-target value (OPS-Web is mouse-driven; there is no touch here).
         default: "h-9 px-4",
-        sm: "h-8 px-3 text-button-sm",
-        lg: "h-10 px-5 text-body-lg",
+        sm: "h-8 px-3",
+        lg: "h-10 px-5",
         icon: "h-9 w-9 p-0",
       },
     },
@@ -89,7 +91,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading ? (
           <>
-            <Loader2 className="h-[18px] w-[18px] animate-spin" aria-hidden="true" />
+            <Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />
             <span className="sr-only">Loading</span>
             {children}
           </>

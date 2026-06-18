@@ -1,19 +1,18 @@
 {
-  "__": "TODO: ES translation pass — currently mirrors EN for consistent keys",
-  "tab.wordmarkClosed": "QUICK ACTIONS",
-  "tab.wordmarkOpen": "CLOSE",
-  "tab.ariaLabel": "Toggle quick actions drawer",
-  "tab.tooltipTitle": "Quick actions",
+  "tab.wordmarkClosed": "ACCIONES",
+  "tab.wordmarkOpen": "CERRAR",
+  "tab.ariaLabel": "Alternar panel de acciones rápidas",
+  "tab.tooltipTitle": "Acciones rápidas",
   "tab.shortcut": "Q",
 
-  "drawer.ariaLabel": "Quick actions",
-  "drawer.title": "QUICK ACTIONS",
+  "drawer.ariaLabel": "Acciones rápidas",
+  "drawer.title": "ACCIONES RÁPIDAS",
   "drawer.shortcutHint": "Q",
 
-  "footer.customize": "CUSTOMIZE",
-  "footer.customizeAriaLabel": "Customize quick actions",
+  "footer.customize": "PERSONALIZAR",
+  "footer.customizeAriaLabel": "Personalizar acciones rápidas",
 
-  "empty.noActions": "[ no actions available ]",
+  "empty.noActions": "[ sin acciones disponibles ]",
 
   "action.expense": "Agregar gasto",
   "action.lead": "Nuevo lead",

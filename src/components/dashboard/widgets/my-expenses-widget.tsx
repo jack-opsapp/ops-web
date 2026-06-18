@@ -183,7 +183,7 @@ export function MyExpensesWidget({
     const heroVal = stats.revision > 0 ? stats.revision : stats.pending;
     return (
       <Card className="h-full" ref={ref}>
-        <div className="h-full flex flex-col pt-3 cursor-pointer" onClick={() => onNavigate("/accounting")}>
+        <div className="h-full flex flex-col pt-3 cursor-pointer" onClick={() => onNavigate("/books?segment=expenses")}>
           <span className={`font-mono ${heroVal.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${heroVal > 0 ? "text-text" : "text-text-mute"}`}>
             {heroVal}
           </span>
@@ -202,13 +202,13 @@ export function MyExpensesWidget({
   if (size === "sm") {
     return (
       <Card className="h-full p-0" ref={ref}>
-        <div className="h-full flex flex-col p-3 cursor-pointer" onClick={() => onNavigate("/accounting")}>
+        <div className="h-full flex flex-col p-3 cursor-pointer" onClick={() => onNavigate("/books?segment=expenses")}>
           <div className="flex items-baseline justify-between">
             <span className={`font-mono text-data-lg font-bold leading-none ${batchCount > 0 ? "text-text" : "text-text-mute"}`}>
               {formatCompactCurrency(stats.total)}
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/accounting"); }}
+              onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=expenses"); }}
               className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
@@ -359,7 +359,7 @@ export function MyExpensesWidget({
 
         {/* Footer */}
         <button
-          onClick={() => onNavigate("/accounting")}
+          onClick={() => onNavigate("/books?segment=expenses")}
           className="mt-auto pt-2 font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors text-left"
         >
           {t("myExpenses.viewAll") ?? "View All"}

@@ -27,20 +27,21 @@ const DEFAULT_HEIGHT = 140;
 const DEFAULT_DRAWER_WIDTH = 360;
 const EASE_SMOOTH_CSS = "cubic-bezier(0.22, 1, 0.36, 1)";
 
+// Monochrome by default; rose/tan only when the state carries the matching
+// semantic meaning. Steel blue never appears on rail chrome (DESIGN.md §3).
 const ACCENT_VAR: Record<EdgeTabAccent, string> = {
   critical: "var(--rose)",
   attn: "var(--tan)",
-  accent: "var(--ops-accent)",
   ambient: "var(--text-mute)",
 };
 
 // State-driven glaze laid over the base glass fill — picks up the hue tied
 // to the tab's semantic state without breaking the dense-glass blur.
-// Values mirror --rose-soft / --ops-accent-soft. (Bug 82cc08e5.)
+// Earth-tone softs only. (Bug 82cc08e5.)
 const TINT_VAR: Record<NonNullable<EdgeTabProps["tint"]>, string | null> = {
   neutral: null,
   rose: "var(--rose-soft)",
-  accent: "var(--ops-accent-soft)",
+  tan: "var(--tan-soft)",
 };
 
 export function EdgeTab({
@@ -48,7 +49,7 @@ export function EdgeTab({
   open,
   onToggle,
   count,
-  accent = "accent",
+  accent = "ambient",
   height = DEFAULT_HEIGHT,
   drawerWidth = DEFAULT_DRAWER_WIDTH,
   railTop = EDGE_RAIL_TOP,
@@ -132,9 +133,10 @@ export function EdgeTab({
           cursor: "pointer",
           pointerEvents: "auto",
           color: "var(--text)",
+          // 200ms = --d-panel; the tab slides in lockstep with its drawer.
           transition: reducedMotion
             ? "opacity 150ms linear"
-            : `right 260ms ${EASE_SMOOTH_CSS}, background-color 150ms ${EASE_SMOOTH_CSS}`,
+            : `right 200ms ${EASE_SMOOTH_CSS}, background-color 150ms ${EASE_SMOOTH_CSS}`,
           outline: "none",
         }}
       >
@@ -152,7 +154,7 @@ export function EdgeTab({
               pointerEvents: "none",
               transition: reducedMotion
                 ? "none"
-                : `background 220ms ${EASE_SMOOTH_CSS}, opacity 220ms ${EASE_SMOOTH_CSS}`,
+                : `background 200ms ${EASE_SMOOTH_CSS}, opacity 200ms ${EASE_SMOOTH_CSS}`,
             }}
           />
         )}
@@ -170,7 +172,7 @@ export function EdgeTab({
             background: ACCENT_VAR[accent],
             transition: reducedMotion
               ? "none"
-              : `background 180ms ${EASE_SMOOTH_CSS}`,
+              : `background 150ms ${EASE_SMOOTH_CSS}`,
           }}
         />
 
@@ -184,7 +186,7 @@ export function EdgeTab({
             transform: `rotate(${open ? openGlyphRotation : 0}deg)`,
             transition: reducedMotion
               ? "none"
-              : `transform 260ms ${EASE_SMOOTH_CSS}`,
+              : `transform 200ms ${EASE_SMOOTH_CSS}`,
             position: "relative",
           }}
         >
@@ -253,8 +255,8 @@ export function EdgeTab({
               background: "var(--glass-dense)",
               backdropFilter: "blur(28px) saturate(1.3)",
               WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 5,
+              border: "1px solid var(--glass-border)",
+              borderRadius: 4,
               padding: "6px 10px",
               whiteSpace: "nowrap",
               pointerEvents: "none",
@@ -268,7 +270,7 @@ export function EdgeTab({
             <span
               style={{
                 fontFamily: "var(--font-mohave)",
-                fontSize: 13,
+                fontSize: 14,
                 color: "var(--text)",
               }}
             >
@@ -283,9 +285,9 @@ export function EdgeTab({
                   padding: "2px 5px",
                   minWidth: 14,
                   textAlign: "center",
-                  border: "1px solid rgba(255,255,255,0.14)",
+                  border: "1px solid var(--line)",
                   borderRadius: 3,
-                  background: "rgba(255,255,255,0.04)",
+                  background: "rgba(255,255,255,0.06)",
                 }}
               >
                 {shortcut}

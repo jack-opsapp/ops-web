@@ -32,6 +32,7 @@ import {
 } from "@/lib/utils/motion";
 import { computeQuickActionsPanelHeight } from "./quick-actions-tab";
 import {
+  EDGE_DRAWER_PADDING,
   EDGE_RAIL_BOTTOM,
   EDGE_RAIL_STACK,
   EDGE_RAIL_TOP,
@@ -54,6 +55,8 @@ export function QuickActionsDrawer() {
   // Phase 9.2 — project-workspace dispatch goes through the dedicated
   // openProjectWindow helper (centralised id derivation + meta packaging).
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
+  // Phase P3.3 — client-workspace dispatch mirrors the project opener.
+  const openClientWindow = useWindowStore((s) => s.openClientWindow);
   const reducedMotion = useReducedMotion();
   const actions = useQuickActions();
   const PANEL_H = computeQuickActionsPanelHeight(actions.length);
@@ -101,6 +104,11 @@ export function QuickActionsDrawer() {
           // (defaulting to "creating" — that's how the FAB lands here).
           openProjectWindow({
             projectId: null,
+            mode: action.meta?.initialMode ?? "creating",
+          });
+        } else if (action.target === "client-workspace") {
+          openClientWindow({
+            clientId: null,
             mode: action.meta?.initialMode ?? "creating",
           });
         } else {
@@ -175,8 +183,8 @@ export function QuickActionsDrawer() {
                 WebkitBackdropFilter: "blur(28px) saturate(1.3)",
                 border: "1px solid var(--glass-border)",
                 borderRight: "none",
-                borderTopLeftRadius: 10,
-                borderBottomLeftRadius: 10,
+                borderTopLeftRadius: 12,
+                borderBottomLeftRadius: 12,
                 pointerEvents: "auto",
                 overflow: "hidden",
               }}
@@ -198,33 +206,26 @@ export function QuickActionsDrawer() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  padding: "12px 14px 10px",
-                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  padding: EDGE_DRAWER_PADDING.header,
+                  borderBottom: "1px solid var(--line)",
                   position: "relative",
                   zIndex: 1,
                 }}
               >
+                {/* Kit widget header: `// TITLE` — one JetBrains Mono 11px
+                    uppercase run, slash in --text-mute (Widget.jsx anatomy). */}
                 <span
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 10,
-                    color: "var(--text-mute)",
+                    fontSize: 11,
                     letterSpacing: "0.16em",
-                  }}
-                >
-                  {"//"}
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-cakemono)",
-                    fontWeight: 300,
-                    fontSize: 13,
-                    color: "var(--text)",
                     textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    marginLeft: 6,
+                    color: "var(--text-3)",
                   }}
                 >
+                  <span aria-hidden style={{ color: "var(--text-mute)" }}>
+                    {"// "}
+                  </span>
                   {t("drawer.title")}
                 </span>
                 <div style={{ flex: 1 }} />
@@ -232,15 +233,15 @@ export function QuickActionsDrawer() {
                   aria-hidden
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 9,
+                    fontSize: 11,
                     color: "var(--text-2)",
                     letterSpacing: 0,
                     padding: "2px 6px",
                     minWidth: 16,
                     textAlign: "center",
-                    border: "1px solid rgba(255,255,255,0.14)",
+                    border: "1px solid var(--line)",
                     borderRadius: 3,
-                    background: "rgba(255,255,255,0.04)",
+                    background: "rgba(255,255,255,0.06)",
                   }}
                 >
                   {t("drawer.shortcutHint")}
@@ -261,12 +262,12 @@ export function QuickActionsDrawer() {
                 }}
               >
                 {actions.length === 0 && (
-                  <div style={{ padding: 24, textAlign: "center" }}>
+                  <div style={{ padding: 24 }}>
                     <span
                       style={{
                         fontFamily: "var(--font-mono)",
-                        fontSize: 10,
-                        color: "var(--text-mute)",
+                        fontSize: 11,
+                        color: "var(--text-3)",
                         letterSpacing: "0.16em",
                       }}
                     >
@@ -316,7 +317,7 @@ export function QuickActionsDrawer() {
                       <span
                         style={{
                           fontFamily: "var(--font-mohave)",
-                          fontSize: 13,
+                          fontSize: 14,
                           flex: 1,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -329,10 +330,10 @@ export function QuickActionsDrawer() {
                         aria-hidden
                         style={{
                           fontFamily: "var(--font-mono)",
-                          fontSize: 9,
-                          color: "var(--text-mute)",
+                          fontSize: 11,
+                          color: "var(--text-3)",
                           letterSpacing: "0.12em",
-                          fontVariantNumeric: "tabular-nums",
+                          fontFeatureSettings: '"tnum" 1, "zero" 1',
                         }}
                       >
                         {action.hintCode}
@@ -351,8 +352,8 @@ export function QuickActionsDrawer() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "9px 14px",
-                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                  padding: EDGE_DRAWER_PADDING.footer,
+                  borderTop: "1px solid var(--line)",
                   borderLeft: "none",
                   borderRight: "none",
                   borderBottom: "none",
@@ -360,7 +361,7 @@ export function QuickActionsDrawer() {
                   color: "var(--text-3)",
                   cursor: "pointer",
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
+                  fontSize: 11,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
                   transition: reducedMotion

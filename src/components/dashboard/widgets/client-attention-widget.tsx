@@ -437,7 +437,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
           navigate(`/projects/${item.entityId}`);
           break;
         case "stale-quoting":
-          navigate(`/estimates/new?opportunityId=${item.entityId}`);
+          navigate(`/books?segment=estimates&action=new&opportunityId=${item.entityId}`);
           break;
         case "estimate-no-response":
           queueAction({
@@ -451,10 +451,10 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
           });
           break;
         case "past-due-invoice":
-          navigate("/invoices");
+          navigate("/books?segment=invoices");
           break;
         case "estimate-expiring":
-          navigate("/estimates");
+          navigate("/books?segment=estimates");
           break;
       }
     };

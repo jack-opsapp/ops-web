@@ -3,27 +3,22 @@
 import { create } from "zustand";
 
 /**
- * Shell sidebar state (WEB OVERHAUL P2).
+ * Shell sidebar state (WEB OVERHAUL P2 — variant B instrument rail).
  *
- * Desktop is a 72px HUD rail that hover-expands to a 240px overlay — both
- * transient, nothing persists. Mobile (<768px) uses a slide-in drawer.
- * The legacy isCollapsed/toggle/setCollapsed fields (pre-HUD pin/collapse
- * era) had no consumers left outside the old sidebar and are gone.
+ * Desktop is a fixed 72px icon rail. It never expands — labels surface as
+ * hover/focus tooltips with zero layout shift, so there is no transient
+ * "expanded" state to track. Mobile (<768px) uses a slide-in drawer with
+ * the full labelled anatomy; that open/closed flag is the only state left.
  */
 interface SidebarState {
-  /** Desktop rail is hover-expanded (transient). */
-  isHoverExpanded: boolean;
   /** Mobile drawer is open. */
   isMobileOpen: boolean;
-  setHoverExpanded: (expanded: boolean) => void;
   openMobile: () => void;
   closeMobile: () => void;
 }
 
 export const useSidebarStore = create<SidebarState>()((set) => ({
-  isHoverExpanded: false,
   isMobileOpen: false,
-  setHoverExpanded: (isHoverExpanded) => set({ isHoverExpanded }),
   openMobile: () => set({ isMobileOpen: true }),
   closeMobile: () => set({ isMobileOpen: false }),
 }));

@@ -40,17 +40,19 @@ export function isWindowAction(action: FABAction): action is FABAction & { targe
 }
 
 export const ALL_ACTIONS: FABAction[] = [
-  { id: "expense",        labelKey: "action.expense",   hintCode: "EXP", icon: Receipt,       triggerAction: "expenses",   handler: "route",  target: "/accounting?tab=expenses", requiredPermission: "expenses.create" },
+  { id: "expense",        labelKey: "action.expense",   hintCode: "EXP", icon: Receipt,       triggerAction: "expenses",   handler: "route",  target: "/books?segment=expenses",  requiredPermission: "expenses.create" },
   { id: "lead",           labelKey: "action.lead",      hintCode: "LED", icon: TrendingUp,    triggerAction: "leads",      handler: "window", target: "create-lead",              requiredPermission: "pipeline.manage" },
   { id: "estimate",       labelKey: "action.estimate",  hintCode: "EST", icon: Calculator,    triggerAction: "estimates",  handler: "window", target: "create-estimate",          requiredPermission: "estimates.create" },
-  { id: "invoice",        labelKey: "action.invoice",   hintCode: "INV", icon: FileText,      triggerAction: "invoices",   handler: "route",  target: "/invoices?action=new",     requiredPermission: "invoices.create" },
-  { id: "client",         labelKey: "action.client",    hintCode: "CLI", icon: Users,         triggerAction: "clients",    handler: "window", target: "create-client",            requiredPermission: "clients.create" },
+  { id: "invoice",        labelKey: "action.invoice",   hintCode: "INV", icon: FileText,      triggerAction: "invoices",   handler: "route",  target: "/books?segment=invoices&action=new", requiredPermission: "invoices.create" },
+  // Phase P3.3 — "New Client" routes through the unified client workspace
+  // window in creating mode instead of the legacy create-client modal.
+  { id: "client",         labelKey: "action.client",    hintCode: "CLI", icon: Users,         triggerAction: "clients",    handler: "window", target: "client-workspace",          requiredPermission: "clients.create", meta: { initialMode: "creating" } },
   // Phase 9.1 — "New Project" routes through the unified workspace
   // window in creating mode instead of the legacy create-project modal.
   { id: "project",        labelKey: "action.project",   hintCode: "PRJ", icon: FolderKanban,  triggerAction: "projects",   handler: "window", target: "project-workspace",        requiredPermission: "projects.create", meta: { initialMode: "creating" } },
   { id: "task",           labelKey: "action.task",      hintCode: "TSK", icon: ClipboardList, triggerAction: "tasks",      handler: "window", target: "create-task",              requiredPermission: "tasks.create" },
   { id: "task-type",      labelKey: "action.taskType", hintCode: "TTY", icon: Tag,           triggerAction: "task-types", handler: "route",  target: "/settings?tab=company",    requiredPermission: "settings.company" },
-  { id: "inventory-item", labelKey: "action.inventoryItem",      hintCode: "ITM", icon: Boxes,         triggerAction: "inventory",  handler: "route",  target: "/inventory?action=new",    requiredPermission: "inventory.manage" },
+  { id: "inventory-item", labelKey: "action.inventoryItem",      hintCode: "ITM", icon: Boxes,         triggerAction: "inventory",  handler: "route",  target: "/catalog?segment=stock&action=new", requiredPermission: "inventory.manage" },
 ];
 
 export const DEFAULT_ACTION_IDS = ALL_ACTIONS.map((a) => a.id);

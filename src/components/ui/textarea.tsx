@@ -17,7 +17,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {label && (
           <label
             htmlFor={textareaId}
-            className="font-mono text-caption-sm text-text-2 uppercase tracking-widest"
+            className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]"
           >
             {label}
           </label>
@@ -26,14 +26,14 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           id={textareaId}
           className={cn(
             "w-full bg-surface-input text-text font-mohave text-body",
-            "px-1.5 py-1.5 rounded-sm",
+            "px-1.5 py-1.5 rounded-[5px]",
             "border border-border",
             "transition-all duration-150",
             "placeholder:text-text-3",
             "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
             "disabled:cursor-not-allowed disabled:opacity-40",
             "min-h-[80px] resize-y",
-            error && "border-ops-error focus:border-ops-error",
+            error && "border-rose-line focus:border-rose-line",
             className
           )}
           ref={ref}
@@ -44,7 +44,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         {error && (
-          <p id={`${textareaId}-error`} className="text-caption-sm text-ops-error font-mohave" role="alert">
+          <p id={`${textareaId}-error`} className="text-caption-sm text-rose font-mohave" role="alert">
             {error}
           </p>
         )}

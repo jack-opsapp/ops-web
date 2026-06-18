@@ -1,0 +1,183 @@
+/* OPS Books mockups — shared base. Tokens mirror ops-design-system/project/colors_and_type.css (v2). */
+@import url('https://fonts.googleapis.com/css2?family=Mohave:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@font-face {
+  font-family: "Cake Mono";
+  src: url("../../../../ops-design-system/project/fonts/CakeMono-Light.woff2") format("woff2"),
+       url("../../../../ops-design-system/project/fonts/CakeMono-Light.woff") format("woff");
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+
+:root {
+  --font-mohave: "Mohave", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-cakemono: "Cake Mono", "Mohave", system-ui, sans-serif;
+
+  --bg: #000000;
+  --glass: rgba(18, 18, 20, 0.58);
+  --glass-dense: rgba(18, 18, 20, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --surface-input: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-active: rgba(255, 255, 255, 0.08);
+
+  --text: #EDEDED;
+  --text-2: #B5B5B5;
+  --text-3: #8A8A8A;
+  --text-mute: #6A6A6A;
+
+  --ops-accent: #6F94B0;
+
+  --olive: #9DB582; --olive-soft: rgba(157,181,130,0.12); --olive-line: rgba(157,181,130,0.30);
+  --tan: #C4A868;   --tan-soft: rgba(196,168,104,0.12);   --tan-line: rgba(196,168,104,0.30);
+  --rose: #B58289;  --rose-soft: rgba(181,130,137,0.12);  --rose-line: rgba(181,130,137,0.30);
+  --brick: #93321A;
+
+  --fin-revenue: #C4A868;
+  --fin-profit: #9DB582;
+  --fin-cost: #B58289;
+  --fin-receivables: #D4A574;
+  --fin-overdue: #93321A;
+
+  --line: rgba(255, 255, 255, 0.10);
+  --fill-neutral: rgba(255, 255, 255, 0.14);
+  --fill-neutral-dim: rgba(255, 255, 255, 0.06);
+
+  --r-panel: 10px; --r-btn: 5px; --r-chip: 4px; --r-bar: 2px; --r-item: 6px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--text); font-family: var(--font-mohave); -webkit-font-smoothing: antialiased; }
+.mono { font-family: var(--font-mono); font-feature-settings: "tnum" 1, "zero" 1; }
+
+/* ── Shell frame (P2: fixed 72px rail + 56px top bar) ───────────────────── */
+.shell { display: flex; min-height: 100vh; }
+.rail {
+  position: fixed; inset: 0 auto 0 0; width: 72px;
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 14px 0 18px; gap: 4px; z-index: 505;
+}
+.rail .mark { width: 22px; height: 22px; color: var(--text); margin-bottom: 18px; }
+.rail-item {
+  position: relative; width: 40px; height: 40px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; color: var(--text-3);
+}
+.rail-item svg { width: 20px; height: 20px; }
+.rail-item.active { color: var(--text); }
+.rail-item.active::before {
+  content: ""; position: absolute; left: -16px; top: 50%; transform: translateY(-50%);
+  width: 2px; height: 18px; border-radius: 1px; background: var(--text-2);
+}
+.rail .spacer { flex: 1; }
+.rail .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--surface-active); border: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: 10px; display:flex; align-items:center; justify-content:center; color: var(--text-2); }
+
+.main { flex: 1; margin-left: 72px; display: flex; flex-direction: column; }
+.topbar {
+  height: 56px; display: flex; align-items: center; padding: 0 24px; gap: 16px;
+}
+.topbar h1 { font-family: var(--font-cakemono); font-weight: 300; font-size: 22px; letter-spacing: 0; text-transform: uppercase; color: var(--text); }
+.topbar .sys { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+.canvas { padding: 20px 44px 44px; max-width: 1320px; width: 100%; margin: 0 auto; }
+
+/* ── Glass + panels ─────────────────────────────────────────────────────── */
+.glass-surface {
+  position: relative; background: var(--glass);
+  backdrop-filter: blur(28px) saturate(1.3); -webkit-backdrop-filter: blur(28px) saturate(1.3);
+  border: 1px solid var(--glass-border); border-radius: var(--r-panel);
+}
+.glass-surface::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%); pointer-events: none;
+}
+
+/* ── Type roles ─────────────────────────────────────────────────────────── */
+.t-panel-title { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); }
+.t-panel-title .sl { color: var(--text-mute); }
+.t-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+.t-data { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+
+/* ── Controls ───────────────────────────────────────────────────────────── */
+.btn {
+  font-family: var(--font-cakemono); font-weight: 300; font-size: 14px; text-transform: uppercase;
+  padding: 8px 16px; border-radius: var(--r-btn); min-height: 36px;
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; background: transparent;
+}
+.btn-primary { color: var(--ops-accent); border: 1px solid var(--ops-accent); }
+.btn-secondary { color: var(--text-2); border: 1px solid var(--line); }
+
+.seg {
+  display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 7px;
+}
+.seg button {
+  font-family: var(--font-cakemono); font-weight: 300; font-size: 13px; text-transform: uppercase;
+  letter-spacing: 0.02em; color: var(--text-3); background: transparent; border: 1px solid transparent;
+  border-radius: var(--r-btn); padding: 6px 18px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+}
+.seg button.active { color: var(--text); background: var(--surface-active); border-color: rgba(255,255,255,0.18); }
+.seg .cnt { font-family: var(--font-mono); font-size: 10px; color: var(--text-mute); font-feature-settings: "tnum" 1, "zero" 1; }
+
+.input {
+  background: var(--surface-input); border: 1px solid var(--line); border-radius: var(--r-btn);
+  color: var(--text-3); font-family: var(--font-mohave); font-size: 14px; padding: 8px 12px;
+  min-height: 36px; display: flex; align-items: center; gap: 8px; width: 320px;
+}
+.input svg { width: 16px; height: 16px; color: var(--text-3); }
+
+.chips { display: inline-flex; gap: 6px; }
+.chip {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: var(--r-chip); border: 1px solid var(--line);
+  background: transparent; color: var(--text-3); cursor: pointer;
+}
+.chip.active { color: var(--text); background: var(--surface-active); border-color: rgba(255,255,255,0.18); }
+.chip.drill { color: var(--rose); background: var(--rose-soft); border-color: var(--rose-line); }
+
+.tag {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: var(--r-chip); border: 1px solid var(--line);
+  background: rgba(255,255,255,0.05); color: var(--text-2); display: inline-flex; align-items: center; gap: 4px;
+}
+.tag-olive { color: var(--olive); background: var(--olive-soft); border-color: var(--olive-line); }
+.tag-tan { color: var(--tan); background: var(--tan-soft); border-color: var(--tan-line); }
+.tag-rose { color: var(--rose); background: var(--rose-soft); border-color: var(--rose-line); }
+.tag-dim { color: var(--text-3); background: transparent; }
+
+.period {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-2); border: 1px solid var(--line); border-radius: var(--r-chip);
+  padding: 5px 10px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+.period .car { color: var(--text-mute); font-size: 9px; }
+
+/* ── Table ──────────────────────────────────────────────────────────────── */
+table.docs { width: 100%; border-collapse: collapse; }
+table.docs th {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-3); text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 400;
+}
+table.docs td { padding: 11px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+table.docs tr:last-child td { border-bottom: none; }
+table.docs .num { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+table.docs .name { font-family: var(--font-mohave); font-size: 14px; color: var(--text); }
+table.docs .sub { font-family: var(--font-mohave); font-size: 13px; color: var(--text-3); }
+table.docs .d { font-family: var(--font-mono); font-size: 12px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+table.docs .r { text-align: right; }
+table.docs .c { text-align: center; }
+table.docs .money { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+table.docs .money.dim { color: var(--text-3); }
+table.docs .money.olive { color: var(--olive); }
+table.docs .money.rose { color: var(--rose); }
+table.docs .due-over { color: var(--rose); }
+
+/* ── Mini-viz primitives ────────────────────────────────────────────────── */
+.meter { height: 4px; border-radius: var(--r-bar); background: var(--fill-neutral-dim); overflow: hidden; }
+.meter > i { display: block; height: 100%; border-radius: var(--r-bar); background: var(--olive); }
+.ramp { display: flex; align-items: flex-end; gap: 3px; height: 30px; }
+.ramp i { flex: 1; border-radius: 2px 2px 0 0; display: block; }
+.diverge { display: flex; flex-direction: column; gap: 4px; }
+.diverge .row { display: flex; align-items: center; height: 6px; position: relative; }
+.diverge .axis { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--line); }
+.diverge i { display: block; height: 4px; border-radius: 2px; }

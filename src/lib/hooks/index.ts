@@ -54,6 +54,19 @@ export {
   useUpdateSubClient,
   useDeleteSubClient,
 } from "./use-clients";
+export {
+  useClientOutstandingMap,
+  useClientFinancials,
+  useClientActivity,
+} from "./use-client-financials";
+export type {
+  ClientOutstanding,
+  ClientOutstandingResult,
+  ClientFinancials,
+  ClientActivityEvent,
+  ClientActivityKind,
+  ClientActivityResult,
+} from "./use-client-financials";
 
 // Users / Team
 export {
@@ -387,6 +400,9 @@ export {
   useMapMetrics,
   useInboxMetrics,
 } from "./use-metrics";
+
+// Books (ledger instrument strip)
+export { useBooksLedger } from "./use-books";
 
 // Approval Queue (agent actions)
 export {

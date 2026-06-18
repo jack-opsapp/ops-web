@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CATALOG — Direction D · Workbench (flow-led)</title>
+<link rel="stylesheet" href="_base.css" />
+<style>
+  /* Direction D — WORKBENCH: A's strip skeleton, B's pivot behavior, C's voice
+     and variant honesty — organized around the three flows that matter:
+     1. buy-run triage (health tile -> pivot -> copy list)
+     2. count / receive (inline qty, drawer quick-adjust)
+     3. price-book upkeep (cost/price/margin tri-cells, no-cost worklist)
+     Rev 2: critique-panel fixes — 11px floor, text-3 for informational text,
+     UNTRACKED bucket, signed receiving, coverage-honest totals, plain words. */
+  .strip-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
+  .tile { padding: 16px 18px 14px; cursor: pointer; min-height: 132px; display: flex; flex-direction: column; }
+  .tile .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .tile .go { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; color: var(--text-3); text-transform: uppercase; font-feature-settings: "tnum" 1, "zero" 1; }
+  .tile:hover .go { color: var(--text-2); }
+  .tile .hero { font-family: var(--font-mono); font-weight: 600; font-size: 22px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+  .tile .hero small { font-family: var(--font-mono); font-weight: 400; font-size: 11px; letter-spacing: 0.12em; color: var(--text-3); margin-left: 6px; text-transform: uppercase; }
+  .tile .hero.rose { color: var(--rose); }
+  .tile .hero.olive { color: var(--olive); }
+  .tile .mid { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase; font-feature-settings: "tnum" 1, "zero" 1; margin: 8px 0 0; }
+  .tile .mid .rs { color: var(--rose); }
+  .tile .sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); letter-spacing: 0.06em; font-feature-settings: "tnum" 1, "zero" 1; margin-top: auto; }
+  .tile .sub .ol { color: var(--olive); } .tile .sub .tn { color: var(--tan); } .tile .sub .rs { color: var(--rose); }
+  .healthbar { display: flex; height: 4px; border-radius: var(--r-bar); overflow: hidden; gap: 2px; margin-top: 10px; }
+  .healthbar i { display: block; height: 100%; border-radius: var(--r-bar); }
+  .meterline { height: 4px; border-radius: var(--r-bar); background: var(--fill-neutral-dim); overflow: hidden; margin-top: 10px; }
+  .meterline i { display: block; height: 100%; border-radius: var(--r-bar); background: var(--fill-neutral); }
+
+  /* token overrides vs the shared mockup base (critique: radii spec) */
+  .rail-item { border-radius: 6px; }
+  .seg { border-radius: 6px; }
+  .seg .cnt { font-size: 11px; color: var(--text-3); }
+
+  .workbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+  .workbar .right { display: flex; align-items: center; gap: 8px; }
+  .filterline { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .count { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; }
+  .statline { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--text-3); font-feature-settings: "tnum" 1, "zero" 1; text-transform: uppercase; }
+  .statline b { font-weight: 500; color: var(--text-2); } .statline .tn { color: var(--tan); } .statline .rs { color: var(--rose); } .statline .ol { color: var(--olive); }
+  .kebab { width: 36px; min-height: 36px; border: 1px solid var(--line); border-radius: var(--r-btn); background: transparent; color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; }
+
+  .acts { display: inline-flex; gap: 2px; justify-content: flex-end; }
+  .acts span { width: 24px; height: 24px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-3); }
+  .acts svg { width: 14px; height: 14px; }
+  .qty { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+  .qty small { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); margin-left: 3px; text-transform: uppercase; }
+  .qty.tn { color: var(--tan); } .qty.rs { color: var(--rose); }
+  .variant { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--text-3); text-transform: uppercase; margin-top: 2px; font-feature-settings: "tnum" 1, "zero" 1; }
+  .thumb { width: 32px; height: 32px; border-radius: 4px; border: 1px solid var(--line); background: var(--surface-input); display: inline-flex; align-items: center; justify-content: center; color: var(--text-mute); flex: none; }
+  .thumb svg { width: 14px; height: 14px; }
+  .cfg { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; color: var(--text-3); text-transform: uppercase; font-feature-settings: "tnum" 1, "zero" 1; }
+  .ck { width: 14px; height: 14px; border: 1px solid var(--line); border-radius: 3px; display: inline-block; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+  .fav { color: var(--text-3); font-size: 11px; }
+
+  /* inline-edit cell states */
+  .cell-edit { display: inline-flex; align-items: center; gap: 2px; background: var(--surface-input); border: 1px solid rgba(255,255,255,0.20); border-radius: var(--r-btn); padding: 3px 8px; }
+  .cell-edit .v { font-family: var(--font-mono); font-size: 13px; color: var(--text); font-feature-settings: "tnum" 1, "zero" 1; }
+  .cell-edit .caret { width: 1px; height: 14px; background: var(--text); }
+  .editable { border-bottom: 1px dashed rgba(255,255,255,0.14); cursor: text; }
+
+  /* triage extras */
+  .short { font-family: var(--font-mono); font-size: 13px; font-feature-settings: "tnum" 1, "zero" 1; }
+  .short.rs { color: var(--rose); } .short.tn { color: var(--tan); }
+
+  /* drawer */
+  .stockwrap { display: grid; grid-template-columns: 1fr 312px; gap: 16px; align-items: start; }
+  .drawer { padding: 16px 18px 18px; }
+  .drawer .dh { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 2px; }
+  .drawer h3 { font-family: var(--font-mohave); font-weight: 500; font-size: 16px; color: var(--text); }
+  .drawer .x { color: var(--text-mute); font-family: var(--font-mono); font-size: 12px; cursor: pointer; }
+  .drawer .vlabel { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; color: var(--text-3); text-transform: uppercase; font-feature-settings: "tnum" 1, "zero" 1; }
+  .drawer .qhero { font-family: var(--font-mono); font-weight: 600; font-size: 26px; color: var(--rose); font-feature-settings: "tnum" 1, "zero" 1; margin-top: 12px; }
+  .drawer .qhero small { font-size: 11px; color: var(--text-3); font-weight: 400; margin-left: 4px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .pills { display: flex; gap: 4px; margin: 10px 0 6px; }
+  .pills button { flex: 1; font-family: var(--font-mono); font-size: 12px; min-height: 36px; background: transparent; border: 1px solid var(--line); border-radius: var(--r-btn); color: var(--text-2); cursor: pointer; font-feature-settings: "tnum" 1, "zero" 1; }
+  .pills button:hover { background: var(--surface-hover); }
+  .setrow { display: flex; gap: 6px; margin-bottom: 14px; }
+  .setrow .input { flex: 1; width: auto; min-height: 36px; padding: 8px 10px; font-family: var(--font-mono); font-size: 12px; }
+  .dsec { border-top: 1px solid var(--line); padding: 10px 0; }
+  .dsec .t-panel-title { display: block; margin-bottom: 8px; }
+  .dline { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--text-2); padding: 3px 0; font-feature-settings: "tnum" 1, "zero" 1; }
+  .dline .k { color: var(--text-3); letter-spacing: 0.08em; text-transform: uppercase; }
+  .dline .src { color: var(--text-3); font-size: 11px; letter-spacing: 0.08em; }
+  .dline .neg { color: var(--rose); } .dline .pos { color: var(--olive); }
+  .dlink { font-family: var(--font-mohave); font-size: 13px; color: var(--text-2); padding: 3px 0; display: block; }
+
+  /* kebab menu (open) — glass-dense incl. mandated top-edge gradient */
+  .menu { position: relative; width: 196px;
+    background: var(--glass-dense); backdrop-filter: blur(28px) saturate(1.3);
+    border: 1px solid var(--glass-border); border-radius: 12px; padding: 6px; }
+  .menu::before { content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 35%); pointer-events: none; }
+  .menu .mh { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; color: var(--text-3); text-transform: uppercase; padding: 6px 10px 4px; }
+  .menu .mh .sl { color: var(--text-mute); }
+  .menu a { display: block; font-family: var(--font-mohave); font-size: 13px; color: var(--text-2); padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+  .menu a:hover { background: var(--surface-hover); color: var(--text); }
+
+  .kbdhint { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); border: 1px solid var(--line); border-radius: 3px; padding: 0 5px; margin-left: auto; background: rgba(255,255,255,0.06); }
+
+  /* review-only annotations (non-shipping scaffolding, exempt from the 11px UI floor) */
+  .viewnote { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em; color: var(--text-mute); text-transform: uppercase; margin: 34px 0 12px; }
+  .flownote { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em; color: var(--text-mute); text-transform: uppercase; margin-top: 8px; }
+  .mocknote { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; color: var(--text-mute); text-transform: uppercase; margin-top: 36px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3H4v18h5M15 3h5v18h-5"/></svg>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><path d="M8 10v4M12 10v2M16 10v6"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v6M18 9a9 9 0 0 1-9 9"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10.01"/><line x1="12" y1="10" x2="12" y2="10.01"/><line x1="16" y1="10" x2="16" y2="10.01"/><line x1="8" y1="14" x2="8" y2="14.01"/><line x1="12" y1="14" x2="12" y2="14.01"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="8" y2="18.01"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg></div>
+    <div class="rail-item active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+    <div class="spacer"></div>
+    <div class="rail-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></div>
+    <div class="avatar">JS</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1>Catalog</h1>
+      <span class="sys">SYS :: 142 SKUS &middot; 38 PRODUCTS</span>
+    </header>
+
+    <div class="canvas">
+      <!-- ── Supply strip: three questions, three pivots ──────────────── -->
+      <div class="strip-head">
+        <span class="t-panel-title"><span class="sl">//</span> SUPPLY</span>
+      </div>
+
+      <div class="tiles">
+        <!-- Am I about to run out of anything that kills a day? -->
+        <div class="tile glass-surface">
+          <div class="head"><span class="t-panel-title"><span class="sl">//</span> STOCK HEALTH</span><span class="go">[REVIEW &rarr;]</span></div>
+          <span class="hero rose">7<small>BELOW THRESHOLD</small></span>
+          <div class="healthbar">
+            <i style="width:65%; background: var(--olive); opacity:.75"></i>
+            <i style="width:12%; background: var(--tan)"></i>
+            <i style="width:9%; background: var(--rose)"></i>
+            <i style="width:14%; background: var(--fill-neutral-dim)"></i>
+          </div>
+          <div class="mid">WORST :: CORNER POST &middot; BLACK &middot; TOPMOUNT <span class="rs">AT 3</span></div>
+          <span class="sub"><span class="rs">2 CRITICAL</span> &middot; <span class="tn">5 LOW</span> &middot; 110 OK &middot; 25 UNTRACKED</span>
+        </div>
+
+        <!-- What's sitting in the shop actually worth? -->
+        <div class="tile glass-surface">
+          <div class="head"><span class="t-panel-title"><span class="sl">//</span> ON-HAND</span><span class="go">[COUNTS &rarr;]</span></div>
+          <span class="hero">$23,480</span>
+          <div class="meterline"><i style="width:68%"></i></div>
+          <div class="mid">VALUE OF 96/142 COSTED SKUS</div>
+          <span class="sub">LAST FULL COUNT :: MAY 28</span>
+        </div>
+
+        <!-- Can I trust the numbers my next quote rides on? -->
+        <div class="tile glass-surface">
+          <div class="head"><span class="t-panel-title"><span class="sl">//</span> PRODUCTS</span><span class="go">[FIX COSTS &rarr;]</span></div>
+          <span class="hero olive">42%<small>AVG MARGIN</small></span>
+          <div class="meterline"><i style="width:89%"></i></div>
+          <div class="mid"><span class="rs">4 PRODUCTS MISSING COST</span></div>
+          <span class="sub">34 ACTIVE &middot; 12 WITH OPTIONS</span>
+        </div>
+      </div>
+
+      <!-- ════ FLOW 1 :: THE BUY RUN — health tile clicked, table pivoted ═══ -->
+      <div class="viewnote">[ FLOW 1 :: BUY-RUN TRIAGE &mdash; STOCK HEALTH TILE CLICKED, TABLE PIVOTS IN PLACE ]</div>
+
+      <div class="workbar">
+        <div class="seg">
+          <button>PRODUCTS <span class="cnt">38</span></button>
+          <button class="active">STOCK <span class="cnt">142</span></button>
+        </div>
+        <div class="right">
+          <button class="btn btn-secondary">COPY LIST</button>
+          <button class="btn btn-secondary">PRINT</button>
+        </div>
+      </div>
+
+      <div class="filterline">
+        <button class="chip drill">BELOW THRESHOLD &times;</button>
+        <span class="count">7 OF 142 &middot; CRITICAL FIRST</span>
+        <span class="statline">BUY TO THRESHOLD :: <b>$1,118</b> &middot; <span class="tn">2 ITEMS UNCOSTED</span></span>
+      </div>
+
+      <div class="glass-surface" style="overflow:hidden">
+        <table class="docs">
+          <thead>
+            <tr>
+              <th>ITEM</th>
+              <th class="r">QTY</th>
+              <th class="r">THRESHOLD</th>
+              <th class="r">SHORT</th>
+              <th>SKU</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="name">Corner Post</span><div class="variant">BLACK &middot; TOPMOUNT</div></td>
+              <td class="r"><span class="qty rs">3<small>PCS</small></span></td>
+              <td class="r"><span class="d">15</span></td>
+              <td class="r"><span class="short rs">12</span></td>
+              <td><span class="d">CP-B-T</span></td>
+              <td><span class="tag tag-rose">CRITICAL</span></td>
+            </tr>
+            <tr>
+              <td><span class="name">Color-match screws</span><div class="variant">SLATE &middot; #8 &times; 2"</div></td>
+              <td class="r"><span class="qty rs">1<small>BOX</small></span></td>
+              <td class="r"><span class="d">4</span></td>
+              <td class="r"><span class="short rs">3</span></td>
+              <td><span class="d">CS-SL-8</span></td>
+              <td><span class="tag tag-rose">CRITICAL</span></td>
+            </tr>
+            <tr>
+              <td><span class="name">House Wrap</span><div class="variant">9 FT ROLL</div></td>
+              <td class="r"><span class="qty tn">6<small>ROLLS</small></span></td>
+              <td class="r"><span class="d">10</span></td>
+              <td class="r"><span class="short tn">4</span></td>
+              <td><span class="d">HW-9</span></td>
+              <td><span class="tag tag-tan">LOW</span></td>
+            </tr>
+            <tr>
+              <td><span class="name">J-Channel</span><div class="variant">BLACK</div></td>
+              <td class="r"><span class="qty tn">12<small>PCS</small></span></td>
+              <td class="r"><span class="d">20</span></td>
+              <td class="r"><span class="short tn">8</span></td>
+              <td><span class="d">JC-B</span></td>
+              <td><span class="tag tag-tan">LOW</span></td>
+            </tr>
+            <tr>
+              <td><span class="name">Drip Cap</span><div class="variant">WHITE &middot; 10 FT</div></td>
+              <td class="r"><span class="qty tn">14<small>PCS</small></span></td>
+              <td class="r"><span class="d">20</span></td>
+              <td class="r"><span class="short tn">6</span></td>
+              <td><span class="d">DC-W-10</span></td>
+              <td><span class="tag tag-tan">LOW</span></td>
+            </tr>
+            <tr>
+              <td><span class="name">Tyvek Tape</span><div class="variant" style="color:var(--text-mute)">&mdash;</div></td>
+              <td class="r"><span class="qty tn">5<small>ROLLS</small></span></td>
+              <td class="r"><span class="d">8</span></td>
+              <td class="r"><span class="short tn">3</span></td>
+              <td><span class="d">TT-2</span></td>
+              <td><span class="tag tag-tan">LOW</span></td>
+            </tr>
+            <tr>
+              <td><span class="name">Fascia Board</span><div class="variant">WHITE &middot; 8 IN</div></td>
+              <td class="r"><span class="qty tn">16<small>PCS</small></span></td>
+              <td class="r"><span class="d">24</span></td>
+              <td class="r"><span class="short tn">8</span></td>
+              <td><span class="d">FB-W-8</span></td>
+              <td><span class="tag tag-tan">LOW</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flownote">3 CLICKS, ZERO TYPING :: TILE &rarr; SCAN &rarr; COPY LIST (PLAIN TEXT, TEXTABLE) &middot; SHORT = QTY TO BUY (HEADER TOOLTIP IN BUILD) &middot; ESC CLEARS THE PIVOT</div>
+
+      <!-- ════ FLOW 2 :: COUNT / RECEIVE — inline qty + drawer ═══════════ -->
+      <div class="viewnote">[ FLOW 2 :: COUNT &amp; RECEIVE &mdash; TYPE A COUNT OR A SIGNED DELTA, ROW CLICK OPENS THE DRAWER ]</div>
+
+      <div class="workbar">
+        <div class="seg">
+          <button>PRODUCTS <span class="cnt">38</span></button>
+          <button class="active">STOCK <span class="cnt">142</span></button>
+        </div>
+        <div class="right">
+          <div class="input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search stock&hellip;<span class="kbdhint">/</span></div>
+          <button class="btn btn-primary">+ ADD</button>
+          <button class="kebab">&#8942;</button>
+        </div>
+      </div>
+
+      <div class="filterline">
+        <div class="chips">
+          <button class="chip active">ALL</button>
+          <button class="chip">SIDING</button>
+          <button class="chip">TRIM</button>
+          <button class="chip">WRAP</button>
+          <button class="chip">FASTENERS</button>
+        </div>
+        <span class="count">142 SKUS</span>
+        <span class="statline"><button class="chip">GROUP :: FAMILY</button></span>
+      </div>
+
+      <div class="stockwrap">
+        <div class="glass-surface" style="overflow:hidden">
+          <table class="docs">
+            <thead>
+              <tr>
+                <th style="width:36px"><span class="ck"></span></th>
+                <th>ITEM</th>
+                <th class="r">QTY</th>
+                <th>SKU</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="background: var(--surface-active)">
+                <td><span class="ck"></span></td>
+                <td><span class="name">Corner Post</span><div class="variant">BLACK &middot; TOPMOUNT</div></td>
+                <td class="r"><span class="qty rs">3<small>PCS</small></span></td>
+                <td><span class="d">CP-B-T</span></td>
+                <td><span class="tag tag-rose">CRITICAL</span></td>
+              </tr>
+              <tr>
+                <td><span class="ck"></span></td>
+                <td><span class="name">Corner Post</span><div class="variant">WHITE &middot; STANDARD</div></td>
+                <td class="r"><span class="cell-edit"><span class="v">+40</span><span class="caret"></span></span></td>
+                <td><span class="d">CP-W-S</span></td>
+                <td><span class="tag tag-dim">OK</span></td>
+              </tr>
+              <tr>
+                <td><span class="ck"></span></td>
+                <td><span class="name">J-Channel</span><div class="variant">WHITE</div></td>
+                <td class="r"><span class="qty editable">84<small>PCS</small></span></td>
+                <td><span class="d">JC-W</span></td>
+                <td><span class="tag tag-dim">OK</span></td>
+              </tr>
+              <tr>
+                <td><span class="ck"></span></td>
+                <td><span class="name">J-Channel</span><div class="variant">BLACK</div></td>
+                <td class="r"><span class="qty tn editable">12<small>PCS</small></span></td>
+                <td><span class="d">JC-B</span></td>
+                <td><span class="tag tag-tan">LOW</span></td>
+              </tr>
+              <tr>
+                <td><span class="ck"></span></td>
+                <td><span class="name">Vinyl Siding D4.5</span><div class="variant">SLATE</div></td>
+                <td class="r"><span class="qty editable">210<small>SQ FT</small></span></td>
+                <td><span class="d">VS-D45-SL</span></td>
+                <td><span class="tag tag-dim">OK</span></td>
+              </tr>
+              <tr>
+                <td><span class="ck"></span></td>
+                <td><span class="name">Starter Strip</span><div class="variant" style="color:var(--text-mute)">&mdash;</div></td>
+                <td class="r"><span class="qty editable">38<small>PCS</small></span></td>
+                <td><span class="d">SS-10</span></td>
+                <td><span class="tag tag-dim">OK</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- drawer: quick-adjust first, detail second -->
+        <aside class="drawer glass-surface">
+          <div class="dh">
+            <h3>Corner Post</h3>
+            <span class="x">ESC &times;</span>
+          </div>
+          <span class="vlabel">BLACK &middot; TOPMOUNT &middot; CP-B-T</span>
+          <div class="qhero">3<small>PCS &middot; CRITICAL</small></div>
+          <div class="pills">
+            <button>&minus;10</button><button>&minus;1</button>
+            <button>+1</button><button>+10</button>
+          </div>
+          <div class="setrow">
+            <div class="input">+40 RECEIVED OR SET 43&hellip;</div>
+            <button class="btn btn-secondary">SAVE</button>
+          </div>
+
+          <div class="dsec">
+            <span class="t-panel-title"><span class="sl">//</span> COST</span>
+            <div class="dline"><span class="k">UNIT COST</span><span class="editable">$11.40 <span class="src">[FAMILY]</span></span></div>
+          </div>
+
+          <div class="dsec">
+            <span class="t-panel-title"><span class="sl">//</span> THRESHOLDS</span>
+            <div class="dline"><span class="k">WARN</span><span>15 <span class="src">[FAMILY]</span></span></div>
+            <div class="dline"><span class="k">CRITICAL</span><span>5 <span class="src">[FAMILY]</span></span></div>
+          </div>
+
+          <div class="dsec">
+            <span class="t-panel-title"><span class="sl">//</span> USED IN</span>
+            <a class="dlink">Siding install &rarr;</a>
+            <a class="dlink">Corner rebuild &rarr;</a>
+          </div>
+
+          <div class="dsec">
+            <span class="t-panel-title"><span class="sl">//</span> ADJUSTMENTS</span>
+            <div class="dline"><span class="k">JUN 09</span><span class="neg">&minus;12 &middot; MANUAL</span></div>
+            <div class="dline"><span class="k">JUN 02</span><span class="pos">+50 &middot; DELIVERY</span></div>
+            <div class="dline"><span class="k">MAY 27</span><span class="neg">&minus;8 &middot; TASK :: SMITH SIDING</span></div>
+            <div class="dline"><span class="k">MAY 21</span><span class="pos">+25 &middot; DELIVERY</span></div>
+            <div class="dline"><span class="k">MAY 14</span><span class="neg">&minus;6 &middot; MANUAL</span></div>
+          </div>
+        </aside>
+      </div>
+      <div class="flownote">CLICK A QTY CELL &rarr; TYPE THE COUNT (43) OR THE DELTA (+40 / &minus;12) &rarr; ENTER COMMITS + ADVANCES DOWN THE COLUMN &middot; EVERY CHANGE WRITES A LOGGED ADJUSTMENT &middot; ZERO FLOOR</div>
+
+      <!-- ════ FLOW 3 :: PRICE BOOK — margin visible, cost editable ══════ -->
+      <div class="viewnote">[ FLOW 3 :: PRICE-BOOK UPKEEP &mdash; COST / PRICE / MARGIN LIVE IN THE TABLE ]</div>
+
+      <div class="workbar">
+        <div class="seg">
+          <button class="active">PRODUCTS <span class="cnt">38</span></button>
+          <button>STOCK <span class="cnt">142</span></button>
+        </div>
+        <div class="right">
+          <div class="input"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>Search products&hellip;<span class="kbdhint">/</span></div>
+          <button class="btn btn-primary">+ ADD</button>
+          <button class="kebab">&#8942;</button>
+        </div>
+      </div>
+
+      <div class="filterline">
+        <div class="chips">
+          <button class="chip active">ALL</button>
+          <button class="chip">SERVICES</button>
+          <button class="chip">GOODS</button>
+          <button class="chip">HAS OPTIONS</button>
+          <button class="chip">NO COST</button>
+        </div>
+        <span class="count">38 PRODUCTS</span>
+        <span class="statline">ACTIVE <b>34</b> &middot; AVG MARGIN <span class="ol">42%</span></span>
+      </div>
+
+      <div class="glass-surface" style="overflow:hidden">
+        <table class="docs">
+          <thead>
+            <tr>
+              <th>PRODUCT</th>
+              <th>UNIT</th>
+              <th>TASK</th>
+              <th class="r">COST</th>
+              <th class="r">PRICE</th>
+              <th class="r">MARGIN</th>
+              <th>TAX</th>
+              <th>CONFIG</th>
+              <th class="r" style="width:84px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="display:flex; align-items:center; gap:10px">
+                <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+                <span><span class="name">Siding install <span class="fav">&#9733;</span></span><div class="sub" style="font-size:12px">D4.5 vinyl, wrap + channel included</div></span>
+              </td>
+              <td><span class="d">SQ FT</span></td>
+              <td><span class="d"><span class="dot" style="background:var(--olive)"></span>INSTALL</span></td>
+              <td class="r"><span class="money dim editable">$1.10</span></td>
+              <td class="r"><span class="money editable">$4.20</span></td>
+              <td class="r"><span class="money olive">74%</span></td>
+              <td><span class="tag tag-olive">YES</span></td>
+              <td><span class="cfg">3 OPTIONS &middot; 4 MATERIALS</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td style="display:flex; align-items:center; gap:10px">
+                <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+                <span><span class="name">Soffit + fascia</span><div class="sub" style="font-size:12px">Aluminum, vented</div></span>
+              </td>
+              <td><span class="d">LN FT</span></td>
+              <td><span class="d"><span class="dot" style="background:var(--olive)"></span>INSTALL</span></td>
+              <td class="r"><span class="cell-edit"><span class="v">$5.20</span><span class="caret"></span></span></td>
+              <td class="r"><span class="money editable">$12.50</span></td>
+              <td class="r"><span class="money olive">58%</span></td>
+              <td><span class="tag tag-olive">YES</span></td>
+              <td><span class="cfg">2 OPTIONS &middot; 3 MATERIALS</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td style="display:flex; align-items:center; gap:10px">
+                <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+                <span><span class="name">Window wrap</span><div class="sub" style="font-size:12px">Per opening, coil stock</div></span>
+              </td>
+              <td><span class="d">EACH</span></td>
+              <td><span class="d"><span class="dot" style="background:var(--tan)"></span>WRAP</span></td>
+              <td class="r"><span class="money dim editable">$42</span></td>
+              <td class="r"><span class="money editable">$180</span></td>
+              <td class="r"><span class="money olive">77%</span></td>
+              <td><span class="tag tag-olive">YES</span></td>
+              <td><span class="cfg" style="color:var(--text-mute)">&mdash;</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+            <tr>
+              <td style="display:flex; align-items:center; gap:10px">
+                <span class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 9.4 7.55 4.24M3.29 7 12 12l8.71-5M12 22V12"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+                <span><span class="name">Picket rail</span><div class="sub" style="font-size:12px">Flat rate, standard run</div></span>
+              </td>
+              <td><span class="d">FLAT</span></td>
+              <td><span class="d" style="color:var(--text-mute)">&mdash;</span></td>
+              <td class="r"><span class="money editable" style="color:var(--rose)">&mdash;</span></td>
+              <td class="r"><span class="money editable">$2,500</span></td>
+              <td class="r"><span class="money dim">&mdash;</span></td>
+              <td><span class="tag tag-dim">NO</span></td>
+              <td><span class="cfg">1 OPTION</span></td>
+              <td class="r"><div class="acts">
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
+                <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span>
+              </div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="flownote">SUPPLIER SHEET IN HAND :: "/" &rarr; SEARCH &rarr; CLICK COST &rarr; TYPE &rarr; MARGIN RECOMPUTES LIVE &middot; ROW CLICK OPENS THE FULL PRODUCT EDITOR &middot; FIXES THE iOS "VIEW ON WEB" LINK THAT 404s TODAY</div>
+
+      <!-- kebab contents, shown as a standalone inset so it covers nothing -->
+      <div class="viewnote">[ INSET :: THE KEBAB &mdash; EVERYTHING ELSE LIVES ONE CLICK DEEP, NEVER A TAB ]</div>
+      <div class="menu">
+        <div class="mh"><span class="sl">//</span> MANAGE</div>
+        <a>Categories</a>
+        <a>Tags</a>
+        <a>Units</a>
+        <a>Threshold defaults</a>
+        <div class="mh"><span class="sl">//</span> VIEWS</div>
+        <a>Saved counts</a>
+        <a>Import CSV</a>
+      </div>
+
+      <div class="mocknote">[ MOCKUP NOTE :: THREE FLOW STATES OF ONE SURFACE, STACKED FOR REVIEW &middot; DEFAULT LANDING = LAST-USED SEGMENT &middot; ZERO STATES: UNCOSTED TENANTS SEE "&mdash;" HEROES WITH [ADD COSTS &rarr;] / [SET THRESHOLDS &rarr;] CTAS, NEVER FAKE ZEROES ]</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,111 @@
+"use client";
+
+/**
+ * Commits the accepted staging-card set to the catalog via
+ * POST /api/catalog/setup/commit (→ catalog_setup_save). On success it
+ * invalidates the catalog queries so the supply strip + segment tables re-read
+ * the now-live counts (the 0/0 first-run signal flips off) and the completion
+ * flag refreshes.
+ *
+ * The route reads the Firebase idToken from the body (mirrors /api/setup/progress
+ * — the onboarding analog). Throws CommitError on a non-ok response so the caller
+ * can surface blockers precisely.
+ */
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "../api/query-client";
+import { useAuthStore } from "../store/auth-store";
+import type { StagingCard } from "../catalog-setup/staging-card";
+import type { OnFileProduct } from "../catalog-setup/existing-rows";
+
+export interface CommitArgs {
+  /** Stable wizard-session id → replay-safe idempotency key. */
+  sessionId: string;
+  cards: StagingCard[];
+  mode?: "create" | "edit";
+  externalSource?: string;
+  /**
+   * On-file values for EVERY matched merge card (keyed by live product id). The
+   * commit route rebuilds each merge doc FROM these so the per-field show-diff's
+   * "[ the rest stays on file ]" holds — a re-import overrides only the accepted
+   * fields and never wipes descriptions/categories or reactivates a retired
+   * product. Scoped to the merge targets — never the whole catalog.
+   */
+  existingRows?: Record<string, OnFileProduct>;
+}
+
+export interface CommitCounts {
+  products: number;
+  stock: number;
+  /** task_types newly created by the TYPES commit (additive; trade is separate). */
+  types?: number;
+}
+
+export interface CommitSuccess {
+  ok: true;
+  counts: CommitCounts;
+  warnings?: string[];
+}
+
+export interface CommitBlocker {
+  code?: string;
+  message?: string;
+}
+
+export class CommitError extends Error {
+  readonly blockers: CommitBlocker[];
+  readonly status: number;
+  /** Counts that DID commit before the failure (sequential, per-transaction calls). */
+  readonly partial?: CommitCounts;
+  constructor(
+    message: string,
+    blockers: CommitBlocker[],
+    status: number,
+    partial?: CommitCounts,
+  ) {
+    super(message);
+    this.name = "CommitError";
+    this.blockers = blockers;
+    this.status = status;
+    this.partial = partial;
+  }
+}
+
+export function useCommitCatalogSetup() {
+  const queryClient = useQueryClient();
+  const { company } = useAuthStore();
+  const companyId = company?.id ?? "";
+
+  return useMutation<CommitSuccess, CommitError, CommitArgs>({
+    mutationFn: async (args) => {
+      const { getIdToken } = await import("@/lib/firebase/auth");
+      const token = await getIdToken();
+      const res = await fetch("/api/catalog/setup/commit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, ...args }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | (CommitSuccess & { error?: string; blockers?: CommitBlocker[] })
+        | { ok: false; error?: string; blockers?: CommitBlocker[]; partial?: CommitCounts }
+        | null;
+
+      if (!res.ok || !json || json.ok !== true) {
+        throw new CommitError(
+          json?.error ?? "Catalog commit failed",
+          json?.blockers ?? [],
+          res.status,
+          (json && "partial" in json ? json.partial : undefined) as CommitCounts | undefined,
+        );
+      }
+      return json;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.products.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.catalog.all });
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.companySettings.all, companyId, "catalogSetup"],
+      });
+    },
+  });
+}

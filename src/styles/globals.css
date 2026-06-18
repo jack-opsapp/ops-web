@@ -29,6 +29,7 @@
   --color-financial-cost: #B58289;
   --color-financial-receivables: #D4A574;
   --color-financial-overdue: #93321A;
+  --color-financial-current: #9DB582;   /* current / not-yet-due A/R (healthy) — = olive / financial-profit */
   --color-ops-accent: rgb(var(--ops-accent-rgb));
 
   /* RGB splits for opacity-modulated chart fills */
@@ -152,7 +153,6 @@
     --glass-bg: rgba(18, 18, 20, 0.58);
     --glass-bg-dense: rgba(18, 18, 20, 0.78);
     --glass-bg-opaque: rgba(18, 18, 20, 0.92);
-    --glass-bg-subtle: rgba(18, 18, 20, 0.40);
     --glass-border: rgba(255, 255, 255, 0.09);
     --glass-border-active: rgba(255, 255, 255, 0.18);
     --glass-border-medium: rgba(255, 255, 255, 0.12);
@@ -194,7 +194,6 @@
     /* Glass aliases without `-bg` suffix — preferred shorthand for inline styles */
     --glass: rgba(18, 18, 20, 0.58);
     --glass-dense: rgba(18, 18, 20, 0.78);
-    --glass-subtle: rgba(18, 18, 20, 0.40);
 
     /* Text ladder */
     --text:      #EDEDED;
@@ -262,6 +261,17 @@
     @apply text-text font-mohave antialiased;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Numbers are always mono, tabular-lining, slashed zero (DESIGN.md §4
+     critical rules — non-negotiable). Family-level so every font-mono site
+     inherits "tnum" + "zero" without per-callsite classes. Mirrors
+     ops-design-system/project/colors_and_type.css:142-145. Inline-style
+     sites (fontFamily: var(--font-mono)) must set fontFeatureSettings
+     themselves — the selector can't reach them. */
+  .font-mono, code, kbd, samp, pre {
+    font-family: theme("fontFamily.mono");
+    font-feature-settings: "tnum" 1, "zero" 1;
   }
 
   /* Custom scrollbar */
@@ -348,14 +358,6 @@
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border-color: transparent;
-  }
-
-  /* === ultrathinmaterialdark (legacy compat — now maps to glass-surface) === */
-  .ultrathin-material-dark {
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-    border: 1px solid var(--glass-border-strong);
   }
 
   /* === Panel Styling === */

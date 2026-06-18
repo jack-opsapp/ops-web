@@ -11,7 +11,7 @@ import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import { LogoLoader } from "@/components/brand";
 import { LockoutOverlay } from "@/components/ops/lockout-overlay";
 import { useDictionary } from "@/i18n/client";
-import { getPermissionForPath } from "@/lib/navigation/route-registry";
+import { getAnyOfPermissionsForPath } from "@/lib/navigation/route-registry";
 
 // ─── Route → Permission mapping ──────────────────────────────────────────────
 //
@@ -19,8 +19,9 @@ import { getPermissionForPath } from "@/lib/navigation/route-registry";
 // a registry entry or permission are always allowed; testing-grounds runs a
 // per-user special permission check on the page itself. The retired /intel
 // entry is gone — middleware 308s /intel → /calibration before this gate
-// ever sees it.
-const getRequiredPermission = getPermissionForPath;
+// ever sees it. Hub entries (BOOKS) gate on ANY of their listed
+// permissions; single-permission entries normalize to a one-element list.
+const getRequiredPermissions = getAnyOfPermissionsForPath;
 
 // ─── Auth + Permission Gate ──────────────────────────────────────────────────
 
@@ -63,14 +64,14 @@ function DashboardAuthGate({ children }: { children: React.ReactNode }) {
   if (!flagsReady) return null;
 
   // Block while permissions load for a gated route
-  const requiredPermission = getRequiredPermission(pathname);
-  if (requiredPermission && !permissionsReady) return null;
+  const requiredPermissions = getRequiredPermissions(pathname);
+  if (requiredPermissions && !permissionsReady) return null;
 
   // If route is gated by feature flag or permission, show 404 — don't redirect.
   // The user should not know the route exists.
   const routeDenied =
     !isRouteUnlocked(pathname) ||
-    (requiredPermission && !can(requiredPermission));
+    (requiredPermissions && !requiredPermissions.some((p) => can(p)));
 
   if (routeDenied) {
     return (

@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getNumberShortcutRoutes } from "@/lib/navigation/route-registry";
-import { useSidebarStore } from "@/stores/sidebar-store";
 
 /**
  * Global keyboard shortcuts handler.
@@ -67,15 +66,9 @@ export function KeyboardShortcuts() {
         }
       }
 
-      // Cmd/Ctrl shortcuts (no shift)
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
-        if (e.key.toLowerCase() === "b") {
-          e.preventDefault();
-          const state = useSidebarStore.getState();
-          state.setHoverExpanded(!state.isHoverExpanded);
-          return;
-        }
-      }
+      // The legacy Cmd/Ctrl+B sidebar toggle is gone — the instrument rail
+      // is fixed-width and never expands (WEB OVERHAUL P2 variant B), so
+      // there is nothing to toggle.
 
       // Skip if any modifier is pressed (for number shortcuts)
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;

@@ -156,8 +156,8 @@ function timeAgo(date: Date, t: (key: string) => string): string {
 function getActivityPath(activity: Activity): string | null {
   if (activity.projectId) return `/projects/${activity.projectId}`;
   if (activity.opportunityId) return "/pipeline";
-  if (activity.invoiceId) return "/invoices";
-  if (activity.estimateId) return "/estimates";
+  if (activity.invoiceId) return "/books?segment=invoices";
+  if (activity.estimateId) return "/books?segment=estimates";
   return null;
 }
 
@@ -323,7 +323,7 @@ export function ActivityWidget({
         title,
         color,
         event: e,
-        fallbackPath: "/invoices",
+        fallbackPath: "/books?segment=invoices",
       });
     }
     if (activity.estimateId) {
@@ -333,7 +333,7 @@ export function ActivityWidget({
         title,
         color,
         event: e,
-        fallbackPath: "/estimates",
+        fallbackPath: "/books?segment=estimates",
       });
     }
     return undefined;

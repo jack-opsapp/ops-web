@@ -1,566 +1,354 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import {
-  Plus,
-  Search,
-  LayoutGrid,
-  List,
-  Phone,
-  Mail,
-  MapPin,
-  FolderKanban,
-  Users,
-  ChevronDown,
-  ChevronRight,
-  Building2,
-} from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { trackScreenView } from "@/lib/analytics/analytics";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useClients, useClientMetrics } from "@/lib/hooks";
-import { MetricsHeader } from "@/components/metrics";
+import { useClients, useClientOutstandingMap } from "@/lib/hooks";
 import { useScopedProjects } from "@/lib/hooks/use-projects";
-import { usePermissionStore } from "@/lib/store/permissions-store";
-import { getInitials } from "@/lib/types/models";
-import type { Client, SubClient } from "@/lib/types/models";
+import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
 import { useWindowStore } from "@/stores/window-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
-import { SegmentedPicker } from "@/components/ops/segmented-picker";
+import { getInitials } from "@/lib/types/models";
+import { formatCurrency, formatPhoneNumber } from "@/lib/utils/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
+import { FilterChips } from "@/components/ui/filter-chip";
+import {
+  RegisterTable,
+  RegisterEmpty,
+  TablePrimary,
+  TableMeta,
+  TableMono,
+  type RegisterTableColumn,
+} from "@/components/ui/register-table";
+import { ClientsArBanner } from "./_components/clients-ar-banner";
 
-type ViewMode = "cards" | "table";
-type FilterMode = "all" | "with-projects" | "new";
+type FilterMode = "all" | "with-projects" | "owes" | "new";
 
-interface ClientListItem {
+interface ClientRow {
   id: string;
   name: string;
-  company: string | null;
   email: string | null;
   phone: string | null;
   address: string | null;
-  projectCount: string;
-  subClients: { id: string; name: string; title: string | null; phone: string | null; email: string | null }[];
-  lastActivity: string;
+  subContactCount: number;
+  projectCount: number;
+  outstanding: number;
+  lastActivity: Date | null;
+  createdAt: Date | null;
+  /** Lower-cased haystack for search (name + company + contacts + sub-names). */
+  search: string;
 }
 
-function mapClientToListItem(client: Client, projectCount: number): ClientListItem {
-  const subClients: ClientListItem["subClients"] = (client.subClients ?? [])
-    .filter((sc) => !sc.deletedAt)
-    .map((sc: SubClient) => ({
-      id: sc.id,
-      name: sc.name,
-      title: sc.title ?? null,
-      phone: sc.phoneNumber ?? null,
-      email: sc.email ?? null,
-    }));
-
-  return {
-    id: client.id,
-    name: client.name,
-    company: null,
-    email: client.email ?? null,
-    phone: client.phoneNumber ?? null,
-    address: client.address ?? null,
-    projectCount: String(projectCount),
-    subClients,
-    lastActivity: client.createdAt
-      ? new Date(client.createdAt).toISOString().slice(0, 10)
-      : "",
-  };
+/** Compact tactical recency — "today" / "3d" / "6w" / "4mo" / "2y". */
+function compactSince(date: Date | null, todayLabel: string): string {
+  if (!date) return "—";
+  const days = Math.floor((Date.now() - date.getTime()) / 86_400_000);
+  if (days <= 0) return todayLabel;
+  if (days < 7) return `${days}d`;
+  if (days < 31) return `${Math.floor(days / 7)}w`;
+  if (days < 365) return `${Math.floor(days / 30)}mo`;
+  return `${Math.floor(days / 365)}y`;
 }
 
-// ─── Client Card (Grid View) ────────────────────────────────────────────────
-
-function ClientCard({ client, onClick, t }: { client: ClientListItem; onClick: () => void; t: (key: string) => string }) {
-  const [expanded, setExpanded] = useState(false);
-
+function ListSkeleton() {
   return (
-    <Card variant="interactive" className="p-0 overflow-hidden" onClick={onClick}>
-      <div className="p-2 space-y-1.5">
-        {/* Header: Avatar + Name + Company */}
-        <div className="flex items-center gap-1.5">
-          {/* Design system v2 avatar — uses the spec Avatar primitive
-              (rounded-full + border-2 rgba(255,255,255,0.18)) with size
-              override via className for this card's 44px variant. */}
-          <Avatar className="h-[44px] w-[44px]">
-            {/* Bug d0be7f4a — monochrome glass placeholder + JetBrains
-                Mono uppercase initials. Mirrors UserAvatar treatment so
-                client / company / user avatars all read the same. */}
-            <AvatarFallback className="font-mono text-[14px] uppercase tracking-wider">
-              {getInitials(client.name) || "?"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <h3 className="font-mohave text-card-title text-text truncate">
-              {client.name}
-            </h3>
-            {client.company && (
-              <div className="flex items-center gap-[4px]">
-                <Building2 className="w-[11px] h-[11px] text-text-mute shrink-0" />
-                <p className="font-mono text-micro text-text-3 truncate">
-                  {client.company}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Contact info */}
-        <div className="space-y-[6px]">
-          {client.phone && (
-            <div className="flex items-center gap-[6px] text-text-3">
-              <Phone className="w-[13px] h-[13px] shrink-0" />
-              <span className="font-mono text-data-sm">{client.phone}</span>
-            </div>
-          )}
-          {client.email && (
-            <div className="flex items-center gap-[6px] text-text-3">
-              <Mail className="w-[13px] h-[13px] shrink-0" />
-              <span className="font-mono text-[11px] truncate">{client.email}</span>
-            </div>
-          )}
-          {client.address && (
-            <div className="flex items-center gap-[6px] text-text-3">
-              <MapPin className="w-[13px] h-[13px] shrink-0" />
-              <span className="font-mohave text-body-sm truncate">{client.address}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Footer: Projects + SubClients */}
-        <div className="flex items-center justify-between pt-[6px] border-t border-border-subtle">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-[4px] text-text-3">
-              <FolderKanban className="w-[13px] h-[13px]" />
-              <span className="font-mono text-[11px]">
-                {client.projectCount} {String(client.projectCount) === "1" ? t("card.project") : t("card.projects")}
-              </span>
-            </div>
-          </div>
-          {client.subClients.length > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded(!expanded);
-              }}
-              className="flex items-center gap-[3px] text-text-3 hover:text-text transition-colors"
-            >
-              <Users className="w-[12px] h-[12px]" />
-              <span className="font-mono text-micro">{client.subClients.length}</span>
-              {expanded ? (
-                <ChevronDown className="w-[12px] h-[12px]" />
-              ) : (
-                <ChevronRight className="w-[12px] h-[12px]" />
-              )}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Expanded SubClients */}
-      {expanded && client.subClients.length > 0 && (
-        <div
-          className="border-t border-border-subtle bg-fill-neutral-dim/50 px-2 py-1.5 space-y-1 animate-slide-up"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
-            {t("card.subClients")}
-          </span>
-          {client.subClients.map((sc) => (
-            <div key={sc.id} className="flex items-center justify-between py-[4px]">
-              <div className="min-w-0">
-                <p className="font-mohave text-body-sm text-text-2 truncate">
-                  {sc.name}
-                  {sc.title && (
-                    <span className="text-text-mute ml-[6px] font-mono text-micro">
-                      {sc.title}
-                    </span>
-                  )}
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {sc.phone && (
-                  <span className="font-mono text-micro text-text-mute">{sc.phone}</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-// ─── Client Table Row ────────────────────────────────────────────────────────
-
-function ClientTableRow({
-  client,
-  onClick,
-}: {
-  client: ClientListItem;
-  onClick: () => void;
-}) {
-  return (
-    <tr
-      onClick={onClick}
-      className="border-b border-border-subtle hover:bg-fill-neutral-dim cursor-pointer transition-colors group"
-    >
-      {/* Name + Company */}
-      <td className="px-1.5 py-1">
-        <div className="flex items-center gap-1">
-          {/* Design system v2 avatar — table row variant at 32px.
-              Mono uppercase initials mirror UserAvatar (bug d0be7f4a). */}
-          <Avatar className="h-[32px] w-[32px]">
-            <AvatarFallback className="font-mono text-[11px] uppercase tracking-wider">
-              {getInitials(client.name) || "?"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <span className="font-mohave text-body text-text block truncate">
-              {client.name}
-            </span>
-            {client.company && (
-              <span className="font-mono text-micro text-text-mute block truncate">
-                {client.company}
-              </span>
-            )}
-          </div>
-        </div>
-      </td>
-      {/* Email */}
-      <td className="px-1.5 py-1 hidden md:table-cell">
-        <span className="font-mono text-data-sm text-text-3 truncate block max-w-[200px]">
-          {client.email || "--"}
-        </span>
-      </td>
-      {/* Phone */}
-      <td className="px-1.5 py-1 hidden sm:table-cell">
-        <span className="font-mono text-data-sm text-text-3">
-          {client.phone || "--"}
-        </span>
-      </td>
-      {/* Address */}
-      <td className="px-1.5 py-1 hidden lg:table-cell">
-        <span className="font-mohave text-body-sm text-text-3 truncate block max-w-[180px]">
-          {client.address || "--"}
-        </span>
-      </td>
-      {/* Projects */}
-      <td className="px-1.5 py-1 text-center">
-        <span className="font-mono text-data-sm text-text-2">
-          {client.projectCount}
-        </span>
-      </td>
-      {/* Sub-Clients */}
-      <td className="px-1.5 py-1 text-center hidden sm:table-cell">
-        {client.subClients.length > 0 ? (
-          <Badge variant="info" className="text-micro px-[6px] py-[1px]">
-            {client.subClients.length}
-          </Badge>
-        ) : (
-          <span className="font-mono text-[11px] text-text-mute">--</span>
-        )}
-      </td>
-    </tr>
-  );
-}
-
-// ─── Loading Skeleton ────────────────────────────────────────────────────────
-
-function LoadingSkeleton({ viewMode }: { viewMode: ViewMode }) {
-  if (viewMode === "cards") {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="bg-glass glass-surface border border-border rounded-lg p-2 space-y-1.5 animate-pulse"
-          >
-            <div className="flex items-center gap-1.5">
-              <div className="w-[44px] h-[44px] rounded-full bg-fill-neutral-dim" />
-              <div className="flex-1 space-y-1">
-                <div className="h-[16px] bg-fill-neutral-dim rounded w-3/4" />
-                <div className="h-[12px] bg-fill-neutral-dim rounded w-1/2" />
-              </div>
-            </div>
-            <div className="h-[14px] bg-fill-neutral-dim rounded w-full" />
-            <div className="h-[14px] bg-fill-neutral-dim rounded w-2/3" />
-            <div className="flex justify-between pt-1 border-t border-border-subtle">
-              <div className="h-[14px] bg-fill-neutral-dim rounded w-[80px]" />
-              <div className="h-[14px] bg-fill-neutral-dim rounded w-[40px]" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-[2px] animate-pulse">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-[52px] bg-glass glass-surface border border-border rounded"
-        />
+    <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="glass-surface h-[48px]" />
       ))}
     </div>
   );
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
-
 export default function ClientsPage() {
-  usePageTitle("Clients");
   const { t } = useDictionary("clients");
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
-  const [filterMode, setFilterMode] = useState<FilterMode>("all");
-  const openWindow = useWindowStore((s) => s.openWindow);
-  const openCreateClient = () => openWindow({ id: "create-client", title: t("newClient"), type: "create-client" });
+  usePageTitle(t("title"));
 
-  // ── Setup gate ──────────────────────────────────────────────────────
-  const { isComplete: setupComplete, missingSteps } = useSetupGate();
-  const [showSetupModal, setShowSetupModal] = useState(false);
-  const [pendingGatedAction, setPendingGatedAction] = useState<(() => void) | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<FilterMode>("all");
 
-  const gatedOpenCreate = useCallback(() => {
-    if (!setupComplete) {
-      setPendingGatedAction(() => openCreateClient);
-      setShowSetupModal(true);
-      return;
-    }
-    openCreateClient();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setupComplete]);
-
-  const filterOptions = useMemo(() => [
-    { value: "all" as FilterMode, label: t("filter.all") },
-    { value: "with-projects" as FilterMode, label: t("filter.active") },
-    { value: "new" as FilterMode, label: t("filter.new") },
-  ], [t]);
-
-  const viewOptions = useMemo(() => [
-    { value: "cards" as ViewMode, label: t("view.cards"), icon: LayoutGrid },
-    { value: "table" as ViewMode, label: t("view.table"), icon: List },
-  ], [t]);
-
-  // Track screen view
-  useEffect(() => { trackScreenView("clients"); }, []);
-
+  const permissionsReady = usePermissionStore(selectPermissionsReady);
+  const can = usePermissionStore((s) => s.can);
   const clientScope = usePermissionStore((s) => s.permissions.get("clients.view"));
   const hasAllClientScope = clientScope === "all";
-  const { data: clientMetrics = [], isLoading: clientMetricsLoading } = useClientMetrics();
+  const canCreate = can("clients.create");
+
+  const openClientWindow = useWindowStore((s) => s.openClientWindow);
+
   const { data, isLoading } = useClients();
   const { data: projectsData } = useScopedProjects();
+  const outstanding = useClientOutstandingMap();
 
-  // Build project count per client from scoped projects data
-  const projectCountByClient = useMemo(() => {
+  // ── Setup gate (parity: creation is intercepted until web setup is done) ──
+  const { isComplete: setupComplete, missingSteps } = useSetupGate();
+  const [showSetup, setShowSetup] = useState(false);
+  const [pendingCreate, setPendingCreate] = useState<(() => void) | null>(null);
+
+  const openCreate = useCallback(() => {
+    openClientWindow({ clientId: null, mode: "creating" });
+  }, [openClientWindow]);
+
+  const gatedCreate = useCallback(() => {
+    if (!setupComplete) {
+      setPendingCreate(() => openCreate);
+      setShowSetup(true);
+      return;
+    }
+    openCreate();
+  }, [setupComplete, openCreate]);
+
+  useEffect(() => {
+    trackScreenView("clients");
+  }, []);
+
+  // Project count + most-recent project per client, from scoped projects.
+  const { projectCountByClient, latestProjectByClient } = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const project of projectsData?.projects ?? []) {
-      if (project.clientId) {
-        counts.set(project.clientId, (counts.get(project.clientId) ?? 0) + 1);
+    const latest = new Map<string, Date>();
+    for (const p of projectsData?.projects ?? []) {
+      if (!p.clientId) continue;
+      counts.set(p.clientId, (counts.get(p.clientId) ?? 0) + 1);
+      if (p.createdAt) {
+        const prev = latest.get(p.clientId);
+        if (!prev || p.createdAt > prev) latest.set(p.clientId, p.createdAt);
       }
     }
-    return counts;
+    return { projectCountByClient: counts, latestProjectByClient: latest };
   }, [projectsData]);
 
-  // When the user's clients.view scope is not "all", restrict the visible
-  // clients to those linked to the user's accessible (scoped) projects.
+  // Scope gate: clients.view !== "all" restricts to clients on the user's
+  // accessible (scoped) projects. Preserved verbatim from the prior page.
   const allowedClientIds = useMemo(() => {
     if (hasAllClientScope) return null;
     const ids = new Set<string>();
-    for (const project of projectsData?.projects ?? []) {
-      if (project.clientId) ids.add(project.clientId);
+    for (const p of projectsData?.projects ?? []) {
+      if (p.clientId) ids.add(p.clientId);
     }
     return ids;
   }, [hasAllClientScope, projectsData]);
 
-  const clients: ClientListItem[] = useMemo(() => {
-    const rawClients = data?.clients ?? [];
-    return rawClients
+  const rows: ClientRow[] = useMemo(() => {
+    return (data?.clients ?? [])
       .filter((c) => !c.deletedAt)
       .filter((c) => allowedClientIds === null || allowedClientIds.has(c.id))
-      .map((c) => mapClientToListItem(c, projectCountByClient.get(c.id) ?? 0));
-  }, [data, projectCountByClient, allowedClientIds]);
-
-  const totalCount = hasAllClientScope ? (data?.count ?? clients.length) : clients.length;
-  const totalSubClients = clients.reduce((sum, c) => sum + c.subClients.length, 0);
-
-  const filteredClients = useMemo(() => {
-    let filtered = [...clients];
-
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (c) =>
-          c.name.toLowerCase().includes(query) ||
-          c.company?.toLowerCase().includes(query) ||
-          c.email?.toLowerCase().includes(query) ||
-          c.phone?.includes(query) ||
-          c.address?.toLowerCase().includes(query) ||
-          c.subClients.some((sc) => sc.name.toLowerCase().includes(query))
-      );
-    }
-
-    // Status filter
-    if (filterMode === "with-projects") {
-      filtered = filtered.filter((c) => c.projectCount !== "0" && c.projectCount !== "--");
-    } else if (filterMode === "new") {
-      // Show clients created in the last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      filtered = filtered.filter((c) => {
-        if (!c.lastActivity) return false;
-        const createdDate = new Date(c.lastActivity);
-        return createdDate >= thirtyDaysAgo;
+      .map((c) => {
+        const subs = (c.subClients ?? []).filter((sc) => !sc.deletedAt);
+        const createdAt = c.createdAt ?? null;
+        const latestProject = latestProjectByClient.get(c.id) ?? null;
+        const lastActivity =
+          latestProject && createdAt
+            ? latestProject > createdAt
+              ? latestProject
+              : createdAt
+            : latestProject ?? createdAt;
+        return {
+          id: c.id,
+          name: c.name,
+          email: c.email ?? null,
+          phone: c.phoneNumber ?? null,
+          address: c.address ?? null,
+          subContactCount: subs.length,
+          projectCount: projectCountByClient.get(c.id) ?? 0,
+          outstanding: outstanding.map.get(c.id)?.outstanding ?? 0,
+          lastActivity,
+          createdAt,
+          search: [
+            c.name,
+            c.email ?? "",
+            c.phoneNumber ?? "",
+            c.address ?? "",
+            ...subs.map((sc) => sc.name),
+          ]
+            .join(" ")
+            .toLowerCase(),
+        };
       });
-    }
+  }, [data, allowedClientIds, projectCountByClient, latestProjectByClient, outstanding.map]);
 
-    return filtered;
-  }, [clients, searchQuery, filterMode]);
+  const filtered = useMemo(() => {
+    let list = rows;
+    const q = search.trim().toLowerCase();
+    if (q) list = list.filter((r) => r.search.includes(q));
+    if (filter === "with-projects") list = list.filter((r) => r.projectCount > 0);
+    else if (filter === "owes") list = list.filter((r) => r.outstanding > 0);
+    else if (filter === "new") {
+      const cutoff = Date.now() - 30 * 86_400_000;
+      list = list.filter((r) => r.createdAt != null && r.createdAt.getTime() >= cutoff);
+    }
+    return list;
+  }, [rows, search, filter]);
+
+  const filterOptions = useMemo(
+    () => [
+      { value: "all" as FilterMode, label: t("filter.all") },
+      { value: "with-projects" as FilterMode, label: t("filter.withProjects") },
+      { value: "owes" as FilterMode, label: t("filter.owes") },
+      { value: "new" as FilterMode, label: t("filter.new") },
+    ],
+    [t],
+  );
+
+  const columns: RegisterTableColumn<ClientRow>[] = useMemo(
+    () => [
+      {
+        id: "client",
+        header: t("table.client"),
+        cell: (r) => (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-[28px] w-[28px] shrink-0">
+              <AvatarFallback className="font-mono text-[11px] uppercase tracking-wider">
+                {getInitials(r.name) || "?"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <TablePrimary>{r.name}</TablePrimary>
+              {r.subContactCount > 0 ? (
+                <TableMeta>
+                  {r.subContactCount}&nbsp;
+                  {r.subContactCount === 1 ? t("subContact") : t("subContacts")}
+                </TableMeta>
+              ) : null}
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "contact",
+        header: t("table.contact"),
+        cell: (r) => {
+          const parts = [r.phone ? formatPhoneNumber(r.phone) : null, r.email].filter(
+            Boolean,
+          );
+          return parts.length ? (
+            <TableMono>{parts.join("  ·  ")}</TableMono>
+          ) : (
+            <TableMono>—</TableMono>
+          );
+        },
+      },
+      {
+        id: "projects",
+        header: t("table.projects"),
+        align: "right",
+        className: "w-[96px]",
+        cell: (r) =>
+          r.projectCount > 0 ? (
+            <TableMono tone="default">{r.projectCount}</TableMono>
+          ) : (
+            <TableMono>—</TableMono>
+          ),
+      },
+      {
+        id: "outstanding",
+        header: t("table.outstanding"),
+        align: "right",
+        className: "w-[140px]",
+        cell: (r) =>
+          r.outstanding > 0 ? (
+            <TableMono tone="rose">{formatCurrency(r.outstanding)}</TableMono>
+          ) : (
+            <TableMono>—</TableMono>
+          ),
+      },
+      {
+        id: "lastSeen",
+        header: t("table.lastSeen"),
+        align: "right",
+        className: "w-[88px]",
+        cell: (r) => <TableMono>{compactSince(r.lastActivity, t("lastSeen.today"))}</TableMono>,
+      },
+    ],
+    [t],
+  );
+
+  const showBanner =
+    outstanding.canView && outstanding.totals.clientsOwing > 0;
+
+  const showLoading = !permissionsReady || isLoading;
+  const isEmptyAll = filtered.length === 0 && !search.trim() && filter === "all";
+  const isEmptyFiltered = filtered.length === 0 && !isEmptyAll;
 
   return (
     <div className="space-y-3">
-      {/* Metrics Header */}
-      <MetricsHeader variant="compact" tabId="clients" title="Clients" metrics={clientMetrics} isLoading={clientMetricsLoading} />
+      {showBanner && (
+        <ClientsArBanner
+          clientsOwing={outstanding.totals.clientsOwing}
+          amount={outstanding.totals.amount}
+          oldestDueDate={outstanding.totals.oldestDueDate}
+          onChase={() => setFilter("owes")}
+        />
+      )}
 
-      {/* Search + Filters + View Toggle */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="flex-1 max-w-[400px]">
-          <Input
+      {/* Workbar — search + the one accent CTA */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+          <span aria-hidden className="text-text-mute">
+            {"// "}
+          </span>
+          {t("title")}
+        </span>
+        <div className="flex items-center gap-2">
+          <SearchInput
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder={t("search.placeholder")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            prefixIcon={<Search className="w-[16px] h-[16px]" />}
+            wrapperClassName="w-[220px] max-w-full"
+            aria-label={t("search.placeholder")}
           />
-        </div>
-
-        <div className="flex items-center gap-1">
-          {/* Filter tabs */}
-          <SegmentedPicker
-            options={filterOptions.map((o) => ({ value: o.value, label: o.label }))}
-            value={filterMode}
-            onChange={setFilterMode}
-          />
-
-          {/* View toggle */}
-          <SegmentedPicker
-            options={viewOptions}
-            value={viewMode}
-            onChange={setViewMode}
-            iconOnly
-          />
+          {canCreate && (
+            <Button variant="primary" size="sm" type="button" onClick={gatedCreate}>
+              <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+              {t("newClient")}
+            </Button>
+          )}
         </div>
       </div>
 
+      {/* Filter chips + count */}
+      <div className="flex flex-wrap items-center gap-[12px]">
+        <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
+        <span className="font-mono text-micro tabular-nums text-text-3">
+          {filtered.length === 1
+            ? t("list.countOne", { count: "1" })
+            : t("list.count", { count: String(filtered.length) })}
+        </span>
+      </div>
+
       {/* Content */}
-      {isLoading ? (
-        <LoadingSkeleton viewMode={viewMode} />
-      ) : filteredClients.length === 0 && !searchQuery && filterMode === "all" ? (
-        /* Empty state - no clients at all */
-        <div className="flex items-start gap-2 py-3 px-3 border-l-2 border-l-[rgba(255,255,255,0.08)]">
-          <Users className="w-[20px] h-[20px] text-text-mute shrink-0 mt-[2px]" />
-          <div className="flex flex-col items-start gap-0.5">
-            <h3 className="font-mohave text-body-lg text-text-2">
-              {t("empty.title")}
-            </h3>
-            <p className="font-mohave text-body-sm text-text-3 max-w-[360px]">
-              {t("empty.description")}
-            </p>
-            <Button
-              className="mt-1.5 gap-[6px]"
-              size="sm"
-              onClick={() => openCreateClient()}
-            >
-              <Plus className="w-[14px] h-[14px]" />
-              {t("newClient")}
-            </Button>
-          </div>
-        </div>
-      ) : filteredClients.length === 0 ? (
-        /* Empty state - filtered/searched with no results */
-        <div className="flex items-start gap-2 py-3 px-3 border-l-2 border-l-[rgba(255,255,255,0.08)]">
-          <Search className="w-[20px] h-[20px] text-text-mute shrink-0 mt-[2px]" />
-          <div>
-            <h3 className="font-mohave text-body-lg text-text-2">
-              {t("empty.noMatch")}
-            </h3>
-            <p className="font-mohave text-body-sm text-text-3">
-              {t("empty.noMatchDesc")}
-            </p>
-          </div>
-        </div>
-      ) : viewMode === "cards" ? (
-        /* Card Grid */
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-          {filteredClients.map((client) => (
-            <ClientCard
-              key={client.id}
-              client={client}
-              onClick={() => router.push(`/clients/${client.id}`)}
-              t={t}
-            />
-          ))}
-        </div>
+      {showLoading ? (
+        <ListSkeleton />
+      ) : isEmptyAll ? (
+        /* Empty state — DESIGN.md §2: state the fact only, no coach-mark, no button.
+           Create lives in the workbar CTA + the FAB, not the empty register. */
+        <RegisterEmpty noun={t("empty.noun")} />
+      ) : isEmptyFiltered ? (
+        <RegisterEmpty noun={t("empty.matches")} />
       ) : (
-        /* Table View */
-        <div className="bg-glass glass-surface border border-border rounded-lg overflow-x-auto">
-          <table className="w-full min-w-[600px]">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest">
-                  {t("table.client")}
-                </th>
-                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden md:table-cell">
-                  {t("table.email")}
-                </th>
-                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
-                  {t("table.phone")}
-                </th>
-                <th className="px-1.5 py-1 text-left font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden lg:table-cell">
-                  {t("table.address")}
-                </th>
-                <th className="px-1.5 py-1 text-center font-mono text-caption-sm text-text-3 uppercase tracking-widest">
-                  {t("table.projects")}
-                </th>
-                <th className="px-1.5 py-1 text-center font-mono text-caption-sm text-text-3 uppercase tracking-widest hidden sm:table-cell">
-                  {t("table.contacts")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClients.map((client) => (
-                <ClientTableRow
-                  key={client.id}
-                  client={client}
-                  onClick={() => router.push(`/clients/${client.id}`)}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RegisterTable
+          columns={columns}
+          rows={filtered}
+          getRowId={(r) => r.id}
+          onRowClick={(r) => openClientWindow({ clientId: r.id, mode: "viewing" })}
+          minWidth={720}
+          ariaLabel={t("title")}
+        />
       )}
 
-      {/* Setup interception modal */}
       <SetupInterceptionModal
-        isOpen={showSetupModal}
+        isOpen={showSetup}
         onComplete={() => {
-          setShowSetupModal(false);
-          pendingGatedAction?.();
-          setPendingGatedAction(null);
+          setShowSetup(false);
+          pendingCreate?.();
+          setPendingCreate(null);
         }}
         onDismiss={() => {
-          setShowSetupModal(false);
-          setPendingGatedAction(null);
+          setShowSetup(false);
+          setPendingCreate(null);
         }}
         missingSteps={missingSteps}
         triggerAction="clients"

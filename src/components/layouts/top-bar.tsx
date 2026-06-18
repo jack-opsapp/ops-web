@@ -34,6 +34,7 @@ import { useSidebarStore } from "@/stores/sidebar-store";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { getTitleKeyForPath } from "@/lib/navigation/route-registry";
+import { formatEnumLabel } from "@/lib/utils/format";
 
 // ── Sync indicator ───────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ function SyncIndicator({
 }) {
   const icon = {
     synced: <Check className="w-[14px] h-[14px] shrink-0" />,
-    syncing: <RefreshCw className="w-[14px] h-[14px] shrink-0 animate-spin" />,
+    syncing: <RefreshCw className="w-[14px] h-[14px] shrink-0 animate-spin motion-reduce:animate-none" />,
     pending: <Clock className="w-[14px] h-[14px] shrink-0" />,
     offline: <WifiOff className="w-[14px] h-[14px] shrink-0" />,
   }[status];
@@ -63,16 +64,16 @@ function SyncIndicator({
   return (
     <div
       className={cn(
-        "group flex items-center justify-center h-[40px] px-[12px] rounded-[4px]",
+        "group flex items-center justify-center h-[40px] px-[12px] rounded-[5px]",
         "font-mono text-[11px] tracking-wider",
-        "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-        "border border-[rgba(255,255,255,0.06)]",
+        "bg-surface-input border border-border",
         "transition-all duration-150 ease-smooth motion-reduce:transition-none",
-        status === "offline" ? "text-ops-error" : "text-text-3"
+        // rose is the error TEXT tone — brick (#93321A) is borders/dots only
+        status === "offline" ? "text-rose" : "text-text-3"
       )}
       title={label}
     >
-      <span className="max-w-0 overflow-hidden uppercase whitespace-nowrap transition-all duration-200 ease-smooth motion-reduce:transition-none group-hover:max-w-[80px] group-hover:mr-[6px]">
+      <span className="max-w-0 overflow-hidden uppercase whitespace-nowrap transition-[max-width,margin] duration-150 ease-smooth motion-reduce:transition-none group-hover:max-w-[80px] group-hover:mr-[6px]">
         {label}
       </span>
       {icon}
@@ -169,6 +170,13 @@ export function TopBar() {
   const titleKey = getTitleKeyForPath(pathname);
   const rootTitle = titleKey ? tNav(titleKey) : "";
   const parentRoute = "/" + segments[0];
+  // Last-resort leaf fallback while the breadcrumb store hydrates — never
+  // print a raw slug/UUID as the page title (DESIGN.md §14: no raw data as
+  // display copy). IDs render as the `—` empty mark instead.
+  const leafSegment = segments[segments.length - 1] ?? "";
+  const leafFallback = /^[0-9a-f-]{20,}$/i.test(leafSegment)
+    ? "—"
+    : formatEnumLabel(leafSegment);
 
   // Live sync status from TanStack Query + connectivity
   const isOnline = useConnectivity();
@@ -189,10 +197,9 @@ export function TopBar() {
         <button
           onClick={openMobile}
           className={cn(
-            "md:hidden p-2 rounded-[4px]",
+            "md:hidden p-2 rounded-[5px]",
             "text-text-3 hover:text-text-2",
-            "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-            "border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.14)]",
+            "bg-surface-input hover:bg-surface-hover border border-border",
             "transition-all duration-150 ease-smooth motion-reduce:transition-none"
           )}
           aria-label={t("menu.ariaLabel")}
@@ -201,26 +208,29 @@ export function TopBar() {
         </button>
 
         {isNested ? (
-          /* Breadcrumb trail for nested routes */
-          <div className="flex items-center gap-[6px] min-w-0">
+          /* Breadcrumb trail per the kit TopBar: JetBrains Mono 11px
+             uppercase 0.16em crumbs with `//` separators in text-mute;
+             the leaf entity title is Cake Mono 300 (the display voice —
+             Mohave never carries tracked-uppercase headings). */
+          <div className="flex items-center gap-1 min-w-0">
             {parentCrumbs ? (
               /* Custom parent crumbs (set by detail pages) */
               parentCrumbs.map((crumb, i) => (
-                <div key={i} className="flex items-center gap-[6px]">
+                <div key={i} className="flex items-center gap-1">
                   {i > 0 && (
-                    <span className="text-text-mute font-mono text-body-sm">
-                      /
+                    <span className="text-text-mute font-mono text-micro">
+                      {"//"}
                     </span>
                   )}
                   {crumb.href ? (
                     <button
                       onClick={() => router.push(crumb.href!)}
-                      className="font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors uppercase tracking-wider"
+                      className="font-mono text-micro text-text-3 hover:text-text-2 transition-colors uppercase tracking-[0.16em]"
                     >
                       {crumb.label}
                     </button>
                   ) : (
-                    <span className="font-mohave text-body-sm text-text-3 uppercase tracking-wider">
+                    <span className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                       {crumb.label}
                     </span>
                   )}
@@ -230,14 +240,14 @@ export function TopBar() {
               /* Auto-generated: parent route title from the registry */
               <button
                 onClick={() => router.push(parentRoute)}
-                className="font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors uppercase tracking-wider"
+                className="font-mono text-micro text-text-3 hover:text-text-2 transition-colors uppercase tracking-[0.16em]"
               >
                 {rootTitle}
               </button>
             )}
-            <span className="text-text-mute font-mono text-body-sm">/</span>
-            <span className="font-mohave text-heading text-text uppercase tracking-wider truncate">
-              {entityName || segments[segments.length - 1]}
+            <span className="text-text-mute font-mono text-micro">{"//"}</span>
+            <span className="font-cakemono font-light text-heading text-text uppercase truncate">
+              {entityName || leafFallback}
             </span>
           </div>
         ) : (
@@ -251,7 +261,7 @@ export function TopBar() {
       </div>
 
       {/* Center: Undo + Search */}
-      <div className="flex items-center gap-[6px] mx-auto min-w-0 flex-shrink">
+      <div className="flex items-center gap-1 mx-auto min-w-0 flex-shrink">
         {/* Undo button — only visible when stack is non-empty */}
         {topEntry && (
           <div className="relative">
@@ -261,17 +271,16 @@ export function TopBar() {
               onMouseEnter={() => setIsUndoHovered(true)}
               onMouseLeave={() => setIsUndoHovered(false)}
               className={cn(
-                "flex items-center justify-center h-[40px] w-[40px] rounded-[4px]",
-                "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-                "border border-[rgba(255,255,255,0.06)]",
-                "text-text-3 hover:border-[rgba(255,255,255,0.14)] hover:text-text-2",
-                "transition-all duration-150 ease-smooth motion-reduce:transition-none animate-fade-in",
+                "flex items-center justify-center h-[40px] w-[40px] rounded-[5px]",
+                "bg-surface-input hover:bg-surface-hover border border-border",
+                "text-text-3 hover:text-text-2",
+                "transition-all duration-150 ease-smooth motion-reduce:transition-none animate-fade-in motion-reduce:animate-none",
                 isUndoing && "opacity-50 pointer-events-none"
               )}
               aria-label={t("undo.ariaLabel")}
             >
               {isUndoing ? (
-                <Loader2 className="w-[16px] h-[16px] animate-spin" />
+                <Loader2 className="w-[16px] h-[16px] animate-spin motion-reduce:animate-none" />
               ) : (
                 <Undo2 className="w-[16px] h-[16px]" />
               )}
@@ -279,12 +288,12 @@ export function TopBar() {
             {/* Hover tooltip */}
             {isUndoHovered && !isUndoing && (
               <div
-                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-[4px] whitespace-nowrap pointer-events-none animate-fade-in"
+                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-[4px] whitespace-nowrap pointer-events-none animate-fade-in motion-reduce:animate-none"
                 style={{
-                  background: "var(--surface-glass-dense)",
-                  backdropFilter: "blur(12px) saturate(1.2)",
-                  WebkitBackdropFilter: "blur(12px) saturate(1.2)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  background: "var(--glass-dense)",
+                  backdropFilter: "blur(28px) saturate(1.3)",
+                  WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+                  border: "1px solid var(--glass-border)",
                 }}
               >
                 <span className="font-mono text-micro text-text-2 uppercase tracking-wider">
@@ -296,10 +305,9 @@ export function TopBar() {
         )}
         <button
           className={cn(
-            "flex items-center gap-[6px] h-[40px] px-2 rounded-[4px]",
-            "bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]",
-            "border border-[rgba(255,255,255,0.06)]",
-            "text-text-3 hover:border-[rgba(255,255,255,0.14)] hover:text-text-2",
+            "flex items-center gap-1 h-[40px] px-2 rounded-[5px]",
+            "bg-surface-input hover:bg-surface-hover border border-border",
+            "text-text-3 hover:text-text-2",
             "transition-all duration-150 ease-smooth motion-reduce:transition-none cursor-pointer",
             "min-w-0 w-[140px] sm:w-[200px] shrink"
           )}
@@ -319,7 +327,7 @@ export function TopBar() {
             {t("search.placeholder")}
           </span>
           {showShortcutHints && (
-            <kbd className="ml-auto font-mono text-micro text-text-mute bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline">
+            <kbd className="ml-auto font-mono text-micro text-text-2 bg-[rgba(255,255,255,0.06)] border border-border rounded-[3px] px-[5px] py-[1px] hidden sm:inline">
               {t("search.shortcut")}
             </kbd>
           )}
@@ -327,7 +335,7 @@ export function TopBar() {
       </div>
 
       {/* Right: Sync + clock */}
-      <div className="flex items-center gap-[10px] shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         <SyncIndicator status={syncStatus} t={t} />
         <DeckClock />
       </div>

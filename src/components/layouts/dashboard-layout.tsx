@@ -19,16 +19,15 @@ import { QuickActionsTab } from "@/components/layouts/quick-actions-tab";
 import { DuplicateReviewSheet } from "@/components/ops/duplicate-review-sheet";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
-import { CreateClientForm } from "@/components/ops/create-client-modal";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
 import { CreateEstimateForm } from "@/components/ops/create-estimate-modal";
 import { CreateLeadForm } from "@/components/ops/create-lead-modal";
 import { ComposeEmailForm } from "@/components/ops/compose-email-form";
 import { ProjectWorkspaceContainer } from "@/components/ops/projects/workspace/project-workspace-container";
+import { ClientWorkspaceContainer } from "@/components/ops/clients/workspace/client-workspace-container";
 import type { ComposeEmailData } from "@/lib/types/email-template";
 import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
-import { ClientDetailPopover } from "@/components/ops/client-detail-popover";
 import { InvoiceDetailPopover } from "@/components/ops/invoice-detail-popover";
 import { EstimateDetailPopover } from "@/components/ops/estimate-detail-popover";
 import { MemberExpensesPopover } from "@/components/ops/member-expenses-popover";
@@ -122,29 +121,66 @@ function ProjectWorkspaceDeepLinkHandler() {
   return null;
 }
 
+// Client-workspace deep-link handler — mirror of the project one. Client
+// notifications + cross-surface links dispatch `actionUrl:
+// /dashboard?openClient=<id>&mode=view|edit`. When that URL lands on any
+// dashboard route this opens the client-workspace window and strips the
+// params so a refresh doesn't re-open it. Only one entity deep-link is ever
+// present per URL (notifications target a single entity), so sharing the
+// `mode` key with the project handler is safe — whichever trigger is absent
+// returns early before touching the URL.
+function ClientWorkspaceDeepLinkHandler() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const openClientWindow = useWindowStore((s) => s.openClientWindow);
+
+  useEffect(() => {
+    const raw = searchParams.get("openClient");
+    if (!raw) return;
+    if (raw === "new") {
+      // `/clients/new` folds into the window's creating mode (P3.3 D2).
+      openClientWindow({ clientId: null, mode: "creating" });
+    } else {
+      const modeParam = searchParams.get("mode");
+      const mode = modeParam === "edit" ? "editing" : "viewing";
+      openClientWindow({ clientId: raw, mode });
+    }
+
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("openClient");
+    next.delete("mode");
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname);
+  }, [searchParams, pathname, router, openClientWindow]);
+
+  return null;
+}
+
 function FloatingWindows() {
   const windows = useWindowStore((s) => s.windows);
   const closeWindow = useWindowStore((s) => s.closeWindow);
 
-  // Project-workspace windows render their own shell (ProjectWorkspaceWindow)
-  // via the container, so they bypass the legacy FloatingWindow chrome.
+  // Project- and client-workspace windows render their own shell
+  // (ProjectWorkspaceWindow) via their containers, so they bypass the legacy
+  // FloatingWindow chrome.
   const legacyWindows = windows.filter(
-    (w) => w.type !== "project-workspace" && w.type !== "pipeline-detail"
+    (w) =>
+      w.type !== "project-workspace" &&
+      w.type !== "client-workspace" &&
+      w.type !== "pipeline-detail"
   );
   const workspaceWindows = windows.filter(
     (w) => w.type === "project-workspace"
+  );
+  const clientWorkspaceWindows = windows.filter(
+    (w) => w.type === "client-workspace"
   );
 
   return (
     <>
       {legacyWindows.map((win) => (
         <FloatingWindow key={win.id} window={win}>
-          {win.type === "create-client" && (
-            <CreateClientForm
-              onSuccess={() => closeWindow(win.id)}
-              onCancel={() => closeWindow(win.id)}
-            />
-          )}
           {win.type === "create-task" && (
             <CreateTaskForm
               defaultProjectId={
@@ -176,6 +212,9 @@ function FloatingWindows() {
       ))}
       {workspaceWindows.map((win) => (
         <ProjectWorkspaceContainer key={win.id} windowId={win.id} />
+      ))}
+      {clientWorkspaceWindows.map((win) => (
+        <ClientWorkspaceContainer key={win.id} windowId={win.id} />
       ))}
     </>
   );
@@ -276,6 +315,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <KeyboardShortcuts />
       <FloatingWindows />
       <ProjectWorkspaceDeepLinkHandler />
+      <ClientWorkspaceDeepLinkHandler />
       <NotificationsDrawer />
       <NotificationsTab />
       <QuickActionsDrawer />
@@ -285,8 +325,8 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <DuplicateReviewSheet />
       <WindowDock />
 
-      {/* Entity detail popovers — accessible from any page via widget clicks */}
-      <ClientDetailPopover />
+      {/* Entity detail popovers — accessible from any page via widget clicks.
+          Clients retired to the floating client workspace window (P3.3). */}
       <InvoiceDetailPopover />
       <EstimateDetailPopover />
       <MemberExpensesPopover />

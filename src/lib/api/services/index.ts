@@ -40,6 +40,15 @@ export type {
   CreateCatalogUnitInput,
 } from "./catalog-unit-service";
 
+// Catalog (WEB OVERHAUL P3.2 — variant-aware stock surface). Service objects
+// only; their domain types live in `@/lib/types/catalog` (imported directly to
+// avoid a name clash with the legacy `CatalogUnit` shape above).
+export { CatalogStockService } from "./catalog-stock-service";
+export { CatalogSnapshotService } from "./catalog-snapshot-service";
+export { CatalogMetaService } from "./catalog-meta-service";
+export { CatalogProductService } from "./catalog-product-service";
+export type { ProductConfigCount } from "./catalog-product-service";
+
 export { uploadImage, uploadMultipleImages, ImageUploadError } from "./image-service";
 export type { ImageUploadErrorCode } from "./image-service";
 

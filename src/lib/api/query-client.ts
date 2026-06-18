@@ -173,6 +173,13 @@ export const queryKeys = {
       [...queryKeys.metrics.all, tabId, companyId] as const,
   },
 
+  // Books (ledger instrument strip)
+  books: {
+    all: ["books"] as const,
+    ledger: (companyId: string, period: string) =>
+      [...queryKeys.books.all, "ledger", companyId, period] as const,
+  },
+
   // Accounting
   accounting: {
     all: ["accounting"] as const,
@@ -352,6 +359,35 @@ export const queryKeys = {
       items: (snapshotId: string) =>
         [...queryKeys.inventory.snapshots.all, "items", snapshotId] as const,
     },
+  },
+
+  // Catalog (WEB OVERHAUL P3.2 — variant-aware stock + snapshots, reads
+  // catalog_* tables directly; distinct from the legacy `inventory` view keys
+  // above which the retired /inventory page used).
+  catalog: {
+    all: ["catalog"] as const,
+    stock: (companyId: string) =>
+      [...queryKeys.catalog.all, "stock", companyId] as const,
+    categories: (companyId: string) =>
+      [...queryKeys.catalog.all, "categories", companyId] as const,
+    tags: (companyId: string) =>
+      [...queryKeys.catalog.all, "tags", companyId] as const,
+    units: (companyId: string) =>
+      [...queryKeys.catalog.all, "units", companyId] as const,
+    families: (companyId: string) =>
+      [...queryKeys.catalog.all, "families", companyId] as const,
+    variantOptions: (itemId: string) =>
+      [...queryKeys.catalog.all, "variantOptions", itemId] as const,
+    adjustments: (variantId: string, itemId: string) =>
+      [...queryKeys.catalog.all, "adjustments", variantId, itemId] as const,
+    usedIn: (variantId: string, itemId: string) =>
+      [...queryKeys.catalog.all, "usedIn", variantId, itemId] as const,
+    snapshots: (companyId: string) =>
+      [...queryKeys.catalog.all, "snapshots", companyId] as const,
+    snapshotItems: (snapshotId: string) =>
+      [...queryKeys.catalog.all, "snapshotItems", snapshotId] as const,
+    productMargins: (companyId: string) =>
+      [...queryKeys.catalog.all, "productMargins", companyId] as const,
   },
 
   // Product Materials (BOM)

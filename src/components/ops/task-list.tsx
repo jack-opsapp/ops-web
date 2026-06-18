@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { StatusBadge, type TaskStatus as StatusBadgeTaskStatus } from "@/components/ops/status-badge";
-import { EmptyState } from "@/components/ops/empty-state";
+import { OnboardingHint } from "@/components/ops/onboarding-hint";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { UnscheduledBadge, UnassignedBadge } from "@/components/ops/task-badge";
@@ -645,7 +645,7 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
 
       {/* Task rows */}
       {sortedTasks.length === 0 && !showCreateForm ? (
-        <EmptyState
+        <OnboardingHint
           icon={<CheckCircle2 className="w-[48px] h-[48px]" />}
           title={t("taskList.noTasks")}
           description={t("taskList.noTasksDesc")}

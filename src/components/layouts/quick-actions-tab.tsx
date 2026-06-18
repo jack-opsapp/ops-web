@@ -42,12 +42,12 @@ export function QuickActionsTab() {
   const open = useEdgeTabStore((s) => s.activeTab === EDGE_TAB_ID);
   const toggle = useEdgeTabStore((s) => s.toggle);
 
-  // Tinted glass — when there's a primary CTA queued in Quick Actions
-  // (review stacks, duplicate review pending), wash the tab in a 0.12-alpha
-  // accent glaze. Default = neutral. (Bug 82cc08e5.)
+  // Tinted glass — when work is queued in Quick Actions (review stacks,
+  // duplicate review pending), wash the tab in the tan attention glaze.
+  // Earth tones only: tan = attention. Default = neutral. (Bug 82cc08e5.)
   const { data: notifs = [] } = useNotifications();
   const duplicateReviewOpen = useDuplicateReviewStore((s) => s.open);
-  const tint = useMemo<"neutral" | "rose" | "accent">(() => {
+  const tint = useMemo<"neutral" | "rose" | "tan">(() => {
     const hasReviewQueue = notifs.some(
       (n) =>
         n.type === "payment_review_stack" ||
@@ -55,7 +55,7 @@ export function QuickActionsTab() {
         n.type === "unscheduled_review_stack" ||
         n.type === "duplicates_found",
     );
-    if (hasReviewQueue || duplicateReviewOpen) return "accent";
+    if (hasReviewQueue || duplicateReviewOpen) return "tan";
     return "neutral";
   }, [notifs, duplicateReviewOpen]);
 
@@ -81,7 +81,6 @@ export function QuickActionsTab() {
       id={EDGE_TAB_ID}
       open={open}
       onToggle={() => toggle(EDGE_TAB_ID)}
-      accent="accent"
       tint={tint}
       height={RAIL.height}
       drawerWidth={RAIL.drawerWidth}

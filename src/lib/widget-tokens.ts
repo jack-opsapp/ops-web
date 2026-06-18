@@ -15,6 +15,9 @@ export const WT = {
   cost: "var(--color-financial-cost)",
   receivables: "var(--color-financial-receivables)",
   overdue: "var(--color-financial-overdue)",
+  // current / not-yet-due A/R (healthy) — olive; completes the canonical
+  // aging ramp so it never reaches for the steel-blue accent (DESIGN.md §3).
+  current: "var(--color-financial-current)",
   // Status
   success: "var(--color-status-success)",
   warning: "var(--color-status-warning)",

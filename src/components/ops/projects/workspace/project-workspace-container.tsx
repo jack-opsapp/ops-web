@@ -22,7 +22,10 @@ import { ConfirmModal } from "./confirm-modal";
 import type { ModeFooterConfig } from "./shell/mode-footer";
 import type { ChipVariant } from "./atoms/chip";
 import type { WorkspaceMode } from "./shell/mode-pill";
-import type { ProjectWorkspaceMode } from "@/stores/window-store";
+import type {
+  ProjectWorkspaceMode,
+  ProjectWorkspaceWindowMeta,
+} from "@/stores/window-store";
 
 // `<ProjectWorkspaceContainer>` — Phase 9.3 deliverable.
 //
@@ -80,7 +83,9 @@ export function ProjectWorkspaceContainer({
   const closeWindow = useWindowStore((s) => s.closeWindow);
   const updateWindowMeta = useWindowStore((s) => s.updateWindowMeta);
 
-  const meta = win?.meta;
+  // Window type is narrowed in the selector above, so meta is the project
+  // variant of the WorkspaceWindowMeta union.
+  const meta = win?.meta as ProjectWorkspaceWindowMeta | undefined;
   const projectId = meta?.projectId ?? null;
   const initialMode: ProjectWorkspaceMode = meta?.initialMode ?? "viewing";
 

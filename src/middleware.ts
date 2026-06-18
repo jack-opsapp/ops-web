@@ -15,6 +15,8 @@ const protectedPrefixes = [
   "/map",
   "/pipeline",
   "/calibration",
+  "/books",
+  "/catalog",
   "/estimates",
   "/products",
   "/inventory",
@@ -72,6 +74,72 @@ export function middleware(request: NextRequest) {
   if (pathname === "/calendar" || pathname.startsWith("/calendar/")) {
     const url = request.nextUrl.clone();
     url.pathname = pathname.replace(/^\/calendar/, "/schedule");
+    return NextResponse.redirect(url, 308);
+  }
+
+  // ─── BOOKS absorption (P3.1) — 308 permanent, param-preserving ───────────
+  // master plan §2 row 5: Estimates / Invoices / Accounting / the cashflow
+  // placeholder collapse into /books. Stored notification action_urls
+  // (/invoices, /accounting, iOS forecast_dip's /books/cashflow) and widget
+  // deep links (?status=…, ?action=new) must keep resolving. Exact mapping:
+  // docs/specs/2026-06-11-books-capability-inventory.md §6.
+  if (pathname === "/estimates" || pathname === "/invoices") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/books";
+    url.searchParams.set("segment", pathname === "/estimates" ? "estimates" : "invoices");
+    return NextResponse.redirect(url, 308);
+  }
+  if (pathname === "/accounting") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/books";
+    const tab = url.searchParams.get("tab");
+    url.searchParams.delete("tab");
+    if (tab === "expenses") {
+      url.searchParams.set("segment", "expenses");
+    } else if (tab === "integrations") {
+      url.searchParams.set("segment", "sync");
+    } else if (tab === "import") {
+      url.searchParams.set("segment", "sync");
+      url.searchParams.set("view", "import");
+    } else {
+      // Dashboard tab (or no tab) = the A/R view.
+      url.searchParams.set("segment", "invoices");
+      url.searchParams.set("view", "aging");
+    }
+    return NextResponse.redirect(url, 308);
+  }
+  if (pathname === "/money/cashflow" || pathname === "/books/cashflow") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/books";
+    return NextResponse.redirect(url, 308);
+  }
+
+  // ─── CATALOG absorption (P3.2) — 308 permanent, param-preserving ─────────
+  // master plan §2 row 6: Products + Inventory collapse into /catalog with
+  // PRODUCTS / STOCK segments. Stored notification action_urls (/inventory,
+  // the FAB's /inventory?action=new) and the iOS "VIEW ON WEB →" deep link to
+  // /products/{id} must keep resolving. Mapping:
+  // docs/specs/2026-06-11-catalog-capability-inventory.md §4.
+  if (pathname === "/products") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/catalog";
+    url.searchParams.set("segment", "products");
+    return NextResponse.redirect(url, 308);
+  }
+  if (pathname.startsWith("/products/")) {
+    // /products/{id} (iOS deep link) and /products/{id}/options → the full
+    // product editor at /catalog/products/{id}.
+    const id = pathname.slice("/products/".length).split("/")[0];
+    const url = request.nextUrl.clone();
+    url.pathname = id ? `/catalog/products/${id}` : "/catalog";
+    if (!id) url.searchParams.set("segment", "products");
+    return NextResponse.redirect(url, 308);
+  }
+  if (pathname === "/inventory") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/catalog";
+    url.searchParams.set("segment", "stock");
+    // ?action=new (FAB / legacy deep link) carries through via the clone.
     return NextResponse.redirect(url, 308);
   }
 

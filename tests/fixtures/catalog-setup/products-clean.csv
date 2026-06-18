@@ -1,0 +1,3 @@
+Name,Price,Cost,Category,Unit,SKU,Kind,Taxable
+Service Call,95,0,Labor,each,SVC-1,service,yes
+Asphalt Shingle Bundle,38.50,"$22,000",Materials,bundle,SHG-1,good,true

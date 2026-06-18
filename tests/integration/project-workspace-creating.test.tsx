@@ -237,7 +237,7 @@ describe("Project workspace — creating mode integration", () => {
           .getState()
           .windows.find((w) => w.id === WINDOW_ID);
         callbackOrder.push(
-          `cb:${id}:meta-projectId=${String(win?.meta?.projectId ?? "null")}`,
+          `cb:${id}:meta-projectId=${String((win?.meta as { projectId?: string | null } | undefined)?.projectId ?? "null")}`,
         );
       },
     });
@@ -267,7 +267,7 @@ describe("Project workspace — creating mode integration", () => {
     const win = useWindowStore
       .getState()
       .windows.find((w) => w.id === WINDOW_ID);
-    expect(win?.meta?.projectId).toBe("p-fresh");
+    expect((win?.meta as { projectId?: string | null } | undefined)?.projectId).toBe("p-fresh");
   });
 
   it("renders the permission-denied state when projects.create is denied", async () => {

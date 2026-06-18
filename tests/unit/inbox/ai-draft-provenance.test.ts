@@ -9,8 +9,10 @@
  *   - recordDraftOutcome routes the edit delta through learnFromEdits (P4-D
  *     pipeline reuse).
  *   - recordLifecycleDraftOutcome bridges a never-AI template draft and learns
- *     only on SENT (P4-D machinery; invoked from the P3 operator-send path).
- *   - LIFECYCLE_LEARNING_ENABLED is true at go-live (P3 send-transition landed).
+ *     only on SENT (P4-D machinery; invoked from the operator-send transition
+ *     in the email send route, gated behind LIFECYCLE_LEARNING_ENABLED).
+ *   - LIFECYCLE_LEARNING_ENABLED is true (enabled at go-live — the P3
+ *     operator-send transition landed and calls the learning hook).
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -286,8 +288,8 @@ describe("P4-B — recordDraftOutcome provenance stamping", () => {
   });
 });
 
-describe("P4-D — recordLifecycleDraftOutcome (deferred machinery)", () => {
-  it("LIFECYCLE_LEARNING_ENABLED is enabled (true) at go-live with the P3 send-transition landed", () => {
+describe("P4-D — recordLifecycleDraftOutcome (operator-send learning)", () => {
+  it("LIFECYCLE_LEARNING_ENABLED is live (true) — the P3 send-transition landed and calls the hook", () => {
     expect(LIFECYCLE_LEARNING_ENABLED).toBe(true);
   });
 

@@ -25,6 +25,6 @@
   "row.dismiss": "DISMISS",
   "row.dismissAriaLabel": "Dismiss notification",
 
-  "footer.lastSync": "LAST SYNC {time}",
+  "footer.lastSync": "SYS :: SYNC {time}",
   "footer.clearAll": "CLEAR ALL"
 }

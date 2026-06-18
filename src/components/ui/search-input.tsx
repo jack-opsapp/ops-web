@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils/cn";
  * Universal compact search input — matches the styling first established
  * in the calendar's unscheduled tray:
  *
- *   - 11px font-mono uppercase tracking-wider
+ *   - 11px font-mono uppercase tracking-[0.06em]
  *   - Search icon at left (12px)
  *   - surface-input background, hairline border (var(--line))
  *   - 5px radius
@@ -34,8 +34,6 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       wrapperClassName,
       className,
       placeholder = "SEARCH",
-      onFocus,
-      onBlur,
       ...props
     },
     ref
@@ -44,34 +42,20 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
       <div className={cn("relative", wrapperClassName)}>
         <Search
           size={iconSize}
-          className="absolute left-[10px] top-1/2 -translate-y-1/2 pointer-events-none"
-          style={{ color: "var(--text-3)" }}
+          className="absolute left-[10px] top-1/2 -translate-y-1/2 pointer-events-none text-text-3"
         />
         <input
           ref={ref}
           type="text"
           placeholder={placeholder}
           className={cn(
-            "w-full pl-[30px] pr-2 py-[6px] font-mono text-[11px] uppercase tracking-wider",
+            "w-full pl-[30px] pr-2 py-[6px] font-mono text-[11px] uppercase tracking-[0.06em]",
+            "rounded-[5px] border border-line bg-surface-input text-text outline-none",
+            "transition-colors duration-150",
+            // Focus border matches the Input primitive's focus-within treatment.
+            "focus:border-[rgba(255,255,255,0.20)]",
             className
           )}
-          style={{
-            background: "var(--surface-input)",
-            border: "1px solid var(--line)",
-            borderRadius: 5,
-            color: "var(--text)",
-            outline: "none",
-            letterSpacing: "0.06em",
-          }}
-          onFocus={(e) => {
-            (e.currentTarget as HTMLElement).style.borderColor =
-              "rgba(255,255,255,0.20)";
-            onFocus?.(e);
-          }}
-          onBlur={(e) => {
-            (e.currentTarget as HTMLElement).style.borderColor = "var(--line)";
-            onBlur?.(e);
-          }}
           {...props}
         />
       </div>

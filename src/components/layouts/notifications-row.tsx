@@ -17,6 +17,7 @@ import { useDictionary } from "@/i18n/client";
 import { lucideIconFromName } from "@/lib/notifications/notification-meta";
 import { translateNotifCopy } from "@/lib/notifications/translate-copy";
 import { rowVariants, rowVariantsReduced } from "@/lib/utils/motion";
+import { EDGE_DRAWER_PADDING } from "@/components/ui/edge-rail-layout";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 import type { NotificationMeta } from "@/lib/notifications/notification-meta";
 
@@ -46,13 +47,15 @@ const TONE_SURFACE: Record<
   },
   ambient: {
     color: "var(--text-3)",
-    line: "rgba(255,255,255,0.08)",
+    line: "var(--line)",
     soft: "rgba(255,255,255,0.04)",
   },
 };
 
+// Mono-tabular relative stamps — locale-neutral ("0m"/"5m"/"3h"/"2d"),
+// no hardcoded English words.
 function formatRel(min: number): string {
-  if (min < 1) return "now";
+  if (min < 1) return "0m";
   if (min < 60) return `${min}m`;
   if (min < 1440) return `${Math.floor(min / 60)}h`;
   return `${Math.floor(min / 1440)}d`;
@@ -110,13 +113,13 @@ export function NotificationRow({
       onClick={onRowClick}
       style={{
         position: "relative",
-        padding: "9px 14px",
+        padding: EDGE_DRAWER_PADDING.row,
         cursor: "pointer",
         background: hover || expanded ? "rgba(255,255,255,0.03)" : "transparent",
-        borderTop: "1px solid rgba(255,255,255,0.04)",
+        borderTop: "1px solid var(--line)",
         transition: reducedMotion
           ? "none"
-          : "background 120ms cubic-bezier(0.22,1,0.36,1)",
+          : "background var(--d-hover) var(--ease-smooth)",
         outline: "none",
       }}
     >
@@ -149,14 +152,14 @@ export function NotificationRow({
           style={{
             width: 20,
             height: 20,
-            borderRadius: 2.5,
+            borderRadius: 4,
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             background: showAccent ? toneSurface.soft : "rgba(255,255,255,0.04)",
             border: `1px solid ${
-              showAccent ? toneSurface.line : "rgba(255,255,255,0.06)"
+              showAccent ? toneSurface.line : "var(--line)"
             }`,
             color: showAccent ? toneSurface.color : "var(--text-3)",
           }}
@@ -166,7 +169,7 @@ export function NotificationRow({
         <span
           style={{
             fontFamily: "var(--font-mohave)",
-            fontSize: 13.5,
+            fontSize: 14,
             color: "var(--text)",
             flex: 1,
             overflow: "hidden",
@@ -188,17 +191,17 @@ export function NotificationRow({
             style={{
               fontFamily: "var(--font-cakemono)",
               fontWeight: 300,
-              fontSize: 10,
-              letterSpacing: "0.08em",
+              fontSize: 14,
+              letterSpacing: 0,
               textTransform: "uppercase",
               padding: "3px 8px",
-              borderRadius: 2.5,
+              borderRadius: 5,
               flexShrink: 0,
               background: showAccent
                 ? toneSurface.soft
                 : "rgba(255,255,255,0.04)",
               border: `1px solid ${
-                showAccent ? toneSurface.line : "rgba(255,255,255,0.1)"
+                showAccent ? toneSurface.line : "var(--line)"
               }`,
               color: showAccent ? toneSurface.color : "var(--text)",
               cursor: "pointer",
@@ -224,17 +227,17 @@ export function NotificationRow({
               width: 18,
               height: 18,
               flexShrink: 0,
-              borderRadius: 2.5,
+              borderRadius: 4,
               border: "none",
               background: "transparent",
-              color: "var(--text-mute)",
+              color: "var(--text-3)",
               cursor: "pointer",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = "var(--text-2)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.color = "var(--text-mute)";
+              e.currentTarget.style.color = "var(--text-3)";
             }}
           >
             <X size={12} strokeWidth={1.5} />
@@ -246,12 +249,12 @@ export function NotificationRow({
           <span
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--text-mute)",
+              fontSize: 11,
+              color: "var(--text-3)",
               flexShrink: 0,
               minWidth: 24,
               textAlign: "right",
-              fontVariantNumeric: "tabular-nums",
+              fontFeatureSettings: '"tnum" 1, "zero" 1',
             }}
           >
             {formatRel(minutesAgo)}
@@ -278,7 +281,7 @@ export function NotificationRow({
               <div
                 style={{
                   fontFamily: "var(--font-mohave)",
-                  fontSize: 12,
+                  fontSize: 14,
                   color: "var(--text-3)",
                   lineHeight: 1.45,
                   marginTop: 6,
@@ -298,16 +301,16 @@ export function NotificationRow({
                   style={{
                     fontFamily: "var(--font-cakemono)",
                     fontWeight: 300,
-                    fontSize: 10,
-                    letterSpacing: "0.08em",
+                    fontSize: 14,
+                    letterSpacing: 0,
                     textTransform: "uppercase",
                     padding: "4px 9px",
-                    borderRadius: 2.5,
+                    borderRadius: 5,
                     background: showAccent
                       ? toneSurface.soft
                       : "rgba(255,255,255,0.04)",
                     border: `1px solid ${
-                      showAccent ? toneSurface.line : "rgba(255,255,255,0.1)"
+                      showAccent ? toneSurface.line : "var(--line)"
                     }`,
                     color: showAccent ? toneSurface.color : "var(--text)",
                     cursor: "pointer",
@@ -340,13 +343,13 @@ export function NotificationRow({
 const rowSecondaryBtnStyle: React.CSSProperties = {
   fontFamily: "var(--font-cakemono)",
   fontWeight: 300,
-  fontSize: 10,
-  letterSpacing: "0.08em",
+  fontSize: 14,
+  letterSpacing: 0,
   textTransform: "uppercase",
   padding: "4px 9px",
-  borderRadius: 2.5,
+  borderRadius: 5,
   background: "transparent",
-  border: "1px solid rgba(255,255,255,0.08)",
+  border: "1px solid var(--line)",
   color: "var(--text-3)",
   cursor: "pointer",
 };

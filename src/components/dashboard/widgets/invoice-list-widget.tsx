@@ -143,7 +143,7 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
               {isLoading ? "—" : filtered.length}
             </span>
             <button
-              onClick={() => navigate("/accounting")}
+              onClick={() => navigate("/books?segment=invoices&view=aging")}
               className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
@@ -375,7 +375,7 @@ function InvoiceRow({
         title: clientName,
         color: indicatorColor,
         event: e,
-        fallbackPath: "/invoices",
+        fallbackPath: "/books?segment=invoices",
       })}
       index={index}
       isVisible={isVisible}

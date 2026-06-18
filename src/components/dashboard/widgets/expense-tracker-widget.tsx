@@ -246,7 +246,7 @@ export function ExpenseTrackerWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">$0</span>
-              <button onClick={() => onNavigate("/accounting")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/books?segment=expenses")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
@@ -311,7 +311,7 @@ export function ExpenseTrackerWidget({
               {formatCompactCurrency(animatedTotal)}
             </span>
             <button
-              onClick={(e) => { e.stopPropagation(); onNavigate("/accounting"); }}
+              onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=expenses"); }}
               className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
@@ -392,7 +392,7 @@ export function ExpenseTrackerWidget({
                 <div
                   key={cat.name}
                   className="flex-1 flex flex-col justify-center cursor-pointer min-h-[28px]"
-                  onClick={() => onNavigate("/accounting")}
+                  onClick={() => onNavigate("/books?segment=expenses")}
                   onMouseEnter={(e) => {
                     const parentRect = ref.current?.getBoundingClientRect();
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();

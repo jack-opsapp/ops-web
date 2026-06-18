@@ -34,11 +34,8 @@ import {
   MapPin,
   CalendarDays,
   GitBranch,
-  FileText,
-  Receipt,
   Calculator,
-  Package,
-  Boxes,
+  Library,
   Users,
   UserCog,
   Mail,
@@ -68,6 +65,13 @@ export interface RouteEntry {
   nav: { order: number; group: NavGroup } | false;
   /** RBAC permission required to see/visit (usePermissionStore.can). */
   permission?: string;
+  /**
+   * Any-of RBAC gate for hub surfaces that absorb several permissioned
+   * areas (BOOKS mirrors iOS `MainTabView.hasBooksAccess`): visible when
+   * the user holds AT LEAST ONE listed permission. Mutually exclusive
+   * with `permission` — set one or the other.
+   */
+  anyOfPermissions?: string[];
   /**
    * Phase C posture (master plan §3): rendered ONLY when
    * `canAccessFeature("phase_c")` — invisible to everyone else. Distinct
@@ -140,54 +144,75 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     fullHeight: "padded",
   },
   {
-    key: "estimates",
-    href: "/estimates",
-    icon: FileText,
-    labelKey: "nav.estimates",
-    paletteKeywords: ["quotes", "proposals"],
-    nav: { order: 6, group: "command" },
-    permission: "estimates.view",
-    absorbedBy: { phase: "3.1", target: "/books?segment=estimates" },
-  },
-  {
-    key: "invoices",
-    href: "/invoices",
-    icon: Receipt,
-    labelKey: "nav.invoices",
-    paletteKeywords: ["billing", "payments"],
-    nav: { order: 7, group: "command" },
-    permission: "invoices.view",
-    absorbedBy: { phase: "3.1", target: "/books?segment=invoices" },
-  },
-  {
-    key: "accounting",
-    href: "/accounting",
+    // BOOKS — the unified financial hub (P3.1). Absorbed Estimates,
+    // Invoices, Accounting (A/R + integrations + QB import), the expense
+    // review hub, and the cashflow placeholder. Icon traces to the
+    // OPS-ICON-SET-BRIEF `nav-finance` concept (Carbon `Calculator`).
+    key: "books",
+    href: "/books",
     icon: Calculator,
-    labelKey: "nav.accounting",
-    paletteKeywords: ["finance", "money", "quickbooks"],
-    nav: { order: 8, group: "command" },
-    permission: "accounting.view",
-    absorbedBy: { phase: "3.1", target: "/books?segment=invoices&view=aging" },
+    labelKey: "nav.books",
+    paletteKeywords: [
+      "money",
+      "invoices",
+      "estimates",
+      "quotes",
+      "expenses",
+      "accounting",
+      "finance",
+      "billing",
+      "payments",
+      "quickbooks",
+    ],
+    nav: { order: 6, group: "command" },
+    // Any-of across the four segments' gates. expenses.approve (not .view):
+    // the web expenses segment is the review hub — web has no own-scope
+    // expense list, so .view alone would render an empty Books.
+    anyOfPermissions: [
+      "invoices.view",
+      "estimates.view",
+      "expenses.approve",
+      "accounting.view",
+    ],
   },
   {
-    key: "products",
-    href: "/products",
-    icon: Package,
-    labelKey: "nav.products",
-    paletteKeywords: ["catalog", "pricing"],
+    // CATALOG — the variant-aware price book + stock hub (P3.2). Absorbed
+    // Products and Inventory into PRODUCTS / STOCK segments mirroring the iOS
+    // Catalog tab. Icon traces to the OPS-ICON-SET-BRIEF `nav-catalog`
+    // concept (Carbon `Catalog`); ships lucide `Library` until the Carbon swap.
+    key: "catalog",
+    href: "/catalog",
+    icon: Library,
+    labelKey: "nav.catalog",
+    paletteKeywords: [
+      "products",
+      "inventory",
+      "stock",
+      "items",
+      "materials",
+      "pricing",
+      "price book",
+      "skus",
+      "variants",
+    ],
     nav: { order: 9, group: "command" },
-    permission: "products.view",
-    absorbedBy: { phase: "3.2", target: "/catalog?segment=products" },
+    // Any-of across the two segments' gates (mirrors iOS catalog access):
+    // visible when the user can see products OR stock.
+    anyOfPermissions: ["products.view", "inventory.view"],
   },
   {
-    key: "inventory",
-    href: "/inventory",
-    icon: Boxes,
-    labelKey: "nav.inventory",
-    paletteKeywords: ["stock", "items", "materials"],
-    nav: { order: 10, group: "command" },
-    permission: "inventory.view",
-    absorbedBy: { phase: "3.2", target: "/catalog?segment=stock" },
+    // /catalog/setup — the full-page Catalog Setup Wizard. NOT a nav entry
+    // (launched from the first-run takeover + the catalog kebab), registered so
+    // the layout gate enforces catalog.run_setup (tighter than /catalog's
+    // products.view|inventory.view) and the top bar resolves a page title.
+    // BY_SPECIFICITY matches this before /catalog.
+    key: "catalog-setup",
+    href: "/catalog/setup",
+    icon: Library,
+    labelKey: "nav.catalogSetup",
+    nav: false,
+    permission: "catalog.run_setup",
+    fullHeight: "bleed",
   },
   {
     key: "clients",
@@ -300,9 +325,26 @@ export function getTitleKeyForPath(pathname: string): string | null {
   return getEntryForPath(pathname)?.labelKey ?? null;
 }
 
-/** RBAC permission required for a pathname, or null (always allowed). */
+/** RBAC permission required for a pathname, or null (always allowed).
+ *  NOTE: any-of entries (BOOKS) return null here — use
+ *  `getAnyOfPermissionsForPath` for full gating. */
 export function getPermissionForPath(pathname: string): string | null {
   return getEntryForPath(pathname)?.permission ?? null;
+}
+
+/** Full RBAC gate for a pathname as an any-of list, or null (ungated).
+ *  Single-permission entries normalize to a one-element array. */
+export function getAnyOfPermissionsForPath(pathname: string): string[] | null {
+  const entry = getEntryForPath(pathname);
+  if (!entry) return null;
+  if (entry.anyOfPermissions?.length) return entry.anyOfPermissions;
+  return entry.permission ? [entry.permission] : null;
+}
+
+/** Normalized permission list for a registry entry ([] = ungated). */
+export function entryPermissions(entry: RouteEntry): string[] {
+  if (entry.anyOfPermissions?.length) return entry.anyOfPermissions;
+  return entry.permission ? [entry.permission] : [];
 }
 
 /** Full-height mode for a pathname, honoring opt-out exceptions. */

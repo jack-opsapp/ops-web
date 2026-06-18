@@ -42,7 +42,7 @@ import {
 
 const menuItemClass = cn(
   "h-[36px] gap-2.5 rounded-[6px] px-2.5",
-  "font-cakemono font-light text-[13px] uppercase tracking-[0.02em] text-text-2",
+  "font-cakemono font-light text-[14px] uppercase text-text-2",
   "focus:bg-[rgba(255,255,255,0.05)] focus:text-text"
 );
 
@@ -62,7 +62,7 @@ function ExternalItem({
     >
       <Icon className="h-[16px] w-[16px] text-text-3" />
       {label}
-      <ArrowUpRight className="ml-auto h-[12px] w-[12px] text-text-mute" />
+      <ArrowUpRight className="ml-auto h-[12px] w-[12px] text-text-3" />
     </DropdownMenuItem>
   );
 }
@@ -100,9 +100,9 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
           type="button"
           aria-label={t("user.menuAriaLabel")}
           className={cn(
-            "flex w-full items-center rounded-[6px] bg-[rgba(255,255,255,0.03)] p-1.5",
+            "flex w-full items-center rounded-[6px] bg-surface-input p-1.5",
             "transition-colors duration-150 ease-smooth motion-reduce:transition-none",
-            "hover:bg-[rgba(255,255,255,0.06)]",
+            "hover:bg-surface-hover",
             expanded ? "gap-2.5" : "justify-center"
           )}
         >
@@ -116,7 +116,7 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <span className="font-mohave text-[13px] text-text-2">
+              <span className="font-mohave text-body-sm text-text-2">
                 {initial}
               </span>
             )}
@@ -127,7 +127,7 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
                 {displayName}
               </span>
               {roleName && (
-                <span className="block truncate font-mono text-[10px] uppercase tracking-[0.14em] text-text-3">
+                <span className="block truncate font-mono text-micro uppercase tracking-[0.14em] text-text-3">
                   {roleName}
                 </span>
               )}
@@ -137,13 +137,13 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
-        side="top"
-        align={expanded ? "start" : "center"}
-        sideOffset={8}
+        side={expanded ? "top" : "right"}
+        align={expanded ? "start" : "end"}
+        sideOffset={expanded ? 8 : 12}
         className="z-[1000] w-[248px] rounded-[12px] p-0"
       >
         {/* Identity block */}
-        <div className="border-b border-[rgba(255,255,255,0.06)] px-4 pb-3 pt-3.5">
+        <div className="border-b border-border px-4 pb-3 pt-3.5">
           <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-2">
             <span aria-hidden="true" className="text-text-mute">
               {"// "}
@@ -153,12 +153,12 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
             {operatorHandle}
           </p>
           {currentUser?.email && (
-            <p className="mt-1 truncate font-mohave text-[12px] text-text-3">
+            <p className="mt-1 truncate font-mohave text-body-sm text-text-3">
               {currentUser.email}
             </p>
           )}
           {roleName && (
-            <span className="mt-2 inline-flex rounded-[4px] border border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.05)] px-1.5 py-[2px] font-mono text-[10px] uppercase tracking-[0.12em] text-text-2">
+            <span className="mt-2 inline-flex rounded-[4px] border border-border bg-[rgba(255,255,255,0.05)] px-1.5 py-[2px] font-mono text-micro uppercase tracking-[0.12em] text-text-2">
               {roleName}
             </span>
           )}

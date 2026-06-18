@@ -1,0 +1,735 @@
+{
+  "summary": "Audit Books surface + P2 shell against the OPS design system, 7 dimensions, verified findings",
+  "agentCount": 8,
+  "logs": [
+    "76 findings (20 high) across 7 dimensions",
+    "high findings: 20 claimed → 20 confirmed"
+  ],
+  "result": {
+    "gestalts": [
+      {
+        "dimension": "color-accent",
+        "verdict": "The Books surface itself is largely authentic OPS — earth tones and financial ramps trace cleanly to the semantic/financial token tables, the lone outlined-accent CTA per segment is exactly the spec's primary-button pattern, and numbers are disciplined mono. The knockoff smell comes from the P2 shell: steel-blue accent stripes and glazes permanently parked on the edge-tab rail (navigation chrome, the single most explicitly banned accent placement), brick rendered as text in the top bar, and an improvised third glass recipe plus a fog of off-token greys (0.02–0.14 borders and fills) that softens the spec's whisper-quiet hairline system into generic dark-mode mush. Add text-mute doing real informational work in seventeen places and the shell reads ~85% OPS — the hue family is right, but the discipline that makes the system feel engineered rather than imitated is leaking at exactly the chrome users stare at all day."
+      },
+      {
+        "dimension": "typography",
+        "verdict": "Split verdict. The Books surface is a credible OPS build — numbers are mono and formatted, empty values are `—`, the `// TITLE` / 0.16em / 11px micro-label grammar is mostly token-true — but it still leaks at the edges: 12px off-scale labels everywhere, sentences set in JetBrains Mono, and two competing button voices (hand-rolled Cake Mono 12px next to the shared Mohave 16px Button). The P2 shell is where the \"cheap replica\" reading comes from: 22 type sites below the absolute 11px floor, Cake Mono floating at improvised 10/12/13px, and Mohave moonlighting as the uppercase display face on page titles and breadcrumbs — the three-fonts-three-jobs discipline that defines the system dissolves into a generic \"small dark tactical UI\" pastiche. Most damning systemically: the spec's non-negotiable slashed-zero feature is enabled nowhere in the product CSS, so every number on every surface renders the wrong zero — the kind of invisible-but-everywhere drift that separates the real instrument from the knockoff."
+      },
+      {
+        "dimension": "surfaces-depth",
+        "verdict": "Split verdict. The Books surface reads authentically OPS on this dimension — `.glass-surface` panels, 2px bars, 4px chips, on-token fills, and not a single box-shadow anywhere in scope, with modals correctly inheriting the shared `.glass-dense` Dialog. The P2 shell is where the replica creeps in: the TopBar invents an entire third glass recipe (rgba(10,10,10,0.25) at blur 12) and stamps it on every control, the sidebar runs the wrong tier, and the hand-built inline-style drawers drift into fractional 2.5px radii, 10px corners on dense glass, and improvised 0.02/0.12/0.14 alphas — exactly the \"almost the token, never the token\" pattern that makes a trained eye read knockoff. The fix profile is mechanical: collapse the shell back onto the two canonical glass recipes and the seven-value radius scale and the dimension snaps to spec."
+      },
+      {
+        "dimension": "spacing-layout",
+        "verdict": "On this dimension Books reads as a competent replica, not the real thing: the vocabulary is correct (glass, hairlines, mono micro-labels, left-aligned empty states) but the entire control scale has been miniaturized one tier below spec — a 28px toolbar ladder with 22–24px chips beneath it, 11px row padding, 14px rhythms — values that exist nowhere in DESIGN.md, which is precisely the \"cheap knockoff\" tell: right shapes, wrong proportions. Critically, the miniaturization is inherited, not invented — table-v2 normalized the 28px tier first and Books faithfully copied it, so this is systemic drift that will keep propagating until the 36px floor is either enforced or formally amended. The P2 shell is the more authentic half (36px menu items and QA rows, 40px top-bar controls, on-grid rail geometry), though its drawers improvise an off-grid inline-style padding dialect and both surfaces center text the system explicitly bans."
+      },
+      {
+        "dimension": "voice-copy-i18n",
+        "verdict": "The shell's own voice is genuinely OPS — `// TITLE` headers, `[ EOF ]`, `// OPERATOR :: NAME`, em-dash empties, tabular-mono counts like \"{n} OF {total}\" are confident, terse, and on-spec; nobody faking the system would write the books.json ledger strings. The knockoff tells live at the seams where legacy copy was ported \"verbatim\" into the new chrome: coach-mark empty states (\"Create your first invoice to get started\"), Title Case Like This in quick actions and modals, a first-person \"we'll be in touch\", and a dropped SYS :: prefix the file's own comment promises. The deepest authenticity failure is i18n: the entire P2 notification/quick-actions chrome ships Spanish dictionaries that are admitted EN mirrors with a literal TODO marker, plus en-US-hardcoded currency and untranslated payment terms — a Spanish-locale operator gets a half-English deck, which is exactly what a cheap replica feels like. Fix the ported copy and the es layer and this dimension is authentically OPS; the new-build voice itself is not the problem."
+      },
+      {
+        "dimension": "motion",
+        "verdict": "The motion core is genuinely OPS: EASE_SMOOTH is wired as Tailwind's DEFAULT timing function so bare transition-* utilities inherit the house curve, the Books mini-viz (margin meter, aging ramp, diverging bars, sparkline draw-on) lands squarely in the 400-600ms chart band with 50ms/item delays and real reduced-motion gates, and every framer variant ships a Reduced twin. But the highest-traffic entrances betray it — every Books modal and every shell tooltip/undo affordance actually animates on stock ease-out because the keyframe table was never converted, the top bar forgot prefers-reduced-motion entirely, and durations drift by feel (260, 220, 160, 120ms) instead of tracing to the 150/200ms tokens, with the count-up even hand-rolling a second easing curve and annotating it as \"adjacent.\" Disciplined at the center, improvised at the seams — and the seams are what make it read as a near-replica rather than the real instrument."
+      },
+      {
+        "dimension": "composition",
+        "verdict": "The Books surface is the closest thing to authentic OPS in this audit — the instrument strip genuinely composes like the kit (// labels with muted slashes, mono tabular heroes, token-bound aging ramps and sparklines, earth-tone status tags, mono-11 table headers over Mohave-14 row names), and it would pass for mission control if its workbar controls weren't shrunken (28px buttons, 12px Cake Mono) and its rows didn't sprout the per-row icon-button toolbars that are the universal generic-admin tell. The knockoff feel concentrates in the P2 shell, which speaks a private dialect of almost-tokens: 9-10px mono dust below the absolute 11px floor, 0.04-0.06 hairlines instead of --line, a blur-12/rgba(10,10,10,0.25) glass recipe the system doesn't define, 2.5px and 8px radii from no table, Cake Mono shrunk to 12-13px, Mohave moonlighting as tracked-uppercase display, and an accent stripe parked permanently on rail chrome that the spec reserves for the single CTA. None of these are wrong-by-much — and that is precisely the cheap-replica signature: everything rendered at ~90% of spec scale and ~60% of spec contrast, so the chrome reads like a careful fan re-creation of the kit rather than the kit itself. Fix the shell's micro-values back to the published tokens and restore the // TITLE mono header and kit row anatomy, and this composition crosses from convincing knockoff to authentic."
+      }
+    ],
+    "confirmedHigh": [
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/quick-actions-tab.tsx",
+        "line": 84,
+        "severity": "high",
+        "rule": "DESIGN.md §3: accent #6F94B0 appears ONLY on primary CTA fill + focus rings — 'Accent does NOT appear on … any decorative element'; §14 bans 'Accent on toggles / links / nav active state'; one accent element per screen max.",
+        "evidence": "accent=\"accent\"  (EdgeTab maps this to `accent: \"var(--ops-accent)\"` in edge-tab.tsx:33, painting a permanent steel-blue stripe on the quick-actions rail tab). Same class, 3 more sites: quick-actions-tab.tsx:58 `if (hasReviewQueue || duplicateReviewOpen) return \"accent\";` (washes the tab in --ops-accent-soft glaze), notifications-tab.tsx:34 `return \"accent\";` (default stripe when no critical/attn notifs), notifications-drawer.tsx:422 `tone: \"accent\" as NotificationTone` fallback. Net effect: every screen carries 1–2 always-visible accent elements on navigation chrome, before any CTA renders.",
+        "fix": "Default the edge-tab stripe and tint to neutral (`rgba(255,255,255,0.14)` / --fill-neutral, matching the ambient treatment); keep rose/tan stripes only for semantic critical/attn states; delete the \"accent\" member from EdgeTabAccent and the \"accent\" tint so the rail can never render steel blue.",
+        "dimension": "color-accent"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 71,
+        "severity": "high",
+        "rule": "DESIGN.md §3: brick #93321A is 'Destructive: borders/dots only, never text on black'. Tailwind `ops.error.DEFAULT` resolves to #93321A.",
+        "evidence": "status === \"offline\" ? \"text-ops-error\" : \"text-text-3\"  — the OFFLINE sync label renders as brick text on the black top bar (~3:1, fails AA, and uses the border-only destructive tone as a text color).",
+        "fix": "status === \"offline\" ? \"text-rose\" : \"text-text-3\"  (--rose #B58289 is the spec error/negative text tone, 4.6:1).",
+        "dimension": "color-accent"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/ar-aging-view.tsx",
+        "line": 208,
+        "severity": "high",
+        "rule": "DESIGN.md §3 / §15: --text-mute #6A6A6A (3.4:1) is 'Decorative only — // slashes, separators. Never body text'. Informational text must sit on the #EDEDED/#B5B5B5/#8A8A8A ladder (≥4.5:1).",
+        "evidence": "<span className=\"font-mono text-micro text-text-mute tabular-nums\">\n  ({t(\"topClients.paid\").replace(\"{amount}\", formatCurrency(client.paid))})\n</span>  — financial figures rendered in the decorative-only grey. Same class, 17 occurrences carrying informational content: ar-aging-view.tsx:197 (rank numbers), invoices-segment.tsx:64–65 (VOID/WRITTEN OFF tag text), :458,:468 (paid/balance values), :525,:535 (void/delete action buttons at rest), estimates-segment.tsx:431 (delete button), notifications-row.tsx:251 (timestamps), notifications-drawer.tsx:405 (empty-state message), :444 (EOF marker), quick-actions-drawer.tsx:269 (empty-state message), :333 (action hint codes), sidebar.tsx:238 (nav group labels), top-bar.tsx:322 (⌘K kbd hint).",
+        "fix": "Use text-text-3 (#8A8A8A, 5.4:1 AA) for all of these — values, tag labels, timestamps, hint codes, group labels, empty-state copy, and icon buttons at rest; reserve text-mute strictly for the `//` slashes, `::` separators, and `·` dots.",
+        "dimension": "color-accent"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 186,
+        "severity": "high",
+        "rule": "DESIGN.md §4 Critical rules: \"11px minimum. No exceptions.\" (§15 font size floor: 11px minimum)",
+        "evidence": "<span className=\"absolute -right-[1px] -top-[1px] flex h-[15px] min-w-[15px] items-center justify-center rounded-[5px] bg-[rgba(255,255,255,0.12)] px-[3px] font-mono text-[9px] leading-none text-text-2 tabular-nums\"> — one of 22 sub-11px sites across the P2 shell: sidebar.tsx:186 (9px), 199, 234, 238, 535 (10px); operator-menu.tsx:130, 161 (10px); notifications-drawer.tsx:280, 338, 404, 466, 482 (10px), 443 (9px); notifications-row.tsx:191, 249, 301, 343 (10px — three of these are Cake Mono BUTTON labels at 10px); quick-actions-drawer.tsx:210, 268, 363 (10px), 235, 332 (9px). The Books surface has zero violations of this rule.",
+        "fix": "Raise every site to the 11px floor: Tailwind sites → `text-micro` (11px token); inline-style sites → `fontSize: 11`. For the notifications-row action buttons (191, 301, 343) use the button spec instead: Cake Mono 300 at 14px (`fontSize: 14`). For badges/counts use the 11px badge/metadata tier with tighter padding rather than a smaller font.",
+        "dimension": "typography"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/ledger-strip.tsx",
+        "line": 105,
+        "severity": "high",
+        "rule": "DESIGN.md §4 Critical rules: \"Numbers are always mono. font-feature-settings: \\\"tnum\\\" 1, \\\"zero\\\" 1. Non-negotiable.\" — the slashed zero is never enabled on any product surface",
+        "evidence": "<span className=\"font-mono text-data-lg leading-tight text-text tabular-nums\"> — `tabular-nums` sets tnum only; \"zero\" 1 (slashed zero) is applied nowhere in src/styles/globals.css or tailwind.config.ts (grep confirms the only `\"tnum\" 1, \"zero\" 1` rule in product CSS is scoped to `.pmf-scope` in pmf-tokens.css). Every mono number in scope — ledger hero values, invoice/estimate table currency cells, the DeckClock, drawer counts — renders JetBrains Mono's default dotted zero, and any mono number missing the per-callsite `tabular-nums` class silently loses tnum too.",
+        "fix": "Add to globals.css @layer base, mirroring colors_and_type.css:142-145: `.font-mono, code, kbd, samp, pre { font-family: var(--font-mono); font-feature-settings: \"tnum\" 1, \"zero\" 1; }` so every `font-mono` site gets tabular-lining + slashed zero without per-callsite classes.",
+        "dimension": "typography"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 68,
+        "severity": "high",
+        "rule": "DESIGN.md §5: \"Two tiers. Glass + hairlines carry all depth.\" — glass-surface rgba(18,18,20,0.58) blur(28px) saturate(1.3) and glass-dense rgba(18,18,20,0.78) are the ONLY glass recipes. TopBar invents a third tier.",
+        "evidence": "\"bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]\" — repeats 4×: top-bar.tsx:68 (SyncIndicator), :194 (hamburger), :265 (undo button), :300 (⌘K search). rgba(10,10,10,0.25) / blur(12px) / saturate(1.1) trace to no token.",
+        "fix": "These are interactive controls, not glass panels: replace with the interactive-surface spec — `bg-surface-input` (rgba(255,255,255,0.04)) rest, `hover:bg-surface-hover`, `border border-line`, drop all backdrop-blur. If a glass chip is truly wanted, it must be `.glass-surface` verbatim.",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/invoices-segment.tsx",
+        "line": 287,
+        "severity": "high",
+        "rule": "DESIGN.md §9 Buttons: 'border-radius: 5px, min-height: 36px, padding: 9px 16px' — and OPS-Web CLAUDE.md: control sizing traces to the spec (buttons/inputs min-h 36px). There is no 28px control tier anywhere in DESIGN.md, uploads/system.md, or canonical_spec.md.",
+        "evidence": "className=\"inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[12px] font-light uppercase text-ops-accent ...\" — the 28px tier appears 3× in Books: invoices-segment.tsx:287 (NEW INVOICE, a primary accent CTA), estimates-segment.tsx:257 (NEW ESTIMATE), segment-toolbar.tsx:32 (`<div className=\"inline-flex h-[28px] items-center gap-[2px] rounded-[6px] border border-border p-[2px]\" role=\"tablist\">`).",
+        "fix": "Lift all three to the spec floor: the two CTAs become `<Button>` (h-9 = 36px, px-4, Cake Mono 14px) or `h-9 px-4 font-cakemono text-[14px]`; the segment control frame becomes h-9 with h-8 inner tabs. If a compact toolbar tier is genuinely wanted, it must be ratified into DESIGN.md first — not normalized in code.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/invoices-segment.tsx",
+        "line": 474,
+        "severity": "high",
+        "rule": "OPS-Web CLAUDE.md (Design System): 'Text alignment: left only, never center' — an absolute ban.",
+        "evidence": "<td className=\"px-2 py-[11px] text-center\"> — centered content appears 9×: invoices-segment.tsx:394 (`i === 8 && \"text-center\"` status column header) and :474; estimates-segment.tsx:333 and :382; ar-aging-view.tsx:188 (`<p className=\"py-3 text-center font-mono text-micro text-text-mute\">—</p>`); sync-segment.tsx:332 (`<p className=\"py-4 text-center ...\">—</p>`); notifications-drawer.tsx:400 (`style={{ padding: 28, textAlign: \"center\" }}`) and :439; quick-actions-drawer.tsx:264 (`style={{ padding: 24, textAlign: \"center\" }}`).",
+        "fix": "Left-align everything: status columns become `text-left` (drop the i===8/i===6 center branches), empty-state `—` and drawer empty states left-align inside the existing padding, the EOF marker left-aligns with the footer text. The codebase already does this correctly in books-page.tsx:263 (`flex flex-col items-start`).",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/period-pill.tsx",
+        "line": 32,
+        "severity": "high",
+        "rule": "DESIGN.md §9: buttons and inputs min-height 36px. These are interactive buttons (filters, dropdown trigger, retry, back), not tags — the tag spec (2px 6px padding) covers static badges, not click targets that drive navigation and data scope.",
+        "evidence": "\"inline-flex h-3 items-center gap-1 rounded-[4px] px-1\", — with this repo's custom scale h-3 = 24px. Sub-floor interactive controls: period-pill.tsx:32 (24px dropdown trigger), segment-toolbar.tsx:91 (FilterChips, `h-3` = 24px), segment-toolbar.tsx:115 (DrillChip, h-3), segment-toolbar.tsx:43 (segment tabs `h-[22px]`), ledger-strip.tsx:324 (retry: `px-1.5 py-[5px]` ≈ 24px), ar-aging-view.tsx:163 (back button `px-[10px] py-[4px]` ≈ 22px), notifications-row.tsx:194 (quick action `padding: \"3px 8px\"` ≈ 20px) and :304 (`padding: \"4px 9px\"`).",
+        "fix": "Establish exactly one on-spec control row: 36px (h-9) for buttons that commit actions (retry, back, drill-clear, period trigger, row quick-actions). If the status filter strip must read as chips, they still need a ≥36px hit area (e.g. h-9 with the visual chip inside) — sizing traces to the spec, not to density preference.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/invoices-segment.tsx",
+        "line": 362,
+        "severity": "high",
+        "rule": "DESIGN.md §2 Empty states: \"No 'You don't have any jobs yet!'… No coach-marks\" + §14 banned: \"'Welcome back!' / 'Oops!' / coaching language\". Voice example explicitly rejects \"Tap here to add your first job\" in favor of `NEW JOB` (button, always visible).",
+        "evidence": "<p className=\"mt-0.5 font-mono text-caption text-text-3\">{t(\"invoices.empty.helper\")}</p>  — en/pipeline.json: \"invoices.empty.helper\": \"Create your first invoice to start tracking payments\", \"invoices.empty.none\": \"No invoices yet\". Repeats ×2: estimates-segment.tsx:301 renders \"estimates.empty.helper\": \"Create your first estimate to get started\" / \"No estimates yet\".",
+        "fix": "Delete the helper <p> in both segments — the always-visible NEW INVOICE / NEW ESTIMATE button already is the empty state per the spec. Replace the headlines with the tactical form: \"0 INVOICES\" / \"0 ESTIMATES\" (mono 11px uppercase) or just `—`, with matching en+es entries (e.g. en \"0 INVOICES\", es \"0 FACTURAS\").",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/i18n/dictionaries/en/navigation.json",
+        "line": 21,
+        "severity": "high",
+        "rule": "DESIGN.md §2 Person: \"You. Never 'we.'\" + §14 banned coaching language. The app does not speak in first person or make relationship promises.",
+        "evidence": "\"gated.accessRequested\": \"Access requested — we'll be in touch\"  (es/navigation.json:21 mirrors it: \"Acceso solicitado — te contactaremos\"; rendered as the sidebar gated-entry tooltip via sidebar.tsx:504 `? t(\"gated.accessRequested\")`)",
+        "fix": "\"gated.accessRequested\": \"ACCESS REQUESTED\" (es: \"ACCESO SOLICITADO\") — state the system fact, drop the first-person promise. If a follow-up cue is required, append a status, not a voice: \"ACCESS REQUESTED · PENDING\".",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/i18n/dictionaries/en/quick-actions.json",
+        "line": 17,
+        "severity": "high",
+        "rule": "DESIGN.md §2 Casing: \"Sentence case for content. UPPERCASE for authority… Never Title Case Like This.\" The drawer renders these labels in Mohave 13px with no text-transform (quick-actions-drawer.tsx:316–327), so the Title Case is user-visible.",
+        "evidence": "\"action.expense\": \"Add Expense\", \"action.lead\": \"New Lead\", \"action.estimate\": \"New Estimate\", \"action.invoice\": \"New Invoice\", \"action.client\": \"New Client\", \"action.project\": \"New Project\", \"action.task\": \"New Task\", \"action.taskType\": \"New Task Type\", \"action.inventoryItem\": \"New Item\"  (×9; es file already uses correct sentence case: \"Agregar gasto\", \"Nueva factura\"…)",
+        "fix": "Sentence-case the en values to match the es file (\"Add expense\", \"New lead\", \"New estimate\", \"New invoice\", \"New client\", \"New project\", \"New task\", \"New task type\", \"New item\") — or, if the action list is an authority tier, render the row label uppercase (`textTransform: \"uppercase\"` + Cake Mono 300) and keep dictionary values sentence case.",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/modals/invoice-form-modal.tsx",
+        "line": 241,
+        "severity": "high",
+        "rule": "All user-facing strings must flow through useDictionary(namespace) with en + es entries — hardcoded user-facing English string literals rendered in JSX. Also breaks §2 casing (\"Due on Receipt\" is Title Case).",
+        "evidence": "{PAYMENT_TERMS_OPTIONS.map((term) => <option key={term} value={term}>{term}</option>)}  — PAYMENT_TERMS_OPTIONS = [\"Due on Receipt\", \"Net 7\", \"Net 10\", \"Net 15\", …] (src/lib/types/pipeline.ts:1346); the same English literal is the default state: line 72 `useState(\"Net 30\")`, lines 100/127 `setPaymentTerms(\"Net 30\")` — Spanish users see English terms.",
+        "fix": "Keep the enum values as stable option `value`s but resolve labels through the dictionary: `<option key={term} value={term}>{t(`form.paymentTerms.${slug(term)}`)}</option>` with en entries (\"Due on receipt\", \"Net 7\"…) and es entries (\"Pago contra entrega\", \"Neto 7\"…) added to pipeline.json in both locales.",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-row.tsx",
+        "line": 55,
+        "severity": "high",
+        "rule": "Hardcoded user-facing English string literal rendered in JSX (timestamp text node) — all user-facing strings must flow through useDictionary with en + es entries.",
+        "evidence": "function formatRel(min: number): string {\n  if (min < 1) return \"now\";  — rendered as the row's relative timestamp at line 257 `{formatRel(minutesAgo)}`; \"now\" has no dictionary key and never localizes to Spanish.",
+        "fix": "Return the mono-tabular form `\"0m\"` (consistent with `${min}m`/`${h}h`/`${d}d` and locale-neutral), or add `\"row.justNow\": \"now\"` / es `\"ahora\"` to notifications.json and pass `t` into formatRel.",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/tailwind.config.ts",
+        "line": 335,
+        "severity": "high",
+        "rule": "DESIGN.md §8: \"One easing curve everywhere: cubic-bezier(0.22, 1, 0.36, 1)\" — any other easing (ease-out) on a visible transition is banned.",
+        "evidence": "\"fade-in\": \"fade-in 0.2s ease-out\",  (also line 339: \"scale-in\": \"scale-in 0.15s ease-out\",) — consumed by the audited surfaces: sidebar.tsx:554 `animate-fade-in` (rail tooltip), top-bar.tsx:268 `animate-fade-in` (undo button), top-bar.tsx:282 `animate-fade-in` (undo tooltip), and all three Books modals via src/components/ui/dialog.tsx:20 `\"data-[state=open]:animate-fade-in\"` and dialog.tsx:41 `\"data-[state=open]:animate-scale-in\"` (estimate-form-modal.tsx, invoice-form-modal.tsx, record-payment-modal.tsx all mount DialogContent). The config's own `anchored-in` entry (line 340) proves the correct form exists.",
+        "fix": "\"fade-in\": \"fade-in 0.2s cubic-bezier(0.22, 1, 0.36, 1)\",  and  \"scale-in\": \"scale-in 0.15s cubic-bezier(0.22, 1, 0.36, 1)\",  (apply the same curve to the other ease-out/ease-in-out entries: slide-in-right, slide-in-left, slide-up, accordion-down, accordion-up, pulse-live, shimmer, glow-flash)",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 51,
+        "severity": "high",
+        "rule": "DESIGN.md §8/§12: \"Reduced motion is required. Every animation checks prefers-reduced-motion and falls back to a 150ms opacity transition.\" Missing fallback = violation.",
+        "evidence": "4 sites in top-bar.tsx, the only audited file that skips the guard: line 51 `syncing: <RefreshCw className=\"w-[14px] h-[14px] shrink-0 animate-spin\" />,` · line 274 `<Loader2 className=\"w-[16px] h-[16px] animate-spin\" />` · line 268 `\"transition-all duration-150 ease-smooth motion-reduce:transition-none animate-fade-in\",` (motion-reduce:transition-none does NOT stop the keyframe animation) · line 282 `className=\"absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-[4px] whitespace-nowrap pointer-events-none animate-fade-in\"`. Every Books spinner and sidebar.tsx:554 correctly append motion-reduce:animate-none — top-bar drifted from the house pattern.",
+        "fix": "Append `motion-reduce:animate-none` to all four className lists (e.g. `\"w-[14px] h-[14px] shrink-0 animate-spin motion-reduce:animate-none\"`).",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/ui/dialog.tsx",
+        "line": 41,
+        "severity": "high",
+        "rule": "DESIGN.md §8: every animation needs a prefers-reduced-motion fallback — the open animation on the shared Dialog (the mount path for all three Books modals) has none.",
+        "evidence": "\"data-[state=open]:animate-scale-in\",  (and line 20: \"data-[state=open]:animate-fade-in\", on DialogOverlay) — no motion-safe:/motion-reduce: guard. The sibling dropdown-menu.tsx:46 shows the correct in-repo pattern: \"motion-safe:data-[state=open]:animate-anchored-in\". Reached from books/modals/estimate-form-modal.tsx, invoice-form-modal.tsx, record-payment-modal.tsx.",
+        "fix": "\"motion-safe:data-[state=open]:animate-scale-in\"  and  \"motion-safe:data-[state=open]:animate-fade-in\"  (matching dropdown-menu.tsx), so reduced-motion users get an instant state change.",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/ledger-strip.tsx",
+        "line": 56,
+        "severity": "high",
+        "rule": "DESIGN.md §8: one easing curve everywhere — the count-up rolls a hand-written quadratic ease-out, a second curve the comment itself admits is only \"EASE-SMOOTH-adjacent\".",
+        "evidence": "const eased = 1 - (1 - progress) * (1 - progress);  (header comment, line 38: \"// ─── Count-up (800ms, EASE-SMOOTH-adjacent quad-out, reduced-motion aware) ───\"). Duration (800ms) and the reduced-motion gate are on-spec; the curve is not.",
+        "fix": "Drive the value with framer-motion (already a dependency) so the real curve is used: `animate(from, target, { duration: 0.8, ease: [0.22, 1, 0.36, 1], onUpdate: (v) => setValue(v) })` in place of the rAF loop, or evaluate cubic-bezier(0.22, 1, 0.36, 1) exactly instead of the quad-out polynomial.",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/quick-actions-tab.tsx",
+        "line": 84,
+        "severity": "high",
+        "rule": "DESIGN.md §3: --ops-accent is \"Primary CTA button fill + focus rings. Nothing else.\" §9: no accent on navigation. The edge-rail tabs are persistent chrome, not CTAs.",
+        "evidence": "quick-actions-tab.tsx:84 `accent=\"accent\"` — the quick-actions rail tab permanently wears the steel-blue stripe (edge-tab.tsx:33 maps it to `accent: \"var(--ops-accent)\"`), plus an accent tint glaze (quick-actions-tab.tsx:58 `if (hasReviewQueue || duplicateReviewOpen) return \"accent\";`). notifications-tab.tsx:34 `return \"accent\";` — ambient notifications fall back to an accent-striped tab. 3 locations: quick-actions-tab.tsx:84, quick-actions-tab.tsx:58, notifications-tab.tsx:34.",
+        "fix": "Neutral chrome for the rail: map the quick-actions stripe and the ambient notification fallback to a monochrome token (`var(--text-2)` stripe / `var(--fill-neutral)` fill, tint `neutral`), keeping rose/tan only for critical/attn semantics. Accent appears solely on the one primary CTA per screen and focus rings.",
+        "dimension": "composition"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 186,
+        "severity": "high",
+        "rule": "DESIGN.md §4 critical rules: \"11px minimum. No exceptions.\" (§15 font size floor 11px).",
+        "evidence": "9px text (3×): sidebar.tsx:186 `px-[3px] font-mono text-[9px] leading-none text-text-2 tabular-nums` (rail badge); notifications-drawer.tsx:443 `fontSize: 9,` (EOF marker); quick-actions-drawer.tsx:235 and 332 `fontSize: 9,` (shortcut chip, row hint codes). 10px text (~15×): sidebar.tsx:199, 234, 238, 535; operator-menu.tsx:130, 161; notifications-drawer.tsx:280, 338, 405, 467, 483; notifications-row.tsx:191, 249, 301; quick-actions-drawer.tsx:210, 268, 363.",
+        "fix": "Raise every sub-11px size to 11px (`text-micro` / `fontSize: 11`), tracing to the .t-metadata / .t-panel-title tokens in colors_and_type.css. Where 11px feels large (rail badge), shrink padding/letter-spacing, never the type.",
+        "dimension": "composition"
+      }
+    ],
+    "medium": [
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 68,
+        "severity": "med",
+        "rule": "DESIGN.md §5: exactly two glass tiers — rgba(18,18,20,0.58) and rgba(18,18,20,0.78). Every surface color must trace to a token; rgba(10,10,10,0.25) exists nowhere in the token set.",
+        "evidence": "\"bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]\",  — an improvised third glass recipe, repeated ×4 in this file (lines 68, 194, 265, 300) for the sync indicator, hamburger, undo button, and ⌘K search.",
+        "fix": "Replace with the canonical surface: `bg-[var(--glass)]` (rgba(18,18,20,0.58)) + the .glass-surface blur recipe, or a flat interactive fill `bg-[rgba(255,255,255,0.04)]` if no blur is wanted — no third glass tier.",
+        "dimension": "color-accent"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-tab.tsx",
+        "line": 41,
+        "severity": "med",
+        "rule": "DESIGN.md §3: earth tones only when color carries the matching semantic meaning — tan = attention/warning, rose = negative/error. Using rose for an attention state makes color lie.",
+        "evidence": "if (topTone === \"critical\" || topTone === \"attn\") return \"rose\";  — an attention-tier (tan-semantic) notification washes the edge tab in the rose (error) glaze, while the stripe beside it correctly shows tan (`accent` prop = \"attn\").",
+        "fix": "Map each tone to its own tint: critical → \"rose\", attn → a \"tan\" tint backed by var(--tan-soft) (add it to the EdgeTab tint map), ambient → \"neutral\".",
+        "dimension": "color-accent"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 426,
+        "severity": "med",
+        "rule": "DESIGN.md §5: hairline borders are --line rgba(255,255,255,0.10) (or --glass-border 0.09 on glass edges); 0.18 is reserved for toggle-active. 0.04/0.06/0.08/0.12/0.14 border alphas are off-token.",
+        "evidence": "\"border-r border-[rgba(255,255,255,0.06)]\",  — improvised hairline alpha. Same class, ~18 sites: sidebar.tsx:447,:520 (0.06), top-bar.tsx:69,:195,:266,:301 (0.06 borders + 0.14 hover borders), operator-menu.tsx:146 (0.06), notifications-drawer.tsx:273,:321,:460 (0.06), :349 (0.08 chip border, 0.12 ambient line), notifications-row.tsx:116 (0.04 row border), :159 (0.06 icon-chip border), :349 (0.08 button border), quick-actions-drawer.tsx:202,:355 (0.06), :241 (0.14).",
+        "fix": "Use `border-border` / `var(--line)` (0.10) for all standard hairlines and `var(--glass-border)` (0.09) for glass panel edges; keep 0.18 only on active toggle/segment borders.",
+        "dimension": "color-accent"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 186,
+        "severity": "med",
+        "rule": "DESIGN.md §5 fills are tokenized: input 0.04 / hover 0.05 / active 0.08 / fill-neutral 0.14 / fill-neutral-dim 0.06 (non-interactive). 0.02, 0.03, 0.07-as-divider, and 0.12 fills are improvised.",
+        "evidence": "rounded-[5px] bg-[rgba(255,255,255,0.12)] px-[3px] font-mono text-[9px] leading-none text-text-2  — badge fill at an off-token 0.12. Same class: sidebar.tsx:226 (`bg-[rgba(255,255,255,0.07)]` used as a group divider hairline — 0.07 is the button-default fill, not a divider), :170 (0.06 fill-neutral-dim used as an interactive hover/active tile fill), operator-menu.tsx:103 (`bg-[rgba(255,255,255,0.03)]` trigger fill), notifications-drawer.tsx:347 (inactive chip `\"rgba(255,255,255,0.02)\"`), ar-aging-view.tsx:229 (`bg-[rgba(255,255,255,0.02)]` stat-card fill).",
+        "fix": "Snap each to its role token: badge → --fill-neutral (0.14); divider → --line (0.10) at 1px; interactive tile rest/hover/active → 0.04/0.05/0.08 (--surface-input/-hover/-active); subtle card fills → --fill-neutral-dim (0.06) or transparent.",
+        "dimension": "color-accent"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/ui/button.tsx",
+        "line": 10,
+        "severity": "med",
+        "rule": "DESIGN.md §9 Buttons: \"Cake Mono 300, 14px, uppercase\" / §4: Mohave's only jobs are body copy, names, hero numbers (sentence case) — uppercase display belongs to Cake Mono",
+        "evidence": "\"font-mohave text-button uppercase whitespace-nowrap\", — the shared Button renders ALL button labels in Mohave 16px/400 uppercase. In audit scope it ships on every Books empty-state CTA (invoices-segment.tsx:365, estimates-segment.tsx:304), every modal footer (invoice-form-modal.tsx:276-277, estimate-form-modal.tsx:316-319, record-payment-modal.tsx:97/127-128) and the sync connection cards (sync-segment.tsx:144, 152, 163) — directly beside the hand-rolled NEW INVOICE button that correctly uses font-cakemono, so two button voices coexist on one screen.",
+        "fix": "In button.tsx change the base to `font-cakemono font-light text-[14px] uppercase whitespace-nowrap` (the .t-btn role: Cake Mono 300, 14px, uppercase, --font-cakemono-tracking).",
+        "dimension": "typography"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 239,
+        "severity": "med",
+        "rule": "DESIGN.md §4 Type scale: \"Page title (TopBar H1) — Cake Mono 300, 22px\"; Mohave is sentence-case body/names, never the uppercase display voice",
+        "evidence": "<span className=\"font-mohave text-heading text-text uppercase tracking-wider truncate\"> — the nested-route page title renders Mohave at 22px **weight 600** (text-heading embeds fontWeight 600) in uppercase, while the sibling root-route title (line 246) correctly uses `font-cakemono font-light text-heading`. Same Mohave-uppercase improvisation on the breadcrumb parents (top-bar.tsx:218, 223, 233 — `font-mohave text-body-sm ... uppercase tracking-wider`) and the sync provider name (sync-segment.tsx:86 — `font-mohave text-body-sm uppercase text-text`).",
+        "fix": "Leaf title → `font-cakemono font-light text-heading text-text uppercase truncate` (Cake Mono 300 22px). Breadcrumb parents → either Cake Mono 300 or the JetBrains 11px uppercase micro-label tier (`font-mono text-micro uppercase tracking-[0.16em]`). Provider name → Mohave 14px sentence case (drop `uppercase`) or Cake Mono 300 if it must read as a display label.",
+        "dimension": "typography"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segment-toolbar.tsx",
+        "line": 44,
+        "severity": "med",
+        "rule": "DESIGN.md §4 Type scale: Cake Mono exists at 22px (page title), 28-32 (display), 15-20 (section), 14px (button), 11px (badge) — 12px and 13px are not on the scale",
+        "evidence": "\"font-cakemono text-[12px] font-light uppercase\", — improvised Cake Mono sizes, 8 sites: segment-toolbar.tsx:44 (12px segment control), invoices-segment.tsx:287 + estimates-segment.tsx:257 (12px primary CTA button — spec button is 14px), sidebar.tsx:193 (13px drawer nav label), sidebar.tsx:565 (12px rail tooltip), operator-menu.tsx:45 (13px menu items), notifications-drawer.tsx:291 (fontSize: 13 drawer title), quick-actions-drawer.tsx:221 (fontSize: 13 drawer title).",
+        "fix": "Buttons (segment control tabs, NEW INVOICE/NEW ESTIMATE CTAs, menu items) → 14px (`text-[14px]` / .t-btn). Badge-tier labels → 11px (`text-micro`). Drawer `// TITLE` headers per §10 widget anatomy are JetBrains Mono 11px uppercase tracking 0.16em, not Cake Mono 13.",
+        "dimension": "typography"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/sync-segment.tsx",
+        "line": 357,
+        "severity": "med",
+        "rule": "DESIGN.md §4: JetBrains Mono carries numbers, timestamps, micro labels, // prefixes — body copy and sentences are Mohave 14px",
+        "evidence": "<p className=\"font-mono text-micro leading-relaxed text-text-2\"> — full explanatory sentences (\"how sync works\" paragraphs) set in 11px JetBrains Mono. Same class of violation: sync-segment.tsx:87 (provider description sentence in mono), invoices-segment.tsx:362 + estimates-segment.tsx:301 (`font-mono text-caption text-text-3` — 14px mono empty-state helper sentences), record-payment-modal.tsx:80/84/88 (`font-mono text-caption text-text-3` — 14px mono field labels; mono has no 14px role: 11/13/20 only).",
+        "fix": "Sentence-length copy → `font-mohave text-body-sm text-text-2` (Mohave 14px sentence case). Record-payment summary labels → `font-mono text-micro uppercase tracking-[0.16em] text-text-3` (11px metadata tier) with the values staying mono 13px (`text-data-sm`).",
+        "dimension": "typography"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/modals/invoice-form-modal.tsx",
+        "line": 217,
+        "severity": "med",
+        "rule": "DESIGN.md §4: micro labels are JetBrains Mono 11px uppercase, letter-spacing 0.16em; the spec scale has no 12px mono role (11px metadata / 13px data)",
+        "evidence": "<label className=\"font-mono text-caption-sm text-text-3 uppercase tracking-widest\">{t(\"invoices.form.client\")}</label> — text-caption-sm is 12px and tracking-widest is 0.10em, both off-token. Repeats across all 22 form labels (invoice-form-modal.tsx:217, 224, 235, 239, 245, 252, 258, 265, 269; estimate-form-modal.tsx:208, 223, 242, 252, 265, 278, 289, 303; record-payment-modal.tsx:94, 103, 107, 117, 122) and as 12px mono data in tables: invoices-segment.tsx:434, 441 + estimates-segment.tsx:368, 373 (dates), ledger-strip.tsx:359, 408 (hero suffixes), plus 12px Mohave at invoices-segment.tsx:429 / estimates-segment.tsx:363 (project names).",
+        "fix": "Form labels → `font-mono text-micro text-text-3 uppercase tracking-[0.16em]` (the .t-panel-title/metadata tier). Table dates and data values → `text-data-sm` (13px mono). Project-name cells → `font-mohave text-body-sm` (14px) or keep 13px only via a scale token, not 12px.",
+        "dimension": "typography"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 439,
+        "severity": "med",
+        "rule": "DESIGN.md §5 glass table: `.glass-surface` (rgba(18,18,20,0.58)) is for \"Cards, panels, widgets, sidebar\". glass-dense (0.78) is reserved for modals/popovers/dropdowns/toasts.",
+        "evidence": "background: \"var(--surface-glass-dense)\",",
+        "fix": "background: \"var(--surface-glass)\" (0.58 tier), keeping blur(28px) saturate(1.3); add the glass-surface ::before top-edge gradient `linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)`.",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-drawer.tsx",
+        "line": 249,
+        "severity": "med",
+        "rule": "Radius scale is law: glass-dense surfaces (modals/popovers/drawers/toasts) are 12px; 10px belongs to glass-surface panels. Tier background and tier radius must match.",
+        "evidence": "background: \"var(--glass-dense)\", … borderTopLeftRadius: 10, borderBottomLeftRadius: 10 — 2 locations: notifications-drawer.tsx:249-250 and quick-actions-drawer.tsx:178-179 (same `var(--glass-dense)` + radius 10 pairing).",
+        "fix": "borderTopLeftRadius: 12, borderBottomLeftRadius: 12 in both drawers (matching --r-modal for the dense tier), or better, apply the `.glass-dense` class and only override the squared right edge.",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 561,
+        "severity": "med",
+        "rule": "DESIGN.md §5: both glass tiers use exactly blur(28px) saturate(1.3). Tooltips/popovers are glass-dense (12px radius). blur(12px) saturate(1.2) is an improvised third recipe.",
+        "evidence": "backdropFilter: \"blur(12px) saturate(1.2)\" — 2 locations: sidebar.tsx:561-562 (rail tooltip, wrapped in `rounded-[6px]` at :554) and top-bar.tsx:285-286 (undo tooltip, `rounded-[4px]` at :282).",
+        "fix": "Use the canonical dense recipe on both tooltips: background var(--glass-dense), backdropFilter \"blur(28px) saturate(1.3)\", border 1px solid var(--glass-border), border-radius 12px.",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-row.tsx",
+        "line": 152,
+        "severity": "med",
+        "rule": "Radius scale is law — panels 10 / modals 12 / buttons-inputs 5 / tags-chips 4 / bars 2 / sidebar items 6 / avatars 50%. 2.5px exists nowhere in the scale; no improvised radii.",
+        "evidence": "borderRadius: 2.5, — 5 locations in notifications-row.tsx: :152 (icon tile), :195 (hover quick-action button), :227 (dismiss ×), :305 (expanded action button), :347 (rowSecondaryBtnStyle).",
+        "fix": "Buttons (:195, :305, :347) → borderRadius: 5; the 20px icon tile (:152) and 18px dismiss (:227) → borderRadius: 4 (chip).",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 166,
+        "severity": "med",
+        "rule": "Radius scale: sidebar item hover is 6px. 8px is not on the scale (panels 10, items 6, buttons 5).",
+        "evidence": "\"h-[40px] w-[40px] rounded-[8px] transition-colors duration-150 motion-reduce:transition-none\" — the rail icon tile carrying hover/active fill. Repeats at sync-segment.tsx:82: \"flex h-[40px] w-[40px] items-center justify-center rounded-[8px] bg-fill-neutral-dim\".",
+        "fix": "sidebar.tsx:166 → `rounded-[6px]` (sidebar item token, matches the mobile drawer rows at :132); sync-segment.tsx:82 → `rounded-[6px]` or `rounded-[4px]` — any on-scale value, 8px is improvised.",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 186,
+        "severity": "med",
+        "rule": "Tags/chips/badges are radius 4px; surface fills must trace to tokens (interactive 0.04/0.05/0.08, fill-neutral 0.14, fill-neutral-dim 0.06). 5px badge radius and 0.12 fill are both off-token.",
+        "evidence": "className=\"absolute -right-[1px] -top-[1px] flex h-[15px] min-w-[15px] items-center justify-center rounded-[5px] bg-[rgba(255,255,255,0.12)] px-[3px] font-mono text-[9px] leading-none text-text-2 tabular-nums\"",
+        "fix": "`rounded-[4px] bg-[rgba(255,255,255,0.08)]` — matching the drawer badge three lines down (sidebar.tsx:199), which already uses the correct chip radius and active-fill token.",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/ar-aging-view.tsx",
+        "line": 229,
+        "severity": "med",
+        "rule": "Cards/panels are radius 10px (5px is the button/input radius), and fills must trace to tokens — rgba(255,255,255,0.02) is not in the system (input 0.04, hover 0.05, active 0.08, fill-neutral-dim 0.06).",
+        "evidence": "className=\"flex flex-col gap-[4px] rounded-[5px] border border-border bg-[rgba(255,255,255,0.02)] p-1.5\" — status-breakdown stat tiles. The 0.02 ghost fill repeats at notifications-drawer.tsx:347: background: active ? c.soft : \"rgba(255,255,255,0.02)\".",
+        "fix": "Inside a glass panel, nested tiles stay flat per \"no double glass\": `rounded-[10px] border border-border bg-transparent` (or bg-fill-neutral-dim if a wash is required); notifications chips rest fill → \"rgba(255,255,255,0.04)\" (--surface-input).",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/ledger-strip.tsx",
+        "line": 121,
+        "severity": "med",
+        "rule": "Tags/badges are radius 4px (DESIGN.md §6/§9). 3px is reserved exclusively for keyboard-hint chips (§12); the A/R scope badge is a tag, not a key hint.",
+        "evidence": "<span className=\"rounded-[3px] border border-border px-[5px] py-px font-mono text-micro uppercase tracking-[0.14em] text-text-3\">",
+        "fix": "rounded-[4px] (the chip token), matching FilterChips/DrillChip/StatusTag which all correctly use rounded-[4px].",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/ui/button.tsx",
+        "line": 51,
+        "severity": "med",
+        "rule": "PROVENANCE CONCLUSION (explicitly requested): the 28px toolbar tier IS an established OPS-Web code pattern, but it is an improvisation relative to the spec — in-code precedent does not amend DESIGN.md.",
+        "evidence": "button.tsx:51-54 — '// DESIGN.md spec: buttons are min-height 36px / padding 9px 16px / radius 5px. // `default` is the spec value (h-9 = 36px, px-4 = 16px). `sm`/`lg` are // unspecified-but-coherent derivations on a 32/36/40 ladder'. Precedent locations in table-v2 (predating Books): projects-toolbar.tsx:28 (`flex h-[28px] min-w-[220px] ... bg-surface-input`), projects-view-tabs.tsx:47 and :84, projects-view-settings-menu.tsx:251 (`h-[28px] w-[28px]`), projects-table-shell.tsx:498, cells/editable-cell-text.tsx:135, editable-cell-date.tsx:110, editable-cell-client.tsx:125 (h-7).",
+        "fix": "Verdict: Books did not invent 28px — it faithfully replicated table-v2 — but the tier has zero spec authority; even the codebase's own Button comment acknowledges the ladder stops at 32. Treat 28px as a system-wide defect: either migrate both surfaces (Books + table-v2) to the 36px floor, or get a 28px 'dense toolbar' tier formally added to DESIGN.md §9 before any further surface copies it.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/invoices-segment.tsx",
+        "line": 418,
+        "severity": "med",
+        "rule": "DESIGN.md §7: 'Base unit: 8px. All spacing is multiples of 4px or 8px.' 11px is on neither grid and matches no §7 padding zone.",
+        "evidence": "<td className=\"px-2 py-[11px]\"> — `py-[11px]` repeats 18× as the table-row cell padding: invoices-segment.tsx lines 418, 423, 428, 433, 438, 449, 454, 464, 474, 480; estimates-segment.tsx lines 352, 357, 362, 367, 372, 377, 382, 388.",
+        "fix": "py-1.5 (12px, on-grid) — or py-1 (8px) if the denser row was the intent. One value, defined once (extract a shared `cellClass` so 18 call sites can't drift).",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/invoices-segment.tsx",
+        "line": 313,
+        "severity": "med",
+        "rule": "DESIGN.md §7: spacing in multiples of 4px/8px. 14px exists in the spec only as widget-internal padding (SM tier '14px 18px 12px'), never as a vertical stack rhythm.",
+        "evidence": "<div className=\"space-y-[14px]\"> — improvised 14px section rhythm appears 5×: invoices-segment.tsx:301 and :313, estimates-segment.tsx:243, expenses-segment.tsx:14, sync-segment.tsx:277.",
+        "fix": "space-y-2 (16px) — or space-y-1.5 (12px) — for the workbar→filters→table stack; pick one and use it in all four segments.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/ledger-strip.tsx",
+        "line": 309,
+        "severity": "med",
+        "rule": "DESIGN.md §7 Canvas: 'Panel gap 24px'. Glass panels sit 24px apart; 16px is the wrong token.",
+        "evidence": "<div className=\"grid grid-cols-2 gap-2 xl:grid-cols-4\"> — gap-2 = 16px between glass-surface tiles (also ledger-strip.tsx:330). Same 16px panel gaps in ar-aging-view.tsx:171 (`grid grid-cols-1 gap-2 lg:grid-cols-2`) and :157 (`space-y-2`), sync-segment.tsx:286/288. books-page.tsx:204 `space-y-3` (24px) gets it right at the top level, then every interior panel grid drops to 16px.",
+        "fix": "gap-3 / space-y-3 (24px) between sibling glass panels, per §7 — or, if the instrument-strip tiles are argued to be one composite widget, document that exception; the A/R aging and sync grids are unambiguous panels and must be 24px.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/ledger-strip.tsx",
+        "line": 86,
+        "severity": "med",
+        "rule": "DESIGN.md §7 Widget internals: SM tier padding is '14px 18px 12px' (top/sides/bottom). The tile uses 16px top / 18px sides / 14px bottom — sides match, top and bottom are off-zone.",
+        "evidence": "\"glass-surface flex min-h-[132px] flex-col px-[18px] pb-[14px] pt-2 text-left\", — pt-2 = 16px (spec top: 14px), pb-[14px] (spec bottom: 12px). Repeated in TileSkeleton, ledger-strip.tsx:269 (`px-[18px] pb-[14px] pt-2`) and the error strip :316 (`px-[18px] py-2`).",
+        "fix": "pt-[14px] px-[18px] pb-[12px] to land exactly on the SM widget zone — or, given the 132px height is closer to MD, 18px 24px 20px. Either way every value must come from one §7 row, not a blend.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-drawer.tsx",
+        "line": 272,
+        "severity": "med",
+        "rule": "DESIGN.md §7: panel padding zones are fixed (header '22px 30px 6px', body '16px 30px 34px') and all spacing is 4/8-multiples; '12px 14px 10px' and '9px 14px' match no zone and sit off-grid (9, 10, 14).",
+        "evidence": "padding: \"12px 14px 10px\", — improvised drawer padding dialect repeated in inline styles: notifications-drawer.tsx:272 (header) and :459 (footer `padding: \"9px 14px\"`), notifications-row.tsx:113 (`padding: \"9px 14px\"`), quick-actions-drawer.tsx:201 (header `\"12px 14px 10px\"`) and :354 (footer `\"9px 14px\"`).",
+        "fix": "Normalize the rail drawers onto grid values — 12px 16px 8px header, 8px 16px footer, 8px 16px rows (or adopt the §7 panel zones scaled to the 360px drawer) — and define them once in edge-rail-layout.ts instead of five inline literals.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/i18n/dictionaries/es/notifications.json",
+        "line": 2,
+        "severity": "med",
+        "rule": "es dictionary parity required for every namespace — the es files for the P2 shell namespaces are untranslated EN mirrors, so the entire notifications drawer and quick-actions chrome renders English for Spanish users (and ships a literal TODO marker).",
+        "evidence": "\"__\": \"TODO: ES translation pass — currently mirrors EN for consistent keys\"  — every value EN: \"drawer.title\": \"NOTIFICATIONS\", \"footer.clearAll\": \"CLEAR ALL\", \"empty.allClear\": \"// NO NOTIFICATIONS\"… Repeats in es/quick-actions.json:2 (same \"__\" TODO; \"drawer.title\": \"QUICK ACTIONS\", \"footer.customize\": \"CUSTOMIZE\", \"empty.noActions\": \"[ no actions available ]\" all EN — only the 9 action.* rows are translated).",
+        "fix": "Translate both es files and delete the \"__\" TODO keys: es/notifications.json → \"drawer.title\": \"NOTIFICACIONES\", \"footer.clearAll\": \"BORRAR TODO\", \"empty.allClear\": \"// SIN NOTIFICACIONES\", \"row.dismiss\": \"DESCARTAR\", \"footer.lastSync\": \"SYS :: SINCR {time}\" etc.; es/quick-actions.json → \"drawer.title\": \"ACCIONES RÁPIDAS\", \"footer.customize\": \"PERSONALIZAR\", \"empty.noActions\": \"[ sin acciones disponibles ]\" etc.",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/i18n/dictionaries/en/notifications.json",
+        "line": 28,
+        "severity": "med",
+        "rule": "DESIGN.md §2 Prefixes: system state carries the `SYS ::` prefix (voice example: `SYS :: SYNC FAILED · 08:42`). The drawer's own header comment (notifications-drawer.tsx:8) promises \"a `SYS :: SYNC hh:mm` + CLEAR ALL footer\" — the shipped string dropped the prefix.",
+        "evidence": "\"footer.lastSync\": \"LAST SYNC {time}\"  — rendered at notifications-drawer.tsx:472 `{t(\"footer.lastSync\").replace(\"{time}\", syncTime)}` (es mirror identical)",
+        "fix": "\"footer.lastSync\": \"SYS :: SYNC {time}\" in en (es: \"SYS :: SINCR {time}\"), matching the in-file spec comment and the existing on-spec sibling key \"empty.error\": \"// SYS :: SYNC ERROR\".",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/ledger-strip.tsx",
+        "line": 25,
+        "severity": "med",
+        "rule": "i18n: number/currency formatting must follow the active locale (the codebase's own pattern is getDateLocale(locale) via useLocale) — hardcoding \"en-US\" gives Spanish users English-formatted figures.",
+        "evidence": "const body = new Intl.NumberFormat(\"en-US\", {\n    style: \"currency\",\n    currency: \"USD\",  — repeats ×3: segment-toolbar.tsx:148 `return new Intl.NumberFormat(\"en-US\", {` and segment-toolbar.tsx:158 `return new Intl.NumberFormat(\"en-US\").format(metric.value);`",
+        "fix": "Thread the active locale through: `const { locale } = useLocale();` and `new Intl.NumberFormat(getDateLocale(locale), { style: \"currency\", currency: \"USD\", maximumFractionDigits: 0 })` in fmtMoney and formatMetricValue (pass locale as a parameter since formatMetricValue is a plain function).",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/sync-segment.tsx",
+        "line": 194,
+        "severity": "med",
+        "rule": "User-facing strings must flow through useDictionary — the sync-history row prints raw English status enum values (\"success\"/\"error\"/\"pending\") as display copy, never localized.",
+        "evidence": "{entry.provider} — {entry.status}",
+        "fix": "Resolve both through the accounting namespace: `{t(`integrations.provider.${entry.provider}`)} — {t(`integrations.status.${entry.status}`)}` with en entries (\"SUCCESS\"/\"ERROR\"/\"PENDING\") and es entries (\"ÉXITO\"/\"ERROR\"/\"PENDIENTE\") added to both dictionaries.",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/modals/record-payment-modal.tsx",
+        "line": 88,
+        "severity": "med",
+        "rule": "DESIGN.md §2 Casing: \"Never Title Case Like This\" — this label renders in font-mono with no uppercase transform, so the Title Case dictionary value is user-visible (unlike the table headers, which CSS-uppercase it away).",
+        "evidence": "<span className=\"font-mono text-caption text-text-3\">{t(\"invoices.payment.balanceDue\")}</span>  — en/pipeline.json: \"invoices.payment.balanceDue\": \"Balance Due\"",
+        "fix": "Either change the dictionary value to sentence case (\"Balance due\" / es \"Saldo pendiente\") or render the summary labels in the tactical label tier: add `uppercase tracking-[0.14em]` so all three summary labels (Invoice/Total/Balance due) read as 11px uppercase mono metadata.",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/lib/utils/motion.ts",
+        "line": 346,
+        "severity": "med",
+        "rule": "DESIGN.md §8 duration table: \"Panel enter — 200ms\" (colors_and_type.css:123 `--d-panel: 200ms`); 260ms/220ms is an improvised value with a correct token.",
+        "evidence": "visible: { x: 0, opacity: 1, transition: { duration: 0.26, ease: EASE_SMOOTH } },  exit: { x: 360, opacity: 0, transition: { duration: 0.22, ease: EASE_SMOOTH } },  (drawerVariants, consumed at notifications-drawer.tsx:160) — duplicated at motion.ts:390-391 in quickActionsDrawerVariants (consumed at quick-actions-drawer.tsx:125-127).",
+        "fix": "transition: { duration: 0.2, ease: EASE_SMOOTH } for both drawers' visible state (exit 0.15–0.2), tracing to --d-panel.",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 75,
+        "severity": "med",
+        "rule": "DESIGN.md §8 duration table: \"Hover transitions — 150ms\" (`--d-hover: 150ms`); this hover reveal runs 200ms via blanket transition-all.",
+        "evidence": "<span className=\"max-w-0 overflow-hidden uppercase whitespace-nowrap transition-all duration-200 ease-smooth motion-reduce:transition-none group-hover:max-w-[80px] group-hover:mr-[6px]\">",
+        "fix": "className=\"max-w-0 overflow-hidden uppercase whitespace-nowrap transition-[max-width,margin] duration-150 ease-smooth motion-reduce:transition-none group-hover:max-w-[80px] group-hover:mr-[6px]\"",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-drawer.tsx",
+        "line": 354,
+        "severity": "med",
+        "rule": "DESIGN.md §8: hover/state transitions are 150ms (`--d-hover`); 160ms is an improvised duration. Repeats ×3 in this file.",
+        "evidence": ": \"background 160ms var(--ease-smooth), border-color 160ms var(--ease-smooth), color 160ms var(--ease-smooth)\",  — also line 368 `: \"opacity 160ms var(--ease-smooth)\",` and line 380 `: \"color 160ms var(--ease-smooth), opacity 160ms var(--ease-smooth)\",`",
+        "fix": "Use the token value at all three sites: \"background 150ms var(--ease-smooth), border-color 150ms var(--ease-smooth), color 150ms var(--ease-smooth)\" (ideally referencing var(--d-hover)).",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-row.tsx",
+        "line": 119,
+        "severity": "med",
+        "rule": "DESIGN.md §8: hover transitions are 150ms (`--d-hover: 150ms`); 120ms is improvised (curve is correct).",
+        "evidence": ": \"background 120ms cubic-bezier(0.22,1,0.36,1)\",",
+        "fix": ": \"background 150ms var(--ease-smooth)\",",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/lib/utils/motion.ts",
+        "line": 407,
+        "severity": "med",
+        "rule": "DESIGN.md §8 duration table: \"Row stagger entrance — 300ms + 50ms/item\"; the quick-actions rows enter at 200ms + 30ms/item.",
+        "evidence": "transition: { delay: i * 0.03, duration: 0.2, ease: EASE_SMOOTH },  (quickActionsRowVariants, consumed at quick-actions-drawer.tsx:285 `variants={rowVariants}`)",
+        "fix": "transition: { delay: i * 0.05, duration: 0.3, ease: EASE_SMOOTH },",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/invoices-segment.tsx",
+        "line": 485,
+        "severity": "med",
+        "rule": "DESIGN.md §11: \"Icons are metadata, not actions.\" Kit row anatomy (Widget.jsx JobRow): name Mohave 14 + mono metadata + badge + mono value — zero per-row controls. A trailing toolbar of icon-only buttons is the canonical generic-admin-dashboard pattern.",
+        "evidence": "invoices-segment.tsx:485-541 — up to five icon-only `<button>`s per row (Download, Send, DollarSign, Ban, Trash2), e.g. line 488 `className=\"rounded p-[4px] text-text-3 transition-colors hover:bg-surface-active hover:text-text disabled:opacity-50\"`. Repeats estimates-segment.tsx:393-437. 2 tables, ~9 icon-action buttons.",
+        "fix": "Match the kit row: row body = data only (number mono 13, client Mohave 14, mono dates/values, status tag); row click opens the document (already wired), and verbs move to the detail/modal surface or a single labelled overflow — Cake Mono 14px labelled buttons, not bare glyphs.",
+        "dimension": "composition"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 186,
+        "severity": "med",
+        "rule": "Kit TopBar anatomy (TopBar.jsx): 58px bar on `--glass` rgba(18,18,20,0.58) + blur(28px) saturate(1.3) with `borderBottom: 1px solid --line`. DESIGN.md §5: the two glass tiers are the only sanctioned surfaces; no improvised recipes.",
+        "evidence": "top-bar.tsx:186 `<header className=\"h-[56px] flex items-center px-3 shrink-0 relative bg-transparent min-w-0\">` — the bar is transparent with no hairline; chrome is rebuilt as floating chips on a private glass recipe, top-bar.tsx:68 `\"bg-[rgba(10,10,10,0.25)] backdrop-blur-[12px] [-webkit-backdrop-filter:blur(12px)_saturate(1.1)]\",` (repeats at 194, 265, 300 — 4×).",
+        "fix": "Either restore the kit bar (`.glass-surface` background, `border-b border-line`) or, if the floating-chip composition stays, build each chip from tokens: `background: var(--glass)`, `backdrop-filter: blur(28px) saturate(1.3)`, `border: 1px solid var(--glass-border)`.",
+        "dimension": "composition"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-drawer.tsx",
+        "line": 291,
+        "severity": "med",
+        "rule": "DESIGN.md §10 widget anatomy + §4 type scale: panel title = `// TITLE`, JetBrains Mono 11px uppercase, letter-spacing 0.16em, --text-3, one run including the slash (Widget.jsx title+slash). Cake Mono has no 13px role (14 button / 11 badge).",
+        "evidence": "notifications-drawer.tsx:289-294 `fontFamily: \"var(--font-cakemono)\", fontWeight: 300, fontSize: 13, color: \"var(--text)\", textTransform: \"uppercase\", letterSpacing: \"0.08em\"` with a detached mono-10 slash at 279-284. Identical header at quick-actions-drawer.tsx:219-225. 2 drawers.",
+        "fix": "Render the drawer header exactly as the kit widget header: one `font-mono` 11px uppercase tracking-0.16em --text-3 span — `<span style=\"color:var(--text-mute)\">// </span>NOTIFICATIONS` — slash in --text-mute, no Cake Mono, no 13px.",
+        "dimension": "composition"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/invoices-segment.tsx",
+        "line": 287,
+        "severity": "med",
+        "rule": "DESIGN.md §9 buttons: Cake Mono 300, 14px, `min-height: 36px`, `padding: 9px 16px`, radius 5px. 12px Cake Mono exists nowhere on the type scale.",
+        "evidence": "invoices-segment.tsx:287 `className=\"inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[12px] font-light uppercase text-ops-accent...\"`; same at estimates-segment.tsx:257; segment-toolbar.tsx:43-44 `\"inline-flex h-[22px] items-center gap-1 rounded-[5px] px-1.5\", \"font-cakemono text-[12px] font-light uppercase\"` (segment control). 3 locations.",
+        "fix": "Primary workbar button: `min-h-[36px] px-2 font-cakemono font-light text-button-sm` → Cake Mono 14px on a 36px control. Segment-control tabs: use the toggle voice — JetBrains Mono 11px uppercase category labels — or Cake 14 inside a 36px track; never Cake Mono at 12px.",
+        "dimension": "composition"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 439,
+        "severity": "med",
+        "rule": "DESIGN.md §5 surface table: sidebar = `.glass-surface` rgba(18,18,20,0.58); `.glass-dense` (0.78) is reserved for modals/popovers/dropdowns/toasts. Blur is always 28px saturate(1.3).",
+        "evidence": "sidebar.tsx:439 `background: \"var(--surface-glass-dense)\",` (globals.css:42 = rgba(18,18,20,0.78)) on the nav rail; the tooltip chip also improvises sidebar.tsx:561-562 `background: \"var(--surface-glass-dense)\", backdropFilter: \"blur(12px) saturate(1.2)\"` (blur-12 recipe repeats in top-bar.tsx:285-286).",
+        "fix": "Rail: `background: var(--glass)` (0.58 tier) + `blur(28px) saturate(1.3)`. Tooltip/popovers correctly use dense — but with the canonical `blur(28px) saturate(1.3)` and `border: 1px solid var(--glass-border)`.",
+        "dimension": "composition"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 426,
+        "severity": "med",
+        "rule": "DESIGN.md §5 borders: standard hairline `--line` rgba(255,255,255,0.10); glass edge `--glass-border` 0.09. No third tier exists.",
+        "evidence": "Improvised 0.04–0.06 hairlines (12×): sidebar.tsx:426 `\"border-r border-[rgba(255,255,255,0.06)]\",`, 447, 520; top-bar.tsx:69, 195, 266, 301; operator-menu.tsx:146; notifications-drawer.tsx:273, 321, 460; notifications-row.tsx:116 (`borderTop: \"1px solid rgba(255,255,255,0.04)\"`); quick-actions-drawer.tsx:202, 355.",
+        "fix": "Replace every rgba(255,255,255,0.04/0.06) hairline with `var(--line)` (`border-line`), or `var(--glass-border)` on glass panel edges — the shell must draw the same hairline the kit draws.",
+        "dimension": "composition"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-row.tsx",
+        "line": 152,
+        "severity": "med",
+        "rule": "DESIGN.md §6 radius table: buttons/inputs 5px, tags/chips 4px, bars 2px, sidebar item 6px. 2.5px and 8px are not web radii (2.5 is the iOS OPSStyle `rounded-sm` leaking in).",
+        "evidence": "notifications-row.tsx:152 `borderRadius: 2.5,` (also 195, 227, 305, 347 — icon chips and action buttons); sidebar.tsx:166 `\"h-[40px] w-[40px] rounded-[8px] transition-colors duration-150...\"`; sync-segment.tsx:82 `rounded-[8px] bg-fill-neutral-dim`; top-bar.tsx:66 `h-[40px] px-[12px] rounded-[4px]` on button-class controls (also 192, 264, 299). 10 locations.",
+        "fix": "Buttons/inputs (incl. the 40px top-bar controls and row action buttons) → `rounded-[5px]` (--r-btn); tag-like icon chips → `rounded-[4px]` (--r-chip); the 40px nav icon tile → `rounded-[6px]` (--r-item).",
+        "dimension": "composition"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 239,
+        "severity": "med",
+        "rule": "Kit TopBar breadcrumb: JetBrains Mono 11px uppercase tracking 0.16em with `//` separator in --text-mute; uppercase display voice belongs to Cake Mono 300 (§4) — Mohave never carries tracked-uppercase headings.",
+        "evidence": "top-bar.tsx:239 `<span className=\"font-mohave text-heading text-text uppercase tracking-wider truncate\">` (nested page title, Mohave 22px uppercase); crumbs at 218/233 `className=\"font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors uppercase tracking-wider\"`; separator at 211/238 `<span className=\"text-text-mute font-mono text-body-sm\">/</span>` — `/` not `//`, 14px not 11px.",
+        "fix": "Crumb trail: `font-mono text-micro uppercase tracking-[0.16em] text-text-3` with `<span class=\"text-text-mute\">//</span>` separators; leaf entity title: `font-cakemono font-light text-heading uppercase` (Cake Mono 300 22px), matching the root-route h1.",
+        "dimension": "composition"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/sync-segment.tsx",
+        "line": 357,
+        "severity": "med",
+        "rule": "DESIGN.md §4: Mohave carries sentence-case body copy (.t-body 14px); JetBrains Mono is for numbers, timestamps, micro labels and `//` prefixes — never paragraphs.",
+        "evidence": "sync-segment.tsx:357 `<p className=\"font-mono text-micro leading-relaxed text-text-2\">` — three full explainer paragraphs set in 11px mono (\"how sync works\"); also mono sentence helpers at invoices-segment.tsx:362 and estimates-segment.tsx:301 `<p className=\"mt-0.5 font-mono text-caption text-text-3\">`. 3 locations.",
+        "fix": "Sentence-case copy → `font-mohave text-body-sm text-text-2` (Mohave 14px); keep only the numbered chips and timestamps in mono.",
+        "dimension": "composition"
+      }
+    ],
+    "low": [
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segments/invoices-segment.tsx",
+        "line": 357,
+        "severity": "low",
+        "rule": "DESIGN.md §11: icons inherit currentColor — '--text-3 at rest, --text-2 on hover, --text when active'. text-mute is not an icon state.",
+        "evidence": "<Receipt className=\"mb-2 h-[32px] w-[32px] text-text-mute\" />  — empty-state hero icon below the icon color floor. Also: estimates-segment.tsx:296 (FileText), sync-segment.tsx:323,:329 (Loader2 spinners), operator-menu.tsx:65 (ArrowUpRight).",
+        "fix": "className=\"mb-2 h-[32px] w-[32px] text-text-3\" — rest-state icons sit at --text-3 across all five sites.",
+        "dimension": "color-accent"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 532,
+        "severity": "low",
+        "rule": "DESIGN.md §13: brand mark on dark backgrounds renders in --text (#EDEDED), monochrome via currentColor.",
+        "evidence": "className=\"h-[14px] w-auto shrink-0 select-none text-text-mute opacity-50\"  — the OPS mark is double-dimmed (text-mute × 50% opacity ≈ #353535), well below any spec'd treatment for the mark.",
+        "fix": "Render the mark at a single on-ladder value — `text-text-3` with no opacity multiplier (or `text-text` per §13 if full brand presence is intended); never stack opacity on a text-ladder color.",
+        "dimension": "color-accent"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-row.tsx",
+        "line": 169,
+        "severity": "low",
+        "rule": "DESIGN.md §4 Type scale: Body / name = Mohave 400 at 14px — 13.5px/13px/12px are improvised off-grid sizes",
+        "evidence": "fontSize: 13.5, — notification title in Mohave at a fractional 13.5px. Same class: notifications-row.tsx:281 (fontSize: 12 Mohave body), quick-actions-drawer.tsx:319 (fontSize: 13 Mohave action label), operator-menu.tsx:156 (`font-mohave text-[12px]` email line).",
+        "fix": "Normalize to the 14px Mohave body token (`fontSize: 14` / `text-body-sm`); secondary lines that must read smaller use the mono 11px metadata tier instead of shrinking Mohave below scale.",
+        "dimension": "typography"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/operator-menu.tsx",
+        "line": 45,
+        "severity": "low",
+        "rule": "colors_and_type.css: Cake Mono letter-spacing is the token `--font-cakemono-tracking: 0em` (badge tier 0.08em) — per-callsite tracking values are improvised",
+        "evidence": "\"font-cakemono font-light text-[13px] uppercase tracking-[0.02em] text-text-2\", — ad-hoc Cake Mono tracking values scattered across the shell: operator-menu.tsx:45 (0.02em), sidebar.tsx:193 (0.02em), sidebar.tsx:565 (0.04em), notifications-drawer.tsx:294 + quick-actions-drawer.tsx:224 (letterSpacing \"0.08em\" on 13px titles), notifications-row.tsx:192/302/344 (0.08em on 10px buttons).",
+        "fix": "Drop per-site tracking and inherit the token: `letter-spacing: var(--font-cakemono-tracking)` (0em) for button/title-tier Cake Mono; 0.08em only at the 11px badge tier.",
+        "dimension": "typography"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 195,
+        "severity": "low",
+        "rule": "Borders are hairlines rgba(255,255,255,0.06–0.10); the only sanctioned brighter values are 0.18 (toggle active) and 0.20 (input focus). 0.14 traces to no token.",
+        "evidence": "\"border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.14)]\" — top-bar.tsx:195, :267, :302; also quick-actions-drawer.tsx:241: border: \"1px solid rgba(255,255,255,0.14)\" on the Q shortcut chip.",
+        "fix": "Hover-brighten to the top of the hairline range: hover:border-[rgba(255,255,255,0.10)] (--line); QA shortcut chip border → var(--line) per the §12 kbd spec.",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/segment-toolbar.tsx",
+        "line": 32,
+        "severity": "low",
+        "rule": "Radius scale: 6px is the sidebar-item radius. A segmented control is a toggle group — its container has no 6px sanction; the scale offers 5px (control) or 4px (chip).",
+        "evidence": "<div className=\"inline-flex h-[28px] items-center gap-[2px] rounded-[6px] border border-border p-[2px]\" role=\"tablist\">",
+        "fix": "rounded-[5px] on the container (inner segment buttons at :43 already use rounded-[5px]; with p-[2px] the optical nesting stays clean).",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 322,
+        "severity": "low",
+        "rule": "DESIGN.md §12 keyboard hints: chip variant is rgba(255,255,255,0.06) bg, --line border, 3px radius. Bare `rounded` resolves to 5px in this project's Tailwind (DEFAULT: \"5px\").",
+        "evidence": "<kbd className=\"ml-auto font-mono text-micro text-text-mute bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] rounded px-[5px] py-[1px] hidden sm:inline\">",
+        "fix": "rounded-[3px] — bg and border are already on-token; only the radius drifts from the kbd spec.",
+        "dimension": "surfaces-depth"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 554,
+        "severity": "low",
+        "rule": "DESIGN.md §7: 4/8px grid — 9px and 5px padding are improvised; the spec's nearest pattern (kbd chip / tag) uses on-grid 0 5px or 2px 6px, and panel-ish chrome uses 8px steps.",
+        "evidence": "className=\"pointer-events-none z-[1000] -translate-y-1/2 animate-fade-in rounded-[6px] border border-[rgba(255,255,255,0.10)] px-[9px] py-[5px] motion-reduce:animate-none\"",
+        "fix": "px-1 py-0.5 (8px / 4px) for the rail tooltip chip.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 330,
+        "severity": "low",
+        "rule": "DESIGN.md §7: spacing in multiples of 4px/8px — 10px and 6px gaps are off-grid.",
+        "evidence": "<div className=\"flex items-center gap-[10px] shrink-0\"> — plus gap-[6px] at top-bar.tsx:205, :209, :254, :299.",
+        "fix": "gap-1 (8px) for both; the 2px difference is invisible and the values return to the token grid.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/sidebar.tsx",
+        "line": 489,
+        "severity": "low",
+        "rule": "DESIGN.md §7: 4/8px grid — 3px is off-grid (and differs from the drawer's 2px for the same role).",
+        "evidence": "className={cn(expanded ? \"mb-[2px]\" : \"mb-[3px] px-2\")}",
+        "fix": "mb-0.5 (4px) in both modes, or mb-[2px] in both if the tighter rail stack is intentional — one value for one role.",
+        "dimension": "spacing-layout"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/i18n/dictionaries/en/books.json",
+        "line": 27,
+        "severity": "low",
+        "rule": "DESIGN.md §2 Errors: \"`// ERROR — UPLOAD FAILED`, not 'Something went wrong'. Name the thing.\" A bare \"ERROR\" names nothing.",
+        "evidence": "\"ledger.error\": \"ERROR\",  — rendered at ledger-strip.tsx:317–319 as `// ERROR` next to the RETRY button",
+        "fix": "\"ledger.error\": \"ERROR — LEDGER UNAVAILABLE\" (es: \"ERROR — LIBRO MAYOR NO DISPONIBLE\") so the strip reads `// ERROR — LEDGER UNAVAILABLE` + RETRY, naming the failed thing and offering the next action.",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/top-bar.tsx",
+        "line": 240,
+        "severity": "low",
+        "rule": "DESIGN.md §14 bans raw unformatted data as display copy — the breadcrumb's last-resort fallback prints the raw URL segment (a slug or UUID) as the uppercase page title until the breadcrumb store hydrates.",
+        "evidence": "<span className=\"font-mohave text-heading text-text uppercase tracking-wider truncate\">\n              {entityName || segments[segments.length - 1]}\n            </span>",
+        "fix": "Fall back to the formatted form, never the raw segment: `{entityName || formatEnumLabel(segments[segments.length - 1])}` (strips hyphens/underscores), and render `—` instead when the segment is an ID (e.g. /^[0-9a-f-]{20,}$/) until entityName resolves.",
+        "dimension": "voice-copy-i18n"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/books/ledger-strip.tsx",
+        "line": 269,
+        "severity": "low",
+        "rule": "DESIGN.md §8: one easing curve everywhere — Tailwind's stock `animate-pulse` runs cubic-bezier(0.4, 0, 0.6, 1), not the OPS curve. ×5 across Books (all correctly carry motion-reduce:animate-none, so only the curve is off).",
+        "evidence": "<div className=\"glass-surface min-h-[132px] animate-pulse px-[18px] pb-[14px] pt-2 motion-reduce:animate-none\">  — also invoices-segment.tsx:350, estimates-segment.tsx:289, estimate-form-modal.tsx:185, invoice-form-modal.tsx:194.",
+        "fix": "Override the stock animation in tailwind.config.ts: animation: { pulse: \"pulse 2s cubic-bezier(0.22, 1, 0.36, 1) infinite\" } so every existing `animate-pulse` skeleton inherits the OPS curve with no call-site changes.",
+        "dimension": "motion"
+      },
+      {
+        "file": "/Users/jacksonsweet/Projects/OPS/ops-web-overhaul-p2-shell/src/components/layouts/notifications-row.tsx",
+        "line": 169,
+        "severity": "low",
+        "rule": "DESIGN.md §4 type scale (row primary text / body = Mohave 14) and §8 motion table (hover = 150ms): no 13.5px/12px Mohave roles, no 120ms/160ms durations.",
+        "evidence": "notifications-row.tsx:169 `fontSize: 13.5,` (row title), 282 `fontSize: 12,` Mohave body; operator-menu.tsx:156 `font-mohave text-[12px]` email; quick-actions-drawer.tsx:319 `fontSize: 13` Mohave row label; off-curve durations: notifications-row.tsx:119 `: \"background 120ms cubic-bezier(0.22,1,0.36,1)\",`, notifications-drawer.tsx:354 `\"background 160ms var(--ease-smooth), border-color 160ms var(--ease-smooth), color 160ms var(--ease-smooth)\"`. 6+ locations.",
+        "fix": "Row titles and body → 14px (Mohave 14 / .t-body); metadata → mono 11. All hover transitions → `150ms var(--ease-smooth)` (the --d-hover token).",
+        "dimension": "composition"
+      }
+    ],
+    "totals": {
+      "all": 76,
+      "high": 20,
+      "confirmedHigh": 20
+    }
+  }
+}

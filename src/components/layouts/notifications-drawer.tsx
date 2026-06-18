@@ -40,6 +40,7 @@ import {
 import { useDictionary } from "@/i18n/client";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 import {
+  EDGE_DRAWER_PADDING,
   EDGE_RAIL_BOTTOM,
   EDGE_RAIL_STACK,
   EDGE_RAIL_TOP,
@@ -199,7 +200,7 @@ export function NotificationsDrawer() {
         key: "ambient",
         label: t("filters.ambient"),
         color: "var(--text-3)",
-        line: "rgba(255,255,255,0.12)",
+        line: "var(--line)",
         soft: "rgba(255,255,255,0.04)",
         count: counts.ambient,
       },
@@ -246,8 +247,8 @@ export function NotificationsDrawer() {
               WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               border: "1px solid var(--glass-border)",
               borderRight: "none",
-              borderTopLeftRadius: 10,
-              borderBottomLeftRadius: 10,
+              borderTopLeftRadius: 12,
+              borderBottomLeftRadius: 12,
               pointerEvents: "auto",
               overflow: "hidden",
             }}
@@ -269,32 +270,25 @@ export function NotificationsDrawer() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                padding: "12px 14px 10px",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                padding: EDGE_DRAWER_PADDING.header,
+                borderBottom: "1px solid var(--line)",
                 position: "relative",
               }}
             >
+              {/* Kit widget header: `// TITLE` — one JetBrains Mono 11px
+                  uppercase run, slash in --text-mute (Widget.jsx anatomy). */}
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  color: "var(--text-mute)",
+                  fontSize: 11,
                   letterSpacing: "0.16em",
-                }}
-              >
-                {"//"}
-              </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-cakemono)",
-                  fontWeight: 300,
-                  fontSize: 13,
-                  color: "var(--text)",
                   textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  marginLeft: 6,
+                  color: "var(--text-3)",
                 }}
               >
+                <span aria-hidden style={{ color: "var(--text-mute)" }}>
+                  {"// "}
+                </span>
                 {t("drawer.title")}
               </span>
               <span
@@ -303,7 +297,7 @@ export function NotificationsDrawer() {
                   fontSize: 11,
                   color: "var(--text-2)",
                   marginLeft: 8,
-                  fontVariantNumeric: "tabular-nums",
+                  fontFeatureSettings: '"tnum" 1, "zero" 1',
                 }}
               >
                 {notifs.length}
@@ -317,8 +311,8 @@ export function NotificationsDrawer() {
               style={{
                 display: "flex",
                 gap: 4,
-                padding: "8px 14px 10px",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                padding: EDGE_DRAWER_PADDING.row,
+                borderBottom: "1px solid var(--line)",
                 flexWrap: "nowrap",
                 overflowX: "hidden",
               }}
@@ -335,7 +329,7 @@ export function NotificationsDrawer() {
                     variants={reducedMotion ? undefined : chipVariants}
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 10,
+                      fontSize: 11,
                       letterSpacing: "0.12em",
                       padding: "4px 8px",
                       borderRadius: 4,
@@ -344,14 +338,14 @@ export function NotificationsDrawer() {
                       alignItems: "center",
                       gap: 6,
                       whiteSpace: "nowrap",
-                      background: active ? c.soft : "rgba(255,255,255,0.02)",
+                      background: active ? c.soft : "rgba(255,255,255,0.04)",
                       border: `1px solid ${
-                        active ? c.line : "rgba(255,255,255,0.08)"
+                        active ? c.line : "var(--line)"
                       }`,
                       color: active ? c.color : "var(--text-3)",
                       transition: reducedMotion
                         ? "none"
-                        : "background 160ms var(--ease-smooth), border-color 160ms var(--ease-smooth), color 160ms var(--ease-smooth)",
+                        : "background var(--d-hover) var(--ease-smooth), border-color var(--d-hover) var(--ease-smooth), color var(--d-hover) var(--ease-smooth)",
                     }}
                   >
                     {c.key !== "all" && (
@@ -365,19 +359,19 @@ export function NotificationsDrawer() {
                           opacity: active ? 1 : 0.55,
                           transition: reducedMotion
                             ? "none"
-                            : "opacity 160ms var(--ease-smooth)",
+                            : "opacity var(--d-hover) var(--ease-smooth)",
                         }}
                       />
                     )}
                     {c.label}
                     <span
                       style={{
-                        color: active ? c.color : "var(--text-mute)",
+                        color: active ? c.color : "var(--text-3)",
                         opacity: active ? 0.85 : 1,
                         fontVariantNumeric: "tabular-nums",
                         transition: reducedMotion
                           ? "none"
-                          : "color 160ms var(--ease-smooth), opacity 160ms var(--ease-smooth)",
+                          : "color var(--d-hover) var(--ease-smooth), opacity var(--d-hover) var(--ease-smooth)",
                       }}
                     >
                       {c.count}
@@ -397,12 +391,12 @@ export function NotificationsDrawer() {
               style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
             >
               {visible.length === 0 && (
-                <div style={{ padding: 28, textAlign: "center" }}>
+                <div style={{ padding: 24 }}>
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 10,
-                      color: "var(--text-mute)",
+                      fontSize: 11,
+                      color: "var(--text-3)",
                       letterSpacing: "0.16em",
                     }}
                   >
@@ -436,12 +430,12 @@ export function NotificationsDrawer() {
                 );
               })}
               {visible.length > 0 && (
-                <div style={{ padding: "10px 14px", textAlign: "center" }}>
+                <div style={{ padding: EDGE_DRAWER_PADDING.row }}>
                   <span
                     style={{
                       fontFamily: "var(--font-mono)",
-                      fontSize: 9,
-                      color: "var(--text-mute)",
+                      fontSize: 11,
+                      color: "var(--text-3)",
                       letterSpacing: "0.18em",
                     }}
                   >
@@ -456,17 +450,17 @@ export function NotificationsDrawer() {
               style={{
                 display: "flex",
                 alignItems: "center",
-                padding: "9px 14px",
-                borderTop: "1px solid rgba(255,255,255,0.06)",
+                padding: EDGE_DRAWER_PADDING.footer,
+                borderTop: "1px solid var(--line)",
               }}
             >
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
-                  color: "var(--text-mute)",
+                  fontSize: 11,
+                  color: "var(--text-3)",
                   letterSpacing: "0.14em",
-                  fontVariantNumeric: "tabular-nums",
+                  fontFeatureSettings: '"tnum" 1, "zero" 1',
                 }}
               >
                 {t("footer.lastSync").replace("{time}", syncTime)}
@@ -479,7 +473,7 @@ export function NotificationsDrawer() {
                 onClick={() => dismissAllMutation.mutate()}
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
+                  fontSize: 11,
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
                   color: "var(--text-3)",
