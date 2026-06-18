@@ -14,6 +14,11 @@ import { useAuthStore } from "@/lib/store/auth-store";
  * - `needsWebSetup` — true when EMPLOYER should be redirected to /setup
  * - `needsEmployeeOnboarding` — true when EMPLOYEE should be redirected to /employee-setup
  * - `missingSteps` — granular steps missing (for SetupInterceptionModal on action-gated pages)
+ * - `onboardingRoute` — the single destination a not-yet-onboarded user belongs at,
+ *   or null when onboarding is complete. Both the (auth) AuthRouteGate and the
+ *   DashboardLayout gate consume this so the redirect target can never drift.
+ *   A company-less user lands on /account-type (the "Run a Crew" vs "Join a Crew"
+ *   decision screen) — NOT /setup, which would skip the choice.
  */
 export function useSetupGate() {
   const { currentUser } = useAuthStore();
@@ -50,10 +55,22 @@ export function useSetupGate() {
     if (!hasCompany) missingSteps.push("company");
   }
 
+  // Single source of truth for the onboarding destination. A company-less user
+  // must choose an account type first (/account-type); only once a company
+  // exists does the employer resume the wizard at /setup.
+  const onboardingRoute: string | null = needsEmployeeOnboarding
+    ? "/employee-setup"
+    : needsWebSetup
+      ? currentUser?.companyId
+        ? "/setup"
+        : "/account-type"
+      : null;
+
   return {
     isComplete: webComplete,
     needsWebSetup,
     missingSteps,
     needsEmployeeOnboarding,
+    onboardingRoute,
   };
 }
