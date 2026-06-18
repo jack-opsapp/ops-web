@@ -321,7 +321,47 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
 
         <ClientSelector
           value={watch("clientId")}
-          onChange={(id) => setValue("clientId", id)}
+          onChange={(id) => {
+            setValue("clientId", id, { shouldDirty: true });
+            // When a client is linked, prefill the contact fields with the
+            // client's saved details so the operator doesn't have to retype
+            // information that already lives in the client record. Empty
+            // form fields are filled in; fields the user has already touched
+            // (i.e. non-empty) are preserved so we never overwrite work.
+            if (!id) return;
+            const client = clients.find((c) => c.id === id);
+            if (!client) return;
+            const currentName = watch("contactName");
+            const currentEmail = watch("contactEmail");
+            const currentPhone = watch("contactPhone");
+            const currentAddress = watch("address");
+            const currentTitle = watch("title");
+            if (!currentName.trim() && client.name) {
+              setValue("contactName", client.name, { shouldDirty: true });
+              // Mirror the auto-title behaviour that the contactName input's
+              // onChange handler provides for typed input.
+              if (!titleManuallyEdited && !currentTitle.trim()) {
+                setValue(
+                  "title",
+                  `${client.name} - ${t("quickAdd.leadSuffix")}`,
+                  { shouldDirty: true }
+                );
+              }
+            }
+            if (!currentEmail?.trim() && client.email) {
+              setValue("contactEmail", client.email, { shouldDirty: true });
+            }
+            if (!currentPhone?.trim() && client.phoneNumber) {
+              setValue(
+                "contactPhone",
+                formatPhoneInput(client.phoneNumber),
+                { shouldDirty: true }
+              );
+            }
+            if (!currentAddress?.trim() && client.address) {
+              setValue("address", client.address, { shouldDirty: true });
+            }
+          }}
           clients={clients}
         />
 

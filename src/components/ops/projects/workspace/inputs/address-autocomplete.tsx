@@ -276,7 +276,7 @@ export function AddressAutocomplete({
       <div className="relative">
         {!isInline ? (
           <MapPin
-            size={14}
+            size={16}
             strokeWidth={1.5}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
             style={{ color: "var(--text-3)" }}
@@ -324,7 +324,7 @@ export function AddressAutocomplete({
                 }
               : {
                   color: "var(--text)",
-                  paddingLeft: 32,
+                  paddingLeft: 36,
                   paddingRight: 12,
                   paddingTop: 9,
                   paddingBottom: 9,
