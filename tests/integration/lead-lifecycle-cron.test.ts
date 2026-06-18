@@ -404,6 +404,12 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
     // Captures inserts into the guarded-action audit table (the RPC writes the
     // real audit, but the duplicate-applied SELECT hits this table first).
     auditInserts?: unknown[];
+    // When set, the destructive candidate's latest meaningful inbound carries
+    // this provider thread id, and `email_threads` resolves it to
+    // `reviewThreadInternalId` — exercising the inbox deep-link branch of the
+    // review notification target (vs. the pipeline fallback).
+    reviewThreadProviderId?: string;
+    reviewThreadInternalId?: string;
   }) {
     return (table: string) => {
       if (table === "opportunity_correspondence_events") {
@@ -428,8 +434,8 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
             events.push({
               id: opts.reactivate ? "evt-react" : "evt-dx",
               opportunity_id: DESTRUCTIVE_OPP,
-              connection_id: null,
-              provider_thread_id: null,
+              connection_id: opts.reviewThreadProviderId ? "conn-review" : null,
+              provider_thread_id: opts.reviewThreadProviderId ?? null,
               direction: "inbound",
               party_role: "customer",
               is_meaningful: true,
@@ -457,6 +463,22 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
           });
         case "email_connections":
           return makeChain({ selectResult: () => ({ data: [], error: null }) });
+        case "email_threads":
+          // Resolves the review notification's inbox deep-link target. Returns
+          // the internal thread id only when the by-provider lookup matches the
+          // configured provider thread id.
+          return makeChain({
+            selectResult: (filters) =>
+              opts.reviewThreadInternalId &&
+              filters.some(
+                (f) =>
+                  f[0] === "eq" &&
+                  f[1] === "provider_thread_id" &&
+                  f[2] === opts.reviewThreadProviderId
+              )
+                ? { data: [{ id: opts.reviewThreadInternalId }], error: null }
+                : { data: [], error: null },
+          });
         case "opportunities":
           return makeChain({
             selectResult: () => ({
@@ -666,10 +688,40 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
     expect(review.dedupe_key).toBe(
       `lead_lifecycle:destructive_candidate:${DESTRUCTIVE_OPP}:reactivate_on_related_inbound`
     );
+    expect(review.deep_link_type).toBe("lead");
     expect(review.action_url).toBe(`/pipeline?opportunityId=${DESTRUCTIVE_OPP}`);
     expect(review.action_label).toBe("Review");
     expect(draftInserts).toHaveLength(0);
     expect(supabaseRpcMock).not.toHaveBeenCalled();
+  });
+
+  it("deep-links the review notification to the inbox thread while still carrying the opportunity id", async () => {
+    const draftInserts: unknown[] = [];
+    const notificationInserts: unknown[] = [];
+    supabaseFromMock.mockImplementation(
+      destructiveHandlers({
+        fragmented: false,
+        reactivate: true,
+        draftInserts,
+        notificationInserts,
+        settings: { auto_archive_enabled: false, auto_lost_enabled: false },
+        reviewThreadProviderId: "provider-thread-review",
+        reviewThreadInternalId: "thread-internal-review",
+      })
+    );
+
+    const res = await GET(buildRequest("Bearer test-secret"));
+    expect(res.status).toBe(200);
+
+    expect(notificationInserts).toHaveLength(1);
+    const review = notificationInserts[0] as any;
+    // Web keeps the inbox thread surface; the opportunity id rides along as a
+    // query param, and deep_link_type routes iOS straight to the lead.
+    expect(review.deep_link_type).toBe("lead");
+    expect(review.action_url).toBe(
+      `/inbox/thread-internal-review?opportunityId=${DESTRUCTIVE_OPP}`
+    );
+    expect(review.action_label).toBe("Review");
   });
 
   it("flags a destructive decision on a fragmented opportunity as skipped-fragmented and emits no review notification", async () => {

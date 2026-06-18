@@ -30,6 +30,16 @@ export type NotificationType =
   | "accounting_import_complete"
   | "accounting_sync";
 
+/**
+ * Routable deep-link discriminator persisted on `notifications.deep_link_type`.
+ * Both clients (iOS + web) switch on this FIRST, falling back to `type` only for
+ * legacy rows that predate the column. The vocabulary is shared and documented
+ * in ops-software-bible §14.3.1; keep new values in sync there. Typed as a
+ * loose `string` on purpose — the column is intentionally free-form and iOS may
+ * ship values the web has not enumerated yet.
+ */
+export type NotificationDeepLinkType = string;
+
 export interface AppNotification {
   id: string;
   userId: string;
@@ -74,6 +84,13 @@ export interface CreateNotificationParams {
   actionUrl?: string;
   actionLabel?: string;
   projectId?: string;
+  /**
+   * Routable deep-link discriminator (e.g. `lead`, `inbox`). Stamped on the row
+   * so clients never have to re-derive the destination from `action_url` or a
+   * downstream join at tap time. Omit for notifications whose only action is
+   * "mark read".
+   */
+  deepLinkType?: NotificationDeepLinkType;
 }
 
 export const NotificationService = {
@@ -87,7 +104,14 @@ export const NotificationService = {
   async create(params: CreateNotificationParams): Promise<void> {
     const supabase = requireSupabase();
 
-    const { error } = await supabase.rpc("create_notification_if_new", {
+    // `p_deep_link_type` is only included when the caller sets it. PostgREST
+    // resolves an RPC by the SET of named args; a caller that omits it keeps
+    // sending the original nine, which resolve against either the pre- or
+    // post-migration signature — so deploy order can't silently drop these
+    // notifications. Only deep-link-aware callers require the migrated 10-arg
+    // function (migration 20260609181500), and that migration must land before
+    // their code deploys.
+    const rpcArgs: Record<string, unknown> = {
       p_user_id: params.userId,
       p_company_id: params.companyId,
       p_type: params.type,
@@ -97,7 +121,12 @@ export const NotificationService = {
       p_action_url: params.actionUrl ?? null,
       p_action_label: params.actionLabel ?? null,
       p_project_id: params.projectId ?? null,
-    });
+    };
+    if (params.deepLinkType !== undefined) {
+      rpcArgs.p_deep_link_type = params.deepLinkType;
+    }
+
+    const { error } = await supabase.rpc("create_notification_if_new", rpcArgs);
 
     if (error) {
       console.error("[NotificationService.create] Failed:", error.message);

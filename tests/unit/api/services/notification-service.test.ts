@@ -143,4 +143,55 @@ describe("NotificationService", () => {
       { method: "order", column: "created_at", options: { ascending: false } },
     ]);
   });
+
+  it("forwards deepLinkType to the create_notification_if_new RPC", async () => {
+    const rpc = vi.fn(async () => ({ error: null }));
+    requireSupabaseMock.mockReturnValue({ rpc } as never);
+
+    await NotificationService.create({
+      userId: "user-1",
+      companyId: "company-1",
+      type: "leads_waiting",
+      title: "New lead: Acme",
+      body: "Re: Quote",
+      actionUrl: "/inbox?thread=thr-1&opportunityId=opp-1",
+      actionLabel: "Open thread",
+      deepLinkType: "inbox",
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "create_notification_if_new",
+      expect.objectContaining({ p_deep_link_type: "inbox" })
+    );
+  });
+
+  it("omits p_deep_link_type entirely when deepLinkType is not set, so the call stays resolvable against the pre-migration 9-arg RPC", async () => {
+    const rpc = vi.fn(async () => ({ error: null }));
+    requireSupabaseMock.mockReturnValue({ rpc } as never);
+
+    await NotificationService.create({
+      userId: "user-1",
+      companyId: "company-1",
+      type: "mention",
+      title: "Someone mentioned you",
+      body: "",
+    });
+
+    const args = rpc.mock.calls[0][1] as Record<string, unknown>;
+    expect("p_deep_link_type" in args).toBe(false);
+    // The original nine named args are still all present.
+    expect(Object.keys(args).sort()).toEqual(
+      [
+        "p_user_id",
+        "p_company_id",
+        "p_type",
+        "p_title",
+        "p_body",
+        "p_persistent",
+        "p_action_url",
+        "p_action_label",
+        "p_project_id",
+      ].sort()
+    );
+  });
 });
