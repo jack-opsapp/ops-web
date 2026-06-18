@@ -99,6 +99,7 @@ function makeSupabase() {
       }),
       select: () => api,
       eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return api; },
+      or: () => api,
       single: () => {
         const r = rows.filter((row) => filters.every((f) => f(row)))[0] ?? null;
         return Promise.resolve({ data: r, error: r ? null : { message: "not found" } });

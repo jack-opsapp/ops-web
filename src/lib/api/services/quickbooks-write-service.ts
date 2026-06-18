@@ -60,6 +60,13 @@ function voidUrl(input: QuickBooksWriteServiceInput, entity: QboWriteEntity) {
   throw new Error(`QuickBooks ${entity} void is not supported`);
 }
 
+function deleteUrl(input: QuickBooksWriteServiceInput, entity: QboWriteEntity) {
+  if (entity === "Estimate") {
+    return `${hostFor(input.environment)}/v3/company/${input.realmId}/${ENTITY_PATH[entity]}?operation=delete&minorversion=75`;
+  }
+  throw new Error(`QuickBooks ${entity} delete is not supported`);
+}
+
 function currentUrl(
   input: QuickBooksWriteServiceInput,
   entity: QboWriteEntity,
@@ -184,6 +191,14 @@ export class QuickBooksWriteService {
       throw new Error("QuickBooks Payment void sparse=true required");
     }
     return this.post(entity, payload, voidUrl(this.input, entity));
+  }
+
+  async deleteEntity(
+    entity: QboWriteEntity,
+    payload: Record<string, unknown>,
+  ): Promise<QuickBooksWriteResult> {
+    requireUpdatePayload(payload);
+    return this.post(entity, payload, deleteUrl(this.input, entity));
   }
 
   async fetchCurrent(

@@ -77,6 +77,7 @@ function makeSupabase(inject: {
       select() { return api; },
       eq(col: string, val: any) { filters.push((r) => r[col] === val); return api; },
       in(col: string, vals: any[]) { filters.push((r) => vals.includes(r[col])); return api; },
+      or() { return api; },
       order() { return api; },
       _match() { return rows.filter((r) => filters.every((f) => f(r))); },
       async maybeSingle() {
@@ -346,6 +347,26 @@ describe("QuickBooksImportService.applyImport", () => {
     expect(supabase.__db.payments[0].amount).toBe(200);
   });
 
+  it("voids imported payment rows when a later QBO import removes the invoice application", async () => {
+    const { QuickBooksImportService } = await import("@/lib/api/services/quickbooks-import-service");
+    const svc = new QuickBooksImportService(supabase);
+    await svc.applyImport(RUN_ID, decisions);
+
+    supabase.__db.qbo_staging_payments[0].applied_lines = [];
+    supabase.__db.qbo_staging_invoices[0].balance = 362.07;
+    const result = await svc.applyImport(RUN_ID, decisions);
+
+    expect(result.paymentsUpserted).toBe(0);
+    expect(supabase.__db.payments).toHaveLength(1);
+    expect(supabase.__db.payments[0].voided_at).toEqual(expect.any(String));
+    expect(supabase.__db.invoices[0]).toMatchObject({
+      amount_paid: 0,
+      balance_due: 362.07,
+      status: "past_due",
+      paid_at: null,
+    });
+  });
+
   it("keeps invoice primary keys stable when an import retry races an existing QBO row", async () => {
     const sb = makeSupabase({
       failInsertOn: "invoices",
@@ -465,6 +486,37 @@ describe("applyImport — company → client + contact → sub_client", () => {
     expect(sub.email).toBe("john@acme.com");
     expect(sub.phone_number).toBe("555");
     expect(res.subClientsCreated).toBe(1);
+  });
+
+  it("creates inactive QBO customers as soft-deleted OPS client/contact rows", async () => {
+    seedCustomer({
+      qb_id: "42", display_name: "Acme Corp", company_name: "Acme Corp", contact_name: "John Smith",
+      email: "john@acme.com", phone: "555", active: false,
+    });
+    await apply([{ customer_qb_id: "42", action: "create" }]);
+    const client = supabase.__db.clients.find((c: Row) => c.qb_id === "42");
+    const sub = supabase.__db.sub_clients.find((s: Row) => s.qb_id === "42");
+
+    expect(client.deleted_at).toEqual(expect.any(String));
+    expect(sub.deleted_at).toEqual(expect.any(String));
+  });
+
+  it("linking an inactive QBO customer marks the existing OPS client soft-deleted without overwriting fields", async () => {
+    supabase.__db.clients.push({
+      id: "C1", company_id: TEMP_COMPANY_ID, name: "Acme Corp", email: "existing@acme.com",
+      phone_number: null, address: null, deleted_at: null, merged_into_client_id: null,
+    });
+    seedCustomer({
+      qb_id: "42", display_name: "Acme Corp", company_name: "Acme Corp", contact_name: "John Smith",
+      email: "john@acme.com", phone: "555", active: false,
+    });
+    await apply([{ customer_qb_id: "42", action: "link", client_id: "C1" }]);
+    const client = supabase.__db.clients.find((c: Row) => c.id === "C1");
+
+    expect(client.qb_id).toBe("42");
+    expect(client.name).toBe("Acme Corp");
+    expect(client.email).toBe("existing@acme.com");
+    expect(client.deleted_at).toEqual(expect.any(String));
   });
 
   it("creates a sub_client under a LINKED existing client without overwriting it", async () => {

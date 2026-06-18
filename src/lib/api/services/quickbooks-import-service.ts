@@ -200,6 +200,12 @@ function qboPaymentCompositeId(paymentQbId: string, invoiceQbId: string): string
   return `${paymentQbId}:${invoiceQbId}`;
 }
 
+function qboInvoiceIdFromPaymentComposite(rawPaymentQbId: string, paymentLineQbId: string | null | undefined): string | null {
+  if (!paymentLineQbId) return null;
+  const prefix = `${rawPaymentQbId}:`;
+  return paymentLineQbId.startsWith(prefix) ? paymentLineQbId.slice(prefix.length) || null : null;
+}
+
 export class QuickBooksImportService {
   private supabase: SupabaseClient;
 
@@ -398,6 +404,52 @@ export class QuickBooksImportService {
       "payments.upsert"
     );
     return raceWinner.id;
+  }
+
+  private async voidStalePaymentLines(args: {
+    companyId: string;
+    rawPaymentQbId: string;
+    activeCompositeQbIds: Set<string>;
+    activeInvoiceIds: Set<string>;
+    nowIso: string;
+  }): Promise<{ voided: number; invoiceQbIds: string[] }> {
+    const { data, error } = await this.supabase
+      .from("payments")
+      .select("id, qb_id, invoice_id, voided_at")
+      .eq("company_id", args.companyId)
+      .or(`qb_id.eq.${args.rawPaymentQbId},qb_id.like.${args.rawPaymentQbId}:%`);
+    assertNoWriteError({ error }, "payments.stale_lookup");
+
+    let voided = 0;
+    const invoiceQbIds = new Set<string>();
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const paymentId = typeof row.id === "string" ? row.id : null;
+      const qbId = typeof row.qb_id === "string" ? row.qb_id : null;
+      const invoiceId = typeof row.invoice_id === "string" ? row.invoice_id : null;
+      if (!paymentId || !qbId || row.voided_at) continue;
+      if (qbId !== args.rawPaymentQbId && !qbId.startsWith(`${args.rawPaymentQbId}:`)) continue;
+      if (args.activeCompositeQbIds.has(qbId)) continue;
+      if (qbId === args.rawPaymentQbId && invoiceId && args.activeInvoiceIds.has(invoiceId)) continue;
+
+      const invoiceQbId = qboInvoiceIdFromPaymentComposite(args.rawPaymentQbId, qbId);
+      if (invoiceQbId) invoiceQbIds.add(invoiceQbId);
+
+      await this.suppressAccountingSync(args.companyId, "payment", paymentId);
+      if (invoiceId) {
+        await this.suppressAccountingSync(args.companyId, "invoice", invoiceId);
+      }
+      assertNoWriteError(
+        await this.supabase
+          .from("payments")
+          .update({ voided_at: args.nowIso })
+          .eq("id", paymentId)
+          .eq("company_id", args.companyId),
+        "payments.stale_void"
+      );
+      voided += 1;
+    }
+
+    return { voided, invoiceQbIds: [...invoiceQbIds] };
   }
 
   private async replaceImportLineItems(
@@ -920,6 +972,7 @@ export class QuickBooksImportService {
 
     // Single `now` for all date-derived status (canonical fns take a Date).
     const now = new Date();
+    const nowIso = now.toISOString();
     // Non-fatal warnings (I8 subtotal divergence, C4 cross-tenant link, etc.)
     // surfaced on the run's totals.error summary without blocking the apply.
     const warnings: string[] = [];
@@ -945,6 +998,7 @@ export class QuickBooksImportService {
     for (const cust of stagedCustomers ?? []) {
       const decision = decisionByQbId.get(cust.qb_id as string);
       const action = decision?.action ?? "skip";
+      const customerDeletedAt = cust.active === false ? nowIso : null;
 
       if (action === "skip" || action === "needs_review") {
         clientIdByCustomerQbId.set(cust.qb_id as string, null);
@@ -976,13 +1030,14 @@ export class QuickBooksImportService {
           result.clientsSkipped++;
           continue;
         }
-        // Link writes ONLY qb_id — never overwrite name/email/phone/address.
+        // Link writes only the QB identity plus QBO lifecycle state — never
+        // overwrite name/email/phone/address.
         // Company-scoped (C4): never touch a row outside the caller's tenant.
         await this.suppressAccountingSync(companyId, "customer", clientId);
         assertNoWriteError(
           await sb
             .from("clients")
-            .update({ qb_id: cust.qb_id })
+            .update({ qb_id: cust.qb_id, deleted_at: customerDeletedAt })
             .eq("id", clientId)
             .eq("company_id", companyId),
           "clients.link"
@@ -1001,6 +1056,15 @@ export class QuickBooksImportService {
         .maybeSingle();
 
       if (existing?.id) {
+        await this.suppressAccountingSync(companyId, "customer", existing.id as string);
+        assertNoWriteError(
+          await sb
+            .from("clients")
+            .update({ deleted_at: customerDeletedAt })
+            .eq("id", existing.id as string)
+            .eq("company_id", companyId),
+          "clients.existing_lifecycle"
+        );
         clientIdByCustomerQbId.set(cust.qb_id as string, existing.id as string);
         result.clientsCreated++; // counts as an applied create even on re-run
         continue;
@@ -1017,6 +1081,7 @@ export class QuickBooksImportService {
           id: newId,
           company_id: companyId,
           qb_id: cust.qb_id,
+          deleted_at: customerDeletedAt,
           ...clientFieldsFromCustomer(toShape(cust)),
         },
       });
@@ -1033,6 +1098,7 @@ export class QuickBooksImportService {
     for (const cust of stagedCustomers ?? []) {
       const clientId = clientIdByCustomerQbId.get(cust.qb_id as string);
       const fields = subClientFieldsFromCustomer(toShape(cust));
+      const customerDeletedAt = cust.active === false ? nowIso : null;
       if (!clientId || !fields) continue;
       const { data: existingSubClient } = await sb
         .from("sub_clients")
@@ -1046,7 +1112,7 @@ export class QuickBooksImportService {
         existingId: (existingSubClient?.id as string | undefined) ?? null,
         syncEntityType: "customer",
         context: "sub_clients.upsert",
-        row: { id: subClientId, company_id: companyId, client_id: clientId, qb_id: cust.qb_id, ...fields },
+        row: { id: subClientId, company_id: companyId, client_id: clientId, qb_id: cust.qb_id, deleted_at: customerDeletedAt, ...fields },
       });
       result.subClientsCreated++;
     }
@@ -1214,10 +1280,14 @@ export class QuickBooksImportService {
       const lines = (pmt.applied_lines as Array<{
         invoice_qb_id: string; amount: number; reference_number?: string;
       }>) ?? [];
+      const activeCompositeQbIds = new Set<string>();
+      const activeInvoiceIds = new Set<string>();
 
       for (const l of lines) {
+        activeCompositeQbIds.add(qboPaymentCompositeId(pmt.qb_id as string, l.invoice_qb_id));
         const invoiceId = invoiceIdByQbId.get(l.invoice_qb_id) ?? null;
         if (!invoiceId) continue; // payment line references a dropped/absent invoice
+        activeInvoiceIds.add(invoiceId);
         await this.suppressAccountingSync(companyId, "invoice", invoiceId);
         await this.persistPaymentLine({
           companyId,
@@ -1236,6 +1306,13 @@ export class QuickBooksImportService {
         });
         result.paymentsUpserted++;
       }
+      await this.voidStalePaymentLines({
+        companyId,
+        rawPaymentQbId: pmt.qb_id as string,
+        activeCompositeQbIds,
+        activeInvoiceIds,
+        nowIso,
+      });
     }
 
     // ── STEP 5: Reconcile invoices to QB-authoritative Balance ─────────────

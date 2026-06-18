@@ -160,6 +160,12 @@ function qboPaymentCompositeId(paymentQbId: string, invoiceQbId: string): string
   return `${paymentQbId}:${invoiceQbId}`;
 }
 
+function qboInvoiceIdFromPaymentComposite(rawPaymentQbId: string, paymentLineQbId: string | null | undefined): string | null {
+  if (!paymentLineQbId) return null;
+  const prefix = `${rawPaymentQbId}:`;
+  return paymentLineQbId.startsWith(prefix) ? paymentLineQbId.slice(prefix.length) || null : null;
+}
+
 export class QuickBooksWebhookApplyService {
   private supabase: SupabaseClient;
 
@@ -393,6 +399,54 @@ export class QuickBooksWebhookApplyService {
     return { id: raceWinner.id, error: updateError as SupabaseWriteError | null };
   }
 
+  private async voidStalePaymentLines(args: {
+    companyId: string;
+    rawPaymentQbId: string;
+    activeCompositeQbIds: Set<string>;
+    activeInvoiceIds: Set<string>;
+    nowIso: string;
+  }): Promise<{ voided: number; invoiceQbIds: string[] }> {
+    const { data, error } = await this.supabase
+      .from("payments")
+      .select("id, qb_id, invoice_id, voided_at")
+      .eq("company_id", args.companyId)
+      .or(`qb_id.eq.${args.rawPaymentQbId},qb_id.like.${args.rawPaymentQbId}:%`);
+    if (error) {
+      throw new Error(`QuickBooks payment stale-line lookup failed: ${error.message}`);
+    }
+
+    let voided = 0;
+    const invoiceQbIds = new Set<string>();
+    for (const row of (data ?? []) as Array<Record<string, unknown>>) {
+      const paymentId = typeof row.id === "string" ? row.id : null;
+      const qbId = typeof row.qb_id === "string" ? row.qb_id : null;
+      const invoiceId = typeof row.invoice_id === "string" ? row.invoice_id : null;
+      if (!paymentId || !qbId || row.voided_at) continue;
+      if (qbId !== args.rawPaymentQbId && !qbId.startsWith(`${args.rawPaymentQbId}:`)) continue;
+      if (args.activeCompositeQbIds.has(qbId)) continue;
+      if (qbId === args.rawPaymentQbId && invoiceId && args.activeInvoiceIds.has(invoiceId)) continue;
+
+      const invoiceQbId = qboInvoiceIdFromPaymentComposite(args.rawPaymentQbId, qbId);
+      if (invoiceQbId) invoiceQbIds.add(invoiceQbId);
+
+      await this.suppressAccountingSync(args.companyId, "payment", paymentId);
+      if (invoiceId) {
+        await this.suppressAccountingSync(args.companyId, "invoice", invoiceId);
+      }
+      const { error: updateError } = await this.supabase
+        .from("payments")
+        .update({ voided_at: args.nowIso })
+        .eq("id", paymentId)
+        .eq("company_id", args.companyId);
+      if (updateError) {
+        throw new Error(`QuickBooks payment stale-line void failed: ${updateError.message}`);
+      }
+      voided += 1;
+    }
+
+    return { voided, invoiceQbIds: [...invoiceQbIds] };
+  }
+
   private async findOutboundEcho(
     connection: ConnectionRow,
     entity: QboEntityName,
@@ -441,7 +495,7 @@ export class QuickBooksWebhookApplyService {
     const operationCandidates =
       operation === "Void"
         ? new Set(["void"])
-        : new Set(["delete_soft", "inactivate", "void"]);
+        : new Set(["delete_soft", "inactivate", "void", "delete"]);
     const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const { data, error } = await this.supabase
       .from("accounting_sync_events")
@@ -555,6 +609,7 @@ export class QuickBooksWebhookApplyService {
     record: QbRecordLike
   ): Promise<ApplyEntityResult> {
     const n = normalizeCustomer(record);
+    const customerDeletedAt = n.active === false ? new Date().toISOString() : null;
     const { data: existingClient } = await this.supabase
       .from("clients")
       .select("id")
@@ -570,6 +625,7 @@ export class QuickBooksWebhookApplyService {
         id: clientIdForWrite,
         company_id: connection.company_id,
         qb_id: n.qb_id,
+        deleted_at: customerDeletedAt,
         ...clientFieldsFromCustomer(n),
       },
     });
@@ -598,6 +654,7 @@ export class QuickBooksWebhookApplyService {
           company_id: connection.company_id,
           client_id: clientId,
           qb_id: n.qb_id,
+          deleted_at: customerDeletedAt,
           ...subFields,
         },
       });
@@ -946,11 +1003,15 @@ export class QuickBooksWebhookApplyService {
 
     let applied = 0;
     let firstPaymentId: string | null = null;
+    const activeCompositeQbIds = new Set<string>();
+    const activeInvoiceIds = new Set<string>();
     for (const line of split.applied) {
+      activeCompositeQbIds.add(qboPaymentCompositeId(qbId, line.invoice_qb_id));
       // The payment references an invoice — make sure that invoice exists in OPS
       // first (fetch + apply it), exactly as a batch import would have staged it.
       const invoiceId = await this.ensureInvoice(connection, line.invoice_qb_id, pull);
       if (!invoiceId) continue;
+      activeInvoiceIds.add(invoiceId);
 
       await this.suppressAccountingSync(connection.company_id, "invoice", invoiceId);
       const paymentWrite = await this.persistPaymentLine({
@@ -979,10 +1040,29 @@ export class QuickBooksWebhookApplyService {
       await this.reconcileInvoiceToQb(connection, line.invoice_qb_id, pull);
     }
 
-    if (applied === 0) {
+    const stale = await this.voidStalePaymentLines({
+      companyId: connection.company_id,
+      rawPaymentQbId: qbId,
+      activeCompositeQbIds,
+      activeInvoiceIds,
+      nowIso: new Date().toISOString(),
+    });
+    for (const staleInvoiceQbId of stale.invoiceQbIds) {
+      await this.reconcileInvoiceToQb(connection, staleInvoiceQbId, pull);
+    }
+
+    if (applied === 0 && stale.voided === 0) {
       return { status: "skipped", logEntityType: "payment", qbId, qbUpdatedAt: qbMetaUpdatedAt(record), detail: "no applicable invoice lines" };
     }
-    return { status: "success", logEntityType: "payment", qbId, entityId: firstPaymentId, qbUpdatedAt: qbMetaUpdatedAt(record), detail: null };
+    return {
+      status: "success",
+      logEntityType: "payment",
+      qbId,
+      entityId: firstPaymentId,
+      qbUpdatedAt: qbMetaUpdatedAt(record),
+      afterSnapshot: stale.voided > 0 ? { stalePaymentsVoided: stale.voided } : undefined,
+      detail: null,
+    };
   }
 
   /** Resolve (fetch+apply if needed) the OPS invoice id for a QB invoice id. */
@@ -1143,17 +1223,34 @@ export class QuickBooksWebhookApplyService {
         .eq("company_id", connection.company_id)
         .eq("qb_id", qbId)
         .maybeSingle();
+      const { data: subClient } = await this.supabase
+        .from("sub_clients")
+        .select("id, client_id")
+        .eq("company_id", connection.company_id)
+        .eq("qb_id", qbId)
+        .maybeSingle();
       if (client?.id) {
         await this.suppressAccountingSync(connection.company_id, "customer", client.id as string);
+      } else if (subClient?.client_id) {
+        await this.suppressAccountingSync(connection.company_id, "customer", subClient.client_id as string);
       }
+      const deletedAt = new Date().toISOString();
       // Soft-delete the OPS client (deleted_at). Never hard-delete.
       const { error } = await this.supabase
         .from("clients")
-        .update({ deleted_at: new Date().toISOString() })
+        .update({ deleted_at: deletedAt })
         .eq("company_id", connection.company_id)
         .eq("qb_id", qbId);
       if (error) {
         return { status: "error", logEntityType, qbId, entityId: (client?.id as string | undefined) ?? null, detail: `${operation.toLowerCase()} failed` };
+      }
+      const { error: subClientError } = await this.supabase
+        .from("sub_clients")
+        .update({ deleted_at: deletedAt })
+        .eq("company_id", connection.company_id)
+        .eq("qb_id", qbId);
+      if (subClientError) {
+        return { status: "error", logEntityType, qbId, entityId: (client?.id as string | undefined) ?? null, detail: `${operation.toLowerCase()} contact failed` };
       }
       return { status: "success", logEntityType, qbId, entityId: (client?.id as string | undefined) ?? null, detail: `client ${operation.toLowerCase()}` };
     }
@@ -1204,13 +1301,28 @@ export class QuickBooksWebhookApplyService {
       };
     }
 
-    // Estimate deletion has no unambiguous soft-state in OPS — skip+log rather
-    // than guess (a hard delete could orphan linked records).
-    return {
-      status: "skipped",
-      logEntityType,
-      qbId,
-      detail: `${operation.toLowerCase()} not soft-handled for ${entity}`,
-    };
+    if (entity === "Estimate") {
+      const { data: estimate } = await this.supabase
+        .from("estimates")
+        .select("id")
+        .eq("company_id", connection.company_id)
+        .eq("qb_id", qbId)
+        .maybeSingle();
+      if (estimate?.id) {
+        await this.suppressAccountingSync(connection.company_id, "estimate", estimate.id as string);
+      }
+      const { error } = await this.supabase
+        .from("estimates")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("company_id", connection.company_id)
+        .eq("qb_id", qbId)
+        .is("deleted_at", null);
+      if (error) {
+        return { status: "error", logEntityType, qbId, entityId: (estimate?.id as string | undefined) ?? null, detail: `${operation.toLowerCase()} failed` };
+      }
+      return { status: "success", logEntityType, qbId, entityId: (estimate?.id as string | undefined) ?? null, detail: `estimate ${operation.toLowerCase()}` };
+    }
+
+    return { status: "skipped", logEntityType, qbId, detail: `${operation.toLowerCase()} not soft-handled for ${entity}` };
   }
 }
