@@ -12,9 +12,9 @@ export type WizardStep = "sell" | "stock" | "types" | "review";
 export interface StepContext {
   /** company_inventory_settings.inventory_mode === 'tracked' */
   inventoryTracked: boolean;
-  /** products.manage (or equivalent) — the SELL module */
+  /** catalog.products.manage — the SELL module */
   canSell: boolean;
-  /** inventory.manage — the STOCK module */
+  /** catalog.manage — the STOCK module */
   canStock: boolean;
   /** task/calendar type perms — the TYPES module */
   canTypes: boolean;

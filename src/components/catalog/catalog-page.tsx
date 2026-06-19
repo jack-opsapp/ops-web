@@ -41,8 +41,8 @@ export function CatalogPage() {
   const searchParams = useSearchParams();
   const can = usePermissionStore((s) => s.can);
 
-  const canProducts = can("products.view");
-  const canStock = can("inventory.view");
+  const canProducts = can("catalog.products.view");
+  const canStock = can("catalog.view");
 
   const visibleSegments = useMemo<CatalogSegment[]>(() => {
     const out: CatalogSegment[] = [];

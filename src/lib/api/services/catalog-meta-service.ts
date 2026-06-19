@@ -5,7 +5,7 @@
  * tags, units. Creates reuse the existing single-purpose services
  * (`CatalogCategoryService.create`, `CatalogUnitService.create`); this file
  * adds the list reads and the update/delete operations the kebab "// MANAGE"
- * modals need. All gated by `inventory.manage` at the UI layer (never roles).
+ * modals need. All gated by `catalog.manage` at the UI layer (never roles).
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";

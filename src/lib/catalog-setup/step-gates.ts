@@ -7,7 +7,7 @@
 // trivially testable and the wizard hides a step the operator can't complete
 // rather than leading them to a dead "build it".
 //
-//   • account-holder / company-admin / office with products.manage → full run
+//   • account-holder / company-admin / office with catalog.products.manage → full run
 //   • operator / crew without the bit → the step (or the whole wizard) is hidden
 //
 // PURE: no store import, no I/O — the caller injects `can`.
@@ -25,14 +25,14 @@ export type CanFn = (permission: string, scope?: "all") => boolean;
 
 /**
  * Each module's required permissions. Trade & task types are catalog setup, not
- * a separate domain, so TYPES rides products.manage (aligned with the registered
- * bits in src/lib/types/permissions.ts). catalog.run_setup is the wizard-entry
- * bit every module shares.
+ * a separate domain, so TYPES rides catalog.products.manage (aligned with the
+ * registered catalog permission bits in src/lib/types/permissions.ts).
+ * catalog.run_setup is the wizard-entry bit every module shares.
  */
 export const STEP_REQUIRED_PERMISSIONS: Record<WizardModule, readonly string[]> = {
-  SELL: ["catalog.run_setup", "products.manage"],
-  STOCK: ["catalog.run_setup", "inventory.manage"],
-  TYPES: ["catalog.run_setup", "products.manage"],
+  SELL: ["catalog.run_setup", "catalog.products.manage"],
+  STOCK: ["catalog.run_setup", "catalog.manage"],
+  TYPES: ["catalog.run_setup", "catalog.products.manage"],
   REVIEW: ["catalog.run_setup"],
 };
 

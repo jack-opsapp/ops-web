@@ -77,7 +77,7 @@ export function ProductsSegment({
   const { t } = useDictionary("catalog");
   const router = useRouter();
   const can = usePermissionStore((s) => s.can);
-  const canManage = can("products.manage");
+  const canManage = can("catalog.products.manage");
 
   const { data: products = [], isLoading } = useProducts(false);
   const { data: taskTypes = [] } = useTaskTypes();
