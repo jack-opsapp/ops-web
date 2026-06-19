@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect } from "vitest";
 import {
   ALL_PERMISSIONS,
   getPermissionLabel,
@@ -6,16 +6,53 @@ import {
   getPermissionScopes,
   getActionsForTier,
 } from "@/lib/types/permissions";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
+
+const LIVE_CATALOG_PERMISSIONS = [
+  "catalog.view",
+  "catalog.manage",
+  "catalog.import",
+  "catalog.stock.adjust",
+  "catalog.products.view",
+  "catalog.products.manage",
+  "catalog.orders.view",
+  "catalog.orders.manage",
+  "catalog.run_setup",
+] as const;
+
+beforeEach(() => {
+  usePermissionStore.getState().clear();
+  useAuthStore.setState({
+    company: null,
+    currentUser: null,
+    isAuthenticated: false,
+  });
+});
 
 describe("catalog.run_setup permission registration", () => {
-  it("is present in ALL_PERMISSIONS (or admins/account-holders are silently denied)", () => {
+  it("registers the live catalog namespace in ALL_PERMISSIONS", () => {
     // The load-bearing guard: usePermissionStore.fetchPermissions grants
     // account-holders & company-admins exactly the permissions in
-    // ALL_PERMISSIONS at scope 'all'. If the DB grants catalog.run_setup
-    // (migration 0.4) but it is absent here, those users' can('catalog.run_setup')
-    // returns false — the wizard's primary audience (the owner) is silently
-    // locked out. See client-permission-catalog-sync rule.
-    expect(ALL_PERMISSIONS).toContain("catalog.run_setup");
+    // ALL_PERMISSIONS at scope 'all'. If the DB grants a catalog.* bit but it
+    // is absent here, those users' can('catalog.*') returns false.
+    for (const permission of LIVE_CATALOG_PERMISSIONS) {
+      expect(ALL_PERMISSIONS).toContain(permission);
+    }
+  });
+
+  it("no longer exposes the retired inventory.* namespace", () => {
+    // The catalog refactor renamed inventory.* -> catalog.* in role_permissions
+    // and iOS; inventoryModule was deleted from this catalog. Re-introducing any
+    // inventory.* bit would re-surface dead toggles in the roles editor and let
+    // owners/admins "grant" a key the DB no longer recognizes. Guard the deletion
+    // so a stray re-add fails loudly instead of silently denying catalog access.
+    for (const permission of ["inventory.view", "inventory.manage", "inventory.import"]) {
+      expect(ALL_PERMISSIONS).not.toContain(permission);
+    }
+    expect(ALL_PERMISSIONS.some((p) => p.startsWith("inventory."))).toBe(false);
+    // The module itself is gone — getModuleLabel falls back to the bare id.
+    expect(getModuleLabel("inventory")).toBe("inventory");
   });
 
   it("has a real human label, not the id fallback", () => {
@@ -38,5 +75,30 @@ describe("catalog.run_setup permission registration", () => {
     // 'manage' tier and the roles editor would mis-render the catalog module).
     expect(getActionsForTier("catalog", "manage")).toContain("catalog.run_setup");
     expect(getActionsForTier("catalog", "full")).toContain("catalog.run_setup");
+  });
+
+  it("resolves every catalog permission for account-holders and company-admins", async () => {
+    const cases = [
+      {
+        company: { accountHolderId: "user-account-holder", adminIds: [] },
+        userId: "user-account-holder",
+      },
+      {
+        company: { accountHolderId: "other-user", adminIds: ["user-company-admin"] },
+        userId: "user-company-admin",
+      },
+    ];
+
+    for (const testCase of cases) {
+      usePermissionStore.getState().clear();
+      useAuthStore.setState({ company: testCase.company as never });
+
+      await usePermissionStore.getState().fetchPermissions(testCase.userId);
+
+      const can = usePermissionStore.getState().can;
+      for (const permission of LIVE_CATALOG_PERMISSIONS) {
+        expect(can(permission, "all")).toBe(true);
+      }
+    }
   });
 });

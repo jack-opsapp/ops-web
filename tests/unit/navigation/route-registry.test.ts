@@ -116,8 +116,7 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
     ["/team", "team.view"],
     ["/map", "map.view"],
     ["/pipeline", "pipeline.view"],
-    ["/products", "products.view"],
-    ["/inventory", "inventory.view"],
+    ["/catalog/setup", "catalog.run_setup"],
     ["/inbox", "pipeline.view"],
     ["/calibration", "email.configure_ai"],
     ["/agent", "pipeline.view"],
@@ -143,15 +142,25 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
     ]);
   });
 
+  it("/catalog is any-of gated across catalog products and stock", () => {
+    expect(getPermissionForPath("/catalog")).toBeNull(); // single-permission API
+    expect(getAnyOfPermissionsForPath("/catalog")).toEqual([
+      "catalog.products.view",
+      "catalog.view",
+    ]);
+  });
+
   it("single-permission entries normalize through the any-of helper", () => {
     expect(getAnyOfPermissionsForPath("/pipeline")).toEqual(["pipeline.view"]);
     expect(getAnyOfPermissionsForPath("/dashboard")).toBeNull();
   });
 
-  it("retired financial routes are no longer registered (middleware owns them)", () => {
+  it("retired financial and catalog leaf routes are no longer registered (middleware owns them)", () => {
     expect(getEntryForPath("/estimates")).toBeNull();
     expect(getEntryForPath("/invoices")).toBeNull();
     expect(getEntryForPath("/accounting")).toBeNull();
+    expect(getEntryForPath("/products")).toBeNull();
+    expect(getEntryForPath("/inventory")).toBeNull();
   });
 });
 

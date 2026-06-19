@@ -17,7 +17,7 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   // products/inventory were never real feature_flags rows (only pipeline +
   // accounting exist in the DB) — their static entries were dead config. The
   // surfaces collapsed into /catalog (P3.2), which is RBAC-gated only
-  // (anyOf products.view / inventory.view in the route registry), not
+  // (anyOf catalog.products.view / catalog.view in the route registry), not
   // commercially flag-gated.
   // ai_email_review removed 2026-04-24 — collapsed into phase_c
   // (migration 20260424000000). phase_c gates the Phase C operator

@@ -3,7 +3,7 @@
 /**
  * Catalog "// MANAGE" modal — categories, tags, units, and category-level
  * threshold defaults (the cascade's admin surface). One dialog, four tabs.
- * All mutations gate on inventory.manage at the kebab; this renders the
+ * All mutations gate on catalog.manage at the kebab; this renders the
  * authoring controls.
  */
 

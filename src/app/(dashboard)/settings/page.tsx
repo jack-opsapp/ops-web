@@ -236,7 +236,7 @@ const SUB_TAB_PERMISSIONS: Record<string, string> = {
   roles: "team.assign_roles",
   // Operations group
   "task-types": "settings.company",
-  inventory: "inventory.manage",
+  inventory: "catalog.manage",
   expenses: "expenses.configure",
   // Billing group
   subscription: "settings.billing",

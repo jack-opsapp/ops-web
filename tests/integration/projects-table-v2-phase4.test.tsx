@@ -19,6 +19,7 @@ const {
   createFirstTaskMock,
   useProjectTableTeamMock,
   teamState,
+  teamConflictsState,
   authState,
   fetchProjectPhotosMock,
   uploadProjectPhotoMock,
@@ -41,6 +42,16 @@ const {
     assignedMembers: [] as Array<Record<string, unknown>>,
     availableMembers: [] as Array<Record<string, unknown>>,
     tasks: [] as Array<Record<string, unknown>>,
+  },
+  teamConflictsState: {
+    data: [] as Array<{
+      date: Date;
+      memberName: string;
+      memberId: string;
+      projectTitle: string;
+      projectId: string;
+      taskColor: string;
+    }>,
   },
   authState: {
     company: { id: "co-1" },
@@ -113,6 +124,7 @@ const dictionary: Record<string, string> = {
   "table.cell.team.readOnly": "// READ-ONLY - no team permission",
   "table.cell.team.error": "// TEAM UPDATE FAILED",
   "table.cell.team.emptyAvailable": "No active crew available.",
+  conflict: "Double-booked · {project} · {when}",
   "table.cell.photos.title": "// PHOTOS - {project}",
   "table.cell.photos.triggerLabel": "Photos - {project} - {count}",
   "table.cell.photos.drop": "Drop photos here",
@@ -392,6 +404,10 @@ vi.mock("@/i18n/client", () => ({
   }),
 }));
 
+vi.mock("@/lib/hooks/use-team-conflicts", () => ({
+  useTeamScheduleConflicts: () => ({ data: teamConflictsState.data }),
+}));
+
 vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: (selector?: (state: typeof authState) => unknown) =>
     selector ? selector(authState) : authState,
@@ -529,6 +545,7 @@ describe("Projects table v2 Phase 4 team cell", () => {
   beforeEach(() => {
     rows = createRows();
     resetTeamState();
+    teamConflictsState.data = [];
     openProjectWindow.mockReset();
     assignTeamMemberMock.mockReset();
     removeTeamMemberMock.mockReset();
@@ -601,7 +618,7 @@ describe("Projects table v2 Phase 4 team cell", () => {
     }));
   });
 
-  it("renders the All Active team cell as an avatar/count control", () => {
+  it("renders the All Active team cell as an avatar/count control", async () => {
     renderProjectsTable();
 
     expect(screen.getByRole("button", { name: "All Active" })).toBeInTheDocument();
@@ -609,27 +626,16 @@ describe("Projects table v2 Phase 4 team cell", () => {
       name: "Team - Deck rebuild - 1 assigned",
     });
     expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
-    expect(within(trigger).getByText("MS")).toBeInTheDocument();
+    expect(await within(trigger).findByText("MS")).toBeInTheDocument();
     expect(within(trigger).getByText("1")).toBeInTheDocument();
   });
 
-  it("opens a task cascade for an available member and assigns checked active tasks only", async () => {
+  it("assigns a member to every active task when toggled on", async () => {
     const user = userEvent.setup();
     renderProjectsTable();
 
     await user.click(screen.getByRole("button", { name: "Team - Deck rebuild - 1 assigned" }));
-    await user.click(screen.getByRole("button", { name: "Owen Vale" }));
-
-    const dialog = screen.getByRole("dialog", { name: "// TEAM - Deck rebuild" });
-    expect(within(dialog).getByText("Assign to tasks")).toBeInTheDocument();
-    expect(within(dialog).getByRole("checkbox", { name: "Frame inspection" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("checkbox", { name: "Final walkthrough" })).toBeInTheDocument();
-    expect(within(dialog).queryByText("Closeout packet")).not.toBeInTheDocument();
-    expect(within(dialog).queryByText("Cancelled task")).not.toBeInTheDocument();
-
-    await user.click(within(dialog).getByRole("checkbox", { name: "Frame inspection" }));
-    await user.click(within(dialog).getByRole("checkbox", { name: "Final walkthrough" }));
-    await user.click(within(dialog).getByRole("button", { name: "Assign" }));
+    await user.click(await screen.findByText("Owen Vale"));
 
     expect(assignTeamMemberMock).toHaveBeenCalledWith({
       userId: "u-2",
@@ -637,14 +643,12 @@ describe("Projects table v2 Phase 4 team cell", () => {
     });
   });
 
-  it("removes an assigned member from all tasks", async () => {
+  it("removes a member from all tasks when toggled off", async () => {
     const user = userEvent.setup();
     renderProjectsTable();
 
     await user.click(screen.getByRole("button", { name: "Team - Deck rebuild - 1 assigned" }));
-    const dialog = screen.getByRole("dialog", { name: "// TEAM - Deck rebuild" });
-
-    await user.click(within(dialog).getByRole("button", { name: "Remove Mara Silva from all" }));
+    await user.click(await screen.findByText("Mara Silva"));
 
     expect(removeTeamMemberMock).toHaveBeenCalledWith({
       userId: "u-1",
@@ -652,7 +656,7 @@ describe("Projects table v2 Phase 4 team cell", () => {
     });
   });
 
-  it("creates the first task before assigning a member when no assignment targets exist", async () => {
+  it("blocks assignment with a notice when the project has no active task", async () => {
     const user = userEvent.setup();
     teamState.tasks = [];
     rows = rows.map((row) => ({ ...row, taskCount: 0, taskCompletedCount: 0 }));
@@ -660,24 +664,13 @@ describe("Projects table v2 Phase 4 team cell", () => {
     renderProjectsTable();
 
     await user.click(screen.getByRole("button", { name: "Team - Deck rebuild - 1 assigned" }));
-    await user.click(screen.getByRole("button", { name: "Owen Vale" }));
+    expect(await screen.findByText("No tasks to assign")).toBeInTheDocument();
 
-    const dialog = screen.getByRole("dialog", { name: "// TEAM - Deck rebuild" });
-    expect(within(dialog).getByText("No tasks to assign")).toBeInTheDocument();
-
-    await user.type(within(dialog).getByPlaceholderText("Task name"), "Site kickoff");
-    await user.click(within(dialog).getByRole("button", { name: "Create first task" }));
-
-    await waitFor(() =>
-      expect(createFirstTaskMock).toHaveBeenCalledWith({ title: "Site kickoff" }),
-    );
-    expect(assignTeamMemberMock).toHaveBeenCalledWith({
-      userId: "u-2",
-      taskIds: ["task-new"],
-    });
+    await user.click(screen.getByText("Owen Vale"));
+    expect(assignTeamMemberMock).not.toHaveBeenCalled();
   });
 
-  it("renders a dictionary-backed read-only message when team assignment is denied", async () => {
+  it("surfaces a dictionary-backed read-only message when assignment is denied", async () => {
     const user = userEvent.setup();
     assignTeamMemberMock.mockRejectedValue(
       new ProjectTableMutationError("permission denied", "42501"),
@@ -686,12 +679,9 @@ describe("Projects table v2 Phase 4 team cell", () => {
     renderProjectsTable();
 
     await user.click(screen.getByRole("button", { name: "Team - Deck rebuild - 1 assigned" }));
-    await user.click(screen.getByRole("button", { name: "Owen Vale" }));
-    const dialog = screen.getByRole("dialog", { name: "// TEAM - Deck rebuild" });
-    await user.click(within(dialog).getByRole("checkbox", { name: "Frame inspection" }));
-    await user.click(within(dialog).getByRole("button", { name: "Assign" }));
+    await user.click(await screen.findByText("Owen Vale"));
 
-    expect(await within(dialog).findByText("// READ-ONLY - no team permission")).toBeInTheDocument();
+    expect(await screen.findByText("// READ-ONLY - no team permission")).toBeInTheDocument();
   });
 
   it("keeps table focus navigation isolated while the team popover is active", async () => {
@@ -699,9 +689,9 @@ describe("Projects table v2 Phase 4 team cell", () => {
     renderProjectsTable();
 
     await user.click(screen.getByRole("button", { name: "Team - Deck rebuild - 1 assigned" }));
-    const search = screen.getByPlaceholderText("Search team members...");
+    const search = await screen.findByPlaceholderText("Search team members...");
     await user.click(search);
-    await user.keyboard("{ArrowDown}{Enter} ");
+    await user.keyboard("{ArrowDown} ");
 
     expect(search).toHaveFocus();
     expect(screen.getByRole("dialog", { name: "// TEAM - Deck rebuild" })).toBeInTheDocument();
@@ -710,6 +700,25 @@ describe("Projects table v2 Phase 4 team cell", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "// TEAM - Deck rebuild" })).not.toBeInTheDocument(),
     );
+  });
+
+  it("shows an inline conflict advisory for a double-booked member", async () => {
+    const user = userEvent.setup();
+    teamConflictsState.data = [
+      {
+        date: new Date("2026-06-09T00:00:00Z"),
+        memberName: "Owen Vale",
+        memberId: "u-2",
+        projectTitle: "Cedar & Main",
+        projectId: "p-9",
+        taskColor: "#000000",
+      },
+    ];
+
+    renderProjectsTable();
+
+    await user.click(screen.getByRole("button", { name: "Team - Deck rebuild - 1 assigned" }));
+    expect(await screen.findByText(/double-booked · cedar & main/i)).toBeInTheDocument();
   });
 });
 
