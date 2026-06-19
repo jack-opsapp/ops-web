@@ -41,7 +41,8 @@ export type Namespace =
   | 'server-emails'
   | 'unsubscribe'
   | 'project-workspace'
-  | 'catalog-setup';
+  | 'catalog-setup'
+  | 'picker';
 
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;

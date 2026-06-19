@@ -1,0 +1,16 @@
+{
+  "search": "Search",
+  "noResults": "No matches",
+  "clear": "Clear search",
+  "loading": "Loading",
+  "viewOnly": "View only",
+  "conflict": "Double-booked · {project} · {when}",
+
+  "category.search": "Search categories",
+  "category.create": "New category",
+  "category.empty": "No categories",
+
+  "unit.search": "Search units",
+  "unit.create": "New unit",
+  "unit.empty": "No units"
+}

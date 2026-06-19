@@ -783,7 +783,7 @@ Any content that fades, clips, or overflows MUST use gradient transitions. Hard 
 |-------------|----------|
 | Text contrast | ≥ 4.5:1 (AA) for all body text. `text-mute` (3.4:1) decorative only. |
 | Font size floor | 11px minimum. No exceptions. |
-| Touch targets | 44×44px minimum on all interactive elements. |
+| Touch / cursor targets | 44×44px applies to **iOS/mobile only**. OPS Web is cursor-driven — there is **no touch-size minimum**; pickers, list rows, and dense controls use ~32px desktop density. |
 | Focus ring | `1.5px solid accent, offset 2px` — accent appropriate for system-level focus. |
 | Reduced motion | Every animation checks `prefers-reduced-motion`. Fallback: opacity-only at 150ms. |
 | Semantic HTML | `<button>` for buttons, `<a>` for links. No div click handlers without ARIA roles. |
