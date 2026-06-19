@@ -31,16 +31,16 @@ export default async function SpecRefundsPage() {
         className="border-b border-white/[0.08] px-8 py-6"
       >
         <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             PENDING REQUESTS
           </h2>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
+            <span className="text-text-mute">[</span>
             {pending.length} TO REVIEW
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </span>
         </div>
 
@@ -60,23 +60,23 @@ export default async function SpecRefundsPage() {
         className="border-b border-white/[0.08] px-8 py-6"
       >
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             RECENTLY PROCESSED
           </h2>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
+            <span className="text-text-mute">[</span>
             LAST {processed.length}
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </span>
         </div>
 
         {processed.length === 0 ? (
           <EmptyState text="No processed or denied refunds yet." />
         ) : (
-          <div className="rounded-[10px] border border-white/[0.09] bg-[#121214]/[0.58] backdrop-blur-[28px]">
+          <div className="glass-surface">
             {processed.map((refund) => (
               <ProcessedRefundRow key={refund.id} refund={refund} />
             ))}
@@ -90,8 +90,8 @@ export default async function SpecRefundsPage() {
 function EmptyState({ text }: { text: string }) {
   return (
     <div className="rounded-[10px] border border-dashed border-white/[0.08] px-6 py-8">
-      <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">{"//"}</span> {text}
+      <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-text-mute">
+        <span className="text-text-mute">{"//"}</span> {text}
       </p>
     </div>
   );

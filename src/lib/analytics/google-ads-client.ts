@@ -76,6 +76,7 @@ function getDeveloperToken(): string {
 interface GoogleAdsRow {
   customer?: { id?: string };
   campaign?: { name?: string; status?: string };
+  adGroup?: { name?: string };
   adGroupCriterion?: { keyword?: { text?: string; matchType?: string } };
   searchTermView?: { searchTerm?: string };
   segments?: { date?: string; conversionActionName?: string };
@@ -252,6 +253,8 @@ async function getSearchTerms(days: AdsDayRange, limit: number = 50): Promise<Se
   const rows = await queryGoogleAds(`
     SELECT
       search_term_view.search_term,
+      campaign.name,
+      ad_group.name,
       metrics.impressions,
       metrics.clicks,
       metrics.cost_micros,
@@ -264,11 +267,72 @@ async function getSearchTerms(days: AdsDayRange, limit: number = 50): Promise<Se
 
   return rows.map((row) => ({
     searchTerm: String(row.searchTermView?.searchTerm ?? ""),
+    campaignName: String(row.campaign?.name ?? "Unknown"),
+    adGroupName: row.adGroup?.name ? String(row.adGroup.name) : null,
     impressions: Number(row.metrics?.impressions ?? 0),
     clicks: Number(row.metrics?.clicks ?? 0),
     cost: microsToDollars(row.metrics?.costMicros),
     conversions: Number(row.metrics?.conversions ?? 0),
   }));
+}
+
+/**
+ * Query daily search-term metrics for a date range.
+ * Returns one row per day, search term, campaign, and ad group.
+ */
+export async function queryDailySearchTermData(
+  startDate: Date,
+  endDate: Date,
+  limit = 10000
+): Promise<{
+  date: string;
+  search_term: string;
+  campaign_name: string;
+  ad_group_name: string;
+  spend: number;
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  cpa: number;
+  ctr: number;
+  waste_flag: string | null;
+}[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.date,
+      search_term_view.search_term,
+      campaign.name,
+      ad_group.name,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.ctr,
+      metrics.cost_micros,
+      metrics.conversions
+    FROM search_term_view
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+    ORDER BY segments.date ASC, metrics.cost_micros DESC
+    LIMIT ${limit}
+  `);
+
+  return rows.map((row) => {
+    const spend = microsToDollars(row.metrics?.costMicros);
+    const conversions = Number(row.metrics?.conversions ?? 0);
+    return {
+      date: String(row.segments?.date ?? ""),
+      search_term: String(row.searchTermView?.searchTerm ?? ""),
+      campaign_name: String(row.campaign?.name ?? "Unknown"),
+      ad_group_name: row.adGroup?.name ? String(row.adGroup.name) : "",
+      spend,
+      clicks: Number(row.metrics?.clicks ?? 0),
+      impressions: Number(row.metrics?.impressions ?? 0),
+      conversions,
+      cpa: conversions > 0 ? spend / conversions : 0,
+      ctr: Number(row.metrics?.ctr ?? 0),
+      waste_flag: spend >= 100 && conversions === 0 ? "spent_100_no_conversion" : null,
+    };
+  });
 }
 
 async function getCostPerConversion(days: AdsDayRange): Promise<ConversionBreakdown[]> {

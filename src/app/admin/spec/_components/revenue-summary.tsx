@@ -15,32 +15,32 @@ export function RevenueSummary({ data }: RevenueSummaryProps) {
       className="border-b border-white/[0.08] px-8 py-6"
     >
       <div className="mb-4 flex items-baseline justify-between">
-        <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-[#EDEDED]">
-          <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+        <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-text">
+          <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
             {"//"}
           </span>
           REVENUE
         </h2>
-        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-          <span className="text-[#3A3A3A]">[</span>FROM SPEC_PAYMENTS · NET REFUNDS
-          <span className="text-[#3A3A3A]">]</span>
+        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
+          <span className="text-text-mute">[</span>FROM SPEC_PAYMENTS · NET REFUNDS
+          <span className="text-text-mute">]</span>
         </span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr,1fr,1fr,1fr,2fr]">
-        <Kpi label="PAID · THIS MONTH" value={formatCents(data.paidThisMonthCents)} tone="text-[#9DB582]" />
-        <Kpi label="PAID · QTR" value={formatCents(data.paidThisQuarterCents)} tone="text-[#9DB582]" />
-        <Kpi label="PAID · YTD" value={formatCents(data.paidYtdCents)} tone="text-[#9DB582]" />
-        <Kpi label="PENDING" value={formatCents(data.pendingCents)} tone="text-[#C4A868]" />
+        <Kpi label="PAID · THIS MONTH" value={formatCents(data.paidThisMonthCents)} tone="text-olive" />
+        <Kpi label="PAID · QTR" value={formatCents(data.paidThisQuarterCents)} tone="text-olive" />
+        <Kpi label="PAID · YTD" value={formatCents(data.paidYtdCents)} tone="text-olive" />
+        <Kpi label="PENDING" value={formatCents(data.pendingCents)} tone="text-tan" />
 
-        <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
+        <div className="glass-surface p-5">
           <div className="flex items-baseline justify-between">
-            <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
+            <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
               12-MONTH PAID TREND
             </h3>
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#6A6A6A]">
-              <span className="text-[#3A3A3A]">[</span>PEAK {formatCentsCompact(peak)}
-              <span className="text-[#3A3A3A]">]</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-text-mute">
+              <span className="text-text-mute">[</span>PEAK {formatCentsCompact(peak)}
+              <span className="text-text-mute">]</span>
             </span>
           </div>
 
@@ -69,19 +69,19 @@ export function RevenueSummary({ data }: RevenueSummaryProps) {
             )}
           </svg>
 
-          <div className="mt-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.12em] text-[#6A6A6A]">
+          <div className="mt-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.12em] text-text-mute">
             <span>{data.monthlyTrend[0]?.label.slice(5) ?? "—"}</span>
             <span>{data.monthlyTrend.at(-1)?.label.slice(5) ?? "—"}</span>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-[11px] uppercase tracking-[0.12em]">
             <div className="flex items-center justify-between">
-              <span className="text-[#6A6A6A]">OVERDUE</span>
-              <span className="tabular-nums text-[#B58289]">{formatCents(data.overdueCents)}</span>
+              <span className="text-text-mute">OVERDUE</span>
+              <span className="tabular-nums text-rose">{formatCents(data.overdueCents)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[#6A6A6A]">REFUNDED · ALL TIME</span>
-              <span className="tabular-nums text-[#B58289]">{formatCents(data.refundedCents)}</span>
+              <span className="text-text-mute">REFUNDED · ALL TIME</span>
+              <span className="tabular-nums text-rose">{formatCents(data.refundedCents)}</span>
             </div>
           </div>
         </div>
@@ -92,8 +92,8 @@ export function RevenueSummary({ data }: RevenueSummaryProps) {
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
-      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">{label}</p>
+    <div className="glass-surface p-5">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">{label}</p>
       <p className={`mt-2 font-mono text-[22px] tabular-nums leading-none ${tone}`}>{value}</p>
     </div>
   );

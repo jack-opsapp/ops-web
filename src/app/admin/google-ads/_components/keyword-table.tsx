@@ -6,6 +6,13 @@ import {
 } from "../../_components/sortable-table-header";
 import type { KeywordPerformance } from "@/lib/analytics/google-ads-types";
 
+const CAD = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const COLUMNS = [
   { key: "keyword", label: "Keyword" },
   { key: "matchType", label: "Match" },
@@ -64,11 +71,11 @@ export function KeywordTable({ keywords }: KeywordTableProps) {
                     [{k.matchType}]
                   </span>
                 </td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{k.impressions.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{k.clicks.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED] tabular-nums">${k.cost.toFixed(2)}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{k.conversions.toFixed(1)}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] tabular-nums">
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{k.impressions.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{k.clicks.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#EDEDED] tabular-nums">{CAD.format(k.cost)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-[#A0A0A0] tabular-nums">{k.conversions.toFixed(1)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] tabular-nums">
                   <QualityScore score={k.qualityScore} />
                 </td>
               </tr>

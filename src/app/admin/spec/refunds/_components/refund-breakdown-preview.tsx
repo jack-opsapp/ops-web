@@ -10,7 +10,7 @@ import {
   type RefundPaymentRow,
 } from "@/lib/spec/refund-breakdown";
 import type { SpecPaymentMilestone, SpecRefundPaymentSummary } from "@/lib/admin/spec-types";
-import { formatCents } from "../../_components/format";
+import { formatCents, formatCentsCompact } from "../../_components/format";
 
 interface RefundBreakdownPreviewProps {
   payments: SpecRefundPaymentSummary[];
@@ -21,8 +21,9 @@ interface RefundBreakdownPreviewProps {
  * Data-visualization tier (per animation-studio:data-visualization): a precise,
  * scannable per-milestone action plan with monospaced cents and bracketed
  * micro-text. Visuals over numbers means each action is colour-coded by intent
- * (refund=accent, void=mute, credit_note=tan, mark_uncollectible=brick) so
- * Jackson can read the plan at a glance before he commits.
+ * (refund=olive, void=mute, credit_note=tan, mark_uncollectible=rose) so
+ * Jackson can read the plan at a glance before he commits. Earth-tone semantic
+ * only — accent stays reserved for the primary CTA + focus rings.
  */
 export function RefundBreakdownPreview({
   payments,
@@ -44,16 +45,16 @@ export function RefundBreakdownPreview({
   }, [payments, selectedMilestones]);
 
   return (
-    <div className="rounded-[10px] border border-white/[0.09] bg-[#121214]/[0.58] p-4 backdrop-blur-[28px]">
+    <div className="glass-surface p-4">
       <div className="mb-3 flex items-baseline justify-between">
-        <h4 className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#8A8A8A]">
-          <span className="text-[#3A3A3A]">{"//"}</span> REFUND-BREAKDOWN PREVIEW
+        <h4 className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-3">
+          <span className="text-text-mute">{"//"}</span> REFUND-BREAKDOWN PREVIEW
         </h4>
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-          <span className="text-[#3A3A3A]">[</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+          <span className="text-text-mute">[</span>
           {totals.actionableMilestoneCount} ACTION
           {totals.actionableMilestoneCount === 1 ? "" : "S"}
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </span>
       </div>
 
@@ -74,13 +75,13 @@ export function RefundBreakdownPreview({
         </tbody>
         <tfoot>
           <tr className="border-t border-white/[0.06]">
-            <td colSpan={3} className="pt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#8A8A8A]">
-              <span className="text-[#3A3A3A]">{"//"}</span> TOTAL CASH REFUND
+            <td colSpan={3} className="pt-2 font-mono text-[11px] uppercase tracking-[0.14em] text-text-3">
+              <span className="text-text-mute">{"//"}</span> TOTAL CASH REFUND
             </td>
-            <td className="pt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-[#6A6A6A]">
-              <span className="text-[#3A3A3A]">[</span>void/cn ${(totals.totalNonCashAdjustmentCents / 100).toFixed(0)}<span className="text-[#3A3A3A]">]</span>
+            <td className="pt-2 font-mono text-[11px] uppercase tracking-[0.12em] text-text-mute">
+              <span className="text-text-mute">[</span>void/cn {formatCentsCompact(totals.totalNonCashAdjustmentCents)}<span className="text-text-mute">]</span>
             </td>
-            <td className="pt-2 text-right font-mono text-[13px] tabular-nums text-[#EDEDED]">
+            <td className="pt-2 text-right font-mono text-[13px] tabular-nums text-text">
               {formatCents(totals.totalCashRefundCents)}
             </td>
           </tr>
@@ -99,7 +100,7 @@ function ColumnHeader({
 }) {
   return (
     <th
-      className={`pb-2 font-mono text-[10px] font-normal uppercase tracking-[0.16em] text-[#6A6A6A] ${align === "right" ? "text-right" : "text-left"}`}
+      className={`pb-2 font-mono text-[10px] font-normal uppercase tracking-[0.16em] text-text-mute ${align === "right" ? "text-right" : "text-left"}`}
       scope="col"
     >
       {children}
@@ -108,11 +109,11 @@ function ColumnHeader({
 }
 
 const ACTION_TONE: Record<RefundActionKind, string> = {
-  refund: "text-[#6F94B0]",
-  credit_note: "text-[#C4A868]",
-  void: "text-[#8A8A8A]",
-  mark_uncollectible: "text-[#B58289]",
-  noop: "text-[#3A3A3A]",
+  refund: "text-olive",
+  credit_note: "text-tan",
+  void: "text-text-3",
+  mark_uncollectible: "text-rose",
+  noop: "text-text-mute",
 };
 
 const ACTION_LABEL: Record<RefundActionKind, string> = {
@@ -129,18 +130,18 @@ function BreakdownRow({ line }: { line: RefundBreakdownPreviewLine }) {
       className={`border-b border-white/[0.04] last:border-b-0 ${line.isGreyed ? "opacity-50" : ""}`}
     >
       <td className="py-[10px] pr-3 align-top">
-        <div className="font-cakemono text-[12px] font-light uppercase tracking-[0.06em] text-[#EDEDED]">
+        <div className="font-cakemono text-[12px] font-light uppercase tracking-[0.06em] text-text">
           {line.label}
         </div>
         {line.note && (
-          <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.10em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.10em] text-text-mute">
+            <span className="text-text-mute">[</span>
             {line.note}
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </div>
         )}
       </td>
-      <td className="py-[10px] pr-3 align-top font-mono text-[11px] uppercase tracking-[0.10em] text-[#B5B5B5]">
+      <td className="py-[10px] pr-3 align-top font-mono text-[11px] uppercase tracking-[0.10em] text-text-2">
         {line.currentStatus
           ? line.currentStatus.replace(/_/g, " ")
           : "no payment"}
@@ -148,10 +149,10 @@ function BreakdownRow({ line }: { line: RefundBreakdownPreviewLine }) {
       <td className={`py-[10px] pr-3 align-top font-mono text-[11px] uppercase tracking-[0.12em] ${ACTION_TONE[line.action]}`}>
         {ACTION_LABEL[line.action]}
       </td>
-      <td className="py-[10px] pr-3 align-top font-mono text-[10px] tracking-[0.04em] text-[#8A8A8A]">
+      <td className="py-[10px] pr-3 align-top font-mono text-[10px] tracking-[0.04em] text-text-3">
         {line.stripeTargetId ? truncate(line.stripeTargetId, 22) : "—"}
       </td>
-      <td className="py-[10px] text-right align-top font-mono text-[12px] tabular-nums text-[#EDEDED]">
+      <td className="py-[10px] text-right align-top font-mono text-[12px] tabular-nums text-text">
         {line.amountCents > 0 ? formatCents(line.amountCents) : "—"}
       </td>
     </tr>

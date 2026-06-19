@@ -23,6 +23,7 @@ import {
   trackStarfieldLaunched,
   trackStarfieldExited,
 } from "@/lib/analytics/analytics";
+import { analyticsService } from "@/lib/analytics/analytics-service";
 import { useSetupStore, STARFIELD_QUESTIONS } from "@/stores/setup-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { OpsLockup, LogoLoader } from "@/components/brand";
@@ -61,6 +62,13 @@ const readSafeReturnTo = (): string | null => {
   if (raw.length < 2 || raw[0] !== "/" || raw[1] === "/") return null;
   if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(raw)) return null;
   return raw;
+};
+
+const readSetupSource = (): "direct" | "spec" => {
+  if (typeof window === "undefined") return "direct";
+  return new URLSearchParams(window.location.search).get("source") === "spec"
+    ? "spec"
+    : "direct";
 };
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -249,6 +257,12 @@ export default function SetupPage() {
   useEffect(() => {
     setupStartRef.current = Date.now();
     trackSetupStarted("direct");
+    if (readSetupSource() === "spec") {
+      analyticsService.track("lifecycle", "spec_default_ops_signup_started", {
+        source: "spec",
+        continue_to: readSafeReturnTo() ?? "/dashboard",
+      });
+    }
   }, []);
 
   // Fire step_viewed when phase changes (identity / company / starfield)
@@ -344,6 +358,20 @@ export default function SetupPage() {
     trackSetupStepSkipped(phase, "button");
     const totalDuration = Date.now() - setupStartRef.current;
     trackSetupCompleted("skipped", [], totalDuration);
+    if (readSetupSource() === "spec") {
+      analyticsService.track("lifecycle", "spec_default_ops_signup_completed", {
+        source: "spec",
+        method: "skipped",
+        steps_completed: [],
+        total_duration_ms: totalDuration,
+        continue_to: readSafeReturnTo() ?? "/dashboard",
+      });
+      try {
+        await analyticsService.flush();
+      } catch {
+        // Non-blocking
+      }
+    }
     try {
       const token = await getAuthToken();
       if (token) {
@@ -478,6 +506,20 @@ export default function SetupPage() {
     const method = stepsCompleted.length >= 3 ? "full" : "partial";
     const totalDuration = Date.now() - setupStartRef.current;
     trackSetupCompleted(method, stepsCompleted, totalDuration);
+    if (readSetupSource() === "spec") {
+      analyticsService.track("lifecycle", "spec_default_ops_signup_completed", {
+        source: "spec",
+        method,
+        steps_completed: stepsCompleted,
+        total_duration_ms: totalDuration,
+        continue_to: readSafeReturnTo() ?? "/dashboard",
+      });
+      try {
+        await analyticsService.flush();
+      } catch {
+        // Non-blocking
+      }
+    }
 
     // 6. Clean up persisted setup store and navigate
     resetSetupStore();
@@ -565,7 +607,7 @@ export default function SetupPage() {
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="px-3 min-h-[36px] rounded-sm bg-ops-accent border border-ops-accent text-text font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent-hover transition-colors"
+              className="px-3 min-h-[36px] rounded-sm bg-transparent border border-ops-accent text-ops-accent font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent hover:text-black transition-colors"
             >
               Launch
             </button>
@@ -599,20 +641,9 @@ export default function SetupPage() {
                 <button
                   onClick={handleLaunchFromStarfield}
                   aria-label="Launch your personalized dashboard"
-                  className="group relative px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] text-text transition-all duration-300 overflow-hidden"
-                  style={{
-                    background: "rgba(111, 148, 176, 0.12)",
-                    border: "1px solid rgba(111, 148, 176, 0.4)",
-                    boxShadow: "0 0 40px rgba(111, 148, 176, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-                  }}
+                  className="px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] bg-transparent text-ops-accent border border-ops-accent hover:bg-ops-accent hover:text-black transition-colors duration-300"
                 >
-                  <span className="relative z-10">LAUNCH</span>
-                  <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    style={{
-                      background: "linear-gradient(135deg, rgba(111, 148, 176, 0.15), rgba(111, 148, 176, 0.05))",
-                    }}
-                  />
+                  LAUNCH
                 </button>
                 <p className="font-mono text-micro text-text-mute uppercase tracking-[0.1em]">
                   Your dashboard is ready
@@ -739,7 +770,7 @@ export default function SetupPage() {
           <button
             onClick={handleNext}
             aria-label={phase === "identity" ? "Continue to company information" : "Continue to questionnaire"}
-            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover transition-all duration-150"
+            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-transparent text-ops-accent px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent hover:text-black transition-all duration-150"
           >
             Next
             <ChevronRight className="w-4 h-4" aria-hidden="true" />

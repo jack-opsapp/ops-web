@@ -7,6 +7,7 @@ import type {
   AdsDailyAccount,
   AdsDailyCampaign,
   AdsDailyKeyword,
+  AdsDailySearchTerm,
   AdsSyncStatus,
 } from "./ads-history-types";
 import type {
@@ -14,6 +15,7 @@ import type {
   CampaignPerformance,
   KeywordPerformance,
   DailySpend,
+  SearchTermData,
 } from "@/lib/analytics/google-ads-types";
 
 const db = () => getAdminSupabase();
@@ -48,6 +50,14 @@ export async function upsertDailyKeywords(rows: Omit<AdsDailyKeyword, "synced_at
   await db()
     .from("ads_daily_keyword")
     .upsert(withTimestamp, { onConflict: "date,keyword" });
+}
+
+export async function upsertDailySearchTerms(rows: Omit<AdsDailySearchTerm, "synced_at">[]): Promise<void> {
+  if (rows.length === 0) return;
+  const withTimestamp = rows.map((row) => ({ ...row, synced_at: new Date().toISOString() }));
+  await db()
+    .from("ads_daily_search_term")
+    .upsert(withTimestamp, { onConflict: "date,search_term,campaign_name,ad_group_name" });
 }
 
 // ─── Reads (used by admin page) ──────────────────────────────────────────────
@@ -171,6 +181,64 @@ export async function getKeywordsFromHistory(
       cost: d.spend,
       conversions: d.conversions,
       qualityScore: d.qualityScore,
+    }))
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, limit);
+}
+
+export async function getSearchTermsFromHistory(
+  startDate: string,
+  endDate: string,
+  limit = 50
+): Promise<SearchTermData[]> {
+  const { data } = await db()
+    .from("ads_daily_search_term")
+    .select("*")
+    .gte("date", startDate)
+    .lte("date", endDate);
+
+  if (!data || data.length === 0) return [];
+
+  const bySearchTerm = new Map<string, {
+    searchTerm: string;
+    campaignName: string;
+    adGroupName: string | null;
+    spend: number;
+    clicks: number;
+    impressions: number;
+    conversions: number;
+  }>();
+
+  for (const row of data as AdsDailySearchTerm[]) {
+    const key = `${row.search_term}\u0000${row.campaign_name}\u0000${row.ad_group_name}`;
+    const existing = bySearchTerm.get(key);
+    if (existing) {
+      existing.spend += Number(row.spend);
+      existing.clicks += Number(row.clicks);
+      existing.impressions += Number(row.impressions);
+      existing.conversions += Number(row.conversions);
+    } else {
+      bySearchTerm.set(key, {
+        searchTerm: row.search_term,
+        campaignName: row.campaign_name,
+        adGroupName: row.ad_group_name || null,
+        spend: Number(row.spend),
+        clicks: Number(row.clicks),
+        impressions: Number(row.impressions),
+        conversions: Number(row.conversions),
+      });
+    }
+  }
+
+  return Array.from(bySearchTerm.values())
+    .map((row) => ({
+      searchTerm: row.searchTerm,
+      campaignName: row.campaignName,
+      adGroupName: row.adGroupName,
+      impressions: row.impressions,
+      clicks: row.clicks,
+      cost: row.spend,
+      conversions: row.conversions,
     }))
     .sort((a, b) => b.cost - a.cost)
     .slice(0, limit);
