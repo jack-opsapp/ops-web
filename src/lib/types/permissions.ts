@@ -170,17 +170,23 @@ const productsModule: PermissionModule = {
   ],
 };
 
-// Client home for the DB `catalog.*` namespace (catalog.manage, catalog.import,
-// catalog.run_setup, …) that ships in role_permissions but was previously absent
-// from this catalog. Registering catalog.run_setup here is load-bearing:
+// Client home for the DB `catalog.*` namespace that ships in role_permissions.
+// Keeping every live catalog bit registered here is load-bearing:
 // account-holders & company-admins derive their grants from ALL_PERMISSIONS at
-// scope 'all' (usePermissionStore.fetchPermissions), NOT from role_permissions —
-// so an unregistered bit silently denies the wizard's primary audience (the
-// owner). See client-permission-catalog-sync rule.
+// scope 'all' (usePermissionStore.fetchPermissions), NOT from role_permissions.
+// An unregistered DB bit silently denies the owner/admin path.
 const catalogModule: PermissionModule = {
   id: "catalog",
   label: "Catalog",
   actions: [
+    { id: "catalog.view", label: "View catalog", scopes: ["all"] },
+    { id: "catalog.manage", label: "Manage catalog", scopes: ["all"] },
+    { id: "catalog.import", label: "Import catalog", scopes: ["all"] },
+    { id: "catalog.stock.adjust", label: "Adjust stock", scopes: ["all"] },
+    { id: "catalog.products.view", label: "View catalog products", scopes: ["all"] },
+    { id: "catalog.products.manage", label: "Manage catalog products", scopes: ["all"] },
+    { id: "catalog.orders.view", label: "View purchase orders", scopes: ["all"] },
+    { id: "catalog.orders.manage", label: "Manage purchase orders", scopes: ["all"] },
     { id: "catalog.run_setup", label: "Run catalog setup", scopes: ["all"] },
   ],
 };
@@ -204,16 +210,6 @@ const accountingModule: PermissionModule = {
   actions: [
     { id: "accounting.view", label: "View accounting", scopes: ["all"] },
     { id: "accounting.manage_connections", label: "Manage integrations", scopes: ["all"] },
-  ],
-};
-
-const inventoryModule: PermissionModule = {
-  id: "inventory",
-  label: "Inventory",
-  actions: [
-    { id: "inventory.view", label: "View inventory", scopes: ["all"] },
-    { id: "inventory.manage", label: "Manage inventory", scopes: ["all"] },
-    { id: "inventory.import", label: "Import inventory", scopes: ["all"] },
   ],
 };
 
@@ -334,7 +330,7 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "resources",
     label: "Resources",
-    modules: [inventoryModule, photosModule, documentsModule],
+    modules: [photosModule, documentsModule],
   },
   {
     id: "people",

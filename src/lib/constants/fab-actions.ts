@@ -52,7 +52,7 @@ export const ALL_ACTIONS: FABAction[] = [
   { id: "project",        labelKey: "action.project",   hintCode: "PRJ", icon: FolderKanban,  triggerAction: "projects",   handler: "window", target: "project-workspace",        requiredPermission: "projects.create", meta: { initialMode: "creating" } },
   { id: "task",           labelKey: "action.task",      hintCode: "TSK", icon: ClipboardList, triggerAction: "tasks",      handler: "window", target: "create-task",              requiredPermission: "tasks.create" },
   { id: "task-type",      labelKey: "action.taskType", hintCode: "TTY", icon: Tag,           triggerAction: "task-types", handler: "route",  target: "/settings?tab=company",    requiredPermission: "settings.company" },
-  { id: "inventory-item", labelKey: "action.inventoryItem",      hintCode: "ITM", icon: Boxes,         triggerAction: "inventory",  handler: "route",  target: "/catalog?segment=stock&action=new", requiredPermission: "inventory.manage" },
+  { id: "inventory-item", labelKey: "action.inventoryItem",      hintCode: "ITM", icon: Boxes,         triggerAction: "inventory",  handler: "route",  target: "/catalog?segment=stock&action=new", requiredPermission: "catalog.manage" },
 ];
 
 export const DEFAULT_ACTION_IDS = ALL_ACTIONS.map((a) => a.id);
