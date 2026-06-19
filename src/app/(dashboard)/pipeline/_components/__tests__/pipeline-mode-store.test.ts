@@ -1,8 +1,21 @@
 import { describe, it, expect } from "vitest";
 
 import { OpportunityStage } from "@/lib/types/pipeline";
-import { migratePipelineModeState } from "../pipeline-mode-store";
+import {
+  migratePipelineModeState,
+  usePipelineModeStore,
+} from "../pipeline-mode-store";
 import type { SortOption } from "../pipeline-mode-types";
+
+describe("usePipelineModeStore — detail tab default", () => {
+  it('defaults detailPanelActiveTab to "overview"', () => {
+    // `detailPanelActiveTab` is intentionally NOT partialized (never persisted),
+    // so the initial value is always the store default — deterministic in tests.
+    expect(usePipelineModeStore.getState().detailPanelActiveTab).toBe(
+      "overview"
+    );
+  });
+});
 
 describe("migratePipelineModeState", () => {
   it('coerces the retired "spatial" mode to "focused"', () => {

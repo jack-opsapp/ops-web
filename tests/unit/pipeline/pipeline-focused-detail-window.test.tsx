@@ -101,6 +101,21 @@ vi.mock(
   })
 );
 
+// The map-backed band + Overview tab are new always-/conditionally-mounted body
+// children that pull in query hooks (useUpdateOpportunity, useEstimates, …).
+// This suite covers the window chrome, not the band internals (which have their
+// own suites), so stub them like the other data-dependent body children above.
+vi.mock("@/app/(dashboard)/pipeline/_components/lead-map-band", () => ({
+  LeadMapBand: () => <div data-testid="lead-map-band" />,
+}));
+
+vi.mock(
+  "@/app/(dashboard)/pipeline/_components/pipeline-detail-overview-tab",
+  () => ({
+    PipelineDetailOverviewTab: () => <div />,
+  })
+);
+
 const NOW = new Date("2026-05-12T12:00:00.000Z");
 
 function makeOpportunity(): Opportunity {
@@ -259,12 +274,21 @@ describe("<PipelineFocusedDetailWindow>", () => {
     ).toBeInTheDocument();
   });
 
-  it("surfaces the job site in the workspace header and contact strip", async () => {
+  it("surfaces the job site address in the workspace header", async () => {
     renderWindow();
 
     const windowShell = await screen.findByTestId("project-workspace-window");
 
-    expect(within(windowShell).getAllByText("42 Lonsdale Ave").length).toBeGreaterThan(0);
+    // The standalone contact strip was replaced by the map-backed band (mocked
+    // in this suite). The address still surfaces in the window header subtitle,
+    // which buildSubtitle joins with " · " — so match on a substring-tolerant
+    // matcher rather than an exact-text node.
+    expect(
+      within(windowShell).getAllByText(
+        (_content, element) =>
+          (element?.textContent ?? "").includes("42 Lonsdale Ave"),
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it("closes on Escape and restores focus to the originating card", async () => {
