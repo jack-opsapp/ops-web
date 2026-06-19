@@ -40,7 +40,7 @@ export function SnapshotsView({
 }) {
   const { t } = useDictionary("catalog");
   const can = usePermissionStore((s) => s.can);
-  const canManage = can("inventory.manage");
+  const canManage = can("catalog.manage");
   const { data: snapshots = [], isLoading } = useCatalogSnapshots();
   const create = useCreateSnapshot();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());

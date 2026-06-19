@@ -111,7 +111,7 @@ export function StockSegment({
 }: StockSegmentProps) {
   const { t } = useDictionary("catalog");
   const can = usePermissionStore((s) => s.can);
-  const canManage = can("inventory.manage");
+  const canManage = can("catalog.manage");
 
   const adjust = useAdjustQuantity();
   const bulkDelete = useBulkDeleteVariants();

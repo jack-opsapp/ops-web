@@ -68,7 +68,7 @@ describe("CatalogSetupRoute permission gate", () => {
 
   it("mounts the wizard when catalog.run_setup is granted", () => {
     canMock.mockImplementation(
-      (p: string) => p === "catalog.run_setup" || p === "products.manage",
+      (p: string) => p === "catalog.run_setup" || p === "catalog.products.manage",
     );
     renderRoute();
     expect(screen.getByTestId("wizard-shell-stub")).toBeInTheDocument();

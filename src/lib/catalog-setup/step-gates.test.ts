@@ -8,17 +8,17 @@ import {
 } from "./step-gates";
 
 const fullCan = () => true;
-const noInventory = (p: string) => p !== "inventory.manage" && p !== "inventory.import";
+const noStock = (p: string) => p !== "catalog.manage" && p !== "catalog.import";
 const viewerOnly = (p: string) => p.endsWith(".view");
 
 describe("STEP_REQUIRED_PERMISSIONS", () => {
-  it("requires catalog.run_setup + products.manage for SELL", () => {
+  it("requires catalog.run_setup + catalog.products.manage for SELL", () => {
     expect(STEP_REQUIRED_PERMISSIONS.SELL).toEqual(
-      expect.arrayContaining(["catalog.run_setup", "products.manage"]),
+      expect.arrayContaining(["catalog.run_setup", "catalog.products.manage"]),
     );
   });
-  it("requires inventory.manage for STOCK", () => {
-    expect(STEP_REQUIRED_PERMISSIONS.STOCK).toContain("inventory.manage");
+  it("requires catalog.manage for STOCK", () => {
+    expect(STEP_REQUIRED_PERMISSIONS.STOCK).toContain("catalog.manage");
   });
 });
 
@@ -26,8 +26,8 @@ describe("isStepAccessible", () => {
   it("grants SELL to a products manager", () => {
     expect(isStepAccessible("SELL", fullCan)).toBe(true);
   });
-  it("hides STOCK from someone without inventory.manage (no dead end)", () => {
-    expect(isStepAccessible("STOCK", noInventory)).toBe(false);
+  it("hides STOCK from someone without catalog.manage (no dead end)", () => {
+    expect(isStepAccessible("STOCK", noStock)).toBe(false);
   });
   it("hides everything from a view-only user", () => {
     expect(isStepAccessible("SELL", viewerOnly)).toBe(false);
@@ -36,8 +36,8 @@ describe("isStepAccessible", () => {
 
 describe("visibleModulePlan", () => {
   const plan: WizardModule[] = ["SELL", "STOCK", "TYPES", "REVIEW"];
-  it("drops STOCK for a no-inventory manager", () => {
-    expect(visibleModulePlan(plan, noInventory)).toEqual(["SELL", "TYPES", "REVIEW"]);
+  it("drops STOCK for a no-stock manager", () => {
+    expect(visibleModulePlan(plan, noStock)).toEqual(["SELL", "TYPES", "REVIEW"]);
   });
   it("keeps the full plan for a full manager", () => {
     expect(visibleModulePlan(plan, fullCan)).toEqual(plan);
