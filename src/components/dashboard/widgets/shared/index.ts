@@ -32,6 +32,7 @@ export {
 } from "./widget-motion";
 
 // ── Components ───────────────────────────────────────────────────────
+export { WidgetTitle } from "./widget-title";
 export { WidgetEmptyState } from "./widget-empty-state";
 export { WidgetStatusBadge } from "./widget-status-badge";
 export { WidgetLineItem } from "./widget-line-item";
