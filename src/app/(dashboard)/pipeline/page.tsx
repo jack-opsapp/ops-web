@@ -108,8 +108,8 @@ function PipelineSkeleton() {
           <div className="flex items-center gap-[16px] px-3 py-[8px]">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex flex-col gap-[2px]">
-                <div className="h-[18px] w-[60px] animate-pulse rounded bg-fill-neutral-dim" />
-                <div className="h-[10px] w-[40px] animate-pulse rounded bg-fill-neutral-dim" />
+                <div className="h-[18px] w-[60px] animate-pulse motion-reduce:animate-none rounded bg-fill-neutral-dim" />
+                <div className="h-[10px] w-[40px] animate-pulse motion-reduce:animate-none rounded bg-fill-neutral-dim" />
               </div>
             ))}
           </div>
@@ -141,7 +141,7 @@ function PipelineSkeleton() {
                 {[1, 2].map((j) => (
                   <div
                     key={j}
-                    className="glass-surface animate-pulse space-y-1.5 rounded border border-border-medium bg-glass p-1.5"
+                    className="glass-surface animate-pulse motion-reduce:animate-none space-y-1.5 rounded border border-border-medium bg-glass p-1.5"
                   >
                     <div className="h-[14px] w-3/4 rounded bg-fill-neutral-dim" />
                     <div className="h-[10px] w-1/2 rounded bg-fill-neutral-dim" />
@@ -1047,11 +1047,11 @@ export default function PipelinePage() {
                 background: "var(--surface-glass-dense)",
                 backdropFilter: "blur(28px) saturate(1.3)",
                 WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-                borderColor: "rgba(111, 148, 176, 0.26)",
+                borderColor: "var(--glass-border)",
               }}
             >
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[5px] border border-ops-accent/20 bg-ops-accent/10">
-                <Mail className="h-[16px] w-[16px] text-ops-accent" />
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[5px] border border-border bg-surface-active">
+                <Mail className="h-[16px] w-[16px] text-text-2" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-mohave text-body text-text">
@@ -1103,9 +1103,9 @@ export default function PipelinePage() {
             />
           )}
           {moveStage.isPending && (
-            <div className="flex items-center gap-1.5 rounded-chip border border-ops-accent/25 bg-ops-accent/10 px-2 py-1">
-              <Loader2 className="h-[14px] w-[14px] animate-spin text-ops-accent" />
-              <span className="font-mono text-micro text-ops-accent">
+            <div className="flex items-center gap-1.5 rounded-chip border border-border bg-surface-active px-2 py-1">
+              <Loader2 className="h-[14px] w-[14px] animate-spin text-text-3" />
+              <span className="font-mono text-micro text-text-2">
                 {t("column.updating")}
               </span>
             </div>
@@ -1149,7 +1149,7 @@ export default function PipelinePage() {
       )}
 
       {!isMobile && effectiveMode === "focused" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[30] h-12 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-12 bg-gradient-to-t from-background via-background/60 to-transparent" />
       )}
 
       {/* Stage Transition Dialog (Won/Lost prompts) */}
