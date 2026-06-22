@@ -178,7 +178,7 @@ export function WidgetShell({
       {!isSpacer && !isCustomizing && !isFlipped && (
         <button
           onClick={() => setIsFlipped(true)}
-          className="absolute top-[6px] left-[6px] z-10 w-[18px] h-[18px] flex items-center justify-center rounded-sm opacity-0 group-hover/widget:opacity-100 transition-opacity text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)]"
+          className="absolute top-[6px] left-[6px] z-10 w-[18px] h-[18px] flex items-center justify-center rounded-sm opacity-0 group-hover/widget:opacity-100 transition-opacity text-text-mute hover:text-text-2 hover:bg-surface-hover"
         >
           <Info className="w-[12px] h-[12px]" />
         </button>
@@ -224,7 +224,7 @@ export function WidgetShell({
                     className={cn(
                       "px-[8px] py-[2px] rounded-sm font-mono text-micro border transition-all duration-150",
                       isSelected
-                        ? "bg-[rgba(255,255,255,0.08)] border-[rgba(255,255,255,0.18)] text-text"
+                        ? "bg-surface-hover border-border-medium text-text"
                         : "border-transparent text-text-mute"
                     )}
                   >

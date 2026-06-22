@@ -48,7 +48,7 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
         "cursor-grab active:cursor-grabbing select-none transition-colors duration-150",
         isAdded
           ? "opacity-50 saturate-0"
-          : "bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.05)]",
+          : "bg-[rgba(255,255,255,0.03)] hover:bg-surface-hover",
         isDragging && "opacity-40 scale-95"
       )}
     >
@@ -61,7 +61,7 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
           <div className="flex items-center gap-[4px]">
             <span className="font-mono text-micro text-text-mute">{t("tray.card.added")}</span>
             {entry.allowMultiple && instanceCount > 1 && (
-              <span className="font-mono text-micro px-[3px] py-[1px] rounded bg-[rgba(255,255,255,0.06)] text-text-mute">
+              <span className="font-mono text-micro px-[3px] py-[1px] rounded bg-fill-neutral-dim text-text-mute">
                 {instanceCount}x
               </span>
             )}
@@ -81,8 +81,8 @@ export function WidgetTrayCard({ typeId, index, instanceCount }: WidgetTrayCardP
             className={cn(
               "w-[18px] h-[18px] rounded-md flex items-center justify-center border transition-all duration-150",
               isAdded
-                ? "bg-transparent text-text-mute border-border/50 hover:bg-[rgba(255,255,255,0.06)]"
-                : "bg-[rgba(255,255,255,0.05)] text-text-2 border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.08)] hover:text-text"
+                ? "bg-transparent text-text-mute border-border/50 hover:bg-fill-neutral-dim"
+                : "bg-surface-hover text-text-2 border-border-medium hover:bg-surface-hover hover:text-text"
             )}
             title={`${t("tray.card.addTitle")} ${entry.label}`}
           >

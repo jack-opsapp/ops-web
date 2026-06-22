@@ -113,7 +113,7 @@ function getOperatorLabel(t: (key: string) => string, firstName: string): string
 function PlaceholderWidget({ typeId, label }: { typeId: string; label: string }) {
   const { t } = useDictionary("dashboard");
   return (
-    <div className="h-full rounded-lg bg-glass glass-surface border border-border p-2 flex flex-col items-center justify-center">
+    <div className="h-full rounded-panel bg-glass glass-surface border border-border p-2 flex flex-col items-center justify-center">
       <span className="font-mono text-micro text-text-mute uppercase">{typeId}</span>
       <span className="font-mohave text-body-sm text-text-3 mt-[4px]">{label}</span>
       <span className="font-mono text-micro text-text-mute mt-1">{t("widgets.comingSoon")}</span>
@@ -701,7 +701,7 @@ export default function DashboardPage() {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: DRAG_GRABBED_SCALE, opacity: 0.95 }}
           transition={SPRING_REORDER}
-          className="w-[160px] h-[120px] rounded-lg ring-2 ring-[rgba(255,255,255,0.30)] bg-[var(--surface-glass-dense)] backdrop-blur-xl border border-[rgba(255,255,255,0.15)] p-[10px] flex flex-col items-center justify-center pointer-events-none"
+          className="w-[160px] h-[120px] rounded-panel ring-2 ring-[rgba(255,255,255,0.30)] bg-glass-dense backdrop-blur-xl border border-border-medium p-[10px] flex flex-col items-center justify-center pointer-events-none"
           style={{ boxShadow: DRAG_GRABBED_SHADOW }}
         >
           <span className="font-mohave text-[13px] text-text">{entry.label}</span>
@@ -716,7 +716,7 @@ export default function DashboardPage() {
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: DRAG_GRABBED_SCALE, opacity: 0.95 }}
         transition={SPRING_REORDER}
-        className="rounded-md ring-2 ring-[rgba(255,255,255,0.30)] pointer-events-none"
+        className="rounded-panel ring-2 ring-[rgba(255,255,255,0.30)] pointer-events-none"
         style={{ boxShadow: DRAG_GRABBED_SHADOW }}
       >
         {childrenMap[activeId] ?? null}
@@ -759,10 +759,7 @@ export default function DashboardPage() {
           <Button
             variant={isCustomizing ? "default" : "ghost"}
             size="sm"
-            className={cn(
-              "gap-[6px] shrink-0",
-              isCustomizing && "bg-ops-accent hover:bg-ops-accent/90 text-white"
-            )}
+            className="gap-[6px] shrink-0"
             onClick={handleCustomizeToggle}
           >
             {isCustomizing ? (

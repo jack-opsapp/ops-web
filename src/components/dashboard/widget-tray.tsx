@@ -5,6 +5,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, animate, type Pa
 import { X, Search, RotateCcw, Maximize2, Plus, Check } from "lucide-react";
 import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
 import {
   usePreferencesStore,
@@ -81,7 +82,7 @@ function DraggableSpacerButton({ onAdd }: { onAdd: () => void }) {
         "flex min-w-0 items-center gap-2 px-3 py-[6px] rounded-[4px]",
         "border border-dashed border-[rgba(255,255,255,0.15)]",
         "hover:border-[rgba(255,255,255,0.25)]",
-        "bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.06)]",
+        "bg-surface-input hover:bg-fill-neutral-dim",
         "transition-all cursor-grab active:cursor-grabbing select-none",
         isDragging && "opacity-40"
       )}
@@ -94,7 +95,7 @@ function DraggableSpacerButton({ onAdd }: { onAdd: () => void }) {
           onAdd();
         }}
         onPointerDown={(e) => e.stopPropagation()}
-        className="w-[18px] h-[18px] rounded-md flex items-center justify-center border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-text-mute hover:text-text-2 transition-all ml-auto"
+        className="w-[18px] h-[18px] rounded-md flex items-center justify-center border border-border hover:border-[rgba(255,255,255,0.2)] bg-surface-input hover:bg-surface-hover text-text-mute hover:text-text-2 transition-all ml-auto"
         title={t("tray.addSpacer")}
       >
         <Plus className="w-[10px] h-[10px]" />
@@ -284,10 +285,10 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
               className="flex min-w-0 items-center gap-[6px] ml-auto mr-3 max-[640px]:order-3 max-[640px]:ml-0 max-[640px]:mr-0 max-[640px]:w-full"
               onPointerDown={(e) => e.stopPropagation()}
             >
-              <span className="font-mono text-micro text-text-mute uppercase tracking-wider select-none">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em] select-none">
                 {t("tray.gap")}
               </span>
-              <div className="flex min-w-0 flex-1 items-center rounded-[4px] border border-[rgba(255,255,255,0.1)] bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
+              <div className="flex min-w-0 flex-1 items-center rounded-[4px] border border-border bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
                 {(["none", "tight", "normal", "relaxed"] as WidgetGapId[]).map((gapId) => {
                   const isActive = widgetGap === gapId;
                   return (
@@ -297,7 +298,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                       className={cn(
                         "min-w-0 flex-1 px-[8px] py-[4px] font-mono text-micro transition-all duration-150 border-r border-[rgba(255,255,255,0.06)] last:border-r-0",
                         isActive
-                          ? "bg-[rgba(255,255,255,0.08)] text-text"
+                          ? "bg-surface-hover text-text"
                           : "text-text-mute hover:text-text-2"
                       )}
                       title={`${WIDGET_GAP_VALUES[gapId]}px`}
@@ -311,21 +312,23 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
 
             {/* Done / Cancel */}
             <div className="flex items-center gap-2 max-[640px]:ml-auto">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={onCancel}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="px-3 py-[5px] rounded-[4px] font-mohave text-body-sm text-text-2 border border-[rgba(255,255,255,0.1)] hover:border-[rgba(255,255,255,0.2)] hover:text-text bg-[rgba(10,10,10,0.5)] backdrop-blur-sm transition-all"
               >
                 {t("tray.cancel")}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={onDone}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="px-3 py-[5px] rounded-[4px] font-mohave text-body-sm text-white bg-ops-accent hover:bg-ops-accent/90 flex items-center gap-[6px] transition-all"
               >
                 <Check className="w-[12px] h-[12px]" />
                 {t("tray.done")}
-              </button>
+              </Button>
             </div>
           </motion.div>
 
@@ -384,7 +387,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                   placeholder={t("tray.searchPlaceholder")}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-[28px] pr-[8px] py-[6px] rounded bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] text-text font-mohave text-body-sm placeholder:text-text-3 focus:border-[rgba(255,255,255,0.2)] focus:outline-none transition-colors"
+                  className="w-full pl-[28px] pr-[8px] py-[6px] rounded bg-fill-neutral-dim border border-border text-text font-mohave text-body-sm placeholder:text-text-3 focus:border-[rgba(255,255,255,0.2)] focus:outline-none transition-colors"
                 />
               </div>
             </div>
@@ -403,7 +406,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                       <div key={category}>
                         {/* Category label */}
                         <div className="flex items-center gap-[6px] mb-[6px]">
-                          <span className="font-mono text-micro text-text-3 uppercase tracking-widest">
+                          <span className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                             {CATEGORY_LABELS[category]}
                           </span>
                           <span className="font-mono text-micro text-text-mute">
@@ -429,7 +432,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
                         {inUse.length > 0 && (
                           <>
                             <div className="flex items-center gap-[6px] mb-[4px] mt-[2px]">
-                              <span className="font-mono text-micro text-text-mute uppercase tracking-widest">
+                              <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
                                 {t("tray.alreadyInUse")}
                               </span>
                               <span className="font-mono text-micro text-text-mute">

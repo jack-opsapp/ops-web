@@ -93,7 +93,7 @@ export function MapFilterRail() {
             title={label}
           >
             <Icon className="w-[13px] h-[13px]" />
-            <span className="font-mono text-micro uppercase tracking-wider">
+            <span className="font-mono text-micro uppercase tracking-[0.16em]">
               {label}
             </span>
           </ToolbarAction>
@@ -109,7 +109,7 @@ export function MapFilterRail() {
             title={t("mapFilter.crew", "CREW")}
           >
             <Users className="w-[13px] h-[13px]" />
-            <span className="font-mono text-micro uppercase tracking-wider">
+            <span className="font-mono text-micro uppercase tracking-[0.16em]">
               {t("mapFilter.crew", "CREW")}
             </span>
           </ToolbarAction>
@@ -147,8 +147,8 @@ function ToolbarAction({
       className={cn(
         "flex shrink-0 items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
         isActive
-          ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
-          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] border border-transparent"
+          ? "text-text bg-surface-hover border border-border-medium"
+          : "text-text-3 hover:text-text hover:bg-surface-hover border border-transparent"
       )}
       onClick={onClick}
       title={title}
