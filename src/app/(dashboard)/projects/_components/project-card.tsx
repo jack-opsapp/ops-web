@@ -199,7 +199,7 @@ export const ProjectCard = memo(function ProjectCard({
             {primaryLabel}
           </span>
           {canViewAccounting && projectValue > 0 && (
-            <span className="font-mohave text-body-sm text-text-2 whitespace-nowrap">
+            <span className="font-mono text-data-sm text-text-2 tabular-nums whitespace-nowrap">
               {formatCompactCurrency(projectValue)}
             </span>
           )}

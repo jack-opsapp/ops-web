@@ -368,7 +368,7 @@ export function NotificationsDrawer() {
                       style={{
                         color: active ? c.color : "var(--text-3)",
                         opacity: active ? 0.85 : 1,
-                        fontVariantNumeric: "tabular-nums",
+                        fontFeatureSettings: '"tnum" 1, "zero" 1',
                         transition: reducedMotion
                           ? "none"
                           : "color var(--d-hover) var(--ease-smooth), opacity var(--d-hover) var(--ease-smooth)",

@@ -155,10 +155,10 @@ export const PipelineCardContent = memo(function PipelineCardContent({
           <span className="font-mohave text-body-sm font-medium text-text truncate">
             {clientName}
           </span>
-          <span className="font-mohave text-body-sm text-text-2 whitespace-nowrap">
+          <span className="font-mono text-data-sm text-text-2 tabular-nums whitespace-nowrap">
             {opportunity.estimatedValue
               ? formatCurrency(opportunity.estimatedValue)
-              : "$--"}
+              : "—"}
           </span>
         </div>
 

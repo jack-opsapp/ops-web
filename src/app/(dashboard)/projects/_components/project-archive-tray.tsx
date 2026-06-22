@@ -107,8 +107,8 @@ export function ProjectArchiveTray({
                         </p>
                       )}
                       {canViewAccounting && (
-                        <p className="font-mohave text-caption-sm text-text-mute">
-                          {value > 0 ? formatCurrency(value) : "$--"}
+                        <p className="font-mono text-caption-sm text-text-mute tabular-nums">
+                          {value > 0 ? formatCurrency(value) : "—"}
                         </p>
                       )}
                     </div>

@@ -255,10 +255,10 @@ export function PipelineCard({
             </span>
           </div>
 
-          <span className="shrink-0 font-mohave text-body-sm text-text-2">
+          <span className="shrink-0 font-mono text-data-sm text-text-2 tabular-nums">
             {opportunity.estimatedValue
               ? formatCurrency(opportunity.estimatedValue)
-              : "--"}
+              : "—"}
           </span>
         </div>
 

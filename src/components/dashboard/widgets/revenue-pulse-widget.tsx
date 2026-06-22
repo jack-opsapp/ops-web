@@ -553,7 +553,7 @@ export function RevenuePulseWidget({
                 delta={{
                   value: tooltip.lastYear > 0
                     ? `${Math.round(((tooltip.amount - tooltip.lastYear) / tooltip.lastYear) * 100)}%`
-                    : "--",
+                    : "—",
                   direction: tooltip.amount >= tooltip.lastYear ? "up" : "down",
                 }}
               />
