@@ -215,7 +215,7 @@ export function FeatureAccessModal({
             <div className="flex flex-col items-center gap-2 py-4">
               <CheckCircle2 className="w-[40px] h-[40px] text-status-success" />
               <p className="font-mohave text-body text-text text-center">
-                {"You're on the list!"}
+                {"Request received."}
               </p>
               <p className="font-mono text-caption text-text-2 text-center">
                 {"We'll review your request and get back to you."}
@@ -234,7 +234,7 @@ export function FeatureAccessModal({
                 {"You've already requested access to"} {featureLabel}.
               </p>
               <p className="font-mono text-caption text-text-2 text-center">
-                {"We'll be in touch!"}
+                {"We'll be in touch."}
               </p>
               <Button variant="secondary" onClick={onClose} className="mt-2">
                 Close

@@ -71,7 +71,7 @@
   "spreadsheet.columns.created": "Created",
   "spreadsheet.empty.filtered": "No projects match your filters",
   "spreadsheet.empty.none": "No projects yet",
-  "spreadsheet.empty.noneDesc": "Create your first project to get started",
+  "spreadsheet.empty.noneDesc": "Add a project to begin.",
   "spreadsheet.empty.clearFilters": "Clear Filters",
   "spreadsheet.footer.showing": "Showing {count} of {total} projects",
   "spreadsheet.footer.filtered": "(filtered)",

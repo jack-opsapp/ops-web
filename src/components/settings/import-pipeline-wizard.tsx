@@ -614,7 +614,7 @@ export function ImportPipelineWizard({
           setRunningJobId(null);
           setRunningJobType(null);
           setExistingJobId(null);
-          setBgProgress({ percent: 100, message: "Analysis complete!" });
+          setBgProgress({ percent: 100, message: "Analysis complete" });
           invalidateConnections();
 
           notifyRef.current({
@@ -638,7 +638,7 @@ export function ImportPipelineWizard({
           setImportJobId(null);
           setRunningJobId(null);
           setRunningJobType(null);
-          setBgProgress({ percent: 100, message: "Import complete!" });
+          setBgProgress({ percent: 100, message: "Import complete" });
           invalidateConnections();
 
           notifyRef.current({
