@@ -22,6 +22,7 @@ import { Sparkles, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
+import { WidgetTitle } from "./shared/widget-title";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -130,20 +131,24 @@ async function fetchWeekData(companyId: string): Promise<PhaseCWeekData> {
 
 // ─── Level → color + label ───────────────────────────────────────────────────
 
+// Autonomy ramp by how much the agent acts on its own: passive grays →
+// bright-neutral "prepares a draft, waits for you" → earth-tone "acts
+// autonomously". Tokenized (no hardcoded hex); auto_draft is bright-neutral
+// (text-2), NEVER the steel-blue accent — accent is CTA/focus only (DESIGN.md §3).
 function levelTone(level: EmailThreadAutonomyLevel): { bg: string; fg: string; label: string } {
   switch (level) {
     case "auto_send":
-      return { bg: "rgba(157,181,130,0.18)", fg: "#9DB582", label: "Auto-send" };
+      return { bg: "color-mix(in srgb, var(--olive) 18%, transparent)", fg: "var(--olive)", label: "Auto-send" };
     case "auto_follow_up":
-      return { bg: "rgba(157,181,130,0.12)", fg: "#9DB582", label: "Auto follow-up" };
+      return { bg: "color-mix(in srgb, var(--olive) 12%, transparent)", fg: "var(--olive)", label: "Auto follow-up" };
     case "auto_archive":
-      return { bg: "rgba(196,168,104,0.14)", fg: "#C4A868", label: "Auto-archive" };
+      return { bg: "color-mix(in srgb, var(--tan) 14%, transparent)", fg: "var(--tan)", label: "Auto-archive" };
     case "auto_draft":
-      return { bg: "rgba(111,148,176,0.14)", fg: "#6F94B0", label: "Auto-draft" };
+      return { bg: "color-mix(in srgb, var(--text-2) 12%, transparent)", fg: "var(--text-2)", label: "Auto-draft" };
     case "draft_on_request":
-      return { bg: "rgba(255,255,255,0.04)", fg: "#8A8A8A", label: "On request" };
+      return { bg: "var(--surface-input)", fg: "var(--text-3)", label: "On request" };
     case "off":
-      return { bg: "rgba(255,255,255,0.02)", fg: "#6A6A6A", label: "Off" };
+      return { bg: "rgba(255,255,255,0.02)", fg: "var(--text-mute)", label: "Off" };
   }
 }
 
@@ -188,17 +193,15 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
               <span className="font-mono text-display font-bold text-text leading-none tabular-nums">
                 {isLoading ? "—" : total}
               </span>
-              <span className="font-cakemono font-light uppercase text-[11px] tracking-[0.18em] text-text-3 mt-1 block">
-                Phase C · 7d
-              </span>
+              <WidgetTitle className="mt-1 block">Phase C · 7d</WidgetTitle>
             </div>
             <Sparkles className="w-[14px] h-[14px] text-text-mute group-hover:text-text-2 transition-colors" strokeWidth={1.75} />
           </div>
 
           {size === "sm" && total > 0 && (
             <div className="mt-auto pt-2 flex items-center gap-2">
-              <MiniBar value={auto} total={total} color="#9DB582" label="AUTO" />
-              <MiniBar value={draft} total={total} color="#6F94B0" label="DRAFT" />
+              <MiniBar value={auto} total={total} color="var(--olive)" label="AUTO" />
+              <MiniBar value={draft} total={total} color="var(--text-2)" label="DRAFT" />
             </div>
           )}
         </div>
@@ -212,13 +215,11 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {"// Phase C · last 7 days"}
-          </span>
+          <WidgetTitle>Phase C · last 7 days</WidgetTitle>
           <button
             type="button"
             onClick={navigateSettings}
-            className="font-mono text-micro uppercase tracking-wider text-text-mute hover:text-text-2 transition-colors inline-flex items-center gap-1"
+            className="font-mono text-micro uppercase tracking-[0.16em] text-text-mute hover:text-text-2 transition-colors inline-flex items-center gap-1"
           >
             Configure
             <ArrowUpRight className="w-[11px] h-[11px]" />
@@ -227,16 +228,16 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
 
         {/* Metric row */}
         <div className="flex items-stretch gap-3 mb-3">
-          <MetricCell value={auto} label="Auto" tone="#9DB582" />
-          <MetricCell value={draft} label="Drafts" tone="#6F94B0" />
-          <MetricCell value={surfaced} label="Surfaced" tone="#C4A868" />
+          <MetricCell value={auto} label="Auto" tone="var(--olive)" />
+          <MetricCell value={draft} label="Drafts" tone="var(--text-2)" />
+          <MetricCell value={surfaced} label="Surfaced" tone="var(--tan)" />
         </div>
 
         {/* Per-category bars */}
         <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
           {activeCategories.length === 0 ? (
             <div className="py-6 flex flex-col items-start">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+              <p className="font-mono text-micro uppercase tracking-[0.16em] text-text-mute">
                 {"// Phase C standing by"}
               </p>
               <p className="font-mohave text-[12.5px] text-text-2 mt-1">
@@ -258,7 +259,7 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
                     onClick={navigateSettings}
                     className={cn(
                       "flex items-center gap-2 w-full px-2 py-1.5 rounded-[4px]",
-                      "hover:bg-[rgba(255,255,255,0.04)] transition-colors text-left"
+                      "hover:bg-surface-hover transition-colors text-left"
                     )}
                   >
                     <span
@@ -286,7 +287,7 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
                       />
                     </span>
                     <span
-                      className="font-mono text-[10px] uppercase tracking-[0.14em] tabular-nums min-w-[76px] text-right"
+                      className="font-mono text-micro uppercase tracking-[0.14em] tabular-nums min-w-[76px] text-right"
                       style={{ color: tone.fg }}
                     >
                       {tone.label}
@@ -318,10 +319,10 @@ function MiniBar({
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
     <div className="flex-1 min-w-0">
-      <div className="h-[3px] rounded-[1px] bg-[rgba(255,255,255,0.05)] overflow-hidden">
+      <div className="h-[3px] rounded-[1px] bg-fill-neutral-dim overflow-hidden">
         <div className="h-full" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
-      <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-mute mt-1 tabular-nums">
+      <p className="font-mono text-micro uppercase tracking-[0.14em] text-text-mute mt-1 tabular-nums">
         {label} {value}
       </p>
     </div>
@@ -341,14 +342,14 @@ function MetricCell({
     <div
       className="flex-1 rounded-[5px] px-2.5 py-2 border"
       style={{
-        borderColor: `${tone}33`,
-        backgroundColor: `${tone}0F`,
+        borderColor: `color-mix(in srgb, ${tone} 20%, transparent)`,
+        backgroundColor: `color-mix(in srgb, ${tone} 6%, transparent)`,
       }}
     >
       <p className="font-mono text-data-sm text-text tabular-nums" style={{ color: tone }}>
         {value}
       </p>
-      <p className="font-cakemono font-light uppercase text-[10px] tracking-[0.18em] text-text-3 mt-1">
+      <p className="font-cakemono font-light uppercase text-cake-badge tracking-[0.18em] text-text-3 mt-1">
         {label}
       </p>
     </div>

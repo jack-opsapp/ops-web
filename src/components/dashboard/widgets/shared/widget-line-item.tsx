@@ -70,7 +70,7 @@ export function WidgetLineItem({
     <div
       className={cn(
         "flex items-center gap-1 px-1 py-[3px] rounded-sm transition-colors",
-        onClick && "cursor-pointer hover:bg-[rgba(255,255,255,0.04)]",
+        onClick && "cursor-pointer hover:bg-surface-hover",
         className
       )}
       style={

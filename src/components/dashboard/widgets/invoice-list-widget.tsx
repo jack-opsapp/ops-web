@@ -6,6 +6,7 @@ import { Loader2, Send, Check, ArrowUpDown, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetTitle } from "./shared/widget-title";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -144,14 +145,14 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
             </span>
             <button
               onClick={() => navigate("/books?segment=invoices&view=aging")}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
-          </span>
+          </WidgetTitle>
           {!isLoading && (
             <span className="font-mono text-micro text-text-3 mt-0.5">
               {formatLocaleCurrency(totalAmount, getDateLocale(locale), 2)}
@@ -167,14 +168,14 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t(STATUS_FILTER_LABEL_KEYS[filter])} {t("invoiceList.invoices")}
-          </span>
+          </WidgetTitle>
           <div className="flex items-center gap-1.5">
             {/* Sort dropdown */}
             <Popover>
               <PopoverTrigger asChild>
-                <button className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+                <button className="p-0.5 rounded-sm hover:bg-surface-hover transition-colors">
                   <ArrowUpDown className="w-[14px] h-[14px] text-text-mute" />
                 </button>
               </PopoverTrigger>
@@ -185,9 +186,9 @@ export function InvoiceListWidget({ size, config }: InvoiceListWidgetProps) {
                       key={opt.value}
                       onClick={() => setSortField(opt.value)}
                       className={cn(
-                        "font-mono text-micro uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
+                        "font-mono text-micro uppercase tracking-[0.16em] px-2 py-1 rounded-sm text-left transition-colors",
                         sortField === opt.value
-                          ? "text-text bg-[rgba(255,255,255,0.08)]"
+                          ? "text-text bg-surface-hover"
                           : "text-text-3 hover:text-text-2"
                       )}
                     >
@@ -343,7 +344,7 @@ function InvoiceRow({
       disabled={sendState !== "idle"}
       className={cn(
         "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
-        "text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.05)]",
+        "text-text-2 hover:text-text hover:bg-surface-hover",
         sendState === "sent" && "text-status-success"
       )}
       title={t("invoiceList.sendInvoice")}

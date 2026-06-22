@@ -18,6 +18,7 @@ import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -142,9 +143,9 @@ export function TopClientsWidget({
     return (
       <Card className="h-full">
         <div className="pb-1 pt-2 px-3">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("topClients.title") ?? "Top Clients"}
-          </span>
+          </WidgetTitle>
         </div>
         <div className="px-3 pb-2">
           <WidgetSkeleton variant="horizontal-bars" />
@@ -158,9 +159,9 @@ export function TopClientsWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+          <WidgetTitle>
             {t("topClients.title") ?? "Top Clients"}
-          </span>
+          </WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className="font-mohave text-caption-sm text-text-mute">
               {t("topClients.noData") ?? "No client data yet"}
@@ -179,9 +180,9 @@ export function TopClientsWidget({
           <span className="font-mono text-display font-bold leading-none text-text">
             {rankedClients.length}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("topClients.title") ?? "Top Clients"}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext variant="snapshot" label={t("trend.byRevenue") ?? "By Revenue"} />
         </div>
       </Card>
@@ -208,14 +209,14 @@ export function TopClientsWidget({
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/clients"); }}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("topClients.title") ?? "Top Clients"}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext variant="snapshot" label={t("trend.byRevenue") ?? "By Revenue"} />
           {topClient && (
             <span className="font-mohave text-caption-sm text-text-2 truncate mt-0.5">
@@ -249,9 +250,9 @@ export function TopClientsWidget({
       <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("topClients.title") ?? "Top Clients"}
-          </span>
+          </WidgetTitle>
         </div>
 
         {/* CLIENT LIST — flex-1 so list fills remaining vertical space */}

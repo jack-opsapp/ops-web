@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { WidgetBackgroundChart } from "./shared/widget-background-chart";
 import { WidgetPeriodPicker } from "./shared/widget-period-picker";
@@ -19,6 +19,7 @@ import { EstimateStatus } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetTitle } from "./shared/widget-title";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -158,14 +159,12 @@ export function WinRateWidget({
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("winRate.title") ?? "Win Rate"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+        <div className="px-3 pt-2 pb-1">
+          <WidgetTitle>{t("winRate.title") ?? "Win Rate"}</WidgetTitle>
+        </div>
+        <div className="px-3 pb-2">
           <WidgetSkeleton variant="ring" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -177,9 +176,9 @@ export function WinRateWidget({
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-mute leading-none">--%</span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("winRate.title") ?? "Win Rate"}
-            </span>
+            </WidgetTitle>
           </div>
         </Card>
       );
@@ -190,13 +189,13 @@ export function WinRateWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">--%</span>
-              <button onClick={() => onNavigate("/books?segment=estimates")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/books?segment=estimates")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("winRate.title") ?? "Win Rate"}
-            </span>
+            </WidgetTitle>
             <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("winRate.noEstimates") ?? "No estimates"}
             </span>
@@ -207,9 +206,9 @@ export function WinRateWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+          <WidgetTitle>
             {t("winRate.title") ?? "Win Rate"}
-          </span>
+          </WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className="font-mono text-display font-bold text-text-mute leading-none">--%</span>
             <span className="font-mohave text-caption-sm text-text-mute mt-1">
@@ -229,9 +228,9 @@ export function WinRateWidget({
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {animatedRate}%
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("winRate.title") ?? "Win Rate"}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-micro text-text-mute uppercase">
             {stats.won}/{stats.sent} {t("winRate.won") ?? "won"}
           </span>
@@ -255,14 +254,14 @@ export function WinRateWidget({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=estimates"); }}
-                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("winRate.title") ?? "Win Rate"}
-            </span>
+            </WidgetTitle>
             <span className="font-mono text-micro text-text-3 mt-0.5">
               {stats.won}/{stats.won + stats.lost} {t("winRate.won") ?? "won"} · {stats.lost} {t("winRate.lost") ?? "lost"}
             </span>
@@ -286,9 +285,9 @@ export function WinRateWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* HEADER — title + period picker */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("winRate.title") ?? "Win Rate"}
-          </span>
+          </WidgetTitle>
           <WidgetPeriodPicker
             options={periodOptions}
             value={activePeriod}
@@ -374,15 +373,15 @@ export function WinRateWidget({
             {/* Stat grid */}
             <div className="grid grid-cols-3 gap-2 mb-2">
               <div>
-                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">{t("winRate.sent") ?? "Sent"}</span>
+                <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">{t("winRate.sent") ?? "Sent"}</span>
                 <p className="font-mono text-data text-text font-medium">{stats.sent}</p>
               </div>
               <div>
-                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">{t("winRate.won") ?? "Won"}</span>
+                <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">{t("winRate.won") ?? "Won"}</span>
                 <p className="font-mono text-data text-status-success font-medium">{stats.won}</p>
               </div>
               <div>
-                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">{t("winRate.lost") ?? "Lost"}</span>
+                <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">{t("winRate.lost") ?? "Lost"}</span>
                 <p className="font-mono text-data text-status-error font-medium">{stats.lost}</p>
               </div>
             </div>

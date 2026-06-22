@@ -16,6 +16,7 @@ import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetInlineAction } from "./shared/widget-inline-action";
 import { WidgetEmptyState } from "./shared/widget-empty-state";
 import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
+import { WidgetTitle } from "./shared/widget-title";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { ScrollFade } from "./shared/scroll-fade";
@@ -256,9 +257,9 @@ export function ActionRequiredWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("actionRequired.title") ?? "Action Required"}
-          </span>
+          </WidgetTitle>
           <WidgetSkeleton variant="list" />
         </div>
       </Card>
@@ -270,9 +271,9 @@ export function ActionRequiredWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+          <WidgetTitle>
             {t("actionRequired.title") ?? "Action Required"}
-          </span>
+          </WidgetTitle>
           <WidgetEmptyState
             icon={Check}
             message={t("actionRequired.allClear") ?? "All clear — no items need attention"}
@@ -308,7 +309,7 @@ export function ActionRequiredWidget({
                     <button
                       key={item.id}
                       onClick={() => onNavigate(item.navigateTo)}
-                      className="w-full flex items-center gap-1.5 px-2 py-1.5 hover:bg-[rgba(255,255,255,0.04)] transition-colors rounded-sm text-left"
+                      className="w-full flex items-center gap-1.5 px-2 py-1.5 hover:bg-surface-hover transition-colors rounded-sm text-left"
                     >
                       <Icon className="w-[14px] h-[14px] shrink-0" style={{ color: config.color }} />
                       <div className="flex-1 min-w-0">
@@ -321,9 +322,9 @@ export function ActionRequiredWidget({
               </div>
             </PopoverContent>
           </Popover>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("actionRequired.title") ?? "Action Required"}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext
             variant="health"
             color={items.length > 0 ? WT.error : WT.success}
@@ -346,15 +347,15 @@ export function ActionRequiredWidget({
             </span>
             <button
               onClick={() => onNavigate("/schedule")}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
           {/* Row 2: Title */}
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("actionRequired.title") ?? "Action Required"}
-          </span>
+          </WidgetTitle>
           {/* Row 3: Health indicator */}
           <WidgetTrendContext
             variant="health"
@@ -385,7 +386,7 @@ export function ActionRequiredWidget({
                         <button
                           key={item.id}
                           onClick={() => onNavigate(item.navigateTo)}
-                          className="w-full flex items-center gap-1.5 px-2 py-1.5 hover:bg-[rgba(255,255,255,0.04)] transition-colors rounded-sm text-left"
+                          className="w-full flex items-center gap-1.5 px-2 py-1.5 hover:bg-surface-hover transition-colors rounded-sm text-left"
                         >
                           <div className="flex-1 min-w-0">
                             <p className="font-mohave text-caption-sm text-text truncate">{item.description}</p>
@@ -465,9 +466,9 @@ export function ActionRequiredWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("actionRequired.title") ?? "Action Required"}
-          </span>
+          </WidgetTitle>
           <span
             className="font-mono text-micro px-1.5 py-0.5 rounded-sm"
             style={{ backgroundColor: `${totalColor}20`, color: totalColor }}
@@ -488,7 +489,7 @@ export function ActionRequiredWidget({
                     <span className="font-mono text-data-sm font-bold" style={{ color: count > 0 ? config.color : "var(--text-disabled)" }}>
                       {count}
                     </span>
-                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider text-center leading-tight">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em] text-center leading-tight">
                       {t(config.labelKey) ?? type}
                     </span>
                   </div>

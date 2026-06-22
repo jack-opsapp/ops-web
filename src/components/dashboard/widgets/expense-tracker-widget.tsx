@@ -17,6 +17,7 @@ import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
 import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetTitle } from "./shared/widget-title";
 import { useTeamMembers } from "@/lib/hooks";
 import { useMemberExpensesPopoverStore } from "@/stores/member-expenses-popover-store";
 
@@ -215,9 +216,9 @@ export function ExpenseTrackerWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("expenseTracker.title") ?? "Expenses"}
-          </span>
+          </WidgetTitle>
         </div>
         <div className="px-3 pb-2">
           <WidgetSkeleton variant="horizontal-bars" />
@@ -233,9 +234,9 @@ export function ExpenseTrackerWidget({
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("expenseTracker.title") ?? "Expenses"}
-            </span>
+            </WidgetTitle>
           </div>
         </Card>
       );
@@ -246,13 +247,13 @@ export function ExpenseTrackerWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">$0</span>
-              <button onClick={() => onNavigate("/books?segment=expenses")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/books?segment=expenses")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("expenseTracker.title") ?? "Expenses"}
-            </span>
+            </WidgetTitle>
             <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("expenseTracker.noExpenses") ?? "No expenses recorded"}
             </span>
@@ -263,9 +264,9 @@ export function ExpenseTrackerWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+          <WidgetTitle>
             {t("expenseTracker.title") ?? "Expenses"}
-          </span>
+          </WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
             <span className="font-mohave text-caption-sm text-text-mute mt-1">
@@ -285,9 +286,9 @@ export function ExpenseTrackerWidget({
           <span className={`font-mono ${formatCompactCurrency(animatedTotal).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text`}>
             {formatCompactCurrency(animatedTotal)}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("expenseTracker.title") ?? "Expenses"}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext
             variant="trend"
             direction={trend}
@@ -312,14 +313,14 @@ export function ExpenseTrackerWidget({
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=expenses"); }}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("expenseTracker.title") ?? "Expenses"}
-          </span>
+          </WidgetTitle>
           {topCat && (
             <span className="font-mohave text-caption-sm text-text-2 mt-0.5 truncate">
               {topCat.name}: {formatCompactCurrency(topCat.amount)}
@@ -347,9 +348,9 @@ export function ExpenseTrackerWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("expenseTracker.title") ?? "Expenses"}
-          </span>
+          </WidgetTitle>
         </div>
 
         {/* Hero */}
@@ -508,7 +509,7 @@ export function ExpenseTrackerWidget({
 
           return (
             <div className="mt-2 pt-2 border-t border-border-subtle shrink-0 flex flex-col">
-              <span className="font-mono text-micro text-text-mute uppercase tracking-wider mb-1 block">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em] mb-1 block">
                 {t("expenseTracker.byTeamMember") ?? "By Team Member"}
               </span>
               {teamListExpanded ? (

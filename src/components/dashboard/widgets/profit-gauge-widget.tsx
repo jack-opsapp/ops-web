@@ -8,6 +8,7 @@ import { WidgetPeriodPicker } from "./shared/widget-period-picker";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
+import { WidgetTitle } from "./shared/widget-title";
 import { formatCompactCurrency } from "./shared/widget-utils";
 import { WT, HERO_SIZE_CLASS, isCompact } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
@@ -127,9 +128,7 @@ export function ProfitGaugeWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("profitGauge.title") ?? "Profit"}
-          </span>
+          <WidgetTitle>{t("profitGauge.title") ?? "Profit"}</WidgetTitle>
         </div>
         <div className="px-3 pb-2">
           <WidgetSkeleton variant="ring" />
@@ -146,9 +145,7 @@ export function ProfitGaugeWidget({
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {hasData ? `${animatedMargin}%` : "0%"}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("profitGauge.title") ?? "Profit"}
-          </span>
+          <WidgetTitle className="mt-1">{t("profitGauge.title") ?? "Profit"}</WidgetTitle>
           <span className="font-mono text-micro text-text-mute uppercase">
             {t("profitGauge.margin") ?? "Margin"}
           </span>
@@ -179,16 +176,14 @@ export function ProfitGaugeWidget({
               />
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate?.("/books?segment=invoices&view=aging"); }}
-                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
           </div>
           {/* Row 2: Title */}
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("profitGauge.title") ?? "Profit"}
-          </span>
+          <WidgetTitle className="mt-1">{t("profitGauge.title") ?? "Profit"}</WidgetTitle>
           {/* Row 3: Visual breakdown — stacked bar showing revenue vs expense proportion */}
           {hasData && (
             <div className="mt-1.5">
@@ -241,9 +236,7 @@ export function ProfitGaugeWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* Header with period picker */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("profitGauge.title") ?? "Profit"}
-          </span>
+          <WidgetTitle>{t("profitGauge.title") ?? "Profit"}</WidgetTitle>
           <div className="flex items-center gap-2">
             <span className="font-mono text-micro font-medium" style={{ color }}>
               {hasData ? `${financials.marginPct}%` : "0%"}

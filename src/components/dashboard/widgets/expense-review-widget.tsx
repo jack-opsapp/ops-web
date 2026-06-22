@@ -8,6 +8,7 @@ import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetInlineAction } from "./shared/widget-inline-action";
 import { WidgetEmptyState } from "./shared/widget-empty-state";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
@@ -203,7 +204,7 @@ export function ExpenseReviewWidget({
           <span className={`font-mono ${count.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${count > 0 ? "text-text" : "text-text-mute"}`}>
             {count}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-[0.16em] mt-1">
             {t("expenseReview.pendingReview") ?? "Pending Review"}
           </span>
           {overdueCount > 0 && (
@@ -232,14 +233,14 @@ export function ExpenseReviewWidget({
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); openReviewList(); }}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("expenseReview.title") ?? "Expense Review"}
-          </span>
+          </WidgetTitle>
           {count > 0 ? (
             <span className="font-mohave text-caption-sm text-text-2 mt-0.5 truncate">
               {count} {t("expenseReview.batchesPendingCount") ?? "batches"}
@@ -263,9 +264,9 @@ export function ExpenseReviewWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("expenseReview.title") ?? "Expense Review"}
-          </span>
+          </WidgetTitle>
         </div>
 
         {/* Hero */}
@@ -360,7 +361,7 @@ export function ExpenseReviewWidget({
                             if (e.key === "Escape") { setRejectingBatchId(null); setRejectNote(""); }
                           }}
                           placeholder={t("expenseReview.rejectNote") ?? "What needs fixing?"}
-                          className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
+                          className="flex-1 bg-fill-neutral-dim border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
                           autoFocus
                         />
                         <button
@@ -379,7 +380,7 @@ export function ExpenseReviewWidget({
               {/* Approved section — LG only */}
               {showActions(size) && approvedBatches.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-border-subtle">
-                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider mb-1 block">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em] mb-1 block">
                     Approved
                   </span>
                   {approvedBatches.map((batch, i) => {
@@ -406,7 +407,7 @@ export function ExpenseReviewWidget({
               {/* Rejected section — LG only */}
               {showActions(size) && rejectedBatches.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-border-subtle">
-                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider mb-1 block">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em] mb-1 block">
                     Rejected
                   </span>
                   {rejectedBatches.map((batch, i) => {
@@ -443,7 +444,7 @@ export function ExpenseReviewWidget({
         {/* Footer */}
         <button
           onClick={() => openReviewList()}
-          className="mt-auto pt-2 font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors text-left"
+          className="mt-auto pt-2 font-mono text-micro text-text-3 uppercase tracking-[0.16em] hover:text-text-2 transition-colors text-left"
         >
           {t("expenseReview.viewAll") ?? "View All"}
         </button>

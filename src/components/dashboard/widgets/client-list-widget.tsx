@@ -10,6 +10,7 @@ import { WidgetPeriodPicker } from "./shared/widget-period-picker";
 // WidgetHeroCollapse removed — static metrics eliminate scroll jitter
 import { WidgetEmptyState } from "./shared/widget-empty-state";
 import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetTitle } from "./shared/widget-title";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useScrollFadeScroll } from "./shared/use-scroll-fade-scroll";
@@ -237,14 +238,14 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
             </span>
             <button
               onClick={() => navigate("/clients")}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("clientList.title")}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext variant="snapshot" label={t("trend.active") ?? "Active"} />
           {!isLoading && mostRecent && (
             <span className="font-mohave text-caption-sm text-text-3 truncate mt-0.5">
@@ -273,9 +274,9 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
       <div className="h-full flex flex-col p-3">
         {/* HEADER: Title + Sort + New Client */}
         <div className="flex items-center justify-between mb-2 shrink-0">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("clientList.title")}
-          </span>
+          </WidgetTitle>
           <div className="flex items-center gap-1">
             <WidgetPeriodPicker
               options={sortOptions}
@@ -285,7 +286,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
             />
             <button
               onClick={() => navigate("/clients/new")}
-              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-mute hover:text-text-2"
+              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-surface-hover transition-colors text-text-mute hover:text-text-2"
               title={t("clientList.newClient") ?? "New Client"}
             >
               <Plus className="w-[14px] h-[14px]" />
@@ -381,7 +382,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
                     style={widgetLineItemStyle(i, isVisible, reducedMotion ?? null)}
                   >
                     <div
-                      className="flex-1 min-w-0 cursor-pointer rounded-sm hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+                      className="flex-1 min-w-0 cursor-pointer rounded-sm hover:bg-surface-hover transition-colors"
                       onClick={(e) => openEntity({
                         entityType: "client",
                         entityId: client.id,

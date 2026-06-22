@@ -46,7 +46,7 @@ export function WidgetEmptyState({
       {cta && (
         <button
           onClick={cta.onClick}
-          className="font-mono text-micro uppercase tracking-wider text-text-3 hover:text-text-2 transition-colors mt-0.5"
+          className="font-mono text-micro uppercase tracking-[0.16em] text-text-3 hover:text-text-2 transition-colors mt-0.5"
         >
           {cta.label}
         </button>

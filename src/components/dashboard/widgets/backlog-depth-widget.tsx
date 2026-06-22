@@ -10,6 +10,7 @@ import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { ScrollFade } from "./shared/scroll-fade";
 import { widgetLineItemStyle } from "./shared/widget-motion";
+import { WidgetTitle } from "./shared/widget-title";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail } from "@/lib/widget-tokens";
 import type { Project, ProjectTask } from "@/lib/types/models";
 import { ProjectStatus, TaskStatus } from "@/lib/types/models";
@@ -175,9 +176,9 @@ export function BacklogDepthWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("backlogDepth.title") ?? "Backlog"}
-          </span>
+          </WidgetTitle>
           <WidgetSkeleton variant="stat" />
         </div>
       </Card>
@@ -189,9 +190,9 @@ export function BacklogDepthWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+          <WidgetTitle>
             {t("backlogDepth.title") ?? "Backlog"}
-          </span>
+          </WidgetTitle>
           <WidgetEmptyState
             message={t("backlogDepth.noPending") ?? "No signed projects pending"}
             cta={size === "xs" ? undefined : { label: t("backlogDepth.viewProjects") ?? "View Projects", onClick: () => onNavigate("/projects") }}
@@ -214,9 +215,9 @@ export function BacklogDepthWidget({
           <span className="font-mono text-display font-bold leading-none" style={{ color }}>
             {displayWeeks}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("backlogDepth.title") ?? "Backlog"}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-micro text-text-mute uppercase">
             {t("backlogDepth.weeks") ?? "wk"}
           </span>
@@ -238,15 +239,15 @@ export function BacklogDepthWidget({
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/projects"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
             </button>
           </div>
           {/* Row 2: Title */}
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("backlogDepth.title") ?? "Backlog"}
-          </span>
+          </WidgetTitle>
           {/* Row 3: Gauge bar + status label */}
           <div className="relative w-full rounded-sm overflow-hidden mt-1.5" style={{ height: `${gaugeHeight}px` }}>
             <div className="absolute inset-0 flex">
@@ -266,7 +267,7 @@ export function BacklogDepthWidget({
               }}
             />
           </div>
-          <span className="font-mono text-micro uppercase tracking-wider mt-1 block" style={{ color }}>
+          <span className="font-mono text-micro uppercase tracking-[0.16em] mt-1 block" style={{ color }}>
             {backlogLabel(backlog.weeks, t)}
           </span>
         </div>
@@ -281,9 +282,9 @@ export function BacklogDepthWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("backlogDepth.title") ?? "Backlog"}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-caption-sm text-text-2">
             {backlog.projectCount} {t("backlogDepth.projects") ?? "projects"}
           </span>
@@ -354,7 +355,7 @@ export function BacklogDepthWidget({
                       </div>
                       {/* Label + count beneath */}
                       <div className="flex items-center justify-between mt-[2px]">
-                        <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+                        <span className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">
                           {metric.label}
                         </span>
                         <span className="font-mono text-micro font-bold" style={{ color: metric.color }}>

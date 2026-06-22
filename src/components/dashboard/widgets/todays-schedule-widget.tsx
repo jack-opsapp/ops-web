@@ -2,7 +2,7 @@
 
 import { useMemo, useRef } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
@@ -12,6 +12,7 @@ import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
 import { WidgetLineItem } from "./shared/widget-line-item";
+import { WidgetTitle } from "./shared/widget-title";
 
 // ---------------------------------------------------------------------------
 // Minimal event shape
@@ -95,14 +96,12 @@ export function TodaysScheduleWidget({
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("todaysSchedule.title") ?? "Schedule"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+        <div className="px-3 pt-2 pb-1">
+          <WidgetTitle>{t("todaysSchedule.title") ?? "Schedule"}</WidgetTitle>
+        </div>
+        <div className="px-3 pb-2">
           <WidgetSkeleton variant="timeline" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -117,9 +116,7 @@ export function TodaysScheduleWidget({
             <span className="font-mono text-display font-bold text-text-mute leading-none">
               0
             </span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-              {t("todaysSchedule.title") ?? "Schedule"}
-            </span>
+            <WidgetTitle className="mt-1">{t("todaysSchedule.title") ?? "Schedule"}</WidgetTitle>
             <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
           </div>
         </Card>
@@ -129,9 +126,7 @@ export function TodaysScheduleWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
-            {t("todaysSchedule.title") ?? "Schedule"}
-          </span>
+          <WidgetTitle>{t("todaysSchedule.title") ?? "Schedule"}</WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className={`font-mono ${compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded} font-bold text-text-mute leading-none`}>
               0
@@ -153,9 +148,7 @@ export function TodaysScheduleWidget({
           <span className="font-mono text-display font-bold leading-none text-text">
             {schedule.todayEvents.length}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("todaysSchedule.title") ?? "Schedule"}
-          </span>
+          <WidgetTitle className="mt-1">{t("todaysSchedule.title") ?? "Schedule"}</WidgetTitle>
           <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
         </div>
       </Card>
@@ -174,15 +167,13 @@ export function TodaysScheduleWidget({
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/schedule"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
             </button>
           </div>
           {/* Row 2: Title */}
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("todaysSchedule.title") ?? "Schedule"}
-          </span>
+          <WidgetTitle className="mt-1">{t("todaysSchedule.title") ?? "Schedule"}</WidgetTitle>
           {/* Row 3: Next event preview */}
           {schedule.nextEvent && (
             <div className="flex items-center gap-2 mt-1">
@@ -214,9 +205,7 @@ export function TodaysScheduleWidget({
       <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("todaysSchedule.title") ?? "Schedule"}
-          </span>
+          <WidgetTitle>{t("todaysSchedule.title") ?? "Schedule"}</WidgetTitle>
           <span className="font-mono text-micro text-text-3">{schedule.todayEvents.length} today</span>
         </div>
 
@@ -259,7 +248,7 @@ export function TodaysScheduleWidget({
             {/* Tomorrow preview (lg only) */}
             {showActions(size) && schedule.tomorrowEvents.length > 0 && (
               <div className="mt-2 pt-2 border-t border-border-subtle">
-                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
                   {t("todaysSchedule.tomorrow") ?? "Tomorrow"}
                 </span>
                 <div className="flex flex-col mt-1">

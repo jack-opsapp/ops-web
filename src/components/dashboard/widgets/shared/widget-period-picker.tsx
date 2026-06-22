@@ -29,7 +29,7 @@ export function WidgetPeriodPicker({
     return (
       <Popover>
         <PopoverTrigger asChild>
-          <button className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+          <button className="p-0.5 rounded-sm hover:bg-surface-hover transition-colors">
             <CalendarDays className="w-[14px] h-[14px] text-text-mute" />
           </button>
         </PopoverTrigger>
@@ -40,9 +40,9 @@ export function WidgetPeriodPicker({
                 key={opt.value}
                 onClick={() => onChange(opt.value)}
                 className={cn(
-                  "font-mono text-micro uppercase tracking-wider px-2 py-1 rounded-sm text-left transition-colors",
+                  "font-mono text-micro uppercase tracking-[0.16em] px-2 py-1 rounded-sm text-left transition-colors",
                   value === opt.value
-                    ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
+                    ? "text-text bg-surface-hover border border-border-medium"
                     : "text-text-3 hover:text-text-2"
                 )}
               >

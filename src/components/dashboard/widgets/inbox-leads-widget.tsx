@@ -27,6 +27,7 @@ import { Card } from "@/components/ui/card";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -279,13 +280,11 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {"// New leads"}
-          </span>
+          <WidgetTitle>New leads</WidgetTitle>
           <button
             type="button"
             onClick={navigate}
-            className="font-mono text-micro uppercase tracking-wider text-text-mute hover:text-text-2 transition-colors inline-flex items-center gap-1"
+            className="font-mono text-micro uppercase tracking-[0.16em] text-text-mute hover:text-text-2 transition-colors inline-flex items-center gap-1"
           >
             Open inbox
             <ArrowUpRight className="w-[11px] h-[11px]" />
@@ -298,7 +297,7 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
             <span className="font-mono text-display font-bold text-text leading-none tabular-nums">
               {isLoading ? "—" : unread}
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute mt-1">
+            <span className="font-mono text-micro uppercase tracking-[0.18em] text-text-mute mt-1">
               Unread in inbox
             </span>
           </div>
@@ -307,7 +306,7 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
 
           <div className="flex flex-col items-end">
             <Sparkline values={daily} width={180} height={28} color={WT.accent} />
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute mt-1">
+            <span className="font-mono text-micro uppercase tracking-[0.18em] text-text-mute mt-1">
               Last 7 days · {weekly}
             </span>
           </div>
@@ -316,7 +315,7 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
         {/* Metric row */}
         <div className="mt-4 pt-3 border-t border-border-subtle flex items-center gap-6">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+            <p className="font-mono text-micro uppercase tracking-[0.18em] text-text-mute">
               Median response
             </p>
             <p className="font-mono text-data-sm text-text mt-0.5 tabular-nums">
@@ -324,7 +323,7 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
             </p>
           </div>
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+            <p className="font-mono text-micro uppercase tracking-[0.18em] text-text-mute">
               New leads (7d)
             </p>
             <p className="font-mono text-data-sm text-text mt-0.5 tabular-nums">

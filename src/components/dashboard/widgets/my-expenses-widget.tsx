@@ -7,6 +7,7 @@ import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetEmptyState } from "./shared/widget-empty-state";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
@@ -70,7 +71,7 @@ function getBadgeClasses(status: ExpenseBatchStatus): string {
       return "text-status-success bg-status-success/15 border-status-success/30";
     case ExpenseBatchStatus.PendingReview:
     case ExpenseBatchStatus.Submitted:
-      return "text-text-2 bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.15)]";
+      return "text-text-2 bg-fill-neutral-dim border-[rgba(255,255,255,0.15)]";
     case ExpenseBatchStatus.PartiallyApproved:
       return "text-ops-amber bg-ops-amber/15 border-ops-amber/30";
     case ExpenseBatchStatus.Rejected:
@@ -187,9 +188,9 @@ export function MyExpensesWidget({
           <span className={`font-mono ${heroVal.toString().length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none ${heroVal > 0 ? "text-text" : "text-text-mute"}`}>
             {heroVal}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("myExpenses.title") ?? "My Expenses"}
-          </span>
+          </WidgetTitle>
           {stats.revision > 0 && (
             <WidgetTrendContext variant="health" color={WT.warning} label={`${stats.revision} ${t("myExpenses.needsRevision") ?? "need revision"}`} />
           )}
@@ -209,14 +210,14 @@ export function MyExpensesWidget({
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=expenses"); }}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("myExpenses.title") ?? "My Expenses"}
-          </span>
+          </WidgetTitle>
           {stats.revision > 0 ? (
             <span className="font-mohave text-caption-sm mt-0.5 truncate" style={{ color: WT.warning }}>
               {stats.revision} {t("myExpenses.needsRevision") ?? "need revision"}
@@ -241,9 +242,9 @@ export function MyExpensesWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("myExpenses.title") ?? "My Expenses"}
-          </span>
+          </WidgetTitle>
         </div>
 
         {/* Hero */}
@@ -346,7 +347,7 @@ export function MyExpensesWidget({
             <span className="font-mono px-1 py-[1px] rounded-sm uppercase tracking-normal border shrink-0 whitespace-nowrap text-status-success bg-status-success/15 border-status-success/30" style={{ fontSize: "9px", lineHeight: "1.3" }}>
               {stats.approved} {t("myExpenses.approved") ?? "approved"}
             </span>
-            <span className="font-mono px-1 py-[1px] rounded-sm uppercase tracking-normal border shrink-0 whitespace-nowrap text-text-2 bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.15)]" style={{ fontSize: "9px", lineHeight: "1.3" }}>
+            <span className="font-mono px-1 py-[1px] rounded-sm uppercase tracking-normal border shrink-0 whitespace-nowrap text-text-2 bg-fill-neutral-dim border-[rgba(255,255,255,0.15)]" style={{ fontSize: "9px", lineHeight: "1.3" }}>
               {stats.pending} {t("myExpenses.pending") ?? "pending"}
             </span>
             {stats.revision > 0 && (
@@ -360,7 +361,7 @@ export function MyExpensesWidget({
         {/* Footer */}
         <button
           onClick={() => onNavigate("/books?segment=expenses")}
-          className="mt-auto pt-2 font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors text-left"
+          className="mt-auto pt-2 font-mono text-micro text-text-3 uppercase tracking-[0.16em] hover:text-text-2 transition-colors text-left"
         >
           {t("myExpenses.viewAll") ?? "View All"}
         </button>

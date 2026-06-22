@@ -11,6 +11,7 @@ import { WidgetPeriodPicker } from "./shared/widget-period-picker";
 import { Sparkline } from "./shared/sparkline";
 import { WidgetMoreButton } from "./shared/widget-more-button";
 import { WidgetLineItem } from "./shared/widget-line-item";
+import { WidgetTitle } from "./shared/widget-title";
 import { ScrollFade } from "./shared/scroll-fade";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
@@ -301,9 +302,9 @@ export function RevenuePulseWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("revenuePulse.title") ?? "Revenue"}
-          </span>
+          </WidgetTitle>
         </div>
         <div className="px-3 pb-2">
           <WidgetSkeleton variant="bar-chart" />
@@ -320,9 +321,9 @@ export function RevenuePulseWidget({
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("revenuePulse.title") ?? "Revenue"}
-            </span>
+            </WidgetTitle>
           </div>
         </Card>
       );
@@ -333,13 +334,13 @@ export function RevenuePulseWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">$0</span>
-              <button onClick={() => onNavigate("/books?segment=invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/books?segment=invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("revenuePulse.title") ?? "Revenue"}
-            </span>
+            </WidgetTitle>
             <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("revenuePulse.noData") ?? "No payments received"}
             </span>
@@ -350,9 +351,9 @@ export function RevenuePulseWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+          <WidgetTitle>
             {t("revenuePulse.title") ?? "Revenue"}
-          </span>
+          </WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
             <span className="font-mohave text-caption-sm text-text-mute mt-1">
@@ -372,9 +373,9 @@ export function RevenuePulseWidget({
           <span className={`font-mono ${formatCompactCurrency(animatedMtd).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none text-text`}>
             {formatCompactCurrency(animatedMtd)}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("revenuePulse.title") ?? "Revenue"}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext
             variant="trend"
             direction={monthlyData.trend}
@@ -411,14 +412,14 @@ export function RevenuePulseWidget({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=invoices&status=paid"); }}
-                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-0.5">
+            <WidgetTitle className="mt-0.5">
               {t("revenuePulse.title") ?? "Revenue"}
-            </span>
+            </WidgetTitle>
             <WidgetTrendContext
               variant="trend"
               direction={monthlyData.trend}
@@ -450,9 +451,9 @@ export function RevenuePulseWidget({
           <div className="h-full flex flex-col p-3">
             {/* Header with period picker */}
             <div className="flex items-center justify-between mb-2">
-              <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+              <WidgetTitle>
                 {t("revenuePulse.title") ?? "Revenue"}
-              </span>
+              </WidgetTitle>
               <WidgetPeriodPicker
                 options={periodOptions}
                 value={period}
@@ -479,7 +480,7 @@ export function RevenuePulseWidget({
               </span>
               {projection && (
                 <>
-                  <span className="text-[rgba(255,255,255,0.12)]">·</span>
+                  <span className="text-text-mute">·</span>
                   <span className="font-mono text-micro text-text-mute">
                     {t("revenuePulse.forecast30d") ?? "30d forecast"}: {formatCompactCurrency(projection.thirtyDay.total)}
                   </span>
@@ -503,9 +504,9 @@ export function RevenuePulseWidget({
       <div className="h-full flex flex-col p-3">
         {/* HEADER with period picker */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("revenuePulse.title") ?? "Revenue"}
-          </span>
+          </WidgetTitle>
           <WidgetPeriodPicker
             options={periodOptions}
             value={period}
@@ -529,7 +530,7 @@ export function RevenuePulseWidget({
           />
           {projection && (
             <>
-              <span className="text-[rgba(255,255,255,0.12)]">·</span>
+              <span className="text-text-mute">·</span>
               <span className="font-mono text-micro text-text-mute">
                 {t("revenuePulse.forecast30d") ?? "30d forecast"}: {formatCompactCurrency(projection.thirtyDay.total)}
               </span>

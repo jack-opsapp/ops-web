@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { WidgetLineItem } from "./shared/widget-line-item";
@@ -18,6 +18,7 @@ import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
 import { WidgetMoreButton } from "./shared/widget-more-button";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 
 // ---------------------------------------------------------------------------
 // Token-based bar colors (cycled per source)
@@ -305,7 +306,7 @@ function MultiLineTrendChart({
             {labels.map((label, i) => (
               <span
                 key={i}
-                className="font-mono text-micro text-text-mute uppercase tracking-wider"
+                className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]"
                 style={{ width: i === 0 ? "auto" : i === labels.length - 1 ? "auto" : undefined, textAlign: i === 0 ? "left" : i === labels.length - 1 ? "right" : "center", flex: i === 0 || i === labels.length - 1 ? "0 0 auto" : "1" }}
               >
                 {label}
@@ -467,14 +468,12 @@ export function LeadSourcesWidget({
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("leadSources.title") ?? "Lead Sources"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+        <div className="px-3 pt-2 pb-1">
+          <WidgetTitle>{t("leadSources.title") ?? "Lead Sources"}</WidgetTitle>
+        </div>
+        <div className="px-3 pb-2">
           <WidgetSkeleton variant="horizontal-bars" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -486,9 +485,9 @@ export function LeadSourcesWidget({
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-mute leading-none">0</span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("leadSources.title") ?? "Lead Sources"}
-            </span>
+            </WidgetTitle>
           </div>
         </Card>
       );
@@ -499,13 +498,13 @@ export function LeadSourcesWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">0</span>
-              <button onClick={() => onNavigate("/pipeline")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/pipeline")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("leadSources.title") ?? "Lead Sources"}
-            </span>
+            </WidgetTitle>
             <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("leadSources.noSources") ?? "No lead sources yet"}
             </span>
@@ -516,9 +515,9 @@ export function LeadSourcesWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+          <WidgetTitle>
             {t("leadSources.title") ?? "Lead Sources"}
-          </span>
+          </WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className="font-mono text-display font-bold text-text-mute leading-none">0</span>
             <span className="font-mohave text-caption-sm text-text-mute mt-1">
@@ -539,9 +538,9 @@ export function LeadSourcesWidget({
           <span className="font-mono text-display font-bold leading-none text-text">
             {top.count}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("leadSources.title") ?? "Lead Sources"}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-micro text-text-mute uppercase">
             {top.label}
           </span>
@@ -613,7 +612,7 @@ export function LeadSourcesWidget({
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
@@ -621,9 +620,9 @@ export function LeadSourcesWidget({
           <div className="flex-1 flex min-w-0">
           {/* Text content */}
           <div className="flex-1 flex flex-col min-w-0">
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("leadSources.title") ?? "Lead Sources"}
-            </span>
+            </WidgetTitle>
             {/* Top 3 sources with color dots */}
             <div className="flex flex-col gap-0.5 mt-1.5">
               {top3.map((s, i) => (
@@ -717,9 +716,9 @@ export function LeadSourcesWidget({
         <div className="h-full flex flex-col p-3">
           {/* HEADER */}
           <div className="flex items-center justify-between mb-2">
-            <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+            <WidgetTitle>
               {t("leadSources.title") ?? "Lead Sources"}
-            </span>
+            </WidgetTitle>
             <span className="font-mono text-micro text-text-3">
               {sourceData.total} {t("leadSources.total") ?? "total"}
             </span>
@@ -772,9 +771,9 @@ export function LeadSourcesWidget({
       <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("leadSources.title") ?? "Lead Sources"}
-          </span>
+          </WidgetTitle>
           <div className="flex items-center gap-1">
             <WidgetPeriodPicker
               options={periodOptions}
@@ -808,7 +807,7 @@ export function LeadSourcesWidget({
             anchor="above"
           >
             <div className="mb-1">
-              <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+              <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
                 {monthLabels[crosshair.monthIndex] ?? ""}
               </span>
             </div>

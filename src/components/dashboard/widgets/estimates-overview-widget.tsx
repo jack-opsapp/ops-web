@@ -19,6 +19,7 @@ import type { Locale } from "@/i18n/types";
 import { ScrollFade } from "./shared/scroll-fade";
 import { WidgetMoreButton } from "./shared/widget-more-button";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -167,9 +168,9 @@ export function EstimatesOverviewWidget({
           <span className="font-mono text-data-lg font-bold leading-none text-text">
             {isLoading ? "—" : filtered.length}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("estimatesOverview.title").replace("{filter}", statusFilterLabel[filter])}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext variant="snapshot" label={t("trend.pending") ?? "Pending"} />
           {!isLoading && (
             <span className="font-mono text-micro text-text-3 mt-0.5">
@@ -190,9 +191,9 @@ export function EstimatesOverviewWidget({
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("estimatesOverview.title").replace("{filter}", statusFilterLabel[filter])}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-micro text-text-3">
             {isLoading
               ? "..."
@@ -317,7 +318,7 @@ function EstimateRow({
       disabled={sendState !== "idle"}
       className={cn(
         "shrink-0 flex items-center gap-0.5 px-1.5 py-[2px] rounded transition-all duration-200",
-        "text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.05)]",
+        "text-text-2 hover:text-text hover:bg-surface-hover",
         sendState === "sent" && "text-status-success"
       )}
       title={t("estimatesOverview.sendEstimate")}

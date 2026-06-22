@@ -3,6 +3,7 @@
 import { useMemo, useState, useRef } from "react";
 import { ChevronUp, ChevronDown, ArrowUpRight } from "lucide-react";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 import { useCashFlowForecast } from "@/lib/hooks/use-forecast";
 import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
@@ -150,9 +151,9 @@ export function CashPositionWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("cashPosition.title") ?? "Cash Flow"}
-          </span>
+          </WidgetTitle>
         </div>
         <div className="px-3 pb-2">
           <WidgetSkeleton variant="stat" />
@@ -170,9 +171,9 @@ export function CashPositionWidget({
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("cashPosition.title") ?? "Cash Flow"}
-            </span>
+            </WidgetTitle>
           </div>
         </Card>
       );
@@ -183,13 +184,13 @@ export function CashPositionWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">$0</span>
-              <button onClick={() => onNavigate("/books?segment=invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/books?segment=invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("cashPosition.title") ?? "Cash Flow"}
-            </span>
+            </WidgetTitle>
             <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("cashPosition.noTransactions") ?? "No transactions"}
             </span>
@@ -200,9 +201,9 @@ export function CashPositionWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+          <WidgetTitle>
             {t("cashPosition.title") ?? "Cash Flow"}
-          </span>
+          </WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
             <span className="font-mohave text-caption-sm text-text-mute mt-1">
@@ -222,9 +223,9 @@ export function CashPositionWidget({
           <span className={`font-mono ${formatCompactCurrency(animatedNet).length > 4 ? "text-data-lg" : "text-display"} font-bold leading-none`} style={{ color: netColor }}>
             {netPrefix}{formatCompactCurrency(animatedNet)}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("cashPosition.title") ?? "Cash Flow"}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext
             variant="snapshot"
             label={periodLabel}
@@ -259,13 +260,13 @@ export function CashPositionWidget({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=invoices"); }}
-                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
             <span className="font-mono text-micro text-text-3 mt-0.5">
-              <span className="uppercase tracking-wider">{t("cashPosition.title") ?? "Cash Flow"}</span>
+              <WidgetTitle>{t("cashPosition.title") ?? "Cash Flow"}</WidgetTitle>
               <span className="text-text-mute"> · {periodLabel}</span>
             </span>
             <span className="font-mono text-micro text-text-3 mt-0.5">
@@ -291,9 +292,9 @@ export function CashPositionWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("cashPosition.title") ?? "Cash Flow"}
-          </span>
+          </WidgetTitle>
           <WidgetPeriodPicker
             options={periodOptions}
             value={period}
@@ -341,7 +342,7 @@ export function CashPositionWidget({
               onMouseLeave={() => setBarTooltip((prev) => ({ ...prev, visible: false }))}
             >
               <div className="flex items-center justify-between mb-0.5">
-                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
                   {t("cashPosition.collected") ?? "Collected"}
                 </span>
                 <span className="font-mono text-micro text-status-success">{formatCompactCurrency(cashFlow.collected)}</span>
@@ -379,7 +380,7 @@ export function CashPositionWidget({
               onMouseLeave={() => setBarTooltip((prev) => ({ ...prev, visible: false }))}
             >
               <div className="flex items-center justify-between mb-0.5">
-                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
                   {t("cashPosition.spent") ?? "Spent"}
                 </span>
                 <span className="font-mono text-micro text-status-error">{formatCompactCurrency(cashFlow.spent)}</span>
@@ -402,7 +403,7 @@ export function CashPositionWidget({
             {/* Net + forecast summary */}
             <div className="pt-1 border-t border-border-subtle space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+                <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
                   {t("cashPosition.netCashFlow") ?? "Net"}
                 </span>
                 <span className="font-mono text-data-sm font-medium" style={{ color: netColor }}>
@@ -411,7 +412,7 @@ export function CashPositionWidget({
               </div>
               {forecastNet !== null && (
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+                  <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
                     {t("cashPosition.forecast30d") ?? "30d forecast"}
                   </span>
                   <span className="font-mono text-micro text-text-mute">

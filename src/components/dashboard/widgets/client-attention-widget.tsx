@@ -15,6 +15,7 @@ import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetInlineAction } from "./shared/widget-inline-action";
 import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
 import { WidgetEmptyState } from "./shared/widget-empty-state";
+import { WidgetTitle } from "./shared/widget-title";
 import { WidgetMoreButton } from "./shared/widget-more-button";
 import { WidgetBackgroundChart } from "./shared/widget-background-chart";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
@@ -493,9 +494,9 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
             >
               {isLoading ? "—" : count}
             </span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("clientAttention.title")}
-            </span>
+            </WidgetTitle>
             {!isLoading && count > 0 && (
               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                 {(categoryCounts["past-due-invoice"] ?? 0) > 0 && (
@@ -545,9 +546,9 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
       <div className="h-full flex flex-col p-3">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("clientAttention.title")}
-          </span>
+          </WidgetTitle>
           <span
             className={cn(
               "font-mono text-micro uppercase",

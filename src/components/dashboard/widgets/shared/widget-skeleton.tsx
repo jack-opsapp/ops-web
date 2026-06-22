@@ -9,7 +9,7 @@ interface WidgetSkeletonProps {
   className?: string;
 }
 
-const shimmerClass = "animate-pulse bg-[rgba(255,255,255,0.06)]";
+const shimmerClass = "animate-pulse bg-fill-neutral-dim";
 
 export function WidgetSkeleton({ variant, className }: WidgetSkeletonProps) {
   return (

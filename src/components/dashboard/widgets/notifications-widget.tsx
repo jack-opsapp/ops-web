@@ -14,6 +14,7 @@ import { isCompact, WT } from "@/lib/widget-tokens";
 import type { AppNotification, NotificationType } from "@/lib/api/services/notification-service";
 import { ScrollFade } from "./shared/scroll-fade";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -136,9 +137,9 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
           <span className="font-mono text-display font-bold text-text leading-none">
             {isLoading ? "—" : count}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("notifications.title")}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext variant="snapshot" label={t("trend.unread") ?? "Unread"} />
         </div>
       </Card>
@@ -151,9 +152,9 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("notifications.title")}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-micro text-text-3">
             {sortLabel}
           </span>
@@ -205,7 +206,7 @@ export function NotificationsWidget({ size, config }: NotificationsWidgetProps) 
                           e.stopPropagation();
                           dismissMutation.mutate(notification.id);
                         }}
-                        className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-mute hover:text-text-2"
+                        className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-surface-hover transition-colors text-text-mute hover:text-text-2"
                       >
                         <X className="w-3 h-3" />
                       </button>

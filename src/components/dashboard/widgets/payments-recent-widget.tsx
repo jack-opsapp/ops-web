@@ -5,6 +5,7 @@ import { Loader2, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetTitle } from "./shared/widget-title";
 import { ScrollFade } from "./shared/scroll-fade";
 import { formatCompactCurrency, formatLocaleCurrency } from "./shared/widget-utils";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
@@ -103,13 +104,13 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
             {onNavigate && (
               <button
                 onClick={() => onNavigate("/books?segment=invoices&view=aging")}
-                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             )}
           </div>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <span className="font-mono text-micro text-text-3 uppercase tracking-[0.16em] mt-1">
             {t("payments.lastPayment")}
           </span>
           <WidgetTrendContext variant="snapshot" label={t("trend.latest") ?? "Latest"} />
@@ -132,9 +133,9 @@ export function PaymentsRecentWidget({ size, onNavigate }: PaymentsRecentWidgetP
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("payments.title")}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-micro text-text-3">
             {isLoading ? "..." : t("payments.total").replace("{count}", String(paidInvoices.length))}
           </span>

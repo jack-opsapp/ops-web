@@ -30,7 +30,7 @@ export function WidgetMoreButton({
       onClick={(e) => { e.stopPropagation(); onToggle(); }}
       className={cn(
         "w-full flex items-center justify-center gap-1 py-1 mt-1 rounded-sm",
-        "text-text-mute hover:text-text-3 hover:bg-[rgba(255,255,255,0.04)]",
+        "text-text-mute hover:text-text-3 hover:bg-surface-hover",
         "transition-colors cursor-pointer",
         className
       )}
@@ -38,14 +38,14 @@ export function WidgetMoreButton({
       {expanded ? (
         <>
           <ChevronUp className="w-3 h-3" />
-          <span className="font-mono text-micro uppercase tracking-wider">
+          <span className="font-mono text-micro uppercase tracking-[0.16em]">
             {t("widgets.showLess") ?? "Show less"}
           </span>
         </>
       ) : (
         <>
           <span className="font-mono text-micro">+{remaining}</span>
-          <span className="font-mono text-micro uppercase tracking-wider">
+          <span className="font-mono text-micro uppercase tracking-[0.16em]">
             {label ?? t("widgets.more") ?? "more"}
           </span>
           <ChevronDown className="w-3 h-3" />

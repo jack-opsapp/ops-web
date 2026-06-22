@@ -12,6 +12,7 @@ import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { ScrollFade } from "./shared/scroll-fade";
 import { WidgetMoreButton } from "./shared/widget-more-button";
+import { WidgetTitle } from "./shared/widget-title";
 import { widgetLineItemStyle } from "./shared/widget-motion";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
@@ -136,9 +137,7 @@ export function CrewBoardWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("crewBoard.title") ?? "Crew"}
-          </span>
+          <WidgetTitle>{t("crewBoard.title") ?? "Crew"}</WidgetTitle>
           <WidgetSkeleton variant="list" />
         </div>
       </Card>
@@ -150,9 +149,7 @@ export function CrewBoardWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
-            {t("crewBoard.title") ?? "Crew"}
-          </span>
+          <WidgetTitle>{t("crewBoard.title") ?? "Crew"}</WidgetTitle>
           <WidgetEmptyState
             message={t("crewBoard.noMembers") ?? "No team members"}
             className="flex-1"
@@ -173,9 +170,7 @@ export function CrewBoardWidget({
           >
             {animatedUtilization}%
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("crewBoard.title") ?? "Crew"}
-          </span>
+          <WidgetTitle className="mt-1">{t("crewBoard.title") ?? "Crew"}</WidgetTitle>
           <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
         </div>
       </Card>
@@ -193,14 +188,12 @@ export function CrewBoardWidget({
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/schedule"); }}
-              className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
             </button>
           </div>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("crewBoard.title") ?? "Crew"}
-          </span>
+          <WidgetTitle className="mt-1">{t("crewBoard.title") ?? "Crew"}</WidgetTitle>
           <span className="font-mono text-micro text-text-mute uppercase mt-0.5">
             {t("crewBoard.utilization") ?? "Utilization"} · {crewData.members.length} {t("crewBoard.members") ?? "members"}
           </span>
@@ -221,9 +214,7 @@ export function CrewBoardWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("crewBoard.title") ?? "Crew"}
-          </span>
+          <WidgetTitle>{t("crewBoard.title") ?? "Crew"}</WidgetTitle>
           <span className="font-mono text-micro text-text-3" style={{ color: avgColor }}>
             {crewData.avgUtilization}% avg
           </span>

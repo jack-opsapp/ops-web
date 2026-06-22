@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetMoreButton } from "./shared/widget-more-button";
@@ -12,6 +12,7 @@ import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { WIDGET_EASE_CSS } from "./shared/widget-motion";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 import { useWeightedPipelineValue } from "@/lib/hooks/use-forecast";
 import { formatCompactCurrency } from "./shared/widget-utils";
 import { HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
@@ -140,14 +141,12 @@ export function PipelineFunnelWidget({
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("pipelineFunnel.title") ?? "Pipeline"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+        <div className="px-3 pt-2 pb-1">
+          <WidgetTitle>{t("pipelineFunnel.title") ?? "Pipeline"}</WidgetTitle>
+        </div>
+        <div className="px-3 pb-2">
           <WidgetSkeleton variant="funnel" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -157,9 +156,9 @@ export function PipelineFunnelWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
+          <WidgetTitle>
             {t("pipelineFunnel.title") ?? "Pipeline"}
-          </span>
+          </WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className={`font-mono ${compact ? HERO_SIZE_CLASS.compact : HERO_SIZE_CLASS.expanded} font-bold text-text-mute leading-none`}>
               0
@@ -197,9 +196,9 @@ export function PipelineFunnelWidget({
           <span className="font-mono text-display font-bold leading-none text-text">
             {totalProjects}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("pipelineFunnel.title") ?? "Pipeline"}
-          </span>
+          </WidgetTitle>
           {weightedPipeline ? (
             <WidgetTrendContext variant="snapshot" label={`${t("pipelineFunnel.weighted") ?? "Weighted"}: ${formatCompactCurrency(weightedPipeline.totalWeighted)}`} />
           ) : (
@@ -220,9 +219,9 @@ export function PipelineFunnelWidget({
             <span className="font-mono text-data-lg font-bold leading-none text-text">
               {totalProjects}
             </span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+            <WidgetTitle className="mt-1">
               {t("pipelineFunnel.title") ?? "Pipeline"}
-            </span>
+            </WidgetTitle>
             {weightedPipeline && (
               <span className="font-mono text-micro text-text-mute mt-0.5">
                 {formatCompactCurrency(weightedPipeline.totalWeighted)}
@@ -251,7 +250,7 @@ export function PipelineFunnelWidget({
           {/* Right: Nav icon */}
           <button
             onClick={(e) => { e.stopPropagation(); onNavigate("/pipeline"); }}
-            className="p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors self-start shrink-0"
+            className="p-0.5 rounded-sm hover:bg-surface-hover transition-colors self-start shrink-0"
           >
             <ArrowUpRight className="w-2.5 h-2.5 text-text-mute" />
           </button>
@@ -338,9 +337,9 @@ export function PipelineFunnelWidget({
         <div className="h-full flex flex-col p-3">
           {/* Header */}
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+            <WidgetTitle>
               {t("pipelineFunnel.title") ?? "Pipeline"}
-            </span>
+            </WidgetTitle>
           </div>
 
           {/* Hero */}
@@ -353,7 +352,7 @@ export function PipelineFunnelWidget({
             </span>
             {weightedPipeline && (
               <>
-                <span className="text-[rgba(255,255,255,0.12)]">·</span>
+                <span className="text-text-mute">·</span>
                 <span className="font-mono text-micro text-text-mute">
                   {formatCompactCurrency(weightedPipeline.totalWeighted)}
                 </span>
@@ -379,9 +378,9 @@ export function PipelineFunnelWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header row: title + weighted value */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("pipelineFunnel.title") ?? "Pipeline"}
-          </span>
+          </WidgetTitle>
           {weightedPipeline && (
             <span className="font-mono text-micro text-text-mute">
               {t("pipelineFunnel.weighted") ?? "Weighted"}: {formatCompactCurrency(weightedPipeline.totalWeighted)}

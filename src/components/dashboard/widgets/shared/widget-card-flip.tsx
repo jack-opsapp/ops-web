@@ -116,11 +116,11 @@ function CardBack({
       <div className="h-full flex flex-col p-3 relative">
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 p-0.5 rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+          className="absolute top-2 right-2 p-0.5 rounded-sm hover:bg-surface-hover transition-colors"
         >
           <X className="w-[14px] h-[14px] text-text-3" />
         </button>
-        <span className="font-mono text-micro uppercase tracking-wider text-text-3 shrink-0">
+        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3 shrink-0">
           {content.title}
         </span>
         <ScrollFade className="flex-1 min-h-0 mt-1.5">

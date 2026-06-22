@@ -43,6 +43,7 @@ import { parseDateRequired } from "@/lib/supabase/helpers";
 import { ScrollFade } from "./shared/scroll-fade";
 import { WidgetMoreButton } from "./shared/widget-more-button";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 
 // ---------------------------------------------------------------------------
 // Inline hook — company-wide recent activities
@@ -270,9 +271,9 @@ export function ActivityWidget({
           >
             {isLoading ? "—" : count}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("activity.title")}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-micro text-text-mute uppercase mt-0.5 truncate">
             {isLoading
               ? "..."
@@ -372,9 +373,9 @@ export function ActivityWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t("activity.title")}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-micro text-text-3">
             {isLoading ? "..." : `${count} ${t("activity.events")}`}
           </span>

@@ -8,6 +8,7 @@ import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetMoreButton } from "./shared/widget-more-button";
 import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
 import { WidgetEmptyState } from "./shared/widget-empty-state";
+import { WidgetTitle } from "./shared/widget-title";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { ScrollFade } from "./shared/scroll-fade";
@@ -216,9 +217,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("taskPulse.title") ?? "Tasks"}
-          </span>
+          <WidgetTitle>{t("taskPulse.title") ?? "Tasks"}</WidgetTitle>
           <WidgetSkeleton variant="horizontal-bars" />
         </div>
       </Card>
@@ -230,9 +229,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
-            {t("taskPulse.title") ?? "Tasks"}
-          </span>
+          <WidgetTitle>{t("taskPulse.title") ?? "Tasks"}</WidgetTitle>
           <WidgetEmptyState
             icon={CheckCircle}
             message={t("taskPulse.allClear") ?? "All clear"}
@@ -299,9 +296,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
           >
             {hasOverdue ? segments.overdue : segments.total}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("taskPulse.title") ?? "Tasks"}
-          </span>
+          <WidgetTitle className="mt-1">{t("taskPulse.title") ?? "Tasks"}</WidgetTitle>
           <WidgetTrendContext
             variant="health"
             color={hasOverdue ? WT.error : WT.success}
@@ -322,9 +317,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
             {segments.total}
           </span>
           {/* Row 2: Title */}
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("taskPulse.title") ?? "Tasks"}
-          </span>
+          <WidgetTitle className="mt-1">{t("taskPulse.title") ?? "Tasks"}</WidgetTitle>
           {/* Row 3: Health indicator */}
           <WidgetTrendContext
             variant="health"
@@ -350,9 +343,7 @@ export function TaskPulseWidget({ size, tasks, estimates, projects = [], clients
       <div className="h-full flex flex-col px-3 py-2">
         {/* Header */}
         <div className="flex items-baseline justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("taskPulse.title") ?? "Tasks"}
-          </span>
+          <WidgetTitle>{t("taskPulse.title") ?? "Tasks"}</WidgetTitle>
           <span
             className="font-mono text-micro px-1.5 py-0.5 rounded-sm"
             style={{

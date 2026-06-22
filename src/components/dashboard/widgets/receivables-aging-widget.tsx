@@ -13,6 +13,7 @@ import { useReducedMotion } from "./shared/use-reduced-motion";
 import { useAnimatedValue } from "./shared/use-animated-value";
 import { formatCompactCurrency } from "./shared/widget-utils";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
+import { WidgetTitle } from "./shared/widget-title";
 import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import type { Invoice } from "@/lib/types/pipeline";
@@ -140,9 +141,7 @@ export function ReceivablesAgingWidget({
     return (
       <Card className="h-full">
         <div className="px-3 pt-2 pb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("receivablesAging.title") ?? "Receivables"}
-          </span>
+          <WidgetTitle>{t("receivablesAging.title") ?? "Receivables"}</WidgetTitle>
         </div>
         <div className="px-3 pb-2">
           <WidgetSkeleton variant="horizontal-bars" />
@@ -158,9 +157,7 @@ export function ReceivablesAgingWidget({
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-              {t("receivablesAging.title") ?? "Receivables"}
-            </span>
+            <WidgetTitle className="mt-1">{t("receivablesAging.title") ?? "Receivables"}</WidgetTitle>
           </div>
         </Card>
       );
@@ -171,13 +168,11 @@ export function ReceivablesAgingWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">$0</span>
-              <button onClick={() => onNavigate("/books?segment=invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/books?segment=invoices")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-              {t("receivablesAging.title") ?? "Receivables"}
-            </span>
+            <WidgetTitle className="mt-1">{t("receivablesAging.title") ?? "Receivables"}</WidgetTitle>
             <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("receivablesAging.allCurrent") ?? "All invoices current"}
             </span>
@@ -188,9 +183,7 @@ export function ReceivablesAgingWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
-            {t("receivablesAging.title") ?? "Receivables"}
-          </span>
+          <WidgetTitle>{t("receivablesAging.title") ?? "Receivables"}</WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className="font-mono text-display font-bold text-text-mute leading-none">$0</span>
             <span className="font-mohave text-caption-sm text-text-mute mt-1">
@@ -212,9 +205,7 @@ export function ReceivablesAgingWidget({
           >
             {formatCompactCurrency(animatedTotal)}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("receivablesAging.title") ?? "Receivables"}
-          </span>
+          <WidgetTitle className="mt-1">{t("receivablesAging.title") ?? "Receivables"}</WidgetTitle>
           <WidgetTrendContext
             variant="health"
             color={heroColor}
@@ -237,15 +228,13 @@ export function ReceivablesAgingWidget({
             </span>
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate("/books?segment=invoices&status=past_due"); }}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
           {/* Row 2: Title */}
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("receivablesAging.title") ?? "Receivables"}
-          </span>
+          <WidgetTitle className="mt-1">{t("receivablesAging.title") ?? "Receivables"}</WidgetTitle>
           {/* Row 3: Health indicator */}
           <WidgetTrendContext
             variant="health"
@@ -311,9 +300,7 @@ export function ReceivablesAgingWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("receivablesAging.title") ?? "Receivables"}
-          </span>
+          <WidgetTitle>{t("receivablesAging.title") ?? "Receivables"}</WidgetTitle>
         </div>
 
         {/* Hero */}

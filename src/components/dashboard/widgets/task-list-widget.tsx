@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { WidgetHeroCollapse } from "./shared/widget-hero-collapse";
 import { WidgetEmptyState } from "./shared/widget-empty-state";
 import { ScrollFade } from "./shared/scroll-fade";
+import { WidgetTitle } from "./shared/widget-title";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { TaskStatus, getTaskDisplayTitle } from "@/lib/types/models";
@@ -135,9 +136,9 @@ export function TaskListWidget({
           <span className="font-mono text-data-lg font-bold leading-none text-text">
             {isLoading ? "—" : todayTasks.length}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t("taskList.title") ?? "Task List"}
-          </span>
+          </WidgetTitle>
           <WidgetTrendContext variant="snapshot" label={t("trend.today") ?? "Today"} />
           {!isLoading && nextTask && (
             <span className="font-mohave text-caption-sm text-text-2 mt-0.5 truncate">
@@ -167,7 +168,7 @@ export function TaskListWidget({
           <span className="font-mono text-data-sm font-bold text-text-2">
             {heroCounts.unscheduled}
           </span>
-          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
             {t("taskList.unscheduledCount") ?? "Unscheduled"}
           </span>
         </div>
@@ -176,7 +177,7 @@ export function TaskListWidget({
           <span className="font-mono text-data-sm font-bold" style={{ color: WT.accent }}>
             {heroCounts.today}
           </span>
-          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
             {t("taskList.todayCount") ?? "Today"}
           </span>
         </div>
@@ -185,7 +186,7 @@ export function TaskListWidget({
           <span className="font-mono text-data-sm font-bold" style={{ color: heroCounts.overdue > 0 ? WT.error : "var(--text-disabled)" }}>
             {heroCounts.overdue}
           </span>
-          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+          <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
             {t("taskList.overdueCount") ?? "Overdue"}
           </span>
         </div>
@@ -199,9 +200,9 @@ export function TaskListWidget({
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+            <WidgetTitle>
               {t("taskList.title") ?? "Task List"}
-            </span>
+            </WidgetTitle>
             {viewToggle}
           </div>
           <div className="flex items-center justify-center py-4">
@@ -220,9 +221,9 @@ export function TaskListWidget({
       <Card className="h-full p-0">
         <div className="h-full flex flex-col p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+            <WidgetTitle>
               {t("taskList.title") ?? "Task List"}
-            </span>
+            </WidgetTitle>
             {viewToggle}
           </div>
           {heroSection}
@@ -242,9 +243,7 @@ export function TaskListWidget({
       <div className="h-full flex flex-col p-3">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("taskList.title") ?? "Task List"}
-          </span>
+          <WidgetTitle>{t("taskList.title") ?? "Task List"}</WidgetTitle>
           {viewToggle}
         </div>
 
@@ -294,7 +293,7 @@ export function TaskListWidget({
           {/* Overdue section */}
           {showDetail(size) && overdueTasks.length > 0 && (
             <div className="mt-2 pt-2 border-t border-border-subtle">
-              <span className="font-mono text-micro text-text-3 uppercase tracking-widest block mb-1" style={{ color: WT.error }}>
+              <span className="font-mono text-micro text-text-3 uppercase tracking-[0.16em] block mb-1" style={{ color: WT.error }}>
                 {t("taskList.overdue") ?? "Overdue"}
               </span>
               <AnimatePresence>
@@ -397,7 +396,7 @@ function TaskRow({
       transition={{ duration: reducedMotion ? 0.15 : 0.25, ease: [0.22, 1, 0.36, 1] }}
       onClick={() => onNavigate(task.projectId ? `/projects/${task.projectId}` : "/schedule")}
       className={cn(
-        "flex items-center gap-1 px-1 py-2 rounded hover:bg-[rgba(255,255,255,0.04)] cursor-pointer transition-colors group",
+        "flex items-center gap-1 px-1 py-2 rounded hover:bg-surface-hover cursor-pointer transition-colors group",
         isDone && "opacity-40"
       )}
     >
@@ -411,7 +410,7 @@ function TaskRow({
               ? "bg-status-success border-status-success"
               : isCompleted
                 ? "bg-status-success/30 border-status-success/50"
-                : "border-border-medium hover:border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.05)]"
+                : "border-border-medium hover:border-border-medium hover:bg-surface-hover"
           )}
           title={t("taskList.completeTask")}
         >

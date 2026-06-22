@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
+import { WidgetTitle } from "./shared/widget-title";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -384,7 +385,7 @@ function PipelineInlineActions({
           <PopoverTrigger asChild>
             <button
               onClick={(e) => e.stopPropagation()}
-              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-[rgba(255,255,255,0.08)] transition-colors text-text-mute hover:text-text-2"
+              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-surface-hover transition-colors text-text-mute hover:text-text-2"
               title={t("pipelineList.followUp") ?? "Follow Up"}
               aria-label={t("pipelineList.followUp") ?? "Follow Up"}
             >
@@ -423,9 +424,9 @@ function PipelineInlineActions({
                 }}
                 disabled={!composeText.trim() || sending}
                 className={cn(
-                  "font-mono text-micro uppercase tracking-wider px-2 py-[2px] rounded-sm transition-colors",
+                  "font-mono text-micro uppercase tracking-[0.16em] px-2 py-[2px] rounded-sm transition-colors",
                   composeText.trim() && !sending
-                    ? "text-text hover:bg-[rgba(255,255,255,0.08)]"
+                    ? "text-text hover:bg-surface-hover"
                     : "text-text-mute cursor-not-allowed"
                 )}
               >
@@ -491,14 +492,14 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             </span>
             <button
               onClick={() => navigate("/pipeline")}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
             >
               <ArrowUpRight className="w-[14px] h-[14px]" />
             </button>
           </div>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
+          <WidgetTitle className="mt-1">
             {t(FILTER_LABEL_KEYS[filter])}
-          </span>
+          </WidgetTitle>
           {!isLoading && rawOpportunities && (
             <StageDistributionBar
               opportunities={rawOpportunities}
@@ -544,9 +545,9 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
       <Card className="h-full p-0" ref={ref}>
         <div className="h-full flex flex-col p-3">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+            <WidgetTitle>
               {t(FILTER_LABEL_KEYS[filter])}
-            </span>
+            </WidgetTitle>
             <span className="font-mono text-micro text-text-3">
               {isLoading
                 ? "..."
@@ -588,7 +589,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                           className="w-[8px] h-[8px] rounded-sm shrink-0"
                           style={{ backgroundColor: group.color }}
                         />
-                        <span className="font-mono text-micro uppercase tracking-widest text-text-2">
+                        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-2">
                           {group.label}
                         </span>
                         <span className="font-mono text-micro text-text-mute ml-auto">
@@ -658,9 +659,9 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
     <Card className="h-full p-0" ref={ref}>
       <div className="h-full flex flex-col p-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
+          <WidgetTitle>
             {t(FILTER_LABEL_KEYS[filter])}
-          </span>
+          </WidgetTitle>
           <span className="font-mono text-micro text-text-3">
             {isLoading
               ? "..."

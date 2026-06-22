@@ -2,7 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import { ArrowUpRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { WidgetTitle } from "./shared/widget-title";
 import { WidgetTooltip, TooltipRow } from "./shared/widget-tooltip";
 import { WidgetSkeleton } from "./shared/widget-skeleton";
 import { WidgetBackgroundChart } from "./shared/widget-background-chart";
@@ -89,14 +90,12 @@ export function BookingRateWidget({
   if (isLoading) {
     return (
       <Card className="h-full">
-        <CardHeader className="pb-1 pt-2 px-3">
-          <CardTitle className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("bookingRate.title") ?? "Bookings"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 pb-2">
+        <div className="px-3 pt-2 pb-1">
+          <WidgetTitle>{t("bookingRate.title") ?? "Bookings"}</WidgetTitle>
+        </div>
+        <div className="px-3 pb-2">
           <WidgetSkeleton variant="stat" />
-        </CardContent>
+        </div>
       </Card>
     );
   }
@@ -108,9 +107,7 @@ export function BookingRateWidget({
         <Card className="h-full">
           <div className="h-full flex flex-col pt-3">
             <span className="font-mono text-display font-bold text-text-mute leading-none">0</span>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-              {t("bookingRate.title") ?? "Bookings"}
-            </span>
+            <WidgetTitle className="mt-1">{t("bookingRate.title") ?? "Bookings"}</WidgetTitle>
           </div>
         </Card>
       );
@@ -121,13 +118,11 @@ export function BookingRateWidget({
           <div className="h-full flex flex-col p-3">
             <div className="flex items-baseline justify-between">
               <span className="font-mono text-data-lg font-bold text-text-mute leading-none">0</span>
-              <button onClick={() => onNavigate("/projects")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors">
+              <button onClick={() => onNavigate("/projects")} className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors">
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-              {t("bookingRate.title") ?? "Bookings"}
-            </span>
+            <WidgetTitle className="mt-1">{t("bookingRate.title") ?? "Bookings"}</WidgetTitle>
             <span className="font-mohave text-caption-sm text-text-mute mt-1 truncate">
               {t("bookingRate.noProjects") ?? "No projects yet"}
             </span>
@@ -138,9 +133,7 @@ export function BookingRateWidget({
     return (
       <Card className="h-full">
         <div className="h-full flex flex-col px-3 py-2">
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
-            {t("bookingRate.title") ?? "Bookings"}
-          </span>
+          <WidgetTitle>{t("bookingRate.title") ?? "Bookings"}</WidgetTitle>
           <div className="flex-1 flex flex-col justify-center">
             <span className="font-mono text-display font-bold text-text-mute leading-none">0</span>
             <span className="font-mohave text-caption-sm text-text-mute mt-1">
@@ -160,9 +153,7 @@ export function BookingRateWidget({
           <span className="font-mono text-display font-bold leading-none text-text">
             {animatedCount}
           </span>
-          <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-            {t("bookingRate.title") ?? "Bookings"}
-          </span>
+          <WidgetTitle className="mt-1">{t("bookingRate.title") ?? "Bookings"}</WidgetTitle>
           <WidgetTrendContext
             variant="trend"
             direction={bookings.trend}
@@ -190,15 +181,13 @@ export function BookingRateWidget({
               </span>
               <button
                 onClick={(e) => { e.stopPropagation(); onNavigate("/projects"); }}
-                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+                className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
               >
                 <ArrowUpRight className="w-[14px] h-[14px]" />
               </button>
             </div>
             {/* Row 2: Title */}
-            <span className="font-mono text-micro text-text-3 uppercase tracking-wider mt-1">
-              {t("bookingRate.title") ?? "Bookings"}
-            </span>
+            <WidgetTitle className="mt-1">{t("bookingRate.title") ?? "Bookings"}</WidgetTitle>
             {/* Row 3: Trend indicator */}
             <div className="mt-1">
               <WidgetTrendContext
@@ -222,9 +211,7 @@ export function BookingRateWidget({
       <div className="h-full flex flex-col px-3 py-2">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-2">
-          <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-            {t("bookingRate.title") ?? "Bookings"}
-          </span>
+          <WidgetTitle>{t("bookingRate.title") ?? "Bookings"}</WidgetTitle>
         </div>
 
         {/* HERO */}
