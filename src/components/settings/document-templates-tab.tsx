@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-  Loader2,
   Save,
   Plus,
   Trash2,
@@ -353,11 +352,14 @@ export function DocumentTemplatesTab() {
   // ── Loading/error states ─────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-4">
-          <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
-        </CardContent>
-      </Card>
+      <div className="space-y-[2px] animate-pulse motion-reduce:animate-none">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-[56px] rounded-[4px] bg-surface-input/40 border border-border-subtle"
+          />
+        ))}
+      </div>
     );
   }
 

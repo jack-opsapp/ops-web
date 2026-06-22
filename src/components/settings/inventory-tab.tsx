@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Plus, Trash2, Package } from "lucide-react";
+import { Plus, Trash2, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,11 +56,14 @@ export function InventoryTab() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-6">
-          <Loader2 className="w-[20px] h-[20px] text-text-2 animate-spin" />
-        </CardContent>
-      </Card>
+      <div className="space-y-[2px] animate-pulse motion-reduce:animate-none">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-[56px] rounded-[4px] bg-surface-input/40 border border-border-subtle"
+          />
+        ))}
+      </div>
     );
   }
 

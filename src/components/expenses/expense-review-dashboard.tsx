@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useExpenseBatches } from "@/lib/hooks";
 import { usePermissionStore } from "@/lib/store/permissions-store";
@@ -15,6 +15,7 @@ import {
 } from "@/lib/types/expense-approval";
 import { formatCurrency } from "@/lib/types/pipeline";
 import { ExpenseFilters, type ExpenseFilterTab } from "./expense-filters";
+import { RegisterEmpty } from "@/components/ui/register-table";
 import { InvoiceCard } from "./invoice-card";
 import { InvoiceDetailPanel } from "./invoice-detail-panel";
 
@@ -172,8 +173,10 @@ export function ExpenseReviewDashboard() {
 
       {/* Loading */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-[20px] h-[20px] text-text-mute animate-spin" />
+        <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="glass-surface h-[48px]" />
+          ))}
         </div>
       )}
 
@@ -256,12 +259,7 @@ export function ExpenseReviewDashboard() {
 
             {/* Empty state */}
             {displayBatches.length === 0 && !isLoading && (
-              <div className="px-3 py-12 flex flex-col items-start gap-2">
-                <FileText className="w-[24px] h-[24px] text-text-mute" />
-                <p className="font-mono text-caption-sm text-text-mute">
-                  No expense invoices for this period
-                </p>
-              </div>
+              <RegisterEmpty noun="Expense invoices" />
             )}
           </div>
 
