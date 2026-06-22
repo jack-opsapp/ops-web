@@ -102,7 +102,7 @@ export function ProjectTerminalRegion({
           background: `${statusColor}${bgAlpha}`,
           borderRadius: 4,
           border: `1px solid ${statusColor}${borderAlpha}`,
-          transition: "background 0.2s ease-out, border-color 0.2s ease-out",
+          transition: "background 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
         }),
       }}
       onMouseEnter={() => setIsRegionHovered(true)}
@@ -114,7 +114,7 @@ export function ProjectTerminalRegion({
           className="absolute inset-0 pointer-events-none rounded-[4px]"
           style={{
             boxShadow: `inset 0 0 60px ${statusColor}${glowOpacity}`,
-            transition: "box-shadow 0.2s ease-out",
+            transition: "box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         />
       )}
@@ -143,7 +143,7 @@ export function ProjectTerminalRegion({
             transformOrigin: "left",
             transform: isRegionHovered ? "scaleX(1)" : "scaleX(0.3)",
             transition:
-              "transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease-out, background 0.3s ease-out",
+              "transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         />
         <div className="flex items-baseline gap-2">
@@ -151,12 +151,12 @@ export function ProjectTerminalRegion({
             className="font-mono text-micro uppercase tracking-widest"
             style={{
               color: isRegionHovered ? statusColor : "#666",
-              transition: "color 0.25s ease-out",
+              transition: "color 0.25s cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
             {getProjectStatusDisplayName(status)}
           </span>
-          <span className="font-mohave text-body-sm text-text">
+          <span className="font-mono text-body-sm text-text tabular-nums">
             {projects.length}
           </span>
           {canViewAccounting && (
@@ -164,8 +164,8 @@ export function ProjectTerminalRegion({
               <span className="font-mohave text-body-sm text-text-mute">
                 /
               </span>
-              <span className="font-mohave text-body-sm text-text">
-                {totalValue > 0 ? formatCompactCurrency(totalValue) : "$--"}
+              <span className="font-mono text-body-sm text-text tabular-nums">
+                {totalValue > 0 ? formatCompactCurrency(totalValue) : "—"}
               </span>
             </>
           )}
