@@ -369,7 +369,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
                         />
                       ) : (
                         <div className="w-[18px] h-[18px] rounded-full bg-fill-neutral-dim shrink-0 flex items-center justify-center">
-                          <span className="font-mono text-[9px] text-text-mute uppercase">
+                          <span className="font-mono text-[11px] text-text-mute uppercase leading-none">
                             {name.charAt(0)}
                           </span>
                         </div>
