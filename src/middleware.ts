@@ -113,6 +113,15 @@ export function middleware(request: NextRequest) {
     url.pathname = "/books";
     return NextResponse.redirect(url, 308);
   }
+  // Expenses live in Books now (segment=expenses). The FAB already targets
+  // /books?segment=expenses, but stored notification action_urls (e.g.
+  // use-expense-approval's "/expenses") must keep resolving — this catches them.
+  if (pathname === "/expenses") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/books";
+    url.searchParams.set("segment", "expenses");
+    return NextResponse.redirect(url, 308);
+  }
 
   // ─── CATALOG absorption (P3.2) — 308 permanent, param-preserving ─────────
   // master plan §2 row 6: Products + Inventory collapse into /catalog with
