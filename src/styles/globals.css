@@ -386,16 +386,6 @@
     background: rgba(255, 255, 255, 0.04);
   }
 
-  /* === Accent Border Card === */
-  .ops-card-accent {
-    @apply glass-surface p-2 border-l-4 border-l-ops-accent;
-  }
-
-  /* === Status Badge === */
-  .ops-badge {
-    @apply inline-flex items-center px-1.5 py-0.5 rounded-sm text-status font-mohave font-medium uppercase tracking-wider;
-  }
-
   /* === Form Input === */
   .ops-input {
     @apply w-full text-text font-mohave text-body

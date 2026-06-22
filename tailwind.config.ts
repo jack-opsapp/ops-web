@@ -36,7 +36,6 @@ const config: Config = {
         glass: {
           DEFAULT: "var(--glass-bg)",
           dense: "var(--glass-bg-dense)",
-          subtle: "var(--glass-bg-subtle)",
           border: "var(--glass-border)",
           "border-medium": "var(--glass-border-medium)",
           "border-strong": "var(--glass-border-strong)",

@@ -187,7 +187,7 @@ export function ProjectsConflictOverlay({
               type="button"
               data-conflict-action
               onClick={onUseMine}
-              className="rounded-[5px] border border-border px-2 py-1.5 font-cakemono text-[12px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              className="rounded-[5px] border border-border px-2 py-1.5 font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
               {t("table.conflict.useMine")}
             </button>
@@ -195,7 +195,7 @@ export function ProjectsConflictOverlay({
               type="button"
               data-conflict-action
               onClick={onUseCurrent}
-              className="rounded-[5px] border border-border px-2 py-1.5 font-cakemono text-[12px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              className="rounded-[5px] border border-border px-2 py-1.5 font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
               {t("table.conflict.useTheirs")}
             </button>
@@ -203,7 +203,7 @@ export function ProjectsConflictOverlay({
               type="button"
               data-conflict-action
               onClick={onCancel}
-              className="rounded-[5px] px-2 py-1.5 font-cakemono text-[12px] font-light uppercase text-text-mute transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              className="rounded-[5px] px-2 py-1.5 font-cakemono text-[14px] font-light uppercase text-text-mute transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
               {t("table.conflict.cancel")}
             </button>

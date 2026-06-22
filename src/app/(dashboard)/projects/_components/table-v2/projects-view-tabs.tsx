@@ -81,7 +81,7 @@ export function ProjectsViewTabs({
       <button
         type="button"
         onClick={onCreateView}
-        className="ml-auto inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-border px-2 font-cakemono text-[12px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+        className="ml-auto inline-flex h-[28px] shrink-0 items-center gap-1 rounded-[5px] border border-border px-2 font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
       >
         <Plus className="h-[12px] w-[12px]" strokeWidth={1.5} />
         {t("table.views.newView")}
