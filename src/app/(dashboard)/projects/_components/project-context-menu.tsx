@@ -197,7 +197,7 @@ function MenuItem({
       onClick={onClick}
       className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors duration-100 ${
         destructive
-          ? "text-[#93321A] hover:bg-[rgba(147,50,26,0.1)]"
+          ? "text-brick hover:bg-ops-error-muted"
           : "text-text-2 hover:bg-[rgba(255,255,255,0.06)] hover:text-text"
       }`}
     >

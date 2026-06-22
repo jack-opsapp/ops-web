@@ -350,8 +350,8 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
         return (
           <span className={cn(
             "font-mono text-data-sm",
-            daysInStatus > 60 && "text-[#93321A]",
-            daysInStatus > 30 && daysInStatus <= 60 && "text-[#C4A868]",
+            daysInStatus > 60 && "text-brick",
+            daysInStatus > 30 && daysInStatus <= 60 && "text-tan",
           )}>
             {daysInStatus}d
           </span>

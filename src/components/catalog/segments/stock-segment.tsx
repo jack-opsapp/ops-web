@@ -377,7 +377,7 @@ export function StockSegment({
 
       {/* Bulk bar */}
       {selectedIds.size > 0 && canManage && (
-        <div className="flex items-center gap-3 rounded-[8px] border border-border bg-surface-hover-subtle px-3 py-1.5">
+        <div className="flex items-center gap-3 rounded-panel border border-border bg-surface-hover-subtle px-3 py-1.5">
           <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-2 tabular-nums">
             {t("bulk.selected", { n: selectedIds.size })}
           </span>

@@ -367,7 +367,7 @@ export function ProjectFloatingToolbar({
           {canDelete && (
             <button
               onClick={onBulkDelete}
-              className="flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer text-[#93321A] hover:text-[#b5423a] hover:bg-[rgba(147,50,26,0.1)]"
+              className="flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer text-brick hover:text-ops-error-hover hover:bg-[rgba(147,50,26,0.1)]"
             >
               <span className="font-mono text-micro uppercase tracking-wider">
                 {t("spreadsheet.bulk.delete")}

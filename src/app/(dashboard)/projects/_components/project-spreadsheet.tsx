@@ -508,7 +508,7 @@ function ActionMenuItem({ label, onClick, danger }: { label: string; onClick: ()
       className={cn(
         "flex items-center w-full px-2 py-1.5 rounded-[2px] transition-colors font-mohave text-body-sm",
         danger
-          ? "text-[#93321A] hover:bg-[rgba(147,50,26,0.1)]"
+          ? "text-brick hover:bg-[rgba(147,50,26,0.1)]"
           : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
       )}
     >

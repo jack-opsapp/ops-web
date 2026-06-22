@@ -87,7 +87,7 @@ export function ConnectAccountingModal({
                 onClick={() => setSelected(p.value)}
                 aria-pressed={isSel}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-[8px] border p-3 text-left",
+                  "flex w-full items-center gap-3 rounded-panel border p-3 text-left",
                   "transition-colors duration-150 ease-smooth",
                   isSel
                     ? "border-line-hi bg-surface-active"

@@ -95,7 +95,7 @@ export function ProjectsDensityControl({
               disabled={disabled}
               onClick={() => onDensityChange(option.density)}
               className={cn(
-                "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded-[5px] px-1.5 font-cakemono text-[10px] font-light uppercase transition-colors",
+                "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded-[5px] px-1.5 font-cakemono text-[11px] font-light uppercase transition-colors",
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-50",
                 active
                   ? "bg-surface-active text-text"
