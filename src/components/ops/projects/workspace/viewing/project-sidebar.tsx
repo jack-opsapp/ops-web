@@ -188,7 +188,7 @@ function ClientSection({ clientId }: { clientId: string | null }) {
           {client.email && (
             <a
               href={`mailto:${client.email}`}
-              className="inline-flex items-center gap-1.5 text-[12px] text-text-2 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-ops-accent"
+              className="inline-flex items-center gap-1.5 text-[12px] text-text-2 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text"
             >
               <Mail className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
               <span className="truncate">{client.email}</span>
@@ -197,7 +197,7 @@ function ClientSection({ clientId }: { clientId: string | null }) {
           {client.phoneNumber && (
             <a
               href={`tel:${client.phoneNumber}`}
-              className="inline-flex items-center gap-1.5 text-[12px] text-text-2 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-ops-accent"
+              className="inline-flex items-center gap-1.5 text-[12px] text-text-2 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text"
             >
               <Phone className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
               <span>{formatPhoneNumber(client.phoneNumber)}</span>
@@ -241,7 +241,7 @@ function LocationSection({
                 href={mapsHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-ops-accent hover:underline"
+                className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.16em] text-text-2 hover:underline"
               >
                 <MapPin className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
                 {t("sidebar.location.maps")}

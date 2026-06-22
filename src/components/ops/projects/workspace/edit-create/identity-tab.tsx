@@ -189,7 +189,7 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
                         <Check
                           size={12}
                           strokeWidth={2}
-                          className="text-ops-accent shrink-0"
+                          className="text-text shrink-0"
                         />
                       )}
                     </button>

@@ -48,7 +48,7 @@ export function ProjectDragConfirmation({
             type="checkbox"
             checked={dontShowAgain}
             onChange={(e) => setDontShowAgain(e.target.checked)}
-            className="w-4 h-4 rounded-[2px] border border-[rgba(255,255,255,0.15)] bg-transparent accent-[#6F94B0]"
+            className="w-4 h-4 rounded-[2px] border border-[rgba(255,255,255,0.15)] bg-transparent accent-ops-accent"
           />
           <span className="font-mohave text-body-sm text-text-3">
             {t("drag.dontShowAgain")}
