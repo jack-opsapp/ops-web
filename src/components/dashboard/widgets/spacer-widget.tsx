@@ -19,8 +19,8 @@ const MAX_ROWS = 4;
 // Animation config
 // ---------------------------------------------------------------------------
 
-const HANDLE_SPRING = { type: "spring" as const, stiffness: 500, damping: 30 };
-const LABEL_SPRING = { type: "spring" as const, stiffness: 300, damping: 20 };
+const HANDLE_SPRING = { duration: 0.18, ease: [0.22, 1, 0.36, 1] as const };
+const LABEL_SPRING = { duration: 0.2, ease: [0.22, 1, 0.36, 1] as const };
 
 const handleVariants = {
   hidden: { opacity: 0, scale: 0.6 },

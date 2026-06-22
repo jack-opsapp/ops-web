@@ -95,7 +95,7 @@ export function SegmentedPicker<T extends string = string>({
 
       {/* Sliding underline */}
       <div
-        className="absolute bottom-0 h-[2px] bg-text-primary rounded-full transition-all duration-200 ease-out"
+        className="absolute bottom-0 h-[2px] bg-text-primary rounded-full transition-all duration-200 ease-smooth motion-reduce:transition-none"
         style={{
           left: underlineStyle.left,
           width: underlineStyle.width,

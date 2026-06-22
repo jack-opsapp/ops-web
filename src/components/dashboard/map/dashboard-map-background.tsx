@@ -377,7 +377,7 @@ export function DashboardMapBackground() {
     <>
       <div
         className={cn(
-          "fixed top-0 bottom-0 right-0 z-0 transition-all duration-200 ease-out pointer-events-none",
+          "fixed top-0 bottom-0 right-0 z-0 transition-all duration-200 ease-smooth pointer-events-none",
           "left-[72px]"
         )}
       >

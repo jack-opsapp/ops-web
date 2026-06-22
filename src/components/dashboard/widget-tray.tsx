@@ -23,7 +23,7 @@ import {
   type WidgetTag,
   type WidgetInstance,
 } from "@/lib/types/dashboard-widgets";
-import { trayVariants } from "@/lib/utils/motion";
+import { trayVariants, EASE_SMOOTH } from "@/lib/utils/motion";
 import { WidgetTrayCard } from "./widget-tray-card";
 
 // ── Detent heights ──
@@ -235,7 +235,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
 
       target = Math.max(DETENT_PEEK, Math.min(full, target));
       setCurrentDetent(target);
-      animate(sheetHeight, target, { type: "spring", stiffness: 500, damping: 35, mass: 0.8 });
+      animate(sheetHeight, target, { duration: 0.25, ease: EASE_SMOOTH });
     },
     [sheetHeight, onClose]
   );
@@ -274,7 +274,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
             className="fixed right-0 left-[72px] max-[640px]:left-0 z-40 flex items-center justify-between gap-2 px-3 py-[6px] pointer-events-auto max-[640px]:flex-wrap max-[640px]:items-stretch max-[640px]:bg-[var(--surface-glass-dense)] max-[640px]:backdrop-blur-[28px] max-[640px]:max-h-[156px] max-[640px]:overflow-y-auto scrollbar-hide"
             style={{
               bottom: toolbarBottom,
-              transition: "left 0.2s ease-out",
+              transition: "left 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
             {/* Spacer — draggable + click-to-add */}
@@ -347,7 +347,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
               backdropFilter: "blur(28px) saturate(1.3)",
               WebkitBackdropFilter: "blur(28px) saturate(1.3)",
               borderTop: "1px solid var(--glass-border)",
-              transition: "left 0.2s ease-out",
+              transition: "left 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
             }}
           >
             {/* Drag handle pill — pan gesture drives detent snapping */}

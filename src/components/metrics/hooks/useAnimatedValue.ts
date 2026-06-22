@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { cubicBezier } from "framer-motion";
+
+const easeFn = cubicBezier(0.22, 1, 0.36, 1);
 
 /**
- * Animates a numeric value from the previous value to the new target using cubicOut easing.
+ * Animates a numeric value from the previous value to the new target using the OPS easing curve.
  * Respects prefers-reduced-motion by returning target immediately.
  */
 export function useAnimatedValue(target: number, duration = 800): number {
@@ -28,7 +31,7 @@ export function useAnimatedValue(target: number, duration = 800): number {
     function tick(now: number) {
       const elapsed = now - startRef.current;
       const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
+      const eased = easeFn(progress);
       setCurrent(from + (target - from) * eased);
 
       if (progress < 1) {
