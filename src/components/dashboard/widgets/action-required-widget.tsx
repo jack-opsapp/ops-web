@@ -29,6 +29,7 @@ import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { WidgetTrendContext } from "./shared/widget-trend-context";
 import { WT, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import { useDictionary } from "@/i18n/client";
+import { useWindowStore } from "@/stores/window-store";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,6 +43,9 @@ interface ActionItem {
   age: string;
   amount?: number;
   navigateTo: string;
+  /** Present on overdue-task items so the click can open the floating project
+   *  workspace window instead of full-page navigating. */
+  projectId?: string;
 }
 
 const TYPE_CONFIG = {
@@ -100,6 +104,17 @@ export function ActionRequiredWidget({
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
   const reducedMotion = useReducedMotion();
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
+
+  // Route a click to the floating project workspace window when the item is an
+  // overdue task tied to a project; otherwise honor the generic navigateTo.
+  const handleItemNavigate = (item: ActionItem) => {
+    if (item.type === "overdue-task" && item.projectId) {
+      openProjectWindow({ projectId: item.projectId, mode: "viewing" });
+      return;
+    }
+    onNavigate(item.navigateTo);
+  };
 
   // Build lookup maps
   const projectMap = useMemo(() => {
@@ -146,6 +161,7 @@ export function ActionRequiredWidget({
         reason: `${contextStr}${t(reasonKey) ?? "Past start date"}, ${days}d ${t("actionRequired.overdueShort") ?? "overdue"}`,
         age: formatAgeDays(days, "overdue", t),
         navigateTo: `/projects/${task.projectId}`,
+        projectId: task.projectId,
       });
     }
 
@@ -308,7 +324,7 @@ export function ActionRequiredWidget({
                   return (
                     <button
                       key={item.id}
-                      onClick={() => onNavigate(item.navigateTo)}
+                      onClick={() => handleItemNavigate(item)}
                       className="w-full flex items-center gap-1.5 px-2 py-1.5 hover:bg-surface-hover transition-colors rounded-sm text-left"
                     >
                       <Icon className="w-[14px] h-[14px] shrink-0" style={{ color: config.color }} />
@@ -385,7 +401,7 @@ export function ActionRequiredWidget({
                       {categoryItems.slice(0, 6).map((item) => (
                         <button
                           key={item.id}
-                          onClick={() => onNavigate(item.navigateTo)}
+                          onClick={() => handleItemNavigate(item)}
                           className="w-full flex items-center gap-1.5 px-2 py-1.5 hover:bg-surface-hover transition-colors rounded-sm text-left"
                         >
                           <div className="flex-1 min-w-0">
@@ -424,7 +440,7 @@ export function ActionRequiredWidget({
             icon={CalendarDays}
             actions={[
               { icon: CalendarDays, label: t("actionRequired.openScheduler") ?? "Open Scheduler", onAction: () => onNavigate("/schedule") },
-              { icon: Check, label: t("actionRequired.markComplete") ?? "Mark Complete", onAction: () => onNavigate(item.navigateTo) },
+              { icon: Check, label: t("actionRequired.markComplete") ?? "Mark Complete", onAction: () => handleItemNavigate(item) },
             ]}
           />
         );
@@ -521,7 +537,7 @@ export function ActionRequiredWidget({
                     </div>
                   }
                   action={getInlineActions(item)}
-                  onClick={() => onNavigate(item.navigateTo)}
+                  onClick={() => handleItemNavigate(item)}
                   index={i}
                   isVisible={isVisible}
                   reducedMotion={reducedMotion}

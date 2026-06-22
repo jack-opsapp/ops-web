@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
@@ -37,6 +36,7 @@ import {
   scheduleViewVariantsReduced,
 } from "@/lib/utils/motion";
 import { useScheduleStore } from "@/stores/schedule-store";
+import { useWindowStore } from "@/stores/window-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { queryKeys } from "@/lib/api/query-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -72,7 +72,7 @@ export default function SchedulePage() {
     ghostPreviews,
   } = useScheduleStore();
 
-  const router = useRouter();
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
 
   // Keyboard shortcuts (replaces inline handler)
   useSchedulerShortcuts();
@@ -303,10 +303,10 @@ export default function SchedulePage() {
   const handleEventClick = useCallback(
     (event: InternalScheduleEvent) => {
       if (event.projectId) {
-        router.push(`/projects/${event.projectId}`);
+        openProjectWindow({ projectId: event.projectId, mode: "viewing" });
       }
     },
-    [router]
+    [openProjectWindow]
   );
 
   // Crew swimlane start date (week start, Mon)

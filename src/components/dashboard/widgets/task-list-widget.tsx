@@ -21,6 +21,7 @@ import { WidgetTrendContext } from "./shared/widget-trend-context";
 import { WT, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useWindowStore } from "@/stores/window-store";
 
 interface TaskListWidgetProps {
   size: WidgetSize;
@@ -348,6 +349,7 @@ function TaskRow({
   reducedMotion?: boolean | null;
 }) {
   const { t } = useDictionary("dashboard");
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const [completing, setCompleting] = useState(false);
   const updateStatus = useUpdateTaskStatus();
 
@@ -394,7 +396,11 @@ function TaskRow({
       layout={!reducedMotion}
       exit={reducedMotion ? { opacity: 0 } : { opacity: 0, height: 0, marginBottom: 0 }}
       transition={{ duration: reducedMotion ? 0.15 : 0.25, ease: [0.22, 1, 0.36, 1] }}
-      onClick={() => onNavigate(task.projectId ? `/projects/${task.projectId}` : "/schedule")}
+      onClick={() =>
+        task.projectId
+          ? openProjectWindow({ projectId: task.projectId, mode: "viewing" })
+          : onNavigate("/schedule")
+      }
       className={cn(
         "flex items-center gap-1 px-1 py-2 rounded hover:bg-surface-hover cursor-pointer transition-colors group",
         isDone && "opacity-40"

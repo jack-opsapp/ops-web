@@ -39,6 +39,7 @@ import {
   useProjects,
 } from "@/lib/hooks";
 import { useWidgetActionQueue } from "@/stores/widget-action-queue";
+import { useWindowStore } from "@/stores/window-store";
 import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
@@ -173,6 +174,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
   const router = useRouter();
   const navigate = useCallback((path: string) => router.push(path), [router]);
   const openEntity = useWidgetEntityOpen();
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const queueAction = useWidgetActionQueue((s) => s.queueAction);
 
   const ref = useRef<HTMLDivElement>(null);
@@ -435,7 +437,7 @@ export function ClientAttentionWidget({ size }: ClientAttentionWidgetProps) {
       switch (item.reason) {
         case "unassigned-tasks":
         case "unscheduled-tasks":
-          navigate(`/projects/${item.entityId}`);
+          openProjectWindow({ projectId: item.entityId, mode: "viewing" });
           break;
         case "stale-quoting":
           navigate(`/books?segment=estimates&action=new&opportunityId=${item.entityId}`);

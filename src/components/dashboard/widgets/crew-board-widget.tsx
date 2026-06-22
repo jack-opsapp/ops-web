@@ -20,6 +20,7 @@ import type { User, ProjectTask } from "@/lib/types/models";
 import { TaskStatus } from "@/lib/types/models";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
+import { useWindowStore } from "@/stores/window-store";
 
 // ---------------------------------------------------------------------------
 // Utilization color
@@ -289,6 +290,7 @@ interface CrewMemberRowProps {
 }
 
 function CrewMemberRow({ m, i, isLg, isVisible, reducedMotion, onNavigate, t }: CrewMemberRowProps) {
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const availText = m.availability === "available"
     ? (t("crewBoard.available") ?? "Available")
     : m.availability === "overloaded"
@@ -359,7 +361,7 @@ function CrewMemberRow({ m, i, isLg, isVisible, reducedMotion, onNavigate, t }: 
               indicator={{ type: "bar", color: task.taskColor || WT.accent }}
               primary={task.customTitle || task.taskType?.display || "Task"}
               secondary={task.project?.title ?? undefined}
-              onClick={() => task.projectId && onNavigate(`/projects/${task.projectId}`)}
+              onClick={() => task.projectId && openProjectWindow({ projectId: task.projectId, mode: "viewing" })}
               className="py-[1px]"
             />
           ))}
