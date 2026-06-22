@@ -2,6 +2,8 @@
   "view.month": "Mes",
   "view.week": "Semana",
   "view.day": "Día",
+  "view.team": "Equipo",
+  "view.agenda": "Agenda",
   "today": "Hoy",
   "previous": "Anterior",
   "next": "Siguiente",
@@ -32,5 +34,25 @@
   "dayNames.wed": "Mié",
   "dayNames.thu": "Jue",
   "dayNames.fri": "Vie",
-  "dayNames.sat": "Sáb"
+  "dayNames.sat": "Sáb",
+
+  "agenda.days": "14 días",
+  "team.unassigned": "Sin asignar",
+  "team.member": "miembro",
+  "team.members": "miembros",
+
+  "filter.title": "Filtros",
+  "filter.clearAll": "Borrar todo",
+  "filter.teamMembers": "Miembros del equipo",
+  "filter.taskTypes": "Tipos de tarea",
+  "filter.projects": "Proyectos",
+  "filter.status": "Estado",
+  "filter.searchProjects": "Buscar proyectos...",
+  "filter.noTeamMembers": "Sin miembros del equipo",
+  "filter.noMatchingProjects": "Sin proyectos coincidentes",
+  "filter.noProjects": "Sin proyectos",
+
+  "status.upcoming": "Próximas",
+  "status.inProgress": "En progreso",
+  "status.past": "Pasadas"
 }

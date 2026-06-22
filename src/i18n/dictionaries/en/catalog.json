@@ -167,5 +167,9 @@
   "add.cancel": "CANCEL",
 
   "import.title": "IMPORT CSV",
-  "loading": "Loading…"
+  "loading": "Loading…",
+
+  "editor.backToCatalog": "Back to catalog",
+  "editor.addOption": "Add Option",
+  "editor.addModifier": "Add Modifier"
 }

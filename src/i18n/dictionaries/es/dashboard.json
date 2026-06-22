@@ -611,7 +611,6 @@
   "pipelineFunnel.ofPipeline": "Del pipeline",
   "pipelineFunnel.weighted": "Ponderado",
   "pipelineFunnel.viewPipeline": "Ver Pipeline",
-  "pipelineFunnel.conversionRate": "Conversión",
 
   "taskPulse.title": "Tareas",
   "taskPulse.overdue": "Vencidas",
@@ -946,5 +945,24 @@
 
   "winRate.period90d": "90D",
   "winRate.periodAll": "TODO",
-  "winRate.periodYtd": "AÑO"
+  "winRate.periodYtd": "AÑO",
+
+  "widgetStatus.invoice.draft": "Borrador",
+  "widgetStatus.invoice.sent": "Enviada",
+  "widgetStatus.invoice.awaiting_payment": "Pendiente de pago",
+  "widgetStatus.invoice.partially_paid": "Pago parcial",
+  "widgetStatus.invoice.past_due": "Vencida",
+  "widgetStatus.invoice.paid": "Pagada",
+  "widgetStatus.invoice.void": "Anulada",
+  "widgetStatus.invoice.written_off": "Cancelada",
+
+  "widgetStatus.estimate.draft": "Borrador",
+  "widgetStatus.estimate.sent": "Enviada",
+  "widgetStatus.estimate.viewed": "Vista",
+  "widgetStatus.estimate.approved": "Aprobada",
+  "widgetStatus.estimate.changes_requested": "Cambios solicitados",
+  "widgetStatus.estimate.declined": "Rechazada",
+  "widgetStatus.estimate.converted": "Convertida",
+  "widgetStatus.estimate.expired": "Vencida",
+  "widgetStatus.estimate.superseded": "Reemplazada"
 }

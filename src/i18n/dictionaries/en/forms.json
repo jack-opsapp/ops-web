@@ -12,17 +12,7 @@
   "commandPalette.select": "Select",
   "commandPalette.close": "Close",
 
-  "commandPalette.nav.dashboard": "Dashboard",
-  "commandPalette.nav.projects": "Projects",
-  "commandPalette.nav.calendar": "Calendar",
   "commandPalette.nav.clients": "Clients",
-
-  "commandPalette.nav.team": "Team",
-  "commandPalette.nav.map": "Map",
-  "commandPalette.nav.pipeline": "Pipeline",
-  "commandPalette.nav.invoices": "Invoices",
-  "commandPalette.nav.accounting": "Accounting",
-  "commandPalette.nav.settings": "Settings",
 
   "commandPalette.action.newProject": "New Project",
   "commandPalette.action.newClient": "New Client",

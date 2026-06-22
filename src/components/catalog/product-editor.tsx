@@ -175,7 +175,7 @@ export function ProductEditor({ productId }: { productId: string }) {
           {"// ACCESS DENIED"}
         </span>
         <Button variant="ghost" size="sm" onClick={() => router.push("/catalog?segment=products")}>
-          Back to catalog
+          {t("editor.backToCatalog", "Back to catalog")}
         </Button>
       </div>
     );
@@ -293,7 +293,7 @@ export function ProductEditor({ productId }: { productId: string }) {
           </h2>
           <Button variant="default" size="sm" className="gap-1" onClick={() => setOptionDialog({ mode: "create" })}>
             <Plus className="h-[14px] w-[14px]" />
-            Add Option
+            {t("editor.addOption", "Add Option")}
           </Button>
         </div>
         {optionsLoading ? (
@@ -335,7 +335,7 @@ export function ProductEditor({ productId }: { productId: string }) {
             onClick={() => setModifierDialog({ mode: "create" })}
           >
             <Plus className="h-[14px] w-[14px]" />
-            Add Modifier
+            {t("editor.addModifier", "Add Modifier")}
           </Button>
         </div>
         {options.length === 0 ? (
