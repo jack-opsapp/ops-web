@@ -61,7 +61,7 @@ export function TemplateSendTestTab({ templateId, initialProps }: Props) {
           value={recipient}
           onChange={(e) => setRecipient(e.target.value)}
           placeholder="qa@opsapp.co"
-          className="mt-2 w-full bg-white/[0.04] border border-white/[0.10] px-3 py-2 font-mohave text-[14px] text-[#EDEDED] focus:outline-none focus:border-ops-accent rounded-[5px]"
+          className="mt-2 w-full bg-white/[0.04] border border-white/[0.10] px-3 py-2 font-mohave text-[14px] text-[#EDEDED] focus:outline-none focus:border-ops-accent rounded"
         />
       </div>
 
@@ -74,7 +74,7 @@ export function TemplateSendTestTab({ templateId, initialProps }: Props) {
           onChange={(e) => setPropsText(e.target.value)}
           rows={14}
           spellCheck={false}
-          className="mt-2 w-full bg-white/[0.04] border border-white/[0.10] px-3 py-2 font-mono text-[12px] text-[#EDEDED] focus:outline-none focus:border-ops-accent rounded-[5px]"
+          className="mt-2 w-full bg-white/[0.04] border border-white/[0.10] px-3 py-2 font-mono text-[12px] text-[#EDEDED] focus:outline-none focus:border-ops-accent rounded"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         />
       </div>
@@ -86,7 +86,7 @@ export function TemplateSendTestTab({ templateId, initialProps }: Props) {
       <button
         onClick={submit}
         disabled={status === "sending" || !recipientValid}
-        className="px-5 py-2 border border-ops-accent text-ops-accent font-cakemono font-light text-[12px] uppercase tracking-[0.18em] hover:bg-ops-accent hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded-[5px]"
+        className="px-5 py-2 border border-ops-accent text-ops-accent font-cakemono font-light text-[12px] uppercase tracking-[0.18em] hover:bg-ops-accent hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded"
         style={{
           transitionDuration: "180ms",
           transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",

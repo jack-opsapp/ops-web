@@ -75,7 +75,7 @@ export function PricingCard({ tier, companyId, isRecommended }: PricingCardProps
         {"// "}
         {t("lockout.pricing.recommended")}
       </p>
-      <div className="glass-surface rounded-[5px] overflow-hidden [&::before]:rounded-[5px] p-5 flex flex-col flex-1">
+      <div className="glass-surface rounded overflow-hidden [&::before]:rounded p-5 flex flex-col flex-1">
         <h3 className="font-cakemono font-light text-[18px] uppercase tracking-tight text-text mb-2">
           {config.name}
         </h3>

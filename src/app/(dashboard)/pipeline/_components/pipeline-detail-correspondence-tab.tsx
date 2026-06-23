@@ -99,7 +99,7 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
       <img
         src={src}
         alt=""
-        className="max-w-[80vw] max-h-[80vh] object-contain rounded-[4px]"
+        className="max-w-[80vw] max-h-[80vh] object-contain rounded-chip"
       />
     </div>
   );
@@ -132,7 +132,7 @@ function MessageBubble({
     >
       <div
         className={cn(
-          "rounded-[4px] px-2.5 py-2",
+          "rounded-chip px-2.5 py-2",
           isOut
             ? "border border-border bg-surface-input"
             : "border border-border-subtle bg-fill-neutral-dim"

@@ -94,7 +94,7 @@ export function ConnectAccountingModal({
                     : "border-border hover:bg-surface-hover",
                 )}
               >
-                <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[6px] bg-fill-neutral-dim text-text-2">
+                <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-sidebar bg-fill-neutral-dim text-text-2">
                   <Calculator className="h-[20px] w-[20px]" />
                 </span>
                 <span className="flex-1">

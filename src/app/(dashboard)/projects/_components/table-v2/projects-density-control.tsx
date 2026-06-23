@@ -81,7 +81,7 @@ export function ProjectsDensityControl({
       <div
         role="group"
         aria-label={t("table.density.label")}
-        className="inline-flex rounded-[5px] border border-border bg-surface-input p-px"
+        className="inline-flex rounded border border-border bg-surface-input p-px"
       >
         {DENSITY_OPTIONS.map((option) => {
           const Icon = option.icon;
@@ -95,7 +95,7 @@ export function ProjectsDensityControl({
               disabled={disabled}
               onClick={() => onDensityChange(option.density)}
               className={cn(
-                "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded-[5px] px-1.5 font-cakemono text-[11px] font-light uppercase transition-colors",
+                "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded px-1.5 font-cakemono text-[11px] font-light uppercase transition-colors",
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-50",
                 active
                   ? "bg-surface-active text-text"
@@ -111,7 +111,7 @@ export function ProjectsDensityControl({
         })}
       </div>
 
-      <label className="flex h-[26px] w-[58px] items-center rounded-[5px] border border-border bg-surface-input px-1.5 focus-within:ring-1 focus-within:ring-ops-accent">
+      <label className="flex h-[26px] w-[58px] items-center rounded border border-border bg-surface-input px-1.5 focus-within:ring-1 focus-within:ring-ops-accent">
         <span className="sr-only">{t("table.density.zoom")}</span>
         <input
           aria-label={t("table.density.zoom")}

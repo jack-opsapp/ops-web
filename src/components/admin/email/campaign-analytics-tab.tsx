@@ -71,7 +71,7 @@ export function CampaignAnalyticsTab() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-[5px] border border-glass-border bg-transparent px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-text-2"
+          className="rounded border border-glass-border bg-transparent px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-text-2"
         >
           <option value="all">all statuses</option>
           {ALL_STATUSES.map((s) => (
@@ -82,7 +82,7 @@ export function CampaignAnalyticsTab() {
         </select>
         <button
           onClick={() => setSortBy(sortBy === "created" ? "sent" : "created")}
-          className="rounded-[5px] border border-glass-border bg-transparent px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-text-2 hover:bg-surface-hover"
+          className="rounded border border-glass-border bg-transparent px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-text-2 hover:bg-surface-hover"
         >
           sort: {sortBy === "created" ? "newest" : "most sent"}
         </button>

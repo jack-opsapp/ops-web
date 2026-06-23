@@ -42,7 +42,7 @@ export const IconBtn = React.forwardRef<HTMLButtonElement, IconBtnProps>(
       type={type ?? "button"}
       className={cn(
         "inline-flex items-center justify-center shrink-0",
-        "rounded-[5px] transition-all duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+        "rounded transition-all duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
         "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
         "disabled:pointer-events-none disabled:opacity-40",
         "active:scale-[0.95] cursor-pointer",

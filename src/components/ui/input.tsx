@@ -26,7 +26,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
         <div
           className={cn(
-            "flex items-center gap-2 rounded-[5px] min-h-[36px]",
+            "flex items-center gap-2 rounded min-h-[36px]",
             "bg-[rgba(255,255,255,0.04)]",
             "border border-[rgba(255,255,255,0.10)]",
             "transition-all duration-150",

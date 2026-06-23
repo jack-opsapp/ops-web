@@ -169,7 +169,7 @@ export function ProjectsTableRow({
                   beginEdit();
                 }}
                 onKeyDown={(event) => event.stopPropagation()}
-                className="absolute right-0 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-[5px] text-text-3 opacity-0 outline-none transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ops-accent group-hover/name:opacity-100"
+                className="absolute right-0 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-text-3 opacity-0 outline-none transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-ops-accent group-hover/name:opacity-100"
               >
                 <Pencil className="h-[12px] w-[12px]" strokeWidth={1.5} />
               </button>

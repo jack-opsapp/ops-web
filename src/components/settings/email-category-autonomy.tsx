@@ -214,7 +214,7 @@ export function EmailCategoryAutonomy({
       </div>
 
       {/* Category rows */}
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.06)] overflow-hidden">
+      <div className="rounded-lg border border-[rgba(255,255,255,0.06)] overflow-hidden">
         {categories.map((cat, index) => {
           const isLearning = cat.emailCount < MIN_EMAILS_FOR_AUTO;
           const isSaving = saving === cat.profileType;
@@ -266,7 +266,7 @@ export function EmailCategoryAutonomy({
                     }
                     disabled={isSaving}
                     className={cn(
-                      "appearance-none pl-2 pr-6 py-1 min-h-[36px] rounded-[5px] bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-2 outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors cursor-pointer min-w-[130px]",
+                      "appearance-none pl-2 pr-6 py-1 min-h-[36px] rounded bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-2 outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors cursor-pointer min-w-[130px]",
                       isSaving && "opacity-50"
                     )}
                   >
@@ -286,7 +286,7 @@ export function EmailCategoryAutonomy({
               {/* Auto-send warning banner */}
               {showWarning && (
                 <div className="px-3 pb-2">
-                  <div className="flex items-start gap-2 px-2 py-1.5 rounded-[4px] bg-[rgba(196,168,104,0.06)] border border-[rgba(196,168,104,0.15)]">
+                  <div className="flex items-start gap-2 px-2 py-1.5 rounded-chip bg-[rgba(196,168,104,0.06)] border border-[rgba(196,168,104,0.15)]">
                     <AlertTriangle className="w-[12px] h-[12px] text-[#C4A868] shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <p className="font-mohave text-caption-sm text-[#C4A868]">
@@ -488,7 +488,7 @@ function PrimaryCategoryAutonomy({
         </p>
       </div>
 
-      <div className="rounded-[8px] border border-[rgba(255,255,255,0.06)] overflow-hidden">
+      <div className="rounded-lg border border-[rgba(255,255,255,0.06)] overflow-hidden">
         {EMAIL_THREAD_CATEGORIES.map((cat, index) => {
           const allowed = allowedLevelsFor(cat);
           // Apply the global feature gate too: if auto_send isn't enabled at
@@ -550,7 +550,7 @@ function PrimaryCategoryAutonomy({
                   }
                   disabled={isSaving || filtered.length <= 1}
                   className={cn(
-                    "appearance-none pl-2 pr-6 py-1 min-h-[36px] rounded-[5px]",
+                    "appearance-none pl-2 pr-6 py-1 min-h-[36px] rounded",
                     "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
                     "font-mohave text-caption-sm text-text-2 outline-none",
                     "focus:border-[rgba(255,255,255,0.20)] transition-colors cursor-pointer min-w-[150px]",

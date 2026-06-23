@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils/cn";
 
 const tagVariants = cva(
   [
-    "inline-flex items-center gap-[4px] whitespace-nowrap rounded-[4px] border px-[6px] py-[2px]",
+    "inline-flex items-center gap-[4px] whitespace-nowrap rounded-chip border px-[6px] py-[2px]",
     "font-mono text-micro font-medium uppercase tracking-[0.12em]",
   ],
   {

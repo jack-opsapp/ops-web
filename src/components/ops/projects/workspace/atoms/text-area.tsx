@@ -17,7 +17,7 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
         "w-full min-h-[80px] px-2 py-1.5 resize-y",
         "font-mohave text-[14px] leading-[1.5] text-text",
         "bg-[var(--surface-input)]",
-        "rounded-[5px] border border-glass-border",
+        "rounded border border-glass-border",
         // motion
         "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
         // states

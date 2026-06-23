@@ -60,7 +60,7 @@ export function PipelineToolbar({
 
   return (
     <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-0 py-[4px]">
-      <label className="flex h-[28px] min-w-[220px] flex-1 items-center gap-1.5 rounded-[5px] border border-border bg-surface-input px-2 focus-within:ring-1 focus-within:ring-ops-accent">
+      <label className="flex h-[28px] min-w-[220px] flex-1 items-center gap-1.5 rounded border border-border bg-surface-input px-2 focus-within:ring-1 focus-within:ring-ops-accent">
         <Search className="h-[12px] w-[12px] shrink-0 text-text-3" strokeWidth={1.5} />
         <input
           ref={searchInputRef}
@@ -77,7 +77,7 @@ export function PipelineToolbar({
           aria-pressed={grouped}
           onClick={() => onGroupedChange(!grouped)}
           className={cn(
-            "inline-flex h-[28px] items-center gap-1.5 rounded-[5px] border px-2 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors",
+            "inline-flex h-[28px] items-center gap-1.5 rounded border px-2 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
             grouped
               ? "border-border bg-surface-active text-text"
@@ -93,7 +93,7 @@ export function PipelineToolbar({
           aria-pressed={closedDeals}
           onClick={() => onClosedDealsChange(!closedDeals)}
           className={cn(
-            "inline-flex h-[28px] items-center gap-1.5 rounded-[5px] border px-2 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors",
+            "inline-flex h-[28px] items-center gap-1.5 rounded border px-2 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
             closedDeals
               ? "border-border bg-surface-active text-text"
@@ -110,7 +110,7 @@ export function PipelineToolbar({
         <div
           role="group"
           aria-label={t("table.density.label")}
-          className="inline-flex rounded-[5px] border border-border bg-surface-input p-px"
+          className="inline-flex rounded border border-border bg-surface-input p-px"
         >
           {DENSITY_OPTIONS.map((option) => {
             const Icon = option.icon;
@@ -124,7 +124,7 @@ export function PipelineToolbar({
                 disabled={densityDisabled}
                 onClick={() => onDensityChange(option.density)}
                 className={cn(
-                  "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded-[5px] px-1.5 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors",
+                  "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded px-1.5 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors",
                   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
                   "disabled:pointer-events-none disabled:opacity-40",
                   active

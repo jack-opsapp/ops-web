@@ -67,7 +67,7 @@ const LABEL_CLASS =
 
 const INPUT_CLASS = cn(
   "w-full bg-surface-input text-text font-mono text-body",
-  "px-1.5 py-1.5 rounded-[5px] border border-border",
+  "px-1.5 py-1.5 rounded border border-border",
   "placeholder:text-text-3",
   "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
 );
@@ -348,7 +348,7 @@ function WonContent({
                       aria-checked={selected}
                       onClick={() => setSelectedCandidateId(c.projectId)}
                       className={cn(
-                        "w-full rounded-[5px] border px-2.5 py-2 text-left transition-colors",
+                        "w-full rounded border px-2.5 py-2 text-left transition-colors",
                         selected
                           ? "border-line-hi bg-surface-active"
                           : "border-border bg-surface-input hover:bg-surface-hover",
@@ -375,7 +375,7 @@ function WonContent({
                   aria-checked={selectedCandidateId === null}
                   onClick={() => setSelectedCandidateId(null)}
                   className={cn(
-                    "w-full rounded-[5px] border px-2.5 py-2 text-left font-mohave text-body-sm transition-colors",
+                    "w-full rounded border px-2.5 py-2 text-left font-mohave text-body-sm transition-colors",
                     selectedCandidateId === null
                       ? "border-line-hi bg-surface-active text-text"
                       : "border-border bg-surface-input text-text-2 hover:bg-surface-hover",
@@ -506,7 +506,7 @@ function LostContent({
             onChange={(e) => setLostReason(e.target.value)}
             className={cn(
               "w-full bg-surface-input text-text font-mohave text-body",
-              "px-1.5 py-1.5 rounded-[5px] border border-border",
+              "px-1.5 py-1.5 rounded border border-border",
               "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
               "cursor-pointer",
               !lostReason && "text-text-3",
@@ -531,7 +531,7 @@ function LostContent({
             rows={3}
             className={cn(
               "w-full bg-surface-input text-text font-mohave text-body-sm",
-              "px-1.5 py-1.5 rounded-[5px] border border-border resize-none",
+              "px-1.5 py-1.5 rounded border border-border resize-none",
               "placeholder:text-text-3",
               "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
             )}

@@ -74,7 +74,7 @@ function ToolbarAction({
       type="button"
       data-pipeline-mode-toggle={isModeToggle ? "true" : undefined}
       className={cn(
-        "flex h-[26px] shrink-0 items-center gap-[4px] whitespace-nowrap rounded-[4px] px-[8px] transition-colors duration-150 ease-smooth focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+        "flex h-[26px] shrink-0 items-center gap-[4px] whitespace-nowrap rounded-chip px-[8px] transition-colors duration-150 ease-smooth focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
         isModeToggle || isActive
           ? "bg-transparent text-text hover:bg-surface-input"
           : "text-text-2 hover:bg-surface-input hover:text-text"

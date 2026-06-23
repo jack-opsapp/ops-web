@@ -240,7 +240,7 @@ export function ScheduleToolbar({ events, t }: ScheduleToolbarProps) {
             <button
               key={filter.label}
               onClick={filter.onRemove}
-              className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-[4px] bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.18)] text-text font-mono text-micro uppercase tracking-[0.16em] hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className="flex items-center gap-[4px] px-[8px] py-[2px] rounded-chip bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.18)] text-text font-mono text-micro uppercase tracking-[0.16em] hover:bg-[rgba(255,255,255,0.08)] transition-colors"
             >
               {filter.label}
               <X className="w-[10px] h-[10px]" />

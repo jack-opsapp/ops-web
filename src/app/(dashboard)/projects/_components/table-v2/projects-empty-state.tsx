@@ -22,7 +22,7 @@ export function ProjectsEmptyState({
         <AlertTriangle className="h-5 w-5 text-text-3" />
         <div className="font-cakemono text-[18px] font-light uppercase text-text">{t("table.error.title")}</div>
         {onRetry && (
-          <button type="button" onClick={onRetry} className="rounded-[5px] border border-ops-accent px-3 py-1.5 font-cakemono text-sm font-light uppercase text-ops-accent hover:bg-ops-accent hover:text-black">
+          <button type="button" onClick={onRetry} className="rounded border border-ops-accent px-3 py-1.5 font-cakemono text-sm font-light uppercase text-ops-accent hover:bg-ops-accent hover:text-black">
             {t("table.error.retry")}
           </button>
         )}

@@ -96,7 +96,7 @@ function StageDropdown({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex items-center gap-[5px] rounded-[4px] px-[8px] font-mono transition-colors",
+          "flex items-center gap-[5px] rounded-chip px-[8px] font-mono transition-colors",
           isToolbar
             ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] text-micro"
             : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
@@ -235,7 +235,7 @@ function AssigneeDropdown({
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex items-center gap-[5px] rounded-[4px] px-[8px] font-mono transition-colors",
+          "flex items-center gap-[5px] rounded-chip px-[8px] font-mono transition-colors",
           isToolbar
             ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] text-micro"
             : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
@@ -337,7 +337,7 @@ export function PipelineFilterRow({
     >
       <label
         className={cn(
-          "flex items-center gap-[5px] rounded-[4px] px-[8px] transition-colors",
+          "flex items-center gap-[5px] rounded-chip px-[8px] transition-colors",
           isToolbar
             ? "h-[26px] w-[150px] min-w-[145px] bg-transparent focus-within:bg-surface-input"
             : "h-[30px] w-full min-w-[220px] border border-border bg-fill-neutral-dim focus-within:border-line-hi sm:w-[240px] sm:min-w-[240px]",
@@ -392,7 +392,7 @@ export function PipelineFilterRow({
           type="button"
           onClick={onAddLead}
           className={cn(
-            "flex shrink-0 items-center gap-[5px] rounded-[4px] border border-ops-accent bg-ops-accent px-[8px] font-mono uppercase text-black transition-colors hover:bg-ops-accent-hover hover:border-ops-accent-hover",
+            "flex shrink-0 items-center gap-[5px] rounded-chip border border-ops-accent bg-ops-accent px-[8px] font-mono uppercase text-black transition-colors hover:bg-ops-accent-hover hover:border-ops-accent-hover",
             isToolbar
               ? "h-[26px] whitespace-nowrap leading-none tracking-[0.12em] text-micro"
               : "h-[30px] text-caption-sm"

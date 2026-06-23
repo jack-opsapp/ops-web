@@ -30,7 +30,7 @@ export default async function SpecCapacityEditorPage() {
     return (
       <div className="flex min-h-screen flex-col bg-black">
         <CapacityEditorHeader />
-        <div className="m-8 rounded-[10px] border border-[#B58289]/40 bg-[#B58289]/8 p-6">
+        <div className="m-8 rounded-panel border border-[#B58289]/40 bg-[#B58289]/8 p-6">
           <h2 className="font-cakemono text-[15px] font-light uppercase text-[#B58289]">
             <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
               {"//"}

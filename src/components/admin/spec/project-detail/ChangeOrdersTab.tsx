@@ -43,7 +43,7 @@ export function ChangeOrdersTab({ data, projectId }: ChangeOrdersTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Change orders summary"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
@@ -55,7 +55,7 @@ export function ChangeOrdersTab({ data, projectId }: ChangeOrdersTabProps) {
           <button
             type="button"
             onClick={() => setWizardOpen((v) => !v)}
-            className="rounded-[5px] border border-[#6F94B0] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+            className="rounded border border-[#6F94B0] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
           >
             {wizardOpen ? "CLOSE WIZARD" : "NEW CHANGE ORDER"}
           </button>
@@ -82,7 +82,7 @@ export function ChangeOrdersTab({ data, projectId }: ChangeOrdersTabProps) {
       {data.rows.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="overflow-x-auto rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px]">
+        <div className="overflow-x-auto rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px]">
           <table className="w-full min-w-[920px] border-collapse">
             <thead>
               <tr className="border-b border-white/[0.08] text-left">
@@ -140,7 +140,7 @@ function ChangeOrderRow({ row }: { row: SpecChangeOrderRow }) {
       </Td>
       <Td>
         <span
-          className={`rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${STATUS_TONE[row.status]}`}
+          className={`rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${STATUS_TONE[row.status]}`}
         >
           {statusLabel(row.status)}
         </span>
@@ -208,7 +208,7 @@ function ChangeOrderWizard({
   return (
     <form
       action={createChangeOrder}
-      className="mt-5 space-y-4 rounded-[10px] border border-white/[0.10] bg-black/40 p-4"
+      className="mt-5 space-y-4 rounded-panel border border-white/[0.10] bg-black/40 p-4"
     >
       <input type="hidden" name="project_id" value={projectId} />
 
@@ -246,7 +246,7 @@ function ChangeOrderWizard({
           required
           maxLength={200}
           placeholder="Concise title"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </FieldRow>
 
@@ -256,7 +256,7 @@ function ChangeOrderWizard({
           required
           rows={3}
           placeholder="Scope, deliverables, acceptance criteria"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </FieldRow>
 
@@ -270,7 +270,7 @@ function ChangeOrderWizard({
             step={0.5}
             required
             placeholder="0.5 – 3.5"
-            className="w-32 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-32 rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
           />
           <span className="ml-3 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
             <span className="text-[#3A3A3A]">[</span>
@@ -291,7 +291,7 @@ function ChangeOrderWizard({
               step={100}
               required
               placeholder="Cents (e.g. 75000 = $750)"
-              className="w-48 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+              className="w-48 rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
             />
           </span>
         </FieldRow>
@@ -306,7 +306,7 @@ function ChangeOrderWizard({
             max={60}
             step={1}
             defaultValue={0}
-            className="w-24 rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-24 rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
           />
           <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">DAYS ADDED</span>
         </span>
@@ -315,7 +315,7 @@ function ChangeOrderWizard({
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          className="rounded-[5px] border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+          className="rounded border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
         >
           PROPOSE CHANGE ORDER
         </button>
@@ -356,7 +356,7 @@ function RadioPill({
       role="radio"
       aria-checked={active}
       onClick={() => onChange(value)}
-      className={`flex min-w-[140px] flex-col items-start gap-0.5 rounded-[5px] border px-3 py-2 text-left transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+      className={`flex min-w-[140px] flex-col items-start gap-0.5 rounded border px-3 py-2 text-left transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
         active
           ? "border-[#6F94B0] bg-[#6F94B0]/10 text-[#EDEDED]"
           : "border-white/[0.10] text-[#8A8A8A] hover:text-[#EDEDED]"
@@ -383,7 +383,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 function EmptyState() {
   return (
-    <div className="rounded-[10px] border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
         — no change orders yet
       </p>

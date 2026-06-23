@@ -21,7 +21,7 @@ export const PmfButton = forwardRef<HTMLButtonElement, PmfButtonProps>(
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center gap-2 min-h-[36px] px-4 py-[9px] rounded-[2.5px]',
+        'inline-flex items-center gap-2 min-h-[36px] px-4 py-[9px] rounded-sm',
         'font-cakemono font-light uppercase text-[14px]',
         'transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]',
         'focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-[color:var(--ops-accent)] focus-visible:outline-offset-2',

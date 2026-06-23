@@ -416,7 +416,7 @@ export default function JoinPage() {
         </p>
 
         {invite.roleName && (
-          <span className="inline-block font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-2 py-1 rounded-[4px] uppercase tracking-wider">
+          <span className="inline-block font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-2 py-1 rounded-chip uppercase tracking-wider">
             You&apos;ll join as {invite.roleName}
           </span>
         )}

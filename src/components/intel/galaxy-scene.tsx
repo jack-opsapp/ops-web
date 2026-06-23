@@ -414,7 +414,7 @@ export function GalaxyScene() {
             </div>
             <a
               href="/settings"
-              className="inline-block font-mono text-micro uppercase tracking-wider px-3 py-1.5 rounded-[2px] transition-colors"
+              className="inline-block font-mono text-micro uppercase tracking-wider px-3 py-1.5 rounded-bar transition-colors"
               style={{
                 background: "rgba(111, 148, 176, 0.15)",
                 border: "1px solid rgba(111, 148, 176, 0.3)",

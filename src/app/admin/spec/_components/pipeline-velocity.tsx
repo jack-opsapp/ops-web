@@ -42,7 +42,7 @@ export function PipelineVelocity({ data }: PipelineVelocityProps) {
 function PerStatus({ rows }: { rows: VelocityRow[] }) {
   const peak = Math.max(1, ...rows.map((r) => r.avgDaysCurrent));
   return (
-    <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
       <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
         AVG DAYS PER STATUS
       </h3>
@@ -61,7 +61,7 @@ function PerStatus({ rows }: { rows: VelocityRow[] }) {
                   </span>
                 </span>
               </div>
-              <div className="mt-1 h-[2px] w-full overflow-hidden rounded-[2px] bg-white/[0.06]">
+              <div className="mt-1 h-[2px] w-full overflow-hidden rounded-bar bg-white/[0.06]">
                 <div
                   aria-hidden="true"
                   style={{ width: `${widthPct}%`, backgroundColor: "#6F94B0" }}
@@ -78,7 +78,7 @@ function PerStatus({ rows }: { rows: VelocityRow[] }) {
 
 function Slowest({ rows }: { rows: SlowestProject[] }) {
   return (
-    <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
       <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
         SLOWEST PROJECTS
       </h3>
@@ -110,7 +110,7 @@ function Slowest({ rows }: { rows: SlowestProject[] }) {
 
 function CycleTime({ rows }: { rows: CycleTimeRow[] }) {
   return (
-    <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
       <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
         CYCLE TIME · DEPOSIT → WALKTHROUGH
       </h3>

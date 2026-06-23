@@ -303,7 +303,7 @@ export function RepeatPicker({
     <div className="space-y-[8px]">
       {/* Preset select — radio-style buttons in a column */}
       <div
-        className="flex flex-col rounded-[5px] overflow-hidden"
+        className="flex flex-col rounded overflow-hidden"
         style={{ border: "1px solid var(--line)" }}
       >
         {presetOptions.map((opt, i) => {
@@ -335,7 +335,7 @@ export function RepeatPicker({
       {/* Custom editor */}
       {customOpen && (
         <div
-          className="rounded-[5px] p-[10px] space-y-[8px]"
+          className="rounded p-[10px] space-y-[8px]"
           style={{
             background: "rgba(255,255,255,0.03)",
             border: "1px solid var(--line)",
@@ -359,7 +359,7 @@ export function RepeatPicker({
                   interval: Math.max(1, parseInt(e.target.value, 10) || 1),
                 }))
               }
-              className="w-[56px] px-[6px] py-[3px] rounded-[5px] font-mono text-[13px] outline-none tabular-nums"
+              className="w-[56px] px-[6px] py-[3px] rounded font-mono text-[13px] outline-none tabular-nums"
               style={{
                 backgroundColor: "var(--surface-input)",
                 border: "1px solid var(--line)",
@@ -375,7 +375,7 @@ export function RepeatPicker({
                   freq: Number(e.target.value) as Frequency,
                 }))
               }
-              className="flex-1 px-[6px] py-[3px] rounded-[5px] font-mono text-micro uppercase tracking-[0.16em] outline-none"
+              className="flex-1 px-[6px] py-[3px] rounded font-mono text-micro uppercase tracking-[0.16em] outline-none"
               style={{
                 backgroundColor: "var(--surface-input)",
                 border: "1px solid var(--line)",
@@ -407,7 +407,7 @@ export function RepeatPicker({
                       key={d.code}
                       type="button"
                       onClick={() => toggleWeekday(d.code)}
-                      className="px-[8px] py-[3px] rounded-[4px] font-mono text-micro uppercase tracking-[0.16em] transition-colors"
+                      className="px-[8px] py-[3px] rounded-chip font-mono text-micro uppercase tracking-[0.16em] transition-colors"
                       style={{
                         color: active ? "var(--text)" : "var(--text-3)",
                         background: active
@@ -449,7 +449,7 @@ export function RepeatPicker({
                     ),
                   }))
                 }
-                className="w-[64px] px-[6px] py-[3px] rounded-[5px] font-mono text-[13px] outline-none tabular-nums"
+                className="w-[64px] px-[6px] py-[3px] rounded font-mono text-[13px] outline-none tabular-nums"
                 style={{
                   backgroundColor: "var(--surface-input)",
                   border: "1px solid var(--line)",
@@ -478,7 +478,7 @@ export function RepeatPicker({
                     onClick={() =>
                       setCustom((s) => ({ ...s, endMode: mode }))
                     }
-                    className="px-[8px] py-[3px] rounded-[4px] font-mono text-micro uppercase tracking-[0.16em] transition-colors"
+                    className="px-[8px] py-[3px] rounded-chip font-mono text-micro uppercase tracking-[0.16em] transition-colors"
                     style={{
                       color: active ? "var(--text)" : "var(--text-3)",
                       background: active
@@ -505,7 +505,7 @@ export function RepeatPicker({
                 onChange={(e) =>
                   setCustom((s) => ({ ...s, until: e.target.value }))
                 }
-                className="px-[6px] py-[3px] rounded-[5px] font-mono text-[13px] outline-none"
+                className="px-[6px] py-[3px] rounded font-mono text-[13px] outline-none"
                 style={{
                   backgroundColor: "var(--surface-input)",
                   border: "1px solid var(--line)",
@@ -526,7 +526,7 @@ export function RepeatPicker({
                       count: Math.max(1, parseInt(e.target.value, 10) || 1),
                     }))
                   }
-                  className="w-[64px] px-[6px] py-[3px] rounded-[5px] font-mono text-[13px] outline-none tabular-nums"
+                  className="w-[64px] px-[6px] py-[3px] rounded font-mono text-[13px] outline-none tabular-nums"
                   style={{
                     backgroundColor: "var(--surface-input)",
                     border: "1px solid var(--line)",
@@ -549,7 +549,7 @@ export function RepeatPicker({
             type="button"
             onClick={handleApplyCustom}
             disabled={disabled}
-            className="w-full px-[10px] py-[6px] rounded-[5px] font-cakemono font-light uppercase tracking-[0.16em] transition-colors"
+            className="w-full px-[10px] py-[6px] rounded font-cakemono font-light uppercase tracking-[0.16em] transition-colors"
             style={{
               fontSize: 12,
               color: "var(--ops-accent)",

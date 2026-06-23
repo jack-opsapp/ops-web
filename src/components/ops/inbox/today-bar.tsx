@@ -93,7 +93,7 @@ export function TodayBar({
               <span
                 aria-hidden
                 className={cn(
-                  "absolute bottom-1 left-0 top-1 w-[2px] rounded-r-[2px]",
+                  "absolute bottom-1 left-0 top-1 w-[2px] rounded-r-bar",
                   stripeClass,
                 )}
               />
@@ -124,7 +124,7 @@ export function TodayBar({
                   )}
                   title={t("todayBar.resolve", "Mark commitment resolved")}
                   className={cn(
-                    "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-[2px] text-text-3 transition-colors",
+                    "mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-bar text-text-3 transition-colors",
                     "hover:bg-olive/[0.18] hover:text-olive disabled:cursor-not-allowed",
                   )}
                 >

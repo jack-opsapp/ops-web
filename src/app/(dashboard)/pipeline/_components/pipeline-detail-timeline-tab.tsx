@@ -175,7 +175,7 @@ function buildTimelineNodes(
 
 function DetailCard({ node }: { node: TimelineNode }) {
   return (
-    <div className="pointer-events-none absolute left-full top-0 z-10 ml-2 w-[200px] rounded-[4px] border border-border bg-[var(--surface-glass-dense)] p-2.5 backdrop-blur-xl">
+    <div className="pointer-events-none absolute left-full top-0 z-10 ml-2 w-[200px] rounded-chip border border-border bg-[var(--surface-glass-dense)] p-2.5 backdrop-blur-xl">
       {node.subject && (
         <p className="font-mohave text-[12px] text-text mb-1 truncate">
           {node.subject}

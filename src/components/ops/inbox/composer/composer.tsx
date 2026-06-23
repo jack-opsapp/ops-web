@@ -51,10 +51,10 @@ interface ComposerProps {
 }
 
 const iconBtn =
-  "inline-flex h-5 w-5 items-center justify-center rounded-[2px] text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  "inline-flex h-5 w-5 items-center justify-center rounded-bar text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 const floatingIconBtn =
-  "inline-flex h-4 w-4 items-center justify-center rounded-[2px] text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  "inline-flex h-4 w-4 items-center justify-center rounded-bar text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 export function Composer({
   inputRef,
@@ -134,7 +134,7 @@ export function Composer({
   }
 
   const innerBoxClass = cn(
-    "flex flex-col gap-1.5 rounded-[5px] border bg-transparent px-2.5 py-2 transition-colors",
+    "flex flex-col gap-1.5 rounded border bg-transparent px-2.5 py-2 transition-colors",
     agentTinted
       ? "border-agent-border-hi focus-within:border-agent"
       : "border-line-hi focus-within:border-ops-accent"
@@ -148,7 +148,7 @@ export function Composer({
         "disabled:cursor-not-allowed disabled:text-text-mute disabled:opacity-50"
       )
     : cn(
-        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-[2.5px] border px-3",
+        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-sm border px-3",
         "font-cakemono text-[11px] font-light uppercase tracking-[0.14em]",
         "transition-colors disabled:cursor-not-allowed disabled:opacity-40",
         sendVariant === "agent"
@@ -302,7 +302,7 @@ export function Composer({
               type="button"
               onClick={onDraftWithClaude}
               aria-label={t("composer.draftWithPhaseC", "Draft with Phase C")}
-              className="inline-flex h-5 w-5 items-center justify-center rounded-[2px] text-agent transition-colors hover:text-agent-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-bar text-agent transition-colors hover:text-agent-hi focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
               <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             </button>
@@ -349,7 +349,7 @@ export function Composer({
             <button
               type="button"
               onClick={onEditDraft}
-              className="inline-flex h-6 items-center rounded-[2.5px] border border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
+              className="inline-flex h-6 items-center rounded-sm border border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
             >
               {t("composer.editDraftTactic", "EDIT DRAFT")}
             </button>

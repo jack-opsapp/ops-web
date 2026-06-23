@@ -80,7 +80,7 @@ export function ProjectHeader({ header }: ProjectHeaderProps) {
 function Badge({ label, tone }: { label: string; tone: string }) {
   return (
     <span
-      className={`rounded-[4px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] ${tone}`}
+      className={`rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] ${tone}`}
     >
       {label}
     </span>

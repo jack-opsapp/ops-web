@@ -28,7 +28,7 @@ export function ProjectDragConfirmation({
       onClick={onCancel}
     >
       <div
-        className="rounded-[4px] p-6 max-w-[400px] w-full mx-4"
+        className="rounded-chip p-6 max-w-[400px] w-full mx-4"
         style={{
           background: "rgba(20,20,20,0.95)",
           backdropFilter: "blur(28px) saturate(1.3)",
@@ -48,7 +48,7 @@ export function ProjectDragConfirmation({
             type="checkbox"
             checked={dontShowAgain}
             onChange={(e) => setDontShowAgain(e.target.checked)}
-            className="w-4 h-4 rounded-[2px] border border-[rgba(255,255,255,0.15)] bg-transparent accent-ops-accent"
+            className="w-4 h-4 rounded-bar border border-[rgba(255,255,255,0.15)] bg-transparent accent-ops-accent"
           />
           <span className="font-mohave text-body-sm text-text-3">
             {t("drag.dontShowAgain")}

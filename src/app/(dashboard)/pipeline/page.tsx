@@ -1050,7 +1050,7 @@ export default function PipelinePage() {
                 borderColor: "var(--glass-border)",
               }}
             >
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[5px] border border-border bg-surface-active">
+              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded border border-border bg-surface-active">
                 <Mail className="h-[16px] w-[16px] text-text-2" />
               </div>
               <div className="min-w-0 flex-1">
@@ -1118,7 +1118,7 @@ export default function PipelinePage() {
           className="pointer-events-none fixed bottom-[12px] left-[84px] right-[12px] z-[9998] flex justify-start"
         >
           <div
-            className="glass-dense scrollbar-hide pointer-events-auto inline-flex max-w-full items-center gap-[3px] overflow-x-auto rounded-[10px] border px-[3px] py-[3px] [&::before]:rounded-[10px]"
+            className="glass-dense scrollbar-hide pointer-events-auto inline-flex max-w-full items-center gap-[3px] overflow-x-auto rounded-panel border px-[3px] py-[3px] [&::before]:rounded-panel"
             style={{
               background: "var(--surface-glass-dense)",
               backdropFilter: "blur(28px) saturate(1.3)",

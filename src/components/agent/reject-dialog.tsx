@@ -41,7 +41,7 @@ export function RejectDialog({ open, onClose, onConfirm, t }: RejectDialogProps)
           placeholder={t("reject.placeholder")}
           rows={3}
           className={cn(
-            "w-full px-3 py-2 rounded-[5px] resize-none",
+            "w-full px-3 py-2 rounded resize-none",
             "bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)]",
             "font-mono text-[13px] text-text placeholder:text-text-mute",
             "focus:outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"

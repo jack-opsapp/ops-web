@@ -49,7 +49,7 @@ export function SatisfactionTab({ data }: SatisfactionTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Satisfaction summary"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
@@ -75,7 +75,7 @@ export function SatisfactionTab({ data }: SatisfactionTabProps) {
         <>
           <section
             aria-label="Feature × rating heat map"
-            className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+            className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
           >
             <h3 className="mb-4 font-cakemono text-[12px] font-light uppercase leading-none text-[#EDEDED]">
               <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
@@ -89,7 +89,7 @@ export function SatisfactionTab({ data }: SatisfactionTabProps) {
 
           <section
             aria-label="Detailed ratings"
-            className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+            className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
           >
             <h3 className="mb-4 font-cakemono text-[12px] font-light uppercase leading-none text-[#EDEDED]">
               <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
@@ -232,7 +232,7 @@ function HeatCell({ rating, delayMs }: { rating: number | null; delayMs: number 
   if (rating == null) {
     return (
       <div
-        className="flex h-8 min-w-[64px] items-center justify-center rounded-[4px] border border-dashed border-white/[0.08] font-mono text-[10px] text-[#6A6A6A]"
+        className="flex h-8 min-w-[64px] items-center justify-center rounded-chip border border-dashed border-white/[0.08] font-mono text-[10px] text-[#6A6A6A]"
         title="Not submitted"
         aria-label="Not submitted"
       >
@@ -243,7 +243,7 @@ function HeatCell({ rating, delayMs }: { rating: number | null; delayMs: number 
   const palette = RATING_COLORS[rating] ?? RATING_COLORS[3];
   return (
     <div
-      className="flex h-8 min-w-[64px] items-center justify-center rounded-[4px] font-mono text-[12px] tabular-nums opacity-0"
+      className="flex h-8 min-w-[64px] items-center justify-center rounded-chip font-mono text-[12px] tabular-nums opacity-0"
       style={{
         backgroundColor: palette.bg,
         color: palette.text,
@@ -275,7 +275,7 @@ function RatingChip({ rating }: { rating: number }) {
   const palette = RATING_COLORS[rating] ?? RATING_COLORS[3];
   return (
     <span
-      className="inline-flex items-center justify-center rounded-[4px] px-2 py-0.5 font-mono text-[11px] tabular-nums"
+      className="inline-flex items-center justify-center rounded-chip px-2 py-0.5 font-mono text-[11px] tabular-nums"
       style={{ backgroundColor: palette.bg, color: palette.text }}
     >
       {rating}/5
@@ -295,7 +295,7 @@ function RatingLegend() {
             className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A]"
           >
             <span
-              className="inline-block h-3 w-3 rounded-[2px]"
+              className="inline-block h-3 w-3 rounded-bar"
               style={{ backgroundColor: p.bg }}
               aria-hidden="true"
             />
@@ -353,7 +353,7 @@ function FilterChips({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(opt.value)}
-            className={`rounded-[4px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            className={`rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               active
                 ? "border-[#6F94B0] text-[#EDEDED]"
                 : "border-white/[0.10] text-[#8A8A8A] hover:text-[#EDEDED]"
@@ -372,7 +372,7 @@ function FilterChips({
 
 function EmptyState() {
   return (
-    <div className="rounded-[10px] border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
         — no ratings yet
       </p>

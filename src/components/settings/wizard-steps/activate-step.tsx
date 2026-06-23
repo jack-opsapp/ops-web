@@ -63,7 +63,7 @@ export function ActivateStep({
       {/* Import summary */}
       <motion.div
         variants={staggerItem}
-        className="p-4 border border-olive-line bg-olive-soft mb-6 rounded-[4px]"
+        className="p-4 border border-olive-line bg-olive-soft mb-6 rounded-chip"
       >
         <div className="flex items-center gap-2 mb-3">
           <CheckCircle size={16} className="text-olive" />
@@ -114,7 +114,7 @@ export function ActivateStep({
       {/* How ongoing sync works */}
       <motion.div
         variants={staggerItem}
-        className="mb-6 p-3 border border-border bg-white/[0.02] rounded-[5px]"
+        className="mb-6 p-3 border border-border bg-white/[0.02] rounded"
       >
         <p className="font-mono text-micro tracking-[0.15em] uppercase text-text-3 mb-2">
           {t("confirmPipeline.captureTitle")}
@@ -167,7 +167,7 @@ export function ActivateStep({
                   key={opt.value}
                   onClick={() => setSelectedInterval(opt.value)}
                   className={
-                    "px-3 py-1.5 border rounded-[4px] transition-all font-mohave text-[12px] " +
+                    "px-3 py-1.5 border rounded-chip transition-all font-mohave text-[12px] " +
                     (active
                       ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
                       : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2")
@@ -188,7 +188,7 @@ export function ActivateStep({
       {activationError && (
         <motion.div
           variants={staggerItem}
-          className="mb-4 p-3 border border-brick-line bg-rose-soft rounded-[5px]"
+          className="mb-4 p-3 border border-brick-line bg-rose-soft rounded"
         >
           <p className="font-mohave text-[13px] text-rose">{activationError}</p>
         </motion.div>
@@ -200,7 +200,7 @@ export function ActivateStep({
       {activated && warnings.length > 0 && (
         <motion.div
           variants={staggerItem}
-          className="mb-4 p-3 border border-tan-line bg-tan-soft rounded-[5px]"
+          className="mb-4 p-3 border border-tan-line bg-tan-soft rounded"
         >
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle size={14} className="text-tan" />

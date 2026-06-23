@@ -29,7 +29,7 @@ export function PeriodPill({
         <button
           type="button"
           className={cn(
-            "inline-flex h-3 items-center gap-1 rounded-[4px] px-1",
+            "inline-flex h-3 items-center gap-1 rounded-chip px-1",
             "border border-border font-mono text-micro uppercase tracking-[0.12em]",
             "text-text-2 tabular-nums transition-colors duration-150 ease-smooth",
             "hover:bg-surface-hover hover:text-text",

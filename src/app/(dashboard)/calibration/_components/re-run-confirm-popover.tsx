@@ -45,13 +45,13 @@ export function ReRunConfirmPopover({ source, onConfirm, onCancel }: Props) {
           <div className="mt-5 flex gap-2 justify-end">
             <button
               onClick={onCancel}
-              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded-[5px] text-text-mute hover:text-text-2 transition-colors"
+              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded text-text-mute hover:text-text-2 transition-colors"
             >
               {t("sections.inputs.reRunConfirm.actionCancel")}
             </button>
             <button
               onClick={onConfirm}
-              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded-[5px] border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors"
+              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors"
             >
               {t("sections.inputs.reRunConfirm.actionConfirm")}
             </button>

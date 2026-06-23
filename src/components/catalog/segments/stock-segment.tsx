@@ -361,7 +361,7 @@ export function StockSegment({
               type="button"
               onClick={toggleGroup}
               className={cn(
-                "ml-auto inline-flex h-3 items-center rounded-[4px] border px-1",
+                "ml-auto inline-flex h-3 items-center rounded-chip border px-1",
                 "font-mono text-micro font-medium uppercase tracking-[0.12em]",
                 "transition-colors duration-150 ease-smooth",
                 effectiveGroup

@@ -44,7 +44,7 @@ export function RefundBreakdownPreview({
   }, [payments, selectedMilestones]);
 
   return (
-    <div className="rounded-[10px] border border-white/[0.09] bg-[#121214]/[0.58] p-4 backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.09] bg-[#121214]/[0.58] p-4 backdrop-blur-[28px]">
       <div className="mb-3 flex items-baseline justify-between">
         <h4 className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#8A8A8A]">
           <span className="text-[#3A3A3A]">{"//"}</span> REFUND-BREAKDOWN PREVIEW

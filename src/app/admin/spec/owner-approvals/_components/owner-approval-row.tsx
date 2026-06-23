@@ -81,7 +81,7 @@ export function OwnerApprovalRow({ approval }: OwnerApprovalRowProps) {
           <button
             type="submit"
             disabled={resendPending || cancelPending}
-            className={`inline-flex items-center gap-2 rounded-[5px] border border-[#6F94B0] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black ${resendPending ? "opacity-50" : ""}`}
+            className={`inline-flex items-center gap-2 rounded border border-[#6F94B0] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black ${resendPending ? "opacity-50" : ""}`}
           >
             {resendPending ? "SENDING…" : "RESEND EMAIL"}
           </button>
@@ -92,7 +92,7 @@ export function OwnerApprovalRow({ approval }: OwnerApprovalRowProps) {
             type="button"
             onClick={() => setConfirmingCancel(true)}
             disabled={resendPending || cancelPending}
-            className="inline-flex items-center gap-2 rounded-[5px] border border-white/[0.10] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#B58289] hover:text-[#B58289]"
+            className="inline-flex items-center gap-2 rounded border border-white/[0.10] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#B58289] hover:text-[#B58289]"
           >
             CANCEL REQUEST
           </button>
@@ -123,7 +123,7 @@ export function OwnerApprovalRow({ approval }: OwnerApprovalRowProps) {
               <button
                 type="submit"
                 disabled={cancelPending}
-                className={`inline-flex items-center gap-2 rounded-[5px] border border-[#B58289] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289] hover:text-black ${cancelPending ? "opacity-50" : ""}`}
+                className={`inline-flex items-center gap-2 rounded border border-[#B58289] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289] hover:text-black ${cancelPending ? "opacity-50" : ""}`}
               >
                 {cancelPending ? "CANCELLING…" : "CONFIRM CANCEL"}
               </button>

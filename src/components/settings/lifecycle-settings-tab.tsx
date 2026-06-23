@@ -333,7 +333,7 @@ function NumericField({
   onChange: (value: number) => void;
 }) {
   return (
-    <label className="block rounded-[5px] border border-border bg-transparent p-3">
+    <label className="block rounded border border-border bg-transparent p-3">
       <span className="block font-mohave text-body-sm uppercase text-text">
         {label}
       </span>
@@ -348,7 +348,7 @@ function NumericField({
           onChange={(event) =>
             onChange(Math.max(1, Number.parseInt(event.target.value, 10) || 1))
           }
-          className="w-[88px] min-h-[36px] rounded-[5px] border border-border bg-surface-input px-3 py-1.5 text-center font-mono text-data-sm tabular-nums text-text outline-none transition-colors focus:border-[rgba(255,255,255,0.20)] [color-scheme:dark]"
+          className="w-[88px] min-h-[36px] rounded border border-border bg-surface-input px-3 py-1.5 text-center font-mono text-data-sm tabular-nums text-text outline-none transition-colors focus:border-[rgba(255,255,255,0.20)] [color-scheme:dark]"
         />
         <span className="font-mono text-micro uppercase tracking-[0.14em] text-text-3">
           {dayLabel}
@@ -368,7 +368,7 @@ function ToggleRow({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-[5px] border border-border bg-transparent px-3 py-2">
+    <div className="flex items-center justify-between gap-3 rounded border border-border bg-transparent px-3 py-2">
       <span className="font-mohave text-body-sm uppercase text-text-2">{label}</span>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>

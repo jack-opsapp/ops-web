@@ -184,7 +184,7 @@ export function RefundRequestForm({
         <button
           type="submit"
           disabled={disabled}
-          className="font-mono text-[11px] uppercase tracking-[0.18em] px-4 py-2 rounded-[5px] border border-ops-accent text-ops-accent transition-colors duration-150 hover:bg-ops-accent hover:text-black focus:outline-none focus-visible:outline focus-visible:outline-1.5 focus-visible:outline-offset-2 focus-visible:outline-ops-accent disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ops-accent disabled:cursor-not-allowed"
+          className="font-mono text-[11px] uppercase tracking-[0.18em] px-4 py-2 rounded border border-ops-accent text-ops-accent transition-colors duration-150 hover:bg-ops-accent hover:text-black focus:outline-none focus-visible:outline focus-visible:outline-1.5 focus-visible:outline-offset-2 focus-visible:outline-ops-accent disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ops-accent disabled:cursor-not-allowed"
         >
           {submission.kind === "submitting"
             ? "Filing…"

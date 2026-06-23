@@ -136,12 +136,12 @@ function Card({ card }: { card: KanbanCard }) {
   return (
     <Link
       href={`/admin/spec/${card.id}`}
-      className="group block rounded-[6px] border border-white/[0.08] bg-[rgba(18,18,20,0.58)] p-2.5 backdrop-blur-[20px] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#6F94B0]/60 hover:bg-[rgba(111,148,176,0.06)]"
+      className="group block rounded-sidebar border border-white/[0.08] bg-[rgba(18,18,20,0.58)] p-2.5 backdrop-blur-[20px] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#6F94B0]/60 hover:bg-[rgba(111,148,176,0.06)]"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="truncate text-[12px] text-[#EDEDED]">{card.customerLabel}</span>
         <span
-          className={`shrink-0 rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.14em] ${tone}`}
+          className={`shrink-0 rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.14em] ${tone}`}
         >
           {formatTier(card.tier)}
         </span>
@@ -155,12 +155,12 @@ function Card({ card }: { card: KanbanCard }) {
       {(holdLabel || card.nextActionLabel || card.isTest) && (
         <div className="mt-1.5 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em]">
           {holdLabel && (
-            <span className="rounded-[4px] border border-[#B58289]/30 px-1.5 py-px text-[#B58289]">
+            <span className="rounded-chip border border-[#B58289]/30 px-1.5 py-px text-[#B58289]">
               {holdLabel}
             </span>
           )}
           {card.isTest && (
-            <span className="rounded-[4px] border border-[#C4A868]/40 px-1.5 py-px text-[#C4A868]">
+            <span className="rounded-chip border border-[#C4A868]/40 px-1.5 py-px text-[#C4A868]">
               TEST
             </span>
           )}

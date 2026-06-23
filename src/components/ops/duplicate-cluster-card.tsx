@@ -174,7 +174,7 @@ function FieldPill({
               setEditing(false);
             }
           }}
-          className="w-full rounded-[2px] border border-white/30 bg-white/[0.02] px-2 py-[3px] font-mohave text-[12px] text-white/60 outline-none focus:border-white/40"
+          className="w-full rounded-bar border border-white/30 bg-white/[0.02] px-2 py-[3px] font-mohave text-[12px] text-white/60 outline-none focus:border-white/40"
         />
       </div>
     );
@@ -191,7 +191,7 @@ function FieldPill({
             setDraft("");
             setEditing(true);
           }}
-          className="inline-flex w-fit items-center gap-[4px] rounded-[2px] border border-dashed border-white/20 bg-white/[0.02] px-2 py-[3px] font-mohave text-[12px] text-white/20 transition-colors duration-150 hover:border-white/35 hover:text-white/35"
+          className="inline-flex w-fit items-center gap-[4px] rounded-bar border border-dashed border-white/20 bg-white/[0.02] px-2 py-[3px] font-mohave text-[12px] text-white/20 transition-colors duration-150 hover:border-white/35 hover:text-white/35"
         >
           + {addLabel}
         </button>
@@ -205,7 +205,7 @@ function FieldPill({
         {label}
       </span>
       <div
-        className={`flex max-w-full items-center gap-[6px] rounded-[2px] border bg-white/[0.02] px-2 py-[3px] transition-colors duration-150 ${
+        className={`flex max-w-full items-center gap-[6px] rounded-bar border bg-white/[0.02] px-2 py-[3px] transition-colors duration-150 ${
           isConflict
             ? "border-[#93321A]/40 hover:border-[#93321A]/60"
             : "border-white/20 hover:border-white/35"
@@ -281,7 +281,7 @@ function EditableTitle({
             setEditing(false);
           }
         }}
-        className="w-full rounded-[2px] border border-[#6F94B0]/30 bg-white/[0.04] px-1 py-0.5 font-mohave text-[15px] font-medium text-white/90 outline-none"
+        className="w-full rounded-bar border border-[#6F94B0]/30 bg-white/[0.04] px-1 py-0.5 font-mohave text-[15px] font-medium text-white/90 outline-none"
       />
     );
   }

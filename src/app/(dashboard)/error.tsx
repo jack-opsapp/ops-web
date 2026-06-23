@@ -57,7 +57,7 @@ export default function DashboardError({
         <div className="glass-surface px-3 py-2 mt-1">
           <button
             onClick={() => setShowDetails(!showDetails)}
-            className="w-full flex items-center justify-between text-left -mx-1 px-1 py-1 rounded-[5px] hover:bg-surface-hover-subtle transition-colors"
+            className="w-full flex items-center justify-between text-left -mx-1 px-1 py-1 rounded hover:bg-surface-hover-subtle transition-colors"
             aria-expanded={showDetails}
           >
             <span className="font-mono text-micro uppercase tracking-wider text-text-3">

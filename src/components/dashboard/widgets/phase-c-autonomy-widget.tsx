@@ -258,7 +258,7 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
                     type="button"
                     onClick={navigateSettings}
                     className={cn(
-                      "flex items-center gap-2 w-full px-2 py-1.5 rounded-[4px]",
+                      "flex items-center gap-2 w-full px-2 py-1.5 rounded-chip",
                       "hover:bg-surface-hover transition-colors text-left"
                     )}
                   >
@@ -274,7 +274,7 @@ export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWi
                     </span>
                     <span
                       aria-hidden
-                      className="flex-1 h-[6px] rounded-[2px] relative overflow-hidden"
+                      className="flex-1 h-[6px] rounded-bar relative overflow-hidden"
                       style={{ backgroundColor: WT.fillNeutralDim }}
                     >
                       <span
@@ -340,7 +340,7 @@ function MetricCell({
 }) {
   return (
     <div
-      className="flex-1 rounded-[5px] px-2.5 py-2 border"
+      className="flex-1 rounded px-2.5 py-2 border"
       style={{
         borderColor: `color-mix(in srgb, ${tone} 20%, transparent)`,
         backgroundColor: `color-mix(in srgb, ${tone} 6%, transparent)`,

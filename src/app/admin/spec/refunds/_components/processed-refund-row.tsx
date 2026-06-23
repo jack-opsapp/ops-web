@@ -21,7 +21,7 @@ export function ProcessedRefundRow({ refund }: ProcessedRefundRowProps) {
     >
       <div className="flex items-center gap-4">
         <span
-          className={`rounded-[4px] border px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.16em] ${tone}`}
+          className={`rounded-chip border px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.16em] ${tone}`}
         >
           {refund.status.toUpperCase()}
         </span>

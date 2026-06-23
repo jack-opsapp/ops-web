@@ -215,7 +215,7 @@ export function WorkView({
         <button
           type="button"
           onClick={onNewProject}
-          className="mt-2 inline-flex h-6 w-full items-center justify-center gap-1.5 rounded-[2.5px] border border-dashed border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
+          className="mt-2 inline-flex h-6 w-full items-center justify-center gap-1.5 rounded-sm border border-dashed border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
         >
           <Plus aria-hidden className="h-3 w-3" strokeWidth={1.5} />
           {t("rail.addProject", "NEW PROJECT")}

@@ -79,7 +79,7 @@ function DraggableSpacerButton({ onAdd }: { onAdd: () => void }) {
       {...attributes}
       {...listeners}
       className={cn(
-        "flex min-w-0 items-center gap-2 px-3 py-[6px] rounded-[4px]",
+        "flex min-w-0 items-center gap-2 px-3 py-[6px] rounded-chip",
         "border border-dashed border-[rgba(255,255,255,0.15)]",
         "hover:border-[rgba(255,255,255,0.25)]",
         "bg-surface-input hover:bg-fill-neutral-dim",
@@ -288,7 +288,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
               <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em] select-none">
                 {t("tray.gap")}
               </span>
-              <div className="flex min-w-0 flex-1 items-center rounded-[4px] border border-border bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
+              <div className="flex min-w-0 flex-1 items-center rounded-chip border border-border bg-[rgba(10,10,10,0.5)] backdrop-blur-sm overflow-hidden">
                 {(["none", "tight", "normal", "relaxed"] as WidgetGapId[]).map((gapId) => {
                   const isActive = widgetGap === gapId;
                   return (
@@ -339,7 +339,7 @@ export function WidgetTray({ open, onClose, onDone, onCancel }: WidgetTrayProps)
             animate="visible"
             exit="exit"
             onAnimationStart={handleAnimationStart}
-            className="fixed bottom-0 right-0 z-40 flex flex-col rounded-t-[12px]"
+            className="fixed bottom-0 right-0 z-40 flex flex-col rounded-t-modal"
             style={{
               left: sidebarWidth,
               height: displayHeight,

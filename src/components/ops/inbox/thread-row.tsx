@@ -191,7 +191,7 @@ export function ThreadRow({
     : t("row.markUnread", "Mark unread");
   const archiveLabel = t("row.archiveThread", "Archive thread");
   const quickButtonClass =
-    "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[2px] border border-line text-text-3 transition-colors hover:border-line-hi hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+    "inline-flex h-[18px] w-[18px] items-center justify-center rounded-bar border border-line text-text-3 transition-colors hover:border-line-hi hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
   const stopQuickAction = (e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -224,7 +224,7 @@ export function ThreadRow({
         data-testid="thread-row-stripe"
         aria-hidden
         className={cn(
-          "absolute left-0 top-2 bottom-2 rounded-r-[2px]",
+          "absolute left-0 top-2 bottom-2 rounded-r-bar",
           stripeColor,
           selected ? "w-[3px]" : "w-[2px]",
           isUnread ? "opacity-90" : "opacity-50",
@@ -273,7 +273,7 @@ export function ThreadRow({
           {isUnread && (
             <span
               data-testid="thread-row-new-badge"
-              className="shrink-0 rounded-[2px] border border-line-hi bg-transparent px-1 font-mono text-[11px] uppercase tracking-[0.10em] text-text"
+              className="shrink-0 rounded-bar border border-line-hi bg-transparent px-1 font-mono text-[11px] uppercase tracking-[0.10em] text-text"
               style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
             >
               {t("row.newBadge", "NEW")}

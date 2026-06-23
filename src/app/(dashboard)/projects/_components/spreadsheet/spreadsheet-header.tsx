@@ -70,7 +70,7 @@ export function SpreadsheetHeader({
 
                   {showColumnMenu && (
                     <div
-                      className="absolute top-full left-0 mt-1 z-[1000] min-w-[180px] max-h-[320px] overflow-y-auto p-1 rounded-[4px]"
+                      className="absolute top-full left-0 mt-1 z-[1000] min-w-[180px] max-h-[320px] overflow-y-auto p-1 rounded-chip"
                       style={{
                         background: "var(--surface-glass-dense)",
                         backdropFilter: "blur(28px) saturate(1.3)",
@@ -90,14 +90,14 @@ export function SpreadsheetHeader({
                               });
                             }}
                             className={cn(
-                              "flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] transition-colors",
+                              "flex items-center gap-2 w-full px-2 py-1.5 rounded-bar transition-colors",
                               isChecked
                                 ? "text-text"
                                 : "text-text-mute"
                             )}
                           >
                             <span className={cn(
-                              "w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center flex-shrink-0",
+                              "w-3.5 h-3.5 rounded-chip border flex items-center justify-center flex-shrink-0",
                               isChecked
                                 ? "border-[rgba(255,255,255,0.30)] bg-[rgba(255,255,255,0.08)]"
                                 : "border-border-subtle"

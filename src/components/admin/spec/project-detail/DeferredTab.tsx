@@ -12,7 +12,7 @@ export function DeferredTab({ label, rationale }: DeferredTabProps) {
   return (
     <section
       aria-label={`${label} (deferred)`}
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-6 backdrop-blur-[28px]"
+      className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-6 backdrop-blur-[28px]"
     >
       <h2 className="font-cakemono text-[15px] font-light uppercase text-[#EDEDED]">
         <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">

@@ -236,7 +236,7 @@ export function PipelineDetailNextSteps({
                 <button
                   onClick={() => handleComplete(primary.followUpId!)}
                   disabled={completeFollowUp.isPending}
-                  className="flex h-4 w-4 items-center justify-center rounded-[2px] text-text-mute transition-colors hover:bg-fill-neutral-dim hover:text-status-success"
+                  className="flex h-4 w-4 items-center justify-center rounded-bar text-text-mute transition-colors hover:bg-fill-neutral-dim hover:text-status-success"
                 >
                   <Check className="w-2.5 h-2.5" />
                 </button>
@@ -273,7 +273,7 @@ export function PipelineDetailNextSteps({
                     <button
                       onClick={() => handleComplete(signal.followUpId!)}
                       disabled={completeFollowUp.isPending}
-                      className="flex h-4 w-4 items-center justify-center rounded-[2px] text-text-mute transition-colors hover:bg-fill-neutral-dim hover:text-status-success"
+                      className="flex h-4 w-4 items-center justify-center rounded-bar text-text-mute transition-colors hover:bg-fill-neutral-dim hover:text-status-success"
                     >
                       <Check className="w-2.5 h-2.5" />
                     </button>

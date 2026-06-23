@@ -24,7 +24,7 @@ export function RequestSentRow({ timestamp }: RequestSentRowProps) {
     <div
       role="status"
       aria-live="polite"
-      className="flex items-center gap-2 w-full px-3 py-3 rounded-[2.5px] bg-[var(--olive-soft)] border border-[var(--olive-line)] text-[var(--olive)]"
+      className="flex items-center gap-2 w-full px-3 py-3 rounded-sm bg-[var(--olive-soft)] border border-[var(--olive-line)] text-[var(--olive)]"
     >
       <Check className="w-[14px] h-[14px] shrink-0" aria-hidden="true" />
       <span className="font-mono text-[11px] uppercase tracking-[0.12em]">

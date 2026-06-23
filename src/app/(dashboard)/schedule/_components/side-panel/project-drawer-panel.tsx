@@ -294,7 +294,7 @@ export function ProjectDrawerPanel() {
           {/* Status badge */}
           {project?.status && (
             <span
-              className="inline-block font-mono text-micro uppercase px-[8px] py-[3px] rounded-[2px] text-left"
+              className="inline-block font-mono text-micro uppercase px-[8px] py-[3px] rounded-bar text-left"
               style={{
                 color: statusColor,
                 backgroundColor: `${statusColor}1F`,

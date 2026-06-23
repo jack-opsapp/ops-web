@@ -36,7 +36,7 @@ export function PasswordInput({
         {handlerCopy.reset.passwordLabel}
       </label>
       <div
-        className="flex items-center gap-2 rounded-[5px] px-3"
+        className="flex items-center gap-2 rounded px-3"
         style={{
           background: "#111111",
           border: "1px solid rgba(255,255,255,0.10)",
@@ -70,7 +70,7 @@ export function PasswordInput({
       <button
         type="submit"
         disabled={!canSubmit}
-        className={`w-full rounded-[5px] font-cakemono font-light uppercase mt-6 border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
+        className={`w-full rounded font-cakemono font-light uppercase mt-6 border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black ${
           canSubmit
             ? "text-ops-accent border-ops-accent hover:bg-ops-accent hover:text-black"
             : "text-text-disabled border-border cursor-not-allowed"

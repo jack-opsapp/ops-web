@@ -190,7 +190,7 @@ function ToastRow({ toast, onResolve }: ToastRowProps) {
       role="status"
       aria-live="polite"
       aria-labelledby={`${id}-msg`}
-      className="pointer-events-auto relative w-[340px] overflow-hidden rounded-[12px] border border-line bg-transparent"
+      className="pointer-events-auto relative w-[340px] overflow-hidden rounded-modal border border-line bg-transparent"
     >
       <div className="flex items-center gap-2 px-3 py-2">
         <div className="min-w-0 flex-1">

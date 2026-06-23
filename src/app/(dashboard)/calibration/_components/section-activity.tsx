@@ -193,7 +193,7 @@ export function SectionActivity() {
             </p>
             <a
               href="/calibration?section=inputs"
-              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded-[5px] border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors"
+              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors"
             >
               {t("sections.activity.empty.cta")}
             </a>

@@ -134,7 +134,7 @@ export function MiniTeamPickerPopover({
               <button
                 key={member.id}
                 onClick={() => toggle(member.id)}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-[2px] hover:bg-[rgba(255,255,255,0.05)] transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-bar hover:bg-[rgba(255,255,255,0.05)] transition-colors"
               >
                 <UserAvatar
                   name={getUserFullName(member)}

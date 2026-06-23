@@ -51,7 +51,7 @@ export function Select({
           "flex w-full h-8 items-center justify-between gap-1 px-2",
           "font-mohave text-[14px] leading-[1.4] text-text",
           "bg-[var(--surface-input)]",
-          "rounded-[5px] border border-glass-border",
+          "rounded border border-glass-border",
           "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
           "hover:border-glass-border-medium",
           "focus:outline-none focus:border-glass-border-strong",

@@ -361,13 +361,13 @@ export function ExpenseReviewWidget({
                             if (e.key === "Escape") { setRejectingBatchId(null); setRejectNote(""); }
                           }}
                           placeholder={t("expenseReview.rejectNote") ?? "What needs fixing?"}
-                          className="flex-1 bg-fill-neutral-dim border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
+                          className="flex-1 bg-fill-neutral-dim border border-[rgba(255,255,255,0.08)] rounded-bar px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
                           autoFocus
                         />
                         <button
                           onClick={() => handleQuickReject(batch.id)}
                           disabled={!rejectNote.trim() || quickReject.isPending}
-                          className="w-5 h-5 flex items-center justify-center rounded-[4px] text-text-mute hover:text-text disabled:opacity-30 transition-colors"
+                          className="w-5 h-5 flex items-center justify-center rounded-chip text-text-mute hover:text-text disabled:opacity-30 transition-colors"
                         >
                           <Send className="w-3 h-3" />
                         </button>

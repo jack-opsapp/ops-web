@@ -177,7 +177,7 @@ export const ProjectCard = memo(function ProjectCard({
     >
       <div
         className={cn(
-          "w-full rounded-[4px]",
+          "w-full rounded-chip",
           !reduced && "transition-[border-color,box-shadow] duration-150"
         )}
         style={{

@@ -103,7 +103,7 @@ export function ProjectGroup({
       data-testid={`project-group-${project.id}`}
       data-current={linked ? "true" : "false"}
       className={cn(
-        "relative rounded-[5px] border border-line bg-transparent",
+        "relative rounded border border-line bg-transparent",
         linked && "border-line-hi",
         className,
       )}
@@ -162,7 +162,7 @@ export function ProjectGroup({
             type="button"
             onClick={() => onOpen(project.id)}
             aria-label={`Open project ${project.name}`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
+            className="inline-flex shrink-0 items-center gap-1 rounded-bar border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
           >
             {t("rail.openButton", "OPEN")}
             <ExternalLink
@@ -175,7 +175,7 @@ export function ProjectGroup({
           <Link
             href={`?project=${project.id}`}
             aria-label={`Open project ${project.name}`}
-            className="inline-flex shrink-0 items-center gap-1 rounded-[2px] border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
+            className="inline-flex shrink-0 items-center gap-1 rounded-bar border border-line bg-transparent px-1.5 py-[2px] font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
           >
             {t("rail.openButton", "OPEN")}
             <ExternalLink
@@ -209,7 +209,7 @@ export function ProjectGroup({
                   <span
                     aria-hidden
                     className={cn(
-                      "flex h-3 w-3 shrink-0 items-center justify-center rounded-[2px] border-[1.25px]",
+                      "flex h-3 w-3 shrink-0 items-center justify-center rounded-bar border-[1.25px]",
                       checked
                         ? "border-olive bg-olive text-black"
                         : active

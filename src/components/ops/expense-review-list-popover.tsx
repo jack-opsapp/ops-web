@@ -218,13 +218,13 @@ function BatchRow({
               if (e.key === "Escape") { setRejectingBatchId(null); setRejectNote(""); }
             }}
             placeholder={t("expenseReview.rejectNote") ?? "What needs fixing?"}
-            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
+            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-bar px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
             autoFocus
           />
           <button
             onClick={() => onQuickReject(batch.id)}
             disabled={!rejectNote.trim()}
-            className="w-5 h-5 flex items-center justify-center rounded-[4px] text-text-mute hover:text-text disabled:opacity-30 transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded-chip text-text-mute hover:text-text disabled:opacity-30 transition-colors"
           >
             <Send className="w-3 h-3" />
           </button>
@@ -440,7 +440,7 @@ export function ExpenseReviewListPopover() {
         className={cn(
           "fixed flex flex-col overflow-hidden",
           "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
-          "border border-[rgba(255,255,255,0.08)] rounded-[4px]",
+          "border border-[rgba(255,255,255,0.08)] rounded-chip",
           (isDragging || isResizing) && "select-none"
         )}
         style={{ left: position.x, top: position.y, width: size.width, height: size.height, zIndex }}
@@ -457,13 +457,13 @@ export function ExpenseReviewListPopover() {
           <div className="flex items-center gap-[2px] shrink-0 ml-2">
             <button
               onClick={() => minimize()}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+              className="w-5 h-5 rounded-bar flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
             >
               <Minus className="w-3 h-3" />
             </button>
             <button
               onClick={() => close()}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+              className="w-5 h-5 rounded-bar flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
             >
               <X className="w-3 h-3" />
             </button>

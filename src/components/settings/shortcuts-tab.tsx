@@ -88,7 +88,7 @@ export function ShortcutsTab() {
                         {shortcut.keys.map((key, i) => (
                           <kbd
                             key={i}
-                            className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-[6px] rounded-[4px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mono text-micro text-text-3"
+                            className="inline-flex items-center justify-center min-w-[24px] h-[24px] px-[6px] rounded-chip bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] font-mono text-micro text-text-3"
                           >
                             {key}
                           </kbd>

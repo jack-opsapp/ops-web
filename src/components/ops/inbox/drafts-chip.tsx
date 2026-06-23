@@ -82,7 +82,7 @@ export function DraftsChip({ scope, onOpenThread }: DraftsChipProps) {
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="w-[320px] rounded-[12px] border border-line bg-transparent p-0"
+        className="w-[320px] rounded-modal border border-line bg-transparent p-0"
       >
         <div className="px-3 pt-2.5 pb-2 border-b border-line">
           <SlashLabel label={t("draftsPanel.title", "// DRAFTS")} size="md" />

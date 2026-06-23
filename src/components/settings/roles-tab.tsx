@@ -660,7 +660,7 @@ function RoleKebab({
           type="button"
           aria-label={t("roles.actions")}
           onClick={(e) => e.stopPropagation()}
-          className="flex h-7 w-7 items-center justify-center rounded-[5px] text-text-3 transition-colors hover:bg-surface-hover hover:text-text"
+          className="flex h-7 w-7 items-center justify-center rounded text-text-3 transition-colors hover:bg-surface-hover hover:text-text"
         >
           <MoreHorizontal className="h-[16px] w-[16px]" />
         </button>

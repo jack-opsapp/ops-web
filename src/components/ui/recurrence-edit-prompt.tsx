@@ -106,7 +106,7 @@ export function RecurrenceEditPrompt({
                 ref={i === 0 ? defaultRef : null}
                 type="button"
                 onClick={() => onScope(opt.value)}
-                className="text-left px-[12px] py-[10px] rounded-[5px] transition-colors"
+                className="text-left px-[12px] py-[10px] rounded transition-colors"
                 style={{
                   background: "rgba(255,255,255,0.04)",
                   border: "1px solid var(--line)",

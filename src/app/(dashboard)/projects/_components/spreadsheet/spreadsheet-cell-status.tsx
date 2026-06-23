@@ -51,7 +51,7 @@ export function SpreadsheetCellStatus({ status, canEdit, onCommit }: Spreadsheet
 
       {open && (
         <div
-          className="absolute top-full left-0 mt-1 z-[1000] min-w-[140px] p-1 rounded-[4px]"
+          className="absolute top-full left-0 mt-1 z-[1000] min-w-[140px] p-1 rounded-chip"
           style={{
             background: "var(--surface-glass-dense)",
             backdropFilter: "blur(28px) saturate(1.3)",
@@ -66,7 +66,7 @@ export function SpreadsheetCellStatus({ status, canEdit, onCommit }: Spreadsheet
                 if (s !== status) onCommit(s);
                 setOpen(false);
               }}
-              className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] transition-colors ${
+              className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-bar transition-colors ${
                 s === status
                   ? "text-text bg-[rgba(255,255,255,0.08)]"
                   : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"

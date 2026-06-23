@@ -76,7 +76,7 @@ export default async function SpecRefundsPage() {
         {processed.length === 0 ? (
           <EmptyState text="No processed or denied refunds yet." />
         ) : (
-          <div className="rounded-[10px] border border-white/[0.09] bg-[#121214]/[0.58] backdrop-blur-[28px]">
+          <div className="rounded-panel border border-white/[0.09] bg-[#121214]/[0.58] backdrop-blur-[28px]">
             {processed.map((refund) => (
               <ProcessedRefundRow key={refund.id} refund={refund} />
             ))}
@@ -89,7 +89,7 @@ export default async function SpecRefundsPage() {
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="rounded-[10px] border border-dashed border-white/[0.08] px-6 py-8">
+    <div className="rounded-panel border border-dashed border-white/[0.08] px-6 py-8">
       <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-[#6A6A6A]">
         <span className="text-[#3A3A3A]">{"//"}</span> {text}
       </p>

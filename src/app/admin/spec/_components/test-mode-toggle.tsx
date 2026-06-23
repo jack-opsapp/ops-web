@@ -20,7 +20,7 @@ export function TestModeToggle({ enabled }: { enabled: boolean }) {
         type="submit"
         disabled={pending}
         aria-pressed={enabled}
-        className={`group inline-flex items-center gap-2 rounded-[5px] border px-3 py-[5px] text-[12px] uppercase tracking-[0.12em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`group inline-flex items-center gap-2 rounded border px-3 py-[5px] text-[12px] uppercase tracking-[0.12em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           enabled
             ? "border-[#C4A868]/40 bg-[#C4A868]/12 text-[#C4A868]"
             : "border-white/[0.10] bg-transparent text-[#8A8A8A] hover:bg-white/[0.05] hover:text-[#EDEDED]"

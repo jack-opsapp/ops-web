@@ -246,12 +246,12 @@ export function OverviewTab({ data, header }: OverviewTabProps) {
                 name="estimated_completion_date"
                 type="date"
                 defaultValue={formatIsoDate(data.estimatedCompletionDate) === "—" ? "" : formatIsoDate(data.estimatedCompletionDate)}
-                className="rounded-[5px] border border-white/[0.10] bg-black px-3 py-1.5 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+                className="rounded border border-white/[0.10] bg-black px-3 py-1.5 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
               />
             </label>
             <button
               type="submit"
-              className="rounded-[5px] border border-[#6F94B0] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+              className="rounded border border-[#6F94B0] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
             >
               UPDATE ETA
             </button>
@@ -291,7 +291,7 @@ function Panel({
   return (
     <section
       aria-label={title}
-      className={`rounded-[10px] border ${borderClass} bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]`}
+      className={`rounded-panel border ${borderClass} bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]`}
     >
       <h2 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
         <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">

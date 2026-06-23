@@ -213,7 +213,7 @@ export function CampaignCreateModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="campaign-create-title"
-            className="w-full max-w-[480px] p-6 rounded-[12px]"
+            className="w-full max-w-[480px] p-6 rounded-modal"
             style={{
               background: "rgba(18,18,20,0.78)",
               backdropFilter: "blur(28px) saturate(1.3)",
@@ -238,7 +238,7 @@ export function CampaignCreateModal({
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded-[5px] px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
+                className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
                 placeholder="Q2 product update"
                 autoFocus
               />
@@ -256,7 +256,7 @@ export function CampaignCreateModal({
               <select
                 value={templateId}
                 onChange={(e) => setTemplateId(e.target.value)}
-                className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded-[5px] px-3 py-2 text-[#EDEDED]"
+                className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded px-3 py-2 text-[#EDEDED]"
               >
                 {TEMPLATES.map((t) => (
                   <option key={t.id} value={t.id} className="bg-black">
@@ -275,7 +275,7 @@ export function CampaignCreateModal({
               </span>
               {usingOverride ? (
                 <div
-                  className="w-full font-mono text-[12px] text-[#EDEDED] border border-white/10 rounded-[5px] px-3 py-2"
+                  className="w-full font-mono text-[12px] text-[#EDEDED] border border-white/10 rounded px-3 py-2"
                   style={{ background: "rgba(157,181,130,0.04)" }}
                 >
                   [custom predicate from audience builder]
@@ -284,7 +284,7 @@ export function CampaignCreateModal({
                 <select
                   value={segment}
                   onChange={(e) => setSegment(e.target.value)}
-                  className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded-[5px] px-3 py-2 text-[#EDEDED]"
+                  className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded px-3 py-2 text-[#EDEDED]"
                 >
                   {SEGMENTS.map((s) => (
                     <option key={s.id} value={s.id} className="bg-black">
@@ -309,7 +309,7 @@ export function CampaignCreateModal({
                 type="datetime-local"
                 value={scheduleAt}
                 onChange={(e) => setScheduleAt(e.target.value)}
-                className="w-full font-mono text-[13px] bg-transparent border border-white/10 rounded-[5px] px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
+                className="w-full font-mono text-[13px] bg-transparent border border-white/10 rounded px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
               />
               <span className="font-mono text-[10px] text-[#6A6A6A] mt-1 block">
                 [leave blank to save as draft]
@@ -335,7 +335,7 @@ export function CampaignCreateModal({
               <button
                 onClick={() => createMutation.mutate()}
                 disabled={!name.trim() || createMutation.isPending}
-                className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-[5px] transition-colors"
+                className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded transition-colors"
               >
                 {createMutation.isPending
                   ? "SAVING…"

@@ -56,7 +56,7 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
   }
 
   return (
-    <article className="rounded-[10px] border border-white/[0.09] bg-[#121214]/[0.58] p-6 backdrop-blur-[28px]">
+    <article className="rounded-panel border border-white/[0.09] bg-[#121214]/[0.58] p-6 backdrop-blur-[28px]">
       <header className="mb-4 flex items-start justify-between gap-6">
         <div>
           <h3 className="font-cakemono text-[15px] font-light uppercase leading-none tracking-[0.04em] text-[#EDEDED]">
@@ -76,17 +76,17 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
         </div>
         <div className="flex flex-col items-end gap-1">
           {refund.isGuaranteeInvocation && (
-            <span className="rounded-[4px] border border-[#9DB582]/40 bg-[#9DB582]/12 px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.16em] text-[#9DB582]">
+            <span className="rounded-chip border border-[#9DB582]/40 bg-[#9DB582]/12 px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.16em] text-[#9DB582]">
               30-DAY GUARANTEE
             </span>
           )}
           {refund.requestSource === "stripe_dispute" && (
-            <span className="rounded-[4px] border border-[#B58289]/40 bg-[#B58289]/12 px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.16em] text-[#B58289]">
+            <span className="rounded-chip border border-[#B58289]/40 bg-[#B58289]/12 px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.16em] text-[#B58289]">
               STRIPE DISPUTE
             </span>
           )}
           {refund.isTest && (
-            <span className="rounded-[4px] border border-[#C4A868]/40 bg-[#C4A868]/12 px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.16em] text-[#C4A868]">
+            <span className="rounded-chip border border-[#C4A868]/40 bg-[#C4A868]/12 px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.16em] text-[#C4A868]">
               TEST
             </span>
           )}
@@ -123,7 +123,7 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
             return (
               <label
                 key={milestone}
-                className={`inline-flex cursor-pointer items-center gap-2 rounded-[4px] border px-3 py-[5px] font-mono text-[11px] uppercase tracking-[0.12em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                className={`inline-flex cursor-pointer items-center gap-2 rounded-chip border px-3 py-[5px] font-mono text-[11px] uppercase tracking-[0.12em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   checked
                     ? "border-[#6F94B0] bg-[#6F94B0]/12 text-[#6F94B0]"
                     : hasAction
@@ -166,7 +166,7 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
               value="1"
               checked={setGoodwill}
               onChange={(e) => setGoodwillState(e.target.checked)}
-              className="h-3 w-3 rounded-[2px] border border-white/[0.15] bg-transparent accent-[#C4A868]"
+              className="h-3 w-3 rounded-bar border border-white/[0.15] bg-transparent accent-[#C4A868]"
             />
             FLAG AS GOODWILL REFUND
           </label>
@@ -177,14 +177,14 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
           rows={2}
           maxLength={4000}
           placeholder="Internal note (operator-only) — context for the dispute trail, attribution, etc."
-          className="w-full rounded-[5px] border border-white/[0.09] bg-black/40 px-3 py-2 font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6A6A6A] focus:border-[#6F94B0] focus:outline-none"
+          className="w-full rounded border border-white/[0.09] bg-black/40 px-3 py-2 font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6A6A6A] focus:border-[#6F94B0] focus:outline-none"
         />
 
         <div className="flex items-center gap-3">
           <button
             type="submit"
             disabled={processPending || denyPending || selectedMilestones.length === 0}
-            className={`inline-flex items-center gap-2 rounded-[5px] border border-[#6F94B0] px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.12em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-[#6F94B0] focus-visible:outline-offset-2 ${processPending || denyPending ? "opacity-50" : ""}`}
+            className={`inline-flex items-center gap-2 rounded border border-[#6F94B0] px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.12em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-[#6F94B0] focus-visible:outline-offset-2 ${processPending || denyPending ? "opacity-50" : ""}`}
           >
             {processPending ? "PROCESSING…" : "PROCESS REFUND"}
           </button>
@@ -193,7 +193,7 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
             type="button"
             onClick={() => setDenialOpen((v) => !v)}
             disabled={processPending || denyPending}
-            className="inline-flex items-center gap-2 rounded-[5px] border border-white/[0.10] px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.12em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#B58289] hover:text-[#B58289]"
+            className="inline-flex items-center gap-2 rounded border border-white/[0.10] px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.12em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#B58289] hover:text-[#B58289]"
           >
             {denialOpen ? "CLOSE DENY" : "DENY…"}
           </button>
@@ -218,7 +218,7 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
       {denialOpen && (
         <form
           action={denyFormAction}
-          className="mt-3 rounded-[8px] border border-[#B58289]/30 bg-[#B58289]/[0.05] p-4"
+          className="mt-3 rounded-lg border border-[#B58289]/30 bg-[#B58289]/[0.05] p-4"
         >
           <input type="hidden" name="refundRequestId" value={refund.id} />
           <label className="block font-mono text-[10px] uppercase tracking-[0.16em] text-[#B58289]">
@@ -231,7 +231,7 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
             maxLength={2000}
             required
             placeholder="Explain to the customer why this refund is being denied. The text is included verbatim in the spec.refund_denied email."
-            className="mt-2 w-full rounded-[5px] border border-white/[0.09] bg-black/40 px-3 py-2 font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6A6A6A] focus:border-[#B58289] focus:outline-none"
+            className="mt-2 w-full rounded border border-white/[0.09] bg-black/40 px-3 py-2 font-mono text-[12px] text-[#EDEDED] placeholder:text-[#6A6A6A] focus:border-[#B58289] focus:outline-none"
           />
           <label className="mt-3 block font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
             <span className="text-[#3A3A3A]">{"//"}</span> INTERNAL NOTE (OPERATOR-ONLY)
@@ -241,13 +241,13 @@ export function RefundRowCard({ refund }: RefundRowCardProps) {
             rows={2}
             maxLength={4000}
             placeholder="Optional — operator context for the audit trail."
-            className="mt-2 w-full rounded-[5px] border border-white/[0.06] bg-black/40 px-3 py-2 font-mono text-[12px] text-[#B5B5B5] placeholder:text-[#6A6A6A] focus:border-[#6F94B0] focus:outline-none"
+            className="mt-2 w-full rounded border border-white/[0.06] bg-black/40 px-3 py-2 font-mono text-[12px] text-[#B5B5B5] placeholder:text-[#6A6A6A] focus:border-[#6F94B0] focus:outline-none"
           />
           <div className="mt-3 flex items-center gap-3">
             <button
               type="submit"
               disabled={denyPending}
-              className={`inline-flex items-center gap-2 rounded-[5px] border border-[#B58289] px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.12em] text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289] hover:text-black ${denyPending ? "opacity-50" : ""}`}
+              className={`inline-flex items-center gap-2 rounded border border-[#B58289] px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.12em] text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289] hover:text-black ${denyPending ? "opacity-50" : ""}`}
             >
               {denyPending ? "DENYING…" : "CONFIRM DENY"}
             </button>
@@ -311,7 +311,7 @@ function EligibilityChips({ refund }: { refund: SpecRefundQueueRow }) {
       {chips.map((chip) => (
         <span
           key={chip.label}
-          className={`rounded-[4px] border px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.14em] ${
+          className={`rounded-chip border px-2 py-[3px] font-mono text-[10px] uppercase tracking-[0.14em] ${
             chip.ok
               ? "border-[#9DB582]/40 bg-[#9DB582]/8 text-[#9DB582]"
               : "border-[#B58289]/40 bg-[#B58289]/8 text-[#B58289]"

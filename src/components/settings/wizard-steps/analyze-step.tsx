@@ -231,14 +231,14 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
       </p>
 
       {error ? (
-        <div className="p-4 border border-brick-line bg-rose-soft rounded-[5px]">
+        <div className="p-4 border border-brick-line bg-rose-soft rounded">
           <p className="font-mohave text-[14px] text-rose">{error}</p>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Progress bar */}
           <div>
-            <div className="h-[2px] w-full bg-white/5 overflow-hidden rounded-[2px]">
+            <div className="h-[2px] w-full bg-white/5 overflow-hidden rounded-bar">
               <motion.div
                 className="h-full"
                 initial={{ width: "0%" }}
@@ -304,7 +304,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                   className="flex items-center gap-3 py-2"
                 >
                   <div
-                    className="w-7 h-7 flex items-center justify-center border rounded-[4px] transition-all duration-300"
+                    className="w-7 h-7 flex items-center justify-center border rounded-chip transition-all duration-300"
                     style={{
                       borderColor: isStageCompleted
                         ? "rgba(157,181,130,0.5)"
@@ -358,7 +358,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
             >
               <button
                 onClick={onMinimize}
-                className="flex items-center gap-2 px-4 py-2 border border-border bg-white/5 hover:bg-surface-hover hover:border-border-medium transition-all font-mohave text-[13px] text-text-2 hover:text-text rounded-[5px]"
+                className="flex items-center gap-2 px-4 py-2 border border-border bg-white/5 hover:bg-surface-hover hover:border-border-medium transition-all font-mohave text-[13px] text-text-2 hover:text-text rounded"
               >
                 <Minimize2 size={14} />
                 {t("analyze.minimize")}

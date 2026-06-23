@@ -251,7 +251,7 @@ function PlanCard({
   return (
     <div
       className={cn(
-        "border rounded-[5px] transition-all duration-200",
+        "border rounded transition-all duration-200",
         isCurrent
           ? "border-[rgba(255,255,255,0.18)] bg-surface-active"
           : "border-border hover:border-[rgba(255,255,255,0.15)]"
@@ -440,9 +440,9 @@ export function SubscriptionTab() {
               <TileHero>
                 {seatedCount} / {maxSeats}
               </TileHero>
-              <div className="my-1.5 h-[2px] overflow-hidden rounded-[2px] bg-fill-neutral-dim">
+              <div className="my-1.5 h-[2px] overflow-hidden rounded-bar bg-fill-neutral-dim">
                 <div
-                  className="h-full rounded-[2px] bg-fill-neutral transition-all duration-300 motion-reduce:transition-none"
+                  className="h-full rounded-bar bg-fill-neutral transition-all duration-300 motion-reduce:transition-none"
                   style={{ width: `${seatPercentage}%` }}
                 />
               </div>

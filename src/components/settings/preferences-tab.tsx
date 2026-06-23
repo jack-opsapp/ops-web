@@ -248,7 +248,7 @@ export function PreferencesTab() {
                     toast.success(`${t("preferences.toast.layoutSet")} ${layout.label}`);
                   }}
                   className={cn(
-                    "w-full flex items-center justify-between px-1.5 py-1 rounded-[5px] border transition-all",
+                    "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all",
                     isActive
                       ? "bg-surface-active border-[rgba(255,255,255,0.18)]"
                       : "bg-surface-input border-border hover:border-border-medium"
@@ -286,7 +286,7 @@ export function PreferencesTab() {
                     toast.success(`${t("preferences.toast.schedulingSet")} ${type.label}`);
                   }}
                   className={cn(
-                    "w-full flex items-center justify-between px-1.5 py-1 rounded-[5px] border transition-all",
+                    "w-full flex items-center justify-between px-1.5 py-1 rounded border transition-all",
                     isActive
                       ? "bg-surface-active border-[rgba(255,255,255,0.18)]"
                       : "bg-surface-input border-border hover:border-border-medium"

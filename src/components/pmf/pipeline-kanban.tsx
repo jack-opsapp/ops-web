@@ -93,7 +93,7 @@ function ColumnDropZone({ stage, children }: ColumnDropZoneProps) {
   return (
     <div
       ref={setNodeRef}
-      className={`min-h-[400px] rounded-[5px] transition-colors ${
+      className={`min-h-[400px] rounded transition-colors ${
         isOver ? "bg-[rgba(255,255,255,0.04)]" : ""
       }`}
     >

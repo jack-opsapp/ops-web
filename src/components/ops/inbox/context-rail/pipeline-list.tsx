@@ -228,7 +228,7 @@ export function PipelineList({
       <button
         type="button"
         onClick={onNewOpportunity}
-        className="inline-flex h-5 items-center justify-center gap-1.5 rounded-[5px] border border-dashed border-line bg-transparent px-2 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-line-hi hover:text-text-2"
+        className="inline-flex h-5 items-center justify-center gap-1.5 rounded border border-dashed border-line bg-transparent px-2 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-line-hi hover:text-text-2"
       >
         <Plus aria-hidden className="h-3 w-3" strokeWidth={1.5} />
         {t("pipeline.newOpportunity", "NEW OPPORTUNITY")}
@@ -277,7 +277,7 @@ export function PipelineOppCard({
       data-current={isLinked ? "true" : "false"}
       data-variant={variant}
       className={cn(
-        "rounded-[4px] border px-2.5 py-1.5",
+        "rounded-chip border px-2.5 py-1.5",
         isWon
           ? "border-line/60 bg-transparent"
           : "border-line bg-transparent",

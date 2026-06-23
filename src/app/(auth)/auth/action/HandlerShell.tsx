@@ -33,7 +33,7 @@ export function HandlerShell({ eyebrow, children }: HandlerShellProps) {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={t(0.08)}
-          className="w-full rounded-[10px] p-6 sm:p-8"
+          className="w-full rounded-panel p-6 sm:p-8"
           style={{
             background: "rgba(18, 18, 20, 0.58)",
             backdropFilter: "blur(28px) saturate(1.3)",

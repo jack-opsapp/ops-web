@@ -16,7 +16,7 @@ const SelectTrigger = React.forwardRef<
     className={cn(
       "flex h-7 w-full items-center justify-between gap-1",
       "bg-surface-input text-text font-mohave text-body",
-      "px-1.5 py-1.5 rounded-[5px]",
+      "px-1.5 py-1.5 rounded",
       "border border-[rgba(255,255,255,0.10)]",
       "transition-all duration-150",
       "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
@@ -120,7 +120,7 @@ const SelectItem = React.forwardRef<
     ref={ref}
     className={cn(
       "relative flex w-full cursor-pointer select-none items-center",
-      "rounded-[4px] py-[6px] pl-4 pr-1",
+      "rounded-chip py-[6px] pl-4 pr-1",
       "text-body-sm text-text font-mohave",
       "outline-none transition-colors duration-100",
       "focus:bg-fill-neutral-dim focus:text-text",

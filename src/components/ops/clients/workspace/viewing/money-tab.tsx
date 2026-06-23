@@ -47,7 +47,7 @@ function Metric({
         ? "text-rose"
         : "text-text";
   return (
-    <div className="rounded-[6px] bg-surface-input px-2.5 py-2">
+    <div className="rounded-sidebar bg-surface-input px-2.5 py-2">
       <Mono size={9} color="text-3" className="block">
         {label}
       </Mono>

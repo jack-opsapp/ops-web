@@ -63,7 +63,7 @@ export function TemplateVersionsTab({ versions }: Props) {
                 {v.rendered_sample_html ? (
                   <iframe
                     srcDoc={v.rendered_sample_html}
-                    className="w-full rounded-[5px]"
+                    className="w-full rounded"
                     style={{ height: "560px", background: "#fff" }}
                     title={`v${v.version} preview`}
                     sandbox=""

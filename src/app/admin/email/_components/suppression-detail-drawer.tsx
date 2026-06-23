@@ -62,7 +62,7 @@ export function SuppressionDetailDrawer({ row, onClose, onDelete }: Props) {
                 METADATA
               </span>
               <pre
-                className="font-mono text-[11px] text-[#B5B5B5] whitespace-pre-wrap p-2 rounded-[5px]"
+                className="font-mono text-[11px] text-[#B5B5B5] whitespace-pre-wrap p-2 rounded"
                 style={{
                   background: "rgba(255,255,255,0.03)",
                   border: "1px solid rgba(255,255,255,0.06)",
@@ -75,7 +75,7 @@ export function SuppressionDetailDrawer({ row, onClose, onDelete }: Props) {
           {onDelete && (
             <button
               onClick={() => onDelete(row.email, row.list)}
-              className="mt-6 font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B58289] border border-[#93321A]/50 hover:bg-[#93321A]/10 px-3 py-2 rounded-[5px]"
+              className="mt-6 font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B58289] border border-[#93321A]/50 hover:bg-[#93321A]/10 px-3 py-2 rounded"
             >
               REMOVE FROM SUPPRESSIONS
             </button>

@@ -205,7 +205,7 @@ export default function AgentQueuePage() {
     <button
       onClick={onClick}
       className={cn(
-        "min-h-[36px] px-3 rounded-[5px] font-mohave text-[12px] uppercase transition-colors whitespace-nowrap flex items-center",
+        "min-h-[36px] px-3 rounded font-mohave text-[12px] uppercase transition-colors whitespace-nowrap flex items-center",
         active
           ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0]"
           : "bg-[rgba(255,255,255,0.03)] text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
@@ -295,7 +295,7 @@ export default function AgentQueuePage() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-[72px] rounded-[8px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] animate-pulse"
+                className="h-[72px] rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] animate-pulse"
               />
             ))}
           </div>
@@ -303,7 +303,7 @@ export default function AgentQueuePage() {
 
         {!isLoading && actions.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
-            <div className="w-[48px] h-[48px] rounded-[8px] bg-[rgba(255,255,255,0.04)] flex items-center justify-center">
+            <div className="w-[48px] h-[48px] rounded-lg bg-[rgba(255,255,255,0.04)] flex items-center justify-center">
               <Inbox className="w-[24px] h-[24px] text-text-mute" />
             </div>
             <div className="text-center">
@@ -344,14 +344,14 @@ export default function AgentQueuePage() {
               <button
                 onClick={handleBulkApprove}
                 disabled={bulkApproveMutation.isPending}
-                className="min-h-[36px] px-6 rounded-[5px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors disabled:opacity-50"
+                className="min-h-[36px] px-6 rounded bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors disabled:opacity-50"
               >
                 {t("action.bulkApprove")}
               </button>
               <button
                 onClick={() => setBulkRejectOpen(true)}
                 disabled={bulkRejectMutation.isPending}
-                className="min-h-[36px] px-6 rounded-[5px] bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors disabled:opacity-50"
+                className="min-h-[36px] px-6 rounded bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors disabled:opacity-50"
               >
                 {t("action.bulkReject")}
               </button>

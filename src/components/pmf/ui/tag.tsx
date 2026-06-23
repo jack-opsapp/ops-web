@@ -19,7 +19,7 @@ export function Tag({ children, variant = 'default', className }: TagProps) {
     <span className={cn(
       'inline-flex items-center gap-1',
       'font-mono font-medium uppercase text-[11px] tracking-[0.12em]',
-      'px-1.5 py-0.5 rounded-[2.5px] border',
+      'px-1.5 py-0.5 rounded-sm border',
       VARIANT[variant],
       className,
     )}>

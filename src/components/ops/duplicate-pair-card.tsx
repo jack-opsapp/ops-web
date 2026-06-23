@@ -43,7 +43,7 @@ export function DuplicatePairCard({
       {/* Header: confidence + signals */}
       <div className="mb-3 flex flex-wrap items-center gap-1.5">
         <span
-          className={`rounded-[2px] px-2 py-0.5 font-mono text-micro uppercase tracking-wider ${
+          className={`rounded-bar px-2 py-0.5 font-mono text-micro uppercase tracking-wider ${
             confidence === "high"
               ? "bg-red-500/20 text-red-400"
               : "bg-amber-500/20 text-amber-400"
@@ -54,7 +54,7 @@ export function DuplicatePairCard({
         {signals.map((s, i) => (
           <span
             key={i}
-            className="rounded-[2px] bg-white/5 px-2 py-0.5 font-mono text-micro text-white/50"
+            className="rounded-bar bg-white/5 px-2 py-0.5 font-mono text-micro text-white/50"
           >
             {t(`signals.${s.type}`) || s.type}
           </span>

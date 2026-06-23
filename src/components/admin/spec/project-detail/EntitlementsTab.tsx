@@ -45,7 +45,7 @@ export function EntitlementsTab({ data, projectId }: EntitlementsTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Entitlements summary"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
@@ -97,7 +97,7 @@ function EntitlementCard({ row, projectId }: { row: SpecEntitlementRow; projectI
   return (
     <article
       aria-label={`Entitlement: ${row.moduleKey}`}
-      className={`rounded-[10px] border bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px] ${
+      className={`rounded-panel border bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px] ${
         row.enabled ? "border-[#9DB582]/30" : row.disabledReason && ["refunded", "subscription_lapse"].includes(row.disabledReason) ? "border-[#93321A]/40" : "border-white/[0.10]"
       }`}
     >
@@ -123,7 +123,7 @@ function EntitlementCard({ row, projectId }: { row: SpecEntitlementRow; projectI
             <button
               type="button"
               onClick={() => setConfirmOpen(confirmOpen === "disable" ? null : "disable")}
-              className="rounded-[5px] border border-[#B58289] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289] hover:text-black"
+              className="rounded border border-[#B58289] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289] hover:text-black"
             >
               DISABLE
             </button>
@@ -131,7 +131,7 @@ function EntitlementCard({ row, projectId }: { row: SpecEntitlementRow; projectI
             <button
               type="button"
               onClick={() => setConfirmOpen(confirmOpen === "enable" ? null : "enable")}
-              className="rounded-[5px] border border-[#9DB582] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#9DB582] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#9DB582] hover:text-black"
+              className="rounded border border-[#9DB582] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#9DB582] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#9DB582] hover:text-black"
             >
               RE-ENABLE
             </button>
@@ -195,7 +195,7 @@ function DisableForm({
   return (
     <form
       action={toggleEntitlement}
-      className="mt-4 space-y-3 rounded-[5px] border border-[#93321A]/50 bg-[#93321A]/[0.06] p-4"
+      className="mt-4 space-y-3 rounded border border-[#93321A]/50 bg-[#93321A]/[0.06] p-4"
     >
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="entitlement_id" value={row.id} />
@@ -222,7 +222,7 @@ function DisableForm({
           name="disabled_reason"
           required
           defaultValue="customer_request"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#B58289]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#B58289]"
         >
           {operatorReasons.map((r) => (
             <option key={r} value={r}>
@@ -240,7 +240,7 @@ function DisableForm({
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          className="rounded-[5px] border border-[#B58289] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289] hover:text-black"
+          className="rounded border border-[#B58289] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289] hover:text-black"
         >
           CONFIRM DISABLE
         </button>
@@ -268,7 +268,7 @@ function EnableForm({
   return (
     <form
       action={toggleEntitlement}
-      className="mt-4 space-y-3 rounded-[5px] border border-[#9DB582]/50 bg-[#9DB582]/[0.06] p-4"
+      className="mt-4 space-y-3 rounded border border-[#9DB582]/50 bg-[#9DB582]/[0.06] p-4"
     >
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="entitlement_id" value={row.id} />
@@ -288,7 +288,7 @@ function EnableForm({
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          className="rounded-[5px] border border-[#9DB582] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#9DB582] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#9DB582] hover:text-black"
+          className="rounded border border-[#9DB582] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#9DB582] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#9DB582] hover:text-black"
         >
           CONFIRM RE-ENABLE
         </button>
@@ -307,7 +307,7 @@ function EnableForm({
 function Pill({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <span
-      className={`rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${className ?? ""}`}
+      className={`rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${className ?? ""}`}
     >
       {children}
     </span>
@@ -342,7 +342,7 @@ function Field({
 
 function EmptyState() {
   return (
-    <div className="rounded-[10px] border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
         — no entitlements reserved yet
       </p>

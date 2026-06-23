@@ -85,13 +85,13 @@ export function FirstRunStation({
           <div className="flex gap-2 shrink-0">
             <button
               onClick={onEngage}
-              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded-[5px] border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors"
+              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors"
             >
               {t(`firstRun.stations.${stationKey}.actionEngage`)}
             </button>
             <button
               onClick={onSkip}
-              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded-[5px] text-text-mute hover:text-text-2 transition-colors"
+              className="font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded text-text-mute hover:text-text-2 transition-colors"
             >
               {t(`firstRun.stations.${stationKey}.actionSkip`)}
             </button>

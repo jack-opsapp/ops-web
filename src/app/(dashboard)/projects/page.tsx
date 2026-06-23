@@ -921,7 +921,7 @@ export default function ProjectsPage() {
             <MetricsHeader variant="compact" tabId="map" title="Map" metrics={mapMetrics} isLoading={mapMetricsLoading} />
           </div>
           <div className="px-3 py-1.5">
-            <div className="inline-flex max-w-full overflow-x-auto overscroll-x-contain py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
+            <div className="inline-flex max-w-full overflow-x-auto overscroll-x-contain py-[2px] rounded-chip border border-[rgba(255,255,255,0.08)]"
               style={{
                 background: "rgba(10, 10, 10, 0.50)",
                 backdropFilter: "blur(12px) saturate(1.1)",
@@ -944,7 +944,7 @@ export default function ProjectsPage() {
             <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
           </div>
           <div className="pointer-events-auto px-3 py-1.5">
-            <div className="inline-flex max-w-full overflow-x-auto overscroll-x-contain py-[2px] rounded-[4px] border border-[rgba(255,255,255,0.08)]"
+            <div className="inline-flex max-w-full overflow-x-auto overscroll-x-contain py-[2px] rounded-chip border border-[rgba(255,255,255,0.08)]"
               style={{
                 background: "rgba(10, 10, 10, 0.50)",
                 backdropFilter: "blur(12px) saturate(1.1)",

@@ -22,13 +22,13 @@ export function MiniProgressBar({ value, color }: MiniProgressBarProps) {
 
   return (
     <div
-      className="mt-2 h-[4px] rounded-[2px]"
+      className="mt-2 h-[4px] rounded-bar"
       style={{ background: "rgba(255,255,255,0.06)" }}
       role="img"
       aria-label={`${Math.round(value)}%`}
     >
       <div
-        className="h-full rounded-[2px]"
+        className="h-full rounded-bar"
         style={{
           width: reducedMotion ? `${clamped}%` : `${width}%`,
           background: color,

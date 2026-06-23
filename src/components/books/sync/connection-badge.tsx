@@ -39,7 +39,7 @@ export function ConnectionBadge({
       onClick={onClick}
       aria-haspopup="dialog"
       className={cn(
-        "inline-flex h-[28px] items-center gap-[7px] rounded-[5px] border px-2.5",
+        "inline-flex h-[28px] items-center gap-[7px] rounded border px-2.5",
         "font-mono text-micro font-medium uppercase tracking-[0.12em]",
         "transition-colors duration-150 ease-smooth",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",

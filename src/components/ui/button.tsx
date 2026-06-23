@@ -11,7 +11,7 @@ const buttonVariants = cva(
     // size. Heights vary; the label voice does not. `text-cake-button` is the
     // named 14px/300 Cake token (font-light kept for explicitness).
     "font-cakemono font-light text-cake-button uppercase whitespace-nowrap",
-    "rounded-[5px] transition-all duration-150",
+    "rounded transition-all duration-150",
     "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
     "disabled:pointer-events-none disabled:opacity-40",
     "no-select cursor-pointer",

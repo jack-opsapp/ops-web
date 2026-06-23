@@ -58,7 +58,7 @@ export function TemplatePreviewTab({ templateId, initialProps }: Props) {
           onChange={(e) => setPropsText(e.target.value)}
           rows={22}
           spellCheck={false}
-          className="w-full bg-white/[0.04] border border-white/[0.10] px-3 py-2 font-mono text-[12px] text-[#EDEDED] focus:outline-none focus:border-ops-accent rounded-[5px]"
+          className="w-full bg-white/[0.04] border border-white/[0.10] px-3 py-2 font-mono text-[12px] text-[#EDEDED] focus:outline-none focus:border-ops-accent rounded"
           style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
         />
         {error && (
@@ -78,7 +78,7 @@ export function TemplatePreviewTab({ templateId, initialProps }: Props) {
         </div>
         <iframe
           srcDoc={html}
-          className="w-full border border-white/[0.10] rounded-[5px]"
+          className="w-full border border-white/[0.10] rounded"
           style={{ height: "640px", background: "#fff" }}
           title="Email preview"
           sandbox=""

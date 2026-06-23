@@ -119,7 +119,7 @@ export function CellStageAction({
           event.stopPropagation();
           setOpen((value) => !value);
         }}
-        className="flex h-full w-full min-w-0 items-center rounded-[5px] px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent"
+        className="flex h-full w-full min-w-0 items-center rounded px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent"
       >
         <CellStage stage={stage} />
       </button>

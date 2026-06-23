@@ -212,7 +212,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
   return (
     <div className="space-y-3">
       {/* ─── Autonomy Level Status ─────────────────────────────────────── */}
-      <div className="px-3 py-2.5 rounded-[8px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+      <div className="px-3 py-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
         {/* Header */}
         <div className="flex items-center gap-2 mb-2">
           <CurrentIcon className="w-[14px] h-[14px] text-[#6F94B0]" />
@@ -281,7 +281,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
       </div>
 
       {/* ─── Auto-Draft Toggle ─────────────────────────────────────────── */}
-      <div className="px-3 py-2.5 rounded-[8px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+      <div className="px-3 py-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <Zap className="w-[14px] h-[14px] text-[#6F94B0]" />

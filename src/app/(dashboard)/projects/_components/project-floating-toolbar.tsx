@@ -184,7 +184,7 @@ export function ProjectFloatingToolbar({
             Filter
           </span>
           {hasActiveFilter && (
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-[4px] border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-mono text-micro text-text">
+            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-chip border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-mono text-micro text-text">
               {(selectedMemberId ? 1 : 0) + (selectedClientId ? 1 : 0)}
             </span>
           )}
@@ -192,7 +192,7 @@ export function ProjectFloatingToolbar({
 
         {showFilterMenu && (
           <div
-            className="absolute top-full left-0 mt-1 z-50 min-w-[200px] p-2 rounded-[4px] space-y-2"
+            className="absolute top-full left-0 mt-1 z-50 min-w-[200px] p-2 rounded-chip space-y-2"
             style={{
               background: "var(--surface-glass-dense)",
               backdropFilter: "blur(28px) saturate(1.3)",
@@ -206,7 +206,7 @@ export function ProjectFloatingToolbar({
               <select
                 value={selectedMemberId ?? ""}
                 onChange={(e) => onMemberFilterChange(e.target.value || null)}
-                className="w-full mt-1 px-2 py-1.5 rounded-[2px] font-mohave text-[12px] text-text-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
+                className="w-full mt-1 px-2 py-1.5 rounded-bar font-mohave text-[12px] text-text-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
               >
                 <option value="">All</option>
                 {teamMembers.map((m) => (
@@ -221,7 +221,7 @@ export function ProjectFloatingToolbar({
               <select
                 value={selectedClientId ?? ""}
                 onChange={(e) => onClientFilterChange(e.target.value || null)}
-                className="w-full mt-1 px-2 py-1.5 rounded-[2px] font-mohave text-[12px] text-text-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
+                className="w-full mt-1 px-2 py-1.5 rounded-bar font-mohave text-[12px] text-text-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
               >
                 <option value="">All</option>
                 {clients.map((c) => (
@@ -236,7 +236,7 @@ export function ProjectFloatingToolbar({
                   onClientFilterChange(null);
                   setShowFilterMenu(false);
                 }}
-                className="w-full px-2 py-1.5 rounded-[2px] font-mono text-micro text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors text-center"
+                className="w-full px-2 py-1.5 rounded-bar font-mono text-micro text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors text-center"
               >
                 Clear filters
               </button>
@@ -289,7 +289,7 @@ export function ProjectFloatingToolbar({
 
             {showSortMenu && (
               <div
-                className="absolute top-full left-0 mt-1 z-50 min-w-[120px] p-1 rounded-[4px]"
+                className="absolute top-full left-0 mt-1 z-50 min-w-[120px] p-1 rounded-chip"
                 style={{
                   background: "var(--surface-glass-dense)",
                   backdropFilter: "blur(28px) saturate(1.3)",
@@ -301,7 +301,7 @@ export function ProjectFloatingToolbar({
                     key={opt.value}
                     onClick={() => { setSortBy(opt.value); setShowSortMenu(false); }}
                     className={cn(
-                      "flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] transition-colors",
+                      "flex items-center gap-2 w-full px-2 py-1.5 rounded-bar transition-colors",
                       sortBy === opt.value
                         ? "text-text bg-[rgba(255,255,255,0.08)]"
                         : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
@@ -335,7 +335,7 @@ export function ProjectFloatingToolbar({
                 </ToolbarAction>
                 {showBulkStatusMenu && (
                   <div
-                    className="absolute top-full left-0 mt-1 z-50 min-w-[140px] p-1 rounded-[4px]"
+                    className="absolute top-full left-0 mt-1 z-50 min-w-[140px] p-1 rounded-chip"
                     style={{
                       background: "var(--surface-glass-dense)",
                       backdropFilter: "blur(28px) saturate(1.3)",
@@ -346,7 +346,7 @@ export function ProjectFloatingToolbar({
                       <button
                         key={s}
                         onClick={() => { onBulkChangeStatus(s); setShowBulkStatusMenu(false); }}
-                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded-bar text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
                       >
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PROJECT_STATUS_COLORS[s] }} />
                         <span className="font-mohave text-body-sm">{getProjectStatusDisplayName(s)}</span>

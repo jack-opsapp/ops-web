@@ -73,7 +73,7 @@ export function NeedsInputBand({
             <button
               type="button"
               onClick={() => onAction("type-reply")}
-              className="inline-flex h-6 items-center rounded-[2.5px] px-2.5 font-mohave text-[12px] italic text-text-3 transition-colors hover:text-text-2"
+              className="inline-flex h-6 items-center rounded-sm px-2.5 font-mohave text-[12px] italic text-text-3 transition-colors hover:text-text-2"
             >
               {t("bands.needsInput.typeReplyEscape", "type a reply…")}
             </button>
@@ -83,7 +83,7 @@ export function NeedsInputBand({
             <button
               type="button"
               onClick={() => onAction("provide-answer")}
-              className="inline-flex h-[28px] items-center rounded-[2.5px] border border-agent bg-agent/[0.18] px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-agent-hi transition-colors hover:bg-agent/[0.30]"
+              className="inline-flex h-[28px] items-center rounded-sm border border-agent bg-agent/[0.18] px-3 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-agent-hi transition-colors hover:bg-agent/[0.30]"
             >
               {t("bands.needsInput.provideAnswerButton", "PROVIDE ANSWER")}
             </button>

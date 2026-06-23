@@ -211,7 +211,7 @@ function MemberActionsMenu({
           <button
             type="button"
             aria-label={t("team.actions")}
-            className="rounded-[5px] p-[6px] text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+            className="rounded p-[6px] text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
           >
             <MoreHorizontal className="h-[16px] w-[16px]" />
           </button>
@@ -394,7 +394,7 @@ function PendingInvitesSection() {
               <button
                 type="button"
                 aria-label={t("team.actions")}
-                className="rounded-[5px] p-[6px] text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                className="rounded p-[6px] text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
               >
                 <MoreHorizontal className="h-[16px] w-[16px]" />
               </button>
@@ -711,9 +711,9 @@ export function TeamSection() {
                     {seatedN}
                     <span className="text-text-3">/{maxSeats}</span>
                   </TileHero>
-                  <div className="mt-2 h-[3px] overflow-hidden rounded-[2px] bg-fill-neutral-dim">
+                  <div className="mt-2 h-[3px] overflow-hidden rounded-bar bg-fill-neutral-dim">
                     <div
-                      className={cn("h-full rounded-[2px] transition-[width] duration-200 ease-smooth", seatsFull ? "bg-rose" : "bg-fill-neutral")}
+                      className={cn("h-full rounded-bar transition-[width] duration-200 ease-smooth", seatsFull ? "bg-rose" : "bg-fill-neutral")}
                       style={{ width: `${Math.min(100, Math.round((seatedCount / maxSeats) * 100))}%` }}
                     />
                   </div>

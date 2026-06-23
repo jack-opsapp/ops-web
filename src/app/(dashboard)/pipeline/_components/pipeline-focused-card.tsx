@@ -276,7 +276,7 @@ function QuickStageButton({
         } as CSSProperties
       }
       className={cn(
-        "group inline-flex h-[28px] max-w-[132px] min-w-0 items-center gap-[5px] rounded-[5px] border px-[7px] font-cakemono text-cake-badge font-light uppercase leading-none",
+        "group inline-flex h-[28px] max-w-[132px] min-w-0 items-center gap-[5px] rounded border px-[7px] font-cakemono text-cake-badge font-light uppercase leading-none",
         "border-line bg-transparent text-text-3 transition-[background-color,border-color,color,opacity] duration-150",
         "hover:border-[var(--target-stage)] hover:bg-[var(--target-stage-hover)] hover:text-text",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
@@ -332,7 +332,7 @@ function FocusedStageMenu({
         title={t("card.stageMenuLabel", "Choose stage")}
         disabled={!canManage}
         className={cn(
-          "inline-flex h-[28px] items-center gap-[5px] rounded-[5px] border border-line bg-transparent px-[7px] font-cakemono text-cake-badge font-light uppercase leading-none text-text-3",
+          "inline-flex h-[28px] items-center gap-[5px] rounded border border-line bg-transparent px-[7px] font-cakemono text-cake-badge font-light uppercase leading-none text-text-3",
           "transition-[background-color,border-color,color,opacity] duration-150 hover:border-line-hi hover:bg-surface-hover hover:text-text",
           "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
           !canManage && "cursor-not-allowed opacity-40"
@@ -468,7 +468,7 @@ function StageMenuItem({
       type="button"
       role="menuitem"
       aria-label={label}
-      className="group flex w-full items-center gap-2 rounded-[5px] px-2 py-[6px] text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+      className="group flex w-full items-center gap-2 rounded px-2 py-[6px] text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
       onClick={(event) => {
         event.stopPropagation();
         onMoveStage(stage);

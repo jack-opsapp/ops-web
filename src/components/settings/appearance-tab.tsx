@@ -90,7 +90,7 @@ export function AppearanceTab() {
                     toast.success(`${t("appearance.toast.accent")} ${color.name}`);
                   }}
                   className={cn(
-                    "relative flex items-center gap-[6px] px-1.5 py-[8px] rounded-[5px] border transition-all",
+                    "relative flex items-center gap-[6px] px-1.5 py-[8px] rounded border transition-all",
                     isActive
                       ? "border-[rgba(255,255,255,0.18)] bg-surface-active"
                       : "border-border hover:border-border-medium"

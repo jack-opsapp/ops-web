@@ -137,7 +137,7 @@ export function RecoverFlow({ oobCode }: RecoverFlowProps) {
           type="button"
           onClick={handleRevert}
           disabled={state.kind === "applying"}
-          className="w-full rounded-[5px] font-cakemono font-light uppercase text-ops-accent border border-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full rounded font-cakemono font-light uppercase text-ops-accent border border-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-60 disabled:cursor-not-allowed"
           style={{
             minHeight: "60px",
             fontSize: "13px",

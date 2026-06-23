@@ -495,7 +495,7 @@ export function ProjectsTableShell() {
                   onClick={() => {
                     void persistPendingViewDefinition();
                   }}
-                  className="inline-flex h-[28px] items-center gap-1 rounded-[5px] border border-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
+                  className="inline-flex h-[28px] items-center gap-1 rounded border border-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
                 >
                   <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
                   {t("table.views.save")}

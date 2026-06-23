@@ -111,7 +111,7 @@ export default async function ProcessedRefundDetailPage({ params }: PageProps) {
             No breakdown recorded for this refund.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-[10px] border border-white/[0.09] bg-[#121214]/[0.58] backdrop-blur-[28px]">
+          <div className="overflow-x-auto rounded-panel border border-white/[0.09] bg-[#121214]/[0.58] backdrop-blur-[28px]">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-white/[0.08]">

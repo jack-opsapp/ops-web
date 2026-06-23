@@ -108,7 +108,7 @@ export function EditableCellClient({
           }
         }}
         className={cn(
-          "flex h-full w-full min-w-0 items-center rounded-[5px] px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent",
+          "flex h-full w-full min-w-0 items-center rounded px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent",
           saveState === "saving" && "opacity-70",
           saveState === "saved" && "bg-surface-active",
         )}
@@ -122,7 +122,7 @@ export function EditableCellClient({
           aria-label={t("table.cell.client.title")}
           className="glass-dense absolute left-0 top-full z-[1000] mt-1 w-[280px] rounded-modal border border-border p-2"
         >
-          <label className="flex h-7 items-center gap-1.5 rounded-[5px] border border-border bg-surface-input px-2 focus-within:ring-1 focus-within:ring-ops-accent">
+          <label className="flex h-7 items-center gap-1.5 rounded border border-border bg-surface-input px-2 focus-within:ring-1 focus-within:ring-ops-accent">
             <Search className="h-3 w-3 shrink-0 text-text-3" strokeWidth={1.5} />
             <input
               ref={searchInputRef}
@@ -146,7 +146,7 @@ export function EditableCellClient({
                 void handleSelect(event, { clientId: null, clientName: null });
               }}
               className={cn(
-                "flex h-8 w-full min-w-0 items-center gap-2 rounded-[5px] px-2 text-left font-mono text-micro uppercase transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                "flex h-8 w-full min-w-0 items-center gap-2 rounded px-2 text-left font-mono text-micro uppercase transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
                 clientId == null ? "bg-surface-active text-text" : "text-text-2",
               )}
             >
@@ -171,7 +171,7 @@ export function EditableCellClient({
                     });
                   }}
                   className={cn(
-                    "flex h-8 w-full min-w-0 items-center gap-2 rounded-[5px] px-2 text-left font-mono text-micro uppercase transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                    "flex h-8 w-full min-w-0 items-center gap-2 rounded px-2 text-left font-mono text-micro uppercase transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
                     selected ? "bg-surface-active text-text" : "text-text-2",
                   )}
                 >

@@ -131,7 +131,7 @@ export function TileSub({ children }: { children: ReactNode }) {
 
 export function ScopeBadge({ children }: { children: ReactNode }) {
   return (
-    <span className="rounded-[4px] border border-border px-[5px] py-px font-mono text-micro uppercase tracking-[0.14em] text-text-3">
+    <span className="rounded-chip border border-border px-[5px] py-px font-mono text-micro uppercase tracking-[0.14em] text-text-3">
       {children}
     </span>
   );

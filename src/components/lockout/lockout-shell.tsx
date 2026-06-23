@@ -46,18 +46,18 @@ export function LockoutShell({
         isPage
           ? "glass-surface w-full max-w-[1080px] mx-auto p-6 md:p-8"
           : "glass-dense w-full max-w-[1080px] mx-auto p-6 md:p-8",
-        "rounded-[5px] overflow-hidden",
+        "rounded overflow-hidden",
         // Override the .glass-surface / .glass-dense ::before pseudo
         // (10/12px) to match the parent's 5px corner — otherwise the
         // gradient overlay paints in a wider band than the fill.
-        "[&::before]:rounded-[5px]"
+        "[&::before]:rounded"
       )}
     >
       {/* Top rail */}
       <div className="flex items-center justify-between gap-3 mb-4">
         <span
           className={cn(
-            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2.5px] border font-mono text-[11px] uppercase tracking-[0.12em]",
+            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm border font-mono text-[11px] uppercase tracking-[0.12em]",
             TONE_CLASSES[tag.tone]
           )}
         >

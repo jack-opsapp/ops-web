@@ -174,7 +174,7 @@ export function PipelineViewCreateDialog({
               <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
                 {t("table.views.nameLabel")}
               </span>
-              <span className="flex min-h-9 items-center gap-2 rounded-[5px] border border-border bg-surface-input px-2 focus-within:border-ops-accent">
+              <span className="flex min-h-9 items-center gap-2 rounded border border-border bg-surface-input px-2 focus-within:border-ops-accent">
                 <PanelTop className="h-3.5 w-3.5 shrink-0 text-text-3" />
                 <input
                   id={inputId}
@@ -197,7 +197,7 @@ export function PipelineViewCreateDialog({
                 <label
                   htmlFor={currentSourceId}
                   className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-[5px] border px-2 py-2 font-mohave text-body-sm transition-colors",
+                    "flex cursor-pointer items-center gap-2 rounded border px-2 py-2 font-mohave text-body-sm transition-colors",
                     source === "current"
                       ? "border-border bg-surface-active text-text"
                       : "border-border-subtle text-text-2 hover:bg-surface-hover hover:text-text",
@@ -218,7 +218,7 @@ export function PipelineViewCreateDialog({
                 <label
                   htmlFor={blankSourceId}
                   className={cn(
-                    "flex cursor-pointer items-center gap-2 rounded-[5px] border px-2 py-2 font-mohave text-body-sm transition-colors",
+                    "flex cursor-pointer items-center gap-2 rounded border px-2 py-2 font-mohave text-body-sm transition-colors",
                     source === "blank"
                       ? "border-border bg-surface-active text-text"
                       : "border-border-subtle text-text-2 hover:bg-surface-hover hover:text-text",
@@ -249,14 +249,14 @@ export function PipelineViewCreateDialog({
           <DialogFooter className="border-t border-border px-3 py-2">
             <DialogClose
               type="button"
-              className="rounded-[5px] px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              className="rounded px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
               {t("table.views.cancel")}
             </DialogClose>
             <button
               type="submit"
               disabled={pending}
-              className="rounded-[5px] border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
+              className="rounded border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
             >
               {t("table.views.create")}
             </button>

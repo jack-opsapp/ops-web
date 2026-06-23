@@ -389,7 +389,7 @@
   /* === Form Input === */
   .ops-input {
     @apply w-full text-text font-mohave text-body
-           px-1.5 py-1.5 rounded-[5px]
+           px-1.5 py-1.5 rounded
            transition-all duration-150
            placeholder:text-text-3;
     background: rgba(255, 255, 255, 0.04);

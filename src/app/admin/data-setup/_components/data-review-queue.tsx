@@ -314,7 +314,7 @@ function QueueRow({
                 href={`/dashboard?openProject=${openTarget}&mode=view`}
                 target="_blank"
                 rel="noreferrer"
-                className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded-[5px] border border-line text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150"
+                className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded border border-line text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150"
               >
                 {t("queue.action.open", "OPEN OPPORTUNITY")}
               </a>
@@ -324,7 +324,7 @@ function QueueRow({
                 type="button"
                 disabled={inFlight}
                 onClick={() => setLinkOpen((v) => !v)}
-                className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded-[5px] border border-line text-text-2 hover:border-border-medium transition-colors duration-150 disabled:opacity-40"
+                className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded border border-line text-text-2 hover:border-border-medium transition-colors duration-150 disabled:opacity-40"
               >
                 {resolveLink.isPending
                   ? t("queue.linking", "LINKING")
@@ -341,7 +341,7 @@ function QueueRow({
                 })
               }
               title={t("queue.quarantineHint", "mark reviewed · stays quarantined")}
-              className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded-[5px] border border-line text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150 disabled:opacity-40"
+              className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded border border-line text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150 disabled:opacity-40"
             >
               {quarantine.isPending
                 ? t("queue.quarantining", "QUARANTINING")
@@ -428,7 +428,7 @@ function LinkPicker({
               aria-checked={isSel}
               onClick={() => setSelected(c.opportunityId)}
               className={
-                "flex items-center justify-between gap-3 rounded-[5px] border px-3 py-2 text-left transition-colors duration-150 " +
+                "flex items-center justify-between gap-3 rounded border px-3 py-2 text-left transition-colors duration-150 " +
                 (isSel
                   ? "border-border-medium bg-surface-active"
                   : "border-line bg-surface-input hover:border-border-medium hover:bg-surface-hover")
@@ -462,7 +462,7 @@ function LinkPicker({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] px-3 rounded-[5px] border border-line bg-surface-hover text-text-3 hover:text-text-2 transition-colors duration-150 disabled:opacity-40"
+            className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] px-3 rounded border border-line bg-surface-hover text-text-3 hover:text-text-2 transition-colors duration-150 disabled:opacity-40"
           >
             {t("queue.action.cancel", "// CANCEL")}
           </button>
@@ -471,7 +471,7 @@ function LinkPicker({
             type="button"
             disabled={!selected || busy}
             onClick={() => selected && onConfirm(selected)}
-            className="font-cakemono font-light uppercase text-[13px] tracking-[0.06em] min-h-[36px] px-4 rounded-[5px] border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors duration-150 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ops-accent"
+            className="font-cakemono font-light uppercase text-[13px] tracking-[0.06em] min-h-[36px] px-4 rounded border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors duration-150 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ops-accent"
           >
             {busy
               ? t("queue.linking", "LINKING")
@@ -591,7 +591,7 @@ function LoadingState({ label }: { label: string }) {
       {[0, 1, 2, 3, 4].map((i) => (
         <div
           key={i}
-          className="h-[40px] rounded-[5px] bg-fill-neutral-dim motion-safe:animate-pulse"
+          className="h-[40px] rounded bg-fill-neutral-dim motion-safe:animate-pulse"
         />
       ))}
     </div>
@@ -621,7 +621,7 @@ function ErrorState({
       <button
         type="button"
         onClick={onRetry}
-        className="self-start font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] px-3 rounded-[5px] border border-line bg-surface-hover text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150"
+        className="self-start font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] px-3 rounded border border-line bg-surface-hover text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150"
       >
         {retryLabel}
       </button>

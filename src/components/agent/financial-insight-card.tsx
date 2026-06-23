@@ -41,7 +41,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
+    <div className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] p-4">
       <h3 className="font-mohave text-[13px] text-text-3 uppercase tracking-wider mb-3">
         {title}
       </h3>
@@ -67,7 +67,7 @@ function CollapsibleSection({
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div className="rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
+    <div className="rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between p-4 min-h-[36px] text-left"
@@ -113,7 +113,7 @@ function StatBox({
   color?: string;
 }) {
   return (
-    <div className="flex-1 min-w-[100px] rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-3">
+    <div className="flex-1 min-w-[100px] rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-3">
       <span className="font-mono text-[11px] text-text-3 uppercase block">
         [{label}]
       </span>
@@ -152,7 +152,7 @@ function BarChart({
             {/* Fixed height container — bar scales via transform only */}
             <div className="w-full h-full relative">
               <div
-                className="absolute bottom-0 left-0 right-0 rounded-t-[2px]"
+                className="absolute bottom-0 left-0 right-0 rounded-t-bar"
                 style={{
                   height: `${heightPct}%`,
                   backgroundColor: d.isProjected
@@ -205,10 +205,10 @@ function ProjectionBar({
           {fmtCurrency(expected + pipeline, loc)}
         </span>
       </div>
-      <div className="flex gap-[2px] h-[6px] rounded-[2px] overflow-hidden bg-[rgba(255,255,255,0.04)]">
+      <div className="flex gap-[2px] h-[6px] rounded-bar overflow-hidden bg-[rgba(255,255,255,0.04)]">
         {expectedPct > 0 && (
           <div
-            className="h-full rounded-l-[2px]"
+            className="h-full rounded-l-bar"
             style={{ width: `${expectedPct}%`, backgroundColor: "#6F94B0" }}
           />
         )}
@@ -233,7 +233,7 @@ function HeatmapCell({ month, index }: { month: string; index: number }) {
   return (
     <div className="flex flex-col items-center gap-1">
       <div
-        className="w-full aspect-square rounded-[2px] border border-[rgba(255,255,255,0.06)]"
+        className="w-full aspect-square rounded-bar border border-[rgba(255,255,255,0.06)]"
         style={{ backgroundColor: `rgba(111, 148, 176, ${alpha})` }}
         title={`${month}: ${index}%`}
       />
@@ -286,7 +286,7 @@ function AlertRibbon({
         return (
           <div
             key={i}
-            className="rounded-[4px] px-3 py-2 text-[12px] font-mono"
+            className="rounded-chip px-3 py-2 text-[12px] font-mono"
             style={{
               borderLeft: `3px solid ${borderColor}`,
               backgroundColor: `${borderColor}10`,

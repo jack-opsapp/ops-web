@@ -192,7 +192,7 @@ export function ThreadColumnHeader({
                         event.stopPropagation();
                       }}
                       className={cn(
-                        "pointer-events-auto inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[2px] text-text-mute hover:text-text",
+                        "pointer-events-auto inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-bar text-text-mute hover:text-text",
                         isDefault && "text-text",
                       )}
                     >

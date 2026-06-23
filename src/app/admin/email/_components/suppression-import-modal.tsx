@@ -74,7 +74,7 @@ export function SuppressionImportModal({ open, onClose }: Props) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 16, opacity: 0 }}
             transition={{ duration: 0.32, ease: EASE_SMOOTH }}
-            className="w-full max-w-[480px] mx-4 p-6 rounded-[12px]"
+            className="w-full max-w-[480px] mx-4 p-6 rounded-modal"
             style={{
               background: "rgba(18,18,20,0.78)",
               backdropFilter: "blur(28px) saturate(1.3)",
@@ -99,7 +99,7 @@ export function SuppressionImportModal({ open, onClose }: Props) {
                 const f = e.dataTransfer.files[0];
                 if (f) void handleFile(f);
               }}
-              className="block p-8 rounded-[10px] text-left cursor-pointer"
+              className="block p-8 rounded-panel text-left cursor-pointer"
               style={{
                 border: `1px dashed ${
                   dragOver ? "#6F94B0" : "rgba(255,255,255,0.18)"
@@ -130,7 +130,7 @@ export function SuppressionImportModal({ open, onClose }: Props) {
                 <p>
                   [{progress.done}/{progress.total} processed — {progress.errors} errors]
                 </p>
-                <div className="h-[2px] bg-white/[0.06] rounded-[2px] overflow-hidden mt-2">
+                <div className="h-[2px] bg-white/[0.06] rounded-bar overflow-hidden mt-2">
                   <motion.div
                     className="h-full"
                     style={{ background: "#9DB582" }}

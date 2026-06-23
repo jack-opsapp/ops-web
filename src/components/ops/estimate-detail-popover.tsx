@@ -194,7 +194,7 @@ const EstimateDetailPopoverInstance = memo(
         className={cn(
           "fixed flex flex-col overflow-hidden",
           "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
-          "border border-[rgba(255,255,255,0.08)] rounded-[4px]",
+          "border border-[rgba(255,255,255,0.08)] rounded-chip",
           (isDragging || isResizing) && "select-none"
         )}
         style={{
@@ -223,13 +223,13 @@ const EstimateDetailPopoverInstance = memo(
           <div className="flex items-center gap-[2px] shrink-0 ml-2">
             <button
               onClick={() => minimizePopover(state.id)}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+              className="w-5 h-5 rounded-bar flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
             >
               <Minus className="w-3 h-3" />
             </button>
             <button
               onClick={() => closePopover(state.id)}
-              className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+              className="w-5 h-5 rounded-bar flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
             >
               <X className="w-3 h-3" />
             </button>

@@ -119,7 +119,7 @@ export function FlowGalaxyOverlay({
         {/* Device toggle */}
         <div className="flex items-center gap-2 mb-3">
           <span className="font-mono text-micro uppercase text-[#6B6B6B]">Device</span>
-          <div className="flex gap-0 border border-white/[0.08] rounded-[2px] overflow-hidden">
+          <div className="flex gap-0 border border-white/[0.08] rounded-bar overflow-hidden">
             {['all', 'mobile', 'desktop', 'tablet'].map(d => (
               <button
                 key={d}
@@ -189,13 +189,13 @@ export function FlowGalaxyOverlay({
         <div className="flex gap-2 border-t border-white/[0.05] pt-3">
           <button
             onClick={() => onTraceDownstream(node.id)}
-            className="flex-1 py-1.5 border border-[#6F94B0]/30 rounded-[2px] font-mohave text-micro uppercase tracking-wider text-[#6F94B0] hover:bg-ops-accent/10 transition-colors"
+            className="flex-1 py-1.5 border border-[#6F94B0]/30 rounded-bar font-mohave text-micro uppercase tracking-wider text-[#6F94B0] hover:bg-ops-accent/10 transition-colors"
           >
             Trace Flow ↓
           </button>
           <button
             onClick={() => onTraceUpstream(node.id)}
-            className="flex-1 py-1.5 border border-[#6F94B0]/30 rounded-[2px] font-mohave text-micro uppercase tracking-wider text-[#6F94B0] hover:bg-ops-accent/10 transition-colors"
+            className="flex-1 py-1.5 border border-[#6F94B0]/30 rounded-bar font-mohave text-micro uppercase tracking-wider text-[#6F94B0] hover:bg-ops-accent/10 transition-colors"
           >
             Trace Upstream ↑
           </button>

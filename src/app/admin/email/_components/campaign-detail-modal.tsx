@@ -127,7 +127,7 @@ export function CampaignDetailModal({ campaignId, onClose }: Props) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="campaign-detail-title"
-            className="w-full max-w-[720px] max-h-[80vh] overflow-y-auto p-6 rounded-[12px]"
+            className="w-full max-w-[720px] max-h-[80vh] overflow-y-auto p-6 rounded-modal"
             style={{
               background: "rgba(18,18,20,0.78)",
               backdropFilter: "blur(28px) saturate(1.3)",
@@ -182,7 +182,7 @@ export function CampaignDetailModal({ campaignId, onClose }: Props) {
                   <button
                     onClick={() => pause.mutate()}
                     disabled={pause.isPending}
-                    className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#C4A868] border border-[#C4A868]/40 px-2 py-1 rounded-[4px] hover:bg-[#C4A868]/10 disabled:opacity-40 transition-colors"
+                    className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#C4A868] border border-[#C4A868]/40 px-2 py-1 rounded-chip hover:bg-[#C4A868]/10 disabled:opacity-40 transition-colors"
                   >
                     {pause.isPending ? "PAUSING…" : "PAUSE"}
                   </button>
@@ -191,7 +191,7 @@ export function CampaignDetailModal({ campaignId, onClose }: Props) {
                   <button
                     onClick={() => resume.mutate()}
                     disabled={resume.isPending}
-                    className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#9DB582] border border-[#9DB582]/40 px-2 py-1 rounded-[4px] hover:bg-[#9DB582]/10 disabled:opacity-40 transition-colors"
+                    className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#9DB582] border border-[#9DB582]/40 px-2 py-1 rounded-chip hover:bg-[#9DB582]/10 disabled:opacity-40 transition-colors"
                   >
                     {resume.isPending ? "RESUMING…" : "RESUME"}
                   </button>
@@ -200,7 +200,7 @@ export function CampaignDetailModal({ campaignId, onClose }: Props) {
                   <button
                     onClick={() => cancel.mutate()}
                     disabled={cancel.isPending}
-                    className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B58289] border border-[#93321A]/50 px-2 py-1 rounded-[4px] hover:bg-[#93321A]/10 disabled:opacity-40 transition-colors"
+                    className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B58289] border border-[#93321A]/50 px-2 py-1 rounded-chip hover:bg-[#93321A]/10 disabled:opacity-40 transition-colors"
                   >
                     {cancel.isPending ? "CANCELLING…" : "CANCEL"}
                   </button>

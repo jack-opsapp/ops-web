@@ -111,7 +111,7 @@ export function ProjectTerminalRegion({
       {/* Region glow — hidden in bird's eye */}
       {!isBirdEye && (
         <div
-          className="absolute inset-0 pointer-events-none rounded-[4px]"
+          className="absolute inset-0 pointer-events-none rounded-chip"
           style={{
             boxShadow: `inset 0 0 60px ${statusColor}${glowOpacity}`,
             transition: "box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -218,7 +218,7 @@ export function ProjectTerminalRegion({
       {/* Empty state — hidden in bird's eye */}
       {projects.length === 0 && !isBirdEye && (
         <div
-          className="flex items-center justify-center border border-dashed border-[rgba(255,255,255,0.06)] rounded-[4px]"
+          className="flex items-center justify-center border border-dashed border-[rgba(255,255,255,0.06)] rounded-chip"
           style={{
             marginLeft: 20,
             marginRight: 20,

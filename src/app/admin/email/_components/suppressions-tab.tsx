@@ -85,13 +85,13 @@ export function SuppressionsTab() {
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setAddOpen(true)}
-            className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black px-3 py-1.5 rounded-[5px]"
+            className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black px-3 py-1.5 rounded"
           >
             BULK ADD
           </button>
           <button
             onClick={() => setImportOpen(true)}
-            className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] border border-white/10 hover:bg-white/[0.05] px-3 py-1.5 rounded-[5px]"
+            className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] border border-white/10 hover:bg-white/[0.05] px-3 py-1.5 rounded"
           >
             IMPORT CSV
           </button>
@@ -99,14 +99,14 @@ export function SuppressionsTab() {
             onClick={() => {
               window.location.href = "/api/admin/email/suppressions/export";
             }}
-            className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] border border-white/10 hover:bg-white/[0.05] px-3 py-1.5 rounded-[5px]"
+            className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] border border-white/10 hover:bg-white/[0.05] px-3 py-1.5 rounded"
           >
             EXPORT
           </button>
           {selected.size > 0 && (
             <button
               onClick={() => removeSelected.mutate()}
-              className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B58289] border border-[#93321A]/50 hover:bg-[#93321A]/10 px-3 py-1.5 rounded-[5px]"
+              className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B58289] border border-[#93321A]/50 hover:bg-[#93321A]/10 px-3 py-1.5 rounded"
             >
               REMOVE [{selected.size}]
             </button>
@@ -122,7 +122,7 @@ export function SuppressionsTab() {
             setPage(0);
           }}
           placeholder="search email…"
-          className="flex-1 font-mono text-[12px] bg-transparent border border-white/10 rounded-[5px] px-3 py-1.5 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
+          className="flex-1 font-mono text-[12px] bg-transparent border border-white/10 rounded px-3 py-1.5 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
         />
         <select
           value={reason}
@@ -130,7 +130,7 @@ export function SuppressionsTab() {
             setReason(e.target.value);
             setPage(0);
           }}
-          className="font-mohave text-[13px] bg-transparent border border-white/10 rounded-[5px] px-2 py-1 text-[#EDEDED]"
+          className="font-mohave text-[13px] bg-transparent border border-white/10 rounded px-2 py-1 text-[#EDEDED]"
         >
           <option value="" className="bg-black">all reasons</option>
           <option value="hard_bounce" className="bg-black">hard bounce</option>
@@ -141,7 +141,7 @@ export function SuppressionsTab() {
       </div>
 
       <div
-        className="rounded-[10px] overflow-hidden"
+        className="rounded-panel overflow-hidden"
         style={{ border: "1px solid rgba(255,255,255,0.06)" }}
       >
         <div
@@ -210,14 +210,14 @@ export function SuppressionsTab() {
           <button
             disabled={page === 0}
             onClick={() => setPage((p) => Math.max(p - 1, 0))}
-            className="px-3 py-1 border border-white/10 rounded-[4px] disabled:opacity-30 hover:bg-white/[0.05]"
+            className="px-3 py-1 border border-white/10 rounded-chip disabled:opacity-30 hover:bg-white/[0.05]"
           >
             PREV
           </button>
           <button
             disabled={page >= totalPages - 1}
             onClick={() => setPage((p) => p + 1)}
-            className="px-3 py-1 border border-white/10 rounded-[4px] disabled:opacity-30 hover:bg-white/[0.05]"
+            className="px-3 py-1 border border-white/10 rounded-chip disabled:opacity-30 hover:bg-white/[0.05]"
           >
             NEXT
           </button>

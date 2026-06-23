@@ -894,7 +894,7 @@ export const ActionCard = memo(function ActionCard({
       layout={!shouldReduceMotion}
       {...motionProps}
       className={cn(
-        "rounded-[8px] border border-l-[3px] transition-colors duration-150",
+        "rounded-lg border border-l-[3px] transition-colors duration-150",
         PRIORITY_BORDER[action.priority] ?? PRIORITY_BORDER.normal,
         // Fix 21: selected border uses neutral instead of accent
         selected
@@ -914,7 +914,7 @@ export const ActionCard = memo(function ActionCard({
           >
             <div
               className={cn(
-                "w-[20px] h-[20px] rounded-[2px] border transition-colors",
+                "w-[20px] h-[20px] rounded-bar border transition-colors",
                 // Fix 21: checkbox is the ONE accent element (selection indicator)
                 selected
                   ? "bg-text-2 border-[rgba(255,255,255,0.30)]"
@@ -927,7 +927,7 @@ export const ActionCard = memo(function ActionCard({
         )}
 
         {/* Type icon */}
-        <div className="shrink-0 w-[32px] h-[32px] rounded-[4px] bg-[rgba(255,255,255,0.04)] flex items-center justify-center mt-3">
+        <div className="shrink-0 w-[32px] h-[32px] rounded-chip bg-[rgba(255,255,255,0.04)] flex items-center justify-center mt-3">
           <Icon className="w-[16px] h-[16px] text-text-2" />
         </div>
 
@@ -1424,13 +1424,13 @@ export const ActionCard = memo(function ActionCard({
             <div className="flex items-center gap-1">
               <button
                 onClick={handleApproveWithEdits}
-                className="min-h-[36px] px-4 rounded-[5px] bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors"
+                className="min-h-[36px] px-4 rounded bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors"
               >
                 {isFinancialInsight ? t("financial.action.acknowledge") : t("action.approve")}
               </button>
               <button
                 onClick={() => onReject(action.id)}
-                className="min-h-[36px] px-4 rounded-[5px] bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors"
+                className="min-h-[36px] px-4 rounded bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors"
               >
                 {isFinancialInsight ? t("financial.action.dismiss") : t("action.reject")}
               </button>
@@ -1441,7 +1441,7 @@ export const ActionCard = memo(function ActionCard({
           {!isPending && (
             <span
               className={cn(
-                "font-mono text-[11px] px-2 py-0.5 rounded-[2px]",
+                "font-mono text-[11px] px-2 py-0.5 rounded-bar",
                 action.status === "executed" && "bg-[rgba(165,179,104,0.15)] text-[#A5B368]",
                 action.status === "rejected" && "bg-[rgba(147,50,26,0.10)] text-[#93321A]",
                 action.status === "failed" && "bg-[rgba(147,50,26,0.10)] text-[#93321A]",
@@ -1488,8 +1488,8 @@ export const ActionCard = memo(function ActionCard({
                         )}
                       </div>
                       {editingAssignment && teamMembers ? (
-                        /* Fix 6 + Fix 33: 56dp items, rounded-[4px] */
-                        <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-hide rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
+                        /* Fix 6 + Fix 33: 56dp items, rounded-chip */
+                        <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-hide rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
                           {teamMembers.map((member) => (
                             <button
                               key={member.id}
@@ -1499,7 +1499,7 @@ export const ActionCard = memo(function ActionCard({
                                 setEditingAssignment(false);
                               }}
                               className={cn(
-                                "w-full text-left px-2.5 py-2 rounded-[5px] flex items-center justify-between gap-2 transition-colors min-h-[36px]",
+                                "w-full text-left px-2.5 py-2 rounded flex items-center justify-between gap-2 transition-colors min-h-[36px]",
                                 member.id === selectedMemberId
                                   ? "bg-[rgba(255,255,255,0.06)] text-text"
                                   : "hover:bg-[rgba(255,255,255,0.03)] text-text"
@@ -1582,7 +1582,7 @@ export const ActionCard = memo(function ActionCard({
                               type="date"
                               value={editStartDate}
                               onChange={(e) => setEditStartDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                             />
                           </div>
                           <div>
@@ -1593,7 +1593,7 @@ export const ActionCard = memo(function ActionCard({
                               type="date"
                               value={editEndDate}
                               onChange={(e) => setEditEndDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                             />
                           </div>
                           {/* Fix 5: 56dp Done button */}
@@ -1648,7 +1648,7 @@ export const ActionCard = memo(function ActionCard({
                           value={draftText}
                           onChange={(e) => setDraftText(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -1694,7 +1694,7 @@ export const ActionCard = memo(function ActionCard({
                         )}
                       </div>
                       {editingAssignment && teamMembers ? (
-                        <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-hide rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
+                        <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-hide rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
                           {teamMembers.map((member) => (
                             <button
                               key={member.id}
@@ -1704,7 +1704,7 @@ export const ActionCard = memo(function ActionCard({
                                 setEditingAssignment(false);
                               }}
                               className={cn(
-                                "w-full text-left px-2.5 py-2 rounded-[5px] flex items-center justify-between gap-2 transition-colors min-h-[36px]",
+                                "w-full text-left px-2.5 py-2 rounded flex items-center justify-between gap-2 transition-colors min-h-[36px]",
                                 member.id === reassignMemberId
                                   ? "bg-[rgba(255,255,255,0.06)] text-text"
                                   : "hover:bg-[rgba(255,255,255,0.03)] text-text"
@@ -1771,7 +1771,7 @@ export const ActionCard = memo(function ActionCard({
                               type="date"
                               value={reassignStartDate}
                               onChange={(e) => setReassignStartDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                             />
                           </div>
                           <div>
@@ -1782,7 +1782,7 @@ export const ActionCard = memo(function ActionCard({
                               type="date"
                               value={reassignEndDate}
                               onChange={(e) => setReassignEndDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                             />
                           </div>
                           <button
@@ -1853,7 +1853,7 @@ export const ActionCard = memo(function ActionCard({
                         {invoiceData.warnings.map((warning, idx) => (
                           <div
                             key={idx}
-                            className="flex items-start gap-2 px-3 py-2 rounded-[4px] border-l-[3px] border-l-[#C4A868] bg-[rgba(196,168,104,0.06)]"
+                            className="flex items-start gap-2 px-3 py-2 rounded-chip border-l-[3px] border-l-[#C4A868] bg-[rgba(196,168,104,0.06)]"
                           >
                             <AlertTriangle className="w-[14px] h-[14px] text-[#C4A868] mt-0.5 shrink-0" />
                             <span className="font-mono text-[12px] text-[#C4A868]">
@@ -1908,7 +1908,7 @@ export const ActionCard = memo(function ActionCard({
                         </button>
                       </div>
 
-                      <div className="rounded-[4px] border border-[rgba(255,255,255,0.06)] overflow-hidden">
+                      <div className="rounded-chip border border-[rgba(255,255,255,0.06)] overflow-hidden">
                         {/* Header */}
                         <div className="grid grid-cols-[1fr_60px_80px_80px] gap-2 px-3 py-1.5 bg-[rgba(255,255,255,0.02)] border-b border-[rgba(255,255,255,0.06)]">
                           <span className="font-mono text-micro text-text-3 uppercase">{t("invoice.item")}</span>
@@ -1934,7 +1934,7 @@ export const ActionCard = memo(function ActionCard({
                                       updated[idx] = { ...updated[idx], name: e.target.value };
                                       setInvoiceLineItems(updated);
                                     }}
-                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                                   />
                                   <input
                                     type="number"
@@ -1944,7 +1944,7 @@ export const ActionCard = memo(function ActionCard({
                                       updated[idx] = { ...updated[idx], quantity: Number(e.target.value) || 0 };
                                       setInvoiceLineItems(updated);
                                     }}
-                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] text-right min-h-[36px] [color-scheme:dark]"
+                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] text-right min-h-[36px] [color-scheme:dark]"
                                     min={0}
                                     step="any"
                                   />
@@ -1956,7 +1956,7 @@ export const ActionCard = memo(function ActionCard({
                                       updated[idx] = { ...updated[idx], unit_price: Number(e.target.value) || 0 };
                                       setInvoiceLineItems(updated);
                                     }}
-                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] text-right min-h-[36px] [color-scheme:dark]"
+                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] text-right min-h-[36px] [color-scheme:dark]"
                                     min={0}
                                     step="0.01"
                                   />
@@ -2084,7 +2084,7 @@ export const ActionCard = memo(function ActionCard({
                           <select
                             value={invoicePaymentTerms}
                             onChange={(e) => setInvoicePaymentTerms(e.target.value)}
-                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                           >
                             <option value="NET-15">NET-15</option>
                             <option value="NET-30">NET-30</option>
@@ -2106,7 +2106,7 @@ export const ActionCard = memo(function ActionCard({
                             type="date"
                             value={invoiceDueDate}
                             onChange={(e) => setInvoiceDueDate(e.target.value)}
-                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
                           />
                         ) : (
                           <span className="font-mohave text-body-sm text-text">
@@ -2120,7 +2120,7 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Cover email indicator */}
                     {invoiceData.cover_email && invoiceData.cover_email.to && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
                         <Mail className="w-[14px] h-[14px] text-text-3" />
                         <span className="font-mono text-[12px] text-text-2">
                           {t("invoice.coverEmail")}: {invoiceData.cover_email.to}
@@ -2128,7 +2128,7 @@ export const ActionCard = memo(function ActionCard({
                       </div>
                     )}
                     {!invoiceData.cover_email?.to && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
                         <AlertTriangle className="w-[14px] h-[14px] text-text-3" />
                         <span className="font-mono text-[12px] text-text-3">
                           {t("invoice.noEmail")}
@@ -2189,7 +2189,7 @@ export const ActionCard = memo(function ActionCard({
                           value={invoiceEmailDraft}
                           onChange={(e) => setInvoiceEmailDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -2200,7 +2200,7 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Attachment indicator */}
                     {invoiceEmailData.attachments.length > 0 && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
                         <Paperclip className="w-[14px] h-[14px] text-text-3" />
                         <span className="font-mono text-[12px] text-text-2">
                           {t("invoiceEmail.attachment")}
@@ -2250,7 +2250,7 @@ export const ActionCard = memo(function ActionCard({
                         {[1, 2, 3, 4].map((level) => (
                           <div
                             key={level}
-                            className="h-[6px] flex-1 rounded-[2px] transition-colors"
+                            className="h-[6px] flex-1 rounded-bar transition-colors"
                             style={{
                               backgroundColor:
                                 level <= reminderData.reminder_level
@@ -2278,7 +2278,7 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* No connection warning */}
                     {!reminderData.connection_id && (
-                      <div className="flex items-start gap-2 px-3 py-2 rounded-[4px] border-l-[3px] border-l-[#C4A868] bg-[rgba(196,168,104,0.06)]">
+                      <div className="flex items-start gap-2 px-3 py-2 rounded-chip border-l-[3px] border-l-[#C4A868] bg-[rgba(196,168,104,0.06)]">
                         <AlertTriangle className="w-[14px] h-[14px] text-[#C4A868] mt-0.5 shrink-0" />
                         <span className="font-mono text-[12px] text-[#C4A868]">
                           {t("reminder.noConnection")}
@@ -2304,7 +2304,7 @@ export const ActionCard = memo(function ActionCard({
                           value={reminderDraft}
                           onChange={(e) => setReminderDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -2319,7 +2319,7 @@ export const ActionCard = memo(function ActionCard({
                         <span className="font-mono text-[11px] text-text-3 uppercase block mb-1.5">
                           [{t("reminder.paymentHistory")}]
                         </span>
-                        <div className="flex items-center gap-6 flex-wrap px-3 py-2.5 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+                        <div className="flex items-center gap-6 flex-wrap px-3 py-2.5 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
                           <div>
                             <span className="font-mono text-micro text-text-3 block">
                               {t("reminder.onTimeRate")}
@@ -2485,7 +2485,7 @@ export const ActionCard = memo(function ActionCard({
                           {rescheduleData.conflict_details.map((task) => (
                             <div
                               key={task.task_id}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
+                              className="flex items-center gap-2 px-2 py-1.5 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
                             >
                               <div
                                 className="w-[3px] h-[28px] rounded-full"
@@ -2503,7 +2503,7 @@ export const ActionCard = memo(function ActionCard({
                           ))}
                         </div>
                         {rescheduleData.suggested_resolution && (
-                          <div className="mt-2 px-2 py-2 rounded-[4px] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]">
+                          <div className="mt-2 px-2 py-2 rounded-chip border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]">
                             <span className="font-mono text-micro text-text-3 block mb-1">
                               [{tSched("conflict.resolution")}]
                             </span>
@@ -2553,7 +2553,7 @@ export const ActionCard = memo(function ActionCard({
                             )}
                           </div>
                           {editingAssignment && teamMembers ? (
-                            <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-hide rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
+                            <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-hide rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
                               {teamMembers.map((member) => (
                                 <button
                                   key={member.id}
@@ -2563,7 +2563,7 @@ export const ActionCard = memo(function ActionCard({
                                     setEditingAssignment(false);
                                   }}
                                   className={cn(
-                                    "w-full text-left px-2.5 py-2 rounded-[5px] flex items-center justify-between gap-2 transition-colors min-h-[36px]",
+                                    "w-full text-left px-2.5 py-2 rounded flex items-center justify-between gap-2 transition-colors min-h-[36px]",
                                     member.id === rescheduleMemberId
                                       ? "bg-[rgba(255,255,255,0.06)] text-text"
                                       : "hover:bg-[rgba(255,255,255,0.03)] text-text"
@@ -2621,7 +2621,7 @@ export const ActionCard = memo(function ActionCard({
                               {rescheduleData.affected_tasks.map((task) => (
                                 <div
                                   key={task.task_id}
-                                  className="flex items-center justify-between px-2 py-1.5 rounded-[4px] border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
+                                  className="flex items-center justify-between px-2 py-1.5 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
                                 >
                                   <div className="min-w-0">
                                     <span className="font-mohave text-[12px] text-text block truncate">
@@ -2653,7 +2653,7 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Weather warning */}
                     {rescheduleData.weather_risk && (
-                      <div className="px-2 py-2 rounded-[4px] border border-[rgba(196,168,104,0.2)] bg-[rgba(196,168,104,0.05)]">
+                      <div className="px-2 py-2 rounded-chip border border-[rgba(196,168,104,0.2)] bg-[rgba(196,168,104,0.05)]">
                         <div className="flex items-center gap-2">
                           <CloudRain className="w-[14px] h-[14px] text-[#C4A868] shrink-0" />
                           <span className="font-mono text-[11px] text-[#C4A868]">
@@ -2708,7 +2708,7 @@ export const ActionCard = memo(function ActionCard({
                           {appointmentData.crew_names.map((name) => (
                             <div
                               key={name}
-                              className="flex items-center gap-1 px-2 py-1 rounded-[4px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
+                              className="flex items-center gap-1 px-2 py-1 rounded-chip bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
                             >
                               <User className="w-[12px] h-[12px] text-text-3" />
                               <span className="font-mohave text-[12px] text-text">
@@ -2751,7 +2751,7 @@ export const ActionCard = memo(function ActionCard({
                         type="text"
                         value={appointmentSubject}
                         onChange={(e) => setAppointmentSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                       />
                     </div>
 
@@ -2777,7 +2777,7 @@ export const ActionCard = memo(function ActionCard({
                           value={appointmentDraft}
                           onChange={(e) => setAppointmentDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -2796,7 +2796,7 @@ export const ActionCard = memo(function ActionCard({
                       "space-y-3",
                       dayBeforeData.weather_risk &&
                         dayBeforeData.weather_risk.risk_level !== "low" &&
-                        "px-3 py-3 rounded-[4px] border border-[rgba(196,168,104,0.25)] bg-[rgba(196,168,104,0.04)]"
+                        "px-3 py-3 rounded-chip border border-[rgba(196,168,104,0.25)] bg-[rgba(196,168,104,0.04)]"
                     )}
                   >
                     {/* TOMORROW badge */}
@@ -2839,7 +2839,7 @@ export const ActionCard = memo(function ActionCard({
                           {dayBeforeData.crew_names.map((name) => (
                             <div
                               key={name}
-                              className="flex items-center gap-1 px-2 py-1 rounded-[4px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
+                              className="flex items-center gap-1 px-2 py-1 rounded-chip bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
                             >
                               <User className="w-[12px] h-[12px] text-text-3" />
                               <span className="font-mohave text-[12px] text-text">
@@ -2853,7 +2853,7 @@ export const ActionCard = memo(function ActionCard({
 
                     {dayBeforeData.weather_risk &&
                       dayBeforeData.weather_risk.risk_level !== "low" && (
-                        <div className="flex items-start gap-2 px-3 py-2 rounded-[4px] bg-[rgba(196,168,104,0.06)] border border-[rgba(196,168,104,0.20)]">
+                        <div className="flex items-start gap-2 px-3 py-2 rounded-chip bg-[rgba(196,168,104,0.06)] border border-[rgba(196,168,104,0.20)]">
                           <CloudRain className="w-[14px] h-[14px] text-[#C4A868] mt-0.5 shrink-0" />
                           <div>
                             <span className="font-mono text-[11px] text-[#C4A868] uppercase block">
@@ -2884,7 +2884,7 @@ export const ActionCard = memo(function ActionCard({
                         type="text"
                         value={dayBeforeSubject}
                         onChange={(e) => setDayBeforeSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                       />
                     </div>
 
@@ -2910,7 +2910,7 @@ export const ActionCard = memo(function ActionCard({
                           value={dayBeforeDraft}
                           onChange={(e) => setDayBeforeDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -2984,7 +2984,7 @@ export const ActionCard = memo(function ActionCard({
                                 key={idx}
                                 onClick={() => setSelectedAlternativeIndex(idx)}
                                 className={cn(
-                                  "w-full text-left px-3 py-2 rounded-[5px] flex items-center gap-3 transition-colors min-h-[36px]",
+                                  "w-full text-left px-3 py-2 rounded flex items-center gap-3 transition-colors min-h-[36px]",
                                   isSelected
                                     ? "bg-[rgba(111, 148, 176,0.12)] border border-[rgba(111, 148, 176,0.5)]"
                                     : "bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)]"
@@ -3038,7 +3038,7 @@ export const ActionCard = memo(function ActionCard({
                         type="text"
                         value={rescheduleRequestSubject}
                         onChange={(e) => setRescheduleRequestSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                       />
                     </div>
 
@@ -3066,7 +3066,7 @@ export const ActionCard = memo(function ActionCard({
                             setRescheduleRequestReply(e.target.value)
                           }
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -3174,7 +3174,7 @@ export const ActionCard = memo(function ActionCard({
                         type="text"
                         value={subcontractorSubject}
                         onChange={(e) => setSubcontractorSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
                       />
                     </div>
 
@@ -3200,7 +3200,7 @@ export const ActionCard = memo(function ActionCard({
                           value={subcontractorDraft}
                           onChange={(e) => setSubcontractorDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[5px] px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
                         />
                       ) : (
                         <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
@@ -3231,7 +3231,7 @@ export const ActionCard = memo(function ActionCard({
                     <span className="font-mono text-[11px] text-text-3 uppercase">
                       [{t("card.details")}]
                     </span>
-                    <pre className="mt-1 p-2 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] font-mono text-[12px] text-text-2 overflow-x-auto max-h-[200px] overflow-y-auto scrollbar-hide">
+                    <pre className="mt-1 p-2 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] font-mono text-[12px] text-text-2 overflow-x-auto max-h-[200px] overflow-y-auto scrollbar-hide">
                       {JSON.stringify(action.actionData, null, 2)}
                     </pre>
                   </div>

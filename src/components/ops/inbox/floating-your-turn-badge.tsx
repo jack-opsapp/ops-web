@@ -125,7 +125,7 @@ export function FloatingYourTurnBadge({
                 )}
                 data-testid="floating-your-turn-badge-acknowledge"
                 className={cn(
-                  "ml-0.5 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px]",
+                  "ml-0.5 inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-bar",
                   "text-text-3 transition-colors",
                   "hover:text-text",
                   "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent",

@@ -69,7 +69,7 @@ export function CommitmentPills({
             data-testid="commitment-pill"
             title={c.content}
             className={cn(
-              "inline-flex max-w-full items-center gap-1.5 rounded-[2.5px] border bg-transparent px-1.5 py-0.5 transition-opacity",
+              "inline-flex max-w-full items-center gap-1.5 rounded-sm border bg-transparent px-1.5 py-0.5 transition-opacity",
               c.urgent ? "border-rose/35" : "border-line-hi",
               resolving && "opacity-60",
             )}
@@ -107,7 +107,7 @@ export function CommitmentPills({
               title={t("commitmentPills.resolve", "Mark commitment resolved")}
               data-testid="commitment-pill-resolve"
               className={cn(
-                "flex h-5 w-5 shrink-0 items-center justify-center rounded-[2.5px] text-text-3 transition-colors",
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-text-3 transition-colors",
                 "hover:bg-olive/[0.18] hover:text-olive disabled:cursor-not-allowed",
               )}
             >

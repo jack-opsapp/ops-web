@@ -380,7 +380,7 @@ export function RequestDetailDrawer({
                   onClick={() => setConfirmCancel(true)}
                   className={
                     "w-full font-cakemono font-light uppercase text-[12px] tracking-wider " +
-                    "px-2 py-2 rounded-[5px] border border-rose-line text-rose " +
+                    "px-2 py-2 rounded border border-rose-line text-rose " +
                     "hover:bg-rose-soft/20 transition-colors"
                   }
                 >
@@ -411,7 +411,7 @@ export function RequestDetailDrawer({
 }
 
 const inputClass =
-  "w-full font-mohave text-body-sm bg-surface-input border border-line rounded-[5px] px-2 py-1.5 text-text placeholder:text-text-3 focus:outline-none focus:border-[rgba(255,255,255,0.20)]";
+  "w-full font-mohave text-body-sm bg-surface-input border border-line rounded px-2 py-1.5 text-text placeholder:text-text-3 focus:outline-none focus:border-[rgba(255,255,255,0.20)]";
 
 function Section({
   label,
@@ -483,7 +483,7 @@ function PrimaryAction({
       onClick={onClick}
       disabled={busy || disabled}
       className={
-        "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] " +
+        "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded " +
         "font-cakemono font-light uppercase text-[13px] tracking-wider " +
         "border border-ops-accent text-ops-accent bg-transparent " +
         "hover:bg-ops-accent hover:text-black " +
@@ -511,7 +511,7 @@ function SecondaryAction({
       onClick={onClick}
       disabled={busy}
       className={
-        "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] " +
+        "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded " +
         "font-cakemono font-light uppercase text-[12px] tracking-wider " +
         "border border-line text-text-2 " +
         "hover:text-text hover:border-[rgba(255,255,255,0.18)] hover:bg-white/[0.04] " +
@@ -539,7 +539,7 @@ function DestructiveAction({
       onClick={onClick}
       disabled={busy}
       className={
-        "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] " +
+        "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded " +
         "font-cakemono font-light uppercase text-[12px] tracking-wider " +
         "border border-rose-line text-rose bg-rose-soft/20 " +
         "hover:bg-rose-soft/40 " +

@@ -48,7 +48,7 @@ export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Milestone summary"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
@@ -65,7 +65,7 @@ export function MilestonesTab({ data, projectId }: MilestonesTabProps) {
         </div>
       </section>
 
-      <div className="overflow-x-auto rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px]">
+      <div className="overflow-x-auto rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px]">
         <table className="w-full min-w-[820px] border-collapse">
           <thead>
             <tr className="border-b border-white/[0.08] text-left">
@@ -107,7 +107,7 @@ function MilestoneRow({ row, projectId }: { row: SpecMilestoneRow; projectId: st
       </Td>
       <Td>
         <span
-          className={`rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${STATUS_TONE[row.status]}`}
+          className={`rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${STATUS_TONE[row.status]}`}
         >
           {row.status === "not_yet_fired" ? "NOT FIRED" : statusLabel(row.status)}
         </span>
@@ -184,7 +184,7 @@ function FireButton({ row, projectId }: { row: SpecMilestoneRow; projectId: stri
       <input type="hidden" name="milestone" value={row.milestone} />
       <button
         type="submit"
-        className="rounded-[5px] border border-[#6F94B0] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+        className="rounded border border-[#6F94B0] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
       >
         FIRE {row.label} INVOICE
       </button>

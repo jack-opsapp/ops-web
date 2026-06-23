@@ -809,7 +809,7 @@ export function TaskDetailPanel() {
                     }
                   }}
                   autoFocus
-                  className="flex-1 bg-transparent font-mohave font-semibold text-[16px] text-white outline-none px-[4px] py-[2px] rounded-[2px]"
+                  className="flex-1 bg-transparent font-mohave font-semibold text-[16px] text-white outline-none px-[4px] py-[2px] rounded-bar"
                   style={{
                     border: "1px solid rgba(255,255,255,0.10)",
                     backgroundColor: "#141414",
@@ -829,7 +829,7 @@ export function TaskDetailPanel() {
             </div>
             {(taskType || task?.taskTypeId) && (
               <span
-                className="inline-block font-mono text-micro uppercase tracking-[0.08em] px-[6px] py-[2px] rounded-[2px] ml-[16px]"
+                className="inline-block font-mono text-micro uppercase tracking-[0.08em] px-[6px] py-[2px] rounded-bar ml-[16px]"
                 style={{
                   backgroundColor: `${taskColor}20`,
                   color: taskColor,
@@ -1034,7 +1034,7 @@ export function TaskDetailPanel() {
                         : ""
                     }
                     onChange={(e) => handleStartTimeChange(e.target.value)}
-                    className="w-full px-[8px] py-[4px] rounded-[5px] text-[13px] font-mono outline-none tabular-nums"
+                    className="w-full px-[8px] py-[4px] rounded text-[13px] font-mono outline-none tabular-nums"
                     style={{
                       backgroundColor: "var(--surface-input)",
                       border: "1px solid var(--line)",
@@ -1072,7 +1072,7 @@ export function TaskDetailPanel() {
                         : ""
                     }
                     onChange={(e) => handleEndTimeChange(e.target.value)}
-                    className="w-full px-[8px] py-[4px] rounded-[5px] text-[13px] font-mono outline-none tabular-nums"
+                    className="w-full px-[8px] py-[4px] rounded text-[13px] font-mono outline-none tabular-nums"
                     style={{
                       backgroundColor: "var(--surface-input)",
                       border: "1px solid var(--line)",

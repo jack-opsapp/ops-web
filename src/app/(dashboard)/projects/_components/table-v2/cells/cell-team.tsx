@@ -257,7 +257,7 @@ export function CellTeam({
           aria-haspopup="dialog"
           onClick={stopPointer}
           onKeyDown={(event) => stopTableKeys(event)}
-          className="flex h-full w-full min-w-0 items-center gap-1 rounded-[5px] px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent"
+          className="flex h-full w-full min-w-0 items-center gap-1 rounded px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent"
         >
           {assignedMembers.length > 0 ? (
             <span className="flex min-w-0 items-center">
@@ -304,7 +304,7 @@ export function CellTeam({
               <p className="font-mono text-micro uppercase tracking-wider text-text">
                 {title}
               </p>
-              <label className="mt-3 flex items-center gap-2 rounded-[5px] border border-border bg-surface-input px-2 py-1.5 focus-within:ring-1 focus-within:ring-ops-accent">
+              <label className="mt-3 flex items-center gap-2 rounded border border-border bg-surface-input px-2 py-1.5 focus-within:ring-1 focus-within:ring-ops-accent">
                 <Search className="h-3.5 w-3.5 shrink-0 text-text-3" strokeWidth={1.5} aria-hidden="true" />
                 <input
                   ref={searchInputRef}
@@ -325,7 +325,7 @@ export function CellTeam({
                   {filteredAssignedMembers.map((member) => (
                     <div
                       key={member.id}
-                      className="flex min-w-0 items-center gap-2 rounded-[5px] border border-border bg-surface-input px-2 py-1.5"
+                      className="flex min-w-0 items-center gap-2 rounded border border-border bg-surface-input px-2 py-1.5"
                     >
                       <MemberAvatar member={member} size={avatarSize} />
                       <span className="min-w-0 flex-1 truncate font-mohave text-body-sm text-text">
@@ -339,7 +339,7 @@ export function CellTeam({
                         onClick={() => {
                           void handleRemoveFromAll(member);
                         }}
-                        className="inline-flex shrink-0 items-center gap-1 rounded-[5px] border border-border px-1.5 py-1 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                        className="inline-flex shrink-0 items-center gap-1 rounded border border-border px-1.5 py-1 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                       >
                         <X className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
                         <span className="hidden sm:inline">{t("table.cell.team.removeFromAll")}</span>
@@ -370,7 +370,7 @@ export function CellTeam({
                         setFeedback(null);
                       }}
                       className={cn(
-                        "flex w-full min-w-0 items-center gap-2 rounded-[5px] border px-2 py-1.5 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                        "flex w-full min-w-0 items-center gap-2 rounded border px-2 py-1.5 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
                         selectedMemberId === member.id
                           ? "border-border-strong bg-surface-active text-text"
                           : "border-transparent text-text-2",
@@ -407,13 +407,13 @@ export function CellTeam({
 
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
               {feedback ? (
-                <p className="mb-3 rounded-[5px] border border-border bg-surface-input px-2 py-1.5 font-mono text-micro uppercase tracking-wider text-text-2">
+                <p className="mb-3 rounded border border-border bg-surface-input px-2 py-1.5 font-mono text-micro uppercase tracking-wider text-text-2">
                   {feedback}
                 </p>
               ) : null}
 
               {!selectedMember ? (
-                <div className="flex h-full min-h-[180px] items-center justify-center rounded-[5px] border border-border bg-surface-input px-4 text-center">
+                <div className="flex h-full min-h-[180px] items-center justify-center rounded border border-border bg-surface-input px-4 text-center">
                   <p className="font-mono text-micro uppercase tracking-wider text-text-3">
                     {t("table.cell.team.available")}
                   </p>
@@ -427,12 +427,12 @@ export function CellTeam({
                     value={newTaskTitle}
                     onChange={(event) => setNewTaskTitle(event.target.value)}
                     placeholder={t("table.cell.team.createTaskPlaceholder")}
-                    className="h-9 w-full rounded-[5px] border border-border bg-surface-input px-2 font-mohave text-body-sm text-text outline-none placeholder:text-text-3 focus-visible:ring-1 focus-visible:ring-ops-accent"
+                    className="h-9 w-full rounded border border-border bg-surface-input px-2 font-mohave text-body-sm text-text outline-none placeholder:text-text-3 focus-visible:ring-1 focus-visible:ring-ops-accent"
                   />
                   <button
                     type="submit"
                     disabled={createFirstTask.isPending || assignTeamMember.isPending}
-                    className="inline-flex h-8 items-center justify-center gap-1 rounded-[5px] border border-border px-3 font-mohave text-button uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
+                    className="inline-flex h-8 items-center justify-center gap-1 rounded border border-border px-3 font-mohave text-button uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
                   >
                     <UserPlus className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                     {t("table.cell.team.createFirstTask")}
@@ -440,7 +440,7 @@ export function CellTeam({
                 </form>
               ) : (
                 <div className="space-y-3">
-                  <label className="flex items-center gap-2 rounded-[5px] border border-border bg-surface-input px-2 py-1.5 focus-within:ring-1 focus-within:ring-ops-accent">
+                  <label className="flex items-center gap-2 rounded border border-border bg-surface-input px-2 py-1.5 focus-within:ring-1 focus-within:ring-ops-accent">
                     <Search className="h-3.5 w-3.5 shrink-0 text-text-3" strokeWidth={1.5} aria-hidden="true" />
                     <input
                       value={taskSearch}
@@ -461,7 +461,7 @@ export function CellTeam({
                           aria-checked={checked}
                           onClick={() => toggleTask(task.id)}
                           className={cn(
-                            "flex w-full min-w-0 items-center gap-2 rounded-[5px] border px-2 py-2 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                            "flex w-full min-w-0 items-center gap-2 rounded border px-2 py-2 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
                             checked
                               ? "border-border-strong bg-surface-active text-text"
                               : "border-border bg-surface-input text-text-2",
@@ -486,7 +486,7 @@ export function CellTeam({
                     onClick={() => {
                       void handleAssign();
                     }}
-                    className="inline-flex h-8 items-center justify-center gap-1 rounded-[5px] border border-border px-3 font-mohave text-button uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
+                    className="inline-flex h-8 items-center justify-center gap-1 rounded border border-border px-3 font-mohave text-button uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
                   >
                     <Check className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
                     {t("table.cell.team.assign")}

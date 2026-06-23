@@ -71,7 +71,7 @@ export function SuppressionBulkAddModal({ open, onClose }: Props) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 16, opacity: 0 }}
             transition={{ duration: 0.32, ease: EASE_SMOOTH }}
-            className="w-full max-w-[520px] mx-4 p-6 rounded-[12px]"
+            className="w-full max-w-[520px] mx-4 p-6 rounded-modal"
             style={{
               background: "rgba(18,18,20,0.78)",
               backdropFilter: "blur(28px) saturate(1.3)",
@@ -90,13 +90,13 @@ export function SuppressionBulkAddModal({ open, onClose }: Props) {
               rows={8}
               placeholder={"user1@example.com\nuser2@example.com"}
               autoFocus
-              className="w-full font-mono text-[12px] bg-transparent border border-white/10 rounded-[5px] px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0] mb-3"
+              className="w-full font-mono text-[12px] bg-transparent border border-white/10 rounded px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0] mb-3"
             />
             <div className="flex items-center justify-between mb-5">
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value as BulkReason)}
-                className="font-mohave text-[13px] bg-transparent border border-white/10 rounded-[5px] px-2 py-1 text-[#EDEDED]"
+                className="font-mohave text-[13px] bg-transparent border border-white/10 rounded px-2 py-1 text-[#EDEDED]"
               >
                 <option value="manual" className="bg-black">Manual</option>
                 <option value="hard_bounce" className="bg-black">Hard bounce</option>
@@ -121,7 +121,7 @@ export function SuppressionBulkAddModal({ open, onClose }: Props) {
               <button
                 onClick={() => submit.mutate()}
                 disabled={emails.length === 0 || submit.isPending}
-                className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black disabled:opacity-40 px-4 py-2 rounded-[5px] transition-colors"
+                className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black disabled:opacity-40 px-4 py-2 rounded transition-colors"
               >
                 {submit.isPending ? "ADDING…" : `ADD ${emails.length}`}
               </button>

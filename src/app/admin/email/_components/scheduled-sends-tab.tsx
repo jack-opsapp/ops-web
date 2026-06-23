@@ -75,7 +75,7 @@ export function ScheduledSendsTab() {
         </div>
         <button
           onClick={() => setCreateOpen(true)}
-          className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black px-3 py-1.5 rounded-[5px] transition-colors"
+          className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black px-3 py-1.5 rounded transition-colors"
         >
           NEW CAMPAIGN
         </button>
@@ -93,7 +93,7 @@ export function ScheduledSendsTab() {
             }
             initial="hidden"
             animate="visible"
-            className="block w-full text-left p-3 rounded-[10px] hover:bg-white/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6F94B0] transition-colors"
+            className="block w-full text-left p-3 rounded-panel hover:bg-white/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6F94B0] transition-colors"
             style={{ border: "1px solid rgba(255,255,255,0.06)" }}
           >
             <div className="flex items-start justify-between gap-3 mb-2">

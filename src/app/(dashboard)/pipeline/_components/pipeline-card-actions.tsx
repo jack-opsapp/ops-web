@@ -165,7 +165,7 @@ export function PipelineCardActions({
             aria-haspopup="menu"
             aria-expanded={showMenu}
             className={cn(
-              "inline-flex h-[28px] items-center gap-[4px] rounded-[5px] border px-[8px]",
+              "inline-flex h-[28px] items-center gap-[4px] rounded border px-[8px]",
               "font-mono text-micro font-medium uppercase tracking-[0.12em]",
               "transition-colors duration-150 ease-smooth",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",

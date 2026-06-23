@@ -171,7 +171,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
   // ─── Feature gated ────────────────────────────────────────────────────
   if (!featureEnabled) {
     return (
-      <div className="py-3 px-3 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+      <div className="py-3 px-3 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
         <div className="flex items-center gap-2 mb-1">
           <Lock className="w-[14px] h-[14px] text-text-mute" />
           <span className="font-mohave text-body-sm text-text-2 font-medium">
@@ -199,7 +199,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
     <div className="space-y-3">
       {/* ─── Draft Stats ───────────────────────────────────────────────── */}
       {stats && stats.totalSent > 0 && (
-        <div className="px-3 py-2.5 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+        <div className="px-3 py-2.5 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="w-[14px] h-[14px] text-[#6F94B0]" />
             <span className="font-mohave text-body-sm text-text-2 font-medium">
@@ -287,7 +287,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
       )}
 
       {/* ─── Auto-Send Toggle + Settings ───────────────────────────────── */}
-      <div className="px-3 py-2.5 rounded-[4px] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+      <div className="px-3 py-2.5 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <Sparkles className="w-[14px] h-[14px] text-[#6F94B0]" />

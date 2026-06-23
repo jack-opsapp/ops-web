@@ -55,14 +55,14 @@ export function ManageModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="mb-3 inline-flex gap-[2px] rounded-[6px] border border-border p-[3px]">
+        <div className="mb-3 inline-flex gap-[2px] rounded-sidebar border border-border p-[3px]">
           {TABS.map((tb) => (
             <button
               key={tb}
               type="button"
               onClick={() => onTabChange(tb)}
               className={cn(
-                "rounded-[4px] px-[12px] py-[5px] font-mono text-[11px] uppercase tracking-[0.12em] transition-colors",
+                "rounded-chip px-[12px] py-[5px] font-mono text-[11px] uppercase tracking-[0.12em] transition-colors",
                 tb === tab
                   ? "bg-surface-active text-text"
                   : "text-text-3 hover:bg-surface-hover hover:text-text-2",
@@ -290,7 +290,7 @@ function ThresholdsPanel() {
                 if (v !== c.defaultWarningThreshold)
                   update.mutate({ id: c.id, patch: { defaultWarningThreshold: v } });
               }}
-              className="w-[72px] rounded-[5px] border border-border bg-surface-input px-2 py-1 text-right font-mono text-[12px] text-text tabular-nums focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
+              className="w-[72px] rounded border border-border bg-surface-input px-2 py-1 text-right font-mono text-[12px] text-text tabular-nums focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
             />
             <input
               type="number"
@@ -300,7 +300,7 @@ function ThresholdsPanel() {
                 if (v !== c.defaultCriticalThreshold)
                   update.mutate({ id: c.id, patch: { defaultCriticalThreshold: v } });
               }}
-              className="w-[72px] rounded-[5px] border border-border bg-surface-input px-2 py-1 text-right font-mono text-[12px] text-text tabular-nums focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
+              className="w-[72px] rounded border border-border bg-surface-input px-2 py-1 text-right font-mono text-[12px] text-text tabular-nums focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
             />
           </RowShell>
         ))}

@@ -41,7 +41,7 @@ export function SpreadsheetBulkBar({
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 rounded-[4px] border border-border-subtle"
+      className="flex items-center gap-2 px-3 py-1.5 rounded-chip border border-border-subtle"
       style={{
         background: "var(--surface-glass)",
         backdropFilter: "blur(28px) saturate(1.3)",
@@ -62,7 +62,7 @@ export function SpreadsheetBulkBar({
             </button>
             {showStatusMenu && (
               <div
-                className="absolute top-full left-0 mt-1 z-[1000] min-w-[140px] p-1 rounded-[4px]"
+                className="absolute top-full left-0 mt-1 z-[1000] min-w-[140px] p-1 rounded-chip"
                 style={{
                   background: "var(--surface-glass-dense)",
                   backdropFilter: "blur(28px) saturate(1.3)",
@@ -73,7 +73,7 @@ export function SpreadsheetBulkBar({
                   <button
                     key={s}
                     onClick={() => { onChangeStatus(s); setShowStatusMenu(false); }}
-                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded-[2px] text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded-bar text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
                   >
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PROJECT_STATUS_COLORS[s] }} />
                     <span className="font-mohave text-body-sm">{getProjectStatusDisplayName(s)}</span>

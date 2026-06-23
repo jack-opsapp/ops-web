@@ -75,7 +75,7 @@ export function ProjectContextMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed z-[3000] min-w-[180px] py-1 rounded-[4px]"
+      className="fixed z-[3000] min-w-[180px] py-1 rounded-chip"
       style={{
         left: contextMenu.x,
         top: contextMenu.y,
@@ -124,7 +124,7 @@ export function ProjectContextMenu({
             hasSubmenu
           />
           <div
-            className="absolute left-full top-0 min-w-[140px] py-1 rounded-[4px] hidden group-hover:block"
+            className="absolute left-full top-0 min-w-[140px] py-1 rounded-chip hidden group-hover:block"
             style={{
               background: "rgba(18,18,18,0.95)",
               backdropFilter: "blur(28px) saturate(1.3)",

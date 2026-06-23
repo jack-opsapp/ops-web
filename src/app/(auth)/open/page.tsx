@@ -69,7 +69,7 @@ function OpenInner() {
         animate={{ opacity: 1, y: 0 }}
         transition={t(0.1)}
         href="opsapp://"
-        className="flex items-center justify-start w-full rounded-[5px] font-cakemono font-light uppercase text-ops-accent border border-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black px-4"
+        className="flex items-center justify-start w-full rounded font-cakemono font-light uppercase text-ops-accent border border-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black px-4"
         style={{
           minHeight: "60px",
           fontSize: "13px",
@@ -84,7 +84,7 @@ function OpenInner() {
         animate={{ opacity: 1, y: 0 }}
         transition={t(0.16)}
         href="https://apps.apple.com/app/id6746662078"
-        className="flex items-center justify-start w-full rounded-[5px] font-cakemono font-light uppercase text-text-2 border border-border transition-colors duration-200 hover:text-text-primary hover:border-border-medium mt-3 px-4"
+        className="flex items-center justify-start w-full rounded font-cakemono font-light uppercase text-text-2 border border-border transition-colors duration-200 hover:text-text-primary hover:border-border-medium mt-3 px-4"
         style={{
           minHeight: "60px",
           fontSize: "13px",

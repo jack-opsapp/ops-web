@@ -64,7 +64,7 @@ function SyncIndicator({
   return (
     <div
       className={cn(
-        "group flex items-center justify-center h-[40px] px-[12px] rounded-[5px]",
+        "group flex items-center justify-center h-[40px] px-[12px] rounded",
         "font-mono text-[11px] tracking-wider",
         "bg-surface-input border border-border",
         "transition-all duration-150 ease-smooth motion-reduce:transition-none",
@@ -197,7 +197,7 @@ export function TopBar() {
         <button
           onClick={openMobile}
           className={cn(
-            "md:hidden p-2 rounded-[5px]",
+            "md:hidden p-2 rounded",
             "text-text-3 hover:text-text-2",
             "bg-surface-input hover:bg-surface-hover border border-border",
             "transition-all duration-150 ease-smooth motion-reduce:transition-none"
@@ -271,7 +271,7 @@ export function TopBar() {
               onMouseEnter={() => setIsUndoHovered(true)}
               onMouseLeave={() => setIsUndoHovered(false)}
               className={cn(
-                "flex items-center justify-center h-[40px] w-[40px] rounded-[5px]",
+                "flex items-center justify-center h-[40px] w-[40px] rounded",
                 "bg-surface-input hover:bg-surface-hover border border-border",
                 "text-text-3 hover:text-text-2",
                 "transition-all duration-150 ease-smooth motion-reduce:transition-none animate-fade-in motion-reduce:animate-none",
@@ -288,7 +288,7 @@ export function TopBar() {
             {/* Hover tooltip */}
             {isUndoHovered && !isUndoing && (
               <div
-                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-[4px] whitespace-nowrap pointer-events-none animate-fade-in motion-reduce:animate-none"
+                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-chip whitespace-nowrap pointer-events-none animate-fade-in motion-reduce:animate-none"
                 style={{
                   background: "var(--glass-dense)",
                   backdropFilter: "blur(28px) saturate(1.3)",
@@ -305,7 +305,7 @@ export function TopBar() {
         )}
         <button
           className={cn(
-            "flex items-center gap-1 h-[40px] px-2 rounded-[5px]",
+            "flex items-center gap-1 h-[40px] px-2 rounded",
             "bg-surface-input hover:bg-surface-hover border border-border",
             "text-text-3 hover:text-text-2",
             "transition-all duration-150 ease-smooth motion-reduce:transition-none cursor-pointer",

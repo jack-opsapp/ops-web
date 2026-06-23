@@ -45,7 +45,7 @@ function CapacityCard({ row }: { row: CapacityRow }) {
       : "#9DB582";
 
   return (
-    <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px] p-5">
+    <div className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px] p-5">
       <div className="flex items-baseline justify-between">
         <span className="font-cakemono text-[15px] font-light uppercase tracking-[0.04em] text-[#EDEDED]">
           {row.tier}
@@ -68,7 +68,7 @@ function CapacityCard({ row }: { row: CapacityRow }) {
       </div>
 
       {/* Capacity strip */}
-      <div className="mt-2 h-[2px] w-full overflow-hidden rounded-[2px] bg-white/[0.06]">
+      <div className="mt-2 h-[2px] w-full overflow-hidden rounded-bar bg-white/[0.06]">
         <div
           aria-hidden="true"
           className="h-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"

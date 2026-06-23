@@ -140,7 +140,7 @@ export function InlineCreateUnitDialog({
               role="radiogroup"
               aria-label="Dimension"
               className={cn(
-                "grid grid-cols-3 gap-1 rounded-[5px] p-0.5",
+                "grid grid-cols-3 gap-1 rounded p-0.5",
                 "bg-fill-neutral-dim border border-border"
               )}
             >
@@ -154,7 +154,7 @@ export function InlineCreateUnitDialog({
                     aria-checked={isSelected}
                     onClick={() => setDimension(dim)}
                     className={cn(
-                      "min-h-[36px] px-2 py-1 rounded-[4px]",
+                      "min-h-[36px] px-2 py-1 rounded-chip",
                       "font-cakemono font-light uppercase tracking-[0.14em] text-[11px]",
                       "transition-colors duration-150",
                       "focus:outline-none focus-visible:border-ops-accent",

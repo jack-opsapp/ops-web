@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const menuItemClass = cn(
-  "h-[36px] gap-2.5 rounded-[6px] px-2.5",
+  "h-[36px] gap-2.5 rounded-sidebar px-2.5",
   "font-cakemono font-light text-[14px] uppercase text-text-2",
   "focus:bg-[rgba(255,255,255,0.05)] focus:text-text"
 );
@@ -100,7 +100,7 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
           type="button"
           aria-label={t("user.menuAriaLabel")}
           className={cn(
-            "flex w-full items-center rounded-[6px] bg-surface-input p-1.5",
+            "flex w-full items-center rounded-sidebar bg-surface-input p-1.5",
             "transition-colors duration-150 ease-smooth motion-reduce:transition-none",
             "hover:bg-surface-hover",
             expanded ? "gap-2.5" : "justify-center"
@@ -140,7 +140,7 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
         side={expanded ? "top" : "right"}
         align={expanded ? "start" : "end"}
         sideOffset={expanded ? 8 : 12}
-        className="z-[1000] w-[248px] rounded-[12px] p-0"
+        className="z-[1000] w-[248px] rounded-modal p-0"
       >
         {/* Identity block */}
         <div className="border-b border-border px-4 pb-3 pt-3.5">
@@ -158,7 +158,7 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
             </p>
           )}
           {roleName && (
-            <span className="mt-2 inline-flex rounded-[4px] border border-border bg-[rgba(255,255,255,0.05)] px-1.5 py-[2px] font-mono text-micro uppercase tracking-[0.12em] text-text-2">
+            <span className="mt-2 inline-flex rounded-chip border border-border bg-[rgba(255,255,255,0.05)] px-1.5 py-[2px] font-mono text-micro uppercase tracking-[0.12em] text-text-2">
               {roleName}
             </span>
           )}

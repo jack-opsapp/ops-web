@@ -58,7 +58,7 @@ export const Segmented = React.forwardRef<HTMLDivElement, SegmentedProps>(
         className={cn(
           "inline-flex items-stretch h-8 p-0.5 gap-0.5",
           "bg-[var(--surface-input)]",
-          "rounded-[5px] border border-glass-border",
+          "rounded border border-glass-border",
           disabled && "opacity-40 pointer-events-none",
           className,
         )}

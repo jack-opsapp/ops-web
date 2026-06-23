@@ -285,7 +285,7 @@ export function InvoicesSegment({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="inline-flex h-[24px] items-center gap-[4px] rounded-[4px] border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+            className="inline-flex h-[24px] items-center gap-[4px] rounded-chip border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
           >
             {generatingPdfId === invoice.id && (
               <Loader2 className="h-[12px] w-[12px] animate-spin motion-reduce:animate-none" />

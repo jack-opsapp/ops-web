@@ -325,7 +325,7 @@ function AllDayStrip({
           key={event.id}
           type="button"
           onClick={() => onClick(event)}
-          className="px-[8px] py-[3px] rounded-[4px] font-mohave text-[12px] truncate"
+          className="px-[8px] py-[3px] rounded-chip font-mohave text-[12px] truncate"
           style={{
             maxWidth: 240,
             ...frostedBadgeStyleFromBg(event.statusColors.bg),

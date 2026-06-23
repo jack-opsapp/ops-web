@@ -62,7 +62,7 @@ function LinkInsertPopover({
   const [text, setText] = useState("");
 
   return (
-    <div className="absolute top-full left-0 mt-1 z-10 p-2 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] space-y-1.5 min-w-[240px]">
+    <div className="absolute top-full left-0 mt-1 z-10 p-2 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] space-y-1.5 min-w-[240px]">
       <input
         type="url"
         value={url}
@@ -125,7 +125,7 @@ function TemplatePicker({
 
   if (templates.length === 0) {
     return (
-      <div className="absolute top-full right-0 mt-1 z-10 p-3 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[220px]">
+      <div className="absolute top-full right-0 mt-1 z-10 p-3 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[220px]">
         <p className="font-mohave text-body-sm text-text-mute">
           {t("template.none")}
         </p>
@@ -135,7 +135,7 @@ function TemplatePicker({
 
   return (
     <div
-      className="absolute top-full right-0 mt-1 z-10 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px] max-h-[300px] overflow-y-auto scrollbar-hide"
+      className="absolute top-full right-0 mt-1 z-10 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px] max-h-[300px] overflow-y-auto scrollbar-hide"
       onMouseDown={(e) => e.preventDefault()}
     >
       {Array.from(grouped.entries()).map(([category, items]) => (
@@ -184,7 +184,7 @@ function MergeFieldHighlightOverlay({ text }: { text: string }) {
           return (
             <span
               key={i}
-              className="bg-[rgba(196,168,104,0.15)] text-[#C4A868] rounded-[2px] px-0.5"
+              className="bg-[rgba(196,168,104,0.15)] text-[#C4A868] rounded-bar px-0.5"
             >
               {part}
             </span>
@@ -568,7 +568,7 @@ export function ComposeEmailForm({
                 <ChevronDown className="w-[12px] h-[12px] text-text-mute" />
               </button>
               {showSenderDropdown && (
-                <div className="absolute top-full left-0 mt-1 z-10 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px]">
+                <div className="absolute top-full left-0 mt-1 z-10 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px]">
                   {activeConnections.map((conn: EmailConnection) => (
                     <button
                       key={conn.id}
@@ -781,7 +781,7 @@ export function ComposeEmailForm({
 
       {/* Quoted Message (Reply mode) */}
       {mode === "reply" && composeData?.quotedMessage && (
-        <div className="shrink-0 mx-3 mt-1 px-2.5 py-2 rounded-[4px] bg-[rgba(255,255,255,0.02)] border-l-2 border-[rgba(255,255,255,0.08)] max-h-[120px] overflow-y-auto scrollbar-hide">
+        <div className="shrink-0 mx-3 mt-1 px-2.5 py-2 rounded-chip bg-[rgba(255,255,255,0.02)] border-l-2 border-[rgba(255,255,255,0.08)] max-h-[120px] overflow-y-auto scrollbar-hide">
           <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1">
             {t("quotedMessage")}
           </span>
@@ -813,7 +813,7 @@ export function ComposeEmailForm({
       {/* Discard Confirmation Overlay */}
       {showDiscardConfirm && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm rounded-sm">
-          <div className="p-3 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
+          <div className="p-3 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
             <p className="font-mohave text-body text-text font-semibold">
               {t("discard.confirm.title")}
             </p>
@@ -841,7 +841,7 @@ export function ComposeEmailForm({
       {/* Template Replace Confirmation Overlay */}
       {showReplaceConfirm && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm rounded-sm">
-          <div className="p-3 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
+          <div className="p-3 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
             <p className="font-mohave text-body text-text font-semibold">
               {t("template.replace.title")}
             </p>
@@ -872,7 +872,7 @@ export function ComposeEmailForm({
       {/* AI Draft Replace Confirmation Overlay */}
       {showAiReplaceConfirm && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm rounded-sm">
-          <div className="p-3 rounded-[4px] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
+          <div className="p-3 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
             <p className="font-mohave text-body text-text font-semibold">
               {t("aiDraft.replace.title")}
             </p>

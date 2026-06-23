@@ -549,7 +549,7 @@ export function BugReportDrawer() {
                               aria-checked={isActive}
                               onClick={() => setCategory(opt.value)}
                               className={cn(
-                                "px-2 py-1 rounded-[4px] border transition-colors duration-150",
+                                "px-2 py-1 rounded-chip border transition-colors duration-150",
                                 "font-mono text-[10px] uppercase tracking-wider",
                                 isActive
                                   ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
@@ -655,7 +655,7 @@ export function BugReportDrawer() {
                               aria-checked={isActive}
                               onClick={() => setSeverity(isActive ? null : opt.value)}
                               className={cn(
-                                "flex-1 px-2 py-1.5 rounded-[4px] border transition-colors duration-150",
+                                "flex-1 px-2 py-1.5 rounded-chip border transition-colors duration-150",
                                 "font-mono text-[10px] uppercase tracking-wider",
                                 isActive
                                   ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
@@ -675,7 +675,7 @@ export function BugReportDrawer() {
                        agent skips this report. */
                     <label
                       className={cn(
-                        "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-[4px] border transition-colors cursor-pointer",
+                        "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-chip border transition-colors cursor-pointer",
                         requiresMyInput
                           ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)]"
                           : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"

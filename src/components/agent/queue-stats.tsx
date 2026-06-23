@@ -52,7 +52,7 @@ export const QueueStatsRibbon = memo(function QueueStatsRibbon({
         <div
           key={cell.label}
           className={cn(
-            "rounded-[8px] border border-[rgba(255,255,255,0.08)] p-3",
+            "rounded-lg border border-[rgba(255,255,255,0.08)] p-3",
             "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]"
           )}
         >

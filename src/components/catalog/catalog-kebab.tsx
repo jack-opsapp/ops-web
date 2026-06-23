@@ -48,7 +48,7 @@ export function CatalogKebab({
           <button
             type="button"
             aria-label="More"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-[5px] border border-border text-text-2 transition-colors hover:bg-surface-hover focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            className="inline-flex h-9 w-9 items-center justify-center rounded border border-border text-text-2 transition-colors hover:bg-surface-hover focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
           >
             <MoreVertical className="h-[16px] w-[16px]" />
           </button>

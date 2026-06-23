@@ -129,7 +129,7 @@ function TogglePill({ active, label, count, onClick, testId }: TogglePillProps) 
       data-active={active ? "true" : "false"}
       aria-pressed={active}
       className={cn(
-        "flex items-center gap-1.5 rounded-[4px] border px-2 py-1 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
+        "flex items-center gap-1.5 rounded-chip border px-2 py-1 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
         active
           ? "border-border-medium bg-transparent text-text"
           : "border-line text-text-3 hover:border-line-hi hover:text-text",

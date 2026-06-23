@@ -149,7 +149,7 @@ export function ScheduleHeader({ t }: ScheduleHeaderProps) {
           onClick={goToToday}
           disabled={isViewingToday}
           aria-label="Jump to today"
-          className="font-mono text-[11px] uppercase tracking-wide leading-none px-[10px] py-[5px] rounded-[5px] tabular-nums"
+          className="font-mono text-[11px] uppercase tracking-wide leading-none px-[10px] py-[5px] rounded tabular-nums"
           style={{
             color: "var(--ops-accent)",
             border: "1px solid var(--ops-accent)",

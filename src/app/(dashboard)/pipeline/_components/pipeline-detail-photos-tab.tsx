@@ -99,7 +99,7 @@ function PhotoLightbox({
       <img
         src={photos[activeIndex].url}
         alt=""
-        className="max-w-[80vw] max-h-[80vh] object-contain rounded-[4px]"
+        className="max-w-[80vw] max-h-[80vh] object-contain rounded-chip"
         onClick={(e) => e.stopPropagation()}
       />
 

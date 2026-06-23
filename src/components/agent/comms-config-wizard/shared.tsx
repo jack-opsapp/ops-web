@@ -79,7 +79,7 @@ export function OptionCard({
       onClick={locked || disabled ? undefined : onSelect}
       disabled={locked || disabled}
       className={cn(
-        "w-full text-left min-h-[36px] p-4 rounded-[5px]",
+        "w-full text-left min-h-[36px] p-4 rounded",
         "border-l-[3px]",
         "border-t border-r border-b",
         "backdrop-blur-[20px] backdrop-saturate-[1.2]",
@@ -151,7 +151,7 @@ export function Toggle({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        "w-full flex items-center justify-between gap-3 min-h-[36px] p-4 rounded-[5px]",
+        "w-full flex items-center justify-between gap-3 min-h-[36px] p-4 rounded",
         "border border-[rgba(255,255,255,0.08)]",
         "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
         "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -212,7 +212,7 @@ export function StepSlider({
   onChange: (value: number) => void;
 }) {
   return (
-    <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
+    <div className="p-4 rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <div className="flex items-center justify-between mb-3">
         <span className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em]">
           {label}
@@ -244,7 +244,7 @@ export function PreviewPanel({
   children: ReactNode;
 }) {
   return (
-    <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.50)]">
+    <div className="p-4 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(10,10,10,0.50)]">
       <div className="font-mono text-micro text-text-3 uppercase tracking-[0.12em] mb-2">
         [{label}]
       </div>
@@ -269,7 +269,7 @@ export function StepDropdown<T extends string | number>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="p-4 rounded-[8px] border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
+    <div className="p-4 rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <div className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em] mb-3">
         {label}
       </div>
@@ -281,7 +281,7 @@ export function StepDropdown<T extends string | number>({
           if (match) onChange(match.value);
         }}
         className={cn(
-          "w-full min-h-[36px] px-3 rounded-[5px]",
+          "w-full min-h-[36px] px-3 rounded",
           "border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]",
           "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
           "outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors",
@@ -306,7 +306,7 @@ export function StepDropdown<T extends string | number>({
 
 export function WarningBanner({ children }: { children: ReactNode }) {
   return (
-    <div className="p-3 rounded-[4px] border border-[rgba(196,168,104,0.24)] bg-[rgba(196,168,104,0.06)]">
+    <div className="p-3 rounded-chip border border-[rgba(196,168,104,0.24)] bg-[rgba(196,168,104,0.06)]">
       <p className="font-mono text-[12px] text-[#C4A868] leading-relaxed">
         [{children}]
       </p>

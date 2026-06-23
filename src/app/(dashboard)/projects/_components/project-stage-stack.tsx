@@ -136,7 +136,7 @@ export function ProjectStageStack({
       {/* Region glow — hidden in bird's eye */}
       {!isBirdEye && (
         <div
-          className="absolute inset-0 pointer-events-none rounded-[4px]"
+          className="absolute inset-0 pointer-events-none rounded-chip"
           style={{
             boxShadow: `inset 0 0 60px ${statusColor}${glowOpacity}`,
             transition: "box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
@@ -241,7 +241,7 @@ export function ProjectStageStack({
       {/* Empty state — hidden in bird's eye */}
       {projects.length === 0 && !isBirdEye && (
         <div
-          className="absolute flex flex-col items-center justify-center text-center border border-dashed border-[rgba(255,255,255,0.1)] rounded-[4px]"
+          className="absolute flex flex-col items-center justify-center text-center border border-dashed border-[rgba(255,255,255,0.1)] rounded-chip"
           style={{
             left: 12,
             top: 20 + STACK_HEADER_HEIGHT,

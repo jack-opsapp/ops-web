@@ -112,7 +112,7 @@ function CardBack({
   onClose: () => void;
 }) {
   return (
-    <div className="h-full rounded-[5px] border border-border-subtle bg-[var(--surface-glass-dense)] backdrop-blur-[20px] saturate-[1.2]">
+    <div className="h-full rounded border border-border-subtle bg-[var(--surface-glass-dense)] backdrop-blur-[20px] saturate-[1.2]">
       <div className="h-full flex flex-col p-3 relative">
         <button
           onClick={onClose}

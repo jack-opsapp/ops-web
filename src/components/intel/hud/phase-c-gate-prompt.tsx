@@ -73,7 +73,7 @@ export function PhaseCGatePrompt({ onRequestAccess }: PhaseCGatePromptProps) {
 
           <button
             onClick={handleRequest}
-            className="font-mono text-micro uppercase tracking-wider px-4 py-2 rounded-[2px] transition-colors"
+            className="font-mono text-micro uppercase tracking-wider px-4 py-2 rounded-bar transition-colors"
             style={{
               background: "rgba(111, 148, 176, 0.2)",
               border: "1px solid rgba(111, 148, 176, 0.4)",

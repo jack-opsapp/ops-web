@@ -111,7 +111,7 @@ export default async function PmfDashboardPage() {
           {/* Suspense boundary anticipates server-data fetching in Task 19 */}
           <Suspense
             fallback={
-              <div className="glass-surface h-[560px] animate-pulse rounded-[10px]" />
+              <div className="glass-surface h-[560px] animate-pulse rounded-panel" />
             }
           >
             <PipelineKanban />
@@ -121,7 +121,7 @@ export default async function PmfDashboardPage() {
           {/* Suspense boundary anticipates server-data fetching in Task 20 */}
           <Suspense
             fallback={
-              <div className="glass-surface h-[560px] animate-pulse rounded-[10px]" />
+              <div className="glass-surface h-[560px] animate-pulse rounded-panel" />
             }
           >
             <MrrTrendChart />

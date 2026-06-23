@@ -310,7 +310,7 @@ export function NotificationsTab() {
                   value={localStart}
                   onChange={(e) => setLocalStart(e.target.value)}
                   onBlur={() => saveQuietHours("quietHoursStart", localStart)}
-                  className="bg-surface-input border border-border rounded-[5px] px-2 py-1 font-mono text-micro tabular-nums text-text w-[90px]"
+                  className="bg-surface-input border border-border rounded px-2 py-1 font-mono text-micro tabular-nums text-text w-[90px]"
                 />
                 <span className="font-mono text-micro text-text-mute">–</span>
                 <input
@@ -318,7 +318,7 @@ export function NotificationsTab() {
                   value={localEnd}
                   onChange={(e) => setLocalEnd(e.target.value)}
                   onBlur={() => saveQuietHours("quietHoursEnd", localEnd)}
-                  className="bg-surface-input border border-border rounded-[5px] px-2 py-1 font-mono text-micro tabular-nums text-text w-[90px]"
+                  className="bg-surface-input border border-border rounded px-2 py-1 font-mono text-micro tabular-nums text-text w-[90px]"
                 />
               </div>
             </div>

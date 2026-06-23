@@ -31,7 +31,7 @@ export function AudienceFilterRow({ clause, onChange, onRemove }: Props) {
           const nextOps = OP_OPTIONS[nextMeta.type] ?? OP_OPTIONS.text;
           onChange({ field: nextField, op: nextOps[0].id, value: undefined });
         }}
-        className="bg-transparent border border-white/10 rounded-[4px] px-2 py-1 text-[#EDEDED]"
+        className="bg-transparent border border-white/10 rounded-chip px-2 py-1 text-[#EDEDED]"
       >
         {FIELD_OPTIONS.map((f) => (
           <option key={f.id} value={f.id} className="bg-black">
@@ -42,7 +42,7 @@ export function AudienceFilterRow({ clause, onChange, onRemove }: Props) {
       <select
         value={clause.op}
         onChange={(e) => onChange({ ...clause, op: e.target.value as AudienceOp })}
-        className="bg-transparent border border-white/10 rounded-[4px] px-2 py-1 text-[#EDEDED]"
+        className="bg-transparent border border-white/10 rounded-chip px-2 py-1 text-[#EDEDED]"
       >
         {ops.map((o) => (
           <option key={o.id} value={o.id} className="bg-black">
@@ -89,7 +89,7 @@ function ValueInput({
       <select
         value={String(value ?? "true")}
         onChange={(e) => onChange(e.target.value === "true")}
-        className="bg-transparent border border-white/10 rounded-[4px] px-2 py-1 text-[#EDEDED]"
+        className="bg-transparent border border-white/10 rounded-chip px-2 py-1 text-[#EDEDED]"
       >
         <option value="true" className="bg-black">true</option>
         <option value="false" className="bg-black">false</option>
@@ -111,7 +111,7 @@ function ValueInput({
                     on ? arr.filter((x) => x !== v) : [...arr, v]
                   )
                 }
-                className="px-2 py-0.5 rounded-[4px] font-mono text-[11px]"
+                className="px-2 py-0.5 rounded-chip font-mono text-[11px]"
                 style={{
                   border: `1px solid ${
                     on ? "#6F94B0" : "rgba(255,255,255,0.12)"
@@ -130,7 +130,7 @@ function ValueInput({
       <select
         value={String(value ?? enumValues[0])}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-transparent border border-white/10 rounded-[4px] px-2 py-1 text-[#EDEDED]"
+        className="bg-transparent border border-white/10 rounded-chip px-2 py-1 text-[#EDEDED]"
       >
         {enumValues.map((v) => (
           <option key={v} value={v} className="bg-black">
@@ -146,7 +146,7 @@ function ValueInput({
         type="date"
         value={String(value ?? "")}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-transparent border border-white/10 rounded-[4px] px-2 py-1 font-mono text-[12px] text-[#EDEDED]"
+        className="bg-transparent border border-white/10 rounded-chip px-2 py-1 font-mono text-[12px] text-[#EDEDED]"
       />
     );
   }
@@ -168,7 +168,7 @@ function ValueInput({
         )
       }
       placeholder={arrayValue ? "comma,separated,list" : ""}
-      className="bg-transparent border border-white/10 rounded-[4px] px-2 py-1 font-mono text-[12px] text-[#EDEDED]"
+      className="bg-transparent border border-white/10 rounded-chip px-2 py-1 font-mono text-[12px] text-[#EDEDED]"
     />
   );
 }

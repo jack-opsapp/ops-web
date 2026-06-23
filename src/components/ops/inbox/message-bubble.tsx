@@ -152,7 +152,7 @@ export function MessageBubble({
           layout={!reducedMotion}
           transition={motionTransition}
           className={cn(
-            "rounded-[8px] px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
+            "rounded-lg px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
             isAi
               ? "border-agent-border-hi bg-transparent text-agent-text"
               : isOutbound
@@ -345,7 +345,7 @@ export function MessageBubble({
               type="button"
               onClick={() => setDiffOpen((o) => !o)}
               className={cn(
-                "ml-1 inline-flex items-center gap-1 rounded-[2px] border px-[5px] py-[1px] font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
+                "ml-1 inline-flex items-center gap-1 rounded-bar border px-[5px] py-[1px] font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
                 diffOpen
                   ? "border-line-hi text-text"
                   : "border-agent-border-hi text-agent-hi",

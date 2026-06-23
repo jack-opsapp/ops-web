@@ -104,7 +104,7 @@ export function ProjectCard({
   const total = project.tasks.length;
 
   return (
-    <article className="overflow-hidden rounded-[5px] border border-line bg-transparent">
+    <article className="overflow-hidden rounded border border-line bg-transparent">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -231,7 +231,7 @@ export function ProjectCard({
           {/* Open project */}
           <a
             href={`?project=${project.id}&thread=${threadId}`}
-            className="mt-3 inline-flex h-6 items-center gap-1.5 rounded-[2.5px] border border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 hover:border-line-hi hover:text-text"
+            className="mt-3 inline-flex h-6 items-center gap-1.5 rounded-sm border border-line bg-transparent px-2.5 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 hover:border-line-hi hover:text-text"
           >
             <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
             {t("project.openProject", "Open project")}
@@ -305,7 +305,7 @@ function TaskRow({ task }: { task: ProjectTask }) {
       <span
         aria-hidden
         className={cn(
-          "flex h-3 w-3 shrink-0 items-center justify-center rounded-[2px] border-[1.25px]",
+          "flex h-3 w-3 shrink-0 items-center justify-center rounded-bar border-[1.25px]",
           isDone
             ? "border-olive bg-olive"
             : isActive

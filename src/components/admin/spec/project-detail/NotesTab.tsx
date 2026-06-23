@@ -70,7 +70,7 @@ export function NotesTab({ data, projectId }: NotesTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Internal notes"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
@@ -95,14 +95,14 @@ export function NotesTab({ data, projectId }: NotesTabProps) {
           onBlur={flushOnBlur}
           rows={14}
           placeholder="What you saw, what you decided, what comes next. Markdown supported — # headers, **bold**, `code`, lists."
-          className="mt-4 w-full resize-y rounded-[5px] border border-white/[0.10] bg-black px-4 py-3 font-mono text-[13px] leading-relaxed text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="mt-4 w-full resize-y rounded border border-white/[0.10] bg-black px-4 py-3 font-mono text-[13px] leading-relaxed text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </section>
 
       {data.rows.length > 1 && (
         <section
           aria-label="Note revision history"
-          className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+          className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
         >
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-cakemono text-[12px] font-light uppercase leading-none text-[#EDEDED]">
@@ -135,7 +135,7 @@ export function NotesTab({ data, projectId }: NotesTabProps) {
 
 function RevisionRow({ rev }: { rev: SpecInternalNoteRow }) {
   return (
-    <li className="rounded-[5px] border border-white/[0.06] bg-black/40 p-3">
+    <li className="rounded border border-white/[0.06] bg-black/40 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-white/[0.04] pb-2">
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A]">
           {rev.createdByLabel ?? "OPERATOR"}

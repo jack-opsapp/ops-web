@@ -273,7 +273,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
               {visibleImgs.map((url, i) => (
                 <div
                   key={i}
-                  className="w-[18px] h-[18px] rounded-[2px] bg-fill-neutral-dim border border-border-subtle overflow-hidden"
+                  className="w-[18px] h-[18px] rounded-bar bg-fill-neutral-dim border border-border-subtle overflow-hidden"
                 >
                   <img src={url} alt="" className="w-full h-full object-cover" />
                 </div>
@@ -285,7 +285,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
 
             {showGallery && (
               <div
-                className="absolute top-full left-0 mt-1 z-[1000] p-2 rounded-[4px] grid grid-cols-3 gap-1.5 max-w-[240px]"
+                className="absolute top-full left-0 mt-1 z-[1000] p-2 rounded-chip grid grid-cols-3 gap-1.5 max-w-[240px]"
                 style={{
                   background: "var(--surface-glass-dense)",
                   backdropFilter: "blur(28px) saturate(1.3)",
@@ -298,7 +298,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block w-[68px] h-[68px] rounded-[2px] overflow-hidden border border-border-subtle hover:border-[rgba(255,255,255,0.18)] transition-colors"
+                    className="block w-[68px] h-[68px] rounded-bar overflow-hidden border border-border-subtle hover:border-[rgba(255,255,255,0.18)] transition-colors"
                   >
                     <img src={url} alt="" className="w-full h-full object-cover" />
                   </a>

@@ -53,7 +53,7 @@ export function DevBypassBanner() {
       {expanded && (
         <div
           data-dev-bypass-controls
-          className="glass-dense absolute bottom-[calc(100%+8px)] left-0 flex h-[40px] max-w-[calc(100vw-24px)] items-center gap-[4px] overflow-x-auto rounded-[10px] border border-line p-[4px] font-mono uppercase [&::before]:rounded-[10px]"
+          className="glass-dense absolute bottom-[calc(100%+8px)] left-0 flex h-[40px] max-w-[calc(100vw-24px)] items-center gap-[4px] overflow-x-auto rounded-panel border border-line p-[4px] font-mono uppercase [&::before]:rounded-panel"
           style={{
             fontSize: 10,
             letterSpacing: "0.16em",
@@ -107,7 +107,7 @@ export function DevBypassBanner() {
       )}
 
       <div
-        className="glass-dense flex items-center gap-[4px] rounded-[10px] border border-line p-[4px] font-mono uppercase [&::before]:rounded-[10px]"
+        className="glass-dense flex items-center gap-[4px] rounded-panel border border-line p-[4px] font-mono uppercase [&::before]:rounded-panel"
         style={{
           fontSize: 10,
           letterSpacing: "0.16em",
@@ -120,7 +120,7 @@ export function DevBypassBanner() {
           aria-label="// DEV BYPASS"
           aria-expanded={expanded}
           className={cn(
-            "flex h-[32px] w-[32px] items-center justify-center rounded-[5px] border transition-colors",
+            "flex h-[32px] w-[32px] items-center justify-center rounded border transition-colors",
             expanded
               ? "border-line-hi bg-surface-active text-text"
               : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text"

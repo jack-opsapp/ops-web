@@ -241,7 +241,7 @@ export function ArchiveConfirmModal({
             >
               <div
                 className={cn(
-                  "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
+                  "w-[28px] h-[28px] rounded-sm flex items-center justify-center shrink-0",
                   "border border-line-hi bg-transparent",
                 )}
               >
@@ -290,7 +290,7 @@ export function ArchiveConfirmModal({
                     >
                       <div
                         className={cn(
-                          "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
+                          "w-[28px] h-[28px] rounded-sm flex items-center justify-center shrink-0",
                           "border",
                           checked
                             ? "border-ops-accent bg-ops-accent"
@@ -346,7 +346,7 @@ export function ArchiveConfirmModal({
             >
               <div
                 className={cn(
-                  "w-[28px] h-[28px] rounded-[2.5px] flex items-center justify-center shrink-0",
+                  "w-[28px] h-[28px] rounded-sm flex items-center justify-center shrink-0",
                   "border",
                   archiveLead
                     ? "border-ops-accent bg-ops-accent"
@@ -408,7 +408,7 @@ export function ArchiveConfirmModal({
               onClick={() => close(false)}
               disabled={submitting}
               className={cn(
-                "px-3 py-1.5 rounded-[2.5px] border border-line",
+                "px-3 py-1.5 rounded-sm border border-line",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2",
                 "hover:border-line-hi hover:text-text transition-colors duration-150",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -421,7 +421,7 @@ export function ArchiveConfirmModal({
               onClick={submit}
               disabled={submitting}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[2.5px]",
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm",
                 "border border-ops-accent text-ops-accent",
                 "font-cakemono font-light uppercase text-[11px] tracking-[0.14em]",
                 "hover:bg-ops-accent hover:text-black transition-colors duration-150",

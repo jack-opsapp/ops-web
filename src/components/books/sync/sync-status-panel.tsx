@@ -101,7 +101,7 @@ export function SyncStatusPanel({
     <div className="glass-surface space-y-3 p-5">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[6px] border border-olive-line bg-olive-soft text-olive">
+          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-sidebar border border-olive-line bg-olive-soft text-olive">
             <CheckCircle2 className="h-[15px] w-[15px]" />
           </span>
           <div>

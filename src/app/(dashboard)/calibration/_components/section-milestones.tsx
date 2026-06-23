@@ -186,7 +186,7 @@ export function SectionMilestones() {
                 key={key}
                 id={`milestone-${l.position}`}
                 className={cn(
-                  "grid grid-cols-[36px_40px_1fr_140px] items-center px-4 py-3 rounded-[6px] transition-colors",
+                  "grid grid-cols-[36px_40px_1fr_140px] items-center px-4 py-3 rounded-sidebar transition-colors",
                   l.status === "complete" && "text-text",
                   l.status === "in_training" && "text-text-2",
                   l.status === "gated" && "text-text-3"

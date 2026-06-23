@@ -586,7 +586,7 @@ export function PortalBrandingTab() {
           <SectionTitle>{t("portalBranding.logoTitle")}</SectionTitle>
         </CardHeader>
         <CardContent>
-          <div className="p-2 rounded-[5px] border border-border bg-surface-input flex items-center gap-2 min-h-[56px]">
+          <div className="p-2 rounded border border-border bg-surface-input flex items-center gap-2 min-h-[56px]">
             {company?.logoURL ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -634,7 +634,7 @@ export function PortalBrandingTab() {
                       markDirty();
                     }}
                     className={cn(
-                      "relative w-[36px] h-[36px] rounded-[4px] border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
+                      "relative w-[36px] h-[36px] rounded-chip border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                       accentColor === hex
                         ? "border-[rgba(255,255,255,0.4)] ring-1 ring-[rgba(255,255,255,0.18)]"
                         : "border-border hover:border-[rgba(255,255,255,0.3)]"
@@ -664,14 +664,14 @@ export function PortalBrandingTab() {
                   markDirty();
                 }}
                 className={cn(
-                  "relative flex flex-col items-center gap-1 py-1.5 rounded-[4px] border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
+                  "relative flex flex-col items-center gap-1 py-1.5 rounded-chip border transition-all disabled:opacity-40 disabled:cursor-not-allowed",
                   accentColor === color.hex
                     ? "border-[rgba(255,255,255,0.18)] bg-surface-active"
                     : "border-border hover:border-border-medium"
                 )}
               >
                 <span
-                  className="w-[32px] h-[32px] rounded-[4px] border border-border"
+                  className="w-[32px] h-[32px] rounded-chip border border-border"
                   style={{ backgroundColor: color.hex }}
                 />
                 <span className="font-mono text-micro text-text-3 leading-tight">
@@ -689,7 +689,7 @@ export function PortalBrandingTab() {
           {/* Custom hex input */}
           <div className="flex items-center gap-1.5 pt-0.5">
             <div
-              className="w-[32px] h-[32px] rounded-[4px] border border-border shrink-0"
+              className="w-[32px] h-[32px] rounded-chip border border-border shrink-0"
               style={{ backgroundColor: isValidHex ? accentColor : "#333" }}
             />
             <Input

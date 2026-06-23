@@ -59,7 +59,7 @@ interface ThreadDetailHeaderProps {
 }
 
 const iconBtnClass =
-  "inline-flex h-[18px] w-[18px] items-center justify-center rounded-[2px] text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  "inline-flex h-[18px] w-[18px] items-center justify-center rounded-bar text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 const HeaderActionButton = forwardRef<
   HTMLButtonElement,

@@ -72,7 +72,7 @@ function stripClaudeGlyph(label: string): string {
  * State-conditional classes (active text/border colors, hover) are merged
  * inline via `cn()`. Mirrors the `ghostBtn` pattern in `edit-toolbar.tsx`. */
 const tabBase =
-  "inline-flex items-center gap-1.5 pb-1 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors rounded-[2px] focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
+  "inline-flex items-center gap-1.5 pb-1 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors rounded-bar focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black";
 
 export function DraftSwitcher({
   drafts,

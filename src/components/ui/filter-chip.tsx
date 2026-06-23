@@ -41,7 +41,7 @@ export function FilterChips<T extends string = string>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "inline-flex h-3 items-center rounded-[4px] border px-1",
+              "inline-flex h-3 items-center rounded-chip border px-1",
               "font-mono text-micro font-medium uppercase tracking-[0.12em]",
               "transition-colors duration-150 ease-smooth",
               active
@@ -65,7 +65,7 @@ export function DismissChip({ label, onClear }: { label: string; onClear: () => 
       type="button"
       onClick={onClear}
       className={cn(
-        "inline-flex h-3 items-center gap-[6px] rounded-[4px] border border-rose-line bg-rose-soft px-1",
+        "inline-flex h-3 items-center gap-[6px] rounded-chip border border-rose-line bg-rose-soft px-1",
         "font-mono text-micro font-medium uppercase tracking-[0.12em] text-rose",
         "transition-colors duration-150 ease-smooth hover:border-rose",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",

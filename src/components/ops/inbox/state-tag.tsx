@@ -135,7 +135,7 @@ export function StateTag({
           "group-hover:opacity-100 focus-visible:opacity-100 focus:opacity-100",
           // Inherits currentColor → tag tone (accent on YOURS, rose on
           // OVERDUE, etc.). Hover bumps to text to flag the action.
-          "pointer-events-auto inline-flex h-3.5 w-3.5 items-center justify-center rounded-[2px]",
+          "pointer-events-auto inline-flex h-3.5 w-3.5 items-center justify-center rounded-bar",
           "hover:bg-[currentColor]/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current",
         )}
       >

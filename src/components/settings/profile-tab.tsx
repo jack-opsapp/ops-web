@@ -287,7 +287,7 @@ export function ProfileTab() {
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded-[5px] bg-[rgba(255,255,255,0.18)] flex items-center justify-center hover:bg-[rgba(255,255,255,0.25)] transition-colors"
+                className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded bg-[rgba(255,255,255,0.18)] flex items-center justify-center hover:bg-[rgba(255,255,255,0.25)] transition-colors"
               >
                 <Camera className="w-[14px] h-[14px] text-text" />
               </button>

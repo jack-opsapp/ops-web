@@ -29,7 +29,7 @@ export function CampaignProgressBar({ sent, total, bounced, failed }: Props) {
   return (
     <div className="space-y-1">
       <div
-        className="h-[2px] rounded-[2px] relative overflow-hidden"
+        className="h-[2px] rounded-bar relative overflow-hidden"
         style={{ background: "rgba(255,255,255,0.06)" }}
         aria-label={`${sent} of ${total} sent`}
         role="progressbar"

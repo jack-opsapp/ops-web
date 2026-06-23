@@ -188,7 +188,7 @@ export function ProjectMapCanvas({
                 />
                 {hovered && (
                   <div
-                    className="glass-dense pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-[5px] px-2 py-1 font-mono text-[11px] tracking-[0.06em] text-text"
+                    className="glass-dense pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-2 py-1 font-mono text-[11px] tracking-[0.06em] text-text"
                     style={{ bottom: 16 }}
                   >
                     {g.projects.length > 1
@@ -233,7 +233,7 @@ function MapZoomToolbar({
   recenterLabel: string;
 }) {
   return (
-    <div className="glass-dense absolute bottom-3 right-4 flex flex-col overflow-hidden rounded-[5px]">
+    <div className="glass-dense absolute bottom-3 right-4 flex flex-col overflow-hidden rounded">
       <ToolButton label={zoomInLabel} onClick={onZoomIn}><Plus className="h-[14px] w-[14px]" strokeWidth={1.5} /></ToolButton>
       <span className="mx-1.5 h-px bg-[var(--fill-neutral-dim)]" />
       <ToolButton label={zoomOutLabel} onClick={onZoomOut}><Minus className="h-[14px] w-[14px]" strokeWidth={1.5} /></ToolButton>
@@ -271,7 +271,7 @@ const LEGEND_STATUSES: { status: ProjectStatus; key: string }[] = [
 function MapStatusLegend() {
   const { t } = useDictionary("projects-canvas");
   return (
-    <div className="glass-dense absolute bottom-3 left-3 rounded-[5px] p-2">
+    <div className="glass-dense absolute bottom-3 left-3 rounded p-2">
       <div className="mb-1.5 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
         {t("map.legend.title")}
       </div>

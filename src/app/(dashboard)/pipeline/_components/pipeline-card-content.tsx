@@ -137,7 +137,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
     return (
       <div
         className={cn(
-          "w-full rounded-[4px]",
+          "w-full rounded-chip",
           !reduced && "transition-[border-color,box-shadow] duration-150"
         )}
         style={{
@@ -657,7 +657,7 @@ function ClientLinkControl({
             {currentClientName ? (
               <button
                 type="button"
-                className="mb-1 flex w-full shrink-0 flex-col rounded-[5px] bg-surface-active px-2 py-1.5 text-left text-text transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+                className="mb-1 flex w-full shrink-0 flex-col rounded bg-surface-active px-2 py-1.5 text-left text-text transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
                 onClick={() => {
                   setOpen(false);
                   setPopoverPosition(null);
@@ -674,7 +674,7 @@ function ClientLinkControl({
               <button
                 type="button"
                 aria-label={topCreateLabel}
-                className="mb-1 flex w-full shrink-0 flex-col rounded-[5px] border border-line px-2 py-1.5 text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+                className="mb-1 flex w-full shrink-0 flex-col rounded border border-line px-2 py-1.5 text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
                 onClick={() => {
                   if (!createName) {
                     inputRef.current?.focus();
@@ -738,7 +738,7 @@ function ClientLinkControl({
                   setPopoverPosition(null);
                 }
               }}
-              className="mb-1 w-full shrink-0 rounded-[5px] border border-line bg-surface-input px-2 py-1.5 font-mohave text-body-sm text-text outline-none placeholder:text-text-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+              className="mb-1 w-full shrink-0 rounded border border-line bg-surface-input px-2 py-1.5 font-mohave text-body-sm text-text outline-none placeholder:text-text-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
             />
 
             <div
@@ -754,7 +754,7 @@ function ClientLinkControl({
                   aria-label={client.name}
                   aria-selected={index === activeIndex}
                   className={cn(
-                    "flex w-full flex-col rounded-[5px] px-2 py-1.5 text-left transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+                    "flex w-full flex-col rounded px-2 py-1.5 text-left transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
                     index === activeIndex
                       ? "bg-surface-active text-text"
                       : "text-text-2 hover:bg-surface-hover hover:text-text"
@@ -784,7 +784,7 @@ function ClientLinkControl({
               <button
                 type="button"
                 aria-label={`${createLabel} ${query.trim()}`}
-                className="mt-1 flex w-full shrink-0 flex-col rounded-[5px] border border-line px-2 py-1.5 text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+                className="mt-1 flex w-full shrink-0 flex-col rounded border border-line px-2 py-1.5 text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
                 onClick={() => createAndLink()}
               >
                 <span className="font-cakemono text-cake-badge font-light uppercase text-text-2">
@@ -807,7 +807,7 @@ function ClientLinkControl({
         type="button"
         aria-label={label}
         aria-expanded={open}
-        className="block w-full truncate rounded-[5px] text-left font-mohave text-body-sm text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+        className="block w-full truncate rounded text-left font-mohave text-body-sm text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
         onClick={(event) => {
           event.stopPropagation();
           openLinker();
@@ -891,7 +891,7 @@ function InlineAddressEditor({
     <button
       type="button"
       aria-label={addressLabel}
-      className="mt-1 block w-full truncate rounded-[5px] text-left font-mohave text-body-sm text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+      className="mt-1 block w-full truncate rounded text-left font-mohave text-body-sm text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
       onClick={(event) => {
         event.stopPropagation();
         setEditing(true);

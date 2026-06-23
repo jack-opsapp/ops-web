@@ -22,7 +22,7 @@ export function TemplatesTab() {
       </div>
       <Link
         href="/admin/email/templates"
-        className="mt-6 inline-block px-5 py-2 border border-ops-accent text-ops-accent font-cakemono font-light text-[12px] uppercase tracking-[0.18em] hover:bg-ops-accent hover:text-black transition-colors rounded-[5px]"
+        className="mt-6 inline-block px-5 py-2 border border-ops-accent text-ops-accent font-cakemono font-light text-[12px] uppercase tracking-[0.18em] hover:bg-ops-accent hover:text-black transition-colors rounded"
         style={{
           transitionDuration: "180ms",
           transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",

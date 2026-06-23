@@ -28,7 +28,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                     </span>
                     <span
                       className={[
-                        "rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em]",
+                        "rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em]",
                         v.isCurrent
                           ? "border-[#9DB582]/40 text-[#9DB582]"
                           : "border-white/[0.08] text-[#6A6A6A]",
@@ -72,7 +72,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
             <input type="hidden" name="project_id" value={projectId} />
             <button
               type="submit"
-              className="w-full rounded-[5px] border border-[#6F94B0] px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+              className="w-full rounded border border-[#6F94B0] px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
             >
               {data.current ? "NEW SCOPE REVISION" : "CREATE V1 DRAFT"}
             </button>
@@ -92,7 +92,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
           <>
             <Panel title={`CURRENT — V${data.current.version}`}>
               {data.current.contentJson ? (
-                <pre className="overflow-x-auto rounded-[5px] border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-[#EDEDED]">
+                <pre className="overflow-x-auto rounded border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-[#EDEDED]">
 {JSON.stringify(data.current.contentJson, null, 2)}
                 </pre>
               ) : (
@@ -115,7 +115,7 @@ export function ScopeTab({ data, projectId }: ScopeTabProps) {
                         {f.acceptanceCriteria}
                       </p>
                       {f.failureNotes && (
-                        <p className="rounded-[5px] border border-[#B58289]/30 bg-[rgba(147,50,26,0.06)] p-2 text-[11px] leading-relaxed text-[#B58289]">
+                        <p className="rounded border border-[#B58289]/30 bg-[rgba(147,50,26,0.06)] p-2 text-[11px] leading-relaxed text-[#B58289]">
                           <span className="mr-1 font-mono uppercase tracking-[0.16em]">
                             FAIL ·
                           </span>
@@ -178,7 +178,7 @@ function FeatureBadge({ status }: { status: "pending" | "passing" | "failing" })
         : "text-[#8A8A8A] border-white/[0.10]";
   return (
     <span
-      className={`rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${tone}`}
+      className={`rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${tone}`}
     >
       {statusLabel(status)}
     </span>
@@ -201,7 +201,7 @@ function FeatureControl({
   disabled: boolean;
 }) {
   const base =
-    "rounded-[4px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] disabled:cursor-not-allowed disabled:opacity-40";
+    "rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] disabled:cursor-not-allowed disabled:opacity-40";
   const toneCls =
     tone === "olive"
       ? "border-[#9DB582]/40 text-[#9DB582] hover:bg-[#9DB582] hover:text-black"
@@ -224,7 +224,7 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   return (
     <section
       aria-label={title}
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+      className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
     >
       <h2 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
         <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">

@@ -56,9 +56,9 @@ function fmtPct(value: number): string {
 function MarginMeter({ pct, animate }: { pct: number; animate: boolean }) {
   const width = Math.max(0, Math.min(100, pct));
   return (
-    <div className="my-[10px] h-[4px] overflow-hidden rounded-[2px] bg-fill-neutral-dim">
+    <div className="my-[10px] h-[4px] overflow-hidden rounded-bar bg-fill-neutral-dim">
       <div
-        className="h-full rounded-[2px] bg-olive"
+        className="h-full rounded-bar bg-olive"
         style={{
           width: `${width}%`,
           transition: animate ? "width 600ms var(--ease-smooth)" : "none",
@@ -143,7 +143,7 @@ function AgingRamp({ buckets, animate }: { buckets: BooksLedger["ar"]["buckets"]
       {values.map((v, i) => (
         <span
           key={i}
-          className={cn("block flex-1 rounded-t-[2px]", RAMP_CLASSES[i])}
+          className={cn("block flex-1 rounded-t-bar", RAMP_CLASSES[i])}
           style={{
             height: `${Math.max(v > 0 ? 8 : 4, (v / max) * 100)}%`,
             opacity: v > 0 ? 1 : 0.25,
@@ -179,7 +179,7 @@ function DivergingBars({
             <span key={b.projectId} className="relative flex h-[6px] items-center">
               <span className="absolute inset-y-[-2px] left-1/2 w-px bg-border" />
               <span
-                className={cn("block h-[4px] rounded-[2px]", positive ? "bg-olive" : "bg-rose")}
+                className={cn("block h-[4px] rounded-bar", positive ? "bg-olive" : "bg-rose")}
                 style={{
                   width: `${Math.max(widthPct, 2)}%`,
                   marginLeft: positive ? "50%" : `${50 - Math.max(widthPct, 2)}%`,

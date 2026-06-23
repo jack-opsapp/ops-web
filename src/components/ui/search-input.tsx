@@ -50,7 +50,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           placeholder={placeholder}
           className={cn(
             "w-full pl-[30px] pr-2 py-[6px] font-mono text-[11px] uppercase tracking-[0.06em]",
-            "rounded-[5px] border border-line bg-surface-input text-text outline-none",
+            "rounded border border-line bg-surface-input text-text outline-none",
             "transition-colors duration-150",
             // Focus border matches the Input primitive's focus-within treatment.
             "focus:border-[rgba(255,255,255,0.20)]",

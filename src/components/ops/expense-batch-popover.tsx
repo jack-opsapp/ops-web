@@ -103,7 +103,7 @@ function ExpenseRow({
         {(hasReceipt || requireReceipt) && (
           <div
             className={cn(
-              "shrink-0 w-[40px] h-[50px] rounded-[2px] overflow-hidden",
+              "shrink-0 w-[40px] h-[50px] rounded-bar overflow-hidden",
               hasReceipt && "cursor-pointer",
             )}
             onClick={(e) => {
@@ -120,7 +120,7 @@ function ExpenseRow({
               />
             ) : (
               <div
-                className="w-full h-full flex items-center justify-center border border-dashed rounded-[2px]"
+                className="w-full h-full flex items-center justify-center border border-dashed rounded-bar"
                 style={{ borderColor: WT.warning }}
               >
                 <Camera className="w-4 h-4" style={{ color: WT.warning }} />
@@ -157,7 +157,7 @@ function ExpenseRow({
               }
             }}
             className={cn(
-              "w-5 h-5 flex items-center justify-center rounded-[2px] shrink-0 transition-colors",
+              "w-5 h-5 flex items-center justify-center rounded-bar shrink-0 transition-colors",
               isFlagged
                 ? "text-status-warning hover:text-text-2"
                 : "text-text-mute hover:text-status-warning"
@@ -185,7 +185,7 @@ function ExpenseRow({
               }
             }}
             placeholder={t("batchPopover.flagComment") ?? "What needs fixing?"}
-            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-[2px] px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
+            className="flex-1 bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] rounded-bar px-2 py-1 font-mohave text-[11px] text-text placeholder:text-text-mute outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors"
             autoFocus
           />
           <button
@@ -193,7 +193,7 @@ function ExpenseRow({
               if (flagComment.trim()) onFlagSubmit(expense.id, flagComment.trim());
             }}
             disabled={!flagComment.trim()}
-            className="w-5 h-5 flex items-center justify-center rounded-[4px] text-text-mute hover:text-text disabled:opacity-30 transition-colors"
+            className="w-5 h-5 flex items-center justify-center rounded-chip text-text-mute hover:text-text disabled:opacity-30 transition-colors"
           >
             <Check className="w-3 h-3" />
           </button>
@@ -509,7 +509,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
       className={cn(
         "fixed flex flex-col overflow-hidden",
         "bg-glass glass-surface backdrop-blur-[20px] saturate-[1.2]",
-        "border border-[rgba(255,255,255,0.08)] rounded-[4px]",
+        "border border-[rgba(255,255,255,0.08)] rounded-chip",
         (isDragging || isResizing) && "select-none"
       )}
       style={{
@@ -554,13 +554,13 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
         <div className="flex items-center gap-[2px] shrink-0 ml-2">
           <button
             onClick={() => minimizePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="w-5 h-5 rounded-bar flex items-center justify-center text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
           >
             <Minus className="w-3 h-3" />
           </button>
           <button
             onClick={() => closePopover(state.id)}
-            className="w-5 h-5 rounded-[2px] flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
+            className="w-5 h-5 rounded-bar flex items-center justify-center text-text-3 hover:text-ops-error hover:bg-ops-error-muted transition-colors"
           >
             <X className="w-3 h-3" />
           </button>
@@ -689,7 +689,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
           <button
             onClick={handleApprove}
             disabled={approveBatch.isPending}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[2px] bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.08)] font-mohave text-[11px] uppercase tracking-[0.5px] text-text transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-bar bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.08)] font-mohave text-[11px] uppercase tracking-[0.5px] text-text transition-colors disabled:opacity-50"
           >
             <Check className="w-3 h-3" />
             {t("batchPopover.approveAll") ?? "Approve All"}
@@ -697,7 +697,7 @@ const ExpenseBatchPopoverInstance = memo(function ExpenseBatchPopoverInstance({
           <button
             onClick={handleSendRevisions}
             disabled={flaggedCount === 0 || rejectWithRevisions.isPending}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-[2px] bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.08)] font-mohave text-[11px] uppercase tracking-[0.5px] text-text transition-colors disabled:opacity-30"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-bar bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.08)] font-mohave text-[11px] uppercase tracking-[0.5px] text-text transition-colors disabled:opacity-30"
           >
             <Send className="w-3 h-3" />
             {t("batchPopover.sendRevisions") ?? "Send Revisions"}

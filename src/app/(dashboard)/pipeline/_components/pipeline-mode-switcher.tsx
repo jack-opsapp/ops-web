@@ -42,7 +42,7 @@ export function PipelineModeSwitcher() {
     <div
       role="group"
       aria-label={t("mode.label")}
-      className="inline-flex rounded-[5px] border border-border bg-surface-input p-px"
+      className="inline-flex rounded border border-border bg-surface-input p-px"
     >
       {MODE_OPTIONS.map((option) => {
         const Icon = option.icon;
@@ -55,7 +55,7 @@ export function PipelineModeSwitcher() {
             aria-pressed={active}
             onClick={() => setMode(option.mode)}
             className={cn(
-              "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded-[5px] px-1.5 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors duration-150 ease-smooth",
+              "inline-flex h-[24px] min-w-[24px] items-center justify-center gap-1 rounded px-1.5 font-mono text-micro font-medium uppercase tracking-[0.12em] transition-colors duration-150 ease-smooth",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
               active
                 ? "bg-surface-active text-text"

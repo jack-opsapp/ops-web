@@ -177,7 +177,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
     return (
       <button
         onClick={onClick}
-        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded-[5px] border border-olive-line bg-olive-soft hover:bg-olive-soft transition-colors text-left"
+        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-olive-line bg-olive-soft hover:bg-olive-soft transition-colors text-left"
       >
         <CheckCircle className="w-[16px] h-[16px] text-olive shrink-0" />
         <div className="flex-1 min-w-0">
@@ -199,7 +199,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
     return (
       <button
         onClick={onClick}
-        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded-[5px] border border-rose-line bg-rose-soft hover:bg-rose-soft transition-colors text-left"
+        className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-rose-line bg-rose-soft hover:bg-rose-soft transition-colors text-left"
       >
         <AlertTriangle className="w-[16px] h-[16px] text-rose shrink-0" />
         <div className="flex-1 min-w-0">
@@ -221,7 +221,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded-[5px] border border-[rgba(255,255,255,0.18)] bg-surface-input hover:bg-surface-hover transition-colors text-left"
+      className="w-full flex items-center gap-[8px] px-2 py-1.5 rounded border border-[rgba(255,255,255,0.18)] bg-surface-input hover:bg-surface-hover transition-colors text-left"
     >
       <Search className="w-[16px] h-[16px] text-text-2 shrink-0" />
       <div className="flex-1 min-w-0">
@@ -233,7 +233,7 @@ function AnalysisProgressBanner({ jobId, wizardOpen, onComplete, onClick }: Anal
             {progress}%
           </span>
         </div>
-        <div className="mt-1 h-[2px] w-full bg-fill-neutral-dim overflow-hidden rounded-[2px]">
+        <div className="mt-1 h-[2px] w-full bg-fill-neutral-dim overflow-hidden rounded-bar">
           <motion.div
             className="h-full bg-text-2"
             animate={{ width: `${progress}%` }}
@@ -408,7 +408,7 @@ export function IntegrationsTab() {
               {companyConnections.map((conn) => (
                 <div
                   key={conn.id}
-                  className="flex items-center justify-between px-1.5 py-1 bg-olive-soft border border-olive-line rounded-[5px]"
+                  className="flex items-center justify-between px-1.5 py-1 bg-olive-soft border border-olive-line rounded"
                 >
                   <div className="flex items-center gap-[6px] min-w-0">
                     <Mail className="w-[16px] h-[16px] text-olive shrink-0" />
@@ -449,7 +449,7 @@ export function IntegrationsTab() {
           ) : activeJobId && !wizardDone ? (
             <button
               onClick={() => openWizard()}
-              className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
+              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
             >
               <div className="relative w-[18px] h-[18px] shrink-0">
                 <div className="w-full h-full border-2 border-border border-t-text-2 rounded-full animate-spin" />
@@ -466,7 +466,7 @@ export function IntegrationsTab() {
           ) : !wizardDone ? (
             <button
               onClick={() => openWizard()}
-              className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
+              className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
             >
               <Mail className="w-[18px] h-[18px] text-text-2 shrink-0" />
               <div className="flex-1 min-w-0">
@@ -560,7 +560,7 @@ export function IntegrationsTab() {
                 /* Import done but activation pending — prompt to finish */
                 <button
                   onClick={() => openWizard()}
-                  className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-olive-line bg-olive-soft hover:bg-olive-soft transition-colors text-left"
+                  className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-olive-line bg-olive-soft hover:bg-olive-soft transition-colors text-left"
                 >
                   <CheckCircle className="w-[18px] h-[18px] text-olive shrink-0" />
                   <div className="flex-1 min-w-0">
@@ -574,7 +574,7 @@ export function IntegrationsTab() {
                 </button>
               ) : (
                 <>
-                  <div className="flex items-start gap-[8px] px-2 py-1.5 rounded-[5px] border border-tan-line bg-tan-soft">
+                  <div className="flex items-start gap-[8px] px-2 py-1.5 rounded border border-tan-line bg-tan-soft">
                     <AlertTriangle className="w-[16px] h-[16px] text-tan shrink-0 mt-[2px]" />
                     <div className="flex-1 min-w-0">
                       <span className="font-mohave text-body-sm text-tan block">
@@ -588,7 +588,7 @@ export function IntegrationsTab() {
 
                   <button
                     onClick={() => openWizard()}
-                    className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
+                    className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
                   >
                     <Mail className="w-[18px] h-[18px] text-text-2 shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -609,7 +609,7 @@ export function IntegrationsTab() {
           {hasAnyConnection && wizardDone && (
             <>
               <div className="pt-[4px]">
-                <div className="flex items-center gap-[6px] px-2 py-1.5 rounded-[5px] border border-olive-line bg-olive-soft">
+                <div className="flex items-center gap-[6px] px-2 py-1.5 rounded border border-olive-line bg-olive-soft">
                   <CheckCircle className="w-[16px] h-[16px] text-olive shrink-0" />
                   <span className="font-mohave text-body-sm text-olive">
                     {t("integrations.syncActive")}
@@ -733,7 +733,7 @@ function AiSetupCard() {
       <CardContent>
         <button
           onClick={() => router.push("/settings/integrations/ai-setup")}
-          className="w-full flex items-center gap-[8px] px-2 py-2 rounded-[5px] border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
+          className="w-full flex items-center gap-[8px] px-2 py-2 rounded border border-border bg-surface-input hover:bg-surface-hover hover:border-[rgba(255,255,255,0.20)] transition-colors text-left"
         >
           <Brain className="w-[18px] h-[18px] text-text-2 shrink-0" />
           <div className="flex-1 min-w-0">

@@ -180,7 +180,7 @@ function TemplateFormModal({
                     }));
                   }}
                   title={field.label}
-                  className="transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent rounded-[4px]"
+                  className="transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent rounded-chip"
                 >
                   <Tag variant="tan">{field.key}</Tag>
                 </button>
@@ -298,7 +298,7 @@ export function EmailTemplatesTab() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-[56px] rounded-[4px] bg-surface-input/40 border border-border-subtle animate-pulse"
+              className="h-[56px] rounded-chip bg-surface-input/40 border border-border-subtle animate-pulse"
             />
           ))}
         </div>
@@ -351,7 +351,7 @@ export function EmailTemplatesTab() {
                             e.stopPropagation();
                             setEditingTemplate(tpl);
                           }}
-                          className="rounded-[4px] p-1 text-text-3 transition-colors hover:bg-surface-hover hover:text-text"
+                          className="rounded-chip p-1 text-text-3 transition-colors hover:bg-surface-hover hover:text-text"
                           title={t("edit")}
                         >
                           <Pencil className="h-[13px] w-[13px]" />
@@ -361,7 +361,7 @@ export function EmailTemplatesTab() {
                             e.stopPropagation();
                             setDeletingTemplate(tpl);
                           }}
-                          className="rounded-[4px] p-1 text-text-3 transition-colors hover:bg-rose-soft hover:text-rose"
+                          className="rounded-chip p-1 text-text-3 transition-colors hover:bg-rose-soft hover:text-rose"
                           title={t("delete")}
                         >
                           <Trash2 className="h-[13px] w-[13px]" />

@@ -149,7 +149,7 @@ export function ProjectSitesDrawer({
         aria-expanded={!collapsed}
         aria-label={collapsed ? t("map.showSites") : t("map.hideSites")}
         className={cn(
-          "glass-dense absolute top-3 z-[11] flex h-8 w-[22px] items-center justify-center rounded-r-[5px] border border-border text-text-3",
+          "glass-dense absolute top-3 z-[11] flex h-8 w-[22px] items-center justify-center rounded-r border border-border text-text-3",
           "transition-[left,color] duration-[250ms] ease-smooth hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
           collapsed ? "left-0" : "left-[236px]",
         )}
@@ -184,7 +184,7 @@ function SiteRow({
       onClick={onClick}
       title={locateTitle}
       className={cn(
-        "group flex w-full items-start gap-2 rounded-[6px] border border-transparent px-2 py-1.5 text-left transition-colors duration-150 ease-smooth",
+        "group flex w-full items-start gap-2 rounded-sidebar border border-transparent px-2 py-1.5 text-left transition-colors duration-150 ease-smooth",
         "hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         selected && "border-[rgba(255,255,255,0.18)] bg-surface-active",
       )}
@@ -220,7 +220,7 @@ function NoGpsRow({ project, onClick, hint }: { project: Project; onClick: () =>
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-start gap-2 rounded-[6px] border border-transparent px-2 py-1.5 text-left transition-colors duration-150 ease-smooth hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+      className="flex w-full items-start gap-2 rounded-sidebar border border-transparent px-2 py-1.5 text-left transition-colors duration-150 ease-smooth hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
     >
       <span className="mt-[3px] h-[8px] w-[8px] shrink-0 rounded-full border border-dashed border-text-mute" />
       <span className="min-w-0 flex-1">

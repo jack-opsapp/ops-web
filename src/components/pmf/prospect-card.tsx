@@ -69,7 +69,7 @@ export function ProspectCard({ prospect, deal, onClick }: ProspectCardProps) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className="glass-surface p-3 cursor-grab active:cursor-grabbing rounded-[5px]"
+      className="glass-surface p-3 cursor-grab active:cursor-grabbing rounded"
       role="article"
       tabIndex={0}
     >

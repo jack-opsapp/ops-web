@@ -286,7 +286,7 @@ function DraftBubble({
         <div
           data-testid="draft-bubble"
           className={cn(
-            "rounded-[8px] border border-dashed px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
+            "rounded-lg border border-dashed px-3 py-2 font-mohave text-[13px] leading-[1.45] text-pretty",
             isAi
               ? "border-agent-border-hi bg-transparent text-agent-text"
               : "border-line-hi bg-transparent text-text",
@@ -319,7 +319,7 @@ function DraftBubble({
                       aria-selected={selected}
                       onClick={() => setSelectedId(draft.id)}
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-[2px] border px-1.5 py-[2px]",
+                        "inline-flex items-center gap-1 rounded-bar border px-1.5 py-[2px]",
                         "font-mono text-[11px] uppercase tracking-[0.10em] transition-colors",
                         "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
                         selected
@@ -359,7 +359,7 @@ function DraftBubble({
                 <button
                   type="button"
                   onClick={() => onEditDraft(selectedDraft)}
-                  className="inline-flex h-6 items-center gap-1 rounded-[2.5px] border border-line bg-transparent px-2 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  className="inline-flex h-6 items-center gap-1 rounded-sm border border-line bg-transparent px-2 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-text-2 transition-colors hover:border-line-hi hover:text-text focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   <Pencil aria-hidden className="h-3 w-3" strokeWidth={1.5} />
                   {t("draftBubble.edit", "EDIT")}
@@ -370,7 +370,7 @@ function DraftBubble({
                   type="button"
                   disabled={isDraftSending}
                   onClick={() => onSendDraft(selectedDraft)}
-                  className="inline-flex h-6 items-center gap-1 rounded-[2.5px] border border-ops-accent bg-transparent px-2 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  className="inline-flex h-6 items-center gap-1 rounded-sm border border-ops-accent bg-transparent px-2 font-cakemono text-[11px] font-light uppercase tracking-[0.14em] text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   <Send aria-hidden className="h-3 w-3" strokeWidth={1.5} />
                   {t("draftBubble.send", "SEND")}

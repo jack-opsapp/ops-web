@@ -90,7 +90,7 @@ export function AudienceBuilderTab() {
       </header>
 
       <div
-        className="rounded-[10px] p-4"
+        className="rounded-panel p-4"
         style={{ border: "1px solid rgba(255,255,255,0.06)" }}
       >
         <div className="flex items-center gap-3 mb-3">
@@ -99,7 +99,7 @@ export function AudienceBuilderTab() {
           </span>
           <button
             onClick={() => setCombinator("and")}
-            className="font-cakemono font-light text-[11px] tracking-[0.06em] px-2 py-0.5 rounded-[4px]"
+            className="font-cakemono font-light text-[11px] tracking-[0.06em] px-2 py-0.5 rounded-chip"
             style={{
               border: `1px solid ${
                 combinator === "and" ? "#6F94B0" : "rgba(255,255,255,0.12)"
@@ -111,7 +111,7 @@ export function AudienceBuilderTab() {
           </button>
           <button
             onClick={() => setCombinator("or")}
-            className="font-cakemono font-light text-[11px] tracking-[0.06em] px-2 py-0.5 rounded-[4px]"
+            className="font-cakemono font-light text-[11px] tracking-[0.06em] px-2 py-0.5 rounded-chip"
             style={{
               border: `1px solid ${
                 combinator === "or" ? "#6F94B0" : "rgba(255,255,255,0.12)"
@@ -138,14 +138,14 @@ export function AudienceBuilderTab() {
           onClick={() =>
             setClauses([...clauses, { field: "email", op: "like", value: "" }])
           }
-          className="mt-3 font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] border border-white/10 hover:bg-white/[0.05] px-3 py-1 rounded-[4px]"
+          className="mt-3 font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] border border-white/10 hover:bg-white/[0.05] px-3 py-1 rounded-chip"
         >
           + ADD CONDITION
         </button>
       </div>
 
       <div
-        className="rounded-[10px] p-5 flex items-center justify-between"
+        className="rounded-panel p-5 flex items-center justify-between"
         style={{
           border: "1px solid rgba(255,255,255,0.06)",
           background: "rgba(157,181,130,0.04)",
@@ -169,13 +169,13 @@ export function AudienceBuilderTab() {
         <div className="flex gap-2">
           <button
             onClick={() => setSaveOpen(true)}
-            className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] border border-white/10 hover:bg-white/[0.05] px-3 py-1.5 rounded-[5px]"
+            className="font-cakemono font-light text-[11px] tracking-[0.06em] text-[#B5B5B5] border border-white/10 hover:bg-white/[0.05] px-3 py-1.5 rounded"
           >
             SAVE AS TEMPLATE
           </button>
           <button
             onClick={useInCampaign}
-            className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black px-3 py-1.5 rounded-[5px]"
+            className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black px-3 py-1.5 rounded"
           >
             USE IN CAMPAIGN
           </button>
@@ -184,7 +184,7 @@ export function AudienceBuilderTab() {
 
       {(preview.data?.sample.length ?? 0) > 0 && (
         <div
-          className="rounded-[10px] overflow-hidden"
+          className="rounded-panel overflow-hidden"
           style={{ border: "1px solid rgba(255,255,255,0.06)" }}
         >
           <p
@@ -224,7 +224,7 @@ export function AudienceBuilderTab() {
                       setClauses(root.or);
                     }
                   }}
-                  className="w-full text-left px-3 py-2 rounded-[10px] hover:bg-white/[0.03]"
+                  className="w-full text-left px-3 py-2 rounded-panel hover:bg-white/[0.03]"
                   style={{ border: "1px solid rgba(255,255,255,0.06)" }}
                 >
                   <span className="font-mohave text-[14px] text-[#EDEDED]">

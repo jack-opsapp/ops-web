@@ -167,7 +167,7 @@ export function ProductsSegment({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="inline-flex h-[24px] items-center gap-[4px] rounded-[4px] border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              className="inline-flex h-[24px] items-center gap-[4px] rounded-chip border border-border px-1 font-mono text-micro font-medium uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
               {t("actions.menu", "ACTIONS")}
             </button>
@@ -196,7 +196,7 @@ export function ProductsSegment({
       header: t("products.col.product", "PRODUCT"),
       cell: (p) => (
         <div className="flex items-center gap-[10px]">
-          <span className="flex h-[32px] w-[32px] shrink-0 items-center justify-center overflow-hidden rounded-[4px] border border-border bg-surface-input">
+          <span className="flex h-[32px] w-[32px] shrink-0 items-center justify-center overflow-hidden rounded-chip border border-border bg-surface-input">
             {p.thumbnailUrl ? (
               <Image src={p.thumbnailUrl} alt="" width={32} height={32} className="object-cover" />
             ) : (

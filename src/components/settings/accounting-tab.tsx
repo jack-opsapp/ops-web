@@ -339,7 +339,7 @@ function SyncIssues() {
               {(issues ?? []).map((issue) => {
                 const recordRef = issue.externalId ? `QB ${issue.externalId}` : issue.entityId.slice(0, 8);
                 return (
-                  <div key={issue.id} className="rounded-[5px] border border-border-subtle p-2.5">
+                  <div key={issue.id} className="rounded border border-border-subtle p-2.5">
                     <div className="flex flex-wrap items-center gap-2">
                       <Tag variant="rose">
                         {issue.status === "blocked" ? t("accounting.issueBlocked") : t("accounting.issueNeedsReview")}

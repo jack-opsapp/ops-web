@@ -48,7 +48,7 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
   return (
     <form
       action={handleSubmit}
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px] backdrop-saturate-[1.3] p-6"
+      className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] backdrop-blur-[28px] backdrop-saturate-[1.3] p-6"
       aria-labelledby={`capacity-${row.tier}-heading`}
     >
       {/* Tier heading */}
@@ -244,7 +244,7 @@ export function CapacityTierForm({ row }: CapacityTierFormProps) {
         <button
           type="submit"
           disabled={pending}
-          className={`inline-flex items-center gap-2 rounded-[5px] border border-[#6F94B0] bg-transparent px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.14em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-[#6F94B0] focus-visible:outline-offset-2 disabled:opacity-50`}
+          className={`inline-flex items-center gap-2 rounded border border-[#6F94B0] bg-transparent px-4 py-[6px] font-mono text-[12px] uppercase tracking-[0.14em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-[#6F94B0] focus-visible:outline-offset-2 disabled:opacity-50`}
         >
           {pending ? "SAVING…" : "SAVE"}
         </button>
@@ -304,7 +304,7 @@ function Field({
 }
 
 const INPUT_BASE =
-  "w-full rounded-[5px] border border-white/[0.10] bg-black/40 px-3 py-[7px] font-mono text-[13px] text-[#EDEDED] tabular-nums " +
+  "w-full rounded border border-white/[0.10] bg-black/40 px-3 py-[7px] font-mono text-[13px] text-[#EDEDED] tabular-nums " +
   "placeholder:text-[#3A3A3A] " +
   "focus:border-[#6F94B0] focus:outline-none " +
   "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]";
@@ -377,7 +377,7 @@ function Toggle({
         type="button"
         onClick={onToggle}
         aria-pressed={enabled}
-        className={`mt-1.5 inline-flex h-[34px] items-center justify-between gap-3 rounded-[5px] border px-3 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+        className={`mt-1.5 inline-flex h-[34px] items-center justify-between gap-3 rounded border px-3 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
           enabled
             ? "border-[#9DB582]/40 bg-[#9DB582]/8 text-[#9DB582]"
             : "border-[#93321A]/40 bg-[#93321A]/8 text-[#B58289]"

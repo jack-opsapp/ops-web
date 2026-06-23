@@ -67,9 +67,9 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
           variants={staggerItem}
           onClick={() => handleConnect("gmail")}
           disabled={!!connecting}
-          className="group flex items-center gap-4 p-4 glass-surface border-border hover:border-border-medium transition-all rounded-[10px]"
+          className="group flex items-center gap-4 p-4 glass-surface border-border hover:border-border-medium transition-all rounded-panel"
         >
-          <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-border rounded-[5px]">
+          <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-border rounded">
             <Mail size={20} className="text-text" />
           </div>
           <div className="flex-1 text-left">
@@ -91,9 +91,9 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
           variants={staggerItem}
           onClick={() => handleConnect("microsoft365")}
           disabled={!!connecting}
-          className="group flex items-center gap-4 p-4 glass-surface border-border hover:border-border-medium transition-all rounded-[10px]"
+          className="group flex items-center gap-4 p-4 glass-surface border-border hover:border-border-medium transition-all rounded-panel"
         >
-          <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-border rounded-[5px]">
+          <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-border rounded">
             <Mail size={20} className="text-text" />
           </div>
           <div className="flex-1 text-left">

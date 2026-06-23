@@ -74,7 +74,7 @@ export function ReconnectInboxClient({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={t(0.08)}
-          className="w-full rounded-[10px] p-6 sm:p-8"
+          className="w-full rounded-panel p-6 sm:p-8"
           style={{
             background: "rgba(18, 18, 20, 0.58)",
             backdropFilter: "blur(28px) saturate(1.3)",
@@ -114,7 +114,7 @@ export function ReconnectInboxClient({
               party. Same visual language as the InfoBlock primitive in the
               email template. */}
           <div
-            className="rounded-[5px] p-4 mb-6"
+            className="rounded p-4 mb-6"
             style={{
               background: "rgba(255, 255, 255, 0.04)",
               border: "1px solid rgba(255, 255, 255, 0.10)",
@@ -143,7 +143,7 @@ export function ReconnectInboxClient({
 
           <a
             href={oauthHref}
-            className="flex items-center justify-start w-full rounded-[5px] font-cakemono font-light uppercase text-ops-accent border border-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black px-4"
+            className="flex items-center justify-start w-full rounded font-cakemono font-light uppercase text-ops-accent border border-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black px-4"
             style={{
               minHeight: "60px",
               fontSize: "13px",

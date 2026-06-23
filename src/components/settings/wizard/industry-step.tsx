@@ -161,7 +161,7 @@ export function IndustryStep({ onNext }: IndustryStepProps) {
               className="flex items-center gap-[10px] w-full px-[12px] py-[8px] text-left transition-colors hover:bg-[rgba(255,255,255,0.04)]"
             >
               <div
-                className={`w-[16px] h-[16px] rounded-[2px] border flex items-center justify-center flex-shrink-0 transition-colors ${
+                className={`w-[16px] h-[16px] rounded-bar border flex items-center justify-center flex-shrink-0 transition-colors ${
                   isSelected
                     ? "border-[#6F94B0] bg-[rgba(111, 148, 176,0.2)]"
                     : "border-[rgba(255,255,255,0.12)] bg-transparent"

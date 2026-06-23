@@ -58,7 +58,7 @@ function BulkButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-[32px] shrink-0 items-center gap-1 rounded-[5px] border border-border px-2",
+        "inline-flex h-[32px] shrink-0 items-center gap-1 rounded border border-border px-2",
         "font-cakemono text-[14px] font-light uppercase text-text-2 transition-colors",
         "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         "disabled:pointer-events-none disabled:opacity-40",
@@ -197,7 +197,7 @@ export function ProjectsBulkBar({
             value={status}
             disabled={disabled}
             onChange={(event) => setStatus(event.target.value as ProjectStatus)}
-            className="h-[32px] shrink-0 rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            className="h-[32px] shrink-0 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           >
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -221,7 +221,7 @@ export function ProjectsBulkBar({
             value={dueDate}
             disabled={disabled}
             onChange={(event) => setDueDate(event.target.value)}
-            className="h-[32px] w-[132px] shrink-0 rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            className="h-[32px] w-[132px] shrink-0 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           />
           <BulkButton
             disabled={disabled}
@@ -267,7 +267,7 @@ export function ProjectsBulkBar({
               setAssignUserId(event.target.value);
               setAssignFeedback(null);
             }}
-            className="h-[32px] min-w-[180px] rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            className="h-[32px] min-w-[180px] rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           >
             <option value="">—</option>
             {(teamMembersQuery.data ?? []).map((member) => (
@@ -277,7 +277,7 @@ export function ProjectsBulkBar({
             ))}
           </select>
 
-          <label className="inline-flex h-[32px] shrink-0 items-center gap-2 rounded-[5px] border border-border px-2 font-mono text-micro uppercase text-text-2">
+          <label className="inline-flex h-[32px] shrink-0 items-center gap-2 rounded border border-border px-2 font-mono text-micro uppercase text-text-2">
             <input
               type="checkbox"
               checked={assignAllActiveTasks}

@@ -229,7 +229,7 @@ export function PipelineCard({
       className={cn(
         // Surface
         "bg-glass glass-surface backdrop-blur-xl",
-        "border border-border rounded-[4px]",
+        "border border-border rounded-chip",
         "border-l-[3px]",
         // Interaction
         "cursor-pointer group",
@@ -304,7 +304,7 @@ export function PipelineCard({
                     : undefined
                 }
                 className={cn(
-                  "p-[3px] rounded-[2px] cursor-pointer",
+                  "p-[3px] rounded-bar cursor-pointer",
                   "text-text-mute hover:text-text",
                   "hover:bg-surface-active",
                   "transition-all duration-150",
@@ -330,7 +330,7 @@ export function PipelineCard({
                     : undefined
                 }
                 className={cn(
-                  "p-[3px] rounded-[2px] cursor-pointer",
+                  "p-[3px] rounded-bar cursor-pointer",
                   "text-text-mute hover:text-text",
                   "hover:bg-surface-active",
                   "transition-all duration-150",

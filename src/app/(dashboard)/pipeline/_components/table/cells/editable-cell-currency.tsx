@@ -131,7 +131,7 @@ export function EditableCellCurrency({
           void commitDraft();
         }}
         className={cn(
-          "h-[28px] w-full min-w-0 rounded-[5px] border border-border bg-surface-input px-2 text-right font-mono tabular-nums text-text outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+          "h-[28px] w-full min-w-0 rounded border border-border bg-surface-input px-2 text-right font-mono tabular-nums text-text outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
           saveState === "saving" && "opacity-70",
         )}
       />
@@ -144,7 +144,7 @@ export function EditableCellCurrency({
       aria-label={label}
       onClick={beginEdit}
       className={cn(
-        "flex h-full w-full min-w-0 items-center justify-end rounded-[5px] px-1 text-right outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent",
+        "flex h-full w-full min-w-0 items-center justify-end rounded px-1 text-right outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent",
         saveState === "saving" && "opacity-70",
         saveState === "saved" && "bg-surface-active",
       )}

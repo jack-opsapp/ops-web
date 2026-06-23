@@ -36,7 +36,7 @@ export function CampaignStatusPill({ status }: Props) {
       variants={reduce ? statusPillVariantsReduced : statusPillVariants}
       initial="hidden"
       animate="visible"
-      className="inline-flex items-center font-cakemono font-light text-[11px] tracking-[0.06em] px-2 py-[3px] rounded-[4px]"
+      className="inline-flex items-center font-cakemono font-light text-[11px] tracking-[0.06em] px-2 py-[3px] rounded-chip"
       style={{
         color: s.fg,
         background: s.bg,

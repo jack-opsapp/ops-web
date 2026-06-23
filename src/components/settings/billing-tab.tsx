@@ -97,7 +97,7 @@ function PaymentMethodCard({ method, onRemove, isRemoving }: { method: PaymentMe
         <button
           onClick={() => onRemove(method.id)}
           disabled={isRemoving}
-          className="p-[4px] rounded-[4px] hover:bg-fill-neutral-dim transition-colors text-text-mute hover:text-rose"
+          className="p-[4px] rounded-chip hover:bg-fill-neutral-dim transition-colors text-text-mute hover:text-rose"
           title={t("billing.removeCard")}
         >
           {isRemoving ? (
@@ -156,7 +156,7 @@ function AddCardForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel:
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
-      <div className="bg-surface-input border border-border rounded-[5px] p-1.5">
+      <div className="bg-surface-input border border-border rounded p-1.5">
         <CardElement
           options={{
             // Stripe's CardElement renders inside an iframe and only accepts
@@ -293,7 +293,7 @@ export function BillingTab() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="p-[4px] rounded-[4px] hover:bg-fill-neutral-dim transition-colors"
+              className="p-[4px] rounded-chip hover:bg-fill-neutral-dim transition-colors"
             >
               <ExternalLink className="w-[14px] h-[14px] text-text-2" />
             </a>
@@ -304,7 +304,7 @@ export function BillingTab() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="p-[4px] rounded-[4px] hover:bg-fill-neutral-dim transition-colors"
+              className="p-[4px] rounded-chip hover:bg-fill-neutral-dim transition-colors"
             >
               <Download className="w-[14px] h-[14px] text-text-3" />
             </a>

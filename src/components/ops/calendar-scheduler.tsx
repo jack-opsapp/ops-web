@@ -613,7 +613,7 @@ function DayCell({
     >
       {/* Today highlight background */}
       {today && (
-        <div className="absolute inset-[2px] rounded-[4px] bg-[rgba(255,255,255,0.08)]" />
+        <div className="absolute inset-[2px] rounded-chip bg-[rgba(255,255,255,0.08)]" />
       )}
 
       {/* Selection border — mirrors iOS SchedulerDayCell */}

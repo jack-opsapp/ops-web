@@ -88,7 +88,7 @@ export function TimelineTab({ events }: TimelineTabProps) {
   return (
     <section
       aria-label="Project timeline"
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+      className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
     >
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -115,7 +115,7 @@ export function TimelineTab({ events }: TimelineTabProps) {
                 onClick={() => setFilter(f.key)}
                 aria-pressed={isActive}
                 className={[
-                  "rounded-[4px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  "rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
                   isActive
                     ? "border-[#6F94B0] bg-[#6F94B0] text-black"
                     : "border-white/[0.10] text-[#8A8A8A] hover:text-[#EDEDED]",
@@ -132,7 +132,7 @@ export function TimelineTab({ events }: TimelineTabProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="// SEARCH"
-              className="w-44 rounded-[5px] border border-white/[0.10] bg-black px-3 py-1 font-mono text-[11px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0] placeholder:text-[#6A6A6A]"
+              className="w-44 rounded border border-white/[0.10] bg-black px-3 py-1 font-mono text-[11px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0] placeholder:text-[#6A6A6A]"
             />
           </label>
         </div>

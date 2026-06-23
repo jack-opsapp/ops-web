@@ -356,7 +356,7 @@ export function DocumentTemplatesTab() {
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className="h-[56px] rounded-[4px] bg-surface-input/40 border border-border-subtle"
+            className="h-[56px] rounded-chip bg-surface-input/40 border border-border-subtle"
           />
         ))}
       </div>
@@ -548,14 +548,14 @@ export function DocumentTemplatesTab() {
                           key={preset.value}
                           onClick={() => { setAccentColor(preset.value); markDirty(); }}
                           className={cn(
-                            "flex items-center gap-[4px] px-1 py-[6px] rounded-[4px] border transition-all",
+                            "flex items-center gap-[4px] px-1 py-[6px] rounded-chip border transition-all",
                             accentColor === preset.value
                               ? "border-[rgba(255,255,255,0.18)] bg-surface-active"
                               : "border-border hover:border-border-medium"
                           )}
                         >
                           <span
-                            className="w-[14px] h-[14px] rounded-[4px] border border-[rgba(255,255,255,0.2)]"
+                            className="w-[14px] h-[14px] rounded-chip border border-[rgba(255,255,255,0.2)]"
                             style={{ backgroundColor: preset.value }}
                           />
                           <span className="font-mohave text-[11px] text-text-2">
@@ -574,7 +574,7 @@ export function DocumentTemplatesTab() {
                       />
                       {isValidHex && (
                         <div
-                          className="w-7 h-7 rounded-[5px] border border-[rgba(255,255,255,0.2)] shrink-0"
+                          className="w-7 h-7 rounded border border-[rgba(255,255,255,0.2)] shrink-0"
                           style={{ backgroundColor: accentColor }}
                         />
                       )}
@@ -651,7 +651,7 @@ export function DocumentTemplatesTab() {
                         key={mode.id}
                         onClick={() => { setThemeMode(mode.id); markDirty(); }}
                         className={cn(
-                          "flex items-center justify-center gap-[6px] py-[8px] rounded-[5px] border transition-all",
+                          "flex items-center justify-center gap-[6px] py-[8px] rounded border transition-all",
                           themeMode === mode.id
                             ? "bg-surface-active border-[rgba(255,255,255,0.18)]"
                             : "bg-surface-input border-border hover:border-border-medium"

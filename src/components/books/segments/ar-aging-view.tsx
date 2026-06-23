@@ -73,10 +73,10 @@ function AgingBar({
           {formatCurrency(amount)}
         </span>
       </div>
-      <div className="h-[4px] overflow-hidden rounded-[2px] bg-fill-neutral-dim">
+      <div className="h-[4px] overflow-hidden rounded-bar bg-fill-neutral-dim">
         <div
           className={cn(
-            "h-full rounded-[2px] transition-[width] duration-500 ease-smooth motion-reduce:transition-none",
+            "h-full rounded-bar transition-[width] duration-500 ease-smooth motion-reduce:transition-none",
             barClass,
           )}
           style={{ width: `${Math.min(pct, 100)}%` }}
@@ -218,7 +218,7 @@ export function ArAgingView({
             return (
               <div
                 key={status}
-                className="flex flex-col gap-[4px] rounded-[10px] border border-border bg-transparent p-1.5"
+                className="flex flex-col gap-[4px] rounded-panel border border-border bg-transparent p-1.5"
               >
                 <span className="font-mono text-micro uppercase tracking-[0.14em] text-text-3">
                   {tp(`invoices.status.${status}`, formatEnumLabel(status))}

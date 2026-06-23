@@ -130,7 +130,7 @@ export function DataSetupQueue({ initialRows, initialStats }: Props) {
           placeholder="Search company, contact, source software..."
           className={
             "font-mohave text-body-sm bg-surface-input " +
-            "border border-line rounded-[5px] " +
+            "border border-line rounded " +
             "px-2 py-1.5 min-w-[260px] " +
             "text-text placeholder:text-text-3 " +
             "focus:outline-none focus:border-[rgba(255,255,255,0.20)]"

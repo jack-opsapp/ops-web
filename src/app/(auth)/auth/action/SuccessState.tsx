@@ -44,7 +44,7 @@ export function SuccessState({
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={t()}
-        className="inline-flex items-center gap-2 px-2 py-1 rounded-[4px] font-cakemono font-light uppercase mb-4"
+        className="inline-flex items-center gap-2 px-2 py-1 rounded-chip font-cakemono font-light uppercase mb-4"
         style={{
           color: "#9DB582",
           border: "1px solid #9DB582",
@@ -78,7 +78,7 @@ export function SuccessState({
         animate={{ opacity: 1, y: 0 }}
         transition={t(0.15)}
         href={primaryHref}
-        className="flex items-center justify-start w-full rounded-[5px] font-cakemono font-light uppercase text-ops-accent border border-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black px-4"
+        className="flex items-center justify-start w-full rounded font-cakemono font-light uppercase text-ops-accent border border-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black px-4"
         style={{
           minHeight: "60px",
           fontSize: "13px",

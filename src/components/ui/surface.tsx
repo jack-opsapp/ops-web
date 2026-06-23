@@ -8,7 +8,7 @@ const surfaceVariants = cva("relative transition-all duration-150", {
       default: "glass-surface",
       dense: "glass-dense",
       inset: [
-        "rounded-[5px]",
+        "rounded",
         "bg-[rgba(255,255,255,0.04)]",
         "border border-[rgba(255,255,255,0.10)]",
       ],

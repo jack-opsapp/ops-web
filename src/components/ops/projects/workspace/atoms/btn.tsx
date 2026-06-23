@@ -60,7 +60,7 @@ export const Btn = React.forwardRef<HTMLButtonElement, BtnProps>(
       className={cn(
         "inline-flex items-center justify-center gap-1",
         "font-mohave uppercase tracking-[0.06em] whitespace-nowrap",
-        "rounded-[5px] transition-all duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+        "rounded transition-all duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
         "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
         "disabled:pointer-events-none disabled:opacity-40",
         "active:scale-[0.98] cursor-pointer select-none",

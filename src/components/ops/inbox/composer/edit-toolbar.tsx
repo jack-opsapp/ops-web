@@ -37,7 +37,7 @@ const SOURCE_LABEL: Record<DraftSource, string> = {
 };
 
 const ghostBtn =
-  "font-mohave text-[11px] text-text-2 hover:text-text px-1 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-[2px]";
+  "font-mohave text-[11px] text-text-2 hover:text-text px-1 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-bar";
 
 export function EditToolbar({
   added,
@@ -53,7 +53,7 @@ export function EditToolbar({
   return (
     <div
       className={cn(
-        "mt-2 flex flex-wrap items-center gap-2 rounded-[4px] border border-dashed border-line bg-transparent px-2.5 py-1.5",
+        "mt-2 flex flex-wrap items-center gap-2 rounded-chip border border-dashed border-line bg-transparent px-2.5 py-1.5",
         className,
       )}
     >

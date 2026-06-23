@@ -151,7 +151,7 @@ export function WritebackPreferenceModal({
                 onClick={() => setSelected(opt.id)}
                 className={cn(
                   "flex items-start gap-2.5 w-full text-left",
-                  "rounded-[2.5px] border px-3.5 py-3 transition-colors duration-150",
+                  "rounded-sm border px-3.5 py-3 transition-colors duration-150",
                   isActive
                     ? "border-line-hi bg-transparent"
                     : "border-line bg-transparent hover:border-line-hi",
@@ -193,7 +193,7 @@ export function WritebackPreferenceModal({
             onClick={() => close(false)}
             disabled={submitting}
             className={cn(
-              "px-3 py-1.5 rounded-[2.5px] border border-line",
+              "px-3 py-1.5 rounded-sm border border-line",
               "font-cakemono font-light uppercase text-[11px] tracking-[0.14em] text-text-2",
               "hover:border-line-hi hover:text-text transition-colors duration-150",
               "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -206,7 +206,7 @@ export function WritebackPreferenceModal({
             onClick={confirm}
             disabled={submitting || !connectionId}
             className={cn(
-              "px-3 py-1.5 rounded-[2.5px]",
+              "px-3 py-1.5 rounded-sm",
               "border border-ops-accent text-ops-accent",
               "font-cakemono font-light uppercase text-[11px] tracking-[0.14em]",
               "hover:bg-ops-accent hover:text-black transition-colors duration-150",

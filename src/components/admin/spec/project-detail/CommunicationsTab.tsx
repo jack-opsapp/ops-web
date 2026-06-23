@@ -58,7 +58,7 @@ export function CommunicationsTab({ data, projectId }: CommunicationsTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Communications summary"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
@@ -71,14 +71,14 @@ export function CommunicationsTab({ data, projectId }: CommunicationsTabProps) {
             <button
               type="button"
               onClick={() => setComposer(composer === "log" ? "none" : "log")}
-              className="rounded-[5px] border border-white/[0.10] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#EDEDED] hover:text-[#EDEDED]"
+              className="rounded border border-white/[0.10] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#EDEDED] hover:text-[#EDEDED]"
             >
               LOG CALL / VIDEO
             </button>
             <button
               type="button"
               onClick={() => setComposer(composer === "email" ? "none" : "email")}
-              className="rounded-[5px] border border-[#6F94B0] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+              className="rounded border border-[#6F94B0] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
             >
               SEND TEMPLATE EMAIL
             </button>
@@ -118,12 +118,12 @@ export function CommunicationsTab({ data, projectId }: CommunicationsTabProps) {
 
 function CommunicationRow({ row }: { row: SpecCommunicationRow }) {
   return (
-    <li className="rounded-[10px] border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-4 backdrop-blur-[28px]">
+    <li className="rounded-panel border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-4 backdrop-blur-[28px]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${CHANNEL_TONE[row.channel]}`}
+              className={`rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${CHANNEL_TONE[row.channel]}`}
             >
               {CHANNEL_LABEL[row.channel]}
             </span>
@@ -159,7 +159,7 @@ function LogCommunicationForm({
   return (
     <form
       action={logCommunication}
-      className="mt-5 space-y-4 rounded-[10px] border border-white/[0.10] bg-black/40 p-4"
+      className="mt-5 space-y-4 rounded-panel border border-white/[0.10] bg-black/40 p-4"
     >
       <input type="hidden" name="project_id" value={projectId} />
 
@@ -169,7 +169,7 @@ function LogCommunicationForm({
             name="channel"
             defaultValue="call_log"
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
           >
             <option value="call_log">CALL LOG</option>
             <option value="video_message">VIDEO MESSAGE</option>
@@ -182,7 +182,7 @@ function LogCommunicationForm({
             name="direction"
             defaultValue="outbound"
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
           >
             <option value="outbound">OUTBOUND · we initiated</option>
             <option value="inbound">INBOUND · customer initiated</option>
@@ -197,7 +197,7 @@ function LogCommunicationForm({
           required
           maxLength={200}
           placeholder="One-line — what was discussed"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </FieldRow>
 
@@ -206,14 +206,14 @@ function LogCommunicationForm({
           name="body"
           rows={3}
           placeholder="Optional details — decisions, follow-ups, next steps"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </FieldRow>
 
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          className="rounded-[5px] border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+          className="rounded border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
         >
           LOG
         </button>
@@ -244,7 +244,7 @@ function SendTemplateForm({
   return (
     <form
       action={sendTemplateEmail}
-      className="mt-5 space-y-4 rounded-[10px] border border-[#6F94B0]/30 bg-black/40 p-4"
+      className="mt-5 space-y-4 rounded-panel border border-[#6F94B0]/30 bg-black/40 p-4"
     >
       <input type="hidden" name="project_id" value={projectId} />
 
@@ -252,7 +252,7 @@ function SendTemplateForm({
         <select
           name="template_id"
           required
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         >
           {templates.map((t) => (
             <option key={t.templateId} value={t.templateId}>
@@ -280,7 +280,7 @@ function SendTemplateForm({
             name="recipient_email_override"
             defaultValue={defaultRecipient}
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] tabular-nums text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
           />
         )}
       </FieldRow>
@@ -290,14 +290,14 @@ function SendTemplateForm({
           name="operator_note"
           rows={3}
           placeholder="Optional — passed to the template renderer as `operator_note`"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </FieldRow>
 
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          className="rounded-[5px] border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+          className="rounded border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
         >
           QUEUE FOR SEND
         </button>
@@ -348,7 +348,7 @@ function FilterChips({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(o.value)}
-            className={`rounded-[4px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            className={`rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
               active ? "border-[#6F94B0] text-[#EDEDED]" : "border-white/[0.10] text-[#8A8A8A] hover:text-[#EDEDED]"
             }`}
           >
@@ -376,7 +376,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 function EmptyState({ filtered }: { filtered: boolean }) {
   return (
-    <div className="rounded-[10px] border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
         {filtered ? "— no entries matching filter" : "— no communications logged yet"}
       </p>

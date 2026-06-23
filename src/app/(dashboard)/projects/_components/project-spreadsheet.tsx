@@ -471,7 +471,7 @@ export function ProjectSpreadsheet({
       {actionMenu && (
         <div
           ref={actionMenuRef}
-          className="fixed z-[1000] min-w-[180px] p-1 rounded-[4px]"
+          className="fixed z-[1000] min-w-[180px] p-1 rounded-chip"
           style={{
             left: actionMenu.x,
             top: actionMenu.y,
@@ -505,7 +505,7 @@ function ActionMenuItem({ label, onClick, danger }: { label: string; onClick: ()
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center w-full px-2 py-1.5 rounded-[2px] transition-colors font-mohave text-body-sm",
+        "flex items-center w-full px-2 py-1.5 rounded-bar transition-colors font-mohave text-body-sm",
         danger
           ? "text-brick hover:bg-[rgba(147,50,26,0.1)]"
           : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"

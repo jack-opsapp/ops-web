@@ -94,7 +94,7 @@ export function StrengthMeter({ password, onScoreChange }: StrengthMeterProps) {
         {Array.from({ length: 10 }).map((_, i) => (
           <div
             key={i}
-            className="h-[4px] w-2 rounded-[2px] transition-colors duration-200"
+            className="h-[4px] w-2 rounded-bar transition-colors duration-200"
             style={{ background: colorFor(i < state.segments) }}
           />
         ))}

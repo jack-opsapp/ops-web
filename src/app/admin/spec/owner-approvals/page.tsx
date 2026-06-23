@@ -38,13 +38,13 @@ export default async function SpecOwnerApprovalsPage() {
         </div>
 
         {pending.length === 0 ? (
-          <div className="rounded-[10px] border border-dashed border-white/[0.08] px-6 py-8">
+          <div className="rounded-panel border border-dashed border-white/[0.08] px-6 py-8">
             <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-[#6A6A6A]">
               <span className="text-[#3A3A3A]">{"//"}</span> No pending owner-approval requests.
             </p>
           </div>
         ) : (
-          <div className="rounded-[10px] border border-white/[0.09] bg-[#121214]/[0.58] backdrop-blur-[28px]">
+          <div className="rounded-panel border border-white/[0.09] bg-[#121214]/[0.58] backdrop-blur-[28px]">
             {pending.map((approval) => (
               <OwnerApprovalRow key={approval.id} approval={approval} />
             ))}

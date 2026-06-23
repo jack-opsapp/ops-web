@@ -220,7 +220,7 @@ export function ConfirmPipelineStep({
                   className="flex items-center gap-2 w-full py-1.5 group"
                 >
                   <div
-                    className="w-2 h-2 rounded-[2px]"
+                    className="w-2 h-2 rounded-bar"
                     style={{ background: config.color }}
                   />
                   <span
@@ -293,7 +293,7 @@ export function ConfirmPipelineStep({
                 className="flex items-center gap-2 w-full py-1.5 group"
               >
                 <div
-                  className="w-2 h-2 rounded-[2px] bg-text-mute"
+                  className="w-2 h-2 rounded-bar bg-text-mute"
                   style={{ opacity: 0.6 }}
                 />
                 <span className="font-mono text-micro tracking-[0.15em] uppercase text-text-mute">
@@ -332,7 +332,7 @@ export function ConfirmPipelineStep({
                         exit={{ opacity: 0, height: 0, transition: { opacity: { duration: 0.15, ease: EASE_SMOOTH }, height: { duration: 0.2, ease: EASE_SMOOTH, delay: 0.08 } } }}
                         className="overflow-hidden"
                       >
-                      <div className="py-2 px-3 border border-border-subtle rounded-[4px]">
+                      <div className="py-2 px-3 border border-border-subtle rounded-chip">
                         <div className="flex items-center gap-3">
                           <div className="flex-1 min-w-0">
                             <span className="font-mohave text-[13px] text-text-3 truncate block">
@@ -351,7 +351,7 @@ export function ConfirmPipelineStep({
                               // Re-enable the lead and set its stage
                               onStageChange(lead.id, e.target.value);
                             }}
-                            className="font-mohave text-[11px] bg-transparent border border-border-subtle px-1.5 py-0.5 rounded-[4px] outline-none focus:border-ops-accent flex-shrink-0 text-text-mute"
+                            className="font-mohave text-[11px] bg-transparent border border-border-subtle px-1.5 py-0.5 rounded-chip outline-none focus:border-ops-accent flex-shrink-0 text-text-mute"
                           >
                             <option value="discarded" className="bg-background-elevated">
                               {t("stages.discarded")}
@@ -448,7 +448,7 @@ function LeadRow({
 }) {
   const { t } = useDictionary("import-wizard");
   return (
-    <div className="py-2.5 px-3 border border-border-subtle rounded-[4px]">
+    <div className="py-2.5 px-3 border border-border-subtle rounded-chip">
       <div className="flex items-center gap-3">
         {/* Name + metadata */}
         <div className="flex-1 min-w-0">
@@ -469,7 +469,7 @@ function LeadRow({
         <select
           value={effectiveStage}
           onChange={(e) => onStageChange(e.target.value)}
-          className="font-mohave text-[11px] bg-transparent border border-border px-1.5 py-0.5 rounded-[4px] outline-none focus:border-ops-accent flex-shrink-0"
+          className="font-mohave text-[11px] bg-transparent border border-border px-1.5 py-0.5 rounded-chip outline-none focus:border-ops-accent flex-shrink-0"
           style={{
             color: STAGE_CONFIG[effectiveStage]?.color || "#8A8A8A",
           }}

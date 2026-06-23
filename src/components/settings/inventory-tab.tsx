@@ -60,7 +60,7 @@ export function InventoryTab() {
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className="h-[56px] rounded-[4px] bg-surface-input/40 border border-border-subtle"
+            className="h-[56px] rounded-chip bg-surface-input/40 border border-border-subtle"
           />
         ))}
       </div>

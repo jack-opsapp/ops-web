@@ -62,7 +62,7 @@ function CrewPicker({
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="w-full flex h-7 items-center gap-[6px] px-1.5 py-1.5 bg-surface-input border border-[rgba(255,255,255,0.10)] rounded-[5px] font-mohave text-body text-text text-left transition-colors duration-150 focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
+        className="w-full flex h-7 items-center gap-[6px] px-1.5 py-1.5 bg-surface-input border border-[rgba(255,255,255,0.10)] rounded font-mohave text-body text-text text-left transition-colors duration-150 focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
       >
         <Users className="w-[14px] h-[14px] text-text-mute shrink-0" />
         {selectedNames.length > 0 ? (
@@ -78,7 +78,7 @@ function CrewPicker({
         />
       </button>
       {open && (
-        <div className="absolute z-[1000] top-full mt-[4px] left-0 w-full max-h-[200px] overflow-y-auto glass-dense rounded-[5px] p-0.5">
+        <div className="absolute z-[1000] top-full mt-[4px] left-0 w-full max-h-[200px] overflow-y-auto glass-dense rounded p-0.5">
           {members.map((member) => {
             const name = getUserFullName(member);
             const selected = selectedIds.includes(member.id);
@@ -88,7 +88,7 @@ function CrewPicker({
                 type="button"
                 onClick={() => toggle(member.id)}
                 className={cn(
-                  "w-full flex items-center gap-1 px-1.5 py-[8px] rounded-[4px] text-left font-mohave text-body-sm transition-colors duration-100",
+                  "w-full flex items-center gap-1 px-1.5 py-[8px] rounded-chip text-left font-mohave text-body-sm transition-colors duration-100",
                   selected
                     ? "bg-surface-active text-text"
                     : "text-text hover:bg-surface-hover"
@@ -96,7 +96,7 @@ function CrewPicker({
               >
                 <span
                   className={cn(
-                    "w-[16px] h-[16px] rounded-[4px] border flex items-center justify-center shrink-0",
+                    "w-[16px] h-[16px] rounded-chip border flex items-center justify-center shrink-0",
                     selected ? "bg-text-2 border-[rgba(255,255,255,0.30)]" : "border-border"
                   )}
                 >
@@ -333,7 +333,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
   }
 
   return (
-    <div className="border border-border rounded-[5px] overflow-hidden">
+    <div className="border border-border rounded overflow-hidden">
       {/* Header — always visible, click to expand */}
       <button
         type="button"
@@ -341,7 +341,7 @@ function TaskTypeCard({ taskType }: { taskType: TaskType }) {
         className="w-full flex items-center gap-1.5 p-2 text-left hover:bg-surface-hover transition-colors"
       >
         <span
-          className="w-[12px] h-[12px] rounded-[2px] shrink-0"
+          className="w-[12px] h-[12px] rounded-bar shrink-0"
           style={{ backgroundColor: taskType.color }}
         />
         <h4 className="font-mohave text-body text-text flex-1">{taskType.display}</h4>
@@ -446,7 +446,7 @@ export function TaskTypesTab() {
           </p>
 
           {showCreate && (
-            <div className="flex items-end gap-1 p-1.5 bg-surface-input border border-border rounded-[5px]">
+            <div className="flex items-end gap-1 p-1.5 bg-surface-input border border-border rounded">
               <Input
                 label={t("taskTypes.nameLabel")}
                 value={newName}
@@ -463,7 +463,7 @@ export function TaskTypesTab() {
                   type="color"
                   value={newColor}
                   onChange={(e) => setNewColor(e.target.value)}
-                  className="w-[40px] h-[36px] rounded-[5px] border border-border bg-transparent cursor-pointer"
+                  className="w-[40px] h-[36px] rounded border border-border bg-transparent cursor-pointer"
                 />
               </div>
               <Button

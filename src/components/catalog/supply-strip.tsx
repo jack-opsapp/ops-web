@@ -75,7 +75,7 @@ function HealthBar({
   const total = Math.max(health.total, 1);
   const seg = (n: number, color: string, opacity = 1) => (
     <div
-      className="h-full rounded-[2px]"
+      className="h-full rounded-bar"
       style={{
         width: `${(n / total) * 100}%`,
         backgroundColor: color,
@@ -85,7 +85,7 @@ function HealthBar({
     />
   );
   return (
-    <div className="mt-[10px] flex h-[4px] gap-[2px] overflow-hidden rounded-[2px]">
+    <div className="mt-[10px] flex h-[4px] gap-[2px] overflow-hidden rounded-bar">
       {seg(health.ok, "var(--olive)", 0.75)}
       {seg(health.low, "var(--tan)")}
       {seg(health.critical, "var(--rose)")}
@@ -96,9 +96,9 @@ function HealthBar({
 
 function Meter({ pct, animate }: { pct: number; animate: boolean }) {
   return (
-    <div className="mt-[10px] h-[4px] overflow-hidden rounded-[2px] bg-fill-neutral-dim">
+    <div className="mt-[10px] h-[4px] overflow-hidden rounded-bar bg-fill-neutral-dim">
       <div
-        className="h-full rounded-[2px] bg-fill-neutral"
+        className="h-full rounded-bar bg-fill-neutral"
         style={{
           width: `${Math.max(0, Math.min(100, pct))}%`,
           transition: animate ? "width 600ms var(--ease-smooth)" : "none",

@@ -61,7 +61,7 @@ function IndustryPicker({
               type="button"
               disabled={disabled}
               onClick={() => toggle(ind)}
-              className="rounded-[4px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+              className="rounded-chip disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             >
               <Tag className="gap-[4px]">
                 {ind}
@@ -73,7 +73,7 @@ function IndustryPicker({
       )}
 
       {/* Search */}
-      <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded-[5px] border border-border bg-surface-input">
+      <div className="flex items-center gap-[6px] px-1.5 py-[6px] rounded border border-border bg-surface-input">
         <Search className="w-[14px] h-[14px] text-text-mute shrink-0" />
         <input
           type="text"
@@ -90,7 +90,7 @@ function IndustryPicker({
       </div>
 
       {/* Scrollable options grid */}
-      <div className="max-h-[180px] overflow-y-auto scrollbar-hide rounded-[5px] border border-border bg-surface-input/50 p-1">
+      <div className="max-h-[180px] overflow-y-auto scrollbar-hide rounded border border-border bg-surface-input/50 p-1">
         <div className="flex flex-wrap gap-[4px]">
           {filtered.map((ind) => {
             const isSelected = industries.includes(ind);
@@ -101,7 +101,7 @@ function IndustryPicker({
                 disabled={disabled}
                 onClick={() => toggle(ind)}
                 className={cn(
-                  "px-[8px] py-[3px] rounded-[4px] font-mohave text-caption transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
+                  "px-[8px] py-[3px] rounded-chip font-mohave text-caption transition-colors border disabled:opacity-40 disabled:cursor-not-allowed",
                   isSelected
                     ? "bg-surface-active border-[rgba(255,255,255,0.18)] text-text"
                     : "bg-transparent border-border text-text-3 hover:text-text-2 hover:border-[rgba(255,255,255,0.18)]"
@@ -334,7 +334,7 @@ export function CompanyTab() {
                 {t("company.companyCode")}
               </label>
               <div className="flex items-center gap-1">
-                <div className="flex-1 flex items-center px-1.5 py-[10px] rounded-[5px] border border-border bg-fill-neutral-dim">
+                <div className="flex-1 flex items-center px-1.5 py-[10px] rounded border border-border bg-fill-neutral-dim">
                   <span className="font-mono text-body-sm text-text tracking-wider tabular-nums">
                     {company.companyCode}
                   </span>
@@ -347,7 +347,7 @@ export function CompanyTab() {
                     toast.success(t("company.toast.codeCopied"));
                     setTimeout(() => setCodeCopied(false), 2000);
                   }}
-                  className="p-[10px] rounded-[5px] border border-border bg-surface-input hover:bg-fill-neutral-dim transition-colors"
+                  className="p-[10px] rounded border border-border bg-surface-input hover:bg-fill-neutral-dim transition-colors"
                 >
                   {codeCopied ? (
                     <Check className="w-[16px] h-[16px] text-olive" />
@@ -375,7 +375,7 @@ export function CompanyTab() {
                   if (addr) setCompanyAddress(addr);
                 }}
                 disabled={locating}
-                className="flex items-center justify-center w-[36px] shrink-0 rounded-[5px] border border-border bg-surface-input text-text-3 hover:text-text hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center justify-center w-[36px] shrink-0 rounded border border-border bg-surface-input text-text-3 hover:text-text hover:border-[rgba(255,255,255,0.18)] transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 title={t("company.useLocation")}
                 aria-label={t("company.useLocationAria")}
               >

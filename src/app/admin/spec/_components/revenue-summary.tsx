@@ -33,7 +33,7 @@ export function RevenueSummary({ data }: RevenueSummaryProps) {
         <Kpi label="PAID · YTD" value={formatCents(data.paidYtdCents)} tone="text-[#9DB582]" />
         <Kpi label="PENDING" value={formatCents(data.pendingCents)} tone="text-[#C4A868]" />
 
-        <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
+        <div className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
           <div className="flex items-baseline justify-between">
             <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
               12-MONTH PAID TREND
@@ -92,7 +92,7 @@ export function RevenueSummary({ data }: RevenueSummaryProps) {
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">{label}</p>
       <p className={`mt-2 font-mono text-[22px] tabular-nums leading-none ${tone}`}>{value}</p>
     </div>

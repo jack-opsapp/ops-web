@@ -129,7 +129,7 @@ function NavRow({
         "group relative flex w-full items-center",
         "transition-colors duration-150 ease-smooth motion-reduce:transition-none",
         expanded
-          ? "h-[40px] gap-3 rounded-[6px] px-3"
+          ? "h-[40px] gap-3 rounded-sidebar px-3"
           : "h-[44px] justify-center px-0",
         gated
           ? "text-text-mute opacity-50 hover:opacity-70 cursor-pointer"
@@ -163,7 +163,7 @@ function NavRow({
         className={cn(
           "relative flex shrink-0 items-center justify-center",
           !expanded &&
-            "h-[40px] w-[40px] rounded-[6px] transition-colors duration-150 motion-reduce:transition-none",
+            "h-[40px] w-[40px] rounded-sidebar transition-colors duration-150 motion-reduce:transition-none",
           !expanded &&
             !gated &&
             (isActive
@@ -183,7 +183,7 @@ function NavRow({
         />
         {/* Rail badge — small count dot pinned to the tile corner. */}
         {!expanded && badgeCount !== undefined && badgeCount > 0 && (
-          <span className="absolute -right-[1px] -top-[1px] flex h-[16px] min-w-[16px] items-center justify-center rounded-[4px] bg-surface-active px-[3px] font-mono text-micro leading-none text-text-2 tabular-nums">
+          <span className="absolute -right-[1px] -top-[1px] flex h-[16px] min-w-[16px] items-center justify-center rounded-chip bg-surface-active px-[3px] font-mono text-micro leading-none text-text-2 tabular-nums">
             {badgeCount > 99 ? "99+" : badgeCount}
           </span>
         )}
@@ -196,7 +196,7 @@ function NavRow({
       )}
       {/* Drawer badge — inline trailing count. */}
       {expanded && badgeCount !== undefined && badgeCount > 0 && (
-        <span className="ml-auto rounded-[4px] bg-surface-active px-[5px] py-[2px] font-mono text-micro leading-none text-text-2 tabular-nums">
+        <span className="ml-auto rounded-chip bg-surface-active px-[5px] py-[2px] font-mono text-micro leading-none text-text-2 tabular-nums">
           {badgeCount > 99 ? "99+" : badgeCount}
         </span>
       )}
@@ -459,7 +459,7 @@ export function Sidebar() {
             expanded ? "gap-2.5 px-[20px]" : "justify-center px-0"
           )}
         >
-          <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-[rgba(255,255,255,0.08)]">
+          <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center overflow-hidden rounded bg-[rgba(255,255,255,0.08)]">
             {company?.logoURL ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
@@ -562,11 +562,11 @@ export function Sidebar() {
           <div
             role="tooltip"
             style={{ position: "fixed", top: tip.top, left: tip.left }}
-            className="pointer-events-none z-[1000] -translate-y-1/2 animate-fade-in rounded-[4px] border border-glass-border px-1 py-0.5 motion-reduce:animate-none"
+            className="pointer-events-none z-[1000] -translate-y-1/2 animate-fade-in rounded-chip border border-glass-border px-1 py-0.5 motion-reduce:animate-none"
           >
             <span
               aria-hidden="true"
-              className="absolute inset-0 -z-[1] rounded-[4px]"
+              className="absolute inset-0 -z-[1] rounded-chip"
               style={{
                 background: "var(--glass-dense)",
                 backdropFilter: "blur(28px) saturate(1.3)",

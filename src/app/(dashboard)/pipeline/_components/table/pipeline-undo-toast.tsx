@@ -97,14 +97,14 @@ export function PipelineUndoToast({
           <button
             type="button"
             onClick={onUndo}
-            className="rounded-[5px] border border-border px-2 py-1 font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+            className="rounded border border-border px-2 py-1 font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
           >
             {t("table.undo.action")}
           </button>
           <button
             type="button"
             onClick={onDismiss}
-            className="rounded-[5px] px-2 py-1 font-cakemono text-cake-button font-light uppercase text-text-mute transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+            className="rounded px-2 py-1 font-cakemono text-cake-button font-light uppercase text-text-mute transition-colors hover:bg-surface-hover hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
           >
             {t("table.undo.dismiss")}
           </button>

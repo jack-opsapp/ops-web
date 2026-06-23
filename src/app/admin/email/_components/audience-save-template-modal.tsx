@@ -60,7 +60,7 @@ export function AudienceSaveTemplateModal({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 16, opacity: 0 }}
             transition={{ duration: 0.32, ease: EASE_SMOOTH }}
-            className="w-full max-w-[440px] mx-4 p-6 rounded-[12px]"
+            className="w-full max-w-[440px] mx-4 p-6 rounded-modal"
             style={{
               background: "rgba(18,18,20,0.78)",
               backdropFilter: "blur(28px) saturate(1.3)",
@@ -78,7 +78,7 @@ export function AudienceSaveTemplateModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
-                className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded-[5px] px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
+                className="w-full font-mohave text-[14px] bg-transparent border border-white/10 rounded px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
               />
             </label>
             <label className="block mb-5">
@@ -89,7 +89,7 @@ export function AudienceSaveTemplateModal({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={2}
-                className="w-full font-mohave text-[13px] bg-transparent border border-white/10 rounded-[5px] px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
+                className="w-full font-mohave text-[13px] bg-transparent border border-white/10 rounded px-3 py-2 text-[#EDEDED] focus:outline-none focus:border-[#6F94B0]"
               />
             </label>
             <div className="flex gap-3 justify-end">
@@ -102,7 +102,7 @@ export function AudienceSaveTemplateModal({
               <button
                 onClick={() => submit.mutate()}
                 disabled={!name.trim() || submit.isPending}
-                className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black disabled:opacity-40 px-4 py-2 rounded-[5px] transition-colors"
+                className="font-cakemono font-light text-[12px] tracking-[0.06em] text-[#6F94B0] border border-[#6F94B0] hover:bg-[#6F94B0] hover:text-black disabled:opacity-40 px-4 py-2 rounded transition-colors"
               >
                 {submit.isPending ? "SAVING…" : "SAVE"}
               </button>

@@ -50,21 +50,21 @@ function FullMetricsSkeleton() {
           <div className="flex-1 min-w-0">
             {/* Label placeholder — matches 9px uppercase label (h ~11px) */}
             <div
-              className="mb-1 h-[11px] w-[52px] bg-white/[0.04] rounded-[2px] animate-pulse"
+              className="mb-1 h-[11px] w-[52px] bg-white/[0.04] rounded-bar animate-pulse"
             />
             {/* Value placeholder — matches 28px font-mono value (h ~28px) */}
             <div className="flex items-baseline gap-1.5">
               <div
-                className="h-[28px] w-[72px] bg-white/[0.04] rounded-[2px] animate-pulse"
+                className="h-[28px] w-[72px] bg-white/[0.04] rounded-bar animate-pulse"
               />
               {/* Trend placeholder */}
               <div
-                className="h-[10px] w-[32px] bg-white/[0.04] rounded-[2px] animate-pulse"
+                className="h-[10px] w-[32px] bg-white/[0.04] rounded-bar animate-pulse"
               />
             </div>
             {/* Viz placeholder — matches sparkline/bar area (h ~24px, mt 6px) */}
             <div
-              className="mt-1.5 h-[24px] w-full bg-white/[0.04] rounded-[2px] animate-pulse"
+              className="mt-1.5 h-[24px] w-full bg-white/[0.04] rounded-bar animate-pulse"
             />
           </div>
           {i < 4 && (
@@ -87,11 +87,11 @@ function CompactMetricsSkeleton() {
         <div key={i} className="flex items-baseline gap-1">
           {/* Value placeholder — matches 16px font-mono value */}
           <div
-            className="h-[16px] w-[28px] bg-white/[0.04] rounded-[2px] animate-pulse"
+            className="h-[16px] w-[28px] bg-white/[0.04] rounded-bar animate-pulse"
           />
           {/* Label placeholder — matches 9px uppercase label */}
           <div
-            className="h-[9px] w-[36px] bg-white/[0.04] rounded-[2px] animate-pulse"
+            className="h-[9px] w-[36px] bg-white/[0.04] rounded-bar animate-pulse"
           />
         </div>
       ))}
@@ -104,7 +104,7 @@ function FullMetricsHeader({ title: _title, metrics, isLoading, actions, classNa
 
   return (
     <div
-      className={cn("border border-white/[0.06] px-4 py-1.5 rounded-[4px]", className)}
+      className={cn("border border-white/[0.06] px-4 py-1.5 rounded-chip", className)}
       style={{
         background: "rgba(10, 10, 10, 0.50)",
         backdropFilter: "blur(16px) saturate(1.2)",
@@ -150,7 +150,7 @@ function CompactMetricsHeader({ tabId, title: _title, metrics, isLoading, action
   return (
     <div
       className={cn(
-        "max-w-full overflow-x-auto overflow-y-hidden border border-white/[0.06] px-4 py-1.5 rounded-[4px] scrollbar-hide",
+        "max-w-full overflow-x-auto overflow-y-hidden border border-white/[0.06] px-4 py-1.5 rounded-chip scrollbar-hide",
         className,
       )}
       style={{

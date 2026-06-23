@@ -35,7 +35,7 @@ export function MrrTrendChart() {
     return (
       <PmfCard className="p-4">
         <SlashHeader variant="section">BASE SAAS · MRR TREND</SlashHeader>
-        <div className="h-[460px] mt-4 animate-pulse bg-[rgba(255,255,255,0.02)] rounded-[5px]" />
+        <div className="h-[460px] mt-4 animate-pulse bg-[rgba(255,255,255,0.02)] rounded" />
       </PmfCard>
     );
   }

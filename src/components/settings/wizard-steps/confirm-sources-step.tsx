@@ -71,11 +71,11 @@ export function ConfirmSourcesStep({
       {analysisResult.estimatePattern && (
         <motion.div
           variants={staggerItem}
-          className="mb-4 p-4 glass-surface border-border rounded-[10px]"
+          className="mb-4 p-4 glass-surface border-border rounded-panel"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 flex items-center justify-center bg-[rgba(255,255,255,0.05)] border border-border rounded-[5px]">
+              <div className="w-8 h-8 flex items-center justify-center bg-[rgba(255,255,255,0.05)] border border-border rounded">
                 <Mail size={14} className="text-text-2" />
               </div>
               <div>
@@ -134,12 +134,12 @@ export function ConfirmSourcesStep({
             <motion.div
               key={`${source.type}-${source.pattern}-${i}`}
               variants={staggerItem}
-              className="flex items-center gap-3 p-3 glass-surface border-border cursor-pointer select-none rounded-[10px]"
+              className="flex items-center gap-3 p-3 glass-surface border-border cursor-pointer select-none rounded-panel"
               animate={{ opacity: source.enabled ? 1 : 0.4 }}
               transition={{ duration: 0.2 }}
               onClick={() => toggleSource(i)}
             >
-              <div className="w-7 h-7 flex items-center justify-center border border-border rounded-[5px]">
+              <div className="w-7 h-7 flex items-center justify-center border border-border rounded">
                 <Icon size={14} className="text-text-2" />
               </div>
               <div className="flex-1 min-w-0">

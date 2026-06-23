@@ -140,7 +140,7 @@ export function ProspectSheet({ prospectId }: ProspectSheetProps) {
     return (
       <PmfCard className="p-6">
         <SlashHeader variant="page-title">PROSPECT</SlashHeader>
-        <div className="h-[400px] mt-6 animate-pulse bg-[rgba(255,255,255,0.02)] rounded-[5px]" />
+        <div className="h-[400px] mt-6 animate-pulse bg-[rgba(255,255,255,0.02)] rounded" />
       </PmfCard>
     );
   }

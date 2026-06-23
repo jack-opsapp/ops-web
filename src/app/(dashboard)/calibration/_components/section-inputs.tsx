@@ -110,7 +110,7 @@ function InputsSubsection({
           {isExpanded && (
             <button
               onClick={onCollapse}
-              className="font-cakemono font-light uppercase text-[14px] px-3 py-2 rounded-[5px] text-text-mute hover:text-text-2 transition-colors"
+              className="font-cakemono font-light uppercase text-[14px] px-3 py-2 rounded text-text-mute hover:text-text-2 transition-colors"
             >
               CLOSE
             </button>
@@ -168,8 +168,8 @@ export function SectionInputs() {
         }}
         className={
           primary
-            ? "font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded-[5px] border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors"
-            : "font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded-[5px] text-text-2 hover:text-text transition-colors"
+            ? "font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors"
+            : "font-cakemono font-light uppercase text-[14px] px-4 py-2.5 rounded text-text-2 hover:text-text transition-colors"
         }
       >
         {t(`sections.inputs.actions.${actionKey}`)}

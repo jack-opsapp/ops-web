@@ -67,7 +67,7 @@ function BulkButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex h-[32px] shrink-0 items-center gap-1 rounded-[5px] border border-border px-2",
+        "inline-flex h-[32px] shrink-0 items-center gap-1 rounded border border-border px-2",
         "font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors",
         "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         "disabled:pointer-events-none disabled:opacity-40",
@@ -261,7 +261,7 @@ export function PipelineBulkBar({
             value={followUpDate}
             disabled={disabled}
             onChange={(event) => setFollowUpDate(event.target.value)}
-            className="h-[32px] w-[132px] shrink-0 rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            className="h-[32px] w-[132px] shrink-0 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           />
           <BulkButton disabled={disabled} onClick={handleSetFollowUp}>
             <CalendarDays className="h-[14px] w-[14px]" strokeWidth={1.5} />
@@ -275,7 +275,7 @@ export function PipelineBulkBar({
             value={priority}
             disabled={disabled}
             onChange={(event) => setPriority(event.target.value as OpportunityPriority)}
-            className="h-[32px] shrink-0 rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            className="h-[32px] shrink-0 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           >
             {PRIORITY_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -313,7 +313,7 @@ export function PipelineBulkBar({
             value={assignUserId}
             disabled={teamMembersQuery.isLoading || bulkActions.isRunning}
             onChange={(event) => setAssignUserId(event.target.value)}
-            className="h-[32px] min-w-[200px] flex-1 rounded-[5px] border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            className="h-[32px] min-w-[200px] flex-1 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           >
             <option value="">{t("table.bulk.unassign")}</option>
             {teamMembers.map((member) => (

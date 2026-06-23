@@ -88,7 +88,7 @@ function MenuCommand({
       role="menuitem"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded-[5px] px-2 py-1.5 text-left font-mohave text-body-sm transition-colors",
+        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left font-mohave text-body-sm transition-colors",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         destructive
           ? "text-rose hover:bg-surface-hover"
@@ -248,7 +248,7 @@ export function PipelineViewSettingsMenu({
             setMenuErrorKey(null);
             setOpen((value) => !value);
           }}
-          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded-[5px] border border-border text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+          className="inline-flex h-[28px] w-[28px] items-center justify-center rounded border border-border text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
         >
           <MoreVertical className="h-[14px] w-[14px]" strokeWidth={1.5} />
         </button>
@@ -350,7 +350,7 @@ export function PipelineViewSettingsMenu({
                     setName(event.target.value);
                     setRenameErrorKey(null);
                   }}
-                  className="min-h-9 rounded-[5px] border border-border bg-surface-input px-2 py-1.5 font-mohave text-body-sm text-text outline-none placeholder:text-text-3 focus:border-ops-accent"
+                  className="min-h-9 rounded border border-border bg-surface-input px-2 py-1.5 font-mohave text-body-sm text-text outline-none placeholder:text-text-3 focus:border-ops-accent"
                 />
               </label>
               {renameErrorKey ? (
@@ -363,14 +363,14 @@ export function PipelineViewSettingsMenu({
             <DialogFooter className="border-t border-border px-3 py-2">
               <DialogClose
                 type="button"
-                className="rounded-[5px] px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                className="rounded px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
               >
                 {t("table.views.cancel")}
               </DialogClose>
               <button
                 type="submit"
                 disabled={actions.renameView.isPending}
-                className="rounded-[5px] border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
+                className="rounded border border-ops-accent bg-ops-accent px-3 py-1.5 font-cakemono text-cake-button font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
               >
                 {t("table.views.renameAction")}
               </button>

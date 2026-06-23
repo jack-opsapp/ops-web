@@ -87,7 +87,7 @@ export function IntakeTab({ data }: IntakeTabProps) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
+      <div className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]">
         <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
           <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
             {"//"}
@@ -110,7 +110,7 @@ export function IntakeTab({ data }: IntakeTabProps) {
       {data.regulatedWorkflowFlaggedAt && data.regulatedWorkflowFlags && (
         <section
           aria-label="Regulated workflow flags"
-          className="rounded-[10px] border border-[#B58289]/40 bg-[rgba(147,50,26,0.08)] p-5"
+          className="rounded-panel border border-[#B58289]/40 bg-[rgba(147,50,26,0.08)] p-5"
         >
           <h3 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#B58289]">
             <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
@@ -118,14 +118,14 @@ export function IntakeTab({ data }: IntakeTabProps) {
             </span>
             REGULATED WORKFLOW FLAGS
           </h3>
-          <pre className="mt-3 overflow-x-auto rounded-[5px] border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-[#EDEDED]">
+          <pre className="mt-3 overflow-x-auto rounded border border-white/[0.06] bg-black/40 p-3 font-mono text-[11px] leading-relaxed text-[#EDEDED]">
 {JSON.stringify(data.regulatedWorkflowFlags, null, 2)}
           </pre>
         </section>
       )}
 
       {!data.submittedAt && (
-        <p className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-6 font-mono text-[12px] uppercase tracking-[0.16em] text-[#6A6A6A] backdrop-blur-[28px]">
+        <p className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-6 font-mono text-[12px] uppercase tracking-[0.16em] text-[#6A6A6A] backdrop-blur-[28px]">
           <span className="text-[#3A3A3A]">[</span>
           INTAKE NOT YET SUBMITTED
           <span className="text-[#3A3A3A]">]</span>
@@ -167,7 +167,7 @@ export function IntakeTab({ data }: IntakeTabProps) {
 
       <section
         aria-label="Intake files"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
       >
         <h3 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
           <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
@@ -193,7 +193,7 @@ export function IntakeTab({ data }: IntakeTabProps) {
                     href={file.signedUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-[5px] border border-[#6F94B0] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+                    className="rounded border border-[#6F94B0] px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
                   >
                     DOWNLOAD
                   </a>
@@ -217,7 +217,7 @@ function SectionPanel({ title, children }: { title: string; children: React.Reac
   return (
     <section
       aria-label={title}
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+      className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
     >
       <h3 className="mb-3 font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
         <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
@@ -270,7 +270,7 @@ function renderValue(value: unknown): React.ReactNode {
   }
   if (typeof value === "object") {
     return (
-      <pre className="overflow-x-auto rounded-[5px] border border-white/[0.06] bg-black/40 p-2 font-mono text-[11px] leading-relaxed text-[#EDEDED]">
+      <pre className="overflow-x-auto rounded border border-white/[0.06] bg-black/40 p-2 font-mono text-[11px] leading-relaxed text-[#EDEDED]">
 {JSON.stringify(value, null, 2)}
       </pre>
     );

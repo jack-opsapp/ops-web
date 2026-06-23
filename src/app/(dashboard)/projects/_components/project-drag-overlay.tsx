@@ -37,7 +37,7 @@ export function ProjectDragOverlay({
         style={{ width: CARD_WIDTH }}
       >
         <div
-          className="w-full rounded-[4px] backdrop-blur-xl"
+          className="w-full rounded-chip backdrop-blur-xl"
           style={{
             background: "rgba(13,13,13,0.8)",
             border: "1px solid rgba(255,255,255,0.20)",

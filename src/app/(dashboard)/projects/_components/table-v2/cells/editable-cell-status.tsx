@@ -94,7 +94,7 @@ export function EditableCellStatus({
           }
         }}
         className={cn(
-          "flex h-full w-full min-w-0 items-center rounded-[5px] px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent",
+          "flex h-full w-full min-w-0 items-center rounded px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent",
           saveState === "saving" && "opacity-70",
           saveState === "saved" && "bg-surface-active",
         )}

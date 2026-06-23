@@ -56,7 +56,7 @@ export function TicketsTab({ data, projectId }: TicketsTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Tickets summary"
-        className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
@@ -68,7 +68,7 @@ export function TicketsTab({ data, projectId }: TicketsTabProps) {
           <button
             type="button"
             onClick={() => setWizardOpen((v) => !v)}
-            className="rounded-[5px] border border-[#6F94B0] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+            className="rounded border border-[#6F94B0] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
           >
             {wizardOpen ? "CLOSE" : "NEW TICKET"}
           </button>
@@ -110,7 +110,7 @@ function TicketCard({ ticket, projectId }: { ticket: SpecSupportTicketRow; proje
   return (
     <article
       aria-label={`Ticket: ${ticket.title}`}
-      className="rounded-[10px] border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+      className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -211,7 +211,7 @@ function ReclassifyForm({
   return (
     <form
       action={escalateTicket}
-      className="mt-4 flex flex-wrap items-end gap-3 rounded-[5px] border border-white/[0.10] bg-black/40 p-3"
+      className="mt-4 flex flex-wrap items-end gap-3 rounded border border-white/[0.10] bg-black/40 p-3"
     >
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="ticket_id" value={ticketId} />
@@ -225,7 +225,7 @@ function ReclassifyForm({
         <select
           name="new_severity"
           defaultValue={currentSeverity}
-          className="rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         >
           {options.map((s) => (
             <option key={s} value={s}>
@@ -236,7 +236,7 @@ function ReclassifyForm({
       </label>
       <button
         type="submit"
-        className="rounded-[5px] border border-[#6F94B0] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+        className="rounded border border-[#6F94B0] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
       >
         RECLASSIFY
       </button>
@@ -263,7 +263,7 @@ function EscalateForm({
   return (
     <form
       action={escalateTicket}
-      className="mt-4 flex flex-wrap items-center gap-3 rounded-[5px] border border-[#C4A868]/30 bg-black/40 p-3"
+      className="mt-4 flex flex-wrap items-center gap-3 rounded border border-[#C4A868]/30 bg-black/40 p-3"
     >
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="ticket_id" value={ticketId} />
@@ -275,7 +275,7 @@ function EscalateForm({
       </span>
       <button
         type="submit"
-        className="rounded-[5px] border border-[#C4A868] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#C4A868] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#C4A868] hover:text-black"
+        className="rounded border border-[#C4A868] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#C4A868] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#C4A868] hover:text-black"
       >
         ESCALATE
       </button>
@@ -294,7 +294,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
   return (
     <form
       action={createTicket}
-      className="mt-5 space-y-4 rounded-[10px] border border-white/[0.10] bg-black/40 p-4"
+      className="mt-5 space-y-4 rounded-panel border border-white/[0.10] bg-black/40 p-4"
     >
       <input type="hidden" name="project_id" value={projectId} />
 
@@ -304,7 +304,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
             name="severity"
             defaultValue="high"
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
           >
             <option value="critical">CRITICAL · blocks daily ops</option>
             <option value="high">HIGH · degrades workflow</option>
@@ -317,7 +317,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
             name="phase"
             defaultValue="support"
             required
-            className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
           >
             <option value="support">SUPPORT · in support window</option>
             <option value="retainer">RETAINER · subscribed</option>
@@ -333,7 +333,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
           required
           maxLength={200}
           placeholder="One-line summary"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </FieldRow>
 
@@ -343,14 +343,14 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
           required
           rows={4}
           placeholder="What happened, repro steps, expected vs actual"
-          className="w-full rounded-[5px] border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
         />
       </FieldRow>
 
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          className="rounded-[5px] border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+          className="rounded border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
         >
           OPEN TICKET
         </button>
@@ -369,7 +369,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
 function Pill({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <span
-      className={`rounded-[4px] border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${className ?? ""}`}
+      className={`rounded-chip border px-1.5 py-px font-mono text-[10px] uppercase tracking-[0.16em] ${className ?? ""}`}
     >
       {children}
     </span>
@@ -391,7 +391,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 function EmptyState() {
   return (
-    <div className="rounded-[10px] border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
+    <div className="rounded-panel border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
       <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
         — no tickets filed
       </p>
