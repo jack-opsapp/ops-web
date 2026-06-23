@@ -195,7 +195,7 @@ export function FeatureAccessModal({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-[480px] max-h-[90vh] overflow-y-auto mx-4 rounded-sm border border-border bg-glass glass-surface shadow-xl">
+      <div className="relative w-full max-w-[480px] max-h-[90vh] overflow-y-auto mx-4 rounded-sm border border-border bg-glass glass-surface">
         {/* Close */}
         <button
           onClick={onClose}

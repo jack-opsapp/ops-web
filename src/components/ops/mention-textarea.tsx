@@ -173,7 +173,7 @@ export function MentionTextArea({
       />
 
       {showSuggestions && filteredUsers.length > 0 && (
-        <div className="absolute bottom-full left-0 z-50 mb-1 w-64 rounded-lg border border-white/10 bg-[#1a1a1a] py-1 shadow-xl">
+        <div className="absolute bottom-full left-0 z-50 mb-1 w-64 rounded-lg border border-white/10 bg-[#1a1a1a] py-1">
           {filteredUsers.map((user, i) => (
             <button
               key={user.id}

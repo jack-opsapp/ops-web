@@ -220,7 +220,7 @@ function UploadButton({
       </button>
 
       {showMenu && (
-        <div className="absolute right-0 top-10 z-50 w-44 bg-glass glass-surface border border-[#2A2A2A] rounded-lg shadow-xl py-1">
+        <div className="absolute right-0 top-10 z-50 w-44 bg-glass glass-surface border border-[#2A2A2A] rounded-lg py-1">
           {SOURCE_ORDER.map((source) => (
             <label
               key={source}

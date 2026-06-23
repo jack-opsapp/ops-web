@@ -122,7 +122,7 @@ function TaskRow({
             <Plus className="h-3 w-3 text-[#9CA3AF]" />
           </button>
           {showPicker && (
-            <div className="absolute right-0 top-6 z-50 w-48 bg-glass glass-surface border border-[#2A2A2A] rounded-lg shadow-xl py-1 max-h-40 overflow-y-auto">
+            <div className="absolute right-0 top-6 z-50 w-48 bg-glass glass-surface border border-[#2A2A2A] rounded-lg py-1 max-h-40 overflow-y-auto">
               {allMembers
                 .filter((m) => !assignedMemberIds.includes(m.id))
                 .map((member) => (
