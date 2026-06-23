@@ -14,7 +14,7 @@ import {
   addWeeks,
   addDays,
 } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { OpsLoadingScreen } from "@/components/ops/ops-loading-screen";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { trackScreenView } from "@/lib/analytics/analytics";
@@ -370,11 +370,8 @@ export default function SchedulePage() {
                 placeholderData on useScheduledTasks — so the calendar stays
                 mounted and the user never sees a flash. */}
             {isLoading && events.length === 0 && (
-              <div className="flex flex-col items-center justify-center flex-1 min-h-[200px] gap-3">
-                <Loader2 className="w-[32px] h-[32px] text-text-2 animate-spin" />
-                <p className="font-mohave text-body-sm text-text-3">
-                  {t("loading")}
-                </p>
+              <div className="flex items-center justify-center flex-1 min-h-[200px]">
+                <OpsLoadingScreen size={48} showText={false} />
               </div>
             )}
             {(!isLoading || events.length > 0) && (

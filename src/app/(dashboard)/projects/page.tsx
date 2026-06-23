@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { OpsLoadingScreen } from "@/components/ops/ops-loading-screen";
 import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
@@ -763,9 +763,8 @@ export default function ProjectsPage() {
   // ── Loading ──
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full items-center justify-center gap-3">
-        <Loader2 className="w-8 h-8 text-text-2 animate-spin" />
-        <span className="font-mohave text-body text-text-3">{t("loading")}</span>
+      <div className="flex h-full items-center justify-center">
+        <OpsLoadingScreen size={48} showText={false} />
       </div>
     );
   }
