@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Mail, Zap, MessageCircle, CheckCircle, Minimize2 } from "lucide-react";
 import { authedFetch } from "@/lib/utils/authed-fetch";
+import { useDictionary } from "@/i18n/client";
 import type { AnalysisResult } from "@/lib/types/email-import";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -12,11 +13,11 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 const normalizeStatus = (s: string) => s === 'building_leads' ? 'analyzing_threads' : s;
 
 const STAGES = [
-  { key: "analyzing_sent", icon: Mail, label: "Analyzing sent emails", range: [5, 35] },
-  { key: "detecting_platforms", icon: Search, label: "Detecting form platforms", range: [35, 50] },
-  { key: "classifying_ai", icon: Zap, label: "Classifying with AI", range: [50, 70] },
-  { key: "analyzing_threads", icon: MessageCircle, label: "Analyzing threads", range: [70, 95] },
-  { key: "complete", icon: CheckCircle, label: "Analysis complete", range: [100, 100] },
+  { key: "analyzing_sent", icon: Mail, labelKey: "analyze.stage.analyzing_sent", range: [5, 35] },
+  { key: "detecting_platforms", icon: Search, labelKey: "analyze.stage.detecting_platforms", range: [35, 50] },
+  { key: "classifying_ai", icon: Zap, labelKey: "analyze.stage.classifying_ai", range: [50, 70] },
+  { key: "analyzing_threads", icon: MessageCircle, labelKey: "analyze.stage.analyzing_threads", range: [70, 95] },
+  { key: "complete", icon: CheckCircle, labelKey: "analyze.stage.complete", range: [100, 100] },
 ];
 
 interface AnalyzeStepProps {
@@ -30,11 +31,12 @@ interface AnalyzeStepProps {
 }
 
 export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete, onMinimize, onJobStarted, onProgressUpdate }: AnalyzeStepProps) {
+  const { t } = useDictionary("import-wizard");
   const [jobId, setJobId] = useState<string | null>(existingJobId || null);
   const [status, setStatus] = useState<string>(existingJobId ? "analyzing_sent" : "pending");
   const [serverProgress, setServerProgress] = useState(0);
   const [displayProgress, setDisplayProgress] = useState(0);
-  const [message, setMessage] = useState(existingJobId ? "Reconnecting to analysis..." : "Starting analysis...");
+  const [message, setMessage] = useState(existingJobId ? t("analyze.reconnecting") : t("analyze.starting"));
   const [error, setError] = useState<string | null>(null);
   const [completedStages, setCompletedStages] = useState<Set<string>>(new Set());
   const [showMinimize, setShowMinimize] = useState(false);
@@ -130,12 +132,12 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
         setJobId(data.jobId);
         onJobStartedRef.current?.(data.jobId);
       } catch {
-        setError("Failed to start analysis");
+        setError(t("analyze.failedToStart"));
       }
     };
 
     startAnalysis();
-  }, [connectionId, companyId, existingJobId]);
+  }, [connectionId, companyId, existingJobId, t]);
 
   // Poll for status
   const pollCallback = useCallback(async (currentJobId: string) => {
@@ -191,7 +193,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
       }
 
       if (data.status === "error") {
-        setError(data.error || "Analysis failed");
+        setError(data.error || t("analyze.analysisFailed"));
         return;
       }
 
@@ -204,7 +206,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
     } catch {
       pollRef.current = setTimeout(() => pollCallback(currentJobId), 3000);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!jobId) return;
@@ -217,15 +219,15 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
   // so an indeterminate progress bar must read on the neutral fill ladder.
   const barColor = isComplete ? "#9DB582" : "rgba(255,255,255,0.45)";
   const percentText = isComplete
-    ? `${leadCount} lead${leadCount !== 1 ? "s" : ""} found`
-    : `${Math.round(displayProgress)}% complete`;
+    ? t("analyze.leadsFound", { count: leadCount })
+    : t("analyze.percentComplete", { percent: Math.round(displayProgress) });
 
   return (
     <div>
       <p className="font-mohave text-[15px] text-text-2 mb-8">
         {existingJobId
-          ? "Reconnecting to your running analysis..."
-          : "Scanning your inbox for business patterns and potential leads."}
+          ? t("analyze.reconnectingIntro")
+          : t("analyze.intro")}
       </p>
 
       {error ? (
@@ -275,7 +277,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                       transition={{ duration: 0.5, ease: EASE }}
                       className="font-mohave text-[11px] text-olive"
                     >
-                      Preparing results...
+                      {t("analyze.preparing")}
                     </motion.span>
                   )}
                 </AnimatePresence>
@@ -330,7 +332,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                       color: isStageCompleted ? "#9DB582" : isCurrent ? "#EDEDED" : "#8A8A8A",
                     }}
                   >
-                    {stage.label}
+                    {t(stage.labelKey)}
                   </span>
                   {isCurrent && (
                     <motion.span
@@ -359,7 +361,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                 className="flex items-center gap-2 px-4 py-2 border border-border bg-white/5 hover:bg-surface-hover hover:border-border-medium transition-all font-mohave text-[13px] text-text-2 hover:text-text rounded-[5px]"
               >
                 <Minimize2 size={14} />
-                Minimize — we&apos;ll notify you when it&apos;s ready
+                {t("analyze.minimize")}
               </button>
             </motion.div>
           )}

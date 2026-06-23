@@ -156,7 +156,7 @@ export function EmailThreadView({
       seenThreadIds.add(lead.threadId);
       result.push({
         threadId: lead.threadId,
-        label: lead.emails?.[0]?.subject || "Thread 1",
+        label: lead.emails?.[0]?.subject || t("thread.fallbackLabel", { number: 1 }),
         excerpts: lead.emailExcerpts,
         gmailUrl: `https://mail.google.com/mail/u/0/#inbox/${lead.threadId}`,
       });
@@ -171,7 +171,7 @@ export function EmailThreadView({
         seenThreadIds.add(sibling.threadId);
         result.push({
           threadId: sibling.threadId,
-          label: sibling.emails?.[0]?.subject || `Thread ${result.length + 1}`,
+          label: sibling.emails?.[0]?.subject || t("thread.fallbackLabel", { number: result.length + 1 }),
           excerpts: sibling.emailExcerpts,
           gmailUrl: `https://mail.google.com/mail/u/0/#inbox/${sibling.threadId}`,
         });
@@ -179,7 +179,7 @@ export function EmailThreadView({
     }
 
     return result;
-  }, [lead, siblingLeads]);
+  }, [lead, siblingLeads, t]);
 
   // Flatten all excerpts for the single-thread legacy path and total count
   const allExcerpts = useMemo(
@@ -226,11 +226,11 @@ export function EmailThreadView({
         />
         <span className="flex-1 min-w-0">
           {isExpanded ? (
-            <span>{t("thread.hide")} <span className="text-text-mute">({totalExcerptCount}{hasMultipleThreads ? ` · ${threads.length} threads` : ""})</span></span>
+            <span>{t("thread.hide")} <span className="text-text-mute">({totalExcerptCount}{hasMultipleThreads ? ` · ${threads.length} ${t("thread.threads")}` : ""})</span></span>
           ) : (
             <span className="text-text-3 line-clamp-2">
               {previewText || `${t("thread.show")} (${totalExcerptCount})`}
-              {hasMultipleThreads && <span className="text-text-mute"> · {threads.length} threads</span>}
+              {hasMultipleThreads && <span className="text-text-mute"> · {threads.length} {t("thread.threads")}</span>}
             </span>
           )}
         </span>
@@ -273,7 +273,7 @@ export function EmailThreadView({
                     {/* Thread label */}
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="font-mono text-micro tracking-[0.1em] uppercase text-text-mute">
-                        Thread {ti + 1} · {threadExcerpts.length} emails
+                        {t("thread.threadHeading", { number: ti + 1, count: threadExcerpts.length })}
                       </span>
                       <a
                         href={thread.gmailUrl}
@@ -282,7 +282,7 @@ export function EmailThreadView({
                         className="flex items-center gap-1 font-mohave text-[11px] text-text-2 hover:text-text transition-colors"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        Gmail
+                        {t("thread.gmail")}
                         <ExternalLink size={14} />
                       </a>
                     </div>

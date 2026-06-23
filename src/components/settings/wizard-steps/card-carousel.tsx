@@ -57,8 +57,8 @@ export function CardCarousel<T>({
   actions,
   onComplete,
   onBack,
-  skipLabel = "SKIP TO NEXT STEP",
-  keyboardHint = "←→ select · ↓/⏎ accept · ↑ back · ⌫ discard · E thread",
+  skipLabel,
+  keyboardHint,
   wheelNavigation = false,
 }: CardCarouselProps<T>) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -277,7 +277,7 @@ export function CardCarousel<T>({
                       className="absolute top-2.5 right-3 font-mono text-micro tracking-[0.1em] uppercase"
                       style={{ color: d.color }}
                     >
-                      {isDefault ? `AGENT: ${d.label}` : `SELECTED: ${d.label}`}
+                      {isDefault ? `${t("carousel.agentPrefix")}: ${d.label}` : `${t("carousel.selectedPrefix")}: ${d.label}`}
                     </motion.div>
                   );
                 })()}
@@ -342,7 +342,7 @@ export function CardCarousel<T>({
             </button>
           )}
           <span className="font-mohave text-[11px] text-text-mute">
-            {keyboardHint}
+            {keyboardHint ?? t("filter.hint")}
           </span>
         </div>
         <button

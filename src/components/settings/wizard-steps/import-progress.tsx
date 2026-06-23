@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Users, FileText, Tag, CheckCircle, Loader2, Minimize2 } from "lucide-react";
 import { authedFetch } from "@/lib/utils/authed-fetch";
+import { useDictionary } from "@/i18n/client";
 import type { ImportResult } from "@/lib/types/email-import";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -29,10 +30,11 @@ export function ImportProgress({
   onMinimize,
   onProgressUpdate,
 }: ImportProgressProps) {
+  const { t } = useDictionary("import-wizard");
   const [status, setStatus] = useState<string>("importing");
   const [serverProgress, setServerProgress] = useState(0);
   const [displayProgress, setDisplayProgress] = useState(0);
-  const [message, setMessage] = useState(`Importing lead 0 of ${totalLeads}...`);
+  const [message, setMessage] = useState(t("importProgress.importingLead", { current: 0, total: totalLeads }));
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<ImportProgressData>({
     clientsCreated: 0,
@@ -123,7 +125,7 @@ export function ImportProgress({
         data.status === "importing" &&
         Date.now() - lastProgressChangeRef.current > STALE_TIMEOUT_MS
       ) {
-        setError("Import appears to have stalled. The server may have timed out. Try re-running the import.");
+        setError(t("importProgress.stalled"));
         return;
       }
 
@@ -142,7 +144,7 @@ export function ImportProgress({
       }
 
       if (data.status === "import_error") {
-        setError(data.error || "Import failed");
+        setError(data.error || t("importProgress.failed"));
         return;
       }
 
@@ -150,7 +152,7 @@ export function ImportProgress({
     } catch {
       pollRef.current = setTimeout(() => pollCallback(currentJobId), 3000);
     }
-  }, []);
+  }, [t]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Start polling when mounted
   useEffect(() => {
@@ -167,17 +169,17 @@ export function ImportProgress({
   const statBoxes = [
     {
       icon: Users,
-      label: "Clients created",
+      label: t("importProgress.clientsCreated"),
       value: stats.clientsCreated,
     },
     {
       icon: FileText,
-      label: "Leads created",
+      label: t("importProgress.leadsCreated"),
       value: stats.leadsCreated,
     },
     {
       icon: Tag,
-      label: "Labels applied",
+      label: t("importProgress.labelsApplied"),
       value: stats.labelsApplied,
     },
   ];
@@ -185,7 +187,7 @@ export function ImportProgress({
   return (
     <div>
       <p className="font-mohave text-[15px] text-text-2 mb-8">
-        Creating clients, leads, and linking email threads.
+        {t("importProgress.intro")}
       </p>
 
       {error ? (
@@ -215,7 +217,7 @@ export function ImportProgress({
                 {isComplete ? (
                   <span className="flex items-center gap-1.5 text-olive">
                     <CheckCircle size={14} />
-                    Import complete
+                    {t("importProgress.complete")}
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5">
@@ -282,7 +284,7 @@ export function ImportProgress({
                 style={{ borderRadius: 5 }}
               >
                 <Minimize2 size={16} />
-                Minimize — we&apos;ll notify you when it&apos;s ready
+                {t("importProgress.minimize")}
               </button>
             </motion.div>
           )}

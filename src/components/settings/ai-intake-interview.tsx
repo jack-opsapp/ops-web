@@ -359,6 +359,7 @@ interface AiIntakeInterviewProps {
 
 export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
   const { t } = useDictionary("ai-setup");
+  const { t: tw } = useDictionary("import-wizard");
   const [inputValue, setInputValue] = useState("");
   const [recentFacts, setRecentFacts] = useState<ExtractedFactDisplay[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -604,7 +605,7 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
         </div>
         {currentQuestion?.isEmailSample && (
           <p className="font-mono text-micro text-text-mute mt-[4px]">
-            Paste emails separated by --- or one at a time. Shift+Enter for new lines.
+            {tw("intake.emailSampleHint")}
           </p>
         )}
       </div>

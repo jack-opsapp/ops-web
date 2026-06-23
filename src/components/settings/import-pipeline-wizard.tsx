@@ -26,6 +26,7 @@ import { useDashboardCustomizeStore } from "@/stores/dashboard-customize-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useDictionary } from "@/i18n/client";
 import { authedFetch } from "@/lib/utils/authed-fetch";
 import type { AnalysisResult, AnalyzedLead, ImportPayload, ImportResult, ConsolidationGroup, TriageDecision } from "@/lib/types/email-import";
 import type { DetectedSource } from "@/lib/api/services/pattern-detection-service";
@@ -48,23 +49,6 @@ const stepVariants = {
     transition: { duration: 0.25, ease: EASE },
   }),
 };
-
-const STEPPER_STEPS = [
-  { key: "connect", label: "CONNECT" },
-  { key: "scan", label: "SCAN" },
-  { key: "sources", label: "SOURCES" },
-  {
-    key: "review",
-    label: "REVIEW",
-    subSteps: [
-      { key: "filter", label: "filter" },
-      { key: "consolidate", label: "consolidate" },
-      { key: "triage", label: "triage" },
-      { key: "confirm", label: "confirm" },
-    ],
-  },
-  { key: "activate", label: "ACTIVATE" },
-];
 
 const STEP_KEY_MAP: Record<number, string> = {
   1: "connect", 2: "scan", 3: "sources", 4: "review", 5: "activate",
@@ -90,6 +74,26 @@ export function ImportPipelineWizard({
   companyId,
   onComplete,
 }: ImportPipelineWizardProps) {
+  const { t } = useDictionary("import-wizard");
+  const stepperSteps = useMemo(
+    () => [
+      { key: "connect", label: t("steps.connect") },
+      { key: "scan", label: t("steps.scan") },
+      { key: "sources", label: t("steps.sources") },
+      {
+        key: "review",
+        label: t("steps.review"),
+        subSteps: [
+          { key: "filter", label: t("subSteps.filter") },
+          { key: "consolidate", label: t("subSteps.consolidate") },
+          { key: "triage", label: t("subSteps.triage") },
+          { key: "confirm", label: t("subSteps.confirm") },
+        ],
+      },
+      { key: "activate", label: t("steps.activate") },
+    ],
+    [t]
+  );
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(
     initialConnectionId ? 2 : 1
   );
@@ -221,7 +225,7 @@ export function ImportPipelineWizard({
   const [runningJobType, setRunningJobType] = useState<JobType | null>(null);
 
   // ─── Background progress (for minimized card) ──────────────────────────────
-  const [bgProgress, setBgProgress] = useState({ percent: 0, message: "Working..." });
+  const [bgProgress, setBgProgress] = useState({ percent: 0, message: t("wizard.working") });
   const [bgDiscoveredNames, setBgDiscoveredNames] = useState<string[]>([]);
   const [bgVisibleName, setBgVisibleName] = useState<string | null>(null);
   const bgNameIndexRef = useRef(0);
@@ -372,8 +376,11 @@ export function ImportPipelineWizard({
             if (jobData.status === "import_complete" && jobData.result) {
               // Import done — advance to step 5
               import("sonner").then(({ toast }) =>
-                toast.success("Import completed while you were away", {
-                  description: `${jobData.result.clientsCreated} clients, ${jobData.result.leadsCreated} leads created`,
+                toast.success(t("wizard.notify.importAwayTitle"), {
+                  description: t("wizard.notify.importAwayBody", {
+                    clients: jobData.result.clientsCreated,
+                    leads: jobData.result.leadsCreated,
+                  }),
                 })
               );
               setImportResult(jobData.result);
@@ -399,7 +406,7 @@ export function ImportPipelineWizard({
               setRunningJobId(filters.lastImportJobId);
               setRunningJobType("import");
               if (jobData.progress) {
-                setBgProgress({ percent: jobData.progress.percent || 0, message: jobData.progress.message || "Importing..." });
+                setBgProgress({ percent: jobData.progress.percent || 0, message: jobData.progress.message || t("wizard.importing") });
               }
               // Load analysis result for later steps
               if (filters.lastScanJobId) {
@@ -431,10 +438,13 @@ export function ImportPipelineWizard({
           if (jobData.status === "complete" && jobData.result) {
             notifyRef.current({
               type: "pipeline_complete",
-              title: "Analysis completed while you were away",
-              body: `Found ${jobData.result.leads?.length ?? 0} leads from ${jobData.result.totalScanned ?? 0} emails`,
+              title: t("wizard.notify.analysisAwayTitle"),
+              body: t("wizard.notify.foundLeads", {
+                leads: jobData.result.leads?.length ?? 0,
+                emails: jobData.result.totalScanned ?? 0,
+              }),
               actionUrl: "/settings?tab=integrations",
-              actionLabel: "Review Leads",
+              actionLabel: t("wizard.notify.reviewLeads"),
             });
             setAnalysisResult(jobData.result);
             setConfirmedSources(jobData.result.detectedSources);
@@ -549,7 +559,7 @@ export function ImportPipelineWizard({
             setRunningJobId(filters.lastScanJobId);
             setRunningJobType("analysis");
             if (jobData.progress) {
-              setBgProgress({ percent: jobData.progress.percent || 0, message: jobData.progress.message || "Analyzing..." });
+              setBgProgress({ percent: jobData.progress.percent || 0, message: jobData.progress.message || t("wizard.analyzing") });
             }
             setDirection(1);
             setStep(2);
@@ -600,7 +610,7 @@ export function ImportPipelineWizard({
         const data = await res.json();
 
         if (data.progress) {
-          setBgProgress({ percent: data.progress.percent || 0, message: data.progress.message || "Working..." });
+          setBgProgress({ percent: data.progress.percent || 0, message: data.progress.message || t("wizard.working") });
           if (data.progress.discoveredLeadNames?.length) {
             setBgDiscoveredNames(data.progress.discoveredLeadNames);
           }
@@ -615,15 +625,18 @@ export function ImportPipelineWizard({
           setRunningJobId(null);
           setRunningJobType(null);
           setExistingJobId(null);
-          setBgProgress({ percent: 100, message: "Analysis complete" });
+          setBgProgress({ percent: 100, message: t("analyze.stage.complete") });
           invalidateConnections();
 
           notifyRef.current({
             type: "pipeline_complete",
-            title: "Pipeline analysis complete",
-            body: `Found ${data.result.leads?.length ?? 0} leads from ${data.result.totalScanned ?? 0} emails`,
+            title: t("wizard.notify.analysisCompleteTitle"),
+            body: t("wizard.notify.foundLeads", {
+              leads: data.result.leads?.length ?? 0,
+              emails: data.result.totalScanned ?? 0,
+            }),
             actionUrl: "/settings?tab=integrations",
-            actionLabel: "Review Leads",
+            actionLabel: t("wizard.notify.reviewLeads"),
           });
           // Auto-reopen wizard to review step
           setMinimized(false);
@@ -639,15 +652,18 @@ export function ImportPipelineWizard({
           setImportJobId(null);
           setRunningJobId(null);
           setRunningJobType(null);
-          setBgProgress({ percent: 100, message: "Import complete" });
+          setBgProgress({ percent: 100, message: t("importProgress.complete") });
           invalidateConnections();
 
           notifyRef.current({
             type: "pipeline_complete",
-            title: "Pipeline import complete",
-            body: `Created ${data.result.clientsCreated} clients and ${data.result.leadsCreated} leads`,
+            title: t("wizard.notify.importCompleteTitle"),
+            body: t("wizard.notify.importCompleteBody", {
+              clients: data.result.clientsCreated,
+              leads: data.result.leadsCreated,
+            }),
             actionUrl: "/settings?tab=integrations",
-            actionLabel: "Activate Sync",
+            actionLabel: t("wizard.notify.activateSync"),
           });
           // Auto-reopen wizard to activation step
           setMinimized(false);
@@ -659,7 +675,7 @@ export function ImportPipelineWizard({
 
         // ── Error states ───────────────────────────────────────────────
         if (data.status === "error" || data.status === "import_error") {
-          setBgProgress({ percent: 0, message: data.error || "Failed" });
+          setBgProgress({ percent: 0, message: data.error || t("importProgress.failed") });
           setRunningJobId(null);
           setRunningJobType(null);
           return;
@@ -796,8 +812,8 @@ export function ImportPipelineWizard({
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Import failed" }));
-        throw new Error(errorData.error || `Import failed (${res.status})`);
+        const errorData = await res.json().catch(() => ({ error: t("wizard.importFailedDefault") }));
+        throw new Error(errorData.error || t("wizard.importFailedStatus", { status: res.status }));
       }
 
       const { jobId } = await res.json();
@@ -805,15 +821,15 @@ export function ImportPipelineWizard({
       setRunningJobId(jobId);
       setRunningJobType("import");
       setImportStarting(false);
-      setBgProgress({ percent: 0, message: `Starting import of ${importLeads.length} leads...` });
+      setBgProgress({ percent: 0, message: t("wizard.startingImport", { count: importLeads.length }) });
       invalidateConnections();
     } catch (err) {
       console.error("Import failed:", err);
       setImportStarting(false);
       const { toast } = await import("sonner");
-      toast.error(err instanceof Error ? err.message : "Import failed. Please try again.");
+      toast.error(err instanceof Error ? err.message : t("wizard.importFailed"));
     }
-  }, [connectionId, companyId, confirmedLeads, confirmedSources, analysisResult, estimatePattern, importStarting, invalidateConnections, triageDecisions, consolidationGroups]);
+  }, [connectionId, companyId, confirmedLeads, confirmedSources, analysisResult, estimatePattern, importStarting, invalidateConnections, triageDecisions, consolidationGroups, t]);
 
   const handleImportComplete = useCallback((result: ImportResult) => {
     setImportResult(result);
@@ -859,8 +875,8 @@ export function ImportPipelineWizard({
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Activation failed" }));
-        throw new Error(errorData.error || `Activation failed (${res.status})`);
+        const errorData = await res.json().catch(() => ({ error: t("wizard.activationFailedDefault") }));
+        throw new Error(errorData.error || t("wizard.activationFailedStatus", { status: res.status }));
       }
 
       // Parse the response so partial-success warnings (e.g. webhook setup
@@ -870,7 +886,7 @@ export function ImportPipelineWizard({
       };
       return { warnings: data.warnings };
     },
-    [connectionId, companyId, analysisResult, confirmedSources, estimatePattern]
+    [connectionId, companyId, analysisResult, confirmedSources, estimatePattern, t]
   );
 
   const handleComplete = useCallback(() => {
@@ -882,10 +898,10 @@ export function ImportPipelineWizard({
   // ─── Minimized card state ─────────────────────────────────────────────────
   const bgComplete = runningJobId === null && bgProgress.percent >= 100;
   const isImportPhase = runningJobType === "import" || importJobId;
-  const minimizedLabel = isImportPhase ? "Importing leads..." : "Analyzing your inbox...";
+  const minimizedLabel = isImportPhase ? t("wizard.minimizedImporting") : t("wizard.minimizedAnalyzing");
   const minimizedCompleteLabel = isImportPhase
-    ? `Import complete — ${importResult?.leadsCreated ?? 0} leads created`
-    : `Analysis complete — ${analysisResult?.leads?.length ?? 0} leads found`;
+    ? t("wizard.importComplete", { count: importResult?.leadsCreated ?? 0 })
+    : t("wizard.analysisComplete", { count: analysisResult?.leads?.length ?? 0 });
 
   return (
     <>
@@ -914,7 +930,7 @@ export function ImportPipelineWizard({
               </span>
             </div>
             <span className="font-mohave text-[12px] text-text shrink-0">
-              Review
+              {t("wizard.review")}
             </span>
           </>
         ) : (
@@ -939,7 +955,7 @@ export function ImportPipelineWizard({
                     transition={{ duration: 0.3, ease: EASE }}
                     className="font-mohave text-[11px] text-text-3 mb-1 truncate"
                   >
-                    Found: {bgVisibleName}
+                    {t("wizard.found", { name: bgVisibleName })}
                   </motion.p>
                 </AnimatePresence>
               )}
@@ -952,7 +968,7 @@ export function ImportPipelineWizard({
               </div>
             </div>
             <span className="font-mohave text-[12px] text-text-2 hover:text-text transition-colors shrink-0 ml-2">
-              Expand
+              {t("wizard.expand")}
             </span>
           </>
         )}
@@ -988,19 +1004,19 @@ export function ImportPipelineWizard({
           e.stopPropagation();
         }}
       >
-        <DialogTitle className="sr-only">Import Your Pipeline</DialogTitle>
+        <DialogTitle className="sr-only">{t("wizard.title")}</DialogTitle>
         <DialogDescription className="sr-only">
-          Connect your email, analyze patterns, and import your pipeline
+          {t("wizard.description")}
         </DialogDescription>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border">
           <div>
             <h2 className="font-mohave text-lg font-semibold text-text">
-              Import Your Pipeline
+              {t("wizard.title")}
             </h2>
             <p className="font-mono text-micro tracking-[0.15em] uppercase text-text-3">
-              {STEP_KEY_MAP[step].toUpperCase()}{step === 4 ? ` · ${SUB_STEP_KEY_MAP[reviewSubStep]}` : ""}
+              {t(`steps.${STEP_KEY_MAP[step]}`)}{step === 4 ? ` · ${t(`subSteps.${SUB_STEP_KEY_MAP[reviewSubStep]}`)}` : ""}
             </p>
           </div>
           <button
@@ -1024,7 +1040,7 @@ export function ImportPipelineWizard({
           {/* Stepper rail */}
           <div className="pl-5 pt-4 pb-4 flex-shrink-0">
             <StepperRail
-              steps={STEPPER_STEPS}
+              steps={stepperSteps}
               currentStep={STEP_KEY_MAP[step]}
               currentSubStep={step === 4 ? SUB_STEP_KEY_MAP[reviewSubStep] : undefined}
               completedSteps={completedSteps}
@@ -1053,13 +1069,13 @@ export function ImportPipelineWizard({
               {step === 2 && !connectionId && (
                 <div className="flex flex-col items-center justify-center py-16 gap-4">
                   <p className="font-mohave text-[14px] text-text-3">
-                    No connection found. Please go back and connect your email.
+                    {t("wizard.noConnection")}
                   </p>
                   <button
                     onClick={() => goTo(1)}
                     className="font-mono text-micro tracking-[0.1em] uppercase text-text-2 hover:text-text transition-colors"
                   >
-                    ← Back to Connect
+                    {t("wizard.backToConnect")}
                   </button>
                 </div>
               )}
@@ -1068,7 +1084,7 @@ export function ImportPipelineWizard({
                   <div className="flex flex-col items-center justify-center py-16 gap-4">
                     <Loader2 size={24} className="text-text-2 animate-spin" />
                     <p className="font-mohave text-[14px] text-text-3">
-                      Reconnecting to analysis...
+                      {t("wizard.reconnecting")}
                     </p>
                   </div>
                 ) : (
@@ -1245,7 +1261,7 @@ export function ImportPipelineWizard({
                 <div className="flex flex-col items-center justify-center py-16 gap-4">
                   <Loader2 size={24} className="text-text-2 animate-spin" />
                   <p className="font-mohave text-[14px] text-text-3">
-                    Loading import results...
+                    {t("wizard.loadingResults")}
                   </p>
                 </div>
               )}
@@ -1286,10 +1302,10 @@ export function ImportPipelineWizard({
           >
             <div className="glass-dense p-6 border border-border max-w-[320px] rounded-chip">
               <p className="font-mohave text-[15px] text-text mb-2">
-                Close wizard?
+                {t("wizard.closeTitle")}
               </p>
               <p className="font-mohave text-[12px] text-text-3 mb-5">
-                Your progress will be saved and can be resumed later.
+                {t("wizard.closeDescription")}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -1297,7 +1313,7 @@ export function ImportPipelineWizard({
                   onClick={() => setShowCloseConfirm(false)}
                   className="flex-1"
                 >
-                  CONTINUE
+                  {t("wizard.continue")}
                 </Button>
                 <Button
                   variant="primary"
@@ -1309,7 +1325,7 @@ export function ImportPipelineWizard({
                   }}
                   className="flex-1"
                 >
-                  CLOSE & SAVE
+                  {t("wizard.closeAndSave")}
                 </Button>
               </div>
             </div>
@@ -1324,7 +1340,7 @@ export function ImportPipelineWizard({
               onClick={() => goTo((step - 1) as 1 | 2 | 3 | 4 | 5)}
               className="font-mohave text-[13px] text-text-3 hover:text-text transition-colors"
             >
-              &larr; Back
+              {t("wizard.back")}
             </button>
           </div>
         )}

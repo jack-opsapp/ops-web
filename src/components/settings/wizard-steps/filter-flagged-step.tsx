@@ -90,18 +90,18 @@ export function FilterFlaggedStep({
       "1": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, true);
         // Neutral text-2 — the decision badge is not the primary CTA.
-        return { label: "IMPORT", color: "#B5B5B5" };
+        return { label: t("filter.import"), color: "#B5B5B5" };
       },
       "2": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, false);
-        return { label: "DISCARD", color: "#8A8A8A" };
+        return { label: t("filter.discard"), color: "#8A8A8A" };
       },
       Backspace: (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, false);
-        return { label: "DISCARD", color: "#8A8A8A" };
+        return { label: t("filter.discard"), color: "#8A8A8A" };
       },
     }),
-    [setLeadFilterDecision]
+    [setLeadFilterDecision, t]
   );
 
   return (
@@ -139,7 +139,7 @@ export function FilterFlaggedStep({
                 {lead.client.email}
                 {lead.correspondenceCount > 1 && (
                   <span className="ml-2">
-                    · {lead.correspondenceCount} emails
+                    · {lead.correspondenceCount} {t("emails")}
                   </span>
                 )}
               </p>

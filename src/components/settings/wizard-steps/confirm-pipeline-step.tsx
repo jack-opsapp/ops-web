@@ -11,16 +11,16 @@ import type { AnalyzedLead, ConsolidationGroup, TriageDecision } from "@/lib/typ
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
 
-const STAGE_CONFIG: Record<string, { label: string; color: string }> = {
-  new_lead: { label: "New Lead", color: "#8F9AA3" },
-  qualifying: { label: "Qualifying", color: "#D99A3E" },
-  quoting: { label: "Quoting", color: "#C4A868" },
-  quoted: { label: "Quoted", color: "#B6AC97" },
-  follow_up: { label: "Follow Up", color: "#4E4B48" },
-  negotiation: { label: "Negotiation", color: "#B58289" },
-  won: { label: "Won", color: "#9DB582" },
-  lost: { label: "Lost", color: "#8A8A8A" },
-  discarded: { label: "Discarded", color: "#6A6A6A" },
+const STAGE_CONFIG: Record<string, { labelKey: string; color: string }> = {
+  new_lead: { labelKey: "stages.new_lead", color: "#8F9AA3" },
+  qualifying: { labelKey: "stages.qualifying", color: "#D99A3E" },
+  quoting: { labelKey: "stages.quoting", color: "#C4A868" },
+  quoted: { labelKey: "stages.quoted", color: "#B6AC97" },
+  follow_up: { labelKey: "stages.follow_up", color: "#4E4B48" },
+  negotiation: { labelKey: "stages.negotiation", color: "#B58289" },
+  won: { labelKey: "stages.won", color: "#9DB582" },
+  lost: { labelKey: "stages.lost", color: "#8A8A8A" },
+  discarded: { labelKey: "stages.discarded", color: "#6A6A6A" },
 };
 
 const ALL_STAGES = [
@@ -227,7 +227,7 @@ export function ConfirmPipelineStep({
                     className="font-mono text-micro tracking-[0.15em] uppercase"
                     style={{ color: config.color }}
                   >
-                    {config.label}
+                    {t(config.labelKey)}
                   </span>
                   <span className="font-mono text-[11px] text-text-3 tabular-nums">
                     ({stageLeads.length})
@@ -297,13 +297,13 @@ export function ConfirmPipelineStep({
                   style={{ opacity: 0.6 }}
                 />
                 <span className="font-mono text-micro tracking-[0.15em] uppercase text-text-mute">
-                  Discarded
+                  {t("confirm.discarded")}
                 </span>
                 <span className="font-mono text-[11px] text-text-mute tabular-nums">
                   ({discardedLeads.length})
                 </span>
                 <span className="font-mohave text-micro text-text-mute ml-1">
-                  — won&apos;t be imported
+                  {t("confirm.discardedNote")}
                 </span>
                 <ChevronDown
                   size={12}
@@ -354,11 +354,11 @@ export function ConfirmPipelineStep({
                             className="font-mohave text-[11px] bg-transparent border border-border-subtle px-1.5 py-0.5 rounded-[4px] outline-none focus:border-ops-accent flex-shrink-0 text-text-mute"
                           >
                             <option value="discarded" className="bg-background-elevated">
-                              Discarded
+                              {t("stages.discarded")}
                             </option>
                             {ALL_STAGES.filter((s) => s !== "discarded").map((s) => (
                               <option key={s} value={s} className="bg-background-elevated">
-                                {STAGE_CONFIG[s].label}
+                                {t(STAGE_CONFIG[s].labelKey)}
                               </option>
                             ))}
                           </select>
@@ -446,6 +446,7 @@ function LeadRow({
   onNameChange: (name: string) => void;
   siblingLeads?: AnalyzedLead[];
 }) {
+  const { t } = useDictionary("import-wizard");
   return (
     <div className="py-2.5 px-3 border border-border-subtle rounded-[4px]">
       <div className="flex items-center gap-3">
@@ -475,7 +476,7 @@ function LeadRow({
         >
           {ALL_STAGES.map((s) => (
             <option key={s} value={s} className="bg-background-elevated">
-              {STAGE_CONFIG[s].label}
+              {t(STAGE_CONFIG[s].labelKey)}
             </option>
           ))}
         </select>
@@ -498,6 +499,7 @@ function InlineEditableName({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useDictionary("import-wizard");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -539,7 +541,7 @@ function InlineEditableName({
     <button
       onClick={() => setEditing(true)}
       className="font-mohave text-[13px] text-text text-left hover:text-text-2 transition-colors cursor-text truncate block w-full"
-      title="Click to edit"
+      title={t("confirm.editTooltip")}
     >
       {value}
     </button>

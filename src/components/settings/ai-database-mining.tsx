@@ -41,6 +41,7 @@ interface AiDatabaseMiningProps {
 
 export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
   const { t } = useDictionary("ai-setup");
+  const { t: tw } = useDictionary("import-wizard");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
 
@@ -103,7 +104,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
       clearInterval(stepTimer);
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({ error: "Mining failed" }));
+        const data = await res.json().catch(() => ({ error: tw("mining.failed") }));
         throw new Error(data.error || `HTTP ${res.status}`);
       }
 
@@ -122,12 +123,12 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
     } catch (err) {
       clearInterval(stepTimer);
       if (err instanceof Error && err.name === "AbortError") return;
-      const message = err instanceof Error ? err.message : "Unknown error";
+      const message = err instanceof Error ? err.message : tw("mining.unknownError");
       setError(message);
       setPhase("error");
       console.error("[database-mining]", err);
     }
-  }, [companyId, t, onComplete]);
+  }, [companyId, t, tw, onComplete]);
 
   // ─── Idle state ─────────────────────────────────────────────────────────────
 
@@ -207,7 +208,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
         </div>
         <Button variant="default" onClick={startMining} className="gap-1.5 w-fit">
           <RotateCcw className="w-[14px] h-[14px]" />
-          Retry
+          {tw("mining.retry")}
         </Button>
       </div>
     );
@@ -265,7 +266,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
       {stats && stats.errors.length > 0 && (
         <div className="px-2 py-1 rounded border border-tan-line bg-tan-soft">
           <span className="font-mono text-micro text-tan">
-            {stats.errors.length} warning{stats.errors.length !== 1 ? "s" : ""} during mining
+            {tw("mining.warnings", { count: stats.errors.length })}
           </span>
         </div>
       )}

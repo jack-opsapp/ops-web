@@ -59,11 +59,11 @@ const DECISION_COLORS: Record<TriageDecision, string> = {
   discard: "#6A6A6A", // text-mute
 };
 
-const DECISION_LABELS: Record<TriageDecision, string> = {
-  won: "WON",
-  lost: "LOST",
-  active: "ACTIVE",
-  discard: "DISCARD",
+const DECISION_LABEL_KEYS: Record<TriageDecision, string> = {
+  won: "triage.won",
+  lost: "triage.lost",
+  active: "triage.active",
+  discard: "triage.discard",
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -161,9 +161,9 @@ export function TriageStep({
   const applyDecision = useCallback(
     (leadId: string, decision: TriageDecision): CarouselDecision => {
       onTriageDecision(leadId, decision);
-      return { label: DECISION_LABELS[decision], color: DECISION_COLORS[decision] };
+      return { label: t(DECISION_LABEL_KEYS[decision]), color: DECISION_COLORS[decision] };
     },
-    [onTriageDecision]
+    [onTriageDecision, t]
   );
 
   const actions = useMemo(
@@ -228,7 +228,7 @@ export function TriageStep({
                   ))}
                   {lead.correspondenceCount > 1 && (
                     <p className="font-mohave text-[13px] text-text-mute mt-1">
-                      {lead.correspondenceCount} emails total
+                      {t("triage.emailsTotal", { count: lead.correspondenceCount })}
                     </p>
                   )}
                 </div>
@@ -238,7 +238,7 @@ export function TriageStep({
                     {lead.client.email}
                     {lead.correspondenceCount > 1 && (
                       <span className="ml-2">
-                        · {lead.correspondenceCount} emails
+                        · {lead.correspondenceCount} {t("emails")}
                       </span>
                     )}
                   </p>
@@ -257,7 +257,7 @@ export function TriageStep({
                 )}
                 {lead.lastMessageDate && (
                   <span className="font-mohave text-[13px] text-text-3">
-                    Last: {formatRelativeDate(lead.lastMessageDate)}
+                    {t("triage.lastLabel")}: {formatRelativeDate(lead.lastMessageDate)}
                   </span>
                 )}
                 {lead.estimatedValue && (
@@ -279,7 +279,7 @@ export function TriageStep({
                 }}
               >
                 <span className="font-mono text-micro tracking-[0.1em] uppercase whitespace-nowrap">
-                  {t("triage.agentSuggests")}: {DECISION_LABELS[defaultDecision]}
+                  {t("triage.agentSuggests")}: {t(DECISION_LABEL_KEYS[defaultDecision])}
                 </span>
               </div>
             )}
@@ -353,6 +353,7 @@ function InlineEditableText({
   onChange: (v: string) => void;
   className?: string;
 }) {
+  const { t } = useDictionary("import-wizard");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -400,7 +401,7 @@ function InlineEditableText({
     <button
       onClick={() => setEditing(true)}
       className={`${className} text-left hover:text-text transition-colors cursor-text block`}
-      title="Click to edit"
+      title={t("triage.editTooltip")}
     >
       {value}
     </button>

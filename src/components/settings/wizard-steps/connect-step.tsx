@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Mail, ExternalLink } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useDictionary } from "@/i18n/client";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 const staggerContainer = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
@@ -16,6 +17,7 @@ interface ConnectStepProps {
 export function ConnectStep({ companyId }: ConnectStepProps) {
   const [connecting, setConnecting] = useState<"gmail" | "microsoft365" | null>(null);
   const { currentUser } = useAuthStore();
+  const { t } = useDictionary("import-wizard");
 
   const handleConnect = (provider: "gmail" | "microsoft365") => {
     setConnecting(provider);
@@ -57,7 +59,7 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
         variants={staggerItem}
         className="font-mohave text-[15px] text-text-2 mb-6"
       >
-        Connect your business email to automatically discover and import your pipeline.
+        {t("connect.intro")}
       </motion.p>
 
       <div className="flex flex-col gap-3">
@@ -72,10 +74,10 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
           </div>
           <div className="flex-1 text-left">
             <p className="font-mohave text-[15px] font-medium text-text">
-              Gmail / Google Workspace
+              {t("connect.gmailTitle")}
             </p>
             <p className="font-mohave text-[12px] text-text-3">
-              Personal or business Gmail accounts
+              {t("connect.gmailDesc")}
             </p>
           </div>
           {connecting === "gmail" ? (
@@ -96,10 +98,10 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
           </div>
           <div className="flex-1 text-left">
             <p className="font-mohave text-[15px] font-medium text-text">
-              Microsoft 365 / Outlook
+              {t("connect.outlookTitle")}
             </p>
             <p className="font-mohave text-[12px] text-text-3">
-              Business Outlook and Microsoft 365
+              {t("connect.outlookDesc")}
             </p>
           </div>
           {connecting === "microsoft365" ? (
@@ -114,8 +116,7 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
         variants={staggerItem}
         className="font-mohave text-[11px] text-text-3 mt-5"
       >
-        You&apos;ll be redirected to authorize. OPS requests full mailbox
-        access to find leads, label threads, and draft replies on your behalf.
+        {t("connect.redirectNote")}
       </motion.p>
     </motion.div>
   );

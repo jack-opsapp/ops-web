@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Check, Pencil, Plus, Mail, Globe, Users, Zap, ToggleLeft, ToggleRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDictionary } from "@/i18n/client";
 import type { AnalysisResult } from "@/lib/types/email-import";
 import type { DetectedSource } from "@/lib/api/services/pattern-detection-service";
 
@@ -18,11 +19,11 @@ const SOURCE_ICONS: Record<string, typeof Mail> = {
   ai_detected: Zap,
 };
 
-const SOURCE_DESCRIPTIONS: Record<string, string> = {
-  platform: "Emails from this platform that may contain leads or bid invitations",
-  forwarder: "This team member forwards customer inquiries to you",
-  ai_detected: "These emails were identified by AI as likely customer conversations",
-  estimate_pattern: "Threads where you've sent estimates to potential clients",
+const SOURCE_DESCRIPTION_KEYS: Record<string, string> = {
+  platform: "confirmSources.desc.platform",
+  forwarder: "confirmSources.desc.forwarder",
+  ai_detected: "confirmSources.desc.ai_detected",
+  estimate_pattern: "confirmSources.desc.estimate_pattern",
 };
 
 interface ConfirmSourcesStepProps {
@@ -42,6 +43,7 @@ export function ConfirmSourcesStep({
   onEstimatePatternChanged,
   onNext,
 }: ConfirmSourcesStepProps) {
+  const { t } = useDictionary("import-wizard");
   const [editingPattern, setEditingPattern] = useState(false);
   const [patternDraft, setPatternDraft] = useState(estimatePattern);
 
@@ -59,10 +61,10 @@ export function ConfirmSourcesStep({
   return (
     <motion.div variants={staggerContainer} initial="hidden" animate="show">
       <motion.p variants={staggerItem} className="font-mohave text-[15px] text-text-2 mb-2">
-        We found {confirmedSources.length} sources and {totalLeads} potential leads.
+        {t("confirmSources.summary", { sources: confirmedSources.length, leads: totalLeads })}
       </motion.p>
       <motion.p variants={staggerItem} className="font-mohave text-[12px] text-text-3 mb-6">
-        Toggle off any sources you want to exclude from the import.
+        {t("confirmSources.toggleHint")}
       </motion.p>
 
       {/* Estimate pattern card */}
@@ -78,7 +80,7 @@ export function ConfirmSourcesStep({
               </div>
               <div>
                 <p className="font-mono text-micro tracking-[0.15em] uppercase text-text-3">
-                  Estimate Pattern Detected
+                  {t("confirmSources.estimatePatternLabel")}
                 </p>
                 {editingPattern ? (
                   <div className="flex items-center gap-2 mt-1">
@@ -102,12 +104,12 @@ export function ConfirmSourcesStep({
                   <p className="font-mohave text-[14px] text-text mt-0.5">
                     &ldquo;{estimatePattern}&rdquo;
                     <span className="text-text-3 text-[12px] ml-2">
-                      {analysisResult.estimateThreadCount} threads
+                      {t("confirmSources.threads", { count: analysisResult.estimateThreadCount })}
                     </span>
                   </p>
                 )}
                 <p className="font-mohave text-micro text-text-mute mt-0.5">
-                  This is the subject line you use when sending estimates to clients. We&apos;ll use it to identify your pipeline conversations.
+                  {t("confirmSources.estimateHelp")}
                 </p>
               </div>
             </div>
@@ -145,10 +147,10 @@ export function ConfirmSourcesStep({
                   {source.label}
                 </p>
                 <p className="font-mohave text-[11px] text-text-3">
-                  {source.count} email{source.count !== 1 ? "s" : ""} found
+                  {t("confirmSources.emailsFound", { count: source.count })}
                 </p>
                 <p className="font-mohave text-micro text-text-mute mt-0.5">
-                  {SOURCE_DESCRIPTIONS[source.type]}
+                  {SOURCE_DESCRIPTION_KEYS[source.type] ? t(SOURCE_DESCRIPTION_KEYS[source.type]) : ""}
                 </p>
               </div>
               {source.enabled ? (
@@ -164,10 +166,10 @@ export function ConfirmSourcesStep({
       {/* Continue button */}
       <motion.div variants={staggerItem} className="mt-6 flex items-center justify-between">
         <p className="font-mohave text-[12px] text-text-3">
-          {enabledCount} of {confirmedSources.length} sources enabled
+          {t("confirmSources.enabledCount", { enabled: enabledCount, total: confirmedSources.length })}
         </p>
         <Button onClick={onNext} variant="primary" size="default">
-          Review Leads
+          {t("confirmSources.reviewLeads")}
         </Button>
       </motion.div>
     </motion.div>

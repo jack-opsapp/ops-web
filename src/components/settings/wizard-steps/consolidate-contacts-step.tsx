@@ -80,7 +80,7 @@ export function ConsolidateContactsStep({
       "1": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "confirm" });
         // Neutral text-2 — a decision badge is not the primary CTA, so no accent.
-        return { label: "CONFIRMED", color: "#B5B5B5" };
+        return { label: t("consolidate.decisionConfirmed"), color: "#B5B5B5" };
       },
       "2": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "merge" });
@@ -101,7 +101,7 @@ export function ConsolidateContactsStep({
             })
           );
         }
-        return { label: "MERGED", color: "#C4A868" };
+        return { label: t("consolidate.decisionMerged"), color: "#C4A868" };
       },
       "3": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         const group = item.data;
@@ -113,7 +113,7 @@ export function ConsolidateContactsStep({
             return isInGroup ? { ...l, enabled: false } : l;
           })
         );
-        return { label: "DISCARDED", color: "#8A8A8A" };
+        return { label: t("consolidate.decisionDiscarded"), color: "#8A8A8A" };
       },
       Backspace: (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         const group = item.data;
@@ -125,10 +125,10 @@ export function ConsolidateContactsStep({
             return isInGroup ? { ...l, enabled: false } : l;
           })
         );
-        return { label: "DISCARDED", color: "#8A8A8A" };
+        return { label: t("consolidate.decisionDiscarded"), color: "#8A8A8A" };
       },
     }),
-    [leads, onLeadsChanged, updateGroup]
+    [leads, onLeadsChanged, updateGroup, t]
   );
 
   return (
@@ -204,7 +204,7 @@ export function ConsolidateContactsStep({
                           updateGroup(group.id, { leads: updatedLeads });
                         }}
                         className="flex-shrink-0 text-text-mute hover:text-text-2 transition-colors"
-                        title="Remove this contact"
+                        title={t("consolidate.removeContactTooltip")}
                       >
                         <X size={14} />
                       </button>
@@ -260,7 +260,7 @@ export function ConsolidateContactsStep({
               <div className="flex items-center gap-1.5 pt-3 pb-1 sticky bottom-0 -mx-4 px-2 -mb-4">
                 <GlassActionButton
                   keyLabel="1"
-                  label={`SAVE AS ${group.leads.length} LEAD${group.leads.length !== 1 ? "S" : ""}`}
+                  label={group.leads.length !== 1 ? t("consolidate.saveAsLeads", { count: group.leads.length }) : t("consolidate.saveAsLead")}
                   highlighted={highlightedKey === "1"}
                   onClick={() => triggerAction("1")}
                   className="flex-1"
@@ -297,6 +297,7 @@ function EditableCompanyName({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useDictionary("import-wizard");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -340,7 +341,7 @@ function EditableCompanyName({
     <button
       onClick={() => setEditing(true)}
       className="font-mohave text-[18px] text-text text-left hover:text-text-2 transition-colors cursor-text"
-      title="Click to edit company name"
+      title={t("consolidate.editCompanyTooltip")}
     >
       {value}
     </button>
@@ -356,6 +357,7 @@ function EditableTitle({
   placeholder: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useDictionary("import-wizard");
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -399,7 +401,7 @@ function EditableTitle({
       className={`font-mohave text-[11px] text-left truncate transition-colors cursor-text ${
         value ? "text-text-2" : "text-text-mute"
       }`}
-      title="Click to edit title"
+      title={t("consolidate.editTitleTooltip")}
     >
       {value || placeholder}
     </button>

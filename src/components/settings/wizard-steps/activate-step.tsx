@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { AlertTriangle, CheckCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDictionary } from "@/i18n/client";
 import type { ImportPayload, ImportResult } from "@/lib/types/email-import";
 
 type ActivationWarning = { step: string; message: string };
@@ -13,11 +14,11 @@ const staggerContainer = { hidden: {}, show: { transition: { staggerChildren: 0.
 const staggerItem = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE } } };
 
 const INTERVAL_OPTIONS = [
-  { value: 15, label: "Every 15 min" },
-  { value: 60, label: "Every hour" },
-  { value: 120, label: "Every 2 hours" },
-  { value: 1440, label: "Once daily" },
-  { value: 0, label: "Manual only" },
+  { value: 15, labelKey: "activate.interval.15" },
+  { value: 60, labelKey: "activate.interval.60" },
+  { value: 120, labelKey: "activate.interval.120" },
+  { value: 1440, labelKey: "activate.interval.1440" },
+  { value: 0, labelKey: "activate.interval.0" },
 ];
 
 interface ActivateStepProps {
@@ -34,6 +35,7 @@ export function ActivateStep({
   onActivate,
   onComplete,
 }: ActivateStepProps) {
+  const { t } = useDictionary("import-wizard");
   const [selectedInterval, setSelectedInterval] = useState(60);
   const [activating, setActivating] = useState(false);
   const [activated, setActivated] = useState(false);
@@ -50,11 +52,11 @@ export function ActivateStep({
       setActivated(true);
     } catch (err) {
       console.error("Activation failed:", err);
-      setActivationError(err instanceof Error ? err.message : "Activation failed. Try again.");
+      setActivationError(err instanceof Error ? err.message : t("activate.failed"));
     } finally {
       setActivating(false);
     }
-  }, [selectedInterval, onActivate]);
+  }, [selectedInterval, onActivate, t]);
 
   return (
     <motion.div variants={staggerContainer} initial="hidden" animate="show">
@@ -66,7 +68,7 @@ export function ActivateStep({
         <div className="flex items-center gap-2 mb-3">
           <CheckCircle size={16} className="text-olive" />
           <span className="font-mono text-micro tracking-[0.15em] uppercase text-olive">
-            Import Complete
+            {t("activate.importComplete")}
           </span>
         </div>
         <div className="grid grid-cols-3 gap-3">
@@ -74,20 +76,20 @@ export function ActivateStep({
             <p className="font-mono text-[22px] font-semibold text-text tabular-nums">
               {importResult.leadsCreated}
             </p>
-            <p className="font-mohave text-[11px] text-text-3">Leads created</p>
+            <p className="font-mohave text-[11px] text-text-3">{t("activate.leadsCreated")}</p>
           </div>
           <div>
             <p className="font-mono text-[22px] font-semibold text-text tabular-nums">
               {importResult.clientsCreated}
             </p>
-            <p className="font-mohave text-[11px] text-text-3">New clients</p>
+            <p className="font-mohave text-[11px] text-text-3">{t("activate.newClients")}</p>
           </div>
           {(importResult.imagesExtracted ?? 0) > 0 && (
             <div>
               <p className="font-mono text-[22px] font-semibold text-text tabular-nums">
                 {importResult.imagesExtracted}
               </p>
-              <p className="font-mohave text-[11px] text-text-3">Photos extracted</p>
+              <p className="font-mohave text-[11px] text-text-3">{t("activate.photosExtracted")}</p>
             </div>
           )}
         </div>
@@ -96,9 +98,16 @@ export function ActivateStep({
       {/* Label info */}
       <motion.div variants={staggerItem} className="mb-4">
         <p className="font-mohave text-[14px] text-text mb-1">
-          Your imported leads have been labeled as{" "}
-          <span className="text-text font-medium">OPS Pipeline</span>{" "}
-          in your inbox.
+          {(() => {
+            const [before, after] = t("confirmPipeline.labeledNotice").split("{label}");
+            return (
+              <>
+                {before}
+                <span className="text-text font-medium">OPS Pipeline</span>
+                {after}
+              </>
+            );
+          })()}
         </p>
       </motion.div>
 
@@ -108,31 +117,39 @@ export function ActivateStep({
         className="mb-6 p-3 border border-border bg-white/[0.02] rounded-[5px]"
       >
         <p className="font-mono text-micro tracking-[0.15em] uppercase text-text-3 mb-2">
-          How new leads are captured
+          {t("confirmPipeline.captureTitle")}
         </p>
         <div className="space-y-2">
           <div className="flex items-start gap-2">
             <span className="font-mono text-[12px] text-text-3 mt-0.5 flex-shrink-0 tabular-nums">1.</span>
             <p className="font-mohave text-[12px] text-text-2">
-              <span className="text-text">Pattern matching</span> — emails from new contacts that match your detected patterns (form submissions, estimate requests, inquiry subjects) are automatically classified as leads.
+              <span className="text-text">{t("confirmPipeline.patternTitle")}</span> — {t("confirmPipeline.patternDesc")}
             </p>
           </div>
           <div className="flex items-start gap-2">
             <span className="font-mono text-[12px] text-text-3 mt-0.5 flex-shrink-0 tabular-nums">2.</span>
             <p className="font-mohave text-[12px] text-text-2">
-              <span className="text-text">AI classification</span> — new inbound emails are analyzed to detect potential leads, even if they don&apos;t match an existing pattern.
+              <span className="text-text">{t("confirmPipeline.aiTitle")}</span> — {t("confirmPipeline.aiDesc")}
             </p>
           </div>
           <div className="flex items-start gap-2">
             <span className="font-mono text-[12px] text-text-3 mt-0.5 flex-shrink-0 tabular-nums">3.</span>
             <p className="font-mohave text-[12px] text-text-2">
-              <span className="text-text">Manual label</span> — apply the{" "}
-              <span className="text-text">OPS Pipeline</span> label to any email thread in Gmail and it will be imported on the next sync.
+              {(() => {
+                const [before, after] = t("confirmPipeline.manualDesc").split("{label}");
+                return (
+                  <>
+                    <span className="text-text">{t("confirmPipeline.manualTitle")}</span> — {before}
+                    <span className="text-text">OPS Pipeline</span>
+                    {after}
+                  </>
+                );
+              })()}
             </p>
           </div>
         </div>
         <p className="font-mohave text-[11px] text-text-mute mt-2">
-          New leads appear in your pipeline for review. You can adjust detection sensitivity in Settings.
+          {t("confirmPipeline.captureNote")}
         </p>
       </motion.div>
 
@@ -140,7 +157,7 @@ export function ActivateStep({
       {!activated && (
         <motion.div variants={staggerItem} className="mb-6">
           <p className="font-mono text-micro tracking-[0.15em] uppercase text-text-3 mb-3">
-            Sync Frequency
+            {t("activate.syncFrequency")}
           </p>
           <div className="flex gap-2 flex-wrap">
             {INTERVAL_OPTIONS.map((opt) => {
@@ -156,13 +173,13 @@ export function ActivateStep({
                       : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2")
                   }
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               );
             })}
           </div>
           <p className="font-mohave text-[11px] text-text-3 mt-2">
-            Real-time sync via push notifications is always active. Scheduled sync runs as a safety net.
+            {t("activate.syncNote")}
           </p>
         </motion.div>
       )}
@@ -188,7 +205,7 @@ export function ActivateStep({
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle size={14} className="text-tan" />
             <span className="font-mono text-micro tracking-[0.15em] uppercase text-tan">
-              Partial activation
+              {t("activate.partialActivation")}
             </span>
           </div>
           <div className="space-y-1 mb-2">
@@ -200,7 +217,7 @@ export function ActivateStep({
             ))}
           </div>
           <p className="font-mohave text-[11px] text-text-3">
-            Scheduled sync is running. To enable real-time updates, reconnect the inbox from Settings.
+            {t("activate.partialNote")}
           </p>
         </motion.div>
       )}
@@ -212,11 +229,11 @@ export function ActivateStep({
             <div className="flex items-center gap-2">
               <Zap size={14} className="text-olive" />
               <span className="font-mohave text-[13px] text-olive">
-                Pipeline sync is active
+                {t("activate.syncActive")}
               </span>
             </div>
             <Button onClick={onComplete} variant="primary" size="default">
-              Done
+              {t("activate.done")}
             </Button>
           </div>
         ) : (
@@ -228,7 +245,7 @@ export function ActivateStep({
             size="default"
             className="w-full"
           >
-            {activating ? "Activating..." : "Activate Pipeline Sync"}
+            {activating ? t("activate.activating") : t("activate.cta")}
           </Button>
         )}
       </motion.div>
