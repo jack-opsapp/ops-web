@@ -49,12 +49,12 @@ export function AdminLineChart({
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
         <XAxis
           dataKey="name"
-          tick={{ fill: "#6B6B6B", fontFamily: "Kosugi", fontSize: 11 }}
+          tick={{ fill: "#6B6B6B", fontFamily: "JetBrains Mono", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tick={{ fill: "#6B6B6B", fontFamily: "Kosugi", fontSize: 11 }}
+          tick={{ fill: "#6B6B6B", fontFamily: "JetBrains Mono", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
         />
