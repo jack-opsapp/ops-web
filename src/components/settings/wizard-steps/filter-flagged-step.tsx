@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { CardCarousel, type CarouselItem, type CarouselDecision } from "./card-carousel";
 import { EmailThreadView } from "./email-thread-view";
+import { Button } from "@/components/ui/button";
+import { KeyHint } from "@/components/ui/key-hint";
 import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 
@@ -87,15 +89,16 @@ export function FilterFlaggedStep({
     () => ({
       "1": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, true);
-        return { label: "IMPORT", color: "#6F94B0" };
+        // Neutral text-2 — the decision badge is not the primary CTA.
+        return { label: "IMPORT", color: "#B5B5B5" };
       },
       "2": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, false);
-        return { label: "DISCARD", color: "#6B7280" };
+        return { label: "DISCARD", color: "#8A8A8A" };
       },
       Backspace: (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, false);
-        return { label: "DISCARD", color: "#6B7280" };
+        return { label: "DISCARD", color: "#8A8A8A" };
       },
     }),
     [setLeadFilterDecision]
@@ -118,21 +121,21 @@ export function FilterFlaggedStep({
           <div className="space-y-4">
             {/* Flag badge */}
             <div className="flex items-center gap-2">
-              <Icon size={14} className="text-[#C4A868] flex-shrink-0" />
-              <span className="font-mono text-micro tracking-[0.12em] uppercase text-[#C4A868]">
+              <Icon size={16} className="text-tan flex-shrink-0" />
+              <span className="font-mono text-micro tracking-[0.12em] uppercase text-tan">
                 {t(`filter.reason.${reason}`)}
               </span>
             </div>
-            <p className="font-mohave text-[13px] text-[#888] -mt-2">
+            <p className="font-mohave text-[13px] text-text-3 -mt-2">
               {t(`filter.reason.${reason}_desc`)}
             </p>
 
             {/* Client info */}
             <div>
-              <p className="font-mohave text-[18px] text-white leading-tight">
+              <p className="font-mohave text-[18px] text-text leading-tight">
                 {lead.client.name}
               </p>
-              <p className="font-mohave text-[14px] text-[#888] mt-1">
+              <p className="font-mohave text-[14px] text-text-3 mt-1">
                 {lead.client.email}
                 {lead.correspondenceCount > 1 && (
                   <span className="ml-2">
@@ -141,12 +144,12 @@ export function FilterFlaggedStep({
                 )}
               </p>
               {lead.client.address && (
-                <p className="font-mohave text-[13px] text-[#999] mt-1">
+                <p className="font-mohave text-[13px] text-text-2 mt-1">
                   {lead.client.address}
                 </p>
               )}
               {lead.emails[0] && (
-                <p className="font-mohave text-[13px] text-[#777] mt-1 truncate">
+                <p className="font-mohave text-[13px] text-text-3 mt-1 truncate">
                   &ldquo;{lead.emails[0].subject}&rdquo;
                 </p>
               )}
@@ -155,32 +158,27 @@ export function FilterFlaggedStep({
             {/* Email thread */}
             <EmailThreadView lead={lead} keyboardEnabled toggleSignal={threadToggle} />
 
-            {/* Action buttons — only on focused card */}
-            {focused && <div className="flex items-center gap-2 pt-3 border-t border-white/5">
-              <button
+            {/* Action buttons — only on focused card. IMPORT is the step's
+                single primary CTA (accent); DISCARD is the neutral secondary.
+                Keyboard selection adds the same accent focus ring the kit uses
+                for DOM focus, so highlight reads identically however it arrives. */}
+            {focused && <div className="flex items-center gap-2 pt-3 border-t border-border-subtle">
+              <Button
+                variant="primary"
                 onClick={() => triggerAction("1")}
-                className="flex-1 py-2.5 font-mono text-[11px] tracking-[0.1em] uppercase border transition-colors"
-                style={{
-                  borderRadius: 4,
-                  borderColor: highlightedKey === "1" ? "#6F94B0" : "rgba(111, 148, 176, 0.3)",
-                  color: "#6F94B0",
-                  background: highlightedKey === "1" ? "rgb(18, 24, 30)" : "var(--surface-glass-dense)",
-                }}
+                className={`flex-1 ${highlightedKey === "1" ? "ring-[1.5px] ring-ops-accent ring-offset-2 ring-offset-black" : ""}`}
               >
-                1: {t("filter.import")}
-              </button>
-              <button
+                <KeyHint keys="1" variant="inline" />
+                {t("filter.import")}
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => triggerAction("2")}
-                className="flex-1 py-2.5 font-mono text-[11px] tracking-[0.1em] uppercase border transition-colors"
-                style={{
-                  borderRadius: 4,
-                  borderColor: highlightedKey === "2" ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)",
-                  color: "#888",
-                  background: highlightedKey === "2" ? "rgb(16, 16, 16)" : "var(--surface-glass-dense)",
-                }}
+                className={`flex-1 ${highlightedKey === "2" ? "ring-[1.5px] ring-border-strong ring-offset-2 ring-offset-black" : ""}`}
               >
-                2: {t("filter.discard")}
-              </button>
+                <KeyHint keys="2" variant="inline" />
+                {t("filter.discard")}
+              </Button>
             </div>}
           </div>
         );

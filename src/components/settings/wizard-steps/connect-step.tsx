@@ -55,7 +55,7 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
     >
       <motion.p
         variants={staggerItem}
-        className="font-mohave text-[15px] text-[#999] mb-6"
+        className="font-mohave text-[15px] text-text-2 mb-6"
       >
         Connect your business email to automatically discover and import your pipeline.
       </motion.p>
@@ -65,24 +65,23 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
           variants={staggerItem}
           onClick={() => handleConnect("gmail")}
           disabled={!!connecting}
-          className="group flex items-center gap-4 p-4 border border-white/10 bg-glass glass-surface hover:border-white/20 transition-all"
-          style={{ borderRadius: 3 }}
+          className="group flex items-center gap-4 p-4 glass-surface border-border hover:border-border-medium transition-all rounded-[10px]"
         >
-          <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10" style={{ borderRadius: 2 }}>
-            <Mail size={20} className="text-white" />
+          <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-border rounded-[5px]">
+            <Mail size={20} className="text-text" />
           </div>
           <div className="flex-1 text-left">
-            <p className="font-mohave text-[15px] font-medium text-white">
+            <p className="font-mohave text-[15px] font-medium text-text">
               Gmail / Google Workspace
             </p>
-            <p className="font-mohave text-[12px] text-[#666]">
+            <p className="font-mohave text-[12px] text-text-3">
               Personal or business Gmail accounts
             </p>
           </div>
           {connecting === "gmail" ? (
             <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
           ) : (
-            <ExternalLink size={14} className="text-[#666] group-hover:text-[#999] transition-colors" />
+            <ExternalLink size={14} className="text-text-3 group-hover:text-text-2 transition-colors" />
           )}
         </motion.button>
 
@@ -90,31 +89,30 @@ export function ConnectStep({ companyId }: ConnectStepProps) {
           variants={staggerItem}
           onClick={() => handleConnect("microsoft365")}
           disabled={!!connecting}
-          className="group flex items-center gap-4 p-4 border border-white/10 bg-glass glass-surface hover:border-white/20 transition-all"
-          style={{ borderRadius: 3 }}
+          className="group flex items-center gap-4 p-4 glass-surface border-border hover:border-border-medium transition-all rounded-[10px]"
         >
-          <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-white/10" style={{ borderRadius: 2 }}>
-            <Mail size={20} className="text-white" />
+          <div className="w-10 h-10 flex items-center justify-center bg-white/5 border border-border rounded-[5px]">
+            <Mail size={20} className="text-text" />
           </div>
           <div className="flex-1 text-left">
-            <p className="font-mohave text-[15px] font-medium text-white">
+            <p className="font-mohave text-[15px] font-medium text-text">
               Microsoft 365 / Outlook
             </p>
-            <p className="font-mohave text-[12px] text-[#666]">
+            <p className="font-mohave text-[12px] text-text-3">
               Business Outlook and Microsoft 365
             </p>
           </div>
           {connecting === "microsoft365" ? (
             <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
           ) : (
-            <ExternalLink size={14} className="text-[#666] group-hover:text-[#999] transition-colors" />
+            <ExternalLink size={14} className="text-text-3 group-hover:text-text-2 transition-colors" />
           )}
         </motion.button>
       </div>
 
       <motion.p
         variants={staggerItem}
-        className="font-mohave text-[11px] text-[#666] mt-5"
+        className="font-mohave text-[11px] text-text-3 mt-5"
       >
         You&apos;ll be redirected to authorize. OPS requests full mailbox
         access to find leads, label threads, and draft replies on your behalf.

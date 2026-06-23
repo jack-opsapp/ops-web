@@ -79,7 +79,8 @@ export function ConsolidateContactsStep({
     () => ({
       "1": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "confirm" });
-        return { label: "CONFIRMED", color: "#6F94B0" };
+        // Neutral text-2 — a decision badge is not the primary CTA, so no accent.
+        return { label: "CONFIRMED", color: "#B5B5B5" };
       },
       "2": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "merge" });
@@ -112,7 +113,7 @@ export function ConsolidateContactsStep({
             return isInGroup ? { ...l, enabled: false } : l;
           })
         );
-        return { label: "DISCARDED", color: "#6B7280" };
+        return { label: "DISCARDED", color: "#8A8A8A" };
       },
       Backspace: (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         const group = item.data;
@@ -124,7 +125,7 @@ export function ConsolidateContactsStep({
             return isInGroup ? { ...l, enabled: false } : l;
           })
         );
-        return { label: "DISCARDED", color: "#6B7280" };
+        return { label: "DISCARDED", color: "#8A8A8A" };
       },
     }),
     [leads, onLeadsChanged, updateGroup]
@@ -147,10 +148,10 @@ export function ConsolidateContactsStep({
         if (!focused) {
           return (
             <div className="space-y-1">
-              <h4 className="font-mohave text-[18px] text-white leading-tight truncate">
+              <h4 className="font-mohave text-[18px] text-text leading-tight truncate">
                 {group.companyName}
               </h4>
-              <p className="font-mohave text-[13px] text-[#888]">
+              <p className="font-mohave text-[13px] text-text-3">
                 {group.contacts.length} {t("consolidate.contacts").toLowerCase()}
                 {" · "}
                 {group.leads.length} {t("consolidate.leads").toLowerCase()}
@@ -167,13 +168,13 @@ export function ConsolidateContactsStep({
               value={group.companyName}
               onChange={(name) => updateGroup(group.id, { companyName: name })}
             />
-            <p className="font-mohave text-[13px] text-[#888] -mt-2">
+            <p className="font-mohave text-[13px] text-text-3 -mt-2">
               {group.contacts.length} {group.domain ? `${t("consolidate.contactsFrom")} ${group.domain}` : t("consolidate.contacts")}
             </p>
 
             {/* Contacts list */}
             <div className="space-y-1.5">
-              <span className="font-mono text-micro tracking-[0.12em] uppercase text-[#777]">
+              <span className="font-mono text-micro tracking-[0.12em] uppercase text-text-3">
                 {t("consolidate.contacts")}
               </span>
               {group.contacts.map((contact) => {
@@ -181,16 +182,16 @@ export function ConsolidateContactsStep({
                 return (
                   <div
                     key={contact.leadId}
-                    className="flex items-center gap-2 py-1.5 px-2.5 border border-white/5"
+                    className="flex items-center gap-2 py-1.5 px-2.5 border border-border-subtle"
                     style={{
                       borderRadius: 4,
                       opacity: isRemoved ? 0.3 : 1,
                     }}
                   >
-                    <span className="font-mohave text-[13px] text-[#ccc] flex-1 truncate">
+                    <span className="font-mohave text-[13px] text-text-2 flex-1 truncate">
                       {contact.name}
                     </span>
-                    <span className="font-mohave text-[12px] text-[#777] truncate">
+                    <span className="font-mohave text-[12px] text-text-3 truncate">
                       {contact.email}
                     </span>
                     {!isRemoved && group.contacts.filter((c) => group.leads.some((gl) => gl.leadId === c.leadId)).length > 1 && (
@@ -202,10 +203,10 @@ export function ConsolidateContactsStep({
                           const updatedLeads = group.leads.filter((gl) => gl.leadId !== contact.leadId);
                           updateGroup(group.id, { leads: updatedLeads });
                         }}
-                        className="flex-shrink-0 text-[#444] hover:text-[#999] transition-colors"
+                        className="flex-shrink-0 text-text-mute hover:text-text-2 transition-colors"
                         title="Remove this contact"
                       >
-                        <X size={11} />
+                        <X size={14} />
                       </button>
                     )}
                   </div>
@@ -215,7 +216,7 @@ export function ConsolidateContactsStep({
 
             {/* Leads list with editable titles */}
             <div className="space-y-1.5">
-              <span className="font-mono text-micro tracking-[0.12em] uppercase text-[#777]">
+              <span className="font-mono text-micro tracking-[0.12em] uppercase text-text-3">
                 {t("consolidate.leads")} ({group.leads.length})
               </span>
               {group.leads.map((gl, i) => {
@@ -223,11 +224,11 @@ export function ConsolidateContactsStep({
                 return (
                   <div
                     key={gl.leadId}
-                    className="py-1.5 px-2 border border-white/5 space-y-1"
+                    className="py-1.5 px-2 border border-border-subtle space-y-1"
                     style={{ borderRadius: 4 }}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="font-mohave text-[11px] text-[#999]">
+                      <span className="font-mohave text-[11px] text-text-2">
                         {i + 1}.
                       </span>
                       <EditableTitle
@@ -240,7 +241,7 @@ export function ConsolidateContactsStep({
                         }}
                       />
                     </div>
-                    <p className="font-mohave text-micro text-[#555] ml-4">
+                    <p className="font-mohave text-micro text-text-mute ml-4">
                       {t("consolidate.via")} {group.contacts.find((c) => c.email === gl.primaryContactEmail)?.name || gl.primaryContactEmail} · {gl.correspondenceCount} {t("emails")}
                     </p>
                     {fullLead && (
@@ -260,7 +261,6 @@ export function ConsolidateContactsStep({
                 <GlassActionButton
                   keyLabel="1"
                   label={`SAVE AS ${group.leads.length} LEAD${group.leads.length !== 1 ? "S" : ""}`}
-                  accentColor="#6F94B0"
                   highlighted={highlightedKey === "1"}
                   onClick={() => triggerAction("1")}
                   className="flex-1"
@@ -268,7 +268,6 @@ export function ConsolidateContactsStep({
                 <GlassActionButton
                   keyLabel="2"
                   label={t("consolidate.mergeIntoOne")}
-                  accentColor="#C4A868"
                   highlighted={highlightedKey === "2"}
                   onClick={() => triggerAction("2")}
                   className="flex-1"
@@ -276,7 +275,6 @@ export function ConsolidateContactsStep({
                 <GlassActionButton
                   keyLabel="3"
                   label={t("filter.discard")}
-                  accentColor="#888888"
                   highlighted={highlightedKey === "3"}
                   onClick={() => triggerAction("3")}
                   className="flex-shrink-0"
@@ -332,7 +330,7 @@ function EditableCompanyName({
           }
           e.stopPropagation(); // prevent carousel keyboard capture
         }}
-        className="font-mohave text-[18px] text-white bg-transparent border-b border-[#6F94B0] outline-none w-full py-0"
+        className="font-mohave text-[18px] text-text bg-transparent border-b border-ops-accent outline-none w-full py-0"
         style={{ borderRadius: 0 }}
       />
     );
@@ -341,7 +339,7 @@ function EditableCompanyName({
   return (
     <button
       onClick={() => setEditing(true)}
-      className="font-mohave text-[18px] text-white text-left hover:text-[#6F94B0] transition-colors cursor-text"
+      className="font-mohave text-[18px] text-text text-left hover:text-text-2 transition-colors cursor-text"
       title="Click to edit company name"
     >
       {value}
@@ -389,7 +387,7 @@ function EditableTitle({
           e.stopPropagation();
         }}
         placeholder={placeholder}
-        className="font-mohave text-[11px] text-white bg-transparent border-b border-[#6F94B0]/50 outline-none flex-1 py-0"
+        className="font-mohave text-[11px] text-text bg-transparent border-b border-ops-accent/50 outline-none flex-1 py-0"
         style={{ borderRadius: 0 }}
       />
     );
@@ -398,8 +396,9 @@ function EditableTitle({
   return (
     <button
       onClick={() => setEditing(true)}
-      className="font-mohave text-[11px] text-left truncate transition-colors cursor-text"
-      style={{ color: value ? "#999" : "#444" }}
+      className={`font-mohave text-[11px] text-left truncate transition-colors cursor-text ${
+        value ? "text-text-2" : "text-text-mute"
+      }`}
       title="Click to edit title"
     >
       {value || placeholder}

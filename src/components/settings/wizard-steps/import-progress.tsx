@@ -184,24 +184,24 @@ export function ImportProgress({
 
   return (
     <div>
-      <p className="font-mohave text-[15px] text-[#999] mb-8">
+      <p className="font-mohave text-[15px] text-text-2 mb-8">
         Creating clients, leads, and linking email threads.
       </p>
 
       {error ? (
         <div
-          className="p-4 border border-[#93321A]/30 bg-[#93321A]/10"
-          style={{ borderRadius: 3 }}
+          className="p-4 border border-rose-line bg-rose-soft"
+          style={{ borderRadius: 5 }}
         >
-          <p className="font-mohave text-[14px] text-[#FF6B4A]">{error}</p>
+          <p className="font-mohave text-[14px] text-rose">{error}</p>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Progress bar */}
           <div>
             <div
-              className="h-[2px] w-full bg-white/5 overflow-hidden"
-              style={{ borderRadius: 1 }}
+              className="h-[2px] w-full bg-border-subtle overflow-hidden"
+              style={{ borderRadius: 2 }}
             >
               <motion.div
                 className="h-full bg-text-2"
@@ -211,20 +211,20 @@ export function ImportProgress({
               />
             </div>
             <div className="flex items-center justify-between mt-2">
-              <p className="font-mohave text-[13px] text-white/70">
+              <p className="font-mohave text-[13px] text-text-2">
                 {isComplete ? (
-                  <span className="flex items-center gap-1.5 text-[#9DB582]">
-                    <CheckCircle size={13} />
+                  <span className="flex items-center gap-1.5 text-olive">
+                    <CheckCircle size={14} />
                     Import complete
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5">
-                    <Loader2 size={13} className="animate-spin text-[#6F94B0]" />
+                    <Loader2 size={14} className="animate-spin text-text-3" />
                     {message}
                   </span>
                 )}
               </p>
-              <p className="font-mohave text-[12px] text-[#666]">
+              <p className="font-mono text-[12px] text-text-mute tabular-nums">
                 {Math.round(displayProgress)}%
               </p>
             </div>
@@ -242,17 +242,17 @@ export function ImportProgress({
               return (
                 <div
                   key={stat.label}
-                  className="p-3 border border-white/10 bg-white/[0.02]"
-                  style={{ borderRadius: 3 }}
+                  className="p-3 border border-border bg-surface-input"
+                  style={{ borderRadius: 5 }}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Icon size={14} className="text-[#6F94B0]" />
-                    <span className="font-mono text-micro uppercase tracking-wider text-[#666]">
+                    <Icon size={16} className="text-text-3" />
+                    <span className="font-mono text-micro uppercase tracking-wider text-text-3">
                       {stat.label}
                     </span>
                   </div>
                   <motion.p
-                    className="font-mohave text-[22px] text-white"
+                    className="font-mono text-[22px] text-text tabular-nums"
                     key={stat.value}
                     initial={{ opacity: 0.5, y: 2 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -271,14 +271,17 @@ export function ImportProgress({
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6, duration: 0.5, ease: EASE }}
-              className="mt-6 pt-4 border-t border-white/10"
+              className="mt-6 pt-4 border-t border-border"
             >
+              {/* Not the kit Button: its forced Cake-Mono UPPERCASE would shout
+                  this full sentence. Hand-styled secondary on tokens instead —
+                  borders-only depth, text-ladder colors, sentence-case content. */}
               <button
                 onClick={onMinimize}
-                className="flex items-center gap-2 px-4 py-2 border border-white/10 bg-white/5 hover:bg-white/8 hover:border-white/15 transition-all font-mohave text-[13px] text-[#999] hover:text-white"
-                style={{ borderRadius: 3 }}
+                className="flex items-center gap-2 px-4 py-2 border border-border bg-surface-hover hover:bg-surface-active hover:border-border-medium transition-all font-mohave text-[13px] text-text-2 hover:text-text"
+                style={{ borderRadius: 5 }}
               >
-                <Minimize2 size={14} />
+                <Minimize2 size={16} />
                 Minimize — we&apos;ll notify you when it&apos;s ready
               </button>
             </motion.div>

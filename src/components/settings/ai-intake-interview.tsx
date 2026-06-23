@@ -13,6 +13,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
 import { getIdToken } from "@/lib/firebase/auth";
 import {
@@ -109,7 +110,7 @@ function ProgressBar() {
                   className={cn(
                     "h-full rounded-full",
                     isComplete
-                      ? "bg-[#9DB582]"
+                      ? "bg-olive"
                       : isActive
                         ? "bg-text-2"
                         : "bg-[rgba(255,255,255,0.15)]"
@@ -154,13 +155,13 @@ function MessageBubble({ message, reduced }: { message: ChatMessage; reduced: bo
           "max-w-[85%] px-3 py-2 rounded-md",
           isAgent
             ? "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)]"
-            : "bg-[rgba(111, 148, 176,0.12)] border border-[rgba(111, 148, 176,0.2)]"
+            : "bg-[rgba(255,255,255,0.07)] border border-[rgba(255,255,255,0.12)]"
         )}
       >
         {isAgent && (
           <div className="flex items-center gap-1 mb-[2px]">
-            <Brain className="w-[12px] h-[12px] text-[#6F94B0]" />
-            <span className="font-mono text-micro text-[#6F94B0] uppercase tracking-wider">
+            <Brain className="w-[12px] h-[12px] text-text-3" />
+            <span className="font-mono text-micro text-text-3 uppercase tracking-wider">
               OPS AI
             </span>
           </div>
@@ -190,11 +191,11 @@ function FactFlash({ fact, reduced }: { fact: ExtractedFactDisplay; reduced: boo
       initial="initial"
       animate="animate"
       exit="exit"
-      className="flex items-start gap-1.5 px-2 py-1 rounded border border-[rgba(157,181,130,0.2)] bg-[rgba(157,181,130,0.06)]"
+      className="flex items-start gap-1.5 px-2 py-1 rounded border border-olive-line bg-olive-soft"
     >
-      <CheckCircle className="w-[12px] h-[12px] text-[#9DB582] mt-[2px] shrink-0" />
+      <CheckCircle className="w-[12px] h-[12px] text-olive mt-[2px] shrink-0" />
       <div className="min-w-0 flex-1">
-        <span className="font-mono text-micro text-[#9DB582] uppercase tracking-wider">
+        <span className="font-mono text-micro text-olive uppercase tracking-wider">
           {t("interview.factLearned")}
         </span>
         <p className="font-mohave text-[13px] text-text-2 leading-tight mt-[1px]">
@@ -214,7 +215,7 @@ function ThinkingIndicator({ reduced }: { reduced: boolean }) {
   return (
     <motion.div variants={variants} initial="initial" animate="animate" exit="exit">
       <div className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] w-fit">
-        <Loader2 className="w-[14px] h-[14px] text-[#6F94B0] animate-spin" />
+        <Loader2 className="w-[14px] h-[14px] text-text-3 animate-spin" />
         <span className="font-mono text-[12px] text-text-3">
           {t("interview.thinking")}
         </span>
@@ -245,7 +246,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
         </span>
         {["bullet1", "bullet2", "bullet3", "bullet4"].map((key) => (
           <div key={key} className="flex items-start gap-1.5">
-            <ChevronRight className="w-[14px] h-[14px] text-[#6F94B0] mt-[2px] shrink-0" />
+            <ChevronRight className="w-[14px] h-[14px] text-text-3 mt-[2px] shrink-0" />
             <span className="font-mohave text-body-sm text-text-2">
               {t(`intro.${key}`)}
             </span>
@@ -254,13 +255,10 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
       </div>
 
       <div className="pt-2 flex items-center gap-3">
-        <button
-          onClick={onStart}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-ops-accent hover:bg-[#7fa3bd] text-white font-mohave text-body-sm font-medium transition-colors"
-        >
+        <Button variant="primary" onClick={onStart} className="gap-1.5">
           <Brain className="w-[16px] h-[16px]" />
           {t("intro.startSetup")}
-        </button>
+        </Button>
         <span className="font-mono text-[11px] text-text-mute">
           {t("intro.estimatedTime")}
         </span>
@@ -309,9 +307,9 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
           <span className="font-mono text-micro text-text-3 uppercase">{t("interview.summary.entitiesCreated")}</span>
         </div>
         {profileSeeded && (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded border border-[rgba(157,181,130,0.2)] bg-[rgba(157,181,130,0.06)]">
-            <CheckCircle className="w-[14px] h-[14px] text-[#9DB582]" />
-            <span className="font-mono text-micro text-[#9DB582] uppercase">{t("interview.summary.profileSeeded")}</span>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded border border-olive-line bg-olive-soft">
+            <CheckCircle className="w-[14px] h-[14px] text-olive" />
+            <span className="font-mono text-micro text-olive uppercase">{t("interview.summary.profileSeeded")}</span>
           </div>
         )}
       </div>
@@ -328,7 +326,7 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
                 key={fact.id}
                 className="flex items-start gap-1 px-1.5 py-[4px] rounded border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
               >
-                <CheckCircle className="w-[11px] h-[11px] text-[#9DB582] mt-[3px] shrink-0" />
+                <CheckCircle className="w-[11px] h-[11px] text-olive mt-[3px] shrink-0" />
                 <span className="font-mohave text-[13px] text-text-2 leading-tight">
                   {fact.content}
                 </span>
@@ -340,20 +338,14 @@ function SummaryScreen({ onConfirm, onEdit }: { onConfirm: () => void; onEdit: (
 
       {/* Actions */}
       <div className="flex gap-2 pt-1">
-        <button
-          onClick={onConfirm}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-ops-accent hover:bg-[#7fa3bd] text-white font-mohave text-body-sm font-medium transition-colors"
-        >
+        <Button variant="primary" onClick={onConfirm} className="gap-1.5">
           <CheckCircle className="w-[16px] h-[16px]" />
           {t("interview.summary.looksGood")}
-        </button>
-        <button
-          onClick={onEdit}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] text-text-2 font-mohave text-body-sm transition-colors"
-        >
+        </Button>
+        <Button variant="secondary" onClick={onEdit} className="gap-1.5">
           <RotateCcw className="w-[14px] h-[14px]" />
           {t("interview.summary.edit")}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -577,24 +569,20 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
               rows={currentQuestion?.isEmailSample ? 6 : 2}
               className={cn(
                 "w-full resize-none rounded-md px-3 py-2",
-                "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)]",
+                "bg-surface-input border border-border",
                 "font-mohave text-body-sm text-text placeholder:text-text-mute",
-                "focus:outline-none focus:border-[#6F94B0]",
+                "focus:outline-none focus:border-ops-accent",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
                 "transition-colors"
               )}
             />
           </div>
           <div className="flex flex-col gap-1">
-            <button
+            <Button
+              variant="primary"
               onClick={handleSubmit}
               disabled={!inputValue.trim() || isProcessing}
-              className={cn(
-                "flex items-center justify-center w-[40px] h-[40px] rounded-md",
-                "bg-ops-accent hover:bg-[#7fa3bd] text-white",
-                "disabled:opacity-30 disabled:cursor-not-allowed",
-                "transition-colors"
-              )}
+              className="w-[40px] h-[40px] p-0"
               title={t("interview.send")}
             >
               {isProcessing ? (
@@ -602,21 +590,16 @@ export function AiIntakeInterview({ onComplete }: AiIntakeInterviewProps) {
               ) : (
                 <Send className="w-[16px] h-[16px]" />
               )}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               onClick={handleSkip}
               disabled={isProcessing}
-              className={cn(
-                "flex items-center justify-center w-[40px] h-[28px] rounded-md",
-                "border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)]",
-                "hover:bg-[rgba(255,255,255,0.06)] text-text-mute",
-                "disabled:opacity-30 disabled:cursor-not-allowed",
-                "transition-colors"
-              )}
+              className="w-[40px] h-[28px] p-0"
               title={t("interview.skip")}
             >
               <SkipForward className="w-[14px] h-[14px]" />
-            </button>
+            </Button>
           </div>
         </div>
         {currentQuestion?.isEmailSample && (

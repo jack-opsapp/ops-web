@@ -19,8 +19,8 @@ const STAGE_CONFIG: Record<string, { label: string; color: string }> = {
   follow_up: { label: "Follow Up", color: "#4E4B48" },
   negotiation: { label: "Negotiation", color: "#B58289" },
   won: { label: "Won", color: "#9DB582" },
-  lost: { label: "Lost", color: "#6B7280" },
-  discarded: { label: "Discarded", color: "#444444" },
+  lost: { label: "Lost", color: "#8A8A8A" },
+  discarded: { label: "Discarded", color: "#6A6A6A" },
 };
 
 const ALL_STAGES = [
@@ -165,16 +165,16 @@ export function ConfirmPipelineStep({
   if (counts.importTotal === 0) {
     return (
       <div className="flex flex-col items-start gap-4 py-8">
-        <p className="font-mohave text-[15px] text-[#999]">
+        <p className="font-mohave text-[15px] text-text-2">
           {t("confirm.noLeads")}
         </p>
-        <p className="font-mohave text-[12px] text-[#666]">
+        <p className="font-mohave text-[12px] text-text-3">
           {t("confirm.noLeadsDesc")}
         </p>
         <Button
           onClick={onBack}
           variant="ghost"
-          className="font-mono text-micro tracking-[0.1em] uppercase text-[#666]"
+          className="font-mono text-micro tracking-[0.1em] uppercase text-text-3"
         >
           ← {t("confirm.backToTriage")}
         </Button>
@@ -188,10 +188,10 @@ export function ConfirmPipelineStep({
     <div className="flex flex-col" style={{ maxHeight: "calc(85vh - 180px)" }}>
       {/* Header */}
       <div className="flex-shrink-0 mb-4">
-        <h3 className="font-mono text-micro tracking-[0.15em] uppercase text-[#999]">
+        <h3 className="font-mono text-micro tracking-[0.15em] uppercase text-text-3">
           {t("confirm.title")}
         </h3>
-        <p className="font-mohave text-[12px] text-[#666] mt-1">
+        <p className="font-mohave text-[12px] text-text-3 mt-1">
           {t("confirm.description")}
         </p>
       </div>
@@ -220,8 +220,8 @@ export function ConfirmPipelineStep({
                   className="flex items-center gap-2 w-full py-1.5 group"
                 >
                   <div
-                    className="w-2 h-2"
-                    style={{ background: config.color, borderRadius: 1 }}
+                    className="w-2 h-2 rounded-[2px]"
+                    style={{ background: config.color }}
                   />
                   <span
                     className="font-mono text-micro tracking-[0.15em] uppercase"
@@ -229,12 +229,12 @@ export function ConfirmPipelineStep({
                   >
                     {config.label}
                   </span>
-                  <span className="font-mohave text-[11px] text-[#666]">
+                  <span className="font-mono text-[11px] text-text-3 tabular-nums">
                     ({stageLeads.length})
                   </span>
                   <ChevronDown
                     size={12}
-                    className="ml-auto text-[#666] transition-transform duration-200"
+                    className="ml-auto text-text-3 transition-transform duration-200"
                     style={{
                       transform: isExpanded ? "rotate(0)" : "rotate(-90deg)",
                     }}
@@ -287,27 +287,27 @@ export function ConfirmPipelineStep({
 
           {/* Discarded section — separated from active stages */}
           {discardedLeads.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/5">
+            <div className="mt-3 pt-3 border-t border-border-subtle">
               <button
                 onClick={() => toggleStage("_discarded")}
                 className="flex items-center gap-2 w-full py-1.5 group"
               >
                 <div
-                  className="w-2 h-2"
-                  style={{ background: "#444", borderRadius: 1, opacity: 0.6 }}
+                  className="w-2 h-2 rounded-[2px] bg-text-mute"
+                  style={{ opacity: 0.6 }}
                 />
-                <span className="font-mono text-micro tracking-[0.15em] uppercase text-[#555]">
+                <span className="font-mono text-micro tracking-[0.15em] uppercase text-text-mute">
                   Discarded
                 </span>
-                <span className="font-mohave text-[11px] text-[#444]">
+                <span className="font-mono text-[11px] text-text-mute tabular-nums">
                   ({discardedLeads.length})
                 </span>
-                <span className="font-mohave text-micro text-[#444] ml-1">
+                <span className="font-mohave text-micro text-text-mute ml-1">
                   — won&apos;t be imported
                 </span>
                 <ChevronDown
                   size={12}
-                  className="ml-auto text-[#444] transition-transform duration-200"
+                  className="ml-auto text-text-mute transition-transform duration-200"
                   style={{
                     transform: expandedStages.has("_discarded") ? "rotate(0)" : "rotate(-90deg)",
                   }}
@@ -332,17 +332,14 @@ export function ConfirmPipelineStep({
                         exit={{ opacity: 0, height: 0, transition: { opacity: { duration: 0.15, ease: EASE_SMOOTH }, height: { duration: 0.2, ease: EASE_SMOOTH, delay: 0.08 } } }}
                         className="overflow-hidden"
                       >
-                      <div
-                        className="py-2 px-3 border border-white/[0.03]"
-                        style={{ borderRadius: 2 }}
-                      >
+                      <div className="py-2 px-3 border border-border-subtle rounded-[4px]">
                         <div className="flex items-center gap-3">
                           <div className="flex-1 min-w-0">
-                            <span className="font-mohave text-[13px] text-[#666] truncate block">
+                            <span className="font-mohave text-[13px] text-text-3 truncate block">
                               {getDisplayName(lead)}
                             </span>
                             {lead.client.email && (
-                              <span className="font-mohave text-[11px] text-[#444] truncate block mt-0.5">
+                              <span className="font-mohave text-[11px] text-text-mute truncate block mt-0.5">
                                 {lead.client.email}
                               </span>
                             )}
@@ -354,14 +351,13 @@ export function ConfirmPipelineStep({
                               // Re-enable the lead and set its stage
                               onStageChange(lead.id, e.target.value);
                             }}
-                            className="font-mohave text-[11px] bg-transparent border border-white/[0.06] px-1.5 py-0.5 outline-none focus:border-[#6F94B0] flex-shrink-0 text-[#555]"
-                            style={{ borderRadius: 4 }}
+                            className="font-mohave text-[11px] bg-transparent border border-border-subtle px-1.5 py-0.5 rounded-[4px] outline-none focus:border-ops-accent flex-shrink-0 text-text-mute"
                           >
-                            <option value="discarded" className="bg-[#1a1a1a]">
+                            <option value="discarded" className="bg-background-elevated">
                               Discarded
                             </option>
                             {ALL_STAGES.filter((s) => s !== "discarded").map((s) => (
-                              <option key={s} value={s} className="bg-[#1a1a1a]">
+                              <option key={s} value={s} className="bg-background-elevated">
                                 {STAGE_CONFIG[s].label}
                               </option>
                             ))}
@@ -386,26 +382,26 @@ export function ConfirmPipelineStep({
         {/* Summary counts */}
         <div className="flex items-center gap-4 mb-3">
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#999]" />
-            <span className="font-mohave text-[12px] text-[#999]">
+            <div className="w-1.5 h-1.5 rounded-full bg-text-3" />
+            <span className="font-mohave text-[12px] text-text-3">
               {counts.active} {t("summary.active")}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#9DB582]" />
-            <span className="font-mohave text-[12px] text-[#9DB582]">
+            <div className="w-1.5 h-1.5 rounded-full bg-olive" />
+            <span className="font-mohave text-[12px] text-olive">
               {counts.won} {t("summary.won")}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#6B7280]" />
-            <span className="font-mohave text-[12px] text-[#6B7280]">
+            <div className="w-1.5 h-1.5 rounded-full bg-text-3" />
+            <span className="font-mohave text-[12px] text-text-3">
               {counts.lost} {t("summary.lost")}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#444]" />
-            <span className="font-mohave text-[12px] text-[#444]">
+            <div className="w-1.5 h-1.5 rounded-full bg-text-mute" />
+            <span className="font-mohave text-[12px] text-text-mute">
               {counts.discarded} {t("summary.discarded")}
             </span>
           </div>
@@ -415,18 +411,18 @@ export function ConfirmPipelineStep({
         <div className="flex items-center justify-between">
           <button
             onClick={onBack}
-            className="font-mono text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+            className="font-mono text-micro tracking-[0.1em] uppercase text-text-3 hover:text-text-2 transition-colors"
           >
             ← {t("confirm.back")}
           </button>
-          <button
+          <Button
             onClick={onImport}
             disabled={counts.importTotal === 0}
-            className="font-mono text-micro tracking-[0.1em] uppercase border border-[rgba(255,255,255,0.18)] text-text-2 hover:bg-[rgba(255,255,255,0.08)] hover:text-text px-4 py-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-            style={{ borderRadius: 3 }}
+            variant="default"
+            size="sm"
           >
             {t("confirm.import")} {counts.importTotal}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -451,10 +447,7 @@ function LeadRow({
   siblingLeads?: AnalyzedLead[];
 }) {
   return (
-    <div
-      className="py-2.5 px-3 border border-white/5"
-      style={{ borderRadius: 2 }}
-    >
+    <div className="py-2.5 px-3 border border-border-subtle rounded-[4px]">
       <div className="flex items-center gap-3">
         {/* Name + metadata */}
         <div className="flex-1 min-w-0">
@@ -463,7 +456,7 @@ function LeadRow({
             onChange={onNameChange}
           />
           {(lead.client.address || lead.client.description) && (
-            <span className="font-mohave text-[11px] text-[#777] truncate block mt-0.5">
+            <span className="font-mohave text-[11px] text-text-3 truncate block mt-0.5">
               {lead.client.address && <span>{lead.client.address}</span>}
               {lead.client.address && lead.client.description && <span> · </span>}
               {lead.client.description && <span>{lead.client.description}</span>}
@@ -475,14 +468,13 @@ function LeadRow({
         <select
           value={effectiveStage}
           onChange={(e) => onStageChange(e.target.value)}
-          className="font-mohave text-[11px] bg-transparent border border-white/10 px-1.5 py-0.5 outline-none focus:border-[#6F94B0] flex-shrink-0"
+          className="font-mohave text-[11px] bg-transparent border border-border px-1.5 py-0.5 rounded-[4px] outline-none focus:border-ops-accent flex-shrink-0"
           style={{
-            borderRadius: 4,
-            color: STAGE_CONFIG[effectiveStage]?.color || "#999",
+            color: STAGE_CONFIG[effectiveStage]?.color || "#8A8A8A",
           }}
         >
           {ALL_STAGES.map((s) => (
-            <option key={s} value={s} className="bg-[#1a1a1a]">
+            <option key={s} value={s} className="bg-background-elevated">
               {STAGE_CONFIG[s].label}
             </option>
           ))}
@@ -538,8 +530,7 @@ function InlineEditableName({
           if (e.key === "Escape") { setDraft(value); setEditing(false); }
           e.stopPropagation();
         }}
-        className="font-mohave text-[13px] text-white bg-transparent border-b border-[#6F94B0] outline-none w-full truncate"
-        style={{ borderRadius: 0 }}
+        className="font-mohave text-[13px] text-text bg-transparent border-b border-ops-accent outline-none w-full truncate"
       />
     );
   }
@@ -547,7 +538,7 @@ function InlineEditableName({
   return (
     <button
       onClick={() => setEditing(true)}
-      className="font-mohave text-[13px] text-white text-left hover:text-[#6F94B0] transition-colors cursor-text truncate block w-full"
+      className="font-mohave text-[13px] text-text text-left hover:text-text-2 transition-colors cursor-text truncate block w-full"
       title="Click to edit"
     >
       {value}

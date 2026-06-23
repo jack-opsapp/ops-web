@@ -217,25 +217,25 @@ export function EmailThreadView({
       {/* Toggle button + inline preview when collapsed */}
       <button
         onClick={() => { setIsExpanded(!isExpanded); onToggle?.(); }}
-        className="flex items-start gap-1.5 font-mohave text-[13px] text-[#666] hover:text-[#999] transition-colors text-left w-full"
+        className="flex items-start gap-1.5 font-mohave text-[13px] text-text-mute hover:text-text-2 transition-colors text-left w-full"
       >
         <ChevronDown
-          size={12}
+          size={16}
           className="transition-transform duration-200 mt-0.5 flex-shrink-0"
           style={{ transform: isExpanded ? "rotate(0)" : "rotate(-90deg)" }}
         />
         <span className="flex-1 min-w-0">
           {isExpanded ? (
-            <span>{t("thread.hide")} <span className="text-[#444]">({totalExcerptCount}{hasMultipleThreads ? ` · ${threads.length} threads` : ""})</span></span>
+            <span>{t("thread.hide")} <span className="text-text-mute">({totalExcerptCount}{hasMultipleThreads ? ` · ${threads.length} threads` : ""})</span></span>
           ) : (
-            <span className="text-[#777] line-clamp-2">
+            <span className="text-text-3 line-clamp-2">
               {previewText || `${t("thread.show")} (${totalExcerptCount})`}
-              {hasMultipleThreads && <span className="text-[#555]"> · {threads.length} threads</span>}
+              {hasMultipleThreads && <span className="text-text-mute"> · {threads.length} threads</span>}
             </span>
           )}
         </span>
         {keyboardEnabled && (
-          <span className="text-[#333] ml-1 flex-shrink-0">[E]</span>
+          <span className="text-text-mute ml-1 flex-shrink-0">[E]</span>
         )}
       </button>
 
@@ -269,21 +269,21 @@ export function EmailThreadView({
                 );
                 const threadVisible = showAll ? threadExcerpts : threadExcerpts.slice(0, MULTI_THREAD_PER);
                 return (
-                  <div key={thread.threadId} className={ti > 0 ? "mt-2 pt-2 border-t border-white/[0.06]" : ""}>
+                  <div key={thread.threadId} className={ti > 0 ? "mt-2 pt-2 border-t border-border-subtle" : ""}>
                     {/* Thread label */}
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="font-mono text-micro tracking-[0.1em] uppercase text-[#555]">
+                      <span className="font-mono text-micro tracking-[0.1em] uppercase text-text-mute">
                         Thread {ti + 1} · {threadExcerpts.length} emails
                       </span>
                       <a
                         href={thread.gmailUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 font-mohave text-[11px] text-[#6F94B0] hover:text-[#6A88A5] transition-colors"
+                        className="flex items-center gap-1 font-mohave text-[11px] text-text-2 hover:text-text transition-colors"
                         onClick={(e) => e.stopPropagation()}
                       >
                         Gmail
-                        <ExternalLink size={9} />
+                        <ExternalLink size={14} />
                       </a>
                     </div>
                     {/* Excerpts */}
@@ -305,7 +305,7 @@ export function EmailThreadView({
             {!showAll && hiddenCount > 0 && (
               <button
                 onClick={() => setShowAll(true)}
-                className="font-mohave text-[12px] text-[#6F94B0] hover:text-[#6A88A5] transition-colors"
+                className="font-mohave text-[12px] text-text-2 hover:text-text transition-colors"
               >
                 {t("thread.showOlder")} ({hiddenCount} {t("thread.more")})
               </button>
@@ -316,10 +316,10 @@ export function EmailThreadView({
                 href={gmailUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 font-mohave text-[12px] text-[#6F94B0] hover:text-[#6A88A5] transition-colors"
+                className="flex items-center gap-1 font-mohave text-[12px] text-text-2 hover:text-text transition-colors"
               >
                 {t("thread.viewInGmail")}
-                <ExternalLink size={10} />
+                <ExternalLink size={14} />
               </a>
             )}
           </motion.div>
@@ -348,21 +348,22 @@ function ExcerptRow({
       className="flex gap-2"
     >
       <span
-        className="font-mohave text-[13px] flex-shrink-0 mt-0.5 select-none"
-        style={{ color: excerpt.direction === "inbound" ? "#6F94B0" : "#777" }}
+        className={`font-mohave text-[13px] flex-shrink-0 mt-0.5 select-none ${
+          excerpt.direction === "inbound" ? "text-text-2" : "text-text-3"
+        }`}
       >
         {excerpt.direction === "inbound" ? "←" : "→"}
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="font-mohave text-[13px] text-[#bbb]">
+          <span className="font-mohave text-[13px] text-text-2">
             {excerpt.fromName}
           </span>
-          <span className="font-mohave text-[12px] text-[#666]">
+          <span className="font-mohave text-[12px] text-text-mute">
             {formatRelativeDate(excerpt.date)}
           </span>
         </div>
-        <p className="font-mohave text-[13px] text-[#999] leading-[1.5] whitespace-pre-wrap break-words">
+        <p className="font-mohave text-[13px] text-text-3 leading-[1.5] whitespace-pre-wrap break-words">
           {cleanBody(excerpt.body)}
         </p>
       </div>

@@ -35,32 +35,34 @@ export function StepperRail({
   const prefersReduced = useReducedMotion();
 
   return (
-    <nav className="flex flex-col gap-0.5 w-[160px] flex-shrink-0 pr-4 border-r border-white/5">
+    <nav className="flex flex-col gap-0.5 w-[160px] flex-shrink-0 pr-4 border-r border-border-subtle">
       {steps.map((step) => {
         const isCurrent = step.key === currentStep;
         const isCompleted = completedSteps.has(step.key);
         const isPast = isCompleted && !isCurrent;
-        const isFuture = !isCompleted && !isCurrent;
 
         return (
           <div key={step.key}>
             {/* Main step row */}
             <div className="flex items-center gap-2 py-1.5">
-              {/* Indicator */}
+              {/* Indicator — neutral wayfinding marks, never accent. The
+                  completed tick is a small mono-weight glyph sized to the 14px
+                  well; the current/future marks are filled/outlined squares in
+                  the text ladder. Accent (#6F94B0) is reserved for CTAs + focus. */}
               <div
                 className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0"
                 style={{ borderRadius: 2 }}
               >
                 {isCompleted ? (
-                  <Check size={10} className="text-[#6F94B0]" />
+                  <Check size={14} className="text-text-2" />
                 ) : isCurrent ? (
                   <div
-                    className="w-2 h-2"
-                    style={{ background: "#6F94B0", borderRadius: 1 }}
+                    className="w-2 h-2 bg-text"
+                    style={{ borderRadius: 1 }}
                   />
                 ) : (
                   <div
-                    className="w-2 h-2 border border-white/15"
+                    className="w-2 h-2 border border-border-medium"
                     style={{ borderRadius: 1 }}
                   />
                 )}
@@ -68,16 +70,13 @@ export function StepperRail({
 
               {/* Label */}
               <span
-                className="font-mono text-micro tracking-[0.15em] uppercase"
-                style={{
-                  color: isCurrent
-                    ? "#EDEDED"
+                className={`font-mono text-micro tracking-[0.15em] uppercase ${
+                  isCurrent
+                    ? "text-text"
                     : isPast
-                      ? "#6F94B0"
-                      : isFuture
-                        ? "#444"
-                        : "#666",
-                }}
+                      ? "text-text-2"
+                      : "text-text-mute"
+                }`}
               >
                 {step.label}
               </span>
@@ -106,31 +105,30 @@ export function StepperRail({
                     >
                       <div className="w-2.5 h-2.5 flex items-center justify-center flex-shrink-0">
                         {isSubCompleted ? (
-                          <Check size={8} className="text-[#6F94B0]" />
+                          // Dense sub-indicator: the 10px well can't hold the
+                          // 14px text floor, so the tick stays small — sanctioned
+                          // for a decorative wayfinding glyph (not a label).
+                          <Check size={10} className="text-text-2" />
                         ) : isSubCurrent ? (
                           <div
-                            className="w-1.5 h-1.5"
-                            style={{
-                              background: "#6F94B0",
-                              borderRadius: 1,
-                            }}
+                            className="w-1.5 h-1.5 bg-text"
+                            style={{ borderRadius: 1 }}
                           />
                         ) : (
                           <div
-                            className="w-1.5 h-1.5 border border-white/10"
+                            className="w-1.5 h-1.5 border border-border"
                             style={{ borderRadius: 1 }}
                           />
                         )}
                       </div>
                       <span
-                        className="font-mono text-micro tracking-[0.12em] uppercase"
-                        style={{
-                          color: isSubCurrent
-                            ? "#EDEDED"
+                        className={`font-mono text-micro tracking-[0.12em] uppercase ${
+                          isSubCurrent
+                            ? "text-text"
                             : isSubCompleted
-                              ? "#6F94B0"
-                              : "#444",
-                        }}
+                              ? "text-text-2"
+                              : "text-text-mute"
+                        }`}
                       >
                         {sub.label}
                       </span>

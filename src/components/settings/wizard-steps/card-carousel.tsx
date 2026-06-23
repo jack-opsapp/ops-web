@@ -236,10 +236,10 @@ export function CardCarousel<T>({
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
-        <h3 className="font-mono text-[11px] tracking-[0.15em] uppercase text-[#999]">
+        <h3 className="font-mono text-[11px] tracking-[0.15em] uppercase text-text-3">
           {title}
         </h3>
-        <span className="font-mohave text-[13px] text-[#555]">
+        <span className="font-mono text-[13px] text-text-3 tabular-nums">
           {currentIndex + 1} {t("of")} {items.length}
         </span>
       </div>
@@ -331,23 +331,23 @@ export function CardCarousel<T>({
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-3 mt-3 border-t border-white/[0.06] flex-shrink-0 pb-3">
+      <div className="flex items-center justify-between pt-3 mt-3 border-t border-border-subtle flex-shrink-0 pb-3">
         <div className="flex items-center gap-4">
           {onBack && (
             <button
               onClick={onBack}
-              className="font-mono text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+              className="font-mono text-micro tracking-[0.1em] uppercase text-text-3 hover:text-text-2 transition-colors"
             >
               ← {t("confirm.back")}
             </button>
           )}
-          <span className="font-mohave text-[11px] text-[#555]">
+          <span className="font-mohave text-[11px] text-text-mute">
             {keyboardHint}
           </span>
         </div>
         <button
           onClick={onComplete}
-          className="font-mono text-micro tracking-[0.1em] uppercase text-[#666] hover:text-[#999] transition-colors"
+          className="font-mono text-micro tracking-[0.1em] uppercase text-text-3 hover:text-text-2 transition-colors"
         >
           {skipLabel || t("skipToNext")} →
         </button>

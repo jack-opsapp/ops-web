@@ -49,11 +49,14 @@ function computeTriageDefault(lead: AnalyzedLead): TriageDecision {
 
 // ─── Decision colors ──────────────────────────────────────────────────────────
 
+// Decision badge tints. `won` = olive (semantic success). The remaining
+// outcomes are neutral text-ladder grays — accent (#6F94B0) is reserved for
+// the single primary CTA + focus rings, never for an inline status badge.
 const DECISION_COLORS: Record<TriageDecision, string> = {
-  won: "#9DB582",
-  lost: "#6B7280",
-  active: "#6F94B0",
-  discard: "#444",
+  won: "#9DB582", // olive — semantic
+  lost: "#8A8A8A", // text-3
+  active: "#B5B5B5", // text-2
+  discard: "#6A6A6A", // text-mute
 };
 
 const DECISION_LABELS: Record<TriageDecision, string> = {
@@ -213,25 +216,25 @@ export function TriageStep({
                     )
                   );
                 }}
-                className="font-mohave text-[18px] text-white leading-tight"
+                className="font-mohave text-[18px] text-text leading-tight"
               />
               {/* Show all contacts when consolidated, otherwise just the primary email */}
               {consolidated && consolidated.allContacts.length > 1 ? (
                 <div className="mt-1 space-y-0.5">
                   {consolidated.allContacts.map((c) => (
-                    <p key={c.email} className="font-mohave text-[13px] text-[#888]">
+                    <p key={c.email} className="font-mohave text-[13px] text-text-3">
                       {c.name} · {c.email}
                     </p>
                   ))}
                   {lead.correspondenceCount > 1 && (
-                    <p className="font-mohave text-[13px] text-[#666] mt-1">
+                    <p className="font-mohave text-[13px] text-text-mute mt-1">
                       {lead.correspondenceCount} emails total
                     </p>
                   )}
                 </div>
               ) : (
                 <div className="mt-1 space-y-0.5">
-                  <p className="font-mohave text-[14px] text-[#888]">
+                  <p className="font-mohave text-[14px] text-text-3">
                     {lead.client.email}
                     {lead.correspondenceCount > 1 && (
                       <span className="ml-2">
@@ -240,7 +243,7 @@ export function TriageStep({
                     )}
                   </p>
                   {lead.client.phone && (
-                    <p className="font-mohave text-[13px] text-[#777]">
+                    <p className="font-mohave text-[13px] text-text-3">
                       {lead.client.phone}
                     </p>
                   )}
@@ -248,17 +251,17 @@ export function TriageStep({
               )}
               <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mt-2">
                 {lead.client.address && (
-                  <span className="font-mohave text-[13px] text-[#999]">
+                  <span className="font-mohave text-[13px] text-text-2">
                     {lead.client.address}
                   </span>
                 )}
                 {lead.lastMessageDate && (
-                  <span className="font-mohave text-[13px] text-[#777]">
+                  <span className="font-mohave text-[13px] text-text-3">
                     Last: {formatRelativeDate(lead.lastMessageDate)}
                   </span>
                 )}
                 {lead.estimatedValue && (
-                  <span className="font-mohave text-[13px] text-[#C4A868]">
+                  <span className="font-mohave text-[13px] text-tan">
                     ${lead.estimatedValue.toLocaleString()}
                   </span>
                 )}
@@ -305,7 +308,6 @@ export function TriageStep({
                 <GlassActionButton
                   keyLabel="1"
                   label={t("triage.won")}
-                  accentColor="#9DB582"
                   highlighted={highlightedKey === "1"}
                   onClick={() => triggerAction("1")}
                   className="flex-1"
@@ -313,7 +315,6 @@ export function TriageStep({
                 <GlassActionButton
                   keyLabel="2"
                   label={t("triage.lost")}
-                  accentColor="#AAAAAA"
                   highlighted={highlightedKey === "2"}
                   onClick={() => triggerAction("2")}
                   className="flex-1"
@@ -321,7 +322,6 @@ export function TriageStep({
                 <GlassActionButton
                   keyLabel="3"
                   label={t("triage.active")}
-                  accentColor="#6F94B0"
                   highlighted={highlightedKey === "3"}
                   onClick={() => triggerAction("3")}
                   className="flex-1"
@@ -329,7 +329,6 @@ export function TriageStep({
                 <GlassActionButton
                   keyLabel="4"
                   label={t("triage.discard")}
-                  accentColor="#8A8A8A"
                   highlighted={highlightedKey === "4"}
                   onClick={() => triggerAction("4")}
                   className="flex-shrink-0"
@@ -391,7 +390,7 @@ function InlineEditableText({
           }
           e.stopPropagation();
         }}
-        className={`${className} bg-transparent border-b border-[#6F94B0] outline-none w-full`}
+        className={`${className} bg-transparent border-b border-ops-accent outline-none w-full`}
         style={{ borderRadius: 0 }}
       />
     );
@@ -400,7 +399,7 @@ function InlineEditableText({
   return (
     <button
       onClick={() => setEditing(true)}
-      className={`${className} text-left hover:text-[#6F94B0] transition-colors cursor-text block`}
+      className={`${className} text-left hover:text-text transition-colors cursor-text block`}
       title="Click to edit"
     >
       {value}

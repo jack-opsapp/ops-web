@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, CheckCircle, Loader2, Zap } from "lucide-react";
+import { AlertTriangle, CheckCircle, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ImportPayload, ImportResult } from "@/lib/types/email-import";
 
@@ -61,34 +61,33 @@ export function ActivateStep({
       {/* Import summary */}
       <motion.div
         variants={staggerItem}
-        className="p-4 border border-[#9DB582]/20 bg-[#9DB582]/5 mb-6"
-        style={{ borderRadius: 3 }}
+        className="p-4 border border-olive-line bg-olive-soft mb-6 rounded-[4px]"
       >
         <div className="flex items-center gap-2 mb-3">
-          <CheckCircle size={16} className="text-[#9DB582]" />
-          <span className="font-mono text-micro tracking-[0.15em] uppercase text-[#9DB582]">
+          <CheckCircle size={16} className="text-olive" />
+          <span className="font-mono text-micro tracking-[0.15em] uppercase text-olive">
             Import Complete
           </span>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <p className="font-mohave text-[22px] font-semibold text-white">
+            <p className="font-mono text-[22px] font-semibold text-text tabular-nums">
               {importResult.leadsCreated}
             </p>
-            <p className="font-mohave text-[11px] text-[#666]">Leads created</p>
+            <p className="font-mohave text-[11px] text-text-3">Leads created</p>
           </div>
           <div>
-            <p className="font-mohave text-[22px] font-semibold text-white">
+            <p className="font-mono text-[22px] font-semibold text-text tabular-nums">
               {importResult.clientsCreated}
             </p>
-            <p className="font-mohave text-[11px] text-[#666]">New clients</p>
+            <p className="font-mohave text-[11px] text-text-3">New clients</p>
           </div>
           {(importResult.imagesExtracted ?? 0) > 0 && (
             <div>
-              <p className="font-mohave text-[22px] font-semibold text-white">
+              <p className="font-mono text-[22px] font-semibold text-text tabular-nums">
                 {importResult.imagesExtracted}
               </p>
-              <p className="font-mohave text-[11px] text-[#666]">Photos extracted</p>
+              <p className="font-mohave text-[11px] text-text-3">Photos extracted</p>
             </div>
           )}
         </div>
@@ -96,9 +95,9 @@ export function ActivateStep({
 
       {/* Label info */}
       <motion.div variants={staggerItem} className="mb-4">
-        <p className="font-mohave text-[14px] text-white mb-1">
+        <p className="font-mohave text-[14px] text-text mb-1">
           Your imported leads have been labeled as{" "}
-          <span className="text-[#6F94B0] font-medium">OPS Pipeline</span>{" "}
+          <span className="text-text font-medium">OPS Pipeline</span>{" "}
           in your inbox.
         </p>
       </motion.div>
@@ -106,34 +105,33 @@ export function ActivateStep({
       {/* How ongoing sync works */}
       <motion.div
         variants={staggerItem}
-        className="mb-6 p-3 border border-white/10 bg-white/[0.02]"
-        style={{ borderRadius: 3 }}
+        className="mb-6 p-3 border border-border bg-white/[0.02] rounded-[5px]"
       >
-        <p className="font-mono text-micro tracking-[0.15em] uppercase text-[#6F94B0] mb-2">
+        <p className="font-mono text-micro tracking-[0.15em] uppercase text-text-3 mb-2">
           How new leads are captured
         </p>
         <div className="space-y-2">
           <div className="flex items-start gap-2">
-            <span className="font-mohave text-[12px] text-[#6F94B0] mt-0.5 flex-shrink-0">1.</span>
-            <p className="font-mohave text-[12px] text-[#999]">
-              <span className="text-white">Pattern matching</span> — emails from new contacts that match your detected patterns (form submissions, estimate requests, inquiry subjects) are automatically classified as leads.
+            <span className="font-mono text-[12px] text-text-3 mt-0.5 flex-shrink-0 tabular-nums">1.</span>
+            <p className="font-mohave text-[12px] text-text-2">
+              <span className="text-text">Pattern matching</span> — emails from new contacts that match your detected patterns (form submissions, estimate requests, inquiry subjects) are automatically classified as leads.
             </p>
           </div>
           <div className="flex items-start gap-2">
-            <span className="font-mohave text-[12px] text-[#6F94B0] mt-0.5 flex-shrink-0">2.</span>
-            <p className="font-mohave text-[12px] text-[#999]">
-              <span className="text-white">AI classification</span> — new inbound emails are analyzed to detect potential leads, even if they don&apos;t match an existing pattern.
+            <span className="font-mono text-[12px] text-text-3 mt-0.5 flex-shrink-0 tabular-nums">2.</span>
+            <p className="font-mohave text-[12px] text-text-2">
+              <span className="text-text">AI classification</span> — new inbound emails are analyzed to detect potential leads, even if they don&apos;t match an existing pattern.
             </p>
           </div>
           <div className="flex items-start gap-2">
-            <span className="font-mohave text-[12px] text-[#6F94B0] mt-0.5 flex-shrink-0">3.</span>
-            <p className="font-mohave text-[12px] text-[#999]">
-              <span className="text-white">Manual label</span> — apply the{" "}
-              <span className="text-[#6F94B0]">OPS Pipeline</span> label to any email thread in Gmail and it will be imported on the next sync.
+            <span className="font-mono text-[12px] text-text-3 mt-0.5 flex-shrink-0 tabular-nums">3.</span>
+            <p className="font-mohave text-[12px] text-text-2">
+              <span className="text-text">Manual label</span> — apply the{" "}
+              <span className="text-text">OPS Pipeline</span> label to any email thread in Gmail and it will be imported on the next sync.
             </p>
           </div>
         </div>
-        <p className="font-mohave text-[11px] text-[#555] mt-2">
+        <p className="font-mohave text-[11px] text-text-mute mt-2">
           New leads appear in your pipeline for review. You can adjust detection sensitivity in Settings.
         </p>
       </motion.div>
@@ -141,34 +139,29 @@ export function ActivateStep({
       {/* Sync frequency */}
       {!activated && (
         <motion.div variants={staggerItem} className="mb-6">
-          <p className="font-mono text-micro tracking-[0.15em] uppercase text-[#999] mb-3">
+          <p className="font-mono text-micro tracking-[0.15em] uppercase text-text-3 mb-3">
             Sync Frequency
           </p>
           <div className="flex gap-2 flex-wrap">
-            {INTERVAL_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setSelectedInterval(opt.value)}
-                className="px-3 py-1.5 border transition-all font-mohave text-[12px]"
-                style={{
-                  borderRadius: 2,
-                  borderColor:
-                    selectedInterval === opt.value
-                      ? "#6F94B0"
-                      : "rgba(255,255,255,0.1)",
-                  background:
-                    selectedInterval === opt.value
-                      ? "rgba(111, 148, 176,0.15)"
-                      : "transparent",
-                  color:
-                    selectedInterval === opt.value ? "#6F94B0" : "#999",
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
+            {INTERVAL_OPTIONS.map((opt) => {
+              const active = selectedInterval === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setSelectedInterval(opt.value)}
+                  className={
+                    "px-3 py-1.5 border rounded-[4px] transition-all font-mohave text-[12px] " +
+                    (active
+                      ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
+                      : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2")
+                  }
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
-          <p className="font-mohave text-[11px] text-[#666] mt-2">
+          <p className="font-mohave text-[11px] text-text-3 mt-2">
             Real-time sync via push notifications is always active. Scheduled sync runs as a safety net.
           </p>
         </motion.div>
@@ -178,10 +171,9 @@ export function ActivateStep({
       {activationError && (
         <motion.div
           variants={staggerItem}
-          className="mb-4 p-3 border border-[#93321A]/30 bg-[#93321A]/10"
-          style={{ borderRadius: 3 }}
+          className="mb-4 p-3 border border-brick-line bg-rose-soft rounded-[5px]"
         >
-          <p className="font-mohave text-[13px] text-[#FF6B4A]">{activationError}</p>
+          <p className="font-mohave text-[13px] text-rose">{activationError}</p>
         </motion.div>
       )}
 
@@ -191,24 +183,23 @@ export function ActivateStep({
       {activated && warnings.length > 0 && (
         <motion.div
           variants={staggerItem}
-          className="mb-4 p-3 border border-amber-500/30 bg-amber-500/[0.08]"
-          style={{ borderRadius: 3 }}
+          className="mb-4 p-3 border border-tan-line bg-tan-soft rounded-[5px]"
         >
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={14} className="text-amber-400" />
-            <span className="font-mono text-micro tracking-[0.15em] uppercase text-amber-400">
+            <AlertTriangle size={14} className="text-tan" />
+            <span className="font-mono text-micro tracking-[0.15em] uppercase text-tan">
               Partial activation
             </span>
           </div>
           <div className="space-y-1 mb-2">
             {warnings.map((w, i) => (
-              <p key={i} className="font-mohave text-[13px] text-[#CCC]">
-                <span className="text-amber-400 font-medium">{w.step}:</span>{" "}
+              <p key={i} className="font-mohave text-[13px] text-text-2">
+                <span className="text-tan font-medium">{w.step}:</span>{" "}
                 {w.message}
               </p>
             ))}
           </div>
-          <p className="font-mohave text-[11px] text-[#888]">
+          <p className="font-mohave text-[11px] text-text-3">
             Scheduled sync is running. To enable real-time updates, reconnect the inbox from Settings.
           </p>
         </motion.div>
@@ -219,16 +210,12 @@ export function ActivateStep({
         {activated ? (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Zap size={14} className="text-[#9DB582]" />
-              <span className="font-mohave text-[13px] text-[#9DB582]">
+              <Zap size={14} className="text-olive" />
+              <span className="font-mohave text-[13px] text-olive">
                 Pipeline sync is active
               </span>
             </div>
-            <Button
-              onClick={onComplete}
-              className="font-mono text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-6 py-2"
-              style={{ borderRadius: 3 }}
-            >
+            <Button onClick={onComplete} variant="primary" size="default">
               Done
             </Button>
           </div>
@@ -236,17 +223,12 @@ export function ActivateStep({
           <Button
             onClick={handleActivate}
             disabled={activating}
-            className="font-mono text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-8 py-2.5 w-full disabled:opacity-40"
-            style={{ borderRadius: 3 }}
+            loading={activating}
+            variant="primary"
+            size="default"
+            className="w-full"
           >
-            {activating ? (
-              <>
-                <Loader2 size={14} className="animate-spin mr-2" />
-                Activating...
-              </>
-            ) : (
-              "Activate Pipeline Sync"
-            )}
+            {activating ? "Activating..." : "Activate Pipeline Sync"}
           </Button>
         )}
       </motion.div>

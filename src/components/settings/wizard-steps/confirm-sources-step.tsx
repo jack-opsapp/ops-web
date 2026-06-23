@@ -58,10 +58,10 @@ export function ConfirmSourcesStep({
 
   return (
     <motion.div variants={staggerContainer} initial="hidden" animate="show">
-      <motion.p variants={staggerItem} className="font-mohave text-[15px] text-[#999] mb-2">
+      <motion.p variants={staggerItem} className="font-mohave text-[15px] text-text-2 mb-2">
         We found {confirmedSources.length} sources and {totalLeads} potential leads.
       </motion.p>
-      <motion.p variants={staggerItem} className="font-mohave text-[12px] text-[#666] mb-6">
+      <motion.p variants={staggerItem} className="font-mohave text-[12px] text-text-3 mb-6">
         Toggle off any sources you want to exclude from the import.
       </motion.p>
 
@@ -69,16 +69,15 @@ export function ConfirmSourcesStep({
       {analysisResult.estimatePattern && (
         <motion.div
           variants={staggerItem}
-          className="mb-4 p-4 border border-white/10 bg-glass glass-surface"
-          style={{ borderRadius: 3 }}
+          className="mb-4 p-4 glass-surface border-border rounded-[10px]"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 flex items-center justify-center bg-[rgba(255,255,255,0.05)] border border-[#6F94B0]/30" style={{ borderRadius: 2 }}>
-                <Mail size={14} className="text-[#6F94B0]" />
+              <div className="w-8 h-8 flex items-center justify-center bg-[rgba(255,255,255,0.05)] border border-border rounded-[5px]">
+                <Mail size={14} className="text-text-2" />
               </div>
               <div>
-                <p className="font-mono text-micro tracking-[0.15em] uppercase text-[#6F94B0]">
+                <p className="font-mono text-micro tracking-[0.15em] uppercase text-text-3">
                   Estimate Pattern Detected
                 </p>
                 {editingPattern ? (
@@ -86,7 +85,7 @@ export function ConfirmSourcesStep({
                     <input
                       value={patternDraft}
                       onChange={(e) => setPatternDraft(e.target.value)}
-                      className="font-mohave text-[14px] text-white bg-transparent border-b border-white/20 focus:border-[#6F94B0] outline-none py-0.5 w-[280px]"
+                      className="font-mohave text-[14px] text-text bg-transparent border-b border-border-medium focus:border-ops-accent outline-none py-0.5 w-[280px]"
                       autoFocus
                     />
                     <button
@@ -94,20 +93,20 @@ export function ConfirmSourcesStep({
                         onEstimatePatternChanged(patternDraft);
                         setEditingPattern(false);
                       }}
-                      className="p-1 text-[#9DB582] hover:text-white transition-colors"
+                      className="p-1 text-olive hover:text-text transition-colors"
                     >
                       <Check size={14} />
                     </button>
                   </div>
                 ) : (
-                  <p className="font-mohave text-[14px] text-white mt-0.5">
+                  <p className="font-mohave text-[14px] text-text mt-0.5">
                     &ldquo;{estimatePattern}&rdquo;
-                    <span className="text-[#666] text-[12px] ml-2">
+                    <span className="text-text-3 text-[12px] ml-2">
                       {analysisResult.estimateThreadCount} threads
                     </span>
                   </p>
                 )}
-                <p className="font-mohave text-micro text-[#555] mt-0.5">
+                <p className="font-mohave text-micro text-text-mute mt-0.5">
                   This is the subject line you use when sending estimates to clients. We&apos;ll use it to identify your pipeline conversations.
                 </p>
               </div>
@@ -115,7 +114,7 @@ export function ConfirmSourcesStep({
             {!editingPattern && (
               <button
                 onClick={() => setEditingPattern(true)}
-                className="p-1.5 text-[#666] hover:text-white transition-colors"
+                className="p-1.5 text-text-3 hover:text-text transition-colors"
               >
                 <Pencil size={12} />
               </button>
@@ -133,33 +132,29 @@ export function ConfirmSourcesStep({
             <motion.div
               key={`${source.type}-${source.pattern}-${i}`}
               variants={staggerItem}
-              className="flex items-center gap-3 p-3 border border-white/10 bg-glass glass-surface cursor-pointer select-none"
-              style={{ borderRadius: 3 }}
+              className="flex items-center gap-3 p-3 glass-surface border-border cursor-pointer select-none rounded-[10px]"
               animate={{ opacity: source.enabled ? 1 : 0.4 }}
               transition={{ duration: 0.2 }}
               onClick={() => toggleSource(i)}
             >
-              <div
-                className="w-7 h-7 flex items-center justify-center border border-white/10"
-                style={{ borderRadius: 2 }}
-              >
-                <Icon size={14} className="text-[#999]" />
+              <div className="w-7 h-7 flex items-center justify-center border border-border rounded-[5px]">
+                <Icon size={14} className="text-text-2" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-mohave text-[13px] text-white truncate">
+                <p className="font-mohave text-[13px] text-text truncate">
                   {source.label}
                 </p>
-                <p className="font-mohave text-[11px] text-[#666]">
+                <p className="font-mohave text-[11px] text-text-3">
                   {source.count} email{source.count !== 1 ? "s" : ""} found
                 </p>
-                <p className="font-mohave text-micro text-[#555] mt-0.5">
+                <p className="font-mohave text-micro text-text-mute mt-0.5">
                   {SOURCE_DESCRIPTIONS[source.type]}
                 </p>
               </div>
               {source.enabled ? (
-                <ToggleRight className="w-[28px] h-[28px] text-[#6F94B0] shrink-0" />
+                <ToggleRight className="w-[28px] h-[28px] text-text shrink-0" />
               ) : (
-                <ToggleLeft className="w-[28px] h-[28px] text-[#555] shrink-0" />
+                <ToggleLeft className="w-[28px] h-[28px] text-text-mute shrink-0" />
               )}
             </motion.div>
           );
@@ -168,14 +163,10 @@ export function ConfirmSourcesStep({
 
       {/* Continue button */}
       <motion.div variants={staggerItem} className="mt-6 flex items-center justify-between">
-        <p className="font-mohave text-[12px] text-[#666]">
+        <p className="font-mohave text-[12px] text-text-3">
           {enabledCount} of {confirmedSources.length} sources enabled
         </p>
-        <Button
-          onClick={onNext}
-          className="font-mono text-[11px] tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white px-6 py-2"
-          style={{ borderRadius: 3 }}
-        >
+        <Button onClick={onNext} variant="primary" size="default">
           Review Leads
         </Button>
       </motion.div>

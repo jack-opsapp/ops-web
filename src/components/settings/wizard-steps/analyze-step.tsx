@@ -212,29 +212,31 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
     return () => { if (pollRef.current) clearTimeout(pollRef.current); };
   }, [jobId, pollCallback]);
 
-  // Progress bar color — green when complete, accent during analysis
-  const barColor = isComplete ? "#9DB582" : "#6F94B0";
+  // Progress bar color — olive (semantic success) when complete; neutral fill
+  // during analysis. Accent is reserved for the primary CTA + focus rings only,
+  // so an indeterminate progress bar must read on the neutral fill ladder.
+  const barColor = isComplete ? "#9DB582" : "rgba(255,255,255,0.45)";
   const percentText = isComplete
     ? `${leadCount} lead${leadCount !== 1 ? "s" : ""} found`
     : `${Math.round(displayProgress)}% complete`;
 
   return (
     <div>
-      <p className="font-mohave text-[15px] text-[#999] mb-8">
+      <p className="font-mohave text-[15px] text-text-2 mb-8">
         {existingJobId
           ? "Reconnecting to your running analysis..."
           : "Scanning your inbox for business patterns and potential leads."}
       </p>
 
       {error ? (
-        <div className="p-4 border border-[#93321A]/30 bg-[#93321A]/10" style={{ borderRadius: 3 }}>
-          <p className="font-mohave text-[14px] text-[#FF6B4A]">{error}</p>
+        <div className="p-4 border border-brick-line bg-rose-soft rounded-[5px]">
+          <p className="font-mohave text-[14px] text-rose">{error}</p>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Progress bar */}
           <div>
-            <div className="h-[2px] w-full bg-white/5 overflow-hidden" style={{ borderRadius: 1 }}>
+            <div className="h-[2px] w-full bg-white/5 overflow-hidden rounded-[2px]">
               <motion.div
                 className="h-full"
                 initial={{ width: "0%" }}
@@ -246,7 +248,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
               />
             </div>
             <div className="flex items-center justify-between mt-2">
-              <p className="font-mohave text-[12px] transition-colors duration-500" style={{ color: isComplete ? "#9DB582" : "#666" }}>
+              <p className="font-mono text-[12px] tabular-nums transition-colors duration-500" style={{ color: isComplete ? "#9DB582" : "#8A8A8A" }}>
                 {isComplete && <CheckCircle size={11} className="inline mr-1 -mt-0.5" />}
                 {percentText}
               </p>
@@ -260,7 +262,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                       animate={{ opacity: 0.5 }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.4, ease: EASE }}
-                      className="font-mohave text-[11px] text-[#6F94B0]"
+                      className="font-mohave text-[11px] text-text-2"
                     >
                       {visibleName}
                     </motion.span>
@@ -271,7 +273,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ duration: 0.5, ease: EASE }}
-                      className="font-mohave text-[11px] text-[#9DB582]"
+                      className="font-mohave text-[11px] text-olive"
                     >
                       Preparing results...
                     </motion.span>
@@ -300,33 +302,32 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                   className="flex items-center gap-3 py-2"
                 >
                   <div
-                    className="w-7 h-7 flex items-center justify-center border transition-all duration-300"
+                    className="w-7 h-7 flex items-center justify-center border rounded-[4px] transition-all duration-300"
                     style={{
-                      borderRadius: 2,
                       borderColor: isStageCompleted
                         ? "rgba(157,181,130,0.5)"
                         : isCurrent
-                          ? "rgba(111, 148, 176,0.5)"
+                          ? "rgba(255,255,255,0.18)"
                           : "rgba(255,255,255,0.08)",
                       background: isStageCompleted
                         ? "rgba(157,181,130,0.1)"
                         : isCurrent
-                          ? "rgba(111, 148, 176,0.1)"
+                          ? "rgba(255,255,255,0.08)"
                           : "transparent",
                     }}
                   >
                     {isStageCompleted ? (
-                      <CheckCircle size={14} className="text-[#9DB582]" />
+                      <CheckCircle size={14} className="text-olive" />
                     ) : isCurrent ? (
-                      <div className="w-3 h-3 border-2 border-[#6F94B0]/40 border-t-[#6F94B0] rounded-full animate-spin" />
+                      <div className="w-3 h-3 border-2 border-text-3/40 border-t-text rounded-full animate-spin" />
                     ) : (
-                      <Icon size={14} className="text-[#666]" />
+                      <Icon size={14} className="text-text-3" />
                     )}
                   </div>
                   <span
                     className="font-mohave text-[13px] transition-colors duration-300"
                     style={{
-                      color: isStageCompleted ? "#9DB582" : isCurrent ? "#fff" : "#666",
+                      color: isStageCompleted ? "#9DB582" : isCurrent ? "#EDEDED" : "#8A8A8A",
                     }}
                   >
                     {stage.label}
@@ -335,7 +336,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                     <motion.span
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="font-mohave text-[11px] text-[#6F94B0] ml-auto"
+                      className="font-mohave text-[11px] text-text-3 ml-auto"
                     >
                       {message}
                     </motion.span>
@@ -351,12 +352,11 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: EASE }}
-              className="mt-6 pt-4 border-t border-white/10"
+              className="mt-6 pt-4 border-t border-border"
             >
               <button
                 onClick={onMinimize}
-                className="flex items-center gap-2 px-4 py-2 border border-white/10 bg-white/5 hover:bg-white/8 hover:border-white/15 transition-all font-mohave text-[13px] text-[#999] hover:text-white"
-                style={{ borderRadius: 3 }}
+                className="flex items-center gap-2 px-4 py-2 border border-border bg-white/5 hover:bg-surface-hover hover:border-border-medium transition-all font-mohave text-[13px] text-text-2 hover:text-text rounded-[5px]"
               >
                 <Minimize2 size={14} />
                 Minimize — we&apos;ll notify you when it&apos;s ready

@@ -12,7 +12,7 @@ import {
   Users,
   TrendingUp,
 } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { getIdToken } from "@/lib/firebase/auth";
@@ -143,13 +143,10 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
         <p className="font-mohave text-body-sm text-text-2">
           {t("mining.description")}
         </p>
-        <button
-          onClick={startMining}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text font-mohave text-body-sm transition-colors"
-        >
-          <Database className="w-[14px] h-[14px] text-[#6F94B0]" />
+        <Button variant="default" onClick={startMining} className="gap-1.5 w-fit">
+          <Database className="w-[14px] h-[14px]" />
           {t("mining.start")}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -160,7 +157,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
-          <Loader2 className="w-[16px] h-[16px] text-[#6F94B0] animate-spin" />
+          <Loader2 className="w-[16px] h-[16px] text-text-3 animate-spin" />
           <span className="font-cakemono text-body font-light uppercase tracking-wide text-text">
             {t("mining.title")}
           </span>
@@ -168,9 +165,9 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
 
         <div className="space-y-1.5">
           {/* Current step */}
-          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-[rgba(111, 148, 176,0.2)] bg-[rgba(111, 148, 176,0.06)]">
-            <Loader2 className="w-[12px] h-[12px] text-[#6F94B0] animate-spin shrink-0" />
-            <span className="font-mohave text-body-sm text-[#6F94B0]">
+          <div className="flex items-center gap-1.5 px-2 py-1.5 rounded border border-border bg-surface-input">
+            <Loader2 className="w-[12px] h-[12px] text-text-3 animate-spin shrink-0" />
+            <span className="font-mohave text-body-sm text-text-2">
               {currentStep}
             </span>
           </div>
@@ -198,23 +195,20 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
-          <AlertTriangle className="w-[16px] h-[16px] text-[#93321A]" />
+          <AlertTriangle className="w-[16px] h-[16px] text-brick" />
           <span className="font-cakemono text-body font-light uppercase tracking-wide text-text">
             {t("mining.title")}
           </span>
         </div>
-        <div className="px-2 py-1.5 rounded border border-[rgba(147,50,26,0.3)] bg-[rgba(147,50,26,0.08)]">
-          <span className="font-mohave text-body-sm text-[#FF6B4A]">
+        <div className="px-2 py-1.5 rounded border border-brick-line bg-surface-input">
+          <span className="font-mohave text-body-sm text-ops-error">
             {error}
           </span>
         </div>
-        <button
-          onClick={startMining}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.1)] text-text font-mohave text-body-sm transition-colors"
-        >
+        <Button variant="default" onClick={startMining} className="gap-1.5 w-fit">
           <RotateCcw className="w-[14px] h-[14px]" />
           Retry
-        </button>
+        </Button>
       </div>
     );
   }
@@ -224,7 +218,7 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
-        <CheckCircle className="w-[16px] h-[16px] text-[#9DB582]" />
+        <CheckCircle className="w-[16px] h-[16px] text-olive" />
         <span className="font-cakemono text-body font-light uppercase tracking-wide text-text">
           {t("mining.complete")}
         </span>
@@ -269,20 +263,17 @@ export function AiDatabaseMining({ onComplete }: AiDatabaseMiningProps) {
       )}
 
       {stats && stats.errors.length > 0 && (
-        <div className="px-2 py-1 rounded border border-[rgba(196,168,104,0.2)] bg-[rgba(196,168,104,0.06)]">
-          <span className="font-mono text-micro text-[#C4A868]">
+        <div className="px-2 py-1 rounded border border-tan-line bg-tan-soft">
+          <span className="font-mono text-micro text-tan">
             {stats.errors.length} warning{stats.errors.length !== 1 ? "s" : ""} during mining
           </span>
         </div>
       )}
 
-      <button
-        onClick={startMining}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-md border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] text-text-2 font-mohave text-[13px] transition-colors"
-      >
+      <Button variant="secondary" size="sm" onClick={startMining} className="gap-1.5 w-fit">
         <RotateCcw className="w-[12px] h-[12px]" />
         {t("mining.remine")}
-      </button>
+      </Button>
     </div>
   );
 }

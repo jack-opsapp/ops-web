@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { ConnectStep } from "./wizard-steps/connect-step";
 import { AnalyzeStep } from "./wizard-steps/analyze-step";
 import { ConfirmSourcesStep } from "./wizard-steps/confirm-sources-step";
@@ -895,12 +896,8 @@ export function ImportPipelineWizard({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
         transition={{ duration: 0.3, ease: EASE }}
-        className="fixed bottom-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 border border-white/10 cursor-pointer"
+        className="glass-dense fixed bottom-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 border border-border cursor-pointer rounded-chip"
         style={{
-          background: 'rgba(13, 13, 13, 0.9)',
-          backdropFilter: 'blur(28px) saturate(1.3)',
-          WebkitBackdropFilter: 'blur(28px) saturate(1.3)',
-          borderRadius: 4,
           minWidth: 280,
         }}
         onClick={() => {
@@ -910,9 +907,9 @@ export function ImportPipelineWizard({
       >
         {bgComplete ? (
           <>
-            <CheckCircle size={16} className="text-[#9DB582] shrink-0" />
+            <CheckCircle size={16} className="text-olive shrink-0" />
             <div className="flex-1 min-w-0">
-              <span className="font-mohave text-[13px] text-[#9DB582]">
+              <span className="font-mohave text-[13px] text-olive">
                 {minimizedCompleteLabel}
               </span>
             </div>
@@ -925,10 +922,10 @@ export function ImportPipelineWizard({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <Loader2 size={14} className="text-text-2 animate-spin shrink-0" />
-                <span className="font-mohave text-[13px] text-white">
+                <span className="font-mohave text-[13px] text-text">
                   {minimizedLabel}
                 </span>
-                <span className="font-mohave text-[11px] text-[#666] ml-auto shrink-0">
+                <span className="font-mohave text-[11px] text-text-3 ml-auto shrink-0">
                   {Math.round(bgProgress.percent)}%
                 </span>
               </div>
@@ -940,7 +937,7 @@ export function ImportPipelineWizard({
                     animate={{ opacity: 0.5 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3, ease: EASE }}
-                    className="font-mohave text-[11px] text-[#6F94B0] mb-1 truncate"
+                    className="font-mohave text-[11px] text-text-3 mb-1 truncate"
                   >
                     Found: {bgVisibleName}
                   </motion.p>
@@ -983,8 +980,7 @@ export function ImportPipelineWizard({
       onOpenChange(isOpen);
     }}>
       <DialogContent
-        className="w-[90vw] max-w-[920px] p-0 border border-white/10 bg-black overflow-hidden"
-        style={{ borderRadius: 4 }}
+        className="w-[90vw] max-w-[920px] p-0 border border-border bg-black overflow-hidden rounded-chip"
         hideClose
         onKeyDown={(e) => {
           // Trap ALL keyboard events inside the wizard so they don't
@@ -998,12 +994,12 @@ export function ImportPipelineWizard({
         </DialogDescription>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border">
           <div>
-            <h2 className="font-mohave text-lg font-semibold text-white">
+            <h2 className="font-mohave text-lg font-semibold text-text">
               Import Your Pipeline
             </h2>
-            <p className="font-mono text-micro tracking-[0.15em] uppercase text-[#999]">
+            <p className="font-mono text-micro tracking-[0.15em] uppercase text-text-3">
               {STEP_KEY_MAP[step].toUpperCase()}{step === 4 ? ` · ${SUB_STEP_KEY_MAP[reviewSubStep]}` : ""}
             </p>
           </div>
@@ -1017,7 +1013,7 @@ export function ImportPipelineWizard({
                 onOpenChange(false);
               }
             }}
-            className="p-1.5 text-[#999] hover:text-white transition-colors"
+            className="p-1.5 text-text-3 hover:text-text transition-colors"
           >
             <X size={16} />
           </button>
@@ -1056,12 +1052,12 @@ export function ImportPipelineWizard({
               )}
               {step === 2 && !connectionId && (
                 <div className="flex flex-col items-center justify-center py-16 gap-4">
-                  <p className="font-mohave text-[14px] text-[#999]">
+                  <p className="font-mohave text-[14px] text-text-3">
                     No connection found. Please go back and connect your email.
                   </p>
                   <button
                     onClick={() => goTo(1)}
-                    className="font-mono text-micro tracking-[0.1em] uppercase text-[#6F94B0] hover:text-white transition-colors"
+                    className="font-mono text-micro tracking-[0.1em] uppercase text-text-2 hover:text-text transition-colors"
                   >
                     ← Back to Connect
                   </button>
@@ -1071,7 +1067,7 @@ export function ImportPipelineWizard({
                 !stateCheckComplete ? (
                   <div className="flex flex-col items-center justify-center py-16 gap-4">
                     <Loader2 size={24} className="text-text-2 animate-spin" />
-                    <p className="font-mohave text-[14px] text-[#999]">
+                    <p className="font-mohave text-[14px] text-text-3">
                       Reconnecting to analysis...
                     </p>
                   </div>
@@ -1248,7 +1244,7 @@ export function ImportPipelineWizard({
               {step === 5 && !importResult && (
                 <div className="flex flex-col items-center justify-center py-16 gap-4">
                   <Loader2 size={24} className="text-text-2 animate-spin" />
-                  <p className="font-mohave text-[14px] text-[#999]">
+                  <p className="font-mohave text-[14px] text-text-3">
                     Loading import results...
                   </p>
                 </div>
@@ -1288,39 +1284,33 @@ export function ImportPipelineWizard({
               backdropFilter: "blur(4px)",
             }}
           >
-            <div
-              className="p-6 border border-white/10 max-w-[320px]"
-              style={{
-                background: "#0D0D0D",
-                borderRadius: 4,
-              }}
-            >
-              <p className="font-mohave text-[15px] text-white mb-2">
+            <div className="glass-dense p-6 border border-border max-w-[320px] rounded-chip">
+              <p className="font-mohave text-[15px] text-text mb-2">
                 Close wizard?
               </p>
-              <p className="font-mohave text-[12px] text-[#999] mb-5">
+              <p className="font-mohave text-[12px] text-text-3 mb-5">
                 Your progress will be saved and can be resumed later.
               </p>
               <div className="flex items-center gap-2">
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => setShowCloseConfirm(false)}
-                  className="flex-1 py-2 font-mono text-micro tracking-[0.1em] uppercase border border-white/10 text-[#999] hover:text-white transition-colors"
-                  style={{ borderRadius: 4 }}
+                  className="flex-1"
                 >
                   CONTINUE
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="primary"
                   onClick={() => {
                     setShowCloseConfirm(false);
                     saveReviewState();
                     invalidateConnections();
                     onOpenChange(false);
                   }}
-                  className="flex-1 py-2 font-mono text-micro tracking-[0.1em] uppercase bg-ops-accent hover:bg-[#6A88A5] text-white transition-colors"
-                  style={{ borderRadius: 4 }}
+                  className="flex-1"
                 >
                   CLOSE & SAVE
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -1332,7 +1322,7 @@ export function ImportPipelineWizard({
           <div className="flex items-center justify-between px-6 pb-4">
             <button
               onClick={() => goTo((step - 1) as 1 | 2 | 3 | 4 | 5)}
-              className="font-mohave text-[13px] text-[#666] hover:text-white transition-colors"
+              className="font-mohave text-[13px] text-text-3 hover:text-text transition-colors"
             >
               &larr; Back
             </button>
