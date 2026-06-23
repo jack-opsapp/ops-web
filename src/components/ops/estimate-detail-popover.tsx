@@ -213,7 +213,7 @@ const EstimateDetailPopoverInstance = memo(
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div
-              className="w-1.5 h-1.5 rounded-[1px] shrink-0"
+              className="w-1.5 h-1.5 rounded-bar shrink-0"
               style={{ backgroundColor: statusColor }}
             />
             <span className="font-mohave text-[13px] font-semibold text-text truncate">

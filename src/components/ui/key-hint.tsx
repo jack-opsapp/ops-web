@@ -84,7 +84,7 @@ export function KeyHint({
       {list.map((key, i) => (
         <span
           key={i}
-          className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-[5px] rounded-[3px] bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.10)] font-mono text-[11px] text-text-2 leading-none"
+          className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-[5px] rounded-chip bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.10)] font-mono text-[11px] text-text-2 leading-none"
         >
           {key}
         </span>

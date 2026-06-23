@@ -430,7 +430,7 @@ export function PipelineFunnelWidget({
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className="w-[6px] h-[6px] rounded-[1px] shrink-0"
+                      className="w-[6px] h-[6px] rounded-bar shrink-0"
                       style={{ backgroundColor: d.color }}
                     />
                     <span className="font-mohave text-caption-sm text-text-2">

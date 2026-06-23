@@ -225,7 +225,7 @@ export function ContactTab({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent rounded-[3px]"
+              className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.12em] text-text-3 transition-colors hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent rounded-chip"
             >
               <Plus className="h-[12px] w-[12px]" aria-hidden />
               {t("window.action.add")}

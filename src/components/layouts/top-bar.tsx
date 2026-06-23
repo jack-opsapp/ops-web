@@ -327,7 +327,7 @@ export function TopBar() {
             {t("search.placeholder")}
           </span>
           {showShortcutHints && (
-            <kbd className="ml-auto font-mono text-micro text-text-2 bg-[rgba(255,255,255,0.06)] border border-border rounded-[3px] px-[5px] py-[1px] hidden sm:inline">
+            <kbd className="ml-auto font-mono text-micro text-text-2 bg-[rgba(255,255,255,0.06)] border border-border rounded-chip px-[5px] py-[1px] hidden sm:inline">
               {t("search.shortcut")}
             </kbd>
           )}

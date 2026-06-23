@@ -125,7 +125,7 @@ export function CustomerMatchTable({
                             : undefined,
                       })
                     }
-                    className="h-[36px] rounded-btn bg-[rgba(255,255,255,0.04)] border border-border px-2 font-mono text-caption text-text-2 focus:border-ops-accent focus:outline-none"
+                    className="h-[36px] rounded bg-[rgba(255,255,255,0.04)] border border-border px-2 font-mono text-caption text-text-2 focus:border-ops-accent focus:outline-none"
                   >
                     {decision.action === "needs_review" && (
                       <option value="needs_review" disabled>
@@ -150,7 +150,7 @@ export function CustomerMatchTable({
                           client_id: e.target.value || undefined,
                         })
                       }
-                      className="h-[36px] rounded-btn bg-[rgba(255,255,255,0.04)] border border-border px-2 font-mono text-caption text-text-2 focus:border-ops-accent focus:outline-none max-w-[220px]"
+                      className="h-[36px] rounded bg-[rgba(255,255,255,0.04)] border border-border px-2 font-mono text-caption text-text-2 focus:border-ops-accent focus:outline-none max-w-[220px]"
                     >
                       <option value="">{t("qbo.candidate.none")}</option>
                       {m.candidates.map((c) => (

@@ -45,7 +45,7 @@ export function ClientsArBanner({
       <button
         type="button"
         onClick={onChase}
-        className="ml-auto inline-flex items-center gap-1 font-mono text-micro uppercase tracking-[0.12em] text-text-2 transition-colors duration-150 ease-smooth hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent rounded-[3px]"
+        className="ml-auto inline-flex items-center gap-1 font-mono text-micro uppercase tracking-[0.12em] text-text-2 transition-colors duration-150 ease-smooth hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent rounded-chip"
       >
         {t("ar.chase")}
         <ArrowRight className="h-[12px] w-[12px]" aria-hidden />
