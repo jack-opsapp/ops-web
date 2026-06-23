@@ -214,7 +214,6 @@
   "detail.photoEmailSource": "Email",
   "detail.photoSiteVisitSource": "Site visit",
   "transition.wonTitle": "Deal won",
-  "transition.wonDescription": "Congratulations on closing",
   "transition.finalValue": "Final value",
   "transition.nameAuto": "Name",
   "transition.siteAddress": "Site address",
