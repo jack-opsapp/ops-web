@@ -52,6 +52,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/cron/app-store-sync",
+      "schedule": "0 9 * * *"
+    },
+    {
       "path": "/api/cron/duplicate-scan",
       "schedule": "0 5 * * *"
     },
