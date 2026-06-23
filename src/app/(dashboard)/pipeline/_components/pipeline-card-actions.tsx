@@ -191,19 +191,19 @@ export function PipelineCardActions({
                 onClose={() => setShowMenu(false)}
               >
                 <MenuItem
-                  icon={<Phone size={13} />}
+                  icon={<Phone size={14} />}
                   label={t("actions.logCall", "Log call")}
                   onClick={(e) => handleMenuAction(e, onLogCall)}
                   disabled={!canManage}
                 />
                 <MenuItem
-                  icon={<MessageSquare size={13} />}
+                  icon={<MessageSquare size={14} />}
                   label={t("actions.logText", "Log text")}
                   onClick={(e) => handleMenuAction(e, onLogText)}
                   disabled={!canManage}
                 />
                 <MenuItem
-                  icon={<StickyNote size={13} />}
+                  icon={<StickyNote size={14} />}
                   label={t("actions.addNote", "Add note")}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -213,7 +213,7 @@ export function PipelineCardActions({
                   disabled={!canManage}
                 />
                 <MenuItem
-                  icon={<ExternalLink size={13} />}
+                  icon={<ExternalLink size={14} />}
                   label={t("actions.openDetail", "Details")}
                   onClick={(e) => handleMenuAction(e, onOpenDetail)}
                 />
@@ -222,12 +222,12 @@ export function PipelineCardActions({
                   <>
                     <MenuDivider />
                     <MenuItem
-                      icon={<Calendar size={13} />}
+                      icon={<Calendar size={14} />}
                       label={t("actions.scheduleFollowUp", "Schedule follow-up")}
                       onClick={(e) => handleMenuAction(e, onScheduleFollowUp)}
                     />
                     <MenuItem
-                      icon={<UserPlus size={13} />}
+                      icon={<UserPlus size={14} />}
                       label={t("actions.assignTo", "Assign to")}
                       onClick={(e) => handleMenuAction(e, onAssign)}
                     />
@@ -238,17 +238,17 @@ export function PipelineCardActions({
                   <>
                     <MenuDivider />
                     <MenuItem
-                      icon={<Trophy size={13} />}
+                      icon={<Trophy size={14} />}
                       label={t("actions.markWon", "Mark won")}
                       onClick={(e) => handleMenuAction(e, onMarkWon)}
                     />
                     <MenuItem
-                      icon={<XCircle size={13} />}
+                      icon={<XCircle size={14} />}
                       label={t("actions.markLost", "Mark lost")}
                       onClick={(e) => handleMenuAction(e, onMarkLost)}
                     />
                     <MenuItem
-                      icon={<Ban size={13} />}
+                      icon={<Ban size={14} />}
                       label={t("actions.discard", "Discard")}
                       onClick={(e) => handleMenuAction(e, onDiscard)}
                     />
@@ -259,7 +259,7 @@ export function PipelineCardActions({
                   <>
                     <MenuDivider />
                     <MenuItem
-                      icon={<FolderInput size={13} />}
+                      icon={<FolderInput size={14} />}
                       label={t("actions.convert", "Convert")}
                       onClick={(e) => handleMenuAction(e, onConvert!)}
                       testId="card-action-convert"
@@ -271,7 +271,7 @@ export function PipelineCardActions({
                   <>
                     <MenuDivider />
                     <MenuItem
-                      icon={<Archive size={13} />}
+                      icon={<Archive size={14} />}
                       label={t("actions.archive", "Archive")}
                       onClick={(e) => handleMenuAction(e, onArchive)}
                     />

@@ -164,7 +164,7 @@ export function NotificationRow({
             color: showAccent ? toneSurface.color : "var(--text-3)",
           }}
         >
-          <Icon size={12} strokeWidth={1.5} />
+          <Icon size={14} strokeWidth={1.5} />
         </div>
         <span
           style={{
@@ -240,7 +240,7 @@ export function NotificationRow({
               e.currentTarget.style.color = "var(--text-3)";
             }}
           >
-            <X size={12} strokeWidth={1.5} />
+            <X size={14} strokeWidth={1.5} />
           </button>
         )}
 
