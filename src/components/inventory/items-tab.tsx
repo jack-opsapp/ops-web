@@ -33,8 +33,7 @@ import {
   useInventoryUnits,
   useBulkDeleteItems,
 } from "@/lib/hooks/use-inventory";
-import { useAuthStore } from "@/lib/store/auth-store";
-import { selectIsAdminOrOwner } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import {
   getEffectiveThresholds,
   getThresholdStatus,
@@ -59,7 +58,7 @@ type SortField = "name" | "quantity" | "status" | "updatedAt";
 
 export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }: ItemsTabProps) {
   // ── Auth ────────────────────────────────────────────────────────────────────
-  const isOfficeOrAdmin = useAuthStore(selectIsAdminOrOwner);
+  const canManageInventory = usePermissionStore((s) => s.can("inventory.manage"));
 
   // ── Data hooks ──────────────────────────────────────────────────────────────
   const { data: items = [], isLoading } = useInventoryItems();
@@ -349,7 +348,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
             <SlidersHorizontal className="w-[14px] h-[14px]" />
             Adjust Quantity
           </Button>
-          {isOfficeOrAdmin && (
+          {canManageInventory && (
             <Button
               variant="ghost"
               size="sm"
@@ -360,7 +359,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
               Apply Tags
             </Button>
           )}
-          {isOfficeOrAdmin && (
+          {canManageInventory && (
             <Button
               variant="ghost"
               size="sm"
@@ -527,7 +526,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                     {/* Actions */}
                     <td className="px-2 py-1.5 text-right">
                       <div className="flex items-center justify-end gap-0.5">
-                        {isOfficeOrAdmin && (
+                        {canManageInventory && (
                           <button
                             onClick={() => setEditItem(item)}
                             className="p-1 rounded text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.05)] transition-colors"
@@ -543,7 +542,7 @@ export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }
                         >
                           <SlidersHorizontal className="w-[14px] h-[14px]" />
                         </button>
-                        {isOfficeOrAdmin && (
+                        {canManageInventory && (
                           <button
                             onClick={() => {
                               setSelectedIds(new Set([item.id]));

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useAuthStore, selectIsAdmin } from "@/lib/store/auth-store";
+import { useAuthStore } from "@/lib/store/auth-store";
+import {
+  usePermissionStore,
+  selectPermissionsReady,
+} from "@/lib/store/permissions-store";
 import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useGmailConnections } from "@/lib/hooks/use-gmail-connections";
 import { useCreateNotification } from "@/lib/hooks/use-notifications";
@@ -16,7 +20,13 @@ import { useCreateNotification } from "@/lib/hooks/use-notifications";
  * caused an infinite loop (tens of thousands of Supabase calls).
  */
 export function useActionPrompts() {
-  const isAdmin = useAuthStore(selectIsAdmin);
+  // Connecting Gmail is an integration-management capability — gate on the
+  // granular permission, not a role name. Wait for permissions to hydrate
+  // before the one-shot evaluation (the store is fetched async, not persisted).
+  const canManageIntegrations = usePermissionStore((s) =>
+    s.can("settings.integrations")
+  );
+  const permsReady = usePermissionStore(selectPermissionsReady);
   const company = useAuthStore((s) => s.company);
   const notify = useCreateNotification();
   const hasRun = useRef(false);
@@ -26,7 +36,7 @@ export function useActionPrompts() {
 
   useEffect(() => {
     // Wait for data to load
-    if (gmailLoading || teamLoading) return;
+    if (gmailLoading || teamLoading || !permsReady) return;
     // Only evaluate once per mount — server-side dedup is a safety net,
     // not the primary guard against repeated calls.
     if (hasRun.current) return;
@@ -34,7 +44,7 @@ export function useActionPrompts() {
 
     // ── Connect Gmail ──────────────────────────────────────────────────
     if (
-      isAdmin &&
+      canManageIntegrations &&
       gmailData !== undefined &&
       Array.isArray(gmailData) &&
       gmailData.length === 0
@@ -64,7 +74,8 @@ export function useActionPrompts() {
       });
     }
   }, [
-    isAdmin,
+    canManageIntegrations,
+    permsReady,
     company?.companySize,
     gmailData,
     gmailLoading,

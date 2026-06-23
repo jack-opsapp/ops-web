@@ -216,17 +216,10 @@ export const useAuthStore = create<AuthState>()(
 
 // ─── Selectors ────────────────────────────────────────────────────────────────
 
-/** Check if user has admin role */
-export const selectIsAdmin = (state: AuthState) =>
-  state.role === UserRole.Admin;
-
-/** Check if user has admin or owner role */
-export const selectIsAdminOrOwner = (state: AuthState) =>
-  state.role === UserRole.Admin || state.role === UserRole.Owner;
-
-/** Check if user is field-level (crew or operator) */
-export const selectIsFieldRole = (state: AuthState) =>
-  state.role === UserRole.Crew || state.role === UserRole.Operator;
+// Role-NAME selectors (selectIsAdmin / selectIsAdminOrOwner / selectIsFieldRole)
+// were removed (P4-4 #8): behavior must gate on granular permissions
+// (usePermissionStore.can("…")), never a role name. Consumers migrated to the
+// relevant permission (inventory.manage, settings.billing, settings.integrations).
 
 /** Get the company ID */
 export const selectCompanyId = (state: AuthState) =>

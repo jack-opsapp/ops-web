@@ -3,7 +3,11 @@
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { useAuthStore, selectIsAdminOrOwner } from "@/lib/store/auth-store";
+import { useAuthStore } from "@/lib/store/auth-store";
+import {
+  usePermissionStore,
+  selectPermissionsReady,
+} from "@/lib/store/permissions-store";
 import { getLockoutReason } from "@/lib/subscription";
 import { LockoutResolver } from "@/components/lockout/lockout-resolver";
 import { useRealtimeCompany } from "@/components/lockout/hooks/use-realtime-company";
@@ -20,7 +24,11 @@ export function LockoutOverlay() {
   const pathname = usePathname();
   const company = useAuthStore((s) => s.company);
   const currentUser = useAuthStore((s) => s.currentUser);
-  const isAdmin = useAuthStore(selectIsAdminOrOwner);
+  // See lockout-resolver: gate on billing-settings management, not a role name;
+  // fail-safe until the (async, non-persisted) permission store hydrates.
+  const permsReady = usePermissionStore(selectPermissionsReady);
+  const canManageBilling = usePermissionStore((s) => s.can("settings.billing"));
+  const canResolveLockout = !permsReady || canManageBilling;
   const prefersReducedMotion = useReducedMotion();
 
   useRealtimeCompany(company?.id);
@@ -39,10 +47,10 @@ export function LockoutOverlay() {
   const isOnTeamPage = pathname === "/settings";
   const reason = useMemo(() => {
     if (!rawReason) return null;
-    if (isExemptRoute && isAdmin && rawReason === "subscription_expired") return null;
-    if (isOnTeamPage && isAdmin && rawReason === "unseated") return null;
+    if (isExemptRoute && canResolveLockout && rawReason === "subscription_expired") return null;
+    if (isOnTeamPage && canResolveLockout && rawReason === "unseated") return null;
     return rawReason;
-  }, [rawReason, isExemptRoute, isOnTeamPage, isAdmin]);
+  }, [rawReason, isExemptRoute, isOnTeamPage, canResolveLockout]);
 
   const backdropVariants = prefersReducedMotion
     ? lockoutBackdropVariantsReduced
