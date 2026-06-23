@@ -12,7 +12,8 @@ import { useDictionary } from "@/i18n/client";
 //   VIEWING  — neutral chrome (workspace at rest, no commit pending)
 //   EDITING  — tan tint (warning tone — there is unsaved change in
 //              flight) + 1.6s opacity pulse drawing the eye
-//   CREATING — accent tint (the workspace is in a generative state) +
+//   CREATING — olive tint (generative / new state — the "go" earth tone,
+//              keeping the pill family on earth tones, not the accent) +
 //              identical pulse cadence
 //
 // Pulse spec: opacity 1 → 0.45 → 1, 1.6s ease-in-out, infinite. Driven
@@ -34,15 +35,15 @@ const PILL_SURFACE: Record<WorkspaceMode, string> = {
     "border border-[var(--tan-line)]",
   ),
   creating: cn(
-    "bg-[var(--ops-accent-soft)] text-ops-accent",
-    "border border-[var(--ops-accent-line)]",
+    "bg-[var(--olive-soft)] text-[var(--olive)]",
+    "border border-[var(--olive-line)]",
   ),
 };
 
 const DOT_TONE: Record<WorkspaceMode, string> = {
   viewing: "bg-text-3",
   editing: "bg-[var(--tan)]",
-  creating: "bg-ops-accent",
+  creating: "bg-olive",
 };
 
 const MODE_KEY: Record<WorkspaceMode, string> = {
