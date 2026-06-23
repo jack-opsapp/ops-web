@@ -13,6 +13,7 @@
 
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { parseStringArray } from "@/lib/utils/parse";
+import { getCompanyManagerUserIds } from "./company-managers";
 import { ApprovalQueueService } from "./approval-queue-service";
 import { AssignmentService } from "./assignment-service";
 import { BusinessContextService } from "./business-context-service";
@@ -103,30 +104,8 @@ const DEFAULT_CONFIG: LifecycleConfig = {
 async function getCompanyAdminUserId(companyId: string): Promise<string | null> {
   const supabase = requireSupabase();
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("admin_ids")
-    .eq("id", companyId)
-    .single();
-
-  const adminIds = ((company?.admin_ids as string) ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter((id) => id.length > 0);
-
-  if (adminIds.length > 0) return adminIds[0];
-
-  // Fallback: find any active user with admin/owner role
-  const { data: fallback } = await supabase
-    .from("users")
-    .select("id")
-    .eq("company_id", companyId)
-    .in("role", ["admin", "owner"])
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .limit(1);
-
-  return (fallback?.[0]?.id as string) ?? null;
+  const managerIds = await getCompanyManagerUserIds(supabase, companyId);
+  return managerIds[0] ?? null;
 }
 
 function buildTransitionKey(oldStage: string, newStage: string): string {

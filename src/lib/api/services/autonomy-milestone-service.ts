@@ -14,6 +14,7 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { getCompanyManagerUserIds } from "./company-managers";
 import { WritingProfileService } from "./writing-profile-service";
 import { NotificationService } from "./notification-service";
 
@@ -415,29 +416,11 @@ export const AutonomyMilestoneService = {
         return;
       }
 
-      // Find all admin/owner users to target
-      const { data: company } = await supabase
-        .from("companies")
-        .select("admin_ids")
-        .eq("id", companyId)
-        .maybeSingle();
-
-      const rawAdminIds = (company?.admin_ids as string) ?? "";
-      let targetIds = rawAdminIds
-        .split(",")
-        .map((id) => id.trim())
-        .filter((id) => id.length > 0);
-
-      if (targetIds.length === 0) {
-        const { data: roleMatches } = await supabase
-          .from("users")
-          .select("id")
-          .eq("company_id", companyId)
-          .in("role", ["admin", "owner"])
-          .is("deleted_at", null)
-          .limit(10);
-        targetIds = (roleMatches ?? []).map((u) => u.id as string);
-      }
+      // Find all management users to target (account_holder ∪ admin_ids),
+      // capped at 10 recipients to match the prior fallback's `.limit(10)`.
+      const targetIds = (
+        await getCompanyManagerUserIds(supabase, companyId)
+      ).slice(0, 10);
 
       // Route the user to the AI Setup wizard, not to /agent/comms-config.
       // The comms-config page gates on writing profile confidence and

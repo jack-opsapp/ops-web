@@ -11,6 +11,7 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { ApprovalQueueService } from "./approval-queue-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
+import { getCompanyManagerUserIds } from "./company-managers";
 import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
 import type { Locale } from "@/i18n/types";
 import type {
@@ -169,27 +170,8 @@ async function getCompanyAdminUserId(
 ): Promise<string | null> {
   const supabase = requireSupabase();
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("admin_ids")
-    .eq("id", companyId)
-    .single();
-
-  const adminIds = ((company?.admin_ids as string) ?? "")
-    .split(",")
-    .map((id) => id.trim())
-    .filter((id) => id.length > 0);
-
-  if (adminIds.length > 0) return adminIds[0];
-
-  const { data: fallback } = await supabase
-    .from("users")
-    .select("id")
-    .eq("company_id", companyId)
-    .in("role", ["admin", "owner"])
-    .limit(1);
-
-  return (fallback?.[0]?.id as string) ?? null;
+  const managerIds = await getCompanyManagerUserIds(supabase, companyId);
+  return managerIds[0] ?? null;
 }
 
 function isWeekend(date: Date): boolean {

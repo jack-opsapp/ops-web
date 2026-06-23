@@ -20,6 +20,7 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride, requireSupabase } from "@/lib/supabase/helpers";
 import { ClientSchedulingCommsService } from "@/lib/api/services/client-scheduling-comms-service";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
+import { getCompanyManagerUserIds } from "@/lib/api/services/company-managers";
 
 export const maxDuration = 300;
 
@@ -35,16 +36,9 @@ async function findDefaultUserForCompany(
 ): Promise<string | null> {
   const supabase = requireSupabase();
 
-  const { data: admin } = await supabase
-    .from("users")
-    .select("id")
-    .eq("company_id", companyId)
-    .in("role", ["admin", "owner"])
-    .is("deleted_at", null)
-    .limit(1)
-    .maybeSingle();
-
-  if (admin?.id) return admin.id as string;
+  const managerIds = await getCompanyManagerUserIds(supabase, companyId);
+  const adminId = managerIds[0] ?? null;
+  if (adminId) return adminId;
 
   const { data: anyUser } = await supabase
     .from("users")

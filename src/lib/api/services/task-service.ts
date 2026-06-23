@@ -6,6 +6,7 @@
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
+import { getCompanyManagerUserIds } from "./company-managers";
 import { TaskStatus } from "../../types/models";
 import type { ProjectTask, TaskType } from "../../types/models";
 
@@ -144,32 +145,8 @@ async function findDefaultUserForCompany(
 ): Promise<string | null> {
   const supabase = requireSupabase();
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("admin_ids")
-    .eq("id", companyId)
-    .maybeSingle();
-
-  // companies.admin_ids is text[] in Supabase; older code paths assumed it
-  // came back as a comma-separated string. Handle both shapes defensively.
-  const rawAdminIds = company?.admin_ids;
-  const adminIds: string[] = Array.isArray(rawAdminIds)
-    ? rawAdminIds.filter((s): s is string => typeof s === "string" && s.length > 0)
-    : typeof rawAdminIds === "string"
-      ? rawAdminIds.split(",").map((s) => s.trim()).filter(Boolean)
-      : [];
-  if (adminIds.length > 0) return adminIds[0];
-
-  const { data: roleMatch } = await supabase
-    .from("users")
-    .select("id")
-    .eq("company_id", companyId)
-    .in("role", ["admin", "owner"])
-    .is("deleted_at", null)
-    .limit(1)
-    .maybeSingle();
-
-  return (roleMatch?.id as string) ?? null;
+  const managerIds = await getCompanyManagerUserIds(supabase, companyId);
+  return managerIds[0] ?? null;
 }
 
 function mapFromDb(row: Record<string, unknown>): ProjectTask {

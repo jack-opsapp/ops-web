@@ -7,6 +7,7 @@
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
+import { getCompanyManagerUserIds } from "./company-managers";
 import { ProjectService } from "./project-service";
 import { TaskService } from "./task-service";
 import { NotificationService } from "./notification-service";
@@ -101,29 +102,10 @@ function defaultExpiry(actionType: string): Date {
 async function getAdminUserIds(companyId: string): Promise<string[]> {
   const supabase = requireSupabase();
 
-  // company.admin_ids is a comma-separated string of admin/owner user IDs
-  const { data: company } = await supabase
-    .from("companies")
-    .select("admin_ids")
-    .eq("id", companyId)
-    .single();
-
-  const rawAdminIds = (company?.admin_ids as string) ?? "";
-  const adminIds = rawAdminIds
-    .split(",")
-    .map((id) => id.trim())
-    .filter((id) => id.length > 0);
-  if (adminIds.length > 0) return adminIds;
-
-  // Fallback: find users with admin/owner role
-  const { data: admins } = await supabase
-    .from("users")
-    .select("id")
-    .eq("company_id", companyId)
-    .in("role", ["admin", "owner"])
-    .limit(10);
-
-  return (admins ?? []).map((u) => u.id as string);
+  // account_holder_id ∪ admin_ids — the authoritative management list,
+  // capped at 10 recipients to match the prior fallback's `.limit(10)`.
+  const managerIds = await getCompanyManagerUserIds(supabase, companyId);
+  return managerIds.slice(0, 10);
 }
 
 // ─── Action Executors ─────────────────────────────────────────────────────────
