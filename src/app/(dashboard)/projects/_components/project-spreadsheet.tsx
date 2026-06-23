@@ -481,7 +481,6 @@ export function ProjectSpreadsheet({
           }}
         >
           <ActionMenuItem label={t("actions.openDetail")} onClick={() => handleOpenDetail(actionMenu.projectId)} />
-          <ActionMenuItem label="View Full Page" onClick={() => { window.location.href = `/projects/${actionMenu.projectId}`; setActionMenu(null); }} />
           {canManage && (
             <>
               <div className="h-px bg-border-subtle my-0.5" />

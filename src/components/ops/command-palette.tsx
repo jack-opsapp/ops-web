@@ -29,6 +29,7 @@ import {
 } from "@/lib/navigation/route-registry";
 import { useDictionary } from "@/i18n/client";
 import { useSignOutStore } from "@/stores/signout-store";
+import { useWindowStore } from "@/stores/window-store";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTasks } from "@/lib/hooks/use-tasks";
@@ -60,6 +61,8 @@ export function CommandPalette() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const beginSignOut = useSignOutStore((s) => s.begin);
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
+  const openClientWindow = useWindowStore((s) => s.openClientWindow);
   const can = usePermissionStore((s) => s.can);
   const isPermissionUnlocked = useFeatureFlagsStore((s) => s.isPermissionUnlocked);
   const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
@@ -440,7 +443,7 @@ export function CommandPalette() {
                     // user-meaningful searchable text; cmdk dedupes by ref so
                     // duplicate titles still render distinctly via React key.
                     value={`project ${p.title} ${p.address ?? ""}`}
-                    onSelect={() => navigate(`/projects/${p.id}`)}
+                    onSelect={() => { setOpen(false); openProjectWindow({ projectId: p.id, mode: "viewing" }); }}
                     forceMount
                   >
                     <FolderKanban className="w-[16px] h-[16px] text-text-3" />
@@ -460,7 +463,7 @@ export function CommandPalette() {
                   <CommandItem
                     key={`client-${c.id}`}
                     value={`client ${c.name} ${c.email ?? ""}`}
-                    onSelect={() => navigate(`/clients/${c.id}`)}
+                    onSelect={() => { setOpen(false); openClientWindow({ clientId: c.id, mode: "viewing" }); }}
                     forceMount
                   >
                     <Users className="w-[16px] h-[16px] text-text-3" />
@@ -480,7 +483,7 @@ export function CommandPalette() {
                   <CommandItem
                     key={`task-${t.id}`}
                     value={`task ${t.customTitle ?? ""} ${t.taskNotes ?? ""}`}
-                    onSelect={() => navigate(`/projects/${t.projectId}`)}
+                    onSelect={() => { setOpen(false); if (t.projectId) openProjectWindow({ projectId: t.projectId, mode: "viewing" }); }}
                     forceMount
                   >
                     <ClipboardList className="w-[16px] h-[16px] text-text-3" />

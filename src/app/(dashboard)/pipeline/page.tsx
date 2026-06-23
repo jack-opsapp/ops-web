@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Mail, X, Loader2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -179,7 +179,6 @@ function useIsMobile(breakpoint = 900): boolean {
 export default function PipelinePage() {
   usePageTitle("Pipeline");
   const { t } = useDictionary("pipeline");
-  const router = useRouter();
   const isMobile = useIsMobile();
   const reducedMotion = useReducedMotion();
   const tableFlag = usePipelineTableViewFlag();
@@ -223,6 +222,7 @@ export default function PipelinePage() {
 
   // ── Lead creation via floating window ────────────────────────────────
   const openWindow = useWindowStore((s) => s.openWindow);
+  const openClientWindow = useWindowStore((s) => s.openClientWindow);
 
   // ── Inbox leads / email review ────────────────────────────────────────
   const [showInboxLeads, setShowInboxLeads] = useState(false);
@@ -1169,7 +1169,7 @@ export default function PipelinePage() {
         onClose={() => setReviewPanelOpen(false)}
         onViewClient={(clientId) => {
           setReviewPanelOpen(false);
-          router.push(`/clients/${clientId}`);
+          openClientWindow({ clientId, mode: "viewing" });
         }}
         onCreateLead={(prefill) => {
           setReviewPanelOpen(false);
