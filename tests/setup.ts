@@ -101,6 +101,10 @@ class InMemoryStorage implements Storage {
   }
 }
 
+// Browser-only globals — skipped under `@vitest-environment node` (server-lib
+// tests). `window` is always defined under jsdom, so existing tests are
+// unaffected; node-env tests don't need these DOM mocks.
+if (typeof window !== "undefined") {
 for (const name of ["localStorage", "sessionStorage"] as const) {
   Object.defineProperty(window, name, {
     configurable: true,
@@ -240,6 +244,7 @@ Object.defineProperty(window, "scrollTo", {
   writable: true,
   value: vi.fn(),
 });
+} // end browser-only globals guard
 
 // ─── Polyfill: Pointer Capture + scrollIntoView (Radix popper testing) ─────
 //
