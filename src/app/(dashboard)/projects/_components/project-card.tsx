@@ -125,7 +125,6 @@ export const ProjectCard = memo(function ProjectCard({
           background: statusColor,
           opacity: isDragging ? 0.2 : stalenessOpacity,
           borderRadius: 4,
-          boxShadow: isSelected ? `0 0 12px ${statusColor}40` : undefined,
           border: isSelected ? `2px solid ${statusColor}` : "1px solid transparent",
         }}
         onClick={handleClick}
@@ -189,7 +188,6 @@ export const ProjectCard = memo(function ProjectCard({
           borderRight: cardEdgeBorder,
           borderBottom: cardEdgeBorder,
           borderLeft: `3px solid ${statusColor}`,
-          boxShadow: isSelected ? `0 0 12px ${statusColor}40` : undefined,
           padding: "8px 10px 6px 10px",
         }}
       >
