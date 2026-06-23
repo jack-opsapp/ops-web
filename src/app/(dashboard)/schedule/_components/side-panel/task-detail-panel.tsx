@@ -29,14 +29,15 @@ import { pushByDays, calculateCascade } from "@/lib/scheduling/engine";
 import { taskToSchedulable } from "@/lib/scheduling/adapters";
 import { SidePanelShell } from "./side-panel-shell";
 import { TaskMaterialsSection } from "@/components/ops/task-materials-section";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Status options ─────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
-  { value: TaskStatus.Booked, label: "Booked" },
-  { value: TaskStatus.InProgress, label: "In Progress" },
-  { value: TaskStatus.Completed, label: "Completed" },
-  { value: TaskStatus.Cancelled, label: "Cancelled" },
+const STATUS_OPTIONS: { value: TaskStatus; labelKey: string }[] = [
+  { value: TaskStatus.Booked, labelKey: "panel.taskStatus.booked" },
+  { value: TaskStatus.InProgress, labelKey: "panel.taskStatus.inProgress" },
+  { value: TaskStatus.Completed, labelKey: "panel.taskStatus.completed" },
+  { value: TaskStatus.Cancelled, labelKey: "panel.taskStatus.cancelled" },
 ];
 
 const UUID_LIKE_RE =
@@ -54,10 +55,12 @@ function DarkSelect({
   value,
   onChange,
   options,
+  unmappedLabel,
 }: {
   value: string;
   onChange: (val: string) => void;
   options: { value: string; label: string }[];
+  unmappedLabel: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -75,7 +78,7 @@ function DarkSelect({
   const selectedLabel =
     cleanPanelLabel(options.find((o) => o.value === value)?.label) ??
     cleanPanelLabel(value) ??
-    "Unmapped type";
+    unmappedLabel;
 
   return (
     <div ref={ref} className="relative">
@@ -132,12 +135,16 @@ function SectionLabel({ children }: { children: string }) {
 function TeamPill({
   member,
   onRemove,
+  t,
 }: {
   member: { id: string; firstName: string; lastName: string };
   onRemove: () => void;
+  t: (key: string, params?: Record<string, unknown>) => string;
 }) {
   const initials = getInitials(`${member.firstName} ${member.lastName}`);
-  const name = `${member.firstName} ${member.lastName}`.trim() || "Unknown";
+  const name =
+    `${member.firstName} ${member.lastName}`.trim() ||
+    t("panel.unknownMember");
 
   return (
     <span
@@ -154,7 +161,7 @@ function TeamPill({
       <button
         onClick={onRemove}
         className="ml-[2px] text-[var(--text-3)] hover:text-white transition-colors"
-        aria-label={`Remove ${name}`}
+        aria-label={t("panel.removeMember", { name })}
       >
         <X className="w-[10px] h-[10px]" />
       </button>
@@ -166,6 +173,7 @@ function TeamPill({
 
 export function TaskDetailPanel() {
   const { sidePanelMode, selectedTaskId, closeSidePanel } = useScheduleStore();
+  const { t } = useDictionary("schedule");
 
   const isOpen = sidePanelMode === "task-detail" && !!selectedTaskId;
 
@@ -225,9 +233,18 @@ export function TaskDetailPanel() {
   );
 
   const displayTitle = useMemo(() => {
-    if (!task) return "Task";
+    if (!task) return t("panel.unknownTask");
     return getTaskDisplayTitle(task, taskType);
-  }, [task, taskType]);
+  }, [task, taskType, t]);
+
+  const statusOptions = useMemo(
+    () =>
+      STATUS_OPTIONS.map((opt) => ({
+        value: opt.value,
+        label: t(opt.labelKey),
+      })),
+    [t]
+  );
 
   const taskColor = useMemo(() => {
     return taskType?.color ?? task?.taskColor ?? "#6F94B0";
@@ -247,11 +264,11 @@ export function TaskDetailPanel() {
     return [
       {
         value: task.taskTypeId,
-        label: cleanPanelLabel(taskType?.display) ?? "Unmapped type",
+        label: cleanPanelLabel(taskType?.display) ?? t("panel.unmappedType"),
       },
       ...base,
     ];
-  }, [task?.taskTypeId, taskType?.display, taskTypes]);
+  }, [task?.taskTypeId, taskType?.display, taskTypes, t]);
 
   // Dependencies
   const dependencies = useMemo(() => {
@@ -260,7 +277,9 @@ export function TaskDetailPanel() {
     const effectiveDeps =
       task.dependencyOverrides ?? taskType?.dependencies ?? [];
 
-    // Predecessors: task types this task depends on
+    // Predecessors: task types this task depends on.
+    // Unresolved dependency types (no matching task type) are dropped so the
+    // panel only lists real predecessors.
     const predecessors = effectiveDeps
       .map((dep) => {
         const depType = taskTypes.find(
@@ -270,12 +289,13 @@ export function TaskDetailPanel() {
           (pt) => pt.taskTypeId === dep.depends_on_task_type_id
         );
         return {
-          typeName: depType?.display ?? "Unknown",
+          typeName: depType?.display ?? t("panel.unknownDependency"),
+          resolved: !!depType,
           isCompleted: depTask?.status === TaskStatus.Completed,
           typeId: dep.depends_on_task_type_id,
         };
       })
-      .filter((d) => d.typeName !== "Unknown");
+      .filter((d) => d.resolved);
 
     // Successors: task types that depend on this task's type
     const successors: { typeName: string; typeId: string }[] = [];
@@ -287,7 +307,7 @@ export function TaskDetailPanel() {
     }
 
     return { predecessors, successors };
-  }, [task, taskType, taskTypes, projectTasks]);
+  }, [task, taskType, taskTypes, projectTasks, t]);
 
   // Duration computed
   const durationLabel = useMemo(() => {
@@ -295,8 +315,10 @@ export function TaskDetailPanel() {
     const start = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
     const end = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
     const days = differenceInCalendarDays(end, start) + 1;
-    return `${days} day${days !== 1 ? "s" : ""}`;
-  }, [task?.startDate, task?.endDate]);
+    return days !== 1
+      ? t("panel.durationDaysPlural", { count: days })
+      : t("panel.durationDays", { count: days });
+  }, [task?.startDate, task?.endDate, t]);
 
   // ─── Handlers ───────────────────────────────────────────────────────────
 
@@ -310,10 +332,10 @@ export function TaskDetailPanel() {
       { id: selectedTaskId, data: { customTitle: newTitle } },
       {
         onError: (err) =>
-          toast.error("Failed to update title", { description: err.message }),
+          toast.error(t("panel.errorUpdateTitle"), { description: err.message }),
       }
     );
-  }, [task, selectedTaskId, titleValue, displayTitle, updateTask]);
+  }, [task, selectedTaskId, titleValue, displayTitle, updateTask, t]);
 
   const handleStatusChange = useCallback(
     (newStatus: string) => {
@@ -322,13 +344,13 @@ export function TaskDetailPanel() {
         { id: selectedTaskId, data: { status: newStatus as TaskStatus } },
         {
           onError: (err) =>
-            toast.error("Failed to update status", {
+            toast.error(t("panel.errorUpdateStatus"), {
               description: err.message,
             }),
         }
       );
     },
-    [selectedTaskId, updateTask]
+    [selectedTaskId, updateTask, t]
   );
 
   const handleTaskTypeChange = useCallback(
@@ -345,13 +367,13 @@ export function TaskDetailPanel() {
         },
         {
           onError: (err) =>
-            toast.error("Failed to update type", {
+            toast.error(t("panel.errorUpdateType"), {
               description: err.message,
             }),
         }
       );
     },
-    [selectedTaskId, taskTypes, task, updateTask]
+    [selectedTaskId, taskTypes, task, updateTask, t]
   );
 
   const handleRemoveTeamMember = useCallback(
@@ -362,13 +384,13 @@ export function TaskDetailPanel() {
         { id: selectedTaskId, data: { teamMemberIds: newIds } },
         {
           onError: (err) =>
-            toast.error("Failed to remove member", {
+            toast.error(t("panel.errorRemoveMember"), {
               description: err.message,
             }),
         }
       );
     },
-    [selectedTaskId, task, updateTask]
+    [selectedTaskId, task, updateTask, t]
   );
 
   const handleAddTeamMember = useCallback(
@@ -379,14 +401,14 @@ export function TaskDetailPanel() {
         { id: selectedTaskId, data: { teamMemberIds: newIds } },
         {
           onError: (err) =>
-            toast.error("Failed to add member", {
+            toast.error(t("panel.errorAddMember"), {
               description: err.message,
             }),
         }
       );
       setShowTeamAdd(false);
     },
-    [selectedTaskId, task, updateTask]
+    [selectedTaskId, task, updateTask, t]
   );
 
   const handleStartDateChange = useCallback(
@@ -397,13 +419,13 @@ export function TaskDetailPanel() {
         { id: selectedTaskId, data: { startDate: newStart } },
         {
           onError: (err) =>
-            toast.error("Failed to update start date", {
+            toast.error(t("panel.errorUpdateStartDate"), {
               description: err.message,
             }),
         }
       );
     },
-    [selectedTaskId, updateTask]
+    [selectedTaskId, updateTask, t]
   );
 
   const handleEndDateChange = useCallback(
@@ -414,13 +436,13 @@ export function TaskDetailPanel() {
         { id: selectedTaskId, data: { endDate: newEnd } },
         {
           onError: (err) =>
-            toast.error("Failed to update end date", {
+            toast.error(t("panel.errorUpdateEndDate"), {
               description: err.message,
             }),
         }
       );
     },
-    [selectedTaskId, updateTask]
+    [selectedTaskId, updateTask, t]
   );
 
   // Phase 3 — All-day toggle + time inputs
@@ -438,13 +460,13 @@ export function TaskDetailPanel() {
         { id: selectedTaskId, data: patch },
         {
           onError: (err) =>
-            toast.error("Failed to update all-day", {
+            toast.error(t("panel.errorUpdateAllDay"), {
               description: err.message,
             }),
         }
       );
     },
-    [selectedTaskId, task, company, updateTask]
+    [selectedTaskId, task, company, updateTask, t]
   );
 
   const handleStartTimeChange = useCallback(
@@ -456,13 +478,13 @@ export function TaskDetailPanel() {
         { id: selectedTaskId, data: { startTime: next } },
         {
           onError: (err) =>
-            toast.error("Failed to update start time", {
+            toast.error(t("panel.errorUpdateStartTime"), {
               description: err.message,
             }),
         }
       );
     },
-    [selectedTaskId, updateTask]
+    [selectedTaskId, updateTask, t]
   );
 
   const handleEndTimeChange = useCallback(
@@ -473,13 +495,13 @@ export function TaskDetailPanel() {
         { id: selectedTaskId, data: { endTime: next } },
         {
           onError: (err) =>
-            toast.error("Failed to update end time", {
+            toast.error(t("panel.errorUpdateEndTime"), {
               description: err.message,
             }),
         }
       );
     },
-    [selectedTaskId, updateTask]
+    [selectedTaskId, updateTask, t]
   );
 
   const handleNotesBlur = useCallback(() => {
@@ -489,10 +511,10 @@ export function TaskDetailPanel() {
       { id: selectedTaskId, data: { taskNotes: notesValue || null } },
       {
         onError: (err) =>
-          toast.error("Failed to update notes", { description: err.message }),
+          toast.error(t("panel.errorUpdateNotes"), { description: err.message }),
       }
     );
-  }, [selectedTaskId, notesValue, task, updateTask]);
+  }, [selectedTaskId, notesValue, task, updateTask, t]);
 
   // ─── Phase 3 — Repeat handling ───────────────────────────────────────────
 
@@ -512,7 +534,7 @@ export function TaskDetailPanel() {
       if (!task.recurrenceId) {
         if (!nextRrule) return; // Off → still off, no-op
         if (!startAnchor) {
-          toast.error("Set a start date before enabling recurrence");
+          toast.error(t("panel.errorSetStartDate"));
           return;
         }
         try {
@@ -539,23 +561,24 @@ export function TaskDetailPanel() {
             { id: selectedTaskId, projectId: task.projectId },
             {
               onSuccess: () => {
-                toast.success("// SERIES CREATED", {
-                  description: "Generating occurrences…",
+                toast.success(t("panel.seriesCreated"), {
+                  description: t("panel.seriesCreatedDescription"),
                 });
                 closeSidePanel();
               },
             }
           );
         } catch (err) {
-          const message = err instanceof Error ? err.message : "Unknown error";
-          toast.error("Failed to create series", { description: message });
+          const message =
+            err instanceof Error ? err.message : t("panel.unknownError");
+          toast.error(t("panel.errorCreateSeries"), { description: message });
         }
         return;
       }
 
       // ── Case B: already a series, user is editing the rule
       if (!recurrence) {
-        toast.error("Recurrence template not loaded yet — try again");
+        toast.error(t("panel.errorTemplateNotLoaded"));
         return;
       }
 
@@ -569,26 +592,24 @@ export function TaskDetailPanel() {
               endAnchor: task.recurrenceOriginDate ?? startAnchor ?? undefined,
             },
           });
-          toast.success("// SERIES STOPPED");
+          toast.success(t("panel.seriesStopped"));
         } catch (err) {
-          const message = err instanceof Error ? err.message : "Unknown error";
-          toast.error("Failed to stop series", { description: message });
+          const message =
+            err instanceof Error ? err.message : t("panel.unknownError");
+          toast.error(t("panel.errorStopSeries"), { description: message });
         }
         return;
       }
 
       // Editing the rule itself — prompt for scope, then patch the template.
       const scope = await recurrencePrompt.request({
-        title: "// CHANGE REPEAT RULE",
-        description:
-          "This task is part of a series. Choose how widely to apply the new rule.",
+        title: t("panel.changeRepeatRuleTitle"),
+        description: t("panel.changeRepeatRuleDescription"),
       });
       if (!scope) return;
 
       if (scope === "this") {
-        toast.error(
-          "Cannot change the repeat rule for a single occurrence. Use Following or All."
-        );
+        toast.error(t("panel.errorSingleOccurrenceRule"));
         return;
       }
 
@@ -598,14 +619,14 @@ export function TaskDetailPanel() {
             id: recurrence.id,
             patch: { rrule: nextRrule },
           });
-          toast.success("// SERIES UPDATED");
+          toast.success(t("panel.seriesUpdated"));
         } else {
           // this_and_following — cap original at originalDate-1, fork a new
           // template starting at originalDate with the new rule.
           const originalDate =
             task.recurrenceOriginDate ?? startAnchor ?? null;
           if (!originalDate) {
-            toast.error("Missing recurrence anchor — cannot split series");
+            toast.error(t("panel.errorMissingAnchor"));
             return;
           }
           const splitDate = new Date(`${originalDate}T00:00:00Z`);
@@ -634,11 +655,12 @@ export function TaskDetailPanel() {
             notes: recurrence.notes,
             createdBy: currentUser?.id ?? null,
           });
-          toast.success("// SERIES SPLIT");
+          toast.success(t("panel.seriesSplit"));
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        toast.error("Failed to update series", { description: message });
+        const message =
+          err instanceof Error ? err.message : t("panel.unknownError");
+        toast.error(t("panel.errorUpdateSeries"), { description: message });
       }
     },
     [
@@ -652,6 +674,7 @@ export function TaskDetailPanel() {
       deleteTask,
       recurrencePrompt,
       closeSidePanel,
+      t,
     ]
   );
 
@@ -669,16 +692,18 @@ export function TaskDetailPanel() {
         {
           onSuccess: () =>
             toast.success(
-              `Pushed ${days === 1 ? "+1 day" : `+${days} days`}`
+              days === 1
+                ? t("panel.pushedOneDay")
+                : t("panel.pushedDays", { days })
             ),
           onError: (err) =>
-            toast.error("Failed to push task", {
+            toast.error(t("panel.errorPushTask"), {
               description: err.message,
             }),
         }
       );
     },
-    [task, selectedTaskId, taskTypes, updateTask]
+    [task, selectedTaskId, taskTypes, updateTask, t]
   );
 
   const handleCascade = useCallback(() => {
@@ -717,10 +742,13 @@ export function TaskDetailPanel() {
       });
     }
 
+    const movedCount = cascadeResult.changes.length + 1;
     toast.success(
-      `Cascaded: ${cascadeResult.changes.length + 1} task${cascadeResult.changes.length > 0 ? "s" : ""} moved`
+      cascadeResult.changes.length > 0
+        ? t("panel.cascadedPlural", { count: movedCount })
+        : t("panel.cascaded", { count: movedCount })
     );
-  }, [task, selectedTaskId, taskTypes, projectTasks, updateTask]);
+  }, [task, selectedTaskId, taskTypes, projectTasks, updateTask, t]);
 
   const handleDelete = useCallback(() => {
     if (!selectedTaskId || !task) return;
@@ -731,14 +759,14 @@ export function TaskDetailPanel() {
       },
       {
         onSuccess: () => {
-          toast.success("Task deleted");
+          toast.success(t("panel.taskDeleted"));
           closeSidePanel();
         },
         onError: (err) =>
-          toast.error("Failed to delete task", { description: err.message }),
+          toast.error(t("panel.errorDeleteTask"), { description: err.message }),
       }
     );
-  }, [selectedTaskId, task, deleteTask, closeSidePanel]);
+  }, [selectedTaskId, task, deleteTask, closeSidePanel, t]);
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -755,7 +783,7 @@ export function TaskDetailPanel() {
     <SidePanelShell
       isOpen={isOpen}
       onClose={closeSidePanel}
-      title="Task Detail"
+      title={t("panel.taskDetailTitle")}
     >
       <div className="flex flex-col h-full">
         {/* Scrollable content */}
@@ -808,7 +836,7 @@ export function TaskDetailPanel() {
                   border: `1px solid ${taskColor}40`,
                 }}
               >
-                {cleanPanelLabel(taskType?.display) ?? "Unmapped type"}
+                {cleanPanelLabel(taskType?.display) ?? t("panel.unmappedType")}
               </span>
             )}
           </div>
@@ -818,11 +846,12 @@ export function TaskDetailPanel() {
             className="px-[16px] py-[12px]"
             style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
           >
-            <SectionLabel>STATUS</SectionLabel>
+            <SectionLabel>{t("panel.sectionStatus")}</SectionLabel>
             <DarkSelect
               value={task?.status ?? TaskStatus.Booked}
               onChange={handleStatusChange}
-              options={STATUS_OPTIONS}
+              options={statusOptions}
+              unmappedLabel={t("panel.unmappedType")}
             />
           </div>
 
@@ -831,11 +860,12 @@ export function TaskDetailPanel() {
             className="px-[16px] py-[12px]"
             style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
           >
-            <SectionLabel>TYPE</SectionLabel>
+            <SectionLabel>{t("panel.sectionType")}</SectionLabel>
             <DarkSelect
               value={task?.taskTypeId ?? ""}
               onChange={handleTaskTypeChange}
               options={taskTypeOptions}
+              unmappedLabel={t("panel.unmappedType")}
             />
           </div>
 
@@ -844,18 +874,19 @@ export function TaskDetailPanel() {
             className="px-[16px] py-[12px]"
             style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
           >
-            <SectionLabel>TEAM</SectionLabel>
+            <SectionLabel>{t("panel.sectionTeam")}</SectionLabel>
             <div className="flex flex-wrap gap-[6px] items-center">
               {teamMembers.map((member) => (
                 <TeamPill
                   key={member.id}
                   member={member}
                   onRemove={() => handleRemoveTeamMember(member.id)}
+                  t={t}
                 />
               ))}
               {teamMembers.length === 0 && !showTeamAdd && (
                 <span className="font-mono text-micro uppercase text-[var(--text-3)]">
-                  No team assigned
+                  {t("panel.noTeamAssigned")}
                 </span>
               )}
               <div className="relative">
@@ -867,7 +898,7 @@ export function TaskDetailPanel() {
                   }}
                 >
                   <Plus className="w-[10px] h-[10px]" />
-                  ADD
+                  {t("panel.add")}
                 </button>
                 {showTeamAdd && availableTeamMembers.length > 0 && (
                   <div
@@ -898,7 +929,7 @@ export function TaskDetailPanel() {
             className="px-[16px] py-[12px]"
             style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
           >
-            <SectionLabel>SCHEDULE</SectionLabel>
+            <SectionLabel>{t("panel.sectionSchedule")}</SectionLabel>
             <div className="space-y-[8px]">
               {/* Date range */}
               <div className="flex items-center gap-[8px]">
@@ -939,7 +970,7 @@ export function TaskDetailPanel() {
                   className="font-mono text-micro uppercase tracking-[0.08em]"
                   style={{ color: "var(--text-mute)" }}
                 >
-                  {"// ALL-DAY"}
+                  {t("panel.allDay")}
                 </span>
                 <div className="ml-auto flex items-center" role="group">
                   <button
@@ -958,7 +989,7 @@ export function TaskDetailPanel() {
                       borderRadius: "5px 0 0 5px",
                     }}
                   >
-                    ON
+                    {t("panel.on")}
                   </button>
                   <button
                     type="button"
@@ -977,7 +1008,7 @@ export function TaskDetailPanel() {
                       borderRadius: "0 5px 5px 0",
                     }}
                   >
-                    OFF
+                    {t("panel.off")}
                   </button>
                 </div>
               </div>
@@ -991,7 +1022,7 @@ export function TaskDetailPanel() {
                       color: task?.allDay ? "var(--text-mute)" : "var(--text-3)",
                     }}
                   >
-                    {"// START"}
+                    {t("panel.start")}
                   </span>
                   <input
                     type="time"
@@ -1029,7 +1060,7 @@ export function TaskDetailPanel() {
                       color: task?.allDay ? "var(--text-mute)" : "var(--text-3)",
                     }}
                   >
-                    {"// END"}
+                    {t("panel.end")}
                   </span>
                   <input
                     type="time"
@@ -1058,7 +1089,7 @@ export function TaskDetailPanel() {
 
               {durationLabel && (
                 <span className="font-mono text-micro uppercase text-[var(--text-3)]">
-                  Duration: {durationLabel}
+                  {t("panel.duration", { label: durationLabel })}
                 </span>
               )}
             </div>
@@ -1069,7 +1100,7 @@ export function TaskDetailPanel() {
             className="px-[16px] py-[12px]"
             style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
           >
-            <SectionLabel>REPEAT</SectionLabel>
+            <SectionLabel>{t("panel.sectionRepeat")}</SectionLabel>
             {startDate ? (
               <RepeatPicker
                 anchor={startDate}
@@ -1082,7 +1113,7 @@ export function TaskDetailPanel() {
               />
             ) : (
               <span className="font-mono text-micro uppercase text-[var(--text-3)]">
-                Set a start date to enable repeat
+                {t("panel.setStartDateForRepeat")}
               </span>
             )}
             {task?.recurrenceId && task.recurrenceOriginDate && (
@@ -1090,7 +1121,9 @@ export function TaskDetailPanel() {
                 className="block mt-[6px] font-mono text-micro uppercase tracking-[0.16em]"
                 style={{ color: "var(--text-mute)" }}
               >
-                {`// PART OF SERIES — ORIGIN ${task.recurrenceOriginDate}`}
+                {t("panel.partOfSeries", {
+                  origin: task.recurrenceOriginDate,
+                })}
               </span>
             )}
           </div>
@@ -1100,11 +1133,11 @@ export function TaskDetailPanel() {
             className="px-[16px] py-[12px]"
             style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
           >
-            <SectionLabel>DEPENDENCIES</SectionLabel>
+            <SectionLabel>{t("panel.sectionDependencies")}</SectionLabel>
             {dependencies.predecessors.length === 0 &&
             dependencies.successors.length === 0 ? (
               <span className="font-mono text-micro uppercase text-[var(--text-3)]">
-                None
+                {t("panel.none")}
               </span>
             ) : (
               <div className="space-y-[4px]">
@@ -1145,7 +1178,7 @@ export function TaskDetailPanel() {
               className="px-[16px] py-[12px]"
               style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
             >
-              <SectionLabel>MATERIALS</SectionLabel>
+              <SectionLabel>{t("panel.sectionMaterials")}</SectionLabel>
               <TaskMaterialsSection
                 taskId={selectedTaskId}
                 inventoryDeducted={task.inventoryDeducted ?? false}
@@ -1158,7 +1191,7 @@ export function TaskDetailPanel() {
             className="px-[16px] py-[12px]"
             style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
           >
-            <SectionLabel>NOTES</SectionLabel>
+            <SectionLabel>{t("panel.sectionNotes")}</SectionLabel>
             <textarea
               value={
                 editingNotes ? notesValue : task?.taskNotes ?? ""
@@ -1170,7 +1203,7 @@ export function TaskDetailPanel() {
               onChange={(e) => setNotesValue(e.target.value)}
               onBlur={handleNotesBlur}
               rows={3}
-              placeholder="Add notes..."
+              placeholder={t("panel.addNotesPlaceholder")}
               className="w-full px-[8px] py-[6px] rounded-panel text-[12px] text-white placeholder-[var(--text-mute)] outline-none resize-none"
               style={{
                 backgroundColor: "#141414",
@@ -1201,7 +1234,7 @@ export function TaskDetailPanel() {
                 border: "1px solid rgba(255,255,255,0.10)",
               }}
             >
-              Push +1
+              {t("panel.pushOne")}
             </button>
             <button
               onClick={() => handlePush(7)}
@@ -1211,7 +1244,7 @@ export function TaskDetailPanel() {
                 border: "1px solid rgba(255,255,255,0.10)",
               }}
             >
-              Push +1 Week
+              {t("panel.pushOneWeek")}
             </button>
             <button
               onClick={handleCascade}
@@ -1222,7 +1255,7 @@ export function TaskDetailPanel() {
               }}
             >
               <Zap className="w-[10px] h-[10px]" />
-              Cascade
+              {t("panel.cascade")}
             </button>
           </div>
 
@@ -1230,21 +1263,23 @@ export function TaskDetailPanel() {
           {showDeleteConfirm ? (
             <div className="flex items-center gap-[8px]">
               <span className="font-mono text-micro uppercase text-red-400">
-                Are you sure?
+                {t("panel.areYouSure")}
               </span>
               <button
                 onClick={handleDelete}
                 disabled={deleteTask.isPending}
                 className="px-[10px] py-[4px] rounded-panel font-mono text-micro uppercase text-white bg-red-600 hover:bg-red-500 transition-colors disabled:opacity-50"
               >
-                {deleteTask.isPending ? "Deleting..." : "Yes, Delete"}
+                {deleteTask.isPending
+                  ? t("panel.deleting")
+                  : t("panel.yesDelete")}
               </button>
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="px-[10px] py-[4px] rounded-panel font-mono text-micro uppercase text-[var(--text-3)] hover:text-white transition-colors"
                 style={{ border: "1px solid rgba(255,255,255,0.10)" }}
               >
-                Cancel
+                {t("panel.cancel")}
               </button>
             </div>
           ) : (
@@ -1253,7 +1288,7 @@ export function TaskDetailPanel() {
               className="w-full text-left font-mono text-micro uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-[4px] py-[4px]"
             >
               <Trash2 className="w-[12px] h-[12px]" />
-              Delete Task
+              {t("panel.deleteTask")}
             </button>
           )}
         </div>

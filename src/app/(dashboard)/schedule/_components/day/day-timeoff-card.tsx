@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { useScheduleStore } from "@/stores/schedule-store";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { useDictionary } from "@/i18n/client";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ export function DayTimeOffCard({
   const [isHovered, setIsHovered] = useState(false);
   const setSidePanelTask = useScheduleStore((s) => s.setSidePanelTask);
   const reducedMotion = useReducedMotion();
+  const { t } = useDictionary("schedule");
 
   // ── Date formatting ───────────────────────────────────────────────────
 
@@ -87,7 +89,7 @@ export function DayTimeOffCard({
           className="font-cakemono font-light text-[15px] uppercase truncate leading-tight"
           style={{ color: "#FFFFFF" }}
         >
-          TIME OFF REQUEST
+          {t("grid.timeOffRequest")}
         </span>
 
         {/* Status badge */}

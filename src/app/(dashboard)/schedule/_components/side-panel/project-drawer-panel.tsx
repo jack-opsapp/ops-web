@@ -21,6 +21,7 @@ import {
 } from "@/lib/types/models";
 import type { ProjectTask, TaskType } from "@/lib/types/models";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useDictionary } from "@/i18n/client";
 import { SidePanelShell } from "./side-panel-shell";
 
 // ─── Date Range Formatter ──────────────────────────────────────────────────
@@ -55,10 +56,12 @@ function DrawerTaskCard({
   task,
   taskTypes,
   showConnector,
+  t,
 }: {
   task: ProjectTask;
   taskTypes: TaskType[];
   showConnector: boolean;
+  t: (key: string) => string;
 }) {
   const taskType =
     taskTypes.find((tt) => tt.id === task.taskTypeId) ?? task.taskType ?? null;
@@ -150,7 +153,7 @@ function DrawerTaskCard({
               style={{ color: "var(--text-3)", lineHeight: "1.4" }}
             >
               <Ban className="w-[9px] h-[9px]" style={{ color: "var(--text-mute)" }} />
-              Not scheduled
+              {t("drawer.notScheduled")}
             </span>
           )}
         </div>
@@ -165,6 +168,7 @@ export function ProjectDrawerPanel() {
   const { sidePanelMode, sidePanelProjectId, closeSidePanel } =
     useScheduleStore();
   const { company } = useAuthStore();
+  const { t } = useDictionary("schedule");
 
   const isOpen = sidePanelMode === "project-drawer" && !!sidePanelProjectId;
 
@@ -259,7 +263,7 @@ export function ProjectDrawerPanel() {
     <SidePanelShell
       isOpen={isOpen}
       onClose={closeSidePanel}
-      title={project?.title ?? "Project"}
+      title={project?.title ?? t("drawer.projectFallback")}
     >
       <div className="flex flex-col h-full">
         {/* ── Project Header ────────────────────────────────────── */}
@@ -314,7 +318,7 @@ export function ProjectDrawerPanel() {
               lineHeight: "1.4",
             }}
           >
-            TASKS ({sortedTasks.length})
+            {t("drawer.tasksCount", { count: sortedTasks.length })}
           </p>
 
           {/* Task cards */}
@@ -325,6 +329,7 @@ export function ProjectDrawerPanel() {
                 task={task}
                 taskTypes={taskTypes}
                 showConnector={taskConnectors.get(task.id) ?? false}
+                t={t}
               />
             ))}
 
@@ -334,7 +339,7 @@ export function ProjectDrawerPanel() {
                   className="font-mono text-[11px] text-left"
                   style={{ color: "var(--text-mute)" }}
                 >
-                  No tasks yet
+                  {t("drawer.noTasks")}
                 </p>
               </div>
             )}
@@ -366,7 +371,7 @@ export function ProjectDrawerPanel() {
             }}
           >
             <Zap className="w-[12px] h-[12px]" />
-            AUTO-SCHEDULE
+            {t("drawer.autoSchedule")}
           </button>
 
           {/* Add task button / inline form */}
@@ -383,7 +388,7 @@ export function ProjectDrawerPanel() {
                     setNewTaskTitle("");
                   }
                 }}
-                placeholder="Task name..."
+                placeholder={t("drawer.taskNamePlaceholder")}
                 autoFocus
                 className="w-full px-[10px] py-[6px] rounded-panel font-mono text-[11px] text-white placeholder:text-[var(--text-mute)] focus:outline-none"
                 style={{
@@ -401,7 +406,7 @@ export function ProjectDrawerPanel() {
                     border: "1px solid rgba(255,255,255,0.10)",
                   }}
                 >
-                  {createTask.isPending ? "ADDING..." : "ADD"}
+                  {createTask.isPending ? t("drawer.adding") : t("drawer.add")}
                 </button>
                 <button
                   onClick={() => {
@@ -414,7 +419,7 @@ export function ProjectDrawerPanel() {
                     border: "1px solid rgba(255,255,255,0.08)",
                   }}
                 >
-                  CANCEL
+                  {t("drawer.cancel")}
                 </button>
               </div>
             </div>
@@ -441,7 +446,7 @@ export function ProjectDrawerPanel() {
               }}
             >
               <Plus className="w-[12px] h-[12px]" />
-              ADD TASK
+              {t("drawer.addTask")}
             </button>
           )}
         </div>

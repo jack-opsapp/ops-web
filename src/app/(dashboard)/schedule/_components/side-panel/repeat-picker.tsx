@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, getDate } from "date-fns";
 import { RRule, Frequency, Weekday } from "rrule";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Presets ────────────────────────────────────────────────────────────────
 
@@ -32,27 +33,30 @@ interface PresetOption {
   label: string;
 }
 
-function buildPresetOptions(anchor: Date): PresetOption[] {
+function buildPresetOptions(
+  anchor: Date,
+  t: (key: string, params?: Record<string, unknown>) => string,
+): PresetOption[] {
   const weekdayName = format(anchor, "EEEE").toUpperCase();
   const dayOfMonth = getDate(anchor);
   return [
-    { value: "off", label: "// OFF" },
-    { value: "daily", label: "// DAILY" },
-    { value: "weekly", label: `// WEEKLY ON ${weekdayName}` },
-    { value: "biweekly", label: `// BIWEEKLY ON ${weekdayName}` },
-    { value: "monthly", label: `// MONTHLY ON DAY ${dayOfMonth}` },
-    { value: "custom", label: "// CUSTOM" },
+    { value: "off", label: t("repeat.off") },
+    { value: "daily", label: t("repeat.daily") },
+    { value: "weekly", label: t("repeat.weekly", { day: weekdayName }) },
+    { value: "biweekly", label: t("repeat.biweekly", { day: weekdayName }) },
+    { value: "monthly", label: t("repeat.monthly", { day: dayOfMonth }) },
+    { value: "custom", label: t("repeat.custom") },
   ];
 }
 
-const RRULE_DAYS: { code: string; label: string; rrule: Weekday }[] = [
-  { code: "MO", label: "MON", rrule: RRule.MO },
-  { code: "TU", label: "TUE", rrule: RRule.TU },
-  { code: "WE", label: "WED", rrule: RRule.WE },
-  { code: "TH", label: "THU", rrule: RRule.TH },
-  { code: "FR", label: "FRI", rrule: RRule.FR },
-  { code: "SA", label: "SAT", rrule: RRule.SA },
-  { code: "SU", label: "SUN", rrule: RRule.SU },
+const RRULE_DAYS: { code: string; labelKey: string; rrule: Weekday }[] = [
+  { code: "MO", labelKey: "repeat.day.mon", rrule: RRule.MO },
+  { code: "TU", labelKey: "repeat.day.tue", rrule: RRule.TU },
+  { code: "WE", labelKey: "repeat.day.wed", rrule: RRule.WE },
+  { code: "TH", labelKey: "repeat.day.thu", rrule: RRule.TH },
+  { code: "FR", labelKey: "repeat.day.fri", rrule: RRule.FR },
+  { code: "SA", labelKey: "repeat.day.sat", rrule: RRule.SA },
+  { code: "SU", labelKey: "repeat.day.sun", rrule: RRule.SU },
 ];
 
 function jsDayToCode(d: Date): string {
@@ -246,7 +250,11 @@ export function RepeatPicker({
   onChange,
   disabled = false,
 }: RepeatPickerProps) {
-  const presetOptions = useMemo(() => buildPresetOptions(anchor), [anchor]);
+  const { t } = useDictionary("schedule");
+  const presetOptions = useMemo(
+    () => buildPresetOptions(anchor, t),
+    [anchor, t]
+  );
   const detectedPreset = useMemo(
     () => rruleToPreset(value, anchor),
     [value, anchor]
@@ -339,7 +347,7 @@ export function RepeatPicker({
               className="font-mono text-micro uppercase tracking-[0.16em]"
               style={{ color: "var(--text-3)" }}
             >
-              EVERY
+              {t("repeat.every")}
             </span>
             <input
               type="number"
@@ -375,10 +383,10 @@ export function RepeatPicker({
                 colorScheme: "dark",
               }}
             >
-              <option value={Frequency.DAILY}>DAY(S)</option>
-              <option value={Frequency.WEEKLY}>WEEK(S)</option>
-              <option value={Frequency.MONTHLY}>MONTH(S)</option>
-              <option value={Frequency.YEARLY}>YEAR(S)</option>
+              <option value={Frequency.DAILY}>{t("repeat.days")}</option>
+              <option value={Frequency.WEEKLY}>{t("repeat.weeks")}</option>
+              <option value={Frequency.MONTHLY}>{t("repeat.months")}</option>
+              <option value={Frequency.YEARLY}>{t("repeat.years")}</option>
             </select>
           </div>
 
@@ -389,7 +397,7 @@ export function RepeatPicker({
                 className="font-mono text-micro uppercase tracking-[0.16em]"
                 style={{ color: "var(--text-3)" }}
               >
-                ON
+                {t("repeat.on")}
               </span>
               <div className="flex gap-[4px] flex-wrap">
                 {RRULE_DAYS.map((d) => {
@@ -410,7 +418,7 @@ export function RepeatPicker({
                           : "1px solid var(--line)",
                       }}
                     >
-                      {d.label}
+                      {t(d.labelKey)}
                     </button>
                   );
                 })}
@@ -425,7 +433,7 @@ export function RepeatPicker({
                 className="font-mono text-micro uppercase tracking-[0.16em]"
                 style={{ color: "var(--text-3)" }}
               >
-                ON DAY
+                {t("repeat.onDay")}
               </span>
               <input
                 type="number"
@@ -458,7 +466,7 @@ export function RepeatPicker({
               className="font-mono text-micro uppercase tracking-[0.16em]"
               style={{ color: "var(--text-3)" }}
             >
-              ENDS
+              {t("repeat.ends")}
             </span>
             <div className="flex gap-[4px] flex-wrap">
               {(["never", "until", "count"] as const).map((mode) => {
@@ -482,10 +490,10 @@ export function RepeatPicker({
                     }}
                   >
                     {mode === "never"
-                      ? "NEVER"
+                      ? t("repeat.never")
                       : mode === "until"
-                        ? "ON DATE"
-                        : "AFTER N"}
+                        ? t("repeat.onDate")
+                        : t("repeat.afterN")}
                   </button>
                 );
               })}
@@ -530,7 +538,7 @@ export function RepeatPicker({
                   className="font-mono text-micro uppercase tracking-[0.16em]"
                   style={{ color: "var(--text-3)" }}
                 >
-                  OCCURRENCES
+                  {t("repeat.occurrences")}
                 </span>
               </div>
             )}
@@ -550,7 +558,7 @@ export function RepeatPicker({
               opacity: disabled ? 0.5 : 1,
             }}
           >
-            APPLY CUSTOM
+            {t("repeat.applyCustom")}
           </button>
         </div>
       )}

@@ -216,7 +216,7 @@ export function ScheduleGridDay({
                   className="font-mono text-[12px] uppercase tracking-[0.16em]"
                   style={{ color: "rgba(255, 255, 255, 0.30)" }}
                 >
-                  NO TASKS SCHEDULED
+                  {t("grid.noTasksScheduled")}
                 </span>
               </div>
             ) : (

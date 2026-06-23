@@ -38,6 +38,7 @@ import {
 } from "@/lib/utils/schedule-utils";
 import { useTeamMembers } from "@/lib/hooks";
 import { UserAvatar } from "@/components/ops/user-avatar";
+import { useDictionary } from "@/i18n/client";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,7 @@ interface TimedBlockProps {
     edge: "top" | "bottom",
     deltaMinutes: number
   ) => void;
+  t: (key: string) => string;
 }
 
 function TimedBlock({
@@ -73,6 +75,7 @@ function TimedBlock({
   totalColumns,
   onClick,
   onResize,
+  t,
 }: TimedBlockProps) {
   const { data: teamData } = useTeamMembers();
   const allUsers = teamData?.users ?? [];
@@ -236,7 +239,7 @@ function TimedBlock({
           className="absolute left-0 right-0 top-0 z-10"
           style={{ height: 6, cursor: "ns-resize" }}
           onPointerDown={(e) => e.stopPropagation()}
-          aria-label="Resize event start"
+          aria-label={t("grid.resizeEventStart")}
           role="separator"
         />
       )}
@@ -248,7 +251,7 @@ function TimedBlock({
           className="absolute left-0 right-0 bottom-0 z-10"
           style={{ height: 6, cursor: "ns-resize" }}
           onPointerDown={(e) => e.stopPropagation()}
-          aria-label="Resize event end"
+          aria-label={t("grid.resizeEventEnd")}
           role="separator"
         />
       )}
@@ -353,6 +356,7 @@ export function DayHourlyGrid({
   // Hourly resize delegates to the shell-hoisted commitResize so we don't
   // mount yet another RecurrenceEditPrompt instance per day panel.
   const { commitResize } = useScheduleResizeContext();
+  const { t } = useDictionary("schedule");
 
   const allDay = events.filter((e) => e.allDay);
   const timed = events.filter((e) => !e.allDay);
@@ -383,8 +387,11 @@ export function DayHourlyGrid({
       const endHourFloat =
         newEnd.getHours() + newEnd.getMinutes() / 60;
       if (startHourFloat < FIRST_HOUR || endHourFloat > LAST_HOUR) {
-        toast.error("Cannot resize outside business hours", {
-          description: `Event must stay between ${FIRST_HOUR}:00 and ${LAST_HOUR}:00.`,
+        toast.error(t("grid.errorResizeOutsideHours"), {
+          description: t("grid.errorResizeOutsideHoursDescription", {
+            first: FIRST_HOUR,
+            last: LAST_HOUR,
+          }),
         });
         return;
       }
@@ -395,7 +402,7 @@ export function DayHourlyGrid({
         endTime: `${formatTimeHHmm(newEnd)}:00`,
       });
     },
-    [commitResize]
+    [commitResize, t]
   );
 
   // Empty state
@@ -406,7 +413,7 @@ export function DayHourlyGrid({
           className="font-mono text-[12px] uppercase tracking-[0.16em]"
           style={{ color: "rgba(255, 255, 255, 0.30)" }}
         >
-          NO TASKS SCHEDULED
+          {t("grid.noTasksScheduled")}
         </span>
       </div>
     );
@@ -481,6 +488,7 @@ export function DayHourlyGrid({
                 totalColumns={totalColumns}
                 onClick={onEventClick}
                 onResize={handleResize}
+                t={t}
               />
             ))}
           </div>
