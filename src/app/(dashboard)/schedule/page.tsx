@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import {
@@ -56,6 +57,16 @@ import { ScheduleDndShell } from "./_components/schedule-dnd-shell";
 import { TaskDetailPanel } from "./_components/side-panel/task-detail-panel";
 import { ProjectDrawerPanel } from "./_components/side-panel/project-drawer-panel";
 
+// Parse a notification deep-link date (`YYYY-MM-DD`) as a LOCAL calendar date.
+// `new Date("2026-06-22")` parses as UTC midnight and can shift a day in the
+// operator's timezone, so construct the date from its parts instead.
+function parseDeepLinkDate(value: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!m) return null;
+  const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 export default function SchedulePage() {
   usePageTitle("Schedule");
   const { t } = useDictionary("schedule");
@@ -64,6 +75,7 @@ export default function SchedulePage() {
     view,
     setView,
     setCurrentDate,
+    setSidePanelTask,
     filterTaskTypes,
     filterTeamMemberIds,
     filterProjectIds,
@@ -73,6 +85,8 @@ export default function SchedulePage() {
   } = useScheduleStore();
 
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Keyboard shortcuts (replaces inline handler)
   useSchedulerShortcuts();
@@ -80,6 +94,22 @@ export default function SchedulePage() {
   useEffect(() => {
     trackScreenView("schedule");
   }, []);
+
+  // Consume notification / cron deep-links: `/schedule?date=YYYY-MM-DD&task=<id>`
+  // (the recurrence-generate cron emits these, and stored `/calendar?date=&task=`
+  // rows redirect here). Jump to the date and open that task's detail panel, then
+  // strip the params so a refresh / re-render never re-triggers the open.
+  useEffect(() => {
+    const dateParam = searchParams.get("date");
+    const taskParam = searchParams.get("task");
+    if (!dateParam && !taskParam) return;
+    if (dateParam) {
+      const parsed = parseDeepLinkDate(dateParam);
+      if (parsed) setCurrentDate(parsed);
+    }
+    if (taskParam) setSidePanelTask(taskParam);
+    router.replace("/schedule", { scroll: false });
+  }, [searchParams, setCurrentDate, setSidePanelTask, router]);
 
   // ── Realtime sync (bug 71308894) ────────────────────────────────────────
   //
