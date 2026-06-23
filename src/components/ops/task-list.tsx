@@ -18,6 +18,7 @@ import { UserAvatar } from "@/components/ops/user-avatar";
 import { UnscheduledBadge, UnassignedBadge } from "@/components/ops/task-badge";
 import { PermissionGate } from "@/components/ops/permission-gate";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { TaskForm, type TaskFormValues } from "@/components/ops/task-form";
 import {
   Popover,
@@ -65,7 +66,6 @@ import {
   type User,
   TaskStatus,
   TASK_STATUS_COLORS,
-  UserRole,
   getTaskDisplayTitle,
   getUserFullName,
 } from "@/lib/types/models";
@@ -359,6 +359,7 @@ function TaskListSkeleton() {
 function TaskList({ projectId, companyId, className }: TaskListProps) {
   const { t } = useDictionary("projects");
   const canCreateTask = usePermissionStore((s) => s.can("tasks.create"));
+  const company = useAuthStore((s) => s.company);
 
   // ── State ─────────────────────────────────────────────────────
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -418,13 +419,16 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
     for (const task of activeTasks) {
       for (const id of task.teamMemberIds) assignedIds.add(id);
     }
+    // Company managers (admin_ids ∪ account_holder) are assignable to any
+    // project's task even if not already assigned — keyed off the authoritative
+    // management list, never a role NAME (root CLAUDE.md).
     return teamMembers.filter(
       (m) =>
         assignedIds.has(m.id) ||
-        m.role === UserRole.Admin ||
-        m.role === UserRole.Owner
+        (company?.adminIds?.includes(m.id) ?? false) ||
+        m.id === company?.accountHolderId
     );
-  }, [teamMembers, activeTasks]);
+  }, [teamMembers, activeTasks, company?.adminIds, company?.accountHolderId]);
 
   const sortedTasks = useMemo(() => {
     return [...activeTasks].sort((a, b) => {
