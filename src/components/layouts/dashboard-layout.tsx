@@ -13,7 +13,6 @@ import { WindowDock } from "@/components/ops/window-dock";
 import { BugReportDrawer } from "@/components/ops/bug-report-drawer";
 import { CreateCluster } from "@/components/ops/create-menu/create-cluster";
 import { NotificationsDrawer } from "@/components/layouts/notifications-drawer";
-import { NotificationsTab } from "@/components/layouts/notifications-tab";
 import { DuplicateReviewSheet } from "@/components/ops/duplicate-review-sheet";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
@@ -326,7 +325,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <ProjectWorkspaceDeepLinkHandler />
       <ClientWorkspaceDeepLinkHandler />
       <NotificationsDrawer />
-      <NotificationsTab />
       {/* Bottom-right action cluster — Create (accent) + Bug (dim). Replaced
           the right-edge Quick Actions + Bug Report tabs (WEB OVERHAUL P5). */}
       <CreateCluster />
