@@ -68,10 +68,10 @@ export function CreateWheel({
       const d = Math.abs(rc - mid);
       const u = Math.min(d / pitch / REACH, 1);
       const w = Math.pow(Math.cos((u * Math.PI) / 2), 0.55);
-      row.style.transform = `translateX(${(6 * (1 - w)).toFixed(1)}px) scale(${(
-        0.82 +
-        0.34 * w
-      ).toFixed(3)})`;
+      // Scale only (origin right, set in JSX) so every row's right edge — and
+      // therefore every keycap — stays on the same vertical line. No translateX
+      // lean: that was knocking the keycaps out of alignment.
+      row.style.transform = `scale(${(0.82 + 0.32 * w).toFixed(3)})`;
       row.style.opacity = (0.34 + 0.66 * w).toFixed(3);
       if (d < best) {
         best = d;
@@ -191,8 +191,8 @@ export function CreateWheel({
         onScroll={onScroll}
         role="menu"
         aria-label={t("menu.title")}
-        className="scrollbar-hide absolute inset-y-0 right-[54px] w-[330px] overflow-y-auto"
-        style={{ paddingLeft: 60, paddingRight: 16, scrollSnapType: "y proximity" }}
+        className="scrollbar-hide absolute inset-y-0 right-[54px] w-[360px] overflow-y-auto overflow-x-hidden"
+        style={{ paddingLeft: 56, paddingRight: 20, scrollSnapType: "y proximity" }}
       >
         {actions.map((action, i) => {
           const Icon = action.icon;
@@ -217,10 +217,10 @@ export function CreateWheel({
               }`}
             >
               <Icon className="h-[22px] w-[22px] shrink-0 text-text-2" />
-              <span className="whitespace-nowrap font-cakemono text-[15px] font-light uppercase tracking-[0.1em] text-text">
+              <span className="min-w-0 flex-1 truncate font-cakemono text-[15px] font-light uppercase tracking-[0.1em] text-text">
                 {t(action.labelKey)}
               </span>
-              <span aria-hidden className="ml-auto shrink-0 pl-4">
+              <span aria-hidden className="shrink-0 pl-4">
                 <kbd
                   className={`inline-flex h-[21px] min-w-[21px] items-center justify-center rounded-chip border px-[5px] font-mono text-[11px] transition-all duration-150 ${
                     isPress
