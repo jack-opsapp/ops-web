@@ -285,18 +285,29 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── HUD Overlays ── */}
 
-      {/* TopBar — fixed glass overlay, starts after sidebar.
-          Z: nav band 500 (scrim 502, sidebar 505 — see route-registry.ts). */}
-      <div
-        className="fixed left-0 right-0 top-0 z-[500] h-[56px] md:left-[72px]"
-        style={{
-          background: "var(--surface-glass)",
-          backdropFilter: "blur(28px) saturate(1.3)",
-          WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.09)",
-        }}
-      >
-        <TopBar />
+      {/* TopBar — fixed overlay, starts after sidebar.
+          Z: nav band 500 (scrim 502, sidebar 505 — see route-registry.ts).
+
+          Surface (P5): a gradient SCRIM, not a glass panel. No fill, no blur,
+          no hairline seam — the bar dissolves into the canvas. A black→
+          transparent veil (84px, ~28px taller than the 56px bar) keeps the
+          title + controls legible over ANYTHING beneath, including the
+          dashboard map background, while content fades softly under its tail.
+          Canvas color via the --background token (matches the bottom-fade
+          above). The veil is pointer-events-none so its overhang never blocks
+          content below. */}
+      <div className="pointer-events-none fixed left-0 right-0 top-0 z-[500] md:left-[72px]">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[84px]"
+          style={{
+            background:
+              "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.92) 34%, hsl(var(--background) / 0.55) 64%, transparent 100%)",
+          }}
+        />
+        <div className="pointer-events-auto relative h-[56px]">
+          <TopBar />
+        </div>
       </div>
 
       {/* Sidebar — fixed glass overlay (hover to expand) */}

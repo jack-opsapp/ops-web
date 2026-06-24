@@ -16,5 +16,9 @@
 
   "undo.ariaLabel": "Undo last action",
   "undo.tooltip": "UNDO \"{label}\"",
-  "undo.shortcut": "⌘Z"
+  "undo.shortcut": "⌘Z",
+
+  "notifications.ariaLabel": "Open notifications",
+  "notifications.label": "Notifications",
+  "notifications.unread": "{count} UNREAD"
 }

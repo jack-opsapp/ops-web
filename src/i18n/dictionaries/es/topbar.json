@@ -16,5 +16,9 @@
 
   "undo.ariaLabel": "Deshacer última acción",
   "undo.tooltip": "DESHACER \"{label}\"",
-  "undo.shortcut": "⌘Z"
+  "undo.shortcut": "⌘Z",
+
+  "notifications.ariaLabel": "Abrir notificaciones",
+  "notifications.label": "Notificaciones",
+  "notifications.unread": "{count} SIN LEER"
 }

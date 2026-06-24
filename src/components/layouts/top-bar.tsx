@@ -1,29 +1,35 @@
 "use client";
 
 /**
- * TopBar (WEB OVERHAUL P2 rebuild).
+ * TopBar (WEB OVERHAUL P5 redesign — gradient-scrim surface).
  *
- * Composition: [mobile hamburger] page title / breadcrumb trail — centered
- * undo + ⌘K search — right sync indicator + clock.
+ * Surface: the bar carries NO glass fill, NO blur, NO hairline seam. The
+ * "horizon" treatment lives in dashboard-layout.tsx as a black→transparent
+ * scrim behind these controls — content dissolves under it, the controls
+ * float on the canvas, and the title stays legible over anything (incl. the
+ * dashboard map). This component is transparent chrome only.
  *
- * Page titles resolve through the route registry's i18n label keys (the
- * old hardcoded English `routeTitles` map was the root cause of the
- * sidebar-"Calendar" / top-bar-"Schedule" drift — it is gone). Nested
- * routes render the breadcrumb trail from the breadcrumb store; the
- * auto-generated parent crumb uses the same registry title.
+ * Composition: [mobile hamburger] page title / breadcrumb — left · then a
+ * single right-anchored cluster: contextual undo · ⌘K search · notifications
+ * · │ · sync · clock. The old center-floated search/undo bisecting the bar
+ * is gone (it read lopsided); search collapses to a quiet ⌘K affordance and
+ * sync recedes to a single dot that only speaks up when something is wrong.
+ *
+ * Page titles resolve through the route registry's i18n label keys. Because
+ * `useDictionary` returns the raw key while a namespace chunk is still
+ * loading, the title is gated on `titleReady` so a `nav.*` key can never
+ * flash as display copy on cold load (DESIGN.md §14: no raw data as copy).
  */
 
 import {
   Search,
   RefreshCw,
-  Check,
-  Clock,
-  WifiOff,
   Menu,
   Undo2,
   Loader2,
+  Bell,
 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { cn } from "@/lib/utils/cn";
@@ -33,10 +39,25 @@ import { useDictionary } from "@/i18n/client";
 import { useSidebarStore } from "@/stores/sidebar-store";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useUndoStore } from "@/stores/undo-store";
+import { useEdgeTabStore } from "@/stores/edge-tab-store";
+import { useNotifications } from "@/lib/hooks/use-notifications";
+import { resolveTone } from "@/lib/notifications/notification-meta";
 import { getTitleKeyForPath } from "@/lib/navigation/route-registry";
 import { formatEnumLabel } from "@/lib/utils/format";
 
+// Shared control geometry — bare icon affordances (no per-control border).
+// Web has no touch targets (DESIGN.md §15); 30px traces to the compact tier.
+const CONTROL =
+  "flex items-center justify-center h-[30px] w-[30px] rounded text-text-3 " +
+  "hover:text-text-2 hover:bg-surface-hover transition-colors duration-150 " +
+  "ease-smooth motion-reduce:transition-none";
+
 // ── Sync indicator ───────────────────────────────────────────────────────────
+//
+// Invisible-helpfulness: nominal is a single calm olive dot (no label, no
+// motion). Only the states the operator must act on assert themselves —
+// in-flight work spins, offline shows a rose dot — and those carry a text
+// label so state is never conveyed by color alone (DESIGN.md §15).
 
 type SyncStatus = "synced" | "syncing" | "pending" | "offline";
 
@@ -45,39 +66,44 @@ function SyncIndicator({
   t,
 }: {
   status: SyncStatus;
-  t: (key: string) => string;
+  t: (key: string, fallback?: string) => string;
 }) {
-  const icon = {
-    synced: <Check className="w-[14px] h-[14px] shrink-0" />,
-    syncing: <RefreshCw className="w-[14px] h-[14px] shrink-0 animate-spin motion-reduce:animate-none" />,
-    pending: <Clock className="w-[14px] h-[14px] shrink-0" />,
-    offline: <WifiOff className="w-[14px] h-[14px] shrink-0" />,
-  }[status];
+  if (status === "synced") {
+    return (
+      <span
+        className="ml-0.5 h-[7px] w-[7px] shrink-0 rounded-full bg-olive"
+        title={t("sync.syncedTitle", "All data synced")}
+        aria-label={t("sync.synced", "Synced")}
+        role="img"
+      />
+    );
+  }
 
-  const label = {
-    synced: t("sync.synced"),
-    syncing: t("sync.syncing"),
-    pending: t("sync.pending"),
-    offline: t("sync.offline"),
+  const cfg = {
+    syncing: { label: t("sync.syncing", "Syncing"), tone: "text-tan", spin: true },
+    pending: { label: t("sync.pending", "Pending"), tone: "text-tan", spin: true },
+    offline: { label: t("sync.offline", "Offline"), tone: "text-rose", spin: false },
   }[status];
 
   return (
-    <div
-      className={cn(
-        "group flex items-center justify-center h-[40px] px-[12px] rounded",
-        "font-mono text-[11px] tracking-wider",
-        "bg-surface-input border border-border",
-        "transition-all duration-150 ease-smooth motion-reduce:transition-none",
-        // rose is the error TEXT tone — brick (#93321A) is borders/dots only
-        status === "offline" ? "text-rose" : "text-text-3"
-      )}
-      title={label}
+    <span
+      className={cn("flex items-center gap-1.5", cfg.tone)}
+      title={t(`sync.${status}Title`, cfg.label)}
     >
-      <span className="max-w-0 overflow-hidden uppercase whitespace-nowrap transition-[max-width,margin] duration-150 ease-smooth motion-reduce:transition-none group-hover:max-w-[80px] group-hover:mr-[6px]">
-        {label}
+      {status === "offline" ? (
+        <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-rose" />
+      ) : (
+        <RefreshCw
+          className={cn(
+            "h-[13px] w-[13px] shrink-0",
+            cfg.spin && "animate-spin motion-reduce:animate-none"
+          )}
+        />
+      )}
+      <span className="font-mono text-micro uppercase tracking-wider">
+        {cfg.label}
       </span>
-      {icon}
-    </div>
+    </span>
   );
 }
 
@@ -112,7 +138,7 @@ function DeckClock() {
   return (
     <span
       suppressHydrationWarning
-      className="font-mono text-[11px] tracking-[0.08em] text-text-3 tabular-nums select-none"
+      className="hidden sm:inline font-mono text-micro tracking-[0.08em] text-text-3 tabular-nums select-none"
     >
       {text}
     </span>
@@ -164,11 +190,35 @@ export function TopBar() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Notifications — the bell drives the SAME right-edge drawer the edge tab
+  // does (shared edge-tab mutex). The dot is the operator's "signals waiting"
+  // cue: tan for ordinary unread, escalating to rose if any unread item is
+  // critical (a fault must not hide behind a calm tan). Count lives in the
+  // drawer (DESIGN.md 11px floor makes a numeric badge louder than minimal).
+  const { data: notifs = [] } = useNotifications();
+  const notifCount = notifs.length;
+  const hasCritical = useMemo(
+    () => notifs.some((n) => resolveTone(n.type) === "critical"),
+    [notifs]
+  );
+  const toggleEdgeTab = useEdgeTabStore((s) => s.toggle);
+  const notifOpen = useEdgeTabStore((s) => s.activeTab === "notifications");
+
+  const openSearch = useCallback(() => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
+    );
+  }, []);
+
   // Build breadcrumb trail. Root titles come from the registry (i18n).
   const segments = pathname.split("/").filter(Boolean);
   const isNested = segments.length > 1;
   const titleKey = getTitleKeyForPath(pathname);
-  const rootTitle = titleKey ? tNav(titleKey) : "";
+  // `useDictionary` returns the key itself until the namespace chunk loads —
+  // gate the title so a raw `nav.*` key never paints as the page heading.
+  const resolvedTitle = titleKey ? tNav(titleKey) : "";
+  const titleReady = !!titleKey && resolvedTitle !== titleKey;
+  const rootTitle = titleReady ? resolvedTitle : "";
   const parentRoute = "/" + segments[0];
   // Last-resort leaf fallback while the breadcrumb store hydrates — never
   // print a raw slug/UUID as the page title (DESIGN.md §14: no raw data as
@@ -193,16 +243,15 @@ export function TopBar() {
   return (
     <header className="h-[56px] flex items-center px-3 shrink-0 relative bg-transparent min-w-0">
       {/* Left: Hamburger (mobile) + Page title / Breadcrumbs */}
-      <div className="flex items-center gap-2 min-w-0 shrink-0">
+      <div className="flex items-center gap-2 min-w-0 shrink">
         <button
           onClick={openMobile}
           className={cn(
-            "md:hidden p-2 rounded",
-            "text-text-3 hover:text-text-2",
-            "bg-surface-input hover:bg-surface-hover border border-border",
-            "transition-all duration-150 ease-smooth motion-reduce:transition-none"
+            "md:hidden p-2 rounded shrink-0",
+            "text-text-3 hover:text-text-2 hover:bg-surface-hover",
+            "transition-colors duration-150 ease-smooth motion-reduce:transition-none"
           )}
-          aria-label={t("menu.ariaLabel")}
+          aria-label={t("menu.ariaLabel", "Open menu")}
         >
           <Menu className="w-[18px] h-[18px]" />
         </button>
@@ -238,14 +287,18 @@ export function TopBar() {
               ))
             ) : (
               /* Auto-generated: parent route title from the registry */
-              <button
-                onClick={() => router.push(parentRoute)}
-                className="font-mono text-micro text-text-3 hover:text-text-2 transition-colors uppercase tracking-[0.16em]"
-              >
-                {rootTitle}
-              </button>
+              rootTitle && (
+                <button
+                  onClick={() => router.push(parentRoute)}
+                  className="font-mono text-micro text-text-3 hover:text-text-2 transition-colors uppercase tracking-[0.16em]"
+                >
+                  {rootTitle}
+                </button>
+              )
             )}
-            <span className="text-text-mute font-mono text-micro">{"//"}</span>
+            {(parentCrumbs || rootTitle) && (
+              <span className="text-text-mute font-mono text-micro">{"//"}</span>
+            )}
             <span className="font-cakemono font-light text-heading text-text uppercase truncate">
               {entityName || leafFallback}
             </span>
@@ -253,31 +306,25 @@ export function TopBar() {
         ) : (
           /* Simple title for top-level routes */
           rootTitle && (
-            <h1 className="font-cakemono font-light text-heading text-text uppercase">
+            <h1 className="font-cakemono font-light text-heading text-text uppercase truncate">
               {rootTitle}
             </h1>
           )
         )}
       </div>
 
-      {/* Center: Undo + Search */}
-      <div className="flex items-center gap-1 mx-auto min-w-0 flex-shrink">
-        {/* Undo button — only visible when stack is non-empty */}
+      {/* Right: single anchored cluster — actions · │ · telemetry */}
+      <div className="ml-auto flex items-center gap-1.5 shrink-0 pl-3">
+        {/* Undo — contextual, only present when the stack is non-empty */}
         {topEntry && (
-          <div className="relative">
+          <div className="relative animate-fade-in motion-reduce:animate-none">
             <button
               onClick={handleUndo}
               disabled={isUndoing}
               onMouseEnter={() => setIsUndoHovered(true)}
               onMouseLeave={() => setIsUndoHovered(false)}
-              className={cn(
-                "flex items-center justify-center h-[40px] w-[40px] rounded",
-                "bg-surface-input hover:bg-surface-hover border border-border",
-                "text-text-3 hover:text-text-2",
-                "transition-all duration-150 ease-smooth motion-reduce:transition-none animate-fade-in motion-reduce:animate-none",
-                isUndoing && "opacity-50 pointer-events-none"
-              )}
-              aria-label={t("undo.ariaLabel")}
+              className={cn(CONTROL, isUndoing && "opacity-50 pointer-events-none")}
+              aria-label={t("undo.ariaLabel", "Undo last action")}
             >
               {isUndoing ? (
                 <Loader2 className="w-[16px] h-[16px] animate-spin motion-reduce:animate-none" />
@@ -285,10 +332,9 @@ export function TopBar() {
                 <Undo2 className="w-[16px] h-[16px]" />
               )}
             </button>
-            {/* Hover tooltip */}
             {isUndoHovered && !isUndoing && (
               <div
-                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-[6px] rounded-chip whitespace-nowrap pointer-events-none animate-fade-in motion-reduce:animate-none"
+                className="absolute top-full right-0 mt-2 px-3 py-[6px] rounded-chip whitespace-nowrap pointer-events-none animate-fade-in motion-reduce:animate-none"
                 style={{
                   background: "var(--glass-dense)",
                   backdropFilter: "blur(28px) saturate(1.3)",
@@ -303,41 +349,63 @@ export function TopBar() {
             )}
           </div>
         )}
+
+        {/* Search — collapses to a quiet ⌘K affordance (no center box) */}
         <button
+          onClick={openSearch}
+          aria-label={t("search.ariaLabel", "Open search")}
           className={cn(
-            "flex items-center gap-1 h-[40px] px-2 rounded",
-            "bg-surface-input hover:bg-surface-hover border border-border",
-            "text-text-3 hover:text-text-2",
-            "transition-all duration-150 ease-smooth motion-reduce:transition-none cursor-pointer",
-            "min-w-0 w-[140px] sm:w-[200px] shrink"
+            "flex items-center gap-1.5 h-[30px] rounded text-text-3",
+            "hover:text-text-2 hover:bg-surface-hover transition-colors",
+            "duration-150 ease-smooth motion-reduce:transition-none",
+            showShortcutHints ? "px-2" : "w-[30px] justify-center"
           )}
-          onClick={() => {
-            window.dispatchEvent(
-              new KeyboardEvent("keydown", {
-                key: "k",
-                metaKey: true,
-                bubbles: true,
-              })
-            );
-          }}
-          aria-label={t("search.ariaLabel")}
         >
           <Search className="w-[16px] h-[16px] shrink-0" />
-          <span className="font-mohave text-body-sm hidden sm:inline">
-            {t("search.placeholder")}
-          </span>
           {showShortcutHints && (
-            <kbd className="ml-auto font-mono text-micro text-text-2 bg-[rgba(255,255,255,0.06)] border border-border rounded-chip px-[5px] py-[1px] hidden sm:inline">
-              {t("search.shortcut")}
-            </kbd>
+            <span className="font-mono text-micro text-text-mute hidden sm:inline">
+              {t("search.shortcut", "⌘K")}
+            </span>
           )}
         </button>
-      </div>
 
-      {/* Right: Sync + clock */}
-      <div className="flex items-center gap-1 shrink-0">
-        <SyncIndicator status={syncStatus} t={t} />
-        <DeckClock />
+        {/* Notifications — drives the shared right-edge drawer */}
+        <button
+          onClick={() => toggleEdgeTab("notifications")}
+          aria-label={t("notifications.ariaLabel", "Open notifications")}
+          title={
+            notifCount > 0
+              ? t("notifications.unread", { count: notifCount })
+              : t("notifications.label", "Notifications")
+          }
+          className={cn(
+            CONTROL,
+            "relative",
+            notifOpen && "text-text-2 bg-surface-active"
+          )}
+        >
+          <Bell className="w-[17px] h-[17px]" />
+          {notifCount > 0 && (
+            <span
+              className={cn(
+                "absolute top-[4px] right-[5px] h-[7px] w-[7px] rounded-full",
+                "ring-[1.5px] ring-background animate-fade-in motion-reduce:animate-none",
+                hasCritical ? "bg-rose" : "bg-tan"
+              )}
+            />
+          )}
+        </button>
+
+        {/* Divider — actions │ telemetry. Hidden on mobile, where the clock
+            drops (redundant with the OS status bar) and the divider would
+            float before a lone sync dot. */}
+        <span className="mx-1 hidden h-[18px] w-px shrink-0 bg-border sm:block" />
+
+        {/* Telemetry terminus — sync state + deck clock */}
+        <div className="flex items-center gap-2">
+          <SyncIndicator status={syncStatus} t={t} />
+          <DeckClock />
+        </div>
       </div>
     </header>
   );
