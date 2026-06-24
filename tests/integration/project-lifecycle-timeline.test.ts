@@ -79,6 +79,13 @@ function makeSupabaseStub(opts: {
             eq: () => ({
               single: () =>
                 Promise.resolve({ data: { admin_ids: adminIds }, error: null }),
+              // getCompanyManagerUserIds (the P4-5 role-name-free admin
+              // resolver) reads account_holder_id ∪ admin_ids via maybeSingle.
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { account_holder_id: "admin-1", admin_ids: adminIds },
+                  error: null,
+                }),
             }),
           }),
         };
