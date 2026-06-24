@@ -1,30 +1,31 @@
 "use client";
 
 /**
- * CreateCluster — the bottom-right action cluster (WEB OVERHAUL P5).
+ * CreateCluster — the right-edge create + bug affordance (WEB OVERHAUL P4-5).
  *
- * Replaces the right-edge Quick Actions + Bug Report tabs. Two controls,
- * deliberately unequal in weight so prominence tracks frequency:
+ * Edge-reveal, not a floating button. At rest only a 3px nub shows on the right
+ * edge; bringing the cursor to the edge fades in a tall tapered glow (the app's
+ * own background colour) and slides in two borderless icon-only controls,
+ * vertically centred:
  *
- *   • CREATE  — the single steel-blue accent element on the screen. Click or
- *               `Q` opens the compact `// CREATE` popover (the real 9 quick
- *               actions). The most frequent action = the brightest pixel.
- *   • bug     — a dim, monochrome glyph. Click or `` ` `` captures a screenshot
- *               of the current screen, then opens the bug-report drawer. Rare
- *               utility = quiet. Also reachable from the ⌘K palette.
+ *   • CREATE — a bare Plus glyph (steel accent on hover/active, the screen's one
+ *              accent moment). Click or `Q` opens the Create wheel: an iOS drum
+ *              picker of the permission-gated actions over a full-height frosted
+ *              wash, each action firing by keycap.
+ *   • bug    — a smaller, dimmer Bug glyph. Click or `` ` `` screenshots the
+ *              screen and opens the bug-report drawer. Rare utility = quiet.
  *
  * Open state runs through the shared `useEdgeTabStore` mutex (ids
- * "quick-actions" / "bug-report"), so only one bottom-right surface is open at
- * a time and opening one closes the other. Radix Popover owns the create
- * menu's outside-click + Escape dismissal (the old EdgeTabOutsideDismiss was
- * never mounted). The whole cluster carries `data-bug-report-ignore` so it is
- * excluded from bug screenshots.
+ * "quick-actions" / "bug-report"); the wheel owns its own outside-click + key
+ * dismissal. Reveal is driven by a passive window pointermove (no DOM hover
+ * trap, so page content stays fully clickable). Everything carries
+ * `data-bug-report-ignore` so it is excluded from bug screenshots.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Bug } from "lucide-react";
-import { useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
 import { useBugReportStore } from "@/stores/bug-report-store";
@@ -37,45 +38,41 @@ import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { dispatchQuickAction } from "@/lib/quick-actions/dispatch";
 import { useDictionary } from "@/i18n/client";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
 import type { FABAction } from "@/lib/constants/fab-actions";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { CreateMenu } from "./create-menu";
+import { CreateWheel } from "./create-wheel";
 
 const ID_CREATE = "quick-actions";
 const ID_BUG = "bug-report";
+
+// Reveal when the cursor is within this many px of the right edge; retract once
+// it moves left of (edge − RETRACT). The gap (hysteresis) prevents flicker.
+const REVEAL_EDGE = 28;
+const RETRACT_AT = 230;
 
 export function CreateCluster() {
   const { t } = useDictionary("quick-actions");
   const { t: tCommon } = useDictionary("common");
   const router = useRouter();
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = !!useReducedMotion();
 
   const visible = useQuickActionsVisible();
   const actions = useQuickActions();
 
   const activeTab = useEdgeTabStore((s) => s.activeTab);
-  const setActive = useEdgeTabStore((s) => s.setActive);
   const toggle = useEdgeTabStore((s) => s.toggle);
   const close = useEdgeTabStore((s) => s.close);
   const createOpen = activeTab === ID_CREATE;
+  const bugOpen = activeTab === ID_BUG;
+
+  const [revealed, setRevealed] = useState(false);
+  const shown = revealed || createOpen || bugOpen;
 
   const openWindow = useWindowStore((s) => s.openWindow);
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const openClientWindow = useWindowStore((s) => s.openClientWindow);
 
   // ── Setup gate (ported from the retired QuickActionsDrawer) ──
-  // Lives here, not in CreateMenu, so the interception modal survives the
-  // popover closing.
   const { isComplete, missingSteps } = useSetupGate();
   const [showInterception, setShowInterception] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
@@ -96,8 +93,6 @@ export function CreateCluster() {
 
   const handleRun = useCallback(
     (action: FABAction) => {
-      // Close the menu first so a gated action reveals the interception modal
-      // cleanly; then run (or queue behind the gate).
       close(ID_CREATE);
       gatedAction(
         () =>
@@ -111,33 +106,36 @@ export function CreateCluster() {
         action.triggerAction,
       );
     },
-    [
-      close,
-      gatedAction,
-      router,
-      openWindow,
-      openProjectWindow,
-      openClientWindow,
-      t,
-    ],
+    [close, gatedAction, router, openWindow, openProjectWindow, openClientWindow, t],
   );
 
-  const handleCustomize = useCallback(() => {
-    close(ID_CREATE);
-    router.push("/settings?tab=quick-actions");
-  }, [close, router]);
-
   const openBug = useCallback(() => {
-    // Capture the screen BEFORE the drawer mounts (matches legacy behavior —
-    // the image reflects what the operator was looking at).
-    if (activeTab !== ID_BUG) {
+    // Capture the screen BEFORE the drawer mounts (the image reflects what the
+    // operator was looking at).
+    if (useEdgeTabStore.getState().activeTab !== ID_BUG) {
       useBugReportStore.getState().requestScreenshot();
     }
     toggle(ID_BUG);
-  }, [activeTab, toggle]);
+  }, [toggle]);
 
-  // ── Keyboard: Q opens Create, ` opens Bug — re-homed from the deleted tabs,
-  // same guards (ignore when typing in a field). ──
+  // ── Reveal: passive pointer proximity to the right edge (no hover trap). ──
+  useEffect(() => {
+    if (!visible) return;
+    function onMove(e: PointerEvent) {
+      if (useEdgeTabStore.getState().activeTab) {
+        setRevealed(true);
+        return;
+      }
+      const x = e.clientX;
+      const w = window.innerWidth;
+      if (x >= w - REVEAL_EDGE) setRevealed(true);
+      else if (x < w - RETRACT_AT) setRevealed(false);
+    }
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, [visible]);
+
+  // ── Keyboard: Q opens Create, ` opens Bug (ignored while typing). ──
   useEffect(() => {
     if (!visible) return;
     function handleKeyDown(e: KeyboardEvent) {
@@ -163,94 +161,103 @@ export function CreateCluster() {
 
   if (!visible) return null;
 
+  const slideX = reducedMotion ? 0 : shown ? 0 : 48;
+
   return (
     <>
-      <TooltipProvider delayDuration={250}>
-        <div
-          data-bug-report-ignore="true"
-          className="fixed bottom-4 right-4 z-[1500] flex items-center gap-2"
+      {/* Rest nub */}
+      <motion.div
+        aria-hidden
+        data-bug-report-ignore="true"
+        className="pointer-events-none fixed right-0 top-1/2 z-[1539] h-[54px] w-[3px] -translate-y-1/2 rounded-l-bar bg-white/15"
+        animate={{ opacity: shown ? 0 : 1 }}
+        transition={{ duration: 0.25, ease: EASE_SMOOTH }}
+      />
+
+      {/* Hover glow — tall, tapered, app background colour (no blur, so it stays
+          buttery while it fades). */}
+      <motion.div
+        aria-hidden
+        data-bug-report-ignore="true"
+        className="pointer-events-none fixed right-0 top-1/2 z-[1540] h-[360px] w-[170px] -translate-y-1/2"
+        style={{
+          background:
+            "radial-gradient(100% 64% at 100% 50%, rgba(18,18,20,0.94), rgba(17,17,19,0.4) 48%, rgba(8,8,10,0) 82%)",
+          WebkitMaskImage:
+            "radial-gradient(100% 64% at 100% 50%, #000 28%, transparent 86%)",
+          maskImage:
+            "radial-gradient(100% 64% at 100% 50%, #000 28%, transparent 86%)",
+        }}
+        animate={{ opacity: shown && !createOpen && !bugOpen ? 1 : 0 }}
+        transition={{ duration: 0.3, ease: EASE_SMOOTH }}
+      />
+
+      {/* Icon-only controls */}
+      <div
+        data-bug-report-ignore="true"
+        className="fixed right-[18px] top-1/2 z-[1560] flex -translate-y-1/2 flex-col items-center gap-[18px]"
+      >
+        <motion.button
+          type="button"
+          aria-label={t("trigger.ariaLabel")}
+          aria-pressed={createOpen}
+          onClick={() => toggle(ID_CREATE)}
+          onFocus={() => setRevealed(true)}
+          initial={false}
+          animate={{ x: slideX, opacity: shown ? 1 : 0 }}
+          transition={{ duration: reducedMotion ? 0.15 : 0.4, ease: EASE_SMOOTH }}
+          style={{ pointerEvents: shown ? "auto" : "none" }}
+          className={`flex h-[42px] w-[42px] cursor-pointer items-center justify-center bg-transparent outline-none transition-colors duration-150 ${
+            createOpen ? "text-ops-accent" : "text-text hover:text-ops-accent"
+          }`}
         >
-          {/* Bug — dim, subordinate */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={tCommon("bugReport.title")}
-                aria-pressed={activeTab === ID_BUG}
-                onClick={openBug}
-                className="flex h-[32px] w-[32px] cursor-pointer items-center justify-center rounded border border-[var(--line)] bg-[var(--surface-input)] text-text-mute transition-colors duration-150 hover:border-[var(--glass-border-active)] hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.98]"
-              >
-                <Bug className="h-[15px] w-[15px]" strokeWidth={1.5} aria-hidden />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left" sideOffset={8}>
-              <span className="flex items-center gap-2">
-                {tCommon("bugReport.title")}
-                <span className="rounded-sm border border-border-subtle bg-fill-neutral-dim px-1 font-mono text-[10px] text-text-2">
-                  {"`"}
-                </span>
-              </span>
-            </TooltipContent>
-          </Tooltip>
+          <Plus
+            className="h-[26px] w-[26px]"
+            strokeWidth={1.75}
+            aria-hidden
+            style={{
+              transform: createOpen ? "rotate(45deg)" : "none",
+              transition: reducedMotion
+                ? "none"
+                : "transform 200ms var(--ease-smooth)",
+            }}
+          />
+        </motion.button>
 
-          {/* Create — the one accent element */}
-          <Popover
-            open={createOpen}
-            onOpenChange={(next) =>
-              next ? setActive(ID_CREATE) : close(ID_CREATE)
-            }
-          >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label={t("trigger.ariaLabel")}
-                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded border border-ops-accent bg-ops-accent text-black transition-colors duration-150 hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black active:scale-[0.98]"
-                  >
-                    <Plus
-                      className="h-[22px] w-[22px]"
-                      strokeWidth={2}
-                      aria-hidden
-                      style={{
-                        transform: createOpen ? "rotate(45deg)" : "none",
-                        transition: reducedMotion
-                          ? "none"
-                          : "transform 150ms var(--ease-smooth)",
-                      }}
-                    />
-                  </button>
-                </PopoverTrigger>
-              </TooltipTrigger>
-              {!createOpen && (
-                <TooltipContent side="left" sideOffset={8}>
-                  <span className="flex items-center gap-2">
-                    {t("trigger.tooltip")}
-                    <span className="rounded-sm border border-border-subtle bg-fill-neutral-dim px-1 font-mono text-[10px] text-text-2">
-                      {t("tab.shortcut")}
-                    </span>
-                  </span>
-                </TooltipContent>
-              )}
-            </Tooltip>
+        <motion.button
+          type="button"
+          aria-label={tCommon("bugReport.title")}
+          aria-pressed={bugOpen}
+          onClick={openBug}
+          onFocus={() => setRevealed(true)}
+          initial={false}
+          animate={{ x: slideX, opacity: shown ? 1 : 0 }}
+          transition={{
+            duration: reducedMotion ? 0.15 : 0.4,
+            ease: EASE_SMOOTH,
+            delay: reducedMotion ? 0 : 0.05,
+          }}
+          style={{ pointerEvents: shown ? "auto" : "none" }}
+          className={`flex h-[30px] w-[30px] cursor-pointer items-center justify-center bg-transparent outline-none transition-colors duration-150 ${
+            bugOpen ? "text-text-2" : "text-text-mute hover:text-text-2"
+          }`}
+        >
+          <Bug className="h-[17px] w-[17px]" strokeWidth={1.5} aria-hidden />
+        </motion.button>
+      </div>
 
-            <PopoverContent
-              side="top"
-              align="end"
-              sideOffset={12}
-              className="w-[260px] overflow-hidden border border-[var(--glass-border)] p-0"
-              style={{ zIndex: 1560, borderRadius: 12 }}
-            >
-              <CreateMenu
-                actions={actions}
-                t={t}
-                onRun={handleRun}
-                onCustomize={handleCustomize}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-      </TooltipProvider>
+      {/* Create wheel */}
+      <AnimatePresence>
+        {createOpen && (
+          <CreateWheel
+            actions={actions}
+            t={t}
+            onRun={handleRun}
+            onClose={() => close(ID_CREATE)}
+            reducedMotion={reducedMotion}
+          />
+        )}
+      </AnimatePresence>
 
       <SetupInterceptionModal
         isOpen={showInterception}

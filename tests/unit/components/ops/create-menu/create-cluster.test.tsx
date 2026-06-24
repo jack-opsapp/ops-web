@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CreateCluster } from "@/components/ops/create-menu/create-cluster";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
@@ -50,6 +50,7 @@ const mockActions: FABAction[] = [
     id: "task",
     labelKey: "action.task",
     hintCode: "TSK",
+    hotkey: "T",
     icon: () => <svg data-testid="ico-task" />,
     triggerAction: "tasks",
     handler: "window",
@@ -59,6 +60,7 @@ const mockActions: FABAction[] = [
     id: "project",
     labelKey: "action.project",
     hintCode: "PRJ",
+    hotkey: "P",
     icon: () => <svg data-testid="ico-project" />,
     triggerAction: "projects",
     handler: "window",
@@ -69,6 +71,7 @@ const mockActions: FABAction[] = [
     id: "expense",
     labelKey: "action.expense",
     hintCode: "EXP",
+    hotkey: "X",
     icon: () => <svg data-testid="ico-expense" />,
     triggerAction: "expenses",
     handler: "route",
@@ -83,6 +86,16 @@ vi.mock("@/lib/hooks/use-quick-actions", () => ({
 const createTrigger = () =>
   screen.getByRole("button", { name: /trigger\.ariaLabel/i });
 const bugGlyph = () => screen.getByRole("button", { name: /bugReport\.title/i });
+
+// The controls are edge-revealed: retracted (pointer-events: none) until the
+// cursor nears the right edge. Simulate that proximity so clicks land, exactly
+// as a real user would by moving to the edge first.
+const revealCluster = () =>
+  act(() => {
+    const ev = new Event("pointermove");
+    Object.defineProperty(ev, "clientX", { value: 5000 });
+    window.dispatchEvent(ev);
+  });
 
 describe("<CreateCluster>", () => {
   beforeEach(() => {
@@ -104,6 +117,7 @@ describe("<CreateCluster>", () => {
   it("clicking the create trigger opens the menu", async () => {
     const user = userEvent.setup();
     render(<CreateCluster />);
+    revealCluster();
     await user.click(createTrigger());
     expect(useEdgeTabStore.getState().activeTab).toBe("quick-actions");
   });
@@ -148,6 +162,7 @@ describe("<CreateCluster>", () => {
   it("clicking the bug glyph captures a screenshot and opens the bug drawer", async () => {
     const user = userEvent.setup();
     render(<CreateCluster />);
+    revealCluster();
     await user.click(bugGlyph());
     expect(requestScreenshotMock).toHaveBeenCalledTimes(1);
     expect(useEdgeTabStore.getState().activeTab).toBe("bug-report");
@@ -165,6 +180,7 @@ describe("<CreateCluster>", () => {
     useEdgeTabStore.setState({ activeTab: "notifications" });
     const user = userEvent.setup();
     render(<CreateCluster />);
+    revealCluster();
     await user.click(createTrigger());
     expect(useEdgeTabStore.getState().activeTab).toBe("quick-actions");
   });
@@ -174,12 +190,15 @@ describe("<CreateCluster>", () => {
     const user = userEvent.setup();
     render(<CreateCluster />);
     await user.click(await screen.findByText("action.task"));
-    expect(openWindowMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "create-task",
-        type: "create-task",
-        title: "action.task",
-      }),
+    // The wheel plays a brief press state before dispatching, so the open is async.
+    await waitFor(() =>
+      expect(openWindowMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "create-task",
+          type: "create-task",
+          title: "action.task",
+        }),
+      ),
     );
     expect(useEdgeTabStore.getState().activeTab).toBeNull();
   });
@@ -189,10 +208,12 @@ describe("<CreateCluster>", () => {
     const user = userEvent.setup();
     render(<CreateCluster />);
     await user.click(await screen.findByText("action.project"));
-    expect(openProjectWindowMock).toHaveBeenCalledWith({
-      projectId: null,
-      mode: "creating",
-    });
+    await waitFor(() =>
+      expect(openProjectWindowMock).toHaveBeenCalledWith({
+        projectId: null,
+        mode: "creating",
+      }),
+    );
     expect(useEdgeTabStore.getState().activeTab).toBeNull();
   });
 
@@ -201,16 +222,9 @@ describe("<CreateCluster>", () => {
     const user = userEvent.setup();
     render(<CreateCluster />);
     await user.click(await screen.findByText("action.expense"));
-    expect(pushMock).toHaveBeenCalledWith("/books?segment=expenses");
-    expect(useEdgeTabStore.getState().activeTab).toBeNull();
-  });
-
-  it("CUSTOMIZE routes to settings and closes the menu", async () => {
-    useEdgeTabStore.setState({ activeTab: "quick-actions" });
-    const user = userEvent.setup();
-    render(<CreateCluster />);
-    await user.click(await screen.findByText(/footer\.customize/i));
-    expect(pushMock).toHaveBeenCalledWith("/settings?tab=quick-actions");
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/books?segment=expenses"),
+    );
     expect(useEdgeTabStore.getState().activeTab).toBeNull();
   });
 
@@ -220,7 +234,9 @@ describe("<CreateCluster>", () => {
     const user = userEvent.setup();
     render(<CreateCluster />);
     await user.click(await screen.findByText("action.task"));
-    expect(screen.getByTestId("setup-modal")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("setup-modal")).toBeInTheDocument(),
+    );
     expect(openWindowMock).not.toHaveBeenCalled();
   });
 });
