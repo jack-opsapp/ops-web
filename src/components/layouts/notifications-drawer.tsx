@@ -160,6 +160,11 @@ export function NotificationsDrawer() {
 
   const variants = reducedMotion ? drawerVariantsReduced : drawerVariants;
   const panelWidth = getEdgeRailDrawerWidthStyle(RAIL.drawerWidth);
+  // No-card surface (Jackson, 2026-06-23): the drawer is a gradient that
+  // dissolves into the page, not a bordered panel. GUTTER is the left
+  // dissolve zone — content floats in the dense right; the gutter fades out.
+  const GUTTER = 96;
+  const asideWidth = `calc(${panelWidth} + ${GUTTER}px)`;
 
   const CHIPS = useMemo<
     Array<{
@@ -237,23 +242,26 @@ export function NotificationsDrawer() {
               position: "absolute",
               top: getEdgeRailTopStyle(RAIL.drawerHeight, RAIL.stackOffset),
               right: 0,
-              width: panelWidth,
-              maxWidth: "calc(100vw - 36px)",
+              width: asideWidth,
               height: getEdgeRailHeightStyle(RAIL.drawerHeight),
               display: "flex",
               flexDirection: "column",
-              background: "var(--glass-dense)",
+              background:
+                "linear-gradient(270deg, rgba(23,25,29,0.97) 0%, rgba(20,22,26,0.95) 62%, rgba(16,18,22,0.86) 79%, rgba(12,13,17,0.45) 90%, rgba(0,0,0,0) 100%)",
               backdropFilter: "blur(28px) saturate(1.3)",
               WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid var(--glass-border)",
-              borderRight: "none",
-              borderTopLeftRadius: 12,
-              borderBottomLeftRadius: 12,
-              pointerEvents: "auto",
+              WebkitMaskImage:
+                "linear-gradient(to left, #000 79%, transparent 100%), linear-gradient(to bottom, transparent 0%, #000 4%, #000 96%, transparent 100%)",
+              WebkitMaskComposite: "source-in",
+              maskImage:
+                "linear-gradient(to left, #000 79%, transparent 100%), linear-gradient(to bottom, transparent 0%, #000 4%, #000 96%, transparent 100%)",
+              maskComposite: "intersect",
+              pointerEvents: "none",
               overflow: "hidden",
             }}
           >
-            {/* Top-edge highlight gradient */}
+            {/* Top light pool — the panel catches light up top instead of a
+                border defining its edge. */}
             <span
               aria-hidden
               style={{
@@ -261,9 +269,22 @@ export function NotificationsDrawer() {
                 inset: 0,
                 pointerEvents: "none",
                 background:
-                  "linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)",
+                  "radial-gradient(120% 64% at 80% -8%, rgba(255,255,255,0.06), transparent 60%)",
               }}
             />
+
+            {/* Content floats in the dense right zone; the left GUTTER is the
+                gradient's dissolve into the page (click-through, no chrome). */}
+            <div
+              style={{
+                marginLeft: GUTTER,
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                pointerEvents: "auto",
+              }}
+            >
 
             {/* Header */}
             <div
@@ -271,7 +292,6 @@ export function NotificationsDrawer() {
                 display: "flex",
                 alignItems: "center",
                 padding: EDGE_DRAWER_PADDING.header,
-                borderBottom: "1px solid var(--line)",
                 position: "relative",
               }}
             >
@@ -312,7 +332,6 @@ export function NotificationsDrawer() {
                 display: "flex",
                 gap: 4,
                 padding: EDGE_DRAWER_PADDING.row,
-                borderBottom: "1px solid var(--line)",
                 flexWrap: "nowrap",
                 overflowX: "hidden",
               }}
@@ -451,7 +470,7 @@ export function NotificationsDrawer() {
                 display: "flex",
                 alignItems: "center",
                 padding: EDGE_DRAWER_PADDING.footer,
-                borderTop: "1px solid var(--line)",
+                marginTop: 4,
               }}
             >
               <span
@@ -496,6 +515,7 @@ export function NotificationsDrawer() {
               >
                 {t("footer.clearAll")}
               </button>
+            </div>
             </div>
           </motion.aside>
         </div>

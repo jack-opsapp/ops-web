@@ -116,7 +116,6 @@ export function NotificationRow({
         padding: EDGE_DRAWER_PADDING.row,
         cursor: "pointer",
         background: hover || expanded ? "rgba(255,255,255,0.03)" : "transparent",
-        borderTop: "1px solid var(--line)",
         transition: reducedMotion
           ? "none"
           : "background var(--d-hover) var(--ease-smooth)",
