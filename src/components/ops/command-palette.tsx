@@ -8,13 +8,13 @@ import {
   FolderKanban,
   Users,
   Settings,
-  Plus,
   Search,
   LogOut,
   Keyboard,
   RefreshCw,
   ClipboardList,
   Target,
+  Bug,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
@@ -30,6 +30,10 @@ import {
 import { useDictionary } from "@/i18n/client";
 import { useSignOutStore } from "@/stores/signout-store";
 import { useWindowStore } from "@/stores/window-store";
+import { useEdgeTabStore } from "@/stores/edge-tab-store";
+import { useBugReportStore } from "@/stores/bug-report-store";
+import { useQuickActions } from "@/lib/hooks/use-quick-actions";
+import { dispatchQuickAction } from "@/lib/quick-actions/dispatch";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useTasks } from "@/lib/hooks/use-tasks";
@@ -61,6 +65,7 @@ export function CommandPalette() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const beginSignOut = useSignOutStore((s) => s.begin);
+  const openWindow = useWindowStore((s) => s.openWindow);
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const openClientWindow = useWindowStore((s) => s.openClientWindow);
   const can = usePermissionStore((s) => s.can);
@@ -68,6 +73,11 @@ export function CommandPalette() {
   const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
   const flagsReady = useFeatureFlagsStore(selectFlagsReady);
   const { t: tNav } = useDictionary("navigation");
+  const { t: tQuickActions } = useDictionary("quick-actions");
+  // The real, permission- + feature-filtered create catalog — the single
+  // source the bottom-right Create menu also renders, so the palette's create
+  // list can never drift to legacy routes again.
+  const fabActions = useQuickActions();
 
   // Entity data for search — scope-AGNOSTIC across the whole company so
   // the palette acts as a universal lookup. Bug ab3ace6e — the legacy
@@ -192,39 +202,25 @@ export function CommandPalette() {
       keywords: entry.paletteKeywords,
     }));
 
-  const quickActions: CommandAction[] = ([
-    {
-      id: "action-new-project",
-      label: "New Project",
-      icon: Plus,
-      shortcut: "\u2318\u21E7P",
-      onSelect: () => navigate("/projects/new"),
-      keywords: ["create", "add", "project"],
-      requiredPermission: "projects.create",
+  // Create group = the real window-based catalog, dispatched through the
+  // shared `dispatchQuickAction` (same path as the bottom-right Create menu).
+  // Already permission- + feature-filtered by `useQuickActions`.
+  const quickActions: CommandAction[] = fabActions.map((action) => ({
+    id: `qa-${action.id}`,
+    label: tQuickActions(action.labelKey),
+    icon: action.icon,
+    onSelect: () => {
+      setOpen(false);
+      dispatchQuickAction(action, {
+        router,
+        openWindow,
+        openProjectWindow,
+        openClientWindow,
+        t: tQuickActions,
+      });
     },
-    {
-      id: "action-new-client",
-      label: "New Client",
-      icon: Plus,
-      shortcut: "\u2318\u21E7C",
-      onSelect: () => navigate("/clients/new"),
-      keywords: ["create", "add", "customer"],
-      requiredPermission: "clients.create",
-    },
-    {
-      id: "action-sync",
-      label: "Sync Data",
-      icon: RefreshCw,
-      onSelect: () => {
-        setOpen(false);
-        queryClient.invalidateQueries();
-        toast.success("Syncing all data...");
-      },
-      keywords: ["refresh", "update", "fetch"],
-    },
-  ] as CommandAction[]).filter(
-    (a) => !a.requiredPermission || can(a.requiredPermission)
-  );
+    keywords: ["create", "new", "add"],
+  }));
 
   const settingsActions: CommandAction[] = ([
     {
@@ -385,6 +381,32 @@ export function CommandPalette() {
 
   const systemActions: CommandAction[] = [
     {
+      id: "system-sync",
+      label: "Sync Data",
+      icon: RefreshCw,
+      onSelect: () => {
+        setOpen(false);
+        queryClient.invalidateQueries();
+        toast.success("Syncing all data...");
+      },
+      keywords: ["refresh", "update", "fetch", "reload", "sync"],
+    },
+    {
+      id: "system-report-bug",
+      label: "Report a bug",
+      icon: Bug,
+      shortcut: "`",
+      onSelect: () => {
+        // Mirror the cluster's bug glyph: capture the screen first, then open
+        // the drawer. The CommandDialog is data-bug-report-ignore, so the
+        // closing palette never lands in the screenshot.
+        setOpen(false);
+        useBugReportStore.getState().requestScreenshot();
+        useEdgeTabStore.getState().setActive("bug-report");
+      },
+      keywords: ["bug", "issue", "feedback", "problem", "report"],
+    },
+    {
       id: "system-shortcuts",
       label: "Keyboard Shortcuts",
       icon: Keyboard,
@@ -516,7 +538,7 @@ export function CommandPalette() {
           </>
         )}
 
-        <CommandGroup heading="Quick Actions">
+        <CommandGroup heading="Create">
           {quickActions.map((action) => (
             <CommandItem
               key={action.id}

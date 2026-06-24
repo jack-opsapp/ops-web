@@ -5,6 +5,11 @@
   "tab.tooltipTitle": "Quick actions",
   "tab.shortcut": "Q",
 
+  "trigger.ariaLabel": "Create",
+  "trigger.tooltip": "Create",
+  "menu.title": "CREATE",
+  "menu.searchHint": "SEARCH",
+
   "drawer.ariaLabel": "Quick actions",
   "drawer.title": "QUICK ACTIONS",
   "drawer.shortcutHint": "Q",

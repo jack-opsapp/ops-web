@@ -12,8 +12,10 @@ export function WindowDock() {
 
   if (minimizedWindows.length === 0) return null;
 
+  // Sits above the bottom-right CreateCluster (40px trigger + 16px inset →
+  // ~68px) so the minimized-window dock stacks over it, not behind it.
   return (
-    <div className="fixed bottom-3 right-3 flex items-center gap-1 z-[96]">
+    <div className="fixed bottom-[68px] right-4 flex items-center gap-1 z-[96]">
       {minimizedWindows.map((win) => (
         <div
           key={win.id}

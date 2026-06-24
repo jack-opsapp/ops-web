@@ -25,16 +25,16 @@ import {
 } from "@/lib/utils/bug-context";
 import { useDictionary } from "@/i18n/client";
 import { Switch } from "@/components/ui/switch";
-import { EDGE_TAB_ID_BUG, STACK_OFFSET_BUG } from "./bug-report-tab";
-
 // ─── Drawer geometry ───────────────────────────────────────────────────────
-// Mirrors quick-actions-drawer.tsx — panel-anchored 360×520 right-edge
-// drawer. The expanded EdgeTab clamps to the same 520px so the tab + drawer
-// read as one shape.
+// Bottom-right anchored floating panel (WEB OVERHAUL P5). Rises above the
+// CreateCluster (40px trigger + 16px inset → 68px clearance) and clamps so it
+// never crosses the 72px top-bar gap. Was an edge-centered drawer; re-anchored
+// when the right-edge rail was retired and Bug Report moved into the
+// bottom-right action cluster.
+const EDGE_TAB_ID_BUG = "bug-report";
 const PANEL_W = 360;
-const PANEL_H = 520;
 const RAIL_TOP = 72;
-const RAIL_BOTTOM = 16;
+const CLUSTER_CLEAR = 68;
 const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 // ─── Form types ────────────────────────────────────────────────────────────
@@ -153,7 +153,13 @@ export function BugReportDrawer() {
     if (!open) return;
     if (screenshotToken === lastCaptureToken.current) return;
     lastCaptureToken.current = screenshotToken;
-    captureScreenshot();
+    // Defer the heavy synchronous DOM capture (modern-screenshot clones the
+    // whole body) until after the slide-in settles (~260ms). Run inline and it
+    // stalls the open animation mid-flight, leaving the panel resting off its
+    // anchor. The drawer + cluster are excluded from the capture regardless of
+    // when it runs (data-bug-report-ignore), so timing only affects smoothness.
+    const id = window.setTimeout(() => captureScreenshot(), 320);
+    return () => window.clearTimeout(id);
   }, [open, screenshotToken, captureScreenshot]);
 
   // ── Outside-click dismiss ──
@@ -173,8 +179,11 @@ export function BugReportDrawer() {
 
       for (const node of path) {
         if (!(node instanceof HTMLElement)) continue;
+        // The CreateCluster (create trigger + bug glyph) carries this. A click
+        // on the bug glyph toggles the drawer via its own handler — don't
+        // double-fire a close here.
+        if (node.dataset?.bugReportIgnore === "true") return;
         if (node.dataset?.edgeTab) return;
-        if (node.dataset?.edgeTabDetached === "true") return;
         if (node.getAttribute?.("role") === "dialog") return;
       }
 
@@ -384,56 +393,43 @@ export function BugReportDrawer() {
   // Width clamp — keeps the panel ≤ (viewport - 36px) on narrow screens so
   // the drawer never extends past the viewport edge (matches notifications /
   // quick-actions drawer behavior — bug edfdd057).
-  const panelWidth = `min(${PANEL_W}px, calc(100vw - 36px))`;
+  const panelWidth = `min(${PANEL_W}px, calc(100vw - 32px))`;
 
   return (
     <AnimatePresence mode="wait">
       {open && (
-        <div
-          aria-hidden={false}
+        <motion.aside
+          ref={drawerRef}
+          key="bug-report-drawer"
+          variants={variants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          role="complementary"
+          aria-label={t("bugReport.title") ?? "Report a bug"}
           data-bug-report-ignore="true"
           style={{
             position: "fixed",
-            top: RAIL_TOP,
-            right: 0,
-            bottom: RAIL_BOTTOM,
+            right: 16,
+            bottom: CLUSTER_CLEAR,
             width: panelWidth,
-            maxWidth: "calc(100vw - 36px)",
-            pointerEvents: "none",
+            maxWidth: "calc(100vw - 32px)",
+            // Content-driven height, capped to the viewport (top-bar gap +
+            // cluster clearance). The short single-textarea form hugs; the
+            // taller power-user form scrolls inside the body.
+            maxHeight: `calc(100vh - ${RAIL_TOP + CLUSTER_CLEAR}px)`,
+            display: "flex",
+            flexDirection: "column",
+            background: "var(--glass-dense)",
+            backdropFilter: "blur(28px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+            border: "1px solid var(--glass-border)",
+            borderRadius: 10,
             zIndex: 1550,
+            pointerEvents: "auto",
+            overflow: "hidden",
           }}
         >
-          <motion.aside
-            ref={drawerRef}
-            key="bug-report-drawer"
-            variants={variants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            role="complementary"
-            aria-label={t("bugReport.title") ?? "Report a bug"}
-            data-bug-report-ignore="true"
-            style={{
-              position: "absolute",
-              top: `calc(50% + ${STACK_OFFSET_BUG - PANEL_H / 2}px)`,
-              right: 0,
-              width: panelWidth,
-              maxWidth: "calc(100vw - 36px)",
-              height: PANEL_H,
-              maxHeight: `calc(100vh - ${RAIL_TOP + RAIL_BOTTOM}px)`,
-              display: "flex",
-              flexDirection: "column",
-              background: "var(--glass-dense)",
-              backdropFilter: "blur(28px) saturate(1.3)",
-              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid var(--glass-border)",
-              borderRight: "none",
-              borderTopLeftRadius: 10,
-              borderBottomLeftRadius: 10,
-              pointerEvents: "auto",
-              overflow: "hidden",
-            }}
-          >
             {/* Top-edge highlight gradient */}
             <span
               aria-hidden
@@ -504,7 +500,8 @@ export function BugReportDrawer() {
             <div
               className="hide-scrollbar"
               style={{
-                flex: 1,
+                flex: "1 1 auto",
+                minHeight: 0,
                 overflowY: "auto",
                 overflowX: "hidden",
                 padding: "12px 14px 14px",
@@ -768,8 +765,7 @@ export function BugReportDrawer() {
                 </>
               )}
             </div>
-          </motion.aside>
-        </div>
+        </motion.aside>
       )}
     </AnimatePresence>
   );
