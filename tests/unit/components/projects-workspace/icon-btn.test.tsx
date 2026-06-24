@@ -42,9 +42,9 @@ describe("<IconBtn>", () => {
     expect(el).toHaveClass(w);
   });
 
-  it("renders with rounded-[5px] (brand btn radius)", () => {
+  it("renders with the 5px brand btn radius (rounded token)", () => {
     render(<IconBtn aria-label="X">x</IconBtn>);
-    expect(screen.getByRole("button")).toHaveClass("rounded-[5px]");
+    expect(screen.getByRole("button")).toHaveClass("rounded");
   });
 
   it("destructive variant uses rose hover tint (no brick fill)", () => {
@@ -88,7 +88,7 @@ describe("<IconBtn>", () => {
       </IconBtn>,
     );
     expect(screen.getByRole("button")).toHaveClass("ml-2");
-    expect(screen.getByRole("button")).toHaveClass("rounded-[5px]");
+    expect(screen.getByRole("button")).toHaveClass("rounded");
   });
 
   it("uses ease-smooth motion (no spring/bounce)", () => {

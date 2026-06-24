@@ -58,9 +58,9 @@ describe("<Select>", () => {
     expect(screen.getByRole("combobox")).toHaveClass("font-mohave");
   });
 
-  it("uses rounded-[5px] (brand input radius)", () => {
+  it("uses the 5px brand input radius (rounded token)", () => {
     render(<Select options={STATUS_OPTIONS} placeholder="X" onChange={() => {}} />);
-    expect(screen.getByRole("combobox")).toHaveClass("rounded-[5px]");
+    expect(screen.getByRole("combobox")).toHaveClass("rounded");
   });
 
   it("uses h-8 to match TextInput density", () => {

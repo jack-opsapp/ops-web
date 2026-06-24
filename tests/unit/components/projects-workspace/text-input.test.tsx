@@ -20,9 +20,9 @@ describe("<TextInput>", () => {
     expect(screen.getByPlaceholderText("X")).toHaveClass("font-mohave");
   });
 
-  it("uses rounded-[5px] (brand input radius)", () => {
+  it("uses the 5px brand input radius (rounded token)", () => {
     render(<TextInput placeholder="X" />);
-    expect(screen.getByPlaceholderText("X")).toHaveClass("rounded-[5px]");
+    expect(screen.getByPlaceholderText("X")).toHaveClass("rounded");
   });
 
   it("has glass-border default border (no hex literal)", () => {

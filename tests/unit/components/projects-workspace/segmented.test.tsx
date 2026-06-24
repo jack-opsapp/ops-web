@@ -83,7 +83,7 @@ describe("<Segmented>", () => {
     expect(team).toHaveClass("uppercase");
   });
 
-  it("uses rounded-[5px] on the container (brand input radius)", () => {
+  it("uses the 5px brand input radius on the container (rounded token)", () => {
     render(
       <Segmented
         options={VISIBILITY_OPTIONS}
@@ -91,7 +91,7 @@ describe("<Segmented>", () => {
         onChange={() => {}}
       />,
     );
-    expect(screen.getByRole("radiogroup")).toHaveClass("rounded-[5px]");
+    expect(screen.getByRole("radiogroup")).toHaveClass("rounded");
   });
 
   it("applies selected styling (text-text + accent line) to the active segment", () => {

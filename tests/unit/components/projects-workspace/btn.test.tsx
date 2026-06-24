@@ -23,9 +23,9 @@ describe("<Btn>", () => {
     expect(el).toHaveClass("uppercase");
   });
 
-  it("uses rounded-[5px] (brand btn radius)", () => {
+  it("uses the 5px brand btn radius (rounded token)", () => {
     render(<Btn>Save</Btn>);
-    expect(screen.getByRole("button")).toHaveClass("rounded-[5px]");
+    expect(screen.getByRole("button")).toHaveClass("rounded");
   });
 
   it("primary variant is OUTLINED at rest (text-ops-accent + border-ops-accent), no fill", () => {
