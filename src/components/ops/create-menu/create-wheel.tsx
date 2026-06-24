@@ -29,6 +29,7 @@ interface CreateWheelProps {
   /** `quick-actions` dictionary accessor. */
   t: (key: string) => string;
   onRun: (action: FABAction) => void;
+  onCustomize: () => void;
   onClose: () => void;
   reducedMotion: boolean;
 }
@@ -41,6 +42,7 @@ export function CreateWheel({
   actions,
   t,
   onRun,
+  onCustomize,
   onClose,
   reducedMotion,
 }: CreateWheelProps) {
@@ -235,6 +237,17 @@ export function CreateWheel({
           );
         })}
       </div>
+
+      {/* Quiet subtext footer — secondary to the action rows (smaller, mono,
+          bracketed), so it reads as utility, not a wheel item. */}
+      <button
+        type="button"
+        onClick={onCustomize}
+        style={{ zIndex: 2 }}
+        className="absolute bottom-6 right-[70px] cursor-pointer font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute outline-none transition-colors duration-150 hover:text-text-2 focus-visible:text-text-2"
+      >
+        {`[ ${t("footer.customize")} ]`}
+      </button>
     </motion.div>
   );
 }

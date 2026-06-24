@@ -109,6 +109,11 @@ export function CreateCluster() {
     [close, gatedAction, router, openWindow, openProjectWindow, openClientWindow, t],
   );
 
+  const handleCustomize = useCallback(() => {
+    close(ID_CREATE);
+    router.push("/settings?tab=quick-actions");
+  }, [close, router]);
+
   const openBug = useCallback(() => {
     // Capture the screen BEFORE the drawer mounts (the image reflects what the
     // operator was looking at).
@@ -253,6 +258,7 @@ export function CreateCluster() {
             actions={actions}
             t={t}
             onRun={handleRun}
+            onCustomize={handleCustomize}
             onClose={() => close(ID_CREATE)}
             reducedMotion={reducedMotion}
           />

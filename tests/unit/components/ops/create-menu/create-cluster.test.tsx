@@ -228,6 +228,15 @@ describe("<CreateCluster>", () => {
     expect(useEdgeTabStore.getState().activeTab).toBeNull();
   });
 
+  it("the customize footer routes to settings and closes the wheel", async () => {
+    useEdgeTabStore.setState({ activeTab: "quick-actions" });
+    const user = userEvent.setup();
+    render(<CreateCluster />);
+    await user.click(await screen.findByText(/footer\.customize/i));
+    expect(pushMock).toHaveBeenCalledWith("/settings?tab=quick-actions");
+    expect(useEdgeTabStore.getState().activeTab).toBeNull();
+  });
+
   it("gates the action behind the setup modal when setup is incomplete", async () => {
     isCompleteValue = false;
     useEdgeTabStore.setState({ activeTab: "quick-actions" });
