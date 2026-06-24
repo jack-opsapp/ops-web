@@ -94,11 +94,15 @@ describe("<PipelineFilterRow>", () => {
 
     expect(row).toHaveAttribute("data-pipeline-filter-row", "toolbar");
     expect(row).toHaveClass("flex-nowrap");
+    // New Lead is the pipeline's single filled-primary accent CTA. In the
+    // compact toolbar variant it keeps the accent FILL (denser: h-26 /
+    // text-micro), not downgraded to a restrained ghost.
     expect(addLead).toHaveClass(
       "h-[26px]",
-      "[font-size:10px]",
-      "border-ops-accent/45",
-      "bg-ops-accent/10"
+      "bg-ops-accent",
+      "border-ops-accent",
+      "text-black",
+      "text-micro"
     );
     expect(addLead).not.toHaveClass("bg-surface-active");
     expect(addLead).not.toHaveClass("bg-white/[0.04]");

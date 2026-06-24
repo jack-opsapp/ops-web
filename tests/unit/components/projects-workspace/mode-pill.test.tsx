@@ -65,16 +65,17 @@ describe("<ModePill>", () => {
     expect(dot.className).toContain("bg-[var(--tan)]");
   });
 
-  it("creating variant uses ops-accent-soft background + accent text + accent dot", () => {
+  it("creating variant uses olive-soft background + olive text + olive dot", () => {
     render(<ModePill mode="creating" />);
     const pill = screen.getByTestId("mode-pill-creating");
-    // Spec calls for rgba(111,148,176,0.10) — we use the existing
-    // --ops-accent-soft token (rgba(111,148,176,0.12)) which is on-spec
-    // (12% alpha is the brand-wide 'soft' tier).
-    expect(pill.className).toContain("bg-[var(--ops-accent-soft)]");
-    expect(pill.className).toContain("text-ops-accent");
+    // CREATING is the "go" / generative state, tinted with the OLIVE earth
+    // tone — NOT the accent. This keeps the pill family on earth tones
+    // (viewing = neutral, editing = tan, creating = olive). --olive-soft is
+    // the brand-wide 12% 'soft' tier, matching the editing pill's --tan-soft.
+    expect(pill.className).toContain("bg-[var(--olive-soft)]");
+    expect(pill.className).toContain("text-[var(--olive)]");
     const dot = screen.getByTestId("mode-pill-dot-creating");
-    expect(dot.className).toContain("bg-ops-accent");
+    expect(dot.className).toContain("bg-olive");
   });
 
   it("uses chip radius (4px), 9.5px font-mono, tracking 0.16em uppercase", () => {

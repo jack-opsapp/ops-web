@@ -113,11 +113,7 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
     ["/projects", "projects.view"],
     ["/schedule", "calendar.view"],
     ["/clients", "clients.view"],
-    ["/team", "team.view"],
-    ["/map", "map.view"],
     ["/pipeline", "pipeline.view"],
-    ["/products", "products.view"],
-    ["/inventory", "inventory.view"],
     ["/inbox", "pipeline.view"],
     ["/calibration", "email.configure_ai"],
     ["/agent", "pipeline.view"],
@@ -153,12 +149,22 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
     expect(getEntryForPath("/invoices")).toBeNull();
     expect(getEntryForPath("/accounting")).toBeNull();
   });
+
+  // /map, /products, /inventory, /team were absorbed into their hubs
+  // (Projects map view, Catalog, Settings → Team) and now 308-redirect via
+  // middleware. They are deliberately NOT registered standalone — the
+  // destination route owns the permission gate.
+  it("absorbed nav routes are no longer registered (middleware redirects them)", () => {
+    for (const path of ["/map", "/products", "/inventory", "/team"]) {
+      expect(getEntryForPath(path)).toBeNull();
+      expect(getPermissionForPath(path)).toBeNull();
+    }
+  });
 });
 
 describe("full-height modes (parity with the retired FULL_HEIGHT_ROUTES map)", () => {
   it.each([
     ["/inbox", "padded"],
-    ["/map", "bleed"],
     ["/schedule", "padded"],
     ["/pipeline", "padded"],
     ["/projects", "bleed"],
