@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils/cn";
 // when wrapped in `<Field>`. This atom is pure presentation: the bare
 // styled `<input>`. Field owns label + hint + error + aria wiring.
 
-export interface TextInputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+export type TextInputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 export const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(
   ({ className, type, ...props }, ref) => (

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils/cn";
 // 80px (suitable for short notes); callers pass `className="min-h-[Npx]"`
 // or set `rows` to override.
 
-export interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+export type TextAreaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
   ({ className, ...props }, ref) => (
