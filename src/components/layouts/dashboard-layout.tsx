@@ -287,11 +287,11 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
 
           Surface (P5): a gradient SCRIM, not a glass panel. No fill, no blur,
           no hairline seam — the bar dissolves into the canvas. A black→
-          transparent veil (60px) holds dark across the title + controls so
-          they stay legible over ANYTHING beneath (incl. the dashboard map),
-          then fades out just past the 56px bar. It must NOT trail far below
-          the controls into the content — the dark span tracks the bar, not a
-          long tail. Canvas color via the --background token (matches the
+          transparent veil (60px) begins fading from the very top and falls
+          off gradually — softest at the crown, no held-solid plateau — so it
+          darkens the title/controls over the map without a hard edge and ends
+          just past the 56px bar, never trailing far below the text into the
+          content. Canvas color via the --background token (matches the
           bottom-fade above). pointer-events-none so it never blocks content. */}
       <div className="pointer-events-none fixed left-0 right-0 top-0 z-[500] md:left-[72px]">
         <div
@@ -299,7 +299,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           className="pointer-events-none absolute inset-x-0 top-0 h-[60px]"
           style={{
             background:
-              "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.92) 50%, hsl(var(--background) / 0.6) 78%, transparent 100%)",
+              "linear-gradient(180deg, hsl(var(--background) / 0.85) 0%, hsl(var(--background) / 0.58) 32%, hsl(var(--background) / 0.3) 62%, hsl(var(--background) / 0.1) 84%, transparent 100%)",
           }}
         />
         <div className="pointer-events-auto relative h-[56px]">
