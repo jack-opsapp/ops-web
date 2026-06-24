@@ -8,19 +8,23 @@ import { Button } from "@/components/ui/button";
 import { EmailThreadView } from "./email-thread-view";
 import { useDictionary } from "@/i18n/client";
 import type { AnalyzedLead, ConsolidationGroup, TriageDecision } from "@/lib/types/email-import";
+import { OPPORTUNITY_STAGE_COLORS, OpportunityStage } from "@/lib/types/pipeline";
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
 
+// Colors are sourced from the canonical pipeline palette (OPPORTUNITY_STAGE_COLORS)
+// so the wizard's stage swatches are identical to the pipeline board, table, and
+// every other surface — never a local re-derivation that can drift.
 const STAGE_CONFIG: Record<string, { labelKey: string; color: string }> = {
-  new_lead: { labelKey: "stages.new_lead", color: "#8F9AA3" },
-  qualifying: { labelKey: "stages.qualifying", color: "#D99A3E" },
-  quoting: { labelKey: "stages.quoting", color: "#C4A868" },
-  quoted: { labelKey: "stages.quoted", color: "#B6AC97" },
-  follow_up: { labelKey: "stages.follow_up", color: "#4E4B48" },
-  negotiation: { labelKey: "stages.negotiation", color: "#B58289" },
-  won: { labelKey: "stages.won", color: "#9DB582" },
-  lost: { labelKey: "stages.lost", color: "#8A8A8A" },
-  discarded: { labelKey: "stages.discarded", color: "#6A6A6A" },
+  new_lead: { labelKey: "stages.new_lead", color: OPPORTUNITY_STAGE_COLORS[OpportunityStage.NewLead] },
+  qualifying: { labelKey: "stages.qualifying", color: OPPORTUNITY_STAGE_COLORS[OpportunityStage.Qualifying] },
+  quoting: { labelKey: "stages.quoting", color: OPPORTUNITY_STAGE_COLORS[OpportunityStage.Quoting] },
+  quoted: { labelKey: "stages.quoted", color: OPPORTUNITY_STAGE_COLORS[OpportunityStage.Quoted] },
+  follow_up: { labelKey: "stages.follow_up", color: OPPORTUNITY_STAGE_COLORS[OpportunityStage.FollowUp] },
+  negotiation: { labelKey: "stages.negotiation", color: OPPORTUNITY_STAGE_COLORS[OpportunityStage.Negotiation] },
+  won: { labelKey: "stages.won", color: OPPORTUNITY_STAGE_COLORS[OpportunityStage.Won] },
+  lost: { labelKey: "stages.lost", color: OPPORTUNITY_STAGE_COLORS[OpportunityStage.Lost] },
+  discarded: { labelKey: "stages.discarded", color: OPPORTUNITY_STAGE_COLORS[OpportunityStage.Discarded] },
 };
 
 const ALL_STAGES = [
@@ -471,7 +475,7 @@ function LeadRow({
           onChange={(e) => onStageChange(e.target.value)}
           className="font-mohave text-[11px] bg-transparent border border-border px-1.5 py-0.5 rounded-chip outline-none focus:border-ops-accent flex-shrink-0"
           style={{
-            color: STAGE_CONFIG[effectiveStage]?.color || "#8A8A8A",
+            color: STAGE_CONFIG[effectiveStage]?.color || "var(--text-3)",
           }}
         >
           {ALL_STAGES.map((s) => (
@@ -532,7 +536,7 @@ function InlineEditableName({
           if (e.key === "Escape") { setDraft(value); setEditing(false); }
           e.stopPropagation();
         }}
-        className="font-mohave text-[13px] text-text bg-transparent border-b border-ops-accent outline-none w-full truncate"
+        className="font-mohave text-[13px] text-text bg-transparent border-b border-border-medium focus:border-ops-accent outline-none w-full truncate"
       />
     );
   }

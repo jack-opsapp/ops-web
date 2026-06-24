@@ -90,15 +90,15 @@ export function FilterFlaggedStep({
       "1": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, true);
         // Neutral text-2 — the decision badge is not the primary CTA.
-        return { label: t("filter.import"), color: "#B5B5B5" };
+        return { label: t("filter.import"), color: "var(--text-2)" };
       },
       "2": (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, false);
-        return { label: t("filter.discard"), color: "#8A8A8A" };
+        return { label: t("filter.discard"), color: "var(--text-3)" };
       },
       Backspace: (item: CarouselItem<AnalyzedLead>): CarouselDecision => {
         setLeadFilterDecision(item.id, false);
-        return { label: t("filter.discard"), color: "#8A8A8A" };
+        return { label: t("filter.discard"), color: "var(--text-3)" };
       },
     }),
     [setLeadFilterDecision, t]

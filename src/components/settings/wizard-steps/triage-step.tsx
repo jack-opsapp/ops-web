@@ -53,10 +53,10 @@ function computeTriageDefault(lead: AnalyzedLead): TriageDecision {
 // outcomes are neutral text-ladder grays — accent (#6F94B0) is reserved for
 // the single primary CTA + focus rings, never for an inline status badge.
 const DECISION_COLORS: Record<TriageDecision, string> = {
-  won: "#9DB582", // olive — semantic
-  lost: "#8A8A8A", // text-3
-  active: "#B5B5B5", // text-2
-  discard: "#6A6A6A", // text-mute
+  won: "var(--olive)", // olive — semantic
+  lost: "var(--text-3)",
+  active: "var(--text-2)",
+  discard: "var(--text-mute)",
 };
 
 const DECISION_LABEL_KEYS: Record<TriageDecision, string> = {
@@ -274,7 +274,7 @@ export function TriageStep({
                 className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 border"
                 style={{
                   borderRadius: 4,
-                  borderColor: `${DECISION_COLORS[defaultDecision]}30`,
+                  borderColor: `color-mix(in srgb, ${DECISION_COLORS[defaultDecision]} 19%, transparent)`,
                   color: DECISION_COLORS[defaultDecision],
                 }}
               >
@@ -391,7 +391,7 @@ function InlineEditableText({
           }
           e.stopPropagation();
         }}
-        className={`${className} bg-transparent border-b border-ops-accent outline-none w-full`}
+        className={`${className} bg-transparent border-b border-border-medium focus:border-ops-accent outline-none w-full`}
         style={{ borderRadius: 0 }}
       />
     );

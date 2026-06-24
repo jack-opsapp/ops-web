@@ -80,7 +80,7 @@ export function ConsolidateContactsStep({
       "1": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "confirm" });
         // Neutral text-2 — a decision badge is not the primary CTA, so no accent.
-        return { label: t("consolidate.decisionConfirmed"), color: "#B5B5B5" };
+        return { label: t("consolidate.decisionConfirmed"), color: "var(--text-2)" };
       },
       "2": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         updateGroup(item.id, { decision: "merge" });
@@ -101,7 +101,7 @@ export function ConsolidateContactsStep({
             })
           );
         }
-        return { label: t("consolidate.decisionMerged"), color: "#C4A868" };
+        return { label: t("consolidate.decisionMerged"), color: "var(--tan)" };
       },
       "3": (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         const group = item.data;
@@ -113,7 +113,7 @@ export function ConsolidateContactsStep({
             return isInGroup ? { ...l, enabled: false } : l;
           })
         );
-        return { label: t("consolidate.decisionDiscarded"), color: "#8A8A8A" };
+        return { label: t("consolidate.decisionDiscarded"), color: "var(--text-3)" };
       },
       Backspace: (item: CarouselItem<ConsolidationGroup>): CarouselDecision => {
         const group = item.data;
@@ -125,7 +125,7 @@ export function ConsolidateContactsStep({
             return isInGroup ? { ...l, enabled: false } : l;
           })
         );
-        return { label: t("consolidate.decisionDiscarded"), color: "#8A8A8A" };
+        return { label: t("consolidate.decisionDiscarded"), color: "var(--text-3)" };
       },
     }),
     [leads, onLeadsChanged, updateGroup, t]
@@ -331,7 +331,7 @@ function EditableCompanyName({
           }
           e.stopPropagation(); // prevent carousel keyboard capture
         }}
-        className="font-mohave text-[18px] text-text bg-transparent border-b border-ops-accent outline-none w-full py-0"
+        className="font-mohave text-[18px] text-text bg-transparent border-b border-border-medium focus:border-ops-accent outline-none w-full py-0"
         style={{ borderRadius: 0 }}
       />
     );
@@ -389,7 +389,7 @@ function EditableTitle({
           e.stopPropagation();
         }}
         placeholder={placeholder}
-        className="font-mohave text-[11px] text-text bg-transparent border-b border-ops-accent/50 outline-none flex-1 py-0"
+        className="font-mohave text-[11px] text-text bg-transparent border-b border-border-medium focus:border-ops-accent outline-none flex-1 py-0"
         style={{ borderRadius: 0 }}
       />
     );

@@ -217,6 +217,9 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
   // Progress bar color — olive (semantic success) when complete; neutral fill
   // during analysis. Accent is reserved for the primary CTA + focus rings only,
   // so an indeterminate progress bar must read on the neutral fill ladder.
+  // Concrete literals (not token vars) on purpose: this value is a framer-motion
+  // `animate` interpolation target and CSS `var()` cannot be tweened across the
+  // rgba→olive transition. olive literal === --olive token value (#9DB582).
   const barColor = isComplete ? "#9DB582" : "rgba(255,255,255,0.45)";
   const percentText = isComplete
     ? t("analyze.leadsFound", { count: leadCount })
@@ -250,7 +253,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
               />
             </div>
             <div className="flex items-center justify-between mt-2">
-              <p className="font-mono text-[12px] tabular-nums transition-colors duration-500" style={{ color: isComplete ? "#9DB582" : "#8A8A8A" }}>
+              <p className="font-mono text-[12px] tabular-nums transition-colors duration-500" style={{ color: isComplete ? "var(--olive)" : "var(--text-3)" }}>
                 {isComplete && <CheckCircle size={11} className="inline mr-1 -mt-0.5" />}
                 {percentText}
               </p>
@@ -304,19 +307,13 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                   className="flex items-center gap-3 py-2"
                 >
                   <div
-                    className="w-7 h-7 flex items-center justify-center border rounded-chip transition-all duration-300"
-                    style={{
-                      borderColor: isStageCompleted
-                        ? "rgba(157,181,130,0.5)"
+                    className={`w-7 h-7 flex items-center justify-center border rounded-chip transition-all duration-300 ${
+                      isStageCompleted
+                        ? "border-olive-line bg-olive-soft"
                         : isCurrent
-                          ? "rgba(255,255,255,0.18)"
-                          : "rgba(255,255,255,0.08)",
-                      background: isStageCompleted
-                        ? "rgba(157,181,130,0.1)"
-                        : isCurrent
-                          ? "rgba(255,255,255,0.08)"
-                          : "transparent",
-                    }}
+                          ? "border-border-medium bg-surface-active"
+                          : "border-border bg-transparent"
+                    }`}
                   >
                     {isStageCompleted ? (
                       <CheckCircle size={14} className="text-olive" />
@@ -329,7 +326,7 @@ export function AnalyzeStep({ connectionId, companyId, existingJobId, onComplete
                   <span
                     className="font-mohave text-[13px] transition-colors duration-300"
                     style={{
-                      color: isStageCompleted ? "#9DB582" : isCurrent ? "#EDEDED" : "#8A8A8A",
+                      color: isStageCompleted ? "var(--olive)" : isCurrent ? "var(--text)" : "var(--text-3)",
                     }}
                   >
                     {t(stage.labelKey)}

@@ -261,7 +261,7 @@ export function CardCarousel<T>({
                 exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: -12 }}
                 transition={{ duration: dur * 0.7, ease: EASE_SMOOTH }}
                 className="flex-shrink-0 mb-[-4px] pointer-events-none select-none relative z-0 border border-white/[0.06] px-4 py-2.5 overflow-hidden"
-                style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", maxHeight: 40, transformOrigin: "bottom center" }}
+                style={{ ...cardSurface, background: "var(--surface-vignette)", maxHeight: 40, transformOrigin: "bottom center" }}
               >
                 {renderCard(prev, false, noopSetDecision, noopTrigger, "", 0, noopToggle, true)}
                 {decisions.get(prev.id) && (() => {
@@ -319,7 +319,7 @@ export function CardCarousel<T>({
                 exit={prefersReduced ? { opacity: 0 } : { opacity: 0, y: 20 }}
                 transition={{ duration: dur * 0.7, ease: EASE_SMOOTH }}
                 className="flex-shrink-0 mt-2 pointer-events-none select-none border border-white/[0.06] p-4"
-                style={{ ...cardSurface, background: "rgba(255, 255, 255, 0.02)", transformOrigin: "top center" }}
+                style={{ ...cardSurface, background: "var(--surface-vignette)", transformOrigin: "top center" }}
               >
                 {renderCard(next, false, noopSetDecision, noopTrigger, "", 0, noopToggle)}
               </motion.div>

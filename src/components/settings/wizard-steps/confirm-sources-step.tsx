@@ -75,7 +75,7 @@ export function ConfirmSourcesStep({
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 flex items-center justify-center bg-[rgba(255,255,255,0.05)] border border-border rounded">
+              <div className="w-8 h-8 flex items-center justify-center bg-surface-hover border border-border rounded">
                 <Mail size={14} className="text-text-2" />
               </div>
               <div>

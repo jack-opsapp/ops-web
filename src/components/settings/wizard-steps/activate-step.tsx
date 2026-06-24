@@ -169,7 +169,7 @@ export function ActivateStep({
                   className={
                     "px-3 py-1.5 border rounded-chip transition-all font-mohave text-[12px] " +
                     (active
-                      ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
+                      ? "border-border-medium bg-surface-active text-text"
                       : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2")
                   }
                 >
