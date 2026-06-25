@@ -58,7 +58,7 @@ type SortField = "name" | "quantity" | "status" | "updatedAt";
 
 export function ItemsTab({ showCreateForm, onCreateFormOpen, onCreateFormClose }: ItemsTabProps) {
   // ── Auth ────────────────────────────────────────────────────────────────────
-  const canManageInventory = usePermissionStore((s) => s.can("inventory.manage"));
+  const canManageInventory = usePermissionStore((s) => s.can("catalog.manage"));
 
   // ── Data hooks ──────────────────────────────────────────────────────────────
   const { data: items = [], isLoading } = useInventoryItems();

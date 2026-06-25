@@ -51,10 +51,10 @@ export function Day1HasProject({
               Day 1. {countLine}
             </Text>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "0 0 16px 0" }}>
-              That's the spine. The next move puts OPS to work for you: tasks on those projects, and at least one crew member with the mobile app installed.
+              That&apos;s the spine. The next move puts OPS to work for you: tasks on those projects, and at least one crew member with the mobile app installed.
             </Text>
             <Text style={{ fontSize: "15px", lineHeight: "22px", margin: "0 0 24px 0" }}>
-              When a team member taps DONE in the field, a notification lands on your phone. From a job you weren't on. On a task you didn't have to chase.
+              When a team member taps DONE in the field, a notification lands on your phone. From a job you weren&apos;t on. On a task you didn&apos;t have to chase.
             </Text>
             <Section style={{ textAlign: "left", margin: "24px 0" }}>
               <Button

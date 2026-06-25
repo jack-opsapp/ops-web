@@ -22,13 +22,13 @@ export function Day14Quiet({ firstName, unsubscribeUrl }: Day14QuietProps) {
       {"\n\n"}
       Jack here.
       {"\n\n"}
-      Day 14. You're halfway through your trial and it's been quiet on your account.
+      Day 14. You&apos;re halfway through your trial and it&apos;s been quiet on your account.
       {"\n\n"}
-      Could be a lot of things — you've been busy on actual work, something tripped you up during setup, OPS didn't fit how you run things, the timing's wrong, you forgot about it. No judgment either way.
+      Could be a lot of things — you&apos;ve been busy on actual work, something tripped you up during setup, OPS didn&apos;t fit how you run things, the timing&apos;s wrong, you forgot about it. No judgment either way.
       {"\n\n"}
       But I want to know which one it is. Hit reply on this email — goes to my inbox. One sentence is enough.
       {"\n\n"}
-      If something specifically didn't work, tell me. If you forgot about it, tell me that too. The product gets better when operators tell me what's grinding their gears.
+      If something specifically didn&apos;t work, tell me. If you forgot about it, tell me that too. The product gets better when operators tell me what&apos;s grinding their gears.
       {"\n\n"}
       — Jack
     </PlainTextLayout>

@@ -328,9 +328,17 @@ interface NotificationActionTarget {
   actionLabel: string;
 }
 
-function inboxActionTarget(threadId: string): NotificationActionTarget {
+function inboxActionTarget(
+  threadId: string,
+  opportunityId: string
+): NotificationActionTarget {
   return {
-    actionUrl: `/inbox/${encodeURIComponent(threadId)}`,
+    // Web keeps the inbox thread surface; the opportunity id rides along as a
+    // query param so the lead is recoverable (and iOS routes straight to it via
+    // deep_link_type) without an email_threads join at tap time.
+    actionUrl: `/inbox/${encodeURIComponent(threadId)}?opportunityId=${encodeURIComponent(
+      opportunityId
+    )}`,
     actionLabel: "Open thread",
   };
 }
@@ -379,7 +387,9 @@ async function notificationActionTarget(
   if (!threadId) return pipelineActionTarget(input);
 
   const inboxThreadId = await resolveInboxThreadId(input, threadId);
-  return inboxThreadId ? inboxActionTarget(inboxThreadId) : pipelineActionTarget(input);
+  return inboxThreadId
+    ? inboxActionTarget(inboxThreadId, input.opportunityId)
+    : pipelineActionTarget(input);
 }
 
 function shortId(value: string): string {
@@ -698,6 +708,9 @@ async function createOperatorFollowUpMissNotification(
       body: notificationBody(input),
       is_read: false,
       persistent: true,
+      // Routes both clients straight to the lead; action_url carries the
+      // opportunity id explicitly so no email_threads join is needed at tap time.
+      deep_link_type: "lead",
       action_url: actionTarget.actionUrl,
       action_label: actionTarget.actionLabel,
       project_id: null,

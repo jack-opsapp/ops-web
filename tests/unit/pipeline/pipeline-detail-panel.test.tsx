@@ -89,6 +89,21 @@ vi.mock(
   })
 );
 
+// The map-backed band + Overview tab are new always-/conditionally-mounted body
+// children that pull in query hooks (useUpdateOpportunity, useEstimates, …).
+// This suite covers the panel chrome, not the band internals (which have their
+// own suites), so stub them like the other data-dependent body children above.
+vi.mock("@/app/(dashboard)/pipeline/_components/lead-map-band", () => ({
+  LeadMapBand: () => <div data-testid="lead-map-band" />,
+}));
+
+vi.mock(
+  "@/app/(dashboard)/pipeline/_components/pipeline-detail-overview-tab",
+  () => ({
+    PipelineDetailOverviewTab: () => <div />,
+  })
+);
+
 const NOW = new Date("2026-05-12T12:00:00.000Z");
 
 function makeRect({

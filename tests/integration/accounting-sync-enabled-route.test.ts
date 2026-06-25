@@ -6,6 +6,7 @@ const findUserByAuth = vi.fn();
 const checkPermissionById = vi.fn();
 const updateCall = vi.fn();
 const eqCall = vi.fn();
+const neqCall = vi.fn();
 const maybeSingle = vi.fn();
 
 vi.mock("@/lib/firebase/admin-verify", () => ({ verifyAdminAuth: (r: unknown) => verifyAdminAuth(r) }));
@@ -21,7 +22,13 @@ vi.mock("@/lib/supabase/server-client", () => ({
             eqCall(column, value);
             return chain;
           },
+          neq: (column: string, value: unknown) => {
+            neqCall(column, value);
+            return chain;
+          },
           select: () => ({ maybeSingle: () => maybeSingle() }),
+          then: (resolve: (value: unknown) => unknown) =>
+            Promise.resolve({ data: null, error: null }).then(resolve),
         };
         return chain;
       },
@@ -94,6 +101,22 @@ describe("POST /api/integrations/accounting/sync-enabled", () => {
     expect(eqCall).toHaveBeenCalledWith("company_id", CO);
     expect(eqCall).toHaveBeenCalledWith("provider", "quickbooks");
     expect(eqCall).toHaveBeenCalledWith("provider_environment", "sandbox");
+  });
+
+  it("disables sync on other QuickBooks environments before enabling the active one", async () => {
+    const POST = await route();
+    const res = await POST(post({ companyId: CO, provider: "quickbooks", syncEnabled: true }));
+
+    expect(res.status).toBe(200);
+    expect(updateCall).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ sync_enabled: false, updated_at: expect.any(String) }),
+    );
+    expect(neqCall).toHaveBeenCalledWith("provider_environment", "sandbox");
+    expect(updateCall).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ sync_enabled: true, updated_at: expect.any(String) }),
+    );
   });
 
   it("404 when no connection matches", async () => {

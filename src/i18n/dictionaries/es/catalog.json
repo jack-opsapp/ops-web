@@ -120,6 +120,7 @@
   "bulk.setMargin": "FIJAR MARGEN",
   "bulk.familyTagWarning": "Las etiquetas aplican a cada variante de cada familia.",
 
+  "kebab.setup": "Configurar catálogo",
   "kebab.manage": "ADMINISTRAR",
   "kebab.categories": "Categorías",
   "kebab.tags": "Etiquetas",

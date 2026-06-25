@@ -168,7 +168,7 @@ export function ProductEditor({ productId }: { productId: string }) {
   const [optionToDelete, setOptionToDelete] = useState<ProductOption | null>(null);
   const [modifierToDelete, setModifierToDelete] = useState<ProductPricingModifier | null>(null);
 
-  if (!can("products.manage")) {
+  if (!can("catalog.products.manage")) {
     return (
       <div className="flex flex-col items-start gap-2 px-3 py-6">
         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">

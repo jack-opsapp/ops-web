@@ -455,6 +455,112 @@
       opacity: 1;
     }
   }
+
+  /* === OPS Toast (Sonner wrapper) ===
+   * Spec v2 alignment for the global toast surface used app-wide (Projects
+   * status moves, Pipeline saves, etc.). Visual contract documented in
+   * src/components/ui/toast.tsx. CSS lives here because Sonner injects its
+   * own data attributes ([data-type], [data-sonner-toast]) onto the toast
+   * root — easier to target with CSS than to thread via className.
+   *
+   * Left status rail: a 3px pseudo-element on the left edge signals the
+   * toast type (success → olive, error → rose, warning → tan, info →
+   * ops-accent). Rail respects the 12px corner radius via border-radius
+   * on its top-left / bottom-left corners.
+   */
+  [data-sonner-toaster].ops-toaster {
+    /* Sonner exposes its motion duration via this var. Match EASE_SMOOTH
+     * timing (220ms) so enter/exit aligns with the rest of OPS Web. */
+    --toast-icon-margin-start: 0px;
+    --toast-icon-margin-end: 0px;
+    --width: 340px;
+    --gap: 8px;
+  }
+
+  [data-sonner-toast].ops-toast {
+    /* Sonner sets transition-timing-function inline — override via class.
+     * Anchor with cubic-bezier matching EASE_SMOOTH from lib/utils/motion. */
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+    /* Content padding sits inside the toast so the left status rail can
+     * span the full height edge-to-edge. */
+    padding-left: 14px !important;
+    padding-right: 12px !important;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    /* Reserve space for the close button on the right when present. */
+    position: relative;
+  }
+
+  /* Left status rail — applied via ::after so it sits above glass-dense's
+   * ::before highlight gradient. */
+  [data-sonner-toast].ops-toast::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+    background: var(--text-mute, #6A6A6A);
+    pointer-events: none;
+    z-index: 1;
+  }
+  [data-sonner-toast][data-type="success"].ops-toast::after {
+    background: #9DB582; /* olive */
+  }
+  [data-sonner-toast][data-type="error"].ops-toast::after {
+    background: #B58289; /* rose */
+  }
+  [data-sonner-toast][data-type="warning"].ops-toast::after {
+    background: #C4A868; /* tan */
+  }
+  [data-sonner-toast][data-type="info"].ops-toast::after {
+    background: rgb(var(--ops-accent-rgb, 111 148 176)); /* ops-accent */
+  }
+  [data-sonner-toast][data-type="loading"].ops-toast::after {
+    background: rgb(var(--ops-accent-rgb, 111 148 176));
+    opacity: 0.6;
+  }
+
+  /* Layout: content column sits to the right of the rail. Description gets
+   * a tactical `//` prefix prepended via ::before so callers don't have to
+   * thread it through their copy. */
+  [data-sonner-toast].ops-toast [data-content] {
+    padding-left: 8px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  [data-sonner-toast].ops-toast [data-description]:not(:empty)::before {
+    content: "// ";
+    color: var(--text-mute, #6A6A6A);
+    letter-spacing: 0.04em;
+  }
+
+  /* Title sits flush with the rail's top; reserve right padding when the
+   * close button is rendered so text doesn't slide under it. */
+  [data-sonner-toast].ops-toast[data-styled="true"] [data-title] {
+    padding-right: 18px;
+  }
+
+  /* Close button hover affordance — hairline border-only ring. */
+  [data-sonner-toast].ops-toast [data-close-button] {
+    transition: background-color 120ms cubic-bezier(0.22, 1, 0.36, 1),
+                color 120ms cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+  }
+
+  /* Reduce motion — collapse Sonner's slide-in to opacity-only. */
+  @media (prefers-reduced-motion: reduce) {
+    [data-sonner-toast].ops-toast {
+      transition-duration: 120ms !important;
+      transform: none !important;
+    }
+  }
 }
 
 /* === Leaflet + Tailwind Compatibility ===

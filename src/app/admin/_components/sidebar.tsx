@@ -12,6 +12,7 @@ const NAV_ITEMS: NavEntry[] = [
   { type: "section", label: "GROWTH" },
   { type: "item", href: "/admin/acquisition", label: "ACQUISITION" },
   { type: "item", href: "/admin/google-ads", label: "GOOGLE ADS" },
+  { type: "item", href: "/admin/app-store", label: "APP STORE" },
   { type: "item", href: "/admin/ab-testing", label: "A/B TESTING" },
   { type: "item", href: "/admin/onboarding", label: "ONBOARDING" },
 

@@ -453,7 +453,8 @@ describe("opportunity lifecycle action service", () => {
         persistent: true,
         is_read: false,
         dedupe_key: "lead_lifecycle:operator_follow_up_miss:opp-1",
-        action_url: "/inbox/thread-internal-1",
+        deep_link_type: "lead",
+        action_url: "/inbox/thread-internal-1?opportunityId=opp-1",
         action_label: "Open thread",
       }),
     ]);
@@ -499,7 +500,9 @@ describe("opportunity lifecycle action service", () => {
     );
 
     expect(state.notifications[0]).toMatchObject({
-      action_url: "/inbox/11111111-1111-4111-8111-111111111111",
+      deep_link_type: "lead",
+      action_url:
+        "/inbox/11111111-1111-4111-8111-111111111111?opportunityId=opp-1",
       action_label: "Open thread",
     });
   });
@@ -532,6 +535,7 @@ describe("opportunity lifecycle action service", () => {
     );
 
     expect(state.notifications[0]).toMatchObject({
+      deep_link_type: "lead",
       action_url: "/pipeline?opportunityId=opp-1",
       action_label: "Open opportunity",
     });

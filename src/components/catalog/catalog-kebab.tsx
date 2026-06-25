@@ -5,7 +5,7 @@
  * (Direction D). MANAGE (categories / tags / units / threshold defaults) +
  * VIEWS (saved counts / import). Mirrors the iOS kebab groups minus ORDERS
  * (catalog_orders is consumed nowhere on web — no order affordances ship).
- * Manage items gate on inventory.manage; import on inventory.import.
+ * Manage items gate on catalog.manage; import on catalog.import.
  */
 
 import { useState } from "react";
@@ -35,8 +35,9 @@ export function CatalogKebab({
   const { t } = useDictionary("catalog");
   const router = useRouter();
   const can = usePermissionStore((s) => s.can);
-  const canManage = can("inventory.manage");
-  const canImport = can("inventory.import");
+  const canManage = can("catalog.manage");
+  const canImport = can("catalog.import");
+  const canSetup = can("catalog.run_setup");
 
   const [manageTab, setManageTab] = useState<ManageTab | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -54,6 +55,14 @@ export function CatalogKebab({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[200px]">
+          {canSetup && (
+            <>
+              <DropdownMenuItem onSelect={() => router.push("/catalog/setup")}>
+                {t("kebab.setup", "Set up catalog")}
+              </DropdownMenuItem>
+              {(canManage || segment === "stock") && <DropdownMenuSeparator />}
+            </>
+          )}
           {canManage && (
             <>
               <DropdownMenuLabel className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">

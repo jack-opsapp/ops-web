@@ -645,6 +645,21 @@ function pipelineReviewTarget(opportunityId: string): ReviewActionTarget {
   };
 }
 
+function inboxReviewTarget(
+  threadId: string,
+  opportunityId: string
+): ReviewActionTarget {
+  return {
+    // Web keeps the inbox thread surface; the opportunity id rides along as a
+    // query param so the lead is recoverable without an email_threads join at
+    // tap time (deep_link_type routes iOS straight to the lead).
+    actionUrl: `/inbox/${encodeURIComponent(threadId)}?opportunityId=${encodeURIComponent(
+      opportunityId
+    )}`,
+    actionLabel: REVIEW_NOTIFICATION_ACTION_LABEL,
+  };
+}
+
 /**
  * Resolve the action target for a review notification using the SAME logic as
  * the action-service's `notificationActionTarget`: if the candidate's latest
@@ -675,7 +690,7 @@ async function resolveReviewActionTarget(
     const { data: byIdData } = await byIdQuery.limit(1);
     const byId = (byIdData?.[0] as { id?: string } | undefined)?.id;
     if (byId) {
-      return { actionUrl: `/inbox/${encodeURIComponent(byId)}`, actionLabel: REVIEW_NOTIFICATION_ACTION_LABEL };
+      return inboxReviewTarget(byId, opportunityId);
     }
   }
 
@@ -690,7 +705,7 @@ async function resolveReviewActionTarget(
   const { data: byProviderData } = await byProviderQuery.limit(1);
   const byProvider = (byProviderData?.[0] as { id?: string } | undefined)?.id;
   if (byProvider) {
-    return { actionUrl: `/inbox/${encodeURIComponent(byProvider)}`, actionLabel: REVIEW_NOTIFICATION_ACTION_LABEL };
+    return inboxReviewTarget(byProvider, opportunityId);
   }
 
   return fallback;
@@ -757,6 +772,9 @@ async function emitDestructiveReviewNotification(
       body: copy.body,
       is_read: false,
       persistent: true,
+      // Routes both clients straight to the lead; action_url carries the
+      // opportunity id explicitly so no email_threads join is needed at tap time.
+      deep_link_type: "lead",
       action_url: target.actionUrl,
       action_label: target.actionLabel,
       project_id: null,

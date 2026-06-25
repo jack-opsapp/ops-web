@@ -17,7 +17,10 @@ import { DuplicateReviewSheet } from "@/components/ops/duplicate-review-sheet";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
-import { CreateEstimateForm } from "@/components/ops/create-estimate-modal";
+import {
+  CreateEstimateForm,
+  createEstimateDefaultsFromMeta,
+} from "@/components/ops/create-estimate-modal";
 import { CreateLeadForm } from "@/components/ops/create-lead-modal";
 import { ComposeEmailForm } from "@/components/ops/compose-email-form";
 import { ProjectWorkspaceContainer } from "@/components/ops/projects/workspace/project-workspace-container";
@@ -189,6 +192,10 @@ function FloatingWindows() {
           )}
           {win.type === "create-estimate" && (
             <CreateEstimateForm
+              // Deal-scoped opens (pipeline Overview tab) carry
+              // { opportunityId, clientId } on the window metadata; the FAB
+              // opens bare → both fields undefined → a general estimate.
+              {...createEstimateDefaultsFromMeta(win.metadata)}
               onSuccess={() => closeWindow(win.id)}
               onCancel={() => closeWindow(win.id)}
             />
@@ -218,7 +225,7 @@ function FloatingWindows() {
 }
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { needsWebSetup, needsEmployeeOnboarding } = useSetupGate();
+  const { needsWebSetup, needsEmployeeOnboarding, onboardingRoute } = useSetupGate();
   const router = useRouter();
   const pathname = usePathname();
   const needsOnboarding = needsEmployeeOnboarding || needsWebSetup;
@@ -226,14 +233,13 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const fullHeightMode = resolveFullHeightMode(pathname);
   const isFullHeight = fullHeightMode !== null;
 
-  // Redirect to the appropriate onboarding flow if incomplete.
+  // Redirect to the appropriate onboarding flow if incomplete. A company-less
+  // user lands on /account-type (decision screen), never straight into /setup.
   useEffect(() => {
-    if (needsEmployeeOnboarding) {
-      router.push("/employee-setup");
-    } else if (needsWebSetup) {
-      router.push("/setup");
+    if (onboardingRoute) {
+      router.push(onboardingRoute);
     }
-  }, [needsEmployeeOnboarding, needsWebSetup, router]);
+  }, [onboardingRoute, router]);
 
   // Block all dashboard rendering while onboarding is needed.
   if (needsOnboarding) {

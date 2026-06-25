@@ -5,9 +5,10 @@ import { useDictionary } from "@/i18n/client";
 import type { DetailTabId } from "./pipeline-mode-types";
 import { usePipelineModeStore } from "./pipeline-mode-store";
 
-const TABS: DetailTabId[] = ["correspondence", "timeline", "photos"];
+const TABS: DetailTabId[] = ["overview", "correspondence", "timeline", "photos"];
 
 const TAB_KEYS: Record<DetailTabId, string> = {
+  overview: "detail.tabOverview",
   correspondence: "detail.tabCorrespondence",
   timeline: "detail.tabTimeline",
   photos: "detail.tabPhotos",

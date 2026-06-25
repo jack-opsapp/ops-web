@@ -22,11 +22,11 @@ export function Day0Welcome({ firstName, unsubscribeUrl }: Day0WelcomeProps) {
       {"\n\n"}
       My name is Jack, I built OPS.
       {"\n\n"}
-      I'm glad you signed up, and I'm looking forward to hearing what you think of it as you grow.
+      I&apos;m glad you signed up, and I&apos;m looking forward to hearing what you think of it as you grow.
       {"\n\n"}
-      What led you to join? Are you just kicking tires? Are you considering moving from another platform? Just getting into digital tools for your business? Whatever the case, I'm happy to help you get rolling. I built this tool because there was nothing on the market that worked for my crew. I got the impression those were all tech companies built by guys who have never actually worked on a jobsite. So here we are.
+      What led you to join? Are you just kicking tires? Are you considering moving from another platform? Just getting into digital tools for your business? Whatever the case, I&apos;m happy to help you get rolling. I built this tool because there was nothing on the market that worked for my crew. I got the impression those were all tech companies built by guys who have never actually worked on a jobsite. So here we are.
       {"\n\n"}
-      Again, if there's anything you need help with, you can reply to this email, it's my personal inbox.
+      Again, if there&apos;s anything you need help with, you can reply to this email, it&apos;s my personal inbox.
       {"\n\n"}
       — Jack
     </PlainTextLayout>

@@ -190,8 +190,22 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     ],
     nav: { order: 9, group: "command" },
     // Any-of across the two segments' gates (mirrors iOS catalog access):
-    // visible when the user can see products OR stock.
-    anyOfPermissions: ["products.view", "inventory.view"],
+    // visible when the user can see catalog products OR stock.
+    anyOfPermissions: ["catalog.products.view", "catalog.view"],
+  },
+  {
+    // /catalog/setup — the full-page Catalog Setup Wizard. NOT a nav entry
+    // (launched from the first-run takeover + the catalog kebab), registered so
+    // the layout gate enforces catalog.run_setup (tighter than /catalog's
+    // catalog.products.view|catalog.view) and the top bar resolves a page title.
+    // BY_SPECIFICITY matches this before /catalog.
+    key: "catalog-setup",
+    href: "/catalog/setup",
+    icon: Library,
+    labelKey: "nav.catalogSetup",
+    nav: false,
+    permission: "catalog.run_setup",
+    fullHeight: "bleed",
   },
   {
     key: "clients",

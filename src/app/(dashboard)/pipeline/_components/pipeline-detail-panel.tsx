@@ -9,7 +9,6 @@ import {
   useRef,
   useState,
   type RefObject,
-  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -42,6 +41,8 @@ import { PipelineDetailNextSteps } from "./pipeline-detail-next-steps";
 import { PipelineDetailPhotosTab } from "./pipeline-detail-photos-tab";
 import { PipelineDetailTabBar } from "./pipeline-detail-tab-bar";
 import { PipelineDetailTimelineTab } from "./pipeline-detail-timeline-tab";
+import { LeadMapBand } from "./lead-map-band";
+import { PipelineDetailOverviewTab } from "./pipeline-detail-overview-tab";
 
 export type DetailPanelActionHandlers = {
   onAdvanceStage: (opportunity: Opportunity) => void;
@@ -319,7 +320,11 @@ const PanelSurface = memo(
           onDelete={onDelete}
         />
 
-        <PipelineDetailBody opportunity={opportunity} activeTab={activeTab} />
+        <PipelineDetailBody
+          opportunity={opportunity}
+          activeTab={activeTab}
+          canManage={canManage}
+        />
       </section>
     );
   })
@@ -330,13 +335,13 @@ PanelSurface.displayName = "PanelSurface";
 export function PipelineDetailBody({
   opportunity,
   activeTab,
+  canManage,
   withRegion = false,
-  headerSlot,
 }: {
   opportunity: Opportunity;
   activeTab: DetailTabId;
+  canManage: boolean;
   withRegion?: boolean;
-  headerSlot?: ReactNode;
 }) {
   const { t } = useDictionary("pipeline");
 
@@ -352,7 +357,7 @@ export function PipelineDetailBody({
       tabIndex={withRegion ? -1 : undefined}
       className="flex h-full min-h-0 flex-col"
     >
-      {headerSlot}
+      <LeadMapBand opportunity={opportunity} canManage={canManage} />
       <PipelineDetailNextSteps
         opportunityId={opportunity.id}
         opportunity={opportunity}
@@ -360,6 +365,12 @@ export function PipelineDetailBody({
       <PipelineDetailTabBar />
 
       <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto p-3">
+        {activeTab === "overview" && (
+          <PipelineDetailOverviewTab
+            opportunity={opportunity}
+            canManage={canManage}
+          />
+        )}
         {activeTab === "correspondence" && (
           <PipelineDetailCorrespondenceTab opportunityId={opportunity.id} />
         )}
@@ -485,11 +496,6 @@ const PipelineDetailHeader = memo(function PipelineDetailHeader({
         </div>
       </div>
 
-      {opportunity.aiSummary && (
-        <p className="mt-2 pl-2 font-mono text-micro leading-[1.6] text-text-mute">
-          {opportunity.aiSummary}
-        </p>
-      )}
     </header>
   );
 });

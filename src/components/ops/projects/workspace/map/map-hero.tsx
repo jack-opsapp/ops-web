@@ -394,7 +394,8 @@ function MapProjectCrumb({
         }}
       />
       <span data-testid="map-crumb-id" style={{ color: "var(--text-3)" }}>
-        // {projectId}
+        {"// "}
+        {projectId}
       </span>
       <span style={{ color: "var(--text-mute)" }}>·</span>
       <span data-testid="map-crumb-name" style={{ color: "var(--text)" }}>

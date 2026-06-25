@@ -6,6 +6,7 @@ const findUserByAuth = vi.fn();
 const checkPermissionById = vi.fn();
 const updateCall = vi.fn();
 const eqCall = vi.fn();
+const neqCall = vi.fn();
 const maybeSingle = vi.fn();
 
 vi.mock("@/lib/firebase/admin-verify", () => ({ verifyAdminAuth: (r: unknown) => verifyAdminAuth(r) }));
@@ -21,7 +22,13 @@ vi.mock("@/lib/supabase/server-client", () => ({
             eqCall(column, value);
             return chain;
           },
+          neq: (column: string, value: unknown) => {
+            neqCall(column, value);
+            return chain;
+          },
           select: () => ({ maybeSingle: () => maybeSingle() }),
+          then: (resolve: (value: unknown) => unknown) =>
+            Promise.resolve({ data: null, error: null }).then(resolve),
         };
         return chain;
       },
@@ -92,6 +99,28 @@ describe("POST /api/integrations/accounting/sync-mode", () => {
       expect.objectContaining({ sync_direction: "bidirectional", propagate_deletes: true })
     );
     expect(eqCall).toHaveBeenCalledWith("provider_environment", "production");
+  });
+
+  it("disables other QuickBooks environments before enabling bidirectional writes", async () => {
+    const POST = await route();
+    const res = await POST(
+      post({ companyId: CO, provider: "quickbooks", syncDirection: "bidirectional", propagateDeletes: true })
+    );
+
+    expect(res.status).toBe(200);
+    expect(updateCall).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        sync_enabled: false,
+        sync_direction: "pull_only",
+        propagate_deletes: false,
+      }),
+    );
+    expect(neqCall).toHaveBeenCalledWith("provider_environment", "production");
+    expect(updateCall).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ sync_direction: "bidirectional", propagate_deletes: true }),
+    );
   });
 
   it("defaults full CRUD to propagate_deletes=true when the client omits the flag", async () => {

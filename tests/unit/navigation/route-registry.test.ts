@@ -114,6 +114,7 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
     ["/schedule", "calendar.view"],
     ["/clients", "clients.view"],
     ["/pipeline", "pipeline.view"],
+    ["/catalog/setup", "catalog.run_setup"],
     ["/inbox", "pipeline.view"],
     ["/calibration", "email.configure_ai"],
     ["/agent", "pipeline.view"],
@@ -136,6 +137,14 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
       "estimates.view",
       "expenses.approve",
       "accounting.view",
+    ]);
+  });
+
+  it("/catalog is any-of gated across catalog products and stock", () => {
+    expect(getPermissionForPath("/catalog")).toBeNull(); // single-permission API
+    expect(getAnyOfPermissionsForPath("/catalog")).toEqual([
+      "catalog.products.view",
+      "catalog.view",
     ]);
   });
 

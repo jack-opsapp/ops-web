@@ -289,7 +289,7 @@ export function CommandPalette() {
       icon: Settings,
       onSelect: () => navigate("/settings?tab=inventory"),
       keywords: ["settings", "materials", "stock", "supplies", "equipment"],
-      requiredPermission: "inventory.manage",
+      requiredPermission: "catalog.manage",
     },
     {
       id: "settings-expenses",

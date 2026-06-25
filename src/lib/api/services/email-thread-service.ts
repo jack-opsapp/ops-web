@@ -2147,7 +2147,14 @@ async function fireThreadNotifications(
     next.latestSenderEmail ||
     "Unknown sender";
   const subject = next.subject?.trim() || "(no subject)";
-  const actionUrl = `/inbox?thread=${next.id}`;
+  // These page the operator to the inbox thread surface, so deep_link_type is
+  // `inbox` and the thread id is always present in the URL (no email_threads
+  // join needed at tap time). When the thread is already linked to an
+  // opportunity we attach it explicitly too, so a consumer can recover the lead
+  // without that join either.
+  const actionUrl = next.opportunityId
+    ? `/inbox?thread=${next.id}&opportunityId=${next.opportunityId}`
+    : `/inbox?thread=${next.id}`;
 
   const { NotificationService } = await import("./notification-service");
 
@@ -2163,6 +2170,7 @@ async function fireThreadNotifications(
       persistent: false,
       actionUrl,
       actionLabel: "Open thread",
+      deepLinkType: "inbox",
     });
   }
 
@@ -2183,6 +2191,7 @@ async function fireThreadNotifications(
       persistent: false,
       actionUrl,
       actionLabel: "Review",
+      deepLinkType: "inbox",
     });
   }
 
@@ -2197,6 +2206,7 @@ async function fireThreadNotifications(
       persistent: false,
       actionUrl,
       actionLabel: "Reply now",
+      deepLinkType: "inbox",
     });
   }
 }

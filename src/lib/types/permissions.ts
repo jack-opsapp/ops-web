@@ -170,6 +170,27 @@ const productsModule: PermissionModule = {
   ],
 };
 
+// Client home for the DB `catalog.*` namespace that ships in role_permissions.
+// Keeping every live catalog bit registered here is load-bearing:
+// account-holders & company-admins derive their grants from ALL_PERMISSIONS at
+// scope 'all' (usePermissionStore.fetchPermissions), NOT from role_permissions.
+// An unregistered DB bit silently denies the owner/admin path.
+const catalogModule: PermissionModule = {
+  id: "catalog",
+  label: "Catalog",
+  actions: [
+    { id: "catalog.view", label: "View catalog", scopes: ["all"] },
+    { id: "catalog.manage", label: "Manage catalog", scopes: ["all"] },
+    { id: "catalog.import", label: "Import catalog", scopes: ["all"] },
+    { id: "catalog.stock.adjust", label: "Adjust stock", scopes: ["all"] },
+    { id: "catalog.products.view", label: "View catalog products", scopes: ["all"] },
+    { id: "catalog.products.manage", label: "Manage catalog products", scopes: ["all"] },
+    { id: "catalog.orders.view", label: "View purchase orders", scopes: ["all"] },
+    { id: "catalog.orders.manage", label: "Manage purchase orders", scopes: ["all"] },
+    { id: "catalog.run_setup", label: "Run catalog setup", scopes: ["all"] },
+  ],
+};
+
 const expensesModule: PermissionModule = {
   id: "expenses",
   label: "Expenses",
@@ -189,16 +210,6 @@ const accountingModule: PermissionModule = {
   actions: [
     { id: "accounting.view", label: "View accounting", scopes: ["all"] },
     { id: "accounting.manage_connections", label: "Manage integrations", scopes: ["all"] },
-  ],
-};
-
-const inventoryModule: PermissionModule = {
-  id: "inventory",
-  label: "Inventory",
-  actions: [
-    { id: "inventory.view", label: "View inventory", scopes: ["all"] },
-    { id: "inventory.manage", label: "Manage inventory", scopes: ["all"] },
-    { id: "inventory.import", label: "Import inventory", scopes: ["all"] },
   ],
 };
 
@@ -314,12 +325,12 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "financial",
     label: "Financial",
-    modules: [estimatesModule, invoicesModule, pipelineModule, productsModule, expensesModule, accountingModule],
+    modules: [estimatesModule, invoicesModule, pipelineModule, productsModule, catalogModule, expensesModule, accountingModule],
   },
   {
     id: "resources",
     label: "Resources",
-    modules: [inventoryModule, photosModule, documentsModule],
+    modules: [photosModule, documentsModule],
   },
   {
     id: "people",

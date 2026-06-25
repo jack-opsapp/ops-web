@@ -19,9 +19,46 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // extension inference.
 let capturedPath = "";
 
+// The route requires an authenticated caller (commit cbdaed7b): the
+// presign flow calls `resolveAuth`, which (1) verifies a Bearer token via
+// `verifyAuthToken`, (2) looks up the caller's company_id in the `users`
+// table, then (3) authorizes the folder against that company_id. The
+// stubs below satisfy that contract so requests reach the storage path
+// these tests actually exercise — exactly mirroring a valid caller.
+
+// A real UUID for the caller's company_id. `authorizeFolder` requires the
+// company_id to be UUID-shaped, so the lookup must return one.
+const TEST_COMPANY_ID = "11111111-1111-4111-8111-111111111111";
+
+// Force the legacy Supabase Storage backend so the route uses the mocked
+// `getServiceRoleClient().storage` path rather than signing against the
+// real AWS SDK. (Default backend is "s3".)
+process.env.STORAGE_BACKEND = "supabase";
+
+// ─── Auth token verification mock (Supabase iOS / Firebase web bridge) ──────
+vi.mock("@/lib/firebase/admin-verify", () => ({
+  verifyAuthToken: async (_token: string) => ({
+    uid: "test-uid",
+    email: "tester@example.com",
+    claims: {},
+  }),
+}));
+
 // ─── Supabase service-role client mock ──────────────────────────────────────
+// Provides BOTH the `users` lookup used by `resolveAuth` and the `storage`
+// surface used by the Supabase presign path.
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({
+    from: (_table: string) => ({
+      select: (_cols: string) => ({
+        or: (_filter: string) => ({
+          maybeSingle: async () => ({
+            data: { id: "usr_test", company_id: TEST_COMPANY_ID },
+            error: null,
+          }),
+        }),
+      }),
+    }),
     storage: {
       from: (_bucket: string) => ({
         createSignedUploadUrl: async (path: string) => {
@@ -45,7 +82,26 @@ vi.mock("@/lib/supabase/server-client", () => ({
   }),
 }));
 
-// Import AFTER mocks are registered so the route picks up the stub.
+// ─── Folder authorization mock ──────────────────────────────────────────────
+// `authorizeFolder` normally appends the caller's company_id when it isn't
+// already a path segment, which would break the exact-folder assertions in
+// these tests (they use logical folders like `projects/co_123/proj_456`).
+// Stub it to echo the folder back unchanged while keeping the rest of the
+// module — `sanitizeFilename`, `inferExtension`, `buildUniqueSuffix` — real
+// so the extension-inference and key-shape assertions still exercise the
+// actual implementations.
+vi.mock("@/lib/s3/path-auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/s3/path-auth")>();
+  return {
+    ...actual,
+    authorizeFolder: (rawFolder: string | null | undefined) => ({
+      ok: true as const,
+      folder: (rawFolder ?? "uploads").replace(/^\/+|\/+$/g, ""),
+    }),
+  };
+});
+
+// Import AFTER mocks are registered so the route picks up the stubs.
 import { POST } from "@/app/api/uploads/presign/route";
 
 function makePresignRequest(params: Record<string, string>): Request {
@@ -54,6 +110,9 @@ function makePresignRequest(params: Record<string, string>): Request {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded",
+      // Authenticated caller — `resolveAuth` reads this Bearer token and
+      // hands it to the mocked `verifyAuthToken`.
+      authorization: "Bearer test-token",
     },
     body,
   });
