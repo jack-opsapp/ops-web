@@ -133,7 +133,9 @@ Zero accent. The pill family is a coherent earth-tone state ladder: **VIEWING = 
 - **Option A — sanction (recommended).** Olive is the "go"/generative earth tone (the component comment says so), it mirrors the EDITING=tan-soft sibling, and a 12% soft tint on a tiny status pill is the same sanctioned soft-chip tier already used app-wide for status tags. It is *not* an accent leak. It gives at-a-glance mode awareness. The design system's "earth tones are border-only" rule is about not filling large surfaces — a micro-pill soft tint is the established exception.
 - **Option B — neutralize.** Make all three pills neutral chrome; distinguish mode by the dot colour + label only. Maximally austere; loses the emotional state-coding the EDITING/CREATING pulse + tint was designed to carry.
 
-**Recommendation: Option A (sanction).** Decisive, on-system, verified non-accent. *Not changed silently — awaiting Jackson's call.*
+**Recommendation: Option A (sanction).** Decisive, on-system, verified non-accent.
+
+> **RULING (Jackson, 2026-06-24): SANCTION the olive tint.** The CREATING olive-soft mode-state is blessed — VIEWING-neutral / EDITING-tan / CREATING-olive stands as shipped. No change.
 
 ---
 
