@@ -560,7 +560,9 @@ export function leadEnrichmentFactsFromEmail(
     contactName: customerName,
     companyName: null,
     contactEmail: customerEmail,
-    contactPhone: extractPhoneFromBody(inboundBody),
+    contactPhone: extractPhoneFromBody(inboundBody, {
+      excludedPhones: profile?.internalPhones,
+    }),
     address: extractAddressFromBody(inboundBody),
     estimatedValue: validEstimatedValue(
       extractEstimatedValueFromBody(inboundBody)

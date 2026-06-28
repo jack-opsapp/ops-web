@@ -1111,12 +1111,12 @@ export const EmailThreadService = {
         return threadRow;
       }
       const mappedInternal = mapEmailThreadFromDb(detUpdated);
-      // P4-A: fire the Phase C router uniformly. INTERNAL is unmapped in the
+      // P4-A: run the Phase C router uniformly. INTERNAL is unmapped in the
       // autonomy config so this no-ops in practice, but routing it here keeps
       // the firing path uniform and future-proofs an INTERNAL autonomy level.
       // No notification on INTERNAL (fireThreadNotifications is LLM-path only
       // and INTERNAL never warrants a page).
-      firePhaseCRouter(mappedInternal);
+      await runPhaseCRouter(mappedInternal);
       return mappedInternal;
     }
 
@@ -1178,11 +1178,11 @@ export const EmailThreadService = {
 
         const mappedCustomer = mapEmailThreadFromDb(custUpdated);
 
-        // P4-A: fire the Phase C router uniformly. CUSTOMER at `auto_draft`
+        // P4-A: run the Phase C router uniformly. CUSTOMER at `auto_draft`
         // (the only level Canpro enabled) was silently inert here before —
         // the deterministic branch always wins for opportunity-linked threads,
         // so auto_draft never ran on first classification. Now it does.
-        firePhaseCRouter(mappedCustomer);
+        await runPhaseCRouter(mappedCustomer);
 
         // Notification hook — parity with the LLM path. Fires on CUSTOMER
         // transitions for inbound threads (the "new lead landed" page).
@@ -1243,9 +1243,10 @@ export const EmailThreadService = {
 
     const mappedUpdated = mapEmailThreadFromDb(updated);
 
-    // P4-A: Phase C post-classification hook — fire-and-forget via the shared
-    // helper so the LLM path and the deterministic paths fire identically.
-    firePhaseCRouter(mappedUpdated);
+    // P4-A: Phase C post-classification hook — awaited inside the existing
+    // background `after()` sync job so mailbox draft placement is not abandoned
+    // when the serverless callback resolves.
+    await runPhaseCRouter(mappedUpdated);
 
     // Notification hook — fire-and-forget. Only fires on category TRANSITIONS
     // (LEAD/PLATFORM_BID that wasn't LEAD/PLATFORM_BID before) or on a newly
@@ -2079,40 +2080,42 @@ export type { RailFilter, InboxScope } from "@/lib/types/email-thread";
 // in the same company+user while unread, so we don't spam.
 
 /**
- * Phase C post-classification hook — fire-and-forget.
+ * Phase C post-classification hook — awaited by classifyAndUpdate.
  *
  * P4-A: classification must fire the autonomy router *uniformly*, regardless
  * of which classification path produced the category. Before P4-A the router
  * only ran on the LLM path; the deterministic INTERNAL and CUSTOMER branches
  * early-returned without ever invoking it, so CUSTOMER `auto_draft` (the only
  * level Canpro has enabled) was silently inert on first deterministic
- * classification. This helper is now called before every return in
+ * classification. This helper is now awaited before every return in
  * `classifyAndUpdate`.
  *
- * Fire-and-forget by contract: classification must never be blocked by a
- * routing error (draft generation can be slow and the router is defensive).
- * The router itself no-ops for INTERNAL (unmapped category → 'off'), so this
- * is safe to call on the deterministic-INTERNAL path without notifying.
+ * Non-throwing by contract: classification must never fail because of a
+ * routing error. The caller already runs classifyAndUpdate inside Next `after()`
+ * during sync, so awaiting here keeps Gmail/Outlook draft placement alive while
+ * preserving a fast user response.
  */
-function firePhaseCRouter(thread: EmailThread): void {
-  import("./phase-c-autonomy-router")
-    .then(({ PhaseCAutonomyRouter }) => PhaseCAutonomyRouter.route(thread))
-    .then((result) => {
-      if (
-        result.outcome !== "noop_off" &&
-        result.outcome !== "noop_draft_on_request"
-      ) {
-        console.log(
-          "[phase-c-router] thread=%s outcome=%s level=%s",
-          thread.id,
-          result.outcome,
-          result.effectiveLevel
-        );
-      }
-    })
-    .catch((err) =>
-      console.error("[phase-c-router] post-classify route failed:", err)
+async function runPhaseCRouter(thread: EmailThread): Promise<void> {
+  try {
+    const { PhaseCAutonomyRouter } = await import("./phase-c-autonomy-router");
+    const result = await PhaseCAutonomyRouter.route(thread);
+    if (
+      result.outcome !== "noop_off" &&
+      result.outcome !== "noop_draft_on_request"
+    ) {
+      console.log(
+        "[phase-c-router] thread=%s outcome=%s level=%s",
+        thread.id,
+        result.outcome,
+        result.effectiveLevel
+      );
+    }
+  } catch (err) {
+    console.error(
+      "[phase-c-router] post-classify route failed:",
+      err instanceof Error ? err.message : err
     );
+  }
 }
 
 async function fireThreadNotifications(

@@ -8,7 +8,7 @@
  *
  *   off               → no-op
  *   draft_on_request  → no-op (user clicks AI Draft manually)
- *   auto_draft        → generate a draft and stash it (no send)
+ *   auto_draft        → generate a draft in the connected mailbox Drafts folder
  *   auto_send         → draft + schedule an AutoSend (pending_auto_sends row)
  *   auto_archive      → archive the thread via EmailThreadService.archive
  *   auto_follow_up    → LEAD only — if the last outbound is stale, draft + schedule a nudge
@@ -24,8 +24,13 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { AutoSendService } from "./auto-send-service";
-import { AIDraftService, type AIDraftResult } from "./ai-draft-service";
+import { AIDraftService } from "./ai-draft-service";
+import { EmailService } from "./email-service";
 import { EmailThreadService } from "./email-thread-service";
+import {
+  pickExistingMailboxDraft,
+  type MailboxDraftRow,
+} from "./mailbox-draft-helpers";
 import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
 import type {
   EmailThread,
@@ -98,14 +103,14 @@ function isThreadActionable(thread: EmailThread): boolean {
  * router — so without this guard a thread that re-syncs / gets reclassified
  * while its latest message is still inbound would re-invoke the draft LLM each
  * time. We pin idempotency to the provider message id the draft replies to:
- * the latest inbound activity's `email_message_id`, recorded on the bridged
+ * the latest inbound activity's `email_message_id`, recorded on
  * `ai_draft_history.source_message_id`.
  *
  * Returns the latest inbound provider message id when a fresh draft IS needed,
  * or `null` when an open phase_c draft already covers that message (caller
  * short-circuits before the LLM call). A null latest-inbound id (provider gave
  * us no message id) also returns "needs draft" — we can't dedup what we can't
- * key, and the paired-draft idempotency check still guards the DB insert.
+ * key, and mailbox draft idempotency still guards provider placement.
  */
 async function latestInboundNeedsDraft(
   thread: EmailThread
@@ -127,123 +132,103 @@ async function latestInboundNeedsDraft(
   const sourceMessageId =
     (latest?.email_message_id as string | null) ?? null;
 
-  // Can't dedup without a stable message key — let the draft proceed (the
-  // paired-draft insert is still idempotent on the bridge id).
-  if (!sourceMessageId || !thread.opportunityId) {
+  // Can't dedup without a stable message key — let the draft proceed. The
+  // mailbox placement path still reuses an existing unresolved provider draft
+  // for this thread.
+  if (!sourceMessageId) {
     return { needsDraft: true, sourceMessageId };
   }
 
-  // Is there already an OPEN phase_c draft bridged to an ai_draft_history row
-  // whose source_message_id is this exact inbound message? Two cheap reads:
-  // open phase_c bridges for this opportunity+thread, then match the message.
-  let openQuery = supabase
-    .from("opportunity_follow_up_drafts")
-    .select("ai_draft_history_id")
-    .eq("company_id", thread.companyId)
-    .eq("opportunity_id", thread.opportunityId)
-    .eq("origin", "phase_c")
-    .eq("status", "drafted")
-    .not("ai_draft_history_id", "is", null);
-  openQuery = thread.providerThreadId
-    ? openQuery.eq("provider_thread_id", thread.providerThreadId)
-    : openQuery.is("provider_thread_id", null);
-  const { data: openDrafts } = await openQuery;
-
-  const bridgeIds = (openDrafts ?? [])
-    .map((d) => d.ai_draft_history_id as string | null)
-    .filter((id): id is string => !!id);
-
-  if (bridgeIds.length === 0) {
-    return { needsDraft: true, sourceMessageId };
-  }
-
+  // Has any Phase C draft already been generated for this exact inbound
+  // provider message? Any terminal status still suppresses re-drafting: a user
+  // who sent, ignored, or deleted the draft should not get the same draft again
+  // until a genuinely new inbound message arrives.
   const { data: matching } = await supabase
     .from("ai_draft_history")
     .select("id")
     .eq("company_id", thread.companyId)
-    .in("id", bridgeIds)
+    .eq("connection_id", thread.connectionId)
+    .eq("thread_id", thread.providerThreadId)
+    .eq("origin", "phase_c")
     .eq("source_message_id", sourceMessageId)
     .limit(1)
     .maybeSingle();
 
-  // A matching open draft already covers this inbound message → no new LLM.
+  // A matching draft already covers this inbound message → no new LLM.
   return { needsDraft: !matching, sourceMessageId };
 }
 
-/**
- * P4-C: create the first-class `origin='phase_c'` local draft paired with the
- * just-generated ai_draft_history row.
- *
- * Coexistence rules (bible §10, line 1797): phase_c drafts NEVER supersede an
- * operator or template_follow_up draft — those are independent origins that
- * coexist. The one-open-template unique index only covers
- * `origin='template_follow_up'`, so phase_c rows never collide with it.
- *
- * To avoid an unbounded pile of open phase_c drafts on a chatty thread, we
- * supersede the prior OPEN phase_c draft on the SAME opportunity+thread before
- * inserting the new one (mirroring template behavior, using status
- * 'superseded'). Operator/template drafts are untouched.
- */
-async function createPhaseCPairedDraft(
+async function placePhaseCMailboxDraft(
   thread: EmailThread,
-  userId: string,
-  draft: AIDraftResult
-): Promise<void> {
+  draft: {
+    draft: string;
+    draftHistoryId: string;
+    subject?: string;
+  }
+): Promise<{ mailboxDraftId: string }> {
   const supabase = requireSupabase();
-  const now = new Date().toISOString();
+  const to = thread.latestSenderEmail?.trim();
+  if (!to) {
+    throw new Error("no inbound sender on thread");
+  }
 
-  // Supersede a prior open phase_c draft on the same opportunity+thread.
-  // Scoped strictly to origin='phase_c' so operator/template drafts can never
-  // be retired by this path.
-  let supersedeQuery = supabase
-    .from("opportunity_follow_up_drafts")
-    .update({ status: "superseded", superseded_at: now, updated_at: now })
-    .eq("company_id", thread.companyId)
-    .eq("opportunity_id", thread.opportunityId as string)
-    .eq("origin", "phase_c")
-    .eq("status", "drafted");
-  supersedeQuery = thread.providerThreadId
-    ? supersedeQuery.eq("provider_thread_id", thread.providerThreadId)
-    : supersedeQuery.is("provider_thread_id", null);
-  const { error: supErr } = await supersedeQuery;
-  if (supErr) {
-    console.error(
-      "[phase-c-router] phase_c supersede failed (continuing):",
-      supErr.message
+  const connection = await EmailService.getConnection(thread.connectionId);
+  if (!connection) {
+    throw new Error("connection not found");
+  }
+  if (connection.companyId !== thread.companyId) {
+    throw new Error("connection company mismatch");
+  }
+
+  const provider = EmailService.getProvider(connection);
+  const subject = draft.subject?.trim()
+    ? draft.subject
+    : thread.subject?.toLowerCase().startsWith("re:")
+      ? thread.subject
+      : `Re: ${thread.subject ?? ""}`.trim();
+
+  const { data: priorRows } = await supabase
+    .from("ai_draft_history")
+    .select("id, mailbox_draft_id, status")
+    .eq("connection_id", thread.connectionId)
+    .eq("thread_id", thread.providerThreadId)
+    .eq("origin", "phase_c");
+
+  const existing = pickExistingMailboxDraft(
+    (priorRows ?? []) as MailboxDraftRow[]
+  );
+
+  let mailboxDraftId: string;
+  if (existing?.mailbox_draft_id) {
+    await provider.updateDraft(
+      existing.mailbox_draft_id,
+      to,
+      subject,
+      draft.draft,
+      thread.providerThreadId
+    );
+    mailboxDraftId = existing.mailbox_draft_id;
+  } else {
+    mailboxDraftId = await provider.createDraft(
+      to,
+      subject,
+      draft.draft,
+      thread.providerThreadId
     );
   }
 
-  // If the bridged ai_draft_history row already produced a paired phase_c
-  // draft (idempotency on reclassify re-fire), don't double-insert.
-  const { data: existing } = await supabase
-    .from("opportunity_follow_up_drafts")
-    .select("id")
-    .eq("company_id", thread.companyId)
-    .eq("ai_draft_history_id", draft.draftHistoryId)
-    .maybeSingle();
-  if (existing) return;
+  await supabase
+    .from("ai_draft_history")
+    .update({
+      status: "auto_drafted",
+      mailbox_draft_id: mailboxDraftId,
+      thread_id: thread.providerThreadId,
+      subject,
+      subject_source: "generated",
+    })
+    .eq("id", draft.draftHistoryId);
 
-  const { error: insErr } = await supabase
-    .from("opportunity_follow_up_drafts")
-    .insert({
-      company_id: thread.companyId,
-      opportunity_id: thread.opportunityId as string,
-      connection_id: thread.connectionId,
-      provider_thread_id: thread.providerThreadId,
-      origin: "phase_c",
-      status: "drafted",
-      subject: draft.subject ?? "",
-      original_body: draft.draft,
-      ai_draft_history_id: draft.draftHistoryId,
-      created_by: userId,
-      created_at: now,
-      updated_at: now,
-    });
-  if (insErr) {
-    // Surface as a thrown error so the caller logs it (non-fatal at the
-    // doAutoDraft boundary — the ai_draft_history row already exists).
-    throw new Error(`phase_c paired draft insert failed: ${insErr.message}`);
-  }
+  return { mailboxDraftId };
 }
 
 // ─── Router ──────────────────────────────────────────────────────────────────
@@ -330,8 +315,8 @@ export const PhaseCAutonomyRouter = {
   },
 
   /**
-   * auto_draft — generate a draft via AIDraftService and store it in
-   * ai_draft_history (status='drafted'). The user reviews via the inbox.
+   * auto_draft — generate a draft via AIDraftService and place it in the
+   * connected mailbox Drafts folder. The user reviews/sends from Gmail/Outlook.
    * Only drafts on INBOUND triggers so Phase C isn't drafting replies to
    * its own sent messages.
    */
@@ -345,6 +330,15 @@ export const PhaseCAutonomyRouter = {
         outcome: "noop_not_inbound",
         category: thread.primaryCategory,
         effectiveLevel: effective,
+      };
+    }
+
+    if (!thread.latestSenderEmail) {
+      return {
+        outcome: "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: "no inbound sender on thread",
       };
     }
 
@@ -396,22 +390,33 @@ export const PhaseCAutonomyRouter = {
       };
     }
 
-    // P4-C: create the paired first-class local draft row so the phase_c
-    // auto-draft is visible in the unified draft model (/api/inbox/drafts)
-    // alongside template/operator drafts, with durable provenance bridged to
-    // ai_draft_history via ai_draft_history_id. Best-effort: a failure here
-    // must not turn a successful generate into an error — the ai_draft_history
-    // row already exists and the draft is usable.
-    if (draft.draftHistoryId && thread.opportunityId) {
-      try {
-        await createPhaseCPairedDraft(thread, userId, draft);
-      } catch (err) {
-        console.error(
-          "[phase-c-router] paired phase_c draft creation failed (non-fatal):",
-          thread.id,
-          err instanceof Error ? err.message : err
-        );
-      }
+    if (!draft.draftHistoryId) {
+      return {
+        outcome: "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: "draft history id missing",
+      };
+    }
+
+    try {
+      const placed = await placePhaseCMailboxDraft(thread, draft);
+      return {
+        outcome: "auto_drafted",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: placed.mailboxDraftId,
+      };
+    } catch (err) {
+      console.error(
+        "[phase-c-router] mailbox draft placement failed (non-fatal):",
+        thread.id,
+        err instanceof Error ? err.message : err
+      );
+      await requireSupabase()
+        .from("ai_draft_history")
+        .update({ status: "auto_drafted" })
+        .eq("id", draft.draftHistoryId);
     }
 
     return {

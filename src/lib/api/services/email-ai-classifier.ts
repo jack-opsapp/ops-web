@@ -338,6 +338,8 @@ export const EmailAIClassifier = {
       companyDomains: string[];
       employeeNames: string[];
       employeeEmails: string[];
+      internalPhones?: string[];
+      companyAddresses?: string[];
     },
     onProgress?: (processed: number, total: number) => Promise<void>
   ): Promise<DeepExtractionResult[]> {
@@ -829,6 +831,8 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", "v": "lead"|"not_lead", "c": 0.
       companyDomains: string[];
       employeeNames: string[];
       employeeEmails: string[];
+      internalPhones?: string[];
+      companyAddresses?: string[];
     }
   ): Promise<DeepExtractionResult[]> {
     const teamList = context.employeeEmails.length > 0
@@ -838,6 +842,8 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", "v": "lead"|"not_lead", "c": 0.
     const servicesLine = context.industries?.length
       ? `Services offered: ${context.industries.join(', ')}`
       : `Industry: ${context.industry}`;
+    const internalPhonesLine = context.internalPhones?.filter(Boolean).join(', ') || 'none known';
+    const companyAddressesLine = context.companyAddresses?.filter(Boolean).join(' | ') || 'none known';
 
     const systemPrompt = `You are extracting lead information from email threads for a trades/construction business.
 
@@ -846,6 +852,8 @@ ${servicesLine}
 Owner email: ${context.ownerEmail}
 Company domains: ${context.companyDomains.join(', ')}
 Team members: ${teamList}
+Internal phone numbers: ${internalPhonesLine}
+Internal company addresses: ${companyAddressesLine}
 
 UNDERSTANDING THE BUSINESS: ${context.companyName} PROVIDES the services listed above. They build, install, and repair things for their CLIENTS. Their clients are homeowners, property managers, general contractors, developers, and businesses who HIRE them. Anyone who SELLS products, materials, or services TO ${context.companyName} is a VENDOR, not a client.
 
@@ -888,6 +896,7 @@ CLIENT INFO:
 - client.phone: Primary contact phone if found (omit if not found)
 - client.addr: Physical address if mentioned — project site address, client home address, or job location. Extract the most complete address found (street, city, province/state). Omit if not found.
 - client.desc: What they need (1-2 sentences) — this becomes the pipeline opportunity title in CRM. Be specific: include measurements, materials mentioned.
+- INTERNAL EXCLUSION: Never use Team members, Internal phone numbers, Internal company addresses, outbound signatures, or ${context.companyName}'s own contact details as client.name, client.phone, or client.addr. If a phone/address appears only in an outbound message or signature, omit it.
 
 SUBCONTACTS — People at the client who are NOT the owner and NOT employees of ${context.companyName}:
 - For BUSINESS clients: the primary person MUST be the first subContact (same email/phone as client). Add any other people from CC/signatures.
@@ -905,7 +914,7 @@ PIPELINE:
 - flag: OMIT this field. Use the stage field directly ("won" or "lost") instead.
 
 STAGE DECISION GUIDE (read the email content carefully):
-- "won" signals: client says "go ahead", "let's book it", "sounds good let's proceed", scheduling/start date confirmed, deposit/payment discussed, work instructions given
+- "won" signals: client says "go ahead", "let's book it", "sounds good let's proceed", "sounds great" in response to an estimate/schedule, mentions an accepted/signed estimate, scheduling/start date confirmed, crew arrival discussed, deposit/payment discussed, work instructions given
 - "lost" signals: client says "we went with someone else", "not going ahead", "too expensive", "no longer needed", repeated follow-ups with zero response over 60+ days
 - "quoted" signals: estimate/quote was sent, waiting for response (even if old — do NOT assume won from silence)
 - "follow_up" signals: quote sent, follow-up emails sent, still no definitive answer

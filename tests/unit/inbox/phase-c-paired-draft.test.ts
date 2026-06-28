@@ -1,10 +1,10 @@
 /**
- * P4-C / P4-E — phase_c paired draft + auto_archive CUSTOMER hard-refuse.
+ * P4-C / P4-E — phase_c mailbox draft + auto_archive CUSTOMER hard-refuse.
  *
- * P4-C: after a successful doAutoDraft, the router creates a paired
- * opportunity_follow_up_drafts(origin='phase_c', ai_draft_history_id=...) row,
- * supersedes a prior OPEN phase_c draft on the same thread, and NEVER touches
- * operator/template drafts.
+ * P4-C: after a successful doAutoDraft, the router places or updates a real
+ * provider draft in the connected Gmail/M365 mailbox, then stamps
+ * ai_draft_history(status='auto_drafted', mailbox_draft_id=...). These drafts
+ * are review-only in the user's mailbox, not Inbox-local lifecycle rows.
  *
  * P4-E: doAutoArchive refuses CUSTOMER (defense beyond allowedLevelsFor), and
  * allowedLevelsFor('CUSTOMER') excludes auto_archive.
@@ -12,11 +12,30 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Stub the AIDraft + autonomy + autosend deps so doAutoDraft only exercises
-// the paired-draft creation path.
-const { generateDraftMock } = vi.hoisted(() => ({ generateDraftMock: vi.fn() }));
+// Stub the AIDraft + mailbox + autonomy + autosend deps so doAutoDraft only
+// exercises Phase C routing and provider draft placement.
+const {
+  generateDraftMock,
+  createDraftMock,
+  updateDraftMock,
+  getConnectionMock,
+} = vi.hoisted(() => ({
+  generateDraftMock: vi.fn(),
+  createDraftMock: vi.fn(),
+  updateDraftMock: vi.fn(),
+  getConnectionMock: vi.fn(),
+}));
 vi.mock("@/lib/api/services/ai-draft-service", () => ({
   AIDraftService: { generateDraft: generateDraftMock },
+}));
+vi.mock("@/lib/api/services/email-service", () => ({
+  EmailService: {
+    getConnection: getConnectionMock,
+    getProvider: vi.fn(() => ({
+      createDraft: createDraftMock,
+      updateDraft: updateDraftMock,
+    })),
+  },
 }));
 vi.mock("@/lib/api/services/autonomy-milestone-service", () => ({
   AutonomyMilestoneService: { getAutonomyLevel: vi.fn(async () => ({ level: 4 })) },
@@ -32,10 +51,9 @@ vi.mock("@/lib/api/services/email-thread-service", () => ({
 interface DbState {
   inserts: Array<{ table: string; payload: Record<string, unknown> }>;
   updates: Array<{ table: string; payload: Record<string, unknown>; filters: Record<string, unknown> }>;
-  existingPairedDraft: Record<string, unknown> | null; // for idempotency check
+  priorMailboxDraftRows: Array<Record<string, unknown>>; // provider-draft idempotency
   // P4-A cost-guard fixtures.
   latestInboundMessageId: string | null; // activities latest inbound email_message_id
-  openPhaseCBridgeIds: Array<{ ai_draft_history_id: string | null }>; // open phase_c drafts
   matchingHistoryRow: Record<string, unknown> | null; // ai_draft_history match on source_message_id
 }
 let db: DbState;
@@ -80,11 +98,8 @@ vi.mock("@/lib/supabase/helpers", async () => {
         };
       }
       if (table === "ai_draft_history" && op === "select") {
-        // P4-A guard: does an open phase_c bridge match this source_message_id?
+        // P4-A guard: does a phase_c draft already cover this source_message_id?
         return { data: db.matchingHistoryRow, error: null };
-      }
-      if (table === "opportunity_follow_up_drafts" && op === "select") {
-        return { data: db.existingPairedDraft, error: null };
       }
       if (table === "email_connections") {
         return { data: { user_id: "owner-1" }, error: null };
@@ -101,9 +116,8 @@ vi.mock("@/lib/supabase/helpers", async () => {
         resolve({ data: null, error: null });
         return;
       }
-      // P4-A guard: awaited (non-single) select of open phase_c bridge ids.
-      if (table === "opportunity_follow_up_drafts" && op === "select") {
-        resolve({ data: db.openPhaseCBridgeIds, error: null });
+      if (table === "ai_draft_history" && op === "select") {
+        resolve({ data: db.priorMailboxDraftRows, error: null });
         return;
       }
       resolve({ data: null, error: null });
@@ -146,18 +160,45 @@ beforeEach(() => {
   db = {
     inserts: [],
     updates: [],
-    existingPairedDraft: null,
+    priorMailboxDraftRows: [],
     latestInboundMessageId: null,
-    openPhaseCBridgeIds: [],
     matchingHistoryRow: null,
   };
   generateDraftMock.mockReset();
+  createDraftMock.mockReset();
+  updateDraftMock.mockReset();
+  getConnectionMock.mockReset();
+  getConnectionMock.mockResolvedValue({
+    id: "conn-1",
+    companyId: "co-1",
+    provider: "gmail",
+    type: "company",
+    userId: "owner-1",
+    email: "owner@example.com",
+    accessToken: "token",
+    refreshToken: "refresh",
+    expiresAt: new Date(),
+    historyId: null,
+    syncEnabled: true,
+    lastSyncedAt: null,
+    syncIntervalMinutes: 60,
+    syncFilters: {},
+    webhookSubscriptionId: null,
+    webhookExpiresAt: null,
+    opsLabelId: null,
+    aiReviewEnabled: false,
+    aiMemoryEnabled: true,
+    status: "active",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  createDraftMock.mockResolvedValue("gmail-draft-1");
 });
 
 afterEach(() => vi.clearAllMocks());
 
-describe("P4-C — phase_c paired draft", () => {
-  it("creates a paired phase_c draft bridged to ai_draft_history after a successful doAutoDraft", async () => {
+describe("P4-C — phase_c provider mailbox draft", () => {
+  it("places a Gmail draft and stamps ai_draft_history after a successful doAutoDraft", async () => {
     generateDraftMock.mockResolvedValue({
       available: true,
       draft: "Generated body",
@@ -168,28 +209,29 @@ describe("P4-C — phase_c paired draft", () => {
     const res = await PhaseCAutonomyRouter.doAutoDraft(thread(), "owner-1", "auto_draft");
     expect(res.outcome).toBe("auto_drafted");
 
-    const insert = db.inserts.find((i) => i.table === "opportunity_follow_up_drafts");
-    expect(insert).toBeTruthy();
-    expect(insert?.payload).toMatchObject({
-      origin: "phase_c",
-      status: "drafted",
-      ai_draft_history_id: "adh-1",
-      opportunity_id: "opp-1",
-      original_body: "Generated body",
+    expect(createDraftMock).toHaveBeenCalledTimes(1);
+    expect(createDraftMock).toHaveBeenCalledWith(
+      "client@acme.com",
+      "Re: Quote",
+      "Generated body",
+      "pt-1"
+    );
+    expect(updateDraftMock).not.toHaveBeenCalled();
+    expect(db.inserts.filter((i) => i.table === "opportunity_follow_up_drafts")).toHaveLength(0);
+
+    const update = db.updates.find((u) => u.table === "ai_draft_history");
+    expect(update?.payload).toMatchObject({
+      status: "auto_drafted",
+      mailbox_draft_id: "gmail-draft-1",
+      thread_id: "pt-1",
       subject: "Re: Quote",
     });
-
-    // The supersede update only ever targets origin='phase_c' + status='drafted'.
-    const supersede = db.updates.find(
-      (u) => u.table === "opportunity_follow_up_drafts" && u.payload.status === "superseded"
-    );
-    expect(supersede?.filters).toMatchObject({ origin: "phase_c", status: "drafted" });
-    expect(supersede?.filters.origin).not.toBe("template_follow_up");
-    expect(supersede?.filters.origin).not.toBe("operator");
   });
 
-  it("does not double-insert when the bridge already produced a paired draft (idempotent)", async () => {
-    db.existingPairedDraft = { id: "fu-existing" };
+  it("updates an existing unresolved provider draft instead of creating a duplicate", async () => {
+    db.priorMailboxDraftRows = [
+      { id: "adh-old", mailbox_draft_id: "gmail-existing", status: "auto_drafted" },
+    ];
     generateDraftMock.mockResolvedValue({
       available: true,
       draft: "Body",
@@ -199,8 +241,19 @@ describe("P4-C — phase_c paired draft", () => {
 
     await PhaseCAutonomyRouter.doAutoDraft(thread(), "owner-1", "auto_draft");
 
-    const inserts = db.inserts.filter((i) => i.table === "opportunity_follow_up_drafts");
-    expect(inserts).toHaveLength(0);
+    expect(updateDraftMock).toHaveBeenCalledWith(
+      "gmail-existing",
+      "client@acme.com",
+      "Re: Quote",
+      "Body",
+      "pt-1"
+    );
+    expect(createDraftMock).not.toHaveBeenCalled();
+    const update = db.updates.find((u) => u.table === "ai_draft_history");
+    expect(update?.payload).toMatchObject({
+      status: "auto_drafted",
+      mailbox_draft_id: "gmail-existing",
+    });
   });
 
   it("does not create a paired draft when generate escalated (no draft)", async () => {
@@ -208,6 +261,8 @@ describe("P4-C — phase_c paired draft", () => {
     const res = await PhaseCAutonomyRouter.doAutoDraft(thread(), "owner-1", "auto_draft");
     expect(res.outcome).toBe("escalated_to_operator");
     expect(db.inserts.filter((i) => i.table === "opportunity_follow_up_drafts")).toHaveLength(0);
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
   });
 });
 
@@ -215,23 +270,21 @@ describe("P4-A — pre-LLM cost guard (no re-draft per re-sync)", () => {
   it("short-circuits BEFORE generateDraft when an open phase_c draft already covers the latest inbound message", async () => {
     // The thread's latest inbound message id...
     db.latestInboundMessageId = "msg-123";
-    // ...is already bridged to an open phase_c draft (adh-open)...
-    db.openPhaseCBridgeIds = [{ ai_draft_history_id: "adh-open" }];
-    // ...whose ai_draft_history.source_message_id matches msg-123.
+    // ...is already covered by a phase_c ai_draft_history row.
     db.matchingHistoryRow = { id: "adh-open" };
 
     const res = await PhaseCAutonomyRouter.doAutoDraft(thread(), "owner-1", "auto_draft");
 
-    // No LLM call, no new draft insert.
+    // No LLM call, no mailbox draft placement.
     expect(generateDraftMock).not.toHaveBeenCalled();
     expect(db.inserts.filter((i) => i.table === "opportunity_follow_up_drafts")).toHaveLength(0);
+    expect(createDraftMock).not.toHaveBeenCalled();
     expect(res.outcome).toBe("auto_drafted");
     expect(res.detail).toMatch(/no re-draft|existing/i);
   });
 
   it("DOES draft when the latest inbound message has no covering phase_c draft", async () => {
     db.latestInboundMessageId = "msg-456";
-    db.openPhaseCBridgeIds = []; // no open phase_c draft for this opportunity+thread
     generateDraftMock.mockResolvedValue({
       available: true,
       draft: "Fresh body",
@@ -243,7 +296,8 @@ describe("P4-A — pre-LLM cost guard (no re-draft per re-sync)", () => {
 
     expect(generateDraftMock).toHaveBeenCalledTimes(1);
     expect(res.outcome).toBe("auto_drafted");
-    expect(db.inserts.find((i) => i.table === "opportunity_follow_up_drafts")).toBeTruthy();
+    expect(createDraftMock).toHaveBeenCalledTimes(1);
+    expect(db.inserts.filter((i) => i.table === "opportunity_follow_up_drafts")).toHaveLength(0);
   });
 
   it("DOES draft when the provider gave no message id to dedup on (can't key, must draft)", async () => {

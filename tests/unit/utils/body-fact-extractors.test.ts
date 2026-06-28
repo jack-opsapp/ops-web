@@ -27,6 +27,23 @@ describe("body-fact-extractors — address", () => {
     expect(extractAddressFromBody(body)).toContain("V9R 6N2");
   });
 
+  it("extracts only the address phrase from a conversational sentence", () => {
+    const body =
+      "I should be able to make Thursday work - if you are able to give an approximate time that would be great. We are at 541 Prince Robert Lane in View Royal.";
+    expect(extractAddressFromBody(body)).toBe("541 Prince Robert Lane in View Royal");
+  });
+
+  it("stops a short accepted-reply address before thanks text and phone numbers", () => {
+    const body = "Sounds Great! 4204 Springridge Cres. Thanks . 250 216 6119 Cell";
+    expect(extractAddressFromBody(body)).toBe("4204 Springridge Cres");
+  });
+
+  it("does not treat project measurements as an address", () => {
+    const body =
+      "For a resurface on a deck your size (~16x14, about 224 sq ft):";
+    expect(extractAddressFromBody(body)).toBeNull();
+  });
+
   it("returns null when no address signal is present (no false positive)", () => {
     const body =
       "Hi, I saw your work on a neighbour's roof and would love a quote. Call me anytime.";
@@ -44,6 +61,14 @@ describe("body-fact-extractors — address", () => {
       extractAddressFromBody("Address: https://maps.app/xyz")
     ).toBeNull();
     expect(extractAddressFromBody("Address: me@example.com")).toBeNull();
+  });
+
+  it("rejects a labelled value that is numeric but not address-shaped", () => {
+    expect(
+      extractAddressFromBody(
+        "Address: For a resurface on a deck your size (~16x14, about 224 sq ft):"
+      )
+    ).toBeNull();
   });
 
   it("does not harvest an address from an unsubscribe footer", () => {
@@ -142,6 +167,27 @@ describe("body-fact-extractors — phone", () => {
     expect(extractPhoneFromBody("Reach me at (604) 555-1234.")).toBe(
       "(604) 555-1234"
     );
+  });
+
+  it("skips excluded internal phone numbers from signatures", () => {
+    const body = "Thanks,\nJackson\n250 538 8994";
+    expect(
+      extractPhoneFromBody(body, { excludedPhones: ["(250) 538-8994"] })
+    ).toBeNull();
+  });
+
+  it("keeps the client's labelled phone when an internal signature phone is also present", () => {
+    const body = [
+      "Sounds Great! 4204 Springridge Cres.",
+      "250 216 6119 Cell",
+      "",
+      "Thanks,",
+      "Jackson",
+      "250 538 8994",
+    ].join("\n");
+    expect(
+      extractPhoneFromBody(body, { excludedPhones: ["250-538-8994"] })
+    ).toBe("250 216 6119");
   });
 
   it("returns null when no 10-15 digit token is present (no false positive)", () => {

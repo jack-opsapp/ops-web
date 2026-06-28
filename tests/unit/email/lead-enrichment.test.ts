@@ -282,6 +282,33 @@ describe("lead lifecycle enrichment decisions", () => {
     expect(facts.contactPhone).toBeNull();
   });
 
+  it("does not use an internal signature phone from an inbound quoted body", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Liane Kern <liane@example.com>",
+        fromName: "Liane Kern",
+        bodyText: [
+          "Sounds Great! 4204 Springridge Cres.",
+          "",
+          "On Tuesday, Jackson wrote:",
+          "Thanks,",
+          "Jackson",
+          "250 538 8994",
+        ].join("\n"),
+        bodyTextClean: "",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: {
+        ...syncProfile,
+        internalPhones: ["250 538 8994"],
+      },
+    });
+
+    expect(facts.contactPhone).toBeNull();
+    expect(facts.address).toBe("4204 Springridge Cres");
+  });
+
   it("never overwrites an operator-set address with a body-extracted one", () => {
     const facts = leadEnrichmentFactsFromEmail({
       email: baseEmail({

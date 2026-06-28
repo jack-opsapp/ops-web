@@ -9,6 +9,7 @@ import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { EmailAIClassifier } from "./email-ai-classifier";
 import { EmailService } from "./email-service";
 import { getSyncOpenAI } from "./openai-clients";
+import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
 import type { NormalizedEmail } from "./email-provider";
 import type {
   EmailConnection,
@@ -286,6 +287,8 @@ For each thread, return:
 - flag: "likely_won" or "likely_lost" if terminal language detected, null otherwise
 - summary: 1-2 sentence summary of this opportunity. Include: what the client needs, any pricing discussed, and current status. This becomes the at-a-glance description in the CRM pipeline. Be specific — mention addresses, materials, dollar amounts if known.
 
+Terminal won signals include: client says "go ahead", "let's book it", "sounds good let's proceed", "sounds great" in response to an estimate/schedule, accepted/signed estimate mentioned, scheduling/start date confirmed, crew arrival discussed, deposit/payment discussed, or work instructions given. Silence after a quote is never a won signal.
+
 RESPOND WITH JSON: { "results": [...] }. No explanation.`;
 
     const userPrompt = JSON.stringify(
@@ -317,10 +320,12 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
       const content = response.choices[0]?.message?.content || '{"results":[]}';
       const parsed = JSON.parse(content);
       const rawResults = parsed.results || parsed;
+      const threadById = new Map(threads.map((thread) => [thread.threadId, thread]));
 
       return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => {
         const rawStage = (r.stage as string) || null;
         const rawFlag = (r.flag as string) || (r.terminalFlag as string) || null;
+        const threadId = (r.tid as string) || (r.threadId as string);
 
         // Rescue terminal flags from stage field
         let stage = sanitizeStage(rawStage);
@@ -330,8 +335,20 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
           stage = sanitizeStage(null); // falls back to new_lead
         }
 
+        const deterministicTerminal = threadId
+          ? detectTerminalStageFromMessages(
+              (threadById.get(threadId)?.messages ?? []).map((message) => ({
+                direction: message.direction,
+                body: message.bodyText,
+              }))
+            )
+          : null;
+        if (deterministicTerminal) {
+          terminalFlag = deterministicTerminal.terminalFlag;
+        }
+
         return {
-          threadId: (r.tid as string) || (r.threadId as string),
+          threadId,
           newStage: stage,
           terminalFlag,
           summary: (r.summary as string) || null,

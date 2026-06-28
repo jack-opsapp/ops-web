@@ -51,6 +51,7 @@ export interface SyncProfile {
   knownPlatformSenders?: string[];
   formSubjectPatterns?: string[];
   userEmailAddresses?: string[];
+  internalPhones?: string[];
   aiClassificationThreshold?: number;
 
   // Legacy filter fields (kept for backward compatibility during migration)

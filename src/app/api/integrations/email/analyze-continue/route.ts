@@ -7,7 +7,7 @@
  * 5. Full thread fetch for ALL confirmed leads (no cap)
  * 6. Deep AI extraction (names, stages, contacts, company names from full thread context)
  * 7. Hard-filter invalid leads + remove AI-flagged non-leads
- * 8. Deduplicate leads by client email
+ * 8. Deduplicate leads by client email plus strong phone/address identity
  * → Saves final results
  *
  * Chained from /api/integrations/email/analyze (Phase A) via fetch().
@@ -21,6 +21,12 @@ import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { EmailAIClassifier, stripQuotedContent } from "@/lib/api/services/email-ai-classifier";
 import { PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
+import {
+  sanitizeClientExtractionFacts,
+  sanitizeExtractedClientName,
+} from "@/lib/email/import-extraction-sanitizer";
+import { deduplicateAnalyzedLeads } from "@/lib/email/import-lead-dedup";
+import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 import type { DeepExtractionInput } from "@/lib/api/services/email-ai-classifier";
@@ -120,79 +126,6 @@ function splitDomainName(domainLocal: string): string {
     }
   }
   return lower.charAt(0).toUpperCase() + lower.slice(1);
-}
-
-/** Deduplicate leads by client email — merge leads from the same client */
-function deduplicateLeads(leads: AnalyzedLead[]): AnalyzedLead[] {
-  const byClientEmail = new Map<string, AnalyzedLead[]>();
-
-  for (const lead of leads) {
-    const normalizedEmail = cleanEmailAddress(lead.client.email);
-
-    if (!byClientEmail.has(normalizedEmail)) {
-      byClientEmail.set(normalizedEmail, []);
-    }
-    byClientEmail.get(normalizedEmail)!.push(lead);
-  }
-
-  const deduplicated: AnalyzedLead[] = [];
-
-  for (const [, group] of byClientEmail) {
-    if (group.length === 1) {
-      deduplicated.push(group[0]);
-      continue;
-    }
-
-    // Multiple leads with the same client email — merge them
-    // Keep the one with the most correspondence, merge the rest into it
-    group.sort((a, b) => b.correspondenceCount - a.correspondenceCount);
-    const primary = { ...group[0] };
-
-    // Sum correspondence counts, merge emails and excerpts from other leads
-    for (let i = 1; i < group.length; i++) {
-      const other = group[i];
-      primary.correspondenceCount += other.correspondenceCount;
-      primary.outboundCount += other.outboundCount;
-      primary.emails = [...primary.emails, ...other.emails];
-
-      // Merge emailExcerpts from sibling threads
-      if (other.emailExcerpts?.length) {
-        primary.emailExcerpts = [...(primary.emailExcerpts || []), ...other.emailExcerpts];
-      }
-
-      // If the other lead has a higher value, use it
-      if (other.estimatedValue && (!primary.estimatedValue || other.estimatedValue > primary.estimatedValue)) {
-        primary.estimatedValue = other.estimatedValue;
-      }
-
-      // Use the later date
-      if (other.lastMessageDate > primary.lastMessageDate) {
-        primary.lastMessageDate = other.lastMessageDate;
-      }
-    }
-
-    // Deduplicate excerpts by date+from (cross-thread bundling may have already included them)
-    // and keep the 8 most recent
-    if (primary.emailExcerpts && primary.emailExcerpts.length > 0) {
-      const seen = new Set<string>();
-      primary.emailExcerpts = primary.emailExcerpts
-        .filter((ex) => {
-          const key = `${ex.date}|${ex.from}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        })
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-8);
-    }
-
-    // Update the ID to reflect it's a merged lead
-    primary.duplicateGroupId = group.map((g) => g.threadId).join(',');
-
-    deduplicated.push(primary);
-  }
-
-  return deduplicated;
 }
 
 // ─── POST handler ────────────────────────────────────────────────────────────
@@ -326,22 +259,38 @@ async function runPhaseB(
 
   const { data: companyUsers } = await supabase
     .from("users")
-    .select("email, first_name, last_name")
+    .select("email, first_name, last_name, phone")
     .eq("company_id", companyId);
 
   const employeeEmailSet = new Set<string>();
   const employeeNameSet = new Set<string>();
+  const employeePhones: string[] = [];
   for (const u of (companyUsers || [])) {
     if (u.email) employeeEmailSet.add(u.email.toLowerCase().trim());
     const fullName = `${(u.first_name || '').trim()} ${(u.last_name || '').trim()}`.trim().toLowerCase();
     if (fullName) employeeNameSet.add(fullName);
+    if (u.phone) employeePhones.push(u.phone);
   }
 
   const { data: company } = await supabase
     .from("companies")
-    .select("name, industry, industries")
+    .select("name, industry, industries, phone, address, physical_address")
     .eq("id", companyId)
     .single();
+
+  const internalPhones = [
+    ...employeePhones,
+    ...([(company as Record<string, unknown> | null)?.phone].filter(
+      (value): value is string => typeof value === "string" && value.trim().length > 0
+    )),
+  ];
+
+  const internalCompanyAddresses = [
+    (company as Record<string, unknown> | null)?.address,
+    (company as Record<string, unknown> | null)?.physical_address,
+  ].filter(
+    (value): value is string => typeof value === "string" && value.trim().length > 0
+  );
 
   // ─── 3. Full thread fetch for ALL confirmed leads (no cap) ─────────────────
   // Parallelized: fetch 5 threads concurrently to stay within 800s budget.
@@ -468,6 +417,7 @@ async function runPhaseB(
 
   // Build deep extraction inputs — bundle ALL threads per client so AI has complete picture
   const extractionInputs: DeepExtractionInput[] = [];
+  const extractionMessagesByThreadId = new Map<string, DeepExtractionInput["messages"]>();
   const extractionThreadIds: string[] = [];
   let skippedNoMessages = 0;
 
@@ -493,6 +443,18 @@ async function runPhaseB(
     );
     const lastEight = sorted.slice(0, 8).reverse();
 
+    const extractionMessages: DeepExtractionInput["messages"] = lastEight.map((m: { from: string; fromName: string; to: string[]; date: Date; bodyText: string; snippet: string }) => ({
+      from: m.from,
+      fromName: m.fromName || '',
+      to: m.to,
+      date: m.date.toISOString(),
+      direction: (safe(m.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
+      body: stripQuotedContent(
+        m.bodyText || m.snippet || '',
+        lead.emails[0]?.subject || ''
+      ),
+    }));
+
     extractionInputs.push({
       threadId: lead.threadId,
       subject: lead.emails[0]?.subject || '',
@@ -504,18 +466,9 @@ async function runPhaseB(
       outboundCount: allMessages.filter(
         (m: { from: string }) => safe(m.from).includes(ownerEmailLower)
       ).length,
-      messages: lastEight.map((m: { from: string; fromName: string; to: string[]; date: Date; bodyText: string; snippet: string }) => ({
-        from: m.from,
-        fromName: m.fromName || '',
-        to: m.to,
-        date: m.date.toISOString(),
-        direction: (safe(m.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-        body: stripQuotedContent(
-          m.bodyText || m.snippet || '',
-          lead.emails[0]?.subject || ''
-        ),
-      })),
+      messages: extractionMessages,
     });
+    extractionMessagesByThreadId.set(lead.threadId, extractionMessages);
     extractionThreadIds.push(lead.threadId);
   }
 
@@ -539,6 +492,8 @@ async function runPhaseB(
       companyDomains: [...companyDomainSet],
       employeeNames,
       employeeEmails,
+      internalPhones,
+      companyAddresses: internalCompanyAddresses,
     },
     async (processed, total) => {
       const pct = 82 + Math.round((processed / total) * 8);
@@ -564,15 +519,48 @@ async function runPhaseB(
     const extraction = extractionMap.get(lead.threadId);
     if (!extraction) {
       extractionStats.skippedNoExtraction++;
+      if (!sanitizeExtractedClientName(lead.client.name, lead.client.email, {
+        internalNames: employeeNames,
+        internalEmails: employeeEmails,
+      })) {
+        lead.client.name = lead.client.email;
+        lead.needsReview = true;
+        lead.reviewReason = 'ambiguous';
+        lead.enabled = false;
+      }
       continue;
     }
     extractionStats.applied++;
 
-    // Override client info if AI extracted better data
-    if (extraction.client.name) {
+    const sanitizedClient = sanitizeClientExtractionFacts(
+      {
+        name: extraction.client.name,
+        email: extraction.client.email || lead.client.email,
+        phone: extraction.client.phone ?? lead.client.phone,
+        address: extraction.client.address ?? lead.client.address,
+      },
+      {
+        clientEmail: extraction.client.email || lead.client.email,
+        internalNames: employeeNames,
+        internalEmails: employeeEmails,
+        internalPhones,
+        companyAddresses: internalCompanyAddresses,
+        messages: extractionMessagesByThreadId.get(lead.threadId) ?? [],
+      }
+    );
+
+    // Override client info if AI extracted better data after deterministic cleanup
+    if (sanitizedClient.name) {
       const oldName = lead.client.name;
-      lead.client.name = capitalizeName(extraction.client.name);
+      lead.client.name = capitalizeName(sanitizedClient.name);
       if (oldName !== lead.client.name) extractionStats.nameOverridden++;
+    } else if (!sanitizeExtractedClientName(lead.client.name, lead.client.email)) {
+      // Keep the lead reviewable without presenting an email-local-part guess
+      // as a real customer name.
+      lead.client.name = lead.client.email;
+      lead.needsReview = true;
+      lead.reviewReason = 'ambiguous';
+      lead.enabled = false;
     }
     if (extraction.client.email) {
       const extractedEmail = extraction.client.email.toLowerCase().trim();
@@ -580,14 +568,14 @@ async function runPhaseB(
         lead.client.email = extractedEmail;
       }
     }
-    if (extraction.client.phone) {
-      lead.client.phone = extraction.client.phone;
+    if (extraction.client.phone || lead.client.phone) {
+      lead.client.phone = sanitizedClient.phone;
     }
     if (extraction.client.description) {
       lead.client.description = extraction.client.description;
     }
-    if (extraction.client.address) {
-      lead.client.address = extraction.client.address;
+    if (extraction.client.address || lead.client.address) {
+      lead.client.address = sanitizedClient.address;
     }
 
     // Override stage
@@ -664,7 +652,16 @@ async function runPhaseB(
       }
     }
 
+    const deterministicTerminal = detectTerminalStageFromMessages(
+      (extractionMessagesByThreadId.get(lead.threadId) ?? []).map((message) => ({
+        direction: message.direction,
+        body: message.body,
+      }))
+    );
+
     // Apply terminal state from AI — either via flag or direct won/lost stage
+    // — then fall back to deterministic correspondence signals for acceptance
+    // replies the model missed.
     if (extraction.terminalFlag) {
       lead.terminalFlag = extraction.terminalFlag;
       lead.stage = extraction.terminalFlag === 'likely_won' ? 'won' : 'lost';
@@ -675,6 +672,11 @@ async function runPhaseB(
       lead.stage = extraction.stage;
       lead.enabled = true; // Terminal leads stay enabled — user triages in step 4
       console.log(`[deep-extract] TERMINAL (stage): ${lead.client.name} (${lead.client.email}) — ${extraction.stage}`);
+    } else if (deterministicTerminal) {
+      lead.terminalFlag = deterministicTerminal.terminalFlag;
+      lead.stage = deterministicTerminal.stage;
+      lead.enabled = true;
+      console.log(`[deep-extract] TERMINAL (deterministic): ${lead.client.name} (${lead.client.email}) — ${deterministicTerminal.terminalFlag}`);
     }
 
     // Apply review flags
@@ -824,8 +826,8 @@ async function runPhaseB(
 
   await updateProgress("analyzing_threads", "Deduplicating leads...", 95);
 
-  // ─── 8. Deduplicate leads by client email ──────────────────────────────────
-  const deduplicatedLeads = deduplicateLeads(filteredLeads);
+  // ─── 8. Deduplicate leads by email plus strong phone/address identity ──────
+  const deduplicatedLeads = deduplicateAnalyzedLeads(filteredLeads);
 
   console.log(`[email-analyze-continue] Leads after dedup: ${deduplicatedLeads.length} (${filteredLeads.length} before dedup)`);
 
