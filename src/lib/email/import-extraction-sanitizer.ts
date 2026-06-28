@@ -44,7 +44,9 @@ function normalizeIdentityLetters(value: string): string {
   return value.toLowerCase().replace(/[^a-z]/g, "");
 }
 
-function identitySet(values: Array<string | null | undefined> | undefined): Set<string> {
+function identitySet(
+  values: Array<string | null | undefined> | undefined
+): Set<string> {
   return new Set(
     (values ?? [])
       .map((value) => cleanText(value))
@@ -72,8 +74,8 @@ export function sanitizeExtractedClientName(
   const emailLocalPart = cleanText(email)?.split("@")[0] ?? null;
   const internalNameKeys = identitySet(options?.internalNames);
   const internalEmailLocalKeys = identitySet(
-    (options?.internalEmails ?? []).map((internalEmail) =>
-      cleanText(internalEmail)?.split("@")[0]
+    (options?.internalEmails ?? []).map(
+      (internalEmail) => cleanText(internalEmail)?.split("@")[0]
     )
   );
   const cleanedKey = normalizeIdentityKey(cleaned);
@@ -99,12 +101,11 @@ export function sanitizeExtractedClientName(
   return cleaned;
 }
 
-function inboundMessageBody(messages: ImportExtractionMessage[]): string {
+function inboundMessageBodies(messages: ImportExtractionMessage[]): string[] {
   return messages
     .filter((message) => message.direction === "inbound")
     .map((message) => message.body ?? "")
-    .filter(Boolean)
-    .join("\n");
+    .filter(Boolean);
 }
 
 function normalizeAddressKey(value: string | null | undefined): string | null {
@@ -139,21 +140,22 @@ export function sanitizeClientExtractionFacts(
   client: ClientExtractionFactsInput,
   context: ClientExtractionSanitizerContext
 ): SanitizedClientExtractionFacts {
-  const inboundBody = inboundMessageBody(context.messages);
+  const inboundBodies = inboundMessageBodies(context.messages);
 
   const phone =
     extractPhoneFromBody(client.phone, {
       excludedPhones: context.internalPhones,
     }) ??
-    extractPhoneFromBody(inboundBody, {
-      excludedPhones: context.internalPhones,
-    });
+    extractNewestPhoneFromInboundBodies(inboundBodies, context.internalPhones);
 
   const clientAddress = extractAddressFromBody(client.address);
   const address =
     clientAddress && !isExcludedAddress(clientAddress, context.companyAddresses)
       ? clientAddress
-      : extractAddressFromBody(inboundBody);
+      : extractNewestAddressFromInboundBodies(
+          inboundBodies,
+          context.companyAddresses
+        );
 
   return {
     name: sanitizeExtractedClientName(
@@ -167,4 +169,28 @@ export function sanitizeClientExtractionFacts(
     phone,
     address,
   };
+}
+
+function extractNewestPhoneFromInboundBodies(
+  bodies: string[],
+  excludedPhones: Array<string | null | undefined>
+): string | null {
+  for (let index = bodies.length - 1; index >= 0; index--) {
+    const phone = extractPhoneFromBody(bodies[index], { excludedPhones });
+    if (phone) return phone;
+  }
+  return null;
+}
+
+function extractNewestAddressFromInboundBodies(
+  bodies: string[],
+  excludedAddresses: Array<string | null | undefined> | undefined
+): string | null {
+  for (let index = bodies.length - 1; index >= 0; index--) {
+    const address = extractAddressFromBody(bodies[index]);
+    if (address && !isExcludedAddress(address, excludedAddresses)) {
+      return address;
+    }
+  }
+  return null;
 }

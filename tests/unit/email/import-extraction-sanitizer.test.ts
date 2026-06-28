@@ -11,7 +11,8 @@ describe("import-extraction-sanitizer", () => {
         name: "Canprojack",
         email: "canprojack@gmail.com",
         phone: "(250) 538-8994",
-        address: "For a resurface on a deck your size (~16x14, about 224 sq ft):",
+        address:
+          "For a resurface on a deck your size (~16x14, about 224 sq ft):",
       },
       {
         clientEmail: "canprojack@gmail.com",
@@ -70,6 +71,43 @@ describe("import-extraction-sanitizer", () => {
     );
 
     expect(facts.phone).toBeNull();
+  });
+
+  it("uses the newest inbound customer fact instead of an older signature phone in the thread", () => {
+    const facts = sanitizeClientExtractionFacts(
+      {
+        name: "Erin Young",
+        email: "erinky_1@hotmail.com",
+        phone: null,
+        address: null,
+      },
+      {
+        clientEmail: "erinky_1@hotmail.com",
+        internalPhones: [],
+        messages: [
+          {
+            direction: "inbound",
+            body: [
+              "Thanks,",
+              "Jared Jerome",
+              "778-268-3324",
+              "Canpro Deck and Rail",
+              "",
+              "Begin forwarded message:",
+              "Phone Number:",
+              "2502160516",
+            ].join("\n"),
+          },
+          {
+            direction: "inbound",
+            body: "I should be able to make Thursday work. We are at 541 Prince Robert Lane in View Royal. 250.516.3282",
+          },
+        ],
+      }
+    );
+
+    expect(facts.phone).toBe("250.516.3282");
+    expect(facts.address).toBe("541 Prince Robert Lane in View Royal");
   });
 
   it("rejects internal names, emails, phones, and company addresses from AI facts", () => {

@@ -30,11 +30,14 @@ describe("body-fact-extractors — address", () => {
   it("extracts only the address phrase from a conversational sentence", () => {
     const body =
       "I should be able to make Thursday work - if you are able to give an approximate time that would be great. We are at 541 Prince Robert Lane in View Royal.";
-    expect(extractAddressFromBody(body)).toBe("541 Prince Robert Lane in View Royal");
+    expect(extractAddressFromBody(body)).toBe(
+      "541 Prince Robert Lane in View Royal"
+    );
   });
 
   it("stops a short accepted-reply address before thanks text and phone numbers", () => {
-    const body = "Sounds Great! 4204 Springridge Cres. Thanks . 250 216 6119 Cell";
+    const body =
+      "Sounds Great! 4204 Springridge Cres. Thanks . 250 216 6119 Cell";
     expect(extractAddressFromBody(body)).toBe("4204 Springridge Cres");
   });
 
@@ -57,9 +60,7 @@ describe("body-fact-extractors — address", () => {
 
   it("ignores 'Location: remote' and URLs / emails on a label line", () => {
     expect(extractAddressFromBody("Location: remote")).toBeNull();
-    expect(
-      extractAddressFromBody("Address: https://maps.app/xyz")
-    ).toBeNull();
+    expect(extractAddressFromBody("Address: https://maps.app/xyz")).toBeNull();
     expect(extractAddressFromBody("Address: me@example.com")).toBeNull();
   });
 
@@ -92,7 +93,14 @@ describe("body-fact-extractors — address", () => {
     // An explicit "Site address:" is stated intent — we trust it over the
     // footer heuristic.
     const body = "Site address: 12 Birch Lane, Duncan BC V9L 2P3";
-    expect(extractAddressFromBody(body)).toBe("12 Birch Lane, Duncan BC V9L 2P3");
+    expect(extractAddressFromBody(body)).toBe(
+      "12 Birch Lane, Duncan BC V9L 2P3"
+    );
+  });
+
+  it("extracts a labelled address when the value is on the next line", () => {
+    const body = ["Address:", "4204 Springridge Cres.", "Thanks"].join("\n");
+    expect(extractAddressFromBody(body)).toBe("4204 Springridge Cres");
   });
 
   it("returns null for empty input", () => {
@@ -132,12 +140,16 @@ describe("body-fact-extractors — estimated value", () => {
   });
 
   it("rejects a marketing dollar figure with no job/quote context", () => {
-    expect(extractEstimatedValueFromBody("Save up to $5,000 this spring!")).toBeNull();
+    expect(
+      extractEstimatedValueFromBody("Save up to $5,000 this spring!")
+    ).toBeNull();
   });
 
   it("rejects a receipt-style 'order total' figure", () => {
     expect(
-      extractEstimatedValueFromBody("Thanks for your purchase. Order total: $1,299.")
+      extractEstimatedValueFromBody(
+        "Thanks for your purchase. Order total: $1,299."
+      )
     ).toBeNull();
   });
 
@@ -188,6 +200,41 @@ describe("body-fact-extractors — phone", () => {
     expect(
       extractPhoneFromBody(body, { excludedPhones: ["250-538-8994"] })
     ).toBe("250 216 6119");
+  });
+
+  it("prefers a forwarded form phone over the operator signature preface", () => {
+    const body = [
+      "Thanks,",
+      "Jared Jerome",
+      "778-268-3324",
+      "Canpro Deck and Rail",
+      "",
+      "Begin forwarded message:",
+      "",
+      "From: Canpro Deck and Rail <notifications@wix-forms.com>",
+      "Date: May 12, 2026 at 20:44:39 MDT",
+      'Reply-To: "erinky_1@hotmail.com" <erinky_1@hotmail.com>',
+      "",
+      "Submission summary:",
+      "",
+      "Name:",
+      "Erin Hayes",
+      "",
+      "Phone Number:",
+      "2502160516",
+    ].join("\n");
+
+    expect(extractPhoneFromBody(body)).toBe("2502160516");
+  });
+
+  it("does not treat a forwarded-message date header as a phone", () => {
+    const body = [
+      "Begin forwarded message:",
+      "Date: 2026-04-17 16:08:12 +0000",
+      "No phone number here.",
+    ].join("\n");
+
+    expect(extractPhoneFromBody(body)).toBeNull();
   });
 
   it("returns null when no 10-15 digit token is present (no false positive)", () => {

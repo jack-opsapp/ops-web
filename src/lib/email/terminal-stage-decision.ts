@@ -46,6 +46,17 @@ function cleanBody(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
+function latestReplySegment(value: string): string {
+  return (
+    value
+      .split(
+        /\n\s*(?:On .{0,160}\bwrote:|Begin forwarded message:|[-]{2,}\s*Forwarded message\s*[-]{2,}|>+)/i
+      )[0]
+      ?.replace(/\s+/g, " ")
+      .trim() ?? value
+  );
+}
+
 export function detectTerminalStageFromMessages(
   messages: TerminalStageMessage[]
 ): TerminalStageDetection | null {
@@ -68,11 +79,12 @@ export function detectTerminalStageFromMessages(
       continue;
     }
 
+    const latestReply = latestReplySegment(message.body ?? "");
     if (
       message.direction === "inbound" &&
-      hasEstimateContext &&
-      ACCEPTANCE_RE.test(body) &&
-      !ESTIMATE_REQUEST_RE.test(body)
+      ACCEPTANCE_RE.test(latestReply) &&
+      !ESTIMATE_REQUEST_RE.test(latestReply) &&
+      (hasEstimateContext || ESTIMATE_CONTEXT_RE.test(body))
     ) {
       return { terminalFlag: "likely_won", stage: "won" };
     }

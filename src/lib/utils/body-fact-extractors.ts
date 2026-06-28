@@ -26,7 +26,8 @@ const ADDRESS_LABEL_RE =
 // as a standalone address signal. A bare US 5-digit ZIP is intentionally NOT a
 // standalone signal (too easily a false positive against invoice/order numbers);
 // a US address still matches via the street-suffix line path below.
-const CA_POSTAL_RE = /\b[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d\b/i;
+const CA_POSTAL_RE =
+  /\b[ABCEGHJ-NPRSTVXY]\d[ABCEGHJ-NPRSTV-Z][ -]?\d[ABCEGHJ-NPRSTV-Z]\d\b/i;
 
 const STREET_SUFFIX =
   "(?:st(?:reet)?|ave(?:nue)?|blvd|boulevard|rd|road|dr(?:ive)?|lane|ln|way|court|ct|place|pl|crescent|cres|terrace|terr|trail|trl|highway|hwy|cir(?:cle)?|sq(?:uare)?|row|close|grove|gardens|gdns|loop|run|pass|parkway|pkwy)";
@@ -47,8 +48,13 @@ const CURRENCY_FIGURE_RE =
 const VALUE_LABEL_RE =
   /\b(?:budget|project budget|estimated budget|estimated value|estimate value|approximate budget|approx budget|price range|ballpark)\b[^\n$0-9]{0,20}(\$?\s*\d{1,3}(?:,\d{3})+|\$?\s*\d+(?:\.\d+)?)\s*([kKmM])?/i;
 
-const PHONE_LABEL_RE = /\b(?:phone|tel|telephone|mobile|cell|call|contact (?:number|no))\b/i;
+const PHONE_LABEL_RE =
+  /\b(?:phone|tel|telephone|mobile|cell|call|contact (?:number|no))\b/i;
 const PHONE_TOKEN_RE = /\(?\+?\d[\d\s().\-]{6,}\d/g;
+const FORWARDED_MARKER_RE =
+  /(?:^|\n)\s*(?:begin forwarded message:|-{2,}\s*forwarded message\s*-{2,})\s*/i;
+const DATE_SHAPED_PHONE_FALSE_POSITIVE_RE =
+  /\b(?:19|20)\d{2}[-/]\d{1,2}[-/]\d{1,2}(?:\s+\d{1,2})?\b/;
 
 export interface PhoneExtractionOptions {
   /**
@@ -88,6 +94,17 @@ function cleanAddressCandidate(value: string): string {
     .replace(/\s+([,])/g, "$1")
     .replace(/[.;:,\s]+$/g, "")
     .trim();
+}
+
+function factText(body: string): string {
+  const text = body.replace(/ /g, " ");
+  const forwardedMarker = FORWARDED_MARKER_RE.exec(text);
+  if (!forwardedMarker) return text;
+
+  // Forwarded lead notifications often start with the operator's own note and
+  // signature before the original customer/form payload. Prefer the forwarded
+  // payload so a signature phone/address cannot win the "first fact" race.
+  return text.slice((forwardedMarker.index ?? 0) + forwardedMarker[0].length);
 }
 
 function sanitizeAddressTail(value: string): string {
@@ -133,7 +150,9 @@ function addressShapedCandidate(value: string): string | null {
   return cleanAddressCandidate(value);
 }
 
-function normalizePhoneForComparison(value: string | null | undefined): string | null {
+function normalizePhoneForComparison(
+  value: string | null | undefined
+): string | null {
   if (!value) return null;
   const digits = value.replace(/\D/g, "");
   if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
@@ -141,7 +160,9 @@ function normalizePhoneForComparison(value: string | null | undefined): string |
   return null;
 }
 
-function excludedPhoneSet(options: PhoneExtractionOptions | undefined): Set<string> {
+function excludedPhoneSet(
+  options: PhoneExtractionOptions | undefined
+): Set<string> {
   const excluded = new Set<string>();
   for (const raw of options?.excludedPhones ?? []) {
     const normalized = normalizePhoneForComparison(raw);
@@ -158,7 +179,7 @@ export function extractAddressFromBody(
   body: string | null | undefined
 ): string | null {
   if (!body) return null;
-  const lines = body
+  const lines = factText(body)
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .split("\n")
@@ -166,10 +187,16 @@ export function extractAddressFromBody(
     .filter(Boolean);
 
   // 1) Explicit label line ("Address: ...") — highest confidence.
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
     const labelled = line.match(ADDRESS_LABEL_RE);
     if (labelled) {
-      const value = cleanAddressCandidate(labelled[1]);
+      const inline = cleanAddressCandidate(labelled[1]);
+      const value =
+        inline ||
+        cleanAddressCandidate(
+          [lines[index + 1], lines[index + 2]].filter(Boolean).join(" ")
+        );
       const shaped = addressShapedCandidate(value);
       // Require the labelled value to itself look address-shaped. A bare digit
       // is not enough; AI sometimes echoes project measurements into the
@@ -266,12 +293,13 @@ export function extractPhoneFromBody(
   options?: PhoneExtractionOptions
 ): string | null {
   if (!body) return null;
-  const text = body.replace(/ /g, " ");
+  const text = factText(body);
   const excluded = excludedPhoneSet(options);
 
   const fromTokens = (segment: string): string | null => {
     for (const match of segment.matchAll(PHONE_TOKEN_RE)) {
       const token = cleanLine(match[0]);
+      if (DATE_SHAPED_PHONE_FALSE_POSITIVE_RE.test(token)) continue;
       const digits = digitCount(token);
       const comparable = normalizePhoneForComparison(token);
       if (
@@ -288,9 +316,14 @@ export function extractPhoneFromBody(
 
   // 1) A line that mentions phone/tel/mobile — highest confidence.
   const lines = text.split(/\n+/);
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
     if (PHONE_LABEL_RE.test(line)) {
-      const found = fromTokens(line);
+      const found =
+        fromTokens(line) ??
+        fromTokens(
+          [lines[index + 1], lines[index + 2]].filter(Boolean).join(" ")
+        );
       if (found) return found;
     }
   }

@@ -62,6 +62,25 @@ describe("terminal-stage-decision", () => {
     ).toEqual({ terminalFlag: "likely_won", stage: "won" });
   });
 
+  it("detects an accepted reply when Gmail stores the prior estimate in the same inbound body", () => {
+    expect(
+      detectTerminalStageFromMessages([
+        {
+          direction: "inbound",
+          body: [
+            "Sounds Great! 4204 Springridge Cres. Thanks . 250 216 6119 Cell",
+            "",
+            "On Jun 22, Jackson wrote:",
+            "For your deck, the carpentry + new vinyl estimate comes to roughly $8,064.",
+            "",
+            "On Jun 18, Liane wrote:",
+            "Let me know if you need more info to get us a quote.",
+          ].join("\n"),
+        },
+      ])
+    ).toEqual({ terminalFlag: "likely_won", stage: "won" });
+  });
+
   it("detects crew-arrival scheduling as likely won", () => {
     expect(
       detectTerminalStageFromMessages([
