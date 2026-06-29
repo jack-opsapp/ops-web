@@ -34,6 +34,13 @@
   "ar.oldest": "más antiguo {days}d",
   "ar.chase": "Cobrar",
 
+  "metrics.ar": "Por cobrar",
+  "metrics.owing": "Deben",
+  "metrics.withProjects": "Con proyectos",
+  "metrics.new": "Nuevos · 30d",
+  "metrics.ofClients": "de {count} clientes",
+  "metrics.owingSub": "{count} deben",
+
   "card.project": "proyecto",
   "card.projects": "proyectos",
   "card.subClients": "Sub-clientes",

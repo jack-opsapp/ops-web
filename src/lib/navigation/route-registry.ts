@@ -215,6 +215,9 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     paletteKeywords: ["customers", "contacts"],
     nav: { order: 11, group: "command" },
     permission: "clients.view",
+    // Fixed-viewport so the unified TableShell hosts an internal scroll body with
+    // a sticky header + pinned MetricsStrip (WEB OVERHAUL P6-2 table unification).
+    fullHeight: "padded",
   },
   // Team was absorbed into Settings (P3.4): it is now SETTINGS › TEAM ›
   // Members, deep-linked via `/settings?section=team`. The standalone /team

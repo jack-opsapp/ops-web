@@ -25,7 +25,8 @@ import {
   TableMono,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { ClientsArBanner } from "./_components/clients-ar-banner";
+import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
+import { MetricsStrip, type MetricCell } from "@/components/ui/metrics-strip";
 
 type FilterMode = "all" | "with-projects" | "owes" | "new";
 
@@ -266,69 +267,110 @@ export default function ClientsPage() {
     [t],
   );
 
-  const showBanner =
-    outstanding.canView && outstanding.totals.clientsOwing > 0;
-
   const showLoading = !permissionsReady || isLoading;
   const isEmptyAll = filtered.length === 0 && !search.trim() && filter === "all";
   const isEmptyFiltered = filtered.length === 0 && !isEmptyAll;
 
+  // ── Unified metrics strip (replaces the one-off rose A/R banner; the chase
+  //    action survives as the A/R cell drill). Shares the foundation every
+  //    surface uses (WEB OVERHAUL P6-2). Counts read the full scoped set, not
+  //    the active filter — metrics are surface-level, not filter-level. ──
+  const totalClients = rows.length;
+  const withProjectsCount = useMemo(() => rows.filter((r) => r.projectCount > 0).length, [rows]);
+  const newCount = useMemo(() => {
+    const cutoff = Date.now() - 30 * 86_400_000;
+    return rows.filter((r) => r.createdAt != null && r.createdAt.getTime() >= cutoff).length;
+  }, [rows]);
+  const arDays = outstanding.totals.oldestDueDate
+    ? Math.max(0, Math.floor((Date.now() - new Date(outstanding.totals.oldestDueDate).getTime()) / 86_400_000))
+    : null;
+
+  const metricCells: MetricCell[] = useMemo(() => {
+    const cells: MetricCell[] = [];
+    if (outstanding.canView) {
+      const owes = outstanding.totals.clientsOwing;
+      const amt = outstanding.totals.amount;
+      cells.push({
+        label: t("metrics.ar"),
+        value: amt,
+        format: (n) => formatCurrency(n),
+        tone: amt > 0 ? "rose" : "default",
+        sub:
+          amt > 0
+            ? [t("metrics.owingSub", { count: String(owes) }), arDays != null ? t("ar.oldest", { days: String(arDays) }) : null]
+                .filter(Boolean)
+                .join("  ·  ")
+            : undefined,
+        onClick: amt > 0 ? () => setFilter("owes") : undefined,
+      });
+      cells.push({
+        label: t("metrics.owing"),
+        value: owes,
+        tone: owes > 0 ? "rose" : "default",
+        sub: t("metrics.ofClients", { count: String(totalClients) }),
+        viz: totalClients > 0 ? { type: "meter", pct: owes / totalClients, color: "var(--rose)" } : undefined,
+      });
+    }
+    cells.push({
+      label: t("metrics.withProjects"),
+      value: withProjectsCount,
+      tone: "olive",
+      viz: totalClients > 0 ? { type: "meter", pct: withProjectsCount / totalClients, color: "var(--olive)" } : undefined,
+    });
+    cells.push({ label: t("metrics.new"), value: newCount });
+    return cells;
+  }, [outstanding.canView, outstanding.totals.clientsOwing, outstanding.totals.amount, arDays, totalClients, withProjectsCount, newCount, t]);
+
   return (
-    <div className="space-y-3">
-      {showBanner && (
-        <ClientsArBanner
-          clientsOwing={outstanding.totals.clientsOwing}
-          amount={outstanding.totals.amount}
-          oldestDueDate={outstanding.totals.oldestDueDate}
-          onChase={() => setFilter("owes")}
-        />
-      )}
-
-      {/* Workbar — search + the one accent CTA */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-          <span aria-hidden className="text-text-mute">
-            {"// "}
-          </span>
-          {t("title")}
-        </span>
-        <div className="flex items-center gap-2">
-          <SearchInput
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("search.placeholder")}
-            wrapperClassName="w-[220px] max-w-full"
-            aria-label={t("search.placeholder")}
-          />
-          {canCreate && (
-            <Button variant="primary" size="sm" type="button" onClick={gatedCreate}>
-              <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
-              {t("newClient")}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Filter chips + count */}
-      <div className="flex flex-wrap items-center gap-[12px]">
-        <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
-        <span className="font-mono text-micro tabular-nums text-text-3">
-          {filtered.length === 1
-            ? t("list.countOne", { count: "1" })
-            : t("list.count", { count: String(filtered.length) })}
-        </span>
-      </div>
-
-      {/* Content */}
-      {showLoading ? (
-        <ListSkeleton />
-      ) : isEmptyAll ? (
-        /* Empty state — DESIGN.md §2: state the fact only, no coach-mark, no button.
-           Create lives in the workbar CTA + the FAB, not the empty register. */
-        <RegisterEmpty noun={t("empty.noun")} />
-      ) : isEmptyFiltered ? (
-        <RegisterEmpty noun={t("empty.matches")} />
-      ) : (
+    <div className="flex h-full min-h-0 flex-col">
+      <TableShell
+        metrics={<MetricsStrip metrics={metricCells} isLoading={showLoading} ariaLabel={t("title")} />}
+        workbar={
+          <TableWorkbar>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+                <span aria-hidden className="text-text-mute">{"// "}</span>
+                {t("title")}
+              </span>
+              <div className="flex items-center gap-2">
+                <SearchInput
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={t("search.placeholder")}
+                  wrapperClassName="w-[220px] max-w-full"
+                  aria-label={t("search.placeholder")}
+                />
+                {canCreate && (
+                  <Button variant="primary" size="sm" type="button" onClick={gatedCreate}>
+                    <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+                    {t("newClient")}
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-[12px]">
+              <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
+              <span className="font-mono text-micro tabular-nums text-text-3">
+                {filtered.length === 1
+                  ? t("list.countOne", { count: "1" })
+                  : t("list.count", { count: String(filtered.length) })}
+              </span>
+            </div>
+          </TableWorkbar>
+        }
+        isEmpty={showLoading || isEmptyAll || isEmptyFiltered}
+        emptyState={
+          showLoading ? (
+            <div className="p-3">
+              <ListSkeleton />
+            </div>
+          ) : (
+            // DESIGN.md §2: state the fact only — no coach-mark, no button. Create
+            // lives in the workbar CTA + the FAB, not the empty register.
+            <RegisterEmpty noun={isEmptyAll ? t("empty.noun") : t("empty.matches")} />
+          )
+        }
+      >
         <RegisterTable
           columns={columns}
           rows={filtered}
@@ -336,8 +378,9 @@ export default function ClientsPage() {
           onRowClick={(r) => openClientWindow({ clientId: r.id, mode: "viewing" })}
           minWidth={720}
           ariaLabel={t("title")}
+          inShell
         />
-      )}
+      </TableShell>
 
       <SetupInterceptionModal
         isOpen={showSetup}

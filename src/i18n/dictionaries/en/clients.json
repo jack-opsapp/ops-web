@@ -34,6 +34,13 @@
   "ar.oldest": "oldest {days}d",
   "ar.chase": "Chase",
 
+  "metrics.ar": "A/R Outstanding",
+  "metrics.owing": "Owing",
+  "metrics.withProjects": "With projects",
+  "metrics.new": "New · 30d",
+  "metrics.ofClients": "of {count} clients",
+  "metrics.owingSub": "{count} owing",
+
   "card.project": "project",
   "card.projects": "projects",
   "card.subClients": "Sub-Clients",
