@@ -59,6 +59,14 @@ export interface RegisterTableProps<Row> {
   /** Accessible name for the table. */
   ariaLabel?: string;
   className?: string;
+  /**
+   * Rendered inside a `TableShell` scroll body (WEB OVERHAUL P6-2): the `<thead>`
+   * pins (`sticky top-0`) over a glass-dense backing and the table renders bare —
+   * no own glass wrapper, no own scroll container, because the shell provides both.
+   * Default (false) keeps the standalone glass-card behavior for the register's
+   * other consumers (Settings tabs, Expenses, Inventory), which are unchanged.
+   */
+  inShell?: boolean;
 }
 
 export function RegisterTable<Row>({
@@ -71,19 +79,23 @@ export function RegisterTable<Row>({
   minWidth = 760,
   ariaLabel,
   className,
+  inShell = false,
 }: RegisterTableProps<Row>) {
-  return (
-    <div className={cn("glass-surface overflow-hidden", className)}>
-      <div className="overflow-x-auto">
-        <table className="w-full" style={{ minWidth }} aria-label={ariaLabel}>
+  const table = (
+    <table className="w-full" style={{ minWidth }} aria-label={ariaLabel}>
           <thead>
-            <tr className="border-b border-border">
+            <tr className={cn(!inShell && "border-b border-border")}>
               {columns.map((col) => (
                 <th
                   key={col.id}
                   scope="col"
                   className={cn(
                     "px-2 py-1.5 text-left align-middle font-mono text-micro font-normal uppercase tracking-[0.16em] text-text-3",
+                    // In a TableShell scroll body the header pins over a glass-dense
+                    // backing (DESIGN.md §5 stacked-layer surface) so rows scroll
+                    // cleanly beneath it — identical pin behavior to the table-v2 grids.
+                    inShell &&
+                      "sticky top-0 z-[5] border-b border-border bg-[var(--glass-dense)] backdrop-blur-[28px]",
                     col.align === "right" && "text-right",
                     col.className,
                   )}
@@ -136,8 +148,18 @@ export function RegisterTable<Row>({
               );
             })}
           </tbody>
-        </table>
-      </div>
+    </table>
+  );
+
+  // Inside a TableShell, render bare — the shell supplies the glass panel and the
+  // scroll container (and owns the sticky-header positioning context). Standalone,
+  // keep the self-contained glass card with its own horizontal scroll.
+  if (inShell) {
+    return <div className={cn("min-w-full", className)}>{table}</div>;
+  }
+  return (
+    <div className={cn("glass-surface overflow-hidden", className)}>
+      <div className="overflow-x-auto">{table}</div>
     </div>
   );
 }
