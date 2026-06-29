@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OPS — Unified Table System (P6-2 mock)</title>
+<link rel="stylesheet" href="https://use.typekit.net/dbh0pet.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Mohave:wght@300;400;500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --canvas:#000; --text:#EDEDED; --text-2:#B5B5B5; --text-3:#8A8A8A; --text-mute:#6A6A6A;
+  --accent:#6F94B0; --accent-hover:#7FA3BD;
+  --olive:#9DB582; --tan:#C4A868; --rose:#B58289; --brick:#93321A;
+  --fin-receivables:#D4A574; --fin-overdue:#93321A; --fin-current:#9DB582;
+  --glass:rgba(18,18,20,0.58); --glass-dense:rgba(18,18,20,0.92); --glass-border:rgba(255,255,255,0.09);
+  --line:rgba(255,255,255,0.10); --fill:rgba(255,255,255,0.14); --fill-dim:rgba(255,255,255,0.06);
+  --hover:rgba(255,255,255,0.05); --active:rgba(255,255,255,0.08); --input:rgba(255,255,255,0.04);
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --body:"Mohave",system-ui,sans-serif;
+  --cake:"cake-mono","JetBrains Mono",monospace;
+  --ease:cubic-bezier(0.22,1,0.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+body{background:var(--canvas);color:var(--text);font-family:var(--body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:22px 24px 40px}
+.mono{font-family:var(--mono);font-feature-settings:"tnum" 1,"zero" 1}
+.tnum{font-variant-numeric:tabular-nums}
+.cake{font-family:var(--cake);font-weight:300;text-transform:uppercase;letter-spacing:.02em}
+
+/* ── top: title + surface switcher ─────────────────────────── */
+.hdr{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.hdr h1{font-family:var(--cake);font-weight:300;text-transform:uppercase;font-size:20px;letter-spacing:.04em;color:var(--text)}
+.hdr .sub{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);margin-top:4px}
+.hdr .sub b{color:var(--text-mute);font-weight:400}
+.switch{display:flex;gap:0;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.switch button{appearance:none;background:transparent;border:0;border-right:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);
+  padding:0 12px;height:28px;cursor:pointer;transition:background .15s var(--ease),color .15s var(--ease)}
+.switch button:last-child{border-right:0}
+.switch button:hover{color:var(--text-2);background:var(--hover)}
+.switch button[aria-selected="true"]{color:var(--text);background:var(--active)}
+
+/* ── TableShell ────────────────────────────────────────────── */
+.shell{position:relative;display:flex;flex-direction:column;height:560px;min-height:0;overflow:hidden;
+  border:1px solid var(--glass-border);border-radius:10px;background:var(--glass);
+  backdrop-filter:blur(28px) saturate(1.3);-webkit-backdrop-filter:blur(28px) saturate(1.3)}
+
+/* view-tabs tier — GRID surfaces only (saved views) */
+.viewtabs{display:none;align-items:center;gap:2px;height:30px;padding:0 8px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.shell[data-kind="grid"] .viewtabs{display:flex}
+.viewtab{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);
+  padding:0 9px;height:22px;display:inline-flex;align-items:center;border-radius:4px;cursor:default}
+.viewtab[data-on]{color:var(--text);background:var(--active)}
+.viewtab.add{color:var(--text-mute)}
+.viewtabs .gridtag{margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-mute);border:1px solid var(--line);border-radius:4px;padding:2px 6px}
+
+/* METRICS STRIP — the unified metric bar (every surface) */
+.metrics{flex:0 0 auto;padding:9px 12px 10px;border-bottom:1px solid var(--line);display:flex;gap:0;align-items:stretch;overflow-x:auto}
+.metric{flex:1 1 0;min-width:128px;padding:0 16px;border-right:1px solid rgba(255,255,255,0.05);display:flex;flex-direction:column;gap:3px}
+.metric:first-child{padding-left:2px}.metric:last-child{border-right:0;padding-right:2px}
+.metric .ml{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3);white-space:nowrap}
+.metric .ml i{color:var(--text-mute);font-style:normal}
+.metric .mv{display:flex;align-items:baseline;gap:6px}
+.metric .mv .n{font-family:var(--mono);font-size:21px;line-height:1.05;color:var(--text);font-variant-numeric:tabular-nums}
+.metric .mv .n.rose{color:var(--rose)}.metric .mv .n.olive{color:var(--olive)}.metric .mv .n.tan{color:var(--tan)}
+.metric .mv .t{font-family:var(--mono);font-size:11px}
+.metric .mv .t.up{color:var(--olive)}.metric .mv .t.down{color:var(--rose)}.metric .mv .t.flat{color:var(--text-mute)}
+.metric .viz{height:22px;margin-top:1px}
+.metric .ms{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--text-3);font-variant-numeric:tabular-nums}
+
+/* WORKBAR — pinned (segment ctrl + search + CTA + chips + count + statline) */
+.workbar{flex:0 0 auto;padding:9px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.wb-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.seg span{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);
+  padding:0 10px;height:24px;display:inline-flex;align-items:center;border-right:1px solid var(--line)}
+.seg span:last-child{border-right:0}
+.seg span[data-on]{color:var(--text);background:var(--active)}
+.search{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:28px;width:200px;max-width:40%;
+  background:var(--input);border:1px solid var(--line);border-radius:5px;padding:0 8px}
+.search svg{flex:0 0 auto;color:var(--text-3)}
+.search input{flex:1;background:transparent;border:0;outline:0;color:var(--text-2);font-family:var(--body);font-size:13px}
+.search input::placeholder{color:var(--text-3)}
+.cta{height:28px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border-radius:5px;
+  border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;
+  font-family:var(--cake);font-weight:300;font-size:14px;text-transform:uppercase;transition:.15s var(--ease)}
+.cta:hover{background:var(--accent);color:#000}
+.density{display:none;margin-left:8px;height:24px;align-items:center;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.shell[data-kind="grid"] .density{display:inline-flex}
+.density b{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);font-weight:400;
+  padding:0 8px;height:22px;display:inline-flex;align-items:center;border-right:1px solid var(--line)}
+.density b:last-child{border-right:0}.density b[data-on]{color:var(--text);background:var(--active)}
+.wb-row.filters{gap:12px}
+.chips{display:flex;gap:6px}
+.chip{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);
+  border:1px solid var(--line);border-radius:4px;padding:2px 8px;height:22px;display:inline-flex;align-items:center}
+.chip[data-on]{color:var(--text);background:var(--active);border-color:rgba(255,255,255,0.18)}
+.count{font-family:var(--mono);font-size:11px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.statline{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--text-3);font-variant-numeric:tabular-nums;display:inline-flex;gap:8px;flex-wrap:wrap}
+.statline .si b{font-weight:400;text-transform:uppercase}
+.statline .si .sv{margin-left:6px}.statline .si .sv.olive{color:var(--olive)}.statline .si .sv.rose{color:var(--rose)}.statline .si .sv.tan{color:var(--tan)}.statline .si .sv.def{color:var(--text-2)}
+.statline .dot{color:var(--text-mute)}
+
+/* SCROLL BODY + sticky header */
+.body{position:relative;flex:1 1 auto;min-height:0;overflow:auto}
+table{width:100%;border-collapse:separate;border-spacing:0;min-width:760px}
+thead th{position:sticky;top:0;z-index:20;background:var(--glass-dense);
+  backdrop-filter:blur(28px) saturate(1.3);-webkit-backdrop-filter:blur(28px) saturate(1.3);
+  text-align:left;font-family:var(--mono);font-weight:400;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--text-3);padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th.r{text-align:right}
+thead th .sort{display:inline-flex;align-items:center;gap:3px}
+thead th[data-active] .sort{color:var(--text)}
+/* frozen first columns (grid only) */
+.shell[data-kind="grid"] thead th.frozen,.shell[data-kind="grid"] tbody td.frozen{position:sticky;z-index:5;background:var(--glass-dense)}
+.shell[data-kind="grid"] thead th.frozen{z-index:21}
+tbody td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.045);vertical-align:middle;white-space:nowrap}
+tbody td.r{text-align:right}
+tbody tr{transition:background .12s var(--ease)}
+tbody tr:hover td{background:var(--hover)}
+tbody tr[data-active] td{background:var(--active)}
+.shell[data-kind="grid"] tbody tr:hover td.frozen{background:#101012}
+.t-num{font-family:var(--mono);font-size:13px;color:var(--text);font-variant-numeric:tabular-nums}
+.t-pri{font-family:var(--body);font-size:14px;color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;display:block}
+.t-meta{font-family:var(--body);font-size:14px;color:var(--text-3)}
+.t-mono{font-family:var(--mono);font-size:13px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.t-mono.muted{color:var(--text-3)}.t-mono.olive{color:var(--olive)}.t-mono.rose{color:var(--rose)}.t-mono.tan{color:var(--tan)}.t-mono.def{color:var(--text)}
+.avatar{width:24px;height:24px;border-radius:50%;background:var(--input);border:1px solid var(--line);display:inline-flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--text-2);flex:0 0 auto}
+.cellflex{display:flex;align-items:center;gap:8px}
+.tag{font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.12em;text-transform:uppercase;border-radius:4px;padding:2px 6px;border:1px solid}
+.tag.neutral{color:var(--text-2);background:rgba(255,255,255,0.05);border-color:var(--line)}
+.tag.olive{color:var(--olive);background:rgba(157,181,130,.12);border-color:rgba(157,181,130,.30)}
+.tag.tan{color:var(--tan);background:rgba(196,168,104,.12);border-color:rgba(196,168,104,.30)}
+.tag.rose{color:var(--rose);background:rgba(181,130,137,.12);border-color:rgba(181,130,137,.30)}
+.tag.agent{color:#8A7FB8;background:rgba(138,127,184,.10);border-color:rgba(138,127,184,.35)}
+.editcell{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;border-bottom:1px dashed var(--fill);padding:0 2px;color:var(--text)}
+.editcell.rose{color:var(--rose)}.editcell.muted{color:var(--text-3)}
+.actions{display:inline-flex;align-items:center;gap:4px;height:24px;border:1px solid var(--line);border-radius:4px;padding:0 6px;
+  font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}
+.botfade{pointer-events:none;position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.55))}
+
+/* caption */
+.caption{margin-top:12px;font-family:var(--mono);font-size:11px;line-height:1.7;letter-spacing:.02em;color:var(--text-3)}
+.caption b{color:var(--text-2);font-weight:500}
+.caption .k{color:var(--text-mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-mute)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:18px;height:3px;border-radius:2px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 class="sr-only">Interactive mock of the unified OPS table system across Projects, Pipeline, Books, Catalog and Clients — one shell, one sticky header, one metrics strip.</h2>
+  <div class="hdr">
+    <div>
+      <h1>Unified Table System</h1>
+      <div class="sub"><b>// </b>ONE SHELL · ONE STICKY HEADER · ONE METRICS STRIP — FIVE SURFACES · scroll the body, switch surfaces</div>
+    </div>
+    <div class="switch" role="tablist" aria-label="Surface">
+      <button role="tab" aria-selected="true" data-s="projects">Projects</button>
+      <button role="tab" aria-selected="false" data-s="pipeline">Pipeline</button>
+      <button role="tab" aria-selected="false" data-s="books">Books</button>
+      <button role="tab" aria-selected="false" data-s="catalog">Catalog</button>
+      <button role="tab" aria-selected="false" data-s="clients">Clients</button>
+    </div>
+  </div>
+
+  <div class="shell" id="shell" data-kind="grid">
+    <div class="viewtabs" id="viewtabs"></div>
+    <div class="metrics" id="metrics"></div>
+    <div class="workbar" id="workbar"></div>
+    <div class="body" id="scrollbody">
+      <table>
+        <thead id="thead"></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="botfade"></div>
+  </div>
+
+  <div class="caption" id="caption"></div>
+  <div class="legend">
+    <span><i style="background:var(--olive)"></i>positive / current</span>
+    <span><i style="background:var(--tan)"></i>attention</span>
+    <span><i style="background:var(--fin-receivables)"></i>receivable</span>
+    <span><i style="background:var(--rose)"></i>overdue / cost</span>
+    <span><i style="background:var(--accent)"></i>accent — CTA &amp; focus only</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var RM = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ── mini-viz builders (SVG, ≤22px tall, tokenized) ────────────────
+  function spark(pts,color){var w=120,h=22,max=Math.max.apply(null,pts),min=Math.min.apply(null,pts),r=(max-min)||1;
+    var d=pts.map(function(p,i){return (i?'L':'M')+(i*(w/(pts.length-1))).toFixed(1)+' '+(h-2-((p-min)/r)*(h-5)).toFixed(1)}).join(' ');
+    return '<svg class="viz" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" width="100%"><path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>';}
+  function bars(vals,color){var w=120,h=22,n=vals.length,bw=w/n*0.62,gap=w/n,max=Math.max.apply(null,vals)||1;
+    var s='';for(var i=0;i<n;i++){var bh=Math.max(2,(vals[i]/max)*(h-3));s+='<rect x="'+(i*gap+ (gap-bw)/2).toFixed(1)+'" y="'+(h-bh).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+bh.toFixed(1)+'" rx="1" fill="'+color+'" opacity="'+(0.45+0.55*vals[i]/max).toFixed(2)+'"/>'}
+    return '<svg class="viz" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" width="100%">'+s+'</svg>';}
+  function ramp(segs){var w=120,h=8,x=0,tot=segs.reduce(function(a,b){return a+b.v},0)||1,s='';
+    segs.forEach(function(sg){var sw=sg.v/tot*w;s+='<rect x="'+x.toFixed(1)+'" y="0" width="'+Math.max(0,sw-1).toFixed(1)+'" height="'+h+'" rx="1" fill="'+sg.c+'"/>';x+=sw});
+    return '<svg class="viz" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" width="100%" style="height:8px;margin-top:7px">'+s+'</svg>';}
+  function meter(pct,color){var w=120,h=8;return '<svg class="viz" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none" width="100%" style="height:8px;margin-top:7px">'+
+    '<rect x="0" y="0" width="'+w+'" height="'+h+'" rx="2" fill="var(--fill-dim)"/>'+
+    '<rect x="0" y="0" width="'+(w*Math.min(1,pct)).toFixed(1)+'" height="'+h+'" rx="2" fill="'+color+'"/></svg>';}
+
+  function money(n){return '$'+Math.round(n).toLocaleString('en-US')}
+  function moneyK(n){return n>=1000?'$'+(n/1000).toFixed(n>=10000?0:1)+'k':'$'+Math.round(n)}
+
+  // ── per-surface data model — ONE shell renders all of these ───────
+  var D={
+    projects:{kind:'grid',
+      views:['ALL ACTIVE','THIS WEEK','MY JOBS','+ NEW VIEW'],
+      metrics:[
+        {l:'ACTIVE',v:34,tone:'',sub:'8 stages',viz:bars([5,8,6,9,4,2],'var(--text-2)')},
+        {l:'VALUE',v:486200,fmt:moneyK,tone:'',trend:{d:'up',t:'12%'},viz:spark([3,4,3.6,5,4.8,6,7,6.6],'var(--olive)')},
+        {l:'OVERDUE',v:5,tone:'rose',sub:'$42k at risk',viz:bars([1,0,2,1,3,2],'var(--rose)')},
+        {l:'THIS WEEK',v:11,tone:'',sub:'site visits',viz:bars([2,3,1,4,1],'var(--tan)')},
+        {l:'WON RATE',v:62,fmt:function(n){return n+'%'},tone:'olive',trend:{d:'up',t:'4pt'},viz:meter(.62,'var(--olive)')}
+      ],
+      seg:null, search:'Search projects', cta:'+ NEW PROJECT',
+      chips:[{l:'ALL',on:1},{l:'IN PROGRESS'},{l:'SCHEDULED'},{l:'ON HOLD'}],
+      statline:null, density:1,
+      cols:[{l:'PROJECT',frozen:1},{l:'CLIENT'},{l:'STATUS'},{l:'END',r:1,sort:1,active:1},{l:'NEXT TASK'},{l:'PROGRESS',r:1}],
+      rows:projRows(), empty:'PROJECTS'},
+
+    pipeline:{kind:'grid',
+      views:['ALL LEADS','HOT','THIS MONTH','+ NEW VIEW'],
+      metrics:[
+        {l:'LEADS',v:48,tone:'',sub:'5 stages',viz:bars([12,10,8,6,4],'var(--text-2)')},
+        {l:'PIPELINE',v:312000,fmt:moneyK,tone:'',trend:{d:'up',t:'8%'},viz:spark([2,3,2.6,4,5,4.4,6,6.2],'var(--olive)')},
+        {l:'WIN RATE',v:41,fmt:function(n){return n+'%'},tone:'olive',trend:{d:'flat',t:'0pt'},viz:meter(.41,'var(--olive)')},
+        {l:'AVG DEAL',v:6500,fmt:moneyK,tone:'',viz:spark([5,6,5.5,7,6.5,6.8],'var(--text-2)')},
+        {l:'STALE',v:7,tone:'tan',sub:'>14d no touch',viz:bars([1,2,1,3,2,1],'var(--tan)')}
+      ],
+      seg:null, search:'Search leads', cta:'+ NEW LEAD',
+      chips:[{l:'ALL',on:1},{l:'NEW'},{l:'QUOTED'},{l:'NEGOTIATION'}],
+      statline:null, density:1,
+      cols:[{l:'LEAD',frozen:1},{l:'SOURCE'},{l:'STAGE'},{l:'VALUE',r:1,sort:1,active:1},{l:'OWNER'},{l:'AGE',r:1}],
+      rows:pipeRows(), empty:'LEADS', grouped:1},
+
+    books:{kind:'register',
+      metrics:[
+        {l:'OUTSTANDING',v:38175,fmt:money,tone:'',sub:'14 invoices',viz:ramp([{v:6,c:'var(--fin-current)'},{v:3,c:'var(--tan)'},{v:3,c:'var(--fin-receivables)'},{v:2,c:'var(--rose)'},{v:1,c:'var(--fin-overdue)'}])},
+        {l:'OVERDUE',v:9420,fmt:money,tone:'rose',sub:'5 past due',viz:bars([1,0,2,1,3,2,1],'var(--rose)')},
+        {l:'PAID · JUN',v:52600,fmt:money,tone:'olive',trend:{d:'up',t:'18%'},viz:spark([2,3,4,3.6,5,6,5.8],'var(--olive)')},
+        {l:'NET',v:21400,fmt:money,tone:'',sub:'42% margin',viz:meter(.42,'var(--olive)')}
+      ],
+      seg:[{l:'INVOICES',on:1},{l:'ESTIMATES'},{l:'EXPENSES'},{l:'SYNC'}], search:'Search invoices', cta:'+ NEW INVOICE',
+      chips:[{l:'ALL',on:1},{l:'DRAFT'},{l:'SENT'},{l:'OVERDUE'}],
+      statline:[{b:'SENT',v:'9',c:'def'},{b:'PAID',v:'$52.6k',c:'olive'},{b:'OVERDUE',v:'$9.4k',c:'rose'}],
+      cols:[{l:'#'},{l:'CLIENT'},{l:'PROJECT'},{l:'DUE',r:1,sort:1,active:1},{l:'TOTAL',r:1},{l:'BALANCE',r:1},{l:'STATUS'},{l:'',r:1}],
+      rows:bookRows(), empty:'INVOICES'},
+
+    catalog:{kind:'register',
+      metrics:[
+        {l:'STOCK HEALTH',v:6,tone:'rose',sub:'below threshold',viz:ramp([{v:48,c:'var(--olive)'},{v:8,c:'var(--tan)'},{v:6,c:'var(--rose)'},{v:5,c:'var(--fill-dim)'}])},
+        {l:'ON-HAND',v:18740,fmt:money,tone:'',sub:'67 SKUs costed',viz:meter(.71,'var(--text-2)')},
+        {l:'AVG MARGIN',v:38,fmt:function(n){return n+'%'},tone:'olive',trend:{d:'up',t:'2pt'},viz:meter(.38,'var(--olive)')}
+      ],
+      seg:[{l:'PRODUCTS',on:1},{l:'STOCK'}], search:'Search products', cta:'+ ADD',
+      chips:[{l:'ALL',on:1},{l:'NO COST'},{l:'TRACKED'}],
+      statline:[{b:'PRODUCTS',v:'20',c:'def'},{b:'VARIANTS',v:'67',c:'def'},{b:'NO COST',v:'3',c:'rose'}],
+      cols:[{l:'PRODUCT'},{l:'CATEGORY'},{l:'COST',r:1},{l:'PRICE',r:1},{l:'MARGIN',r:1,sort:1,active:1},{l:'STATUS'},{l:'',r:1}],
+      rows:catRows(), empty:'PRODUCTS', editable:1},
+
+    clients:{kind:'register',
+      metrics:[
+        {l:'A/R OUTSTANDING',v:38175,fmt:money,tone:'rose',sub:'oldest 47d',viz:ramp([{v:6,c:'var(--fin-current)'},{v:3,c:'var(--tan)'},{v:3,c:'var(--fin-receivables)'},{v:2,c:'var(--rose)'},{v:1,c:'var(--fin-overdue)'}])},
+        {l:'OWING',v:9,tone:'',sub:'of 67 clients',viz:bars([2,1,3,1,2],'var(--rose)')},
+        {l:'WITH PROJECTS',v:41,tone:'olive',viz:meter(.61,'var(--olive)')},
+        {l:'NEW · 30D',v:6,tone:'',trend:{d:'up',t:'2'},viz:bars([1,0,2,1,1,1],'var(--text-2)')}
+      ],
+      seg:null, search:'Search clients', cta:'+ NEW CLIENT',
+      chips:[{l:'ALL',on:1},{l:'WITH PROJECTS'},{l:'OWES'},{l:'NEW'}],
+      statline:null,
+      cols:[{l:'CLIENT'},{l:'CONTACT'},{l:'PROJECTS',r:1},{l:'OUTSTANDING',r:1,sort:1,active:1},{l:'LAST SEEN',r:1}],
+      rows:cliRows(), empty:'CLIENTS'}
+  };
+
+  // ── row builders (realistic OPS-ish data) ─────────────────────────
+  function av(s){return '<span class="avatar">'+s+'</span>'}
+  function tag(c,t){return '<span class="tag '+c+'">'+t+'</span>'}
+  function pri(t){return '<span class="t-pri">'+t+'</span>'}
+  function meta(t){return '<span class="t-meta">'+t+'</span>'}
+  function mono(t,c){return '<span class="t-mono '+(c||'')+'">'+t+'</span>'}
+  function num(t){return '<span class="t-num">'+t+'</span>'}
+  function actions(){return '<span class="actions">ACTIONS ▾</span>'}
+
+  function projRows(){var s=[['Riverside Deck Rebuild','M. Okafor','olive','IN PROGRESS','Frame inspection','72%'],
+    ['Hillcrest Roof Replace','Canpro Dev','tan','SCHEDULED','Material drop','15%'],
+    ['Unit 4B Kitchen Reno','S. Whitlock','olive','IN PROGRESS','Cabinet install','58%'],
+    ['Maple St Foundation','T. Berg','rose','ON HOLD','Permit pending','30%'],
+    ['Westgate Office Fit','Maverick LLC','olive','IN PROGRESS','Drywall','64%'],
+    ['Lakeshore Fence Line','R. Doss','tan','SCHEDULED','Post layout','8%'],
+    ['Corner Lot Grading','D. Iverson','olive','IN PROGRESS','Excavation','41%'],
+    ['Brookfield Bath Reno','A. Klein','olive','IN PROGRESS','Tile','77%'],
+    ['Depot Slab Pour','Canpro Dev','tan','SCHEDULED','Rebar','12%'],
+    ['Glenwood Siding','P. Mata','olive','IN PROGRESS','Wrap','53%'],
+    ['Harbor View Deck','J. Reyes','rose','ON HOLD','Awaiting CO','22%'],
+    ['Sumner Garage Build','K. Tran','olive','IN PROGRESS','Roof truss','69%'],
+    ['Pine Ridge Driveway','L. Fenn','tan','SCHEDULED','Forms','5%'],
+    ['Ashby Loft Conversion','Maverick LLC','olive','IN PROGRESS','Electrical','48%']];
+    return s.map(function(r){return {frozen:'<span class="cellflex">'+av(r[0].slice(0,2).toUpperCase())+pri(r[0])+'</span>',
+      cells:[meta(r[1]),tag(r[2],r[3]),mono(dueDays(),'def r'),meta(r[4]),progress(r[5])]}});}
+  function dueDays(){var a=['Jul 2','Jul 8','Jun 30','Jul 14','Jul 5','Jul 19','Jul 1','Jun 28','Jul 11','Jul 7','overdue 3d','Jul 16','Jul 22','Jul 9'];return a[Math.floor(Math.random()*a.length)]}
+  function progress(p){var v=parseInt(p);return '<span class="cellflex" style="justify-content:flex-end;gap:8px">'+
+    '<span style="width:54px;height:4px;border-radius:2px;background:var(--fill-dim);overflow:hidden;display:inline-block"><span style="display:block;height:100%;width:'+v+'%;background:var(--text-2)"></span></span>'+mono(p,'def')+'</span>'}
+
+  function pipeRows(){var s=[['Costco Bid — Bay 7','Referral','olive','QUOTED',12500,'MO','4d'],
+    ['Henderson Reno','Website','tan','NEW',8200,'SW','1d'],
+    ['Dockside Retainer','Repeat','olive','NEGOTIATION',24000,'TB','9d'],
+    ['Linden Ave Duplex','Cold call','rose','NEW',5400,'DI','18d'],
+    ['Mercer Lot Clearing','Referral','olive','QUOTED',9800,'AK','3d'],
+    ['Crest View Addition','Website','tan','NEGOTIATION',31000,'PM','6d'],
+    ['Old Mill Restoration','Repeat','olive','QUOTED',16700,'JR','2d'],
+    ['Bayfront Tenant Imp','Referral','rose','NEW',7300,'KT','21d'],
+    ['Northgate Pad','Website','tan','QUOTED',4200,'LF','5d'],
+    ['Sunset Patio','Cold call','olive','NEGOTIATION',6100,'MO','7d'],
+    ['Vista Heights Roof','Referral','olive','NEW',13900,'SW','1d'],
+    ['Industrial Park Fence','Repeat','tan','QUOTED',5800,'TB','4d']];
+    return s.map(function(r){return {frozen:pri(r[0]),
+      cells:[meta(r[1]),tag(r[2],r[3]),mono(moneyK(r[4]),'def r'),av(r[5]),mono(r[6],'muted r')]}});}
+
+  function bookRows(){var s=[['INV-2041','M. Okafor','Riverside Deck','overdue 12d',8200,8200,'rose','OVERDUE'],
+    ['INV-2040','Canpro Dev','Hillcrest Roof','Jul 4',14500,0,'olive','PAID'],
+    ['INV-2039','S. Whitlock','Kitchen Reno','Jul 9',6300,6300,'tan','SENT'],
+    ['INV-2038','T. Berg','Maple Foundation','overdue 4d',4100,4100,'rose','OVERDUE'],
+    ['INV-2037','Maverick LLC','Westgate Fit','Jul 12',9800,4800,'tan','SENT'],
+    ['INV-2036','R. Doss','Lakeshore Fence','—',2200,0,'neutral','DRAFT'],
+    ['INV-2035','D. Iverson','Corner Grading','Jul 1',5400,5400,'olive','PAID'],
+    ['INV-2034','A. Klein','Brookfield Bath','Jul 15',7700,7700,'tan','SENT'],
+    ['INV-2033','Canpro Dev','Depot Slab','overdue 8d',12000,6000,'rose','OVERDUE'],
+    ['INV-2032','P. Mata','Glenwood Siding','Jul 7',4600,0,'olive','PAID'],
+    ['INV-2031','J. Reyes','Harbor Deck','—',3300,0,'neutral','DRAFT'],
+    ['INV-2030','K. Tran','Sumner Garage','Jul 18',8900,8900,'tan','SENT']];
+    return s.map(function(r){return {cells:[num(r[0]),pri(r[1]),meta(r[2]),
+      mono(r[3],r[3].indexOf('overdue')>=0?'rose r':'muted r'),mono(money(r[4]),'def r'),
+      mono(r[5]>0?money(r[5]):'—',(r[5]>0?'def':'muted')+' r'),tag(r[6],r[7]),actions()]}});}
+
+  function catRows(){var s=[['2x4x8 SPF Stud','Lumber',3.85,6.20,'38%','olive','TRACKED'],
+    ['½" Drywall 4x8','Drywall',null,14.50,'—','rose','NO COST'],
+    ['Roofing Felt 30lb','Roofing',22.00,38.00,'42%','olive','TRACKED'],
+    ['Concrete Mix 80lb','Concrete',5.40,8.90,'39%','olive','TRACKED'],
+    ['Deck Screw 3" 5lb','Fasteners',18.20,29.99,'39%','olive','TRACKED'],
+    ['PVC Pipe 2" 10ft','Plumbing',null,21.00,'—','rose','NO COST'],
+    ['Vinyl Plank Box','Flooring',42.00,72.00,'42%','olive','TRACKED'],
+    ['R13 Insulation Roll','Insulation',38.50,55.00,'30%','tan','TRACKED'],
+    ['Galv Joist Hanger','Hardware',1.10,2.40,'54%','olive','TRACKED'],
+    ['Exterior Paint Gal','Paint',null,46.00,'—','rose','NO COST'],
+    ['Cedar 1x6x8','Lumber',8.90,15.00,'41%','olive','TRACKED'],
+    ['Rebar #4 20ft','Concrete',9.20,16.50,'44%','olive','TRACKED']];
+    return s.map(function(r){return {editable:1,cells:[pri(r[0]),meta(r[1]),
+      edit(r[2]==null?null:'$'+r[2].toFixed(2),r[2]==null?'rose':'',1),
+      edit('$'+r[3].toFixed(2),'',1),
+      mono(r[4],(r[4]==='—'?'muted':'olive')+' r'),tag(r[5],r[6]),actions()]}});}
+  function edit(t,c,r){return '<span class="editcell '+(c||'')+'">'+(t==null?'— add':t)+'</span>'}
+
+  function cliRows(){var s=[['Maverick LLC','(206) 555-0142',8,12400,'2d'],
+    ['Canpro Dev','(604) 555-0199',6,9800,'today'],
+    ['M. Okafor','m.okafor@mail.com',3,8200,'5d'],
+    ['S. Whitlock','(425) 555-0177',2,6300,'1w'],
+    ['T. Berg','t.berg@mail.com',1,4100,'3w'],
+    ['R. Doss','(253) 555-0188',1,0,'2mo'],
+    ['D. Iverson','d.iverson@mail.com',2,0,'4d'],
+    ['A. Klein','(360) 555-0123',1,7700,'6d'],
+    ['P. Mata','(509) 555-0166',2,0,'2w'],
+    ['J. Reyes','j.reyes@mail.com',1,0,'1mo'],
+    ['K. Tran','(206) 555-0150',1,8900,'today'],
+    ['L. Fenn','l.fenn@mail.com',1,0,'5w']];
+    return s.map(function(r){return {cells:[
+      '<span class="cellflex">'+av(r[0].slice(0,2).toUpperCase())+pri(r[0])+'</span>',
+      mono(r[1],'muted'),mono(r[2]>0?r[2]:'—',(r[2]>0?'def':'muted')+' r'),
+      mono(r[3]>0?money(r[3]):'—',(r[3]>0?'rose':'muted')+' r'),mono(r[4],'muted r')]}});}
+
+  // ── renderer — ONE shell, data-driven ─────────────────────────────
+  var shell=document.getElementById('shell'),
+      elViews=document.getElementById('viewtabs'),elMetrics=document.getElementById('metrics'),
+      elWork=document.getElementById('workbar'),elHead=document.getElementById('thead'),
+      elBody=document.getElementById('tbody'),elCap=document.getElementById('caption'),
+      elScroll=document.getElementById('scrollbody');
+
+  var CAP={
+    projects:'<b>PROJECTS · grid mode.</b> Saved-view tabs + density control + a <b>frozen first column</b> + virtualization ride on the shared shell. Metrics &amp; workbar are pinned; the column header pins at <span class="k">top:0</span> of the scroll body. <b>Scroll — the header stays.</b>',
+    pipeline:'<b>PIPELINE · grid mode.</b> Same shell as Projects (this is why Projects=compact / Pipeline=full metrics is now retired — one strip). Stage grouping, saved views, inline edit preserved. <b>Identical sticky behavior.</b>',
+    books:'<b>BOOKS · register mode.</b> Previously a document-flow stack whose header <b>never stuck</b> + a separate tall ledger-tile deck. Now: same pinned MetricsStrip (the A/R aging ramp survives as a per-cell mini-viz), same sticky header, ACTIONS overflow + inline edit intact.',
+    catalog:'<b>CATALOG · register mode.</b> SupplyStrip&#39;s health/coverage tiles fold into the unified strip. <b>Inline COST / PRICE / MARGIN edit preserved</b> (dashed underline = editable). Stock drawer + ACTIONS unchanged.',
+    clients:'<b>CLIENTS · register mode.</b> The one-off rose A/R banner is absorbed into the unified strip as the lead cell — Clients gains a real metrics strip. Header now pins like everywhere else.'
+  };
+
+  function countUp(node,target,fmt){
+    if(RM||!target){node.textContent=fmt?fmt(target):target;return;}
+    var dur=800,t0=performance.now();
+    function step(now){var p=Math.min(1,(now-t0)/dur);var e=1-Math.pow(1-p,3);// ease-out approx of brand curve
+      var val=Math.round(target*e);node.textContent=fmt?fmt(val):val;if(p<1)requestAnimationFrame(step);}
+    requestAnimationFrame(step);
+  }
+
+  function render(key){
+    var d=D[key];
+    shell.setAttribute('data-kind',d.kind);
+
+    // view tabs (grid only via CSS)
+    elViews.innerHTML=(d.views||[]).map(function(v,i){return '<span class="viewtab'+(i===0?'" data-on="1':'')+(v.indexOf('NEW')>=0?' add':'')+'">'+v+'</span>'}).join('')+
+      '<span class="gridtag">'+(d.grouped?'GROUPED · ':'')+'VIRTUALIZED · SAVED VIEWS</span>';
+
+    // metrics strip
+    elMetrics.innerHTML=d.metrics.map(function(m,i){
+      var tr=m.trend?'<span class="t '+m.trend.d+'">'+(m.trend.d==='up'?'▲':m.trend.d==='down'?'▼':'—')+' '+m.trend.t+'</span>':'';
+      return '<div class="metric"><div class="ml"><i>// </i>'+m.l+'</div>'+
+        '<div class="mv"><span class="n '+(m.tone||'')+'" data-cv="'+i+'">0</span>'+tr+'</div>'+
+        (m.viz||'')+(m.sub?'<div class="ms">'+m.sub+'</div>':'')+'</div>';
+    }).join('');
+    // animate values
+    d.metrics.forEach(function(m,i){var n=elMetrics.querySelector('[data-cv="'+i+'"]');countUp(n,m.v,m.fmt);});
+
+    // workbar
+    var seg=d.seg?'<div class="seg">'+d.seg.map(function(s){return '<span'+(s.on?' data-on="1"':'')+'>'+s.l+'</span>'}).join('')+'</div>':'';
+    var dens=d.kind==='grid'?'<div class="density"><b>COMPACT</b><b data-on="1">COMFY</b><b>SPACE</b></div>':'';
+    var row1='<div class="wb-row">'+seg+
+      '<label class="search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="'+d.search+'" readonly></label>'+
+      '<button class="cta">'+d.cta+'</button>'+dens+'</div>';
+    var chips='<div class="chips">'+d.chips.map(function(c){return '<span class="chip"'+(c.on?' data-on="1"':'')+'>'+c.l+'</span>'}).join('')+'</div>';
+    var cnt='<span class="count">'+d.rows.length+' shown</span>';
+    var sl=d.statline?'<span class="statline">'+d.statline.map(function(s,i){return (i?'<span class="dot">·</span>':'')+'<span class="si"><b>'+s.b+'</b><span class="sv '+s.c+'">'+s.v+'</span></span>'}).join('')+'</span>':'';
+    elWork.innerHTML=row1+'<div class="wb-row filters">'+chips+cnt+sl+'</div>';
+
+    // header
+    elHead.innerHTML='<tr>'+d.cols.map(function(c){
+      var cls=(c.r?'r ':'')+(c.frozen?'frozen':'');var st=c.frozen?' style="left:0"':'';
+      var inner=c.l?'<span class="sort">'+c.l+(c.active?(' '+'▼'):'')+'</span>':'';
+      return '<th class="'+cls+'"'+st+(c.active?' data-active="1"':'')+'>'+inner+'</th>'}).join('')+'</tr>';
+
+    // rows
+    elBody.innerHTML=d.rows.map(function(r,ri){
+      var tds='';
+      if(r.frozen!==undefined){tds+='<td class="frozen" style="left:0">'+r.frozen+'</td>';}
+      r.cells.forEach(function(c,ci){var col=d.cols[(r.frozen!==undefined?1:0)+ci];var rr=(col&&col.r)?' class="r"':'';tds+='<td'+rr+'>'+c+'</td>';});
+      return '<tr'+(ri===2?' data-active="1"':'')+'>'+tds+'</tr>';
+    }).join('');
+
+    elCap.innerHTML=CAP[key];
+    elScroll.scrollTop=0;
+  }
+
+  // switcher
+  var btns=document.querySelectorAll('.switch button');
+  btns.forEach(function(b){b.addEventListener('click',function(){
+    btns.forEach(function(x){x.setAttribute('aria-selected','false')});
+    b.setAttribute('aria-selected','true');render(b.getAttribute('data-s'));});});
+
+  render('projects');
+})();
+</script>
+</body>
+</html>
