@@ -301,11 +301,11 @@ const config: Config = {
           from: { transform: "translateX(-100%)", opacity: "0" },
           to: { transform: "translateX(0)", opacity: "1" },
         },
-        // Restrained leftward push for rail flyouts (operator menu). A short
-        // -16px slide + fade reads as "pushed out from the rail" without the
+        // Leftward push for rail flyouts (operator menu). A clear -64px slide +
+        // fade so the panel visibly pushes out from the rail, without the
         // full-width drawer travel of slide-in-left.
         "push-in-left": {
-          from: { transform: "translateX(-16px)", opacity: "0" },
+          from: { transform: "translateX(-64px)", opacity: "0" },
           to: { transform: "translateX(0)", opacity: "1" },
         },
         "slide-up": {
@@ -356,7 +356,7 @@ const config: Config = {
         "fade-in": "fade-in 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
         "slide-in-right": "slide-in-right 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
         "slide-in-left": "slide-in-left 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
-        "push-in-left": "push-in-left 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
+        "push-in-left": "push-in-left 0.26s cubic-bezier(0.22, 1, 0.36, 1)",
         "slide-up": "slide-up 0.2s cubic-bezier(0.22, 1, 0.36, 1)",
         "scale-in": "scale-in 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
         "anchored-in": "anchored-in 0.15s cubic-bezier(0.22, 1, 0.36, 1)",

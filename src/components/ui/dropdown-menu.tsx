@@ -53,25 +53,17 @@ DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayNam
 
 const DropdownMenuContent = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> & {
-    /**
-     * `rail-flyout` swaps the dense-glass popover for a directional gradient
-     * panel that pushes in from the left — used by the sidebar operator menu so
-     * the menu reads as an extension of the instrument rail rather than a
-     * detached card. `default` keeps the standard dense-glass dropdown.
-     */
-    variant?: "default" | "rail-flyout";
-  }
->(({ className, sideOffset = 4, variant = "default", ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
+>(({ className, sideOffset = 4, ...props }, ref) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[180px] overflow-hidden p-0.5",
-        variant === "rail-flyout"
-          ? "glass-flyout motion-safe:data-[state=open]:animate-push-in-left motion-reduce:animate-fade-in"
-          : "glass-dense motion-safe:data-[state=open]:animate-anchored-in",
+        "z-50 min-w-[180px] overflow-hidden",
+        "glass-dense",
+        "p-0.5",
+        "motion-safe:data-[state=open]:animate-anchored-in",
         className
       )}
       {...props}
