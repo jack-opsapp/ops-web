@@ -74,3 +74,30 @@ One thin glass strip of hairline-divided metric cells: `// LABEL` (mono 11px) + 
 - **Done-gates (all pass):** `tsc --noEmit` → 7 errors, ALL pre-existing/unrelated (`xlsx` not installed in worktree + the known `notification-service.test.ts`); **zero in any P6-2 file**. `eslint` → **0 errors**, 5 pre-existing warnings (none in new files). `audit-design-system` → **zero token violations** in new/migrated code; every `var(--token)` resolves globally; the only raw values in touched files are pre-existing + out-of-scope (canvas/map HUD, on-spec group-toggle border).
 - **Pipeline gate removed + LIVE-VERIFIED (2026-06-29, Jackson directed):** the Pipeline table view was dark-launched behind the per-company `pipeline_table_view` flag (same mechanism as Projects' `projects_table_v2`, which is already on) and never switched on — that's why it couldn't be shot earlier. Jackson: "it should have no gate." Dropped the gate (`pipeline/page.tsx`: mode resolution + switcher no longer read the flag; dead hook `use-pipeline-table-flag.ts` removed). Verifying live then exposed a latent bug the gate had hidden: the page-HUD banners floated at the surface *top* in table mode, covering the TableShell's MetricsStrip — fixed by pinning them bottom-left on all desktop modes (the focused-mode treatment). Now LIVE-VERIFIED: table view renders the unified MetricsStrip (`// PIPELINE VALUE $99.5K`/`WIN RATE 86%`/`OPPORTUNITIES`/`AVG DEAL`/`VELOCITY`), saved views, GROUP/SHOW CLOSED, bulk-select, stage tags, grand-total footer, sticky header; banner clears the strip; 0 errors. So all 5 surfaces are now live-verified. (Note: `// VELOCITY 5116d` is a pre-existing demo-data quirk in the metrics calc, not from this work.)
 - **NOT pushed** — awaiting Jackson's explicit go-ahead (merging ops-web main auto-deploys prod).
+
+## REWORK — 2026-06-30 (Jackson live review of shipped P6-2)
+
+P6-2 shipped to prod (`7b329c27`) and Jackson reviewed it live — **not happy with the look**. Five corrections (verbatim): (1) tables must be **full-bleed**, not in padded containers; (2) the metrics bar must **scroll up and out of view**, not be pinned; (3) the **toolbar** is awkwardly positioned; (4) Pipeline's focused/table toggle must move **into the toolbar**; (5) the metrics bar must be **decoupled from the table and consistent across all screens** — and "the metrics bar as it stands on the pipeline FOCUS view is how it's supposed to look" (i.e. the canonical `MetricsHeader variant="full"` 28px treatment, not the shrunken 20px in-shell strip).
+
+### Corrected architecture
+Worktree `ops-web-table-rework` off `origin/main`. One pattern for both archetypes — a shared **`TableChrome`** (`ui/table-shell/table-chrome.tsx`) renders the **scroll-away metrics bar** + a **sticky toolbar** inside the scroll region, and publishes the toolbar height as `--shell-header-top` so the table's column header sticks flush BELOW the toolbar.
+
+- **`MetricsStrip`** retuned to the canonical look: value tier `text-data-lg` (20px) → **`text-display` (28px) `tracking-[-1px]`** (matches the focus-view `MetricColumn`). Anatomy (// label, count-up, mini-viz, trend, sub) unchanged → still consistent across all 5.
+- **`TableShell`** is now FULL-BLEED — dropped `glass-surface` / `rounded-panel` / panel border. Register archetype: shell body scrolls, renders `TableChrome` + `RegisterTable inShell`. Grid archetype: `scroll={false}` → the grid owns its scroller; chrome injected via the grid's new **`aboveHeader`** slot so the metrics scroll away INSIDE the virtualized scroller.
+- **Grid tables** (`projects-table.tsx`, `pipeline-table.tsx`): Jackson approved a **tiny additive `aboveHeader?: ReactNode` slot** (rendered as the first child inside the scroller, above the sticky header) — virtualizer / frozen columns / density-zoom / inline edit / stage grouping logic **untouched**. Headers (`*-table-header.tsx`) + `RegisterTable` thead: `top-0` → `top-[var(--shell-header-top,0px)]` (default 0 = legacy behavior for other consumers).
+- **Pipeline mode switcher** moved from the floating page HUD into the table toolbar (`PipelineToolbar` gained a `leading` slot holding `<PipelineModeSwitcher/>`); the floating HUD switcher removed from `pipeline/page.tsx`. Focused mode keeps its own bottom-toolbar `MODE: TABLE` toggle.
+- **Routing**: register routes + pipeline flipped `fullHeight: "padded"` → **`"bleed"`** (drops the `px-3 pb-3` route gutter); projects spreadsheet wrapper lost its `p-3`. Projects already `"bleed"`.
+
+### Done-gates (all pass)
+- `tsc --noEmit` → 7 errors, ALL pre-existing/unrelated (`xlsx` not installed in worktree + `notification-service.test.ts`); **zero in any reworked file**.
+- `eslint` (all touched files) → **0 errors**, 5 pre-existing warnings (none from the rework).
+- `audit-design-system` → **zero violations**; every color is a token, the only arbitrary values are runtime layout coordination (`--shell-header-top`) + micro-measurements matching the existing component convention.
+
+### LIVE-VERIFIED — all 5 surfaces (dev bypass, webpack, 1280×900, 0 console errors)
+- **Projects** (grid): full-bleed; scrolled the 30-row "All Active" view → **metrics scrolled away, toolbar + column header pinned** (`--shell-header-top` 98px); saved views / density / zoom / frozen NAME column intact.
+- **Pipeline** (grid): full-bleed; **focused/table switcher now IN the toolbar** (leading segmented control); focused mode top is just the canonical metrics bar (no floating switcher); table mode shows saved views / GROUP / SHOW CLOSED / grand-total footer / banner clears the strip.
+- **Clients** (register): full-bleed; scrolled 68 rows → **metrics bottom −128px (gone), thead pinned at 125px** = toolbar height.
+- **Books** (register): canonical metrics + A/R aging-ramp viz + 30-day period pill, segment control, LIST/AGING, statline, status tags.
+- **Catalog** (register): inline-edit COST/PRICE cells (dashed underline) + ACTIONS overflow preserved; STOCK HEALTH/ON-HAND/PRODUCTS metrics.
+
+- **NOT pushed** — awaiting Jackson's explicit go-ahead.
