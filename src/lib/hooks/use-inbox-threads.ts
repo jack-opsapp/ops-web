@@ -30,6 +30,7 @@ import type {
   InboxDraftRow,
   InboxScope,
   PhaseC,
+  RoutingDecision,
 } from "@/lib/types/email-thread";
 import { type RailFilter } from "@/lib/inbox/rail-predicates";
 
@@ -120,6 +121,16 @@ export interface InboxThreadRow {
    * grouping/band layer; cleared via the answer endpoint.
    */
   agentBlockingQuestion: AgentBlockingQuestion | null;
+  /**
+   * Phase 3 — the persisted deterministic router decision. 'require_human_review'
+   * means the inbox holds this thread for review (a HELD marker in the list, a
+   * banner in the detail) and autonomy is suppressed. Null until first evaluated.
+   */
+  routing: RoutingDecision | null;
+  /** Why the router held the thread — shown in the held-for-review banner. */
+  routingReasons: string[] | null;
+  /** 0..1 deterministic confidence; below 0.5 forces the hold. */
+  routerConfidence: number | null;
 }
 
 export interface InboxThreadMessage {
@@ -217,6 +228,10 @@ export interface InboxThreadDetail {
     phaseC: PhaseC;
     /** Phase C escalation (see InboxThreadRow.agentBlockingQuestion). */
     agentBlockingQuestion: AgentBlockingQuestion | null;
+    /** Phase 3 — persisted router decision (see InboxThreadRow.routing). */
+    routing: RoutingDecision | null;
+    routingReasons: string[] | null;
+    routerConfidence: number | null;
   };
   messages: InboxThreadMessage[];
   /**

@@ -82,6 +82,8 @@ import { ThreadDetailMoreMenu } from "./thread-detail-more-menu";
 import { DraftsChip } from "./drafts-chip";
 import { SnoozedChip } from "./snoozed-chip";
 import { FloatingYourTurnBadge } from "./floating-your-turn-badge";
+import { buildHeldReviewView } from "./held-review";
+import { HeldReviewBanner } from "./held-review-banner";
 import { type TodayCommitment } from "./today-bar";
 import { RailEmptyState } from "./rail-empty-state";
 import { ThreadList, type ThreadListItem } from "./thread-list";
@@ -1157,6 +1159,14 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     />
   );
 
+  const detailHeldView = detail
+    ? buildHeldReviewView({
+        routing: detail.thread.routing,
+        routingReasons: detail.thread.routingReasons,
+        routerConfidence: detail.thread.routerConfidence,
+      })
+    : null;
+
   const detailNode = detail ? (
     <ThreadDetail
       subject={detail.thread.subject ?? t("detail.untitled", "(no subject)")}
@@ -1240,6 +1250,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             onAcknowledge={floatingBadgeOnAcknowledge}
           />
         ) : undefined
+      }
+      reviewBannerSlot={
+        detailHeldView?.held ? <HeldReviewBanner view={detailHeldView} /> : undefined
       }
     >
       <CommitmentPills
@@ -1631,6 +1644,11 @@ function toThreadListItem(t: InboxThreadRow): ThreadListItem {
     draftKind: null,
     state,
     lastInboundAt,
+    held: buildHeldReviewView({
+      routing: t.routing,
+      routingReasons: t.routingReasons,
+      routerConfidence: t.routerConfidence,
+    }),
   };
 }
 

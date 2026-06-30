@@ -36,6 +36,7 @@ import type { PhaseC } from "@/lib/types/email-thread";
 import type { StateTagResult } from "@/lib/inbox/format-wait";
 import { resolveThreadPreview } from "@/lib/inbox/thread-preview";
 import { StateTag } from "./state-tag";
+import type { HeldReviewView } from "./held-review";
 import {
   inboxThreadHref,
   shouldHandleInPlaceThreadNavigation,
@@ -68,6 +69,12 @@ export interface ThreadRowData {
    * Null when latest direction is outbound or unknown.
    */
   lastInboundAt: number | null;
+  /**
+   * Phase 3 — held-for-review view derived from the persisted router decision.
+   * When `held.held` is true the row shows the `// HELD · REVIEW` strip + a tan
+   * HELD chip in place of the normal state tag. Undefined/false → normal row.
+   */
+  held?: HeldReviewView;
 }
 
 interface ThreadRowProps {
@@ -151,18 +158,24 @@ export function ThreadRow({
     thread.labels.includes("HAS_ATTACHMENT") ||
     thread.labels.includes("HAS_QUOTE") ||
     thread.labels.includes("HAS_INVOICE");
-  const showStateTag = thread.state.kind !== "fyi";
+  // Phase 3 — a thread the deterministic router held for review. The held
+  // treatment (tan strip + HELD chip + tan stripe) takes precedence over the
+  // normal state tag: the operator needs to see "I stood down on this" first.
+  const held = thread.held?.held === true;
+  const showStateTag = !held && thread.state.kind !== "fyi";
   const showQuickActions = Boolean(onMarkReadChange || onArchive);
 
   const stripeColor = selected
     ? "bg-ops-accent"
-    : isOverdue
-      ? "bg-rose"
-      : isAiDraft
-        ? "bg-agent"
-        : isUnread
-          ? "bg-line-hi"
-          : "bg-transparent";
+    : held
+      ? "bg-tan"
+      : isOverdue
+        ? "bg-rose"
+        : isAiDraft
+          ? "bg-agent"
+          : isUnread
+            ? "bg-line-hi"
+            : "bg-transparent";
 
   const alarmDays =
     thread.state.alarmStrip && thread.lastInboundAt !== null
@@ -232,8 +245,18 @@ export function ThreadRow({
       />
 
       <div className="relative z-20 pointer-events-none">
+        {/* Held-for-review strip — tan, takes precedence over the alarm strip. */}
+        {held && (
+          <div
+            data-testid="thread-row-held-strip"
+            className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-tan"
+            style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+          >
+            {t("row.heldStrip", "// HELD · REVIEW")}
+          </div>
+        )}
         {/* Alarm strip — rose, only on alarmed (>14d unanswered) threads */}
-        {thread.state.alarmStrip && thread.lastInboundAt !== null && (
+        {!held && thread.state.alarmStrip && thread.lastInboundAt !== null && (
           <div
             className="mb-1 font-mono text-[11px] uppercase tracking-[0.16em] text-rose"
             style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
@@ -286,6 +309,13 @@ export function ThreadRow({
             >
               · {thread.messageCount}
             </span>
+          )}
+          {held && (
+            <StateTag
+              tone="tan"
+              variant="solid"
+              prefix={t("row.heldChip", "HELD")}
+            />
           )}
           {showStateTag && (
             <StateTag

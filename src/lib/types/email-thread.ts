@@ -104,6 +104,12 @@ export type ArchiveLeadPreference = "ask" | "archive" | "leave";
 export type { RailFilter, RailFilter as InboxRail } from "@/lib/inbox/rail-predicates";
 import type { RailFilter } from "@/lib/inbox/rail-predicates";
 
+// Phase 3 — the deterministic router's persisted decision lives on
+// `email_threads` and is surfaced by the inbox UI. Re-exported here so inbox
+// consumers (hooks, rows, detail) import it alongside the other thread types.
+export type { RoutingDecision } from "@/lib/api/services/conversation-state/types";
+import type { RoutingDecision } from "@/lib/api/services/conversation-state/types";
+
 // ─── Drafts (shared wire shape) ─────────────────────────────────────────────
 // Wire shape used by /api/inbox/drafts and consumed by useInboxDrafts on the
 // client. Single declaration so the route and the hook can't drift. `source`
@@ -240,6 +246,14 @@ export interface EmailThread {
   // column existed). Cleared when the operator answers.
   agentBlockingQuestion: AgentBlockingQuestion | null;
 
+  // Phase 3 — the persisted deterministic router decision. `routing` is null
+  // until the thread is first evaluated; 'require_human_review' means the inbox
+  // holds it for review (and autonomy is suppressed). `routingReasons` explain
+  // why; `routerConfidence` is the 0..1 score (below 0.5 forces the hold).
+  routing: RoutingDecision | null;
+  routingReasons: string[] | null;
+  routerConfidence: number | null;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -310,6 +324,12 @@ export function mapEmailThreadFromDb(row: Record<string, unknown>): EmailThread 
     // default so they never see undefined.
     phaseC: "none",
     agentBlockingQuestion: parseAgentBlockingQuestion(row.agent_blocking_question),
+    routing: (row.routing as RoutingDecision | null) ?? null,
+    routingReasons: Array.isArray(row.routing_reasons)
+      ? (row.routing_reasons as string[])
+      : null,
+    routerConfidence:
+      row.router_confidence == null ? null : Number(row.router_confidence),
     createdAt: parseDate(row.created_at),
     updatedAt: parseDate(row.updated_at),
   };
