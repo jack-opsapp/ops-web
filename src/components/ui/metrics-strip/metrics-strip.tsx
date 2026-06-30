@@ -123,7 +123,7 @@ function Cell({ cell }: { cell: MetricCell }) {
     </>
   );
 
-  const base = "flex min-w-[124px] flex-1 flex-col gap-[3px] border-r border-[rgba(255,255,255,0.05)] px-[15px] text-left first:pl-[3px] last:border-r-0 last:pr-[3px]";
+  const base = "flex min-w-[124px] flex-1 flex-col gap-[3px] border-r border-border-subtle px-[15px] text-left first:pl-[3px] last:border-r-0 last:pr-[3px]";
 
   if (cell.onClick) {
     return (
@@ -146,7 +146,7 @@ function Cell({ cell }: { cell: MetricCell }) {
 
 function Skeleton() {
   return (
-    <div className="flex min-w-[124px] flex-1 flex-col gap-2 border-r border-[rgba(255,255,255,0.05)] px-[15px] first:pl-[3px] last:border-r-0">
+    <div className="flex min-w-[124px] flex-1 flex-col gap-2 border-r border-border-subtle px-[15px] first:pl-[3px] last:border-r-0">
       <div className="h-[11px] w-[56px] animate-pulse rounded-bar bg-fill-neutral-dim motion-reduce:animate-none" />
       <div className="h-[20px] w-[76px] animate-pulse rounded-bar bg-fill-neutral-dim motion-reduce:animate-none" />
       <div className="mt-1 h-[8px] w-full animate-pulse rounded-bar bg-fill-neutral-dim/60 motion-reduce:animate-none" />
