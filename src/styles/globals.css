@@ -351,6 +351,31 @@
     pointer-events: none;
   }
 
+  /* === Rail flyout glass (sidebar operator menu) ===
+     Directional dense glass that pushes out from the instrument rail. Densest
+     at the left seam where it meets the rail, easing to standard dense glass
+     toward the right — the horizontal gradient is the spatial cue (origin =
+     the rail), not decoration. The left edge is square + borderless so the
+     panel reads as an extension of the rail; the outward edges take the modal
+     radius. Pairs with the `push-in-left` enter animation. */
+  .glass-flyout {
+    background: linear-gradient(90deg, rgba(18,18,20,0.96) 0%, rgba(18,18,20,0.82) 50%, rgba(18,18,20,0.68) 100%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-border);
+    border-left: none;
+    border-radius: 0 12px 12px 0;
+    position: relative;
+  }
+  .glass-flyout::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 0 12px 12px 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 35%);
+    pointer-events: none;
+  }
+
   /* Cards inside widget content inherit the shell's frosted backdrop — no double glass */
   [data-widget-content] .rounded-md.border,
   [data-widget-content] .rounded-panel.border {

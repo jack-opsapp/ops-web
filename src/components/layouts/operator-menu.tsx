@@ -137,10 +137,18 @@ export function OperatorMenu({ expanded }: { expanded: boolean }) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
+        // Desktop rail: a gradient flyout that pushes out from the rail's right
+        // edge. sideOffset 16 == the footer's px-2 inset, so the panel's left
+        // edge lands flush on the rail seam instead of overlapping the avatar.
+        // Mobile drawer: the standard dense dropdown, opening upward.
         side={expanded ? "top" : "right"}
         align={expanded ? "start" : "end"}
-        sideOffset={expanded ? 8 : 12}
-        className="z-[1000] w-[248px] rounded-modal p-0"
+        sideOffset={expanded ? 8 : 16}
+        variant={expanded ? "default" : "rail-flyout"}
+        className={cn(
+          "z-[1000] p-0",
+          expanded ? "w-[248px] rounded-modal" : "w-[264px]"
+        )}
       >
         {/* Identity block */}
         <div className="border-b border-border px-4 pb-3 pt-3.5">
