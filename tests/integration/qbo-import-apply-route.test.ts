@@ -94,7 +94,7 @@ describe("POST /api/integrations/quickbooks/import/apply", () => {
     const note = notificationInsert.mock.calls[0][0];
     expect(note.user_id).toBe("user-1");
     expect(note.company_id).toBe(CO);
-    expect(note.action_url).toBe("/accounting");
+    expect(note.action_url).toBe("/books?segment=sync&view=import");
     expect(note.persistent).toBe(false);
   });
 });
