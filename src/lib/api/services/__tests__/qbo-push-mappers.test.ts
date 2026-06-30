@@ -34,11 +34,136 @@ describe("QBO push mappers", () => {
       expect.objectContaining({
         CompanyName: "Maverick Projects",
         DisplayName: "Maverick Projects",
+        GivenName: "Alex",
+        FamilyName: "Maverick",
         PrimaryEmailAddr: { Address: "alex@maverick.test" },
         PrimaryPhone: { FreeFormNumber: "778-555-0199" },
         BillAddr: { Line1: "12 Yard Rd" },
       }),
     );
+  });
+
+  it("derives GivenName and FamilyName from the client name when no contact exists", () => {
+    const payload = mapClientToQboCustomer({
+      client: {
+        id: "client-1",
+        name: "Charlie Blackwood",
+        email: "cblackwood@email.com",
+        phoneNumber: null,
+        address: null,
+        qbId: null,
+        syncToken: null,
+      },
+    });
+
+    expect(payload).toEqual(
+      expect.objectContaining({
+        DisplayName: "Charlie Blackwood",
+        GivenName: "Charlie",
+        FamilyName: "Blackwood",
+      }),
+    );
+  });
+
+  it("prefers the primary contact name over the client name for GivenName/FamilyName", () => {
+    const payload = mapClientToQboCustomer({
+      client: {
+        id: "client-1",
+        name: "Maverick Projects",
+        qbId: null,
+        syncToken: null,
+      },
+      primaryContact: {
+        firstName: "Dana",
+        lastName: "Cole",
+        email: null,
+        phoneNumber: null,
+      },
+    });
+
+    expect(payload).toEqual(
+      expect.objectContaining({ GivenName: "Dana", FamilyName: "Cole" }),
+    );
+  });
+
+  it("emits GivenName only for a single-token client name", () => {
+    const payload = mapClientToQboCustomer({
+      client: { id: "client-1", name: "Cher", qbId: null, syncToken: null },
+    });
+
+    expect(payload.GivenName).toBe("Cher");
+    expect(payload).not.toHaveProperty("FamilyName");
+  });
+
+  it("parses a comma-separated US address into structured BillAddr fields", () => {
+    const payload = mapClientToQboCustomer({
+      client: {
+        id: "client-1",
+        name: "Charlie Blackwood",
+        address: "10452 Scripps Ranch Blvd, San Diego, CA, United States",
+        qbId: null,
+        syncToken: null,
+      },
+    });
+
+    expect(payload.BillAddr).toEqual({
+      Line1: "10452 Scripps Ranch Blvd",
+      City: "San Diego",
+      CountrySubDivisionCode: "CA",
+      Country: "United States",
+    });
+  });
+
+  it("parses a Canadian address, classifying the trailing token as a postal code", () => {
+    const payload = mapClientToQboCustomer({
+      client: {
+        id: "client-1",
+        name: "Saanich Client",
+        address: "3912 Lancaster Rd, Saanich, BC, V8X 2B3",
+        qbId: null,
+        syncToken: null,
+      },
+    });
+
+    expect(payload.BillAddr).toEqual({
+      Line1: "3912 Lancaster Rd",
+      City: "Saanich",
+      CountrySubDivisionCode: "BC",
+      PostalCode: "V8X 2B3",
+    });
+  });
+
+  it("splits a combined 'STATE ZIP' trailing token into state and postal code", () => {
+    const payload = mapClientToQboCustomer({
+      client: {
+        id: "client-1",
+        name: "Springfield Client",
+        address: "742 Evergreen Terrace, Springfield, IL 62704",
+        qbId: null,
+        syncToken: null,
+      },
+    });
+
+    expect(payload.BillAddr).toEqual({
+      Line1: "742 Evergreen Terrace",
+      City: "Springfield",
+      CountrySubDivisionCode: "IL",
+      PostalCode: "62704",
+    });
+  });
+
+  it("keeps a single-line street address as BillAddr.Line1 only", () => {
+    const payload = mapClientToQboCustomer({
+      client: {
+        id: "client-1",
+        name: "Test Client",
+        address: "123 OPS Test St",
+        qbId: null,
+        syncToken: null,
+      },
+    });
+
+    expect(payload.BillAddr).toEqual({ Line1: "123 OPS Test St" });
   });
 
   it("omits optional empty email and phone fields instead of emitting empty strings", () => {

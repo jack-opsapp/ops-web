@@ -170,6 +170,10 @@
     {
       "path": "/api/cron/lead-lifecycle",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/accounting/quickbooks/push-queue",
+      "schedule": "*/5 13-23,0-4 * * *"
     }
   ]
 }
