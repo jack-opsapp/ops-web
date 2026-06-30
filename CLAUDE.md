@@ -150,7 +150,7 @@ Full reference: `ops-software-bible/05_DESIGN_SYSTEM.md` § 15. Use this scale f
 | **interactive** | 100–200 | Drag/resize/ghost overlays |
 | **nav** | 500 | Sidebar |
 | **dropdown** | 1000 | Menus, autocomplete |
-| **floating-ui** | 1500–1600 | FAB, bug report, action prompts, window dock |
+| **floating-ui** | 1500–1600 | FAB, bug report, action prompts, window dock, inbox floating affordances (YOUR TURN badge `1500`, thread composer `1550`) |
 | **window** | 2000+ | Floating windows (dynamic, auto-increments) |
 | **modal** | 3000 | Portaled dialogs/sheets (Radix) |
 | **map-controls** | 5000 | Full-screen map page only |

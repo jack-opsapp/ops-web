@@ -116,4 +116,73 @@ describe("<Composer>", () => {
     fireEvent.change(textarea, { target: { value: "draft" } });
     expect(onChange).toHaveBeenCalledWith("draft");
   });
+
+  describe("floating mode", () => {
+    function getOuterShell(textarea: HTMLElement): HTMLElement {
+      // textarea → inner box → outer composer shell
+      const innerBox = textarea.parentElement;
+      const outer = innerBox?.parentElement;
+      if (!outer) throw new Error("could not find outer shell");
+      return outer;
+    }
+
+    it("renders the legacy band styling by default", () => {
+      render(<Composer value="" onChange={noop} onSend={noop} />);
+      const outer = getOuterShell(screen.getByRole("textbox"));
+      expect(outer.className).toMatch(/border-t/);
+      expect(outer.className).toMatch(/bg-inbox-panel/);
+      expect(outer.getAttribute("data-floating")).toBeNull();
+    });
+
+    it("renders a glass-dense rounded panel with no border-top when floating", () => {
+      render(<Composer value="" onChange={noop} onSend={noop} floating />);
+      const outer = getOuterShell(screen.getByRole("textbox"));
+      expect(outer.className).toMatch(/rounded-panel/);
+      expect(outer.className).toMatch(/backdrop-blur-\[28px\]/);
+      expect(outer.className).toMatch(/rgba\(18,18,20,0\.78\)/);
+      expect(outer.className).not.toMatch(/border-t/);
+      expect(outer.getAttribute("data-floating")).toBe("true");
+    });
+
+    it("preserves all interactive behavior when floating (send shortcut + button)", () => {
+      const onSend = vi.fn();
+      render(
+        <Composer
+          value="hi"
+          onChange={noop}
+          onSend={onSend}
+          floating
+        />,
+      );
+      const textarea = screen.getByRole("textbox");
+      fireEvent.keyDown(textarea, { key: "Enter", metaKey: true });
+      expect(onSend).toHaveBeenCalledWith("hi");
+
+      fireEvent.click(screen.getByRole("button", { name: /^SEND$/i }));
+      expect(onSend).toHaveBeenCalledTimes(2);
+    });
+
+    it("renders bottomAccessory inside the floating panel (e.g. error state)", () => {
+      render(
+        <Composer
+          value=""
+          onChange={noop}
+          onSend={noop}
+          floating
+          bottomAccessory={
+            <p role="alert" data-testid="composer-error">
+              send failed
+            </p>
+          }
+        />,
+      );
+      const alert = screen.getByRole("alert");
+      expect(alert.textContent).toMatch(/send failed/);
+      // The bottomAccessory should be a descendant of the outer shell so it
+      // floats with the composer rather than rendering as a sibling outside
+      // the absolutely-positioned wrapper.
+      const outer = getOuterShell(screen.getByRole("textbox"));
+      expect(outer.contains(alert)).toBe(true);
+    });
+  });
 });

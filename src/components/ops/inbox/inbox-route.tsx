@@ -81,6 +81,7 @@ import {
 import { DetailBand } from "./detail-band";
 import { MessageList, type RenderableMessage } from "./message-list";
 import { Composer } from "./composer/composer";
+import { FloatingComposerWrapper } from "./composer/floating-composer-wrapper";
 import { ContextRail } from "./context-rail/context-rail";
 import { type PipelineOpp } from "./context-rail/pipeline-list";
 import { WorkView } from "./context-rail/work-view";
@@ -785,7 +786,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         }}
       />
       <MessageList messages={detail.messages.map(toRenderableMessage)} />
+      <FloatingComposerWrapper show={true}>
       <Composer
+        floating
         value={composerValue}
         onChange={(next) => {
           setComposerValue(next);
@@ -875,16 +878,19 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             )}
           </>
         }
+        bottomAccessory={
+          composerError ? (
+            <p
+              role="alert"
+              className="mt-2 border-t border-line px-1 pt-2 font-mono text-[11px] text-rose"
+              style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+            >
+              {composerError}
+            </p>
+          ) : null
+        }
       />
-      {composerError && (
-        <p
-          role="alert"
-          className="px-2 pb-2 font-mono text-[11px] text-rose"
-          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-        >
-          {composerError}
-        </p>
-      )}
+      </FloatingComposerWrapper>
     </ThreadDetail>
   ) : selectedThreadId ? (
     <EmptyState label={t("detail.loading", "Loading thread")} />

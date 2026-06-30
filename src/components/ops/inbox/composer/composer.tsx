@@ -4,15 +4,26 @@
  * Composer — faithful to `reference/v3-messages.jsx :: V3Composer` and
  * `reference/v4-detail.jsx :: V4Composer`.
  *
- * Shell padding 12/16/14 (px-2 / py-3 on the 8pt grid), panel bg, line border-top.
- * Inner box: bgDeep, 6px radius, 10/12 padding, min-h 84.
+ * Two surface modes:
+ *   - **band** (default) — fixed band at the bottom of the detail pane:
+ *     `shrink-0 border-t border-line bg-inbox-panel px-2 py-3`. Displaces
+ *     the message list upward. Backward-compatible with any consumer that
+ *     hasn't opted into the floating mode.
+ *   - **floating** (opt-in via `floating` prop) — glass-dense rounded panel
+ *     with a 1px hairline border on all sides, no shadow, panel radius 10.
+ *     Designed to be wrapped in an absolutely-positioned container that
+ *     anchors the composer to the bottom of the messages region with
+ *     breathing room on all sides. See `<FloatingComposerWrapper>` for the
+ *     canonical mount.
+ *
+ * Inner box: bgDeep, 5px radius, 10/12 padding.
  *   • Border becomes agent-border-hi when agentTinted.
  *   • Composer body (textarea) — Mohave 13 / 1.55 / -0.003em / text-pretty.
- * Bottom toolbar (mt-auto) — 4 ghost icon buttons (paperclip/image/sparkles/
- * calendar), then optional Edit button when AI loaded but unedited, then
- * the filled send button:
+ * Bottom toolbar (mt-auto) — 4 ghost icon buttons (sparkles | paperclip /
+ * image / calendar), then optional Edit button when AI loaded but unedited,
+ * then the filled send button:
  *
- *   default → border-ops-accent · bg-ops-accent/0.16 · text-text · "Send"
+ *   default → border-ops-accent · bg-transparent · text-ops-accent · "Send"
  *   agent   → border-agent · bg-agent/0.18 · text-agent-hi · "Send AI draft"
  *
  * Send icon precedes the label per the spec mocks. Cmd+Enter sends.
@@ -39,12 +50,21 @@ interface ComposerProps {
   disabled?: boolean;
   /** Renders above the inner box (draft switcher in 4.2, banner in 4.2). */
   topAccessory?: React.ReactNode;
-  /** Renders below the inner box (edit toolbar in 4.3). */
+  /** Renders below the inner box (edit toolbar in 4.3, error message
+   *  when the composer floats). */
   bottomAccessory?: React.ReactNode;
   /** Forces the agent-tinted variant. */
   agentTinted?: boolean;
   sendLabel?: string;
   sendVariant?: "accent" | "agent";
+  /**
+   * When true, renders as a floating glass-dense panel (panel radius 10,
+   * hairline border on all sides, no border-top, no shadow). Consumer is
+   * responsible for positioning — typically inside an absolutely-positioned
+   * wrapper at the bottom of a relative messages container. Defaults to
+   * false (legacy band styling).
+   */
+  floating?: boolean;
   className?: string;
 }
 
@@ -67,6 +87,7 @@ export function Composer({
   agentTinted,
   sendLabel,
   sendVariant = "accent",
+  floating = false,
   className,
 }: ComposerProps) {
   const { t } = useDictionary("inbox");
@@ -101,13 +122,16 @@ export function Composer({
       : "border-ops-accent bg-transparent text-ops-accent hover:bg-ops-accent hover:text-black",
   );
 
-  return (
-    <div
-      className={cn(
-        "shrink-0 border-t border-line bg-inbox-panel px-2 py-3",
+  const outerClass = floating
+    ? cn(
+        "rounded-panel border border-glass-border px-2 py-3",
+        "bg-[rgba(18,18,20,0.78)] backdrop-blur-[28px] [backdrop-saturate:1.3]",
         className,
-      )}
-    >
+      )
+    : cn("shrink-0 border-t border-line bg-inbox-panel px-2 py-3", className);
+
+  return (
+    <div className={outerClass} data-floating={floating ? "true" : undefined}>
       {topAccessory}
       <div className={innerBoxClass}>
         <ComposerInput

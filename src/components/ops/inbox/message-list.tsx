@@ -41,18 +41,28 @@ export interface InlinePhotoEntry {
 interface MessageListProps {
   messages: RenderableMessage[];
   inlinePhotos?: InlinePhotoEntry[];
+  /**
+   * Bottom padding for the scroll container. Defaults to `pb-[120px]` so
+   * the last message scrolls above the floating composer (~92px panel +
+   * 12px bottom margin + 16px breathing room). Override to `pb-4` (the
+   * legacy value) when the parent renders a band-style composer below the
+   * list that takes the bottom edge in flow.
+   */
+  bottomPaddingClass?: string;
   className?: string;
 }
 
 export function MessageList({
   messages,
   inlinePhotos = [],
+  bottomPaddingClass = "pb-[120px]",
   className,
 }: MessageListProps) {
   return (
     <div
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto scrollbar-hide px-2 py-4",
+        "flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto scrollbar-hide px-2 pt-4",
+        bottomPaddingClass,
         className,
       )}
     >

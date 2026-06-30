@@ -700,6 +700,26 @@ export const composerBodyFadeVariants: Variants = {
 };
 
 /**
+ * Floating thread composer — bottom-anchored glass-dense panel that drops
+ * in from +12px on the y-axis with a 200ms opacity fade; exits the reverse
+ * way at 150ms. Mirrors `floatingBadgeVariants` (top-anchored, enters from
+ * above) so the inbox detail surface's two floating affordances animate in
+ * coherent mirrored language. Single design-system easing.
+ */
+export const floatingComposerVariants: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, y: 12, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** Reduced-motion fallback — opacity only, no translate. */
+export const floatingComposerVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, transition: { duration: 0.12, ease: EASE_SMOOTH } },
+};
+
+/**
  * 200ms olive milestone pulse. Used on ProjectCard (Done), EstimateRow
  * (accepted), InvoiceRow (paid), and ThreadRow on close. Wrap the target
  * in <MilestonePulse trigger={status}> and the pulse re-runs each time
