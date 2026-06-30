@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
 import { Tag, type TagProps } from "@/components/ui/tag";
+import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
 import {
   RegisterTable,
   RegisterEmpty,
@@ -96,6 +97,8 @@ function fmtDate(date: Date | null, locale: Locale): string {
 // ─── Segment ──────────────────────────────────────────────────────────────────
 
 export interface EstimatesSegmentProps {
+  /** The shared LedgerStrip node, pinned in this segment's TableShell metrics slot. */
+  metrics: React.ReactNode;
   segmentControl: React.ReactNode;
   statusFilter: FilterStatus;
   onStatusFilterChange: (status: FilterStatus) => void;
@@ -106,6 +109,7 @@ export interface EstimatesSegmentProps {
 }
 
 export function EstimatesSegment({
+  metrics,
   segmentControl,
   statusFilter,
   onStatusFilterChange,
@@ -351,67 +355,77 @@ export function EstimatesSegment({
     { id: "actions", header: "", align: "right", cell: renderActions },
   ];
 
+  const isEmpty = !isLoading && filtered.length === 0;
+
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {segmentControl}
-        <div className="flex items-center gap-1.5">
-          <SearchInput
-            placeholder={t("estimates.search")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            wrapperClassName="w-[220px] max-w-full"
-          />
-          {/* One inline create CTA per register (Jackson 2026-06-13) — single
-              accent action; the FAB stays the global shortcut. */}
-          {can("estimates.create") && (
-            <Button variant="primary" size="sm" type="button" onClick={gatedOpenCreate}>
-              <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
-              {t("estimates.newEstimate")}
-            </Button>
-          )}
-        </div>
-      </div>
+    <>
+      <TableShell
+        metrics={metrics}
+        workbar={
+          <TableWorkbar>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {segmentControl}
+              <div className="flex items-center gap-1.5">
+                <SearchInput
+                  placeholder={t("estimates.search")}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  wrapperClassName="w-[220px] max-w-full"
+                />
+                {/* One inline create CTA per register (Jackson 2026-06-13) — single
+                    accent action; the FAB stays the global shortcut. */}
+                {can("estimates.create") && (
+                  <Button variant="primary" size="sm" type="button" onClick={gatedOpenCreate}>
+                    <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+                    {t("estimates.newEstimate")}
+                  </Button>
+                )}
+              </div>
+            </div>
 
-      <div className="flex flex-wrap items-center gap-[12px]">
-        <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
-        {drilled && statusFilter !== "all" && (
-          <DrillChip
-            label={
-              statusOptions.find((o) => o.value === statusFilter)?.label ??
-              formatEnumLabel(statusFilter)
-            }
-            onClear={onClearDrill}
-          />
-        )}
-        <span className="font-mono text-micro text-text-3 tabular-nums">
-          {statusFilter === "all" && !searchQuery
-            ? tb("count.all", { n: estimates.length })
-            : tb("count.invoices", { n: filtered.length, total: estimates.length })}
-        </span>
-        <span className="ml-auto">
-          <SegmentStatLine items={statItems} />
-        </span>
-      </div>
-
-      {/* Table */}
-      {isLoading ? (
-        <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="glass-surface h-[48px]" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        /* Empty state — DESIGN.md §2: state the fact only, no coach-mark, no button.
-           The FAB owns creation (fab-actions.ts). */
-        <RegisterEmpty
-          noun={
-            searchQuery || statusFilter !== "all"
-              ? t("estimates.empty.matches")
-              : t("estimates.empty.noun")
-          }
-        />
-      ) : (
+            <div className="flex flex-wrap items-center gap-[12px]">
+              <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
+              {drilled && statusFilter !== "all" && (
+                <DrillChip
+                  label={
+                    statusOptions.find((o) => o.value === statusFilter)?.label ??
+                    formatEnumLabel(statusFilter)
+                  }
+                  onClear={onClearDrill}
+                />
+              )}
+              <span className="font-mono text-micro text-text-3 tabular-nums">
+                {statusFilter === "all" && !searchQuery
+                  ? tb("count.all", { n: estimates.length })
+                  : tb("count.invoices", { n: filtered.length, total: estimates.length })}
+              </span>
+              <span className="ml-auto">
+                <SegmentStatLine items={statItems} />
+              </span>
+            </div>
+          </TableWorkbar>
+        }
+        isEmpty={isLoading || isEmpty}
+        emptyState={
+          isLoading ? (
+            <div className="animate-pulse space-y-[2px] p-3 motion-reduce:animate-none">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="glass-surface h-[48px]" />
+              ))}
+            </div>
+          ) : (
+            /* Empty state — DESIGN.md §2: state the fact only, no coach-mark, no button.
+               The FAB owns creation (fab-actions.ts). */
+            <RegisterEmpty
+              noun={
+                searchQuery || statusFilter !== "all"
+                  ? t("estimates.empty.matches")
+                  : t("estimates.empty.noun")
+              }
+            />
+          )
+        }
+      >
         <RegisterTable<Estimate>
           columns={columns}
           rows={filtered}
@@ -420,8 +434,9 @@ export function EstimatesSegment({
           isRowInteractive={() => can("estimates.edit")}
           minWidth={700}
           ariaLabel={tb("segment.estimates")}
+          inShell
         />
-      )}
+      </TableShell>
 
       {/* Send Estimate Flow */}
       {sendingEstimate && (
@@ -476,6 +491,6 @@ export function EstimatesSegment({
         missingSteps={missingSteps}
         triggerAction="estimates"
       />
-    </div>
+    </>
   );
 }

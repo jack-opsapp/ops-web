@@ -200,19 +200,25 @@ export function BooksPage() {
   const openCreate = actionParam === "new";
   const handleCreateHandled = useCallback(() => updateParams({ action: null }), [updateParams]);
 
-  return (
-    <div className="space-y-3">
-      {showStrip && (
-        <LedgerStrip
-          period={period}
-          onPeriodChange={handlePeriodChange}
-          onDrillOverdue={can("invoices.view") ? drillOverdue : undefined}
-          clientName={clientName}
-        />
-      )}
+  // The ledger is shared across every segment and PINNED in the TableShell's
+  // metrics slot (WEB OVERHAUL P6-2). Build it once here and pass the node down;
+  // each segment mounts it as the shell's `metrics` so it never scrolls away.
+  const ledger = showStrip ? (
+    <LedgerStrip
+      period={period}
+      onPeriodChange={handlePeriodChange}
+      onDrillOverdue={can("invoices.view") ? drillOverdue : undefined}
+      clientName={clientName}
+    />
+  ) : null;
 
+  return (
+    // Fixed-viewport: the page never scrolls — each segment's TableShell owns an
+    // internal scroll body under the pinned metrics + workbar (WEB OVERHAUL P6-2).
+    <div className="flex h-full min-h-0 flex-col">
       {activeSegment === "invoices" && (
         <InvoicesSegment
+          metrics={ledger}
           segmentControl={segmentControl}
           listAllowed={can("invoices.view")}
           view={invoicesView}
@@ -231,6 +237,7 @@ export function BooksPage() {
 
       {activeSegment === "estimates" && (
         <EstimatesSegment
+          metrics={ledger}
           segmentControl={segmentControl}
           statusFilter={estimateStatusFilter}
           onStatusFilterChange={(status) => {
@@ -244,10 +251,13 @@ export function BooksPage() {
         />
       )}
 
-      {activeSegment === "expenses" && <ExpensesSegment segmentControl={segmentControl} />}
+      {activeSegment === "expenses" && (
+        <ExpensesSegment metrics={ledger} segmentControl={segmentControl} />
+      )}
 
       {activeSegment === "sync" && (
         <SyncSegment
+          metrics={ledger}
           segmentControl={segmentControl}
           view={syncView}
           onViewChange={(view) =>

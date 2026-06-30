@@ -37,6 +37,7 @@ import { AccountingProvider } from "@/lib/types/pipeline";
 import type { AccountingConnection } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
+import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
 import { QuickBooksImportTab } from "@/components/accounting/qbo/quickbooks-import-tab";
 import { ConnectionBadge } from "../sync/connection-badge";
 import { ConnectPanel } from "../sync/connect-panel";
@@ -47,10 +48,13 @@ import { ConnectionSettingsModal } from "../sync/connection-settings-modal";
 export type SyncView = "connections" | "import";
 
 export function SyncSegment({
+  metrics,
   segmentControl,
   view,
   onViewChange,
 }: {
+  /** The shared LedgerStrip node, pinned in this segment's TableShell metrics slot. */
+  metrics: React.ReactNode;
   segmentControl: React.ReactNode;
   view: SyncView;
   onViewChange: (view: SyncView) => void;
@@ -243,14 +247,25 @@ export function SyncSegment({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {segmentControl}
-        {badge}
-      </div>
+    <>
+      <TableShell
+        metrics={metrics}
+        workbar={
+          <TableWorkbar>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {segmentControl}
+              {badge}
+            </div>
+          </TableWorkbar>
+        }
+        bottomFade={false}
+      >
+        {/* The connection/import body is a document-flow block — it scrolls inside
+            the shell body under the pinned metrics + workbar. */}
+        <div className="space-y-2 p-3">{body}</div>
+      </TableShell>
 
-      {body}
-
+      {/* Portaled overlays — own z-layer, rendered alongside the shell. */}
       <ConnectAccountingModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
@@ -276,6 +291,6 @@ export function SyncSegment({
           }}
         />
       )}
-    </div>
+    </>
   );
 }

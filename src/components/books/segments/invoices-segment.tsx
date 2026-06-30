@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tag, type TagProps } from "@/components/ui/tag";
 import { SegmentControl } from "@/components/ui/segment-control";
+import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
 import {
   RegisterTable,
   RegisterEmpty,
@@ -112,6 +113,8 @@ function isOverdueRow(invoice: Invoice): boolean {
 // ─── Segment ──────────────────────────────────────────────────────────────────
 
 export interface InvoicesSegmentProps {
+  /** The shared LedgerStrip node, pinned in this segment's TableShell metrics slot. */
+  metrics: React.ReactNode;
   /** The Books segment control, rendered inside this segment's workbar row. */
   segmentControl: React.ReactNode;
   /** False for accounting.view-only users: A/R aging only, no document list. */
@@ -130,6 +133,7 @@ export interface InvoicesSegmentProps {
 }
 
 export function InvoicesSegment({
+  metrics,
   segmentControl,
   listAllowed,
   view,
@@ -428,7 +432,7 @@ export function InvoicesSegment({
   // One inline create CTA per register (Jackson 2026-06-13) — the single accent
   // action; the FAB stays the global shortcut. Sits left of the LIST|AGING
   // toggle so the toggle keeps its far-right pin (P3-5).
-  const workbar = (
+  const workbarTopRow = (
     <div className="flex flex-wrap items-center justify-between gap-2">
       {segmentControl}
       {(showSearch || canCreate || showViewToggle) && (
@@ -462,70 +466,10 @@ export function InvoicesSegment({
     </div>
   );
 
-  // ── A/R aging view (forced for accounting.view-only users) ──────────
-  if ((view === "aging" || !listAllowed) && canAging) {
-    return (
-      <div className="space-y-2">
-        {workbar}
-        <ArAgingView invoices={invoices} clientMap={clientMap} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {workbar}
-      <div className="flex flex-wrap items-center gap-[12px]">
-        <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
-        {drilled && statusFilter !== "all" && (
-          <DrillChip
-            label={
-              statusFilter === "overdue"
-                ? tb("ledger.overdue")
-                : statusOptions.find((o) => o.value === statusFilter)?.label ??
-                  formatEnumLabel(statusFilter)
-            }
-            onClear={onClearDrill}
-          />
-        )}
-        <span className="font-mono text-micro text-text-3 tabular-nums">
-          {statusFilter === "all" && !searchQuery
-            ? tb("count.all", { n: invoices.length })
-            : tb("count.invoices", { n: filtered.length, total: invoices.length })}
-        </span>
-        <span className="ml-auto">
-          <SegmentStatLine items={statItems} />
-        </span>
-      </div>
-
-      {/* Table */}
-      {isLoading ? (
-        <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="glass-surface h-[48px]" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        /* Empty state — DESIGN.md §2: state the fact only, no coach-mark, no button.
-           The FAB owns creation (fab-actions.ts). */
-        <RegisterEmpty
-          noun={
-            searchQuery || statusFilter !== "all"
-              ? t("invoices.empty.matches")
-              : t("invoices.empty.noun")
-          }
-        />
-      ) : (
-        <RegisterTable<Invoice>
-          columns={columns}
-          rows={filtered}
-          getRowId={(i) => i.id}
-          onRowClick={(i) => setEditingInvoice(i)}
-          isRowInteractive={() => can("invoices.edit")}
-          ariaLabel={tb("segment.invoices")}
-        />
-      )}
-
+  // Portaled overlays — rendered alongside the shell in every branch, never as
+  // body content (they own their own z-layer).
+  const modals = (
+    <>
       {/* Create/Edit Invoice Modal */}
       <InvoiceFormModal
         open={showCreateModal || !!editingInvoice}
@@ -571,6 +515,97 @@ export function InvoicesSegment({
         missingSteps={missingSteps}
         triggerAction="invoices"
       />
-    </div>
+    </>
+  );
+
+  // ── A/R aging view (forced for accounting.view-only users) ──────────
+  // The aging report scrolls inside the shell body under the pinned metrics +
+  // workbar; only the segment-control row pins (no document filters apply here).
+  if ((view === "aging" || !listAllowed) && canAging) {
+    return (
+      <>
+        <TableShell
+          metrics={metrics}
+          workbar={<TableWorkbar>{workbarTopRow}</TableWorkbar>}
+          bottomFade={false}
+        >
+          <div className="p-3">
+            <ArAgingView invoices={invoices} clientMap={clientMap} />
+          </div>
+        </TableShell>
+
+        {/* Modals live outside the shell — portaled overlays, not body content. */}
+        {modals}
+      </>
+    );
+  }
+
+  const isEmpty = !isLoading && filtered.length === 0;
+
+  return (
+    <>
+      <TableShell
+        metrics={metrics}
+        workbar={
+          <TableWorkbar>
+            {workbarTopRow}
+            <div className="flex flex-wrap items-center gap-[12px]">
+              <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
+              {drilled && statusFilter !== "all" && (
+                <DrillChip
+                  label={
+                    statusFilter === "overdue"
+                      ? tb("ledger.overdue")
+                      : statusOptions.find((o) => o.value === statusFilter)?.label ??
+                        formatEnumLabel(statusFilter)
+                  }
+                  onClear={onClearDrill}
+                />
+              )}
+              <span className="font-mono text-micro text-text-3 tabular-nums">
+                {statusFilter === "all" && !searchQuery
+                  ? tb("count.all", { n: invoices.length })
+                  : tb("count.invoices", { n: filtered.length, total: invoices.length })}
+              </span>
+              <span className="ml-auto">
+                <SegmentStatLine items={statItems} />
+              </span>
+            </div>
+          </TableWorkbar>
+        }
+        isEmpty={isLoading || isEmpty}
+        emptyState={
+          isLoading ? (
+            <div className="animate-pulse space-y-[2px] p-3 motion-reduce:animate-none">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="glass-surface h-[48px]" />
+              ))}
+            </div>
+          ) : (
+            /* Empty state — DESIGN.md §2: state the fact only, no coach-mark, no button.
+               The FAB owns creation (fab-actions.ts). */
+            <RegisterEmpty
+              noun={
+                searchQuery || statusFilter !== "all"
+                  ? t("invoices.empty.matches")
+                  : t("invoices.empty.noun")
+              }
+            />
+          )
+        }
+      >
+        <RegisterTable<Invoice>
+          columns={columns}
+          rows={filtered}
+          getRowId={(i) => i.id}
+          onRowClick={(i) => setEditingInvoice(i)}
+          isRowInteractive={() => can("invoices.edit")}
+          ariaLabel={tb("segment.invoices")}
+          inShell
+        />
+      </TableShell>
+
+      {modals}
+    </>
   );
 }

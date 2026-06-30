@@ -66,7 +66,7 @@ describe("Books SYNC segment", () => {
   it("shows the single CONNECT call-to-action when no provider is connected", () => {
     h.connections = [];
     render(
-      <SyncSegment segmentControl={<div />} view="connections" onViewChange={vi.fn()} />,
+      <SyncSegment metrics={null} segmentControl={<div />} view="connections" onViewChange={vi.fn()} />,
     );
     // One-CONNECT entry point — not a side-by-side provider grid, and the
     // importer is not mounted until a provider is live.
@@ -76,7 +76,7 @@ describe("Books SYNC segment", () => {
 
   it("mounts the QuickBooks importer at view=import once connected", () => {
     h.connections = [CONNECTED_QB];
-    render(<SyncSegment segmentControl={<div />} view="import" onViewChange={vi.fn()} />);
+    render(<SyncSegment metrics={null} segmentControl={<div />} view="import" onViewChange={vi.fn()} />);
     expect(screen.getByTestId("qbo-import-tab")).toBeInTheDocument();
   });
 });

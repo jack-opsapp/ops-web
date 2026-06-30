@@ -5,15 +5,38 @@
  * (capability inventory A5) — previously reachable only via
  * /accounting?tab=expenses — as a first-class Books segment.
  * Behavior unchanged; only the surrounding chrome is Books'.
+ *
+ * P6-2: hosts the unified TableShell so the pinned LedgerStrip metrics +
+ * segment-control workbar stay fixed while the review dashboard scrolls inside
+ * the shell body — identical chrome to every other Books segment.
  */
 
+import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
 import { ExpenseReviewDashboard } from "@/components/expenses/expense-review-dashboard";
 
-export function ExpensesSegment({ segmentControl }: { segmentControl: React.ReactNode }) {
+export function ExpensesSegment({
+  metrics,
+  segmentControl,
+}: {
+  /** The shared LedgerStrip node, pinned in this segment's TableShell metrics slot. */
+  metrics: React.ReactNode;
+  segmentControl: React.ReactNode;
+}) {
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">{segmentControl}</div>
-      <ExpenseReviewDashboard />
-    </div>
+    <TableShell
+      metrics={metrics}
+      workbar={
+        <TableWorkbar>
+          <div className="flex flex-wrap items-center justify-between gap-2">{segmentControl}</div>
+        </TableWorkbar>
+      }
+      bottomFade={false}
+    >
+      {/* The review hub is a document-flow block (its own filters + period summary
+          + invoice cards / detail panel) — it scrolls inside the shell body. */}
+      <div className="p-3">
+        <ExpenseReviewDashboard />
+      </div>
+    </TableShell>
   );
 }
