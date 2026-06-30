@@ -63,6 +63,9 @@ function makeThreadRow(overrides: Partial<InboxThreadRow> = {}): InboxThreadRow 
     nextCommitmentId: null,
     phaseC: "none",
     agentBlockingQuestion: null,
+    routing: null,
+    routingReasons: null,
+    routerConfidence: null,
     ...overrides,
   };
 }
@@ -91,6 +94,9 @@ function makeThreadDetail(
       latestDirection: "inbound",
       phaseC: "none",
       agentBlockingQuestion: null,
+      routing: null,
+      routingReasons: null,
+      routerConfidence: null,
       ...overrides,
     },
     messages: [

@@ -166,6 +166,9 @@ export async function GET(request: NextRequest) {
         nextCommitmentId: t.nextCommitmentId,
         phaseC: t.phaseC,
         agentBlockingQuestion: t.agentBlockingQuestion,
+        routing: t.routing,
+        routingReasons: t.routingReasons,
+        routerConfidence: t.routerConfidence,
       })),
       nextCursor: result.nextCursor,
     });

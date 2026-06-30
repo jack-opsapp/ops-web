@@ -44,6 +44,12 @@ interface ThreadDetailProps {
    * with commitments, bands, or the message list.
    */
   floatingBadgeSlot?: ReactNode;
+  /**
+   * Phase 3 — held-for-review banner mounted directly below the detail header
+   * (above every other status affordance) when the deterministic router held
+   * the thread. Explains why and that auto-reply is paused.
+   */
+  reviewBannerSlot?: ReactNode;
   className?: string;
   children?: ReactNode;
 }
@@ -76,6 +82,7 @@ export function ThreadDetail({
   threadPickerSlot,
   triageSlot,
   floatingBadgeSlot,
+  reviewBannerSlot,
   className,
   children,
 }: ThreadDetailProps) {
@@ -119,6 +126,7 @@ export function ThreadDetail({
         threadPickerSlot={threadPickerSlot}
         triageSlot={triageSlot}
       />
+      {reviewBannerSlot}
       <div
         data-inbox-debug-id="C4"
         data-inbox-debug-label="MESSAGES + COMPOSER AREA"

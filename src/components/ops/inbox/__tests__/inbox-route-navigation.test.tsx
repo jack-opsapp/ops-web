@@ -430,6 +430,9 @@ function makeThreadRow(id: string, clientName: string): InboxThreadRow {
     aiSummary: null,
     phaseC: "none",
     agentBlockingQuestion: null,
+    routing: null,
+    routingReasons: null,
+    routerConfidence: null,
     hasUnresolvedCommitments: false,
     nextCommitmentDueAt: null,
     nextCommitmentId: null,
@@ -457,6 +460,9 @@ function makeThreadDetail(id: string): InboxThreadDetail {
       latestDirection: "inbound",
       phaseC: "none",
       agentBlockingQuestion: null,
+      routing: null,
+      routingReasons: null,
+      routerConfidence: null,
     },
     messages: [
       {

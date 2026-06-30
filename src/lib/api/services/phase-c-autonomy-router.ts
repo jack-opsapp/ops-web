@@ -66,6 +66,13 @@ export type RouterOutcome =
    * the lavender NEEDS_INPUT band.
    */
   | "escalated_to_operator"
+  /**
+   * The deterministic router held the thread for review
+   * (routing='require_human_review'), so the autonomous draft/send was
+   * suppressed. Distinct from `noop_off` (user choice) and `error` — this is the
+   * Phase 3 safety gate doing its job. Surfaces the routing reasons in `detail`.
+   */
+  | "noop_held_for_review"
   | "error";
 
 export interface RouterResult {
@@ -364,12 +371,25 @@ export const PhaseCAutonomyRouter = {
       profileTypeOverride: PhaseCCategoryAutonomy.profileTypesFor(
         thread.primaryCategory
       )[0],
+      // Phase 3 routing gate — a thread held for review is never auto-drafted.
+      autonomous: true,
       // P4-B: stamp ai_draft_history.origin so the Phase C auto-drafts are
       // distinguishable from operator/compose drafts.
       origin: "phase_c",
     });
 
     if (!draft.available) {
+      // Phase 3: the deterministic router held the thread for review. This is a
+      // deliberate, explainable hold — surface it distinctly from errors so the
+      // operator (and logs) see WHY autonomy stood down.
+      if (draft.heldForReview) {
+        return {
+          outcome: "noop_held_for_review",
+          category: thread.primaryCategory,
+          effectiveLevel: effective,
+          detail: draft.reason,
+        };
+      }
       // Empty-response escalation path — the AIDraftService asked Claude
       // to formulate a question instead of a draft and wrote it to
       // `email_threads.agent_blocking_question`. Surface that distinctly

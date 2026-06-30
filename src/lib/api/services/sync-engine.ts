@@ -75,6 +75,18 @@ import {
   type NormalizedEmail,
   type SyncResult,
 } from "./email-provider";
+import { cleanMessageBody } from "./conversation-state/message-cleaner";
+import {
+  assembleConversationState,
+  buildConversationState,
+  type RawThreadMessage,
+} from "./conversation-state/conversation-state";
+import { decideAcceptStage } from "./conversation-state/accept-stage";
+import { persistRoutingDecision } from "./conversation-state/persist-routing";
+import { ingestAndInspectThreadAttachments } from "./conversation-state/attachment-ingest";
+import { fetchOperatorIdentity } from "./conversation-state/operator-identity";
+import { persistContactProvenance } from "./conversation-state/contact-resolver";
+import type { OperatorIdentity, ResolvedContact } from "./conversation-state/types";
 
 export interface SyncCycleResult {
   activitiesCreated: number;
@@ -102,6 +114,178 @@ function matchesPattern(email: NormalizedEmail, profile: SyncProfile): boolean {
 function extractSenderEmail(from: string): string {
   const match = from.match(/<([^>]+)>/);
   return (match ? match[1] : from).toLowerCase().trim();
+}
+
+// ─── P0-C: operator-aware contact hygiene ────────────────────────────────────
+//
+// Resolving the customer contact (operator-excluded on every field) needs the
+// operator's full identity — including company phones/addresses, which require a
+// DB read. getCompanyContext is NOT internally cached, so we memoize the built
+// identity per connection for a short window to avoid a per-email read during a
+// sync (a sync processes one connection's mailbox).
+const OPERATOR_IDENTITY_TTL_MS = 10 * 60 * 1000;
+const operatorIdentityCache = new Map<
+  string,
+  { identity: OperatorIdentity; at: number }
+>();
+
+async function getCachedOperatorIdentity(
+  connection: EmailConnection
+): Promise<OperatorIdentity> {
+  const now = Date.now();
+  const cached = operatorIdentityCache.get(connection.id);
+  if (cached && now - cached.at < OPERATOR_IDENTITY_TTL_MS) {
+    return cached.identity;
+  }
+  const identity = await fetchOperatorIdentity(connection.companyId, connection);
+  operatorIdentityCache.set(connection.id, { identity, at: now });
+  return identity;
+}
+
+/** Shape a NormalizedEmail as a single conversation-state RawThreadMessage. */
+function rawThreadMessageFromEmail(email: NormalizedEmail): RawThreadMessage {
+  return {
+    providerMessageId: email.id,
+    fromEmail: email.from,
+    fromName: email.fromName || null,
+    toEmails: email.to,
+    ccEmails: email.cc,
+    subject: email.subject,
+    sentAt: email.date.toISOString(),
+    rawBody: email.bodyText || "",
+    providerCleanBody: email.bodyTextClean ?? null,
+    attachments: [],
+  };
+}
+
+/**
+ * Resolve the customer contact for an inbound lead through the deterministic
+ * clean-state layer: operator excluded on name/email/phone/address, phone shape-
+ * validated, address bounded, and the name verified (an email local-part is never
+ * a verified name). Reuses assembleConversationState so the per-message cleaning +
+ * classification matches the rest of the pipeline exactly.
+ */
+async function resolveInboundLeadContact(
+  email: NormalizedEmail,
+  connection: EmailConnection,
+  submitter: ContactFormSubmissionIdentity | null
+): Promise<ResolvedContact> {
+  const operator = await getCachedOperatorIdentity(connection);
+  return assembleConversationState({
+    threadId: email.threadId,
+    connectionId: connection.id,
+    companyId: connection.companyId,
+    operator,
+    rawMessages: [rawThreadMessageFromEmail(email)],
+    stage: "new_lead",
+    contactFormSubmitter: submitter
+      ? {
+          name: submitter.name,
+          email: submitter.email,
+          phone: submitter.phone,
+          address: submitter.address ?? null,
+          company: submitter.company ?? null,
+        }
+      : null,
+    commitments: [],
+  }).contact;
+}
+
+/**
+ * Override the polluted name/phone/address/email on enrichment facts with the
+ * operator-excluded resolved contact. The resolved name is applied ONLY when
+ * verified; phone/address are replaced outright (dropping any operator-signature
+ * value the legacy extractor captured). A null resolved email leaves the
+ * already-safeCustomerEmail-guarded fact untouched.
+ */
+function applyResolvedContactToFacts(
+  facts: LeadEnrichmentFacts,
+  resolved: ResolvedContact
+): void {
+  facts.contactName = resolved.nameIsVerified ? resolved.name : null;
+  if (resolved.email) facts.contactEmail = resolved.email;
+  facts.contactPhone = resolved.phone;
+  facts.address = resolved.address;
+}
+
+/**
+ * Append field-level provenance for a newly-created opportunity to the latent
+ * `lead_field_provenance` table. Append-only audit; failures never break sync.
+ */
+async function recordInboundLeadProvenance(
+  supabase: ReturnType<typeof requireSupabase>,
+  opportunityId: string,
+  resolved: ResolvedContact | null,
+  companyId: string,
+  providerThreadId: string
+): Promise<void> {
+  if (!resolved || resolved.provenance.length === 0) return;
+  const { error } = await persistContactProvenance({
+    // The real Supabase client is runtime-compatible with the minimal insert
+    // shape persistContactProvenance accepts; the structural cast bridges the
+    // typed builder return (same pattern as applyCanonicalLeadEnrichment).
+    supabase: supabase as unknown as Parameters<
+      typeof persistContactProvenance
+    >[0]["supabase"],
+    companyId,
+    entityType: "opportunity",
+    entityId: opportunityId,
+    contact: resolved,
+    providerThreadId,
+  });
+  if (error) {
+    console.error("[sync-engine] lead provenance write failed (non-fatal):", error);
+  }
+}
+
+// ─── P0-A: per-connection sync lock ──────────────────────────────────────────
+//
+// Serializes syncs for a single connection so the webhook manual-sync and the
+// 15-min cron cannot overlap and double-create leads for the same thread. The
+// claim is a single atomic conditional UPDATE: it succeeds only when no fresh
+// lock is held (NULL or older than the TTL — a crashed sync self-heals). The DB
+// UNIQUE (company_id, source_thread_key) is the hard guarantee; this lock just
+// avoids the wasted concurrent work, so it FAILS OPEN on any error.
+const SYNC_LOCK_TTL_MS = 10 * 60 * 1000;
+
+async function acquireSyncLock(connectionId: string): Promise<boolean> {
+  // Lock bookkeeping must NEVER crash a sync — fail open on any error/throw.
+  try {
+    const supabase = requireSupabase();
+    const staleCutoff = new Date(Date.now() - SYNC_LOCK_TTL_MS).toISOString();
+    const { data, error } = await supabase
+      .from("email_connections")
+      .update({ sync_in_progress_at: new Date().toISOString() })
+      .eq("id", connectionId)
+      .or(`sync_in_progress_at.is.null,sync_in_progress_at.lt.${staleCutoff}`)
+      .select("id");
+    if (error) {
+      console.error(
+        "[sync-engine] acquireSyncLock failed (proceeding without lock):",
+        error.message
+      );
+      return true;
+    }
+    return (data?.length ?? 0) > 0;
+  } catch (err) {
+    console.error("[sync-engine] acquireSyncLock threw (proceeding without lock):", err);
+    return true;
+  }
+}
+
+async function releaseSyncLock(connectionId: string): Promise<void> {
+  try {
+    const supabase = requireSupabase();
+    const { error } = await supabase
+      .from("email_connections")
+      .update({ sync_in_progress_at: null })
+      .eq("id", connectionId);
+    if (error) {
+      console.error("[sync-engine] releaseSyncLock failed (non-fatal):", error.message);
+    }
+  } catch (err) {
+    console.error("[sync-engine] releaseSyncLock threw (non-fatal):", err);
+  }
 }
 
 interface CreateOpportunityTitleOptions {
@@ -286,7 +470,7 @@ async function createClient(
     submitter?.company ??
     submitter?.name ??
     (enrichmentFacts?.sourcePlatform ? null : email.fromName) ??
-    senderEmail?.split("@")[0] ??
+    // P0-C: never fabricate a name from the email local-part ("canprojack").
     "New Lead";
 
   // Check for existing client first to avoid duplicates
@@ -353,7 +537,8 @@ async function createSubClient(
 ): Promise<void> {
   const supabase = requireSupabase();
   const senderEmail = submitter?.email ?? extractSenderEmail(email.from);
-  const senderName = submitter?.name || email.fromName || senderEmail.split("@")[0];
+  // P0-C: never fabricate a name from the email local-part.
+  const senderName = submitter?.name || email.fromName || "New Lead";
 
   // Check for existing sub-client to avoid duplicates
   const { data: existingSub } = await supabase
@@ -418,7 +603,7 @@ async function createOpportunity(
   const opportunityEnrichmentFields = titleOptions.enrichmentFacts
     ? buildNewOpportunityEnrichmentFields(titleOptions.enrichmentFacts)
     : {};
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("opportunities")
     .insert({
       company_id: companyId,
@@ -430,6 +615,9 @@ async function createOpportunity(
       }),
       stage,
       source: "email",
+      // P0-A: dedupe key. UNIQUE (company_id, source_thread_key) makes a given
+      // email thread spawn at most one opportunity, closing the sync race.
+      source_thread_key: email.threadId || null,
       ...opportunityEnrichmentFields,
       correspondence_count: 1,
       outbound_count: isOutbound ? 1 : 0,
@@ -441,6 +629,32 @@ async function createOpportunity(
     })
     .select("id")
     .single();
+
+  // P0-A: a concurrent sync may have created this thread's opportunity first.
+  // The UNIQUE (company_id, source_thread_key) raises 23505 — fetch and return
+  // the existing winner instead of inserting a duplicate.
+  if (error) {
+    if ((error as { code?: string }).code === "23505" && email.threadId) {
+      const { data: existing } = await supabase
+        .from("opportunities")
+        .select("id")
+        .eq("company_id", companyId)
+        .eq("source_thread_key", email.threadId)
+        .maybeSingle();
+      if (existing?.id) {
+        console.log("[email-ingest] lead-dedupe-hit", {
+          threadKey: email.threadId,
+          companyId,
+        });
+        return existing.id as string;
+      }
+    }
+    throw new Error(
+      `[sync-engine] createOpportunity failed: ${
+        (error as { message?: string }).message ?? "unknown error"
+      }`
+    );
+  }
 
   const opportunityId = data!.id as string;
 
@@ -478,7 +692,10 @@ async function getOrCreateOpportunity(
   clientId: string,
   companyId: string,
   email: NormalizedEmail,
-  titleOptions: CreateOpportunityTitleOptions = {}
+  titleOptions: CreateOpportunityTitleOptions = {},
+  // Stage used only when creating a NEW opportunity (existing active opps keep
+  // their stage). Defaults to new_lead so existing callers are unchanged.
+  stage: string = "new_lead"
 ): Promise<string> {
   const supabase = requireSupabase();
 
@@ -506,7 +723,7 @@ async function getOrCreateOpportunity(
     return existing[0].id;
   }
 
-  return createOpportunity(email, clientId, companyId, "new_lead", titleOptions);
+  return createOpportunity(email, clientId, companyId, stage, titleOptions);
 }
 
 function opportunityRelationshipFactsFromLeadEnrichment(
@@ -597,12 +814,24 @@ async function createActivity(
   const fromEmail = extractSenderEmail(normalizedEmail.from);
   const toEmails = normalizedEmail.to.map(extractSenderEmail);
   const ccEmails = normalizedEmail.cc.map(extractSenderEmail);
+  // P0-B (clean-state layer): persist a quote- + signature-stripped clean body
+  // alongside the RAW body. `body_text` stays verbatim (audit); `body_text_clean`
+  // is the provider-clean base the conversation-state layer reads before any AI.
+  // Prefer the provider's pre-stripped uniqueBody when present; the cleaner falls
+  // back to deriving it from the raw body. Cross-message overlap stripping is
+  // applied later (it needs the thread's prior messages, unavailable per-message
+  // here), so this is quote + signature only.
+  const bodyTextClean = cleanMessageBody(normalizedEmail.bodyText || "", {
+    subject: normalizedEmail.subject,
+    providerCleanBody: normalizedEmail.bodyTextClean ?? null,
+  });
   const { data: insertedActivity } = await supabase.from("activities").insert({
     company_id: connection.companyId,
     type: "email",
     subject: normalizedEmail.subject,
     content: normalizedEmail.snippet,
     body_text: normalizedEmail.bodyText || null,
+    body_text_clean: bodyTextClean || null,
     email_message_id: normalizedEmail.id,
     email_thread_id: normalizedEmail.threadId,
     opportunity_id: opportunityId,
@@ -814,6 +1043,115 @@ async function applyLabel(
       `[sync-engine] Failed to apply label to thread ${threadId}:`,
       err
     );
+  }
+}
+
+/**
+ * P0/Phase-2: deterministic accept → stage. After an inbound lands on an existing
+ * opportunity, build the clean conversation state and let the deterministic
+ * accept-detector decide: a clear "yes" auto-advances the lead to Won; a softer
+ * verbal accept surfaces a one-tap "Mark Won" notification. Never overrides a
+ * manual stage, a terminal lead, or a thread the router held for human review.
+ * Non-fatal — a failure here must not break the sync loop. The cheap stage/manual
+ * guard runs BEFORE the (heavier) state build to skip the common no-op case.
+ */
+async function maybeAutoAdvanceOnAccept(args: {
+  providerThreadId: string;
+  opportunityId: string;
+  connection: EmailConnection;
+  result: SyncCycleResult;
+}): Promise<void> {
+  const { providerThreadId, opportunityId, connection, result } = args;
+  try {
+    const supabase = requireSupabase();
+
+    const { data: opp } = await supabase
+      .from("opportunities")
+      .select("stage, stage_manually_set, title, client_id")
+      .eq("id", opportunityId)
+      .maybeSingle();
+    if (!opp) return;
+    if (opp.stage_manually_set) return;
+    if (["won", "lost", "discarded"].includes(opp.stage as string)) return;
+
+    const { data: threadRow } = await supabase
+      .from("email_threads")
+      .select("id")
+      .eq("company_id", connection.companyId)
+      .eq("provider_thread_id", providerThreadId)
+      .maybeSingle();
+    const internalThreadId = (threadRow?.id as string | undefined) ?? null;
+    if (!internalThreadId) return;
+
+    // Phase 2 vision: inspect any new customer image/PDF attachments ONCE and
+    // cache the result BEFORE building state. buildConversationState reads that
+    // cache (no vision), so an inspected signed estimate makes the deterministic
+    // accept-detector fire HIGH here, and photos carry a summary for the drafter.
+    // Cost-once + fully non-fatal — awaited so the cache is warm for this build.
+    await ingestAndInspectThreadAttachments({
+      connection,
+      providerThreadId,
+      companyId: connection.companyId,
+    });
+
+    const state = await buildConversationState(internalThreadId);
+    if (!state) return;
+
+    // Phase 3: persist the routing decision so the inbox can surface a held
+    // thread without rebuilding state. Non-fatal.
+    await persistRoutingDecision(internalThreadId, state);
+
+    const action = decideAcceptStage(state.accept, state.stage, state.routing);
+    if (action.kind === "none") return;
+
+    let clientName = "A client";
+    if (opp.client_id) {
+      const { data: client } = await supabase
+        .from("clients")
+        .select("name")
+        .eq("id", opp.client_id as string)
+        .maybeSingle();
+      if (client?.name) clientName = client.name as string;
+    }
+
+    if (action.kind === "auto_advance_won") {
+      await supabase
+        .from("opportunities")
+        .update({ stage: "won", stage_entered_at: new Date().toISOString() })
+        .eq("id", opportunityId);
+      result.stageChanges++;
+      console.log("[email-ingest] accept-auto-won", { opportunityId, reason: action.reason });
+      if (connection.userId) {
+        await supabase.from("notifications").insert({
+          user_id: connection.userId,
+          company_id: connection.companyId,
+          type: "role_needed",
+          title: "Deal won",
+          body: `${clientName} accepted — this lead was moved to Won.`,
+          is_read: false,
+          persistent: false,
+          action_url: "/pipeline",
+          action_label: "View",
+        });
+      }
+    } else if (action.kind === "surface_mark_won") {
+      console.log("[email-ingest] accept-surface-markwon", { opportunityId, reason: action.reason });
+      if (connection.userId) {
+        await supabase.from("notifications").insert({
+          user_id: connection.userId,
+          company_id: connection.companyId,
+          type: "role_needed",
+          title: "Possible deal won",
+          body: `${clientName} may have accepted. Review and confirm.`,
+          is_read: false,
+          persistent: true,
+          action_url: "/pipeline",
+          action_label: "Mark as Won",
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[sync-engine] accept→stage failed (non-fatal):", err);
   }
 }
 
@@ -1183,6 +1521,24 @@ async function processInboundEmail(
     submitter: contactFormSubmitter,
   });
 
+  // P0-C: operator-aware contact hygiene. Resolve the customer's name / phone /
+  // address / email with the operator excluded on every field (so a forwarded
+  // lead's operator signature cannot pollute the customer record), then override
+  // the polluted enrichment-derived fields BEFORE any branch creates or enriches.
+  // The resolved contact is also the provenance source for newly-created leads.
+  // Non-fatal: a failure here must never break ingestion.
+  let resolvedInboundContact: ResolvedContact | null = null;
+  try {
+    resolvedInboundContact = await resolveInboundLeadContact(
+      effectiveEmail,
+      connection,
+      contactFormSubmitter
+    );
+    applyResolvedContactToFacts(inboundEnrichmentFacts, resolvedInboundContact);
+  } catch (err) {
+    console.error("[sync-engine] contact hygiene failed (non-fatal):", err);
+  }
+
   // Thread inheritance — is this thread already linked to an OPS lead?
   const { data: threadLink } = await supabase
     .from("opportunity_email_threads")
@@ -1216,6 +1572,14 @@ async function processInboundEmail(
     await applyLabel(email.threadId, connection, result);
     result.activitiesCreated++;
     result.matched++;
+
+    // ── Phase 2: deterministic accept → stage (auto-Won / surface Mark Won) ──
+    await maybeAutoAdvanceOnAccept({
+      providerThreadId: email.threadId,
+      opportunityId: threadLink[0].opportunity_id,
+      connection,
+      result,
+    });
 
     // ── E5: Auto-draft / auto-send trigger (fire-and-forget) ───────────
     // Never awaited — AI inference must not block the sync loop.
@@ -1308,6 +1672,14 @@ async function processInboundEmail(
         );
       }
 
+      // ── Phase 2: deterministic accept → stage ──
+      await maybeAutoAdvanceOnAccept({
+        providerThreadId: email.threadId,
+        opportunityId: oppId,
+        connection,
+        result,
+      });
+
       maybeAutoGenerateDraft(effectiveEmail, connection, oppId, contactFormSubmitter)
         .catch((err) => console.error("[sync-engine] Auto-draft error (non-fatal):", err));
       return false;
@@ -1343,6 +1715,15 @@ async function processInboundEmail(
       await applyLabel(email.threadId, connection, result);
       result.newLeads++;
       result.activitiesCreated++;
+
+      // P0-C: record field-level provenance for the newly-created lead.
+      await recordInboundLeadProvenance(
+        supabase,
+        oppId,
+        resolvedInboundContact,
+        connection.companyId,
+        email.threadId
+      );
 
       // ── Forwarded contact-form NEW lead: draft a fresh first reply on a new
       // thread to the client. Scoped to contact-form submissions so ordinary new
@@ -1415,6 +1796,13 @@ async function processInboundEmail(
           facts: inboundEnrichmentFacts,
           companyId: connection.companyId,
         });
+        await recordInboundLeadProvenance(
+          supabase,
+          oppId,
+          resolvedInboundContact,
+          connection.companyId,
+          email.threadId
+        );
       } else {
         await updateCorrespondenceCounts(
           oppId,
@@ -1442,8 +1830,15 @@ async function processInboundEmail(
         );
       }
 
-      // ── E5: Auto-draft / auto-send (fire-and-forget) ─────────────────
+      // ── Phase 2 + E5: accept→stage, then auto-draft — only when reusing an
+      //    existing opportunity (a brand-new lead has nothing to accept yet). ──
       if (!relationshipDecisionRequiresNewOpportunity) {
+        await maybeAutoAdvanceOnAccept({
+          providerThreadId: email.threadId,
+          opportunityId: oppId,
+          connection,
+          result,
+        });
         maybeAutoGenerateDraft(effectiveEmail, connection, oppId)
           .catch((err) => console.error("[sync-engine] Auto-draft error (non-fatal):", err));
       }
@@ -1949,13 +2344,15 @@ export async function maybeAutoGenerateDraft(
       return;
     }
 
-    // All checks passed — generate auto-draft
+    // All checks passed — generate auto-draft. `autonomous` arms the Phase 3
+    // routing gate: a thread held for review (require_human_review) is suppressed.
     const draftResult = await AIDraftService.generateDraft({
       companyId: connection.companyId,
       userId: connection.userId,
       connectionId: connection.id,
       opportunityId,
       threadId: email.threadId,
+      autonomous: true,
       origin: "phase_c",
     });
 
@@ -2212,6 +2609,13 @@ export const SyncEngine = {
     // the same stage within a single invocation.
     const followUpDaysCache = new Map<string, number>();
 
+    // P0-A: claim the per-connection sync lock. If another sync holds it, skip
+    // this cycle rather than racing it (the next cron tick re-runs). Released in
+    // finally below so a crash can't strand the lock past its TTL.
+    if (!(await acquireSyncLock(connectionId))) {
+      return { ...emptyResult(), errors: ["Sync already in progress for this connection"] };
+    }
+
     try {
       // ── Step 0: Bootstrap sync token if missing ─────────────────────────
       //
@@ -2423,11 +2827,14 @@ export const SyncEngine = {
                 );
               }
 
-              const oppId = await createOpportunity(
-                classifiedEmail,
+              // P0-A: route AI-classified leads through the client-dedupe path so
+              // an existing active opportunity for this client is reused instead of
+              // spawning a second one; createOpportunity additionally dedupes by the
+              // thread key. The AI-classified stage is preserved on a fresh create.
+              const oppId = await getOrCreateOpportunity(
                 clientId,
                 connection.companyId,
-                classified.stage,
+                classifiedEmail,
                 {
                   candidates: [
                     {
@@ -2438,7 +2845,8 @@ export const SyncEngine = {
                   ],
                   unsafe: syncTitleUnsafeIdentity(connection, profile),
                   enrichmentFacts: classifiedEnrichmentFacts,
-                }
+                },
+                classified.stage
               );
               const linked = await linkThread(
                 oppId,
@@ -2578,6 +2986,9 @@ export const SyncEngine = {
       result.errors.push(
         err instanceof Error ? err.message : "Unknown error"
       );
+    } finally {
+      // P0-A: always release the per-connection sync lock.
+      await releaseSyncLock(connectionId);
     }
 
     return result;

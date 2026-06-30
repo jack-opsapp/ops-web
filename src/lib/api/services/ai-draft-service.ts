@@ -16,6 +16,15 @@ import { BusinessContextService } from "./business-context-service";
 import { FinancialIntelligenceService } from "./financial-intelligence-service";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { getDraftingOpenAI } from "./openai-clients";
+import { buildConversationState } from "./conversation-state/conversation-state";
+import {
+  buildDraftStateContext,
+  type DraftStateContext,
+} from "./conversation-state/draft-context";
+import { evaluateAutonomyGate } from "./conversation-state/autonomy-gate";
+import { persistRoutingDecision } from "./conversation-state/persist-routing";
+import type { ConversationState } from "./conversation-state/types";
+import { inboxModel } from "./conversation-state/inbox-models";
 
 function getOpenAI() {
   return getDraftingOpenAI();
@@ -118,6 +127,13 @@ export interface AIDraftRequest {
   /** Explicit profile type override — bypasses heuristic detection */
   profileTypeOverride?: string;
   /**
+   * True for AUTONOMOUS callers (auto-draft / auto-send). When set, the draft is
+   * SUPPRESSED if the deterministic router held the thread for review
+   * (routing='require_human_review') — Phase 3 safety gate. Operator-initiated
+   * (manual) drafts omit this and always proceed; the operator is the review.
+   */
+  autonomous?: boolean;
+  /**
    * P4-B: draft origin, mirrors opportunity_follow_up_drafts.origin vocab
    * ('operator' | 'template_follow_up' | 'phase_c' | 'system_handoff').
    * Persisted to ai_draft_history.origin. Callers: the Phase C router passes
@@ -154,6 +170,14 @@ export interface AIDraftResult {
    * error.
    */
   escalated?: boolean;
+  /**
+   * True when an AUTONOMOUS draft was suppressed because the deterministic router
+   * held the thread for review (Phase 3 gate). `available` is false; callers
+   * should treat this as a deliberate hold (NOT an error) and leave the thread
+   * for the operator. `routingReasons` carries the why for logs/UI.
+   */
+  heldForReview?: boolean;
+  routingReasons?: string[];
 }
 
 /**
@@ -569,6 +593,66 @@ export const AIDraftService = {
       }
     }
 
+    // ── Phase 1: deterministic clean state ─────────────────────────────
+    // Drives the greeting (the ACTUAL latest inbound sender, not the linked
+    // client), clean customer text, the "do not restate already-sent prices"
+    // rule, and attachment awareness. Falls back to the legacy raw-data path
+    // when the thread/state can't be resolved.
+    let draftState: DraftStateContext | null = null;
+    let convRouting: ConversationState["routing"] | null = null;
+    let convRoutingReasons: string[] = [];
+    if (threadId) {
+      try {
+        const { data: threadRow } = await supabase
+          .from("email_threads")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("provider_thread_id", threadId)
+          .maybeSingle();
+        const internalThreadId = (threadRow?.id as string | undefined) ?? null;
+        if (internalThreadId) {
+          const convState = await buildConversationState(internalThreadId);
+          if (convState) {
+            draftState = buildDraftStateContext(convState);
+            convRouting = convState.routing;
+            convRoutingReasons = convState.routingReasons;
+            // Phase 3: persist the routing decision so the inbox can surface a
+            // held thread without rebuilding state. Non-fatal.
+            await persistRoutingDecision(internalThreadId, convState);
+          }
+        }
+      } catch (err) {
+        console.error(
+          "[ai-draft] conversation-state build failed (using raw fallback):",
+          err
+        );
+      }
+    }
+
+    // ── Phase 3 autonomy gate ──────────────────────────────────────────
+    // An AUTONOMOUS draft/send must never proceed on a thread the deterministic
+    // router held for review. Reuses the state already built above (zero extra
+    // cost). Manual (operator-initiated) drafts are never gated — the operator
+    // is the human review. Returns a deliberate "held" result, not an error.
+    const gate = evaluateAutonomyGate({
+      autonomous: req.autonomous === true,
+      routing: convRouting,
+      routingReasons: convRoutingReasons,
+    });
+    if (gate.hold) {
+      console.warn("[ai-draft] held for review — autonomous draft suppressed:", gate.reason);
+      return {
+        draft: "",
+        draftHistoryId: "",
+        confidence: 0,
+        sources: [],
+        available: false,
+        heldForReview: true,
+        routingReasons: convRoutingReasons,
+        reason: gate.reason,
+      };
+    }
+
     // ── Determine profile type and get writing profile ─────────────────
     const threadSubject = threadMessages[0]?.subject || "";
     const recipientDomain = (clientEmail || recipientEmail || "").split("@")[1] || "";
@@ -835,7 +919,7 @@ ${financialContextBlock ? `FINANCIAL INTELLIGENCE:\n${financialContextBlock}\n` 
 ${projectContextBlock ? `PROJECT DETAILS:\n${projectContextBlock}\n` : ""}
 ${opportunityContext ? `OPPORTUNITY:\n${opportunityContext}\n` : ""}
 ${memoryContext ? `LEARNED KNOWLEDGE:\n${memoryContext}\n` : ""}
-
+${draftState?.sentLedgerBlock ? `${draftState.sentLedgerBlock}\n` : ""}${draftState?.attachmentBlock ? `${draftState.attachmentBlock}\n` : ""}
 RULES:
 - Do NOT mention AI or that this is auto-generated
 - Match the owner's voice EXACTLY across ALL 12 dimensions above
@@ -844,7 +928,7 @@ RULES:
 - Use their preferred word substitutions if listed above
 - Include relevant business details if available from context
 - Output ONLY the email body itself. Do NOT wrap the response in markdown code fences (\`\`\`), do NOT prefix with "Here's the draft:" or similar intros, do NOT include a subject line
-- Replace {name} in greeting with the client's first name`;
+- Replace {name} in the greeting with the recipient's first name${draftState?.greetingFirstName ? `: ${draftState.greetingFirstName}` : ""}`;
 
     // ── Build user prompt ──────────────────────────────────────────────
     const lastInbound = threadMessages
@@ -853,28 +937,39 @@ RULES:
 
     let userPrompt: string;
 
+    // Phase 1: reply to the ACTUAL latest inbound sender, from CLEAN bodies.
+    // Falls back to the linked client + raw bodies when no clean state exists.
+    const promptRecipientName = draftState?.recipientName || clientName;
+    const promptRecipientEmail = draftState?.recipientEmail || clientEmail;
+    const latestInboundText =
+      draftState?.latestCustomerText ||
+      lastInbound?.body_text?.slice(0, 1500) ||
+      "(no body)";
+    const fullThreadText = draftState?.cleanThread || threadContext;
+
     if (lastInbound) {
       userPrompt = `Draft a reply to this email thread.
 
-${clientName ? `Client: ${clientName}` : ""}${clientEmail ? ` <${clientEmail}>` : ""}
+${promptRecipientName ? `Reply to: ${promptRecipientName}` : ""}${promptRecipientEmail ? ` <${promptRecipientEmail}>` : ""}
 
 Latest inbound message:
 Subject: ${lastInbound.subject}
-${lastInbound.body_text?.slice(0, 1500) || "(no body)"}
+${latestInboundText}
 
-${threadContext ? `\nFull thread (oldest first):\n${threadContext}` : ""}
+${fullThreadText ? `\nFull thread (oldest first):\n${fullThreadText}` : ""}
 ${userInstruction ? `\nUser instruction: ${userInstruction}` : ""}`;
     } else {
       userPrompt = `Draft a new email.
 
-${clientName ? `To: ${clientName}` : ""}${clientEmail ? ` <${clientEmail}>` : ""}
+${promptRecipientName ? `To: ${promptRecipientName}` : ""}${promptRecipientEmail ? ` <${promptRecipientEmail}>` : ""}
 ${userInstruction ? `Purpose: ${userInstruction}` : "Write a professional business email."}
 ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     }
 
     // ── Generate draft ─────────────────────────────────────────────────
     const response = await getOpenAI().chat.completions.create({
-      model: "gpt-5.4-mini",
+      // Quality-first: the centralized draft model (see inbox-models.ts).
+      model: inboxModel("draft"),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },

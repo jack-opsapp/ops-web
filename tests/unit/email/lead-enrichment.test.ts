@@ -219,6 +219,25 @@ describe("lead lifecycle enrichment decisions", () => {
     expect(facts.providerMessageId).toBe("provider-message-1");
   });
 
+  it("does not fabricate a contact name from the email local-part for a bare inbound sender (P0-C)", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "canprojack@gmail.com", // no display name in the mailbox
+        fromName: "",
+        subject: "Need a fence quote",
+        bodyText: "Hi, can you quote a 40ft cedar fence?",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+
+    // A real customer email is still captured …
+    expect(facts.contactEmail).toBe("canprojack@gmail.com");
+    // … but the name is NOT fabricated from the local-part ("Canprojack").
+    expect(facts.contactName).toBeNull();
+  });
+
   it("fills address and value from an ordinary inbound body (Tier A)", () => {
     const facts = leadEnrichmentFactsFromEmail({
       email: baseEmail({
