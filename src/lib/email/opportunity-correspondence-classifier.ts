@@ -126,9 +126,27 @@ function isInternalEmail(
   return Boolean(emailDomain && companyDomainSet(input).has(emailDomain));
 }
 
+/**
+ * A local-part that signals an automated, unattended sender — `noreply`,
+ * `no-reply`, `do-not-reply`, `donotreply` in ANY position, not just the bare
+ * exact local part. The legacy SYSTEM_LOCAL_PARTS set only matched `noreply` /
+ * `no-reply` exactly, so every `*-noreply@` variant slipped through:
+ * `businessprofile-noreply@google.com`, `ads-account-noreply@google.com`,
+ * `calendar-noreply@google.com`, etc. — and an automated notification (e.g. a
+ * Google Business Profile review email) could be treated as a customer and get an
+ * auto-drafted reply to a robot. Separators are collapsed so prefix / suffix /
+ * embedded forms all match. A real person whose local part contains "noreply" is
+ * effectively impossible, so the false-positive risk is nil.
+ */
+function isAutomatedNoReplyLocalPart(local: string): boolean {
+  const collapsed = local.replace(/[._-]/g, "");
+  return collapsed.includes("noreply") || collapsed.includes("donotreply");
+}
+
 function isSystemAddress(email: string | null): boolean {
   if (!email) return false;
-  return SYSTEM_LOCAL_PARTS.has(localPart(email));
+  const local = localPart(email);
+  return SYSTEM_LOCAL_PARTS.has(local) || isAutomatedNoReplyLocalPart(local);
 }
 
 function isProviderAddress(
