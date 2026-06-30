@@ -232,6 +232,100 @@ export function assertQboRef(
   return cleaned;
 }
 
+function splitPersonName(name: string | null | undefined): {
+  given?: string;
+  family?: string;
+} {
+  const cleaned = cleanString(name);
+  if (!cleaned) return {};
+  const [first, ...rest] = cleaned.split(/\s+/);
+  return {
+    given: first,
+    family: rest.length > 0 ? rest.join(" ") : undefined,
+  };
+}
+
+const KNOWN_COUNTRIES = new Set([
+  "united states",
+  "united states of america",
+  "usa",
+  "canada",
+]);
+
+function isKnownCountry(token: string): boolean {
+  return KNOWN_COUNTRIES.has(token.trim().toLowerCase());
+}
+
+const US_ZIP = /^\d{5}(-\d{4})?$/;
+const CA_POSTAL = /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/;
+
+function isPostalCode(token: string): boolean {
+  return US_ZIP.test(token) || CA_POSTAL.test(token);
+}
+
+/**
+ * Parse a free-form OPS address string into a structured QuickBooks BillAddr.
+ *
+ * OPS stores the address as a single text field with no guaranteed shape, so
+ * this classifies trailing tokens (country → postal code → state/province)
+ * rather than relying on fixed positions, and falls back to Line1-only when a
+ * component can't be confidently identified. The full street always lands in
+ * Line1, so nothing is ever dropped.
+ */
+function parseQboBillAddr(
+  address: string | null | undefined,
+): QboPayload | undefined {
+  const cleaned = cleanString(address);
+  if (!cleaned) return undefined;
+
+  const parts = cleaned
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  if (parts.length === 0) return undefined;
+  if (parts.length === 1) return { Line1: parts[0] };
+
+  const line1 = parts[0];
+  const rest = parts.slice(1);
+
+  let country: string | undefined;
+  let postalCode: string | undefined;
+  let state: string | undefined;
+
+  if (rest.length > 0 && isKnownCountry(rest[rest.length - 1])) {
+    country = rest.pop();
+  }
+
+  if (rest.length > 0) {
+    const last = rest[rest.length - 1];
+    const combined = /^([A-Za-z]{2})\s+(.+)$/.exec(last);
+    if (combined && isPostalCode(combined[2])) {
+      // A single trailing token carrying both region and postal, e.g. "IL 62704".
+      state = combined[1].toUpperCase();
+      postalCode = combined[2];
+      rest.pop();
+    } else if (isPostalCode(last)) {
+      postalCode = last;
+      rest.pop();
+      if (rest.length > 0 && /^[A-Za-z]{2}$/.test(rest[rest.length - 1])) {
+        state = rest.pop()!.toUpperCase();
+      }
+    } else if (/^[A-Za-z]{2}$/.test(last)) {
+      state = last.toUpperCase();
+      rest.pop();
+    }
+  }
+
+  const city = rest.length > 0 ? rest.join(", ") : undefined;
+
+  const billAddr: QboPayload = { Line1: line1 };
+  addDefined(billAddr, "City", city);
+  addDefined(billAddr, "CountrySubDivisionCode", state);
+  addDefined(billAddr, "PostalCode", postalCode);
+  addDefined(billAddr, "Country", country);
+  return billAddr;
+}
+
 export function mapClientToQboCustomer(input: {
   client: OpsClientForQbo;
   primaryContact?: OpsContactForQbo | null;
@@ -241,19 +335,31 @@ export function mapClientToQboCustomer(input: {
   const phone =
     cleanString(input.primaryContact?.phoneNumber) ??
     cleanString(input.client.phoneNumber);
-  const address = cleanString(input.client.address);
+
+  // Prefer the human contact for the person fields; fall back to splitting the
+  // client's own name so individual clients (no separate contact) still get a
+  // first/last name in QuickBooks instead of a bare display name.
+  const contactGiven = cleanString(input.primaryContact?.firstName);
+  const contactFamily = cleanString(input.primaryContact?.lastName);
+  const nameParts =
+    contactGiven || contactFamily
+      ? { given: contactGiven, family: contactFamily }
+      : splitPersonName(input.client.name);
+
   const payload: QboPayload = {
     CompanyName: input.client.name,
     DisplayName: input.client.name,
   };
 
+  addDefined(payload, "GivenName", nameParts.given);
+  addDefined(payload, "FamilyName", nameParts.family);
   addDefined(payload, "PrimaryEmailAddr", email ? { Address: email } : undefined);
   addDefined(
     payload,
     "PrimaryPhone",
     phone ? { FreeFormNumber: phone } : undefined,
   );
-  addDefined(payload, "BillAddr", address ? { Line1: address } : undefined);
+  addDefined(payload, "BillAddr", parseQboBillAddr(input.client.address));
   addUpdateFields(payload, input.client);
 
   return payload;
