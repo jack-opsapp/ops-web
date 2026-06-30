@@ -74,7 +74,6 @@ import {
 import { usePipelineModeStore } from "./_components/pipeline-mode-store";
 import { PipelineModeSwitcher } from "./_components/pipeline-mode-switcher";
 import { PipelineTableShell } from "./_components/table/pipeline-table-shell";
-import { usePipelineTableViewFlag } from "@/lib/hooks/pipeline-table/use-pipeline-table-flag";
 
 function formatPipelineTemplate(
   template: string,
@@ -181,12 +180,11 @@ export default function PipelinePage() {
   const { t } = useDictionary("pipeline");
   const isMobile = useIsMobile();
   const reducedMotion = useReducedMotion();
-  const tableFlag = usePipelineTableViewFlag();
   const mode = usePipelineModeStore((state) => state.mode);
-  // Defensive: `table` is only reachable with the flag on. If the flag is off
-  // (or flips off) while a persisted `table` value lingers, fall back to
-  // focused so the surface never renders a gated mode.
-  const effectiveMode = mode === "table" && tableFlag ? "table" : "focused";
+  // Pipeline has two first-class view modes — `focused` (kanban board) and
+  // `table` (the unified spreadsheet). The mode switcher is desktop-only, so the
+  // persisted mode is honored directly (no feature gate — P6-2).
+  const effectiveMode = mode === "table" ? "table" : "focused";
   const detailPanelOpportunityId = usePipelineModeStore(
     (state) => state.detailPanelOpportunityId
   );
@@ -911,7 +909,6 @@ export default function PipelinePage() {
   const focusedActiveStaleness = focusedActiveOpportunity
     ? (focusedStalenessMap.get(focusedActiveOpportunity.id) ?? 1)
     : 1;
-  const isFocusedDesktop = !isMobile && effectiveMode === "focused";
 
   // Crossfade timing — opacity-only, single design-system easing. Reduced
   // motion collapses the duration to 0 for an instant swap.
@@ -1032,17 +1029,21 @@ export default function PipelinePage() {
             />
           </div>
         )}
-        {/* Mode switcher — focused | table (flag-gated; hidden entirely off) */}
-        {tableFlag && !isMobile && (
+        {/* Mode switcher — focused | table. Desktop-only (the dense table is not a
+            phone-width surface); no feature gate (P6-2). */}
+        {!isMobile && (
           <div className="pointer-events-auto flex justify-end px-3 pt-1">
             <PipelineModeSwitcher />
           </div>
         )}
-        {/* Banners */}
+        {/* Banners — pinned bottom-left on ALL desktop modes (focused + table) so
+            they never float over a surface's pinned top. In table mode the
+            unified TableShell owns the top (MetricsStrip + workbar); a top-flowing
+            banner would cover the MetricsStrip (P6-2). Mobile keeps them in flow. */}
         <div
           className={cn(
             "pointer-events-auto flex flex-col gap-1 px-3",
-            isFocusedDesktop &&
+            !isMobile &&
               "fixed bottom-[54px] left-[84px] z-[9997] w-[min(560px,calc(100vw-108px))] px-0"
           )}
         >
