@@ -546,9 +546,11 @@ export function leadEnrichmentFactsFromEmail(
   }
 
   const customerEmail = safeCustomerEmail(senderEmail, connection, profile);
+  // P0-C: use a real display name only — never fabricate a name from the email
+  // local-part (the "Canprojack" failure). The conversation-state contact
+  // resolver records an unverified local-part guess in provenance instead.
   const customerName = customerEmail
-    ? displayNameFromMailbox(email.from, email.fromName) ??
-      localPartToName(customerEmail)
+    ? displayNameFromMailbox(email.from, email.fromName)
     : null;
 
   // Conservative body-text scan for non-identity facts. These never set
