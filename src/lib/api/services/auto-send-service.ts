@@ -341,20 +341,25 @@ export const AutoSendService = {
   }): Promise<PendingAutoSend | null> {
     const supabase = requireSupabase();
 
-    // Generate AI draft
+    // Generate AI draft. `autonomous` arms the Phase 3 routing gate — auto-send
+    // is the most consequential autonomous action, so a held thread must never
+    // produce a draft to schedule.
     const draftResult = await AIDraftService.generateDraft({
       companyId: params.companyId,
       userId: params.userId,
       connectionId: params.connectionId,
       opportunityId: params.opportunityId,
       threadId: params.threadId,
+      autonomous: true,
     });
 
     if (!draftResult.available || !draftResult.draft) {
-      console.error(
-        "[auto-send] Draft generation failed:",
-        draftResult.reason
-      );
+      if (draftResult.heldForReview) {
+        // Deliberate hold, not a failure — leave the thread for the operator.
+        console.warn("[auto-send] held for review — auto-send suppressed:", draftResult.reason);
+      } else {
+        console.error("[auto-send] Draft generation failed:", draftResult.reason);
+      }
       return null;
     }
 
