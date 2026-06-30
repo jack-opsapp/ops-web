@@ -41,8 +41,8 @@ export interface MetricCell {
   trend?: { direction: "up" | "down" | "flat"; value: string; sentiment?: "positive" | "negative" | "neutral" };
   /** Per-cell mini-viz. */
   viz?: StripVizConfig;
-  /** Terse `// SUB` context line under the viz. */
-  sub?: string;
+  /** Terse context line under the viz — a string, or rich nodes (e.g. colored in/out splits). */
+  sub?: ReactNode;
   /** Turns the cell into a focusable drill button (e.g. A/R → overdue filter). */
   onClick?: () => void;
   /** Override the composed aria-label. */
