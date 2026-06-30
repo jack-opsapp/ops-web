@@ -310,7 +310,7 @@ export function StockSegment({
     <>
       <TableShell
         metrics={metrics}
-        workbar={
+        toolbar={
           <TableWorkbar>
             {/* Row 1 — segment control + actions */}
             <div className="flex flex-wrap items-center justify-between gap-2">

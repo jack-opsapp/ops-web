@@ -81,7 +81,7 @@ function MetricValue({ value, format, tone }: { value: number; format?: (n: numb
   const animated = useAnimatedValue(value);
   const fmt = format ?? defaultFormat;
   return (
-    <span className={cn("font-mono text-data-lg leading-none tabular-nums", TONE_CLASS[tone ?? "default"])}>
+    <span className={cn("font-mono text-display tracking-[-1px] leading-none tabular-nums", TONE_CLASS[tone ?? "default"])}>
       {fmt(animated)}
     </span>
   );
@@ -112,7 +112,7 @@ function Cell({ cell }: { cell: MetricCell }) {
         {typeof cell.value === "number" ? (
           <MetricValue value={cell.value} format={cell.format} tone={cell.tone} />
         ) : (
-          <span className={cn("font-mono text-data-lg leading-none tabular-nums", TONE_CLASS[cell.tone ?? "default"])}>{cell.value}</span>
+          <span className={cn("font-mono text-display tracking-[-1px] leading-none tabular-nums", TONE_CLASS[cell.tone ?? "default"])}>{cell.value}</span>
         )}
         {cell.trend && <Trend trend={cell.trend} />}
       </div>
@@ -123,7 +123,7 @@ function Cell({ cell }: { cell: MetricCell }) {
     </>
   );
 
-  const base = "flex min-w-[124px] flex-1 flex-col gap-[3px] border-r border-border-subtle px-[15px] text-left first:pl-[3px] last:border-r-0 last:pr-[3px]";
+  const base = "flex min-w-[136px] flex-1 flex-col gap-[3px] border-r border-border-subtle px-[18px] text-left first:pl-[3px] last:border-r-0 last:pr-[3px]";
 
   if (cell.onClick) {
     return (
@@ -146,9 +146,9 @@ function Cell({ cell }: { cell: MetricCell }) {
 
 function Skeleton() {
   return (
-    <div className="flex min-w-[124px] flex-1 flex-col gap-2 border-r border-border-subtle px-[15px] first:pl-[3px] last:border-r-0">
+    <div className="flex min-w-[136px] flex-1 flex-col gap-2 border-r border-border-subtle px-[18px] first:pl-[3px] last:border-r-0">
       <div className="h-[11px] w-[56px] animate-pulse rounded-bar bg-fill-neutral-dim motion-reduce:animate-none" />
-      <div className="h-[20px] w-[76px] animate-pulse rounded-bar bg-fill-neutral-dim motion-reduce:animate-none" />
+      <div className="h-[28px] w-[84px] animate-pulse rounded-bar bg-fill-neutral-dim motion-reduce:animate-none" />
       <div className="mt-1 h-[8px] w-full animate-pulse rounded-bar bg-fill-neutral-dim/60 motion-reduce:animate-none" />
     </div>
   );
@@ -159,7 +159,7 @@ export function MetricsStrip({ metrics, right, isLoading, label, ariaLabel, clas
   return (
     <section
       aria-label={ariaLabel ?? label ?? "Metrics"}
-      className={cn("flex items-stretch overflow-x-auto border-b border-line px-3 py-2.5 scrollbar-hide", className)}
+      className={cn("flex items-stretch overflow-x-auto border-b border-line px-3 py-3 scrollbar-hide", className)}
     >
       {label && (
         <div className="mr-2 flex shrink-0 items-start pt-px font-mono text-micro uppercase tracking-[0.16em] text-text-3">

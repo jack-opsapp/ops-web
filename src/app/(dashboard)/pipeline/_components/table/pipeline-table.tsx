@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useDictionary } from "@/i18n/client";
@@ -97,6 +98,7 @@ export function PipelineTable({
   onCommitCell,
   onRequestStageChange,
   onRequestConvertAlreadyWon,
+  aboveHeader,
 }: {
   rows: PipelineTableRowModel[];
   sorting: PipelineTableSort[];
@@ -140,6 +142,14 @@ export function PipelineTable({
   ) => void;
   onRequestStageChange: (rowId: string, next: OpportunityStage) => void;
   onRequestConvertAlreadyWon: (rowId: string) => void;
+  /**
+   * Optional chrome rendered as the FIRST child inside the scroll container,
+   * above the sticky header — the decoupled metrics bar + sticky toolbar
+   * (TableChrome). Scrolls with the rows so the metrics scroll up and out of
+   * view while the toolbar + header pin (WEB OVERHAUL P6-2 rework). Default
+   * undefined → byte-identical legacy render.
+   */
+  aboveHeader?: ReactNode;
 }) {
   const { t } = useDictionary("pipeline");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -300,6 +310,7 @@ export function PipelineTable({
       onKeyDown={handleGridKeyDown}
       className="min-h-0 flex-1 overflow-auto"
     >
+      {aboveHeader}
       <div style={{ width: totalWidth }}>
         <PipelineTableHeader
           columns={columnLayouts}

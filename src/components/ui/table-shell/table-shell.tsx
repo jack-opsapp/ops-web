@@ -1,43 +1,44 @@
 "use client";
 
 /**
- * TableShell — the ONE table frame across every list surface (WEB OVERHAUL P6-2).
+ * TableShell — the ONE table frame across every list surface (WEB OVERHAUL P6-2,
+ * reworked per Jackson's live review 2026-06-30).
  *
- * Jackson, 2026-06-24: Projects/Pipeline pin a header + metrics bar on scroll;
- * Books/Catalog/Clients don't — "terrible, unpredictable UI." The divergence was
- * structural: the grids (table-v2) live in a fixed-viewport flex column with an
- * INTERNAL scroll body and a `sticky top-0` header; the registers were a
- * document-flow stack that scrolled at the route level, so their header never
- * stuck. TableShell is the shared instrument frame BOTH now consume:
+ * The corrected layout is FULL-BLEED: no glass panel, no rounded-panel, no route
+ * gutters — the table runs edge-to-edge in its content area. The metrics bar is
+ * DECOUPLED and scrolls UP and out of view; the toolbar and the table's column
+ * header PIN. That stack is `TableChrome` (metrics scroll-away + sticky toolbar),
+ * rendered inside the single scroll region:
  *
- *   ┌─ glass panel · flex h-full min-h-0 flex-col ───────────────┐
- *   │ viewTabs?   — saved-views tier (grid only), pinned         │
- *   │ metrics?    — MetricsStrip, pinned                          │
- *   │ workbar?    — segment ctrl · search · CTA · chips, pinned   │
- *   │ ┌─ body · min-h-0 flex-1 overflow-auto ──────────────────┐ │
- *   │ │  children  (sticky <thead>/header pins at top:0 here)   │ │
- *   │ └────────────────────────────────────────────────────────┘ │
- *   │ bottom fade cue                                            │
- *   └───────────────────────────────────────────────────────────┘
+ *   ┌─ frame · relative flex h-full min-h-0 flex-col (no glass/radius) ──┐
+ *   │ ┌─ scroll body · min-h-0 flex-1 overflow-auto ──────────────────┐ │
+ *   │ │  TableChrome:  [ metrics ]  ← scrolls away                     │ │
+ *   │ │                [ toolbar ]  ← sticky top:0                      │ │
+ *   │ │  children    (sticky <thead> pins at top:var(--shell-header-top)│ │
+ *   │ └────────────────────────────────────────────────────────────────┘│
+ *   │ bottom fade cue                                                    │
+ *   └────────────────────────────────────────────────────────────────────┘
  *
- * Register surfaces render a RegisterTable with `inShell` (sticky thead, no own
- * glass/scroll — the shell provides both). Grid surfaces pass their virtualized
- * div-grid as children and wire the scroll container via `bodyRef`/`bodyProps`,
- * keeping virtualization, frozen columns, density/zoom, saved views and inline
- * edit untouched. The panel never grows the page — the body scrolls.
+ * Register surfaces (Books/Catalog/Clients) use the default scroll body: the
+ * shell scrolls, RegisterTable `inShell` renders its `<thead>` sticky beneath the
+ * toolbar. Grid surfaces (Projects/Pipeline) pass `scroll={false}` and own their
+ * virtualized scroller — they inject the SAME `TableChrome` through the grid's
+ * `aboveHeader` slot so the metrics scroll away inside the virtualized scroll
+ * region, with virtualization / frozen columns / density-zoom / inline edit
+ * untouched.
  *
- * Requires a definite-height parent (the dashboard `fullHeight` wrappers provide
- * `flex min-h-0 flex-1`). Register routes opt in via `fullHeight: "padded"` in
- * the route registry.
+ * Requires a definite-height parent; the dashboard `fullHeight: "bleed"` wrapper
+ * provides `flex min-h-0 flex-1` with no horizontal gutter.
  */
 
 import { forwardRef, type HTMLAttributes, type ReactNode, type Ref } from "react";
 import { cn } from "@/lib/utils/cn";
+import { TableChrome } from "./table-chrome";
 
 /**
- * TableWorkbar — the canonical pinned workbar chrome for a TableShell slot.
- * Holds the standard border + padding so every surface's workbar (segment
- * control · search · CTA · filter chips · count · stat line · density) reads
+ * TableWorkbar — the canonical toolbar chrome for a TableShell. Holds the
+ * standard border + padding so every surface's toolbar (segment control · search
+ * · CTA · filter chips · count · stat line · density · view tabs) reads
  * identically. Callers supply the rows (typically two `flex flex-wrap` rows).
  */
 export function TableWorkbar({ children, className }: { children: ReactNode; className?: string }) {
@@ -45,42 +46,43 @@ export function TableWorkbar({ children, className }: { children: ReactNode; cla
 }
 
 export interface TableShellProps {
-  /** Saved-views tier, rendered above metrics (grid surfaces only). */
-  viewTabs?: ReactNode;
-  /** Pinned metrics bar (MetricsStrip). */
+  /** Scroll-away metrics bar (MetricsStrip). Register archetype only — grids pass it via the grid's `aboveHeader`. */
   metrics?: ReactNode;
-  /** Pinned workbar — segment control · search · CTA · filter chips · count · stat line · density. */
-  workbar?: ReactNode;
-  /** Banner row above the body but below the workbar (e.g. an "unavailable view" alert). */
+  /** Sticky toolbar. Register archetype only. */
+  toolbar?: ReactNode;
+  /** Banner row inside the scroll region below the toolbar (e.g. an "unavailable view" alert). */
   banner?: ReactNode;
-  /** Scroll-body content — the table or the virtualized grid. */
+  /** Scroll-region content — the table (register) or, with `scroll={false}`, the virtualized grid. */
   children: ReactNode;
-  /** When true, render `emptyState` instead of `children` inside the scroll body. */
+  /** When true, render `emptyState` instead of `children`. */
   isEmpty?: boolean;
   emptyState?: ReactNode;
-  /** Bottom fade cue over the scroll body (default true). */
+  /** Bottom fade cue over the scroll region (default true). */
   bottomFade?: boolean;
-  /** Render the outer panel as a glass surface (default true). */
-  glass?: boolean;
+  /**
+   * When false the caller owns the scroll container (grid archetype: the
+   * virtualized grid scrolls itself and renders its own `TableChrome` via
+   * `aboveHeader`). Default true → the shell provides the scroll body.
+   */
+  scroll?: boolean;
   className?: string;
   bodyClassName?: string;
-  /** Scroll-body ref — for virtualization / fetch-on-scroll (grid surfaces). */
+  /** Scroll-body ref — for virtualization / fetch-on-scroll. */
   bodyRef?: Ref<HTMLDivElement>;
-  /** Extra props on the scroll body (role/tabIndex/onScroll/onWheel/onKeyDown… for the grid). */
+  /** Extra props on the scroll body (role/tabIndex/onScroll…). */
   bodyProps?: HTMLAttributes<HTMLDivElement>;
 }
 
 export const TableShell = forwardRef<HTMLDivElement, TableShellProps>(function TableShell(
   {
-    viewTabs,
     metrics,
-    workbar,
+    toolbar,
     banner,
     children,
     isEmpty,
     emptyState,
     bottomFade = true,
-    glass = true,
+    scroll = true,
     className,
     bodyClassName,
     bodyRef,
@@ -89,21 +91,21 @@ export const TableShell = forwardRef<HTMLDivElement, TableShellProps>(function T
   ref,
 ) {
   return (
-    <div
-      ref={ref}
-      className={cn(
-        "relative flex h-full min-h-0 flex-col overflow-hidden rounded-panel",
-        glass ? "glass-surface" : "border border-border",
-        className,
+    <div ref={ref} className={cn("relative flex h-full min-h-0 flex-col", className)}>
+      {scroll === false ? (
+        children
+      ) : (
+        <div
+          ref={bodyRef}
+          data-shell-scroll
+          className={cn("relative min-h-0 flex-1 overflow-auto", bodyClassName)}
+          {...bodyProps}
+        >
+          <TableChrome metrics={metrics} toolbar={toolbar} />
+          {banner}
+          {isEmpty ? emptyState : children}
+        </div>
       )}
-    >
-      {viewTabs}
-      {metrics}
-      {workbar}
-      {banner}
-      <div ref={bodyRef} className={cn("relative min-h-0 flex-1 overflow-auto", bodyClassName)} {...bodyProps}>
-        {isEmpty ? emptyState : children}
-      </div>
       {bottomFade && (
         <div
           aria-hidden

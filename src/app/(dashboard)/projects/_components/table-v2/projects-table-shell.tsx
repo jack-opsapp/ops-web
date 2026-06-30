@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Save } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import {
@@ -32,7 +32,7 @@ import { ProjectsUndoToast } from "./projects-undo-toast";
 import { ProjectsViewCreateDialog } from "./projects-view-create-dialog";
 import { ProjectsViewSettingsMenu } from "./projects-view-settings-menu";
 import { ProjectsViewTabs } from "./projects-view-tabs";
-import { TableShell } from "@/components/ui/table-shell";
+import { TableShell, TableChrome } from "@/components/ui/table-shell";
 import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
 import type { MetricColumnConfig } from "@/components/metrics/types";
 
@@ -423,61 +423,21 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
     [handleViewArchived, viewActions.archiveView],
   );
 
-  let body = null;
-  if (viewsQuery.isError) {
-    body = <ProjectsViewState label={t("table.views.error")} />;
-  } else if (viewsQuery.isLoading) {
-    body = <ProjectsViewState label={t("table.views.loading")} />;
-  } else if (views.length === 0) {
-    body = <ProjectsViewState label={t("table.views.empty")} />;
-  } else if (isError) {
-    body = <ProjectsEmptyState mode="error" onRetry={handleRetry} />;
-  } else if (isLoading) {
-    body = <ProjectsEmptyState mode="loading" />;
-  } else if (!pendingEffectiveView) {
-    body = <ProjectsEmptyState mode="empty" />;
-  } else if (tableQuery.rows.length === 0) {
-    body = <ProjectsEmptyState mode={search.trim().length > 0 ? "filtered" : "empty"} />;
-  } else {
-    body = (
-      <ProjectsTable
-        view={pendingEffectiveView}
-        rows={tableQuery.rows}
-        sorting={sanitizedSorting}
-        onSortingChange={setSorting}
-        metrics={zoom.metrics}
-        selectedIds={selection.selectedIds}
-        onToggleRow={selection.toggleRow}
-        onSelectAllVisible={selection.selectAllVisible}
-        onClearSelection={selection.clearSelection}
-        saveStates={cellEdit.saveStates}
-        onCommitCell={cellEdit.commitEdit}
-        onUndoLatest={handleUndoLatest}
-        onFocusSearch={handleFocusSearch}
-        fetchNextPage={() => {
-          void tableQuery.fetchNextPage();
-        }}
-        hasNextPage={Boolean(tableQuery.hasNextPage)}
-        isFetchingNextPage={tableQuery.isFetchingNextPage}
-        isRefreshing={tableQuery.isFetching && !tableQuery.isFetchingNextPage && !tableQuery.isLoading}
-        onWheel={zoom.handleWheel}
-        onBeginPinch={zoom.beginPinch}
-        onUpdatePinch={zoom.updatePinch}
-        onEndPinch={zoom.endPinch}
-        onZoomKeyDown={zoom.handleKeyDown}
-      />
-    );
-  }
-
-  return (
-    // Unified TableShell (WEB OVERHAUL P6-2). The grid keeps ALL its power
-    // features: ProjectsTable still owns its own scroll container + virtualizer +
-    // frozen columns + inline edit — the shell body is a non-scrolling flex column
-    // (bodyClassName overflow-hidden) that ProjectsTable fills and scrolls inside.
-    // Metrics move off the page-level MetricsHeader onto the one shared MetricsStrip.
-    <div className="relative flex h-full min-h-0 flex-col">
-      <TableShell
-        viewTabs={
+  // The decoupled chrome (WEB OVERHAUL P6-2 rework): the metrics bar scrolls UP
+  // and out of view; the saved-view tabs + toolbar PIN. Injected into the grid's
+  // scroller via ProjectsTable's `aboveHeader` slot so it scrolls with the rows
+  // (virtualizer untouched). For non-grid states it's pinned above the placeholder.
+  const chrome = (
+    <TableChrome
+      metrics={
+        <MetricsStrip
+          metrics={fromMetricColumns(projectMetrics ?? [])}
+          isLoading={projectMetrics == null}
+          ariaLabel={t("table.gridLabel")}
+        />
+      }
+      toolbar={
+        <>
           <ProjectsViewTabs
             views={views}
             activeViewId={activeViewId}
@@ -489,15 +449,6 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
             isLoading={viewsQuery.isLoading}
             isError={viewsQuery.isError}
           />
-        }
-        metrics={
-          <MetricsStrip
-            metrics={fromMetricColumns(projectMetrics ?? [])}
-            isLoading={projectMetrics == null}
-            ariaLabel={t("table.gridLabel")}
-          />
-        }
-        workbar={
           <ProjectsToolbar
             search={search}
             onSearchChange={setSearch}
@@ -552,19 +503,83 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
               />
             }
           />
-        }
-        banner={
-          unavailableViewId ? (
+          {unavailableViewId ? (
             <div
               role="alert"
               className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-wider text-rose"
             >
               {t("table.views.unavailable")}
             </div>
-          ) : undefined
-        }
-        bodyClassName="flex min-h-0 flex-col overflow-hidden"
-      >
+          ) : null}
+        </>
+      }
+    />
+  );
+
+  // Non-grid states pin the chrome above a placeholder in the scroll region.
+  const withChrome = (node: ReactNode) => (
+    <div className="flex h-full min-h-0 flex-col">
+      {chrome}
+      <div className="relative min-h-0 flex-1 overflow-auto">{node}</div>
+    </div>
+  );
+
+  let body = null;
+  if (viewsQuery.isError) {
+    body = withChrome(<ProjectsViewState label={t("table.views.error")} />);
+  } else if (viewsQuery.isLoading) {
+    body = withChrome(<ProjectsViewState label={t("table.views.loading")} />);
+  } else if (views.length === 0) {
+    body = withChrome(<ProjectsViewState label={t("table.views.empty")} />);
+  } else if (isError) {
+    body = withChrome(<ProjectsEmptyState mode="error" onRetry={handleRetry} />);
+  } else if (isLoading) {
+    body = withChrome(<ProjectsEmptyState mode="loading" />);
+  } else if (!pendingEffectiveView) {
+    body = withChrome(<ProjectsEmptyState mode="empty" />);
+  } else if (tableQuery.rows.length === 0) {
+    body = withChrome(<ProjectsEmptyState mode={search.trim().length > 0 ? "filtered" : "empty"} />);
+  } else {
+    body = (
+      <ProjectsTable
+        aboveHeader={chrome}
+        view={pendingEffectiveView}
+        rows={tableQuery.rows}
+        sorting={sanitizedSorting}
+        onSortingChange={setSorting}
+        metrics={zoom.metrics}
+        selectedIds={selection.selectedIds}
+        onToggleRow={selection.toggleRow}
+        onSelectAllVisible={selection.selectAllVisible}
+        onClearSelection={selection.clearSelection}
+        saveStates={cellEdit.saveStates}
+        onCommitCell={cellEdit.commitEdit}
+        onUndoLatest={handleUndoLatest}
+        onFocusSearch={handleFocusSearch}
+        fetchNextPage={() => {
+          void tableQuery.fetchNextPage();
+        }}
+        hasNextPage={Boolean(tableQuery.hasNextPage)}
+        isFetchingNextPage={tableQuery.isFetchingNextPage}
+        isRefreshing={tableQuery.isFetching && !tableQuery.isFetchingNextPage && !tableQuery.isLoading}
+        onWheel={zoom.handleWheel}
+        onBeginPinch={zoom.beginPinch}
+        onUpdatePinch={zoom.updatePinch}
+        onEndPinch={zoom.endPinch}
+        onZoomKeyDown={zoom.handleKeyDown}
+      />
+    );
+  }
+
+  return (
+    // Unified TableShell (WEB OVERHAUL P6-2, reworked 2026-06-30). FULL-BLEED:
+    // the grid runs edge-to-edge. ProjectsTable still owns its own scroll
+    // container + virtualizer + frozen columns + inline edit; the decoupled
+    // metrics bar + sticky toolbar (the `chrome`) are injected into that scroller
+    // via the grid's `aboveHeader` slot, so the metrics scroll up and out of view
+    // while the toolbar + header pin. `scroll={false}` → the grid owns scrolling.
+    <div className="relative flex h-full min-h-0 flex-col">
+      <TableShell scroll={false} className="min-h-0 flex-1">
         {body}
       </TableShell>
 

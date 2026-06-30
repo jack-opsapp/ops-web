@@ -334,7 +334,7 @@ export function ProductsSegment({
     <>
       <TableShell
         metrics={metrics}
-        workbar={
+        toolbar={
           <TableWorkbar>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <CatalogSegmentControl options={segmentOptions} value={activeSegment} onChange={onSegmentChange} />

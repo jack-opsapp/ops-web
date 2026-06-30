@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Save } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { useTableZoom } from "@/lib/hooks/projects-table/use-table-zoom";
@@ -37,7 +37,8 @@ import { PipelineUndoToast } from "./pipeline-undo-toast";
 import { PipelineViewCreateDialog } from "./pipeline-view-create-dialog";
 import { PipelineViewSettingsMenu } from "./pipeline-view-settings-menu";
 import { PipelineViewTabs } from "./pipeline-view-tabs";
-import { TableShell } from "@/components/ui/table-shell";
+import { PipelineModeSwitcher } from "../pipeline-mode-switcher";
+import { TableShell, TableChrome } from "@/components/ui/table-shell";
 import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
 import type { MetricColumnConfig } from "@/components/metrics/types";
 
@@ -639,75 +640,22 @@ export function PipelineTableShell({
   // failure / load / empty-view-set short-circuits before the row states, since
   // there is no table to render without a view. Once a view exists, the row
   // states (error → loading → empty → table) take over.
-  let body;
-  if (viewsQuery.isError) {
-    body = stateMessage("table.views.error");
-  } else if (viewsQuery.isLoading) {
-    body = stateMessage("table.views.loading");
-  } else if (views.length === 0) {
-    body = stateMessage("table.views.empty");
-  } else if (isError) {
-    body = stateMessage("table.state.error");
-  } else if (isLoading) {
-    body = stateMessage("table.state.loading");
-  } else if (displayRows.length === 0) {
-    body = stateMessage("table.state.empty");
-  } else {
-    body = (
-      <PipelineTable
-        rows={displayRows}
-        sorting={sorting}
-        onSortingChange={setSorting}
-        grouped={grouped}
-        collapsedStages={collapsedStages}
-        onToggleStageCollapse={handleToggleStageCollapse}
-        metrics={metrics}
-        now={now}
-        selectedIds={selectedIds}
-        onToggleRow={toggleRow}
-        onToggleSelectAllVisible={handleSelectAllVisible}
-        onOpenDeal={openDetailPanel}
-        saveStates={saveStates}
-        activeCell={activeCell}
-        editingCell={editingCell}
-        canManage={canManage}
-        setActiveCell={setActiveCell}
-        onBeginEdit={handleBeginEdit}
-        onCancelEdit={handleCancelEdit}
-        onCellKeyDown={handleCellKeyDown}
-        onCommitCell={handleCommitCell}
-        onRequestStageChange={requestStageChange}
-        onRequestConvertAlreadyWon={requestConvertAlreadyWon}
-      />
-    );
-  }
-
-  // The grand-total footer sits below the table once data has settled with at
-  // least one row. It is hidden in the loading/error/empty states (no table to
-  // total), but always present in both grouped and flat modes.
-  const showFooter =
-    !viewsQuery.isError &&
-    !viewsQuery.isLoading &&
-    views.length > 0 &&
-    !isError &&
-    !isLoading &&
-    displayRows.length > 0;
-
-  return (
-    // Unified TableShell (WEB OVERHAUL P6-2). The grid keeps ALL its power
-    // features: PipelineTable still owns its own scroll container + virtualizer +
-    // stage-group interleaving + frozen columns + inline edit — the shell body is
-    // a non-scrolling flex column (bodyClassName overflow-hidden) that
-    // PipelineTable fills and scrolls inside. Metrics move off the page-level
-    // MetricsHeader onto the one shared MetricsStrip (the focused/kanban mode keeps
-    // its own HUD — see pipeline/page.tsx). The outer wrapper no longer carries a
-    // top inset: the page now only floats the compact mode switcher over table
-    // mode (MetricsHeader is suppressed there), so the shell fills its frame.
-    // The shell takes `flex-1 min-h-0` (over its own `h-full` base) so the
-    // grand-total footer — a shrink-0 sibling below — keeps its band.
-    <div className="relative flex h-full min-h-0 flex-col">
-      <TableShell
-        viewTabs={
+  // Decoupled chrome (WEB OVERHAUL P6-2 rework): the metrics bar scrolls UP and
+  // out of view; the saved-view tabs + toolbar PIN. The focused/table mode
+  // switcher now lives IN the toolbar (Jackson 2026-06-30) — no longer floating
+  // in the page HUD. Injected into PipelineTable's `aboveHeader` slot so it
+  // scrolls inside the virtualized scroller (virtualizer untouched).
+  const chrome = (
+    <TableChrome
+      metrics={
+        <MetricsStrip
+          metrics={fromMetricColumns(pipelineMetrics ?? [])}
+          isLoading={pipelineMetrics == null}
+          ariaLabel={t("table.gridLabel")}
+        />
+      }
+      toolbar={
+        <>
           <PipelineViewTabs
             views={views}
             activeViewId={activeViewId}
@@ -719,15 +667,6 @@ export function PipelineTableShell({
             isLoading={viewsQuery.isLoading}
             isError={viewsQuery.isError}
           />
-        }
-        metrics={
-          <MetricsStrip
-            metrics={fromMetricColumns(pipelineMetrics ?? [])}
-            isLoading={pipelineMetrics == null}
-            ariaLabel={t("table.gridLabel")}
-          />
-        }
-        workbar={
           <PipelineToolbar
             search={search}
             onSearchChange={setSearch}
@@ -740,6 +679,7 @@ export function PipelineTableShell({
             onDensityChange={handleDensityChange}
             densityDisabled={densitySaving || viewActions.updateViewDefinition.isPending}
             searchInputRef={searchInputRef}
+            leading={<PipelineModeSwitcher />}
             saveAffordance={
               activeView ? (
                 <>
@@ -781,20 +721,93 @@ export function PipelineTableShell({
               />
             }
           />
-        }
-        banner={
-          unavailableViewId ? (
+          {unavailableViewId ? (
             <div
               role="alert"
               className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-[0.16em] text-rose"
             >
               {t("table.views.unavailable")}
             </div>
-          ) : undefined
-        }
-        className="min-h-0 flex-1"
-        bodyClassName="flex min-h-0 flex-col overflow-hidden"
-      >
+          ) : null}
+        </>
+      }
+    />
+  );
+
+  // Non-grid states pin the chrome above a placeholder in the scroll region.
+  const withChrome = (node: ReactNode) => (
+    <div className="flex h-full min-h-0 flex-col">
+      {chrome}
+      <div className="relative min-h-0 flex-1 overflow-auto">{node}</div>
+    </div>
+  );
+
+  let body;
+  if (viewsQuery.isError) {
+    body = withChrome(stateMessage("table.views.error"));
+  } else if (viewsQuery.isLoading) {
+    body = withChrome(stateMessage("table.views.loading"));
+  } else if (views.length === 0) {
+    body = withChrome(stateMessage("table.views.empty"));
+  } else if (isError) {
+    body = withChrome(stateMessage("table.state.error"));
+  } else if (isLoading) {
+    body = withChrome(stateMessage("table.state.loading"));
+  } else if (displayRows.length === 0) {
+    body = withChrome(stateMessage("table.state.empty"));
+  } else {
+    body = (
+      <PipelineTable
+        aboveHeader={chrome}
+        rows={displayRows}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        grouped={grouped}
+        collapsedStages={collapsedStages}
+        onToggleStageCollapse={handleToggleStageCollapse}
+        metrics={metrics}
+        now={now}
+        selectedIds={selectedIds}
+        onToggleRow={toggleRow}
+        onToggleSelectAllVisible={handleSelectAllVisible}
+        onOpenDeal={openDetailPanel}
+        saveStates={saveStates}
+        activeCell={activeCell}
+        editingCell={editingCell}
+        canManage={canManage}
+        setActiveCell={setActiveCell}
+        onBeginEdit={handleBeginEdit}
+        onCancelEdit={handleCancelEdit}
+        onCellKeyDown={handleCellKeyDown}
+        onCommitCell={handleCommitCell}
+        onRequestStageChange={requestStageChange}
+        onRequestConvertAlreadyWon={requestConvertAlreadyWon}
+      />
+    );
+  }
+
+  // The grand-total footer sits below the table once data has settled with at
+  // least one row. It is hidden in the loading/error/empty states (no table to
+  // total), but always present in both grouped and flat modes.
+  const showFooter =
+    !viewsQuery.isError &&
+    !viewsQuery.isLoading &&
+    views.length > 0 &&
+    !isError &&
+    !isLoading &&
+    displayRows.length > 0;
+
+  return (
+    // Unified TableShell (WEB OVERHAUL P6-2, reworked 2026-06-30). FULL-BLEED:
+    // the grid runs edge-to-edge. PipelineTable still owns its own scroll
+    // container + virtualizer + stage-group interleaving + frozen columns +
+    // inline edit; the decoupled metrics bar + sticky toolbar (the `chrome`,
+    // with the focused/table mode switcher in it) are injected into that scroller
+    // via the grid's `aboveHeader` slot, so the metrics scroll up and out of view
+    // while the toolbar + header pin. `scroll={false}` → the grid owns scrolling;
+    // `flex-1 min-h-0` keeps the grand-total footer's band below.
+    <div className="relative flex h-full min-h-0 flex-col">
+      <TableShell scroll={false} className="min-h-0 flex-1">
         {body}
       </TableShell>
 

@@ -526,7 +526,7 @@ export function InvoicesSegment({
       <>
         <TableShell
           metrics={metrics}
-          workbar={<TableWorkbar>{workbarTopRow}</TableWorkbar>}
+          toolbar={<TableWorkbar>{workbarTopRow}</TableWorkbar>}
           bottomFade={false}
         >
           <div className="p-3">
@@ -546,7 +546,7 @@ export function InvoicesSegment({
     <>
       <TableShell
         metrics={metrics}
-        workbar={
+        toolbar={
           <TableWorkbar>
             {workbarTopRow}
             <div className="flex flex-wrap items-center gap-[12px]">

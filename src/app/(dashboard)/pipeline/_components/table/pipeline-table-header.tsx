@@ -43,7 +43,7 @@ export function PipelineTableHeader({
   const activeSort = sorting[0];
 
   return (
-    <div className="sticky top-0 z-20 flex border-b border-border bg-background" style={{ height: metrics.headerHeight }}>
+    <div className="sticky top-[var(--shell-header-top,0px)] z-20 flex border-b border-border bg-background" style={{ height: metrics.headerHeight }}>
       {columns.map(({ column, width, stickyLeft }) => {
         const sorted = activeSort && activeSort.field === column.id ? activeSort.direction : null;
 

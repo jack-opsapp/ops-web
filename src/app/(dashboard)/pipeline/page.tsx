@@ -72,7 +72,6 @@ import {
   type PipelineDropData,
 } from "./_components/pipeline-dnd-resolution";
 import { usePipelineModeStore } from "./_components/pipeline-mode-store";
-import { PipelineModeSwitcher } from "./_components/pipeline-mode-switcher";
 import { PipelineTableShell } from "./_components/table/pipeline-table-shell";
 
 function formatPipelineTemplate(
@@ -1029,13 +1028,10 @@ export default function PipelinePage() {
             />
           </div>
         )}
-        {/* Mode switcher — focused | table. Desktop-only (the dense table is not a
-            phone-width surface); no feature gate (P6-2). */}
-        {!isMobile && (
-          <div className="pointer-events-auto flex justify-end px-3 pt-1">
-            <PipelineModeSwitcher />
-          </div>
-        )}
+        {/* Mode switcher moved INTO the table toolbar (WEB OVERHAUL P6-2 rework,
+            Jackson 2026-06-30) — no longer floats top-right over the table. In
+            focused mode the board's own bottom toolbar carries the TABLE toggle;
+            in table mode the switcher lives in the unified toolbar (TableChrome). */}
         {/* Banners — pinned bottom-left on ALL desktop modes (focused + table) so
             they never float over a surface's pinned top. In table mode the
             unified TableShell owns the top (MetricsStrip + workbar); a top-flowing

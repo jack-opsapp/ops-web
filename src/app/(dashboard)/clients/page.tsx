@@ -325,7 +325,7 @@ export default function ClientsPage() {
     <div className="flex h-full min-h-0 flex-col">
       <TableShell
         metrics={<MetricsStrip metrics={metricCells} isLoading={showLoading} ariaLabel={t("title")} />}
-        workbar={
+        toolbar={
           <TableWorkbar>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
