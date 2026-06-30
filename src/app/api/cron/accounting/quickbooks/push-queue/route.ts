@@ -1127,3 +1127,11 @@ export async function POST(request: Request) {
 
   return NextResponse.json(summarize(workerId, results));
 }
+
+// Vercel Cron invokes a scheduled endpoint with a GET request, so the schedule
+// registered in vercel.json must reach a GET handler — a POST-only route is
+// silently answered with 405 and the queue never drains. Delegate to the POST
+// implementation; manual operators and the test harness still call POST.
+export async function GET(request: Request) {
+  return POST(request);
+}
