@@ -37,6 +37,9 @@ import { PipelineUndoToast } from "./pipeline-undo-toast";
 import { PipelineViewCreateDialog } from "./pipeline-view-create-dialog";
 import { PipelineViewSettingsMenu } from "./pipeline-view-settings-menu";
 import { PipelineViewTabs } from "./pipeline-view-tabs";
+import { TableShell } from "@/components/ui/table-shell";
+import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
+import type { MetricColumnConfig } from "@/components/metrics/types";
 
 // Stable empty collapsed-stage set. Used to derive the selection-order list
 // (`selectableRowIds`) from `buildFlattenedRows` with grouping applied but NO
@@ -133,7 +136,11 @@ function viewPersistenceErrorCopyKey(error: unknown) {
  * Density defaults to "compact" (the field-dense default for this surface);
  * it is driven inline from the toolbar via `useTableZoom().setPreset`.
  */
-export function PipelineTableShell() {
+export function PipelineTableShell({
+  pipelineMetrics,
+}: {
+  pipelineMetrics?: MetricColumnConfig[];
+}) {
   const { t } = useDictionary("pipeline");
 
   const [search, setSearch] = useState("");
@@ -687,81 +694,110 @@ export function PipelineTableShell() {
     displayRows.length > 0;
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col px-3 pb-3 pt-[112px]">
-      {/* pt-[112px] clears the floating page HUD (metrics header + mode
-          switcher), mirroring PipelineFocusedShell's SPINE_RAIL_CHROME. */}
-      <PipelineViewTabs
-        views={views}
-        activeViewId={activeViewId}
-        onViewChange={handleViewChange}
-        onCreateView={() => setCreateDialogOpen(true)}
-        onArchiveView={(view) => {
-          void handleInlineArchiveView(view);
-        }}
-        isLoading={viewsQuery.isLoading}
-        isError={viewsQuery.isError}
-      />
-      <PipelineToolbar
-        search={search}
-        onSearchChange={setSearch}
-        dealCount={totalCount}
-        grouped={grouped}
-        onGroupedChange={setGrouped}
-        closedDeals={closedDeals}
-        onClosedDealsChange={setClosedDeals}
-        density={density}
-        onDensityChange={handleDensityChange}
-        densityDisabled={densitySaving || viewActions.updateViewDefinition.isPending}
-        searchInputRef={searchInputRef}
-        saveAffordance={
-          activeView ? (
-            <>
-              {hasUnsavedDefinition ? (
-                <button
-                  type="button"
-                  disabled={viewDefinitionSaving || viewActions.updateViewDefinition.isPending}
-                  onClick={() => {
-                    void persistPendingViewDefinition();
-                  }}
-                  className="inline-flex h-[28px] items-center gap-1 rounded border border-ops-accent bg-ops-accent px-2 font-cakemono text-cake-button font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
-                >
-                  <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
-                  {t("table.views.save")}
-                </button>
-              ) : null}
-              {viewSaveErrorKey ? (
-                <span role="alert" className="font-mono text-micro text-rose">
-                  {t(viewSaveErrorKey)}
-                </span>
-              ) : null}
-              {densityErrorKey ? (
-                <span role="alert" className="font-mono text-micro text-rose">
-                  {t(densityErrorKey)}
-                </span>
-              ) : null}
-            </>
-          ) : null
-        }
-        viewSettings={
-          <PipelineViewSettingsMenu
-            activeView={activeView}
-            actions={viewActionsWithPendingDefinition}
-            onViewRenamed={handleViewUpdated}
-            onViewDuplicated={handleViewCreated}
-            onViewArchived={handleViewArchived}
-            onViewReset={handleViewUpdated}
-            onViewShared={handleViewUpdated}
+    // Unified TableShell (WEB OVERHAUL P6-2). The grid keeps ALL its power
+    // features: PipelineTable still owns its own scroll container + virtualizer +
+    // stage-group interleaving + frozen columns + inline edit — the shell body is
+    // a non-scrolling flex column (bodyClassName overflow-hidden) that
+    // PipelineTable fills and scrolls inside. Metrics move off the page-level
+    // MetricsHeader onto the one shared MetricsStrip (the focused/kanban mode keeps
+    // its own HUD — see pipeline/page.tsx). The outer wrapper no longer carries a
+    // top inset: the page now only floats the compact mode switcher over table
+    // mode (MetricsHeader is suppressed there), so the shell fills its frame.
+    // The shell takes `flex-1 min-h-0` (over its own `h-full` base) so the
+    // grand-total footer — a shrink-0 sibling below — keeps its band.
+    <div className="relative flex h-full min-h-0 flex-col">
+      <TableShell
+        viewTabs={
+          <PipelineViewTabs
+            views={views}
+            activeViewId={activeViewId}
+            onViewChange={handleViewChange}
+            onCreateView={() => setCreateDialogOpen(true)}
+            onArchiveView={(view) => {
+              void handleInlineArchiveView(view);
+            }}
+            isLoading={viewsQuery.isLoading}
+            isError={viewsQuery.isError}
           />
         }
-      />
-      {unavailableViewId ? (
-        <div
-          role="alert"
-          className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-[0.16em] text-rose"
-        >
-          {t("table.views.unavailable")}
-        </div>
-      ) : null}
+        metrics={
+          <MetricsStrip
+            metrics={fromMetricColumns(pipelineMetrics ?? [])}
+            isLoading={pipelineMetrics == null}
+            ariaLabel={t("table.gridLabel")}
+          />
+        }
+        workbar={
+          <PipelineToolbar
+            search={search}
+            onSearchChange={setSearch}
+            dealCount={totalCount}
+            grouped={grouped}
+            onGroupedChange={setGrouped}
+            closedDeals={closedDeals}
+            onClosedDealsChange={setClosedDeals}
+            density={density}
+            onDensityChange={handleDensityChange}
+            densityDisabled={densitySaving || viewActions.updateViewDefinition.isPending}
+            searchInputRef={searchInputRef}
+            saveAffordance={
+              activeView ? (
+                <>
+                  {hasUnsavedDefinition ? (
+                    <button
+                      type="button"
+                      disabled={viewDefinitionSaving || viewActions.updateViewDefinition.isPending}
+                      onClick={() => {
+                        void persistPendingViewDefinition();
+                      }}
+                      className="inline-flex h-[28px] items-center gap-1 rounded border border-ops-accent bg-ops-accent px-2 font-cakemono text-cake-button font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
+                      {t("table.views.save")}
+                    </button>
+                  ) : null}
+                  {viewSaveErrorKey ? (
+                    <span role="alert" className="font-mono text-micro text-rose">
+                      {t(viewSaveErrorKey)}
+                    </span>
+                  ) : null}
+                  {densityErrorKey ? (
+                    <span role="alert" className="font-mono text-micro text-rose">
+                      {t(densityErrorKey)}
+                    </span>
+                  ) : null}
+                </>
+              ) : null
+            }
+            viewSettings={
+              <PipelineViewSettingsMenu
+                activeView={activeView}
+                actions={viewActionsWithPendingDefinition}
+                onViewRenamed={handleViewUpdated}
+                onViewDuplicated={handleViewCreated}
+                onViewArchived={handleViewArchived}
+                onViewReset={handleViewUpdated}
+                onViewShared={handleViewUpdated}
+              />
+            }
+          />
+        }
+        banner={
+          unavailableViewId ? (
+            <div
+              role="alert"
+              className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-[0.16em] text-rose"
+            >
+              {t("table.views.unavailable")}
+            </div>
+          ) : undefined
+        }
+        className="min-h-0 flex-1"
+        bodyClassName="flex min-h-0 flex-col overflow-hidden"
+      >
+        {body}
+      </TableShell>
+
       <PipelineViewCreateDialog
         open={createDialogOpen}
         mode="create"
@@ -770,7 +806,6 @@ export function PipelineTableShell() {
         onOpenChange={setCreateDialogOpen}
         onViewCreated={handleViewCreated}
       />
-      <div className="flex min-h-0 flex-1 flex-col">{body}</div>
       {showFooter ? <PipelineTableFooter total={total} /> : null}
       <PipelineUndoToast
         entry={latestUndo}

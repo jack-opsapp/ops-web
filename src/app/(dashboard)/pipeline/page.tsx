@@ -944,7 +944,7 @@ export default function PipelinePage() {
                 data-pipeline-mode-surface="table"
                 className="absolute inset-0"
               >
-                <PipelineTableShell />
+                <PipelineTableShell pipelineMetrics={pipelineMetrics} />
               </motion.div>
             ) : (
               <motion.div
@@ -1016,16 +1016,22 @@ export default function PipelinePage() {
 
       {/* ── Page HUD — metrics, toolbar, banners float on top of canvas ── */}
       <div className="pointer-events-none absolute left-0 right-0 top-0 z-[2]">
-        <div className="pointer-events-auto">
-          <MetricsHeader
-            variant="full"
-            tabId="pipeline"
-            title="Pipeline"
-            metrics={pipelineMetrics}
-            isLoading={pipelineMetricsLoading}
-            slashLabels
-          />
-        </div>
+        {/* Floating metrics HUD — ONLY for the focused/kanban surface. In table
+            mode the metrics now live inside the unified TableShell's MetricsStrip
+            (WEB OVERHAUL P6-2), so suppress the page-level header there to avoid
+            doubling the metrics. The mode switcher + banners below stay in both. */}
+        {effectiveMode !== "table" && (
+          <div className="pointer-events-auto">
+            <MetricsHeader
+              variant="full"
+              tabId="pipeline"
+              title="Pipeline"
+              metrics={pipelineMetrics}
+              isLoading={pipelineMetricsLoading}
+              slashLabels
+            />
+          </div>
+        )}
         {/* Mode switcher — focused | table (flag-gated; hidden entirely off) */}
         {tableFlag && !isMobile && (
           <div className="pointer-events-auto flex justify-end px-3 pt-1">
