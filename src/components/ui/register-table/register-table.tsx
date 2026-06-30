@@ -91,11 +91,11 @@ export function RegisterTable<Row>({
                   scope="col"
                   className={cn(
                     "px-2 py-1.5 text-left align-middle font-mono text-micro font-normal uppercase tracking-[0.16em] text-text-3",
-                    // In a TableShell scroll body the header pins over a glass-dense
-                    // backing (DESIGN.md §5 stacked-layer surface) so rows scroll
-                    // cleanly beneath it — identical pin behavior to the table-v2 grids.
-                    inShell &&
-                      "sticky top-0 z-[5] border-b border-border bg-[var(--glass-dense)] backdrop-blur-[28px]",
+                    // In a TableShell scroll body the header pins over an opaque
+                    // canvas backing so rows scroll cleanly beneath it — the same
+                    // `bg-background` masking the table-v2 grids use, for one
+                    // consistent sticky-header treatment across all five surfaces.
+                    inShell && "sticky top-0 z-[5] border-b border-border bg-background",
                     col.align === "right" && "text-right",
                     col.className,
                   )}
