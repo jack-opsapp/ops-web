@@ -27,7 +27,9 @@ export function CellDate({
   const { t } = useDictionary("pipeline");
 
   if (!overdue) {
-    return <span className="font-mono tabular-nums text-text-2">{formatDate(value)}</span>;
+    return (
+      <span className="block truncate font-mono tabular-nums text-text-2">{formatDate(value)}</span>
+    );
   }
 
   const ariaLabel =
@@ -35,17 +37,15 @@ export function CellDate({
       ? t("table.signal.closeOverdueAria")
       : t("table.signal.followUpOverdueAria");
 
+  // Overdue = rose date + a 12px AlertTriangle. The icon + color carry the signal
+  // (a non-color cue, so color-independence holds); the verbose `[OVERDUE]` bracket
+  // was dropped — it overflowed the 130px date column into the next cell. The
+  // sr-only label keeps the meaning for screen readers (WEB OVERHAUL P6-2 rework).
   return (
-    <span className="flex min-w-0 items-center gap-1.5 text-rose" title={ariaLabel}>
+    <span className={cn("flex min-w-0 items-center gap-1.5 text-rose")} title={ariaLabel}>
       <AlertTriangle aria-hidden="true" className="size-3 shrink-0" strokeWidth={2} />
-      <span className="font-mono tabular-nums">{formatDate(value)}</span>
-      <span
-        className={cn("font-mono text-micro uppercase tracking-[0.16em]")}
-        role="img"
-        aria-label={ariaLabel}
-      >
-        {t("table.signal.overdue")}
-      </span>
+      <span className="truncate font-mono tabular-nums">{formatDate(value)}</span>
+      <span className="sr-only">{ariaLabel}</span>
     </span>
   );
 }
