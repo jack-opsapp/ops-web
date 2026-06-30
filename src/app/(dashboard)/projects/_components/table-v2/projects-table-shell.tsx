@@ -32,6 +32,9 @@ import { ProjectsUndoToast } from "./projects-undo-toast";
 import { ProjectsViewCreateDialog } from "./projects-view-create-dialog";
 import { ProjectsViewSettingsMenu } from "./projects-view-settings-menu";
 import { ProjectsViewTabs } from "./projects-view-tabs";
+import { TableShell } from "@/components/ui/table-shell";
+import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
+import type { MetricColumnConfig } from "@/components/metrics/types";
 
 function sortProjectViews(views: ProjectTableViewDefinition[]) {
   return [...views].sort((a, b) => {
@@ -157,7 +160,7 @@ function buildComparableDefinition(
   };
 }
 
-export function ProjectsTableShell() {
+export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: MetricColumnConfig[] }) {
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<ProjectTableSort[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -467,80 +470,104 @@ export function ProjectsTableShell() {
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-      <ProjectsViewTabs
-        views={views}
-        activeViewId={activeViewId}
-        onViewChange={handleViewChange}
-        onCreateView={() => setCreateDialogOpen(true)}
-        onArchiveView={(view) => {
-          void handleInlineArchiveView(view);
-        }}
-        isLoading={viewsQuery.isLoading}
-        isError={viewsQuery.isError}
-      />
-      <ProjectsToolbar
-        search={search}
-        onSearchChange={setSearch}
-        rowCount={tableQuery.rows.length}
-        totalCount={tableQuery.totalCount}
-        searchInputRef={searchInputRef}
-        densityControl={
-          pendingEffectiveView ? (
-            <>
-              {hasUnsavedDefinition ? (
-                <button
-                  type="button"
-                  disabled={viewDefinitionSaving || viewActions.updateViewDefinition.isPending}
-                  onClick={() => {
-                    void persistPendingViewDefinition();
-                  }}
-                  className="inline-flex h-[28px] items-center gap-1 rounded border border-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
-                >
-                  <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
-                  {t("table.views.save")}
-                </button>
-              ) : null}
-              {viewSaveErrorKey ? (
-                <span role="alert" className="font-mono text-micro text-rose">
-                  {t(viewSaveErrorKey)}
-                </span>
-              ) : null}
-              <ProjectsDensityControl
-                density={zoom.density}
-                zoom={zoom.zoom}
-                disabled={densitySaving || viewActions.updateViewDefinition.isPending}
-                errorKey={densityErrorKey}
-                onDensityChange={(density) => {
-                  void zoom.setPreset(density);
-                }}
-                onZoomChange={(zoomLevel) => {
-                  void zoom.setZoomLevel(zoomLevel);
-                }}
-              />
-            </>
-          ) : null
-        }
-        viewSettings={
-          <ProjectsViewSettingsMenu
-            activeView={pendingEffectiveView}
-            actions={viewActionsWithPendingDefinition}
-            onViewRenamed={handleViewUpdated}
-            onViewDuplicated={handleViewCreated}
-            onViewArchived={handleViewArchived}
-            onViewReset={handleViewUpdated}
-            onViewShared={handleViewUpdated}
+    // Unified TableShell (WEB OVERHAUL P6-2). The grid keeps ALL its power
+    // features: ProjectsTable still owns its own scroll container + virtualizer +
+    // frozen columns + inline edit — the shell body is a non-scrolling flex column
+    // (bodyClassName overflow-hidden) that ProjectsTable fills and scrolls inside.
+    // Metrics move off the page-level MetricsHeader onto the one shared MetricsStrip.
+    <div className="relative flex h-full min-h-0 flex-col">
+      <TableShell
+        viewTabs={
+          <ProjectsViewTabs
+            views={views}
+            activeViewId={activeViewId}
+            onViewChange={handleViewChange}
+            onCreateView={() => setCreateDialogOpen(true)}
+            onArchiveView={(view) => {
+              void handleInlineArchiveView(view);
+            }}
+            isLoading={viewsQuery.isLoading}
+            isError={viewsQuery.isError}
           />
         }
-      />
-      {unavailableViewId ? (
-        <div
-          role="alert"
-          className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-wider text-rose"
-        >
-          {t("table.views.unavailable")}
-        </div>
-      ) : null}
+        metrics={
+          <MetricsStrip
+            metrics={fromMetricColumns(projectMetrics ?? [])}
+            isLoading={projectMetrics == null}
+            ariaLabel={t("table.gridLabel")}
+          />
+        }
+        workbar={
+          <ProjectsToolbar
+            search={search}
+            onSearchChange={setSearch}
+            rowCount={tableQuery.rows.length}
+            totalCount={tableQuery.totalCount}
+            searchInputRef={searchInputRef}
+            densityControl={
+              pendingEffectiveView ? (
+                <>
+                  {hasUnsavedDefinition ? (
+                    <button
+                      type="button"
+                      disabled={viewDefinitionSaving || viewActions.updateViewDefinition.isPending}
+                      onClick={() => {
+                        void persistPendingViewDefinition();
+                      }}
+                      className="inline-flex h-[28px] items-center gap-1 rounded border border-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
+                      {t("table.views.save")}
+                    </button>
+                  ) : null}
+                  {viewSaveErrorKey ? (
+                    <span role="alert" className="font-mono text-micro text-rose">
+                      {t(viewSaveErrorKey)}
+                    </span>
+                  ) : null}
+                  <ProjectsDensityControl
+                    density={zoom.density}
+                    zoom={zoom.zoom}
+                    disabled={densitySaving || viewActions.updateViewDefinition.isPending}
+                    errorKey={densityErrorKey}
+                    onDensityChange={(density) => {
+                      void zoom.setPreset(density);
+                    }}
+                    onZoomChange={(zoomLevel) => {
+                      void zoom.setZoomLevel(zoomLevel);
+                    }}
+                  />
+                </>
+              ) : null
+            }
+            viewSettings={
+              <ProjectsViewSettingsMenu
+                activeView={pendingEffectiveView}
+                actions={viewActionsWithPendingDefinition}
+                onViewRenamed={handleViewUpdated}
+                onViewDuplicated={handleViewCreated}
+                onViewArchived={handleViewArchived}
+                onViewReset={handleViewUpdated}
+                onViewShared={handleViewUpdated}
+              />
+            }
+          />
+        }
+        banner={
+          unavailableViewId ? (
+            <div
+              role="alert"
+              className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-wider text-rose"
+            >
+              {t("table.views.unavailable")}
+            </div>
+          ) : undefined
+        }
+        bodyClassName="flex min-h-0 flex-col overflow-hidden"
+      >
+        {body}
+      </TableShell>
+
       <ProjectsViewCreateDialog
         open={createDialogOpen}
         mode="create"
@@ -548,11 +575,6 @@ export function ProjectsTableShell() {
         actions={viewActions}
         onOpenChange={setCreateDialogOpen}
         onViewCreated={handleViewCreated}
-      />
-      {body}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-40 h-12 bg-gradient-to-b from-transparent via-background/70 to-background"
       />
       {visibleSelectedCount > 0 ? (
         <ProjectsBulkBar

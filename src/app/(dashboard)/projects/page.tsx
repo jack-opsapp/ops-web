@@ -881,11 +881,10 @@ export default function ProjectsPage() {
 
       {/* ── Spreadsheet — alternative view ── */}
       {viewMode === "spreadsheet" && projectsTableV2Enabled && (
-        <div className="absolute inset-0 flex flex-col overflow-hidden p-3">
-          <MetricsHeader variant="compact" tabId="projects" title="Projects" metrics={projectMetrics ?? []} />
-          <div className="mt-2 min-h-0 flex-1">
-            <ProjectsTableShell />
-          </div>
+        // Spreadsheet metrics now live inside the unified TableShell's MetricsStrip
+        // (P6-2). The canvas/map HUD keep their own MetricsHeader — different context.
+        <div className="absolute inset-0 overflow-hidden p-3">
+          <ProjectsTableShell projectMetrics={projectMetrics ?? []} />
         </div>
       )}
 
