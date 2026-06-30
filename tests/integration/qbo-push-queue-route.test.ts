@@ -261,6 +261,17 @@ async function loadPost() {
   return (await import("@/app/api/cron/accounting/quickbooks/push-queue/route")).POST;
 }
 
+async function loadGet() {
+  return (await import("@/app/api/cron/accounting/quickbooks/push-queue/route")).GET;
+}
+
+function authorizedGetRequest(secret = "cron-secret") {
+  return new Request("http://localhost/api/cron/accounting/quickbooks/push-queue", {
+    method: "GET",
+    headers: { authorization: `Bearer ${secret}` },
+  }) as never;
+}
+
 describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -1409,6 +1420,32 @@ describe("POST /api/cron/accounting/quickbooks/push-queue", () => {
       "QuickBooks estimate void requires operator review",
       expect.anything(),
     );
+  });
+
+  // Vercel Cron invokes a scheduled endpoint with GET. A POST-only route is
+  // answered 405 and the queue silently never drains, so the GET handler must
+  // reach the same worker as POST. [regression: cron worker never ran]
+  it("GET (the Vercel cron invocation) reaches the worker and claims rows when the write gate is true", async () => {
+    process.env.ACCOUNTING_WRITE_ENABLED = "true";
+    const GET = await loadGet();
+    const res = await GET(authorizedGetRequest());
+
+    expect(res.status).toBe(200);
+    expect(claimDue).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "quickbooks", limit: 25 }),
+    );
+  });
+
+  it("GET returns 401 for unauthorized requests and does not claim", async () => {
+    const GET = await loadGet();
+    const res = await GET(
+      new Request("http://localhost/api/cron/accounting/quickbooks/push-queue", {
+        method: "GET",
+      }) as never,
+    );
+
+    expect(res.status).toBe(401);
+    expect(claimDue).not.toHaveBeenCalled();
   });
 
   it("deletes linked estimates in QuickBooks with the current SyncToken", async () => {
