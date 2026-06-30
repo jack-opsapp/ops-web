@@ -12,7 +12,7 @@
  * config/trash icons collapse to one labelled ACTIONS overflow (DESIGN.md §11).
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Package, Sliders, Trash2, Star, Plus } from "lucide-react";
@@ -23,6 +23,7 @@ import {
   Tag,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
+import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import {
@@ -64,6 +65,8 @@ export interface ProductsSegmentProps {
   onSegmentChange: (s: CatalogSegment) => void;
   initialFilter: string | null;
   configCounts: Map<string, ProductConfigCount> | undefined;
+  /** The shared supply MetricsStrip, pinned at the top of the TableShell. */
+  metrics: ReactNode;
 }
 
 export function ProductsSegment({
@@ -73,6 +76,7 @@ export function ProductsSegment({
   onSegmentChange,
   initialFilter,
   configCounts,
+  metrics,
 }: ProductsSegmentProps) {
   const { t } = useDictionary("catalog");
   const router = useRouter();
@@ -327,55 +331,61 @@ export function ProductsSegment({
   ];
 
   return (
-    <div className="space-y-[14px]">
-      {/* Workbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <CatalogSegmentControl options={segmentOptions} value={activeSegment} onChange={onSegmentChange} />
-        <div className="flex items-center gap-2">
-          <SearchInput
-            placeholder={t("products.search", "Search products…")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            wrapperClassName="w-[220px] max-w-full"
-          />
-          {canManage && (
-            <Button variant="primary" size="sm" type="button" onClick={() => setAddOpen(true)}>
-              <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
-              {t("stock.add", "ADD")}
-            </Button>
-          )}
-          <CatalogKebab segment="products" rows={[]} />
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-[12px]">
-        <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
-        <span className="font-mono text-micro text-text-3 tabular-nums">
-          {t("products.count", { n: filtered.length })}
-        </span>
-      </div>
-
-      {/* Table */}
-      {isLoading ? (
-        <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="glass-surface h-[48px]" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <RegisterEmpty
-          noun={search || filter !== "all" ? t("products.empty.matches") : t("products.empty.noun")}
-        />
-      ) : (
+    <>
+      <TableShell
+        metrics={metrics}
+        workbar={
+          <TableWorkbar>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CatalogSegmentControl options={segmentOptions} value={activeSegment} onChange={onSegmentChange} />
+              <div className="flex items-center gap-2">
+                <SearchInput
+                  placeholder={t("products.search", "Search products…")}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  wrapperClassName="w-[220px] max-w-full"
+                />
+                {canManage && (
+                  <Button variant="primary" size="sm" type="button" onClick={() => setAddOpen(true)}>
+                    <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+                    {t("stock.add", "ADD")}
+                  </Button>
+                )}
+                <CatalogKebab segment="products" rows={[]} />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-[12px]">
+              <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
+              <span className="font-mono text-micro text-text-3 tabular-nums">
+                {t("products.count", { n: filtered.length })}
+              </span>
+            </div>
+          </TableWorkbar>
+        }
+        isEmpty={isLoading || filtered.length === 0}
+        emptyState={
+          isLoading ? (
+            <div className="animate-pulse space-y-[2px] p-3 motion-reduce:animate-none">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="glass-surface h-[48px]" />
+              ))}
+            </div>
+          ) : (
+            <RegisterEmpty
+              noun={search || filter !== "all" ? t("products.empty.matches") : t("products.empty.noun")}
+            />
+          )
+        }
+      >
         <RegisterTable<Product>
           columns={columns}
           rows={filtered}
           getRowId={(p) => p.id}
           onRowClick={(p) => router.push(`/catalog/products/${p.id}`)}
           ariaLabel={t("segment.products", "Products")}
+          inShell
         />
-      )}
+      </TableShell>
 
       <ConfirmDialog
         open={!!toDelete}
@@ -400,6 +410,6 @@ export function ProductsSegment({
           }}
         />
       )}
-    </div>
+    </>
   );
 }

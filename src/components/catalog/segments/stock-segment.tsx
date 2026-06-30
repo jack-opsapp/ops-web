@@ -13,7 +13,7 @@
  * (RegisterTable models flat rows, not grouping).
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import {
   RegisterTable,
@@ -23,6 +23,7 @@ import {
   type RegisterTableColumn,
   type TagProps,
 } from "@/components/ui/register-table";
+import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -91,6 +92,8 @@ export interface StockSegmentProps {
   onCreateHandled: () => void;
   rows: CatalogStockRow[];
   loading: boolean;
+  /** The shared supply MetricsStrip, pinned at the top of the TableShell. */
+  metrics: ReactNode;
 }
 
 const GROUP_KEY = "catalog.groupByFamily";
@@ -108,6 +111,7 @@ export function StockSegment({
   onCreateHandled,
   rows,
   loading,
+  metrics,
 }: StockSegmentProps) {
   const { t } = useDictionary("catalog");
   const can = usePermissionStore((s) => s.can);
@@ -271,19 +275,24 @@ export function StockSegment({
   );
 
   // ── Counts view short-circuit ─────────────────────────────────────────────
+  // The snapshots/counts flow is its own surface (not a register table), so it
+  // doesn't host a TableShell — but it still scrolls inside the fixed-viewport
+  // parent rather than growing the page (WEB OVERHAUL P6-2).
   if (view === "counts") {
     return (
-      <SnapshotsView
-        segmentControl={
-          <CatalogSegmentControl
-            options={segmentOptions}
-            value={activeSegment}
-            onChange={onSegmentChange}
-          />
-        }
-        rows={rows}
-        onClose={onCloseCounts}
-      />
+      <div className="min-h-0 flex-1 overflow-auto">
+        <SnapshotsView
+          segmentControl={
+            <CatalogSegmentControl
+              options={segmentOptions}
+              value={activeSegment}
+              onChange={onSegmentChange}
+            />
+          }
+          rows={rows}
+          onClose={onCloseCounts}
+        />
+      </div>
     );
   }
 
@@ -295,144 +304,157 @@ export function StockSegment({
     />
   );
 
-  return (
-    <div className="space-y-[14px]">
-      {/* Workbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {segmentControl}
-        <div className="flex items-center gap-2">
-          {drilled ? (
-            <>
-              <Button variant="secondary" size="sm" onClick={copyList}>
-                {t("stock.copyList", "COPY LIST")}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => window.print()}>
-                {t("stock.print", "PRINT")}
-              </Button>
-            </>
-          ) : (
-            <>
-              <SearchInput
-                placeholder={t("stock.search", "Search stock…")}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                wrapperClassName="w-[220px] max-w-full"
-              />
-              {canManage && (
-                <Button variant="primary" size="sm" type="button" onClick={() => setAddOpen(true)}>
-                  <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
-                  {t("stock.add", "ADD")}
-                </Button>
-              )}
-              <CatalogKebab segment="stock" rows={rows} />
-            </>
-          )}
-        </div>
-      </div>
+  const isBodyEmpty = loading || filtered.length === 0;
 
-      {/* Filter line */}
-      <div className="flex flex-wrap items-center gap-[12px]">
-        {drilled ? (
-          <>
-            <DrillChip label={t("filter.belowThreshold", "BELOW THRESHOLD")} onClear={onClearDrill} />
-            <span className="font-mono text-micro text-text-3 tabular-nums">
-              {t("stock.criticalFirst", { n: filtered.length, total: rows.length })}
-            </span>
-            {buyTotal && (
-              <span className="ml-auto font-mono text-micro uppercase tracking-[0.08em] text-text-3 tabular-nums">
-                {t("stock.buyToThreshold", "BUY TO THRESHOLD")} ::{" "}
-                <span className="text-text-2">{fmtMoney(buyTotal.total)}</span>
-                {buyTotal.uncosted > 0 && (
+  return (
+    <>
+      <TableShell
+        metrics={metrics}
+        workbar={
+          <TableWorkbar>
+            {/* Row 1 — segment control + actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {segmentControl}
+              <div className="flex items-center gap-2">
+                {drilled ? (
                   <>
-                    {" · "}
-                    <span className="text-tan">{t("stock.uncosted", { n: buyTotal.uncosted })}</span>
+                    <Button variant="secondary" size="sm" onClick={copyList}>
+                      {t("stock.copyList", "COPY LIST")}
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => window.print()}>
+                      {t("stock.print", "PRINT")}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <SearchInput
+                      placeholder={t("stock.search", "Search stock…")}
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      wrapperClassName="w-[220px] max-w-full"
+                    />
+                    {canManage && (
+                      <Button variant="primary" size="sm" type="button" onClick={() => setAddOpen(true)}>
+                        <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+                        {t("stock.add", "ADD")}
+                      </Button>
+                    )}
+                    <CatalogKebab segment="stock" rows={rows} />
                   </>
                 )}
-              </span>
-            )}
-          </>
-        ) : (
-          <>
-            <FilterChips options={categoryOptions} value={categoryFilter} onChange={setCategoryFilter} />
-            <span className="font-mono text-micro text-text-3 tabular-nums">
-              {t("stock.skuCount", { n: filtered.length })}
-            </span>
-            <button
-              type="button"
-              onClick={toggleGroup}
-              className={cn(
-                "ml-auto inline-flex h-3 items-center rounded-chip border px-1",
-                "font-mono text-micro font-medium uppercase tracking-[0.12em]",
-                "transition-colors duration-150 ease-smooth",
-                effectiveGroup
-                  ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
-                  : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2",
+              </div>
+            </div>
+
+            {/* Row 2 — filter / drill line */}
+            <div className="flex flex-wrap items-center gap-[12px]">
+              {drilled ? (
+                <>
+                  <DrillChip label={t("filter.belowThreshold", "BELOW THRESHOLD")} onClear={onClearDrill} />
+                  <span className="font-mono text-micro text-text-3 tabular-nums">
+                    {t("stock.criticalFirst", { n: filtered.length, total: rows.length })}
+                  </span>
+                  {buyTotal && (
+                    <span className="ml-auto font-mono text-micro uppercase tracking-[0.08em] text-text-3 tabular-nums">
+                      {t("stock.buyToThreshold", "BUY TO THRESHOLD")} ::{" "}
+                      <span className="text-text-2">{fmtMoney(buyTotal.total)}</span>
+                      {buyTotal.uncosted > 0 && (
+                        <>
+                          {" · "}
+                          <span className="text-tan">{t("stock.uncosted", { n: buyTotal.uncosted })}</span>
+                        </>
+                      )}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <FilterChips options={categoryOptions} value={categoryFilter} onChange={setCategoryFilter} />
+                  <span className="font-mono text-micro text-text-3 tabular-nums">
+                    {t("stock.skuCount", { n: filtered.length })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={toggleGroup}
+                    className={cn(
+                      "ml-auto inline-flex h-3 items-center rounded-chip border px-1",
+                      "font-mono text-micro font-medium uppercase tracking-[0.12em]",
+                      "transition-colors duration-150 ease-smooth",
+                      effectiveGroup
+                        ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
+                        : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2",
+                    )}
+                  >
+                    {t("stock.group", "GROUP :: FAMILY")}
+                  </button>
+                </>
               )}
-            >
-              {t("stock.group", "GROUP :: FAMILY")}
-            </button>
-          </>
-        )}
-      </div>
+            </div>
 
-      {/* Bulk bar */}
-      {selectedIds.size > 0 && canManage && (
-        <div className="flex items-center gap-3 rounded-panel border border-border bg-surface-hover-subtle px-3 py-1.5">
-          <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-2 tabular-nums">
-            {t("bulk.selected", { n: selectedIds.size })}
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-rose hover:text-rose"
-            onClick={() => setConfirmBulkDelete(true)}
-          >
-            {t("bulk.delete", "DELETE")}
-          </Button>
-        </div>
-      )}
-
-      {/* Table + drawer */}
-      <div
-        className={cn(
-          "grid gap-4",
-          drawerRow ? "grid-cols-1 xl:grid-cols-[1fr_312px]" : "grid-cols-1",
-        )}
+            {/* Row 3 — bulk bar (pinned so the selection stays visible while scrolling) */}
+            {selectedIds.size > 0 && canManage && (
+              <div className="flex items-center gap-3 rounded-panel border border-border bg-surface-hover-subtle px-3 py-1.5">
+                <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-2 tabular-nums">
+                  {t("bulk.selected", { n: selectedIds.size })}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-rose hover:text-rose"
+                  onClick={() => setConfirmBulkDelete(true)}
+                >
+                  {t("bulk.delete", "DELETE")}
+                </Button>
+              </div>
+            )}
+          </TableWorkbar>
+        }
+        isEmpty={isBodyEmpty}
+        emptyState={
+          loading ? (
+            <div className="animate-pulse space-y-[2px] p-3 motion-reduce:animate-none">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="glass-surface h-[44px]" />
+              ))}
+            </div>
+          ) : (
+            <EmptyStock filtered={!!search || categoryFilter !== "all" || drilled} />
+          )
+        }
       >
-        {loading ? (
-          <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="glass-surface h-[44px]" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <EmptyStock filtered={!!search || categoryFilter !== "all" || drilled} />
-        ) : effectiveGroup ? (
-          <div className="glass-surface overflow-hidden">
-            <GroupedTable rows={filtered} onOpenDrawer={setDrawerVariantId} />
-          </div>
-        ) : (
-          <FlatTable
-            rows={filtered}
-            drilled={drilled}
-            canManage={canManage}
-            selectedIds={selectedIds}
-            allSelected={allSelected}
-            onToggleAll={toggleAll}
-            onToggleRow={toggleRow}
-            editId={editId}
-            onRequestEdit={setEditId}
-            onCommitQty={commitQty}
-            onCancelEdit={() => setEditId(null)}
-            onOpenDrawer={setDrawerVariantId}
-            activeDrawerId={drawerVariantId}
-          />
-        )}
+        {/* Table + drawer — the master-detail pair scrolls together in the body */}
+        <div
+          className={cn(
+            "grid gap-4 p-px",
+            drawerRow ? "grid-cols-1 xl:grid-cols-[1fr_312px]" : "grid-cols-1",
+          )}
+        >
+          {effectiveGroup ? (
+            <div className="glass-surface overflow-hidden">
+              <GroupedTable rows={filtered} onOpenDrawer={setDrawerVariantId} />
+            </div>
+          ) : (
+            <FlatTable
+              rows={filtered}
+              drilled={drilled}
+              canManage={canManage}
+              selectedIds={selectedIds}
+              allSelected={allSelected}
+              onToggleAll={toggleAll}
+              onToggleRow={toggleRow}
+              editId={editId}
+              onRequestEdit={setEditId}
+              onCommitQty={commitQty}
+              onCancelEdit={() => setEditId(null)}
+              onOpenDrawer={setDrawerVariantId}
+              activeDrawerId={drawerVariantId}
+            />
+          )}
 
-        {drawerRow && (
-          <StockDrawer row={drawerRow} canManage={canManage} onClose={() => setDrawerVariantId(null)} />
-        )}
-      </div>
+          {drawerRow && (
+            <StockDrawer row={drawerRow} canManage={canManage} onClose={() => setDrawerVariantId(null)} />
+          )}
+        </div>
+      </TableShell>
 
       <ConfirmDialog
         open={confirmBulkDelete}
@@ -453,7 +475,7 @@ export function StockSegment({
       />
 
       {addOpen && <AddStockDialog onClose={() => setAddOpen(false)} />}
-    </div>
+    </>
   );
 }
 
@@ -606,6 +628,7 @@ function FlatTable({
       isRowActive={(r) => r.variantId === activeDrawerId}
       minWidth={640}
       ariaLabel={t("segment.stock", "Stock")}
+      inShell
     />
   );
 }

@@ -180,21 +180,26 @@ export function CatalogPage() {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <SupplyStrip
-        loading={stockLoading}
-        health={health}
-        onHand={onHand}
-        lastCountDate={lastCountDate}
-        product={canProducts ? productAgg : null}
-        showStock={canStock}
-        showProducts={canProducts}
-        onDrillBelowThreshold={canStock ? drillBelowThreshold : undefined}
-        onOpenCounts={canStock ? openCounts : undefined}
-        onFixCosts={canProducts ? fixCosts : undefined}
-      />
+  // The supply strip is the active segment's pinned MetricsStrip (WEB OVERHAUL
+  // P6-2): the page no longer owns it as a separate scrolling row — each segment
+  // hosts it inside its TableShell so it stays fixed while the body scrolls.
+  const supplyStrip = (
+    <SupplyStrip
+      loading={stockLoading}
+      health={health}
+      onHand={onHand}
+      lastCountDate={lastCountDate}
+      product={canProducts ? productAgg : null}
+      showStock={canStock}
+      showProducts={canProducts}
+      onDrillBelowThreshold={canStock ? drillBelowThreshold : undefined}
+      onOpenCounts={canStock ? openCounts : undefined}
+      onFixCosts={canProducts ? fixCosts : undefined}
+    />
+  );
 
+  return (
+    <div className="flex h-full min-h-0 flex-col">
       {activeSegment === "stock" && canStock && (
         <StockSegment
           visibleSegments={visibleSegments}
@@ -209,6 +214,7 @@ export function CatalogPage() {
           onCreateHandled={() => updateParams({ action: null })}
           rows={stockRows}
           loading={stockLoading}
+          metrics={supplyStrip}
         />
       )}
 
@@ -220,6 +226,7 @@ export function CatalogPage() {
           onSegmentChange={handleSegmentChange}
           initialFilter={filterParam}
           configCounts={configCounts}
+          metrics={supplyStrip}
         />
       )}
 
