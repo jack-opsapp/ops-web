@@ -62,7 +62,7 @@ export function PipelineToolbar({
   const { t } = useDictionary("pipeline");
 
   return (
-    <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-0 py-[4px]">
+    <div className="flex min-w-0 items-center justify-between gap-2">
       {leading}
       <label className="flex h-[28px] min-w-[220px] flex-1 items-center gap-1.5 rounded border border-border bg-surface-input px-2 focus-within:ring-1 focus-within:ring-ops-accent">
         <Search className="h-[12px] w-[12px] shrink-0 text-text-3" strokeWidth={1.5} />

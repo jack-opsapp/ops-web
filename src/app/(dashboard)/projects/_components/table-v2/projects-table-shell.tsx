@@ -32,7 +32,7 @@ import { ProjectsUndoToast } from "./projects-undo-toast";
 import { ProjectsViewCreateDialog } from "./projects-view-create-dialog";
 import { ProjectsViewSettingsMenu } from "./projects-view-settings-menu";
 import { ProjectsViewTabs } from "./projects-view-tabs";
-import { TableShell, TableChrome } from "@/components/ui/table-shell";
+import { TableShell, TableChrome, TableWorkbar } from "@/components/ui/table-shell";
 import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
 import type { MetricColumnConfig } from "@/components/metrics/types";
 
@@ -438,19 +438,20 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
       }
       toolbar={
         <>
-          <ProjectsViewTabs
-            views={views}
-            activeViewId={activeViewId}
-            onViewChange={handleViewChange}
-            onCreateView={() => setCreateDialogOpen(true)}
-            onArchiveView={(view) => {
-              void handleInlineArchiveView(view);
-            }}
-            isLoading={viewsQuery.isLoading}
-            isError={viewsQuery.isError}
-          />
-          <ProjectsToolbar
-            search={search}
+          <TableWorkbar>
+            <ProjectsViewTabs
+              views={views}
+              activeViewId={activeViewId}
+              onViewChange={handleViewChange}
+              onCreateView={() => setCreateDialogOpen(true)}
+              onArchiveView={(view) => {
+                void handleInlineArchiveView(view);
+              }}
+              isLoading={viewsQuery.isLoading}
+              isError={viewsQuery.isError}
+            />
+            <ProjectsToolbar
+              search={search}
             onSearchChange={setSearch}
             rowCount={tableQuery.rows.length}
             totalCount={tableQuery.totalCount}
@@ -502,7 +503,8 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
                 onViewShared={handleViewUpdated}
               />
             }
-          />
+            />
+          </TableWorkbar>
           {unavailableViewId ? (
             <div
               role="alert"

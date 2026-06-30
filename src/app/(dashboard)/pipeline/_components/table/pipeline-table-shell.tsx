@@ -38,7 +38,7 @@ import { PipelineViewCreateDialog } from "./pipeline-view-create-dialog";
 import { PipelineViewSettingsMenu } from "./pipeline-view-settings-menu";
 import { PipelineViewTabs } from "./pipeline-view-tabs";
 import { PipelineModeSwitcher } from "../pipeline-mode-switcher";
-import { TableShell, TableChrome } from "@/components/ui/table-shell";
+import { TableShell, TableChrome, TableWorkbar } from "@/components/ui/table-shell";
 import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
 import type { MetricColumnConfig } from "@/components/metrics/types";
 
@@ -656,19 +656,20 @@ export function PipelineTableShell({
       }
       toolbar={
         <>
-          <PipelineViewTabs
-            views={views}
-            activeViewId={activeViewId}
-            onViewChange={handleViewChange}
-            onCreateView={() => setCreateDialogOpen(true)}
-            onArchiveView={(view) => {
-              void handleInlineArchiveView(view);
-            }}
-            isLoading={viewsQuery.isLoading}
-            isError={viewsQuery.isError}
-          />
-          <PipelineToolbar
-            search={search}
+          <TableWorkbar>
+            <PipelineViewTabs
+              views={views}
+              activeViewId={activeViewId}
+              onViewChange={handleViewChange}
+              onCreateView={() => setCreateDialogOpen(true)}
+              onArchiveView={(view) => {
+                void handleInlineArchiveView(view);
+              }}
+              isLoading={viewsQuery.isLoading}
+              isError={viewsQuery.isError}
+            />
+            <PipelineToolbar
+              search={search}
             onSearchChange={setSearch}
             dealCount={totalCount}
             grouped={grouped}
@@ -720,7 +721,8 @@ export function PipelineTableShell({
                 onViewShared={handleViewUpdated}
               />
             }
-          />
+            />
+          </TableWorkbar>
           {unavailableViewId ? (
             <div
               role="alert"
