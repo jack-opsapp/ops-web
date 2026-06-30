@@ -167,6 +167,9 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
       "expenses.approve",
       "accounting.view",
     ],
+    // Fixed-viewport so each segment hosts the unified TableShell (sticky header +
+    // pinned MetricsStrip + internal scroll body) — WEB OVERHAUL P6-2.
+    fullHeight: "padded",
   },
   {
     // CATALOG — the variant-aware price book + stock hub (P3.2). Absorbed
@@ -192,6 +195,9 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     // Any-of across the two segments' gates (mirrors iOS catalog access):
     // visible when the user can see catalog products OR stock.
     anyOfPermissions: ["catalog.products.view", "catalog.view"],
+    // Fixed-viewport so each segment hosts the unified TableShell (sticky header +
+    // pinned MetricsStrip + internal scroll body) — WEB OVERHAUL P6-2.
+    fullHeight: "padded",
   },
   {
     // /catalog/setup — the full-page Catalog Setup Wizard. NOT a nav entry
