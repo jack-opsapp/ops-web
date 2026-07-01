@@ -262,6 +262,59 @@ describe("QBO push mappers", () => {
     ]);
   });
 
+  it("synthesizes one non-taxable fallback line from the total when an invoice has no line items", () => {
+    const payload = mapInvoiceToQboInvoice({
+      invoice: {
+        id: "inv-legacy",
+        qbId: null,
+        docNumber: "INV-2025-00009",
+        total: 8500,
+        issueDate: "2025-10-12",
+        dueDate: "2025-11-12",
+      },
+      client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+      lineItems: [],
+      fallbackServiceItem,
+      taxCodeRefs: { nonTaxable: "NON" },
+    });
+
+    expect(payload.Line).toEqual([
+      expect.objectContaining({
+        DetailType: "SalesItemLineDetail",
+        Amount: 8500,
+        SalesItemLineDetail: expect.objectContaining({
+          ItemRef: { value: "1", name: "OPS Service" },
+          Qty: 1,
+          UnitPrice: 8500,
+          TaxCodeRef: { value: "NON" },
+        }),
+      }),
+    ]);
+  });
+
+  it("synthesizes one fallback line from the total when an estimate has no line items", () => {
+    const payload = mapEstimateToQboEstimate({
+      estimate: {
+        id: "est-legacy",
+        qbId: null,
+        docNumber: "EST-1",
+        total: 250,
+        issueDate: "2026-06-05",
+        expirationDate: "2026-07-05",
+      },
+      client: { id: "client-1", qbId: "44", name: "Maverick Projects" },
+      lineItems: [],
+      fallbackServiceItem,
+    });
+
+    expect(payload.Line).toEqual([
+      expect.objectContaining({
+        Amount: 250,
+        SalesItemLineDetail: expect.objectContaining({ ItemRef: { value: "1", name: "OPS Service" } }),
+      }),
+    ]);
+  });
+
   it("blocks invoice fallback lines when no concrete service item ref is available", () => {
     expect(() =>
       mapInvoiceToQboInvoice({
