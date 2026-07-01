@@ -23,7 +23,7 @@ import {
   Tag,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { TableShell, TableWorkbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   DropdownMenu,
@@ -334,32 +334,39 @@ export function ProductsSegment({
       <TableShell
         metrics={metrics}
         toolbar={
-          <TableWorkbar>
-            <div className="flex flex-wrap items-center justify-between gap-2">
+          // Canonical Workbar grammar: search left · filters after · kebab in
+          // tools · ADD rightmost. The PRODUCTS/STOCK segment moves to the row-2
+          // tab strip (it's sub-view navigation, not a list control).
+          <Workbar
+            search={
+              <SearchInput
+                placeholder={t("products.search", "Search products…")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                wrapperClassName="w-[240px] max-w-full"
+              />
+            }
+            filters={
+              <>
+                <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
+                <span className="font-mono text-micro text-text-3 tabular-nums">
+                  {t("products.count", { n: filtered.length })}
+                </span>
+              </>
+            }
+            tools={<CatalogKebab segment="products" rows={[]} />}
+            create={
+              canManage ? (
+                <WorkbarButton onClick={() => setAddOpen(true)}>
+                  <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+                  {t("stock.add", "ADD")}
+                </WorkbarButton>
+              ) : null
+            }
+            tabStrip={
               <CatalogSegmentControl options={segmentOptions} value={activeSegment} onChange={onSegmentChange} />
-              <div className="flex items-center gap-2">
-                <SearchInput
-                  placeholder={t("products.search", "Search products…")}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  wrapperClassName="w-[220px] max-w-full"
-                />
-                {canManage && (
-                  <WorkbarButton onClick={() => setAddOpen(true)}>
-                    <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
-                    {t("stock.add", "ADD")}
-                  </WorkbarButton>
-                )}
-                <CatalogKebab segment="products" rows={[]} />
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-[12px]">
-              <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
-              <span className="font-mono text-micro text-text-3 tabular-nums">
-                {t("products.count", { n: filtered.length })}
-              </span>
-            </div>
-          </TableWorkbar>
+            }
+          />
         }
         isEmpty={isLoading || filtered.length === 0}
         emptyState={

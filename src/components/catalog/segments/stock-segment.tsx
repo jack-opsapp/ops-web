@@ -23,7 +23,7 @@ import {
   type RegisterTableColumn,
   type TagProps,
 } from "@/components/ui/register-table";
-import { TableShell, TableWorkbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -311,50 +311,30 @@ export function StockSegment({
       <TableShell
         metrics={metrics}
         toolbar={
-          <TableWorkbar>
-            {/* Row 1 — segment control + actions */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {segmentControl}
-              <div className="flex items-center gap-2">
-                {drilled ? (
-                  <>
-                    <Button variant="secondary" size="sm" onClick={copyList}>
-                      {t("stock.copyList", "COPY LIST")}
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={() => window.print()}>
-                      {t("stock.print", "PRINT")}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <SearchInput
-                      placeholder={t("stock.search", "Search stock…")}
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      wrapperClassName="w-[220px] max-w-full"
-                    />
-                    {canManage && (
-                      <WorkbarButton onClick={() => setAddOpen(true)}>
-                        <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
-                        {t("stock.add", "ADD")}
-                      </WorkbarButton>
-                    )}
-                    <CatalogKebab segment="stock" rows={rows} />
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Row 2 — filter / drill line */}
-            <div className="flex flex-wrap items-center gap-[12px]">
-              {drilled ? (
+          // Canonical Workbar grammar. Normal: search left · category filters ·
+          // GROUP + kebab tools · ADD create · PRODUCTS/STOCK tab strip. The
+          // low-stock DRILL swaps search/create out for the drill readout + COPY
+          // LIST/PRINT actions. The pinned bulk bar rides in the extra-row slot.
+          <Workbar
+            search={
+              drilled ? undefined : (
+                <SearchInput
+                  placeholder={t("stock.search", "Search stock…")}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  wrapperClassName="w-[240px] max-w-full"
+                />
+              )
+            }
+            filters={
+              drilled ? (
                 <>
                   <DrillChip label={t("filter.belowThreshold", "BELOW THRESHOLD")} onClear={onClearDrill} />
                   <span className="font-mono text-micro text-text-3 tabular-nums">
                     {t("stock.criticalFirst", { n: filtered.length, total: rows.length })}
                   </span>
                   {buyTotal && (
-                    <span className="ml-auto font-mono text-micro uppercase tracking-[0.08em] text-text-3 tabular-nums">
+                    <span className="font-mono text-micro uppercase tracking-[0.08em] text-text-3 tabular-nums">
                       {t("stock.buyToThreshold", "BUY TO THRESHOLD")} ::{" "}
                       <span className="text-text-2">{fmtMoney(buyTotal.total)}</span>
                       {buyTotal.uncosted > 0 && (
@@ -372,11 +352,26 @@ export function StockSegment({
                   <span className="font-mono text-micro text-text-3 tabular-nums">
                     {t("stock.skuCount", { n: filtered.length })}
                   </span>
+                </>
+              )
+            }
+            tools={
+              drilled ? (
+                <>
+                  <Button variant="secondary" size="sm" onClick={copyList}>
+                    {t("stock.copyList", "COPY LIST")}
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => window.print()}>
+                    {t("stock.print", "PRINT")}
+                  </Button>
+                </>
+              ) : (
+                <>
                   <button
                     type="button"
                     onClick={toggleGroup}
                     className={cn(
-                      "ml-auto inline-flex h-3 items-center rounded-chip border px-1",
+                      "inline-flex h-3 items-center rounded-chip border px-1",
                       "font-mono text-micro font-medium uppercase tracking-[0.12em]",
                       "transition-colors duration-150 ease-smooth",
                       effectiveGroup
@@ -386,11 +381,20 @@ export function StockSegment({
                   >
                     {t("stock.group", "GROUP :: FAMILY")}
                   </button>
+                  <CatalogKebab segment="stock" rows={rows} />
                 </>
-              )}
-            </div>
-
-            {/* Row 3 — bulk bar (pinned so the selection stays visible while scrolling) */}
+              )
+            }
+            create={
+              !drilled && canManage ? (
+                <WorkbarButton onClick={() => setAddOpen(true)}>
+                  <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+                  {t("stock.add", "ADD")}
+                </WorkbarButton>
+              ) : null
+            }
+            tabStrip={segmentControl}
+          >
             {selectedIds.size > 0 && canManage && (
               <div className="flex items-center gap-3 rounded-panel border border-border bg-surface-hover-subtle px-3 py-1.5">
                 <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-2 tabular-nums">
@@ -406,7 +410,7 @@ export function StockSegment({
                 </Button>
               </div>
             )}
-          </TableWorkbar>
+          </Workbar>
         }
         isEmpty={isBodyEmpty}
         emptyState={

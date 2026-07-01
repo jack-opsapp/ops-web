@@ -36,13 +36,68 @@ import { cn } from "@/lib/utils/cn";
 import { TableChrome } from "./table-chrome";
 
 /**
- * TableWorkbar — the canonical toolbar chrome for a TableShell. Holds the
- * standard border + padding so every surface's toolbar (segment control · search
- * · CTA · filter chips · count · stat line · density · view tabs) reads
- * identically. Callers supply the rows (typically two `flex flex-wrap` rows).
+ * TableWorkbar — the canonical toolbar CONTAINER (glass hairline + standard
+ * padding at the shared 96px gutter). It just supplies the frame; for the
+ * standard slot LAYOUT, prefer {@link Workbar}, which owns where each control
+ * lives so surfaces stay consistent.
  */
 export function TableWorkbar({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("flex flex-col gap-2 border-b border-line px-3 py-2.5", className)}>{children}</div>;
+}
+
+/**
+ * Workbar — the ONE canonical toolbar layout across every list surface (Projects,
+ * Pipeline, Books, Catalog, Clients). It fixes a single grammar so that search,
+ * filters, and the create action land in the SAME place on every tab — the
+ * positions are owned here, not re-decided per surface, so they can't drift
+ * (Jackson 2026-07-01):
+ *
+ *   Row 1:  [ search ] [ filters ] ──────(flex spacer)────── [ tools ] [ create ]
+ *            leftmost    after search                           right     rightmost
+ *   Row 2:  [ tabStrip ]   — segment/mode controls + saved-view tabs
+ *
+ * Each surface fills the slots; empty slots simply collapse (no reserved gaps).
+ * Built on {@link TableWorkbar}. The `create` slot should be a {@link WorkbarButton};
+ * `search` the shared `SearchInput`.
+ */
+export function Workbar({
+  search,
+  filters,
+  tools,
+  create,
+  tabStrip,
+  children,
+}: {
+  /** Row 1, leftmost — the shared `SearchInput` (single fixed width). */
+  search?: ReactNode;
+  /** Row 1, immediately right of search — filter chips / dropdowns (+ count). */
+  filters?: ReactNode;
+  /** Row 1, right cluster before create — density / group / view-settings / kebab / stat line. */
+  tools?: ReactNode;
+  /** Row 1, rightmost — the single primary create CTA (`WorkbarButton`). */
+  create?: ReactNode;
+  /** Row 2 — segment/mode controls and saved-view tabs, a tab strip. */
+  tabStrip?: ReactNode;
+  /** Extra full-width rows below the tab strip (e.g. a pinned bulk-action bar). */
+  children?: ReactNode;
+}) {
+  const hasRightCluster = tools != null || create != null;
+  return (
+    <TableWorkbar>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {search}
+        {filters}
+        {hasRightCluster ? (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {tools}
+            {create}
+          </div>
+        ) : null}
+      </div>
+      {tabStrip}
+      {children}
+    </TableWorkbar>
+  );
 }
 
 /**
