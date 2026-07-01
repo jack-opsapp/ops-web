@@ -212,7 +212,9 @@ export interface CustomerShape {
  * the parent client (nulling it). Requiring a distinct contact keeps email/phone
  * on the parent — which the outbound mapper reads — so the round-trip is stable.
  */
-function hasDistinctContact(c: CustomerShape): boolean {
+function hasDistinctContact(
+  c: CustomerShape,
+): c is CustomerShape & { company_name: string; contact_name: string } {
   return (
     !!c.company_name &&
     !!c.contact_name &&
