@@ -1028,10 +1028,43 @@ export default function PipelinePage() {
             />
           </div>
         )}
-        {/* Mode switcher moved INTO the table toolbar (WEB OVERHAUL P6-2 rework,
-            Jackson 2026-06-30) — no longer floats top-right over the table. In
-            focused mode the board's own bottom toolbar carries the TABLE toggle;
-            in table mode the switcher lives in the unified toolbar (TableChrome). */}
+        {/* Focused-board controls — pinned at the TOP, directly under the metrics,
+            so the toolbar sits in the SAME position as the table view's toolbar
+            (Jackson 2026-06-30). The board reserves matching top clearance
+            (SPINE_RAIL_CHROME / stage-tab top offset in pipeline-focused-shell).
+            The TABLE-mode switcher lives in the unified TableChrome. */}
+        {!isMobile && effectiveMode === "focused" && (
+          <div className="pointer-events-auto mt-1 flex justify-start px-3">
+            <div
+              className="glass-dense scrollbar-hide inline-flex max-w-full items-center gap-[3px] overflow-x-auto rounded-panel border px-[3px] py-[3px] [&::before]:rounded-panel"
+              style={{
+                background: "var(--surface-glass-dense)",
+                backdropFilter: "blur(28px) saturate(1.3)",
+                WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+                borderColor: "var(--glass-border)",
+                borderRadius: "10px",
+              }}
+            >
+              <PipelineFocusedToolbar
+                reviewCount={reviewCount}
+                onReviewEmails={() => setReviewPanelOpen(true)}
+              />
+              <div className="mx-[3px] h-[16px] w-px shrink-0 bg-border-subtle" />
+              <PipelineFilterRow
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                stageFilter={stageFilter}
+                onStageFilterChange={setStageFilter}
+                assigneeFilter={assigneeFilter}
+                onAssigneeFilterChange={setAssigneeFilter}
+                teamMembers={teamMembers}
+                onAddLead={gatedOpenCreate}
+                canManage={canManage}
+                variant="toolbar"
+              />
+            </div>
+          </div>
+        )}
         {/* Banners — pinned bottom-left on ALL desktop modes (focused + table) so
             they never float over a surface's pinned top. In table mode the
             unified TableShell owns the top (MetricsStrip + workbar); a top-flowing
@@ -1115,45 +1148,6 @@ export default function PipelinePage() {
           )}
         </div>
       </div>
-
-      {!isMobile && effectiveMode === "focused" && (
-        <div
-          className="pointer-events-none fixed bottom-[12px] left-[84px] right-[12px] z-[9998] flex justify-start"
-        >
-          <div
-            className="glass-dense scrollbar-hide pointer-events-auto inline-flex max-w-full items-center gap-[3px] overflow-x-auto rounded-panel border px-[3px] py-[3px] [&::before]:rounded-panel"
-            style={{
-              background: "var(--surface-glass-dense)",
-              backdropFilter: "blur(28px) saturate(1.3)",
-              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              borderColor: "var(--glass-border)",
-              borderRadius: "10px",
-            }}
-          >
-            <PipelineFocusedToolbar
-              reviewCount={reviewCount}
-              onReviewEmails={() => setReviewPanelOpen(true)}
-            />
-            <div className="mx-[3px] h-[16px] w-px shrink-0 bg-border-subtle" />
-            <PipelineFilterRow
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              stageFilter={stageFilter}
-              onStageFilterChange={setStageFilter}
-              assigneeFilter={assigneeFilter}
-              onAssigneeFilterChange={setAssigneeFilter}
-              teamMembers={teamMembers}
-              onAddLead={gatedOpenCreate}
-              canManage={canManage}
-              variant="toolbar"
-            />
-          </div>
-        </div>
-      )}
-
-      {!isMobile && effectiveMode === "focused" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-12 bg-gradient-to-t from-background via-background/60 to-transparent" />
-      )}
 
       {/* Stage Transition Dialog (Won/Lost prompts) */}
       <StageTransitionDialog
