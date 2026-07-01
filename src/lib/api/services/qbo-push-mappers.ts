@@ -210,6 +210,41 @@ function mapSalesLine(
   };
 }
 
+/**
+ * Build the QuickBooks `Line` array for an invoice/estimate. When the OPS
+ * record has no itemized line items (legacy total-only imports), synthesize a
+ * single line for the whole total using the fallback service item, marked
+ * non-taxable so QuickBooks records the total exactly (no tax added on top).
+ * QuickBooks rejects a transaction with an empty Line array, so this is what
+ * lets historical total-only records back-fill.
+ */
+function buildSalesLines(input: {
+  lineItems: OpsLineItemForQbo[];
+  total: number | string | null | undefined;
+  entityId: string;
+  fallbackServiceItem?: QboFallbackServiceItemRef | null;
+  taxCodeRefs?: QboTaxCodeRefs | null;
+}): QboPayload[] {
+  if (input.lineItems.length > 0) {
+    return input.lineItems.map((line) =>
+      mapSalesLine(line, input.fallbackServiceItem, input.taxCodeRefs),
+    );
+  }
+  return [
+    mapSalesLine(
+      {
+        id: `${input.entityId}:total`,
+        name: "Total",
+        amount: input.total ?? 0,
+        quantity: 1,
+        isTaxable: false,
+      },
+      input.fallbackServiceItem,
+      input.taxCodeRefs,
+    ),
+  ];
+}
+
 function addUpdateFields(
   payload: QboPayload,
   entity: { qbId?: string | null; syncToken?: string | null },
@@ -376,9 +411,13 @@ export function mapInvoiceToQboInvoice(input: {
     CustomerRef: {
       value: assertQboRef(input.client.qbId, "QuickBooks customer link"),
     },
-    Line: input.lineItems.map((line) =>
-      mapSalesLine(line, input.fallbackServiceItem, input.taxCodeRefs),
-    ),
+    Line: buildSalesLines({
+      lineItems: input.lineItems,
+      total: input.invoice.total,
+      entityId: input.invoice.id,
+      fallbackServiceItem: input.fallbackServiceItem,
+      taxCodeRefs: input.taxCodeRefs,
+    }),
   };
 
   addDefined(
@@ -404,9 +443,13 @@ export function mapEstimateToQboEstimate(input: {
     CustomerRef: {
       value: assertQboRef(input.client.qbId, "QuickBooks customer link"),
     },
-    Line: input.lineItems.map((line) =>
-      mapSalesLine(line, input.fallbackServiceItem, input.taxCodeRefs),
-    ),
+    Line: buildSalesLines({
+      lineItems: input.lineItems,
+      total: input.estimate.total,
+      entityId: input.estimate.id,
+      fallbackServiceItem: input.fallbackServiceItem,
+      taxCodeRefs: input.taxCodeRefs,
+    }),
   };
 
   addDefined(
