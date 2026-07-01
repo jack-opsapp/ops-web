@@ -29,10 +29,17 @@ interface PipelineFilterRowProps {
   /**
    * Render the search field. Default true. The unified pipeline toolbar (WEB
    * OVERHAUL P6-2 rework) owns a single shared search input above the mode
-   * crossfade, so the focused cluster renders with `showSearch={false}` to avoid
-   * a duplicate field — the stage/assignee filters + NEW LEAD carry over intact.
+   * crossfade, so the toolbar renders with `showSearch={false}` to avoid a
+   * duplicate field — the stage/assignee filters carry over intact.
    */
   showSearch?: boolean;
+  /**
+   * Render the NEW LEAD button. Default true. The unified toolbar renders NEW
+   * LEAD once (shared across both modes, as a `WorkbarButton` on the right), so
+   * it passes `showNewLead={false}` and this component contributes only the
+   * stage + assignee filters.
+   */
+  showNewLead?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -330,6 +337,7 @@ export function PipelineFilterRow({
   canManage,
   variant = "surface",
   showSearch = true,
+  showNewLead = true,
 }: PipelineFilterRowProps) {
   const { t } = useDictionary("pipeline");
   const searchPlaceholder = t("focused.search.placeholder");
@@ -396,10 +404,10 @@ export function PipelineFilterRow({
         variant={variant}
       />
 
-      {isToolbar && canManage && <ToolbarDivider />}
+      {isToolbar && canManage && showNewLead && <ToolbarDivider />}
 
       {/* New Lead button */}
-      {canManage && (
+      {canManage && showNewLead && (
         <button
           type="button"
           onClick={onAddLead}

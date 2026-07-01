@@ -23,7 +23,8 @@ const DENSITY_OPTIONS = [
  * TABLE mode's mode-specific control cluster — the mode switcher and the shared
  * search field live once in the persistent toolbar owned by `pipeline/page.tsx`
  * (WEB OVERHAUL P6-2 rework), so they are NOT rendered here; this cluster is
- * portaled up into that toolbar's controls row and right-aligns via `ml-auto`.
+ * portaled into that toolbar's right-hand control group (which owns the
+ * right-alignment), ahead of the shared review + NEW LEAD actions.
  * Styled like the projects density-control idiom (Cake Mono Light segments,
  * surface-input rail). Active toggles use `bg-surface-active` (never the accent —
  * accent is reserved for focus rings + the single primary CTA, which here is the
@@ -55,7 +56,7 @@ export function PipelineToolbar({
   const { t } = useDictionary("pipeline");
 
   return (
-    <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
       <button
         type="button"
         aria-label={t("table.toolbar.group")}

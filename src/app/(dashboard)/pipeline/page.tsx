@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Mail, X, Loader2, Search } from "lucide-react";
+import { Mail, X, Loader2, Search, Plus } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
@@ -32,7 +32,7 @@ import {
   usePipelineMetrics,
 } from "@/lib/hooks";
 import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
-import { TableWorkbar } from "@/components/ui/table-shell";
+import { TableWorkbar, WorkbarButton } from "@/components/ui/table-shell";
 import {
   type Opportunity,
   OpportunityStage,
@@ -918,11 +918,14 @@ export default function PipelinePage() {
     : 1;
 
   // Crossfade timing — opacity-only, single design-system easing (EASE_SMOOTH =
-  // cubic-bezier(0.22,1,0.36,1)). Reduced motion keeps the crossfade but collapses
-  // it to the brand's opacity-only 150ms fallback (OPS motion config
-  // §reduced_motion: "Equivalence, not compromise") rather than an instant cut.
+  // cubic-bezier(0.22,1,0.36,1)), 250ms (OPS motion config `transition`). The
+  // AnimatePresence runs WITHOUT `mode="wait"` so the outgoing and incoming
+  // surfaces cross-dissolve simultaneously (both are `absolute inset-0`) — a
+  // visible "camera move," not a fade-to-blank-then-appear. Reduced motion keeps
+  // the crossfade but collapses it to the brand's opacity-only 150ms fallback
+  // (§reduced_motion: "Equivalence, not compromise").
   const modeCrossfadeTransition = {
-    duration: reducedMotion ? 0.15 : 0.2,
+    duration: reducedMotion ? 0.15 : 0.25,
     ease: EASE_SMOOTH,
   };
 
@@ -946,16 +949,18 @@ export default function PipelinePage() {
               metrics={fromMetricColumns(pipelineMetrics ?? [])}
               isLoading={pipelineMetricsLoading}
             />
-            {/* Toolbar — the container, the mode switcher, and search are shared
-                and never remount. Only the mode-specific clusters swap: focused →
-                stage/assignee filters + NEW LEAD (+ review emails); table → the grid
-                controls (portaled into `clusterSlot`) + the saved-view tab strip
-                (portaled into `tabsSlot`). The two slots are `display:contents` so
-                they add no layout when empty (focused mode). The controls row is the
-                stable first row (never moves); the tab strip is a table-only second
-                row below it, so it never pushes the switcher/search. */}
+            {/* Toolbar — a consistent SHARED CORE across both modes: mode switcher,
+                search, stage + assignee filters, review, and NEW LEAD are identical
+                in focused and table (WEB OVERHAUL P6-2, Jackson 2026-07-01). Only the
+                grid-specific tools swap in for table mode — GROUP / SHOW CLOSED /
+                density / view-settings portal into `clusterSlot`, the saved-view tab
+                strip into `tabsSlot`. Both slots are `display:contents` so they add
+                no layout when empty (focused). The controls row is the stable first
+                row; the tab strip is a table-only second row below it. */}
             <TableWorkbar>
               <div className="flex min-w-0 flex-wrap items-center gap-2">
+                {/* Shared core — identical in both modes: mode switcher, search,
+                    stage + assignee filters. */}
                 <PipelineModeSwitcher />
                 <label className="flex h-[28px] w-[200px] shrink-0 items-center gap-1.5 rounded border border-border bg-surface-input px-2 transition-colors focus-within:border-line-hi">
                   <Search
@@ -971,38 +976,45 @@ export default function PipelinePage() {
                     className="min-w-0 flex-1 bg-transparent font-mono text-[11px] uppercase text-text outline-none placeholder:text-text-3"
                   />
                 </label>
-                {effectiveMode === "focused" && (
-                  <>
-                    <PipelineFilterRow
-                      searchQuery={searchQuery}
-                      onSearchChange={setSearchQuery}
-                      stageFilter={stageFilter}
-                      onStageFilterChange={setStageFilter}
-                      assigneeFilter={assigneeFilter}
-                      onAssigneeFilterChange={setAssigneeFilter}
-                      teamMembers={teamMembers}
-                      onAddLead={gatedOpenCreate}
-                      canManage={canManage}
-                      variant="toolbar"
-                      showSearch={false}
-                    />
-                    {reviewCount > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setReviewPanelOpen(true)}
-                        className="ml-auto flex h-[26px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-                      >
-                        <Mail className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} />
-                        {t("gmail.reviewEmails")}
-                        <span className="rounded-bar bg-surface-active px-1 font-mono text-micro tabular-nums text-text">
-                          {reviewCount > 99 ? "99+" : reviewCount}
-                        </span>
-                      </button>
-                    )}
-                  </>
-                )}
-                {/* Table grid controls portal here (empty + display:contents in focused). */}
-                <div ref={setClusterSlot} className="contents" />
+                <PipelineFilterRow
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  stageFilter={stageFilter}
+                  onStageFilterChange={setStageFilter}
+                  assigneeFilter={assigneeFilter}
+                  onAssigneeFilterChange={setAssigneeFilter}
+                  teamMembers={teamMembers}
+                  onAddLead={gatedOpenCreate}
+                  canManage={canManage}
+                  variant="toolbar"
+                  showSearch={false}
+                  showNewLead={false}
+                />
+                {/* Right group, pushed right: the table's grid tools portal in
+                    (table mode only), then the shared review + NEW LEAD actions —
+                    both present in EVERY mode now. */}
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <div ref={setClusterSlot} className="contents" />
+                  {reviewCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setReviewPanelOpen(true)}
+                      className="flex h-[26px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                    >
+                      <Mail className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} />
+                      {t("gmail.reviewEmails")}
+                      <span className="rounded-bar bg-surface-active px-1 font-mono text-micro tabular-nums text-text">
+                        {reviewCount > 99 ? "99+" : reviewCount}
+                      </span>
+                    </button>
+                  )}
+                  {canManage && (
+                    <WorkbarButton onClick={gatedOpenCreate}>
+                      <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+                      {t("newLead")}
+                    </WorkbarButton>
+                  )}
+                </div>
               </div>
               {/* Saved-view tab strip row — table mode only (portaled by the table). */}
               <div ref={setTabsSlot} className="contents" />
@@ -1010,7 +1022,7 @@ export default function PipelinePage() {
 
             {/* Content region — the ONLY thing that crossfades on a mode switch. */}
             <div className="relative min-h-0 flex-1">
-              <AnimatePresence mode="wait" initial={false}>
+              <AnimatePresence initial={false}>
                 {effectiveMode === "table" ? (
                   <motion.div
                     key="table"
@@ -1026,6 +1038,8 @@ export default function PipelinePage() {
                       clusterSlot={clusterSlot}
                       search={searchQuery}
                       searchInputRef={searchInputRef}
+                      stageFilter={stageFilter}
+                      assigneeFilter={assigneeFilter}
                     />
                   </motion.div>
                 ) : (

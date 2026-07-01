@@ -140,6 +140,8 @@ export function PipelineTableShell({
   clusterSlot,
   search,
   searchInputRef,
+  stageFilter,
+  assigneeFilter,
 }: {
   /**
    * Portal target for the saved-view tab strip — row 2 of the persistent toolbar
@@ -155,6 +157,10 @@ export function PipelineTableShell({
   search: string;
   /** Ref to the shared search input, for the grid's ⌘F focus-search shortcut. */
   searchInputRef: RefObject<HTMLInputElement | null>;
+  /** Shared stage filter (toolbar) — feeds both the board and this table. */
+  stageFilter: OpportunityStage | "all";
+  /** Shared assignee filter (toolbar) — feeds both the board and this table. */
+  assigneeFilter: string | "all";
 }) {
   const { t } = useDictionary("pipeline");
 
@@ -420,6 +426,8 @@ export function PipelineTableShell({
     search,
     sorting,
     closedDeals,
+    stageFilter,
+    assigneeFilter,
   });
 
   // ── Stage transitions (shared with the focused board) ─────────────────────

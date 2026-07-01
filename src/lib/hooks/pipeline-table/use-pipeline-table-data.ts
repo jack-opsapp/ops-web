@@ -32,7 +32,7 @@ import {
   isFollowUpOverdue,
   mapOpportunityToTableRow,
 } from "@/lib/utils/pipeline-table-adapter";
-import { isActiveStage } from "@/lib/types/pipeline";
+import { isActiveStage, type OpportunityStage } from "@/lib/types/pipeline";
 import type {
   PipelineTableColumnId,
   PipelineTableRow,
@@ -52,6 +52,18 @@ export interface UsePipelineTableDataArgs {
    * view. Deleted/archived rows are always excluded either way.
    */
   closedDeals?: boolean;
+  /**
+   * Restrict to a single stage, or `"all"` (default) for every in-scope stage.
+   * Shared with the focused board — the toolbar's stage filter now feeds both
+   * surfaces (WEB OVERHAUL P6-2). Applied to the base scope, so `totalCount`
+   * reflects it (the `// N deals` readout tracks the filter).
+   */
+  stageFilter?: OpportunityStage | "all";
+  /**
+   * Restrict to a single assignee (user id), or `"all"` (default). Shared with
+   * the focused board; also part of the base scope (feeds `totalCount`).
+   */
+  assigneeFilter?: string | "all";
 }
 
 export interface UsePipelineTableDataResult {
@@ -181,6 +193,8 @@ export function usePipelineTableData({
   search,
   sorting,
   closedDeals = false,
+  stageFilter = "all",
+  assigneeFilter = "all",
 }: UsePipelineTableDataArgs): UsePipelineTableDataResult {
   const {
     data: opportunities,
@@ -240,6 +254,11 @@ export function usePipelineTableData({
     for (const opp of opportunities) {
       if (opp.deletedAt || opp.archivedAt) continue;
       if (!closedDeals && !isActiveStage(opp.stage)) continue;
+      // Shared toolbar filters (stage + assignee) narrow the base scope, exactly
+      // as the focused board's `filteredOpportunities` does, so both surfaces stay
+      // in lockstep and the count reflects the active filter.
+      if (stageFilter !== "all" && opp.stage !== stageFilter) continue;
+      if (assigneeFilter !== "all" && opp.assignedTo !== assigneeFilter) continue;
       rows.push(
         mapOpportunityToTableRow(opp, {
           clientNameMap,
@@ -250,7 +269,16 @@ export function usePipelineTableData({
       );
     }
     return rows;
-  }, [opportunities, closedDeals, clientNameMap, assigneeNameMap, stageConfigMap, now]);
+  }, [
+    opportunities,
+    closedDeals,
+    stageFilter,
+    assigneeFilter,
+    clientNameMap,
+    assigneeNameMap,
+    stageConfigMap,
+    now,
+  ]);
 
   // Scale-ceiling breadcrumb (spec §3.4) — warn once per mount.
   useEffect(() => {
