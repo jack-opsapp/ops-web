@@ -101,3 +101,32 @@ Worktree `ops-web-table-rework` off `origin/main`. One pattern for both archetyp
 - **Catalog** (register): inline-edit COST/PRICE cells (dashed underline) + ACTIONS overflow preserved; STOCK HEALTH/ON-HAND/PRODUCTS metrics.
 
 - **NOT pushed** — awaiting Jackson's explicit go-ahead.
+
+## REWORK 2 — 2026-06-30 (Pipeline chrome remounts on mode switch)
+
+Jackson (verbatim): *"when I switch the view mode [focused ↔ table], the toolbar moves. Why is the whole toolbar and the whole metrics bar rerendering when I switch the view mode? Only the content below the toolbar is changing and the couple elements within the toolbar are changing. Why is anything else changing?"*
+
+**Root cause.** `pipeline/page.tsx` rendered the two modes as two separate surfaces inside `<AnimatePresence mode="wait">`. Each surface owned its OWN `MetricsStrip` + `TableWorkbar` toolbar (table via `TableChrome`/`aboveHeader`; focused via a flex column). Switching modes unmounted the entire outgoing surface (metrics + toolbar + content) and mounted the incoming one, so the metrics bar + toolbar remounted (re-running the count-up) and shifted instead of staying put.
+
+**Decision — hoist the shared chrome above the crossfade.** One persistent `MetricsStrip` + one persistent `TableWorkbar` now live in `pipeline/page.tsx` ABOVE the `<AnimatePresence>`; the crossfade wraps ONLY the content region (kanban board ↔ table grid). Shared, never-remounting: the metrics bar, the `[FOCUSED|TABLE]` mode switcher, and a single unified search input (feeds both surfaces). Mode-specific clusters swap: focused renders `PipelineFilterRow` (stage/assignee + NEW LEAD, `showSearch={false}`) + review-emails inline; the table surface (`PipelineTableShell`, mounted only in table mode) PORTALS its saved-view tabs + grid controls (`PipelineToolbar`: GROUP / SHOW CLOSED / count / save / density / view-settings) up into the persistent toolbar's two `display:contents` slots. Portals are gated on `usePipelineModeStore().mode === "table"` (read inside the shell, which stays subscribed during its AnimatePresence exit) so the outgoing table cluster clears instantly — no duplicate controls mid-crossfade. The tab strip is a table-only SECOND row below the controls row, so it never pushes the switcher/search.
+
+**Scroll-away tradeoff — Jackson chose "pin it" (asked before building).** A single persistent metrics instance cannot also live inside the grid's own scroller, so on the pipeline TABLE view the metrics bar is now PINNED rather than scrolling up and out of view. Projects/Books/Catalog/Clients keep scroll-away (their metrics stay in-scroller); pipeline is the lone pinned table because its bar is shared across two modes. `PipelineTableShell` no longer injects chrome via the grid's `aboveHeader` slot (passes nothing → `--shell-header-top` unset → grid header sticks at `top-0`, flush under the persistent toolbar). `pipeline-table.tsx` / `projects-table.tsx` virtualizers byte-unchanged.
+
+### Files
+- `pipeline/page.tsx` — persistent `MetricsStrip` + `TableWorkbar` (mode switcher + shared search + focused cluster + two portal slots) above a content-only `<AnimatePresence>`; focused board wrapped in `relative h-full min-h-0`.
+- `table/pipeline-table-shell.tsx` — drops its own metrics/`TableChrome`/`TableWorkbar`; builds `viewTabsNode` + `toolbarClusterNode` and `createPortal`s them into the page slots (gated on `tableActive`); renders just the grid + banner + footer + dialogs + bulk bar. New props: `tabsSlot`, `clusterSlot`, `search`, `searchInputRef`.
+- `pipeline-filter-row.tsx` — `showSearch?: boolean` (focused cluster passes `false`; search is shared).
+- `table/pipeline-toolbar.tsx` — search + `leading`/mode-switcher removed (both shared); renders the right-aligned (`ml-auto`) controls cluster only.
+
+### Done-gates (all pass)
+- `tsc --noEmit` → 7 errors, ALL pre-existing/unrelated (`xlsx` not installed + `notification-service.test.ts`); **zero in any touched file**.
+- `eslint` (touched files) → **0 errors**, 4 warnings ALL pre-existing (verified against HEAD: `activeView?.sort` dep at shell:240; three unused-var warnings in page.tsx). The one new warning introduced (`searchInputRef` dep) was fixed.
+- Design-system audit → **zero token violations** in touched files (no raw hex/rgb/hsl; new arbitrary sizes `w-[200px]`/`h-[28px]`/`h-[12px]` match the existing pipeline-toolbar arbitrary-px convention).
+
+### LIVE-VERIFIED — dev bypass, webpack, 1280×900, **0 console errors** (all warnings pre-existing/environmental)
+Instrumented the shared nodes (stamped `data-persist-check` + stored live object refs on `window`) and diffed across switches:
+- **focused → table:** metrics / mode switcher / search / toolbar container are the **SAME DOM objects** (`===` true, stamps survived) at **identical** rects (metrics `{72,56,1208,120}`, switcher `{96,186,185,28}`, search `{338,192,142,17}`) → **no remount, no movement**. Toolbar top-left unchanged; height grew 49→138 only as the table's tab strip appeared BELOW the controls row. Mode-specific swap confirmed: ALL STAGES → GROUP + SHOW CLOSED + saved-view tabs + grid; the table clusters live INSIDE the persistent workbar (`groupInWorkbar`/`viewTabsInWorkbar` true — portals landed correctly).
+- **table → focused (round-trip):** the SAME nodes still carry the original stamps at the original rects → never remounted across **two** switches. Focused controls back, table controls + grid gone, 8-column board re-rendered.
+- **Preserved behaviors exercised:** portaled GROUP toggles the grid into stage groups (`NEW LEAD //4`, `QUOTED //2`, `NEGOTIATION //1`, collapse chevrons) → portaled controls are wired, not just rendered; frozen DEAL column, stage tags, density control, saved-view tab strip, grand-total footer (`[TOTAL VALUE] $99,500 [WEIGHTED] $19,100`), focused kanban board all intact.
+
+- Committed `57be4424` on `feat/web-overhaul-table-rework`. **NOT pushed** — awaiting Jackson's explicit go-ahead (merging ops-web main auto-deploys prod).
