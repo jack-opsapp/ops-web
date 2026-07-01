@@ -917,10 +917,12 @@ export default function PipelinePage() {
     ? (focusedStalenessMap.get(focusedActiveOpportunity.id) ?? 1)
     : 1;
 
-  // Crossfade timing — opacity-only, single design-system easing. Reduced
-  // motion collapses the duration to 0 for an instant swap.
+  // Crossfade timing — opacity-only, single design-system easing (EASE_SMOOTH =
+  // cubic-bezier(0.22,1,0.36,1)). Reduced motion keeps the crossfade but collapses
+  // it to the brand's opacity-only 150ms fallback (OPS motion config
+  // §reduced_motion: "Equivalence, not compromise") rather than an instant cut.
   const modeCrossfadeTransition = {
-    duration: reducedMotion ? 0 : 0.2,
+    duration: reducedMotion ? 0.15 : 0.2,
     ease: EASE_SMOOTH,
   };
 
@@ -955,7 +957,7 @@ export default function PipelinePage() {
             <TableWorkbar>
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <PipelineModeSwitcher />
-                <label className="flex h-[28px] w-[200px] shrink-0 items-center gap-1.5 rounded border border-border bg-surface-input px-2 focus-within:ring-1 focus-within:ring-ops-accent">
+                <label className="flex h-[28px] w-[200px] shrink-0 items-center gap-1.5 rounded border border-border bg-surface-input px-2 transition-colors focus-within:border-line-hi">
                   <Search
                     className="h-[12px] w-[12px] shrink-0 text-text-3"
                     strokeWidth={1.5}
