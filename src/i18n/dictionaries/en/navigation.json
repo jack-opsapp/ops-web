@@ -31,6 +31,7 @@
   "menu.website": "OPS Website",
   "menu.courses": "Courses",
   "menu.iosApp": "Get the iOS App",
+  "menu.reportBug": "Report a Bug",
   "menu.signOut": "Sign Out",
 
   "mobile.openAriaLabel": "Open navigation",
