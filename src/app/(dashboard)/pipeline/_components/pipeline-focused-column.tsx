@@ -125,7 +125,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
       role="tabpanel"
       aria-labelledby={focusedTabId}
       aria-busy={isLoading ? true : undefined}
-      className="scrollbar-hide h-full min-h-0 overflow-y-auto scroll-pb-[360px] pt-[188px]"
+      className="scrollbar-hide h-full min-h-0 overflow-y-auto scroll-pb-[360px] pt-[68px]"
     >
       {isError ? (
         <div

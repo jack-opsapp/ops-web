@@ -31,7 +31,8 @@ import {
   useGmailConnections,
   usePipelineMetrics,
 } from "@/lib/hooks";
-import { MetricsHeader } from "@/components/metrics";
+import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
+import { TableWorkbar } from "@/components/ui/table-shell";
 import {
   type Opportunity,
   OpportunityStage,
@@ -64,7 +65,7 @@ import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
 import { PipelineDetailPanel } from "./_components/pipeline-detail-panel";
 import { PipelineFocusedDragOverlay } from "./_components/pipeline-focused-drag-overlay";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
-import { PipelineFocusedToolbar } from "./_components/pipeline-focused-toolbar";
+import { PipelineModeSwitcher } from "./_components/pipeline-mode-switcher";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import { usePipelineModeShortcut } from "./_components/pipeline-mode-shortcuts";
 import {
@@ -949,8 +950,48 @@ export default function PipelinePage() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={modeCrossfadeTransition}
-                className="absolute inset-0"
+                className="absolute inset-0 flex flex-col"
               >
+                {/* Metrics + toolbar in normal flow — the SAME stack as the table
+                    view (MetricsStrip → TableWorkbar toolbar → content), so the
+                    toolbar shares the container/padding of every other tab and has
+                    identical padding above/below in both pipeline modes
+                    (Jackson 2026-06-30). */}
+                <MetricsStrip
+                  metrics={fromMetricColumns(pipelineMetrics ?? [])}
+                  isLoading={pipelineMetricsLoading}
+                />
+                <TableWorkbar>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <PipelineModeSwitcher />
+                    <PipelineFilterRow
+                      searchQuery={searchQuery}
+                      onSearchChange={setSearchQuery}
+                      stageFilter={stageFilter}
+                      onStageFilterChange={setStageFilter}
+                      assigneeFilter={assigneeFilter}
+                      onAssigneeFilterChange={setAssigneeFilter}
+                      teamMembers={teamMembers}
+                      onAddLead={gatedOpenCreate}
+                      canManage={canManage}
+                      variant="toolbar"
+                    />
+                    {reviewCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setReviewPanelOpen(true)}
+                        className="ml-auto flex h-[26px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                      >
+                        <Mail className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} />
+                        {t("gmail.reviewEmails")}
+                        <span className="rounded-bar bg-surface-active px-1 font-mono text-micro tabular-nums text-text">
+                          {reviewCount > 99 ? "99+" : reviewCount}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </TableWorkbar>
+                <div className="relative min-h-0 flex-1">
                 <PipelineDndProvider
                   mode={effectiveMode}
                   activeDragId={activeDragId}
@@ -1004,6 +1045,7 @@ export default function PipelinePage() {
                     stalenessOpacity={focusedActiveStaleness}
                   />
                 </PipelineDndProvider>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1012,59 +1054,11 @@ export default function PipelinePage() {
 
       {/* ── Page HUD — metrics, toolbar, banners float on top of canvas ── */}
       <div className="pointer-events-none absolute left-0 right-0 top-0 z-[2]">
-        {/* Floating metrics HUD — ONLY for the focused/kanban surface. In table
-            mode the metrics now live inside the unified TableShell's MetricsStrip
-            (WEB OVERHAUL P6-2), so suppress the page-level header there to avoid
-            doubling the metrics. The mode switcher + banners below stay in both. */}
-        {effectiveMode !== "table" && (
-          <div className="pointer-events-auto">
-            <MetricsHeader
-              variant="full"
-              tabId="pipeline"
-              title="Pipeline"
-              metrics={pipelineMetrics}
-              isLoading={pipelineMetricsLoading}
-              slashLabels
-            />
-          </div>
-        )}
-        {/* Focused-board controls — pinned at the TOP, directly under the metrics,
-            so the toolbar sits in the SAME position as the table view's toolbar
-            (Jackson 2026-06-30). The board reserves matching top clearance
-            (SPINE_RAIL_CHROME / stage-tab top offset in pipeline-focused-shell).
-            The TABLE-mode switcher lives in the unified TableChrome. */}
-        {!isMobile && effectiveMode === "focused" && (
-          <div className="pointer-events-auto mt-1 flex justify-start px-3">
-            <div
-              className="glass-dense scrollbar-hide inline-flex max-w-full items-center gap-[3px] overflow-x-auto rounded-panel border px-[3px] py-[3px] [&::before]:rounded-panel"
-              style={{
-                background: "var(--surface-glass-dense)",
-                backdropFilter: "blur(28px) saturate(1.3)",
-                WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-                borderColor: "var(--glass-border)",
-                borderRadius: "10px",
-              }}
-            >
-              <PipelineFocusedToolbar
-                reviewCount={reviewCount}
-                onReviewEmails={() => setReviewPanelOpen(true)}
-              />
-              <div className="mx-[3px] h-[16px] w-px shrink-0 bg-border-subtle" />
-              <PipelineFilterRow
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                stageFilter={stageFilter}
-                onStageFilterChange={setStageFilter}
-                assigneeFilter={assigneeFilter}
-                onAssigneeFilterChange={setAssigneeFilter}
-                teamMembers={teamMembers}
-                onAddLead={gatedOpenCreate}
-                canManage={canManage}
-                variant="toolbar"
-              />
-            </div>
-          </div>
-        )}
+        {/* Metrics + toolbar are no longer in the HUD — both pipeline modes now
+            render them in normal flow inside their own surface (table: TableChrome;
+            focused: the flex column above), so the toolbar is one consistent
+            element across modes and tabs (Jackson 2026-06-30). Only the banners
+            remain here. */}
         {/* Banners — pinned bottom-left on ALL desktop modes (focused + table) so
             they never float over a surface's pinned top. In table mode the
             unified TableShell owns the top (MetricsStrip + workbar); a top-flowing

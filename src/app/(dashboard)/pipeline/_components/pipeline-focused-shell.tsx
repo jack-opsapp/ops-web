@@ -78,11 +78,11 @@ const TERMINAL_STAGE_ORDER = [OpportunityStage.Won, OpportunityStage.Lost];
 const SNAP_DURATION_MS = 280;
 const SNAP_EASING = "cubic-bezier(0.22, 1, 0.36, 1)";
 const REDUCED_MOTION_DURATION = 0.001;
-// Top clearance reserves room for the metrics HUD (~112px) PLUS the focused
-// toolbar now pinned beneath it (WEB OVERHAUL P6-2 rework — toolbar moved from a
-// bottom pill to the top to match the table view). Keep in sync with the stage-tab
-// top offset below.
-const SPINE_RAIL_CHROME = "h-full pt-[168px] pb-0";
+// The metrics + toolbar now live in normal flow ABOVE this shell (see
+// pipeline/page.tsx), so the board no longer reserves top space for a floating
+// HUD — a small pad seats the columns just under the toolbar (WEB OVERHAUL P6-2
+// rework). Keep in sync with the stage-tab top offset below.
+const SPINE_RAIL_CHROME = "h-full pt-2 pb-0";
 const ACTION_DROP_ZONE_BASE =
   "group relative h-full min-w-0 overflow-hidden text-left transition-[color,opacity] duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none";
 const ACTION_DROP_SILHOUETTE_COUNT = 24;
@@ -845,7 +845,7 @@ const FocusedStageTab = memo(
       <div
         ref={ref}
         {...tabProps}
-        className="glass-dense pointer-events-auto absolute left-0 right-0 top-[168px] isolate z-[2] min-h-[52px] cursor-default overflow-hidden rounded-panel border px-3 py-2 outline-none focus:outline-none focus-visible:outline-none [&::before]:rounded-panel"
+        className="glass-dense pointer-events-auto absolute left-0 right-0 top-2 isolate z-[2] min-h-[52px] cursor-default overflow-hidden rounded-panel border px-3 py-2 outline-none focus:outline-none focus-visible:outline-none [&::before]:rounded-panel"
         style={stageHeaderStyle}
       >
         <span
