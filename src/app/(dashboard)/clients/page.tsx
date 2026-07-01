@@ -326,26 +326,24 @@ export default function ClientsPage() {
         metrics={<MetricsStrip metrics={metricCells} isLoading={showLoading} ariaLabel={t("title")} />}
         toolbar={
           <TableWorkbar>
+            {/* No redundant `// CLIENTS` label — the page header already names the
+                surface, and Clients has no segment/mode control for the left slot.
+                Search takes the leftmost slot (like every other surface's primary
+                control); the single create CTA sits top-right. */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-                <span aria-hidden className="text-text-mute">{"// "}</span>
-                {t("title")}
-              </span>
-              <div className="flex items-center gap-2">
-                <SearchInput
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={t("search.placeholder")}
-                  wrapperClassName="w-[220px] max-w-full"
-                  aria-label={t("search.placeholder")}
-                />
-                {canCreate && (
-                  <WorkbarButton onClick={gatedCreate}>
-                    <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
-                    {t("newClient")}
-                  </WorkbarButton>
-                )}
-              </div>
+              <SearchInput
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("search.placeholder")}
+                wrapperClassName="w-[240px] max-w-full"
+                aria-label={t("search.placeholder")}
+              />
+              {canCreate && (
+                <WorkbarButton onClick={gatedCreate}>
+                  <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+                  {t("newClient")}
+                </WorkbarButton>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-[12px]">
               <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
