@@ -509,7 +509,10 @@ export function PipelineFocusedShell({
       >
         {dragAnnouncement}
       </div>
-      <div className="grid h-full min-h-0 w-full grid-cols-[auto_minmax(460px,1fr)_auto_auto] items-stretch gap-2 overflow-hidden">
+      {/* Edge padding: px-3 (24px) insets the board so its columns align with the
+          toolbar + metrics content edge above (both inset 24px), instead of running
+          flush to the viewport (WEB OVERHAUL P6-2, Jackson 2026-07-01). */}
+      <div className="grid h-full min-h-0 w-full grid-cols-[auto_minmax(460px,1fr)_auto_auto] items-stretch gap-2 overflow-hidden px-3">
         <div
           role="tablist"
           aria-label={t("focused.tablist.label", "Pipeline stages")}
