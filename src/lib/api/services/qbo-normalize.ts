@@ -204,6 +204,23 @@ export interface CustomerShape {
  * here); a contact-less company keeps them. Individuals are unchanged. BillAddr
  * stays on the billing entity either way.
  */
+/**
+ * True only for a company with a SEPARATE, distinctly-named contact person.
+ * When contact_name equals company_name the customer is really an individual —
+ * the outbound mapper sets CompanyName = the client's own name, so a round-trip
+ * would otherwise look like a company-with-contact and migrate email/phone off
+ * the parent client (nulling it). Requiring a distinct contact keeps email/phone
+ * on the parent — which the outbound mapper reads — so the round-trip is stable.
+ */
+function hasDistinctContact(c: CustomerShape): boolean {
+  return (
+    !!c.company_name &&
+    !!c.contact_name &&
+    c.contact_name !== c.company_name &&
+    c.is_job !== true
+  );
+}
+
 export function clientFieldsFromCustomer(c: CustomerShape): {
   name: string;
   email: string | null;
@@ -211,7 +228,7 @@ export function clientFieldsFromCustomer(c: CustomerShape): {
   address: string | null;
 } {
   const isCompany = !!c.company_name;
-  const hasContact = isCompany && !!c.contact_name && c.is_job !== true;
+  const hasContact = hasDistinctContact(c);
   return {
     name: isCompany ? (c.company_name as string) : (c.display_name ?? "QuickBooks customer"),
     email: hasContact ? null : (c.email ?? null),
@@ -231,7 +248,7 @@ export function subClientFieldsFromCustomer(c: CustomerShape): {
   phone_number: string | null;
   address: string | null;
 } | null {
-  if (!c.company_name || !c.contact_name || c.is_job === true) return null;
+  if (!hasDistinctContact(c)) return null;
   return {
     name: c.contact_name,
     title: null, // QB has no contact job-title (Title is a salutation) — deliberately null.

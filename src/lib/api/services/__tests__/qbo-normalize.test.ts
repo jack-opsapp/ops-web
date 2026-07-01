@@ -285,4 +285,9 @@ describe("clientFieldsFromCustomer / subClientFieldsFromCustomer", () => {
   it("QB Job → no sub_client even with company+contact", () => {
     expect(subClientFieldsFromCustomer({ ...company, is_job: true })).toBeNull();
   });
+  it("individual pushed as CompanyName=name (contact_name === company_name) → email/phone stay on the client, no sub_client [regression: round-trip nulled parent phone]", () => {
+    const c = { company_name: "Geoff Shera", contact_name: "Geoff Shera", display_name: "Geoff Shera", email: "geoff@x.com", phone: "(778) 555-0000", address: "3912 Lancaster Rd", is_job: false };
+    expect(clientFieldsFromCustomer(c)).toEqual({ name: "Geoff Shera", email: "geoff@x.com", phone_number: "(778) 555-0000", address: "3912 Lancaster Rd" });
+    expect(subClientFieldsFromCustomer(c)).toBeNull();
+  });
 });
