@@ -12,7 +12,6 @@ import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
 import { Send, DollarSign, Ban, Trash2, Download, Loader2, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   useInvoices,
@@ -44,7 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tag, type TagProps } from "@/components/ui/tag";
 import { SegmentControl } from "@/components/ui/segment-control";
-import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
+import { TableShell, TableWorkbar, WorkbarButton } from "@/components/ui/table-shell";
 import {
   RegisterTable,
   RegisterEmpty,
@@ -446,10 +445,10 @@ export function InvoicesSegment({
             />
           )}
           {canCreate && (
-            <Button variant="primary" size="sm" type="button" onClick={gatedOpenCreate}>
-              <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+            <WorkbarButton onClick={gatedOpenCreate}>
+              <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
               {t("invoices.newInvoice")}
-            </Button>
+            </WorkbarButton>
           )}
           {showViewToggle && (
             <SegmentControl<InvoicesView>
