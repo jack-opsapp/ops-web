@@ -14,7 +14,6 @@ import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModa
 import { getInitials } from "@/lib/types/models";
 import { formatCurrency, formatPhoneNumber } from "@/lib/utils/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterChips } from "@/components/ui/filter-chip";
 import {
@@ -25,7 +24,7 @@ import {
   TableMono,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
+import { TableShell, TableWorkbar, WorkbarButton } from "@/components/ui/table-shell";
 import { MetricsStrip, type MetricCell } from "@/components/ui/metrics-strip";
 
 type FilterMode = "all" | "with-projects" | "owes" | "new";
@@ -341,10 +340,10 @@ export default function ClientsPage() {
                   aria-label={t("search.placeholder")}
                 />
                 {canCreate && (
-                  <Button variant="primary" size="sm" type="button" onClick={gatedCreate}>
-                    <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+                  <WorkbarButton onClick={gatedCreate}>
+                    <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
                     {t("newClient")}
-                  </Button>
+                  </WorkbarButton>
                 )}
               </div>
             </div>

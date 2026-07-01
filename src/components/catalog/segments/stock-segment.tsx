@@ -23,7 +23,7 @@ import {
   type RegisterTableColumn,
   type TagProps,
 } from "@/components/ui/register-table";
-import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
+import { TableShell, TableWorkbar, WorkbarButton } from "@/components/ui/table-shell";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -334,10 +334,10 @@ export function StockSegment({
                       wrapperClassName="w-[220px] max-w-full"
                     />
                     {canManage && (
-                      <Button variant="primary" size="sm" type="button" onClick={() => setAddOpen(true)}>
-                        <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+                      <WorkbarButton onClick={() => setAddOpen(true)}>
+                        <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
                         {t("stock.add", "ADD")}
-                      </Button>
+                      </WorkbarButton>
                     )}
                     <CatalogKebab segment="stock" rows={rows} />
                   </>

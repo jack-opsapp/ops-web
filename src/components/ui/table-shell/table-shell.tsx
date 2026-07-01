@@ -31,7 +31,7 @@
  * provides `flex min-h-0 flex-1` with no horizontal gutter.
  */
 
-import { forwardRef, type HTMLAttributes, type ReactNode, type Ref } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type HTMLAttributes, type ReactNode, type Ref } from "react";
 import { cn } from "@/lib/utils/cn";
 import { TableChrome } from "./table-chrome";
 
@@ -43,6 +43,37 @@ import { TableChrome } from "./table-chrome";
  */
 export function TableWorkbar({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("flex flex-col gap-2 border-b border-line px-3 py-2.5", className)}>{children}</div>;
+}
+
+/**
+ * WorkbarButton — the ONE compact primary CTA for a TableWorkbar (NEW CLIENT /
+ * ADD / NEW LEAD …). A dense 28px filled-accent chip that sits flush with the
+ * other toolbar controls (search, filters, density) across every surface.
+ *
+ * Deliberately NOT the heavy `<Button>` primitive: this project's spacing scale
+ * makes its size classes render ~2x tall (`h-8` = 64px), which dwarfs the dense
+ * toolbar. Filled steel-blue at rest → brightens on hover; accent focus ring with
+ * a black offset so it stays visible against the accent fill. The single primary
+ * CTA per surface — the one place the steel-blue accent appears in the workbar.
+ */
+export function WorkbarButton({
+  children,
+  className,
+  type = "button",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type={type}
+      className={cn(
+        "flex h-[28px] shrink-0 items-center gap-[5px] rounded-chip border border-ops-accent bg-ops-accent px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-black transition-colors hover:border-ops-accent-hover hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  );
 }
 
 export interface TableShellProps {

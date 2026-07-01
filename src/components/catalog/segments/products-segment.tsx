@@ -23,8 +23,7 @@ import {
   Tag,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
-import { Button } from "@/components/ui/button";
+import { TableShell, TableWorkbar, WorkbarButton } from "@/components/ui/table-shell";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   DropdownMenu,
@@ -346,10 +345,10 @@ export function ProductsSegment({
                   wrapperClassName="w-[220px] max-w-full"
                 />
                 {canManage && (
-                  <Button variant="primary" size="sm" type="button" onClick={() => setAddOpen(true)}>
-                    <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
+                  <WorkbarButton onClick={() => setAddOpen(true)}>
+                    <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
                     {t("stock.add", "ADD")}
-                  </Button>
+                  </WorkbarButton>
                 )}
                 <CatalogKebab segment="products" rows={[]} />
               </div>
