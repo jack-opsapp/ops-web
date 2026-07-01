@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { Save } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { useTableZoom } from "@/lib/hooks/projects-table/use-table-zoom";
@@ -37,10 +38,7 @@ import { PipelineUndoToast } from "./pipeline-undo-toast";
 import { PipelineViewCreateDialog } from "./pipeline-view-create-dialog";
 import { PipelineViewSettingsMenu } from "./pipeline-view-settings-menu";
 import { PipelineViewTabs } from "./pipeline-view-tabs";
-import { PipelineModeSwitcher } from "../pipeline-mode-switcher";
-import { TableShell, TableChrome, TableWorkbar } from "@/components/ui/table-shell";
-import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
-import type { MetricColumnConfig } from "@/components/metrics/types";
+import { TableShell } from "@/components/ui/table-shell";
 
 // Stable empty collapsed-stage set. Used to derive the selection-order list
 // (`selectableRowIds`) from `buildFlattenedRows` with grouping applied but NO
@@ -138,13 +136,35 @@ function viewPersistenceErrorCopyKey(error: unknown) {
  * it is driven inline from the toolbar via `useTableZoom().setPreset`.
  */
 export function PipelineTableShell({
-  pipelineMetrics,
+  tabsSlot,
+  clusterSlot,
+  search,
+  searchInputRef,
 }: {
-  pipelineMetrics?: MetricColumnConfig[];
+  /**
+   * Portal target for the saved-view tab strip — row 2 of the persistent toolbar
+   * owned by `pipeline/page.tsx`. Null until the slot mounts (page load).
+   */
+  tabsSlot: HTMLElement | null;
+  /**
+   * Portal target for the grid controls cluster (GROUP / SHOW CLOSED / count /
+   * save / density / view-settings) — the controls row of the persistent toolbar.
+   */
+  clusterSlot: HTMLElement | null;
+  /** Shared search query, owned by `pipeline/page.tsx` (drives both surfaces). */
+  search: string;
+  /** Ref to the shared search input, for the grid's ⌘F focus-search shortcut. */
+  searchInputRef: RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useDictionary("pipeline");
 
-  const [search, setSearch] = useState("");
+  // Table mode is active whenever this surface is the current mode. During the
+  // table→focused crossfade this shell stays mounted (AnimatePresence exit) but
+  // the store flips first, so gating the toolbar portals on this (subscribed to
+  // the store) clears the outgoing table cluster instantly — the focused cluster
+  // owns the bar with no duplicate controls mid-transition.
+  const tableActive = usePipelineModeStore((state) => state.mode) === "table";
+
   const [sorting, setSorting] = useState<PipelineTableSort[]>([]);
 
   // Grouped view + closed-deals scope + per-stage collapse all live as shell UI
@@ -433,7 +453,6 @@ export function PipelineTableShell({
   // no competing editing-cell state.
   const { saveStates, commitEdit, latestUndo, undoLatest, clearLatestUndo } =
     useOpportunityCellEdit({ rows });
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const handleUndoLatest = useCallback(() => {
     void undoLatest();
@@ -444,7 +463,7 @@ export function PipelineTableShell({
     if (!input) return;
     input.focus();
     input.select();
-  }, []);
+  }, [searchInputRef]);
 
   // ── Keyboard navigation (roving tabindex + grid shortcuts) ─────────────────
   // Owns `activeCell` (roving focus) and `editingCell` (which cell is editing).
@@ -636,131 +655,107 @@ export function PipelineTableShell({
     </div>
   );
 
-  // View states gate the table states (mirrors the projects shell): a view-load
-  // failure / load / empty-view-set short-circuits before the row states, since
-  // there is no table to render without a view. Once a view exists, the row
-  // states (error → loading → empty → table) take over.
-  // Decoupled chrome (WEB OVERHAUL P6-2 rework): the metrics bar scrolls UP and
-  // out of view; the saved-view tabs + toolbar PIN. The focused/table mode
-  // switcher now lives IN the toolbar (Jackson 2026-06-30) — no longer floating
-  // in the page HUD. Injected into PipelineTable's `aboveHeader` slot so it
-  // scrolls inside the virtualized scroller (virtualizer untouched).
-  const chrome = (
-    <TableChrome
-      metrics={
-        <MetricsStrip
-          metrics={fromMetricColumns(pipelineMetrics ?? [])}
-          isLoading={pipelineMetrics == null}
-          ariaLabel={t("table.gridLabel")}
-        />
+  // Table toolbar clusters (WEB OVERHAUL P6-2 rework): the metrics bar + toolbar
+  // are a SINGLE persistent instance owned by `pipeline/page.tsx`, shared across
+  // the focused/table modes so switching modes never remounts or moves them
+  // (Jackson 2026-06-30). This surface renders ONLY the table's mode-specific
+  // toolbar clusters — the saved-view tab strip and the grid controls (GROUP /
+  // SHOW CLOSED / count / save / density / view-settings) — PORTALED up into the
+  // persistent toolbar's two slots. The shared mode switcher + search live once
+  // in the page toolbar. Portals mount only while table mode is active, so the
+  // table→focused crossfade clears the outgoing cluster instantly.
+  const viewTabsNode = (
+    <PipelineViewTabs
+      views={views}
+      activeViewId={activeViewId}
+      onViewChange={handleViewChange}
+      onCreateView={() => setCreateDialogOpen(true)}
+      onArchiveView={(view) => {
+        void handleInlineArchiveView(view);
+      }}
+      isLoading={viewsQuery.isLoading}
+      isError={viewsQuery.isError}
+    />
+  );
+
+  const toolbarClusterNode = (
+    <PipelineToolbar
+      dealCount={totalCount}
+      grouped={grouped}
+      onGroupedChange={setGrouped}
+      closedDeals={closedDeals}
+      onClosedDealsChange={setClosedDeals}
+      density={density}
+      onDensityChange={handleDensityChange}
+      densityDisabled={densitySaving || viewActions.updateViewDefinition.isPending}
+      saveAffordance={
+        activeView ? (
+          <>
+            {hasUnsavedDefinition ? (
+              <button
+                type="button"
+                disabled={viewDefinitionSaving || viewActions.updateViewDefinition.isPending}
+                onClick={() => {
+                  void persistPendingViewDefinition();
+                }}
+                className="inline-flex h-[28px] items-center gap-1 rounded border border-ops-accent bg-ops-accent px-2 font-cakemono text-cake-button font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
+                {t("table.views.save")}
+              </button>
+            ) : null}
+            {viewSaveErrorKey ? (
+              <span role="alert" className="font-mono text-micro text-rose">
+                {t(viewSaveErrorKey)}
+              </span>
+            ) : null}
+            {densityErrorKey ? (
+              <span role="alert" className="font-mono text-micro text-rose">
+                {t(densityErrorKey)}
+              </span>
+            ) : null}
+          </>
+        ) : null
       }
-      toolbar={
-        <>
-          <TableWorkbar>
-            <PipelineViewTabs
-              views={views}
-              activeViewId={activeViewId}
-              onViewChange={handleViewChange}
-              onCreateView={() => setCreateDialogOpen(true)}
-              onArchiveView={(view) => {
-                void handleInlineArchiveView(view);
-              }}
-              isLoading={viewsQuery.isLoading}
-              isError={viewsQuery.isError}
-            />
-            <PipelineToolbar
-              search={search}
-            onSearchChange={setSearch}
-            dealCount={totalCount}
-            grouped={grouped}
-            onGroupedChange={setGrouped}
-            closedDeals={closedDeals}
-            onClosedDealsChange={setClosedDeals}
-            density={density}
-            onDensityChange={handleDensityChange}
-            densityDisabled={densitySaving || viewActions.updateViewDefinition.isPending}
-            searchInputRef={searchInputRef}
-            leading={<PipelineModeSwitcher />}
-            saveAffordance={
-              activeView ? (
-                <>
-                  {hasUnsavedDefinition ? (
-                    <button
-                      type="button"
-                      disabled={viewDefinitionSaving || viewActions.updateViewDefinition.isPending}
-                      onClick={() => {
-                        void persistPendingViewDefinition();
-                      }}
-                      className="inline-flex h-[28px] items-center gap-1 rounded border border-ops-accent bg-ops-accent px-2 font-cakemono text-cake-button font-light uppercase text-black transition-colors hover:bg-ops-accent-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
-                    >
-                      <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
-                      {t("table.views.save")}
-                    </button>
-                  ) : null}
-                  {viewSaveErrorKey ? (
-                    <span role="alert" className="font-mono text-micro text-rose">
-                      {t(viewSaveErrorKey)}
-                    </span>
-                  ) : null}
-                  {densityErrorKey ? (
-                    <span role="alert" className="font-mono text-micro text-rose">
-                      {t(densityErrorKey)}
-                    </span>
-                  ) : null}
-                </>
-              ) : null
-            }
-            viewSettings={
-              <PipelineViewSettingsMenu
-                activeView={activeView}
-                actions={viewActionsWithPendingDefinition}
-                onViewRenamed={handleViewUpdated}
-                onViewDuplicated={handleViewCreated}
-                onViewArchived={handleViewArchived}
-                onViewReset={handleViewUpdated}
-                onViewShared={handleViewUpdated}
-              />
-            }
-            />
-          </TableWorkbar>
-          {unavailableViewId ? (
-            <div
-              role="alert"
-              className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-[0.16em] text-rose"
-            >
-              {t("table.views.unavailable")}
-            </div>
-          ) : null}
-        </>
+      viewSettings={
+        <PipelineViewSettingsMenu
+          activeView={activeView}
+          actions={viewActionsWithPendingDefinition}
+          onViewRenamed={handleViewUpdated}
+          onViewDuplicated={handleViewCreated}
+          onViewArchived={handleViewArchived}
+          onViewReset={handleViewUpdated}
+          onViewShared={handleViewUpdated}
+        />
       }
     />
   );
 
-  // Non-grid states pin the chrome above a placeholder in the scroll region.
-  const withChrome = (node: ReactNode) => (
-    <div className="flex h-full min-h-0 flex-col">
-      {chrome}
-      <div className="relative min-h-0 flex-1 overflow-auto">{node}</div>
-    </div>
+  // Table content: the grid once a view + rows resolve, else tactical microcopy.
+  // View states gate the row states (mirrors the projects shell): a view-load
+  // failure / load / empty-view-set short-circuits before the row states. Non-grid
+  // states get a flex-1 overflow frame so they fill the scroll region exactly as
+  // the grid would (the grid owns its own overflow container).
+  const contentFrame = (node: ReactNode) => (
+    <div className="relative min-h-0 flex-1 overflow-auto">{node}</div>
   );
 
-  let body;
+  let contentNode: ReactNode;
   if (viewsQuery.isError) {
-    body = withChrome(stateMessage("table.views.error"));
+    contentNode = contentFrame(stateMessage("table.views.error"));
   } else if (viewsQuery.isLoading) {
-    body = withChrome(stateMessage("table.views.loading"));
+    contentNode = contentFrame(stateMessage("table.views.loading"));
   } else if (views.length === 0) {
-    body = withChrome(stateMessage("table.views.empty"));
+    contentNode = contentFrame(stateMessage("table.views.empty"));
   } else if (isError) {
-    body = withChrome(stateMessage("table.state.error"));
+    contentNode = contentFrame(stateMessage("table.state.error"));
   } else if (isLoading) {
-    body = withChrome(stateMessage("table.state.loading"));
+    contentNode = contentFrame(stateMessage("table.state.loading"));
   } else if (displayRows.length === 0) {
-    body = withChrome(stateMessage("table.state.empty"));
+    contentNode = contentFrame(stateMessage("table.state.empty"));
   } else {
-    body = (
+    contentNode = (
       <PipelineTable
-        aboveHeader={chrome}
         rows={displayRows}
         sorting={sorting}
         onSortingChange={setSorting}
@@ -800,17 +795,29 @@ export function PipelineTableShell({
     displayRows.length > 0;
 
   return (
-    // Unified TableShell (WEB OVERHAUL P6-2, reworked 2026-06-30). FULL-BLEED:
-    // the grid runs edge-to-edge. PipelineTable still owns its own scroll
-    // container + virtualizer + stage-group interleaving + frozen columns +
-    // inline edit; the decoupled metrics bar + sticky toolbar (the `chrome`,
-    // with the focused/table mode switcher in it) are injected into that scroller
-    // via the grid's `aboveHeader` slot, so the metrics scroll up and out of view
-    // while the toolbar + header pin. `scroll={false}` → the grid owns scrolling;
-    // `flex-1 min-h-0` keeps the grand-total footer's band below.
+    // FULL-BLEED grid surface (WEB OVERHAUL P6-2, reworked 2026-06-30). The metrics
+    // bar + toolbar are NOT here — they are one persistent instance in
+    // `pipeline/page.tsx`, shared across focused/table so a mode switch never
+    // remounts them. This renders the grid (which owns its own virtualized scroller
+    // + frozen columns + inline edit + stage grouping) and the grand-total footer,
+    // and PORTALS its two mode-specific toolbar clusters up into the persistent
+    // toolbar's slots (only while table mode is active — see `tableActive`).
     <div className="relative flex h-full min-h-0 flex-col">
+      {tableActive && tabsSlot ? createPortal(viewTabsNode, tabsSlot) : null}
+      {tableActive && clusterSlot
+        ? createPortal(toolbarClusterNode, clusterSlot)
+        : null}
+
       <TableShell scroll={false} className="min-h-0 flex-1">
-        {body}
+        {unavailableViewId ? (
+          <div
+            role="alert"
+            className="border-b border-border px-3 py-1.5 font-mono text-micro uppercase tracking-[0.16em] text-rose"
+          >
+            {t("table.views.unavailable")}
+          </div>
+        ) : null}
+        {contentNode}
       </TableShell>
 
       <PipelineViewCreateDialog
