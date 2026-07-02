@@ -56,6 +56,23 @@ export function TableWorkbar({ children, className }: { children: ReactNode; cla
  *            leftmost    after search                           right     rightmost
  *   Row 2:  [ tabStrip ]   — segment/mode controls + saved-view tabs
  *
+ * Overflow contract (desktop ≥sm): row 1 NEVER line-breaks, so the right
+ * cluster (tools + create) can't orphan onto its own right-aligned line — the
+ * 3-row failure Catalog hit at ~1040px. Row 1 is a GRID (search · elastic
+ * middle · right cluster), not flex: grid auto tracks hold their exact
+ * max-content while any slack exists (flex fractional shrink on an exact-fit
+ * wrap cluster line-breaks it), and the `minmax(min-content,1fr)` middle is
+ * the ONE elastic cell — the `filters` slot reflows its chips onto extra
+ * lines INSIDE the cell down to its widest unwrappable child (a chip;
+ * Pipeline's nowrap dropdown row). Only past that floor does the pressure
+ * reach the right cluster, which then wraps INTERNALLY (right-aligned lines)
+ * instead of clipping or orphaning — flex shrink factors can't express this
+ * two-tier yield order (the sum-below-1 rule under-distributes deficit).
+ * Deliberately reflow-not-scroll: filter slots host non-portaled dropdowns
+ * (Pipeline stage/assignee), which an `overflow-x` rail would clip. Below sm
+ * the row falls back to plain flex wrapping (phone layouts already scroll
+ * these surfaces horizontally).
+ *
  * Each surface fills the slots; empty slots simply collapse (no reserved gaps).
  * Built on {@link TableWorkbar}. The `create` slot should be a {@link WorkbarButton};
  * `search` the shared `SearchInput`.
@@ -86,11 +103,32 @@ export function Workbar({
   return (
     <TableWorkbar>
       {hasRow1 ? (
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {search}
-          {filters}
+        <div
+          className="flex min-w-0 flex-wrap items-center gap-2 sm:grid"
+          // Only the slots a surface fills get a track, so empty slots keep
+          // collapsing with no reserved gap (the flex phone fallback ignores
+          // this property entirely).
+          style={{
+            gridTemplateColumns: [
+              search != null ? "auto" : null,
+              "minmax(min-content, 1fr)",
+              hasRightCluster ? "auto" : null,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          }}
+        >
+          {search != null ? <div className="min-w-0 max-w-full">{search}</div> : null}
+          {/* The elastic middle cell (always rendered so the 1fr track exists):
+              chips reflow onto extra lines in here while search and the right
+              cluster hold their line — see the overflow contract above. */}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">{filters}</div>
           {hasRightCluster ? (
-            <div className="ml-auto flex flex-wrap items-center gap-2">
+            // Internal flex-wrap is the last-resort relief: it only engages
+            // once the middle cell is at min-content, wrapping the cluster
+            // right-aligned instead of clipping at the row edge. ml-auto
+            // right-pins it in the phone flex fallback (a no-op under grid).
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
               {tools}
               {create}
             </div>
