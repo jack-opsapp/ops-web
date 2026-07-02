@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Save, X, Search, Check } from "lucide-react";
+import { ArrowLeft, Save, Search, Check } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,6 +52,10 @@ const statusOptions: { value: ProjectStatus; key: string }[] = [
 
 // ─── Client Selector ───────────────────────────────────────────────────────────
 
+// On the canonical EntityPicker (previously a hand-rolled absolute dropdown —
+// the Picker kit docstring mandates the shared shell). The trigger keeps the
+// form's 36px field look; this page is a plain route, so the panel's default
+// `z-dropdown` layer is correct.
 function ClientSelector({
   value,
   onChange,
@@ -63,84 +68,52 @@ function ClientSelector({
   isLoadingClients: boolean;
 }) {
   const { t } = useDictionary("projects");
-  const [clientSearch, setClientSearch] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  const filteredClients = useMemo(
-    () =>
-      clients.filter((c) =>
-        c.name.toLowerCase().includes(clientSearch.toLowerCase())
-      ),
-    [clients, clientSearch]
-  );
-
-  const selectedClient = clients.find((c) => c.id === value);
+  const { t: tp } = useDictionary("picker");
+  const selected = clients.find((c) => c.id === value) ?? null;
 
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
         {t("new.clientLabel")}
       </label>
-      <div className="relative">
-        {selectedClient ? (
-          <div className="flex items-center justify-between bg-surface-input border border-border rounded-lg px-1.5 py-1.5">
-            <span className="font-mohave text-body text-text">
-              {selectedClient.name}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                onChange(null);
-                setClientSearch("");
-              }}
-              className="text-text-3 hover:text-text-2"
-            >
-              <X className="w-[16px] h-[16px]" />
-            </button>
-          </div>
-        ) : (
-          <div>
-            <Input
-              placeholder={isLoadingClients ? t("new.loadingClients") : t("new.searchClients")}
-              value={clientSearch}
-              onChange={(e) => {
-                setClientSearch(e.target.value);
-                setShowDropdown(true);
-              }}
-              onFocus={() => setShowDropdown(true)}
-              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-              prefixIcon={<Search className="w-[16px] h-[16px]" />}
-              disabled={isLoadingClients}
-            />
-            {showDropdown && !isLoadingClients && (
-              <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-glass glass-surface border border-border rounded-lg max-h-[200px] overflow-y-auto">
-                {filteredClients.length === 0 ? (
-                  <div className="px-1.5 py-1 text-left">
-                    <p className="font-mohave text-body-sm text-text-3">
-                      {clients.length === 0 ? t("new.noClients") : t("new.noMatchingClients")}
-                    </p>
-                  </div>
-                ) : (
-                  filteredClients.map((client) => (
-                    <button
-                      key={client.id}
-                      type="button"
-                      onMouseDown={() => {
-                        onChange(client.id);
-                        setShowDropdown(false);
-                        setClientSearch("");
-                      }}
-                      className="w-full px-1.5 py-1 text-left font-mohave text-body text-text-2 hover:text-text hover:bg-fill-neutral-dim transition-colors"
-                    >
-                      {client.name}
-                    </button>
-                  ))
-                )}
-              </div>
+      <EntityPicker<Client>
+        trigger={
+          <button
+            type="button"
+            disabled={isLoadingClients}
+            className={cn(
+              "flex w-full min-h-[36px] items-center justify-between gap-2 px-2",
+              "font-mohave text-body text-left",
+              "bg-surface-input rounded border border-glass-border",
+              "transition-colors duration-150",
+              "hover:border-glass-border-medium",
+              "focus:outline-none focus:border-glass-border-strong",
+              "disabled:cursor-not-allowed disabled:opacity-40",
+              selected ? "text-text" : "text-text-3",
             )}
-          </div>
-        )}
-      </div>
+          >
+            <span className="truncate">
+              {isLoadingClients
+                ? t("new.loadingClients")
+                : selected
+                  ? selected.name
+                  : t("new.searchClients")}
+            </span>
+            <Search className="w-[16px] h-[16px] shrink-0 text-text-3" strokeWidth={1.5} />
+          </button>
+        }
+        label={t("new.clientLabel")}
+        items={clients}
+        value={value}
+        onChange={onChange}
+        getId={(c) => c.id}
+        getLabel={(c) => c.name}
+        searchPlaceholder={t("new.searchClients")}
+        clearLabel={tp("clear")}
+        emptyLabel={clients.length === 0 ? t("new.noClients") : t("new.noMatchingClients")}
+        noneOption
+        noneLabel={t("new.noClient")}
+      />
     </div>
   );
 }
@@ -256,20 +229,26 @@ export default function NewProjectPage() {
   const { data: teamData, isLoading: isLoadingTeam } = useTeamMembers();
   const createProjectMutation = useCreateProject();
 
-  const clients = clientsData?.clients ?? [];
+  const clients = useMemo(() => clientsData?.clients ?? [], [clientsData?.clients]);
   const teamMembers = teamData?.users ?? [];
+
+  // A `?clientId=` deep link (client-list widget's "Create Project" action)
+  // preselects the client. Cleared below if the id never resolves.
+  const searchParams = useSearchParams();
+  const preselectedClientId = searchParams.get("clientId");
 
   // Form
   const {
     register,
     handleSubmit,
     control,
+    setValue,
     formState: { errors },
   } = useForm<ProjectFormData>({
     resolver: zodResolver(projectFormSchema),
     defaultValues: {
       title: "",
-      clientId: null,
+      clientId: preselectedClientId,
       address: "",
       status: ProjectStatus.RFQ,
       startDate: "",
@@ -279,6 +258,13 @@ export default function NewProjectPage() {
       teamMemberIds: [],
     },
   });
+
+  useEffect(() => {
+    if (!preselectedClientId || isLoadingClients) return;
+    if (!clients.some((c) => c.id === preselectedClientId)) {
+      setValue("clientId", null);
+    }
+  }, [preselectedClientId, isLoadingClients, clients, setValue]);
 
   const [serverError, setServerError] = useState<string | null>(null);
 
