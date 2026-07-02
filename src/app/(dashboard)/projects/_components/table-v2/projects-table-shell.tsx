@@ -198,6 +198,7 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
 
   useEffect(() => {
     setSorting(activeView?.sort ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activeViewSortKey IS activeView?.sort, stable-keyed above; the raw object would re-seed on referential churn
   }, [activeView?.id, activeViewSortKey]);
 
   useEffect(() => {

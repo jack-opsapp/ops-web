@@ -43,7 +43,6 @@ import {
   getStageDisplayName,
   isActiveStage,
   nextOpportunityStage,
-  previousOpportunityStage,
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
 // motion variants removed — archive undo toast replaced by universal undo

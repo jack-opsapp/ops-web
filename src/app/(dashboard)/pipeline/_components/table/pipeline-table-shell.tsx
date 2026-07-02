@@ -246,6 +246,7 @@ export function PipelineTableShell({
   // re-sort the table.
   useEffect(() => {
     setSorting(activeView?.sort ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activeViewSortKey IS activeView?.sort, stable-keyed above; the raw object would re-seed on referential churn
   }, [activeView?.id, activeViewSortKey]);
 
   useEffect(() => {
