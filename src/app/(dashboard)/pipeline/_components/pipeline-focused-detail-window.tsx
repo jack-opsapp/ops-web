@@ -41,11 +41,26 @@ function escapeAttributeValue(value: string): string {
 function focusOrigin(originatingOpportunityId: string | null) {
   if (!originatingOpportunityId) return;
 
+  // Double rAF: the first frame can still race the window's unmount commit —
+  // if the portal (which holds focus) is removed AFTER we focus the origin,
+  // the browser resets focus to <body> and the restore is lost. Waiting one
+  // extra frame guarantees the removal has settled first.
   requestAnimationFrame(() => {
-    const target = document.querySelector<HTMLElement>(
-      `[data-opportunity-card-id="${escapeAttributeValue(originatingOpportunityId)}"]`
-    );
-    target?.focus({ preventScroll: true });
+    requestAnimationFrame(() => {
+      const escaped = escapeAttributeValue(originatingOpportunityId);
+      // Focused mode restores to the board card; table mode (which renders no
+      // cards) falls back to the deal's row cell — every cell carries the
+      // row-id attribute and a roving tabindex, so it is programmatically
+      // focusable.
+      const target =
+        document.querySelector<HTMLElement>(
+          `[data-opportunity-card-id="${escaped}"]`
+        ) ??
+        document.querySelector<HTMLElement>(
+          `[data-pipeline-table-row-id="${escaped}"]`
+        );
+      target?.focus({ preventScroll: true });
+    });
   });
 }
 
