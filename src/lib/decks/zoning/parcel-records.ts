@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const ZONING_STATUSES_FROM_VERIFIED_SOURCES = new Set([
+export type VerifiedParcelZoningStatus =
+  | "available"
+  | "partial"
+  | "userEntered";
+
+const ZONING_STATUSES_FROM_VERIFIED_SOURCES = new Set<string>([
   "available",
   "partial",
   "userEntered",
@@ -23,6 +28,15 @@ interface DeckZoningParcelRecordRow {
 
 export function normalizeSiteAddress(value: string): string {
   return value.trim().split(/\s+/).filter(Boolean).join(" ").toLowerCase();
+}
+
+export function isVerifiedParcelZoningStatus(
+  value: unknown
+): value is VerifiedParcelZoningStatus {
+  return (
+    typeof value === "string" &&
+    ZONING_STATUSES_FROM_VERIFIED_SOURCES.has(value)
+  );
 }
 
 export async function resolveVerifiedParcelRecord({
@@ -91,17 +105,15 @@ function toVerifiedResolution(
 ): VerifiedParcelRecordResolution | null {
   if (!row || !isObjectRecord(row.parcel_zoning)) return null;
 
-  const status = row.parcel_zoning.status;
-  if (
-    typeof status !== "string" ||
-    !ZONING_STATUSES_FROM_VERIFIED_SOURCES.has(status)
-  ) {
+  if (!isVerifiedParcelZoningStatus(row.parcel_zoning.status)) {
     return null;
   }
 
   return { parcelZoning: row.parcel_zoning };
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
+export function isObjectRecord(
+  value: unknown
+): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
