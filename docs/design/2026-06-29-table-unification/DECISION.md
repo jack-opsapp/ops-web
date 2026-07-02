@@ -159,3 +159,23 @@ Jackson, live review of the pipeline tab: (1) focused view needs edge padding; (
 - **Overlapping crossfade.** The switch dropped `mode="wait"` (which faded to blank then popped → "no animation") for a true cross-dissolve at 250ms on `EASE_SMOOTH` (reduced-motion 150ms). Live-verified: at 90ms into the switch BOTH surfaces are present (cross-dissolving); by 320ms the outgoing one has unmounted.
 - **Focused edge padding.** `px-3` (24px) on the board grid so its columns align with the toolbar + metrics content edge (all inset 24px → x=96), instead of full-bleed.
 - **Regressions checked:** persistent metrics/toolbar still never remount across the switch (same DOM nodes + stamps survive); `tsc` 7 pre-existing only; `eslint` 0 errors (4 pre-existing warnings). 0 console errors. **NOT pushed.**
+
+## REWORK 4 — 2026-07-02 (Cross-tab toolbar consistency, brainstormed + approved)
+
+Jackson: "the toolbar generally is not consistent enough across tabs. Anything used consistently across tabs must be in the same place — filters one spot, search one spot + consistent width, create one spot." Ran `brainstorming` (canonical grammar presented; **approved: segment/mode → row-2 tab strip**) + `interface-design` (project has `.interface-design/system.md` → apply the system; build a shared component, not five hand-arranged toolbars).
+
+**One shared `Workbar` slot component now OWNS the grammar** (`ui/table-shell`), so positions can't drift per-tab:
+```
+Row 1:  [ search ] [ filters ] ──(ml-auto)── [ tools ] [ create ]
+Row 2:  [ tabStrip ]   — segment/mode + saved-view tabs
+```
+Slots: `search` (leftmost) · `filters` · `tools` · `create` (rightmost) · `tabStrip` (row 2) · `children` (extra rows, e.g. stock's bulk bar). Empty slots collapse; row 1 is skipped entirely when all its slots are empty (Books expenses/sync).
+
+**All five surfaces migrated to it.** Consistency delivered:
+- **Search** — one component (`SearchInput`) at ONE width (240px), always leftmost, on every tab. Retired two hand-rolled searches (Pipeline + Projects, which used an off-spec `focus-within:ring-ops-accent` — now the spec border-brighten). Was 3 widths (200/220/240) + 2 components before.
+- **Filters** — always immediately right of search.
+- **Create** — always rightmost, the shared `WorkbarButton` (NEW LEAD / ADD / New Invoice / New Client). Projects has none (FAB-created) — fine, "consistent where it exists."
+- **Segment/mode + saved-view tabs → the row-2 tab strip** on every tab: Catalog PRODUCTS/STOCK, Books INVOICES/…/SYNC, Pipeline FOCUSED/TABLE (moved down from row 1), Projects + Pipeline saved views.
+- **Pipeline table density fix** — the tab slot is flex-1 so many saved views scroll on one line (no wrap); the redundant `// N deals` toolbar readout dropped (the grand-total footer already shows it) so row 1 fits one line. Pipeline table is now 2 clean lines like every other tab; metrics/toolbar still never remount across focused↔table.
+
+**Gates:** `tsc` 7 pre-existing only; `eslint` 0 errors (4 pre-existing warnings); zero raw colors in touched files (all tokens). **LIVE-VERIFIED** (0 console errors) — search at x=96/240px identical on Projects/Pipeline/Catalog/Clients; create rightmost; segment/tabs on row 2; Catalog + Projects + Pipeline (both modes) screenshot-confirmed. Commits `f008ac65` (Workbar + Clients/Catalog), `4eda226c` (Books), `6560ec3f` (Pipeline + Projects). **NOT pushed.**
