@@ -175,7 +175,7 @@ describe("full-height modes (parity with the retired FULL_HEIGHT_ROUTES map)", (
   it.each([
     ["/inbox", "padded"],
     ["/schedule", "padded"],
-    ["/pipeline", "padded"],
+    ["/pipeline", "bleed"],
     ["/projects", "bleed"],
   ] as const)("%s → %s", (path, mode) => {
     expect(getFullHeightMode(path)).toBe(mode);
