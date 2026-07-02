@@ -7,8 +7,8 @@ create table if not exists public.deck_zoning_parcel_records (
   normalized_site_address text not null,
   parcel_zoning jsonb not null,
   source_status text not null default 'available'
-    check (source_status in ('available', 'partial', 'unavailable')),
-  provider text not null default 'ops_verified_cache',
+    check (source_status in ('available', 'partial', 'userEntered')),
+  provider text default 'ops_verified_cache',
   source_url text,
   retrieved_at timestamptz,
   expires_at timestamptz,

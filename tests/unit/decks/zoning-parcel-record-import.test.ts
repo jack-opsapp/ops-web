@@ -215,6 +215,35 @@ describe("zoning parcel record import", () => {
     ]);
   });
 
+  it("accepts user-entered zoning records without provider or parcel geometry", () => {
+    const prepared = prepareVerifiedParcelRecordImport([
+      {
+        site_address: "123 Manual St, Surrey, BC",
+        jurisdiction_id: "CA-BC-SURREY",
+        parcel_zoning: {
+          siteAddress: "123 Manual St, Surrey, BC",
+          status: "userEntered",
+          criteria: {
+            maxLotCoveragePercent: 40,
+          },
+        },
+        source_status: "userEntered",
+        retrieved_at: "2026-07-02T12:00:00.000Z",
+      },
+    ]);
+
+    expect(prepared.rejected).toEqual([]);
+    expect(prepared.accepted).toHaveLength(1);
+    expect(prepared.accepted[0]).toMatchObject({
+      sourceStatus: "userEntered",
+      row: {
+        source_status: "userEntered",
+        provider: null,
+        source_url: null,
+      },
+    });
+  });
+
   it("updates matching active records and inserts new records", async () => {
     const existingParcelZoning = makeParcelZoning("partial");
     const importedParcelZoning = makeParcelZoning("available");
