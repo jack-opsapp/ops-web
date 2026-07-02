@@ -68,10 +68,12 @@ export function TableWorkbar({ children, className }: { children: ReactNode; cla
  * reach the right cluster, which then wraps INTERNALLY (right-aligned lines)
  * instead of clipping or orphaning — flex shrink factors can't express this
  * two-tier yield order (the sum-below-1 rule under-distributes deficit).
- * Deliberately reflow-not-scroll: filter slots host non-portaled dropdowns
- * (Pipeline stage/assignee), which an `overflow-x` rail would clip. Below sm
- * the row falls back to plain flex wrapping (phone layouts already scroll
- * these surfaces horizontally).
+ * Deliberately reflow-not-scroll: the chips themselves are the unwrappable
+ * floor — an `overflow-x` rail would hide active filters off-screen, and a
+ * scanning operator must always see which filters are narrowing the table.
+ * (Filter dropdowns are no longer a constraint here: they portal to the body
+ * via the Picker kit.) Below sm the row falls back to plain flex wrapping
+ * (phone layouts already scroll these surfaces horizontally).
  *
  * Each surface fills the slots; empty slots simply collapse (no reserved gaps).
  * Built on {@link TableWorkbar}. The `create` slot should be a {@link WorkbarButton};

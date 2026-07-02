@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Plus, ChevronDown, Search } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import {
   OpportunityStage,
   getActiveStages,
@@ -43,17 +44,29 @@ interface PipelineFilterRowProps {
 }
 
 // ---------------------------------------------------------------------------
-// Shared dropdown surface styles
+// Shared filter-chip trigger
 // ---------------------------------------------------------------------------
 
-const DROPDOWN_SURFACE =
-  "absolute top-[calc(100%+4px)] left-0 z-50 min-w-full " +
-  "glass-dense py-[4px]";
-
-const DROPDOWN_ITEM =
-  "flex items-center gap-[8px] w-full px-[10px] py-[6px] " +
-  "font-mono text-caption-sm text-left whitespace-nowrap " +
-  "hover:bg-surface-hover transition-colors cursor-pointer";
+/**
+ * The filter chip look, unchanged from the hand-rolled era: 26px quiet chip in
+ * the toolbar, 30px bordered chip on the surface variant. `filtered` (an
+ * active non-"all" value) keeps the toolbar chip filled so the operator can
+ * see at a glance that the board is narrowed.
+ */
+function filterTriggerClass(isToolbar: boolean, open: boolean, filtered: boolean) {
+  return cn(
+    "flex items-center gap-[5px] rounded-chip px-[8px] font-mono transition-colors",
+    isToolbar
+      ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] text-micro"
+      : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
+    isToolbar
+      ? open || filtered
+        ? "bg-surface-input text-text hover:bg-surface-hover"
+        : "text-text-2 hover:bg-surface-input hover:text-text"
+      : "border-border text-text hover:border-line-hi",
+    !isToolbar && open && "border-line-hi"
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Stage Dropdown
@@ -66,6 +79,13 @@ interface StageDropdownProps {
   variant?: "surface" | "toolbar";
 }
 
+/**
+ * Stage filter on the canonical {@link EntityPicker} (previously a hand-rolled
+ * non-portaled listbox — the Picker kit docstring mandates the shared shell).
+ * The `"all"` sentinel maps through the kit's `noneOption`; six static stages
+ * need no search row. The portaled panel carries `data-keyboard-scope` from
+ * the kit, so the pipeline "V" shortcut stays suppressed while it is open.
+ */
 function StageDropdown({
   value,
   onChange,
@@ -73,23 +93,6 @@ function StageDropdown({
   variant = "surface",
 }: StageDropdownProps) {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(e: PointerEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [open]);
-
   const stages = getActiveStages();
 
   const labelText =
@@ -100,95 +103,47 @@ function StageDropdown({
   const isToolbar = variant === "toolbar";
 
   return (
-    <div
-      ref={containerRef}
-      className="relative shrink-0"
-      data-keyboard-scope="modal-or-menu"
-    >
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          "flex items-center gap-[5px] rounded-chip px-[8px] font-mono transition-colors",
-          isToolbar
-            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] text-micro"
-            : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
-          isToolbar
-            ? open || value !== "all"
-              ? "bg-surface-input text-text hover:bg-surface-hover"
-              : "text-text-2 hover:bg-surface-input hover:text-text"
-            : "border-border text-text hover:border-line-hi",
-          !isToolbar && open && "border-line-hi"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        {activeDotColor && (
-          <span
-            className="h-[5px] w-[5px] shrink-0 rounded-full"
-            style={{ backgroundColor: activeDotColor }}
-          />
-        )}
-        <span className="whitespace-nowrap">{labelText}</span>
-        <ChevronDown
-          className={cn(
-            "h-[10px] w-[10px] shrink-0 text-text-3 transition-transform duration-150",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-
-      {/* Dropdown */}
-      {open && (
-        <div
-          className={DROPDOWN_SURFACE}
-          data-keyboard-scope="modal-or-menu"
-          role="listbox"
-          aria-label={allStagesLabel}
-        >
-          {/* All Stages option */}
+    <div className="shrink-0" data-keyboard-scope="modal-or-menu">
+      <EntityPicker<OpportunityStage>
+        trigger={
           <button
             type="button"
-            role="option"
-            aria-selected={value === "all"}
-            className={cn(
-              DROPDOWN_ITEM,
-              value === "all" ? "text-text" : "text-text-2"
-            )}
-            onClick={() => {
-              onChange("all");
-              setOpen(false);
-            }}
+            className={filterTriggerClass(isToolbar, open, value !== "all")}
           >
-            <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-fill-neutral" />
-            {allStagesLabel}
-          </button>
-
-          {stages.map((stage) => (
-            <button
-              key={stage}
-              type="button"
-              role="option"
-              aria-selected={value === stage}
-              className={cn(
-                DROPDOWN_ITEM,
-                value === stage ? "text-text" : "text-text-2"
-              )}
-              onClick={() => {
-                onChange(stage);
-                setOpen(false);
-              }}
-            >
+            {activeDotColor && (
               <span
-                className="h-[6px] w-[6px] shrink-0 rounded-full"
-                style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[stage] }}
+                className="h-[5px] w-[5px] shrink-0 rounded-full"
+                style={{ backgroundColor: activeDotColor }}
               />
-              {getStageDisplayName(stage)}
-            </button>
-          ))}
-        </div>
-      )}
+            )}
+            <span className="whitespace-nowrap">{labelText}</span>
+            <ChevronDown
+              className={cn(
+                "h-[10px] w-[10px] shrink-0 text-text-3 transition-transform duration-150",
+                open && "rotate-180"
+              )}
+            />
+          </button>
+        }
+        open={open}
+        onOpenChange={setOpen}
+        label={allStagesLabel}
+        items={stages}
+        value={value === "all" ? null : value}
+        onChange={(id) => onChange((id as OpportunityStage | null) ?? "all")}
+        getId={(stage) => stage}
+        getLabel={(stage) => getStageDisplayName(stage)}
+        getLeading={(stage) => (
+          <span
+            className="h-[6px] w-[6px] shrink-0 rounded-full"
+            style={{ backgroundColor: OPPORTUNITY_STAGE_COLORS[stage] }}
+          />
+        )}
+        searchable={false}
+        noneOption
+        noneLabel={allStagesLabel}
+        size="sm"
+      />
     </div>
   );
 }
@@ -202,33 +157,28 @@ interface AssigneeDropdownProps {
   onChange: (userId: string | "all") => void;
   teamMembers: { id: string; firstName: string; lastName: string }[];
   everyoneLabel: string;
+  searchPlaceholder: string;
+  emptyLabel: string;
+  clearLabel: string;
   variant?: "surface" | "toolbar";
 }
 
+/**
+ * Assignee filter on the canonical {@link EntityPicker} — same migration as
+ * {@link StageDropdown}, and the list gains typed search for free (parity with
+ * the table's assignee cell picker). `"all"` maps through `noneOption`.
+ */
 function AssigneeDropdown({
   value,
   onChange,
   teamMembers,
   everyoneLabel,
+  searchPlaceholder,
+  emptyLabel,
+  clearLabel,
   variant = "surface",
 }: AssigneeDropdownProps) {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(e: PointerEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [open]);
 
   const activeMember =
     value !== "all" ? teamMembers.find((m) => m.id === value) : undefined;
@@ -239,84 +189,37 @@ function AssigneeDropdown({
   const isToolbar = variant === "toolbar";
 
   return (
-    <div
-      ref={containerRef}
-      className="relative shrink-0"
-      data-keyboard-scope="modal-or-menu"
-    >
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        className={cn(
-          "flex items-center gap-[5px] rounded-chip px-[8px] font-mono transition-colors",
-          isToolbar
-            ? "h-[26px] whitespace-nowrap uppercase leading-none tracking-[0.12em] text-micro"
-            : "h-[30px] border border-border bg-fill-neutral-dim text-caption-sm",
-          isToolbar
-            ? open || value !== "all"
-              ? "bg-surface-input text-text hover:bg-surface-hover"
-              : "text-text-2 hover:bg-surface-input hover:text-text"
-            : "border-border text-text hover:border-line-hi",
-          !isToolbar && open && "border-line-hi"
-        )}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-      >
-        <span className="whitespace-nowrap">{labelText}</span>
-        <ChevronDown
-          className={cn(
-            "h-[10px] w-[10px] shrink-0 text-text-3 transition-transform duration-150",
-            open && "rotate-180"
-          )}
-        />
-      </button>
-
-      {/* Dropdown */}
-      {open && (
-        <div
-          className={DROPDOWN_SURFACE}
-          data-keyboard-scope="modal-or-menu"
-          role="listbox"
-          aria-label={everyoneLabel}
-        >
-          {/* Everyone option */}
+    <div className="shrink-0" data-keyboard-scope="modal-or-menu">
+      <EntityPicker<{ id: string; firstName: string; lastName: string }>
+        trigger={
           <button
             type="button"
-            role="option"
-            aria-selected={value === "all"}
-            className={cn(
-              DROPDOWN_ITEM,
-              value === "all" ? "text-text" : "text-text-2"
-            )}
-            onClick={() => {
-              onChange("all");
-              setOpen(false);
-            }}
+            className={filterTriggerClass(isToolbar, open, value !== "all")}
           >
-            {everyoneLabel}
-          </button>
-
-          {teamMembers.map((member) => (
-            <button
-              key={member.id}
-              type="button"
-              role="option"
-              aria-selected={value === member.id}
+            <span className="whitespace-nowrap">{labelText}</span>
+            <ChevronDown
               className={cn(
-                DROPDOWN_ITEM,
-                value === member.id ? "text-text" : "text-text-2"
+                "h-[10px] w-[10px] shrink-0 text-text-3 transition-transform duration-150",
+                open && "rotate-180"
               )}
-              onClick={() => {
-                onChange(member.id);
-                setOpen(false);
-              }}
-            >
-              {member.firstName} {member.lastName}
-            </button>
-          ))}
-        </div>
-      )}
+            />
+          </button>
+        }
+        open={open}
+        onOpenChange={setOpen}
+        label={everyoneLabel}
+        items={teamMembers}
+        value={value === "all" ? null : value}
+        onChange={(id) => onChange(id ?? "all")}
+        getId={(member) => member.id}
+        getLabel={(member) => `${member.firstName} ${member.lastName}`}
+        searchPlaceholder={searchPlaceholder}
+        emptyLabel={emptyLabel}
+        clearLabel={clearLabel}
+        noneOption
+        noneLabel={everyoneLabel}
+        size="md"
+      />
     </div>
   );
 }
@@ -340,6 +243,7 @@ export function PipelineFilterRow({
   showNewLead = true,
 }: PipelineFilterRowProps) {
   const { t } = useDictionary("pipeline");
+  const { t: tp } = useDictionary("picker");
   const searchPlaceholder = t("focused.search.placeholder");
   const isToolbar = variant === "toolbar";
 
@@ -401,6 +305,9 @@ export function PipelineFilterRow({
         onChange={onAssigneeFilterChange}
         teamMembers={teamMembers}
         everyoneLabel={t("filter.everyone")}
+        searchPlaceholder={t("table.cell.assignee.search")}
+        emptyLabel={t("table.cell.assignee.empty")}
+        clearLabel={tp("clear")}
         variant={variant}
       />
 

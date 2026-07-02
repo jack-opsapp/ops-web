@@ -77,34 +77,56 @@ const PickerContent = React.forwardRef<
       className,
       style,
       children,
+      onOpenAutoFocus,
       ...props
     },
     ref,
-  ) => (
-    <PopoverContent
-      ref={ref}
-      align={align}
-      sideOffset={sideOffset}
-      role="dialog"
-      aria-label={label}
-      className={cn(
-        "overflow-hidden p-0",
-        size !== "auto" && SIZE_WIDTH[size],
-        className,
-      )}
-      style={width ? { ...style, width } : style}
-      {...props}
-    >
-      <CommandPrimitive
-        label={label}
-        shouldFilter={shouldFilter}
-        loop={loop}
-        className={cn("flex w-full flex-col", GROUP_HEADING)}
+  ) => {
+    const commandRef = React.useRef<HTMLDivElement>(null);
+    return (
+      <PopoverContent
+        ref={ref}
+        align={align}
+        sideOffset={sideOffset}
+        role="dialog"
+        aria-label={label}
+        // Picker panels are menus: global single-key shortcuts (pipeline "V",
+        // edge-tab letters) must ignore keys while one is open. The panel is
+        // portaled, so an ancestor's scope attribute can't cover it.
+        data-keyboard-scope="modal-or-menu"
+        onOpenAutoFocus={(event) => {
+          onOpenAutoFocus?.(event);
+          if (event.defaultPrevented) return;
+          // Searchless pickers have no tabbable child, so Radix would focus
+          // the panel itself — but cmdk's arrow/Enter handling listens on its
+          // own root. Redirect focus there to keep keyboard nav working.
+          const root = commandRef.current;
+          if (root && !root.querySelector("[cmdk-input]")) {
+            event.preventDefault();
+            root.focus();
+          }
+        }}
+        className={cn(
+          "overflow-hidden p-0",
+          size !== "auto" && SIZE_WIDTH[size],
+          className,
+        )}
+        style={width ? { ...style, width } : style}
+        {...props}
       >
-        {children}
-      </CommandPrimitive>
-    </PopoverContent>
-  ),
+        <CommandPrimitive
+          ref={commandRef}
+          tabIndex={-1}
+          label={label}
+          shouldFilter={shouldFilter}
+          loop={loop}
+          className={cn("flex w-full flex-col outline-none", GROUP_HEADING)}
+        >
+          {children}
+        </CommandPrimitive>
+      </PopoverContent>
+    );
+  },
 );
 PickerContent.displayName = "PickerContent";
 

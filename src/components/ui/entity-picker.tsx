@@ -29,6 +29,8 @@ interface EntityPickerBaseProps<T> {
   getSubLabel?: (item: T) => React.ReactNode;
   /** Leading avatar descriptor. */
   getAvatar?: (item: T) => EntityAvatar | null | undefined;
+  /** Arbitrary leading node (e.g. a semantic status dot). `getAvatar` wins when both return something. */
+  getLeading?: (item: T) => React.ReactNode;
   /** Advisory line under a row (e.g. a schedule conflict). Multi-select only in practice. */
   conflictFor?: (id: string) => React.ReactNode | null | undefined;
   /** Accessible name for the popover. */
@@ -92,6 +94,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
     getLabel,
     getSubLabel,
     getAvatar,
+    getLeading,
     conflictFor,
     label,
     searchable = true,
@@ -206,7 +209,9 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
                 leading={
                   avatar ? (
                     <UserAvatar name={avatar.name} imageUrl={avatar.imageUrl} size="sm" />
-                  ) : undefined
+                  ) : (
+                    getLeading?.(item) ?? undefined
+                  )
                 }
                 subLabel={conflict ?? undefined}
                 trailing={

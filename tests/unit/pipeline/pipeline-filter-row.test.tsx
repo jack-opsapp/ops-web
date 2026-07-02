@@ -1,5 +1,5 @@
 import { useState, type ComponentProps } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PipelineFilterRow } from "@/app/(dashboard)/pipeline/_components/pipeline-filter-row";
@@ -108,7 +108,7 @@ describe("<PipelineFilterRow>", () => {
     expect(addLead).not.toHaveClass("bg-white/[0.04]");
   });
 
-  it("scopes dropdown triggers and surfaces out of global keyboard navigation", async () => {
+  it("scopes dropdown triggers and portaled picker panels out of global keyboard navigation", async () => {
     const user = userEvent.setup();
     renderFilterRow();
 
@@ -121,20 +121,46 @@ describe("<PipelineFilterRow>", () => {
       assigneeTrigger.closest("[data-keyboard-scope='modal-or-menu']")
     ).not.toBeNull();
 
+    // The panels portal to the body (Picker kit), so the scope attribute must
+    // ride on the panel itself — an ancestor's attribute can't cover it.
     await user.click(stageTrigger);
-
-    const stageListbox = screen.getByRole("listbox", { name: "All Stages" });
-    expect(stageListbox).toHaveAttribute(
-      "data-keyboard-scope",
-      "modal-or-menu"
-    );
+    const stagePanel = await screen.findByRole("dialog", {
+      name: "All Stages",
+    });
+    expect(stagePanel).toHaveAttribute("data-keyboard-scope", "modal-or-menu");
+    await user.keyboard("{Escape}");
 
     await user.click(assigneeTrigger);
-
-    const assigneeListbox = screen.getByRole("listbox", { name: "Everyone" });
-    expect(assigneeListbox).toHaveAttribute(
+    const assigneePanel = await screen.findByRole("dialog", {
+      name: "Everyone",
+    });
+    expect(assigneePanel).toHaveAttribute(
       "data-keyboard-scope",
       "modal-or-menu"
     );
+  });
+
+  it("commits a stage selection and maps the none row back to 'all'", async () => {
+    const user = userEvent.setup();
+    const { props } = renderFilterRow();
+
+    await user.click(screen.getByRole("button", { name: "All Stages" }));
+    await user.click(await screen.findByText("Quoted"));
+    expect(props.onStageFilterChange).toHaveBeenCalledWith("quoted");
+  });
+
+  it("maps the assignee rows through the 'all' sentinel in both directions", async () => {
+    const user = userEvent.setup();
+    const { props } = renderFilterRow({ assigneeFilter: "user-1" });
+
+    // Trigger reads the active member's name once filtered.
+    const trigger = screen.getByRole("button", { name: "Avery Stone" });
+    await user.click(trigger);
+
+    // The none row ("Everyone") clears back to the sentinel.
+    const panel = await screen.findByRole("dialog", { name: "Everyone" });
+    const noneRow = within(panel).getByRole("option", { name: "Everyone" });
+    await user.click(noneRow);
+    expect(props.onAssigneeFilterChange).toHaveBeenCalledWith("all");
   });
 });
