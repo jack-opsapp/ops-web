@@ -11,7 +11,7 @@
  * the shell body — identical chrome to every other Books segment.
  */
 
-import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
+import { TableShell, Workbar } from "@/components/ui/table-shell";
 import { ExpenseReviewDashboard } from "@/components/expenses/expense-review-dashboard";
 
 export function ExpensesSegment({
@@ -25,11 +25,7 @@ export function ExpensesSegment({
   return (
     <TableShell
       metrics={metrics}
-      toolbar={
-        <TableWorkbar>
-          <div className="flex flex-wrap items-center justify-between gap-2">{segmentControl}</div>
-        </TableWorkbar>
-      }
+      toolbar={<Workbar tabStrip={segmentControl} />}
       bottomFade={false}
     >
       {/* The review hub is a document-flow block (its own filters + period summary

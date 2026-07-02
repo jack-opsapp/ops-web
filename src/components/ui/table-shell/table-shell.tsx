@@ -82,18 +82,21 @@ export function Workbar({
   children?: ReactNode;
 }) {
   const hasRightCluster = tools != null || create != null;
+  const hasRow1 = search != null || filters != null || hasRightCluster;
   return (
     <TableWorkbar>
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {search}
-        {filters}
-        {hasRightCluster ? (
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {tools}
-            {create}
-          </div>
-        ) : null}
-      </div>
+      {hasRow1 ? (
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {search}
+          {filters}
+          {hasRightCluster ? (
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              {tools}
+              {create}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {tabStrip}
       {children}
     </TableWorkbar>

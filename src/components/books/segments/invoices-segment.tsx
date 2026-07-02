@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tag, type TagProps } from "@/components/ui/tag";
 import { SegmentControl } from "@/components/ui/segment-control";
-import { TableShell, TableWorkbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
 import {
   RegisterTable,
   RegisterEmpty,
@@ -428,42 +428,33 @@ export function InvoicesSegment({
   const showSearch = listAllowed && view === "list";
   const canCreate = can("invoices.create");
 
-  // One inline create CTA per register (Jackson 2026-06-13) — the single accent
-  // action; the FAB stays the global shortcut. Sits left of the LIST|AGING
-  // toggle so the toggle keeps its far-right pin (P3-5).
-  const workbarTopRow = (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      {segmentControl}
-      {(showSearch || canCreate || showViewToggle) && (
-        <div className="flex items-center gap-1.5">
-          {showSearch && (
-            <SearchInput
-              placeholder={t("invoices.search")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              wrapperClassName="w-[220px] max-w-full"
-            />
-          )}
-          {canCreate && (
-            <WorkbarButton onClick={gatedOpenCreate}>
-              <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
-              {t("invoices.newInvoice")}
-            </WorkbarButton>
-          )}
-          {showViewToggle && (
-            <SegmentControl<InvoicesView>
-              options={[
-                { value: "list", label: tb("view.list") },
-                { value: "aging", label: tb("view.aging") },
-              ]}
-              value={view}
-              onChange={onViewChange}
-            />
-          )}
-        </div>
-      )}
-    </div>
-  );
+  // Canonical Workbar slots (one inline create CTA per register — Jackson
+  // 2026-06-13 — the single accent action; the FAB stays the global shortcut).
+  // The INVOICES/ESTIMATES/EXPENSES/SYNC segment is the row-2 tab strip.
+  const searchSlot = showSearch ? (
+    <SearchInput
+      placeholder={t("invoices.search")}
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      wrapperClassName="w-[240px] max-w-full"
+    />
+  ) : undefined;
+  const createSlot = canCreate ? (
+    <WorkbarButton onClick={gatedOpenCreate}>
+      <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+      {t("invoices.newInvoice")}
+    </WorkbarButton>
+  ) : null;
+  const viewToggleSlot = showViewToggle ? (
+    <SegmentControl<InvoicesView>
+      options={[
+        { value: "list", label: tb("view.list") },
+        { value: "aging", label: tb("view.aging") },
+      ]}
+      value={view}
+      onChange={onViewChange}
+    />
+  ) : null;
 
   // Portaled overlays — rendered alongside the shell in every branch, never as
   // body content (they own their own z-layer).
@@ -525,7 +516,14 @@ export function InvoicesSegment({
       <>
         <TableShell
           metrics={metrics}
-          toolbar={<TableWorkbar>{workbarTopRow}</TableWorkbar>}
+          toolbar={
+            <Workbar
+              search={searchSlot}
+              tools={viewToggleSlot}
+              create={createSlot}
+              tabStrip={segmentControl}
+            />
+          }
           bottomFade={false}
         >
           <div className="p-3">
@@ -546,31 +544,34 @@ export function InvoicesSegment({
       <TableShell
         metrics={metrics}
         toolbar={
-          <TableWorkbar>
-            {workbarTopRow}
-            <div className="flex flex-wrap items-center gap-[12px]">
-              <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
-              {drilled && statusFilter !== "all" && (
-                <DrillChip
-                  label={
-                    statusFilter === "overdue"
-                      ? tb("ledger.overdue")
-                      : statusOptions.find((o) => o.value === statusFilter)?.label ??
-                        formatEnumLabel(statusFilter)
-                  }
-                  onClear={onClearDrill}
-                />
-              )}
-              <span className="font-mono text-micro text-text-3 tabular-nums">
-                {statusFilter === "all" && !searchQuery
-                  ? tb("count.all", { n: invoices.length })
-                  : tb("count.invoices", { n: filtered.length, total: invoices.length })}
-              </span>
-              <span className="ml-auto">
+          <Workbar
+            search={searchSlot}
+            filters={
+              <>
+                <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
+                {drilled && statusFilter !== "all" && (
+                  <DrillChip
+                    label={
+                      statusFilter === "overdue"
+                        ? tb("ledger.overdue")
+                        : statusOptions.find((o) => o.value === statusFilter)?.label ??
+                          formatEnumLabel(statusFilter)
+                    }
+                    onClear={onClearDrill}
+                  />
+                )}
+                <span className="font-mono text-micro text-text-3 tabular-nums">
+                  {statusFilter === "all" && !searchQuery
+                    ? tb("count.all", { n: invoices.length })
+                    : tb("count.invoices", { n: filtered.length, total: invoices.length })}
+                </span>
                 <SegmentStatLine items={statItems} />
-              </span>
-            </div>
-          </TableWorkbar>
+              </>
+            }
+            tools={viewToggleSlot}
+            create={createSlot}
+            tabStrip={segmentControl}
+          />
         }
         isEmpty={isLoading || isEmpty}
         emptyState={
