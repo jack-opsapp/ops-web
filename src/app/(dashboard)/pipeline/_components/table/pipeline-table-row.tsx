@@ -35,6 +35,7 @@ import { CellRelation } from "./cells/cell-relation";
 import { CellStageAction } from "./cells/cell-stage-action";
 import { CellText } from "./cells/cell-text";
 import { EditableCellAssignee } from "./cells/editable-cell-assignee";
+import { EditableCellClient } from "./cells/editable-cell-client";
 import { EditableCellCurrency } from "./cells/editable-cell-currency";
 import { EditableCellDate } from "./cells/editable-cell-date";
 import type {
@@ -229,6 +230,18 @@ export function PipelineTableRow({
             onBeginEdit={beginEdit}
             onCancelEdit={onCancelEdit}
             onCommit={(value) => onCommitCell(row.id, columnId, value)}
+          />
+        );
+      case "client":
+        return (
+          <EditableCellClient
+            clientId={row.clientId}
+            clientName={row.clientName}
+            saveState={saveState}
+            editing={isEditing}
+            onBeginEdit={beginEdit}
+            onCancelEdit={onCancelEdit}
+            onCommit={(clientId) => onCommitCell(row.id, columnId, clientId)}
           />
         );
       case "next_follow_up":

@@ -117,6 +117,18 @@ describe("mapEditToUpdate", () => {
   it("treats an empty assignee string as a clear", () => {
     expect(mapEditToUpdate("assignee", "")).toEqual({ assignedTo: null });
   });
+
+  it("maps client → clientId (string)", () => {
+    expect(mapEditToUpdate("client", "client-42")).toEqual({ clientId: "client-42" });
+  });
+
+  it("maps client → clientId (null unlinks)", () => {
+    expect(mapEditToUpdate("client", null)).toEqual({ clientId: null });
+  });
+
+  it("treats an empty client string as an unlink", () => {
+    expect(mapEditToUpdate("client", "")).toEqual({ clientId: null });
+  });
 });
 
 // ─── Pure helper: getRowEditValue ──────────────────────────────────────────────
@@ -128,6 +140,11 @@ describe("getRowEditValue", () => {
 
   it("reads assignedTo for assignee", () => {
     expect(getRowEditValue(baseRow, "assignee")).toBe("user-9");
+  });
+
+  it("reads clientId for client", () => {
+    expect(getRowEditValue({ ...baseRow, clientId: "client-7" }, "client")).toBe("client-7");
+    expect(getRowEditValue(baseRow, "client")).toBeNull();
   });
 
   it("reads the ISO string for next_follow_up", () => {

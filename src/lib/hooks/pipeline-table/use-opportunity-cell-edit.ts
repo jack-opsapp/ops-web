@@ -21,10 +21,10 @@
  * settle. This hook composes on top of it, adding per-cell save-state tracking
  * and a visible-undo stack.
  *
- * Editable columns are SAFE fields only: `value` (estimatedValue),
- * `next_follow_up` (nextFollowUpAt), `expected_close` (expectedCloseDate),
- * `assignee` (assignedTo). Stage is NOT edited here — stage changes route
- * through the Won/Lost dialogs (a later phase).
+ * Editable columns are SAFE fields only: `value` (estimatedValue), `client`
+ * (clientId), `next_follow_up` (nextFollowUpAt), `expected_close`
+ * (expectedCloseDate), `assignee` (assignedTo). Stage is NOT edited here —
+ * stage changes route through the Won/Lost dialogs (a later phase).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -88,8 +88,8 @@ function toEstimatedValue(value: PipelineTableEditValue): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-/** Coerce an edit value into a nullable assignee user id. Empty string clears. */
-function toAssignee(value: PipelineTableEditValue): string | null {
+/** Coerce an edit value into a nullable entity id (client / assignee). Empty string clears. */
+function toNullableId(value: PipelineTableEditValue): string | null {
   if (value == null) return null;
   const text = String(value).trim();
   return text.length === 0 ? null : text;
@@ -100,6 +100,7 @@ function toAssignee(value: PipelineTableEditValue): string | null {
  * `UpdateOpportunity` partial the service expects.
  *
  *   value          → estimatedValue (number | null)
+ *   client         → clientId (string | null)
  *   next_follow_up → nextFollowUpAt (Date | null, parsed from ISO)
  *   expected_close → expectedCloseDate (Date | null, parsed from ISO)
  *   assignee       → assignedTo (string | null)
@@ -111,12 +112,14 @@ export function mapEditToUpdate(
   switch (columnId) {
     case "value":
       return { estimatedValue: toEstimatedValue(value) };
+    case "client":
+      return { clientId: toNullableId(value) };
     case "next_follow_up":
       return { nextFollowUpAt: isoToDate(value) };
     case "expected_close":
       return { expectedCloseDate: isoToDate(value) };
     case "assignee":
-      return { assignedTo: toAssignee(value) };
+      return { assignedTo: toNullableId(value) };
   }
 }
 
@@ -132,6 +135,8 @@ export function getRowEditValue(
   switch (columnId) {
     case "value":
       return row.estimatedValue;
+    case "client":
+      return row.clientId;
     case "next_follow_up":
       return row.nextFollowUpAt;
     case "expected_close":
