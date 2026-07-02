@@ -167,6 +167,8 @@
   "quickAdd.cancel": "Cancelar (Esc)",
   "quickAdd.addLead": "Agregar prospecto (Enter)",
   "quickAdd.leadSuffix": "Prospecto",
+  "createLead.client.label": "Cliente",
+  "createLead.client.linkPlaceholder": "Vincular cliente (opcional)",
   "detail.title": "Detalles del trato",
   "detail.noDeal": "Ningún trato seleccionado",
   "detail.noContact": "Sin contacto",
