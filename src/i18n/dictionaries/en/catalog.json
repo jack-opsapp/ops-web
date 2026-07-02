@@ -45,7 +45,7 @@
 
   "stock.search": "Search stock…",
   "stock.newItem": "+ NEW ITEM",
-  "stock.add": "+ ADD",
+  "stock.add": "ADD",
   "stock.group": "GROUP :: FAMILY",
   "stock.skuCount": "{n} SKUS",
   "stock.familyCount": "{families} FAMILIES · {variants} SKUS",
