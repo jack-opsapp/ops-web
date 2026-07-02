@@ -32,6 +32,7 @@ import {
   isFollowUpOverdue,
   mapOpportunityToTableRow,
 } from "@/lib/utils/pipeline-table-adapter";
+import { matchesAllTokens } from "@/lib/utils/search";
 import { isActiveStage, type OpportunityStage } from "@/lib/types/pipeline";
 import type {
   PipelineTableColumnId,
@@ -290,14 +291,22 @@ export function usePipelineTableData({
     }
   }, [mappedRows.length]);
 
-  // ── Search filter (case-insensitive over title / client / assignee) ──────
+  // ── Search filter (token-AND over title / client / assignee / source) ────
+  // Shared grammar with every other list surface (lib/utils/search): each
+  // whitespace token must match at least one field, so "shera lantzmann"-style
+  // multi-word queries work across fields instead of needing one contiguous
+  // substring.
   const searchedRows = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return mappedRows;
-    return mappedRows.filter((row) => {
-      const haystack = [row.title, row.clientName, row.assigneeName];
-      return haystack.some((field) => field?.toLowerCase().includes(query));
-    });
+    if (!search.trim()) return mappedRows;
+    return mappedRows.filter((row) =>
+      matchesAllTokens(
+        [row.title, row.clientName, row.assigneeName, row.source]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase(),
+        search,
+      ),
+    );
   }, [mappedRows, search]);
 
   // ── Sort ─────────────────────────────────────────────────────────────────

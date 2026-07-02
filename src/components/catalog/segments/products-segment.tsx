@@ -35,6 +35,7 @@ import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
+import { matchesAllTokens } from "@/lib/utils/search";
 import {
   useProducts,
   useUpdateProduct,
@@ -123,12 +124,12 @@ export function ProductsSegment({
       list = list.filter((p) => (configCounts?.get(p.id)?.options ?? 0) > 0);
 
     if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.description ?? "").toLowerCase().includes(q) ||
-          (p.category ?? "").toLowerCase().includes(q),
+      // Shared token-AND search grammar (lib/utils/search).
+      list = list.filter((p) =>
+        matchesAllTokens(
+          [p.name, p.description ?? "", p.category ?? ""].join(" ").toLowerCase(),
+          search,
+        ),
       );
     }
     // favorites first, then name.

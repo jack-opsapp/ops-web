@@ -32,6 +32,7 @@ import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
+import { matchesAllTokens } from "@/lib/utils/search";
 import type { CatalogStockRow, CatalogStatus } from "@/lib/types/catalog";
 import {
   useAdjustQuantity,
@@ -182,13 +183,14 @@ export function StockSegment({
       list = list.filter((r) => r.categoryId === categoryFilter);
     }
     if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (r) =>
-          r.familyName.toLowerCase().includes(q) ||
-          (r.variantLabel ?? "").toLowerCase().includes(q) ||
-          (r.sku ?? "").toLowerCase().includes(q) ||
-          (r.familyDescription ?? "").toLowerCase().includes(q),
+      // Shared token-AND search grammar (lib/utils/search).
+      list = list.filter((r) =>
+        matchesAllTokens(
+          [r.familyName, r.variantLabel ?? "", r.sku ?? "", r.familyDescription ?? ""]
+            .join(" ")
+            .toLowerCase(),
+          search,
+        ),
       );
     }
     if (drilled) {

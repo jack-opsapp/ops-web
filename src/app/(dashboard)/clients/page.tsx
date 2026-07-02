@@ -13,6 +13,7 @@ import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { getInitials } from "@/lib/types/models";
 import { formatCurrency, formatPhoneNumber } from "@/lib/utils/format";
+import { matchesAllTokens } from "@/lib/utils/search";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterChips } from "@/components/ui/filter-chip";
@@ -172,8 +173,8 @@ export default function ClientsPage() {
 
   const filtered = useMemo(() => {
     let list = rows;
-    const q = search.trim().toLowerCase();
-    if (q) list = list.filter((r) => r.search.includes(q));
+    // Shared token-AND search grammar (lib/utils/search) over the row haystack.
+    if (search.trim()) list = list.filter((r) => matchesAllTokens(r.search, search));
     if (filter === "with-projects") list = list.filter((r) => r.projectCount > 0);
     else if (filter === "owes") list = list.filter((r) => r.outstanding > 0);
     else if (filter === "new") {

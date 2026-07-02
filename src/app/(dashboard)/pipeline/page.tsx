@@ -8,6 +8,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { matchesAllTokens } from "@/lib/utils/search";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { useUndoStore } from "@/stores/undo-store";
@@ -389,19 +390,16 @@ export default function PipelinePage() {
       result = result.filter((o) => o.assignedTo === assigneeFilter);
     }
 
-    // Search query
-    const query = searchQuery.toLowerCase().trim();
-    if (query) {
+    // Search query — shared token-AND grammar (lib/utils/search): every
+    // whitespace token must match the client, contact, or title.
+    if (searchQuery.trim()) {
       result = result.filter((opp) => {
         const clientName = opp.clientId
           ? (clientNameMap.get(opp.clientId) ?? "")
           : "";
-        const contactName = opp.contactName ?? "";
-        const title = opp.title ?? "";
-        return (
-          clientName.toLowerCase().includes(query) ||
-          contactName.toLowerCase().includes(query) ||
-          title.toLowerCase().includes(query)
+        return matchesAllTokens(
+          [clientName, opp.contactName ?? "", opp.title ?? ""].join(" ").toLowerCase(),
+          searchQuery,
         );
       });
     }

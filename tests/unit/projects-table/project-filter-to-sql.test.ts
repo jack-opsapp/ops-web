@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildProjectTableFilterInstructions } from "@/lib/utils/project-filter-to-sql";
+import {
+  buildProjectTableFilterInstructions,
+  PROJECT_TABLE_SEARCH_FIELDS,
+} from "@/lib/utils/project-filter-to-sql";
 
 describe("project-filter-to-sql", () => {
   it("converts the My Active Work dynamic filter", () => {
@@ -31,9 +34,29 @@ describe("project-filter-to-sql", () => {
     ]);
   });
 
-  it("adds search as a title/client/address instruction", () => {
+  it("adds search as one all-search-fields instruction per token", () => {
     expect(buildProjectTableFilterInstructions({}, "user-1", " deck ")).toEqual([
-      { type: "ilike_any", fields: ["title", "client_name", "address"], value: "deck" },
+      { type: "ilike_any", fields: PROJECT_TABLE_SEARCH_FIELDS, value: "deck" },
+    ]);
+  });
+
+  it("splits multi-word search into ANDed per-token instructions", () => {
+    expect(buildProjectTableFilterInstructions({}, "user-1", "miramar  housing")).toEqual([
+      { type: "ilike_any", fields: PROJECT_TABLE_SEARCH_FIELDS, value: "miramar" },
+      { type: "ilike_any", fields: PROJECT_TABLE_SEARCH_FIELDS, value: "housing" },
+    ]);
+  });
+
+  it("spans the operator-pasteable fields", () => {
+    expect(PROJECT_TABLE_SEARCH_FIELDS).toEqual([
+      "title",
+      "client_name",
+      "client_email",
+      "client_phone",
+      "address",
+      "trade",
+      "notes",
+      "next_task",
     ]);
   });
 
