@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Search, Check } from "lucide-react";
+import { Search } from "lucide-react";
 import { useClients } from "@/lib/hooks/use-clients";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { deriveStreetLine } from "@/lib/utils/derive-project-name";
 import type { Client } from "@/lib/types/models";
@@ -38,7 +39,14 @@ import type {
 // the `projects_trade_check` constraint; the Select labels uppercase
 // for the OPS tactical voice.
 
-// ─── ClientPicker (tab-local) ────────────────────────────────────────────────
+// ─── ClientPicker (tab-local trigger; canonical EntityPicker popover) ────────
+//
+// Rebuilt on the shared Picker kit (Jackson 2026-07-02: the hand-rolled
+// dropdown stretched the full field width with 64px search/trigger rows —
+// "WAY too big for a computer popover menu"). The trigger keeps the
+// workspace-form input look; the panel is the compact canonical popover
+// (256px, ~32px rows) every other entity picker uses. `z-modal` because the
+// trigger lives inside a floating window (z 2000+, above `z-dropdown`).
 
 interface ClientPickerProps {
   value: string | null;
@@ -48,158 +56,53 @@ interface ClientPickerProps {
 
 function ClientPicker({ value, onChange, required }: ClientPickerProps) {
   const { t } = useDictionary("project-workspace");
+  const { t: tp } = useDictionary("picker");
   const { data, isLoading } = useClients();
-  const clients = data?.clients ?? [];
+  const clients = React.useMemo<Client[]>(() => data?.clients ?? [], [data?.clients]);
   const linked = clients.find((c) => c.id === value) ?? null;
-
-  const [open, setOpen] = React.useState(false);
-  const [query, setQuery] = React.useState("");
-  const wrapperRef = React.useRef<HTMLDivElement>(null);
-  const searchRef = React.useRef<HTMLInputElement>(null);
-
-  // Outside-click closes the dropdown.
-  React.useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  // Auto-focus the search box when the dropdown opens.
-  React.useEffect(() => {
-    if (open) searchRef.current?.focus();
-  }, [open]);
-
-  const filtered = React.useMemo<Client[]>(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((c) => c.name.toLowerCase().includes(q));
-  }, [clients, query]);
-
-  const handlePick = (id: string | null) => {
-    onChange(id);
-    setOpen(false);
-    setQuery("");
-  };
 
   return (
     <Field label={t("identity.client.label")} optional={!required} required={required}>
-      <div ref={wrapperRef} className="relative">
-        <button
-          type="button"
-          data-testid="client-picker-trigger"
-          onClick={() => setOpen((v) => !v)}
-          className={cn(
-            "flex w-full h-8 items-center justify-between gap-2 px-2",
-            "font-mohave text-[14px] leading-[1.4]",
-            "bg-[var(--surface-input)] rounded border border-glass-border",
-            "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            "hover:border-glass-border-medium",
-            "focus:outline-none focus:border-glass-border-strong",
-            "cursor-pointer text-left",
-            linked ? "text-text" : "text-text-mute",
-          )}
-        >
-          {linked ? (
-            <span className="truncate">{linked.name}</span>
-          ) : (
-            <span data-testid="client-picker-empty">{t("identity.client.empty")}</span>
-          )}
-          <Search size={12} strokeWidth={1.5} className="text-text-3 shrink-0" />
-        </button>
-
-        {open && (
-          <div
+      <EntityPicker<Client>
+        trigger={
+          <button
+            type="button"
+            data-testid="client-picker-trigger"
             className={cn(
-              "absolute left-0 right-0 z-50 mt-1 overflow-hidden",
-              "glass-dense rounded-panel border border-glass-border",
+              "flex w-full h-8 items-center justify-between gap-2 px-2",
+              "font-mohave text-[14px] leading-[1.4]",
+              "bg-[var(--surface-input)] rounded border border-glass-border",
+              "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "hover:border-glass-border-medium",
+              "focus:outline-none focus:border-glass-border-strong",
+              "cursor-pointer text-left",
+              linked ? "text-text" : "text-text-mute",
             )}
           >
-            <div className="relative border-b border-glass-border">
-              <Search
-                size={12}
-                strokeWidth={1.5}
-                className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-text-mute"
-              />
-              <input
-                ref={searchRef}
-                data-testid="client-picker-search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("identity.client.search")}
-                autoComplete="off"
-                spellCheck={false}
-                className={cn(
-                  "w-full h-8 pl-7 pr-2 bg-transparent",
-                  "font-mohave text-[14px] text-text",
-                  "placeholder:text-text-mute focus:outline-none",
-                )}
-              />
-            </div>
-            <div className="max-h-[200px] overflow-y-auto p-0.5">
-              {linked && (
-                <button
-                  type="button"
-                  data-testid="client-picker-clear"
-                  onClick={() => handlePick(null)}
-                  className={cn(
-                    "flex w-full items-center justify-between rounded-chip py-1.5 pl-2 pr-2",
-                    "font-mohave text-[14px] text-text-3",
-                    "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                    "hover:bg-[var(--surface-input)] hover:text-text-2 cursor-pointer",
-                  )}
-                >
-                  {t("identity.client.remove")}
-                </button>
-              )}
-              {isLoading ? (
-                <div className="px-2 py-2">
-                  <Mono size={11} color="text-3">
-                    {t("identity.client.loading")}
-                  </Mono>
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="px-2 py-2">
-                  <Mono size={11} color="text-3">
-                    {t("identity.client.noResults")}
-                  </Mono>
-                </div>
-              ) : (
-                filtered.map((c) => {
-                  const active = c.id === value;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => handlePick(c.id)}
-                      className={cn(
-                        "flex w-full items-center justify-between rounded-chip py-1.5 pl-2 pr-2",
-                        "font-mohave text-[14px] text-text",
-                        "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                        "hover:bg-[var(--surface-input)] cursor-pointer",
-                        active && "bg-[var(--surface-input)]",
-                      )}
-                    >
-                      <span className="truncate">{c.name}</span>
-                      {active && (
-                        <Check
-                          size={12}
-                          strokeWidth={2}
-                          className="text-text shrink-0"
-                        />
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+            {linked ? (
+              <span className="truncate">{linked.name}</span>
+            ) : (
+              <span data-testid="client-picker-empty">{t("identity.client.empty")}</span>
+            )}
+            <Search size={12} strokeWidth={1.5} className="text-text-3 shrink-0" />
+          </button>
+        }
+        label={t("identity.client.label")}
+        items={clients}
+        value={value}
+        onChange={onChange}
+        getId={(c) => c.id}
+        getLabel={(c) => c.name}
+        searchPlaceholder={t("identity.client.search")}
+        searchTestId="client-picker-search"
+        clearLabel={tp("clear")}
+        emptyLabel={isLoading ? t("identity.client.loading") : t("identity.client.noResults")}
+        noneOption
+        noneLabel={
+          <span data-testid="client-picker-clear">{t("identity.client.remove")}</span>
+        }
+        contentClassName="z-modal"
+      />
     </Field>
   );
 }

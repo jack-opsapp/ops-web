@@ -59,7 +59,11 @@ const PickerItem = React.forwardRef<
       aria-checked={multiple ? Boolean(selected) : undefined}
       data-chosen={selected ? "true" : undefined}
       className={cn(
-        "flex min-h-8 cursor-pointer select-none items-center gap-2 rounded-[5px] px-2 py-1.5",
+        // Real px, not scale tokens: this project's spacing scale is doubled
+        // (h-8 = 64px), which silently inflated every picker row to 64px —
+        // the kit's contract is compact ~32px desktop rows (caught live on
+        // the pipeline client cell, Jackson 2026-07-02).
+        "flex min-h-[32px] cursor-pointer select-none items-center gap-[8px] rounded-[5px] px-[8px] py-[6px]",
         "font-mohave text-body-sm text-text-2 outline-none transition-colors duration-150",
         "hover:bg-surface-hover hover:text-text",
         "data-[selected=true]:bg-surface-active data-[selected=true]:text-text",
@@ -73,11 +77,11 @@ const PickerItem = React.forwardRef<
         <span
           aria-hidden="true"
           className={cn(
-            "flex h-4 w-4 shrink-0 items-center justify-center rounded-chip border",
+            "flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-chip border",
             selected ? "border-border-strong bg-surface-active" : "border-border",
           )}
         >
-          {selected ? <Check className="h-3 w-3 text-text" strokeWidth={2} /> : null}
+          {selected ? <Check className="h-[12px] w-[12px] text-text" strokeWidth={2} /> : null}
         </span>
       ) : null}
       {leading}
@@ -89,7 +93,7 @@ const PickerItem = React.forwardRef<
       </span>
       {trailing}
       {!multiple && selected ? (
-        <Check className="h-4 w-4 shrink-0 text-text" strokeWidth={1.5} aria-hidden="true" />
+        <Check className="h-[16px] w-[16px] shrink-0 text-text" strokeWidth={1.5} aria-hidden="true" />
       ) : null}
     </CommandPrimitive.Item>
   ),
@@ -107,12 +111,12 @@ const PickerFooterAction = React.forwardRef<
   HTMLButtonElement,
   PickerFooterActionProps
 >(({ icon, destructive, className, children, ...props }, ref) => (
-  <div className="border-t border-border-subtle p-1">
+  <div className="border-t border-border-subtle p-[4px]">
     <button
       ref={ref}
       type="button"
       className={cn(
-        "flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-[5px] px-2 py-1.5",
+        "flex min-h-[32px] w-full cursor-pointer items-center gap-[8px] rounded-[5px] px-[8px] py-[6px]",
         "font-mohave text-body-sm outline-none transition-colors duration-150",
         "hover:bg-surface-hover focus-visible:bg-surface-hover",
         destructive ? "text-rose" : "text-text-2 hover:text-text",

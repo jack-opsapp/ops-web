@@ -35,6 +35,8 @@ interface EntityPickerBaseProps<T> {
   label: string;
   searchable?: boolean;
   searchPlaceholder?: string;
+  /** data-testid for the search input (unit/e2e hook). */
+  searchTestId?: string;
   clearLabel?: string;
   emptyLabel?: React.ReactNode;
   /** Footer create action ("+ New …"). Hidden in read-only. */
@@ -50,6 +52,12 @@ interface EntityPickerBaseProps<T> {
   size?: "sm" | "md" | "lg" | "auto";
   align?: "start" | "center" | "end";
   side?: "top" | "right" | "bottom" | "left";
+  /**
+   * Extra classes on the popover panel. The one sanctioned use is a z-layer
+   * override (`z-modal`) when the trigger lives inside a floating window
+   * (windows sit at z 2000+, above the default `z-dropdown` 1000).
+   */
+  contentClassName?: string;
 }
 
 interface SingleProps<T> extends EntityPickerBaseProps<T> {
@@ -88,6 +96,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
     label,
     searchable = true,
     searchPlaceholder,
+    searchTestId,
     clearLabel,
     emptyLabel,
     createAction,
@@ -99,6 +108,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
     size = "md",
     align = "start",
     side = "bottom",
+    contentClassName,
   } = props;
 
   const [search, setSearch] = React.useState("");
@@ -141,6 +151,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
         align={align}
         side={side}
         shouldFilter={searchable}
+        className={contentClassName}
       >
         {searchable ? (
           <PickerSearch
@@ -148,11 +159,12 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
             onValueChange={setSearch}
             placeholder={searchPlaceholder}
             clearLabel={clearLabel}
+            data-testid={searchTestId}
           />
         ) : null}
 
         {readOnly && readOnlyLabel ? (
-          <p className="px-3 pb-1 pt-2 font-mono text-micro uppercase tracking-wider text-text-3">
+          <p className="px-[12px] pb-[4px] pt-[8px] font-mono text-micro uppercase tracking-wider text-text-3">
             {readOnlyLabel}
           </p>
         ) : null}
@@ -210,14 +222,14 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
         </PickerList>
 
         {error ? (
-          <p className="border-t border-border-subtle px-3 py-2 font-mono text-micro text-rose">
+          <p className="border-t border-border-subtle px-[12px] py-[8px] font-mono text-micro text-rose">
             {error}
           </p>
         ) : null}
 
         {createAction && !readOnly ? (
           <PickerFooterAction
-            icon={<Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />}
+            icon={<Plus className="h-[16px] w-[16px]" strokeWidth={1.5} aria-hidden="true" />}
             onClick={createAction.onCreate}
           >
             {createAction.label}

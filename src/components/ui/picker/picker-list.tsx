@@ -12,7 +12,9 @@ const PickerList = React.forwardRef<
   <CommandPrimitive.List
     ref={ref}
     className={cn(
-      "scrollbar-hide max-h-[280px] overflow-y-auto overflow-x-hidden p-1",
+      // Real px, not scale tokens — the doubled spacing scale would render
+      // p-1 as 8px (see picker-item.tsx; the kit is authored in real px).
+      "scrollbar-hide max-h-[280px] overflow-y-auto overflow-x-hidden p-[4px]",
       className,
     )}
     {...props}
@@ -28,7 +30,7 @@ const PickerEmpty = React.forwardRef<
   <CommandPrimitive.Empty
     ref={ref}
     className={cn(
-      "px-2 py-3 text-center font-mono text-micro uppercase tracking-wider text-text-3",
+      "px-[8px] py-[12px] text-center font-mono text-micro uppercase tracking-wider text-text-3",
       className,
     )}
     {...props}

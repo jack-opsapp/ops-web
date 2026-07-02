@@ -33,11 +33,13 @@ const SIZE_WIDTH: Record<"sm" | "md" | "lg", string> = {
   lg: "w-72", // 288px
 };
 
-/** cmdk group headings → `// section` micro-label. */
+/** cmdk group headings → `// section` micro-label. (Real px, not scale
+ * tokens — the doubled spacing scale would render px-2 as 16px; see
+ * picker-item.tsx, the kit is authored in real px.) */
 const GROUP_HEADING = cn(
-  "[&_[cmdk-group-heading]]:px-2",
-  "[&_[cmdk-group-heading]]:pb-1",
-  "[&_[cmdk-group-heading]]:pt-2",
+  "[&_[cmdk-group-heading]]:px-[8px]",
+  "[&_[cmdk-group-heading]]:pb-[4px]",
+  "[&_[cmdk-group-heading]]:pt-[8px]",
   "[&_[cmdk-group-heading]]:font-mono",
   "[&_[cmdk-group-heading]]:text-micro",
   "[&_[cmdk-group-heading]]:uppercase",
