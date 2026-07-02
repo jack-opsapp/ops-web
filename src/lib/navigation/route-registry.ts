@@ -134,7 +134,9 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     paletteKeywords: ["leads", "sales", "crm"],
     nav: { order: 5, group: "command" },
     permission: "pipeline.view",
-    fullHeight: "padded",
+    // Full-bleed: the table runs edge-to-edge; the metrics bar scrolls away and
+    // the toolbar + header pin (WEB OVERHAUL P6-2 rework).
+    fullHeight: "bleed",
   },
   {
     // BOOKS — the unified financial hub (P3.1). Absorbed Estimates,
@@ -167,9 +169,10 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
       "expenses.approve",
       "accounting.view",
     ],
-    // Fixed-viewport so each segment hosts the unified TableShell (sticky header +
-    // pinned MetricsStrip + internal scroll body) — WEB OVERHAUL P6-2.
-    fullHeight: "padded",
+    // Full-bleed: each segment hosts the unified TableShell edge-to-edge — the
+    // metrics bar scrolls away, the toolbar + sticky header pin (WEB OVERHAUL
+    // P6-2 rework).
+    fullHeight: "bleed",
   },
   {
     // CATALOG — the variant-aware price book + stock hub (P3.2). Absorbed
@@ -195,9 +198,10 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     // Any-of across the two segments' gates (mirrors iOS catalog access):
     // visible when the user can see catalog products OR stock.
     anyOfPermissions: ["catalog.products.view", "catalog.view"],
-    // Fixed-viewport so each segment hosts the unified TableShell (sticky header +
-    // pinned MetricsStrip + internal scroll body) — WEB OVERHAUL P6-2.
-    fullHeight: "padded",
+    // Full-bleed: each segment hosts the unified TableShell edge-to-edge — the
+    // metrics bar scrolls away, the toolbar + sticky header pin (WEB OVERHAUL
+    // P6-2 rework).
+    fullHeight: "bleed",
   },
   {
     // /catalog/setup — the full-page Catalog Setup Wizard. NOT a nav entry
@@ -221,9 +225,9 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     paletteKeywords: ["customers", "contacts"],
     nav: { order: 11, group: "command" },
     permission: "clients.view",
-    // Fixed-viewport so the unified TableShell hosts an internal scroll body with
-    // a sticky header + pinned MetricsStrip (WEB OVERHAUL P6-2 table unification).
-    fullHeight: "padded",
+    // Full-bleed: the unified TableShell runs edge-to-edge — the metrics bar
+    // scrolls away, the toolbar + sticky header pin (WEB OVERHAUL P6-2 rework).
+    fullHeight: "bleed",
   },
   // Team was absorbed into Settings (P3.4): it is now SETTINGS › TEAM ›
   // Members, deep-linked via `/settings?section=team`. The standalone /team

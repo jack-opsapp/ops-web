@@ -89,7 +89,7 @@ export function PipelineViewTabs({
         : null;
 
   return (
-    <div className="flex min-w-0 items-center gap-1 overflow-x-auto px-0 py-[4px]">
+    <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
       {statusLabel ? (
         <div className="shrink-0 px-2 py-1 font-mono text-micro uppercase tracking-[0.16em] text-text-3">
           {statusLabel}

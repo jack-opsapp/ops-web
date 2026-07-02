@@ -37,7 +37,7 @@ import { AccountingProvider } from "@/lib/types/pipeline";
 import type { AccountingConnection } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
-import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
+import { TableShell, Workbar } from "@/components/ui/table-shell";
 import { QuickBooksImportTab } from "@/components/accounting/qbo/quickbooks-import-tab";
 import { ConnectionBadge } from "../sync/connection-badge";
 import { ConnectPanel } from "../sync/connect-panel";
@@ -250,13 +250,17 @@ export function SyncSegment({
     <>
       <TableShell
         metrics={metrics}
-        workbar={
-          <TableWorkbar>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {segmentControl}
-              {badge}
-            </div>
-          </TableWorkbar>
+        toolbar={
+          // Sync is a config surface (no list controls) — just the segment tab
+          // strip + its status badge, kept together on the strip row.
+          <Workbar
+            tabStrip={
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {segmentControl}
+                {badge}
+              </div>
+            }
+          />
         }
         bottomFade={false}
       >

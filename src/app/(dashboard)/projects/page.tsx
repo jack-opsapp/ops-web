@@ -881,9 +881,10 @@ export default function ProjectsPage() {
 
       {/* ── Spreadsheet — alternative view ── */}
       {viewMode === "spreadsheet" && projectsTableV2Enabled && (
-        // Spreadsheet metrics now live inside the unified TableShell's MetricsStrip
-        // (P6-2). The canvas/map HUD keep their own MetricsHeader — different context.
-        <div className="absolute inset-0 overflow-hidden p-3">
+        // Full-bleed (WEB OVERHAUL P6-2 rework): the table runs edge-to-edge — no
+        // p-3 box. Metrics live in the decoupled scroll-away MetricsStrip inside
+        // the grid; the canvas/map HUD keep their own MetricsHeader (different context).
+        <div className="absolute inset-0 overflow-hidden">
           <ProjectsTableShell projectMetrics={projectMetrics ?? []} />
         </div>
       )}

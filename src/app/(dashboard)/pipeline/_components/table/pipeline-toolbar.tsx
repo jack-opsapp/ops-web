@@ -1,7 +1,7 @@
 "use client";
 
-import { CheckCircle, Layers, Maximize2, Minimize2, Rows3, Search } from "lucide-react";
-import type { ReactNode, RefObject } from "react";
+import { CheckCircle, Layers, Maximize2, Minimize2, Rows3 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { ProjectTableDensity } from "@/lib/types/project-table";
@@ -17,20 +17,21 @@ const DENSITY_OPTIONS = [
 }[];
 
 /**
- * Pipeline-table toolbar: search field, a grouping toggle, a closed-deals
- * toggle, a `// N deals` readout, a minimal 3-segment density control, plus
- * optional slots for the saved-view Save affordance and the view-settings menu.
+ * Pipeline-table toolbar cluster: a grouping toggle, a closed-deals toggle, a
+ * minimal 3-segment density control, plus optional slots for the saved-view Save
+ * affordance and the view-settings menu. (The deal count is NOT here — it's in the
+ * grand-total footer; a second toolbar readout would be redundant.) This is the
+ * TABLE mode's mode-specific control cluster — the mode switcher and the shared
+ * search field live once in the persistent toolbar owned by `pipeline/page.tsx`
+ * (WEB OVERHAUL P6-2 rework), so they are NOT rendered here; this cluster is
+ * portaled into that toolbar's right-hand control group (which owns the
+ * right-alignment), ahead of the shared review + NEW LEAD actions.
  * Styled like the projects density-control idiom (Cake Mono Light segments,
- * surface-input rail) but inlined so it does not depend on the sibling-owned
- * `ProjectsDensityControl`. Drives the shell's `useTableZoom().setPreset`,
- * grouping state, and closed-deals state. Active toggles use `bg-surface-active`
- * (never the accent — accent is reserved for focus rings + the single primary
- * CTA, which here is the Save button passed in via `saveAffordance`).
+ * surface-input rail). Active toggles use `bg-surface-active` (never the accent —
+ * accent is reserved for focus rings + the single primary CTA, which here is the
+ * Save button passed in via `saveAffordance`).
  */
 export function PipelineToolbar({
-  search,
-  onSearchChange,
-  dealCount,
   grouped,
   onGroupedChange,
   closedDeals,
@@ -38,13 +39,9 @@ export function PipelineToolbar({
   density,
   onDensityChange,
   densityDisabled,
-  searchInputRef,
   saveAffordance,
   viewSettings,
 }: {
-  search: string;
-  onSearchChange: (value: string) => void;
-  dealCount: number;
   grouped: boolean;
   onGroupedChange: (grouped: boolean) => void;
   closedDeals: boolean;
@@ -52,28 +49,16 @@ export function PipelineToolbar({
   density: ProjectTableDensity;
   onDensityChange: (density: ProjectTableDensity) => void;
   densityDisabled?: boolean;
-  searchInputRef?: RefObject<HTMLInputElement | null>;
   saveAffordance?: ReactNode;
   viewSettings?: ReactNode;
 }) {
   const { t } = useDictionary("pipeline");
 
   return (
-    <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-0 py-[4px]">
-      <label className="flex h-[28px] min-w-[220px] flex-1 items-center gap-1.5 rounded border border-border bg-surface-input px-2 focus-within:ring-1 focus-within:ring-ops-accent">
-        <Search className="h-[12px] w-[12px] shrink-0 text-text-3" strokeWidth={1.5} />
-        <input
-          ref={searchInputRef}
-          value={search}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder={t("table.toolbar.search")}
-          className="min-w-0 flex-1 bg-transparent font-mono text-[11px] uppercase text-text outline-none placeholder:text-text-3"
-        />
-      </label>
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          aria-label={t("table.toolbar.group")}
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <button
+        type="button"
+        aria-label={t("table.toolbar.group")}
           aria-pressed={grouped}
           onClick={() => onGroupedChange(!grouped)}
           className={cn(
@@ -103,9 +88,6 @@ export function PipelineToolbar({
           <CheckCircle className="h-[12px] w-[12px]" strokeWidth={1.5} aria-hidden="true" />
           <span className="hidden lg:inline">{t("table.toolbar.closed")}</span>
         </button>
-        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-          {t("table.toolbar.deals").replace("{count}", String(dealCount))}
-        </span>
         {saveAffordance}
         <div
           role="group"
@@ -141,7 +123,6 @@ export function PipelineToolbar({
           })}
         </div>
         {viewSettings}
-      </div>
     </div>
   );
 }

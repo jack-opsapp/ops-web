@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type KeyboardEventHandler,
+  type ReactNode,
   type TouchEventHandler,
   type WheelEventHandler,
 } from "react";
@@ -94,6 +95,7 @@ export function ProjectsTable({
   onBeginPinch,
   onUpdatePinch,
   onEndPinch,
+  aboveHeader,
 }: {
   view: ProjectTableViewDefinition;
   rows: ProjectTableRow[];
@@ -121,6 +123,14 @@ export function ProjectsTable({
   onBeginPinch: (distance: number) => void;
   onUpdatePinch: (distance: number) => void;
   onEndPinch: () => void;
+  /**
+   * Optional chrome rendered as the FIRST child inside the scroll container,
+   * above the sticky header — the decoupled metrics bar + sticky toolbar
+   * (TableChrome). Scrolls with the rows so the metrics scroll up and out of
+   * view while the toolbar + header pin (WEB OVERHAUL P6-2 rework). Default
+   * undefined → byte-identical legacy render.
+   */
+  aboveHeader?: ReactNode;
 }) {
   const { t } = useDictionary("projects");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -315,6 +325,7 @@ export function ProjectsTable({
       onTouchCancel={handleTouchEnd}
       className="min-h-0 flex-1 overflow-auto"
     >
+      {aboveHeader}
       <div style={{ width: totalWidth }}>
         <ProjectsTableHeader
           columns={columnLayouts}

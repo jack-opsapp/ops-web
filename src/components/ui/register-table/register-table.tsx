@@ -95,7 +95,10 @@ export function RegisterTable<Row>({
                     // canvas backing so rows scroll cleanly beneath it — the same
                     // `bg-background` masking the table-v2 grids use, for one
                     // consistent sticky-header treatment across all five surfaces.
-                    inShell && "sticky top-0 z-[5] border-b border-border bg-background",
+                    // It sticks BELOW the (also-sticky) toolbar via the
+                    // `--shell-header-top` var TableChrome publishes; the metrics
+                    // bar above the toolbar scrolls up and out (WEB OVERHAUL P6-2 rework).
+                    inShell && "sticky top-[var(--shell-header-top,0px)] z-[5] border-b border-border bg-background",
                     col.align === "right" && "text-right",
                     col.className,
                   )}

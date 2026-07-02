@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Mail, X, Loader2 } from "lucide-react";
+import { Mail, X, Loader2, Plus } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
@@ -31,7 +31,9 @@ import {
   useGmailConnections,
   usePipelineMetrics,
 } from "@/lib/hooks";
-import { MetricsHeader } from "@/components/metrics";
+import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
+import { Workbar, WorkbarButton } from "@/components/ui/table-shell";
+import { SearchInput } from "@/components/ui/search-input";
 import {
   type Opportunity,
   OpportunityStage,
@@ -64,7 +66,7 @@ import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
 import { PipelineDetailPanel } from "./_components/pipeline-detail-panel";
 import { PipelineFocusedDragOverlay } from "./_components/pipeline-focused-drag-overlay";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
-import { PipelineFocusedToolbar } from "./_components/pipeline-focused-toolbar";
+import { PipelineModeSwitcher } from "./_components/pipeline-mode-switcher";
 import { PipelineFilterRow } from "./_components/pipeline-filter-row";
 import { usePipelineModeShortcut } from "./_components/pipeline-mode-shortcuts";
 import {
@@ -72,7 +74,6 @@ import {
   type PipelineDropData,
 } from "./_components/pipeline-dnd-resolution";
 import { usePipelineModeStore } from "./_components/pipeline-mode-store";
-import { PipelineModeSwitcher } from "./_components/pipeline-mode-switcher";
 import { PipelineTableShell } from "./_components/table/pipeline-table-shell";
 
 function formatPipelineTemplate(
@@ -194,6 +195,13 @@ export default function PipelinePage() {
   const previousModeRef = useRef(mode);
   const openedUrlOpportunityRef = useRef<string | null>(null);
   const pipelineScopeRef = useRef<HTMLDivElement>(null);
+  // Shared search input + toolbar portal slots for the persistent chrome (WEB
+  // OVERHAUL P6-2 rework). The metrics bar + toolbar are ONE instance shared
+  // across focused/table modes; the table surface portals its mode-specific
+  // clusters into these two slots so switching modes never remounts the chrome.
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [tabsSlot, setTabsSlot] = useState<HTMLElement | null>(null);
+  const [clusterSlot, setClusterSlot] = useState<HTMLElement | null>(null);
   const [originatingOpportunityId, setOriginatingOpportunityId] = useState<
     string | null
   >(null);
@@ -910,10 +918,15 @@ export default function PipelinePage() {
     ? (focusedStalenessMap.get(focusedActiveOpportunity.id) ?? 1)
     : 1;
 
-  // Crossfade timing — opacity-only, single design-system easing. Reduced
-  // motion collapses the duration to 0 for an instant swap.
+  // Crossfade timing — opacity-only, single design-system easing (EASE_SMOOTH =
+  // cubic-bezier(0.22,1,0.36,1)), 250ms (OPS motion config `transition`). The
+  // AnimatePresence runs WITHOUT `mode="wait"` so the outgoing and incoming
+  // surfaces cross-dissolve simultaneously (both are `absolute inset-0`) — a
+  // visible "camera move," not a fade-to-blank-then-appear. Reduced motion keeps
+  // the crossfade but collapses it to the brand's opacity-only 150ms fallback
+  // (§reduced_motion: "Equivalence, not compromise").
   const modeCrossfadeTransition = {
-    duration: reducedMotion ? 0 : 0.2,
+    duration: reducedMotion ? 0.15 : 0.25,
     ease: EASE_SMOOTH,
   };
 
@@ -927,119 +940,193 @@ export default function PipelinePage() {
         {isMobile ? (
           <PipelineMobile {...sharedBoardProps} />
         ) : (
-          // Crossfade between focused and table surfaces. Opacity-only — no
-          // layout or card morph. `mode="wait"` fades the outgoing surface out
-          // before the incoming one fades in, so the two never overlap.
-          <AnimatePresence mode="wait" initial={false}>
-            {effectiveMode === "table" ? (
-              <motion.div
-                key="table"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={modeCrossfadeTransition}
-                data-pipeline-mode-surface="table"
-                className="absolute inset-0"
-              >
-                <PipelineTableShell pipelineMetrics={pipelineMetrics} />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="focused"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={modeCrossfadeTransition}
-                className="absolute inset-0"
-              >
-                <PipelineDndProvider
-                  mode={effectiveMode}
-                  activeDragId={activeDragId}
-                  onDragStart={handlePipelineDragStart}
-                  onDragOver={handlePipelineDragOver}
-                  onDragEnd={handlePipelineDragEnd}
-                  onDragCancel={handlePipelineDragCancel}
-                >
-                  <div
-                    data-pipeline-mode-surface="focused"
+          // Persistent chrome (WEB OVERHAUL P6-2 rework, Jackson 2026-06-30): the
+          // metrics bar + toolbar are ONE instance mounted ABOVE the crossfade, so
+          // switching focused↔table never remounts or moves them. Only the content
+          // region below crossfades, and the mode-specific toolbar clusters swap.
+          <div className="flex h-full min-h-0 flex-col">
+            {/* Metrics — one instance, fed by the same `pipelineMetrics`. */}
+            <MetricsStrip
+              metrics={fromMetricColumns(pipelineMetrics ?? [])}
+              isLoading={pipelineMetricsLoading}
+            />
+            {/* Toolbar — the shared `Workbar` grammar, identical to every other tab:
+                search (left) · stage/assignee filters · [tools + NEW LEAD] (right) ·
+                FOCUSED/TABLE + saved-view tabs (row-2 strip). Persistent above the
+                crossfade, so a mode switch never remounts it (WEB OVERHAUL P6-2).
+                Table mode's grid tools portal into `clusterSlot` (tools) and the
+                saved-view tabs into `tabsSlot` (the row-2 strip); both are
+                `display:contents`, adding no layout when empty (focused). */}
+            <Workbar
+              search={
+                <SearchInput
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={t("search.placeholder")}
+                  aria-label={t("search.placeholder")}
+                  wrapperClassName="w-[240px] max-w-full"
+                />
+              }
+              filters={
+                <PipelineFilterRow
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  stageFilter={stageFilter}
+                  onStageFilterChange={setStageFilter}
+                  assigneeFilter={assigneeFilter}
+                  onAssigneeFilterChange={setAssigneeFilter}
+                  teamMembers={teamMembers}
+                  onAddLead={gatedOpenCreate}
+                  canManage={canManage}
+                  variant="toolbar"
+                  showSearch={false}
+                  showNewLead={false}
+                />
+              }
+              tools={
+                <>
+                  {/* Table grid controls portal here (table mode only). */}
+                  <div ref={setClusterSlot} className="contents" />
+                  {reviewCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setReviewPanelOpen(true)}
+                      className="flex h-[26px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                    >
+                      <Mail className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} />
+                      {t("gmail.reviewEmails")}
+                      <span className="rounded-bar bg-surface-active px-1 font-mono text-micro tabular-nums text-text">
+                        {reviewCount > 99 ? "99+" : reviewCount}
+                      </span>
+                    </button>
+                  )}
+                </>
+              }
+              create={
+                canManage ? (
+                  <WorkbarButton onClick={gatedOpenCreate}>
+                    <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+                    {t("newLead")}
+                  </WorkbarButton>
+                ) : null
+              }
+              tabStrip={
+                // Row-2 tab strip: the FOCUSED/TABLE mode switcher + (table mode)
+                // the saved-view tabs the table surface portals in. The tabs slot
+                // is flex-1 so the (potentially many) saved views scroll on this one
+                // line beside the switcher instead of wrapping to another row.
+                <div className="flex min-w-0 items-center gap-2">
+                  <PipelineModeSwitcher />
+                  <div ref={setTabsSlot} className="min-w-0 flex-1" />
+                </div>
+              }
+            />
+
+            {/* Content region — the ONLY thing that crossfades on a mode switch. */}
+            <div className="relative min-h-0 flex-1">
+              <AnimatePresence initial={false}>
+                {effectiveMode === "table" ? (
+                  <motion.div
+                    key="table"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={modeCrossfadeTransition}
+                    data-pipeline-mode-surface="table"
                     className="absolute inset-0"
                   >
-                    <PipelineFocusedShell
-                      opportunities={filteredOpportunities}
-                      clients={clientsData?.clients ?? []}
-                      clientNameMap={clientNameMap}
-                      canManage={canManage}
-                      filtersActive={filtersActive}
-                      opportunitiesLoading={oppsLoading}
-                      clientsLoading={clientsLoading}
-                      isOpportunitiesError={oppsError}
-                      opportunitiesError={opportunitiesError}
-                      dragAnnouncement={focusedDragAnnouncement}
-                      onRetryOpportunities={() => {
-                        void refetchOpportunities();
-                      }}
-                      onAddLead={gatedOpenCreate}
-                      onClearFilters={handleClearFilters}
-                      onLogCall={handleLogCall}
-                      onLogText={handleLogText}
-                      onAddNote={handleAddNote}
-                      onArchive={handleArchive}
-                      onDiscard={handleDiscard}
-                      onMarkWon={handleMarkWon}
-                      onMarkLost={handleMarkLost}
-                      onConvert={handleConvertAlreadyWon}
-                      onAdvanceStage={handleAdvanceStage}
-                      onMoveStage={handleMoveStage}
-                      onAssign={handleAssign}
-                      onScheduleFollowUp={handleScheduleFollowUp}
-                      onDelete={(id) => deleteMutation.mutate(id)}
-                      onTitleSave={handleTitleSave}
-                      onLinkClient={handleLinkClient}
-                      onCreateAndLinkClient={handleCreateAndLinkClient}
-                      onAddressSave={handleAddressSave}
+                    <PipelineTableShell
+                      tabsSlot={tabsSlot}
+                      clusterSlot={clusterSlot}
+                      search={searchQuery}
+                      searchInputRef={searchInputRef}
+                      stageFilter={stageFilter}
+                      assigneeFilter={assigneeFilter}
                     />
-                  </div>
-                  <PipelineFocusedDragOverlay
-                    activeOpportunity={focusedActiveOpportunity}
-                    clientName={focusedActiveClientName}
-                    stalenessOpacity={focusedActiveStaleness}
-                  />
-                </PipelineDndProvider>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="focused"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={modeCrossfadeTransition}
+                    className="absolute inset-0"
+                  >
+                    <div className="relative h-full min-h-0">
+                      <PipelineDndProvider
+                        mode={effectiveMode}
+                        activeDragId={activeDragId}
+                        onDragStart={handlePipelineDragStart}
+                        onDragOver={handlePipelineDragOver}
+                        onDragEnd={handlePipelineDragEnd}
+                        onDragCancel={handlePipelineDragCancel}
+                      >
+                        <div
+                          data-pipeline-mode-surface="focused"
+                          className="absolute inset-0"
+                        >
+                          <PipelineFocusedShell
+                            opportunities={filteredOpportunities}
+                            clients={clientsData?.clients ?? []}
+                            clientNameMap={clientNameMap}
+                            canManage={canManage}
+                            filtersActive={filtersActive}
+                            opportunitiesLoading={oppsLoading}
+                            clientsLoading={clientsLoading}
+                            isOpportunitiesError={oppsError}
+                            opportunitiesError={opportunitiesError}
+                            dragAnnouncement={focusedDragAnnouncement}
+                            onRetryOpportunities={() => {
+                              void refetchOpportunities();
+                            }}
+                            onAddLead={gatedOpenCreate}
+                            onClearFilters={handleClearFilters}
+                            onLogCall={handleLogCall}
+                            onLogText={handleLogText}
+                            onAddNote={handleAddNote}
+                            onArchive={handleArchive}
+                            onDiscard={handleDiscard}
+                            onMarkWon={handleMarkWon}
+                            onMarkLost={handleMarkLost}
+                            onConvert={handleConvertAlreadyWon}
+                            onAdvanceStage={handleAdvanceStage}
+                            onMoveStage={handleMoveStage}
+                            onAssign={handleAssign}
+                            onScheduleFollowUp={handleScheduleFollowUp}
+                            onDelete={(id) => deleteMutation.mutate(id)}
+                            onTitleSave={handleTitleSave}
+                            onLinkClient={handleLinkClient}
+                            onCreateAndLinkClient={handleCreateAndLinkClient}
+                            onAddressSave={handleAddressSave}
+                          />
+                        </div>
+                        <PipelineFocusedDragOverlay
+                          activeOpportunity={focusedActiveOpportunity}
+                          clientName={focusedActiveClientName}
+                          stalenessOpacity={focusedActiveStaleness}
+                        />
+                      </PipelineDndProvider>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* ── Page HUD — metrics, toolbar, banners float on top of canvas ── */}
+      {/* ── Page HUD — banners float on top of canvas ── */}
       <div className="pointer-events-none absolute left-0 right-0 top-0 z-[2]">
-        {/* Floating metrics HUD — ONLY for the focused/kanban surface. In table
-            mode the metrics now live inside the unified TableShell's MetricsStrip
-            (WEB OVERHAUL P6-2), so suppress the page-level header there to avoid
-            doubling the metrics. The mode switcher + banners below stay in both. */}
-        {effectiveMode !== "table" && (
-          <div className="pointer-events-auto">
-            <MetricsHeader
-              variant="full"
-              tabId="pipeline"
-              title="Pipeline"
-              metrics={pipelineMetrics}
-              isLoading={pipelineMetricsLoading}
-              slashLabels
-            />
-          </div>
-        )}
-        {/* Mode switcher — focused | table. Desktop-only (the dense table is not a
-            phone-width surface); no feature gate (P6-2). */}
-        {!isMobile && (
-          <div className="pointer-events-auto flex justify-end px-3 pt-1">
-            <PipelineModeSwitcher />
-          </div>
-        )}
+        {/* Metrics + toolbar are NOT in the HUD — they are one persistent instance
+            in normal flow ABOVE the mode crossfade (see the shared chrome above),
+            shared across focused/table so a mode switch never remounts or moves
+            them (Jackson 2026-06-30). Only the banners remain here. */}
         {/* Banners — pinned bottom-left on ALL desktop modes (focused + table) so
-            they never float over a surface's pinned top. In table mode the
-            unified TableShell owns the top (MetricsStrip + workbar); a top-flowing
-            banner would cover the MetricsStrip (P6-2). Mobile keeps them in flow. */}
+            they never float over the persistent chrome's pinned top (MetricsStrip +
+            toolbar); a top-flowing banner would cover the MetricsStrip (P6-2).
+            Mobile keeps them in flow. */}
         <div
           className={cn(
             "pointer-events-auto flex flex-col gap-1 px-3",
@@ -1119,45 +1206,6 @@ export default function PipelinePage() {
           )}
         </div>
       </div>
-
-      {!isMobile && effectiveMode === "focused" && (
-        <div
-          className="pointer-events-none fixed bottom-[12px] left-[84px] right-[12px] z-[9998] flex justify-start"
-        >
-          <div
-            className="glass-dense scrollbar-hide pointer-events-auto inline-flex max-w-full items-center gap-[3px] overflow-x-auto rounded-panel border px-[3px] py-[3px] [&::before]:rounded-panel"
-            style={{
-              background: "var(--surface-glass-dense)",
-              backdropFilter: "blur(28px) saturate(1.3)",
-              WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-              borderColor: "var(--glass-border)",
-              borderRadius: "10px",
-            }}
-          >
-            <PipelineFocusedToolbar
-              reviewCount={reviewCount}
-              onReviewEmails={() => setReviewPanelOpen(true)}
-            />
-            <div className="mx-[3px] h-[16px] w-px shrink-0 bg-border-subtle" />
-            <PipelineFilterRow
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              stageFilter={stageFilter}
-              onStageFilterChange={setStageFilter}
-              assigneeFilter={assigneeFilter}
-              onAssigneeFilterChange={setAssigneeFilter}
-              teamMembers={teamMembers}
-              onAddLead={gatedOpenCreate}
-              canManage={canManage}
-              variant="toolbar"
-            />
-          </div>
-        </div>
-      )}
-
-      {!isMobile && effectiveMode === "focused" && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-12 bg-gradient-to-t from-background via-background/60 to-transparent" />
-      )}
 
       {/* Stage Transition Dialog (Won/Lost prompts) */}
       <StageTransitionDialog

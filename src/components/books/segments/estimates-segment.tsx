@@ -19,7 +19,6 @@ import {
   Loader2,
   Plus,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   useEstimates,
@@ -49,7 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
 import { Tag, type TagProps } from "@/components/ui/tag";
-import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
 import {
   RegisterTable,
   RegisterEmpty,
@@ -361,49 +360,48 @@ export function EstimatesSegment({
     <>
       <TableShell
         metrics={metrics}
-        workbar={
-          <TableWorkbar>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {segmentControl}
-              <div className="flex items-center gap-1.5">
-                <SearchInput
-                  placeholder={t("estimates.search")}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  wrapperClassName="w-[220px] max-w-full"
-                />
-                {/* One inline create CTA per register (Jackson 2026-06-13) — single
-                    accent action; the FAB stays the global shortcut. */}
-                {can("estimates.create") && (
-                  <Button variant="primary" size="sm" type="button" onClick={gatedOpenCreate}>
-                    <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
-                    {t("estimates.newEstimate")}
-                  </Button>
+        toolbar={
+          // Canonical Workbar grammar. One inline create CTA per register (Jackson
+          // 2026-06-13); the ESTIMATES segment is the row-2 tab strip.
+          <Workbar
+            search={
+              <SearchInput
+                placeholder={t("estimates.search")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                wrapperClassName="w-[240px] max-w-full"
+              />
+            }
+            filters={
+              <>
+                <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
+                {drilled && statusFilter !== "all" && (
+                  <DrillChip
+                    label={
+                      statusOptions.find((o) => o.value === statusFilter)?.label ??
+                      formatEnumLabel(statusFilter)
+                    }
+                    onClear={onClearDrill}
+                  />
                 )}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-[12px]">
-              <FilterChips options={statusOptions} value={statusFilter} onChange={onStatusFilterChange} />
-              {drilled && statusFilter !== "all" && (
-                <DrillChip
-                  label={
-                    statusOptions.find((o) => o.value === statusFilter)?.label ??
-                    formatEnumLabel(statusFilter)
-                  }
-                  onClear={onClearDrill}
-                />
-              )}
-              <span className="font-mono text-micro text-text-3 tabular-nums">
-                {statusFilter === "all" && !searchQuery
-                  ? tb("count.all", { n: estimates.length })
-                  : tb("count.invoices", { n: filtered.length, total: estimates.length })}
-              </span>
-              <span className="ml-auto">
+                <span className="font-mono text-micro text-text-3 tabular-nums">
+                  {statusFilter === "all" && !searchQuery
+                    ? tb("count.all", { n: estimates.length })
+                    : tb("count.invoices", { n: filtered.length, total: estimates.length })}
+                </span>
                 <SegmentStatLine items={statItems} />
-              </span>
-            </div>
-          </TableWorkbar>
+              </>
+            }
+            create={
+              can("estimates.create") ? (
+                <WorkbarButton onClick={gatedOpenCreate}>
+                  <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+                  {t("estimates.newEstimate")}
+                </WorkbarButton>
+              ) : null
+            }
+            tabStrip={segmentControl}
+          />
         }
         isEmpty={isLoading || isEmpty}
         emptyState={

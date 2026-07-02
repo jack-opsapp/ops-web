@@ -26,6 +26,20 @@ interface PipelineFilterRowProps {
   onAddLead: () => void;
   canManage: boolean;
   variant?: "surface" | "toolbar";
+  /**
+   * Render the search field. Default true. The unified pipeline toolbar (WEB
+   * OVERHAUL P6-2 rework) owns a single shared search input above the mode
+   * crossfade, so the toolbar renders with `showSearch={false}` to avoid a
+   * duplicate field — the stage/assignee filters carry over intact.
+   */
+  showSearch?: boolean;
+  /**
+   * Render the NEW LEAD button. Default true. The unified toolbar renders NEW
+   * LEAD once (shared across both modes, as a `WorkbarButton` on the right), so
+   * it passes `showNewLead={false}` and this component contributes only the
+   * stage + assignee filters.
+   */
+  showNewLead?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +336,8 @@ export function PipelineFilterRow({
   onAddLead,
   canManage,
   variant = "surface",
+  showSearch = true,
+  showNewLead = true,
 }: PipelineFilterRowProps) {
   const { t } = useDictionary("pipeline");
   const searchPlaceholder = t("focused.search.placeholder");
@@ -335,35 +351,39 @@ export function PipelineFilterRow({
       )}
       data-pipeline-filter-row={variant}
     >
-      <label
-        className={cn(
-          "flex items-center gap-[5px] rounded-chip px-[8px] transition-colors",
-          isToolbar
-            ? "h-[26px] w-[150px] min-w-[145px] bg-transparent focus-within:bg-surface-input"
-            : "h-[30px] w-full min-w-[220px] border border-border bg-fill-neutral-dim focus-within:border-line-hi sm:w-[240px] sm:min-w-[240px]",
-          isToolbar && searchQuery.length > 0 && "bg-surface-input"
-        )}
-      >
-        <Search
-          className="h-[11px] w-[11px] shrink-0 text-text-3"
-          strokeWidth={1.5}
-        />
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder={searchPlaceholder}
-          aria-label={searchPlaceholder}
-          className={cn(
-            "h-full min-w-0 flex-1 bg-transparent font-mono text-text outline-none placeholder:text-text-3",
-            isToolbar
-              ? "uppercase leading-none tracking-[0.12em] text-micro"
-              : "text-caption-sm"
-          )}
-        />
-      </label>
+      {showSearch && (
+        <>
+          <label
+            className={cn(
+              "flex items-center gap-[5px] rounded-chip px-[8px] transition-colors",
+              isToolbar
+                ? "h-[26px] w-[150px] min-w-[145px] bg-transparent focus-within:bg-surface-input"
+                : "h-[30px] w-full min-w-[220px] border border-border bg-fill-neutral-dim focus-within:border-line-hi sm:w-[240px] sm:min-w-[240px]",
+              isToolbar && searchQuery.length > 0 && "bg-surface-input"
+            )}
+          >
+            <Search
+              className="h-[11px] w-[11px] shrink-0 text-text-3"
+              strokeWidth={1.5}
+            />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
+              className={cn(
+                "h-full min-w-0 flex-1 bg-transparent font-mono text-text outline-none placeholder:text-text-3",
+                isToolbar
+                  ? "uppercase leading-none tracking-[0.12em] text-micro"
+                  : "text-caption-sm"
+              )}
+            />
+          </label>
 
-      {isToolbar && <ToolbarDivider />}
+          {isToolbar && <ToolbarDivider />}
+        </>
+      )}
 
       {/* Stage filter */}
       <StageDropdown
@@ -384,10 +404,10 @@ export function PipelineFilterRow({
         variant={variant}
       />
 
-      {isToolbar && canManage && <ToolbarDivider />}
+      {isToolbar && canManage && showNewLead && <ToolbarDivider />}
 
       {/* New Lead button */}
-      {canManage && (
+      {canManage && showNewLead && (
         <button
           type="button"
           onClick={onAddLead}

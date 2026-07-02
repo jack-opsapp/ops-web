@@ -14,7 +14,6 @@ import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModa
 import { getInitials } from "@/lib/types/models";
 import { formatCurrency, formatPhoneNumber } from "@/lib/utils/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterChips } from "@/components/ui/filter-chip";
 import {
@@ -25,7 +24,7 @@ import {
   TableMono,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { TableShell, TableWorkbar } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
 import { MetricsStrip, type MetricCell } from "@/components/ui/metrics-strip";
 
 type FilterMode = "all" | "with-projects" | "owes" | "new";
@@ -325,38 +324,38 @@ export default function ClientsPage() {
     <div className="flex h-full min-h-0 flex-col">
       <TableShell
         metrics={<MetricsStrip metrics={metricCells} isLoading={showLoading} ariaLabel={t("title")} />}
-        workbar={
-          <TableWorkbar>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-                <span aria-hidden className="text-text-mute">{"// "}</span>
-                {t("title")}
-              </span>
-              <div className="flex items-center gap-2">
-                <SearchInput
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={t("search.placeholder")}
-                  wrapperClassName="w-[220px] max-w-full"
-                  aria-label={t("search.placeholder")}
-                />
-                {canCreate && (
-                  <Button variant="primary" size="sm" type="button" onClick={gatedCreate}>
-                    <Plus className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden />
-                    {t("newClient")}
-                  </Button>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-[12px]">
-              <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
-              <span className="font-mono text-micro tabular-nums text-text-3">
-                {filtered.length === 1
-                  ? t("list.countOne", { count: "1" })
-                  : t("list.count", { count: String(filtered.length) })}
-              </span>
-            </div>
-          </TableWorkbar>
+        toolbar={
+          // Canonical Workbar grammar: search leftmost · filters after · create
+          // rightmost. Clients has no segment/mode control, so no row-2 tab strip.
+          <Workbar
+            search={
+              <SearchInput
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("search.placeholder")}
+                wrapperClassName="w-[240px] max-w-full"
+                aria-label={t("search.placeholder")}
+              />
+            }
+            filters={
+              <>
+                <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
+                <span className="font-mono text-micro tabular-nums text-text-3">
+                  {filtered.length === 1
+                    ? t("list.countOne", { count: "1" })
+                    : t("list.count", { count: String(filtered.length) })}
+                </span>
+              </>
+            }
+            create={
+              canCreate ? (
+                <WorkbarButton onClick={gatedCreate}>
+                  <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+                  {t("newClient")}
+                </WorkbarButton>
+              ) : null
+            }
+          />
         }
         isEmpty={showLoading || isEmptyAll || isEmptyFiltered}
         emptyState={
