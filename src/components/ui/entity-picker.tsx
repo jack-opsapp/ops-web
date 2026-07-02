@@ -41,8 +41,17 @@ interface EntityPickerBaseProps<T> {
   searchTestId?: string;
   clearLabel?: string;
   emptyLabel?: React.ReactNode;
-  /** Footer create action ("+ New …"). Hidden in read-only. */
-  createAction?: { label: React.ReactNode; onCreate: () => void };
+  /**
+   * Footer create action ("+ New …"). Hidden in read-only. Both members
+   * receive the live search query, so a caller can offer query-seeded
+   * creation — label `(q) => q ? `New client "${q}"` : "New client"`,
+   * onCreate `(q) => createAndLink(q)`. Existing `() => void` callers are
+   * unaffected (the argument is simply ignored).
+   */
+  createAction?: {
+    label: React.ReactNode | ((query: string) => React.ReactNode);
+    onCreate: (query: string) => void;
+  };
   /** Read-only (e.g. RLS 42501) — rows non-interactive + a notice. */
   readOnly?: boolean;
   readOnlyLabel?: React.ReactNode;
@@ -235,9 +244,11 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
         {createAction && !readOnly ? (
           <PickerFooterAction
             icon={<Plus className="h-[16px] w-[16px]" strokeWidth={1.5} aria-hidden="true" />}
-            onClick={createAction.onCreate}
+            onClick={() => createAction.onCreate(search)}
           >
-            {createAction.label}
+            {typeof createAction.label === "function"
+              ? createAction.label(search)
+              : createAction.label}
           </PickerFooterAction>
         ) : null}
       </PickerContent>
