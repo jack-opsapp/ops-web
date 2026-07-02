@@ -32,7 +32,8 @@ import { ProjectsUndoToast } from "./projects-undo-toast";
 import { ProjectsViewCreateDialog } from "./projects-view-create-dialog";
 import { ProjectsViewSettingsMenu } from "./projects-view-settings-menu";
 import { ProjectsViewTabs } from "./projects-view-tabs";
-import { TableShell, TableChrome, TableWorkbar } from "@/components/ui/table-shell";
+import { TableShell, TableChrome, Workbar } from "@/components/ui/table-shell";
+import { SearchInput } from "@/components/ui/search-input";
 import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
 import type { MetricColumnConfig } from "@/components/metrics/types";
 
@@ -438,73 +439,83 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
       }
       toolbar={
         <>
-          <TableWorkbar>
-            <ProjectsViewTabs
-              views={views}
-              activeViewId={activeViewId}
-              onViewChange={handleViewChange}
-              onCreateView={() => setCreateDialogOpen(true)}
-              onArchiveView={(view) => {
-                void handleInlineArchiveView(view);
-              }}
-              isLoading={viewsQuery.isLoading}
-              isError={viewsQuery.isError}
-            />
-            <ProjectsToolbar
-              search={search}
-            onSearchChange={setSearch}
-            rowCount={tableQuery.rows.length}
-            totalCount={tableQuery.totalCount}
-            searchInputRef={searchInputRef}
-            densityControl={
-              pendingEffectiveView ? (
-                <>
-                  {hasUnsavedDefinition ? (
-                    <button
-                      type="button"
-                      disabled={viewDefinitionSaving || viewActions.updateViewDefinition.isPending}
-                      onClick={() => {
-                        void persistPendingViewDefinition();
-                      }}
-                      className="inline-flex h-[28px] items-center gap-1 rounded border border-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
-                    >
-                      <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
-                      {t("table.views.save")}
-                    </button>
-                  ) : null}
-                  {viewSaveErrorKey ? (
-                    <span role="alert" className="font-mono text-micro text-rose">
-                      {t(viewSaveErrorKey)}
-                    </span>
-                  ) : null}
-                  <ProjectsDensityControl
-                    density={zoom.density}
-                    zoom={zoom.zoom}
-                    disabled={densitySaving || viewActions.updateViewDefinition.isPending}
-                    errorKey={densityErrorKey}
-                    onDensityChange={(density) => {
-                      void zoom.setPreset(density);
-                    }}
-                    onZoomChange={(zoomLevel) => {
-                      void zoom.setZoomLevel(zoomLevel);
-                    }}
-                  />
-                </>
-              ) : null
-            }
-            viewSettings={
-              <ProjectsViewSettingsMenu
-                activeView={pendingEffectiveView}
-                actions={viewActionsWithPendingDefinition}
-                onViewRenamed={handleViewUpdated}
-                onViewDuplicated={handleViewCreated}
-                onViewArchived={handleViewArchived}
-                onViewReset={handleViewUpdated}
-                onViewShared={handleViewUpdated}
+          <Workbar
+            search={
+              <SearchInput
+                ref={searchInputRef}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={t("table.toolbar.searchPlaceholder")}
+                wrapperClassName="w-[240px] max-w-full"
               />
             }
-            />
-          </TableWorkbar>
+            tools={
+              <ProjectsToolbar
+                rowCount={tableQuery.rows.length}
+                totalCount={tableQuery.totalCount}
+                densityControl={
+                  pendingEffectiveView ? (
+                    <>
+                      {hasUnsavedDefinition ? (
+                        <button
+                          type="button"
+                          disabled={viewDefinitionSaving || viewActions.updateViewDefinition.isPending}
+                          onClick={() => {
+                            void persistPendingViewDefinition();
+                          }}
+                          className="inline-flex h-[28px] items-center gap-1 rounded border border-ops-accent px-2 font-cakemono text-[14px] font-light uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent disabled:pointer-events-none disabled:opacity-40"
+                        >
+                          <Save className="h-[12px] w-[12px]" strokeWidth={1.5} />
+                          {t("table.views.save")}
+                        </button>
+                      ) : null}
+                      {viewSaveErrorKey ? (
+                        <span role="alert" className="font-mono text-micro text-rose">
+                          {t(viewSaveErrorKey)}
+                        </span>
+                      ) : null}
+                      <ProjectsDensityControl
+                        density={zoom.density}
+                        zoom={zoom.zoom}
+                        disabled={densitySaving || viewActions.updateViewDefinition.isPending}
+                        errorKey={densityErrorKey}
+                        onDensityChange={(density) => {
+                          void zoom.setPreset(density);
+                        }}
+                        onZoomChange={(zoomLevel) => {
+                          void zoom.setZoomLevel(zoomLevel);
+                        }}
+                      />
+                    </>
+                  ) : null
+                }
+                viewSettings={
+                  <ProjectsViewSettingsMenu
+                    activeView={pendingEffectiveView}
+                    actions={viewActionsWithPendingDefinition}
+                    onViewRenamed={handleViewUpdated}
+                    onViewDuplicated={handleViewCreated}
+                    onViewArchived={handleViewArchived}
+                    onViewReset={handleViewUpdated}
+                    onViewShared={handleViewUpdated}
+                  />
+                }
+              />
+            }
+            tabStrip={
+              <ProjectsViewTabs
+                views={views}
+                activeViewId={activeViewId}
+                onViewChange={handleViewChange}
+                onCreateView={() => setCreateDialogOpen(true)}
+                onArchiveView={(view) => {
+                  void handleInlineArchiveView(view);
+                }}
+                isLoading={viewsQuery.isLoading}
+                isError={viewsQuery.isError}
+              />
+            }
+          />
           {unavailableViewId ? (
             <div
               role="alert"

@@ -18,8 +18,9 @@ const DENSITY_OPTIONS = [
 
 /**
  * Pipeline-table toolbar cluster: a grouping toggle, a closed-deals toggle, a
- * `// N deals` readout, a minimal 3-segment density control, plus optional slots
- * for the saved-view Save affordance and the view-settings menu. This is the
+ * minimal 3-segment density control, plus optional slots for the saved-view Save
+ * affordance and the view-settings menu. (The deal count is NOT here — it's in the
+ * grand-total footer; a second toolbar readout would be redundant.) This is the
  * TABLE mode's mode-specific control cluster — the mode switcher and the shared
  * search field live once in the persistent toolbar owned by `pipeline/page.tsx`
  * (WEB OVERHAUL P6-2 rework), so they are NOT rendered here; this cluster is
@@ -31,7 +32,6 @@ const DENSITY_OPTIONS = [
  * Save button passed in via `saveAffordance`).
  */
 export function PipelineToolbar({
-  dealCount,
   grouped,
   onGroupedChange,
   closedDeals,
@@ -42,7 +42,6 @@ export function PipelineToolbar({
   saveAffordance,
   viewSettings,
 }: {
-  dealCount: number;
   grouped: boolean;
   onGroupedChange: (grouped: boolean) => void;
   closedDeals: boolean;
@@ -89,9 +88,6 @@ export function PipelineToolbar({
           <CheckCircle className="h-[12px] w-[12px]" strokeWidth={1.5} aria-hidden="true" />
           <span className="hidden lg:inline">{t("table.toolbar.closed")}</span>
         </button>
-        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-          {t("table.toolbar.deals").replace("{count}", String(dealCount))}
-        </span>
         {saveAffordance}
         <div
           role="group"

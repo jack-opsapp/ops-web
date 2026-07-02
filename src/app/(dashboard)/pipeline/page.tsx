@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Mail, X, Loader2, Search, Plus } from "lucide-react";
+import { Mail, X, Loader2, Plus } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
@@ -32,7 +32,8 @@ import {
   usePipelineMetrics,
 } from "@/lib/hooks";
 import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
-import { TableWorkbar, WorkbarButton } from "@/components/ui/table-shell";
+import { Workbar, WorkbarButton } from "@/components/ui/table-shell";
+import { SearchInput } from "@/components/ui/search-input";
 import {
   type Opportunity,
   OpportunityStage,
@@ -949,33 +950,25 @@ export default function PipelinePage() {
               metrics={fromMetricColumns(pipelineMetrics ?? [])}
               isLoading={pipelineMetricsLoading}
             />
-            {/* Toolbar — a consistent SHARED CORE across both modes: mode switcher,
-                search, stage + assignee filters, review, and NEW LEAD are identical
-                in focused and table (WEB OVERHAUL P6-2, Jackson 2026-07-01). Only the
-                grid-specific tools swap in for table mode — GROUP / SHOW CLOSED /
-                density / view-settings portal into `clusterSlot`, the saved-view tab
-                strip into `tabsSlot`. Both slots are `display:contents` so they add
-                no layout when empty (focused). The controls row is the stable first
-                row; the tab strip is a table-only second row below it. */}
-            <TableWorkbar>
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                {/* Shared core — identical in both modes: mode switcher, search,
-                    stage + assignee filters. */}
-                <PipelineModeSwitcher />
-                <label className="flex h-[28px] w-[200px] shrink-0 items-center gap-1.5 rounded border border-border bg-surface-input px-2 transition-colors focus-within:border-line-hi">
-                  <Search
-                    className="h-[12px] w-[12px] shrink-0 text-text-3"
-                    strokeWidth={1.5}
-                  />
-                  <input
-                    ref={searchInputRef}
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder={t("search.placeholder")}
-                    aria-label={t("search.placeholder")}
-                    className="min-w-0 flex-1 bg-transparent font-mono text-[11px] uppercase text-text outline-none placeholder:text-text-3"
-                  />
-                </label>
+            {/* Toolbar — the shared `Workbar` grammar, identical to every other tab:
+                search (left) · stage/assignee filters · [tools + NEW LEAD] (right) ·
+                FOCUSED/TABLE + saved-view tabs (row-2 strip). Persistent above the
+                crossfade, so a mode switch never remounts it (WEB OVERHAUL P6-2).
+                Table mode's grid tools portal into `clusterSlot` (tools) and the
+                saved-view tabs into `tabsSlot` (the row-2 strip); both are
+                `display:contents`, adding no layout when empty (focused). */}
+            <Workbar
+              search={
+                <SearchInput
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={t("search.placeholder")}
+                  aria-label={t("search.placeholder")}
+                  wrapperClassName="w-[240px] max-w-full"
+                />
+              }
+              filters={
                 <PipelineFilterRow
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
@@ -990,10 +983,10 @@ export default function PipelinePage() {
                   showSearch={false}
                   showNewLead={false}
                 />
-                {/* Right group, pushed right: the table's grid tools portal in
-                    (table mode only), then the shared review + NEW LEAD actions —
-                    both present in EVERY mode now. */}
-                <div className="ml-auto flex flex-wrap items-center gap-2">
+              }
+              tools={
+                <>
+                  {/* Table grid controls portal here (table mode only). */}
                   <div ref={setClusterSlot} className="contents" />
                   {reviewCount > 0 && (
                     <button
@@ -1008,17 +1001,27 @@ export default function PipelinePage() {
                       </span>
                     </button>
                   )}
-                  {canManage && (
-                    <WorkbarButton onClick={gatedOpenCreate}>
-                      <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
-                      {t("newLead")}
-                    </WorkbarButton>
-                  )}
+                </>
+              }
+              create={
+                canManage ? (
+                  <WorkbarButton onClick={gatedOpenCreate}>
+                    <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+                    {t("newLead")}
+                  </WorkbarButton>
+                ) : null
+              }
+              tabStrip={
+                // Row-2 tab strip: the FOCUSED/TABLE mode switcher + (table mode)
+                // the saved-view tabs the table surface portals in. The tabs slot
+                // is flex-1 so the (potentially many) saved views scroll on this one
+                // line beside the switcher instead of wrapping to another row.
+                <div className="flex min-w-0 items-center gap-2">
+                  <PipelineModeSwitcher />
+                  <div ref={setTabsSlot} className="min-w-0 flex-1" />
                 </div>
-              </div>
-              {/* Saved-view tab strip row — table mode only (portaled by the table). */}
-              <div ref={setTabsSlot} className="contents" />
-            </TableWorkbar>
+              }
+            />
 
             {/* Content region — the ONLY thing that crossfades on a mode switch. */}
             <div className="relative min-h-0 flex-1">

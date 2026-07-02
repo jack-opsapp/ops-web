@@ -422,7 +422,7 @@ export function PipelineTableShell({
     [hasUnsavedDefinition, persistPendingViewDefinition, viewActions],
   );
 
-  const { rows, totalCount, now, isLoading, isError } = usePipelineTableData({
+  const { rows, now, isLoading, isError } = usePipelineTableData({
     search,
     sorting,
     closedDeals,
@@ -688,7 +688,6 @@ export function PipelineTableShell({
 
   const toolbarClusterNode = (
     <PipelineToolbar
-      dealCount={totalCount}
       grouped={grouped}
       onGroupedChange={setGrouped}
       closedDeals={closedDeals}
