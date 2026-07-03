@@ -16,5 +16,13 @@
 
   "unit.search": "Search units",
   "unit.create": "New unit",
-  "unit.empty": "No units"
+  "unit.empty": "No units",
+  "unit.none": "No unit",
+
+  "tag.search": "Search tags",
+  "tag.create": "New tag",
+  "tag.createNamed": "Create tag \"{name}\"",
+  "tag.empty": "No tags",
+  "tag.count": "{count} selected",
+  "tag.new": "New"
 }

@@ -16,5 +16,13 @@
 
   "unit.search": "Buscar unidades",
   "unit.create": "Nueva unidad",
-  "unit.empty": "Sin unidades"
+  "unit.empty": "Sin unidades",
+  "unit.none": "Sin unidad",
+
+  "tag.search": "Buscar etiquetas",
+  "tag.create": "Nueva etiqueta",
+  "tag.createNamed": "Crear etiqueta \"{name}\"",
+  "tag.empty": "Sin etiquetas",
+  "tag.count": "{count} seleccionadas",
+  "tag.new": "Nueva"
 }
