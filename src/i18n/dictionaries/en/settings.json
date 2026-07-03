@@ -374,6 +374,7 @@
   "taskTypes.taskTemplates": "Task Templates",
   "taskTypes.namePlaceholder": "e.g., Deck Framing",
   "taskTypes.crewPlaceholder": "Select default crew...",
+  "taskTypes.crewSearch": "Search crew",
   "taskTypes.templatePlaceholder": "New template name...",
   "taskTypes.hrs": "hrs",
   "taskTypes.templateHelper": "Sub-tasks automatically proposed when an estimate with this task type is approved.",

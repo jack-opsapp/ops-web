@@ -374,6 +374,7 @@
   "taskTypes.taskTemplates": "Plantillas de tareas",
   "taskTypes.namePlaceholder": "ej., Armado de deck",
   "taskTypes.crewPlaceholder": "Seleccionar equipo predeterminado...",
+  "taskTypes.crewSearch": "Buscar cuadrilla",
   "taskTypes.templatePlaceholder": "Nombre de nueva plantilla...",
   "taskTypes.hrs": "hrs",
   "taskTypes.templateHelper": "Sub-tareas propuestas automáticamente cuando se aprueba una cotización con este tipo de tarea.",
