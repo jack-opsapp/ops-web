@@ -152,3 +152,105 @@ export function getQuickBooksConfigForEnvironment(
     apiBaseHost: getQuickBooksApiBaseHost(providerEnvironment),
   };
 }
+
+// ── Outbound push fallbacks (service item + tax codes) ──────────────────────
+//
+// OPS line items carry no QuickBooks item ref, so every pushed invoice/estimate
+// line needs a fallback service item; Canadian realms additionally reject a
+// sales line with no TaxCodeRef. Both are resolved from env, per the
+// connection's provider_environment.
+//
+// STRICT environment scoping is the whole point: item ids and tax-code ids are
+// realm-specific. A sandbox connection reads ONLY sandbox-suffixed names and a
+// production connection reads ONLY production-suffixed names. There is
+// deliberately NO unsuffixed shared fallback — a value left over from one
+// environment (historically an unsuffixed sandbox id) must never be applied to
+// the other, or the switch to production silently attaches a nonexistent item
+// and QuickBooks answers 400.
+
+export interface QboFallbackServiceItem {
+  qbItemId: string;
+  name: string;
+}
+
+export interface QboTaxCodeRefs {
+  taxable: string | null;
+  nonTaxable: string | null;
+}
+
+const DEFAULT_FALLBACK_SERVICE_ITEM_NAME = "OPS Service";
+
+type QboEnvRecord = Record<string, string | undefined>;
+
+function firstConfiguredEnv(env: QboEnvRecord, names: string[]): string | null {
+  for (const name of names) {
+    const value = env[name]?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
+/**
+ * Environment-scoped env-var names for one QuickBooks fallback/tax value.
+ *
+ * The asymmetry is the fix. Sandbox reads its suffixed names first, then the
+ * legacy unsuffixed names as a last resort (unsuffixed has always meant
+ * sandbox/default, so a pre-existing dev config keeps working). Production
+ * reads ONLY production-suffixed names — it will NEVER pick up an unsuffixed or
+ * sandbox value. So flipping a connection to production can only ever resolve a
+ * value that was explicitly set for production, or resolve nothing (a safe,
+ * loud block) — never a realm-mismatched id that QuickBooks answers 400.
+ */
+function environmentScopedEnvNames(
+  environment: QuickBooksEnvironment,
+  suffix: string,
+): string[] {
+  if (environment === "sandbox") {
+    return [
+      `QB_SANDBOX_${suffix}`,
+      `QBO_SANDBOX_${suffix}`,
+      `QB_${suffix}`,
+      `QBO_${suffix}`,
+    ];
+  }
+  return [
+    `QB_PROD_${suffix}`,
+    `QBO_PROD_${suffix}`,
+    `QB_PRODUCTION_${suffix}`,
+    `QBO_PRODUCTION_${suffix}`,
+  ];
+}
+
+/** Resolve the fallback service item for a push, scoped to the connection env. */
+export function resolveQboFallbackServiceItem(
+  providerEnvironment: QuickBooksEnvironment,
+  env: QboEnvRecord = process.env,
+): QboFallbackServiceItem | null {
+  const qbItemId = firstConfiguredEnv(
+    env,
+    environmentScopedEnvNames(providerEnvironment, "FALLBACK_SERVICE_ITEM_ID"),
+  );
+  if (!qbItemId) return null;
+  const name = firstConfiguredEnv(
+    env,
+    environmentScopedEnvNames(providerEnvironment, "FALLBACK_SERVICE_ITEM_NAME"),
+  );
+  return { qbItemId, name: name ?? DEFAULT_FALLBACK_SERVICE_ITEM_NAME };
+}
+
+/** Resolve taxable / non-taxable tax code refs, scoped to the connection env. */
+export function resolveQboTaxCodeRefs(
+  providerEnvironment: QuickBooksEnvironment,
+  env: QboEnvRecord = process.env,
+): QboTaxCodeRefs | null {
+  const taxable = firstConfiguredEnv(
+    env,
+    environmentScopedEnvNames(providerEnvironment, "TAX_CODE_TAXABLE_ID"),
+  );
+  const nonTaxable = firstConfiguredEnv(env, [
+    ...environmentScopedEnvNames(providerEnvironment, "TAX_CODE_NONTAXABLE_ID"),
+    ...environmentScopedEnvNames(providerEnvironment, "TAX_CODE_NON_TAXABLE_ID"),
+  ]);
+  if (!taxable && !nonTaxable) return null;
+  return { taxable, nonTaxable };
+}
