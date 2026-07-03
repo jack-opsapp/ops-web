@@ -2,18 +2,14 @@
   "title": "Projects",
   "loading": "Loading projects...",
   "newProject": "New Project",
-
   "filter.all": "All",
   "filter.active": "Active",
   "filter.completed": "Completed",
   "filter.archived": "Archived",
-
   "search.placeholder": "Search projects...",
-
   "select": "Select",
   "cancel": "Cancel",
   "noTeam": "No team",
-
   "table.project": "Project",
   "table.client": "Client",
   "table.status": "Status",
@@ -171,12 +167,10 @@
   "table.conflict.useTheirs": "Use current",
   "table.conflict.cancel": "Cancel",
   "table.conflict.close": "Close",
-
   "empty.title": "No projects yet",
   "empty.description": "Create your first project to start tracking work, schedules, and team assignments.",
   "empty.noMatch": "No projects match your search",
   "empty.loadFailed": "Failed to load projects",
-
   "bulk.status": "Status",
   "bulk.export": "Export",
   "bulk.delete": "Delete",
@@ -185,28 +179,6 @@
   "bulk.allSelected": "projects selected",
   "bulk.selectAll": "Select all",
   "bulk.clearSelection": "Clear selection",
-
-  "new.heading": "NEW PROJECT",
-  "new.nameLabel": "Project Name",
-  "new.namePlaceholder": "e.g., Kitchen Renovation - Smith",
-  "new.clientLabel": "Client",
-  "new.addressLabel": "Address",
-  "new.addressPlaceholder": "123 Main Street, City, State ZIP",
-  "new.statusLabel": "Status",
-  "new.startDateLabel": "Start Date",
-  "new.endDateLabel": "End Date",
-  "new.teamLabel": "Team Members",
-  "new.descriptionLabel": "Description",
-  "new.descriptionPlaceholder": "Project description...",
-  "new.notesLabel": "Notes",
-  "new.notesPlaceholder": "Project notes, special instructions...",
-  "new.noTeam": "No team members available",
-  "new.createProject": "Create Project",
-  "new.noCompany": "No company found. Please sign in again.",
-  "new.createFailed": "Failed to create project. Please try again.",
-  "new.requiredHint": "Required",
-  "new.validationError": "Please fix the highlighted fields before creating the project.",
-
   "status.rfq": "RFQ",
   "status.estimated": "Estimated",
   "status.accepted": "Accepted",
@@ -216,7 +188,6 @@
   "status.archived": "Archived",
   "status.booked": "Booked",
   "status.cancelled": "Cancelled",
-
   "detail.overview": "Overview",
   "detail.tasks": "Tasks",
   "detail.financial": "Financial",
@@ -271,13 +242,6 @@
   "detail.noClientHeader": "No Client",
   "detail.deleteNote": "Delete Note",
   "detail.deleteNoteConfirm": "Are you sure you want to delete this note? This cannot be undone.",
-
-  "new.loadingClients": "Loading clients...",
-  "new.searchClients": "Search clients...",
-  "new.noClients": "No clients found",
-  "new.noMatchingClients": "No matching clients",
-  "new.noClient": "No client",
-
   "notes.posted": "Note posted",
   "notes.postFailed": "Failed to post note",
   "notes.updated": "Note updated",
@@ -286,10 +250,8 @@
   "notes.deleteFailed": "Failed to delete note",
   "notes.deleteNote": "Delete Note",
   "notes.placeholder": "Write a note... (type @ to mention someone)",
-
   "toast.created": "Project created successfully",
   "toast.createFailed": "Failed to create project. Please try again.",
-
   "sidebar.projectHealth": "Project Health",
   "sidebar.tasks": "Tasks",
   "sidebar.overdue": "Overdue",
@@ -319,13 +281,11 @@
   "sidebar.cancel": "Cancel",
   "sidebar.locationUpdated": "Location updated",
   "sidebar.locationUpdateFailed": "Failed to update location",
-
   "tabs.tasks": "Tasks",
   "tabs.financial": "Financial",
   "tabs.photos": "Photos",
   "tabs.notes": "Notes",
   "tabs.deductions": "Inventory",
-
   "taskList.list": "List",
   "taskList.calendar": "Calendar",
   "taskList.calendarSoon": "Coming soon",
@@ -334,7 +294,6 @@
   "taskList.unassigned": "Unassigned",
   "taskList.noTasks": "No tasks yet",
   "taskList.noTasksDesc": "Add tasks to track work progress for this project.",
-
   "financial.budgetOverview": "Budget Overview",
   "financial.estimated": "Estimated",
   "financial.invoiced": "Invoiced",
@@ -348,17 +307,14 @@
   "financial.noEstimates": "No estimates",
   "financial.noInvoices": "No invoices",
   "financial.due": "due",
-
   "photoFeed.sortNewest": "Newest First",
   "photoFeed.sortOldest": "Oldest First",
   "photoFeed.searchPlaceholder": "Search photos...",
   "photoFeed.noPhotos": "No photos yet",
   "photoFeed.noPhotosDesc": "Upload photos to document this project.",
-
   "notesFeed.sortNewest": "Newest First",
   "notesFeed.sortOldest": "Oldest First",
   "notesFeed.searchPlaceholder": "Search notes...",
-
   "taskForm.title.create": "New Task",
   "taskForm.title.edit": "Edit Task",
   "taskForm.dependencies": "Dependencies",
