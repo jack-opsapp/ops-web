@@ -26,19 +26,19 @@ export async function GET(request: NextRequest) {
   // Handle user denial
   if (error) {
     return NextResponse.redirect(
-      `${getAppUrl()}/accounting?status=error&message=${encodeURIComponent(error)}`
+      `${getAppUrl()}/books?segment=sync&status=error&message=${encodeURIComponent(error)}`
     );
   }
 
   if (!code || !state) {
     return NextResponse.redirect(
-      `${getAppUrl()}/accounting?status=error&message=missing_params`
+      `${getAppUrl()}/books?segment=sync&status=error&message=missing_params`
     );
   }
 
   if (!SAGE_CLIENT_ID || !SAGE_CLIENT_SECRET) {
     return NextResponse.redirect(
-      `${getAppUrl()}/accounting?status=error&message=not_configured`
+      `${getAppUrl()}/books?segment=sync&status=error&message=not_configured`
     );
   }
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
   const colonIdx = state.indexOf(":");
   if (colonIdx < 1) {
     return NextResponse.redirect(
-      `${getAppUrl()}/accounting?status=error&message=invalid_state`
+      `${getAppUrl()}/books?segment=sync&status=error&message=invalid_state`
     );
   }
   const companyId = state.substring(0, colonIdx);
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   if (!existing || existing.webhook_verifier_token !== state) {
     return NextResponse.redirect(
-      `${getAppUrl()}/accounting?status=error&message=csrf_mismatch`
+      `${getAppUrl()}/books?segment=sync&status=error&message=csrf_mismatch`
     );
   }
 
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         `Sage token exchange failed (HTTP ${tokenResponse.status})`
       );
       return NextResponse.redirect(
-        `${getAppUrl()}/accounting?status=error&message=token_exchange_failed`
+        `${getAppUrl()}/books?segment=sync&status=error&message=token_exchange_failed`
       );
     }
 
@@ -121,18 +121,20 @@ export async function GET(request: NextRequest) {
     if (upsertError) {
       console.error("Failed to store Sage tokens:", upsertError.message);
       return NextResponse.redirect(
-        `${getAppUrl()}/accounting?status=error&message=storage_failed`
+        `${getAppUrl()}/books?segment=sync&status=error&message=storage_failed`
       );
     }
 
+    // Land back on the surface the connect started from — Books › SYNC. The
+    // segment consumes ?connected= (refetch + toast) and strips it (eb70d803).
     return NextResponse.redirect(
-      `${getAppUrl()}/accounting?connected=sage`
+      `${getAppUrl()}/books?segment=sync&connected=sage`
     );
   } catch {
     // Do not log the caught error — it can carry the token exchange payload.
     console.error("Sage OAuth callback error (token exchange step)");
     return NextResponse.redirect(
-      `${getAppUrl()}/accounting?status=error&message=unexpected_error`
+      `${getAppUrl()}/books?segment=sync&status=error&message=unexpected_error`
     );
   }
 }

@@ -110,6 +110,9 @@
   "sync.settings.switchConfirmCta": "Cambiar",
   "sync.settings.cancel": "Cancelar",
 
+  "sync.toast.connected": "{provider} conectado",
+  "sync.toast.connectCancelled": "Conexión cancelada",
+  "sync.toast.connectFailed": "No se pudo conectar. Inténtalo de nuevo.",
   "sync.toast.disconnected": "{provider} desconectado",
   "sync.toast.modeUpdated": "Modo de sincronización actualizado",
   "sync.toast.autoSyncUpdated": "Auto-sincronización actualizada",
