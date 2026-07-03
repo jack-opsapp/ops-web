@@ -106,7 +106,10 @@ export function ConnectionSettingsModal({
       setMirrorDeletes(false);
       onSetMode("pull_only", false);
     } else {
-      onSetMode("bidirectional", mirrorDeletes);
+      // Two-way sync mirrors deletes by default — the operator opts out with
+      // the mirror-deletes switch, never left silently no-op'ing voids.
+      setMirrorDeletes(true);
+      onSetMode("bidirectional", true);
     }
   };
 

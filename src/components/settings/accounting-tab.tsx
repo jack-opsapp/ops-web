@@ -254,7 +254,10 @@ function ConnectedAccounting({ connection }: { connection: AccountingConnection 
                       variant="default"
                       onClick={() => {
                         setConfirmFullCrud(false);
-                        setMode("bidirectional", propagateDeletes);
+                        // Full CRUD means full CRUD: deletes/voids mirror to
+                        // QuickBooks by default. The operator opts out via the
+                        // Propagate deletes switch, not by hunting for it first.
+                        setMode("bidirectional", true);
                       }}
                       disabled={updateSyncMode.isPending}
                     >

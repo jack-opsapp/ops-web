@@ -769,7 +769,7 @@
   "accounting.syncModeDesc": "Solo lectura importa desde tu software de contabilidad. CRUD completo mantiene ambos sincronizados.",
   "accounting.modeReadOnly": "Solo lectura",
   "accounting.modeFullCrud": "CRUD completo",
-  "accounting.fullCrudWarning": "CRUD completo permite que OPS escriba en el archivo de QuickBooks conectado. OPS puede crear y actualizar registros; las anulaciones solo se ejecutan cuando la propagación de eliminaciones está activa.",
+  "accounting.fullCrudWarning": "CRUD completo permite que OPS escriba en tu archivo de QuickBooks: crea, actualiza y refleja las eliminaciones. Puedes desactivar la propagación de eliminaciones cuando quieras.",
   "accounting.fullCrudConfirm": "Activar CRUD completo",
   "accounting.cancel": "Cancelar",
   "accounting.propagateDeletes": "Propagar eliminaciones",
