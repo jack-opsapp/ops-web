@@ -23,7 +23,7 @@ import {
   Tag,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   DropdownMenu,
@@ -35,6 +35,7 @@ import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
+import { matchesAllTokens } from "@/lib/utils/search";
 import {
   useProducts,
   useUpdateProduct,
@@ -123,12 +124,12 @@ export function ProductsSegment({
       list = list.filter((p) => (configCounts?.get(p.id)?.options ?? 0) > 0);
 
     if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.description ?? "").toLowerCase().includes(q) ||
-          (p.category ?? "").toLowerCase().includes(q),
+      // Shared token-AND search grammar (lib/utils/search).
+      list = list.filter((p) =>
+        matchesAllTokens(
+          [p.name, p.description ?? "", p.category ?? ""].join(" ").toLowerCase(),
+          search,
+        ),
       );
     }
     // favorites first, then name.
@@ -346,14 +347,8 @@ export function ProductsSegment({
                 wrapperClassName="w-[240px] max-w-full"
               />
             }
-            filters={
-              <>
-                <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
-                <span className="font-mono text-micro text-text-3 tabular-nums">
-                  {t("products.count", { n: filtered.length })}
-                </span>
-              </>
-            }
+            filters={<FilterChips options={filterOptions} value={filter} onChange={setFilter} />}
+            meta={<WorkbarCount>{t("products.count", { n: filtered.length })}</WorkbarCount>}
             tools={<CatalogKebab segment="products" rows={[]} />}
             create={
               canManage ? (

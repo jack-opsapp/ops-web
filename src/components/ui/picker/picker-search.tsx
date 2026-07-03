@@ -18,7 +18,8 @@ interface PickerSearchProps
 
 /**
  * PickerSearch — canonical search row: icon + cmdk input + clear.
- * Controlled (owns nothing; parent holds the query). Focus = accent ring.
+ * Controlled (owns nothing; parent holds the query). Focus = the Inputs-spec
+ * border brighten (no accent — spec §340).
  */
 const PickerSearch = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
@@ -28,8 +29,13 @@ const PickerSearch = React.forwardRef<
     { className, value, onValueChange, clearLabel = "Clear search", placeholder, ...props },
     ref,
   ) => (
-    <div className="m-1 flex h-8 items-center gap-2 rounded-[5px] border border-border bg-surface-input px-2 focus-within:ring-[1.5px] focus-within:ring-ops-accent focus-within:ring-offset-2 focus-within:ring-offset-black">
-      <Search className="h-4 w-4 shrink-0 text-text-3" strokeWidth={1.5} aria-hidden="true" />
+    // Real px, not scale tokens — the doubled spacing scale (h-8 = 64px)
+    // inflated this row to 64px; the kit's contract is a compact ~32px
+    // desktop search row (see picker-item.tsx, same correction).
+    // Focus is the Inputs-spec border-brighten (§340: "no accent") — the
+    // accent ring belongs to buttons/CTAs, never text fields.
+    <div className="m-[4px] flex h-[32px] items-center gap-[8px] rounded-[5px] border border-border bg-surface-input px-[8px] transition-colors focus-within:border-line-hi">
+      <Search className="h-[16px] w-[16px] shrink-0 text-text-3" strokeWidth={1.5} aria-hidden="true" />
       <CommandPrimitive.Input
         ref={ref}
         value={value}
@@ -48,7 +54,7 @@ const PickerSearch = React.forwardRef<
           aria-label={clearLabel}
           className="shrink-0 text-text-3 transition-colors hover:text-text"
         >
-          <X className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+          <X className="h-[14px] w-[14px]" strokeWidth={1.5} aria-hidden="true" />
         </button>
       ) : null}
     </div>

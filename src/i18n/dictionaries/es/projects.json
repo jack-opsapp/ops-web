@@ -276,6 +276,7 @@
   "new.searchClients": "Buscar clientes...",
   "new.noClients": "No se encontraron clientes",
   "new.noMatchingClients": "Sin clientes coincidentes",
+  "new.noClient": "Sin cliente",
 
   "notes.posted": "Nota publicada",
   "notes.postFailed": "Error al publicar nota",

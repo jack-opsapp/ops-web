@@ -207,6 +207,9 @@ vi.mock("@/lib/hooks/use-clients", () => ({
     isLoading: false,
     isError: false,
   }),
+  // The client cell's "+ New client" action (useClientCreateAction) reaches for
+  // this; these edit-core tests don't exercise creation, so a stub suffices.
+  useCreateClient: () => ({ mutateAsync: vi.fn() }),
 }));
 
 function makeQueryClient() {

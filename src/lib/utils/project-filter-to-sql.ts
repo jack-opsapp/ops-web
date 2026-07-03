@@ -1,10 +1,32 @@
 import type { Json } from "@/lib/types/database.types";
 
+/**
+ * Every text column of `project_table_rows` a search token is matched
+ * against. Search means "find my thing", so it spans what an operator would
+ * paste or half-remember: the title, who it's for (name / email / phone),
+ * where it is, the trade, the notes they wrote, and the next task on deck.
+ * `status` is deliberately absent — its stored slugs ("in_progress") don't
+ * match their display labels ("In Progress"), and status already has
+ * first-class filters in the saved views.
+ */
+export const PROJECT_TABLE_SEARCH_FIELDS = [
+  "title",
+  "client_name",
+  "client_email",
+  "client_phone",
+  "address",
+  "trade",
+  "notes",
+  "next_task",
+] as const;
+
+export type ProjectTableSearchField = (typeof PROJECT_TABLE_SEARCH_FIELDS)[number];
+
 export type ProjectTableFilterInstruction =
   | { type: "in"; field: "status" | "client_id"; values: string[] }
   | { type: "not_in"; field: "status" | "client_id"; values: string[] }
   | { type: "contains"; field: "team_member_ids"; values: string[] }
-  | { type: "ilike_any"; fields: ("title" | "client_name" | "address")[]; value: string };
+  | { type: "ilike_any"; fields: readonly ProjectTableSearchField[]; value: string };
 
 type FilterObject = {
   type?: unknown;
@@ -72,12 +94,17 @@ export function buildProjectTableFilterInstructions(
   search: string,
 ): ProjectTableFilterInstruction[] {
   const instructions = fromNode(filter, currentUserId);
-  const trimmed = search.trim();
-  if (trimmed.length > 0) {
+  // One ilike_any PER whitespace token (the service emits one `.or()` per
+  // instruction and PostgREST ANDs them): every token must match at least one
+  // search field, so "miramar housing" finds the Miramar Officer Housing
+  // client's projects instead of demanding a contiguous substring. Same
+  // grammar as the client-side surfaces' matchesAllTokens (lib/utils/search).
+  for (const token of search.trim().split(/\s+/)) {
+    if (token.length === 0) continue;
     instructions.push({
       type: "ilike_any",
-      fields: ["title", "client_name", "address"],
-      value: trimmed,
+      fields: PROJECT_TABLE_SEARCH_FIELDS,
+      value: token,
     });
   }
   return instructions;

@@ -30,9 +30,9 @@ describe("<TextInput>", () => {
     expect(screen.getByPlaceholderText("X")).toHaveClass("border-glass-border");
   });
 
-  it("renders at h-8 (32px) by default — denser than the dashboard 56px Input", () => {
+  it("renders at the 36px input floor (DESIGN.md § Inputs), the app-wide standard", () => {
     render(<TextInput placeholder="X" />);
-    expect(screen.getByPlaceholderText("X")).toHaveClass("h-8");
+    expect(screen.getByPlaceholderText("X")).toHaveClass("min-h-[36px]");
   });
 
   it("composes with Field for label semantics (Field clones to set id and aria)", () => {

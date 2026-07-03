@@ -17,7 +17,7 @@
  * Approved pixels (original deck): docs/design/2026-06-11-books-mockups/direction-a-instrument-strip.html
  */
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import { useBooksLedger } from "@/lib/hooks";
@@ -53,9 +53,18 @@ export interface LedgerStripProps {
   onDrillOverdue?: () => void;
   /** Resolves a client id to a display name (A/R top chase). */
   clientName?: (clientId: string) => string | undefined;
+  /**
+   * Invoices-only enrichment of the A/R cell sub — collection-health readouts
+   * (collected / collection rate / avg days to pay) that folded up out of the
+   * retired invoices statline (REWORK 7). When set, it takes the A/R sub's
+   * second slot in place of the top-chase hint (the chase client is still
+   * discoverable in the A/R aging view). A/R is all-open and these are
+   * company-wide all-invoices figures, so they read consistently.
+   */
+  arExtra?: ReactNode;
 }
 
-export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName }: LedgerStripProps) {
+export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName, arExtra }: LedgerStripProps) {
   const { t } = useDictionary("books");
   const { locale } = useLocale();
   const numLocale = getDateLocale(locale);
@@ -127,7 +136,12 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
         <>
           {t("ledger.overdue")}{" "}
           <span className="text-rose">{fmtMoney(data.ar.overdueTotal, numLocale)}</span>
-          {data.ar.topChase && clientName?.(data.ar.topChase.clientId) ? (
+          {arExtra ? (
+            <>
+              {" · "}
+              {arExtra}
+            </>
+          ) : data.ar.topChase && clientName?.(data.ar.topChase.clientId) ? (
             <>
               {" · "}
               {t("ledger.topChase")}{" "}
@@ -159,7 +173,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
     };
 
     return [netCell, cashCell, arCell, jobsCell];
-  }, [data, numLocale, onDrillOverdue, clientName, t]);
+  }, [data, numLocale, onDrillOverdue, clientName, arExtra, t]);
 
   // Error → a compact bordered row (matches the workbar/strip chrome height) with
   // the failure note, a retry, and the period pill held at the right.

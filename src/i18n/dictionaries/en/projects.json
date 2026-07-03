@@ -276,6 +276,7 @@
   "new.searchClients": "Search clients...",
   "new.noClients": "No clients found",
   "new.noMatchingClients": "No matching clients",
+  "new.noClient": "No client",
 
   "notes.posted": "Note posted",
   "notes.postFailed": "Failed to post note",

@@ -126,11 +126,14 @@ function viewPersistenceErrorCopyKey(error: unknown) {
 }
 
 /**
- * Desktop table-mode surface for the pipeline. Owns the read-only table's
- * UI state — search, sort, density, selection — fetches the row set via
- * {@link usePipelineTableData}, and renders the toolbar above the virtualized
- * table. Loading / error / empty collapse to tactical microcopy. Row clicks
- * open the existing pipeline detail panel via the mode store.
+ * Desktop table-mode surface for the pipeline. Owns the grid's UI state —
+ * search, sort, density, selection, inline cell editing, stage transitions —
+ * fetches the row set via {@link usePipelineTableData}, and renders the
+ * virtualized table under the persistent page toolbar. Loading / error /
+ * empty collapse to tactical microcopy. Row clicks write the deal id into the
+ * mode store; `pipeline/page.tsx` renders the shared
+ * `PipelineFocusedDetailWindow` for it while table mode is active (the
+ * focused shell, which owns that window in focused mode, is unmounted here).
  *
  * Density defaults to "compact" (the field-dense default for this surface);
  * it is driven inline from the toolbar via `useTableZoom().setPreset`.
@@ -243,6 +246,7 @@ export function PipelineTableShell({
   // re-sort the table.
   useEffect(() => {
     setSorting(activeView?.sort ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activeViewSortKey IS activeView?.sort, stable-keyed above; the raw object would re-seed on referential churn
   }, [activeView?.id, activeViewSortKey]);
 
   useEffect(() => {

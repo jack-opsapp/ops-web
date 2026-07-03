@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SendEstimateFlow } from "@/components/ops/send-estimate-flow";
 import { Tag, type TagProps } from "@/components/ui/tag";
-import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import {
   RegisterTable,
   RegisterEmpty,
@@ -384,13 +384,20 @@ export function EstimatesSegment({
                     onClear={onClearDrill}
                   />
                 )}
-                <span className="font-mono text-micro text-text-3 tabular-nums">
-                  {statusFilter === "all" && !searchQuery
-                    ? tb("count.all", { n: estimates.length })
-                    : tb("count.invoices", { n: filtered.length, total: estimates.length })}
-                </span>
+                {/* Estimate-pipeline stats (pending / approval / convert / sent /
+                    avg) have no home in the shared ledger strip, so — unlike the
+                    invoices statline, whose numbers folded into the A/R cell —
+                    this one stays. The count moved to `meta` for cross-tab
+                    consistency (REWORK 7). */}
                 <SegmentStatLine items={statItems} />
               </>
+            }
+            meta={
+              <WorkbarCount>
+                {statusFilter === "all" && !searchQuery
+                  ? tb("count.all", { n: estimates.length })
+                  : tb("count.invoices", { n: filtered.length, total: estimates.length })}
+              </WorkbarCount>
             }
             create={
               can("estimates.create") ? (

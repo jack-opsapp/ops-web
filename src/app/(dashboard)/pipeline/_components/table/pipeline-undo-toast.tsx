@@ -12,6 +12,7 @@ const UNDO_DISMISS_DELAY_MS = 10_000;
 /** Editable column id → its `table.column.<id>` dictionary key. */
 const COLUMN_LABEL_KEYS = {
   value: "table.column.value",
+  client: "table.column.client",
   next_follow_up: "table.column.next_follow_up",
   expected_close: "table.column.expected_close",
   assignee: "table.column.assignee",

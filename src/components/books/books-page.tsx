@@ -15,9 +15,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { useDictionary } from "@/i18n/client";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { useClients, useEstimates, useExpenseBatches, useInvoices } from "@/lib/hooks";
+import { useClients, useEstimates, useExpenseBatches, useInvoices, useInvoiceMetrics } from "@/lib/hooks";
+import { formatMetricValue } from "./segment-toolbar";
 import { isBatchNeedsReview } from "@/lib/types/expense-approval";
 import { EstimateStatus, InvoiceStatus } from "@/lib/types/pipeline";
 import type { BooksPeriod } from "@/lib/api/services/books-service";
@@ -203,12 +205,54 @@ export function BooksPage() {
   // The ledger is shared across every segment and PINNED in the TableShell's
   // metrics slot (WEB OVERHAUL P6-2). Build it once here and pass the node down;
   // each segment mounts it as the shell's `metrics` so it never scrolls away.
+  // Invoices-only A/R enrichment: the collection-health readouts that folded up
+  // out of the retired invoices statline (REWORK 7). Company-wide, all-invoices
+  // figures — a semantic match for the A/R cell (always all-open). Gated on the
+  // active segment so the shared strip only carries them on the invoices tab.
+  const { locale } = useLocale();
+  const numLocale = getDateLocale(locale);
+  const { data: invoiceMetrics = [] } = useInvoiceMetrics();
+  const arExtra = useMemo(() => {
+    if (activeSegment !== "invoices" || invoiceMetrics.length === 0) return undefined;
+    const find = (needle: string) =>
+      invoiceMetrics.find((m) => m.label.toLowerCase().includes(needle));
+    const collected = find("revenue") ?? find("collected");
+    const collection = find("collection");
+    const avgDays = find("days");
+    if (!collected && !collection && !avgDays) return undefined;
+    return (
+      <span className="inline-flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        {collected && (
+          <span className="inline-flex items-baseline gap-[5px]">
+            <span className="uppercase">{t("stat.collected")}</span>
+            <span className="text-olive">{formatMetricValue(collected, numLocale)}</span>
+          </span>
+        )}
+        {collection && (
+          <span className="inline-flex items-baseline gap-[5px]">
+            <span aria-hidden className="text-text-mute">·</span>
+            <span className="uppercase">{t("stat.collectionRate")}</span>
+            <span className="text-text-2">{formatMetricValue(collection, numLocale)}</span>
+          </span>
+        )}
+        {avgDays && (
+          <span className="inline-flex items-baseline gap-[5px]">
+            <span aria-hidden className="text-text-mute">·</span>
+            <span className="uppercase">{t("stat.avgShort")}</span>
+            <span className="text-text-2">{formatMetricValue(avgDays, numLocale)}</span>
+          </span>
+        )}
+      </span>
+    );
+  }, [activeSegment, invoiceMetrics, numLocale, t]);
+
   const ledger = showStrip ? (
     <LedgerStrip
       period={period}
       onPeriodChange={handlePeriodChange}
       onDrillOverdue={can("invoices.view") ? drillOverdue : undefined}
       clientName={clientName}
+      arExtra={arExtra}
     />
   ) : null;
 

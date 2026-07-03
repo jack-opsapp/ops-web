@@ -96,6 +96,7 @@ export function ProjectsTable({
   onUpdatePinch,
   onEndPinch,
   aboveHeader,
+  emptyOverlay,
 }: {
   view: ProjectTableViewDefinition;
   rows: ProjectTableRow[];
@@ -131,6 +132,16 @@ export function ProjectsTable({
    * undefined → byte-identical legacy render.
    */
   aboveHeader?: ReactNode;
+  /**
+   * Row-level state surface (loading / error / no-matches), rendered INSIDE
+   * the scroll container beneath the column header instead of REPLACING the
+   * grid. Keeping the grid — and the `aboveHeader` chrome with the search
+   * input — mounted across these states is what preserves input focus while a
+   * search settles: swapping the whole grid for a placeholder remounted the
+   * toolbar and dropped focus mid-typing whenever a query returned zero rows.
+   * Sticky-left so it stays in view against horizontal scroll.
+   */
+  emptyOverlay?: ReactNode;
 }) {
   const { t } = useDictionary("projects");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -344,6 +355,18 @@ export function ProjectsTable({
             <div className="h-px overflow-hidden bg-fill-neutral-dim">
               <div className="h-full w-full animate-pulse bg-gradient-to-r from-transparent via-text-2/40 to-transparent" />
             </div>
+          </div>
+        ) : null}
+        {emptyOverlay ? (
+          // Visible-viewport-width stripe under the pinned header (the parent
+          // wrapper is totalWidth wide, so w-full would overshoot); sticky-left
+          // keeps it in view against horizontal scroll. The virtual body below
+          // is zero-height when rows are empty.
+          <div
+            className="sticky left-0"
+            style={{ width: containerWidth > 0 ? containerWidth : undefined }}
+          >
+            {emptyOverlay}
           </div>
         ) : null}
         <div

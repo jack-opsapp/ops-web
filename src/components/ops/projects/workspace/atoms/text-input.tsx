@@ -17,8 +17,9 @@ export const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(
       ref={ref}
       type={type ?? "text"}
       className={cn(
-        // base
-        "w-full h-8 px-2",
+        // base — 36px is the app-wide input floor (DESIGN.md § Inputs); the
+        // repo spacing scale is doubled, so h-8 rendered a 64px slab.
+        "w-full min-h-[36px] px-2",
         "font-mohave text-[14px] leading-[1.4] text-text",
         "bg-[var(--surface-input)]",
         "rounded border border-glass-border",

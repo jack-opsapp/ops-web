@@ -5,7 +5,6 @@ import {
   MapPin,
   Mail,
   Phone,
-  CalendarDays,
   CloudSun,
   CloudRain,
   Cloud,
@@ -428,7 +427,8 @@ function WeatherSection({ projectId, hasCoords }: { projectId: string; hasCoords
           </Inline>
           <div className="divide-y divide-glass-border">
             {data.forecast.slice(0, 5).map((f) => (
-              <WeatherRow key={f.id} forecast={f} />
+              // Fresh-fetch forecast rows ship id:"" (DB assigns on upsert) — date is the stable identity
+              <WeatherRow key={f.forecastDate} forecast={f} />
             ))}
           </div>
           <Mono color="mute" size={9} caseSensitive className="block pt-1">

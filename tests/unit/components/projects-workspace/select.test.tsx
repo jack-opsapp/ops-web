@@ -63,9 +63,9 @@ describe("<Select>", () => {
     expect(screen.getByRole("combobox")).toHaveClass("rounded");
   });
 
-  it("uses h-8 to match TextInput density", () => {
+  it("uses the 36px input floor to match TextInput density", () => {
     render(<Select options={STATUS_OPTIONS} placeholder="X" onChange={() => {}} />);
-    expect(screen.getByRole("combobox")).toHaveClass("h-8");
+    expect(screen.getByRole("combobox")).toHaveClass("min-h-[36px]");
   });
 
   it("composes with Field for label semantics", () => {

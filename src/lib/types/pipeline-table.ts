@@ -84,12 +84,14 @@ export type PipelineTableCellKind =
  */
 export type PipelineTableEditableColumnId =
   | "value"
+  | "client"
   | "next_follow_up"
   | "expected_close"
   | "assignee";
 
 export const PIPELINE_TABLE_EDITABLE_COLUMN_IDS = [
   "value",
+  "client",
   "next_follow_up",
   "expected_close",
   "assignee",
@@ -102,7 +104,7 @@ export function isPipelineTableEditableColumn(
   return (PIPELINE_TABLE_EDITABLE_COLUMN_IDS as readonly string[]).includes(id);
 }
 
-/** Union of inline-editable cell value shapes: value=number|null, dates=string|null, assignee=string|null. */
+/** Union of inline-editable cell value shapes: value=number|null, dates=string|null, client/assignee=string|null (ids). */
 export type PipelineTableEditValue = string | number | null;
 
 // ─── Column Config & Registry ─────────────────────────────────────────────────
@@ -124,7 +126,7 @@ export const PIPELINE_TABLE_COLUMNS: PipelineTableColumnConfig[] = [
   { id: "select", labelKey: "table.column.select", kind: "select", frozen: true, minWidth: 36, width: 36, maxWidth: 36 },
   { id: "deal", labelKey: "table.column.deal", kind: "text", frozen: true, sortable: true, minWidth: 200, width: 280, maxWidth: 480 },
   { id: "stage", labelKey: "table.column.stage", kind: "stage", frozen: true, sortable: true, minWidth: 124, width: 136, maxWidth: 168 },
-  { id: "client", labelKey: "table.column.client", kind: "relation", sortable: true, minWidth: 140, width: 180, maxWidth: 320 },
+  { id: "client", labelKey: "table.column.client", kind: "relation", sortable: true, editable: true, minWidth: 140, width: 180, maxWidth: 320 },
   { id: "value", labelKey: "table.column.value", kind: "currency", sortable: true, editable: true, minWidth: 110, width: 130, maxWidth: 180, align: "right" },
   { id: "win_probability", labelKey: "table.column.win_probability", kind: "percent", sortable: true, minWidth: 80, width: 90, maxWidth: 120, align: "right" },
   { id: "weighted", labelKey: "table.column.weighted", kind: "currency", sortable: true, minWidth: 110, width: 130, maxWidth: 180, align: "right" },

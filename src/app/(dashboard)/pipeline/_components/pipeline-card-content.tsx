@@ -2,18 +2,16 @@
 
 import {
   memo,
-  useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import type { Opportunity } from "@/lib/types/pipeline";
 import type { Client } from "@/lib/types/models";
 import {
@@ -82,9 +80,6 @@ export interface PipelineCardContentProps
 }
 
 const noop = () => {};
-const CLIENT_LINK_POPOVER_WIDTH = 320;
-const CLIENT_LINK_POPOVER_MAX_HEIGHT = 320;
-const CLIENT_LINK_POPOVER_GUTTER = 8;
 
 function withHexAlpha(hex: string, alpha: number): string {
   if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return hex;
@@ -448,6 +443,18 @@ function InlineTitleEditor({
   );
 }
 
+/**
+ * ClientLinkControl — the card's client line, on the canonical
+ * {@link EntityPicker} (previously the last bespoke client picker: a manually
+ * anchored portal with its own collision math and keyboard cursor). Radix owns
+ * anchoring/collision, cmdk owns keyboard nav. The current client renders as
+ * the panel's selected row; the query-seeded footer preserves the
+ * create-and-link affordance (`Create client <typed name>`). Creating a name
+ * that exactly matches an existing client links that client instead — the same
+ * duplicate guard the old control expressed by hiding its create row. The
+ * trigger keeps the card's stopPropagation guards so opening the picker never
+ * starts a card drag or click-through.
+ */
 function ClientLinkControl({
   opportunity,
   clientName,
@@ -464,21 +471,8 @@ function ClientLinkControl({
   onCreateAndLinkClient?: PipelineCardEditHandlers["onCreateAndLinkClient"];
 }) {
   const { t } = useDictionary("pipeline");
-  const listboxId = useId();
+  const { t: tp } = useDictionary("picker");
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [popoverPosition, setPopoverPosition] = useState<{
-    top: number;
-    left: number;
-    width: number;
-    maxHeight: number;
-  } | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const normalizedQuery = query.trim().toLowerCase();
   const canEdit = canManage && Boolean(onLinkClient || onCreateAndLinkClient);
   const hasLinkedClient = Boolean(opportunity.clientId);
   const currentClient = hasLinkedClient
@@ -493,134 +487,30 @@ function ClientLinkControl({
     t("card.clientLinkLabel", "Link client: {client}"),
     { client: displayClientName }
   );
-  const searchLabel = t("card.clientSearchLabel", "Search clients");
   const createLabel = t("card.clientCreate", "Create client");
   const createNewLabel = t("card.clientCreateNew", "Create new client");
-  const createHint = t("card.clientCreateHint", "Type name to create");
-  const filteredClients = useMemo(() => {
-    const source = clients.filter(
-      (client) => !client.deletedAt && client.id !== opportunity.clientId
-    );
-    const filtered = normalizedQuery
-      ? source.filter((client) => {
-          const haystack = [
-            client.name,
-            client.email,
-            client.phoneNumber,
-            client.address,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return haystack.includes(normalizedQuery);
-        })
-      : source;
 
-    return filtered.slice(0, 6);
-  }, [clients, normalizedQuery, opportunity.clientId]);
-  const hasExactNameMatch = clients.some(
-    (client) => client.name.trim().toLowerCase() === normalizedQuery
+  const items = useMemo(
+    () => clients.filter((client) => !client.deletedAt),
+    [clients]
   );
-  const showCreate =
-    hasLinkedClient &&
-    Boolean(normalizedQuery) &&
-    !hasExactNameMatch &&
-    Boolean(onCreateAndLinkClient);
-  const createName = query.trim();
-  const topCreateLabel = createName
-    ? `${createLabel} ${createName}`
-    : createNewLabel;
 
-  const updatePopoverPosition = useCallback(() => {
-    const trigger = triggerRef.current;
-    if (!trigger) return;
+  const handleChange = (id: string | null) => {
+    if (!id || id === opportunity.clientId) return;
+    void onLinkClient?.(opportunity, id);
+  };
 
-    const rect = trigger.getBoundingClientRect();
-    const width = Math.max(CLIENT_LINK_POPOVER_WIDTH, rect.width);
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const left = Math.min(
-      Math.max(CLIENT_LINK_POPOVER_GUTTER, rect.left),
-      Math.max(
-        CLIENT_LINK_POPOVER_GUTTER,
-        viewportWidth - width - CLIENT_LINK_POPOVER_GUTTER
-      )
+  const handleCreate = (query: string) => {
+    const name = query.trim();
+    if (!name) return; // stay open — the operator hasn't typed a name yet
+    const exact = items.find(
+      (client) => client.name.trim().toLowerCase() === name.toLowerCase()
     );
-    const spaceBelow = viewportHeight - rect.bottom - CLIENT_LINK_POPOVER_GUTTER;
-    const spaceAbove = rect.top - CLIENT_LINK_POPOVER_GUTTER;
-    const openUp =
-      spaceBelow < 220 && spaceAbove > Math.max(spaceBelow, 180);
-    const availableHeight = openUp ? spaceAbove : spaceBelow;
-    const maxHeight = Math.min(
-      CLIENT_LINK_POPOVER_MAX_HEIGHT,
-      Math.max(180, availableHeight - 4)
-    );
-    const top = openUp
-      ? Math.max(
-          CLIENT_LINK_POPOVER_GUTTER,
-          rect.top - maxHeight - 4
-        )
-      : rect.bottom + 4;
-
-    setPopoverPosition({ top, left, width, maxHeight });
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const frame = requestAnimationFrame(() => {
-      updatePopoverPosition();
-      inputRef.current?.focus();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [open, updatePopoverPosition]);
-
-  useLayoutEffect(() => {
-    if (!open) return;
-
-    updatePopoverPosition();
-    window.addEventListener("resize", updatePopoverPosition);
-    window.addEventListener("scroll", updatePopoverPosition, true);
-    return () => {
-      window.removeEventListener("resize", updatePopoverPosition);
-      window.removeEventListener("scroll", updatePopoverPosition, true);
-    };
-  }, [open, updatePopoverPosition]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function handlePointerDown(event: MouseEvent) {
-      if (rootRef.current?.contains(event.target as Node)) return;
-      if (popoverRef.current?.contains(event.target as Node)) return;
-      setOpen(false);
+    setOpen(false);
+    if (exact) {
+      handleChange(exact.id);
+      return;
     }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [open]);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query]);
-
-  const openLinker = () => {
-    if (!canEdit) return;
-    setQuery("");
-    setActiveIndex(0);
-    setOpen(true);
-  };
-
-  const selectClient = (client: Client) => {
-    setOpen(false);
-    setPopoverPosition(null);
-    void onLinkClient?.(opportunity, client.id);
-  };
-
-  const createAndLink = (nextName = query.trim()) => {
-    const name = nextName.trim();
-    if (!name) return;
-    setOpen(false);
-    setPopoverPosition(null);
     void onCreateAndLinkClient?.(opportunity, name);
   };
 
@@ -632,193 +522,50 @@ function ClientLinkControl({
     );
   }
 
-  const popover =
-    open && popoverPosition && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            ref={popoverRef}
-            data-keyboard-scope="modal-or-menu"
-            data-pipeline-client-linker-popover=""
-            className="glass-dense fixed z-[5000] flex flex-col rounded-modal border border-glass-border p-1.5"
-            style={{
-              top: popoverPosition.top,
-              left: popoverPosition.left,
-              width: popoverPosition.width,
-              maxHeight: popoverPosition.maxHeight,
-              background: "var(--glass-bg-dense)",
-              backdropFilter:
-                "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
-              WebkitBackdropFilter:
-                "blur(var(--glass-blur)) saturate(var(--glass-saturate))",
-            }}
+  return (
+    <div className="relative min-w-0">
+      <EntityPicker<Client>
+        trigger={
+          <button
+            type="button"
+            aria-label={label}
+            className="block w-full truncate rounded text-left font-mohave text-body-sm text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
             onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            {currentClientName ? (
-              <button
-                type="button"
-                className="mb-1 flex w-full shrink-0 flex-col rounded bg-surface-active px-2 py-1.5 text-left text-text transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-                onClick={() => {
-                  setOpen(false);
-                  setPopoverPosition(null);
-                }}
-              >
-                <span className="font-cakemono text-cake-badge font-light uppercase text-text-2">
-                  {t("card.clientCurrent", "Current client")}
-                </span>
-                <span className="truncate font-mohave text-body-sm text-text">
-                  {currentClientName}
-                </span>
-              </button>
-            ) : onCreateAndLinkClient ? (
-              <button
-                type="button"
-                aria-label={topCreateLabel}
-                className="mb-1 flex w-full shrink-0 flex-col rounded border border-line px-2 py-1.5 text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-                onClick={() => {
-                  if (!createName) {
-                    inputRef.current?.focus();
-                    return;
-                  }
-                  createAndLink(createName);
-                }}
-              >
-                <span className="font-cakemono text-cake-badge font-light uppercase text-text-2">
-                  {createNewLabel}
-                </span>
-                <span className="truncate font-mohave text-body-sm text-text-3">
-                  {createName || createHint}
-                </span>
-              </button>
-            ) : null}
-
-            <input
-              ref={inputRef}
-              role="combobox"
-              aria-label={searchLabel}
-              aria-controls={listboxId}
-              aria-expanded={open}
-              aria-autocomplete="list"
-              value={query}
-              placeholder={t(
-                "card.clientSearchPlaceholder",
-                "Search clients..."
-              )}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => {
-                event.stopPropagation();
-                if (event.key === "ArrowDown") {
-                  event.preventDefault();
-                  setActiveIndex((index) =>
-                    filteredClients.length === 0
-                      ? 0
-                      : (index + 1) % filteredClients.length
-                  );
-                } else if (event.key === "ArrowUp") {
-                  event.preventDefault();
-                  setActiveIndex((index) =>
-                    filteredClients.length === 0
-                      ? 0
-                      : (index - 1 + filteredClients.length) %
-                        filteredClients.length
-                  );
-                } else if (event.key === "Enter") {
-                  event.preventDefault();
-                  const client = filteredClients[activeIndex];
-                  if (client) {
-                    selectClient(client);
-                  } else if (showCreate) {
-                    createAndLink();
-                  } else if (!hasLinkedClient && createName) {
-                    createAndLink(createName);
-                  }
-                } else if (event.key === "Escape") {
-                  event.preventDefault();
-                  setOpen(false);
-                  setPopoverPosition(null);
-                }
-              }}
-              className="mb-1 w-full shrink-0 rounded border border-line bg-surface-input px-2 py-1.5 font-mohave text-body-sm text-text outline-none placeholder:text-text-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-            />
-
-            <div
-              id={listboxId}
-              role="listbox"
-              className="min-h-0 flex-1 overflow-y-auto"
-            >
-              {filteredClients.map((client, index) => (
-                <button
-                  key={client.id}
-                  type="button"
-                  role="option"
-                  aria-label={client.name}
-                  aria-selected={index === activeIndex}
-                  className={cn(
-                    "flex w-full flex-col rounded px-2 py-1.5 text-left transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
-                    index === activeIndex
-                      ? "bg-surface-active text-text"
-                      : "text-text-2 hover:bg-surface-hover hover:text-text"
-                  )}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => selectClient(client)}
-                >
-                  <span className="truncate font-mohave text-body-sm">
-                    {client.name}
-                  </span>
-                  {client.email ? (
-                    <span className="truncate font-mono text-micro text-text-mute">
-                      {client.email}
-                    </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-
-            {filteredClients.length === 0 ? (
-              <p className="px-2 py-1 font-mono text-micro uppercase text-text-mute">
-                {t("card.clientNoMatches", "No client match")}
-              </p>
-            ) : null}
-
-            {showCreate ? (
-              <button
-                type="button"
-                aria-label={`${createLabel} ${query.trim()}`}
-                className="mt-1 flex w-full shrink-0 flex-col rounded border border-line px-2 py-1.5 text-left transition-colors duration-150 hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-                onClick={() => createAndLink()}
-              >
-                <span className="font-cakemono text-cake-badge font-light uppercase text-text-2">
-                  {createLabel}
-                </span>
-                <span className="truncate font-mohave text-body-sm text-text">
-                  {query.trim()}
-                </span>
-              </button>
-            ) : null}
-          </div>,
-          document.body
-        )
-      : null;
-
-  return (
-    <div ref={rootRef} className="relative min-w-0">
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label={label}
-        aria-expanded={open}
-        className="block w-full truncate rounded text-left font-mohave text-body-sm text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-        onClick={(event) => {
-          event.stopPropagation();
-          openLinker();
-        }}
-        onPointerDown={(event) => event.stopPropagation()}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        {displayClientName}
-      </button>
-
-      {popover}
+            {displayClientName}
+          </button>
+        }
+        open={open}
+        onOpenChange={setOpen}
+        label={t("card.clientSearchLabel", "Search clients")}
+        items={items}
+        value={opportunity.clientId ?? null}
+        onChange={handleChange}
+        getId={(client) => client.id}
+        getLabel={(client) => client.name}
+        getDescription={(client) => client.email ?? undefined}
+        getKeywords={(client) =>
+          [client.email, client.phoneNumber, client.address].filter(
+            (term): term is string => Boolean(term)
+          )
+        }
+        searchPlaceholder={t("card.clientSearchPlaceholder", "Search clients...")}
+        clearLabel={tp("clear")}
+        emptyLabel={t("card.clientNoMatches", "No client match")}
+        createAction={
+          onCreateAndLinkClient
+            ? {
+                label: (query) => {
+                  const name = query.trim();
+                  return name ? `${createLabel} ${name}` : createNewLabel;
+                },
+                onCreate: handleCreate,
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

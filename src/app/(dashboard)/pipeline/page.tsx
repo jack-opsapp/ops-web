@@ -8,6 +8,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { matchesAllTokens } from "@/lib/utils/search";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { useUndoStore } from "@/stores/undo-store";
@@ -42,7 +43,6 @@ import {
   getStageDisplayName,
   isActiveStage,
   nextOpportunityStage,
-  previousOpportunityStage,
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
 // motion variants removed — archive undo toast replaced by universal undo
@@ -63,7 +63,7 @@ import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { calculateBatchStaleness } from "./_components/pipeline-staleness";
 import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
-import { PipelineDetailPanel } from "./_components/pipeline-detail-panel";
+import { PipelineFocusedDetailWindow } from "./_components/pipeline-focused-detail-window";
 import { PipelineFocusedDragOverlay } from "./_components/pipeline-focused-drag-overlay";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
 import { PipelineModeSwitcher } from "./_components/pipeline-mode-switcher";
@@ -389,19 +389,16 @@ export default function PipelinePage() {
       result = result.filter((o) => o.assignedTo === assigneeFilter);
     }
 
-    // Search query
-    const query = searchQuery.toLowerCase().trim();
-    if (query) {
+    // Search query — shared token-AND grammar (lib/utils/search): every
+    // whitespace token must match the client, contact, or title.
+    if (searchQuery.trim()) {
       result = result.filter((opp) => {
         const clientName = opp.clientId
           ? (clientNameMap.get(opp.clientId) ?? "")
           : "";
-        const contactName = opp.contactName ?? "";
-        const title = opp.title ?? "";
-        return (
-          clientName.toLowerCase().includes(query) ||
-          contactName.toLowerCase().includes(query) ||
-          title.toLowerCase().includes(query)
+        return matchesAllTokens(
+          [clientName, opp.contactName ?? "", opp.title ?? ""].join(" ").toLowerCase(),
+          searchQuery,
         );
       });
     }
@@ -420,14 +417,19 @@ export default function PipelinePage() {
     [filteredOpportunities]
   );
 
+  // Sourced from the PRE-filter set: the table matches fields the page filter
+  // doesn't (assignee/source) and opts closed deals in, so resolving the open
+  // detail against `filteredOpportunities` would instantly self-close a
+  // legitimately-clicked row. The focused shell applies its own filtered
+  // gating internally; this lookup only has to prove the deal still exists.
   const detailPanelOpportunity = useMemo(() => {
     if (!detailPanelOpportunityId) return null;
     return (
-      filteredOpportunities.find(
+      activeOpportunities.find(
         (opportunity) => opportunity.id === detailPanelOpportunityId
       ) ?? null
     );
-  }, [detailPanelOpportunityId, filteredOpportunities]);
+  }, [detailPanelOpportunityId, activeOpportunities]);
 
   useEffect(() => {
     if (detailPanelOpportunityId && !detailPanelOpportunity) {
@@ -1206,6 +1208,29 @@ export default function PipelinePage() {
           )}
         </div>
       </div>
+
+      {/* Deal detail window — TABLE mode. The focused board renders this same
+          window from inside PipelineFocusedShell; in table mode that shell is
+          unmounted, so the page owns the instance — without it a table row
+          click wrote detailPanelOpportunityId into the store and nothing
+          rendered (dead since PR #73 removed the spatial-mode panel). The
+          component portals to document.body and manages its own window-store
+          entry, identically to focused mode. */}
+      {!isMobile && effectiveMode === "table" && detailPanelOpportunity && (
+        <PipelineFocusedDetailWindow
+          opportunity={detailPanelOpportunity}
+          canManage={canManage}
+          originatingOpportunityId={
+            originatingOpportunityId ?? detailPanelOpportunityId
+          }
+          onAdvanceStage={handleAdvanceStage}
+          onMarkWon={handleMarkWon}
+          onMarkLost={handleMarkLost}
+          onArchive={handleArchive}
+          onDiscard={handleDiscard}
+          onDelete={(id) => deleteMutation.mutate(id)}
+        />
+      )}
 
       {/* Stage Transition Dialog (Won/Lost prompts) */}
       <StageTransitionDialog

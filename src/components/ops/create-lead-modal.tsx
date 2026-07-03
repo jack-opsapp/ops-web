@@ -1,21 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Save, Search, X, DollarSign, User, Mail, Phone } from "lucide-react";
+import { Save, Search, DollarSign, User, Mail, Phone } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { useCreateOpportunity, useClients } from "@/lib/hooks";
 import { OpportunityStage, OpportunitySource, OpportunityPriority } from "@/lib/types/pipeline";
 import type { Client } from "@/lib/types/models";
@@ -73,6 +67,12 @@ function formatPhoneInput(value: string): string {
 }
 
 // ─── Client Selector ────────────────────────────────────────────────────────
+//
+// On the canonical EntityPicker (previously a hand-rolled absolute dropdown —
+// the Picker kit docstring mandates the shared shell). The trigger keeps the
+// form's 36px field look; the panel is the compact canonical popover.
+// `z-modal` because the form mounts inside a FloatingWindow (z 2000+, above
+// the kit's default `z-dropdown` 1000).
 
 function ClientSelector({
   value,
@@ -83,76 +83,48 @@ function ClientSelector({
   onChange: (id: string | null) => void;
   clients: Client[];
 }) {
-  const [search, setSearch] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  const filtered = useMemo(
-    () => clients.filter((c) => c.name.toLowerCase().includes(search.toLowerCase())),
-    [clients, search]
-  );
-
-  const selected = clients.find((c) => c.id === value);
+  const { t } = useDictionary("pipeline");
+  const { t: tp } = useDictionary("picker");
+  const selected = clients.find((c) => c.id === value) ?? null;
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        Existing Client
+      <label className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]">
+        {t("createLead.client.label")}
       </label>
-      <div className="relative">
-        {selected ? (
-          <div className="flex items-center justify-between bg-surface-input border border-[rgba(255,255,255,0.2)] rounded px-1.5 py-1.5">
-            <span className="font-mohave text-body text-text">{selected.name}</span>
-            <button
-              type="button"
-              onClick={() => {
-                onChange(null);
-                setSearch("");
-              }}
-              className="text-text-3 hover:text-text-2"
-            >
-              <X className="w-[16px] h-[16px]" />
-            </button>
-          </div>
-        ) : (
-          <div>
-            <Input
-              placeholder="Link to existing client (optional)..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setShowDropdown(true);
-              }}
-              onFocus={() => setShowDropdown(true)}
-              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-              prefixIcon={<Search className="w-[16px] h-[16px]" />}
-            />
-            {showDropdown && clients.length > 0 && (
-              <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.2)] rounded max-h-[200px] overflow-y-auto">
-                {filtered.length === 0 ? (
-                  <div className="px-1.5 py-1 text-left">
-                    <p className="font-mohave text-body-sm text-text-3">No matching clients</p>
-                  </div>
-                ) : (
-                  filtered.map((client) => (
-                    <button
-                      key={client.id}
-                      type="button"
-                      onMouseDown={() => {
-                        onChange(client.id);
-                        setShowDropdown(false);
-                        setSearch("");
-                      }}
-                      className="w-full px-1.5 py-1 text-left font-mohave text-body text-text-2 hover:text-text hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-                    >
-                      {client.name}
-                    </button>
-                  ))
-                )}
-              </div>
+      <EntityPicker<Client>
+        trigger={
+          <button
+            type="button"
+            className={cn(
+              "flex w-full min-h-[36px] items-center justify-between gap-2 px-2",
+              "font-mohave text-body text-left",
+              "bg-surface-input rounded border border-glass-border",
+              "transition-colors duration-150",
+              "hover:border-glass-border-medium",
+              "focus:outline-none focus:border-glass-border-strong",
+              selected ? "text-text" : "text-text-3",
             )}
-          </div>
-        )}
-      </div>
+          >
+            <span className="truncate">
+              {selected ? selected.name : t("createLead.client.linkPlaceholder")}
+            </span>
+            <Search className="w-[16px] h-[16px] shrink-0 text-text-3" strokeWidth={1.5} />
+          </button>
+        }
+        label={t("table.cell.client.title")}
+        items={clients}
+        value={value}
+        onChange={onChange}
+        getId={(c) => c.id}
+        getLabel={(c) => c.name}
+        searchPlaceholder={t("table.cell.client.search")}
+        clearLabel={tp("clear")}
+        emptyLabel={t("table.cell.client.empty")}
+        noneOption
+        noneLabel={t("table.cell.client.none")}
+        contentClassName="z-modal"
+      />
     </div>
   );
 }
@@ -177,11 +149,10 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
   const {
     register,
     handleSubmit,
-    control,
     reset,
     watch,
     setValue,
-    formState: { errors, isDirty },
+    formState: { errors },
   } = useForm<LeadFormData>({
     resolver: zodResolver(leadFormSchema),
     defaultValues: {
@@ -200,7 +171,6 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
   });
 
   // Auto-generate title from contact name
-  const contactName = watch("contactName");
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
 
   const handleContactNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -450,26 +420,6 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
   );
 }
 
-// ─── Modal Component (thin wrapper) ──────────────────────────────────────────
-
-interface CreateLeadModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export function CreateLeadModal({ open, onOpenChange }: CreateLeadModalProps) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="uppercase tracking-wider">New Lead</DialogTitle>
-          <DialogDescription>Add a new lead to your pipeline.</DialogDescription>
-        </DialogHeader>
-        <CreateLeadForm
-          onSuccess={() => onOpenChange(false)}
-          onCancel={() => onOpenChange(false)}
-        />
-      </DialogContent>
-    </Dialog>
-  );
-}
+// The old `CreateLeadModal` Dialog wrapper was removed 2026-07-02: the form's
+// one real mount is the "create-lead" FloatingWindow in dashboard-layout, and
+// the wrapper had no consumers.

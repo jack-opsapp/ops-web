@@ -27,18 +27,35 @@ interface EntityPickerBaseProps<T> {
   getLabel: (item: T) => string;
   /** Right-aligned secondary text (e.g. a unit abbreviation). */
   getSubLabel?: (item: T) => React.ReactNode;
+  /** Second line under the label (e.g. an email). A conflict advisory takes precedence. */
+  getDescription?: (item: T) => React.ReactNode;
+  /** Extra search-match terms beyond the label (e.g. email / phone / address). */
+  getKeywords?: (item: T) => string[];
   /** Leading avatar descriptor. */
   getAvatar?: (item: T) => EntityAvatar | null | undefined;
+  /** Arbitrary leading node (e.g. a semantic status dot). `getAvatar` wins when both return something. */
+  getLeading?: (item: T) => React.ReactNode;
   /** Advisory line under a row (e.g. a schedule conflict). Multi-select only in practice. */
   conflictFor?: (id: string) => React.ReactNode | null | undefined;
   /** Accessible name for the popover. */
   label: string;
   searchable?: boolean;
   searchPlaceholder?: string;
+  /** data-testid for the search input (unit/e2e hook). */
+  searchTestId?: string;
   clearLabel?: string;
   emptyLabel?: React.ReactNode;
-  /** Footer create action ("+ New …"). Hidden in read-only. */
-  createAction?: { label: React.ReactNode; onCreate: () => void };
+  /**
+   * Footer create action ("+ New …"). Hidden in read-only. Both members
+   * receive the live search query, so a caller can offer query-seeded
+   * creation — label `(q) => q ? `New client "${q}"` : "New client"`,
+   * onCreate `(q) => createAndLink(q)`. Existing `() => void` callers are
+   * unaffected (the argument is simply ignored).
+   */
+  createAction?: {
+    label: React.ReactNode | ((query: string) => React.ReactNode);
+    onCreate: (query: string) => void;
+  };
   /** Read-only (e.g. RLS 42501) — rows non-interactive + a notice. */
   readOnly?: boolean;
   readOnlyLabel?: React.ReactNode;
@@ -50,6 +67,12 @@ interface EntityPickerBaseProps<T> {
   size?: "sm" | "md" | "lg" | "auto";
   align?: "start" | "center" | "end";
   side?: "top" | "right" | "bottom" | "left";
+  /**
+   * Extra classes on the popover panel. The one sanctioned use is a z-layer
+   * override (`z-modal`) when the trigger lives inside a floating window
+   * (windows sit at z 2000+, above the default `z-dropdown` 1000).
+   */
+  contentClassName?: string;
 }
 
 interface SingleProps<T> extends EntityPickerBaseProps<T> {
@@ -83,11 +106,15 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
     getId,
     getLabel,
     getSubLabel,
+    getDescription,
+    getKeywords,
     getAvatar,
+    getLeading,
     conflictFor,
     label,
     searchable = true,
     searchPlaceholder,
+    searchTestId,
     clearLabel,
     emptyLabel,
     createAction,
@@ -99,6 +126,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
     size = "md",
     align = "start",
     side = "bottom",
+    contentClassName,
   } = props;
 
   const [search, setSearch] = React.useState("");
@@ -141,6 +169,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
         align={align}
         side={side}
         shouldFilter={searchable}
+        className={contentClassName}
       >
         {searchable ? (
           <PickerSearch
@@ -148,11 +177,12 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
             onValueChange={setSearch}
             placeholder={searchPlaceholder}
             clearLabel={clearLabel}
+            data-testid={searchTestId}
           />
         ) : null}
 
         {readOnly && readOnlyLabel ? (
-          <p className="px-3 pb-1 pt-2 font-mono text-micro uppercase tracking-wider text-text-3">
+          <p className="px-[12px] pb-[4px] pt-[8px] font-mono text-micro uppercase tracking-wider text-text-3">
             {readOnlyLabel}
           </p>
         ) : null}
@@ -187,6 +217,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
               <PickerItem
                 key={id}
                 value={labelText}
+                keywords={getKeywords?.(item)}
                 multiple={props.multiple}
                 selected={isSelected(id)}
                 disabled={readOnly}
@@ -194,9 +225,11 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
                 leading={
                   avatar ? (
                     <UserAvatar name={avatar.name} imageUrl={avatar.imageUrl} size="sm" />
-                  ) : undefined
+                  ) : (
+                    getLeading?.(item) ?? undefined
+                  )
                 }
-                subLabel={conflict ?? undefined}
+                subLabel={conflict ?? getDescription?.(item) ?? undefined}
                 trailing={
                   sub != null ? (
                     <span className="shrink-0 font-mono text-micro text-text-3">{sub}</span>
@@ -210,17 +243,19 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
         </PickerList>
 
         {error ? (
-          <p className="border-t border-border-subtle px-3 py-2 font-mono text-micro text-rose">
+          <p className="border-t border-border-subtle px-[12px] py-[8px] font-mono text-micro text-rose">
             {error}
           </p>
         ) : null}
 
         {createAction && !readOnly ? (
           <PickerFooterAction
-            icon={<Plus className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />}
-            onClick={createAction.onCreate}
+            icon={<Plus className="h-[16px] w-[16px]" strokeWidth={1.5} aria-hidden="true" />}
+            onClick={() => createAction.onCreate(search)}
           >
-            {createAction.label}
+            {typeof createAction.label === "function"
+              ? createAction.label(search)
+              : createAction.label}
           </PickerFooterAction>
         ) : null}
       </PickerContent>

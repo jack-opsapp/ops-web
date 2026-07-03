@@ -308,4 +308,46 @@ describe("<PipelineFocusedDetailWindow>", () => {
       );
     });
   });
+
+  it("falls back to the deal's table row cell for focus restore when no card exists (table mode)", async () => {
+    // Table mode renders no board cards — pipeline/page.tsx mounts this same
+    // window for table-row clicks, and focusOrigin restores to the row cell
+    // via data-pipeline-table-row-id instead.
+    usePipelineModeStore.setState({ mode: "table" });
+    render(
+      <>
+        <div
+          role="gridcell"
+          tabIndex={-1}
+          data-pipeline-table-row-id="opp-1"
+          data-testid="origin-row-cell"
+        />
+        <PipelineFocusedDetailWindow
+          opportunity={makeOpportunity()}
+          canManage
+          originatingOpportunityId="opp-1"
+          onAdvanceStage={vi.fn()}
+          onMarkWon={vi.fn()}
+          onMarkLost={vi.fn()}
+          onArchive={vi.fn()}
+          onDiscard={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      </>
+    );
+
+    await screen.findByTestId("project-workspace-window");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(
+        usePipelineModeStore.getState().detailPanelOpportunityId
+      ).toBeNull();
+      expect(useWindowStore.getState().windows).toHaveLength(0);
+      expect(document.activeElement).toBe(
+        screen.getByTestId("origin-row-cell")
+      );
+    });
+  });
 });

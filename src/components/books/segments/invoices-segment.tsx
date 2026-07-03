@@ -25,7 +25,6 @@ import {
   useClients,
   useProjects,
   useProducts,
-  useInvoiceMetrics,
 } from "@/lib/hooks";
 import { InvoiceStatus, formatCurrency } from "@/lib/types/pipeline";
 import type { Invoice } from "@/lib/types/pipeline";
@@ -43,7 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tag, type TagProps } from "@/components/ui/tag";
 import { SegmentControl } from "@/components/ui/segment-control";
-import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import {
   RegisterTable,
   RegisterEmpty,
@@ -55,13 +54,7 @@ import {
 } from "@/components/ui/register-table";
 import { InvoiceFormModal } from "../modals/invoice-form-modal";
 import { RecordPaymentModal } from "../modals/record-payment-modal";
-import {
-  FilterChips,
-  DrillChip,
-  SegmentStatLine,
-  formatMetricValue,
-  type StatLineItem,
-} from "../segment-toolbar";
+import { FilterChips, DrillChip } from "../segment-toolbar";
 import { ArAgingView } from "./ar-aging-view";
 
 /** "overdue" is the date-based virtual filter used by the A/R tile drill. */
@@ -147,7 +140,6 @@ export function InvoicesSegment({
   const { t } = useDictionary("pipeline");
   const { t: tb } = useDictionary("books");
   const { locale } = useLocale();
-  const numLocale = getDateLocale(locale);
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const can = usePermissionStore((s) => s.can);
@@ -177,7 +169,6 @@ export function InvoicesSegment({
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();
-  const { data: invoiceMetrics = [] } = useInvoiceMetrics();
 
   const clients = useMemo(() => clientsData?.clients ?? [], [clientsData]);
   const projects = useMemo(() => projectsData?.projects ?? [], [projectsData]);
@@ -261,23 +252,11 @@ export function InvoicesSegment({
     return list;
   }, [invoices, statusFilter, searchQuery, clientMap]);
 
-  // ── Segment stat line (D5 — metric parity for the retired MetricsHeader) ──
-  const statItems = useMemo<StatLineItem[]>(() => {
-    const find = (needle: string) =>
-      invoiceMetrics.find((m) => m.label.toLowerCase().includes(needle));
-    const items: StatLineItem[] = [];
-    const collected = find("revenue") ?? find("collected");
-    const receivables = find("receivable");
-    const pastDue = find("past");
-    const collection = find("collection");
-    const avgDays = find("days");
-    if (collected) items.push({ label: tb("stat.collected"), value: formatMetricValue(collected, numLocale), tone: "olive" });
-    if (receivables) items.push({ label: tb("ledger.ar"), value: formatMetricValue(receivables, numLocale) });
-    if (pastDue) items.push({ label: tb("ledger.overdue"), value: formatMetricValue(pastDue, numLocale), tone: "rose" });
-    if (collection) items.push({ label: tb("stat.collectionRate"), value: formatMetricValue(collection, numLocale) });
-    if (avgDays) items.push({ label: tb("stat.avgDays"), value: formatMetricValue(avgDays, numLocale) });
-    return items;
-  }, [invoiceMetrics, tb, numLocale]);
+  // The collection-health stats (collected / collection rate / avg days to pay)
+  // that this statline used to carry folded UP into the ledger strip's A/R cell
+  // sub (REWORK 7 — `books-page` passes them as `arExtra` on the invoices tab);
+  // A/R and OVERDUE were already duplicated by that same cell. The workbar is a
+  // single clean band now — filters + count in `meta`.
 
   // Rows are data; verbs live in one labelled overflow (DESIGN.md §11 — icons
   // are metadata, not actions). Stop propagation so opening the menu never also
@@ -560,13 +539,14 @@ export function InvoicesSegment({
                     onClear={onClearDrill}
                   />
                 )}
-                <span className="font-mono text-micro text-text-3 tabular-nums">
-                  {statusFilter === "all" && !searchQuery
-                    ? tb("count.all", { n: invoices.length })
-                    : tb("count.invoices", { n: filtered.length, total: invoices.length })}
-                </span>
-                <SegmentStatLine items={statItems} />
               </>
+            }
+            meta={
+              <WorkbarCount>
+                {statusFilter === "all" && !searchQuery
+                  ? tb("count.all", { n: invoices.length })
+                  : tb("count.invoices", { n: filtered.length, total: invoices.length })}
+              </WorkbarCount>
             }
             tools={viewToggleSlot}
             create={createSlot}

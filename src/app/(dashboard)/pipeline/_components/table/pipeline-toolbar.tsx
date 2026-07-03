@@ -70,7 +70,10 @@ export function PipelineToolbar({
           )}
         >
           <Layers className="h-[12px] w-[12px]" strokeWidth={1.5} aria-hidden="true" />
-          <span className="hidden lg:inline">{t("table.toolbar.group")}</span>
+          {/* xl (not lg) matches the density segments below, so the whole
+              cluster compresses to icons together and stays one line at
+              ~1024-1280px instead of wrapping (WEB OVERHAUL P6-2 workbar). */}
+          <span className="hidden xl:inline">{t("table.toolbar.group")}</span>
         </button>
         <button
           type="button"
@@ -86,7 +89,7 @@ export function PipelineToolbar({
           )}
         >
           <CheckCircle className="h-[12px] w-[12px]" strokeWidth={1.5} aria-hidden="true" />
-          <span className="hidden lg:inline">{t("table.toolbar.closed")}</span>
+          <span className="hidden xl:inline">{t("table.toolbar.closed")}</span>
         </button>
         {saveAffordance}
         <div

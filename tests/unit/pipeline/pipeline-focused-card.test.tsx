@@ -338,7 +338,7 @@ describe("<PipelineFocusedCard>", () => {
     expect(onTitleSave).toHaveBeenCalledTimes(1);
   });
 
-  it("opens the client linker from the client name and links existing clients", () => {
+  it("opens the client linker from the client name and links existing clients", async () => {
     const onLinkClient = vi.fn();
     renderFocusedCard({ onLinkClient });
 
@@ -348,25 +348,21 @@ describe("<PipelineFocusedCard>", () => {
       })
     );
 
+    // Canonical Picker-kit panel: portaled, keyboard-scoped, and the current
+    // client renders as the panel's chosen row (the old bespoke control
+    // excluded it and pinned a "CURRENT CLIENT" header instead).
+    const panel = await screen.findByRole("dialog", { name: "Search clients" });
+    expect(panel).toHaveAttribute("data-keyboard-scope", "modal-or-menu");
     expect(
-      screen.getByRole("combobox", { name: "Search clients" })
-    ).toBeInTheDocument();
-    expect(
-      document.querySelector("[data-pipeline-client-linker-popover]")
-    ).toHaveClass("fixed", "glass-dense");
-    const popover = document.querySelector(
-      "[data-pipeline-client-linker-popover]"
-    ) as HTMLElement;
-    expect(popover.firstElementChild).toHaveTextContent("CURRENT CLIENT");
-    expect(within(popover).getByText("North Shore Decks")).toBeInTheDocument();
-    expect(
-      within(popover).queryByRole("option", { name: "North Shore Decks" })
-    ).not.toBeInTheDocument();
+      within(panel).getByRole("option", { name: /North Shore Decks/ })
+    ).toHaveAttribute("data-chosen", "true");
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Search clients" }), {
+    fireEvent.change(within(panel).getByRole("combobox"), {
       target: { value: "cedar" },
     });
-    fireEvent.click(screen.getByRole("option", { name: "Cedar Rail Co" }));
+    fireEvent.click(
+      within(panel).getByRole("option", { name: /Cedar Rail Co/ })
+    );
 
     expect(onLinkClient).toHaveBeenCalledWith(
       expect.objectContaining({ id: "opp-1" }),
@@ -375,7 +371,7 @@ describe("<PipelineFocusedCard>", () => {
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
   });
 
-  it("shows an unlinked client empty state and pins create new at the top", () => {
+  it("shows an unlinked client empty state and offers query-seeded create", async () => {
     const onCreateAndLinkClient = vi.fn();
     const unlinkedOpportunity = {
       ...makeOpportunity(),
@@ -395,18 +391,15 @@ describe("<PipelineFocusedCard>", () => {
 
     fireEvent.click(trigger);
 
-    const popover = document.querySelector(
-      "[data-pipeline-client-linker-popover]"
-    ) as HTMLElement;
-    expect(popover.firstElementChild).toHaveTextContent("CREATE NEW CLIENT");
-    expect(within(popover).getByText("TYPE NAME TO CREATE")).toBeInTheDocument();
+    // The create action lives in the kit's footer: static label until a name
+    // is typed, then it reads back the query.
+    const panel = await screen.findByRole("dialog", { name: "Search clients" });
+    expect(within(panel).getByText("CREATE NEW CLIENT")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Search clients" }), {
+    fireEvent.change(within(panel).getByRole("combobox"), {
       target: { value: "Harbour Fence" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create client Harbour Fence" })
-    );
+    fireEvent.click(within(panel).getByText("Create client Harbour Fence"));
 
     expect(onCreateAndLinkClient).toHaveBeenCalledWith(
       expect.objectContaining({ id: "opp-1" }),
@@ -415,7 +408,7 @@ describe("<PipelineFocusedCard>", () => {
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
   });
 
-  it("creates and links a client from the linker when no match exists", () => {
+  it("creates and links a client from the linker when no match exists", async () => {
     const onCreateAndLinkClient = vi.fn();
     renderFocusedCard({ onCreateAndLinkClient });
 
@@ -424,18 +417,40 @@ describe("<PipelineFocusedCard>", () => {
         name: "Link client: North Shore Decks",
       })
     );
-    fireEvent.change(screen.getByRole("combobox", { name: "Search clients" }), {
+    const panel = await screen.findByRole("dialog", { name: "Search clients" });
+    fireEvent.change(within(panel).getByRole("combobox"), {
       target: { value: "Harbour Fence" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create client Harbour Fence" })
-    );
+    fireEvent.click(within(panel).getByText("Create client Harbour Fence"));
 
     expect(onCreateAndLinkClient).toHaveBeenCalledWith(
       expect.objectContaining({ id: "opp-1" }),
       "Harbour Fence"
     );
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("links the existing client instead of duplicating when the typed name matches exactly", async () => {
+    const onLinkClient = vi.fn();
+    const onCreateAndLinkClient = vi.fn();
+    renderFocusedCard({ onLinkClient, onCreateAndLinkClient });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Link client: North Shore Decks",
+      })
+    );
+    const panel = await screen.findByRole("dialog", { name: "Search clients" });
+    fireEvent.change(within(panel).getByRole("combobox"), {
+      target: { value: "Cedar Rail Co" },
+    });
+    fireEvent.click(within(panel).getByText("Create client Cedar Rail Co"));
+
+    expect(onCreateAndLinkClient).not.toHaveBeenCalled();
+    expect(onLinkClient).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "opp-1" }),
+      "client-2"
+    );
   });
 
   it("opens the inline site address autocomplete from the empty address state", () => {

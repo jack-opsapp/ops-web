@@ -13,6 +13,7 @@ import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { getInitials } from "@/lib/types/models";
 import { formatCurrency, formatPhoneNumber } from "@/lib/utils/format";
+import { matchesAllTokens } from "@/lib/utils/search";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterChips } from "@/components/ui/filter-chip";
@@ -24,7 +25,7 @@ import {
   TableMono,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import { MetricsStrip, type MetricCell } from "@/components/ui/metrics-strip";
 
 type FilterMode = "all" | "with-projects" | "owes" | "new";
@@ -172,8 +173,8 @@ export default function ClientsPage() {
 
   const filtered = useMemo(() => {
     let list = rows;
-    const q = search.trim().toLowerCase();
-    if (q) list = list.filter((r) => r.search.includes(q));
+    // Shared token-AND search grammar (lib/utils/search) over the row haystack.
+    if (search.trim()) list = list.filter((r) => matchesAllTokens(r.search, search));
     if (filter === "with-projects") list = list.filter((r) => r.projectCount > 0);
     else if (filter === "owes") list = list.filter((r) => r.outstanding > 0);
     else if (filter === "new") {
@@ -337,15 +338,13 @@ export default function ClientsPage() {
                 aria-label={t("search.placeholder")}
               />
             }
-            filters={
-              <>
-                <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
-                <span className="font-mono text-micro tabular-nums text-text-3">
-                  {filtered.length === 1
-                    ? t("list.countOne", { count: "1" })
-                    : t("list.count", { count: String(filtered.length) })}
-                </span>
-              </>
+            filters={<FilterChips options={filterOptions} value={filter} onChange={setFilter} />}
+            meta={
+              <WorkbarCount>
+                {filtered.length === 1
+                  ? t("list.countOne", { count: "1" })
+                  : t("list.count", { count: String(filtered.length) })}
+              </WorkbarCount>
             }
             create={
               canCreate ? (

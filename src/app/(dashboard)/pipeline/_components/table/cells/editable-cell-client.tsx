@@ -1,15 +1,13 @@
 "use client";
 
-import { useCallback, useState, type MouseEvent } from "react";
+import { useCallback, useMemo, useState, type MouseEvent } from "react";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { useDictionary } from "@/i18n/client";
 import { useClients } from "@/lib/hooks/use-clients";
 import { useClientCreateAction } from "@/lib/hooks/use-client-create-action";
-import { useAuthStore } from "@/lib/store/auth-store";
-import type { ProjectTableSaveState } from "@/lib/hooks/projects-table/use-cell-edit";
-import type { ProjectTableClientEditValue } from "@/lib/types/project-table";
 import { cn } from "@/lib/utils/cn";
-import { CellText } from "./cell-text";
+import type { OpportunityCellSaveState } from "@/lib/hooks/pipeline-table/use-opportunity-cell-edit";
+import { CellRelation } from "./cell-relation";
 
 interface ClientLite {
   id: string;
@@ -17,13 +15,13 @@ interface ClientLite {
 }
 
 /**
- * EditableCellClient — single-select client picker for a project row.
- *
- * Built on EntityPicker (portaled, real focus + outside-click) — replaces the
- * hand-rolled absolute div + manual mousedown listener. Preserves the table's
- * controlled-edit contract (`editing` / `onBeginEdit` / `onCancelEdit` /
- * `onCommit`) and the saving/saved trigger states. Selecting commits + closes;
- * the "—" row clears the client.
+ * Inline client picker for the pipeline `client` column, on the canonical
+ * {@link EntityPicker} (the one component behind client / team / assignee
+ * pickers app-wide — same wiring as the projects table's client cell).
+ * Preserves the grid's controlled-edit contract (`editing` / `onBeginEdit` /
+ * `onCancelEdit` / `onCommit`) and the saving/saved trigger states. Selecting
+ * commits + closes; the "No client" row unlinks. Clients load lazily (only
+ * while open), keeping the closed cell cheap across a virtualized table.
  */
 export function EditableCellClient({
   clientId,
@@ -36,22 +34,29 @@ export function EditableCellClient({
 }: {
   clientId: string | null;
   clientName: string | null;
-  saveState: ProjectTableSaveState;
+  saveState: OpportunityCellSaveState;
   editing?: boolean;
   onBeginEdit?: () => void;
   onCancelEdit?: () => void;
-  onCommit: (value: ProjectTableClientEditValue) => Promise<void> | void;
+  onCommit: (clientId: string | null) => Promise<void> | void;
 }) {
-  const { t } = useDictionary("projects");
+  const { t } = useDictionary("pipeline");
   const { t: tp } = useDictionary("picker");
   const [internalOpen, setInternalOpen] = useState(false);
   const open = editing ?? internalOpen;
-  const companyId = useAuthStore((state) => state.company?.id ?? "");
+
   const clientsQuery = useClients(undefined, {
-    enabled: open && Boolean(companyId),
+    enabled: open,
     staleTime: 5 * 60 * 1000,
   });
-  const clients: ClientLite[] = clientsQuery.data?.clients ?? [];
+  const clients = useMemo<ClientLite[]>(
+    () =>
+      (clientsQuery.data?.clients ?? [])
+        .filter((client) => !client.deletedAt)
+        .map((client) => ({ id: client.id, name: client.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [clientsQuery.data?.clients],
+  );
 
   function setOpen(next: boolean) {
     if (next) {
@@ -64,18 +69,14 @@ export function EditableCellClient({
   }
 
   function handleChange(id: string | null) {
-    if (id == null) {
-      void onCommit({ clientId: null, clientName: null });
-      return;
-    }
-    const match = clients.find((client) => client.id === id);
-    void onCommit({ clientId: id, clientName: match?.name ?? clientName });
+    void onCommit(id);
   }
 
-  // "+ New client" — create by the typed name and link it to this project row.
+  // "+ New client" — create by the typed name and link it (the undo toast the
+  // commit raises covers the link, same as picking an existing client).
   const onCreated = useCallback(
-    (id: string, name: string) => {
-      void onCommit({ clientId: id, clientName: name });
+    (id: string) => {
+      void onCommit(id);
     },
     [onCommit],
   );
@@ -87,12 +88,12 @@ export function EditableCellClient({
       aria-label={t("table.cell.client.triggerLabel")}
       onClick={(event: MouseEvent<HTMLButtonElement>) => event.stopPropagation()}
       className={cn(
-        "flex h-full w-full min-w-0 items-center rounded px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+        "flex h-full w-full min-w-0 items-center rounded px-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent",
         saveState === "saving" && "opacity-70",
         saveState === "saved" && "bg-surface-active",
       )}
     >
-      <CellText value={clientName} className="text-text-2" />
+      <CellRelation value={clientName} />
     </button>
   );
 
@@ -107,11 +108,11 @@ export function EditableCellClient({
       onChange={handleChange}
       getId={(client) => client.id}
       getLabel={(client) => client.name}
-      searchPlaceholder={t("table.cell.client.search")}
       clearLabel={tp("clear")}
+      searchPlaceholder={t("table.cell.client.search")}
       emptyLabel={t("table.cell.client.empty")}
       noneOption
-      noneLabel="—"
+      noneLabel={t("table.cell.client.none")}
       createAction={createAction}
     />
   );

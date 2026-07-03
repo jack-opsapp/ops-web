@@ -287,7 +287,7 @@ export const ClientEditCreateBody = React.forwardRef<
                   disabled={geo.loading}
                   aria-label={t("form.useLocation")}
                   title={t("form.useLocation")}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-glass-border text-text-3 transition-colors hover:border-glass-border-medium hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent disabled:opacity-40"
+                  className="inline-flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded border border-glass-border text-text-3 transition-colors hover:border-glass-border-medium hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent disabled:opacity-40"
                 >
                   <Crosshair className="h-[15px] w-[15px]" aria-hidden />
                 </button>

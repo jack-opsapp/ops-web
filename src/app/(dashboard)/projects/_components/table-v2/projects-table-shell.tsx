@@ -27,13 +27,14 @@ import { ProjectsBulkBar } from "./projects-bulk-bar";
 import { ProjectsDensityControl } from "./projects-density-control";
 import { ProjectsEmptyState } from "./projects-empty-state";
 import { ProjectsTable } from "./projects-table";
-import { ProjectsToolbar } from "./projects-toolbar";
+import { ProjectsToolbar, ProjectsRowCount } from "./projects-toolbar";
 import { ProjectsUndoToast } from "./projects-undo-toast";
 import { ProjectsViewCreateDialog } from "./projects-view-create-dialog";
 import { ProjectsViewSettingsMenu } from "./projects-view-settings-menu";
 import { ProjectsViewTabs } from "./projects-view-tabs";
 import { TableShell, TableChrome, Workbar } from "@/components/ui/table-shell";
 import { SearchInput } from "@/components/ui/search-input";
+import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
 import type { MetricColumnConfig } from "@/components/metrics/types";
 
@@ -163,6 +164,9 @@ function buildComparableDefinition(
 
 export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: MetricColumnConfig[] }) {
   const [search, setSearch] = useState("");
+  // The input stays live on `search`; the QUERY keys on the settled value, so
+  // a fetch fires once per typing pause instead of once per keystroke.
+  const debouncedSearch = useDebouncedValue(search);
   const [sorting, setSorting] = useState<ProjectTableSort[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [managedViews, setManagedViews] = useState<ProjectTableViewDefinition[] | null>(null);
@@ -194,6 +198,7 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
 
   useEffect(() => {
     setSorting(activeView?.sort ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- activeViewSortKey IS activeView?.sort, stable-keyed above; the raw object would re-seed on referential churn
   }, [activeView?.id, activeViewSortKey]);
 
   useEffect(() => {
@@ -249,7 +254,11 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
       updatedAt: `${pendingEffectiveView.updatedAt}:${pendingDefinitionKey}`,
     };
   }, [pendingDefinitionKey, pendingEffectiveView]);
-  const tableQuery = useProjectsTableData({ view: tableView, search, sorting: sanitizedSorting });
+  const tableQuery = useProjectsTableData({
+    view: tableView,
+    search: debouncedSearch,
+    sorting: sanitizedSorting,
+  });
   const cellEdit = useCellEdit({ rows: tableQuery.rows, refetchRows: tableQuery.refetch });
 
   const visibleRowIds = useMemo(() => tableQuery.rows.map((row) => row.id), [tableQuery.rows]);
@@ -257,10 +266,10 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
     () =>
       JSON.stringify({
         activeViewId,
-        search,
+        search: debouncedSearch,
         definition: pendingDefinitionKey,
       }),
-    [activeViewId, pendingDefinitionKey, search],
+    [activeViewId, pendingDefinitionKey, debouncedSearch],
   );
   const selection = useTableSelection(visibleRowIds, selectionResetKey);
   const visibleSelectedCount = useMemo(
@@ -449,10 +458,14 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
                 wrapperClassName="w-[240px] max-w-full"
               />
             }
-            tools={
-              <ProjectsToolbar
+            meta={
+              <ProjectsRowCount
                 rowCount={tableQuery.rows.length}
                 totalCount={tableQuery.totalCount}
+              />
+            }
+            tools={
+              <ProjectsToolbar
                 densityControl={
                   pendingEffectiveView ? (
                     <>
@@ -537,6 +550,20 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
     </div>
   );
 
+  // Row-level states (loading / error / no-matches) render INSIDE the mounted
+  // grid via `emptyOverlay` — never by swapping the grid for a placeholder.
+  // The swap remounted the chrome (and the search input with it), dropping
+  // focus mid-typing whenever a query settled on zero rows. Only view-level
+  // states — where there is no view to shape the grid — fall back to the
+  // pinned-chrome placeholder frame.
+  const rowStateOverlay = isError ? (
+    <ProjectsEmptyState mode="error" onRetry={handleRetry} />
+  ) : isLoading ? (
+    <ProjectsEmptyState mode="loading" />
+  ) : tableQuery.rows.length === 0 ? (
+    <ProjectsEmptyState mode={debouncedSearch.trim().length > 0 ? "filtered" : "empty"} />
+  ) : null;
+
   let body = null;
   if (viewsQuery.isError) {
     body = withChrome(<ProjectsViewState label={t("table.views.error")} />);
@@ -544,20 +571,15 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
     body = withChrome(<ProjectsViewState label={t("table.views.loading")} />);
   } else if (views.length === 0) {
     body = withChrome(<ProjectsViewState label={t("table.views.empty")} />);
-  } else if (isError) {
-    body = withChrome(<ProjectsEmptyState mode="error" onRetry={handleRetry} />);
-  } else if (isLoading) {
-    body = withChrome(<ProjectsEmptyState mode="loading" />);
   } else if (!pendingEffectiveView) {
     body = withChrome(<ProjectsEmptyState mode="empty" />);
-  } else if (tableQuery.rows.length === 0) {
-    body = withChrome(<ProjectsEmptyState mode={search.trim().length > 0 ? "filtered" : "empty"} />);
   } else {
     body = (
       <ProjectsTable
         aboveHeader={chrome}
+        emptyOverlay={rowStateOverlay}
         view={pendingEffectiveView}
-        rows={tableQuery.rows}
+        rows={rowStateOverlay ? [] : tableQuery.rows}
         sorting={sanitizedSorting}
         onSortingChange={setSorting}
         metrics={zoom.metrics}

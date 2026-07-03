@@ -115,6 +115,32 @@ describe("<EntityPicker>", () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
+  it("single: query-aware create action reads the live search and receives it on create", async () => {
+    const onCreate = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <EntityPicker<Member>
+        trigger={<button type="button">Open</button>}
+        items={MEMBERS}
+        value={null}
+        onChange={() => {}}
+        getId={(m) => m.id}
+        getLabel={(m) => m.name}
+        label="People"
+        createAction={{
+          label: (q) => (q ? `New person "${q}"` : "New person"),
+          onCreate,
+        }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /open/i }));
+    expect(await screen.findByText("New person")).toBeInTheDocument();
+
+    await user.type(screen.getByRole("combobox"), "Fo");
+    await user.click(await screen.findByText('New person "Fo"'));
+    expect(onCreate).toHaveBeenCalledWith("Fo");
+  });
+
   it("multi: toggles ids, stays open, surfaces conflicts", async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
