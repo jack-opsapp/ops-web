@@ -14,6 +14,9 @@
   "category.create": "Nueva categoría",
   "category.empty": "Sin categorías",
 
+  "industry.search": "Buscar sectores",
+  "industry.empty": "Sin sectores",
+
   "unit.search": "Buscar unidades",
   "unit.create": "Nueva unidad",
   "unit.empty": "Sin unidades",
