@@ -78,6 +78,8 @@ export function Day1NoProject({ ctaUrl, unsubscribeUrl }: Day1NoProjectProps) {
 }
 
 export const previewProps: Day1NoProjectProps = {
+  // /projects/new is the permanent create deep link (opens the workspace
+  // create window on the dashboard) — emails in customer inboxes link here.
   ctaUrl: "https://app.opsapp.co/projects/new",
   unsubscribeUrl: "https://app.opsapp.co/api/email/unsubscribe?t=preview",
 };
