@@ -296,9 +296,12 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
 
 /**
  * Sub-routes that opt back OUT of an ancestor's full-height mode.
- * /projects/new is a scrolling full-page form under the bleed /projects.
+ * Currently empty — the sole exception was /projects/new's scrolling
+ * full-page form, and that route is now a thin hand-off that renders
+ * null (route consolidation 2026-07-03). The mechanism stays for the
+ * next page that genuinely needs to scroll under a bleed ancestor.
  */
-export const FULL_HEIGHT_EXCEPTIONS: readonly string[] = ["/projects/new"];
+export const FULL_HEIGHT_EXCEPTIONS: readonly string[] = [];
 
 // ─── Lookup helpers ──────────────────────────────────────────────────────────
 

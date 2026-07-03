@@ -29,6 +29,9 @@ export type QuickActionDispatchDeps = Pick<
  * Deliberately does NOT apply the setup gate or close any surface — those are
  * caller concerns (the Create menu wraps this in `gatedAction`; the palette
  * closes itself first).
+ *
+ * Since the route consolidation (2026-07-03), /projects/new is itself a thin
+ * hand-off to the same create window — route and palette can no longer diverge.
  */
 export function dispatchQuickAction(
   action: FABAction,

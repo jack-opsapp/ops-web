@@ -3,15 +3,15 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getNumberShortcutRoutes } from "@/lib/navigation/route-registry";
+import { useWindowStore } from "@/stores/window-store";
 
 /**
  * Global keyboard shortcuts handler.
  * Mounts once in the dashboard layout to handle all shortcuts.
  *
  * Number keys 1-9: Navigate to main sections
- * Cmd+Shift+P: New project
- * Cmd+Shift+C: New client
- * Cmd+B: Toggle sidebar
+ * Cmd+Shift+P: New project (opens the workspace create window in place)
+ * Cmd+Shift+C: New client (/clients/new page)
  * Cmd+K: Command palette (handled by CommandPalette component)
  * ?: Show keyboard shortcuts help
  */
@@ -57,7 +57,12 @@ export function KeyboardShortcuts() {
         switch (e.key.toLowerCase()) {
           case "p":
             e.preventDefault();
-            router.push("/projects/new");
+            // Straight onto the workspace create window — no route hop
+            // (/projects/new is itself just a hand-off to this window now).
+            // getState(): this is a bare event handler, not a subscriber.
+            useWindowStore
+              .getState()
+              .openProjectWindow({ projectId: null, mode: "creating" });
             return;
           case "c":
             e.preventDefault();

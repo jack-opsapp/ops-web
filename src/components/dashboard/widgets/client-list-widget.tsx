@@ -24,6 +24,7 @@ import { InvoiceStatus } from "@/lib/types/pipeline";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
+import { useWindowStore } from "@/stores/window-store";
 import { useWidgetActionQueue } from "@/stores/widget-action-queue";
 import { ClientService } from "@/lib/api/services";
 import { useQueryClient } from "@tanstack/react-query";
@@ -51,6 +52,10 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
   const router = useRouter();
   const navigate = useCallback((path: string) => router.push(path), [router]);
   const openEntity = useWidgetEntityOpen();
+  // Same idiom as useWidgetEntityOpen's project path — creating mode goes
+  // straight onto the workspace window, seeded with this row's client
+  // (route consolidation 2026-07-03; /projects/new is now a hand-off).
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const queryClient = useQueryClient();
   const { queueAction } = useWidgetActionQueue();
 
@@ -408,7 +413,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
                         <WidgetInlineAction
                           icon={Plus}
                           actions={[
-                            { icon: FolderPlus, label: t("clientList.createProject") ?? "Create Project", onAction: () => navigate(`/projects/new?clientId=${client.id}`) },
+                            { icon: FolderPlus, label: t("clientList.createProject") ?? "Create Project", onAction: () => openProjectWindow({ projectId: null, mode: "creating", initialClientId: client.id }) },
                             { icon: Receipt, label: t("clientList.createInvoice") ?? "Create Invoice", onAction: () => navigate(`/books?segment=invoices&action=new&clientId=${client.id}`) },
                             { icon: FileText, label: t("clientList.createEstimate") ?? "Create Estimate", onAction: () => navigate(`/books?segment=estimates&action=new&clientId=${client.id}`) },
                             { icon: ClipboardList, label: t("clientList.createTask") ?? "Create Task", onAction: () => navigate(`/tasks/new?clientId=${client.id}`) },
