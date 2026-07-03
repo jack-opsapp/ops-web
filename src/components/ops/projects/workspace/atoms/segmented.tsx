@@ -56,7 +56,9 @@ export const Segmented = React.forwardRef<HTMLDivElement, SegmentedProps>(
         aria-describedby={aria["aria-describedby"]}
         onKeyDown={handleKey}
         className={cn(
-          "inline-flex items-stretch h-8 p-0.5 gap-0.5",
+          // 36px form-control floor (DESIGN.md § Inputs); h-8 = 64px on the
+          // doubled scale — this radiogroup sits inline with 36px fields.
+          "inline-flex items-stretch min-h-[36px] p-0.5 gap-0.5",
           "bg-[var(--surface-input)]",
           "rounded border border-glass-border",
           disabled && "opacity-40 pointer-events-none",

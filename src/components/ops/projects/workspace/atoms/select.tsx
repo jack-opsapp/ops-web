@@ -48,7 +48,8 @@ export function Select({
         aria-invalid={aria["aria-invalid"]}
         aria-describedby={aria["aria-describedby"]}
         className={cn(
-          "flex w-full h-8 items-center justify-between gap-1 px-2",
+          // 36px input floor (DESIGN.md § Inputs); h-8 = 64px on the doubled scale.
+          "flex w-full min-h-[36px] items-center justify-between gap-1 px-2",
           "font-mohave text-[14px] leading-[1.4] text-text",
           "bg-[var(--surface-input)]",
           "rounded border border-glass-border",

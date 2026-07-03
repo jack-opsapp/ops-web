@@ -69,7 +69,7 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
             type="button"
             data-testid="client-picker-trigger"
             className={cn(
-              "flex w-full h-8 items-center justify-between gap-2 px-2",
+              "flex w-full min-h-[36px] items-center justify-between gap-2 px-2",
               "font-mohave text-[14px] leading-[1.4]",
               "bg-[var(--surface-input)] rounded border border-glass-border",
               "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
