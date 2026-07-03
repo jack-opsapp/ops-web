@@ -32,6 +32,9 @@ const mockClients = vi.fn();
 
 vi.mock("@/lib/hooks/use-clients", () => ({
   useClients: () => mockClients(),
+  // The ClientPicker's "+ New client" action (useClientCreateAction) reaches
+  // for this; the test doesn't exercise creation, so a stub mutation suffices.
+  useCreateClient: () => ({ mutateAsync: vi.fn() }),
 }));
 
 // Used by the auto-name section's non-blocking DUPLICATE NAME check.

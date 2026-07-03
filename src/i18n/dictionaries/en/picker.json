@@ -6,6 +6,10 @@
   "viewOnly": "View only",
   "conflict": "Double-booked · {project} · {when}",
 
+  "client.createNamed": "Create client \"{name}\"",
+  "client.createNew": "New client",
+  "client.createFailed": "Couldn't create client",
+
   "category.search": "Search categories",
   "category.create": "New category",
   "category.empty": "No categories",

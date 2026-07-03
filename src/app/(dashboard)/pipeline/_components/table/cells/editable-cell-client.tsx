@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useMemo, useState, type MouseEvent } from "react";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { useDictionary } from "@/i18n/client";
 import { useClients } from "@/lib/hooks/use-clients";
+import { useClientCreateAction } from "@/lib/hooks/use-client-create-action";
 import { cn } from "@/lib/utils/cn";
 import type { OpportunityCellSaveState } from "@/lib/hooks/pipeline-table/use-opportunity-cell-edit";
 import { CellRelation } from "./cell-relation";
@@ -71,6 +72,16 @@ export function EditableCellClient({
     void onCommit(id);
   }
 
+  // "+ New client" — create by the typed name and link it (the undo toast the
+  // commit raises covers the link, same as picking an existing client).
+  const onCreated = useCallback(
+    (id: string) => {
+      void onCommit(id);
+    },
+    [onCommit],
+  );
+  const createAction = useClientCreateAction(onCreated);
+
   const trigger = (
     <button
       type="button"
@@ -102,6 +113,7 @@ export function EditableCellClient({
       emptyLabel={t("table.cell.client.empty")}
       noneOption
       noneLabel={t("table.cell.client.none")}
+      createAction={createAction}
     />
   );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { useCallback, useState, type MouseEvent } from "react";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { useDictionary } from "@/i18n/client";
 import { useClients } from "@/lib/hooks/use-clients";
+import { useClientCreateAction } from "@/lib/hooks/use-client-create-action";
 import { useAuthStore } from "@/lib/store/auth-store";
 import type { ProjectTableSaveState } from "@/lib/hooks/projects-table/use-cell-edit";
 import type { ProjectTableClientEditValue } from "@/lib/types/project-table";
@@ -71,6 +72,15 @@ export function EditableCellClient({
     void onCommit({ clientId: id, clientName: match?.name ?? clientName });
   }
 
+  // "+ New client" — create by the typed name and link it to this project row.
+  const onCreated = useCallback(
+    (id: string, name: string) => {
+      void onCommit({ clientId: id, clientName: name });
+    },
+    [onCommit],
+  );
+  const createAction = useClientCreateAction(onCreated);
+
   const trigger = (
     <button
       type="button"
@@ -102,6 +112,7 @@ export function EditableCellClient({
       emptyLabel={t("table.cell.client.empty")}
       noneOption
       noneLabel="—"
+      createAction={createAction}
     />
   );
 }

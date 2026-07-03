@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useForm, Controller } from "react-hook-form";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useCreateProject } from "@/lib/hooks/use-projects";
 import { useClients } from "@/lib/hooks/use-clients";
+import { useClientCreateAction } from "@/lib/hooks/use-client-create-action";
 import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -70,6 +71,7 @@ function ClientSelector({
   const { t } = useDictionary("projects");
   const { t: tp } = useDictionary("picker");
   const selected = clients.find((c) => c.id === value) ?? null;
+  const createAction = useClientCreateAction(useCallback((id: string) => onChange(id), [onChange]));
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -113,6 +115,7 @@ function ClientSelector({
         emptyLabel={clients.length === 0 ? t("new.noClients") : t("new.noMatchingClients")}
         noneOption
         noneLabel={t("new.noClient")}
+        createAction={createAction}
       />
     </div>
   );

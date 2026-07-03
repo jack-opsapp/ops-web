@@ -4,6 +4,7 @@ import * as React from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Search } from "lucide-react";
 import { useClients } from "@/lib/hooks/use-clients";
+import { useClientCreateAction } from "@/lib/hooks/use-client-create-action";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { deriveStreetLine } from "@/lib/utils/derive-project-name";
@@ -61,6 +62,10 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
   const clients = React.useMemo<Client[]>(() => data?.clients ?? [], [data?.clients]);
   const linked = clients.find((c) => c.id === value) ?? null;
 
+  // "+ New client" — create by the typed name and link it to this project.
+  const onCreated = React.useCallback((id: string) => onChange(id), [onChange]);
+  const createAction = useClientCreateAction(onCreated);
+
   return (
     <Field label={t("identity.client.label")} optional={!required} required={required}>
       <EntityPicker<Client>
@@ -101,6 +106,7 @@ function ClientPicker({ value, onChange, required }: ClientPickerProps) {
         noneLabel={
           <span data-testid="client-picker-clear">{t("identity.client.remove")}</span>
         }
+        createAction={createAction}
         contentClassName="z-modal"
       />
     </Field>
