@@ -44,6 +44,7 @@
   "stat.convert": "CONVERSIÓN",
   "stat.collected": "COBRADO",
   "stat.avgDays": "DÍAS PROM DE PAGO",
+  "stat.avgShort": "PROM",
   "stat.collectionRate": "COBRANZA",
   "stat.sentMonth": "ENVIADAS/MES",
   "stat.avgEstimate": "PROM",
