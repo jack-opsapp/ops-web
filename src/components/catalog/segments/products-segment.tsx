@@ -23,7 +23,7 @@ import {
   Tag,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import { SearchInput } from "@/components/ui/search-input";
 import {
   DropdownMenu,
@@ -347,14 +347,8 @@ export function ProductsSegment({
                 wrapperClassName="w-[240px] max-w-full"
               />
             }
-            filters={
-              <>
-                <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
-                <span className="font-mono text-micro text-text-3 tabular-nums">
-                  {t("products.count", { n: filtered.length })}
-                </span>
-              </>
-            }
+            filters={<FilterChips options={filterOptions} value={filter} onChange={setFilter} />}
+            meta={<WorkbarCount>{t("products.count", { n: filtered.length })}</WorkbarCount>}
             tools={<CatalogKebab segment="products" rows={[]} />}
             create={
               canManage ? (

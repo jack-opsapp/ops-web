@@ -52,22 +52,28 @@ export function TableWorkbar({ children, className }: { children: ReactNode; cla
  * positions are owned here, not re-decided per surface, so they can't drift
  * (Jackson 2026-07-01):
  *
- *   Row 1:  [ search ] [ filters ] ──────(flex spacer)────── [ tools ] [ create ]
- *            leftmost    after search                           right     rightmost
+ *   Row 1:  [ search ] [ filters ] ──(elastic)── [ meta ] [ tools ] [ create ]
+ *            leftmost    after search              count    right     rightmost
  *   Row 2:  [ tabStrip ]   — segment/mode controls + saved-view tabs
  *
+ * The `meta` slot is the ONE home for a surface's row-count readout (`9 / 9
+ * ROWS`, `67 SKUS`, `44 TOTAL`) — pinned just left of the tools cluster so the
+ * count lands in the same spot on every tab instead of floating inside the
+ * filters cell on one surface and the tools cluster on another (Jackson
+ * 2026-07-02). It's an `auto` track: mono micro, right-aligned, `nowrap`.
+ *
  * Overflow contract (desktop ≥sm): row 1 NEVER line-breaks, so the right
- * cluster (tools + create) can't orphan onto its own right-aligned line — the
- * 3-row failure Catalog hit at ~1040px. Row 1 is a GRID (search · elastic
- * middle · right cluster), not flex: grid auto tracks hold their exact
+ * cluster (meta + tools + create) can't orphan onto its own right-aligned line
+ * — the 3-row failure Catalog hit at ~1040px. Row 1 is a GRID (search · elastic
+ * middle · meta · right cluster), not flex: grid auto tracks hold their exact
  * max-content while any slack exists (flex fractional shrink on an exact-fit
  * wrap cluster line-breaks it), and the `minmax(min-content,1fr)` middle is
  * the ONE elastic cell — the `filters` slot reflows its chips onto extra
  * lines INSIDE the cell down to its widest unwrappable child (a chip;
  * Pipeline's nowrap dropdown row). Only past that floor does the pressure
- * reach the right cluster, which then wraps INTERNALLY (right-aligned lines)
- * instead of clipping or orphaning — flex shrink factors can't express this
- * two-tier yield order (the sum-below-1 rule under-distributes deficit).
+ * reach the meta + right cluster, which then wrap INTERNALLY (right-aligned
+ * lines) instead of clipping or orphaning — flex shrink factors can't express
+ * this two-tier yield order (the sum-below-1 rule under-distributes deficit).
  * Deliberately reflow-not-scroll: the chips themselves are the unwrappable
  * floor — an `overflow-x` rail would hide active filters off-screen, and a
  * scanning operator must always see which filters are narrowing the table.
@@ -82,6 +88,7 @@ export function TableWorkbar({ children, className }: { children: ReactNode; cla
 export function Workbar({
   search,
   filters,
+  meta,
   tools,
   create,
   tabStrip,
@@ -89,8 +96,10 @@ export function Workbar({
 }: {
   /** Row 1, leftmost — the shared `SearchInput` (single fixed width). */
   search?: ReactNode;
-  /** Row 1, immediately right of search — filter chips / dropdowns (+ count). */
+  /** Row 1, immediately right of search — filter chips / dropdowns. */
   filters?: ReactNode;
+  /** Row 1, just left of the tools cluster — the surface's row-count readout, the one place counts live. */
+  meta?: ReactNode;
   /** Row 1, right cluster before create — density / group / view-settings / kebab / stat line. */
   tools?: ReactNode;
   /** Row 1, rightmost — the single primary create CTA (`WorkbarButton`). */
@@ -101,7 +110,7 @@ export function Workbar({
   children?: ReactNode;
 }) {
   const hasRightCluster = tools != null || create != null;
-  const hasRow1 = search != null || filters != null || hasRightCluster;
+  const hasRow1 = search != null || filters != null || meta != null || hasRightCluster;
   return (
     <TableWorkbar>
       {hasRow1 ? (
@@ -114,6 +123,7 @@ export function Workbar({
             gridTemplateColumns: [
               search != null ? "auto" : null,
               "minmax(min-content, 1fr)",
+              meta != null ? "auto" : null,
               hasRightCluster ? "auto" : null,
             ]
               .filter(Boolean)
@@ -125,6 +135,13 @@ export function Workbar({
               chips reflow onto extra lines in here while search and the right
               cluster hold their line — see the overflow contract above. */}
           <div className="flex min-w-0 flex-wrap items-center gap-2">{filters}</div>
+          {meta != null ? (
+            // The pinned count readout — mono micro, right-aligned, nowrap so
+            // it stays one token; an `auto` track between filters and tools.
+            <div className="flex shrink-0 items-center justify-end whitespace-nowrap">
+              {meta}
+            </div>
+          ) : null}
           {hasRightCluster ? (
             // Internal flex-wrap is the last-resort relief: it only engages
             // once the middle cell is at min-content, wrapping the cluster
@@ -171,6 +188,31 @@ export function WorkbarButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * WorkbarCount — the ONE row-count readout treatment for the Workbar's `meta`
+ * slot. Mono micro, uppercase, `text-3`, optional leading icon. Every surface
+ * renders its count through this so the typography is identical and only the
+ * label (`9 / 9 ROWS`, `67 SKUS`, `44 TOTAL`) varies. Numbers keep tabular +
+ * slashed-zero features so counts don't jitter as they change.
+ */
+export function WorkbarCount({
+  icon,
+  children,
+}: {
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 whitespace-nowrap font-mono text-micro uppercase tracking-wider text-text-3"
+      style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+    >
+      {icon}
+      {children}
+    </span>
   );
 }
 

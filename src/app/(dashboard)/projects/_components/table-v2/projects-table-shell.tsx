@@ -27,7 +27,7 @@ import { ProjectsBulkBar } from "./projects-bulk-bar";
 import { ProjectsDensityControl } from "./projects-density-control";
 import { ProjectsEmptyState } from "./projects-empty-state";
 import { ProjectsTable } from "./projects-table";
-import { ProjectsToolbar } from "./projects-toolbar";
+import { ProjectsToolbar, ProjectsRowCount } from "./projects-toolbar";
 import { ProjectsUndoToast } from "./projects-undo-toast";
 import { ProjectsViewCreateDialog } from "./projects-view-create-dialog";
 import { ProjectsViewSettingsMenu } from "./projects-view-settings-menu";
@@ -458,10 +458,14 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
                 wrapperClassName="w-[240px] max-w-full"
               />
             }
-            tools={
-              <ProjectsToolbar
+            meta={
+              <ProjectsRowCount
                 rowCount={tableQuery.rows.length}
                 totalCount={tableQuery.totalCount}
+              />
+            }
+            tools={
+              <ProjectsToolbar
                 densityControl={
                   pendingEffectiveView ? (
                     <>

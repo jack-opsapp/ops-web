@@ -23,7 +23,7 @@ import {
   type RegisterTableColumn,
   type TagProps,
 } from "@/components/ui/register-table";
-import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
@@ -332,9 +332,6 @@ export function StockSegment({
               drilled ? (
                 <>
                   <DrillChip label={t("filter.belowThreshold", "BELOW THRESHOLD")} onClear={onClearDrill} />
-                  <span className="font-mono text-micro text-text-3 tabular-nums">
-                    {t("stock.criticalFirst", { n: filtered.length, total: rows.length })}
-                  </span>
                   {buyTotal && (
                     <span className="font-mono text-micro uppercase tracking-[0.08em] text-text-3 tabular-nums">
                       {t("stock.buyToThreshold", "BUY TO THRESHOLD")} ::{" "}
@@ -349,13 +346,15 @@ export function StockSegment({
                   )}
                 </>
               ) : (
-                <>
-                  <FilterChips options={categoryOptions} value={categoryFilter} onChange={setCategoryFilter} />
-                  <span className="font-mono text-micro text-text-3 tabular-nums">
-                    {t("stock.skuCount", { n: filtered.length })}
-                  </span>
-                </>
+                <FilterChips options={categoryOptions} value={categoryFilter} onChange={setCategoryFilter} />
               )
+            }
+            meta={
+              <WorkbarCount>
+                {drilled
+                  ? t("stock.criticalFirst", { n: filtered.length, total: rows.length })
+                  : t("stock.skuCount", { n: filtered.length })}
+              </WorkbarCount>
             }
             tools={
               drilled ? (

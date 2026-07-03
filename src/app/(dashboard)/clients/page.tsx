@@ -25,7 +25,7 @@ import {
   TableMono,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { TableShell, Workbar, WorkbarButton } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
 import { MetricsStrip, type MetricCell } from "@/components/ui/metrics-strip";
 
 type FilterMode = "all" | "with-projects" | "owes" | "new";
@@ -338,15 +338,13 @@ export default function ClientsPage() {
                 aria-label={t("search.placeholder")}
               />
             }
-            filters={
-              <>
-                <FilterChips options={filterOptions} value={filter} onChange={setFilter} />
-                <span className="font-mono text-micro tabular-nums text-text-3">
-                  {filtered.length === 1
-                    ? t("list.countOne", { count: "1" })
-                    : t("list.count", { count: String(filtered.length) })}
-                </span>
-              </>
+            filters={<FilterChips options={filterOptions} value={filter} onChange={setFilter} />}
+            meta={
+              <WorkbarCount>
+                {filtered.length === 1
+                  ? t("list.countOne", { count: "1" })
+                  : t("list.count", { count: String(filtered.length) })}
+              </WorkbarCount>
             }
             create={
               canCreate ? (
