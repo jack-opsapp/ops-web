@@ -10,7 +10,7 @@
  * QB_TOKEN_ENC_KEY is provided by tests/setup.ts (fail-closed without it).
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AccountingTokenService,
@@ -227,5 +227,212 @@ describe("AccountingTokenService.getValidToken — transient 429 retries once", 
       AccountingTokenService.getValidToken(db.client, CONNECTION_ID)
     ).rejects.toThrow(/HTTP 403/);
     expect(fetchSpy).toHaveBeenCalledTimes(1); // no retry
+  });
+});
+
+describe("AccountingTokenService.getValidToken — concurrent refresh single-flight", () => {
+  it("two concurrent callers share ONE token-endpoint refresh", async () => {
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "quickbooks",
+      access_token: encryptToken("old-access"),
+      refresh_token: encryptToken("old-refresh"),
+      realm_id: encryptToken("realm-123"),
+      token_expires_at: PAST(), // expired → both callers want a refresh
+    });
+
+    // Gate the token endpoint so both callers are in-flight before it answers.
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const fetchSpy = vi.fn(async () => {
+      await gate;
+      return jsonResponse(200, {
+        access_token: "single-flight-access",
+        refresh_token: "single-flight-refresh",
+        expires_in: 3600,
+      });
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const first = AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    const second = AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+    // Let both callers reach the refresh before the endpoint responds.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    release();
+
+    const [a, b] = await Promise.all([first, second]);
+    // ONE refresh POST total — the second caller must not double-spend the
+    // rotated refresh token (QuickBooks rotates it on every refresh).
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(a.accessToken).toBe("single-flight-access");
+    expect(b.accessToken).toBe("single-flight-access");
+  });
+});
+
+describe("AccountingTokenService.getValidToken — cross-instance rotation race", () => {
+  it("adopts a sibling's rotated tokens on invalid_grant instead of disconnecting", async () => {
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "quickbooks",
+      access_token: encryptToken("old-access"),
+      refresh_token: encryptToken("spent-refresh"),
+      realm_id: encryptToken("realm-123"),
+      token_expires_at: PAST(),
+      is_connected: true,
+    });
+
+    // The sibling instance wins the race: by the time OUR refresh answers
+    // invalid_grant, the row already carries the rotated pair.
+    const fetchSpy = vi.fn(async () => {
+      Object.assign(db.row, {
+        access_token: encryptToken("sibling-access"),
+        refresh_token: encryptToken("sibling-refresh"),
+        token_expires_at: FUTURE(),
+      });
+      return jsonResponse(400, { error: "invalid_grant" });
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+
+    // Recovered with the sibling's fresh access token — no reconnect prompt,
+    // no is_connected=false flip for a connection that is actually alive.
+    expect(result.accessToken).toBe("sibling-access");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(db.row.is_connected).toBe(true);
+    expect(db.updates.some((u) => u.is_connected === false)).toBe(false);
+  });
+
+  it("re-refreshes with the sibling's rotated refresh token when its access token is already stale", async () => {
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "quickbooks",
+      access_token: encryptToken("old-access"),
+      refresh_token: encryptToken("spent-refresh"),
+      realm_id: encryptToken("realm-123"),
+      token_expires_at: PAST(),
+      is_connected: true,
+    });
+
+    const bodies: string[] = [];
+    const fetchSpy = vi
+      .fn()
+      .mockImplementationOnce(async (_url: string, init: { body: URLSearchParams }) => {
+        bodies.push(String(init.body));
+        // Sibling rotated the pair but its access token is ALSO expired now.
+        Object.assign(db.row, {
+          access_token: encryptToken("sibling-access"),
+          refresh_token: encryptToken("sibling-refresh"),
+          token_expires_at: PAST(),
+        });
+        return jsonResponse(400, { error: "invalid_grant" });
+      })
+      .mockImplementationOnce(async (_url: string, init: { body: URLSearchParams }) => {
+        bodies.push(String(init.body));
+        return jsonResponse(200, {
+          access_token: "second-hop-access",
+          refresh_token: "second-hop-refresh",
+          expires_in: 3600,
+        });
+      });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+
+    expect(result.accessToken).toBe("second-hop-access");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    // The second refresh must spend the SIBLING's rotated token, not ours.
+    expect(bodies[1]).toContain("sibling-refresh");
+    expect(db.row.is_connected).toBe(true);
+  });
+});
+
+describe("AccountingTokenService.getValidToken — token-endpoint HTTP 401", () => {
+  it("retries once on 401 and succeeds (observed Intuit transient)", async () => {
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "quickbooks",
+      access_token: encryptToken("old-access"),
+      refresh_token: encryptToken("old-refresh"),
+      realm_id: encryptToken("realm-123"),
+      token_expires_at: PAST(),
+      is_connected: true,
+    });
+
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(401, "unauthorized"))
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          access_token: "after-401-access",
+          refresh_token: "after-401-refresh",
+          expires_in: 3600,
+        })
+      );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(result.accessToken).toBe("after-401-access");
+  });
+
+  it("a persistent 401 fails plainly — no reconnect prompt, no is_connected flip", async () => {
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "quickbooks",
+      access_token: encryptToken("old-access"),
+      refresh_token: encryptToken("old-refresh"),
+      realm_id: encryptToken("realm-123"),
+      token_expires_at: PAST(),
+      is_connected: true,
+    });
+
+    const fetchSpy = vi.fn().mockResolvedValue(jsonResponse(401, "unauthorized"));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await expect(
+      AccountingTokenService.getValidToken(db.client, CONNECTION_ID)
+    ).rejects.toThrow(/HTTP 401/);
+    // 401 is NOT proof of a dead grant (that is 400 invalid_grant) — the
+    // connection must not be flipped to disconnected on a maybe-transient.
+    expect(fetchSpy).toHaveBeenCalledTimes(2); // initial + one retry
+    expect(db.row.is_connected).toBe(true);
+    expect(db.updates.some((u) => u.is_connected === false)).toBe(false);
+  });
+});
+
+describe("AccountingTokenService.getValidToken — is_connected repair", () => {
+  it("a successful refresh restores is_connected=true after a stale false", async () => {
+    const db = makeSupabase({
+      id: CONNECTION_ID,
+      provider: "quickbooks",
+      access_token: encryptToken("old-access"),
+      refresh_token: encryptToken("old-refresh"),
+      realm_id: encryptToken("realm-123"),
+      token_expires_at: PAST(),
+      // Stale disconnect left behind by a lost concurrent-refresh race.
+      is_connected: false,
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(200, {
+          access_token: "repaired-access",
+          refresh_token: "repaired-refresh",
+          expires_in: 3600,
+        })
+      )
+    );
+
+    const result = await AccountingTokenService.getValidToken(db.client, CONNECTION_ID);
+
+    expect(result.accessToken).toBe("repaired-access");
+    // The refresh succeeding proves the grant is alive — the row must say so.
+    expect(db.row.is_connected).toBe(true);
+    expect(db.updates.some((u) => u.is_connected === true)).toBe(true);
   });
 });
