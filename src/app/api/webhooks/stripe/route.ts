@@ -22,6 +22,11 @@ import {
   sendDataSetupRequest,
   sendPrioritySupportActivated,
 } from "@/lib/email/sendgrid";
+import {
+  isDecksetCheckoutSession,
+  isDecksetSubscription,
+  decksetSubscriptionMirrorRow,
+} from "@/lib/decks/billing/stripe-deckset";
 
 function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!);
@@ -199,12 +204,24 @@ export async function POST(req: NextRequest) {
   // notification RPC does ON CONFLICT DO NOTHING).
   if (event.type === PMF_CHECKOUT_TRACKED) {
     const session = event.data.object as Stripe.Checkout.Session;
+    const companyIdMeta = session.metadata?.companyId as string | undefined;
+    const companyId = companyIdMeta ?? (session.client_reference_id ?? null);
+
+    if (isDecksetCheckoutSession(session) && companyId) {
+      const result = await handleDecksetCheckoutCompleted({
+        supabase,
+        stripe: getStripe(),
+        session,
+        companyId,
+        eventCreated: event.created,
+      });
+      if (result) return result;
+    }
+
     const addon = session.metadata?.addon as
       | "data_setup"
       | "priority_support"
       | undefined;
-    const companyIdMeta = session.metadata?.companyId as string | undefined;
-    const companyId = companyIdMeta ?? (session.client_reference_id ?? null);
 
     if (!addon || !companyId) {
       // Not an add-on Checkout we own. Silently pass — record dedup at the bottom.
@@ -238,6 +255,21 @@ export async function POST(req: NextRequest) {
     // columns that belong to the base plan. Detect via the line item's price.
     const itemPriceId = subscription.items.data[0]?.price?.id;
     const isAddonSubscription = !!addonFromPriceId(itemPriceId);
+
+    if (company && isDecksetSubscription(subscription)) {
+      const result = await handleDecksetSubscriptionChange({
+        supabase,
+        companyId: company.id as string,
+        subscription,
+        eventCreated: event.created,
+      });
+      if (result) return result;
+
+      await supabase
+        .from("stripe_webhook_events")
+        .insert({ event_id: event.id, event_type: event.type });
+      return NextResponse.json({ received: true, product: "deckset" });
+    }
 
     if (company && isAddonSubscription && isPrioritySupportPrice(itemPriceId)) {
       // Priority Support entitlement tracking. Stripe statuses we treat as
@@ -410,6 +442,21 @@ export async function POST(req: NextRequest) {
     // Same add-on guard as in subscription.updated — do NOT clobber the base
     // plan's subscription_status when an add-on subscription is deleted.
     const itemPriceId = subscription.items.data[0]?.price?.id;
+    if (company && isDecksetSubscription(subscription)) {
+      const result = await handleDecksetSubscriptionChange({
+        supabase,
+        companyId: company.id as string,
+        subscription,
+        eventCreated: event.created,
+      });
+      if (result) return result;
+
+      await supabase
+        .from("stripe_webhook_events")
+        .insert({ event_id: event.id, event_type: event.type });
+      return NextResponse.json({ received: true, product: "deckset" });
+    }
+
     if (company && isPrioritySupportPrice(itemPriceId)) {
       const { error: offErr } = await supabase
         .from("companies")
@@ -949,6 +996,77 @@ async function handleDataSetupCheckout(args: {
   void stripe;
 
   // Return null so the main POST handler writes the dedup record + 200.
+  return null;
+}
+
+/**
+ * Belt-and-suspenders Deckset fulfillment. The canonical mirror update is the
+ * customer.subscription.* branch, but checkout.session.completed can arrive
+ * first. When the subscription id is available here, mirror it immediately so
+ * Deckset unlock state does not wait on a second webhook delivery.
+ */
+async function handleDecksetCheckoutCompleted(args: {
+  supabase: SupabaseClient;
+  stripe: Stripe;
+  session: Stripe.Checkout.Session;
+  companyId: string;
+  eventCreated: number;
+}): Promise<NextResponse | null> {
+  const { supabase, stripe, session, companyId, eventCreated } = args;
+
+  let subscription: Stripe.Subscription | null = null;
+  if (typeof session.subscription === "string") {
+    subscription = await stripe.subscriptions.retrieve(session.subscription);
+  } else if (session.subscription && "id" in session.subscription) {
+    subscription = session.subscription as Stripe.Subscription;
+  }
+
+  if (!subscription) return null;
+
+  return handleDecksetSubscriptionChange({
+    supabase,
+    companyId,
+    subscription,
+    eventCreated,
+    checkoutSessionId: session.id,
+  });
+}
+
+async function handleDecksetSubscriptionChange(args: {
+  supabase: SupabaseClient;
+  companyId: string;
+  subscription: Stripe.Subscription;
+  eventCreated: number;
+  checkoutSessionId?: string | null;
+}): Promise<NextResponse | null> {
+  const { supabase, companyId, subscription, eventCreated, checkoutSessionId } =
+    args;
+
+  const row = decksetSubscriptionMirrorRow({
+    companyId,
+    subscription,
+    eventCreated,
+    checkoutSessionId,
+  });
+
+  const { error } = await supabase
+    .from("deck_subscriptions")
+    .upsert(row, { onConflict: "company_id" });
+
+  if (error) {
+    console.error(
+      `[stripe-webhook] Failed to mirror Deckset subscription for ${companyId}:`,
+      error.message
+    );
+    return NextResponse.json(
+      { error: "Deckset subscription mirror failed" },
+      { status: 500 }
+    );
+  }
+
+  console.log(
+    `[stripe-webhook] Deckset subscription mirrored for company ${companyId} (sub=${subscription.id}, status=${subscription.status})`
+  );
   return null;
 }
 

@@ -4364,6 +4364,74 @@ export type Database = {
           },
         ]
       }
+      deck_subscriptions: {
+        Row: {
+          company_id: string
+          created_at: string
+          current_period_end: string | null
+          customer_id: string | null
+          deleted_at: string | null
+          entitlement: string
+          expires_at: string | null
+          last_event_at: string
+          product_id: string
+          provider: string
+          status: string
+          store: string
+          stripe_checkout_session_id: string | null
+          stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          current_period_end?: string | null
+          customer_id?: string | null
+          deleted_at?: string | null
+          entitlement?: string
+          expires_at?: string | null
+          last_event_at?: string
+          product_id: string
+          provider?: string
+          status: string
+          store?: string
+          stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          current_period_end?: string | null
+          customer_id?: string | null
+          deleted_at?: string | null
+          entitlement?: string
+          expires_at?: string | null
+          last_event_at?: string
+          product_id?: string
+          provider?: string
+          status?: string
+          store?: string
+          stripe_checkout_session_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deck_subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_sequences: {
         Row: {
           company_id: string
