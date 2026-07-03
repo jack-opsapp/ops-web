@@ -5,7 +5,6 @@ import {
   MapPin,
   Mail,
   Phone,
-  CalendarDays,
   CloudSun,
   CloudRain,
   Cloud,
