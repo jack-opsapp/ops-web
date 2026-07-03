@@ -27,6 +27,10 @@ interface EntityPickerBaseProps<T> {
   getLabel: (item: T) => string;
   /** Right-aligned secondary text (e.g. a unit abbreviation). */
   getSubLabel?: (item: T) => React.ReactNode;
+  /** Second line under the label (e.g. an email). A conflict advisory takes precedence. */
+  getDescription?: (item: T) => React.ReactNode;
+  /** Extra search-match terms beyond the label (e.g. email / phone / address). */
+  getKeywords?: (item: T) => string[];
   /** Leading avatar descriptor. */
   getAvatar?: (item: T) => EntityAvatar | null | undefined;
   /** Arbitrary leading node (e.g. a semantic status dot). `getAvatar` wins when both return something. */
@@ -102,6 +106,8 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
     getId,
     getLabel,
     getSubLabel,
+    getDescription,
+    getKeywords,
     getAvatar,
     getLeading,
     conflictFor,
@@ -211,6 +217,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
               <PickerItem
                 key={id}
                 value={labelText}
+                keywords={getKeywords?.(item)}
                 multiple={props.multiple}
                 selected={isSelected(id)}
                 disabled={readOnly}
@@ -222,7 +229,7 @@ export function EntityPicker<T>(props: EntityPickerProps<T>) {
                     getLeading?.(item) ?? undefined
                   )
                 }
-                subLabel={conflict ?? undefined}
+                subLabel={conflict ?? getDescription?.(item) ?? undefined}
                 trailing={
                   sub != null ? (
                     <span className="shrink-0 font-mono text-micro text-text-3">{sub}</span>
