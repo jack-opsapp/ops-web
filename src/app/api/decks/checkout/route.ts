@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { resolveDecksCompanyAuth } from "@/lib/decks/route-auth";
 import {
   getStripe,
   ensureStripeCustomer,
@@ -30,7 +29,11 @@ const checkoutBodySchema = z.object({
 type CheckoutBody = z.infer<typeof checkoutBodySchema>;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const auth = await resolveAuth(req);
+  const auth = await resolveDecksCompanyAuth(req, {
+    logTag: "[decks/checkout]",
+    unavailableMessage: "Checkout unavailable",
+    errorShape: "code",
+  });
   if (auth instanceof NextResponse) return auth;
 
   const body = await readCheckoutBody(req);
@@ -242,64 +245,4 @@ async function readCheckoutBody(
   }
 
   return parsed.data;
-}
-
-interface AuthContext {
-  uid: string;
-  email?: string;
-  companyId: string;
-}
-
-async function resolveAuth(
-  req: NextRequest
-): Promise<AuthContext | NextResponse> {
-  const authHeader = req.headers.get("authorization") ?? "";
-  const idToken = authHeader.replace(/^Bearer\s+/i, "");
-  if (!idToken) {
-    return NextResponse.json(
-      { code: "unauthorized", message: "Missing Authorization bearer token" },
-      { status: 401 }
-    );
-  }
-
-  let verified: Awaited<ReturnType<typeof verifyAuthToken>>;
-  try {
-    verified = await verifyAuthToken(idToken);
-  } catch {
-    return NextResponse.json(
-      { code: "unauthorized", message: "Invalid auth token" },
-      { status: 401 }
-    );
-  }
-
-  try {
-    const user = await findUserByAuth(
-      verified.uid,
-      verified.email,
-      "id, company_id"
-    );
-    const companyId = user?.company_id;
-
-    if (typeof companyId !== "string" || !companyId) {
-      return NextResponse.json(
-        {
-          code: "company_required",
-          message: "User has no company association",
-        },
-        { status: 403 }
-      );
-    }
-
-    return {
-      uid: verified.uid,
-      email: verified.email,
-      companyId,
-    };
-  } catch (error) {
-    console.error("[decks/checkout] auth lookup failed", error);
-    return NextResponse.json(
-      { code: "auth_lookup_failed", message: "Checkout unavailable" },
-      { status: 503 }
-    );
-  }
 }

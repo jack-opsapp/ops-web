@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { resolveDecksCompanyAuth } from "@/lib/decks/route-auth";
 import { resolveVerifiedParcelRecord } from "@/lib/decks/zoning/parcel-records";
 
 const lookupBodySchema = z.object({
@@ -12,7 +11,11 @@ const lookupBodySchema = z.object({
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const auth = await resolveAuth(req);
+  const auth = await resolveDecksCompanyAuth(req, {
+    logTag: "[decks/zoning/parcel]",
+    unavailableMessage: "Zoning lookup unavailable",
+    errorShape: "legacy",
+  });
   if (auth instanceof NextResponse) return auth;
 
   const body = await readLookupBody(req);
@@ -79,54 +82,6 @@ async function readLookupBody(
   }
 
   return parsed.data;
-}
-
-interface AuthContext {
-  companyId: string;
-}
-
-async function resolveAuth(
-  req: NextRequest
-): Promise<AuthContext | NextResponse> {
-  const authHeader = req.headers.get("authorization") ?? "";
-  const idToken = authHeader.replace(/^Bearer\s+/i, "");
-  if (!idToken) {
-    return NextResponse.json(
-      { error: "Missing Authorization bearer token" },
-      { status: 401 }
-    );
-  }
-
-  let verified: Awaited<ReturnType<typeof verifyAuthToken>>;
-  try {
-    verified = await verifyAuthToken(idToken);
-  } catch {
-    return NextResponse.json({ error: "Invalid auth token" }, { status: 401 });
-  }
-
-  try {
-    const user = await findUserByAuth(
-      verified.uid,
-      verified.email,
-      "id, company_id"
-    );
-    const companyId = user?.company_id;
-
-    if (typeof companyId !== "string" || !companyId) {
-      return NextResponse.json(
-        { error: "User has no company association" },
-        { status: 403 }
-      );
-    }
-
-    return { companyId };
-  } catch (error) {
-    console.error("[decks/zoning/parcel] auth lookup failed", error);
-    return NextResponse.json(
-      { error: "Zoning lookup unavailable" },
-      { status: 503 }
-    );
-  }
 }
 
 function normalizeOptionalString(
