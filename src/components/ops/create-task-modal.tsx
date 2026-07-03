@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, X, Plus } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Search, X, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { TaskForm, type TaskFormValues } from "@/components/ops/task-form";
+import { useDictionary } from "@/i18n/client";
 import { useWindowStore } from "@/stores/window-store";
 import { useProjects } from "@/lib/hooks/use-projects";
 import { useTaskTypes } from "@/lib/hooks/use-task-types";
@@ -11,8 +13,8 @@ import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useCreateTask, useCreateTaskWithEvent } from "@/lib/hooks/use-tasks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { useDictionary } from "@/i18n/client";
 import { toast } from "sonner";
+import type { Project } from "@/lib/types/models";
 
 // ─── Project Selector ────────────────────────────────────────────────────────
 
@@ -25,152 +27,114 @@ function ProjectSelector({
   onChange: (id: string | null) => void;
   onCreateNew: (searchText: string) => void;
 }) {
-  const { t } = useDictionary("forms");
+  const { t } = useDictionary("projects");
+  const { t: tp } = useDictionary("picker");
   const { data } = useProjects();
   const { data: taskTypesData } = useTaskTypes();
   const canCreateProject = usePermissionStore((s) => s.can("projects.create"));
   const projects = useMemo(() => data?.projects ?? [], [data?.projects]);
   const taskTypes = useMemo(() => taskTypesData ?? [], [taskTypesData]);
-  const [search, setSearch] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  // Search across project name, client name, address, and task types
-  const filtered = useMemo(() => {
-    if (!search.trim()) return projects;
-    const q = search.toLowerCase();
-    return projects.filter((p) => {
-      // Match project title
-      if (p.title.toLowerCase().includes(q)) return true;
-      // Match client name
-      if (p.client?.name?.toLowerCase().includes(q)) return true;
-      // Match address
-      if (p.address?.toLowerCase().includes(q)) return true;
-      // Match task type names associated with the project's tasks
-      if (
-        p.tasks?.some((t) => {
-          const tt = taskTypes.find((type) => type.id === t.taskTypeId);
-          return tt?.display?.toLowerCase().includes(q);
-        })
-      )
-        return true;
-      return false;
-    });
-  }, [projects, taskTypes, search]);
+  const [open, setOpen] = useState(false);
 
   const selected = projects.find((p) => p.id === value);
 
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        {t("createTask.projectLabel", "Project")}
+        {t("taskForm.field.project")}
       </label>
-      <div className="relative">
-        {selected ? (
-          <div className="flex items-center justify-between bg-surface-input border border-border rounded-sm px-1.5 py-1.5">
-            <div className="min-w-0">
-              <span className="font-mohave text-body text-text truncate block">
-                {selected.title}
-              </span>
-              {selected.client?.name && (
-                <span className="font-mohave text-caption-sm text-text-3 truncate block">
-                  {selected.client.name}
+      <EntityPicker<Project>
+        trigger={
+          selected ? (
+            <div className="flex items-center justify-between bg-surface-input border border-border rounded-sm px-1.5 py-1.5">
+              <div className="min-w-0">
+                <span className="font-mohave text-body text-text truncate block">
+                  {selected.title}
                 </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                onChange(null);
-                setSearch("");
-              }}
-              className="text-text-3 hover:text-text-2 shrink-0 ml-1"
-            >
-              <X className="w-[16px] h-[16px]" />
-            </button>
-          </div>
-        ) : (
-          <div>
-            <Input
-              placeholder={t("createTask.projectSearch", "Search projects...")}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setShowDropdown(true);
-              }}
-              onFocus={() => setShowDropdown(true)}
-              onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-              prefixIcon={<Search className="w-[16px] h-[16px]" />}
-            />
-            {showDropdown && (
-              <div className="absolute z-10 left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm max-h-[240px] overflow-y-auto">
-                {filtered.length === 0 && !search.trim() ? (
-                  <div className="px-1.5 py-1 text-left">
-                    <p className="font-mohave text-body-sm text-text-3">
-                      {t("createTask.noProjects", "No projects found")}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {filtered.map((project) => (
-                      <button
-                        key={project.id}
-                        type="button"
-                        onMouseDown={() => {
-                          onChange(project.id);
-                          setShowDropdown(false);
-                          setSearch("");
-                        }}
-                        className="w-full px-1.5 py-1 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-                      >
-                        <span className="font-mohave text-body text-text-2 hover:text-text block truncate">
-                          {project.title}
-                        </span>
-                        {(project.client?.name || project.address) && (
-                          <span className="font-mohave text-caption-sm text-text-3 block truncate">
-                            {[project.client?.name, project.address]
-                              .filter(Boolean)
-                              .join(" \u00B7 ")}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-
-                    {/* No matches for search term */}
-                    {filtered.length === 0 && search.trim() && (
-                      <div className="px-1.5 py-1 text-left">
-                        <p className="font-mohave text-body-sm text-text-3">
-                          {t("createTask.noMatchProjects", "No matching projects")}
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Add to New Project option — gated by projects.create */}
-                {canCreateProject && (
-                  <div className="border-t border-[rgba(255,255,255,0.08)]">
-                    <button
-                      type="button"
-                      onMouseDown={() => {
-                        onCreateNew(search);
-                        setShowDropdown(false);
-                        setSearch("");
-                      }}
-                      className="w-full flex items-center gap-[6px] px-1.5 py-1 text-left hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-                    >
-                      <Plus className="w-[14px] h-[14px] text-text-2 shrink-0" />
-                      <span className="font-mohave text-body-sm text-text">
-                        {t("createTask.createNewProject", "Create new project")}
-                        {search.trim() ? `: "${search.trim()}"` : ""}
-                      </span>
-                    </button>
-                  </div>
+                {selected.client?.name && (
+                  <span className="font-mohave text-caption-sm text-text-3 truncate block">
+                    {selected.client.name}
+                  </span>
                 )}
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  // Clear without opening the picker.
+                  e.stopPropagation();
+                  onChange(null);
+                }}
+                className="text-text-3 hover:text-text-2 shrink-0 ml-1"
+                aria-label={tp("clear")}
+              >
+                <X className="w-[16px] h-[16px]" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={cn(
+                "flex items-center justify-between w-full",
+                "bg-surface-input border rounded-sm",
+                "px-1.5 py-1.5",
+                "font-mohave text-body transition-all duration-150",
+                open ? "border-line-hi" : "border-border",
+                "focus:border-line-hi focus:outline-none"
+              )}
+            >
+              <span className="flex items-center gap-[6px] min-w-0">
+                <Search className="w-[16px] h-[16px] text-text-3 shrink-0" />
+                <span className="text-text-3 truncate">
+                  {t("taskForm.field.projectPlaceholder")}
+                </span>
+              </span>
+              <ChevronDown
+                className={cn(
+                  "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
+                  open && "rotate-180"
+                )}
+              />
+            </button>
+          )
+        }
+        open={open}
+        onOpenChange={setOpen}
+        label={t("taskForm.field.project")}
+        items={projects}
+        value={value}
+        onChange={onChange}
+        getId={(p) => p.id}
+        getLabel={(p) => p.title}
+        getDescription={(p) =>
+          [p.client?.name, p.address].filter(Boolean).join(" · ") ||
+          undefined
+        }
+        getKeywords={(p) =>
+          [
+            p.client?.name,
+            p.address,
+            ...(p.tasks ?? []).map(
+              (task) =>
+                taskTypes.find((type) => type.id === task.taskTypeId)?.display
+            ),
+          ].filter((k): k is string => Boolean(k))
+        }
+        searchPlaceholder={t("taskForm.field.projectSearch")}
+        emptyLabel={t("taskForm.field.projectEmpty")}
+        clearLabel={tp("clear")}
+        createAction={
+          canCreateProject
+            ? {
+                label: (q) =>
+                  q.trim()
+                    ? t("taskForm.field.projectCreateNamed", { name: q.trim() })
+                    : t("taskForm.field.projectCreateNew"),
+                onCreate: (q) => onCreateNew(q),
+              }
+            : undefined
+        }
+        contentClassName="z-modal"
+      />
     </div>
   );
 }
