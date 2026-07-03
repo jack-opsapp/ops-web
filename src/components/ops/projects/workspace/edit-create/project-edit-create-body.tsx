@@ -47,6 +47,12 @@ export interface ProjectEditCreateBodyProps {
   mode: EditCreateMode;
   /** Required when mode is "editing"; null/undefined for "creating". */
   projectId: string | null;
+  /**
+   * Preselects the client field in creating mode (window meta seed from
+   * `/projects/new?clientId=` or the client-list widget). Editing mode
+   * ignores it — the loaded project owns clientId there.
+   */
+  initialClientId?: string | null;
   /** Active tab — driven by the parent shell's ModalTabs. */
   tab: EditCreateTabId;
   /** Stable id used by the footer button's `form="..."` attribute. */
@@ -191,6 +197,7 @@ function LoadingState() {
 export function ProjectEditCreateBody({
   mode,
   projectId,
+  initialClientId = null,
   tab,
   formId,
   onSaved,
@@ -210,7 +217,10 @@ export function ProjectEditCreateBody({
   const mutations = useProjectMutations(projectId);
 
   const defaults = React.useMemo<ProjectEditCreateFormValues>(() => {
-    if (!isEditing || !project) return EMPTY_DEFAULTS;
+    // Creating mode seeds the client from the window meta (e.g. the
+    // `/projects/new?clientId=` deep link); everything else starts empty.
+    if (!isEditing) return { ...EMPTY_DEFAULTS, clientId: initialClientId ?? null };
+    if (!project) return EMPTY_DEFAULTS;
     return {
       title: project.title ?? "",
       titleIsAuto: project.titleIsAuto ?? false,
@@ -226,7 +236,7 @@ export function ProjectEditCreateBody({
       visibility: project.visibility ?? "all",
     };
     // The project reference is the cache key; safe to depend on directly.
-  }, [isEditing, project]);
+  }, [isEditing, project, initialClientId]);
 
   const schema = React.useMemo(() => {
     const messages = {
@@ -255,6 +265,17 @@ export function ProjectEditCreateBody({
     lastSeededRef.current = project.id;
     form.reset(defaults);
   }, [isEditing, project, defaults, form]);
+
+  // Creating-mode mirror of the editing reset above, scoped to the client
+  // seed: the singleton creating window survives "Create Project on client
+  // A, then client B" as a refocus (no remount), so a changed seed lands
+  // via setValue. Skipped once the operator touches the field — a refocus
+  // must never clobber a hand-picked client.
+  React.useEffect(() => {
+    if (isEditing) return;
+    if (form.getFieldState("clientId").isDirty) return;
+    form.setValue("clientId", initialClientId ?? null);
+  }, [isEditing, initialClientId, form]);
 
   // Expose imperative `discard()` for the workspace footer's DISCARD
   // CHANGES button. Editing mode resets to the loaded project's
