@@ -35,7 +35,10 @@ export function PipelineFocusedToolbar({
     >
       {reviewCount > 0 && onReviewEmails && (
         <>
-          <ToolbarAction onClick={onReviewEmails}>
+          <ToolbarAction
+            onClick={onReviewEmails}
+            title={t("gmail.reviewEmailsHint")}
+          >
             <Mail className="h-[11px] w-[11px]" strokeWidth={1.5} />
             <span className="font-mono text-micro uppercase leading-none tracking-[0.12em]">
               {t("gmail.reviewEmails")}
@@ -63,15 +66,18 @@ function ToolbarAction({
   onClick,
   isActive,
   isModeToggle,
+  title,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   isActive?: boolean;
   isModeToggle?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
+      title={title}
       data-pipeline-mode-toggle={isModeToggle ? "true" : undefined}
       className={cn(
         "flex h-[26px] shrink-0 items-center gap-[4px] whitespace-nowrap rounded-chip px-[8px] transition-colors duration-150 ease-smooth focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",

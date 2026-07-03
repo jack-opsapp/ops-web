@@ -18,6 +18,7 @@
   "gmail.connect": "Connect",
   "gmail.dismiss": "Dismiss",
   "gmail.reviewEmails": "Review Emails",
+  "gmail.reviewEmailsHint": "Recent emails we couldn't match to a client — review to confirm or dismiss.",
   "loading": "Loading pipeline...",
   "mode.label": "Pipeline view",
   "mode.focused": "Focused",

@@ -21,7 +21,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "companyId is required" }, { status: 400 });
     }
 
-    // Step 1: Fetch activities needing review
+    // The review queue surfaces inbound emails the auto-classification pipeline
+    // couldn't confidently place (unmatched) or matched only weakly
+    // (needs_review). Bound it to a rolling window: before this, the queue
+    // accreted every such email ever received, so the pipeline badge read a
+    // permanent "99+" of months-old noise no operator would ever triage — a
+    // count that could never reach zero. A recent window keeps the queue an
+    // honest, actionable reflection of the operator's current reality; the hard
+    // cap guards against a pathological backlog (e.g. right after a large
+    // historical import).
+    const REVIEW_WINDOW_DAYS = 30;
+    const REVIEW_MAX_ITEMS = 200;
+    const windowStart = new Date(
+      Date.now() - REVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    // Step 1: Fetch recent activities needing review
     const { data: activities, error } = await supabase
       .from("activities")
       .select(
@@ -30,8 +45,10 @@ export async function GET(request: NextRequest) {
       .eq("type", "email")
       .eq("company_id", companyId)
       .eq("is_read", false)
+      .gte("created_at", windowStart)
       .or("match_needs_review.eq.true,match_confidence.eq.unmatched")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(REVIEW_MAX_ITEMS);
 
     if (error) throw error;
 
