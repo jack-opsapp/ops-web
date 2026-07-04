@@ -1108,9 +1108,19 @@ async function handleDecksetSubscriptionEvent(args: {
   });
   if (result) return result;
 
-  await supabase
+  // Best-effort dedup record (same posture as the POST-level record at the
+  // bottom of the handler): a non-unique-violation failure is logged, not
+  // fatal — the mirror upsert is idempotent, so a Stripe retry re-applies
+  // safely and the ordering guard skips it if a newer event already landed.
+  const { error: dedupError } = await supabase
     .from("stripe_webhook_events")
     .insert({ event_id: event.id, event_type: event.type });
+  if (dedupError && (dedupError as { code?: string }).code !== "23505") {
+    console.error(
+      `[stripe-webhook] Failed to record dedup for Deckset event ${event.id}:`,
+      dedupError.message
+    );
+  }
   return NextResponse.json({ received: true, product: "deckset" });
 }
 
@@ -1131,41 +1141,18 @@ async function handleDecksetSubscriptionChange(args: {
     checkoutSessionId,
   });
 
-  // Out-of-order guard. Stripe does not guarantee delivery order, so a delayed
-  // older subscription.updated (e.g. status active) can arrive AFTER a newer
-  // cancellation and would otherwise resurrect Pro for free. Skip the write
-  // when the mirror already reflects a strictly newer event. Mirrors the
-  // base-plan branch's N4 stale-event guard (read-then-decide in JS).
-  const { data: existing, error: readError } = await supabase
-    .from("deck_subscriptions")
-    .select("last_event_at")
-    .eq("company_id", companyId)
-    .maybeSingle();
-
-  if (readError) {
-    console.error(
-      `[stripe-webhook] Failed to read Deckset mirror for ${companyId}:`,
-      readError.message
-    );
-    return NextResponse.json(
-      { error: "Deckset subscription mirror failed" },
-      { status: 500 }
-    );
-  }
-
-  if (existing?.last_event_at) {
-    const existingMs = Date.parse(existing.last_event_at as string);
-    if (Number.isFinite(existingMs) && existingMs > eventCreated * 1000) {
-      console.log(
-        `[stripe-webhook] Skipping stale Deckset event for ${companyId} (sub=${subscription.id}); mirror last_event_at ${existing.last_event_at} is newer than event ${new Date(eventCreated * 1000).toISOString()}`
-      );
-      return null;
-    }
-  }
-
-  const { error } = await supabase
-    .from("deck_subscriptions")
-    .upsert(row, { onConflict: "company_id" });
+  // Out-of-order guard, enforced atomically in SQL. Stripe does not guarantee
+  // delivery order, so a delayed older subscription.updated (e.g. status
+  // active) can arrive AFTER a newer cancellation and would otherwise
+  // resurrect Pro for free. mirror_deck_subscription does a single conditional
+  // upsert (ON CONFLICT ... WHERE last_event_at <= incoming) under the row
+  // lock the conflict takes, so the newer event always wins regardless of
+  // arrival order or concurrent same-company deliveries — no read-then-write
+  // TOCTOU. Returns false when the incoming event is stale and was skipped.
+  const { data: written, error } = await supabase.rpc(
+    "mirror_deck_subscription",
+    { p_row: row }
+  );
 
   if (error) {
     console.error(
@@ -1178,9 +1165,15 @@ async function handleDecksetSubscriptionChange(args: {
     );
   }
 
-  console.log(
-    `[stripe-webhook] Deckset subscription mirrored for company ${companyId} (sub=${subscription.id}, status=${subscription.status})`
-  );
+  if (written === false) {
+    console.log(
+      `[stripe-webhook] Skipped stale Deckset event for ${companyId} (sub=${subscription.id}, status=${subscription.status}); mirror already newer than ${new Date(eventCreated * 1000).toISOString()}`
+    );
+  } else {
+    console.log(
+      `[stripe-webhook] Deckset subscription mirrored for company ${companyId} (sub=${subscription.id}, status=${subscription.status})`
+    );
+  }
   return null;
 }
 

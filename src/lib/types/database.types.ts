@@ -15939,6 +15939,10 @@ export type Database = {
           source: string
         }[]
       }
+      mirror_deck_subscription: {
+        Args: { p_row: Json }
+        Returns: boolean
+      }
       move_opportunity_stage: {
         Args: {
           p_opportunity_id: string
