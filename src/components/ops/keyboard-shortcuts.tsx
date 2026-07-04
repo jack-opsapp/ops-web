@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getNumberShortcutRoutes } from "@/lib/navigation/route-registry";
+import { useWindowStore } from "@/stores/window-store";
 
 /**
  * Global keyboard shortcuts handler.
@@ -10,7 +11,7 @@ import { getNumberShortcutRoutes } from "@/lib/navigation/route-registry";
  *
  * Number keys 1-9: Navigate to main sections
  * Cmd+Shift+P: New project
- * Cmd+Shift+C: New client
+ * Cmd+Shift+C: New client (opens the workspace create window in place)
  * Cmd+B: Toggle sidebar
  * Cmd+K: Command palette (handled by CommandPalette component)
  * ?: Show keyboard shortcuts help
@@ -61,7 +62,13 @@ export function KeyboardShortcuts() {
             return;
           case "c":
             e.preventDefault();
-            router.push("/clients/new");
+            // Straight onto the workspace create window — no route hop
+            // (/clients/new is itself just a hand-off to the same window
+            // via the /dashboard?openClient=new deep link). getState():
+            // this is a bare event handler, not a subscriber.
+            useWindowStore
+              .getState()
+              .openClientWindow({ clientId: null, mode: "creating" });
             return;
         }
       }

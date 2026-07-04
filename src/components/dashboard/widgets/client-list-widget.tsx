@@ -24,6 +24,7 @@ import { InvoiceStatus } from "@/lib/types/pipeline";
 import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
+import { useWindowStore } from "@/stores/window-store";
 import { useWidgetActionQueue } from "@/stores/widget-action-queue";
 import { ClientService } from "@/lib/api/services";
 import { useQueryClient } from "@tanstack/react-query";
@@ -51,6 +52,10 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
   const router = useRouter();
   const navigate = useCallback((path: string) => router.push(path), [router]);
   const openEntity = useWidgetEntityOpen();
+  // Same idiom as useWidgetEntityOpen's client path — creating mode goes
+  // straight onto the workspace window instead of hopping through the
+  // /clients/new redirect (create-entry consistency 2026-07-04).
+  const openClientWindow = useWindowStore((s) => s.openClientWindow);
   const queryClient = useQueryClient();
   const { queueAction } = useWidgetActionQueue();
 
@@ -285,7 +290,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
               size={size}
             />
             <button
-              onClick={() => navigate("/clients/new")}
+              onClick={() => openClientWindow({ clientId: null, mode: "creating" })}
               className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-surface-hover transition-colors text-text-mute hover:text-text-2"
               title={t("clientList.newClient") ?? "New Client"}
             >
