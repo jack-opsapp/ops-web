@@ -26,6 +26,13 @@ interface AddressAutocompleteProps {
   value: string;
   /** Fires when the operator picks a result from the dropdown. */
   onChange: (selection: AddressSelection) => void;
+  /**
+   * Fires on every keystroke with the raw draft text. Form consumers use it
+   * to keep free-typed addresses (no suggestion picked) from being lost on
+   * submit — a typed-only address carries no coordinates, so callers should
+   * null their lat/lng until a real {@link onChange} selection arrives.
+   */
+  onDraftChange?: (draft: string) => void;
   placeholder?: string;
   /** Optional label override. Defaults to "Address" for accessibility. */
   ariaLabel?: string;
@@ -45,6 +52,7 @@ interface AddressAutocompleteProps {
 export function AddressAutocomplete({
   value,
   onChange,
+  onDraftChange,
   placeholder,
   ariaLabel,
   disabled,
@@ -301,6 +309,7 @@ export function AddressAutocomplete({
           placeholder={resolvedPlaceholder}
           onChange={(e) => {
             setDraft(e.target.value);
+            onDraftChange?.(e.target.value);
             setIsOpen(true);
             setActiveIndex(0);
           }}
