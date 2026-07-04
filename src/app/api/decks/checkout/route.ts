@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { resolveDecksCompanyAuth } from "@/lib/decks/route-auth";
-import {
-  getStripe,
-  ensureStripeCustomer,
-  bucketedIdempotencyKey,
-} from "@/lib/stripe/checkout-helpers";
+import { getStripe, bucketedIdempotencyKey } from "@/lib/stripe/checkout-helpers";
 import {
   DECKSET_PRODUCT_KEY,
   DECKSET_PRO_ENTITLEMENT,
@@ -16,6 +12,7 @@ import {
   decksetPriceId,
   decksetProductId,
   decksetStatusUnlocksPro,
+  ensureDecksetStripeCustomer,
   type DecksetBillingPeriod,
 } from "@/lib/decks/billing/stripe-deckset";
 
@@ -67,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { data: mirror, error: mirrorError } = await supabase
     .from("deck_subscriptions")
-    .select("status")
+    .select("status, stripe_customer_id")
     .eq("company_id", auth.companyId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -103,7 +100,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { data: company, error: companyError } = await supabase
     .from("companies")
-    .select("id, name, email, stripe_customer_id")
+    .select(
+      "id, name, email, stripe_customer_id, subscription_status, subscription_plan, subscription_end"
+    )
     .eq("id", auth.companyId)
     .maybeSingle();
 
@@ -126,13 +125,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const stripe = getStripe();
-  const stripeCustomerId = await ensureStripeCustomer({
+  const stripeCustomerId = await ensureDecksetStripeCustomer({
     stripe,
     supabase,
-    companyId: company.id as string,
-    companyName: company.name as string,
-    email: ((company.email as string | null) ?? auth.email) || null,
-    existingCustomerId: (company.stripe_customer_id as string | null) ?? null,
+    company: {
+      id: company.id as string,
+      name: company.name as string,
+      email: (company.email as string | null) ?? null,
+      stripe_customer_id: (company.stripe_customer_id as string | null) ?? null,
+      subscription_status:
+        (company.subscription_status as string | null) ?? null,
+      subscription_plan: (company.subscription_plan as string | null) ?? null,
+      subscription_end: (company.subscription_end as string | null) ?? null,
+    },
+    fallbackEmail: auth.email ?? null,
+    existingDeckCustomerId:
+      (mirror?.stripe_customer_id as string | null) ?? null,
   });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";

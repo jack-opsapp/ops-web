@@ -4,14 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const {
   bucketedIdempotencyKeyMock,
   checkoutSessionCreateMock,
-  ensureStripeCustomerMock,
+  ensureDecksetStripeCustomerMock,
   findUserByAuthMock,
   getServiceRoleClientMock,
   verifyAuthTokenMock,
 } = vi.hoisted(() => ({
   bucketedIdempotencyKeyMock: vi.fn(),
   checkoutSessionCreateMock: vi.fn(),
-  ensureStripeCustomerMock: vi.fn(),
+  ensureDecksetStripeCustomerMock: vi.fn(),
   findUserByAuthMock: vi.fn(),
   getServiceRoleClientMock: vi.fn(),
   verifyAuthTokenMock: vi.fn(),
@@ -37,9 +37,21 @@ vi.mock("@/lib/stripe/checkout-helpers", () => ({
       },
     },
   }),
-  ensureStripeCustomer: ensureStripeCustomerMock,
   bucketedIdempotencyKey: bucketedIdempotencyKeyMock,
 }));
+
+// ensureDecksetStripeCustomer is the only decks-billing symbol we double; the
+// route also imports pure helpers (price/period/metadata) from this module,
+// so re-export the real implementations and override just the customer path.
+vi.mock("@/lib/decks/billing/stripe-deckset", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/decks/billing/stripe-deckset")
+  >("@/lib/decks/billing/stripe-deckset");
+  return {
+    ...actual,
+    ensureDecksetStripeCustomer: ensureDecksetStripeCustomerMock,
+  };
+});
 
 import { POST } from "@/app/api/decks/checkout/route";
 
@@ -135,7 +147,7 @@ describe("POST /api/decks/checkout", () => {
       company_id: COMPANY_ID,
     });
     getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble({}));
-    ensureStripeCustomerMock.mockResolvedValue("cus_123");
+    ensureDecksetStripeCustomerMock.mockResolvedValue("cus_123");
     bucketedIdempotencyKeyMock.mockReturnValue("idem-company-deckset");
     checkoutSessionCreateMock.mockResolvedValue({
       id: "cs_123",
@@ -235,12 +247,16 @@ describe("POST /api/decks/checkout", () => {
     expect(await response.json()).toEqual({
       url: "https://checkout.stripe.com/c/cs_123",
     });
-    expect(ensureStripeCustomerMock).toHaveBeenCalledWith(
+    expect(ensureDecksetStripeCustomerMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        companyId: COMPANY_ID,
-        companyName: "Deckset Field Co",
-        email: "billing@example.com",
-        existingCustomerId: null,
+        company: expect.objectContaining({
+          id: COMPANY_ID,
+          name: "Deckset Field Co",
+          email: "billing@example.com",
+          stripe_customer_id: null,
+        }),
+        fallbackEmail: "deck@example.com",
+        existingDeckCustomerId: null,
       })
     );
     expect(checkoutSessionCreateMock).toHaveBeenCalledWith(
