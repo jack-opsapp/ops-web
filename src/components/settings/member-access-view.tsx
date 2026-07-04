@@ -441,7 +441,11 @@ export function MemberAccessView({
         </div>
         <div className="glass-surface rounded-panel p-2">
           <div className="flex flex-wrap items-center gap-1">
-            {(roles ?? []).map((role) => {
+            {(roles ?? [])
+              // SPEC Operator (hierarchy 0) is the internal ops-console gate,
+              // never a company-assignable role.
+              .filter((role) => role.hierarchy >= 1)
+              .map((role) => {
               const active = role.id === currentRoleId;
               return (
                 <button
