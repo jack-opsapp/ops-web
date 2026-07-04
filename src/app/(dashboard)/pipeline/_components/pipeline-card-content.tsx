@@ -57,6 +57,11 @@ export type PipelineCardEditHandlers = {
     opportunity: Opportunity,
     selection: AddressSelection
   ) => void | Promise<void>;
+  /** Inline estimated-value edit on the card (null clears the value). */
+  onValueSave: (
+    opportunity: Opportunity,
+    value: number | null
+  ) => void | Promise<void>;
 };
 
 export interface PipelineCardContentProps
@@ -117,6 +122,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   onLinkClient,
   onCreateAndLinkClient,
   onAddressSave,
+  onValueSave,
   children,
 }: PipelineCardContentProps) {
   const { t } = useDictionary("pipeline");
@@ -151,7 +157,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
             {clientName}
           </span>
           <span className="font-mono text-data-sm text-text-2 tabular-nums whitespace-nowrap">
-            {opportunity.estimatedValue
+            {opportunity.estimatedValue != null
               ? formatCurrency(opportunity.estimatedValue)
               : "—"}
           </span>
@@ -265,11 +271,11 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                   onAddressSave={onAddressSave}
                 />
               </div>
-              <span className="shrink-0 font-mono text-data-sm text-text">
-                {opportunity.estimatedValue
-                  ? formatCurrency(opportunity.estimatedValue)
-                  : "—"}
-              </span>
+              <InlineValueEditor
+                opportunity={opportunity}
+                canManage={canManage}
+                onValueSave={onValueSave}
+              />
             </div>
 
             <div className="grid grid-cols-3 gap-1 border-t border-line pt-1">
@@ -439,6 +445,140 @@ function InlineTitleEditor({
       style={{ outline: "none", outlineOffset: 0 }}
     >
       {displayTitle}
+    </button>
+  );
+}
+
+/**
+ * InlineValueEditor — the card's estimated-value slot, editable in place on
+ * the same grammar as {@link InlineTitleEditor}: the mono figure is a quiet
+ * click-target (hover reveals an underline); click swaps in a bare bottom-lined
+ * input; Enter/blur commits, Esc restores. Numbers stay JetBrains Mono with
+ * tabular-lining + slashed zero, right-aligned so the figure never shifts
+ * against the card edge. Commits parse loosely ("$12,480" → 12480); an empty
+ * draft clears the value (null — the em-dash state, distinct from $0). All
+ * pointer events stop propagation so editing never starts a card drag.
+ */
+function InlineValueEditor({
+  opportunity,
+  canManage,
+  onValueSave,
+}: {
+  opportunity: Opportunity;
+  canManage: boolean;
+  onValueSave?: PipelineCardEditHandlers["onValueSave"];
+}) {
+  const { t } = useDictionary("pipeline");
+  const value = opportunity.estimatedValue ?? null;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value == null ? "" : String(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const cancelBlurRef = useRef(false);
+
+  useEffect(() => {
+    if (!editing) setDraft(value == null ? "" : String(value));
+  }, [value, editing]);
+
+  useEffect(() => {
+    if (!editing) return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [editing]);
+
+  const display = value == null ? "—" : formatCurrency(value);
+  const editLabel = applyTemplate(
+    t("card.valueEditLabel", "Edit deal value: {value}"),
+    { value: display }
+  );
+  const inputLabel = t("card.valueInputLabel", "Deal value");
+
+  const numClass =
+    "font-mono text-data-sm tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]";
+
+  const commit = () => {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed === "") {
+      if (value != null) void onValueSave?.(opportunity, null);
+      return;
+    }
+    const parsed = Number.parseFloat(trimmed.replace(/[^0-9.-]/g, ""));
+    if (Number.isNaN(parsed)) {
+      setDraft(value == null ? "" : String(value));
+      return;
+    }
+    if (parsed !== value) void onValueSave?.(opportunity, parsed);
+  };
+
+  const cancel = () => {
+    cancelBlurRef.current = true;
+    setDraft(value == null ? "" : String(value));
+    setEditing(false);
+  };
+
+  if (editing && canManage && onValueSave) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="decimal"
+        aria-label={inputLabel}
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onPointerDown={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            cancel();
+          }
+        }}
+        onBlur={() => {
+          if (cancelBlurRef.current) {
+            cancelBlurRef.current = false;
+            return;
+          }
+          commit();
+        }}
+        className={cn(
+          "w-[96px] shrink-0 cursor-text border-0 border-b border-line bg-transparent px-0 py-[1px]",
+          "text-right text-text caret-text outline-none",
+          "transition-colors duration-150 focus:border-line-hi focus:ring-0 focus-visible:outline-none",
+          numClass
+        )}
+        style={{ outline: "none", outlineOffset: 0 }}
+      />
+    );
+  }
+
+  if (!canManage || !onValueSave) {
+    return <span className={cn("shrink-0 text-text", numClass)}>{display}</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={editLabel}
+      className={cn(
+        "shrink-0 cursor-text border-b border-transparent bg-transparent px-0 py-[1px] text-right text-text",
+        "transition-[border-color] duration-150 hover:border-line focus-visible:border-line-hi focus-visible:outline-none",
+        numClass
+      )}
+      onFocus={() => setEditing(true)}
+      onClick={(event) => {
+        event.stopPropagation();
+        setEditing(true);
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      style={{ outline: "none", outlineOffset: 0 }}
+    >
+      {display}
     </button>
   );
 }

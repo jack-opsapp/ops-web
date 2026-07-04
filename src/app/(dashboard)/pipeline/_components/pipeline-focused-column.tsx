@@ -72,6 +72,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   onAssign,
   onScheduleFollowUp,
   onTitleSave,
+  onValueSave,
   onLinkClient,
   onCreateAndLinkClient,
   onAddressSave,
@@ -194,6 +195,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
                 onAssign={() => onAssign(opportunity.id)}
                 onScheduleFollowUp={() => onScheduleFollowUp(opportunity.id)}
                 onTitleSave={onTitleSave}
+                onValueSave={onValueSave}
                 onLinkClient={onLinkClient}
                 onCreateAndLinkClient={onCreateAndLinkClient}
                 onAddressSave={onAddressSave}

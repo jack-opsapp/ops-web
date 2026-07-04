@@ -481,6 +481,8 @@
   "card.viewDetails": "View full details",
   "card.titleEditLabel": "Edit deal title: {title}",
   "card.titleInputLabel": "Deal title",
+  "card.valueEditLabel": "Edit deal value: {value}",
+  "card.valueInputLabel": "Deal value",
   "card.clientLinkLabel": "Link client: {client}",
   "card.clientEmpty": "NO CLIENT",
   "card.clientCurrent": "CURRENT CLIENT",

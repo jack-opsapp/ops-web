@@ -59,6 +59,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   onScheduleFollowUp,
   onMoveStage,
   onTitleSave,
+  onValueSave,
   onLinkClient,
   onCreateAndLinkClient,
   onAddressSave,
@@ -119,6 +120,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
           onScheduleFollowUp={onScheduleFollowUp}
           onOpenDetail={openDetailPanel}
           onTitleSave={onTitleSave}
+          onValueSave={onValueSave}
           onLinkClient={onLinkClient}
           onCreateAndLinkClient={onCreateAndLinkClient}
           onAddressSave={onAddressSave}

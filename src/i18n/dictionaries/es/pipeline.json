@@ -481,6 +481,8 @@
   "card.viewDetails": "Ver detalles completos",
   "card.titleEditLabel": "Editar titulo del trato: {title}",
   "card.titleInputLabel": "Titulo del trato",
+  "card.valueEditLabel": "Editar valor del trato: {value}",
+  "card.valueInputLabel": "Valor del trato",
   "card.clientLinkLabel": "Vincular cliente: {client}",
   "card.clientEmpty": "SIN CLIENTE",
   "card.clientCurrent": "CLIENTE ACTUAL",
