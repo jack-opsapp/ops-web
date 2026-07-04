@@ -23,6 +23,7 @@ import {
   sendPrioritySupportActivated,
 } from "@/lib/email/sendgrid";
 import {
+  DECKSET_PRODUCT_KEY,
   isDecksetCheckoutSession,
   isDecksetSubscription,
   decksetSubscriptionMirrorRow,
@@ -569,11 +570,29 @@ export async function POST(req: NextRequest) {
 
     const { data: company } = await supabase
       .from("companies")
-      .select("id, seat_grace_start_date")
+      .select("id, seat_grace_start_date, subscription_ids_json")
       .eq("stripe_customer_id", customerId)
       .maybeSingle();
 
-    if (company) {
+    // Grace/lockout is a BASE-PLAN state. Deckset subscriptions, add-on
+    // subscriptions (priority support), and one-off invoices all bill the
+    // same Stripe customer — none of their failures may lock the company
+    // out of OPS. Deckset failures reach deck_subscriptions through the
+    // customer.subscription.updated (past_due → in_grace) mirror instead.
+    const isBasePlanFailure =
+      !!company &&
+      invoiceIsOpsBasePlan(
+        invoice,
+        (company.subscription_ids_json as string | null) ?? null
+      );
+
+    if (company && !isBasePlanFailure) {
+      console.log(
+        `[stripe-webhook] invoice.payment_failed ${invoice.id} for company ${company.id} is not the OPS base plan (deckset/add-on/one-off) — subscription_status untouched`
+      );
+    }
+
+    if (company && isBasePlanFailure) {
       const updates: Record<string, unknown> = { subscription_status: "grace" };
       // Only set grace start on the first failure — subsequent retries must not
       // extend the window by overwriting it.
@@ -608,6 +627,69 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ received: true });
+}
+
+// Invoice classification -------------------------------------------------------
+
+/**
+ * Resolve the subscription id an invoice bills, if any. Basil-era invoices
+ * carry it under parent.subscription_details (string when not expanded).
+ */
+function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const sub = invoice.parent?.subscription_details?.subscription;
+  if (typeof sub === "string") return sub;
+  if (sub && typeof sub === "object" && "id" in sub) return sub.id;
+  return null;
+}
+
+/** Price ids across the invoice's line items (pricing.price_details shape). */
+function invoiceLinePriceIds(invoice: Stripe.Invoice): string[] {
+  return (invoice.lines?.data ?? [])
+    .map((line) => {
+      const price = line.pricing?.price_details?.price;
+      if (typeof price === "string") return price;
+      if (price && typeof price === "object" && "id" in price) return price.id;
+      return null;
+    })
+    .filter((priceId): priceId is string => typeof priceId === "string");
+}
+
+/**
+ * True only when the failed invoice bills the OPS base plan:
+ *  - its subscription is the company's tracked base-plan subscription
+ *    (subscription_ids_json is written exclusively by the base-plan branch,
+ *    so this arm also covers legacy/grandfathered prices), or
+ *  - a line bills a configured OPS base-plan price (first-failure race
+ *    before tracking is written).
+ * One-off invoices (no subscription) and Deckset-tagged subscriptions are
+ * never the base plan.
+ */
+function invoiceIsOpsBasePlan(
+  invoice: Stripe.Invoice,
+  trackedIdsJson: string | null
+): boolean {
+  const subscriptionId = invoiceSubscriptionId(invoice);
+  if (!subscriptionId) return false;
+
+  const metadata = invoice.parent?.subscription_details?.metadata;
+  if (metadata?.product === DECKSET_PRODUCT_KEY) return false;
+
+  let trackedIds: string[] = [];
+  if (trackedIdsJson) {
+    try {
+      const parsed = JSON.parse(trackedIdsJson);
+      if (Array.isArray(parsed)) {
+        trackedIds = parsed.filter((v): v is string => typeof v === "string");
+      }
+    } catch {
+      // malformed json — fall through to the price check
+    }
+  }
+  if (trackedIds.includes(subscriptionId)) return true;
+
+  return invoiceLinePriceIds(invoice).some(
+    (priceId) => planFromStripePriceId(priceId) !== null
+  );
 }
 
 // PMF helpers -----------------------------------------------------------------
