@@ -137,7 +137,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
   const { successUrl, cancelUrl } = buildDecksetCheckoutReturnUrls({ appUrl });
-  const productId = decksetProductId(body.period);
+
+  // One metadata object reused for both the session and the subscription so
+  // the two can never drift.
+  const metadata = decksetCheckoutMetadata({
+    companyId: company.id as string,
+    authUid: auth.uid,
+    period: body.period,
+    productId: decksetProductId(body.period),
+  });
 
   try {
     const session = await stripe.checkout.sessions.create(
@@ -149,19 +157,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         success_url: successUrl,
         cancel_url: cancelUrl,
         allow_promotion_codes: true,
-        metadata: decksetCheckoutMetadata({
-          companyId: company.id as string,
-          authUid: auth.uid,
-          period: body.period,
-          productId,
-        }),
+        metadata,
         subscription_data: {
-          metadata: decksetCheckoutMetadata({
-            companyId: company.id as string,
-            authUid: auth.uid,
-            period: body.period,
-            productId,
-          }),
+          metadata,
         },
       },
       {

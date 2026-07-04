@@ -258,18 +258,12 @@ export async function POST(req: NextRequest) {
     const isAddonSubscription = !!addonFromPriceId(itemPriceId);
 
     if (company && isDecksetSubscription(subscription)) {
-      const result = await handleDecksetSubscriptionChange({
+      return handleDecksetSubscriptionEvent({
         supabase,
         companyId: company.id as string,
         subscription,
-        eventCreated: event.created,
+        event,
       });
-      if (result) return result;
-
-      await supabase
-        .from("stripe_webhook_events")
-        .insert({ event_id: event.id, event_type: event.type });
-      return NextResponse.json({ received: true, product: "deckset" });
     }
 
     if (company && isAddonSubscription && isPrioritySupportPrice(itemPriceId)) {
@@ -444,18 +438,12 @@ export async function POST(req: NextRequest) {
     // plan's subscription_status when an add-on subscription is deleted.
     const itemPriceId = subscription.items.data[0]?.price?.id;
     if (company && isDecksetSubscription(subscription)) {
-      const result = await handleDecksetSubscriptionChange({
+      return handleDecksetSubscriptionEvent({
         supabase,
         companyId: company.id as string,
         subscription,
-        eventCreated: event.created,
+        event,
       });
-      if (result) return result;
-
-      await supabase
-        .from("stripe_webhook_events")
-        .insert({ event_id: event.id, event_type: event.type });
-      return NextResponse.json({ received: true, product: "deckset" });
     }
 
     if (company && isPrioritySupportPrice(itemPriceId)) {
@@ -1114,6 +1102,33 @@ async function handleDecksetCheckoutCompleted(args: {
   });
 }
 
+/**
+ * Route a Deckset customer.subscription.* event: mirror the entitlement, then
+ * record the dedup event and ack. Both the .updated and .deleted branches
+ * funnel through here so the two can never drift.
+ */
+async function handleDecksetSubscriptionEvent(args: {
+  supabase: SupabaseClient;
+  companyId: string;
+  subscription: Stripe.Subscription;
+  event: Stripe.Event;
+}): Promise<NextResponse> {
+  const { supabase, companyId, subscription, event } = args;
+
+  const result = await handleDecksetSubscriptionChange({
+    supabase,
+    companyId,
+    subscription,
+    eventCreated: event.created,
+  });
+  if (result) return result;
+
+  await supabase
+    .from("stripe_webhook_events")
+    .insert({ event_id: event.id, event_type: event.type });
+  return NextResponse.json({ received: true, product: "deckset" });
+}
+
 async function handleDecksetSubscriptionChange(args: {
   supabase: SupabaseClient;
   companyId: string;
@@ -1130,6 +1145,38 @@ async function handleDecksetSubscriptionChange(args: {
     eventCreated,
     checkoutSessionId,
   });
+
+  // Out-of-order guard. Stripe does not guarantee delivery order, so a delayed
+  // older subscription.updated (e.g. status active) can arrive AFTER a newer
+  // cancellation and would otherwise resurrect Pro for free. Skip the write
+  // when the mirror already reflects a strictly newer event. Mirrors the
+  // base-plan branch's N4 stale-event guard (read-then-decide in JS).
+  const { data: existing, error: readError } = await supabase
+    .from("deck_subscriptions")
+    .select("last_event_at")
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  if (readError) {
+    console.error(
+      `[stripe-webhook] Failed to read Deckset mirror for ${companyId}:`,
+      readError.message
+    );
+    return NextResponse.json(
+      { error: "Deckset subscription mirror failed" },
+      { status: 500 }
+    );
+  }
+
+  if (existing?.last_event_at) {
+    const existingMs = Date.parse(existing.last_event_at as string);
+    if (Number.isFinite(existingMs) && existingMs > eventCreated * 1000) {
+      console.log(
+        `[stripe-webhook] Skipping stale Deckset event for ${companyId} (sub=${subscription.id}); mirror last_event_at ${existing.last_event_at} is newer than event ${new Date(eventCreated * 1000).toISOString()}`
+      );
+      return null;
+    }
+  }
 
   const { error } = await supabase
     .from("deck_subscriptions")

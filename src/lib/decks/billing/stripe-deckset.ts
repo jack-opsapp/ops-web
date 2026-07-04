@@ -122,9 +122,14 @@ export function decksetSubscriptionMirrorRow(params: {
   const item = subscription.items.data[0];
   const priceId = item?.price?.id ?? null;
   const period = decksetPeriodFromStripePriceId(priceId);
+  // Live price id first — a Stripe portal plan-switch (monthly ⇄ annual)
+  // updates the line item but leaves subscription.metadata.productId stamped
+  // at checkout, so trusting metadata would pin a stale SKU. Metadata is the
+  // fallback only when the price is unmapped (legacy/unknown).
   const productId =
+    (period ? decksetProductId(period) : null) ??
     subscription.metadata?.productId ??
-    (period ? decksetProductId(period) : priceId) ??
+    priceId ??
     DECKSET_PRO_ENTITLEMENT;
   const currentPeriodEnd = item?.current_period_end
     ? new Date(item.current_period_end * 1000).toISOString()

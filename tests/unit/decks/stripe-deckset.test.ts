@@ -97,4 +97,63 @@ describe("Deckset Stripe billing helpers", () => {
       deleted_at: null,
     });
   });
+
+  it("derives product_id from the live price id, not stale metadata", () => {
+    vi.stubEnv("STRIPE_PRICE_DECK_PRO_MONTHLY", "price_deck_monthly");
+    vi.stubEnv("STRIPE_PRICE_DECK_PRO_ANNUAL", "price_deck_annual");
+    // Portal plan switch monthly → annual: the line item now bills the
+    // annual price, but the subscription metadata still carries the SKU
+    // stamped at checkout. The live price must win.
+    const subscription = {
+      id: "sub_switch",
+      customer: "cus_123",
+      status: "active",
+      metadata: { productId: "deck_pro_monthly" },
+      items: {
+        data: [
+          {
+            current_period_end: 1893456000,
+            price: { id: "price_deck_annual" },
+          },
+        ],
+      },
+    } as unknown as Stripe.Subscription;
+
+    expect(
+      decksetSubscriptionMirrorRow({
+        companyId: "00000000-0000-4000-8000-000000000001",
+        subscription,
+        eventCreated: 1890864000,
+      })
+    ).toMatchObject({
+      product_id: "deck_pro_annual",
+      stripe_price_id: "price_deck_annual",
+    });
+  });
+
+  it("falls back to metadata productId when the price is unknown", () => {
+    vi.stubEnv("STRIPE_PRICE_DECK_PRO_MONTHLY", "price_deck_monthly");
+    const subscription = {
+      id: "sub_meta",
+      customer: "cus_123",
+      status: "active",
+      metadata: { product: "deckset", entitlement: "deck_pro", productId: "deck_pro_monthly" },
+      items: {
+        data: [
+          {
+            current_period_end: 1893456000,
+            price: { id: "price_unmapped_legacy" },
+          },
+        ],
+      },
+    } as unknown as Stripe.Subscription;
+
+    expect(
+      decksetSubscriptionMirrorRow({
+        companyId: "00000000-0000-4000-8000-000000000001",
+        subscription,
+        eventCreated: 1890864000,
+      })
+    ).toMatchObject({ product_id: "deck_pro_monthly" });
+  });
 });
