@@ -72,6 +72,49 @@ export function isDecksetSubscription(
   );
 }
 
+/** Subscription id an invoice bills (Basil parent.subscription_details shape). */
+export function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const sub = invoice.parent?.subscription_details?.subscription;
+  if (typeof sub === "string") return sub;
+  if (sub && typeof sub === "object" && "id" in sub) return sub.id;
+  return null;
+}
+
+/** Snapshot of the subscription metadata captured at invoice finalization. */
+export function invoiceSubscriptionMetadata(
+  invoice: Stripe.Invoice
+): Stripe.Metadata | null {
+  return invoice.parent?.subscription_details?.metadata ?? null;
+}
+
+/** Price ids across the invoice's line items (pricing.price_details shape). */
+export function invoiceLinePriceIds(invoice: Stripe.Invoice): string[] {
+  return (invoice.lines?.data ?? [])
+    .map((line) => {
+      const price = line.pricing?.price_details?.price;
+      if (typeof price === "string") return price;
+      if (price && typeof price === "object" && "id" in price) return price.id;
+      return null;
+    })
+    .filter((priceId): priceId is string => typeof priceId === "string");
+}
+
+/**
+ * True when an invoice bills the Deckset Pro subscription — by the metadata
+ * snapshot (product + entitlement stamped at checkout) or by any line item
+ * pricing a Deckset Pro price. Pure/synchronous.
+ */
+export function isDecksetInvoice(invoice: Stripe.Invoice): boolean {
+  const metadata = invoiceSubscriptionMetadata(invoice);
+  if (
+    metadata?.product === DECKSET_PRODUCT_KEY &&
+    metadata?.entitlement === DECKSET_PRO_ENTITLEMENT
+  ) {
+    return true;
+  }
+  return invoiceLinePriceIds(invoice).some(isDecksetProStripePrice);
+}
+
 export function mapStripeSubscriptionStatusToDecksetStatus(
   status: Stripe.Subscription.Status
 ): DecksetSubscriptionStatus {
@@ -193,6 +236,79 @@ export async function ensureDecksetStripeCustomer(params: {
     email,
     existingCustomerId: params.company.stripe_customer_id,
   });
+}
+
+/**
+ * Classify whether a PMF-tracked Stripe event is a Deckset event, so it can be
+ * kept out of the billing_events ledger (which drives OPS MRR, first_paid,
+ * churn, and retention cohorts — none of which may count Deckset revenue).
+ *
+ * Subscription / checkout / invoice events classify synchronously off their
+ * own payload. Charge events (refund / dispute) carry no direct product
+ * marker, so we trace charge → payment_intent → invoice payment → invoice and
+ * classify that; any failure or ambiguity FAILS OPEN (treated as non-Deckset,
+ * i.e. ingested) so a genuine OPS refund is never silently dropped.
+ */
+export async function isDecksetBillingEvent(
+  event: Stripe.Event,
+  stripe: Stripe
+): Promise<boolean> {
+  switch (event.type) {
+    case "customer.subscription.created":
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted":
+      return isDecksetSubscription(event.data.object as Stripe.Subscription);
+    case "checkout.session.completed":
+      return isDecksetCheckoutSession(
+        event.data.object as Stripe.Checkout.Session
+      );
+    case "invoice.paid":
+    case "invoice.payment_failed":
+      return isDecksetInvoice(event.data.object as Stripe.Invoice);
+    case "charge.refunded":
+    case "charge.dispute.created":
+      return isDecksetChargeEvent(event, stripe);
+    default:
+      return false;
+  }
+}
+
+function chargePaymentIntentId(event: Stripe.Event): string | null {
+  const obj = event.data.object as {
+    payment_intent?: string | { id?: string } | null;
+  };
+  const pi = obj.payment_intent;
+  if (typeof pi === "string") return pi;
+  if (pi && typeof pi === "object" && typeof pi.id === "string") return pi.id;
+  return null;
+}
+
+async function isDecksetChargeEvent(
+  event: Stripe.Event,
+  stripe: Stripe
+): Promise<boolean> {
+  const paymentIntentId = chargePaymentIntentId(event);
+  if (!paymentIntentId) return false; // one-off / non-invoice charge — fail open
+
+  try {
+    const payments = await stripe.invoicePayments.list({
+      payment: { type: "payment_intent", payment_intent: paymentIntentId },
+      expand: ["data.invoice"],
+      limit: 1,
+    });
+    const invoice = payments.data[0]?.invoice;
+    if (invoice && typeof invoice === "object" && "lines" in invoice) {
+      return isDecksetInvoice(invoice as Stripe.Invoice);
+    }
+    return false;
+  } catch (err) {
+    // Fail open — never drop a real OPS refund because a lookup failed.
+    console.warn(
+      `[stripe-deckset] Deckset charge classification failed for ${event.id}; ingesting as OPS:`,
+      err instanceof Error ? err.message : err
+    );
+    return false;
+  }
 }
 
 export function decksetSubscriptionMirrorRow(params: {

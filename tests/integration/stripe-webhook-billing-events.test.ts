@@ -241,6 +241,83 @@ describe("Stripe webhook → billing_events", () => {
     expect(billingInserts).toHaveLength(0);
   });
 
+  it("does NOT ingest a Deckset invoice.paid into billing_events", async () => {
+    const evt = {
+      id: `evt_deck_invoice_${Date.now()}`,
+      type: "invoice.paid",
+      created: Math.floor(Date.now() / 1000),
+      data: {
+        object: {
+          customer: "cus_deck",
+          amount_paid: 11900,
+          currency: "usd",
+          parent: {
+            type: "subscription_details",
+            subscription_details: {
+              subscription: "sub_deck",
+              metadata: { product: "deckset", entitlement: "deck_pro" },
+            },
+          },
+          lines: { data: [] },
+        },
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await POST(buildReq(evt) as any);
+    expect(res.status).toBe(200);
+    expect(insertCalls.filter((c) => c.table === "billing_events")).toHaveLength(0);
+  });
+
+  it("does NOT ingest a Deckset customer.subscription.created into billing_events", async () => {
+    const evt = {
+      id: `evt_deck_sub_${Date.now()}`,
+      type: "customer.subscription.created",
+      created: Math.floor(Date.now() / 1000),
+      data: {
+        object: {
+          id: "sub_deck_new",
+          customer: "cus_deck",
+          status: "active",
+          metadata: { product: "deckset", entitlement: "deck_pro" },
+          items: { data: [{ price: { id: "price_x" }, current_period_end: 1234567890 }] },
+        },
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await POST(buildReq(evt) as any);
+    expect(res.status).toBe(200);
+    expect(insertCalls.filter((c) => c.table === "billing_events")).toHaveLength(0);
+  });
+
+  it("does NOT ingest a Deckset checkout.session.completed into billing_events", async () => {
+    const evt = {
+      id: `evt_deck_checkout_${Date.now()}`,
+      type: "checkout.session.completed",
+      created: Math.floor(Date.now() / 1000),
+      data: {
+        object: {
+          id: "cs_deck",
+          customer: "cus_deck",
+          // No subscription id → the belt-and-suspenders mirror path no-ops
+          // without a network call; we only assert the ledger exclusion here.
+          subscription: null,
+          amount_total: 11900,
+          currency: "usd",
+          client_reference_id: "00000000-0000-4000-8000-000000000001",
+          metadata: {
+            product: "deckset",
+            entitlement: "deck_pro",
+            companyId: "00000000-0000-4000-8000-000000000001",
+          },
+        },
+      },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = await POST(buildReq(evt) as any);
+    expect(res.status).toBe(200);
+    expect(insertCalls.filter((c) => c.table === "billing_events")).toHaveLength(0);
+  });
+
   it("rejects with 400 on bad signature", async () => {
     const req = new Request("http://localhost/api/webhooks/stripe", {
       method: "POST",

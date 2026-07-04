@@ -23,9 +23,12 @@ import {
   sendPrioritySupportActivated,
 } from "@/lib/email/sendgrid";
 import {
-  DECKSET_PRODUCT_KEY,
   isDecksetCheckoutSession,
   isDecksetSubscription,
+  isDecksetInvoice,
+  isDecksetBillingEvent,
+  invoiceSubscriptionId,
+  invoiceLinePriceIds,
   decksetSubscriptionMirrorRow,
 } from "@/lib/decks/billing/stripe-deckset";
 
@@ -97,7 +100,14 @@ export async function POST(req: NextRequest) {
   // independently of the per-type handlers below: billing_events is the PMF
   // analytics ledger, not a state-machine action. The unique constraint on
   // stripe_event_id absorbs duplicate replays (a 23505 here is benign).
-  if (PMF_TRACKED_EVENTS.has(event.type)) {
+  if (PMF_TRACKED_EVENTS.has(event.type) && (await isDecksetBillingEvent(event, getStripe()))) {
+    // Deckset revenue lives in deck_subscriptions, never in billing_events.
+    // Ingesting it would inflate OPS MRR and trip billing_events_first_paid /
+    // retention-cohort / churn queries with deck-only companies.
+    console.log(
+      `[stripe-webhook] Excluding Deckset event ${event.id} (${event.type}) from PMF billing_events`
+    );
+  } else if (PMF_TRACKED_EVENTS.has(event.type)) {
     const customer = extractCustomerId(event);
     const amountCents = extractAmountCents(event);
     const occurredAt = new Date(event.created * 1000).toISOString();
@@ -617,30 +627,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ received: true });
 }
 
-// Invoice classification -------------------------------------------------------
-
-/**
- * Resolve the subscription id an invoice bills, if any. Basil-era invoices
- * carry it under parent.subscription_details (string when not expanded).
- */
-function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
-  const sub = invoice.parent?.subscription_details?.subscription;
-  if (typeof sub === "string") return sub;
-  if (sub && typeof sub === "object" && "id" in sub) return sub.id;
-  return null;
-}
-
-/** Price ids across the invoice's line items (pricing.price_details shape). */
-function invoiceLinePriceIds(invoice: Stripe.Invoice): string[] {
-  return (invoice.lines?.data ?? [])
-    .map((line) => {
-      const price = line.pricing?.price_details?.price;
-      if (typeof price === "string") return price;
-      if (price && typeof price === "object" && "id" in price) return price.id;
-      return null;
-    })
-    .filter((priceId): priceId is string => typeof priceId === "string");
-}
+// Invoice / event classification ----------------------------------------------
 
 /**
  * True only when the failed invoice bills the OPS base plan:
@@ -649,8 +636,8 @@ function invoiceLinePriceIds(invoice: Stripe.Invoice): string[] {
  *    so this arm also covers legacy/grandfathered prices), or
  *  - a line bills a configured OPS base-plan price (first-failure race
  *    before tracking is written).
- * One-off invoices (no subscription) and Deckset-tagged subscriptions are
- * never the base plan.
+ * One-off invoices (no subscription) and Deckset-tagged invoices are never
+ * the base plan.
  */
 function invoiceIsOpsBasePlan(
   invoice: Stripe.Invoice,
@@ -658,9 +645,7 @@ function invoiceIsOpsBasePlan(
 ): boolean {
   const subscriptionId = invoiceSubscriptionId(invoice);
   if (!subscriptionId) return false;
-
-  const metadata = invoice.parent?.subscription_details?.metadata;
-  if (metadata?.product === DECKSET_PRODUCT_KEY) return false;
+  if (isDecksetInvoice(invoice)) return false;
 
   let trackedIds: string[] = [];
   if (trackedIdsJson) {

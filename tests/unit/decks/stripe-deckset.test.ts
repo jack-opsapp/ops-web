@@ -5,6 +5,8 @@ import {
   decksetProductId,
   decksetStatusUnlocksPro,
   decksetSubscriptionMirrorRow,
+  isDecksetBillingEvent,
+  isDecksetInvoice,
   isDecksetProStripePrice,
   mapStripeSubscriptionStatusToDecksetStatus,
 } from "@/lib/decks/billing/stripe-deckset";
@@ -155,5 +157,136 @@ describe("Deckset Stripe billing helpers", () => {
         eventCreated: 1890864000,
       })
     ).toMatchObject({ product_id: "deck_pro_monthly" });
+  });
+
+  describe("isDecksetInvoice", () => {
+    it("is true from the subscription metadata snapshot", () => {
+      const invoice = {
+        parent: {
+          subscription_details: {
+            subscription: "sub_1",
+            metadata: { product: "deckset", entitlement: "deck_pro" },
+          },
+        },
+        lines: { data: [] },
+      } as unknown as Stripe.Invoice;
+      expect(isDecksetInvoice(invoice)).toBe(true);
+    });
+
+    it("is true from a Deckset line price when metadata is absent", () => {
+      vi.stubEnv("STRIPE_PRICE_DECK_PRO_MONTHLY", "price_deck_monthly");
+      const invoice = {
+        parent: { subscription_details: { subscription: "sub_1", metadata: {} } },
+        lines: {
+          data: [{ pricing: { price_details: { price: "price_deck_monthly" } } }],
+        },
+      } as unknown as Stripe.Invoice;
+      expect(isDecksetInvoice(invoice)).toBe(true);
+    });
+
+    it("is false for an OPS base-plan invoice", () => {
+      vi.stubEnv("STRIPE_PRICE_DECK_PRO_MONTHLY", "price_deck_monthly");
+      const invoice = {
+        parent: { subscription_details: { subscription: "sub_1", metadata: {} } },
+        lines: {
+          data: [{ pricing: { price_details: { price: "price_ops_team" } } }],
+        },
+      } as unknown as Stripe.Invoice;
+      expect(isDecksetInvoice(invoice)).toBe(false);
+    });
+  });
+
+  describe("isDecksetBillingEvent", () => {
+    const noopStripe = {} as unknown as Stripe;
+
+    it("classifies a Deckset subscription event synchronously", async () => {
+      const event = {
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            metadata: { product: "deckset", entitlement: "deck_pro" },
+            items: { data: [{ price: { id: "price_x" } }] },
+          },
+        },
+      } as unknown as Stripe.Event;
+      expect(await isDecksetBillingEvent(event, noopStripe)).toBe(true);
+    });
+
+    it("classifies a Deckset checkout.session.completed synchronously", async () => {
+      const event = {
+        type: "checkout.session.completed",
+        data: {
+          object: { metadata: { product: "deckset", entitlement: "deck_pro" } },
+        },
+      } as unknown as Stripe.Event;
+      expect(await isDecksetBillingEvent(event, noopStripe)).toBe(true);
+    });
+
+    it("returns false for an OPS subscription event", async () => {
+      const event = {
+        type: "customer.subscription.created",
+        data: {
+          object: { metadata: {}, items: { data: [{ price: { id: "price_ops" } }] } },
+        },
+      } as unknown as Stripe.Event;
+      expect(await isDecksetBillingEvent(event, noopStripe)).toBe(false);
+    });
+
+    it("traces a charge refund to its invoice and classifies it Deckset", async () => {
+      const list = vi.fn(async () => ({
+        data: [
+          {
+            invoice: {
+              lines: { data: [] },
+              parent: {
+                subscription_details: {
+                  metadata: { product: "deckset", entitlement: "deck_pro" },
+                },
+              },
+            },
+          },
+        ],
+      }));
+      const stripe = { invoicePayments: { list } } as unknown as Stripe;
+      const event = {
+        id: "evt_refund",
+        type: "charge.refunded",
+        data: { object: { payment_intent: "pi_deck" } },
+      } as unknown as Stripe.Event;
+
+      expect(await isDecksetBillingEvent(event, stripe)).toBe(true);
+      expect(list).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payment: { type: "payment_intent", payment_intent: "pi_deck" },
+        })
+      );
+    });
+
+    it("fails open (false) when a charge carries no payment_intent", async () => {
+      const list = vi.fn();
+      const stripe = { invoicePayments: { list } } as unknown as Stripe;
+      const event = {
+        id: "evt_refund_oneoff",
+        type: "charge.refunded",
+        data: { object: { customer: "cus_1", amount_refunded: 500 } },
+      } as unknown as Stripe.Event;
+
+      expect(await isDecksetBillingEvent(event, stripe)).toBe(false);
+      expect(list).not.toHaveBeenCalled();
+    });
+
+    it("fails open (false) when the invoice-payment lookup throws", async () => {
+      const list = vi.fn(async () => {
+        throw new Error("stripe down");
+      });
+      const stripe = { invoicePayments: { list } } as unknown as Stripe;
+      const event = {
+        id: "evt_refund_err",
+        type: "charge.refunded",
+        data: { object: { payment_intent: "pi_x" } },
+      } as unknown as Stripe.Event;
+
+      expect(await isDecksetBillingEvent(event, stripe)).toBe(false);
+    });
   });
 });
