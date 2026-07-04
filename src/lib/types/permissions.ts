@@ -422,6 +422,20 @@ export function getModuleLabel(moduleId: string): string {
   return _moduleLabelMap.get(moduleId) ?? moduleId;
 }
 
+const _permissionModuleMap = new Map<string, string>();
+for (const cat of PERMISSION_CATEGORIES) {
+  for (const mod of cat.modules) {
+    for (const action of mod.actions) {
+      _permissionModuleMap.set(action.id, mod.id);
+    }
+  }
+}
+
+/** Map a permission id to its owning module id (e.g. "catalog.products.view" → "catalog"). */
+export function getModuleForPermission(permission: string): string | null {
+  return _permissionModuleMap.get(permission) ?? null;
+}
+
 /** Get the available scopes for a specific permission */
 export function getPermissionScopes(permission: string): PermissionScope[] {
   for (const cat of PERMISSION_CATEGORIES) {

@@ -104,7 +104,6 @@
   "sections.members": "Members",
   "sections.billing": "Billing",
   "sections.automation": "Automation",
-
   "team.crew": "Crew",
   "team.members": "Members",
   "team.seats": "Seats",
@@ -131,12 +130,9 @@
   "team.hoursAgo": "h",
   "team.yesterday": "yesterday",
   "team.daysAgo": "d",
-  "team.assignCompanyRole": "Assign company role",
-  "team.changeRole": "Change role",
   "team.matches": "Matches",
   "team.actions": "Actions",
   "team.searchPlaceholder": "Search crew",
-
   "tabs.account": "Account",
   "tabs.company": "Company",
   "tabs.operations": "Operations",
@@ -145,7 +141,6 @@
   "tabs.ai": "AI",
   "tabs.preferences": "Preferences",
   "tabs.developer": "Developer",
-
   "sections.profile": "Profile",
   "sections.appearance": "Appearance",
   "sections.shortcuts": "Keyboard Shortcuts",
@@ -169,7 +164,6 @@
   "sections.notifications": "Notifications",
   "sections.map": "Map",
   "sections.expenses": "Expenses",
-
   "profile.title": "Profile Information",
   "profile.fullName": "Full Name",
   "profile.email": "Email",
@@ -185,7 +179,6 @@
   "profile.toast.updated": "Profile updated successfully",
   "profile.toast.updateFailed": "Failed to update profile",
   "profile.toast.tryAgain": "Please try again.",
-
   "password.title": "Change Password",
   "password.description": "Update the password you use to sign in.",
   "password.currentPassword": "Current Password",
@@ -207,7 +200,6 @@
   "password.reset.send": "Send Reset Link",
   "password.reset.sent": "Reset link sent — check your email",
   "password.reset.sentButton": "Link Sent",
-
   "appearance.theme": "Theme",
   "appearance.accentColor": "Accent Color",
   "appearance.fontSize": "Font Size",
@@ -225,7 +217,6 @@
   "appearance.toast.fontSize": "Font size set to",
   "appearance.toast.compactEnabled": "Compact mode enabled",
   "appearance.toast.compactDisabled": "Compact mode disabled",
-
   "shortcuts.showShortcuts": "Show Keyboard Shortcuts",
   "shortcuts.showShortcutsDesc": "Display shortcut hints inline on action buttons",
   "shortcuts.navigation": "Navigation",
@@ -235,7 +226,6 @@
   "shortcuts.projects": "Projects",
   "shortcuts.schedule": "Schedule",
   "shortcuts.clients": "Clients",
-
   "shortcuts.team": "Team",
   "shortcuts.map": "Map",
   "shortcuts.pipeline": "Pipeline",
@@ -245,7 +235,6 @@
   "shortcuts.newClient": "New client",
   "shortcuts.toggleSidebar": "Toggle sidebar",
   "shortcuts.footer": "On Windows/Linux, use Ctrl instead of ⌘",
-
   "company.title": "Company Details",
   "company.logo": "Company Logo",
   "company.name": "Company Name",
@@ -271,7 +260,6 @@
   "company.toast.codeCopied": "Company code copied to clipboard",
   "company.companyCode": "Company Code",
   "company.companyCodeHint": "Share this code with team members so they can join your company.",
-
   "team.inviteTitle": "Invite Team Members",
   "team.inviteDescription": "Add teammates by email or phone. They'll receive an invite link to join your company.",
   "team.seatUsage": "Seat Usage",
@@ -353,7 +341,30 @@
   "team.toast.roleAssignFailed": "Failed to update invite role",
   "team.toast.inviteRevoked": "Invitation revoked",
   "team.toast.inviteRevokeFailed": "Failed to revoke invitation",
-
+  "team.adjustAccess": "Adjust access",
+  "team.access.back": "Team",
+  "team.access.roleTitle": "Role",
+  "team.access.roleLocked": "save exceptions first",
+  "team.access.accessTitle": "Access",
+  "team.access.save": "Save changes",
+  "team.access.unsaved": "Unsaved",
+  "team.access.exceptionOne": "exception",
+  "team.access.exceptionMany": "exceptions",
+  "team.access.resetAll": "Reset all",
+  "team.access.resetModule": "Reset to role",
+  "team.access.matchesRolePrefix": "No exceptions. Access follows the",
+  "team.access.noRole": "No role assigned. Assign one above to grant access.",
+  "team.access.roleSet": "Role set to",
+  "team.access.roleSetFailed": "Couldn't set role",
+  "team.access.saved": "Access updated",
+  "team.access.saveFailed": "Couldn't save access",
+  "team.access.fullAccessTitle": "Full access",
+  "team.access.fullAccessBody": "Owners and admins hold every permission, so exceptions don't apply. Remove admin status in company settings to scope their access.",
+  "team.access.exception.added": "Added",
+  "team.access.exception.widened": "Widened",
+  "team.access.exception.narrowed": "Narrowed",
+  "team.access.exception.revoked": "Revoked",
+  "team.access.exception.mixed": "Exception",
   "taskTypes.title": "Task Types",
   "taskTypes.addType": "Add Type",
   "taskTypes.description": "Configure task types, assign default crews, and define task templates that auto-generate when estimates are approved.",
@@ -380,7 +391,6 @@
   "taskTypes.toast.created": "Task type created",
   "taskTypes.toast.createFailed": "Failed to create",
   "taskTypes.toast.crewUpdateFailed": "Failed to update crew",
-
   "subscription.currentPlan": "Current Plan",
   "subscription.seatUsage": "Seat Usage",
   "subscription.planFeatures": "Included Features",
@@ -411,10 +421,8 @@
   "subscription.toast.subscribeFailed": "Failed to update plan",
   "subscription.toast.contactSupport": "Contact support to upgrade your plan",
   "subscription.toast.emailSupport": "Email support@opsapp.co for subscription changes.",
-
   "addons.section.title": "Add-ons",
   "addons.section.subtitle": "Bolt on extra horsepower without changing plans.",
-
   "addons.dataSetup.title": "Data Setup",
   "addons.dataSetup.badge": "ONE-TIME",
   "addons.dataSetup.description": "We move your jobs, clients, and crew from the old software. You skip the data-entry weekend.",
@@ -428,7 +436,6 @@
   "addons.dataSetup.statusInProgress.copy": "Migration running now.",
   "addons.dataSetup.statusCompleted.pill": "Completed",
   "addons.dataSetup.statusCompleted.copy": "Your data is in.",
-
   "addons.prioritySupport.title": "Priority Support",
   "addons.prioritySupport.badge": "MONTHLY / ANNUAL",
   "addons.prioritySupport.description": "Front of the line. The founder picks up your message first, every time.",
@@ -440,12 +447,10 @@
   "addons.prioritySupport.contactCta": "Contact priority support",
   "addons.prioritySupport.manageCta": "Manage in billing portal",
   "addons.prioritySupport.priceFallback": "—",
-
   "addons.toast.purchaseFailed": "Couldn't start checkout",
   "addons.toast.alreadyPurchased": "Already purchased for this company.",
   "addons.toast.alreadyActive": "Priority Support is already on.",
   "addons.toast.signInRequired": "Sign in again to purchase.",
-
   "billing.paymentMethod": "Payment Method",
   "billing.billingHistory": "Billing History",
   "billing.noPaymentMethod": "No payment method on file",
@@ -473,7 +478,6 @@
   "billing.toast.addFailed": "Failed to add card",
   "billing.toast.added": "Payment method added",
   "billing.toast.unknownError": "Unknown error",
-
   "integrations.companyGmail": "Business Email",
   "integrations.myGmail": "My Gmail",
   "integrations.followUpMonitoring": "Follow-up Monitoring",
@@ -518,7 +522,6 @@
   "integrations.frequencyUpdated": "Sync frequency updated",
   "integrations.toast.importStarted": "Historical import started",
   "integrations.toast.importFailed": "Failed to start import",
-
   "preferences.quickActionsDesc": "Choose which actions appear in the quick-add menu.",
   "preferences.language": "Language",
   "preferences.idioma": "Idioma",
@@ -554,7 +557,6 @@
   "preferences.toast.schedulingSet": "Scheduling set to",
   "preferences.toast.notificationsEnabled": "notifications enabled",
   "preferences.toast.notificationsDisabled": "notifications disabled",
-
   "dataPrivacy.exportTitle": "Export Your Data",
   "dataPrivacy.retentionTitle": "Data Retention",
   "dataPrivacy.deleteTitle": "Delete Account",
@@ -577,7 +579,6 @@
   "dataPrivacy.toast.deleted": "Account deleted",
   "dataPrivacy.toast.deleteFailed": "Deletion failed",
   "dataPrivacy.toast.unknownError": "Unknown error",
-
   "portalBranding.logoTitle": "Company Logo",
   "portalBranding.accentTitle": "Accent Color",
   "portalBranding.templateTitle": "Portal Template",
@@ -625,7 +626,6 @@
   "portalBranding.descriptions": "Descriptions",
   "portalBranding.tax": "Tax",
   "portalBranding.discount": "Discount",
-
   "templates.title": "Templates",
   "templates.nameType": "Name & Type",
   "templates.fieldVisibility": "Field Visibility",
@@ -670,7 +670,6 @@
   "templates.toast.tryAgain": "Please try again.",
   "templates.deleteTemplate": "Delete",
   "templates.newTemplateName": "New Template",
-
   "roles.title": "Roles & Permissions",
   "roles.subtitle": "Control what each team member can see and do. Preset roles are read-only — duplicate them to customize.",
   "roles.createRole": "Create Role",
@@ -748,7 +747,6 @@
   "roles.tierTooltipManage": "Can view, create, and edit records",
   "roles.tierTooltipFull": "Full control including delete and advanced actions",
   "roles.customPermissions": "Custom",
-
   "accounting.syncEnabled": "Auto-sync",
   "accounting.syncEnabledDesc": "Automatically sync data with your accounting provider",
   "accounting.connect": "Connect",
@@ -779,7 +777,6 @@
   "accounting.syncIssuesDesc": "These records need review before sync continues.",
   "accounting.issueBlocked": "BLOCKED",
   "accounting.issueNeedsReview": "REVIEW",
-
   "expenses.reviewFrequency": "Review Frequency",
   "expenses.daily": "Daily",
   "expenses.weekly": "Weekly",
@@ -819,7 +816,6 @@
   "expenses.toast.ruleCreated": "Auto-approve rule created",
   "expenses.toast.ruleDeleted": "Rule deleted",
   "expenses.toast.ruleToggled": "Rule updated",
-
   "notifications.globalControls": "Global Controls",
   "notifications.pushNotifications": "Push notifications",
   "notifications.pushDesc": "Send notifications to your phone",
@@ -854,7 +850,6 @@
   "notifications.quietHours": "Quiet hours",
   "notifications.quietHoursDesc": "Mute notifications during these hours",
   "notifications.quietHoursSameWarning": "Start and end times are the same — quiet hours will have no effect",
-
   "map.title": "Map Preferences",
   "map.defaultZoom": "Default zoom level",
   "map.zoomOut": "Wide view",
@@ -868,7 +863,6 @@
   "map.toast.trafficDisabled": "Traffic layer disabled",
   "map.toast.labelsEnabled": "Crew labels enabled",
   "map.toast.labelsDisabled": "Crew labels disabled",
-
   "inventory.unitsTitle": "Inventory Units",
   "inventory.unitsDescription": "Define units of measure for inventory items (e.g., rolls, boxes, gallons).",
   "inventory.unitPlaceholder": "e.g., Boxes",
@@ -879,15 +873,12 @@
   "inventory.toast.unitAddFailed": "Failed to add unit",
   "inventory.toast.unitRemoved": "removed",
   "inventory.toast.unitRemoveFailed": "Failed to remove unit",
-
   "developer.title": "Developer Tools",
   "developer.description": "These tools are only visible to users with developer permissions.",
   "developer.database": "Database",
   "developer.databaseDesc": "All data is managed via Supabase. No migration tools needed.",
-
   "tabs.setup": "Setup",
   "sections.setupWizards": "Setup Guides",
-
   "setup.title": "SETUP GUIDES",
   "setup.description": "Get your account dialed in. Each guide walks you through one part of OPS.",
   "setup.taskTypes.title": "Task Types",
@@ -897,7 +888,6 @@
   "setup.taskTypes.configured": "task types configured",
   "setup.runSetup": "Run Setup",
   "setup.runAgain": "Run Again",
-
   "wizard.industry.headlineKnown": "YOUR TRADE, YOUR TASKS",
   "wizard.industry.bodyKnown": "You told us you work in {industries}. We put together a setup based on that.",
   "wizard.industry.confirm": "That's right",
@@ -906,7 +896,6 @@
   "wizard.industry.bodyUnknown": "Tell us your trade. We'll handle the rest.",
   "wizard.industry.continue": "Continue",
   "wizard.industry.searchPlaceholder": "Search trades...",
-
   "wizard.taskTypes.headline": "HERE'S WHAT WE'D SET UP",
   "wizard.taskTypes.subtitle": "Toggle off what you don't need. Tap a color to change it.",
   "wizard.taskTypes.colorHint": "Similar tasks share similar colors — prep in warm tones, installation in cool tones, inspections in neutrals.",
@@ -916,18 +905,15 @@
   "wizard.taskTypes.continue": "Continue",
   "wizard.taskTypes.back": "Back",
   "wizard.taskTypes.namePlaceholder": "Custom type name...",
-
   "wizard.dependencies.headline": "ONE MORE THING",
   "wizard.dependencies.body": "Do any of these tasks need to finish before the next one starts?",
   "wizard.dependencies.subtitle": "Set up task dependencies",
   "wizard.dependencies.yes": "Yes, set up dependencies",
   "wizard.dependencies.no": "No, skip this",
-
   "wizard.timeline.headline": "DRAG TO ORDER. OVERLAP IF THEY RUN TOGETHER.",
   "wizard.timeline.subtitle": "Tasks at the top start first. Drag edges to show overlap.",
   "wizard.timeline.overlap": "overlap",
   "wizard.timeline.done": "Looks good",
-
   "wizard.review.headline": "READY TO GO",
   "wizard.review.summary": "{count} task types.",
   "wizard.review.withDeps": "Dependencies configured.",
@@ -937,10 +923,8 @@
   "wizard.review.success": "All set. Your task types are ready.",
   "wizard.review.elapsed": "Set up in {seconds}s",
   "wizard.review.depOrder": "Dependency Order",
-
   "wizard.nudge.message": "Set up your task types. 30 seconds. Makes scheduling 10x easier.",
   "wizard.nudge.cta": "Run Setup",
-
   "lifecycle.title": "Lifecycle Automation",
   "lifecycle.subtitle": "Configure how the agent manages project stages, updates, and archival",
   "lifecycle.save": "Save",
@@ -973,40 +957,30 @@
   "lifecycle.resetDefaults": "Reset to defaults",
   "lifecycle.toast.saved": "Lifecycle settings saved",
   "lifecycle.toast.saveFailed": "Failed to save lifecycle settings",
-
   "sections.invoiceAutomation": "Invoice Automation",
   "sections.financialIntelligence": "Financial Intelligence",
   "sections.clientComms": "Client Communications",
-
   "invoiceSettings.title": "Invoice Automation",
   "invoiceSettings.subtitle": "[Configure how the agent suggests and creates invoices]",
   "invoiceSettings.save": "Save",
-
   "invoiceSettings.paymentTerms": "Default payment terms",
   "invoiceSettings.paymentTermsDesc": "[Applied to invoices when no terms are set on the estimate]",
   "invoiceSettings.terms.net15": "NET-15",
   "invoiceSettings.terms.net30": "NET-30",
   "invoiceSettings.terms.net45": "NET-45",
   "invoiceSettings.terms.net60": "NET-60",
-
   "invoiceSettings.taxRate": "Default tax rate",
   "invoiceSettings.taxRateDesc": "[Applied when an estimate has no tax rate set]",
-
   "invoiceSettings.highValueThreshold": "High-value threshold",
   "invoiceSettings.highValueThresholdDesc": "[Invoices above this amount get flagged as high priority with an extra review warning]",
-
   "invoiceSettings.autoSuggestCompletion": "Suggest invoice on project completion",
   "invoiceSettings.autoSuggestCompletionDesc": "[When a project reaches the completed stage, the agent suggests creating an invoice for any uninvoiced amounts]",
-
   "invoiceSettings.autoSuggestEstimate": "Suggest invoice from accepted estimate",
   "invoiceSettings.autoSuggestEstimateDesc": "[When an estimate is accepted, the agent suggests converting it into a draft invoice]",
-
   "invoiceSettings.includeCoverEmail": "Include cover email with invoices",
   "invoiceSettings.includeCoverEmailDesc": "[Generate a personalized cover email draft when an invoice is created]",
-
   "invoiceSettings.toast.saved": "Invoice settings saved",
   "invoiceSettings.toast.saveFailed": "Failed to save invoice settings",
-
   "invoiceSettings.reminders": "Payment Reminders",
   "invoiceSettings.remindersDesc": "[Automated follow-up emails for overdue invoices — escalating from friendly to firm to final notice]",
   "invoiceSettings.enableReminders": "Enable payment reminders",

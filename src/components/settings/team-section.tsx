@@ -1,20 +1,19 @@
 "use client";
 
 /**
- * TeamSection — SETTINGS › TEAM › Members (WEB OVERHAUL P3-6).
+ * TeamSection — SETTINGS › TEAM › Members (WEB OVERHAUL P3-6; access rebuild W5).
  *
- * The absorbed Team surface: a parity UNION of the retired standalone /team page
- * (search, role grouping, contact quick-actions, last-active, metrics) and the
- * old settings team-tab (seats/trial, deactivate, pending invites, the RBAC
- * AssignRoleModal). Rebuilt on the shared kit — a `// CREW` InstrumentStrip over
- * a `RegisterTable` roster — so Team reads identically to Books / Clients /
- * Catalog. No capability is dropped (master plan §4).
+ * The absorbed Team surface: a `// CREW` InstrumentStrip over a `RegisterTable`
+ * roster, reading identically to Books / Clients / Catalog. A row click opens
+ * the member's access view (?member=<id>) — the one surface for their role and
+ * per-member permission exceptions.
  *
- * Two role systems are preserved verbatim (they are unreconciled in the data
- * model and must not be silently merged here): the legacy `users.role` enum
- * (the per-row Role submenu → useUpdateUserRole) AND the RBAC `user_roles` table
- * (Assign company role → AssignRoleModal, the only path that clears role_needed
- * notifications). Gating is granular-permission only.
+ * One role system now, not two: the roster's Role column and the access view
+ * both read the RBAC `user_roles` table (resolved via useAllUserRoles + the
+ * roles list). The former legacy `users.role` submenu and the separate
+ * AssignRoleModal are gone — role assignment lives in the access view and still
+ * flows through PATCH /api/users/:id/role, which syncs the legacy column and
+ * clears role_needed notifications. Gating is granular-permission only.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -26,7 +25,7 @@ import {
   Phone,
   Shield,
   Armchair,
-  UserCog,
+  SlidersHorizontal,
   UserX,
   UserCheck,
   Trash2,
@@ -53,17 +52,13 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { InviteModal } from "@/components/ops/invite-modal";
-import { AssignRoleModal } from "@/components/ops/assign-role-modal";
 import { UserAvatar } from "@/components/ops/user-avatar";
+import { MemberAccessView } from "./member-access-view";
 import {
   useTeamMembers,
-  useUpdateUserRole,
   useDeactivateUser,
   useReactivateUser,
   useAddSeatedEmployee,
@@ -74,9 +69,10 @@ import {
   useRevokeInvitation,
 } from "@/lib/hooks";
 import { useRoles } from "@/lib/hooks/use-roles";
+import { useAllUserRoles } from "@/lib/hooks/use-roles";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { getUserFullName, UserRole } from "@/lib/types/models";
+import { getUserFullName } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import { trackScreenView } from "@/lib/analytics/analytics";
@@ -86,40 +82,9 @@ import { toast } from "sonner";
 
 // ── Role helpers ───────────────────────────────────────────────────────────────
 
-const LEGACY_ROLES: { id: UserRole; labelKey: string }[] = [
-  { id: UserRole.Admin, labelKey: "team.roleAdmin" },
-  { id: UserRole.Owner, labelKey: "team.roleOwner" },
-  { id: UserRole.Office, labelKey: "team.roleOffice" },
-  { id: UserRole.Operator, labelKey: "team.roleOperator" },
-  { id: UserRole.Crew, labelKey: "team.roleCrew" },
-];
-
-const ROLE_LABEL_KEY: Record<string, string> = {
-  [UserRole.Admin]: "team.roleAdmin",
-  [UserRole.Owner]: "team.roleOwner",
-  [UserRole.Office]: "team.roleOffice",
-  [UserRole.Operator]: "team.roleOperator",
-  [UserRole.Crew]: "team.roleCrew",
-  [UserRole.Unassigned]: "team.roleUnassigned",
-};
-
-type RoleFilter = "all" | "admins" | "office" | "operators" | "crew" | "unassigned";
-
-function roleGroup(role: User["role"]): Exclude<RoleFilter, "all"> {
-  switch (role) {
-    case UserRole.Admin:
-    case UserRole.Owner:
-      return "admins";
-    case UserRole.Office:
-      return "office";
-    case UserRole.Operator:
-      return "operators";
-    case UserRole.Crew:
-      return "crew";
-    default:
-      return "unassigned";
-  }
-}
+/** Roster filter: "all", a specific RBAC role id, or "unassigned". */
+type RoleFilter = string;
+const UNASSIGNED_FILTER = "__unassigned__";
 
 // ── Per-member actions kebab ─────────────────────────────────────────────────
 
@@ -127,12 +92,12 @@ function MemberActionsMenu({
   member,
   isSeated,
   seatsFull,
-  onAssignRole,
+  onAdjustAccess,
 }: {
   member: User;
   isSeated: boolean;
   seatsFull: boolean;
-  onAssignRole: (memberId: string) => void;
+  onAdjustAccess: (memberId: string) => void;
 }) {
   const { t } = useDictionary("settings");
   const can = usePermissionStore((s) => s.can);
@@ -140,7 +105,6 @@ function MemberActionsMenu({
   const canAssignRoles = can("team.assign_roles");
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
 
-  const updateRole = useUpdateUserRole();
   const deactivateUser = useDeactivateUser();
   const reactivateUser = useReactivateUser();
   const addSeat = useAddSeatedEmployee();
@@ -148,17 +112,6 @@ function MemberActionsMenu({
 
   const isActive = member.isActive !== false;
   if (!canManage && !canAssignRoles) return null;
-
-  function handleRoleChange(role: UserRole) {
-    if (!canAssignRoles) return;
-    updateRole.mutate(
-      { id: member.id, role },
-      {
-        onSuccess: () => toast.success(`${t("team.toast.roleUpdated")} ${role}`),
-        onError: (err) => toast.error(t("team.toast.roleUpdateFailed"), { description: err.message }),
-      },
-    );
-  }
 
   function handleToggleSeat() {
     if (!canManage) return;
@@ -218,29 +171,10 @@ function MemberActionsMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {canAssignRoles && (
-            <>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <UserCog className="h-[14px] w-[14px] text-text-3" />
-                  {t("team.changeRole")}
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {LEGACY_ROLES.map((role) => (
-                    <DropdownMenuItem
-                      key={role.id}
-                      onSelect={() => handleRoleChange(role.id)}
-                      className={cn(member.role === role.id && "bg-surface-active text-text")}
-                    >
-                      {t(role.labelKey)}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuItem onSelect={() => onAssignRole(member.id)}>
-                <Shield className="h-[14px] w-[14px] text-text-3" />
-                {t("team.assignCompanyRole")}
-              </DropdownMenuItem>
-            </>
+            <DropdownMenuItem onSelect={() => onAdjustAccess(member.id)}>
+              <SlidersHorizontal className="h-[14px] w-[14px] text-text-3" />
+              {t("team.adjustAccess")}
+            </DropdownMenuItem>
           )}
           {canManage && (
             <>
@@ -485,6 +419,7 @@ export function TeamSection() {
   const currentUser = useAuthStore((s) => s.currentUser);
   const can = usePermissionStore((s) => s.can);
   const canManage = can("team.manage");
+  const canAssignRoles = can("team.assign_roles");
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
@@ -498,22 +433,50 @@ export function TeamSection() {
     if (searchParams.get("action") === "invite") setInviteOpen(true);
   }, [searchParams]);
 
-  // Deep-link RBAC assignment: ?assignRole=<memberId>.
-  const assignRoleMemberId = searchParams.get("assignRole");
-  const openAssignRole = useCallback(
+  // Member access view is URL-driven: ?member=<memberId>. The legacy
+  // ?assignRole=<id> deep link (role_needed rail notifications) redirects here.
+  const memberViewId = searchParams.get("member") ?? searchParams.get("assignRole");
+  const openMember = useCallback(
     (memberId: string) => {
       const params = new URLSearchParams(searchParams.toString());
-      params.set("assignRole", memberId);
+      params.delete("assignRole");
+      params.set("member", memberId);
       router.replace(`/settings?${params.toString()}`, { scroll: false });
     },
     [router, searchParams],
   );
-  const closeAssignRole = useCallback(() => {
+  const closeMember = useCallback(() => {
     const params = new URLSearchParams(searchParams.toString());
+    params.delete("member");
     params.delete("assignRole");
     const qs = params.toString();
     router.replace(qs ? `/settings?${qs}` : "/settings", { scroll: false });
   }, [router, searchParams]);
+
+  // ── RBAC role resolution (roster tags + filter) ─────────────────────────────
+  const { data: roles } = useRoles();
+  const { data: allUserRoles } = useAllUserRoles();
+
+  const roleNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of roles ?? []) map.set(r.id, r.name);
+    return map;
+  }, [roles]);
+
+  const roleIdByUser = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const ur of allUserRoles ?? []) map.set(ur.userId, ur.roleId);
+    return map;
+  }, [allUserRoles]);
+
+  const memberRoleName = useCallback(
+    (m: User): string | null => {
+      if (m.isCompanyAdmin) return t("team.roleAdmin");
+      const roleId = roleIdByUser.get(m.id);
+      return roleId ? roleNameById.get(roleId) ?? null : null;
+    },
+    [roleIdByUser, roleNameById, t],
+  );
 
   // ── Roster ────────────────────────────────────────────────────────────────
   const members = useMemo(
@@ -560,9 +523,15 @@ export function TeamSection() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return activeMembers.filter((m) => {
-      if (roleFilter !== "all" && roleGroup(m.role) !== roleFilter) return false;
+      if (roleFilter !== "all") {
+        if (roleFilter === UNASSIGNED_FILTER) {
+          if (m.isCompanyAdmin || roleIdByUser.has(m.id)) return false;
+        } else if (m.isCompanyAdmin || roleIdByUser.get(m.id) !== roleFilter) {
+          return false;
+        }
+      }
       if (!q) return true;
-      const label = t(ROLE_LABEL_KEY[m.role] ?? "team.roleCrew").toLowerCase();
+      const label = (memberRoleName(m) ?? "").toLowerCase();
       return (
         getUserFullName(m).toLowerCase().includes(q) ||
         (m.email ?? "").toLowerCase().includes(q) ||
@@ -570,18 +539,28 @@ export function TeamSection() {
         label.includes(q)
       );
     });
-  }, [activeMembers, roleFilter, search, t]);
+  }, [activeMembers, roleFilter, search, memberRoleName, roleIdByUser]);
 
   const isFiltering = !!search.trim() || roleFilter !== "all";
 
-  const roleFilterOptions: FilterChipOption<RoleFilter>[] = [
-    { value: "all", label: t("team.groupAll") },
-    { value: "admins", label: t("team.groupAdmins") },
-    { value: "office", label: t("team.groupOffice") },
-    { value: "operators", label: t("team.groupOperators") },
-    { value: "crew", label: t("team.groupCrew") },
-    { value: "unassigned", label: t("team.groupUnassigned") },
-  ];
+  // State-aware chips: only roles actually held by an active member appear,
+  // plus an Unassigned chip when someone has no RBAC role.
+  const roleFilterOptions: FilterChipOption<RoleFilter>[] = useMemo(() => {
+    const heldRoleIds = new Set<string>();
+    let hasUnassigned = false;
+    for (const m of activeMembers) {
+      if (m.isCompanyAdmin) continue;
+      const roleId = roleIdByUser.get(m.id);
+      if (roleId) heldRoleIds.add(roleId);
+      else hasUnassigned = true;
+    }
+    const opts: FilterChipOption<RoleFilter>[] = [{ value: "all", label: t("team.groupAll") }];
+    for (const r of roles ?? []) {
+      if (heldRoleIds.has(r.id)) opts.push({ value: r.id, label: r.name });
+    }
+    if (hasUnassigned) opts.push({ value: UNASSIGNED_FILTER, label: t("team.groupUnassigned") });
+    return opts;
+  }, [activeMembers, roleIdByUser, roles, t]);
 
   function MemberCell({ m }: { m: User }) {
     const isSelf = m.id === currentUser?.id;
@@ -601,12 +580,17 @@ export function TeamSection() {
     {
       id: "role",
       header: t("team.colRole"),
-      cell: (m) => (
-        <Tag variant="neutral">
-          {m.isCompanyAdmin && <Shield className="h-[11px] w-[11px]" />}
-          {m.isCompanyAdmin ? t("team.roleAdmin") : t(ROLE_LABEL_KEY[m.role] ?? "team.roleCrew")}
-        </Tag>
-      ),
+      cell: (m) => {
+        const name = memberRoleName(m);
+        return name ? (
+          <Tag variant="neutral">
+            {m.isCompanyAdmin && <Shield className="h-[11px] w-[11px]" />}
+            {name}
+          </Tag>
+        ) : (
+          <Tag variant="dim">{t("team.roleUnassigned")}</Tag>
+        );
+      },
     },
     {
       id: "contact",
@@ -660,7 +644,7 @@ export function TeamSection() {
             member={m}
             isSeated={seatedIds.includes(m.id)}
             seatsFull={seatsFull}
-            onAssignRole={openAssignRole}
+            onAdjustAccess={openMember}
           />
         ),
     },
@@ -671,7 +655,14 @@ export function TeamSection() {
     {
       id: "role",
       header: t("team.colRole"),
-      cell: (m) => <Tag variant="dim">{t(ROLE_LABEL_KEY[m.role] ?? "team.roleCrew")}</Tag>,
+      cell: (m) => {
+        const name = memberRoleName(m);
+        return name ? (
+          <Tag variant="dim">{name}</Tag>
+        ) : (
+          <Tag variant="dim">{t("team.roleUnassigned")}</Tag>
+        );
+      },
     },
     {
       id: "actions",
@@ -682,11 +673,16 @@ export function TeamSection() {
           member={m}
           isSeated={seatedIds.includes(m.id)}
           seatsFull={seatsFull}
-          onAssignRole={openAssignRole}
+          onAdjustAccess={openMember}
         />
       ),
     },
   ];
+
+  // ── Member access view (URL-driven swap) ────────────────────────────────────
+  if (memberViewId) {
+    return <MemberAccessView memberId={memberViewId} onBack={closeMember} />;
+  }
 
   return (
     <div className="space-y-3">
@@ -780,6 +776,7 @@ export function TeamSection() {
           columns={columns}
           rows={filtered}
           getRowId={(m) => m.id}
+          onRowClick={canAssignRoles ? (m) => openMember(m.id) : undefined}
         />
       )}
 
@@ -809,14 +806,6 @@ export function TeamSection() {
 
       {/* ── Modals ───────────────────────────────────────────────────────── */}
       <InviteModal open={inviteOpen} onOpenChange={setInviteOpen} />
-      {assignRoleMemberId && (
-        <AssignRoleModal
-          memberId={assignRoleMemberId}
-          open={true}
-          onClose={closeAssignRole}
-          onManageSeats={() => stripRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-        />
-      )}
     </div>
   );
 }

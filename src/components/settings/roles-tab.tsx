@@ -26,7 +26,7 @@ import { Lock, ArrowLeft, Loader2, X, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { SegmentControl, type SegmentControlOption } from "@/components/ui/segment-control";
+import { type SegmentControlOption } from "@/components/ui/segment-control";
 import {
   RegisterTable,
   RegisterEmpty,
@@ -51,6 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
+import { SectionLabel, ModulePermissionRow, type ModuleTierValue } from "./permission-grid";
 import {
   useRoles,
   useRolePermissions,
@@ -70,7 +71,6 @@ import { getUserFullName, getInitials } from "@/lib/types/models";
 import {
   PERMISSION_CATEGORIES,
   type PermissionScope,
-  type PermissionTier,
   type Role,
   getActionsForTier,
   detectModuleTier,
@@ -88,83 +88,6 @@ interface PermissionEdit {
   permission: string;
   scope: PermissionScope;
   enabled: boolean;
-}
-
-/** A module's tier as the editor renders it: an explicit tier, "none", or "custom". */
-type ModuleTierValue = PermissionTier | "none";
-
-// ─── Section header (// TITLE) ───────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-      <span className="text-text-mute">{"// "}</span>
-      {children}
-    </span>
-  );
-}
-
-// ─── Module permission row (tier + scope) ────────────────────────────────────
-
-function ModulePermissionRow({
-  moduleId,
-  label,
-  tier,
-  isCustom,
-  scope,
-  scopeOptions,
-  disabled,
-  onTierChange,
-  onScopeChange,
-}: {
-  moduleId: string;
-  label: string;
-  /** The active tier segment, or "none" when no permissions are enabled. */
-  tier: ModuleTierValue;
-  /** Enabled perms exist but map to no clean tier (a non-tier action mix). */
-  isCustom: boolean;
-  scope: PermissionScope;
-  /** Scope segments this module's actions actually offer (empty → no scope control). */
-  scopeOptions: SegmentControlOption<PermissionScope>[];
-  disabled?: boolean;
-  onTierChange: (moduleId: string, tier: ModuleTierValue) => void;
-  onScopeChange: (moduleId: string, scope: PermissionScope) => void;
-}) {
-  const { t } = useDictionary("settings");
-
-  const tierOptions: SegmentControlOption<ModuleTierValue>[] = [
-    { value: "none", label: t("roles.tierNone") },
-    { value: "view", label: t("roles.tierViewOnly") },
-    { value: "manage", label: t("roles.tierManage") },
-    { value: "full", label: t("roles.tierFullAccess") },
-  ];
-
-  const showScope = tier !== "none" && scopeOptions.length > 1;
-
-  return (
-    <div className="flex items-center gap-1.5 border-b border-border-subtle py-1.5 last:border-b-0">
-      <div className="flex min-w-0 flex-1 items-center gap-1">
-        <span className="truncate font-mohave text-body-sm text-text">{label}</span>
-        {isCustom && <Tag variant="tan">{t("roles.customPermissions")}</Tag>}
-      </div>
-
-      {showScope && (
-        <SegmentControl
-          options={scopeOptions}
-          value={scope}
-          onChange={(s) => onScopeChange(moduleId, s)}
-          className={disabled ? "pointer-events-none opacity-40" : undefined}
-        />
-      )}
-
-      <SegmentControl
-        options={tierOptions}
-        value={isCustom ? "none" : tier}
-        onChange={(v) => onTierChange(moduleId, v)}
-        className={disabled ? "pointer-events-none opacity-40" : undefined}
-      />
-    </div>
-  );
 }
 
 // ─── Assigned members sub-section ────────────────────────────────────────────
