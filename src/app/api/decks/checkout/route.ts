@@ -39,7 +39,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const body = await readCheckoutBody(req);
   if (body instanceof NextResponse) return body;
 
-  if (body.company_id !== auth.companyId) {
+  // iOS persists the provisioned company_id verbatim; Postgres uuids render
+  // lowercase. Compare case-insensitively so a historical uppercase copy
+  // can't strand a legitimate purchase.
+  if (body.company_id.toLowerCase() !== auth.companyId.toLowerCase()) {
     return NextResponse.json(
       { code: "company_scope_mismatch", message: "Company scope mismatch" },
       { status: 403 }

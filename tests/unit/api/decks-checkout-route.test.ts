@@ -178,6 +178,23 @@ describe("POST /api/decks/checkout", () => {
     expect(checkoutSessionCreateMock).not.toHaveBeenCalled();
   });
 
+  it("accepts a company_id that differs from the auth scope only by case", async () => {
+    // iOS persists the provisioning response verbatim; guard against a
+    // historical uppercase copy failing a byte-equality compare.
+    const letteredId = "00000000-0000-4000-8000-0000000000ab";
+    findUserByAuthMock.mockResolvedValue({
+      id: "user-1",
+      company_id: letteredId,
+    });
+
+    const response = await POST(
+      makeRequest(validBody({ company_id: letteredId.toUpperCase() }))
+    );
+
+    expect(response.status).toBe(200);
+    expect(checkoutSessionCreateMock).toHaveBeenCalled();
+  });
+
   it("blocks company scope mismatches before Stripe is touched", async () => {
     findUserByAuthMock.mockResolvedValue({
       id: "user-1",

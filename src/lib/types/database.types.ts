@@ -3649,6 +3649,7 @@ export type Database = {
           seat_grace_start_date: string | null
           seated_employee_ids: string[] | null
           skip_weekends_in_auto_schedule: boolean | null
+          source_app: string
           stripe_customer_id: string | null
           subscription_end: string | null
           subscription_ids_json: string | null
@@ -3704,6 +3705,7 @@ export type Database = {
           seat_grace_start_date?: string | null
           seated_employee_ids?: string[] | null
           skip_weekends_in_auto_schedule?: boolean | null
+          source_app?: string
           stripe_customer_id?: string | null
           subscription_end?: string | null
           subscription_ids_json?: string | null
@@ -3759,6 +3761,7 @@ export type Database = {
           seat_grace_start_date?: string | null
           seated_employee_ids?: string[] | null
           skip_weekends_in_auto_schedule?: boolean | null
+          source_app?: string
           stripe_customer_id?: string | null
           subscription_end?: string | null
           subscription_ids_json?: string | null
@@ -15895,6 +15898,7 @@ export type Database = {
           seat_grace_start_date: string | null
           seated_employee_ids: string[] | null
           skip_weekends_in_auto_schedule: boolean | null
+          source_app: string
           stripe_customer_id: string | null
           subscription_end: string | null
           subscription_ids_json: string | null
@@ -16047,6 +16051,14 @@ export type Database = {
           received_record_id: string
           received_total: number
         }[]
+      }
+      provision_deck_company: {
+        Args: {
+          p_firebase_uid: string
+          p_company_name: string
+          p_email?: string
+        }
+        Returns: Json
       }
       qbo_match_customer_candidates: {
         Args: { p_company_id: string; p_name: string; p_threshold?: number }
