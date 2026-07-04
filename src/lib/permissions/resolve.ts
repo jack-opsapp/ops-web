@@ -174,6 +174,34 @@ export function diffAgainstRole(
 }
 
 /**
+ * Trim a role-derived diff to the minimal write against what is already
+ * stored, so a save only touches genuinely-changed rows:
+ *   - a `set` row identical to a stored override is dropped,
+ *   - a `clear` for a permission with no stored override is dropped,
+ *   - `hasChanges` is false when the batch would be a no-op.
+ * Keeps the sticky save bar honest and avoids a ~90-row delete every save.
+ */
+export function computeOverrideMutation(
+  existing: OverrideInput[],
+  diff: OverrideDiff,
+): OverrideDiff & { hasChanges: boolean } {
+  const stored = new Map<string, OverrideInput>();
+  for (const o of existing) stored.set(o.permission, o);
+
+  const set = diff.set.filter((row) => {
+    const prior = stored.get(row.permission);
+    if (!prior) return true;
+    const priorScope = row.granted ? prior.scope : null;
+    const rowScope = row.granted ? row.scope : null;
+    return !(prior.granted === row.granted && priorScope === rowScope);
+  });
+
+  const clear = diff.clear.filter((permission) => stored.has(permission));
+
+  return { set, clear, hasChanges: set.length > 0 || clear.length > 0 };
+}
+
+/**
  * The master bypass, defined once for client display + store resolution.
  * Mirrors private.current_user_is_admin() and public.has_permission() step 1:
  * account holder OR admin_ids member OR is_company_admin flag.

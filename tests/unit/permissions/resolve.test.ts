@@ -224,6 +224,51 @@ describe("diffAgainstRole", () => {
   });
 });
 
+describe("computeOverrideMutation", () => {
+  it("keeps only genuine changes vs what is already stored", async () => {
+    const { computeOverrideMutation } = await import("@/lib/permissions/resolve");
+    const existing: OverrideInput[] = [
+      { permission: "estimates.view", scope: "all", granted: true },
+      { permission: "tasks.view", scope: null, granted: false },
+    ];
+    const mutation = computeOverrideMutation(existing, {
+      set: [
+        { permission: "estimates.view", scope: "all", granted: true }, // already stored → drop
+        { permission: "projects.edit", scope: "all", granted: true }, // new → keep
+        { permission: "tasks.view", scope: "assigned", granted: true }, // changes a stored revoke → keep
+      ],
+      clear: ["expenses.view"], // nothing stored → drop
+    });
+    expect(mutation.set.map((s) => s.permission).sort()).toEqual([
+      "projects.edit",
+      "tasks.view",
+    ]);
+    expect(mutation.clear).toEqual([]);
+    expect(mutation.hasChanges).toBe(true);
+  });
+
+  it("keeps clear entries that delete a stored row and reports no-op batches", async () => {
+    const { computeOverrideMutation } = await import("@/lib/permissions/resolve");
+    const existing: OverrideInput[] = [
+      { permission: "estimates.view", scope: "all", granted: true },
+    ];
+    const withClear = computeOverrideMutation(existing, {
+      set: [],
+      clear: ["estimates.view"],
+    });
+    expect(withClear.clear).toEqual(["estimates.view"]);
+    expect(withClear.hasChanges).toBe(true);
+
+    const noop = computeOverrideMutation(existing, {
+      set: [{ permission: "estimates.view", scope: "all", granted: true }],
+      clear: ["projects.view"],
+    });
+    expect(noop.set).toEqual([]);
+    expect(noop.clear).toEqual([]);
+    expect(noop.hasChanges).toBe(false);
+  });
+});
+
 describe("isAdminBypass", () => {
   const company = { accountHolderId: "u-holder", adminIds: ["u-admin1", "u-admin2"] };
 
