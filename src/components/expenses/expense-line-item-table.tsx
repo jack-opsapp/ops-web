@@ -7,6 +7,7 @@ import {
   Flag,
   FlagOff,
   Image as ImageIcon,
+  ImageOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { ExpenseLineItem } from "@/lib/types/expense-approval";
@@ -37,6 +38,21 @@ function formatDate(dateStr: string | null): string {
     month: "short",
     day: "numeric",
   });
+}
+
+// Mirrors the iOS NoReceiptReason labels so a reason reads the same on both
+// surfaces. A photo-less line with a reason was a deliberate, explained choice
+// — not a missing upload.
+const NO_RECEIPT_REASON_LABELS: Record<string, string> = {
+  lost: "Lost or misplaced",
+  cash: "Cash — no receipt given",
+  digital: "Digital or emailed",
+  other: "Other",
+};
+
+function noReceiptReasonLabel(code: string | null): string {
+  if (!code) return "No receipt";
+  return NO_RECEIPT_REASON_LABELS[code] ?? "No receipt";
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -168,6 +184,13 @@ export function ExpenseLineItemTable({
                       className="w-full h-full object-cover"
                     />
                   </button>
+                ) : expense.receiptMissingReason ? (
+                  <span
+                    title={noReceiptReasonLabel(expense.receiptMissingReason)}
+                    className="w-[32px] h-[32px] rounded border border-ops-amber flex items-center justify-center"
+                  >
+                    <ImageOff className="w-[12px] h-[12px] text-ops-amber" />
+                  </span>
                 ) : (
                   <span className="w-[32px] h-[32px] rounded border border-border flex items-center justify-center">
                     <ImageIcon className="w-[12px] h-[12px] text-text-mute" />
@@ -235,8 +258,8 @@ export function ExpenseLineItemTable({
                   </div>
                 )}
 
-                {/* Receipt image (larger) */}
-                {(expense.receiptImageUrl || expense.receiptThumbnailUrl) && (
+                {/* Receipt image (larger) — or the no-receipt reason when absent */}
+                {expense.receiptImageUrl || expense.receiptThumbnailUrl ? (
                   <div className="mb-3">
                     <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1">
                       RECEIPT
@@ -256,7 +279,21 @@ export function ExpenseLineItemTable({
                       />
                     </button>
                   </div>
-                )}
+                ) : expense.receiptMissingReason ? (
+                  <div className="mb-3">
+                    <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1">
+                      NO RECEIPT
+                    </span>
+                    <span className="font-mono text-caption-sm text-ops-amber block">
+                      {noReceiptReasonLabel(expense.receiptMissingReason)}
+                    </span>
+                    {expense.receiptMissingNote && (
+                      <span className="font-mono text-caption-sm text-text-3 block mt-0.5">
+                        {expense.receiptMissingNote}
+                      </span>
+                    )}
+                  </div>
+                ) : null}
 
                 {/* Flag section */}
                 {canReview && (
