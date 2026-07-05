@@ -20,6 +20,7 @@ import {
   encryptNullable,
   realmIdLookup,
 } from "@/lib/api/services/token-cipher";
+import { findConflictingActiveProvider } from "@/lib/api/services/accounting-connection-guard";
 
 const INTUIT_TOKEN_URL =
   "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
@@ -90,6 +91,20 @@ export async function GET(request: NextRequest) {
   if (!existing || existing.webhook_verifier_token !== state) {
     return NextResponse.redirect(
       `${getAppUrl()}/accounting?status=error&message=csrf_mismatch`
+    );
+  }
+
+  // One accounting provider per company: if a DIFFERENT provider is already
+  // connected, refuse to activate QuickBooks (defense-in-depth behind the
+  // initiate guard). Abort before exchanging the code so no tokens are stored.
+  const providerConflict = await findConflictingActiveProvider(
+    supabase,
+    companyId,
+    "quickbooks"
+  );
+  if (providerConflict) {
+    return NextResponse.redirect(
+      `${getAppUrl()}/accounting?status=error&message=provider_conflict`
     );
   }
 

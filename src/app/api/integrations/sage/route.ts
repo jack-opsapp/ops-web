@@ -9,6 +9,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
 import { decryptToken } from "@/lib/api/services/token-cipher";
+import {
+  findConflictingActiveProvider,
+  providerLabel,
+} from "@/lib/api/services/accounting-connection-guard";
 import crypto from "crypto";
 
 const SAGE_CLIENT_ID = process.env.SAGE_CLIENT_ID?.trim();
@@ -44,11 +48,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const supabase = getServiceRoleClient();
+
+    // One accounting provider per company: refuse to start a Sage connect if a
+    // DIFFERENT provider is already active (server-side half of the single-entry
+    // invariant; mirrors the QuickBooks initiate guard).
+    const conflict = await findConflictingActiveProvider(
+      supabase,
+      companyId,
+      "sage"
+    );
+    if (conflict) {
+      return NextResponse.json(
+        {
+          error: `Disconnect ${providerLabel(conflict)} before connecting Sage — a company runs one accounting system at a time.`,
+          conflictingProvider: conflict,
+        },
+        { status: 409 }
+      );
+    }
+
     // Generate CSRF state token: companyId:randomHex
     const stateToken = `${companyId}:${crypto.randomBytes(16).toString("hex")}`;
 
     // Store state token temporarily in the connection row for CSRF validation
-    const supabase = getServiceRoleClient();
     await supabase.from("accounting_connections").upsert(
       {
         company_id: companyId,

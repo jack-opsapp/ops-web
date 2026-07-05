@@ -12,6 +12,10 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { decryptToken } from "@/lib/api/services/token-cipher";
 import {
+  findConflictingActiveProvider,
+  providerLabel,
+} from "@/lib/api/services/accounting-connection-guard";
+import {
   getQuickBooksConfig,
   getQuickBooksConfigForEnvironment,
   getQuickBooksProviderEnvironment,
@@ -68,6 +72,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const supabase = getServiceRoleClient();
+
+    // One accounting provider per company: refuse to start a QuickBooks connect
+    // if a DIFFERENT provider is already active. The single-entry UI hides the
+    // second provider; this is the server-side half of that invariant.
+    const conflict = await findConflictingActiveProvider(
+      supabase,
+      companyId,
+      "quickbooks"
+    );
+    if (conflict) {
+      return NextResponse.json(
+        {
+          error: `Disconnect ${providerLabel(conflict)} before connecting QuickBooks — a company runs one accounting system at a time.`,
+          conflictingProvider: conflict,
+        },
+        { status: 409 }
+      );
+    }
+
     const config = getQuickBooksConfig();
 
     // Generate CSRF state token: companyId:providerEnvironment:randomHex.
@@ -76,7 +100,6 @@ export async function POST(request: NextRequest) {
     const stateToken = `${companyId}:${config.providerEnvironment}:${crypto.randomBytes(16).toString("hex")}`;
 
     // Store state token temporarily in the connection row for CSRF validation
-    const supabase = getServiceRoleClient();
     await supabase.from("accounting_connections").upsert(
       {
         company_id: companyId,
