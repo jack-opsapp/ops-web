@@ -3,6 +3,24 @@
 **Date:** 2026-07-03 · **Branch:** `fix/security-posture-sweep` · **DB:** `ops-app` (`ijeekuhbatykdomumfjx`, prod)
 **Bug:** `c5ff388e-37dd-4b32-8009-7a78ed675748` (HIGH) — "31 public tables have RLS disabled"
 
+## 0. Execution log (2026-07-03, post-approval)
+
+**Batch 1 (M1–M4) + M6 APPLIED to prod on operator approval.** Verified live; smoke check clean — a live Canpro admin still sees 332 projects / 407 photos / 395 clients / 437 opportunities (untouched company-isolation policies healthy; photo write/upload policies intact). **Advisor delta: 167 → 149 lints.**
+
+| # | Migration | Applied | Verified effect |
+|---|-----------|---------|-----------------|
+| M1 | fix_always_true_policies | ✅ | qa_bugs operator-only (end-to-end `SET ROLE anon`: operator 234 rows, member 0, raw anon 0); beta own-rows; duplicate own-company |
+| M2 | storage_public_bucket_listing | ✅ | 6 listing policies dropped; public image serving intact (photo write policies present) |
+| M3 | revoke_anon_execute_functions | ✅ | all 7 functions `anon_exec=false, auth_exec=false` (ground truth); service_role retains the 5 non-trigger fns |
+| M4 | revoke_anon_grants_asc_tables | ✅ | 8 `asc_*` tables anon-locked |
+| M6 | revoke_anon_grants_asc_conversion_daily | ✅ | **New finding during verification** — a 9th App Store object, the `asc_conversion_daily` **security_invoker view**, still carried anon/authenticated grants. It was anon-readable before the sweep; M4 (locking the base tables) already closed the read path transitively, and M6 removes the vestigial view grant. `asc_*` now fully anon-locked (0 residual). |
+
+**Category delta:** `public_bucket_allows_listing` 6→0; `rls_policy_always_true` 14→12 (qa_bugs + duplicate_reviews de-flagged; **beta_access_requests stays flagged for its intentional public-signup INSERT** — kept by design); `anon_security_definer` 51→46 and `authenticated_security_definer` 61→56 (the 5 non-trigger revokes; the 2 trigger functions are also locked per `has_function_privilege`, advisor count lags on cache); `rls_enabled_no_policy` 26 unchanged (the intended locked state).
+
+**Batch 2 (M5) — CORRECTED, re-verified, NOT applied (awaiting operator go).** The iOS caller check (`DataController.deleteUserAccount`, ops-ios) revealed `remove_seated_employee`'s only caller is account **self-deletion** cleanup — best-effort, run *after* the user's own row is soft-deleted — NOT admin "remove teammate" (which uses a direct `seated_employee_ids` update). The original admin-gate guard was therefore wrong (would have softly broken seat cleanup on self-deletion). **Retargeted** to "only remove a seat for an already-soft-deleted member." Re-sentinel (rolled back): active member → BLOCKED, soft-deleted member → ALLOWED, cross-company density → 0, own-company density → 242. `get_inbox_density_per_client` confirmed web-only (zero iOS callers) and safe.
+
+---
+
 ## 1. The reported bug is stale — RLS is universally enabled
 
 Live query (2026-07-03):
