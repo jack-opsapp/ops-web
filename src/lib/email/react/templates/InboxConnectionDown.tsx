@@ -1,4 +1,4 @@
-// @template-version: 1.0.0
+// @template-version: 1.1.0
 import * as React from "react";
 import { OpsEmailLayout } from "../layouts/OpsEmailLayout";
 import { Headline, Paragraph, Button, Spacer, InfoBlock } from "../primitives";
@@ -35,7 +35,7 @@ const REASON_COPY: Record<
   },
   sync_stale: {
     headline: "OPS lost the line to your inbox.",
-    body: "OPS hasn't been able to read your inbox for a few hours. That usually means the access token your provider gave us got pulled or expired. Reconnect to start the flow again.",
+    body: "OPS hasn't been able to pull from your inbox in a while. New emails may be landing there without making it into your pipeline. Reconnect and OPS picks up where it left off — it takes about thirty seconds.",
     status: "No recent sync activity",
   },
 };
@@ -73,8 +73,9 @@ export function InboxConnectionDown({
       <Paragraph small>
         While the connection is down, anything coming into{" "}
         {inboxAddress} stays in your email and doesn&rsquo;t hit your OPS
-        pipeline. We&rsquo;ll send one of these every four hours until you
-        reconnect &mdash; or you can mute it from Settings &rarr; Integrations.
+        pipeline. We&rsquo;ll keep checking and send a reminder if it&rsquo;s
+        still down &mdash; or you can mute these from Settings &rarr;
+        Integrations.
       </Paragraph>
     </OpsEmailLayout>
   );
