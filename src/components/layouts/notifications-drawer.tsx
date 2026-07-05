@@ -47,7 +47,6 @@ import {
   EDGE_Z_DRAWER,
   getEdgeRailDrawerWidthStyle,
   getEdgeRailHeightStyle,
-  getEdgeRailTopStyle,
 } from "@/components/ui/edge-rail-layout";
 
 type DrawerTone = "critical" | "attn" | "ambient";
@@ -240,7 +239,11 @@ export function NotificationsDrawer() {
             data-edge-tab-drawer="notifications"
             style={{
               position: "absolute",
-              top: getEdgeRailTopStyle(RAIL.drawerHeight, RAIL.stackOffset),
+              // Drops from the top-bar bell that triggers it — anchored to the
+              // top of the rail zone (EDGE_RAIL_TOP), not the retired 3-tab
+              // rail's center stack-offset. Keeps the panel out of the
+              // bottom-right create/bug cluster's zone (bug 472c17c6).
+              top: 0,
               right: 0,
               width: asideWidth,
               height: getEdgeRailHeightStyle(RAIL.drawerHeight),
