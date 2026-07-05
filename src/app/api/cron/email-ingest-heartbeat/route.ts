@@ -1,7 +1,7 @@
 /**
  * GET /api/cron/email-ingest-heartbeat
  *
- * Connection-health watchdog for the email-ingest pipeline. Runs every 15 min.
+ * Connection-health watchdog for the email-ingest pipeline. Runs hourly.
  *
  * Earlier revisions of this cron alerted on inbox *quietness* — zero new
  * email_threads or opportunities in a 60-min window. That produced constant
@@ -9,7 +9,7 @@
  * three leads a day looks "silent" most hours of every day) and trained
  * operators to ignore the alert.
  *
- * The new approach checks **provider-side health**, not inbox volume:
+ * The approach checks **provider-side health**, not inbox volume:
  *
  *   1. webhook_expired — `webhook_expires_at < NOW()` and no successful
  *      renewal. Webhook-renewal cron should keep this fresh; if it didn't,
@@ -20,57 +20,34 @@
  *      these; if it's still null after a day, OAuth scopes or the
  *      provider's API are blocking setup.
  *
- *   3. sync_stale — `last_synced_at < NOW() - 6h` for an active connection.
- *      Gmail watch latency is seconds; M365 subscription latency is seconds.
- *      Six hours of zero sync activity is well above any healthy ceiling
- *      and almost always means the access token got pulled.
+ *   3. sync_stale — `last_synced_at` older than STALE_SYNC_THRESHOLD_MS for
+ *      an active connection. `last_synced_at` only advances when a sync
+ *      actually runs, and the email-sync poll cron is dark 05:00–13:00 UTC,
+ *      so the threshold must clear that blackout or a quiet-but-healthy
+ *      overnight inbox reads as an outage. See ingest-heartbeat-classify.ts
+ *      for the full derivation.
  *
  * `status='needs_reconnect'` is intentionally skipped here — it has its own
  * notification path inside sync-engine that fires the moment a sync attempt
- * throws. Re-alerting here would just double-notify.
+ * throws (revoked/expired token). Re-alerting here would just double-notify,
+ * and it's why sync_stale can be a generous backstop rather than the
+ * front-line token-failure detector.
  *
- * One alert per company per 4-hour dedup window. Worst-case 6 alerts/day if
- * the user never acts.
+ * One alert per company per 4-hour dedup window.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { sendInboxConnectionDown } from "@/lib/email/sendgrid";
-import type { InboxConnectionDownReason } from "@/lib/email/react/templates/InboxConnectionDown";
+import {
+  ALERT_DEDUP_MS,
+  classifyFailure,
+  pickWorstFailure,
+  type ConnectionRow,
+  type FailureSignal,
+} from "@/lib/email/ingest-heartbeat-classify";
 
 export const maxDuration = 60;
-
-const STALE_SYNC_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6h
-const SETUP_GRACE_MS = 24 * 60 * 60 * 1000; // 24h
-const ALERT_DEDUP_MS = 4 * 60 * 60 * 1000; // 4h
-
-interface FailureSignal {
-  connectionId: string;
-  companyId: string;
-  email: string;
-  provider: "gmail" | "microsoft365";
-  /** Connection-side user_id, used as a sane fallback when the recipient admin can't be resolved. */
-  connectionUserId: string;
-  type: "company" | "individual";
-  reason: InboxConnectionDownReason;
-  /** Hours since last healthy heartbeat — used for the email's `hoursSilent` field. */
-  hoursSilent: number;
-}
-
-interface ConnectionRow {
-  id: string;
-  company_id: string;
-  user_id: string;
-  email: string;
-  provider: string;
-  type: "company" | "individual";
-  status: string;
-  sync_enabled: boolean;
-  webhook_subscription_id: string | null;
-  webhook_expires_at: string | null;
-  last_synced_at: string | null;
-  created_at: string;
-}
 
 /**
  * Build the deep-link the email button points to. Lands the operator on
@@ -95,87 +72,6 @@ function buildReconnectDeepLink(opts: {
     provider: opts.provider,
   });
   return `${opts.appUrl}/reconnect-inbox?${params.toString()}`;
-}
-
-function classifyFailure(conn: ConnectionRow, now: number): FailureSignal | null {
-  // status='needs_reconnect' has its own notification path — skip here.
-  if (conn.status !== "active") return null;
-  if (!conn.sync_enabled) return null;
-
-  const created = new Date(conn.created_at).getTime();
-  const expires = conn.webhook_expires_at
-    ? new Date(conn.webhook_expires_at).getTime()
-    : null;
-  const lastSync = conn.last_synced_at
-    ? new Date(conn.last_synced_at).getTime()
-    : null;
-
-  // 1) Webhook setup never completed and we're past the grace window.
-  if (
-    !conn.webhook_subscription_id &&
-    now - created > SETUP_GRACE_MS
-  ) {
-    const hours = Math.max(1, Math.floor((now - created) / (60 * 60 * 1000)));
-    return {
-      connectionId: conn.id,
-      companyId: conn.company_id,
-      email: conn.email,
-      provider: conn.provider as "gmail" | "microsoft365",
-      connectionUserId: conn.user_id,
-      type: conn.type,
-      reason: "webhook_setup_failed",
-      hoursSilent: hours,
-    };
-  }
-
-  // 2) Webhook expired without a successful renewal.
-  if (expires !== null && expires < now) {
-    const hours = Math.max(1, Math.floor((now - expires) / (60 * 60 * 1000)));
-    return {
-      connectionId: conn.id,
-      companyId: conn.company_id,
-      email: conn.email,
-      provider: conn.provider as "gmail" | "microsoft365",
-      connectionUserId: conn.user_id,
-      type: conn.type,
-      reason: "webhook_expired",
-      hoursSilent: hours,
-    };
-  }
-
-  // 3) Sync hasn't run in 6+ hours despite being active.
-  if (lastSync !== null && now - lastSync > STALE_SYNC_THRESHOLD_MS) {
-    const hours = Math.floor((now - lastSync) / (60 * 60 * 1000));
-    return {
-      connectionId: conn.id,
-      companyId: conn.company_id,
-      email: conn.email,
-      provider: conn.provider as "gmail" | "microsoft365",
-      connectionUserId: conn.user_id,
-      type: conn.type,
-      reason: "sync_stale",
-      hoursSilent: hours,
-    };
-  }
-
-  return null;
-}
-
-/** When a company has multiple failed connections, report the worst. */
-function pickWorstFailure(
-  failures: FailureSignal[],
-): FailureSignal {
-  // webhook_expired is the most actionable, then webhook_setup_failed,
-  // then sync_stale (which can sometimes self-heal on next manual sync).
-  const priority: Record<InboxConnectionDownReason, number> = {
-    webhook_expired: 3,
-    webhook_setup_failed: 2,
-    sync_stale: 1,
-  };
-  return [...failures].sort(
-    (a, b) =>
-      priority[b.reason] - priority[a.reason] || b.hoursSilent - a.hoursSilent,
-  )[0];
 }
 
 export async function GET(request: NextRequest) {
