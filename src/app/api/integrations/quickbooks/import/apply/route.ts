@@ -7,10 +7,17 @@
  * Applies a staged, owner-reviewed import into live tables (clients →
  * estimate/invoice headers → line items → payments → reconcile). Writes ONLY
  * to OPS Supabase — never to QuickBooks. Same auth as /api/sync +
- * accounting.manage_connections. Emits a notification-rail event on success.
+ * accounting.manage_connections.
+ *
+ * This is a BACKGROUND JOB: after validating and marking the run `applying`,
+ * the route responds 202 immediately and performs the write in `after()`. The
+ * operator's tab observes progress through the run status (polled) and a
+ * PERSISTENT rail notification this route inserts up front and resolves (to a
+ * completion or failure state) when the write settles — so the surface never
+ * reads as frozen and the operator can navigate away.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
@@ -98,47 +105,85 @@ export async function POST(request: NextRequest) {
     }
 
     const service = new QuickBooksImportService(supabase);
-    let applied;
-    try {
-      applied = await service.applyImport(runId, decisions);
-    } catch {
-      // Do not log the caught error — apply operates on staged QuickBooks data
-      // and the message can carry it. Record only that the step failed.
-      console.error("[qbo-import-apply] applyImport step failed");
-      return NextResponse.json(
-        { error: "Apply failed" },
-        { status: 500 }
-      );
-    }
 
-    // ── Notification-rail event (server-side insert; non-fatal) ────────────
-    // Dedicated `accounting_import_complete` type (see plan Cross-Phase
-    // Reconciliation Note #2): notifications.type is free text, and this type
-    // is registered in NotificationType + NOTIF_TYPE_META for icon/label.
+    // Mark the run `applying` up front so the operator's first status poll sees
+    // the background job immediately (the engine re-affirms this, harmlessly) —
+    // no window where the just-fired apply reads as idle.
+    await supabase
+      .from("qbo_import_runs")
+      .update({ status: "applying" })
+      .eq("id", runId);
+
+    // Persistent rail notification: tracks the job while it runs and can't be
+    // dismissed until it settles. Resolved (to a completion or failure state)
+    // inside after(). action_url deep-links back to this exact surface.
+    let notifId: string | null = null;
     try {
-      const created = applied.clientsCreated + applied.clientsLinked;
-      await supabase.from("notifications").insert({
-        user_id: userId,
-        company_id: companyId,
-        type: "accounting_import_complete",
-        title: "QuickBooks import applied",
-        body:
-          `${applied.invoicesUpserted} invoices, ${applied.paymentsUpserted} payments ` +
-          `and ${created} clients imported into Books`,
-        is_read: false,
-        persistent: false,
-        action_url: "/books?segment=sync&view=import",
-        action_label: "View Books",
-      });
+      const { data: notif } = await supabase
+        .from("notifications")
+        .insert({
+          user_id: userId,
+          company_id: companyId,
+          type: "accounting_import_complete",
+          title: "Applying QuickBooks import",
+          body: "Writing your QuickBooks history to OPS. You can leave this page — this updates when it's done.",
+          is_read: false,
+          persistent: true,
+          action_url: "/books?segment=sync&view=import",
+          action_label: "VIEW IMPORT",
+        })
+        .select("id")
+        .single();
+      notifId = (notif?.id as string | undefined) ?? null;
     } catch (notifyErr) {
-      console.error("[qbo-import-apply] notification insert failed (non-fatal):", notifyErr);
+      console.error("[qbo-import-apply] applying-notification insert failed (non-fatal):", notifyErr);
     }
 
-    // Response reflects what was written to OPS from staged QuickBooks data —
-    // never cache it (browser, CDN, shared proxy).
+    // ── Background write ───────────────────────────────────────────────────
+    // Runs after the response is sent. The engine owns the run status
+    // (applying → applied / error, re-throwing on failure); this callback only
+    // resolves the rail notification. Never let a notification error escape.
+    after(async () => {
+      try {
+        const applied = await service.applyImport(runId, decisions);
+        if (!notifId) return;
+        const created = applied.clientsCreated + applied.clientsLinked;
+        await supabase
+          .from("notifications")
+          .update({
+            title: "QuickBooks import complete",
+            body:
+              `${applied.invoicesUpserted} invoices, ${applied.paymentsUpserted} payments ` +
+              `and ${created} clients imported into OPS.`,
+            persistent: false,
+            is_read: false,
+          })
+          .eq("id", notifId);
+      } catch {
+        // The engine already flipped the run to `error`; surface it on the rail.
+        // Do not log the caught error — it can carry staged QuickBooks data.
+        console.error("[qbo-import-apply] background apply failed");
+        if (!notifId) return;
+        try {
+          await supabase
+            .from("notifications")
+            .update({
+              title: "QuickBooks import couldn't finish",
+              body: "The import hit an error. Nothing doubles up — records match on QuickBooks ID, so re-running from the review finishes it.",
+              persistent: false,
+              is_read: false,
+            })
+            .eq("id", notifId);
+        } catch (notifyErr) {
+          console.error("[qbo-import-apply] failure-notification update failed (non-fatal):", notifyErr);
+        }
+      }
+    });
+
+    // 202 Accepted — the write is in flight; the client observes run status.
     return NextResponse.json(
-      { applied },
-      { headers: { "Cache-Control": "no-store" } }
+      { status: "applying", runId },
+      { status: 202, headers: { "Cache-Control": "no-store" } }
     );
   } catch {
     console.error("[qbo-import-apply] POST error");

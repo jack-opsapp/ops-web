@@ -24,14 +24,15 @@ export interface ApplyDecision {
   client_id?: string;
 }
 
-export interface ApplyResult {
-  applied: {
-    customers: number;
-    estimates: number;
-    invoices: number;
-    payments: number;
-    lineItems: number;
-  };
+/**
+ * Apply is a background job: the route accepts the request (202), flips the run
+ * to `applying`, and writes to OPS after responding. The UI observes progress
+ * through the run's status (polled by useImportReview) and a persistent rail
+ * notification — it does NOT block on the write completing.
+ */
+export interface ApplyAccepted {
+  status: "applying";
+  runId: string;
 }
 
 // ─── Auth'd fetch (Firebase JWT, matches AccountingService) ───────────────────
@@ -97,6 +98,11 @@ export function useImportReview(runId: string | null) {
       return res.json();
     },
     enabled: !!runId,
+    // While a background apply is running, poll the run so the tab reflects
+    // completion (status → applied/error) without a manual refresh. Stops the
+    // moment the run settles.
+    refetchInterval: (query) =>
+      query.state.data?.run.status === "applying" ? 2000 : false,
   });
 }
 
@@ -112,7 +118,7 @@ export function useApplyImport() {
     }: {
       runId: string;
       decisions: ApplyDecision[];
-    }): Promise<ApplyResult> => {
+    }): Promise<ApplyAccepted> => {
       const res = await authedFetch(
         "/api/integrations/quickbooks/import/apply",
         {
@@ -120,6 +126,8 @@ export function useApplyImport() {
           body: JSON.stringify({ runId, decisions }),
         }
       );
+      // 202 Accepted: the write runs in the background. Anything else is a
+      // synchronous rejection (bad decisions, auth, run not found).
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.error || "Apply failed");
@@ -127,13 +135,15 @@ export function useApplyImport() {
       return res.json();
     },
     onSuccess: (_data, { runId }) => {
-      // The apply API route owns the notification-rail event: it inserts the
-      // `accounting_import_complete` notification server-side on success. We do
-      // NOT fire a second client-side notify() here (would double-notify).
+      // The apply route owns the notification-rail event (a persistent
+      // "applying" notification it resolves to "complete" server-side) — we do
+      // NOT notify from the client. Invalidate the review so polling picks up
+      // the run flipping to `applying` → `applied`.
       queryClient.invalidateQueries({
         queryKey: queryKeys.accounting.importReview(runId),
       });
-      // Imported $ now lives in clients/invoices/payments — refresh the dash.
+      // Imported $ will land in clients/invoices/payments — refresh the dash
+      // once the run settles (the review poll re-invalidates on completion).
       queryClient.invalidateQueries({ queryKey: queryKeys.accounting.all });
     },
   });
