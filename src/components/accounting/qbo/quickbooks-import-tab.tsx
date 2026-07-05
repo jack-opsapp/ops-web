@@ -1,19 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  DownloadCloud,
-  Loader2,
-  ShieldCheck,
-  ShieldAlert,
-  AlertCircle,
-  Link2Off,
-  Link2,
-} from "lucide-react";
+import { Loader2, AlertCircle, Link2 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils/cn";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   useAccountingConnections,
@@ -28,6 +18,13 @@ import {
 } from "@/lib/hooks/use-qbo-import";
 import { ReconciliationStrip } from "./reconciliation-strip";
 import { CustomerMatchTable, type RowDecision } from "./customer-match-table";
+import {
+  ImportRunHeader,
+  ImportRecordsPanel,
+  ImportApplyPanel,
+  PanelTitle,
+  type ApplyPhase,
+} from "./import-panels";
 
 /** Format an ISO/Date pull timestamp as a local HH:MM (tabular, 24h). */
 function formatPulledTime(value: Date | string | null | undefined): string | null {
@@ -41,13 +38,18 @@ function formatPulledTime(value: Date | string | null | undefined): string | nul
   });
 }
 
-function RecordStat({ label, value }: { label: string; value: number }) {
+/** A bare `// TITLE` glass panel wrapper for the review sections. */
+function ReviewPanel({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-0.5 p-1.5 rounded bg-fill-neutral-dim border border-border">
-      <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
-        {label}
-      </span>
-      <span className="font-mono text-data text-text tabular-nums">{value}</span>
+    <div className="glass-surface rounded-panel p-3">
+      <PanelTitle>{title}</PanelTitle>
+      <div className="mt-2">{children}</div>
     </div>
   );
 }
@@ -64,19 +66,13 @@ export function QuickBooksImportTab() {
   const applyImport = useApplyImport();
   const { data: review, isLoading, isError } = useImportReview(runId);
 
-  // Connection status for the run header (I6). The owner connects QuickBooks on
-  // the Integrations tab; until then the Import tab shows a not-connected state.
+  // Connection status for the run header. The owner connects QuickBooks on the
+  // Sync tab; until then the Import tab shows a not-connected state.
   const { data: connections } = useAccountingConnections();
-  // Prefer the live QuickBooks row (a company can hold both sandbox + production
-  // rows); fall back to any QB row so the reconnect prompt still surfaces when
-  // none is connected. Matches the SYNC segment's active-connection selection.
   const qbConnection =
     connections?.find((c) => c.provider === AccountingProvider.QuickBooks && c.isConnected) ??
     connections?.find((c) => c.provider === AccountingProvider.QuickBooks);
   const isConnected = qbConnection?.isConnected ?? false;
-  // A connection row that exists but is no longer connected means the token
-  // expired or was revoked (invalid_grant flips is_connected=false): the
-  // operator must re-run OAuth. Distinguish that from "never connected".
   const needsReconnect = !!qbConnection && !isConnected;
 
   const initiateOAuth = useInitiateOAuth();
@@ -113,9 +109,6 @@ export function QuickBooksImportTab() {
     });
   }, [review, decisions]);
 
-  // The run id the apply targets: prefer the staged review's authoritative id
-  // (it equals `runId` in production, where the review query is keyed by it),
-  // falling back to local state so apply works the moment a review is present.
   const applyRunId = review?.run.id ?? runId;
 
   const handleApply = async () => {
@@ -123,128 +116,68 @@ export function QuickBooksImportTab() {
     await applyImport.mutateAsync({ runId: applyRunId, decisions: applyDecisions });
   };
 
-  const writeCalls = review?.run.qbWriteCalls ?? 0;
   const stagedCounts = review?.stagedCounts;
   const matchCounts = review?.matchCounts;
-  const applied = review?.run.status === "applied";
 
-  // Customer counts from the operator's RESOLVED decisions, not the server's
-  // proposed matchCounts — so action overrides (link/create/skip/needs_review)
-  // are reflected in both the confirm copy and the post-apply total (I5).
+  // Customer counts from the operator's RESOLVED decisions (not the server's
+  // proposed matchCounts) so action overrides are reflected in the confirm copy
+  // and the post-apply total.
   const decisionCounts = useMemo(() => {
     const c = { link: 0, create: 0, skip: 0, needs_review: 0 };
     for (const d of applyDecisions) c[d.action] += 1;
     return c;
   }, [applyDecisions]);
 
-  // Customers actually written to OPS = link + create (skip excluded).
   const customersToWrite = decisionCounts.link + decisionCounts.create;
 
-  // APPLY is blocked while ANY customer is still unresolved (needs_review):
-  // the operator must resolve each to link / create / skip first (I7).
-  const hasUnresolved = decisionCounts.needs_review > 0;
+  // ── Apply lifecycle (background job) ───────────────────────────────────────
+  // The apply route returns immediately (202) and runs the write in the
+  // background; the run's status drives this surface while it polls, and a
+  // persistent rail notification tracks it if the operator navigates away.
+  const runStatus = review?.run.status;
+  const applied = runStatus === "applied";
+  const errored = runStatus === "error" || applyImport.isError;
+  const applying =
+    !applied &&
+    !errored &&
+    (applyImport.isPending || applyImport.isSuccess || runStatus === "applying");
+  const applyPhase: ApplyPhase = applied
+    ? "applied"
+    : errored
+      ? "error"
+      : applying
+        ? "applying"
+        : "idle";
+
+  const appliedCount = stagedCounts
+    ? stagedCounts.estimates +
+      stagedCounts.invoices +
+      stagedCounts.payments +
+      stagedCounts.lineItems +
+      customersToWrite
+    : 0;
 
   return (
     <div className="space-y-3">
-      {/* Run header */}
-      <Card variant="default" className="p-3 space-y-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h2 className="font-mohave text-body-lg text-text uppercase tracking-wider">
-              {t("qbo.title")}
-            </h2>
-            <p className="font-mono text-caption-sm text-text-3 mt-0.5">
-              {t("qbo.readOnlyNote")}
-            </p>
-          </div>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handlePull}
-            disabled={startImport.isPending || !companyId || !isConnected}
-            className="gap-1"
-          >
-            {startImport.isPending ? (
-              <Loader2 className="w-[14px] h-[14px] animate-spin" />
-            ) : (
-              <DownloadCloud className="w-[14px] h-[14px]" />
-            )}
-            {startImport.isPending ? t("qbo.pulling") : t("qbo.pull")}
-          </Button>
-        </div>
+      <ImportRunHeader
+        isConnected={isConnected}
+        pulling={startImport.isPending}
+        canPull={!!companyId && isConnected}
+        onPull={handlePull}
+        lastPulled={
+          review
+            ? formatPulledTime(review.run.finishedAt ?? review.run.createdAt) ??
+              t("qbo.never")
+            : null
+        }
+        writeCalls={review ? review.run.qbWriteCalls : null}
+      />
 
-        {/* Connection status + last-pulled time (I6) */}
-        <div
-          data-testid="qbo-connection-status"
-          className={cn(
-            "flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-caption-sm tabular-nums",
-            isConnected ? "text-status-success" : "text-text-mute"
-          )}
-        >
-          <span className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "inline-block w-[6px] h-[6px] rounded-full",
-                isConnected ? "bg-status-success" : "bg-text-mute"
-              )}
-            />
-            <span className="uppercase tracking-wider text-micro">
-              {isConnected
-                ? t("integrations.connected")
-                : t("integrations.notConnected")}
-            </span>
-          </span>
-          {review && (
-            <span className="flex items-center gap-1.5 text-text-3">
-              <span className="uppercase tracking-wider text-micro text-text-mute">
-                {t("qbo.lastPulled")}
-              </span>
-              <span>
-                {formatPulledTime(
-                  review.run.finishedAt ?? review.run.createdAt
-                ) ?? t("qbo.never")}
-              </span>
-            </span>
-          )}
-        </div>
-
-        {review && (
-          <div
-            data-testid="qbo-write-calls"
-            className={cn(
-              "flex items-center gap-1.5 font-mono text-caption-sm tabular-nums",
-              writeCalls === 0 ? "text-status-success" : "text-rose"
-            )}
-          >
-            {writeCalls === 0 ? (
-              <ShieldCheck className="w-[12px] h-[12px]" />
-            ) : (
-              <ShieldAlert className="w-[12px] h-[12px]" />
-            )}
-            <span className="uppercase tracking-wider text-micro text-text-mute">
-              {t("qbo.writeCalls")}
-            </span>
-            <span>
-              {writeCalls === 0
-                ? t("qbo.writeCallsOk")
-                : t("qbo.writeCallsFail", { count: writeCalls })}
-            </span>
-          </div>
-        )}
-      </Card>
-
-      {/* Reconnect prompt (token expired / revoked → is_connected=false on an
-          existing connection). Shows a direct CTA instead of pull controls. */}
+      {/* Reconnect prompt (token expired / revoked). */}
       {needsReconnect && !review && !startImport.isPending && (
-        <Card
-          variant="default"
-          className="p-3 space-y-2"
-          data-testid="qbo-reconnect-prompt"
-        >
-          <p className="font-mohave text-body text-text uppercase tracking-wider">
-            {t("qbo.reconnectTitle")}
-          </p>
-          <p className="font-mono text-caption-sm text-text-mute">
+        <div className="glass-surface rounded-panel p-3" data-testid="qbo-reconnect-prompt">
+          <PanelTitle>{t("qbo.reconnectTitle")}</PanelTitle>
+          <p className="mt-2 font-mono text-caption-sm text-text-mute">
             {t("qbo.reconnectPrompt")}
           </p>
           <Button
@@ -252,155 +185,75 @@ export function QuickBooksImportTab() {
             size="sm"
             onClick={handleReconnect}
             disabled={initiateOAuth.isPending || !companyId}
-            className="gap-1"
+            className="mt-2.5 gap-1.5"
           >
-            <Link2 className="w-[14px] h-[14px]" />
+            <Link2 size={14} />
             {t("qbo.reconnect")}
           </Button>
-        </Card>
+        </div>
       )}
 
-      {/* Never-connected empty state (I6) */}
+      {/* Never-connected empty state */}
       {!isConnected && !needsReconnect && !review && !startImport.isPending && (
-        <Card variant="default" className="p-3">
-          <p className="font-mohave text-body text-text uppercase tracking-wider">
-            {t("qbo.notConnected")}
-          </p>
-          <p className="font-mono text-caption-sm text-text-mute mt-1">
+        <div className="glass-surface rounded-panel p-3">
+          <PanelTitle>{t("qbo.notConnected")}</PanelTitle>
+          <p className="mt-2 font-mono text-caption-sm text-text-mute">
             {t("qbo.connectFirst")}
           </p>
-        </Card>
+        </div>
       )}
 
-      {/* No-run empty state (connected, nothing pulled yet) */}
+      {/* Connected, nothing pulled yet */}
       {isConnected && !applyRunId && !review && !startImport.isPending && (
-        <Card variant="default" className="p-3">
-          <p className="font-mohave text-body text-text uppercase tracking-wider">
-            {t("qbo.empty.noRun")}
-          </p>
-          <p className="font-mono text-caption-sm text-text-mute mt-1">
+        <div className="glass-surface rounded-panel p-3">
+          <PanelTitle>{t("qbo.empty.noRun")}</PanelTitle>
+          <p className="mt-2 font-mono text-caption-sm text-text-mute">
             {t("qbo.empty.startPrompt")}
           </p>
-        </Card>
+        </div>
       )}
 
       {runId && isLoading && (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="w-[20px] h-[20px] text-text-mute animate-spin" />
+        <div className="glass-surface flex items-center justify-center rounded-panel py-6">
+          <Loader2 size={20} className="animate-spin text-text-mute motion-reduce:animate-none" />
         </div>
       )}
 
       {runId && isError && (
-        <Card variant="default" className="p-3 flex items-center gap-1.5">
-          <AlertCircle className="w-[14px] h-[14px] text-rose" />
-          <span className="font-mono text-caption-sm text-rose">
-            {t("qbo.error")}
-          </span>
-        </Card>
+        <div className="glass-surface flex items-center gap-1.5 rounded-panel p-3">
+          <AlertCircle size={14} className="text-rose" />
+          <span className="font-mono text-caption-sm text-rose">{t("qbo.error")}</span>
+        </div>
       )}
 
       {/* Review body */}
       {review && stagedCounts && matchCounts && (
         <>
-          <Card variant="default" className="p-3 space-y-2">
+          {/* The strip carries its own `// RECONCILIATION` header, so it sits in
+              a bare glass panel (no doubled title). */}
+          <div className="glass-surface rounded-panel p-3">
             <ReconciliationStrip recon={review.reconciliation} />
-          </Card>
+          </div>
 
-          <Card variant="default" className="p-3 space-y-2">
-            <h3 className="font-mohave text-body text-text uppercase tracking-wider">
-              {t("qbo.records.title")}
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-              <RecordStat
-                label={t("qbo.records.estimates")}
-                value={stagedCounts.estimates}
-              />
-              <RecordStat
-                label={t("qbo.records.invoices")}
-                value={stagedCounts.invoices}
-              />
-              <RecordStat
-                label={t("qbo.records.payments")}
-                value={stagedCounts.payments}
-              />
-              <RecordStat
-                label={t("qbo.records.lineItems")}
-                value={stagedCounts.lineItems}
-              />
-              <RecordStat
-                label={t("qbo.records.skippedInvoices")}
-                value={stagedCounts.skippedInvoices}
-              />
-              <RecordStat
-                label={t("qbo.records.orphanPayments")}
-                value={stagedCounts.orphanPayments}
-              />
-            </div>
-            {stagedCounts.jobsDetected > 0 && (
-              <p className="font-mono text-caption-sm text-text-3">
-                {t("qbo.jobsDetected", { count: stagedCounts.jobsDetected })}
-              </p>
-            )}
-          </Card>
+          <ImportRecordsPanel counts={stagedCounts} />
 
-          <Card variant="default" className="p-3 space-y-2">
-            <h3 className="font-mohave text-body text-text uppercase tracking-wider">
-              {t("qbo.customers.title")}
-            </h3>
+          <ReviewPanel title={t("qbo.customers.title")}>
             <CustomerMatchTable
               matches={review.matches}
               decisions={decisions}
               onDecisionChange={handleDecisionChange}
             />
-          </Card>
+          </ReviewPanel>
 
-          {/* Apply */}
-          <Card variant="default" className="p-3 space-y-2">
-            <p className="font-mono text-caption-sm text-text-3">
-              {t("qbo.applyConfirm", {
-                customers: customersToWrite,
-                invoices: stagedCounts.invoices,
-                payments: stagedCounts.payments,
-              })}
-            </p>
-            {hasUnresolved && !applied && (
-              <p
-                data-testid="qbo-needs-review-hint"
-                className="flex items-center gap-1.5 font-mono text-caption-sm text-tan"
-              >
-                <Link2Off className="w-[12px] h-[12px]" />
-                {t("qbo.needsReviewBlock", {
-                  count: decisionCounts.needs_review,
-                })}
-              </p>
-            )}
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleApply}
-                disabled={applyImport.isPending || applied || hasUnresolved}
-                className="gap-1"
-              >
-                {applyImport.isPending && (
-                  <Loader2 className="w-[14px] h-[14px] animate-spin" />
-                )}
-                {applyImport.isPending ? t("qbo.apply.applying") : t("qbo.apply.all")}
-              </Button>
-              {applied && (
-                <span className="font-mono text-caption-sm text-status-success">
-                  {t("qbo.applied", {
-                    count:
-                      stagedCounts.estimates +
-                      stagedCounts.invoices +
-                      stagedCounts.payments +
-                      stagedCounts.lineItems +
-                      customersToWrite,
-                  })}
-                </span>
-              )}
-            </div>
-          </Card>
+          <ImportApplyPanel
+            status={applyPhase}
+            customersToWrite={customersToWrite}
+            invoices={stagedCounts.invoices}
+            payments={stagedCounts.payments}
+            needsReviewCount={decisionCounts.needs_review}
+            appliedCount={appliedCount}
+            onApply={handleApply}
+          />
         </>
       )}
     </div>
