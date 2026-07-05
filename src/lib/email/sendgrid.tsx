@@ -1410,7 +1410,6 @@ export async function sendOnboardingDay14Active(params: {
 export async function sendOnboardingLostYou(params: {
   email: string;
   firstName: string | null;
-  daysSinceSignup: number;
   daysSinceLastActivity: number;
   onboardingEmailLogId: string;
   userId?: string | null;
@@ -1422,7 +1421,6 @@ export async function sendOnboardingLostYou(params: {
   const html = await render(
     <LostYou
       firstName={params.firstName}
-      daysSinceSignup={params.daysSinceSignup}
       daysSinceLastActivity={params.daysSinceLastActivity}
       unsubscribeUrl={compliance.unsubscribeUrl}
     />,
@@ -1439,7 +1437,6 @@ export async function sendOnboardingLostYou(params: {
     headers: compliance.headers,
     metadata: {
       onboarding_email_log_id: params.onboardingEmailLogId,
-      daysSinceSignup: params.daysSinceSignup,
       daysSinceLastActivity: params.daysSinceLastActivity,
     },
     customArgs: { onboarding_email_log_id: params.onboardingEmailLogId },

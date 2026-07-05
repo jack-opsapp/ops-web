@@ -1,18 +1,22 @@
-// @template-version: 1.0.0
+// @template-version: 2.0.0
 import * as React from "react";
 import { PlainTextLayout } from "@/lib/email/react/primitives/PlainTextLayout";
 
 /**
- * Behavior-triggered re-engagement send. Fires once per trial when
- * the operator has had zero activity for 6+ consecutive calendar days
- * between Day 1 and Day 14. Sent from JACK. Body copy is canonical
- * per spec §7.
+ * Behavior-triggered re-engagement send. Fires once per trial when the
+ * operator has gone quiet for a full week — real inactivity gap >= 7 days,
+ * computed in OnboardingDripService.processLostYouCandidate. Sent from JACK.
  *
- * @template-version 1.0.0
+ * The copy surfaces the real gap verbatim, so daysSinceLastActivity is the
+ * one number the operator sees. It is always >= 7 and never larger than the
+ * account age, which is what keeps the "you last opened OPS N days ago" line
+ * true (bug a4882017 was the old two-number sentence going self-contradictory
+ * — "signed up 1 day ago and haven't been back in 6 days").
+ *
+ * @template-version 2.0.0
  */
 export interface LostYouProps {
   firstName: string | null;
-  daysSinceSignup: number;
   daysSinceLastActivity: number;
   unsubscribeUrl: string;
 }
@@ -24,27 +28,25 @@ function formatDays(n: number): string {
 
 export function LostYou({
   firstName,
-  daysSinceSignup,
   daysSinceLastActivity,
   unsubscribeUrl,
 }: LostYouProps) {
   const greeting = firstName ? `Hey ${firstName},` : "Hey there,";
-  const gapLine = `You signed up for OPS ${daysSinceSignup} days ago and haven't been back in ${formatDays(
-    daysSinceLastActivity,
-  )}.`;
+  const gapLine = `It's been ${formatDays(daysSinceLastActivity)} since you last opened OPS.`;
   return (
     <PlainTextLayout unsubscribeUrl={unsubscribeUrl}>
       {greeting}
       {"\n\n"}
       Jack here.
       {"\n\n"}
-      {gapLine}
+      {gapLine} Long enough that I want to ask straight: is something stopping
+      you, or is the timing just off?
       {"\n\n"}
-      That&apos;s a long enough gap that I want to ask straight: is something stopping you, or is the timing just wrong?
+      If setup tripped you up, tell me where &mdash; I can usually point you at
+      the one move that gets you unstuck. If OPS isn&apos;t the right fit, no
+      hard feelings. I&apos;d just want to know what you came looking for.
       {"\n\n"}
-      If setup tripped you up, I can usually point you at the move that gets you unstuck. If OPS isn&apos;t the right fit, no hard feelings — I&apos;d just want to know what you were looking for.
-      {"\n\n"}
-      Hit reply with one sentence. Goes to my inbox.
+      Hit reply with one sentence. It comes straight to me.
       {"\n\n"}
       — Jack
     </PlainTextLayout>
@@ -53,7 +55,6 @@ export function LostYou({
 
 export const previewProps: LostYouProps = {
   firstName: "Jackson",
-  daysSinceSignup: 8,
-  daysSinceLastActivity: 6,
+  daysSinceLastActivity: 8,
   unsubscribeUrl: "https://app.opsapp.co/api/email/unsubscribe?t=preview",
 };

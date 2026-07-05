@@ -8,35 +8,38 @@ describe("LostYou", () => {
   it("renders with previewProps", async () => {
     const html = await render(<LostYou {...previewProps} />, PLAIN);
     expect(html).toContain("Jack here.");
-    expect(html).toContain("haven't been back in");
+    expect(html).toContain("since you last opened OPS");
   });
 
-  it("substitutes days since signup and days since last activity", async () => {
+  it("surfaces the real inactivity gap as a single number", async () => {
     const html = await render(
       <LostYou
         firstName="Pat"
-        daysSinceSignup={9}
-        daysSinceLastActivity={6}
+        daysSinceLastActivity={9}
         unsubscribeUrl="https://x.test"
       />,
       PLAIN,
     );
-    expect(html).toContain("You signed up for OPS 9 days ago");
-    expect(html).toContain("haven't been back in 6 days");
+    expect(html).toContain("It's been 9 days since you last opened OPS");
   });
 
-  it("uses 'a day' (not '1 days') when daysSinceLastActivity === 1", async () => {
+  it("uses 'a day' (never '1 days') when the gap is exactly 1", async () => {
     const html = await render(
       <LostYou
         firstName="Pat"
-        daysSinceSignup={2}
         daysSinceLastActivity={1}
         unsubscribeUrl="https://x.test"
       />,
       PLAIN,
     );
-    expect(html).toContain("haven't been back in a day");
+    expect(html).toContain("It's been a day since you last opened OPS");
     expect(html).not.toContain("1 days");
+  });
+
+  it("does NOT ship the old self-contradictory two-number sentence (bug a4882017)", async () => {
+    const html = await render(<LostYou {...previewProps} />, PLAIN);
+    expect(html).not.toContain("signed up for OPS");
+    expect(html).not.toContain("haven't been back in");
   });
 
   it("does NOT include 'That's a real signal' or 'Noticed...' (v3 CRM-flavored cuts)", async () => {
