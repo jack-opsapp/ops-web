@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  CheckCircle2,
   Gauge,
   Clock,
   ExternalLink,
@@ -49,6 +50,7 @@ import type {
   InvoiceWarning,
   ReassignTaskActionData,
   ArchiveProjectActionData,
+  CloseProjectActionData,
   SendPaymentReminderActionData,
   ClientHealthAlertActionData,
   FinancialInsightActionData,
@@ -74,6 +76,7 @@ const ACTION_TYPE_ICONS: Record<string, React.ComponentType<{ className?: string
   send_payment_reminder: BellRing,
   reassign_task: UserRoundX,
   archive_project: Archive,
+  close_project: CheckCircle2,
   client_health_alert: HeartPulse,
   financial_insight: BarChart3,
   optimize_schedule: Route,
@@ -337,6 +340,18 @@ export const ActionCard = memo(function ActionCard({
   const archiveData = isArchive
     ? (action.actionData as unknown as ArchiveProjectActionData)
     : null;
+
+  const isClose = action.actionType === "close_project";
+  const closeData = isClose
+    ? (action.actionData as unknown as CloseProjectActionData)
+    : null;
+
+  // Archive (operator pause/cancel) and close (completion success) carry the
+  // same lifecycle payload and render the same summary layout — only the type
+  // label + icon differ (resolved upstream via t(`type.${actionType}`) + the
+  // icon map). Share one data handle so the two detail blocks stay in lockstep.
+  const isProjectLifecycle = isArchive || isClose;
+  const lifecycleData = archiveData ?? closeData;
 
   const isCreateInvoice = action.actionType === "create_invoice";
   const invoiceData = isCreateInvoice
@@ -1030,20 +1045,20 @@ export const ActionCard = memo(function ActionCard({
             </div>
           )}
 
-          {/* ── Archive project inline details ── */}
-          {isArchive && archiveData && (
+          {/* ── Project lifecycle (archive / close) inline details ── */}
+          {isProjectLifecycle && lifecycleData && (
             <div className="flex items-center gap-4 mt-2 flex-wrap">
               <div className="flex items-center gap-1">
                 <FolderKanban className="w-[12px] h-[12px] text-text-3" />
                 <span className="font-mono text-[11px] text-text-2 truncate max-w-[160px]">
-                  {archiveData.project_title}
+                  {lifecycleData.project_title}
                 </span>
               </div>
               <span className="font-mono text-[11px] text-text-3">
-                {archiveData.days_since_completion}d {t("lifecycle.sinceCompletion")}
+                {lifecycleData.days_since_completion}d {t("lifecycle.sinceCompletion")}
               </span>
               <span className="font-mono text-[11px] text-text-3">
-                {archiveData.completed_tasks}/{archiveData.total_tasks} {t("task.tasks")}
+                {lifecycleData.completed_tasks}/{lifecycleData.total_tasks} {t("task.tasks")}
               </span>
             </div>
           )}
@@ -1808,8 +1823,8 @@ export const ActionCard = memo(function ActionCard({
                   </div>
                 )}
 
-                {/* ── Archive expanded details ── */}
-                {isArchive && archiveData && (
+                {/* ── Project lifecycle (archive / close) expanded details ── */}
+                {isProjectLifecycle && lifecycleData && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-4 flex-wrap">
                       <div>
@@ -1817,8 +1832,8 @@ export const ActionCard = memo(function ActionCard({
                           [{t("lifecycle.completedDate")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
-                          {archiveData.completed_date
-                            ? new Date(archiveData.completed_date).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })
+                          {lifecycleData.completed_date
+                            ? new Date(lifecycleData.completed_date).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })
                             : "—"}
                         </span>
                       </div>
@@ -1827,16 +1842,16 @@ export const ActionCard = memo(function ActionCard({
                           [{t("lifecycle.taskSummary")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
-                          {archiveData.completed_tasks}/{archiveData.total_tasks} {t("lifecycle.tasksComplete")}
+                          {lifecycleData.completed_tasks}/{lifecycleData.total_tasks} {t("lifecycle.tasksComplete")}
                         </span>
                       </div>
-                      {archiveData.total_invoiced > 0 && (
+                      {lifecycleData.total_invoiced > 0 && (
                         <div>
                           <span className="font-mono text-[11px] text-text-3 uppercase block">
                             [{t("lifecycle.invoiced")}]
                           </span>
                           <span className="font-mono text-[12px] text-text-2">
-                            {archiveData.total_invoiced.toLocaleString(locale, { style: "currency", currency: "USD" })}
+                            {lifecycleData.total_invoiced.toLocaleString(locale, { style: "currency", currency: "USD" })}
                           </span>
                         </div>
                       )}
@@ -3226,7 +3241,7 @@ export const ActionCard = memo(function ActionCard({
                 )}
 
                 {/* Raw details — only for simple action types or non-pending actions */}
-                {!isTaskAction && !isStatusEmail && !isReassign && !isArchive && !isCreateInvoice && !isInvoiceEmail && !isPaymentReminder && !isHealthAlert && !isFinancialInsight && !isOptimizeSchedule && !isRescheduleTasks && !isAppointmentConfirm && !isDayBeforeReminder && !isRescheduleRequest && !isSubcontractorCoord && !isPending && (
+                {!isTaskAction && !isStatusEmail && !isReassign && !isArchive && !isClose && !isCreateInvoice && !isInvoiceEmail && !isPaymentReminder && !isHealthAlert && !isFinancialInsight && !isOptimizeSchedule && !isRescheduleTasks && !isAppointmentConfirm && !isDayBeforeReminder && !isRescheduleRequest && !isSubcontractorCoord && !isPending && (
                   <div>
                     <span className="font-mono text-[11px] text-text-3 uppercase">
                       [{t("card.details")}]
