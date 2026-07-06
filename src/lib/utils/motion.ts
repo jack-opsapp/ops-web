@@ -179,6 +179,22 @@ export const scheduleEventVariantsReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.1 } },
 };
 
+/**
+ * Weather-risk glyph — ambient reveal (bug 9dc7c38d). Opacity only, so it's
+ * inherently vestibular-safe; it fades in when the forecast resolves rather
+ * than flashing in. A quiet acknowledgment, not an alert — "a stamp, not a
+ * parade." Reduced motion collapses it to an instant show (same beat, no motion).
+ */
+export const weatherGlyphVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.25, ease: EASE_SMOOTH } },
+};
+
+export const weatherGlyphVariantsReduced: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0 } },
+};
+
 // ── Lockout overlay animations ──
 
 /** Lockout backdrop — full-screen frosted overlay fade */

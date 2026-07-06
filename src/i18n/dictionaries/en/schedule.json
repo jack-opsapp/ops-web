@@ -11,6 +11,12 @@
   "stats.today": "Today",
   "stats.thisWeek": "This Week",
 
+  "weather.ariaPrefix": "Weather risk",
+  "weather.label.rain": "Rain likely",
+  "weather.label.snow": "Snow likely",
+  "weather.label.storm": "Thunderstorms likely",
+  "weather.label.wind": "High winds",
+
   "taskType.installation": "installation",
   "taskType.material": "material",
   "taskType.estimate": "estimate",

@@ -6,6 +6,12 @@ import * as HoverCard from "@radix-ui/react-hover-card";
 import { useTeamMembers } from "@/lib/hooks";
 import { useProjectPreview } from "@/lib/hooks/use-project-preview";
 import { type InternalScheduleEvent, frostedBadgeStyle } from "@/lib/utils/schedule-utils";
+import { useDictionary } from "@/i18n/client";
+import { useEventWeatherRisk } from "./weather/schedule-weather-context";
+import {
+  WeatherRiskIndicator,
+  composeWeatherRiskCopy,
+} from "./weather/weather-risk-indicator";
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -86,6 +92,10 @@ function PopoverBody({ event }: { event: InternalScheduleEvent }) {
   const { data: teamData } = useTeamMembers();
   const allUsers = teamData?.users ?? [];
   const userMap = new Map(allUsers.map((u) => [u.id, u]));
+
+  // Adverse-weather risk for this event (context flows through the Radix portal).
+  const { t } = useDictionary("schedule");
+  const weatherRisk = useEventWeatherRisk(event);
 
   const crewNames = event.crewIds
     .map((id) => {
@@ -175,6 +185,21 @@ function PopoverBody({ event }: { event: InternalScheduleEvent }) {
           </div>
         )}
       </div>
+
+      {/* Weather warning — only on a weather-dependent event with an adverse
+          forecast for a covered day. Tan (caution) to match the badge glyph. */}
+      {weatherRisk && (
+        <div className="flex items-center gap-[6px] mt-[8px]">
+          <WeatherRiskIndicator risk={weatherRisk} size={14} />
+          <span
+            aria-hidden="true"
+            className="font-mohave"
+            style={{ color: "var(--tan)", fontSize: 13 }}
+          >
+            {composeWeatherRiskCopy(weatherRisk, t).full}
+          </span>
+        </div>
+      )}
 
       {/* Divider */}
       <div

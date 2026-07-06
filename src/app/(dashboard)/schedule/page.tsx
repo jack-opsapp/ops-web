@@ -43,6 +43,8 @@ import { queryKeys } from "@/lib/api/query-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { UserRole, type TeamMember } from "@/lib/types/models";
 
+import { useScheduleWeather } from "@/lib/hooks/use-schedule-weather";
+import { ScheduleWeatherProvider } from "./_components/weather/schedule-weather-context";
 import { ScheduleHeader } from "./_components/schedule-header";
 import { ScheduleToolbar } from "./_components/schedule-toolbar";
 import { CrewScrollContainer } from "./_components/crew/crew-scroll-container";
@@ -321,6 +323,10 @@ export default function SchedulePage() {
     filterStatuses,
   ]);
 
+  // Adverse-weather forecast for the weather-dependent events in the 6-day
+  // window. Fires lazily on load; warning glyphs fade in when it resolves.
+  const weatherLookup = useScheduleWeather(events);
+
   // Handlers
   const handleSelectDate = useCallback(
     (date: Date) => {
@@ -355,6 +361,7 @@ export default function SchedulePage() {
         isLoading={scheduleMetricsLoading}
       />
       <div className="flex flex-col flex-1 min-h-0 min-w-0 gap-1.5">
+      <ScheduleWeatherProvider value={weatherLookup}>
       <ScheduleHeader t={t} />
       <ScheduleToolbar events={events} t={t} />
 
@@ -475,6 +482,7 @@ export default function SchedulePage() {
       <TaskDetailPanel />
       <ProjectDrawerPanel />
       </ScheduleDndShell>
+      </ScheduleWeatherProvider>
       </div>
     </div>
   );

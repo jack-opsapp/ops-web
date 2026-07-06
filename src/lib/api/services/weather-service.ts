@@ -62,6 +62,9 @@ export interface OpenMeteoResponse {
     precipitation_probability_max: (number | null)[];
     precipitation_sum: (number | null)[];
     weather_code: (number | null)[];
+    // Optional — Open-Meteo omits a daily field if it isn't requested/available.
+    // The mapper reads it defensively, so absence just yields null wind.
+    wind_speed_10m_max?: (number | null)[];
   };
 }
 
@@ -77,7 +80,7 @@ export async function fetchOpenMeteo(
     current:
       "temperature_2m,weather_code,wind_speed_10m,precipitation_probability",
     daily:
-      "temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,weather_code",
+      "temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,weather_code,wind_speed_10m_max",
     timezone: "auto",
     forecast_days: "6",
   });
@@ -111,7 +114,9 @@ export function mapOpenMeteoResponse(
     precipitationMm: data.daily?.precipitation_sum?.[i] ?? null,
     precipitationProbability:
       data.daily?.precipitation_probability_max?.[i] ?? null,
-    windSpeedKmh: null,
+    // Per-day max wind — lets adverse-weather warnings fire on future dates,
+    // not just today (bug 9dc7c38d). Open-Meteo returns km/h by default.
+    windSpeedKmh: data.daily?.wind_speed_10m_max?.[i] ?? null,
     conditions: codeToConditions(data.daily?.weather_code?.[i] ?? null),
     retrievedAt,
     source: "open-meteo",

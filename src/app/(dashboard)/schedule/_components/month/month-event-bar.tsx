@@ -6,6 +6,8 @@ import { Star, TreePalm } from "lucide-react";
 import { type InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { useScheduleStore } from "@/stores/schedule-store";
 import { EventHoverPopover } from "../event-hover-popover";
+import { useEventWeatherRisk } from "../weather/schedule-weather-context";
+import { WeatherRiskIndicator } from "../weather/weather-risk-indicator";
 
 // Personal events ride on the same color pool as task types, which makes
 // them visually indistinguishable from any task type using the same color.
@@ -297,6 +299,10 @@ export function MonthEventBar({
   const [isHovered, setIsHovered] = useState(false);
   const barRef = useRef<HTMLDivElement | null>(null);
 
+  // Adverse-weather risk for this event (null unless weather-dependent AND the
+  // forecast for a covered day is bad). Drives the tan warning glyph.
+  const weatherRisk = useEventWeatherRisk(event);
+
   // Personal events render with a distinct white-outline + star treatment
   // so they're never confused with task-type bars (which can land on any
   // color in the palette). Time-off events render with a tan hairline +
@@ -543,8 +549,12 @@ export function MonthEventBar({
           style={{
             width: 10,
             height: 10,
+            boxSizing: "border-box",
             borderRadius: "50%",
             backgroundColor: event.typeColors.border,
+            // Weather-dependent + adverse forecast → tan caution ring (the
+            // densest tier's heads-up; full detail lives in the other views).
+            border: weatherRisk ? "1.5px solid var(--tan)" : undefined,
             opacity: dimmedByLegend ? 0.18 : 1,
             filter: highlightedByLegend ? "brightness(1.25)" : "none",
             transition:
@@ -610,11 +620,16 @@ export function MonthEventBar({
             />
           )}
           <span
-            className="font-mohave truncate"
+            className="font-mohave truncate flex-1 min-w-0"
             style={{ fontSize: 12, lineHeight: "20px", color: barText }}
           >
             {event.projectTitle ?? event.taskTitle}
           </span>
+          {weatherRisk && (
+            <span className="shrink-0" style={{ marginLeft: 4 }}>
+              <WeatherRiskIndicator risk={weatherRisk} size={12} />
+            </span>
+          )}
           {showLeftHandle && <Handle edge="left" height={22} />}
           {showRightHandle && <Handle edge="right" height={22} />}
           {renderEdgePreview("left")}
@@ -680,11 +695,16 @@ export function MonthEventBar({
             />
           )}
           <span
-            className="font-mohave truncate"
+            className="font-mohave truncate flex-1 min-w-0"
             style={{ fontSize: 12, lineHeight: "20px", color: barText }}
           >
             {event.projectTitle ?? event.taskTitle}
           </span>
+          {weatherRisk && (
+            <span className="shrink-0" style={{ marginLeft: 4 }}>
+              <WeatherRiskIndicator risk={weatherRisk} size={12} />
+            </span>
+          )}
           {showLeftHandle && <Handle edge="left" height={22} />}
           {showRightHandle && <Handle edge="right" height={22} />}
           {renderEdgePreview("left")}
@@ -781,8 +801,9 @@ export function MonthEventBar({
           )}
         </div>
 
-        {/* Right cluster: optional time + type badge */}
+        {/* Right cluster: optional weather warning + time + type badge */}
         <div className="flex items-center gap-[5px] shrink-0">
+          {weatherRisk && <WeatherRiskIndicator risk={weatherRisk} size={13} />}
           {timeLabel && (
             <span
               className="font-mono tabular-nums"
