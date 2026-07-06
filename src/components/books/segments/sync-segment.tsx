@@ -20,10 +20,13 @@
  * Gated on accounting.manage_connections at the Books route level.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
+import { queryKeys } from "@/lib/api/query-client";
 import {
   useAccountingConnections,
   useInitiateOAuth,
@@ -74,6 +77,52 @@ export function SyncSegment({
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const queryClient = useQueryClient();
+
+  // Post-OAuth landing (bug eb70d803). The provider callback redirects here
+  // with ?connected=<provider> or ?status=error&message=<code>. Consume it
+  // exactly once: refetch connections so the badge/panel reflect the row that
+  // just changed, toast the outcome, and strip the params so a refresh or
+  // back-nav can't replay the toast.
+  const oauthOutcomeConsumed = useRef(false);
+  useEffect(() => {
+    const connectedParam = searchParams.get("connected");
+    const statusParam = searchParams.get("status");
+    if (!connectedParam && statusParam !== "error") return;
+    if (!companyId || oauthOutcomeConsumed.current) return;
+    oauthOutcomeConsumed.current = true;
+
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.accounting.connections(companyId),
+    });
+
+    if (connectedParam === "quickbooks" || connectedParam === "sage") {
+      toast.success(
+        t("sync.toast.connected", {
+          provider: t(`sync.provider.${connectedParam}`),
+        }),
+      );
+    } else if (statusParam === "error") {
+      // access_denied = the operator backed out at the provider's consent
+      // screen — a neutral fact, not a failure.
+      if (searchParams.get("message") === "access_denied") {
+        toast(t("sync.toast.connectCancelled"));
+      } else {
+        toast.error(t("sync.toast.connectFailed"));
+      }
+    }
+
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("connected");
+    next.delete("status");
+    next.delete("message");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }, [searchParams, companyId, queryClient, router, pathname, t]);
 
   // The operative connection — one provider, once. Prefer a live link; fall
   // back to the first row so an offline (expired) connection still surfaces.

@@ -144,7 +144,8 @@ function round2(n: number): number {
 
 /**
  * True if a thrown pull error indicates an HTTP 401 / unauthorized. The pull
- * service throws `Error("QuickBooks pull error (401): …")`; we also tolerate a
+ * service throws `Error("QuickBooks pull error (401): …")` and the token
+ * service throws `"… token refresh failed (HTTP 401)"`; we also tolerate a
  * `.status` field or a plain "unauthorized" message.
  */
 function isUnauthorizedError(err: unknown): boolean {
@@ -152,7 +153,7 @@ function isUnauthorizedError(err: unknown): boolean {
   const status = (err as { status?: number }).status;
   if (status === 401) return true;
   const msg = err instanceof Error ? err.message : String(err);
-  return /\(401\)/.test(msg) || /unauthorized/i.test(msg);
+  return /\(401\)/.test(msg) || /\bHTTP 401\b/.test(msg) || /unauthorized/i.test(msg);
 }
 
 /**
@@ -565,12 +566,24 @@ export class QuickBooksImportService {
           svc.pullItems(),
         ]);
 
-      let pull = await buildPull();
       const now = new Date();
 
+      // Build the pull service and run the batch — as ONE retryable unit. The
+      // 401 guard must cover buildPull too: its token refresh can itself 401
+      // at the Intuit token endpoint (observed in prod — runs 2026-06-04
+      // 04:33 / 05:39 failed exactly there), not just the QB API calls
+      // mid-pull.
+      const attemptPulls = async (): Promise<
+        [QuickBooksPullService, Awaited<ReturnType<typeof runPulls>>]
+      > => {
+        const svc = await buildPull();
+        return [svc, await runPulls(svc)];
+      };
+
+      let pull: QuickBooksPullService;
       let pulled: Awaited<ReturnType<typeof runPulls>>;
       try {
-        pulled = await runPulls(pull);
+        [pull, pulled] = await attemptPulls();
       } catch (pullErr) {
         // Refresh-and-retry ONCE on a 401: force a fresh token, rebuild the
         // pull service against it, and re-run the batch. Any non-401 (or a
@@ -583,8 +596,7 @@ export class QuickBooksImportService {
           .from("accounting_connections")
           .update({ token_expires_at: new Date(0).toISOString() })
           .eq("id", connId);
-        pull = await buildPull();
-        pulled = await runPulls(pull);
+        [pull, pulled] = await attemptPulls();
       }
       const [rawCustomers, rawInvoices, rawEstimates, rawPayments, rawItems] = pulled;
 
