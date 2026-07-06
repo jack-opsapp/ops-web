@@ -41,17 +41,22 @@ describe("catalog.run_setup permission registration", () => {
     }
   });
 
-  it("no longer exposes the retired inventory.* namespace", () => {
-    // The catalog refactor renamed inventory.* -> catalog.* in role_permissions
-    // and iOS; inventoryModule was deleted from this catalog. Re-introducing any
-    // inventory.* bit would re-surface dead toggles in the roles editor and let
-    // owners/admins "grant" a key the DB no longer recognizes. Guard the deletion
-    // so a stray re-add fails loudly instead of silently denying catalog access.
-    for (const permission of ["inventory.view", "inventory.manage", "inventory.import"]) {
+  it("keeps the dead inventory bits retired, but registers the live one", () => {
+    // The catalog refactor retired inventory.view / inventory.import — nothing
+    // checks them and role_permissions carries no rows. They stay out so dead
+    // toggles can't resurface in the editors.
+    for (const permission of ["inventory.view", "inventory.import"]) {
       expect(ALL_PERMISSIONS).not.toContain(permission);
     }
-    expect(ALL_PERMISSIONS.some((p) => p.startsWith("inventory."))).toBe(false);
-    // The module itself is gone — getModuleLabel falls back to the bare id.
+    // inventory.manage however was never actually retired in the product:
+    // settings-domains gates SETTINGS › INVENTORY on it, the catalog manage
+    // modals gate on it, iOS Inventory* models call can("inventory.manage"),
+    // and role_permissions grants it to Admin/Office/Owner (verified live
+    // 2026-07-03, BUG BURNDOWN W5). Unregistered, the admin bypass denied it
+    // to account holders — hiding the Inventory section from the owner. It is
+    // registered as an action of the catalog module (no standalone module).
+    expect(ALL_PERMISSIONS).toContain("inventory.manage");
+    // Still no standalone inventory module — getModuleLabel falls back to the id.
     expect(getModuleLabel("inventory")).toBe("inventory");
   });
 

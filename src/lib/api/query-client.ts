@@ -469,6 +469,8 @@ export const queryKeys = {
       [...queryKeys.roles.all, "userRoles", companyId] as const,
     userPermissions: (userId: string) =>
       [...queryKeys.roles.all, "userPermissions", userId] as const,
+    memberAccess: (userId: string) =>
+      [...queryKeys.roles.all, "memberAccess", userId] as const,
   },
   // Team Invitations
   invitations: {

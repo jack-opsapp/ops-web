@@ -76,6 +76,7 @@ const projectsModule: PermissionModule = {
     { id: "projects.archive", label: "Archive projects", scopes: ["all"] },
     { id: "projects.assign_team", label: "Assign team members", scopes: ["all"] },
     { id: "projects.manage_views", label: "Manage shared project views", scopes: ["all"] },
+    { id: "projects.view_financials", label: "View project financials", scopes: ["all"] },
   ],
 };
 
@@ -120,6 +121,16 @@ const jobBoardModule: PermissionModule = {
   actions: [
     { id: "job_board.view", label: "View job board", scopes: ["all", "assigned"] },
     { id: "job_board.manage_sections", label: "Manage board sections", scopes: ["all"] },
+  ],
+};
+
+const deckBuilderModule: PermissionModule = {
+  id: "deck_builder",
+  label: "Deck Designer",
+  actions: [
+    { id: "deck_builder.view", label: "View deck designs", scopes: ["all", "assigned"] },
+    { id: "deck_builder.create", label: "Create deck designs", scopes: ["all", "assigned"] },
+    { id: "deck_builder.edit", label: "Edit deck designs", scopes: ["all", "assigned"] },
   ],
 };
 
@@ -188,6 +199,7 @@ const catalogModule: PermissionModule = {
     { id: "catalog.orders.view", label: "View purchase orders", scopes: ["all"] },
     { id: "catalog.orders.manage", label: "Manage purchase orders", scopes: ["all"] },
     { id: "catalog.run_setup", label: "Run catalog setup", scopes: ["all"] },
+    { id: "inventory.manage", label: "Manage inventory", scopes: ["all"] },
   ],
 };
 
@@ -210,6 +222,14 @@ const accountingModule: PermissionModule = {
   actions: [
     { id: "accounting.view", label: "View accounting", scopes: ["all"] },
     { id: "accounting.manage_connections", label: "Manage integrations", scopes: ["all"] },
+  ],
+};
+
+const financesModule: PermissionModule = {
+  id: "finances",
+  label: "Financial Summaries",
+  actions: [
+    { id: "finances.view", label: "View financial summaries", scopes: ["all"] },
   ],
 };
 
@@ -240,6 +260,22 @@ const teamModule: PermissionModule = {
     { id: "team.view", label: "View team", scopes: ["all"] },
     { id: "team.manage", label: "Manage team members", scopes: ["all"] },
     { id: "team.assign_roles", label: "Assign roles", scopes: ["all"] },
+  ],
+};
+
+const timeOffModule: PermissionModule = {
+  id: "time_off",
+  label: "Time Off",
+  actions: [
+    { id: "time_off.approve", label: "Approve time off", scopes: ["all", "assigned"] },
+  ],
+};
+
+const profileModule: PermissionModule = {
+  id: "profile",
+  label: "Profile",
+  actions: [
+    { id: "profile.edit", label: "Edit own profile", scopes: ["own"] },
   ],
 };
 
@@ -320,12 +356,12 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "core",
     label: "Core Operations",
-    modules: [projectsModule, tasksModule, clientsModule, calendarModule, jobBoardModule],
+    modules: [projectsModule, tasksModule, clientsModule, calendarModule, jobBoardModule, deckBuilderModule],
   },
   {
     id: "financial",
     label: "Financial",
-    modules: [estimatesModule, invoicesModule, pipelineModule, productsModule, catalogModule, expensesModule, accountingModule],
+    modules: [estimatesModule, invoicesModule, pipelineModule, productsModule, catalogModule, expensesModule, accountingModule, financesModule],
   },
   {
     id: "resources",
@@ -335,7 +371,7 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "people",
     label: "People & Location",
-    modules: [teamModule, mapModule, notificationsModule],
+    modules: [teamModule, timeOffModule, profileModule, mapModule, notificationsModule],
   },
   {
     id: "admin",
@@ -345,6 +381,18 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
 ];
 
 // ─── Flat Permission List ────────────────────────────────────────────────────
+//
+// This registry must stay a SUPERSET of every permission string granted in the
+// DB (role_permissions / user_permission_overrides): account holders and
+// company admins derive their access from ALL_PERMISSIONS at scope 'all', so
+// an unregistered DB string is silently DENIED to the owner while remaining
+// grantable to crew — the inverted-privilege trap.
+//
+// Deliberate exclusion: `spec.admin` (the internal SPEC operator console gate)
+// is NEVER registered here. Registering it would hand the SPEC console to
+// every company admin via the bypass. The permission-override API validates
+// against ALL_PERMISSIONS, so the product surface can neither display nor
+// write it.
 
 export const ALL_PERMISSIONS = PERMISSION_CATEGORIES.flatMap((cat) =>
   cat.modules.flatMap((mod) => mod.actions.map((a) => a.id))
@@ -372,6 +420,20 @@ export function getPermissionLabel(permission: string): string {
 /** Get human-readable label for a module (e.g., "projects" → "Projects") */
 export function getModuleLabel(moduleId: string): string {
   return _moduleLabelMap.get(moduleId) ?? moduleId;
+}
+
+const _permissionModuleMap = new Map<string, string>();
+for (const cat of PERMISSION_CATEGORIES) {
+  for (const mod of cat.modules) {
+    for (const action of mod.actions) {
+      _permissionModuleMap.set(action.id, mod.id);
+    }
+  }
+}
+
+/** Map a permission id to its owning module id (e.g. "catalog.products.view" → "catalog"). */
+export function getModuleForPermission(permission: string): string | null {
+  return _permissionModuleMap.get(permission) ?? null;
 }
 
 /** Get the available scopes for a specific permission */
@@ -419,6 +481,9 @@ const DESTRUCTIVE_SUFFIXES = [
   "configure_phase_c",
   "convert",
   "view_company",
+  // Financial visibility never rides in via the Manage tier — granting a
+  // module's day-to-day actions must not silently expose money.
+  "view_financials",
 ];
 
 function _isDestructive(actionId: string): boolean {

@@ -12,6 +12,7 @@ import { create } from "zustand";
 import { RolesService } from "@/lib/api/services/roles-service";
 import type { PermissionScope } from "@/lib/types/permissions";
 import { ALL_PERMISSIONS, PRESET_ROLE_IDS } from "@/lib/types/permissions";
+import { isAdminBypass, resolveEffectivePermissions } from "@/lib/permissions/resolve";
 import { useAuthStore } from "@/lib/store/auth-store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -76,12 +77,19 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
     set({ loading: true });
 
     try {
-      // Account holder and company admins get all permissions by default
+      // Master bypass — account holder ∪ admin_ids ∪ is_company_admin flag.
+      // Single definition shared with the DB functions and the Team access
+      // editor (isAdminBypass); the flag was previously missing here, which
+      // desynced the client from private.current_user_is_admin().
       const authState = useAuthStore.getState();
-      const isAccountHolder = authState.company?.accountHolderId === userId;
-      const isCompanyAdmin = authState.company?.adminIds?.includes(userId) ?? false;
+      const bypass = isAdminBypass(
+        { id: userId, isCompanyAdmin: authState.currentUser?.id === userId ? authState.currentUser?.isCompanyAdmin : false },
+        authState.company
+          ? { accountHolderId: authState.company.accountHolderId, adminIds: authState.company.adminIds }
+          : null,
+      );
 
-      if (isAccountHolder || isCompanyAdmin) {
+      if (bypass) {
         const allPerms = new Map<string, PermissionScope>();
         for (const perm of ALL_PERMISSIONS) {
           allPerms.set(perm, "all");
@@ -96,9 +104,17 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
         return;
       }
 
-      const result = await RolesService.fetchUserPermissions(userId);
+      // Role grants + own permission exceptions (self-read RLS policy),
+      // resolved with the shared iOS-parity semantics.
+      const [result, overrides] = await Promise.all([
+        RolesService.fetchUserPermissions(userId),
+        RolesService.fetchUserOverrides(userId).catch(() => []),
+      ]);
+      const rolePerms = Array.from(result.permissions.entries()).map(
+        ([permission, scope]) => ({ permission, scope }),
+      );
       set({
-        permissions: result.permissions,
+        permissions: resolveEffectivePermissions(rolePerms, overrides),
         roleId: result.roleId,
         roleName: result.roleName,
         loading: false,

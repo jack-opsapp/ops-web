@@ -1,14 +1,47 @@
 /**
  * OPS Web - Roles & Permissions Service
  *
- * CRUD operations for roles, role permissions, and user-role assignments.
- * Uses Supabase as the data layer.
+ * Reads go straight to Supabase as the Firebase-bridged anon role (company
+ * -scoped SELECT policies, migration 20260703120000). WRITES to the RBAC
+ * tables (user_roles, role_permissions) go through guarded service-role API
+ * routes — anon has no write grant on either table by design.
  */
 
 import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
+import { getIdToken } from "@/lib/firebase/auth";
 import type { Role, RolePermission, UserRole, PermissionScope } from "@/lib/types/permissions";
+import type { OverrideInput } from "@/lib/permissions/resolve";
 import type { User } from "@/lib/types/models";
 import { getUserFullName } from "@/lib/types/models";
+
+/** POST/PUT/PATCH/DELETE against a team API route with the body-idToken contract. */
+async function authedRouteCall(
+  method: "PATCH" | "PUT" | "DELETE",
+  url: string,
+  payload: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const idToken = await getIdToken();
+  if (!idToken) throw new Error("Not authenticated");
+
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken, ...payload }),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return (await res.json()) as Record<string, unknown>;
+}
+
+/** A member's full access picture: role + role grants + per-member overrides. */
+export interface MemberAccess {
+  roleId: string | null;
+  roleName: string | null;
+  rolePermissions: RolePermission[];
+  overrides: OverrideInput[];
+}
 
 // ─── Database ↔ TypeScript Mapping ───────────────────────────────────────────
 
@@ -160,49 +193,18 @@ export const RolesService = {
   },
 
   /**
-   * Bulk-replace all permissions for a role.
-   * Deletes existing permissions and inserts the new set.
+   * Bulk-replace all permissions for a custom role via the guarded
+   * service-role route (anon has no write grant on role_permissions).
    */
   async updateRolePermissions(
     roleId: string,
     permissions: { permission: string; scope: PermissionScope }[]
   ): Promise<void> {
-    const supabase = requireSupabase();
-
-    // Snapshot existing permissions so we can restore on failure
-    const { data: existing } = await supabase
-      .from("role_permissions")
-      .select("role_id, permission, scope")
-      .eq("role_id", roleId);
-
-    // Delete existing permissions
-    const { error: deleteError } = await supabase
-      .from("role_permissions")
-      .delete()
-      .eq("role_id", roleId);
-
-    if (deleteError) throw new Error(`Failed to clear role permissions: ${deleteError.message}`);
-
-    // Insert new permissions
-    if (permissions.length > 0) {
-      const rows = permissions.map((p) => ({
-        role_id: roleId,
-        permission: p.permission,
-        scope: p.scope,
-      }));
-
-      const { error: insertError } = await supabase
-        .from("role_permissions")
-        .insert(rows);
-
-      if (insertError) {
-        // Attempt to restore previous permissions
-        if (existing && existing.length > 0) {
-          await supabase.from("role_permissions").insert(existing);
-        }
-        throw new Error(`Failed to set role permissions: ${insertError.message}`);
-      }
-    }
+    await authedRouteCall(
+      "PUT",
+      `/api/roles/${encodeURIComponent(roleId)}/permissions`,
+      { permissions }
+    );
   },
 
   /**
@@ -241,40 +243,26 @@ export const RolesService = {
   },
 
   /**
-   * Assign a user to a role (upsert — replaces any existing role).
+   * Assign a user to a role via PATCH /api/users/:id/role — the canonical
+   * path: upserts user_roles, syncs the legacy users.role column, and clears
+   * related role_needed rail notifications.
    */
   async assignUserRole(
     userId: string,
     roleId: string,
     _assignedBy: string
   ): Promise<void> {
-    const supabase = requireSupabase();
-
-    const { error } = await supabase
-      .from("user_roles")
-      .upsert(
-        {
-          user_id: userId,
-          role_id: roleId,
-        },
-        { onConflict: "user_id" }
-      );
-
-    if (error) throw new Error(`Failed to assign user role: ${error.message}`);
+    await authedRouteCall("PATCH", `/api/users/${encodeURIComponent(userId)}/role`, {
+      roleId,
+    });
   },
 
   /**
-   * Remove a user's role assignment.
+   * Remove a user's role assignment via the guarded route (also resets the
+   * legacy users.role column to 'unassigned').
    */
   async removeUserRole(userId: string): Promise<void> {
-    const supabase = requireSupabase();
-
-    const { error } = await supabase
-      .from("user_roles")
-      .delete()
-      .eq("user_id", userId);
-
-    if (error) throw new Error(`Failed to remove user role: ${error.message}`);
+    await authedRouteCall("DELETE", `/api/users/${encodeURIComponent(userId)}/role`, {});
   },
 
   /**
@@ -317,6 +305,57 @@ export const RolesService = {
 
     if (error) throw new Error(`Failed to fetch user roles: ${error.message}`);
     return (data ?? []).map(mapUserRoleFromDb);
+  },
+
+  /**
+   * Fetch a user's permission overrides. Readable by access managers for any
+   * same-company member, and by every user for themselves (RLS).
+   */
+  async fetchUserOverrides(userId: string): Promise<OverrideInput[]> {
+    const supabase = requireSupabase();
+
+    const { data, error } = await supabase
+      .from("user_permission_overrides")
+      .select("permission, scope, granted")
+      .eq("user_id", userId);
+
+    if (error) throw new Error(`Failed to fetch permission overrides: ${error.message}`);
+    return (data ?? []).map((row) => ({
+      permission: row.permission as string,
+      scope: (row.scope as PermissionScope | null) ?? null,
+      granted: Boolean(row.granted),
+    }));
+  },
+
+  /**
+   * A member's full access picture for the Team access editor:
+   * assigned role (if any) + that role's grants + per-member overrides.
+   */
+  async fetchMemberAccess(userId: string): Promise<MemberAccess> {
+    const supabase = requireSupabase();
+
+    const { data: assignment, error: urError } = await supabase
+      .from("user_roles")
+      .select("role_id, roles:role_id ( id, name )")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (urError) throw new Error(`Failed to fetch member role: ${urError.message}`);
+
+    const roleId = (assignment?.role_id as string) ?? null;
+    const role = (assignment?.roles ?? null) as { id: string; name: string } | null;
+
+    const [rolePermissions, overrides] = await Promise.all([
+      roleId ? RolesService.fetchRolePermissions(roleId) : Promise.resolve([]),
+      RolesService.fetchUserOverrides(userId),
+    ]);
+
+    return {
+      roleId,
+      roleName: role?.name ?? null,
+      rolePermissions,
+      overrides,
+    };
   },
 
   /**

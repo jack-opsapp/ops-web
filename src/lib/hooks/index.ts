@@ -309,6 +309,7 @@ export {
   useAssignUserRole,
   useRemoveUserRole,
 } from "./use-roles";
+export { useMemberAccess, useSaveMemberAccess } from "./use-member-access";
 
 // Portal — Client-facing hooks (session cookie auth, no useAuthStore)
 export { portalKeys, portalFetch, usePortalData } from "./use-portal-data";
