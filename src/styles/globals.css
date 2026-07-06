@@ -507,13 +507,13 @@
     z-index: 1;
   }
   [data-sonner-toast][data-type="success"].ops-toast::after {
-    background: #9DB582; /* olive */
+    background: var(--color-olive, #9DB582); /* olive */
   }
   [data-sonner-toast][data-type="error"].ops-toast::after {
-    background: #B58289; /* rose */
+    background: var(--color-rose, #B58289); /* rose */
   }
   [data-sonner-toast][data-type="warning"].ops-toast::after {
-    background: #C4A868; /* tan */
+    background: var(--color-tan, #C4A868); /* tan */
   }
   [data-sonner-toast][data-type="info"].ops-toast::after {
     background: rgb(var(--ops-accent-rgb, 111 148 176)); /* ops-accent */
