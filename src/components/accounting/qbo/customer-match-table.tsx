@@ -1,9 +1,19 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
+import { Tag } from "@/components/ui/tag";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type {
   MatchAction,
+  MatchConfidence,
   QboCustomerMatch,
   QboMatchCandidate,
 } from "@/lib/types/qbo-import";
@@ -18,11 +28,21 @@ export interface RowDecision {
 // (disabled) when proposed, but is not an option the operator can pick.
 const SELECTABLE_ACTIONS: MatchAction[] = ["link", "create", "skip"];
 
-const CONFIDENCE_COLOR: Record<string, string> = {
-  high: "text-status-success",
-  medium: "text-[#C4A868]",
-  low: "text-[#B58289]",
+// Radix Select forbids an empty-string item value; this sentinel maps to
+// "no OPS client selected" and is normalised back to `undefined` on change.
+const NO_CLIENT = "__none__";
+
+// Confidence → earth-tone tag (DESIGN.md § earth-tone semantics): olive = strong,
+// tan = attention, rose = weak. Color always ships with the text label (a11y).
+const CONFIDENCE_TONE: Record<MatchConfidence, "olive" | "tan" | "rose"> = {
+  high: "olive",
+  medium: "tan",
+  low: "rose",
 };
+
+// Shared column template so the header and every row stay in lockstep.
+const GRID =
+  "grid grid-cols-[minmax(0,1.5fr)_84px_96px_148px_minmax(0,1.35fr)] items-center gap-2";
 
 function resolveDecision(
   m: QboCustomerMatch,
@@ -36,10 +56,32 @@ function resolveDecision(
   );
 }
 
-function candidateLabel(c: QboMatchCandidate): string {
-  const name = c.name ?? c.clientId;
-  const pct = ` · ${Math.round(c.score * 100)}%`;
-  return `${name}${pct}`;
+/**
+ * The match-quality qualifier for a candidate option. Exact matches carry no
+ * similarity score (it arrives null and coerces to 0), so a percentage is
+ * meaningless for them — show the basis instead ("email match" / "exact match").
+ * Only a real fuzzy score (0 < score ≤ 1) renders a percentage. Returns null
+ * when there is nothing honest to show (never a misleading "0%").
+ */
+function candidateQualifier(
+  c: QboMatchCandidate,
+  t: (key: string) => string
+): string | null {
+  if (c.basis === "email") return t("qbo.candidate.qualifier.email");
+  if (c.basis === "name_exact") return t("qbo.candidate.qualifier.exact");
+  if (c.basis === "name_fuzzy" && c.score > 0) return `${Math.round(c.score * 100)}%`;
+  return null;
+}
+
+function ColumnHead({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      role="columnheader"
+      className="font-mono text-micro uppercase tracking-[0.16em] text-text-mute"
+    >
+      {children}
+    </span>
+  );
 }
 
 export function CustomerMatchTable({
@@ -54,120 +96,172 @@ export function CustomerMatchTable({
   const { t } = useDictionary("accounting");
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="border-b border-border">
-            <th className="text-left font-mono text-micro text-text-mute uppercase tracking-wider px-1.5 py-1">
-              {t("qbo.customers.title")}
-            </th>
-            <th className="text-left font-mono text-micro text-text-mute uppercase tracking-wider px-1.5 py-1">
-              {t("qbo.customers.basis")}
-            </th>
-            <th className="text-left font-mono text-micro text-text-mute uppercase tracking-wider px-1.5 py-1">
-              {t("qbo.customers.confidence")}
-            </th>
-            <th className="text-left font-mono text-micro text-text-mute uppercase tracking-wider px-1.5 py-1">
-              {t("qbo.customers.action")}
-            </th>
-            <th className="text-left font-mono text-micro text-text-mute uppercase tracking-wider px-1.5 py-1">
-              {t("qbo.customers.match")}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
+    <div role="table" className="overflow-x-auto">
+      <div className="min-w-[720px]">
+        {/* Header */}
+        <div
+          role="row"
+          className={cn(GRID, "border-b border-border px-1.5 pb-1")}
+        >
+          <ColumnHead>{t("qbo.customers.title")}</ColumnHead>
+          <ColumnHead>{t("qbo.customers.basis")}</ColumnHead>
+          <ColumnHead>{t("qbo.customers.confidence")}</ColumnHead>
+          <ColumnHead>{t("qbo.customers.action")}</ColumnHead>
+          <ColumnHead>{t("qbo.customers.match")}</ColumnHead>
+        </div>
+
+        {/* Rows */}
+        <div className="mt-1 space-y-0.5">
           {matches.map((m) => {
             const decision = resolveDecision(m, decisions);
             const showPicker =
               decision.action === "link" || decision.action === "needs_review";
+            // needs_review is the one blocking state — it stops Apply, so it must
+            // be the loudest thing in the row (bug: blockers weren't surfaced).
+            const isBlocking = decision.action === "needs_review";
+
             return (
-              <tr
+              <div
+                role="row"
                 key={m.customerQbId}
-                className="border-b border-border last:border-0 hover:bg-[rgba(255,255,255,0.02)]"
+                data-testid={`match-row-${m.customerQbId}`}
+                data-blocking={isBlocking || undefined}
+                className={cn(
+                  GRID,
+                  "rounded px-1.5 py-1.5 border transition-colors duration-150",
+                  isBlocking
+                    ? "border-rose-line bg-rose-soft"
+                    : "border-transparent hover:bg-surface-hover-subtle"
+                )}
               >
-                <td className="px-1.5 py-1 max-w-[220px]">
-                  <div className="font-mono text-caption text-text-2 truncate">
-                    {m.companyName ?? m.displayName ?? m.customerQbId}
-                  </div>
-                  {m.companyName && m.contactName && (
-                    <div className="font-mono text-caption-sm text-text-3 truncate">
-                      <span className="text-text-mute">{t("qbo.customers.contactLabel")} </span>
-                      {m.contactName}
-                    </div>
+                {/* Customer */}
+                <div role="cell" className="min-w-0 flex items-center gap-1.5">
+                  {isBlocking && (
+                    <AlertTriangle
+                      size={13}
+                      className="shrink-0 text-rose"
+                      aria-hidden
+                    />
                   )}
-                </td>
-                <td
+                  <div className="min-w-0">
+                    <div className="truncate font-mohave text-body-sm text-text">
+                      {m.companyName ?? m.displayName ?? m.customerQbId}
+                    </div>
+                    {m.companyName && m.contactName && (
+                      <div className="truncate font-mono text-micro text-text-3">
+                        <span className="text-text-mute">
+                          {t("qbo.customers.contactLabel")}{" "}
+                        </span>
+                        {m.contactName}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Match basis */}
+                <span
+                  role="cell"
                   data-testid={`match-basis-${m.customerQbId}`}
-                  className="px-1.5 py-1 font-mono text-caption-sm text-text-3"
+                  className="font-mono text-micro uppercase tracking-wider text-text-3"
                 >
                   {t(`qbo.basis.${m.matchBasis ?? "none"}`)}
-                </td>
-                <td
-                  data-testid={`match-confidence-${m.customerQbId}`}
-                  className={cn(
-                    "px-1.5 py-1 font-mono text-caption-sm uppercase tracking-wider",
-                    m.confidence ? CONFIDENCE_COLOR[m.confidence] : "text-text-mute"
+                </span>
+
+                {/* Confidence */}
+                <span role="cell" data-testid={`match-confidence-${m.customerQbId}`}>
+                  {m.confidence ? (
+                    <Tag variant={CONFIDENCE_TONE[m.confidence]}>
+                      {t(`qbo.confidence.${m.confidence}`)}
+                    </Tag>
+                  ) : (
+                    <span className="font-mono text-micro text-text-mute">—</span>
                   )}
-                >
-                  {m.confidence ? t(`qbo.confidence.${m.confidence}`) : "—"}
-                </td>
-                <td className="px-1.5 py-1">
-                  <select
-                    data-testid={`match-action-${m.customerQbId}`}
+                </span>
+
+                {/* Action */}
+                <div role="cell">
+                  <Select
                     value={decision.action}
-                    onChange={(e) =>
+                    onValueChange={(value) =>
                       onDecisionChange(m.customerQbId, {
-                        action: e.target.value as MatchAction,
+                        action: value as MatchAction,
                         client_id:
-                          e.target.value === "link" ||
-                          e.target.value === "needs_review"
-                            ? decision.client_id
-                            : undefined,
+                          value === "link" ? decision.client_id : undefined,
                       })
                     }
-                    className="h-[36px] rounded bg-[rgba(255,255,255,0.04)] border border-border px-2 font-mono text-caption text-text-2 focus:border-ops-accent focus:outline-none"
                   >
-                    {decision.action === "needs_review" && (
-                      <option value="needs_review" disabled>
-                        {t("qbo.action.needs_review")}
-                      </option>
-                    )}
-                    {SELECTABLE_ACTIONS.map((a) => (
-                      <option key={a} value={a}>
-                        {t(`qbo.action.${a}`)}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-1.5 py-1">
+                    <SelectTrigger
+                      data-testid={`match-action-${m.customerQbId}`}
+                      className="font-mono text-caption"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {decision.action === "needs_review" && (
+                        <SelectItem value="needs_review" disabled>
+                          {t("qbo.action.needs_review")}
+                        </SelectItem>
+                      )}
+                      {SELECTABLE_ACTIONS.map((a) => (
+                        <SelectItem key={a} value={a}>
+                          {t(`qbo.action.${a}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* OPS client (candidate picker) */}
+                <div role="cell" className="min-w-0">
                   {showPicker ? (
-                    <select
-                      data-testid={`match-candidate-${m.customerQbId}`}
-                      value={decision.client_id ?? ""}
-                      onChange={(e) =>
+                    <Select
+                      value={decision.client_id ?? NO_CLIENT}
+                      onValueChange={(value) =>
                         onDecisionChange(m.customerQbId, {
                           action: decision.action,
-                          client_id: e.target.value || undefined,
+                          client_id: value === NO_CLIENT ? undefined : value,
                         })
                       }
-                      className="h-[36px] rounded bg-[rgba(255,255,255,0.04)] border border-border px-2 font-mono text-caption text-text-2 focus:border-ops-accent focus:outline-none max-w-[220px]"
                     >
-                      <option value="">{t("qbo.candidate.none")}</option>
-                      {m.candidates.map((c) => (
-                        <option key={c.clientId} value={c.clientId}>
-                          {candidateLabel(c)}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger
+                        data-testid={`match-candidate-${m.customerQbId}`}
+                        className="font-mono text-caption"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_CLIENT}>
+                          {t("qbo.candidate.none")}
+                        </SelectItem>
+                        {m.candidates.map((c) => {
+                          const qualifier = candidateQualifier(c, t);
+                          return (
+                            <SelectItem key={c.clientId} value={c.clientId}>
+                              <span className="font-mohave">
+                                {c.name ?? c.clientId}
+                              </span>
+                              {qualifier && (
+                                <>
+                                  <span className="text-text-mute"> · </span>
+                                  <span className="font-mono text-caption-sm text-text-3">
+                                    {qualifier}
+                                  </span>
+                                </>
+                              )}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
                   ) : (
-                    <span className="font-mono text-caption-sm text-text-mute">—</span>
+                    <span className="font-mono text-micro text-text-mute">—</span>
                   )}
-                </td>
-              </tr>
+                </div>
+              </div>
             );
           })}
-        </tbody>
-      </table>
+        </div>
+      </div>
     </div>
   );
 }

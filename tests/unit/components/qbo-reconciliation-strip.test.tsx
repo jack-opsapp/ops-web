@@ -24,7 +24,7 @@ describe("ReconciliationStrip", () => {
   it("marks a to-the-cent A/R match as success", () => {
     render(<ReconciliationStrip recon={matchedRecon} />);
     const arRow = screen.getByTestId("recon-row-openAr");
-    expect(arRow).toHaveClass("text-status-success");
+    expect(arRow).toHaveAttribute("data-matched", "true");
   });
 
   it("renders an em-dash delta when matched", () => {
@@ -34,19 +34,21 @@ describe("ReconciliationStrip", () => {
 
   it("mirrors QB on the collected + customer rows (always matched)", () => {
     render(<ReconciliationStrip recon={matchedRecon} />);
-    expect(screen.getByTestId("recon-row-collected24mo")).toHaveClass(
-      "text-status-success"
+    expect(screen.getByTestId("recon-row-collected24mo")).toHaveAttribute(
+      "data-matched",
+      "true"
     );
     expect(screen.getByTestId("recon-delta-collected24mo").textContent).toBe(
       "—"
     );
-    expect(screen.getByTestId("recon-row-customers")).toHaveClass(
-      "text-status-success"
+    expect(screen.getByTestId("recon-row-customers")).toHaveAttribute(
+      "data-matched",
+      "true"
     );
     expect(screen.getByTestId("recon-delta-customers").textContent).toBe("—");
   });
 
-  it("marks a non-matching A/R row as a delta breach", () => {
+  it("marks a non-matching A/R row as a delta breach (rose, tokenized)", () => {
     const breach: QboReconciliation = {
       ...matchedRecon,
       opsToBeOpenAr: 11500,
@@ -54,9 +56,11 @@ describe("ReconciliationStrip", () => {
     };
     render(<ReconciliationStrip recon={breach} />);
     const row = screen.getByTestId("recon-row-openAr");
-    expect(row).toHaveClass("text-[#B58289]");
-    expect(screen.getByTestId("recon-delta-openAr").textContent).toContain(
-      "$500.00"
-    );
+    expect(row).toHaveAttribute("data-matched", "false");
+    // The breach signal is the rose token on the delta figure — never a
+    // hardcoded hex.
+    const delta = screen.getByTestId("recon-delta-openAr");
+    expect(delta).toHaveClass("text-rose");
+    expect(delta.textContent).toContain("$500.00");
   });
 });

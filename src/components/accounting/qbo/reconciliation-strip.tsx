@@ -20,6 +20,8 @@ interface RowSpec {
   kind: "money" | "count";
 }
 
+const GRID = "grid grid-cols-[10px_minmax(0,1fr)_auto_auto_88px] items-center gap-3";
+
 function ReconRow({ spec, t }: { spec: RowSpec; t: (k: string) => string }) {
   const matched =
     spec.kind === "money" ? moneyEq(spec.qb, spec.ops) : spec.qb === spec.ops;
@@ -30,20 +32,32 @@ function ReconRow({ spec, t }: { spec: RowSpec; t: (k: string) => string }) {
   return (
     <div
       data-testid={`recon-row-${spec.id}`}
-      className={cn(
-        "grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-1.5 py-1 rounded",
-        "font-mono text-data-sm tabular-nums",
-        matched ? "text-status-success" : "text-[#B58289]"
-      )}
+      data-matched={matched ? "true" : "false"}
+      className={cn(GRID, "px-1.5 py-1 rounded font-mono text-data-sm tabular-nums")}
     >
-      <span className="text-text-3 uppercase tracking-wider text-caption-sm">
+      {/* Status pip — carries the matched/breach signal independently of color (a11y). */}
+      <span
+        aria-hidden
+        className={cn(
+          "h-[6px] w-[6px] rounded-full",
+          matched ? "bg-status-success" : "bg-rose"
+        )}
+      />
+      <span className="truncate text-text-3 uppercase tracking-wider text-caption-sm">
         {t(spec.labelKey)}
       </span>
-      <span className="text-right tabular-nums">{fmt(spec.qb)}</span>
-      <span className="text-right tabular-nums">{fmt(spec.ops)}</span>
+      <span className={cn("text-right tabular-nums", matched ? "text-text-2" : "text-rose")}>
+        {fmt(spec.qb)}
+      </span>
+      <span className={cn("text-right tabular-nums", matched ? "text-text" : "text-rose")}>
+        {fmt(spec.ops)}
+      </span>
       <span
         data-testid={`recon-delta-${spec.id}`}
-        className="text-right tabular-nums w-[80px]"
+        className={cn(
+          "text-right tabular-nums",
+          matched ? "text-text-mute" : "text-rose"
+        )}
       >
         {matched ? "—" : fmt(Math.abs(delta))}
       </span>
@@ -55,9 +69,9 @@ function ReconRow({ spec, t }: { spec: RowSpec; t: (k: string) => string }) {
  * QuickBooks-vs-OPS reconciliation strip. Because QB is authoritative in the
  * read-only model, OPS mirrors QB on apply: A/R compares `qbOpenAr` against
  * `opsToBeOpenAr` (the only independent pair), while collected + customer
- * counts mirror QB by construction and are therefore always matched. Rows turn
- * olive (`text-status-success`) when equal — to the cent on money, exact on
- * counts — and rose (`#B58289`) when a delta breaches.
+ * counts mirror QB by construction and are therefore always matched. Each row
+ * carries an olive pip when equal — to the cent on money, exact on counts — and
+ * a rose pip + rose figures when a delta breaches.
  */
 export function ReconciliationStrip({ recon }: { recon: Recon }) {
   const { t } = useDictionary("accounting");
@@ -96,9 +110,11 @@ export function ReconciliationStrip({ recon }: { recon: Recon }) {
   ];
 
   return (
-    <div className="space-y-1">
-      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-1.5 pb-0.5 border-b border-border">
-        <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+    <div className="space-y-0.5">
+      <div className={cn(GRID, "px-1.5 pb-1 border-b border-border")}>
+        <span />
+        <span className="font-mono text-micro text-text-mute uppercase tracking-[0.16em]">
+          <span className="text-text-mute">{"// "}</span>
           {t("qbo.recon.title")}
         </span>
         <span className="font-mono text-micro text-text-mute uppercase tracking-wider text-right">
@@ -107,7 +123,7 @@ export function ReconciliationStrip({ recon }: { recon: Recon }) {
         <span className="font-mono text-micro text-text-mute uppercase tracking-wider text-right">
           {t("qbo.recon.ops")}
         </span>
-        <span className="font-mono text-micro text-text-mute uppercase tracking-wider text-right w-[80px]">
+        <span className="font-mono text-micro text-text-mute uppercase tracking-wider text-right">
           {t("qbo.recon.delta")}
         </span>
       </div>

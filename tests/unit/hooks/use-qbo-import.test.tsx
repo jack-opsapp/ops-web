@@ -85,25 +85,29 @@ describe("useImportReview", () => {
 });
 
 describe("useApplyImport", () => {
-  it("POSTs decisions and does NOT fire a client-side notification (server owns it)", async () => {
+  it("accepts the 202 background-job response and does NOT notify client-side (server owns it)", async () => {
+    // Apply is a background job: the route responds 202 { status, runId } and
+    // performs the write in after(); the hook must not expect final counts.
     fetchMock.mockResolvedValueOnce({
       ok: true,
-      json: async () => ({ applied: { customers: 3, invoices: 5, payments: 2, estimates: 1, lineItems: 12 } }),
+      status: 202,
+      json: async () => ({ status: "applying", runId: "run-1" }),
     });
     const { result } = renderHook(() => useApplyImport(), { wrapper });
     const res = await result.current.mutateAsync({
       runId: "run-1",
       decisions: [{ customer_qb_id: "QB1", action: "link", client_id: "c-1" }],
     });
-    expect(res.applied.customers).toBe(3);
+    expect(res).toEqual({ status: "applying", runId: "run-1" });
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/integrations/quickbooks/import/apply");
     expect(JSON.parse(init.body)).toEqual({
       runId: "run-1",
       decisions: [{ customer_qb_id: "QB1", action: "link", client_id: "c-1" }],
     });
-    // The apply API route inserts the `accounting_import_complete` rail
-    // notification server-side; the hook must NOT double-notify client-side.
+    // The apply route owns the persistent `accounting_import_complete` rail
+    // notification (inserted "applying", resolved to "complete"); the hook must
+    // NOT double-notify client-side.
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(notify).not.toHaveBeenCalled();
   });

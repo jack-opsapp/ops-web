@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
 import { encryptToken } from "@/lib/api/services/token-cipher";
+import { findConflictingActiveProvider } from "@/lib/api/services/accounting-connection-guard";
 
 const SAGE_CLIENT_ID = process.env.SAGE_CLIENT_ID;
 const SAGE_CLIENT_SECRET = process.env.SAGE_CLIENT_SECRET;
@@ -65,6 +66,20 @@ export async function GET(request: NextRequest) {
   if (!existing || existing.webhook_verifier_token !== state) {
     return NextResponse.redirect(
       `${getAppUrl()}/books?segment=sync&status=error&message=csrf_mismatch`
+    );
+  }
+
+  // One accounting provider per company: if a DIFFERENT provider is already
+  // connected, refuse to activate Sage (defense-in-depth behind the initiate
+  // guard). Abort before exchanging the code so no tokens are stored.
+  const providerConflict = await findConflictingActiveProvider(
+    supabase,
+    companyId,
+    "sage"
+  );
+  if (providerConflict) {
+    return NextResponse.redirect(
+      `${getAppUrl()}/accounting?status=error&message=provider_conflict`
     );
   }
 
