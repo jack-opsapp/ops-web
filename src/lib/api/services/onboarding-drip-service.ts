@@ -198,7 +198,6 @@ async function dispatchTypedSender(
       return sendOnboardingLostYou({
         email: params.user.email,
         firstName: params.user.first_name,
-        daysSinceSignup: (params.payload.daysSinceSignup as number) ?? 0,
         daysSinceLastActivity: (params.payload.daysSinceLastActivity as number) ?? 0,
         onboardingEmailLogId,
         userId: params.user.id,
@@ -233,6 +232,16 @@ export function computeOperatorLocalHour(
     return utcNow.getUTCHours();
   }
 }
+
+/**
+ * Lost You re-engagement window (spec §7). The send only fires once the
+ * account is at least LOST_YOU_MIN_INACTIVITY_DAYS old — otherwise the
+ * "haven't been back in N days" claim can't be physically true — and no later
+ * than LOST_YOU_MAX_AGE_DAYS, after which the calendar Day 14 send and the
+ * TrialExpiry service take over.
+ */
+const LOST_YOU_MIN_INACTIVITY_DAYS = 7;
+const LOST_YOU_MAX_AGE_DAYS = 14;
 
 export const OnboardingDripService = {
   /**
@@ -671,11 +680,17 @@ export const OnboardingDripService = {
 
   /**
    * Behavior-triggered re-engagement send (spec §7). Fires once per trial
-   * when the operator has had zero activity for 6+ consecutive calendar
-   * days between Day 1 and Day 14. All five conditions must hold: kill
-   * switches clear, age in [1, 14], neither Day 14 nor Lost You already
-   * sent, zero activity across the 6 tables in the last 6 days, operator
-   * still active.
+   * when the operator has gone quiet for a full week. All conditions must
+   * hold: kill switches clear, age in [7, 14], neither Day 14 nor Lost You
+   * already sent, real inactivity gap >= 7 days (computed from the most
+   * recent updated_at across the 6 operator tables, falling back to signup),
+   * operator still active.
+   *
+   * The gap is the single number the email surfaces ("you last opened OPS N
+   * days ago"), so it must be real and never exceed the account age — that is
+   * what makes the claim truthful. The old code hardcoded 6 and let the send
+   * fire from Day 1, producing "signed up 1 day ago and haven't been back in
+   * 6 days" (bug a4882017).
    */
   async processLostYouCandidate(
     db: SupabaseClient,
@@ -701,7 +716,10 @@ export const OnboardingDripService = {
     const ageDays = Math.floor(
       (now.getTime() - new Date(company.created_at).getTime()) / 86400_000,
     );
-    if (ageDays < 1 || ageDays > 14) {
+    // Only fire inside the [7, 14] window. Below the floor the account hasn't
+    // existed long enough for a week-long absence to be real; past day 14 the
+    // calendar Day 14 send + TrialExpiry take over.
+    if (ageDays < LOST_YOU_MIN_INACTIVITY_DAYS || ageDays > LOST_YOU_MAX_AGE_DAYS) {
       return { fired: false, reason: "outside window" };
     }
 
@@ -714,7 +732,10 @@ export const OnboardingDripService = {
       return { fired: false, reason: "day_14 or lost_you already sent" };
     }
 
-    const sixDaysAgo = new Date(now.getTime() - 6 * 86400_000).toISOString();
+    // Compute the REAL inactivity gap: the most recent updated_at across the six
+    // operator tables, falling back to signup when the operator never acted.
+    // Clamp to the account age so the number can never exceed how long the
+    // account has existed — the email surfaces this value verbatim.
     const tables = [
       "projects",
       "project_tasks",
@@ -723,18 +744,28 @@ export const OnboardingDripService = {
       "estimates",
       "invoices",
     ] as const;
-    const checks = await Promise.all(
+    const lastTouchedMsPerTable = await Promise.all(
       tables.map(async (t) => {
-        const { count } = await db
+        const { data } = await db
           .from(t)
-          .select("id", { count: "exact", head: true })
+          .select("updated_at")
           .eq("company_id", company.id)
-          .gte("updated_at", sixDaysAgo);
-        return count ?? 0;
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const ts = (data as { updated_at?: string } | null)?.updated_at;
+        return ts ? new Date(ts).getTime() : null;
       }),
     );
-    const totalRecent = checks.reduce((a, b) => a + b, 0);
-    if (totalRecent > 0) return { fired: false, reason: "recent activity" };
+    const touchedTimes = lastTouchedMsPerTable.filter((t): t is number => t !== null);
+    const signupMs = new Date(company.created_at).getTime();
+    const lastActivityMs = touchedTimes.length > 0 ? Math.max(...touchedTimes) : signupMs;
+    const rawGapDays = Math.floor((now.getTime() - lastActivityMs) / 86400_000);
+    const daysSinceLastActivity = Math.min(Math.max(rawGapDays, 0), ageDays);
+
+    if (daysSinceLastActivity < LOST_YOU_MIN_INACTIVITY_DAYS) {
+      return { fired: false, reason: "recent activity" };
+    }
 
     const { data: operator } = await db
       .from("users")
@@ -753,8 +784,7 @@ export const OnboardingDripService = {
       branch: null,
       emailType: "onboarding_lost_you",
       payload: {
-        daysSinceSignup: ageDays,
-        daysSinceLastActivity: 6,
+        daysSinceLastActivity,
       },
       now,
     });

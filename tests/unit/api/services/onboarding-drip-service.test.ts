@@ -1,6 +1,26 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { computeOperatorLocalHour, OnboardingDripService } from "@/lib/api/services/onboarding-drip-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendOnboardingLostYou } from "@/lib/email/sendgrid";
+
+// Mock the typed senders so the Lost You fire-path can be exercised without
+// hitting SendGrid. Every sender resolves to a successful send so claimAndSend
+// marks the row sent and returns fired=true.
+vi.mock("@/lib/email/sendgrid", () => {
+  const ok = () => vi.fn(async () => ({ status: "sent", messageId: "sg-test" }));
+  return {
+    sendOnboardingDay0Welcome: ok(),
+    sendOnboardingDay1NoProject: ok(),
+    sendOnboardingDay1HasProject: ok(),
+    sendOnboardingDay3Inbox: ok(),
+    sendOnboardingDay4NoNotification: ok(),
+    sendOnboardingDay4HasNotification: ok(),
+    sendOnboardingDay8Estimates: ok(),
+    sendOnboardingDay14Quiet: ok(),
+    sendOnboardingDay14Active: ok(),
+    sendOnboardingLostYou: ok(),
+  };
+});
 
 describe("computeOperatorLocalHour", () => {
   it("returns the hour in operator local time for a known timezone", () => {
@@ -433,10 +453,19 @@ describe("OnboardingDripService.processRetries", () => {
 });
 
 describe("OnboardingDripService.processLostYouCandidate", () => {
+  // Fixed clock so day-gap math is deterministic.
+  const NOW = new Date("2026-06-15T16:00:00Z");
+  const daysAgoIso = (n: number) => new Date(NOW.getTime() - n * 86400_000).toISOString();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   function dbForLostYou(opts: {
     operator?: { id: string; email: string; first_name: string | null; deleted_at: string | null } | null;
     existingDay14OrLost?: Array<{ day_slot: string }>;
-    activityCounts?: Record<string, number>;
+    // Most-recent updated_at per activity table (ISO). Omit a table → no rows.
+    lastActivity?: Record<string, string>;
     claimSucceeds?: boolean;
   }) {
     const log: { table: string; op: string; args: unknown[] }[] = [];
@@ -483,13 +512,22 @@ describe("OnboardingDripService.processLostYouCandidate", () => {
         };
         return chain;
       }
-      // Activity tables — return count
-      const v = opts.activityCounts?.[table] ?? 0;
+      // Activity tables. Supports BOTH query shapes so the same harness can
+      // drive the old count-based gate and the new "latest updated_at" gap
+      // computation:
+      //   - old: .select("id",{count}).eq().gte(updated_at, sixDaysAgo) → awaited
+      //   - new: .select("updated_at").eq().order().limit(1).maybeSingle()
+      const tsStr = opts.lastActivity?.[table];
+      const tsMs = tsStr ? new Date(tsStr).getTime() : null;
+      const withinSixDays = tsMs !== null && tsMs >= NOW.getTime() - 6 * 86400_000;
       const chain: any = {
         select: () => chain,
         eq: () => chain,
         gte: () => chain,
-        then: (resolve: any) => resolve({ count: v, error: null }),
+        order: () => chain,
+        limit: () => chain,
+        maybeSingle: async () => ({ data: tsStr ? { updated_at: tsStr } : null, error: null }),
+        then: (resolve: any) => resolve({ count: withinSixDays ? 1 : 0, error: null }),
       };
       return chain;
     }
@@ -497,12 +535,25 @@ describe("OnboardingDripService.processLostYouCandidate", () => {
     return { db: { from } as unknown as SupabaseClient, log };
   }
 
+  const company = (overrides: Record<string, unknown> = {}) => ({
+    id: "c1",
+    deleted_at: null,
+    subscription_status: "active",
+    account_holder_id: "u1",
+    created_at: daysAgoIso(9),
+    latitude: null,
+    longitude: null,
+    ...overrides,
+  });
+
+  const activeOperator = { id: "u1", email: "op@example.com", first_name: "Pat", deleted_at: null };
+
   it("does not fire when company.deleted_at is set", async () => {
     const { db } = dbForLostYou({});
     const result = await OnboardingDripService.processLostYouCandidate(
       db,
-      { id: "c1", deleted_at: "2026-01-01T00:00:00Z", subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 8 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
-      new Date(),
+      company({ deleted_at: "2026-01-01T00:00:00Z" }) as any,
+      NOW,
     );
     expect(result.fired).toBe(false);
     expect(result.reason).toContain("deleted");
@@ -512,30 +563,43 @@ describe("OnboardingDripService.processLostYouCandidate", () => {
     const { db } = dbForLostYou({});
     const result = await OnboardingDripService.processLostYouCandidate(
       db,
-      { id: "c1", deleted_at: null, subscription_status: "cancelled", account_holder_id: "u1", created_at: new Date(Date.now() - 8 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
-      new Date(),
+      company({ subscription_status: "cancelled" }) as any,
+      NOW,
     );
     expect(result.fired).toBe(false);
     expect(result.reason).toContain("subscription");
   });
 
-  it("does not fire when company age is < 1 day", async () => {
-    const { db } = dbForLostYou({});
+  // Defect (a): the old guard (ageDays < 1) let this fire from Day 1, producing
+  // the impossible "signed up 1 day ago and haven't been back in 6 days".
+  it("does not fire on Day 1 (age below the 7-day inactivity floor)", async () => {
+    const { db } = dbForLostYou({ operator: activeOperator });
     const result = await OnboardingDripService.processLostYouCandidate(
       db,
-      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date().toISOString(), latitude: null, longitude: null } as any,
-      new Date(),
+      company({ created_at: daysAgoIso(1) }) as any,
+      NOW,
+    );
+    expect(result.fired).toBe(false);
+    expect(result.reason).toContain("window");
+  });
+
+  it("does not fire at age 6 (still below the 7-day floor)", async () => {
+    const { db } = dbForLostYou({ operator: activeOperator });
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      company({ created_at: daysAgoIso(6) }) as any,
+      NOW,
     );
     expect(result.fired).toBe(false);
     expect(result.reason).toContain("window");
   });
 
   it("does not fire when company age is > 14 days", async () => {
-    const { db } = dbForLostYou({});
+    const { db } = dbForLostYou({ operator: activeOperator });
     const result = await OnboardingDripService.processLostYouCandidate(
       db,
-      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 20 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
-      new Date(),
+      company({ created_at: daysAgoIso(20) }) as any,
+      NOW,
     );
     expect(result.fired).toBe(false);
     expect(result.reason).toContain("window");
@@ -543,30 +607,76 @@ describe("OnboardingDripService.processLostYouCandidate", () => {
 
   it("does not fire when Day 14 has already been sent", async () => {
     const { db } = dbForLostYou({
-      operator: { id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: null },
+      operator: activeOperator,
       existingDay14OrLost: [{ day_slot: "day_14" }],
     });
     const result = await OnboardingDripService.processLostYouCandidate(
       db,
-      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 8 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
-      new Date(),
+      company({ created_at: daysAgoIso(8) }) as any,
+      NOW,
     );
     expect(result.fired).toBe(false);
     expect(result.reason).toContain("already sent");
   });
 
-  it("does not fire when any activity in last 6 days", async () => {
+  it("does not fire when last activity is more recent than the 7-day floor", async () => {
     const { db } = dbForLostYou({
-      operator: { id: "u1", email: "test@example.com", first_name: "Pat", deleted_at: null },
-      activityCounts: { projects: 1 },
+      operator: activeOperator,
+      lastActivity: { projects: daysAgoIso(3) },
     });
     const result = await OnboardingDripService.processLostYouCandidate(
       db,
-      { id: "c1", deleted_at: null, subscription_status: "active", account_holder_id: "u1", created_at: new Date(Date.now() - 8 * 86400_000).toISOString(), latitude: null, longitude: null } as any,
-      new Date(),
+      company({ created_at: daysAgoIso(10) }) as any,
+      NOW,
     );
     expect(result.fired).toBe(false);
     expect(result.reason).toContain("recent activity");
+  });
+
+  // Defect (b): daysSinceLastActivity must be the REAL gap, not hardcoded 6.
+  it("fires at age 7 with zero activity and reports the real 7-day gap (not 6)", async () => {
+    const { db } = dbForLostYou({ operator: activeOperator, claimSucceeds: true });
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      company({ created_at: daysAgoIso(7) }) as any,
+      NOW,
+    );
+    expect(result.fired).toBe(true);
+    expect(sendOnboardingLostYou).toHaveBeenCalledWith(
+      expect.objectContaining({ daysSinceLastActivity: 7 }),
+    );
+  });
+
+  it("computes the real gap from the most recent activity (age 10, last touch 8 days ago → 8)", async () => {
+    const { db } = dbForLostYou({
+      operator: activeOperator,
+      // Most recent touch is 8 days ago; an older 9-day touch must not win.
+      lastActivity: { estimates: daysAgoIso(8), projects: daysAgoIso(9) },
+      claimSucceeds: true,
+    });
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      company({ created_at: daysAgoIso(10) }) as any,
+      NOW,
+    );
+    expect(result.fired).toBe(true);
+    expect(sendOnboardingLostYou).toHaveBeenCalledWith(
+      expect.objectContaining({ daysSinceLastActivity: 8 }),
+    );
+  });
+
+  it("never reports a gap larger than the account age (falls back to signup)", async () => {
+    const { db } = dbForLostYou({ operator: activeOperator, claimSucceeds: true });
+    const result = await OnboardingDripService.processLostYouCandidate(
+      db,
+      company({ created_at: daysAgoIso(12) }) as any,
+      NOW,
+    );
+    expect(result.fired).toBe(true);
+    const call = vi.mocked(sendOnboardingLostYou).mock.calls[0][0];
+    expect(call.daysSinceLastActivity).toBe(12);
+    // Never a value the copy can't justify: gap <= account age.
+    expect(call.daysSinceLastActivity).toBeLessThanOrEqual(12);
   });
 });
 
