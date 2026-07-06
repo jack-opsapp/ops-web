@@ -769,7 +769,7 @@
   "accounting.syncModeDesc": "Read-only pulls from your accounting software. Full CRUD keeps both in sync.",
   "accounting.modeReadOnly": "Read-only",
   "accounting.modeFullCrud": "Full CRUD",
-  "accounting.fullCrudWarning": "Full CRUD lets OPS write to the connected QuickBooks file. OPS can create and update records; voids only run when delete propagation is enabled.",
+  "accounting.fullCrudWarning": "Full CRUD lets OPS write to your QuickBooks file — creating, updating, and mirroring deletes. You can turn off delete propagation anytime.",
   "accounting.fullCrudConfirm": "Enable full CRUD",
   "accounting.cancel": "Cancel",
   "accounting.propagateDeletes": "Propagate deletes",

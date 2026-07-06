@@ -24,9 +24,11 @@ import {
   type OpsInvoiceLinkForQbo,
   type OpsLineItemForQbo,
   type OpsPaymentForQbo,
-  type QboFallbackServiceItemRef,
-  type QboTaxCodeRefs,
 } from "@/lib/api/services/qbo-push-mappers";
+import {
+  resolveQboFallbackServiceItem,
+  resolveQboTaxCodeRefs,
+} from "@/lib/api/services/quickbooks-config";
 import {
   QuickBooksWriteService,
   type QboWriteEntity,
@@ -269,82 +271,16 @@ function normalizedProviderEnvironment(environment: string | null | undefined): 
   return cleanString(environment)?.toLowerCase() === "production" ? "production" : "sandbox";
 }
 
-function environmentFallbackEnvNames(environment: "production" | "sandbox", suffix: "ID" | "NAME"): string[] {
-  if (environment === "sandbox") {
-    return [
-      `QBO_SANDBOX_FALLBACK_SERVICE_ITEM_${suffix}`,
-      `QB_SANDBOX_FALLBACK_SERVICE_ITEM_${suffix}`,
-      `QBO_FALLBACK_SERVICE_ITEM_${suffix}`,
-      `QB_FALLBACK_SERVICE_ITEM_${suffix}`,
-    ];
-  }
-
-  return [
-    `QBO_FALLBACK_SERVICE_ITEM_${suffix}`,
-    `QB_FALLBACK_SERVICE_ITEM_${suffix}`,
-    `QBO_PRODUCTION_FALLBACK_SERVICE_ITEM_${suffix}`,
-    `QB_PRODUCTION_FALLBACK_SERVICE_ITEM_${suffix}`,
-  ];
+// Fallback service item + tax-code refs are resolved by quickbooks-config, the
+// single source of truth for QuickBooks env resolution. Both are env-STRICT:
+// the connection's provider_environment picks the name set, and a value from
+// the other environment can never bleed across (see quickbooks-config.ts).
+function fallbackServiceItem(environment: string | null | undefined) {
+  return resolveQboFallbackServiceItem(normalizedProviderEnvironment(environment));
 }
 
-function firstConfiguredEnv(names: string[]): string | null {
-  for (const name of names) {
-    const value = cleanString(process.env[name]);
-    if (value) return value;
-  }
-  return null;
-}
-
-function fallbackServiceItem(environment: string | null | undefined): QboFallbackServiceItemRef | null {
-  const providerEnvironment = normalizedProviderEnvironment(environment);
-  const qbItemId = firstConfiguredEnv(environmentFallbackEnvNames(providerEnvironment, "ID"));
-  if (!qbItemId) return null;
-  return {
-    qbItemId,
-    name: firstConfiguredEnv(environmentFallbackEnvNames(providerEnvironment, "NAME")) ?? "OPS Service",
-  };
-}
-
-function environmentTaxCodeEnvNames(
-  environment: "production" | "sandbox",
-  kind: "TAXABLE" | "NONTAXABLE",
-): string[] {
-  const aliases =
-    kind === "NONTAXABLE"
-      ? ["NONTAXABLE", "NON_TAXABLE"]
-      : ["TAXABLE"];
-
-  if (environment === "sandbox") {
-    return [
-      ...aliases.flatMap((alias) => [
-        `QBO_SANDBOX_TAX_CODE_${alias}_ID`,
-        `QB_SANDBOX_TAX_CODE_${alias}_ID`,
-      ]),
-      ...aliases.flatMap((alias) => [
-        `QBO_TAX_CODE_${alias}_ID`,
-        `QB_TAX_CODE_${alias}_ID`,
-      ]),
-    ];
-  }
-
-  return [
-    ...aliases.flatMap((alias) => [
-      `QBO_TAX_CODE_${alias}_ID`,
-      `QB_TAX_CODE_${alias}_ID`,
-    ]),
-    ...aliases.flatMap((alias) => [
-      `QBO_PRODUCTION_TAX_CODE_${alias}_ID`,
-      `QB_PRODUCTION_TAX_CODE_${alias}_ID`,
-    ]),
-  ];
-}
-
-function taxCodeRefs(environment: string | null | undefined): QboTaxCodeRefs | null {
-  const providerEnvironment = normalizedProviderEnvironment(environment);
-  const taxable = firstConfiguredEnv(environmentTaxCodeEnvNames(providerEnvironment, "TAXABLE"));
-  const nonTaxable = firstConfiguredEnv(environmentTaxCodeEnvNames(providerEnvironment, "NONTAXABLE"));
-  if (!taxable && !nonTaxable) return null;
-  return { taxable, nonTaxable };
+function taxCodeRefs(environment: string | null | undefined) {
+  return resolveQboTaxCodeRefs(normalizedProviderEnvironment(environment));
 }
 
 function invoiceClientId(row: DbRow): string | null {
