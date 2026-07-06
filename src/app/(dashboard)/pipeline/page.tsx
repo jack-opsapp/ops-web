@@ -728,6 +728,26 @@ export default function PipelinePage() {
     [can, t, updateOpportunity]
   );
 
+  const handleValueSave = useCallback(
+    (opportunity: Opportunity, value: number | null) => {
+      if (!can("pipeline.manage")) return;
+      updateOpportunity.mutate(
+        { id: opportunity.id, data: { estimatedValue: value } },
+        {
+          onError: (error) => {
+            toast.error(t("toast.failedUpdate"), {
+              description:
+                error instanceof Error
+                  ? error.message
+                  : t("toast.errorOccurred"),
+            });
+          },
+        }
+      );
+    },
+    [can, t, updateOpportunity]
+  );
+
   const handleLinkClient = useCallback(
     (opportunity: Opportunity, clientId: string) => {
       if (!can("pipeline.manage")) return;
@@ -1100,6 +1120,7 @@ export default function PipelinePage() {
                             onScheduleFollowUp={handleScheduleFollowUp}
                             onDelete={(id) => deleteMutation.mutate(id)}
                             onTitleSave={handleTitleSave}
+                            onValueSave={handleValueSave}
                             onLinkClient={handleLinkClient}
                             onCreateAndLinkClient={handleCreateAndLinkClient}
                             onAddressSave={handleAddressSave}

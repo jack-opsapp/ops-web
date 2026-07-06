@@ -29,6 +29,13 @@ export interface SelectProps {
   "aria-describedby"?: string;
   "aria-invalid"?: boolean | "true" | "false";
   className?: string;
+  /**
+   * Extra classes on the portalled dropdown panel. The one sanctioned use is
+   * a z-layer override (`z-modal`) when the trigger lives inside a floating
+   * window (windows sit at z 2000+, above the panel's default layer) — the
+   * same escape hatch the canonical EntityPicker exposes.
+   */
+  contentClassName?: string;
 }
 
 export function Select({
@@ -39,6 +46,7 @@ export function Select({
   disabled,
   id,
   className,
+  contentClassName,
   ...aria
 }: SelectProps) {
   return (
@@ -78,6 +86,7 @@ export function Select({
             "bg-[var(--glass-dense)] backdrop-blur-[28px]",
             "rounded-panel border border-glass-border",
             "p-0.5",
+            contentClassName,
           )}
         >
           <SelectPrimitive.Viewport>

@@ -63,6 +63,7 @@ const useSiteVisitsMock = vi.fn();
 const useClientMock = vi.fn();
 const useClientsMock = vi.fn();
 const attachMutate = vi.fn();
+const createSubClientMutate = vi.fn();
 const mutateAsync = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("@/lib/hooks/use-estimates", () => ({
@@ -74,6 +75,7 @@ vi.mock("@/lib/hooks/use-site-visits", () => ({
 vi.mock("@/lib/hooks/use-clients", () => ({
   useClient: (id: unknown) => useClientMock(id),
   useClients: (opts?: unknown) => useClientsMock(opts),
+  useCreateSubClient: () => ({ mutate: createSubClientMutate, isPending: false }),
 }));
 vi.mock("@/lib/hooks/use-opportunities", () => ({
   useUpdateOpportunity: () => ({ mutateAsync }),
@@ -477,6 +479,105 @@ describe("PipelineDetailOverviewTab — Contact", () => {
     expect(
       within(contact).queryByRole("button", { name: /attach client/i }),
     ).toBeNull();
+  });
+});
+
+// ─── Deal contact → sub-client (bug 59dd4aa0) ─────────────────────────────────
+
+describe("PipelineDetailOverviewTab — deal contact → sub-client", () => {
+  it("offers 'Save contact to client' when the deal contact is a different person not on file", () => {
+    // Linked client is the company; the deal contact is the site super.
+    useClientMock.mockReturnValue({
+      data: makeClient({ subClients: [] }),
+      isLoading: false,
+    });
+    render(
+      <PipelineDetailOverviewTab
+        opportunity={makeOpportunity({
+          clientId: "client-1",
+          contactName: "Marcus Hail",
+          contactEmail: "marcus@site.example",
+          contactPhone: "+1 604 555 0199",
+        })}
+        canManage
+      />,
+    );
+
+    const row = screen.getByTestId("overview-deal-contact");
+    expect(within(row).getByText("Marcus Hail")).toBeInTheDocument();
+    const save = within(row).getByRole("button", {
+      name: /save contact to client/i,
+    });
+    fireEvent.click(save);
+    expect(createSubClientMutate).toHaveBeenCalledTimes(1);
+    expect(createSubClientMutate.mock.calls[0][0]).toMatchObject({
+      clientId: "client-1",
+      name: "Marcus Hail",
+      email: "marcus@site.example",
+      phoneNumber: "+1 604 555 0199",
+    });
+  });
+
+  it("marks the contact 'On file' (no save button) when already a sub-client (email match)", () => {
+    useClientMock.mockReturnValue({
+      data: makeClient({
+        subClients: [
+          {
+            id: "sc-1",
+            name: "Marcus H.",
+            title: null,
+            email: "marcus@site.example",
+            phoneNumber: null,
+            address: null,
+            clientId: "client-1",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            lastSyncedAt: null,
+            needsSync: false,
+            deletedAt: null,
+          },
+        ],
+      }),
+      isLoading: false,
+    });
+    render(
+      <PipelineDetailOverviewTab
+        opportunity={makeOpportunity({
+          clientId: "client-1",
+          contactName: "Marcus Hail",
+          contactEmail: "marcus@site.example",
+        })}
+        canManage
+      />,
+    );
+
+    const row = screen.getByTestId("overview-deal-contact");
+    expect(within(row).getByText("On file")).toBeInTheDocument();
+    expect(
+      within(row).queryByRole("button", { name: /save contact to client/i }),
+    ).toBeNull();
+  });
+
+  it("hides the deal-contact row when the contact just mirrors the client record", () => {
+    const client = makeClient({
+      name: "Greenway Property Group",
+      email: "ops@greenway.example",
+      subClients: [],
+    });
+    useClientMock.mockReturnValue({ data: client, isLoading: false });
+    render(
+      <PipelineDetailOverviewTab
+        opportunity={makeOpportunity({
+          clientId: "client-1",
+          contactName: "Greenway Property Group",
+          contactEmail: "ops@greenway.example",
+          contactPhone: null,
+        })}
+        canManage
+      />,
+    );
+
+    expect(screen.queryByTestId("overview-deal-contact")).toBeNull();
   });
 });
 

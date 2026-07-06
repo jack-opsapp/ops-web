@@ -213,6 +213,7 @@ export function PipelineFocusedShell({
   onScheduleFollowUp,
   onDelete,
   onTitleSave,
+  onValueSave,
   onLinkClient,
   onCreateAndLinkClient,
   onAddressSave,
@@ -611,6 +612,7 @@ export function PipelineFocusedShell({
             onAssign={onAssign}
             onScheduleFollowUp={onScheduleFollowUp}
             onTitleSave={onTitleSave}
+            onValueSave={onValueSave}
             onLinkClient={onLinkClient}
             onCreateAndLinkClient={onCreateAndLinkClient}
             onAddressSave={onAddressSave}

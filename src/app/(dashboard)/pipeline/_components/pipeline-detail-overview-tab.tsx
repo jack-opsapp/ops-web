@@ -45,11 +45,13 @@ import {
   UserPlus,
 } from "lucide-react";
 
+import { toast } from "sonner";
+
 import { useDictionary } from "@/i18n/client";
 import { useOpportunityFieldEdit } from "@/lib/hooks/use-opportunity-field-edit";
 import { useEstimates } from "@/lib/hooks/use-estimates";
 import { useSiteVisits } from "@/lib/hooks/use-site-visits";
-import { useClient, useClients } from "@/lib/hooks/use-clients";
+import { useClient, useClients, useCreateSubClient } from "@/lib/hooks/use-clients";
 import { useAttachClientToOpportunity } from "@/lib/hooks/use-opportunities";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useWindowStore } from "@/stores/window-store";
@@ -65,6 +67,7 @@ import {
 } from "@/lib/types/pipeline";
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
+import type { Client } from "@/lib/types/models";
 
 import { Section } from "@/components/ops/projects/workspace/atoms/section";
 import { Stack } from "@/components/ops/projects/workspace/atoms/stack";
@@ -285,6 +288,11 @@ function ContactSection({
               </Link>
             </Inline>
             <ContactLinks email={client.email} phone={client.phoneNumber} />
+            <DealContactRow
+              opportunity={opportunity}
+              client={client}
+              canManage={canManage}
+            />
           </Stack>
         ) : (
           <Stack gap={1}>
@@ -347,6 +355,132 @@ function ContactLinks({
         </a>
       ) : null}
     </Inline>
+  );
+}
+
+/** Case/whitespace-insensitive comparison key for names + emails. */
+function normalizeIdentity(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+/** Digits-only comparison key for phone numbers ("(555) 123" ≡ "555123"). */
+function normalizePhone(value: string | null | undefined): string {
+  return (value ?? "").replace(/\D/g, "");
+}
+
+/**
+ * DealContactRow — the person behind the deal, kept visible after a client is
+ * linked (they are often NOT the client: the site super, the office manager,
+ * the spouse who called). When that person isn't in the client's contact
+ * roster yet, a quiet action files them as a `sub_client`; once they match a
+ * roster entry (by email, else by name), the action yields to an `ON FILE`
+ * mark. Hidden entirely when the deal contact just mirrors the client record —
+ * nothing new to file (bug 59dd4aa0).
+ */
+function DealContactRow({
+  opportunity,
+  client,
+  canManage,
+}: {
+  opportunity: Opportunity;
+  client: Client;
+  canManage: boolean;
+}) {
+  const { t } = useDictionary("pipeline");
+  const createSubClient = useCreateSubClient();
+
+  const contactName = (opportunity.contactName ?? "").trim();
+  const contactEmail = (opportunity.contactEmail ?? "").trim();
+  const contactPhone = (opportunity.contactPhone ?? "").trim();
+
+  if (!contactName && !contactEmail && !contactPhone) return null;
+
+  // The deal contact IS the client record itself — nothing new to file.
+  const mirrorsClient =
+    (!contactName || normalizeIdentity(contactName) === normalizeIdentity(client.name)) &&
+    (!contactEmail || normalizeIdentity(contactEmail) === normalizeIdentity(client.email)) &&
+    (!contactPhone || normalizePhone(contactPhone) === normalizePhone(client.phoneNumber));
+  if (mirrorsClient) return null;
+
+  const subClients = client.subClients ?? [];
+  const onFile = subClients.some((sc) => {
+    if (sc.deletedAt) return false;
+    if (contactEmail && sc.email && normalizeIdentity(sc.email) === normalizeIdentity(contactEmail)) {
+      return true;
+    }
+    return Boolean(contactName) && normalizeIdentity(sc.name) === normalizeIdentity(contactName);
+  });
+
+  function save() {
+    if (!contactName) return; // roster entries need a name
+    createSubClient.mutate(
+      {
+        clientId: client.id,
+        name: contactName,
+        email: contactEmail || null,
+        phoneNumber: contactPhone || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success(
+            t("overview.contactSaved", "Contact saved to {client}").replace(
+              "{client}",
+              client.name,
+            ),
+          );
+        },
+        onError: (error) => {
+          toast.error(t("overview.contactSaveFailed", "Failed to save contact"), {
+            description: error instanceof Error ? error.message : undefined,
+          });
+        },
+      },
+    );
+  }
+
+  return (
+    <div data-testid="overview-deal-contact" className="mt-1 border-t border-line pt-1.5">
+      <Stack gap={1}>
+        <Inline gap={1.5} justify="between">
+          <Mono color="text-3" size={11}>
+            {t("overview.dealContact", "Deal contact")}
+          </Mono>
+          {onFile ? (
+            <Mono color="mute" size={10}>
+              {t("overview.contactOnFile", "On file")}
+            </Mono>
+          ) : null}
+        </Inline>
+        {contactName ? (
+          <Body size={14} color="text" className="min-w-0 truncate">
+            {contactName}
+          </Body>
+        ) : null}
+        <ContactLinks
+          email={contactEmail || null}
+          phone={contactPhone || null}
+        />
+        {!onFile && canManage && contactName ? (
+          <div className="mt-0.5">
+            <button
+              type="button"
+              onClick={save}
+              disabled={createSubClient.isPending}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2 py-1",
+                "font-mono text-[10px] uppercase tracking-[0.14em] text-text-2",
+                "transition-colors duration-150 hover:bg-surface-hover hover:text-text",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                "disabled:cursor-not-allowed disabled:opacity-40",
+              )}
+            >
+              <UserPlus className="h-3 w-3" strokeWidth={1.75} />
+              {t("overview.saveContactToClient", "Save contact to client")}
+            </button>
+          </div>
+        ) : null}
+      </Stack>
+    </div>
   );
 }
 
