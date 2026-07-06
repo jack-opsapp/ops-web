@@ -171,6 +171,7 @@ function isProjectsViewMode(v: string | null): v is ProjectsViewMode {
 export default function ProjectsPage() {
   usePageTitle("Projects");
   const { t } = useDictionary("projects-canvas");
+  const { t: tProjects } = useDictionary("projects");
   const { can } = usePermissionStore();
   const { missingSteps } = useSetupGate();
   const [showSetupModal, setShowSetupModal] = useState(false);
@@ -589,15 +590,18 @@ export default function ProjectsPage() {
   const handleAddTask = useCallback(
     (projectId: string) => {
       const project = projectMap.get(projectId);
-      const projectLabel = project?.title || project?.address?.split(",")[0] || "Project";
+      const projectLabel =
+        project?.title ||
+        project?.address?.split(",")[0] ||
+        tProjects("taskForm.projectFallback");
       openWindow({
         id: `create-task-${projectId}`,
-        title: `// NEW TASK :: ${projectLabel.toUpperCase()}`,
+        title: `// ${tProjects("taskForm.title.create").toUpperCase()} :: ${projectLabel.toUpperCase()}`,
         type: "create-task",
         metadata: { projectId },
       });
     },
-    [openWindow, projectMap]
+    [openWindow, projectMap, tProjects]
   );
 
   const handleRecordPayment = useCallback((_projectId: string) => {
