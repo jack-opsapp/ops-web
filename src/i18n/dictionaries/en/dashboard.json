@@ -894,7 +894,6 @@
   "clientList.createProject": "Create Project",
   "clientList.createInvoice": "Create Invoice",
   "clientList.createEstimate": "Create Estimate",
-  "clientList.createTask": "Create Task",
   "clientList.deleteClient": "Delete Client",
   "clientList.deleted": "deleted",
   "clientList.due": "due",
