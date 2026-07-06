@@ -85,6 +85,8 @@ function mapExpenseFromDb(row: Record<string, unknown>): ExpenseLineItem {
     receiptThumbnailUrl: (row.receipt_thumbnail_url as string) ?? null,
     receiptMissingReason: (row.receipt_missing_reason as string) ?? null,
     receiptMissingNote: (row.receipt_missing_note as string) ?? null,
+    projectMissingReason: (row.project_missing_reason as string) ?? null,
+    projectMissingNote: (row.project_missing_note as string) ?? null,
     ocrRawData: row.ocr_raw_data ?? null,
     ocrConfidence: row.ocr_confidence != null ? Number(row.ocr_confidence) : null,
     approvedBy: (row.approved_by as string) ?? null,

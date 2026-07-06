@@ -55,6 +55,19 @@ function noReceiptReasonLabel(code: string | null): string {
   return NO_RECEIPT_REASON_LABELS[code] ?? "No receipt";
 }
 
+// Mirrors the iOS NoProjectReason labels. A project-less line with a reason was
+// deliberate (overhead, shop supplies) — not an omission.
+const NO_PROJECT_REASON_LABELS: Record<string, string> = {
+  overhead: "Overhead — not job-specific",
+  general: "General / shop supplies",
+  other: "Other",
+};
+
+function noProjectReasonLabel(code: string | null): string {
+  if (!code) return "No project";
+  return NO_PROJECT_REASON_LABELS[code] ?? "No project";
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ExpenseLineItemTable({
@@ -218,9 +231,20 @@ export function ExpenseLineItemTable({
                     <span className="font-mono text-micro text-text-mute uppercase tracking-wider block">
                       PROJECT
                     </span>
-                    <span className="font-mono text-caption-sm text-text-2">
-                      {expense.projectId || "—"}
-                    </span>
+                    {expense.projectId ? (
+                      <span className="font-mono text-caption-sm text-text-2">
+                        {expense.projectId}
+                      </span>
+                    ) : expense.projectMissingReason ? (
+                      <span className="font-mono text-caption-sm text-ops-amber">
+                        {noProjectReasonLabel(expense.projectMissingReason)}
+                        {expense.projectMissingNote
+                          ? ` · ${expense.projectMissingNote}`
+                          : ""}
+                      </span>
+                    ) : (
+                      <span className="font-mono text-caption-sm text-text-2">—</span>
+                    )}
                   </div>
 
                   {/* Payment Method */}
