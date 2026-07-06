@@ -65,8 +65,15 @@ export function CreateCluster() {
   const createOpen = activeTab === ID_CREATE;
   const bugOpen = activeTab === ID_BUG;
 
+  // A "foreign" surface is any edge-tab the cluster does NOT own — today only
+  // Notifications (top-bar bell). While it owns the screen the cluster must
+  // retract fully so its controls can never float over the open drawer
+  // (bug 472c17c6). Create/bug are the cluster's own surfaces, so they keep it
+  // shown.
+  const foreignOpen = !!activeTab && !createOpen && !bugOpen;
+
   const [revealed, setRevealed] = useState(false);
-  const shown = revealed || createOpen || bugOpen;
+  const shown = (revealed || createOpen || bugOpen) && !foreignOpen;
 
   const openWindow = useWindowStore((s) => s.openWindow);
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
@@ -127,8 +134,16 @@ export function CreateCluster() {
   useEffect(() => {
     if (!visible) return;
     function onMove(e: PointerEvent) {
-      if (useEdgeTabStore.getState().activeTab) {
+      const active = useEdgeTabStore.getState().activeTab;
+      // Cluster owns create/bug → keep it revealed while either is open.
+      if (active === ID_CREATE || active === ID_BUG) {
         setRevealed(true);
+        return;
+      }
+      // A foreign surface (notifications) owns the screen → stay retracted so
+      // the controls can't overlap it (bug 472c17c6).
+      if (active) {
+        setRevealed(false);
         return;
       }
       const x = e.clientX;
@@ -139,6 +154,12 @@ export function CreateCluster() {
     window.addEventListener("pointermove", onMove, { passive: true });
     return () => window.removeEventListener("pointermove", onMove);
   }, [visible]);
+
+  // Retract immediately when a foreign surface opens, even with no pointer
+  // movement (e.g. the bell is clicked while the cluster is revealed).
+  useEffect(() => {
+    if (foreignOpen) setRevealed(false);
+  }, [foreignOpen]);
 
   // ── Keyboard: Q opens Create, ` opens Bug (ignored while typing). ──
   useEffect(() => {
@@ -175,7 +196,7 @@ export function CreateCluster() {
         aria-hidden
         data-bug-report-ignore="true"
         className="pointer-events-none fixed right-0 top-1/2 z-[1539] h-[54px] w-[3px] -translate-y-1/2 rounded-l-bar bg-white/15"
-        animate={{ opacity: shown ? 0 : 1 }}
+        animate={{ opacity: shown || foreignOpen ? 0 : 1 }}
         transition={{ duration: 0.25, ease: EASE_SMOOTH }}
       />
 
