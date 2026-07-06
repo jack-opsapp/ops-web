@@ -14,6 +14,7 @@ import {
   peekRedirectContext,
 } from "@/lib/firebase/auth";
 import { UserService } from "@/lib/api/services/user-service";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useSetupStore } from "@/stores/setup-store";
 import { useResetPassword } from "@/lib/hooks/use-users";
@@ -35,7 +36,10 @@ function LoginForm() {
   const { t } = useDictionary("auth");
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  // Sanitize the attacker-controllable `redirect` param to a same-origin path.
+  // Feeds every post-auth navigation below (email + OAuth), so guarding here
+  // closes the open-redirect at all sinks in one place.
+  const redirectTo = safeRedirectPath(searchParams.get("redirect"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

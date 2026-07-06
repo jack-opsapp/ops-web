@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 
 // Routes that authenticated users should be redirected away from
 const authRoutes = ["/login", "/register"];
@@ -215,7 +216,12 @@ export function middleware(request: NextRequest) {
   // If user is on an auth route and is authenticated, redirect to destination
   if (authRoutes.some((route) => pathname === route)) {
     if (isAuthenticated) {
-      const redirect = request.nextUrl.searchParams.get("redirect") || "/dashboard";
+      // The `redirect` param is attacker-controllable — sanitize to a
+      // same-origin path so `/login?redirect=https://evil.com` can't bounce a
+      // freshly-authenticated user off-site.
+      const redirect = safeRedirectPath(
+        request.nextUrl.searchParams.get("redirect")
+      );
       return NextResponse.redirect(new URL(redirect, request.url));
     }
     return NextResponse.next();
@@ -228,8 +234,10 @@ export function middleware(request: NextRequest) {
 
   if (isProtected && !isAuthenticated) {
     const loginUrl = new URL("/login", request.url);
-    // Preserve the intended destination for post-login redirect
-    loginUrl.searchParams.set("redirect", pathname);
+    // Preserve the full intended destination — path AND query — so a
+    // client-seeded deep link (e.g. /projects/new?clientId=…) survives the
+    // login bounce. `search` includes the leading "?" (or is "" when absent).
+    loginUrl.searchParams.set("redirect", pathname + request.nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
 
