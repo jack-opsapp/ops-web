@@ -11,6 +11,7 @@ import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useCreateTask, useCreateTaskWithEvent } from "@/lib/hooks/use-tasks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { useDictionary } from "@/i18n/client";
 import { toast } from "sonner";
 
 // ─── Project Selector ────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ function ProjectSelector({
   onChange: (id: string | null) => void;
   onCreateNew: (searchText: string) => void;
 }) {
+  const { t } = useDictionary("forms");
   const { data } = useProjects();
   const { data: taskTypesData } = useTaskTypes();
   const canCreateProject = usePermissionStore((s) => s.can("projects.create"));
@@ -60,7 +62,7 @@ function ProjectSelector({
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        Project
+        {t("createTask.projectLabel", "Project")}
       </label>
       <div className="relative">
         {selected ? (
@@ -89,7 +91,7 @@ function ProjectSelector({
         ) : (
           <div>
             <Input
-              placeholder="Search projects..."
+              placeholder={t("createTask.projectSearch", "Search projects...")}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -104,7 +106,7 @@ function ProjectSelector({
                 {filtered.length === 0 && !search.trim() ? (
                   <div className="px-1.5 py-1 text-left">
                     <p className="font-mohave text-body-sm text-text-3">
-                      No projects found
+                      {t("createTask.noProjects", "No projects found")}
                     </p>
                   </div>
                 ) : (
@@ -137,7 +139,7 @@ function ProjectSelector({
                     {filtered.length === 0 && search.trim() && (
                       <div className="px-1.5 py-1 text-left">
                         <p className="font-mohave text-body-sm text-text-3">
-                          No matching projects
+                          {t("createTask.noMatchProjects", "No matching projects")}
                         </p>
                       </div>
                     )}
@@ -158,7 +160,8 @@ function ProjectSelector({
                     >
                       <Plus className="w-[14px] h-[14px] text-text-2 shrink-0" />
                       <span className="font-mohave text-body-sm text-text">
-                        Create new project{search.trim() ? `: "${search.trim()}"` : ""}
+                        {t("createTask.createNewProject", "Create new project")}
+                        {search.trim() ? `: "${search.trim()}"` : ""}
                       </span>
                     </button>
                   </div>
@@ -182,6 +185,7 @@ interface CreateTaskFormProps {
 }
 
 export function CreateTaskForm({ onSuccess, onCancel, defaultProjectId }: CreateTaskFormProps) {
+  const { t } = useDictionary("forms");
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
 
@@ -198,11 +202,11 @@ export function CreateTaskForm({ onSuccess, onCancel, defaultProjectId }: Create
 
   function handleSubmit(values: TaskFormValues) {
     if (!projectId) {
-      toast.error("Please select a project first");
+      toast.error(t("createTask.selectFirst", "Please select a project first"));
       return;
     }
     if (!companyId) {
-      toast.error("No company found. Please sign in again.");
+      toast.error(t("createTask.noCompany", "No company found. Please sign in again."));
       return;
     }
 
@@ -221,12 +225,12 @@ export function CreateTaskForm({ onSuccess, onCancel, defaultProjectId }: Create
 
     const callbacks = {
       onSuccess: () => {
-        toast.success("Task created");
+        toast.success(t("createTask.toast.created", "Task created"));
         onSuccess?.();
       },
       onError: (err: Error) => {
-        toast.error("Failed to create task", {
-          description: err.message ?? "Please try again.",
+        toast.error(t("createTask.toast.failed", "Failed to create task"), {
+          description: err.message ?? t("createTask.toast.tryAgain", "Please try again."),
         });
       },
     };
@@ -276,7 +280,7 @@ export function CreateTaskForm({ onSuccess, onCancel, defaultProjectId }: Create
 
       {!projectId && (
         <p className="font-mono text-[11px] text-text-mute">
-          Select a project to create a task for.
+          {t("createTask.selectProject", "Select a project to create a task for.")}
         </p>
       )}
 

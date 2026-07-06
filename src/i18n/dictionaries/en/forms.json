@@ -52,6 +52,7 @@
   "createTask.projectSearch": "Search projects...",
   "createTask.noProjects": "No projects found",
   "createTask.noMatchProjects": "No matching projects",
+  "createTask.createNewProject": "Create new project",
   "createTask.selectProject": "Select a project to create a task for.",
   "createTask.selectFirst": "Please select a project first",
   "createTask.noCompany": "No company found. Please sign in again.",

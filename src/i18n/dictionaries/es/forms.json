@@ -52,6 +52,7 @@
   "createTask.projectSearch": "Buscar proyectos...",
   "createTask.noProjects": "No se encontraron proyectos",
   "createTask.noMatchProjects": "Sin proyectos coincidentes",
+  "createTask.createNewProject": "Crear nuevo proyecto",
   "createTask.selectProject": "Selecciona un proyecto para crear una tarea.",
   "createTask.selectFirst": "Por favor selecciona un proyecto primero",
   "createTask.noCompany": "Empresa no encontrada. Por favor inicia sesión de nuevo.",
