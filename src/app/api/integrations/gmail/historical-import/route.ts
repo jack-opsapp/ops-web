@@ -476,7 +476,16 @@ export async function POST(request: NextRequest) {
               await OpportunityService.createOpportunity({
                 companyId,
                 clientId,
-                title: `Email inquiry from ${contact.name}`,
+                title: buildEmailOpportunityTitle({
+                  kind: "email_inquiry",
+                  candidates: [
+                    {
+                      source: "inbound_sender",
+                      name: contact.name,
+                      email: contact.fromEmail,
+                    },
+                  ],
+                }),
                 stage: OpportunityStage.NewLead,
                 source: OpportunitySource.Email,
                 contactName: contact.name,

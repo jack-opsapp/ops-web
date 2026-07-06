@@ -994,6 +994,7 @@ export default function PipelinePage() {
                     <button
                       type="button"
                       onClick={() => setReviewPanelOpen(true)}
+                      title={t("gmail.reviewEmailsHint")}
                       className="flex h-[26px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                     >
                       <Mail className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} />

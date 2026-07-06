@@ -18,6 +18,7 @@
   "gmail.connect": "Conectar",
   "gmail.dismiss": "Descartar",
   "gmail.reviewEmails": "Revisar correos",
+  "gmail.reviewEmailsHint": "Correos recientes que no pudimos vincular a un cliente — revísalos para confirmar o descartar.",
   "loading": "Cargando pipeline...",
   "mode.label": "Vista del pipeline",
   "mode.focused": "Enfocado",
