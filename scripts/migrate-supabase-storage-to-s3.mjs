@@ -252,6 +252,15 @@ async function main() {
   });
   const copied = copyResults.filter((r) => r.copied).length;
   console.log(`  copied/verified: ${copied}, skipped(unreachable): ${copyResults.filter((r) => r.skipped).length}, errors: ${copyResults.filter((r) => r.error).length}`);
+  const errs = copyResults.filter((r) => r.error);
+  if (errs.length) {
+    const counts = {};
+    for (const r of errs) counts[r.error] = (counts[r.error] ?? 0) + 1;
+    console.log("  error breakdown:");
+    for (const [msg, n] of Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8)) {
+      console.log(`   ${String(n).padStart(4)} × ${msg}`);
+    }
+  }
 
   // Rewrite DB. Scalars: one update per (table,pk,column). Arrays: one update
   // per (table,pk) replacing every migrated element in the current array.
