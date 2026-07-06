@@ -70,21 +70,29 @@ export function buildDraftStateContext(state: ConversationState): DraftStateCont
           .join("\n")}`
       : "";
 
-  // Attachments the customer sent — acknowledge receipt, and (Phase 2) describe
-  // what each one actually IS using the cached vision summary so the drafter can
-  // reference the content, not just the filename. A failed/empty inspection
-  // degrades gracefully to just the filename.
+  // Attachments the customer sent — tell the drafter they exist (and whether one
+  // is a signed estimate, which shapes the reply's intent) so it can acknowledge
+  // them naturally. It must NOT recite the vision summary back: narrating an
+  // image's contents ("your photo of the back deck with wood boards and a
+  // hand-drawn sketch") reads as robotic "look, I can see it" filler and adds
+  // nothing to the conversation. The vision verdict stays INTERNAL — it still
+  // drives the signed-estimate→Won path and the held-for-review-if-unreadable
+  // gate; it just no longer leaks descriptions into customer-facing text.
+  const attachments = state.attachmentsRequiringInspection;
+  const hasSignedEstimate = attachments.some(
+    (a) => a.inspection?.isSignedEstimate === true
+  );
+  const attachmentAck = hasSignedEstimate
+    ? "thanks for the signed estimate — I'll get you on the schedule"
+    : "thanks for sending those over";
   const attachmentBlock =
-    state.attachmentsRequiringInspection.length > 0
-      ? `THE CUSTOMER ATTACHED THE FOLLOWING — acknowledge receipt naturally and reference what each one shows; never claim you cannot see attachments:\n${state.attachmentsRequiringInspection
-          .map((a) => {
-            const summary = a.inspection?.summary?.trim();
-            return summary
-              ? `- ${a.filename} (${a.kind}): ${summary}`
-              : `- ${a.filename} (${a.kind})`;
-          })
-          .join("\n")}`
-      : "";
+    attachments.length === 0
+      ? ""
+      : `THE CUSTOMER SENT ${attachments.length} ATTACHMENT${
+          attachments.length > 1 ? "S" : ""
+        }${
+          hasSignedEstimate ? " (one is a signed estimate)" : ""
+        }. Acknowledge receipt in ONE short, natural phrase (e.g. "${attachmentAck}"). Do NOT describe or itemize what the attachments show — no play-by-play of the images. Never claim you cannot see them.`;
 
   return {
     recipientName,

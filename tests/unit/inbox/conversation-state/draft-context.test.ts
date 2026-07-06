@@ -107,14 +107,14 @@ describe("buildDraftStateContext — sent ledger (no restate)", () => {
 });
 
 describe("buildDraftStateContext — attachment awareness", () => {
-  it("lists customer attachments and tells the drafter to acknowledge them", () => {
+  it("tells the drafter attachments were sent and to acknowledge them naturally", () => {
     const att: AttachmentRef = {
       filename: "deck-sketch.jpg", mimeType: "image/jpeg", sizeBytes: 1000, kind: "image", requiresInspection: true, inspection: null,
     };
     const ctx = buildDraftStateContext(state({ attachmentsRequiringInspection: [att] }));
     expect(ctx.attachmentBlock).not.toBe("");
-    expect(ctx.attachmentBlock).toContain("deck-sketch.jpg");
-    expect(ctx.attachmentBlock.toLowerCase()).toMatch(/acknowledge|attached/);
+    expect(ctx.attachmentBlock.toLowerCase()).toMatch(/acknowledge/);
+    expect(ctx.attachmentBlock.toLowerCase()).toMatch(/do not describe|no play-by-play/);
   });
 
   it("returns an empty attachment block when there are none", () => {
@@ -122,7 +122,7 @@ describe("buildDraftStateContext — attachment awareness", () => {
     expect(ctx.attachmentBlock).toBe("");
   });
 
-  it("surfaces the vision inspection summary so the drafter describes what was sent", () => {
+  it("does NOT recite the vision summary or filename into the customer-facing draft", () => {
     const att: AttachmentRef = {
       filename: "fence-damage.jpg",
       mimeType: "image/jpeg",
@@ -132,14 +132,38 @@ describe("buildDraftStateContext — attachment awareness", () => {
       inspection: {
         summary: "Photo of storm-damaged cedar fence, ~3 sections leaning",
         isSignedEstimate: false,
-        facts: {},
+        facts: { sections: 3 },
         model: "gpt-5.4",
       },
     };
     const ctx = buildDraftStateContext(state({ attachmentsRequiringInspection: [att] }));
-    expect(ctx.attachmentBlock).toContain("fence-damage.jpg");
-    // The drafter must see the actual content of the photo, not just its name.
-    expect(ctx.attachmentBlock).toContain("storm-damaged cedar fence");
+    // The vision verdict is INTERNAL — it must never leak into the draft as
+    // robotic content narration.
+    expect(ctx.attachmentBlock).not.toContain("storm-damaged cedar fence");
+    expect(ctx.attachmentBlock).not.toContain("fence-damage.jpg");
+    // …but the drafter is still told the attachment exists and to acknowledge it.
+    expect(ctx.attachmentBlock.toLowerCase()).toMatch(/acknowledge/);
+  });
+
+  it("flags a signed estimate by TYPE (for tone) without reciting its parsed contents", () => {
+    const att: AttachmentRef = {
+      filename: "estimate-1042-signed.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 88_000,
+      kind: "pdf",
+      requiresInspection: true,
+      inspection: {
+        summary: "signed estimate #1042, total $8,400",
+        isSignedEstimate: true,
+        facts: { total: 8400, estimateNumber: "1042" },
+        model: "gpt-5.4",
+      },
+    };
+    const ctx = buildDraftStateContext(state({ attachmentsRequiringInspection: [att] }));
+    expect(ctx.attachmentBlock.toLowerCase()).toContain("signed estimate");
+    // Still no recitation of the parsed figures or filename.
+    expect(ctx.attachmentBlock).not.toContain("8,400");
+    expect(ctx.attachmentBlock).not.toContain("estimate-1042-signed.pdf");
   });
 });
 
