@@ -37,7 +37,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -55,6 +55,7 @@ import {
   type MonthEventBarSpan,
 } from "./month-event-bar";
 import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -69,6 +70,11 @@ const DEFAULT_CELL_HEIGHT = 120;
 const DAY_NUMBER_HEIGHT = 24;
 const SLOT_GAP = 2;
 const MORE_ROW_HEIGHT = 14;
+// Vertical room reserved at the bottom of an expanded row for the
+// `// COLLAPSE` control so the last event badge never sits under it.
+const COLLAPSE_ROW_HEIGHT = 18;
+// Grow / collapse duration for the in-place row expansion (bug 07492342).
+const ROW_EXPAND_DURATION = 0.28;
 
 const DAY_NAME_HEADER_HEIGHT = 32;
 const MONTH_LABEL_HEIGHT = 38;
@@ -87,6 +93,10 @@ interface ProcessedWeek {
   weekDays: Date[];
   placements: EventPlacement[][];
   overflowByDay: number[];
+  // Highest slot index consumed in this week (1-based count of stacked
+  // rows). Drives the height an expanded row grows to so every overflowed
+  // badge is revealed and draggable in place (bug 07492342).
+  maxSlotUsed: number;
 }
 
 interface MonthSection {
@@ -150,11 +160,12 @@ function buildWeekStarts(from: Date, to: Date): Date[] {
   return out;
 }
 
-function computeWeeklyPlacements(
+export function computeWeeklyPlacements(
   weekStarts: Date[],
   events: InternalScheduleEvent[],
   cellHeight: number,
-  level: DisplayLevel
+  level: DisplayLevel,
+  expandedWeekKey: string | null
 ): ProcessedWeek[] {
   const maxSlots = getMaxSlots(cellHeight, level);
   const result: ProcessedWeek[] = [];
@@ -163,6 +174,16 @@ function computeWeeklyPlacements(
   weekStarts.forEach((weekStart, w) => {
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
     const weekEnd = weekDays[6];
+
+    // An expanded row lifts the slot cap entirely so every event places —
+    // the row then grows tall enough to show them all (bug 07492342). The
+    // rest of the grid keeps the cellHeight-derived cap.
+    const isExpandedWeek =
+      expandedWeekKey === format(weekStart, "yyyy-MM-dd");
+    const effectiveMaxSlots = isExpandedWeek
+      ? Number.MAX_SAFE_INTEGER
+      : maxSlots;
+    let maxSlotUsed = 0;
 
     const usedSlots: Set<number>[] = Array.from(
       { length: 7 },
@@ -210,7 +231,7 @@ function computeWeeklyPlacements(
             }
             if (!fits) break;
           }
-          if (fits && prevSlot + slotsNeeded <= maxSlots) {
+          if (fits && prevSlot + slotsNeeded <= effectiveMaxSlots) {
             assignedSlot = prevSlot;
             break;
           }
@@ -218,7 +239,7 @@ function computeWeeklyPlacements(
       }
 
       if (assignedSlot === -1) {
-        for (let slot = 0; slot + slotsNeeded <= maxSlots; slot++) {
+        for (let slot = 0; slot + slotsNeeded <= effectiveMaxSlots; slot++) {
           let fits = true;
           for (let d = startIdx; d <= endIdx; d++) {
             for (let s = slot; s < slot + slotsNeeded; s++) {
@@ -243,6 +264,7 @@ function computeWeeklyPlacements(
           usedSlots[d].add(s);
         }
       }
+      maxSlotUsed = Math.max(maxSlotUsed, assignedSlot + slotsNeeded);
 
       if (multi) {
         if (!globalSlotMap.has(event.id)) {
@@ -298,7 +320,7 @@ function computeWeeklyPlacements(
       if (overflow > 0) overflowByDay[d] = overflow;
     }
 
-    result.push({ weekStart, weekDays, placements, overflowByDay });
+    result.push({ weekStart, weekDays, placements, overflowByDay, maxSlotUsed });
   });
 
   return result;
@@ -579,12 +601,15 @@ function MonthDayCell({
   isWeekend,
   overflow,
   onSelectDate,
+  onExpand,
 }: {
   day: Date;
   isCurrentDay: boolean;
   isWeekend: boolean;
   overflow: number;
   onSelectDate?: (date: Date) => void;
+  /** Expand this day's week row in place to reveal overflowed events. */
+  onExpand?: () => void;
 }) {
   const dayKey = format(day, "yyyy-MM-dd");
   const { setNodeRef, isOver } = useDroppable({
@@ -670,7 +695,11 @@ function MonthDayCell({
           }}
           onClick={(e) => {
             e.stopPropagation();
-            onSelectDate?.(day);
+            // Expand the week row in place so the hidden events become
+            // visible and draggable (bug 07492342). Falls back to the old
+            // jump-to-day behavior if no expand handler is wired.
+            if (onExpand) onExpand();
+            else onSelectDate?.(day);
           }}
         >
           +{overflow} MORE
@@ -783,6 +812,11 @@ export function MonthScrollContainer({
   const [cellHeight, setCellHeight] = useState(DEFAULT_CELL_HEIGHT);
   const displayLevel = getDisplayLevel(cellHeight);
 
+  // Which week row (keyed by its "yyyy-MM-dd" week-start) is expanded in
+  // place to reveal overflowed events. Null = every row at cellHeight.
+  const [expandedWeekKey, setExpandedWeekKey] = useState<string | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const setSectionRef = useCallback(
@@ -815,8 +849,14 @@ export function MonthScrollContainer({
 
   const processedWeeks = useMemo(
     () =>
-      computeWeeklyPlacements(weekStarts, events, cellHeight, displayLevel),
-    [weekStarts, events, cellHeight, displayLevel]
+      computeWeeklyPlacements(
+        weekStarts,
+        events,
+        cellHeight,
+        displayLevel,
+        expandedWeekKey
+      ),
+    [weekStarts, events, cellHeight, displayLevel, expandedWeekKey]
   );
 
   const sections = useMemo(
@@ -1081,13 +1121,30 @@ export function MonthScrollContainer({
             {section.weeks.map((week) => {
               const weekKey = format(week.weekStart, "yyyy-MM-dd");
               const wIndex = processedWeeks.indexOf(week);
+              const isExpanded = expandedWeekKey === weekKey;
+              // An expanded row grows tall enough to reveal every stacked
+              // slot plus the // COLLAPSE control, but never shrinks below
+              // the operator's chosen cellHeight (bug 07492342).
+              const expandedHeight =
+                DAY_NUMBER_HEIGHT +
+                week.maxSlotUsed * (baseSlotHeight + SLOT_GAP) +
+                COLLAPSE_ROW_HEIGHT;
+              const rowHeight = isExpanded
+                ? Math.max(cellHeight, expandedHeight)
+                : cellHeight;
               return (
-                <div
+                <motion.div
                   key={weekKey}
                   data-month-week-row
                   className="grid grid-cols-7 relative"
+                  initial={false}
+                  animate={{ height: rowHeight }}
+                  transition={
+                    prefersReducedMotion
+                      ? { duration: 0 }
+                      : { duration: ROW_EXPAND_DURATION, ease: EASE_SMOOTH }
+                  }
                   style={{
-                    height: cellHeight,
                     borderBottom: "1px solid rgba(255,255,255,0.10)",
                   }}
                 >
@@ -1099,6 +1156,7 @@ export function MonthScrollContainer({
                       isWeekend={dayIdx >= 5}
                       overflow={week.overflowByDay[dayIdx] ?? 0}
                       onSelectDate={onSelectDate}
+                      onExpand={() => setExpandedWeekKey(weekKey)}
                     />
                   ))}
 
@@ -1187,7 +1245,31 @@ export function MonthScrollContainer({
                       })
                     )}
                   </div>
-                </div>
+
+                  {isExpanded && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedWeekKey(null);
+                      }}
+                      className="absolute cursor-pointer font-mono uppercase hover:underline"
+                      style={{
+                        bottom: 3,
+                        right: 6,
+                        fontSize: 10,
+                        letterSpacing: "0.12em",
+                        color: "var(--text-3)",
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        zIndex: 6,
+                      }}
+                      aria-label={t ? t("month.collapseRow") : "Collapse row"}
+                    >
+                      {t ? t("month.collapse") : "// COLLAPSE"}
+                    </button>
+                  )}
+                </motion.div>
               );
             })}
           </section>

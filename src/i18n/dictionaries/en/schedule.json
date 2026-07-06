@@ -173,5 +173,8 @@
   "grid.resizeEventStart": "Resize event start",
   "grid.resizeEventEnd": "Resize event end",
   "grid.errorResizeOutsideHours": "Cannot resize outside business hours",
-  "grid.errorResizeOutsideHoursDescription": "Event must stay between {first}:00 and {last}:00."
+  "grid.errorResizeOutsideHoursDescription": "Event must stay between {first}:00 and {last}:00.",
+
+  "month.collapse": "// COLLAPSE",
+  "month.collapseRow": "Collapse week row"
 }
