@@ -152,6 +152,8 @@ async function dispatchTypedSender(
     case "onboarding_day_1_no_project":
       return sendOnboardingDay1NoProject({
         email: params.user.email,
+        // /projects/new is the permanent create deep link (opens the
+        // workspace create window on the dashboard) — never retire it.
         ctaUrl: `${process.env.NEXT_PUBLIC_APP_URL}/projects/new`,
         onboardingEmailLogId,
         userId: params.user.id,

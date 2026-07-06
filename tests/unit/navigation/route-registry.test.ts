@@ -181,8 +181,11 @@ describe("full-height modes (parity with the retired FULL_HEIGHT_ROUTES map)", (
     expect(getFullHeightMode(path)).toBe(mode);
   });
 
-  it("/projects/new opts back out (scrolling form)", () => {
-    expect(getFullHeightMode("/projects/new")).toBeNull();
+  it("/projects/new inherits /projects bleed (hand-off page renders null)", () => {
+    // The scrolling-form opt-out is retired with the route consolidation
+    // (2026-07-03): /projects/new only dispatches the create window and
+    // redirects, so it inherits its ancestor's mode like any sub-route.
+    expect(getFullHeightMode("/projects/new")).toBe("bleed");
   });
 
   it("normal pages get null", () => {

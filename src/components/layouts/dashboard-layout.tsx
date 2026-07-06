@@ -69,7 +69,9 @@ const MapFilterRail = dynamic(
 // use `h-full` and `flex-1 min-h-0` without re-deriving viewport math.
 
 // Modes are declared on each route's registry entry (fullHeight) with
-// opt-outs in FULL_HEIGHT_EXCEPTIONS (/projects/new is a scrolling form).
+// opt-outs in FULL_HEIGHT_EXCEPTIONS (currently empty — the sole
+// exception, /projects/new's scrolling form, became a hand-off that
+// renders null; route consolidation 2026-07-03).
 // The retired /settings/integrations/ai-setup entry is gone — middleware
 // 308s it to /calibration, so the page never renders.
 

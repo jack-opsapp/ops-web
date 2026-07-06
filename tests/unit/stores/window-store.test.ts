@@ -27,7 +27,11 @@ describe("useWindowStore", () => {
       expect(win).toBeDefined();
       expect(win.type).toBe("project-workspace");
       expect(win.id).toBe("project-workspace:p_42");
-      expect(win.meta).toEqual({ projectId: "p_42", initialMode: "viewing" });
+      expect(win.meta).toEqual({
+        projectId: "p_42",
+        initialMode: "viewing",
+        initialClientId: null,
+      });
     });
 
     it("opens a project-workspace window in editing mode", () => {
@@ -36,14 +40,22 @@ describe("useWindowStore", () => {
         mode: "editing",
       });
       const win = useWindowStore.getState().windows[0];
-      expect(win.meta).toEqual({ projectId: "p_42", initialMode: "editing" });
+      expect(win.meta).toEqual({
+        projectId: "p_42",
+        initialMode: "editing",
+        initialClientId: null,
+      });
     });
 
     it("opens a creating-mode workspace with a null projectId (create-new sentinel)", () => {
       useWindowStore.getState().openProjectWindow({ mode: "creating" });
       const win = useWindowStore.getState().windows[0];
       expect(win.id).toBe("project-workspace:new");
-      expect(win.meta).toEqual({ projectId: null, initialMode: "creating" });
+      expect(win.meta).toEqual({
+        projectId: null,
+        initialMode: "creating",
+        initialClientId: null,
+      });
     });
 
     it("defaults mode to 'viewing' when projectId is provided and mode omitted", () => {
@@ -81,6 +93,69 @@ describe("useWindowStore", () => {
       // Compile-time assertion that the union accepts 'project-workspace'.
       const t: import("@/stores/window-store").FloatingWindowType = "project-workspace";
       expect(t).toBe("project-workspace");
+    });
+  });
+
+  describe("initialClientId seeding (route consolidation 2026-07-03)", () => {
+    // `/projects/new?clientId=` and the client-list widget's "Create
+    // Project" action seed the create form's client through window meta.
+    // The seed rides the same meta object on both the fresh-open and the
+    // refocus path, so re-targeting the singleton creating window at a
+    // different client replaces the previous seed.
+
+    it("carries initialClientId into the creating window's meta on fresh open", () => {
+      useWindowStore.getState().openProjectWindow({
+        projectId: null,
+        mode: "creating",
+        initialClientId: "c1",
+      });
+      const win = useWindowStore.getState().windows[0];
+      expect(win.id).toBe("project-workspace:new");
+      expect(win.meta).toEqual({
+        projectId: null,
+        initialMode: "creating",
+        initialClientId: "c1",
+      });
+    });
+
+    it("replaces the seed when the creating window is refocused for a different client", () => {
+      const { openProjectWindow } = useWindowStore.getState();
+      openProjectWindow({
+        projectId: null,
+        mode: "creating",
+        initialClientId: "c1",
+      });
+      openProjectWindow({
+        projectId: null,
+        mode: "creating",
+        initialClientId: "c2",
+      });
+      const wins = useWindowStore.getState().windows;
+      // Still the one singleton creating window — refocused, not duplicated.
+      expect(wins.length).toBe(1);
+      expect(wins[0].meta).toEqual({
+        projectId: null,
+        initialMode: "creating",
+        initialClientId: "c2",
+      });
+    });
+
+    it("clears the seed when refocused without one (meta is replaced wholesale)", () => {
+      // Cmd+Shift+P after a widget-seeded open deliberately re-targets the
+      // window at a generic create — a stale seed must not survive.
+      const { openProjectWindow } = useWindowStore.getState();
+      openProjectWindow({
+        projectId: null,
+        mode: "creating",
+        initialClientId: "c1",
+      });
+      openProjectWindow({ projectId: null, mode: "creating" });
+      const win = useWindowStore.getState().windows[0];
+      expect(win.meta).toEqual({
+        projectId: null,
+        initialMode: "creating",
+        initialClientId: null,
+      });
     });
   });
 

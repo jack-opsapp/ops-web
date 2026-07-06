@@ -21,6 +21,13 @@ export interface ProjectWorkspaceWindowMeta {
   // edit/create body without prefilling from a Supabase row.
   projectId: string | null;
   initialMode: ProjectWorkspaceMode;
+  // Seeds the create form's client field (route consolidation 2026-07-03:
+  // `/projects/new?clientId=` and the client-list widget's "Create Project"
+  // action). Creating mode only — viewing/editing ignore it. Optional so
+  // `updateWindowMeta` callers swapping in a post-create meta can omit it;
+  // `openProjectWindow` always writes it (null when unseeded) so a refocus
+  // replaces any previous seed rather than leaking it.
+  initialClientId?: string | null;
 }
 
 // Client workspace mirrors the project workspace contract (WEB OVERHAUL
@@ -57,6 +64,10 @@ export interface FloatingWindowState {
 interface OpenProjectWindowOpts {
   projectId?: string | null;
   mode?: ProjectWorkspaceMode;
+  // Preselects a client in the creating-mode form (see
+  // ProjectWorkspaceWindowMeta.initialClientId). Ignored unless the window
+  // opens in creating mode.
+  initialClientId?: string | null;
   // Fired once with the freshly-created project id when the workspace
   // body finishes a creating→viewing save. Lets a parent surface (e.g.
   // the in-task-modal "Create new project" affordance) react to the
@@ -247,11 +258,23 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
     });
   },
 
-  openProjectWindow: ({ projectId = null, mode, onProjectCreated }) => {
+  openProjectWindow: ({
+    projectId = null,
+    mode,
+    initialClientId = null,
+    onProjectCreated,
+  }) => {
     const initialMode: ProjectWorkspaceMode =
       mode ?? (projectId ? "viewing" : "creating");
     const id = deriveProjectWindowId(projectId);
-    const meta: ProjectWorkspaceWindowMeta = { projectId, initialMode };
+    // Built once so the fresh-open and refocus paths carry an identical
+    // meta — including the client seed, which must replace (never outlive)
+    // the previous seed when the singleton creating window is re-targeted.
+    const meta: ProjectWorkspaceWindowMeta = {
+      projectId,
+      initialMode,
+      initialClientId,
+    };
     // Register before any state mutation so the container — which reads
     // the callback inside `handleSaved` — never sees a window without
     // its callback wired. Re-register on a refocus too: callers that

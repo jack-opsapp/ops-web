@@ -88,6 +88,7 @@ export function ProjectWorkspaceContainer({
   const meta = win?.meta as ProjectWorkspaceWindowMeta | undefined;
   const projectId = meta?.projectId ?? null;
   const initialMode: ProjectWorkspaceMode = meta?.initialMode ?? "viewing";
+  const initialClientId = meta?.initialClientId ?? null;
 
   // Local mode owns the live viewing→editing→viewing loop. Initialised
   // from the store's meta and re-synced when the meta changes (e.g. a
@@ -310,6 +311,7 @@ export function ProjectWorkspaceContainer({
           <ProjectEditCreateBody
             mode={isCreating ? "creating" : "editing"}
             projectId={isCreating ? null : projectId}
+            initialClientId={initialClientId}
             tab={activeTab}
             formId={formId}
             onSaved={handleSaved}
