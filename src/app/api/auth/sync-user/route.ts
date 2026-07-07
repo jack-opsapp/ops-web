@@ -11,9 +11,10 @@
  * - Updates last-login timestamp on existing users
  * - Sets `firebase_uid` from the verified token at creation and repairs
  *   null/stale values on login — every firebase_uid write is gated on the
- *   token being Firebase-issued so a Supabase-issued token can never seed the
- *   column with a Supabase auth UUID (audit risk R8 — the shared RPCs resolve
- *   identity via users.firebase_uid = JWT sub)
+ *   token being Firebase-issued (audit risk R8 — the shared RPCs resolve
+ *   identity via users.firebase_uid = JWT sub). OPS is Firebase-only today, so
+ *   that gate is a defense-in-depth invariant (always true), not an active
+ *   dual-issuer switch
  * - Returns the user and their associated company (if any)
  *
  * Body: { idToken, email, displayName?, firstName?, lastName?, photoURL? }
@@ -165,7 +166,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Verify auth token (Supabase or Firebase)
+    // Verify the Firebase ID token
     const firebaseUser = await verifyAuthToken(idToken);
     const firebaseUid = firebaseUser.uid;
 
@@ -257,9 +258,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       // firebase_uid must mirror the VERIFIED token's uid (audit risk R8 — the
       // shared RPCs resolve identity via users.firebase_uid = JWT sub).
-      // Backfill legacy null rows AND repair stale/divergent values. Gated on
-      // the token being Firebase-issued so a Supabase-issued token (sub =
-      // Supabase auth UUID) can never clobber a real Firebase UID. The
+      // Backfill legacy null rows AND repair stale/divergent values. The
+      // isFirebaseIssuedToken gate is a defense-in-depth invariant (OPS is
+      // Firebase-only, so it is always true today) that keeps a non-Firebase
+      // issuer's sub out of the column if one is ever reintroduced. The
       // claimed-by-different-identity guard above has already rejected an
       // unverified email-only match against a row linked to another sub, so
       // reaching here means the rewrite is the caller's own row (or the email
@@ -305,14 +307,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const derivedFirst = firstName || displayName?.split(" ")[0] || "";
     const derivedLast = lastName || displayName?.split(" ").slice(1).join(" ") || "";
 
-    // auth_id is provider-agnostic by design — it maps the verified token's
-    // sub (Supabase auth UUID for iOS, Firebase UID for web) to the app user;
-    // RLS helpers resolve identity via auth_id, so it must be written for both
-    // providers. firebase_uid must only ever hold Firebase UIDs (audit risk R8
-    // — the shared RPCs resolve identity via users.firebase_uid = JWT sub), so
-    // it carries the same Firebase-issued gate as the backfill above: a
-    // Supabase-issued token creating a row must not seed the column with a
-    // Supabase auth UUID.
+    // auth_id maps the verified token's sub (the Firebase UID) to the app user;
+    // RLS helpers resolve identity via auth_id, so it is always written.
+    // firebase_uid must only ever hold Firebase UIDs (audit risk R8 — the
+    // shared RPCs resolve identity via users.firebase_uid = JWT sub), so it
+    // carries the same defense-in-depth Firebase-issued gate as the backfill
+    // above (always true today, since OPS is Firebase-only) — a non-Firebase
+    // issuer's sub must never seed the column.
     const newRow = {
       auth_id: firebaseUid,
       firebase_uid: isFirebaseIssuedToken(firebaseUser.claims)

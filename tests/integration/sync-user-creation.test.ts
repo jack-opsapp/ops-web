@@ -137,18 +137,22 @@ async function postSyncUser(body: unknown) {
 }
 
 const FIREBASE_ISS = "https://securetoken.google.com/ops-project";
-const SUPABASE_ISS = "https://ops-project.supabase.co/auth/v1";
+// Synthetic NON-Firebase issuer — a defensive-guard input only. OPS is
+// Firebase-only (web + iOS); no live client produces a token with this issuer.
+// It exists here purely to exercise the isFirebaseIssuedToken guard (keeps
+// firebase_uid null) and the firebase_uid-null race-recovery edge.
+const NON_FIREBASE_ISS = "https://ops-project.supabase.co/auth/v1";
 
 describe("POST /api/auth/sync-user row creation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("creates a new row with firebase_uid null for a Supabase-issued token", async () => {
+  it("defensive guard: creates a new row with firebase_uid null for a NON-Firebase-issued token", async () => {
     verifyAuthTokenMock.mockResolvedValue({
       uid: "supabase-auth-uuid-1",
       email: "crew@example.com",
-      claims: { iss: SUPABASE_ISS, sub: "supabase-auth-uuid-1" },
+      claims: { iss: NON_FIREBASE_ISS, sub: "supabase-auth-uuid-1" },
     });
     const state = makeState();
     wireDb(state);
@@ -161,9 +165,10 @@ describe("POST /api/auth/sync-user row creation", () => {
 
     expect(result.status).toBe(200);
     expect(state.userInserts).toHaveLength(1);
-    // auth_id is provider-agnostic and must always carry the token sub;
-    // firebase_uid must only ever hold Firebase UIDs, so a Supabase-issued
-    // token creates the row with firebase_uid null.
+    // auth_id always carries the token sub; firebase_uid must only ever hold
+    // Firebase UIDs, so the isFirebaseIssuedToken guard keeps it null for a
+    // non-Firebase issuer. No live client hits this today (OPS is Firebase-
+    // only) — this asserts the defense-in-depth guard holds if one ever did.
     expect(state.userInserts[0]).toMatchObject({
       auth_id: "supabase-auth-uuid-1",
       firebase_uid: null,
@@ -197,18 +202,19 @@ describe("POST /api/auth/sync-user row creation", () => {
     expect(result.body.user).toMatchObject({ id: "user-new" });
   });
 
-  it("recovers from a 23505 insert race via the auth_id-first lookup for a Supabase-token caller", async () => {
+  it("recovers from a 23505 insert race via the auth_id-first lookup (firebase_uid-null raced row)", async () => {
     verifyAuthTokenMock.mockResolvedValue({
       uid: "supabase-auth-uuid-2",
       email: "crew2@example.com",
-      claims: { iss: SUPABASE_ISS, sub: "supabase-auth-uuid-2" },
+      claims: { iss: NON_FIREBASE_ISS, sub: "supabase-auth-uuid-2" },
     });
     const state = makeState();
     // A concurrent sync-user call (e.g. JoinPage + AuthProvider firing in
     // parallel) committed this row between our lookup and our insert, so the
-    // insert hits Postgres unique_violation 23505. The raced row carries the
-    // Supabase sub in auth_id and firebase_uid null — a firebase_uid-first
-    // recovery lookup would miss it; auth_id-first finds it.
+    // insert hits Postgres unique_violation 23505. The raced row has the sub in
+    // auth_id and firebase_uid null (a legacy/divergent row, or the defensive
+    // non-Firebase path) — a firebase_uid-first recovery lookup would miss it;
+    // auth_id-first finds it.
     state.firstInsertErrorCode = "23505";
     state.racedRow = {
       id: "user-raced",

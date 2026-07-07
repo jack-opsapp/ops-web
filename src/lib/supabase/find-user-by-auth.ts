@@ -33,7 +33,7 @@ function withColumn(select: string, column: string): string {
  * Find a user by auth credentials with fallback chain:
  * auth_id → firebase_uid → email
  *
- * @param uid - The verified token sub (Firebase UID or Supabase auth UUID)
+ * @param uid - The verified token sub (the Firebase UID)
  * @param email - Optional verified-token email for the legacy-link fallback
  * @param select - Columns to select (default: "id, company_id")
  */
