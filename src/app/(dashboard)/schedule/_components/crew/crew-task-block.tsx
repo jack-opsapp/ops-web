@@ -9,6 +9,8 @@ import { CREW_ROW_HEIGHT } from "@/lib/utils/crew-constants";
 import { laneVerticalLayout } from "@/lib/utils/lane-assignment";
 import { EventHoverPopover } from "../event-hover-popover";
 import { useScheduleStore } from "@/stores/schedule-store";
+import { useEventWeatherRisk } from "../weather/schedule-weather-context";
+import { WeatherRiskIndicator } from "../weather/weather-risk-indicator";
 
 // ─── Calendar badge surface ─────────────────────────────────────────────────
 //
@@ -103,6 +105,10 @@ export function CrewTaskBlock({
   const highlightedTeamMemberId = useScheduleStore(
     (s) => s.highlightedTeamMemberId,
   );
+
+  // Adverse-weather risk (null unless weather-dependent + bad forecast).
+  // Hoisted above the early return below so the hook order stays stable.
+  const weatherRisk = useEventWeatherRisk(event);
 
   // ── Resize state ────────────────────────────────────────────────────────
 
@@ -518,9 +524,12 @@ export function CrewTaskBlock({
             )}
           </div>
 
-          {/* Right cluster: time + type badge (task events only — special
-              events use the leading glyph as their signal). */}
+          {/* Right cluster: weather warning + time + type badge (task events
+              only — special events use the leading glyph as their signal). */}
           <div className="flex flex-col items-end justify-between gap-[4px] shrink-0">
+            {weatherRisk && !isNarrow && (
+              <WeatherRiskIndicator risk={weatherRisk} size={12} />
+            )}
             {!isNarrow && !isSpecial && (
               <div
                 className="px-[5px] py-[1px] font-cakemono font-light uppercase"

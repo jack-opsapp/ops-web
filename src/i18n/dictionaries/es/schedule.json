@@ -11,6 +11,12 @@
   "stats.today": "Hoy",
   "stats.thisWeek": "Esta semana",
 
+  "weather.ariaPrefix": "Riesgo meteorológico",
+  "weather.label.rain": "Lluvia probable",
+  "weather.label.snow": "Nieve probable",
+  "weather.label.storm": "Tormentas probables",
+  "weather.label.wind": "Vientos fuertes",
+
   "taskType.installation": "instalación",
   "taskType.material": "material",
   "taskType.estimate": "cotización",

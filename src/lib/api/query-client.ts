@@ -113,6 +113,10 @@ export const queryKeys = {
       [...queryKeys.calendar.all, "recurrence", id] as const,
     recurrenceExceptions: (recurrenceId: string) =>
       [...queryKeys.calendar.all, "recurrence-exceptions", recurrenceId] as const,
+    // Batch adverse-weather forecast for the visible schedule window. `projectKey`
+    // is a stable, sorted join of the in-window project ids (bug 9dc7c38d).
+    weather: (companyId: string, projectKey: string) =>
+      [...queryKeys.calendar.all, "weather", companyId, projectKey] as const,
   },
 
   // Task Types

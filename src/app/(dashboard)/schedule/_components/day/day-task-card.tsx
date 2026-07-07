@@ -9,6 +9,8 @@ import { useScheduleStore } from "@/stores/schedule-store";
 import { useTeamMembers } from "@/lib/hooks";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { EventHoverPopover } from "../event-hover-popover";
+import { useEventWeatherRisk } from "../weather/schedule-weather-context";
+import { WeatherRiskIndicator } from "../weather/weather-risk-indicator";
 
 // ─── Calendar badge surface ─────────────────────────────────────────────────
 //
@@ -112,6 +114,10 @@ export function DayTaskCard({
   const [isHovered, setIsHovered] = useState(false);
   const setSidePanelTask = useScheduleStore((s) => s.setSidePanelTask);
   const setInlineEdit = useScheduleStore((s) => s.setInlineEdit);
+
+  // Adverse-weather risk for this event (null unless weather-dependent AND the
+  // covered day's forecast is bad). Drives the tan warning glyph in the title row.
+  const weatherRisk = useEventWeatherRisk(event);
 
   // Legend hover-to-highlight integration. Same combined logic as the month
   // bar — match either the highlighted task type or the highlighted team
@@ -434,6 +440,9 @@ export function DayTaskCard({
             >
               {primaryTitle}
             </span>
+            {/* Weather warning — trailing flow sibling before the type chip so a
+                long title truncates before it and it never overlaps. */}
+            {weatherRisk && <WeatherRiskIndicator risk={weatherRisk} size={14} />}
             {/* Type chip — task events only. Special events use the leading
                 glyph + tinted hairline instead, so no chip here. */}
             {!isUserEvent && (
