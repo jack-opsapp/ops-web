@@ -42,7 +42,19 @@ export const LogoLoader: React.FC<LogoLoaderProps> = ({
 }) => {
   const reduced = useReducedMotion();
   const [iframeFailed, setIframeFailed] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
   const iframeLoadedRef = React.useRef(false);
+
+  // Defer the reduced-motion swap until after hydration. The server can't know
+  // the client's motion preference, so SSR always emits the iframe. Rendering
+  // the static lockup on the client's first paint (before this effect runs)
+  // would disagree with that server HTML and throw a hydration mismatch on
+  // every auth-gated page load for reduced-motion users. Gating on `mounted`
+  // keeps the server render and the first client render identical (both the
+  // iframe), then swaps to the static lockup on the next client render.
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // If the iframe doesn't fire `load` within 1500ms, fall back to the static
   // lockup. The Babel-in-iframe path can fail silently in some sandbox/CSP
@@ -75,7 +87,7 @@ export const LogoLoader: React.FC<LogoLoaderProps> = ({
     </div>
   );
 
-  if (reduced || iframeFailed) {
+  if (mounted && (reduced || iframeFailed)) {
     return StaticLockup;
   }
 
