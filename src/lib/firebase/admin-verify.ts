@@ -50,6 +50,19 @@ export interface VerifiedUser {
 export type VerifiedFirebaseUser = VerifiedUser;
 
 /**
+ * True when a verified token was issued by Firebase (vs Supabase Auth).
+ * `users.firebase_uid` must only ever hold Firebase UIDs, so every write to
+ * that column is gated on this check — a Supabase-issued token's `sub` is a
+ * Supabase auth UUID and would poison the column.
+ */
+export function isFirebaseIssuedToken(claims: JWTPayload): boolean {
+  return (
+    typeof claims.iss === "string" &&
+    claims.iss.startsWith("https://securetoken.google.com/")
+  );
+}
+
+/**
  * Verify a Supabase Auth JWT (asymmetric, verified via Supabase JWKS endpoint).
  * Throws if the token is invalid, expired, or signature doesn't match.
  */
@@ -131,12 +144,12 @@ export async function verifyAuthToken(
     firebaseError = err;
   }
 
-  // Both failed — log details for debugging
+  // Both failed — log the verifier errors for debugging. LOW-2: do not log any
+  // portion of the token itself (even a prefix), only the failure reasons.
   console.error("[verifyAuthToken] Both verification methods failed:", {
     supabase: supabaseError instanceof Error ? supabaseError.message : String(supabaseError),
     firebase: firebaseError instanceof Error ? firebaseError.message : String(firebaseError),
     projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    tokenPrefix: token.substring(0, 20) + "...",
   });
 
   throw firebaseError;
