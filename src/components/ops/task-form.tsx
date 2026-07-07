@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { CalendarScheduler } from "@/components/ops/calendar-scheduler";
 import { TaskScheduleConfirmStrip } from "@/components/agent/task-schedule-confirm-strip";
-import { useDictionary } from "@/i18n/client";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import {
   type ProjectTask,
   type TaskType,
@@ -21,6 +22,14 @@ import {
   getInitials,
 } from "@/lib/types/models";
 import { type TaskTypeDependency } from "@/lib/types/scheduling";
+
+/** Maps each task status to its `projects` dictionary label key. */
+const TASK_STATUS_LABEL_KEYS: Record<TaskStatus, string> = {
+  [TaskStatus.Booked]: "status.booked",
+  [TaskStatus.InProgress]: "status.inProgress",
+  [TaskStatus.Completed]: "status.completed",
+  [TaskStatus.Cancelled]: "status.cancelled",
+};
 
 // ─── Validation Schema ───────────────────────────────────────────────────────
 
@@ -93,13 +102,14 @@ function TaskTypeDropdown({
   taskTypes: TaskType[];
   error?: string;
 }) {
+  const { t } = useDictionary("projects");
   const [open, setOpen] = useState(false);
   const selected = taskTypes.find((t) => t.id === value);
 
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        Task Type
+        {t("taskForm.taskTypeLabel", "Task Type")}
       </label>
       <div className="relative">
         <button
@@ -124,7 +134,7 @@ function TaskTypeDropdown({
               <span className="text-text">{selected.display}</span>
             </span>
           ) : (
-            <span className="text-text-3">Select type</span>
+            <span className="text-text-3">{t("taskForm.typePlaceholder", "Select type")}</span>
           )}
           <ChevronDown
             className={cn(
@@ -139,7 +149,7 @@ function TaskTypeDropdown({
             {taskTypes.length === 0 ? (
               <div className="px-1.5 py-1">
                 <p className="font-mohave text-body-sm text-text-3">
-                  No task types available
+                  {t("taskForm.noTaskTypes", "No task types available")}
                 </p>
               </div>
             ) : (
@@ -192,12 +202,13 @@ function StatusDropdown({
   value: TaskStatus;
   onChange: (status: TaskStatus) => void;
 }) {
+  const { t } = useDictionary("projects");
   const [open, setOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        Status
+        {t("taskForm.statusLabel", "Status")}
       </label>
       <div className="relative">
         <button
@@ -218,7 +229,7 @@ function StatusDropdown({
               className="w-[8px] h-[8px] rounded-full shrink-0"
               style={{ backgroundColor: TASK_STATUS_COLORS[value] }}
             />
-            <span className="text-text">{value}</span>
+            <span className="text-text">{t(TASK_STATUS_LABEL_KEYS[value], value)}</span>
           </span>
           <ChevronDown
             className={cn(
@@ -249,7 +260,7 @@ function StatusDropdown({
                   className="w-[8px] h-[8px] rounded-full shrink-0"
                   style={{ backgroundColor: TASK_STATUS_COLORS[s] }}
                 />
-                {s}
+                {t(TASK_STATUS_LABEL_KEYS[s], s)}
                 {value === s && (
                   <Check className="w-[14px] h-[14px] text-text-2 ml-auto shrink-0" />
                 )}
@@ -273,6 +284,7 @@ function TeamMemberDropdown({
   onChange: (ids: string[]) => void;
   members: User[];
 }) {
+  const { t } = useDictionary("projects");
   const [open, setOpen] = useState(false);
 
   function toggle(id: string) {
@@ -288,7 +300,7 @@ function TeamMemberDropdown({
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        Team Members
+        {t("taskForm.teamLabel", "Team Members")}
       </label>
       <div className="relative">
         <button
@@ -306,7 +318,7 @@ function TeamMemberDropdown({
           )}
         >
           {count === 0 ? (
-            <span>Select team members</span>
+            <span>{t("taskForm.teamPlaceholder", "Select team members")}</span>
           ) : (
             <span className="flex items-center gap-[6px]">
               {/* Show first 3 avatars inline */}
@@ -327,7 +339,10 @@ function TeamMemberDropdown({
                   ))}
               </span>
               <span>
-                {count} member{count !== 1 ? "s" : ""}
+                {count}{" "}
+                {count === 1
+                  ? t("taskForm.member", "member")
+                  : t("taskForm.members", "members")}
               </span>
             </span>
           )}
@@ -344,7 +359,7 @@ function TeamMemberDropdown({
             {members.length === 0 ? (
               <div className="px-1.5 py-1">
                 <p className="font-mohave text-body-sm text-text-3">
-                  No team members available
+                  {t("taskForm.noTeamMembers", "No team members available")}
                 </p>
               </div>
             ) : (
@@ -418,7 +433,10 @@ function DependencySection({
   }
 
   function resolveTaskTypeName(id: string): string {
-    return taskTypes.find((tt) => tt.id === id)?.display ?? "Unknown";
+    return (
+      taskTypes.find((tt) => tt.id === id)?.display ??
+      t("taskForm.unknownType", "Unknown")
+    );
   }
 
   return (
@@ -509,6 +527,8 @@ function TaskForm({
   teamConflicts,
 }: TaskFormProps) {
   const { t } = useDictionary("projects");
+  const { locale } = useLocale();
+  const dateLocale = getDateLocale(locale);
   const isEditMode = !!task;
 
   const defaultValues: TaskFormValues = useMemo(
@@ -573,16 +593,18 @@ function TaskForm({
       );
       for (const depTask of depTasks) {
         if (!depTask.endDate) continue;
-        const typeName = taskTypes.find((tt) => tt.id === dep.depends_on_task_type_id)?.display ?? "task";
+        const typeName =
+          taskTypes.find((tt) => tt.id === dep.depends_on_task_type_id)?.display ??
+          t("taskForm.unknownType", "Unknown");
         blocks.push({
           start: new Date(0),
           end: new Date(depTask.endDate),
-          reason: `Cannot start before ${new Date(depTask.endDate).toLocaleDateString()} — depends on ${typeName}`,
+          reason: `${t("taskForm.conflict.dependency", "Cannot start before")} ${new Date(depTask.endDate).toLocaleDateString(dateLocale)} — ${t("taskForm.conflict.dependsOn", "depends on")} ${typeName}`,
         });
       }
     }
     return blocks;
-  }, [currentOverrides, defaultDependencies, projectTasks, taskTypes]);
+  }, [currentOverrides, defaultDependencies, projectTasks, taskTypes, t, dateLocale]);
 
   function handleFormSubmit(values: TaskFormValues) {
     if (!isEditMode) {
@@ -629,7 +651,11 @@ function TaskForm({
           value={currentTaskTypeId}
           onChange={(id) => setValue("taskTypeId", id)}
           taskTypes={taskTypes}
-          error={errors.taskTypeId?.message}
+          error={
+            errors.taskTypeId
+              ? t("taskForm.typeRequired", "Task type is required")
+              : undefined
+          }
         />
 
         <StatusDropdown

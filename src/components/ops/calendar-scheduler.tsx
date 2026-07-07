@@ -23,6 +23,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -77,7 +79,8 @@ type SelectionMode = "idle" | "selecting" | "reviewing";
 
 // ─── Date Helpers ───────────────────────────────────────────────────────────
 
-const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
+/** Monday-first single-letter weekday fallbacks; localized via `calendar.weekdays`. */
+const WEEKDAY_LABELS_FALLBACK = "M,T,W,T,F,S,S";
 
 function isSameDay(a: Date, b: Date): boolean {
   return (
@@ -102,8 +105,8 @@ function parseISODate(s: string): Date | null {
   return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 
-function formatDisplayDate(d: Date): string {
-  return d.toLocaleDateString("en-US", {
+function formatDisplayDate(d: Date, dateLocale: string): string {
+  return d.toLocaleDateString(dateLocale, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -115,8 +118,8 @@ function daysBetween(start: Date, end: Date): number {
   return Math.round(ms / 86_400_000) + 1;
 }
 
-function monthYearLabel(d: Date): string {
-  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+function monthYearLabel(d: Date, dateLocale: string): string {
+  return d.toLocaleDateString(dateLocale, { month: "long", year: "numeric" });
 }
 
 /** Check if a date falls within an inclusive range [start, end]. */
@@ -163,13 +166,19 @@ export function CalendarScheduler({
   onDateChange,
   onClear,
   events = [],
-  label = "Schedule",
+  label,
   projectTasks,
   teamConflicts,
   blockedDates,
   alwaysExpanded,
   onConflictDetected,
 }: CalendarSchedulerProps) {
+  const { t } = useDictionary("projects");
+  const { locale } = useLocale();
+  const dateLocale = getDateLocale(locale);
+  const resolvedLabel = label ?? t("calendar.schedule", "Schedule");
+  const weekdayLabels = t("calendar.weekdays", WEEKDAY_LABELS_FALLBACK).split(",");
+
   // Parse initial dates
   const initStart = parseISODate(startProp ?? "");
   const initEnd = parseISODate(endProp ?? "");
@@ -283,7 +292,10 @@ export function CalendarScheduler({
           seen.add(key);
           conflicts.push({
             type: "team_conflict",
-            message: `${c.memberName} is booked on "${c.projectTitle}" during this period`,
+            message: t("calendar.teamConflict", {
+              member: c.memberName,
+              project: c.projectTitle,
+            }),
             severity: "warning",
           });
         }
@@ -358,7 +370,7 @@ export function CalendarScheduler({
     return (
       <div className="flex flex-col gap-0.5">
         <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-          {label}
+          {resolvedLabel}
         </label>
         <button
           type="button"
@@ -374,21 +386,22 @@ export function CalendarScheduler({
           {hasSelection && selectedStart && selectedEnd ? (
             <div className="flex-1 min-w-0 flex items-center gap-[6px]">
               <span className="font-mohave text-body text-text">
-                {formatDisplayDate(selectedStart)}
+                {formatDisplayDate(selectedStart, dateLocale)}
               </span>
               <span className="font-mohave text-body-sm text-text-3">
-                to
+                {t("calendar.to", "to")}
               </span>
               <span className="font-mohave text-body text-text">
-                {formatDisplayDate(selectedEnd)}
+                {formatDisplayDate(selectedEnd, dateLocale)}
               </span>
               <span className="font-mohave text-body-sm text-text ml-auto">
-                {daysBetween(selectedStart, selectedEnd)}d
+                {daysBetween(selectedStart, selectedEnd)}
+                {t("calendar.dayAbbrev", "d")}
               </span>
             </div>
           ) : (
             <span className="font-mohave text-body text-text-3">
-              Tap to schedule
+              {t("calendar.tapToSchedule", "Tap to schedule")}
             </span>
           )}
         </button>
@@ -401,7 +414,7 @@ export function CalendarScheduler({
   return (
     <div className="flex flex-col gap-1 animate-fade-in">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        {label}
+        {resolvedLabel}
       </label>
 
       {/* Selected dates header */}
@@ -415,7 +428,7 @@ export function CalendarScheduler({
         {/* Start */}
         <div className="flex-1 min-w-0">
           <p className="font-mono text-micro text-text-2 uppercase tracking-widest leading-none mb-[2px]">
-            Start
+            {t("calendar.start", "Start")}
           </p>
           <p
             className={cn(
@@ -426,8 +439,8 @@ export function CalendarScheduler({
             )}
           >
             {selectedStart && mode !== "idle"
-              ? formatDisplayDate(selectedStart)
-              : "Select date"}
+              ? formatDisplayDate(selectedStart, dateLocale)
+              : t("calendar.selectDate", "Select date")}
           </p>
         </div>
 
@@ -442,7 +455,7 @@ export function CalendarScheduler({
         {/* End */}
         <div className="flex-1 min-w-0">
           <p className="font-mono text-micro text-text-2 uppercase tracking-widest leading-none mb-[2px]">
-            End
+            {t("calendar.end", "End")}
           </p>
           <p
             className={cn(
@@ -451,15 +464,15 @@ export function CalendarScheduler({
             )}
           >
             {selectedEnd && hasSelection
-              ? formatDisplayDate(selectedEnd)
-              : "Select date"}
+              ? formatDisplayDate(selectedEnd, dateLocale)
+              : t("calendar.selectDate", "Select date")}
           </p>
         </div>
 
         {/* Duration */}
         <div className="text-right shrink-0 ml-1">
           <p className="font-mono text-micro text-text-2 uppercase tracking-widest leading-none mb-[2px]">
-            Duration
+            {t("calendar.duration", "Duration")}
           </p>
           <p
             className={cn(
@@ -468,7 +481,11 @@ export function CalendarScheduler({
             )}
           >
             {hasSelection && selectedStart && selectedEnd
-              ? `${daysBetween(selectedStart, selectedEnd)} day${daysBetween(selectedStart, selectedEnd) !== 1 ? "s" : ""}`
+              ? `${daysBetween(selectedStart, selectedEnd)} ${
+                  daysBetween(selectedStart, selectedEnd) === 1
+                    ? t("calendar.day", "day")
+                    : t("calendar.days", "days")
+                }`
               : "\u2014"}
           </p>
         </div>
@@ -486,7 +503,7 @@ export function CalendarScheduler({
             <ChevronLeft className="w-[16px] h-[16px]" />
           </button>
           <span className="font-mohave text-body font-semibold text-text">
-            {monthYearLabel(currentMonth)}
+            {monthYearLabel(currentMonth, dateLocale)}
           </span>
           <button
             type="button"
@@ -499,7 +516,7 @@ export function CalendarScheduler({
 
         {/* Weekday headers */}
         <div className="grid grid-cols-7 mb-[2px]">
-          {WEEKDAY_LABELS.map((lbl, i) => (
+          {weekdayLabels.map((lbl, i) => (
             <div
               key={i}
               className="text-center font-mono text-micro text-text-2 uppercase tracking-widest py-[4px]"
@@ -545,7 +562,9 @@ export function CalendarScheduler({
             onClick={() => setExpanded(false)}
             className="font-mohave text-body-sm text-text-3 hover:text-text-2 transition-colors"
           >
-            {hasSelection ? "Collapse" : "Cancel"}
+            {hasSelection
+              ? t("calendar.collapse", "Collapse")
+              : t("calendar.cancel", "Cancel")}
           </button>
         )}
 
@@ -558,7 +577,7 @@ export function CalendarScheduler({
             className="flex items-center gap-[4px] font-mohave text-body-sm text-status-error hover:text-status-error/80 transition-colors"
           >
             <X className="w-[12px] h-[12px]" />
-            Clear dates
+            {t("calendar.clearDates", "Clear dates")}
           </button>
         )}
       </div>
