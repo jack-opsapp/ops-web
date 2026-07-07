@@ -30,17 +30,17 @@ export default async function SpecCapacityEditorPage() {
     return (
       <div className="flex min-h-screen flex-col bg-black">
         <CapacityEditorHeader />
-        <div className="m-8 rounded-panel border border-[#B58289]/40 bg-[#B58289]/8 p-6">
-          <h2 className="font-cakemono text-[15px] font-light uppercase text-[#B58289]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+        <div className="m-8 rounded-panel border border-rose/40 bg-rose/8 p-6">
+          <h2 className="font-cakemono text-[15px] font-light uppercase text-rose">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             CAPACITY READ FAILED
           </h2>
-          <pre className="mt-3 overflow-auto whitespace-pre-wrap text-[12px] text-[#EDEDED]">
+          <pre className="mt-3 overflow-auto whitespace-pre-wrap text-[12px] text-text">
             {msg}
           </pre>
-          <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+          <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             [check supabase service-role + spec_capacity row presence]
           </p>
         </div>

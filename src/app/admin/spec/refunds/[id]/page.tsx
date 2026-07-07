@@ -67,21 +67,21 @@ export default async function ProcessedRefundDetailPage({ params }: PageProps) {
 
         {refund.customerReasonText && (
           <div className="mt-6 border-l border-white/[0.06] pl-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-              <span className="text-[#3A3A3A]">{"//"}</span> CUSTOMER REASON
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+              <span className="text-text-mute">{"//"}</span> CUSTOMER REASON
             </p>
-            <p className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-[#B5B5B5]">
+            <p className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-text-2">
               {refund.customerReasonText}
             </p>
           </div>
         )}
 
         {refund.denialReasonText && (
-          <div className="mt-6 border-l border-[#B58289]/40 pl-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#B58289]">
-              <span className="text-[#3A3A3A]">{"//"}</span> DENIAL REASON
+          <div className="mt-6 border-l border-rose/40 pl-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-rose">
+              <span className="text-text-mute">{"//"}</span> DENIAL REASON
             </p>
-            <p className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-[#EDEDED]">
+            <p className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-text">
               {refund.denialReasonText}
             </p>
           </div>
@@ -93,25 +93,25 @@ export default async function ProcessedRefundDetailPage({ params }: PageProps) {
         className="border-b border-white/[0.08] px-8 py-6"
       >
         <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             EXECUTED BREAKDOWN
           </h2>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
+            <span className="text-text-mute">[</span>
             {breakdown.length} LINE{breakdown.length === 1 ? "" : "S"}
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </span>
         </div>
 
         {breakdown.length === 0 ? (
-          <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-[#6A6A6A]">
+          <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-text-mute">
             No breakdown recorded for this refund.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-panel border border-white/[0.09] bg-[#121214]/[0.58] backdrop-blur-[28px]">
+          <div className="glass-surface overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
                 <tr className="border-b border-white/[0.08]">
@@ -129,10 +129,10 @@ export default async function ProcessedRefundDetailPage({ params }: PageProps) {
                 {breakdown.map((row, idx) => (
                   <tr key={`${row.milestone}-${idx}`} className="border-b border-white/[0.04] last:border-b-0">
                     <Td className="font-cakemono text-[12px] uppercase">{row.milestone}</Td>
-                    <Td className="font-mono text-[11px] uppercase tracking-[0.10em] text-[#B5B5B5]">
+                    <Td className="font-mono text-[11px] uppercase tracking-[0.10em] text-text-2">
                       {row.action}
                     </Td>
-                    <Td className="font-mono text-[10px] tracking-[0.04em] text-[#8A8A8A]">
+                    <Td className="font-mono text-[10px] tracking-[0.04em] text-text-3">
                       {row.stripe_resource_id ?? "—"}
                     </Td>
                     <Td align="right" className="font-mono text-[12px] tabular-nums">
@@ -141,13 +141,13 @@ export default async function ProcessedRefundDetailPage({ params }: PageProps) {
                     <Td align="right" className="font-mono text-[12px] tabular-nums">
                       {row.cash_refund_cents != null ? formatCents(row.cash_refund_cents) : "—"}
                     </Td>
-                    <Td className={`font-mono text-[10px] uppercase tracking-[0.12em] ${row.status === "succeeded" ? "text-[#9DB582]" : row.status === "failed" ? "text-[#B58289]" : "text-[#8A8A8A]"}`}>
+                    <Td className={`font-mono text-[10px] uppercase tracking-[0.12em] ${row.status === "succeeded" ? "text-olive" : row.status === "failed" ? "text-rose" : "text-text-3"}`}>
                       {row.status ?? "—"}
                     </Td>
-                    <Td className="font-mono text-[10px] tracking-[0.04em] text-[#6A6A6A]">
+                    <Td className="font-mono text-[10px] tracking-[0.04em] text-text-mute">
                       {row.executed_at ?? "—"}
                     </Td>
-                    <Td className="font-mono text-[10px] tracking-[0.04em] text-[#B58289]">
+                    <Td className="font-mono text-[10px] tracking-[0.04em] text-rose">
                       {row.error ?? ""}
                     </Td>
                   </tr>
@@ -172,11 +172,11 @@ function Field({
 }) {
   return (
     <div>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">{"//"}</span> {label}
+      <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+        <span className="text-text-mute">{"//"}</span> {label}
       </dt>
       <dd
-        className={`mt-1 ${mono ? "font-mono tabular-nums" : "font-cakemono uppercase"} text-[13px] tracking-[0.04em] text-[#EDEDED]`}
+        className={`mt-1 ${mono ? "font-mono tabular-nums" : "font-cakemono uppercase"} text-[13px] tracking-[0.04em] text-text`}
       >
         {value}
       </dd>
@@ -193,7 +193,7 @@ function Th({
 }) {
   return (
     <th
-      className={`px-3 py-3 font-mono text-[10px] font-normal uppercase tracking-[0.16em] text-[#6A6A6A] ${align === "right" ? "text-right" : "text-left"}`}
+      className={`px-3 py-3 font-mono text-[10px] font-normal uppercase tracking-[0.16em] text-text-mute ${align === "right" ? "text-right" : "text-left"}`}
       scope="col"
     >
       {children}

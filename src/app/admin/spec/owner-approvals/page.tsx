@@ -24,27 +24,27 @@ export default async function SpecOwnerApprovalsPage() {
         className="border-b border-white/[0.08] px-8 py-6"
       >
         <div className="mb-4 flex items-baseline justify-between">
-          <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h2 className="font-cakemono text-[18px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             BUYER WAITING ON OWNER
           </h2>
-          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
+            <span className="text-text-mute">[</span>
             SORTED OLDEST FIRST
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </span>
         </div>
 
         {pending.length === 0 ? (
           <div className="rounded-panel border border-dashed border-white/[0.08] px-6 py-8">
-            <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-[#6A6A6A]">
-              <span className="text-[#3A3A3A]">{"//"}</span> No pending owner-approval requests.
+            <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-text-mute">
+              <span className="text-text-mute">{"//"}</span> No pending owner-approval requests.
             </p>
           </div>
         ) : (
-          <div className="rounded-panel border border-white/[0.09] bg-[#121214]/[0.58] backdrop-blur-[28px]">
+          <div className="glass-surface">
             {pending.map((approval) => (
               <OwnerApprovalRow key={approval.id} approval={approval} />
             ))}

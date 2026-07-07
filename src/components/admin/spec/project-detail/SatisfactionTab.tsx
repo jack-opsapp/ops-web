@@ -27,11 +27,11 @@ const MILESTONE_LABEL: Record<SpecSatisfactionMilestone, string> = {
  *   5 — olive+  (perfect)
  */
 const RATING_COLORS: Record<number, { bg: string; text: string }> = {
-  1: { bg: "rgba(147, 50, 26, 0.35)", text: "#EDEDED" },     // brick · failing
-  2: { bg: "rgba(181, 130, 137, 0.30)", text: "#EDEDED" },   // rose
-  3: { bg: "rgba(196, 168, 104, 0.30)", text: "#EDEDED" },   // tan
-  4: { bg: "rgba(157, 181, 130, 0.30)", text: "#EDEDED" },   // olive
-  5: { bg: "rgba(157, 181, 130, 0.55)", text: "#EDEDED" },   // olive +
+  1: { bg: "rgb(var(--status-error-rgb) / 0.35)", text: "var(--text)" },     // brick · failing
+  2: { bg: "rgb(var(--status-rose-rgb) / 0.30)", text: "var(--text)" },      // rose
+  3: { bg: "rgb(var(--status-warning-rgb) / 0.30)", text: "var(--text)" },   // tan
+  4: { bg: "rgb(var(--status-success-rgb) / 0.30)", text: "var(--text)" },   // olive
+  5: { bg: "rgb(var(--status-success-rgb) / 0.55)", text: "var(--text)" },   // olive +
 };
 
 export function SatisfactionTab({ data }: SatisfactionTabProps) {
@@ -49,11 +49,11 @@ export function SatisfactionTab({ data }: SatisfactionTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Satisfaction summary"
-        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="glass-surface p-5"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             SATISFACTION RATINGS
@@ -75,10 +75,10 @@ export function SatisfactionTab({ data }: SatisfactionTabProps) {
         <>
           <section
             aria-label="Feature × rating heat map"
-            className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+            className="glass-surface p-5"
           >
-            <h3 className="mb-4 font-cakemono text-[12px] font-light uppercase leading-none text-[#EDEDED]">
-              <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+            <h3 className="mb-4 font-cakemono text-[12px] font-light uppercase leading-none text-text">
+              <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
                 {"//"}
               </span>
               FEATURE HEAT MAP
@@ -89,10 +89,10 @@ export function SatisfactionTab({ data }: SatisfactionTabProps) {
 
           <section
             aria-label="Detailed ratings"
-            className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+            className="glass-surface p-5"
           >
-            <h3 className="mb-4 font-cakemono text-[12px] font-light uppercase leading-none text-[#EDEDED]">
-              <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+            <h3 className="mb-4 font-cakemono text-[12px] font-light uppercase leading-none text-text">
+              <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
                 {"//"}
               </span>
               DETAILED RATINGS
@@ -112,25 +112,25 @@ export function SatisfactionTab({ data }: SatisfactionTabProps) {
                   {filteredRows.map((row) => (
                     <tr key={row.id} className="border-b border-white/[0.04] last:border-b-0">
                       <Td>
-                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#B5B5B5]">
+                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-2">
                           {MILESTONE_LABEL[row.milestone]}
                         </span>
                       </Td>
                       <Td>
-                        <span className="text-[13px] text-[#EDEDED]">{row.featureName}</span>
+                        <span className="text-[13px] text-text">{row.featureName}</span>
                       </Td>
                       <Td align="right">
                         <RatingChip rating={row.rating} />
                       </Td>
                       <Td>
                         {row.notes ? (
-                          <span className="block max-w-[320px] text-[12px] text-[#B5B5B5]">{row.notes}</span>
+                          <span className="block max-w-[320px] text-[12px] text-text-2">{row.notes}</span>
                         ) : (
-                          <span className="font-mono text-[10px] text-[#6A6A6A]">—</span>
+                          <span className="font-mono text-[10px] text-text-mute">—</span>
                         )}
                       </Td>
                       <Td>
-                        <span className="font-mono text-[11px] tabular-nums text-[#B5B5B5]">
+                        <span className="font-mono text-[11px] tabular-nums text-text-2">
                           {formatDate(row.submittedAt)}
                         </span>
                       </Td>
@@ -143,10 +143,10 @@ export function SatisfactionTab({ data }: SatisfactionTabProps) {
         </>
       )}
 
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">[</span>
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+        <span className="text-text-mute">[</span>
         PHASE 1 · READ-ONLY · CUSTOMER FILES VIA SURVEY EMAILS · FULL SURVEY UI SHIPS IN PHASE 2
-        <span className="text-[#3A3A3A]">]</span>
+        <span className="text-text-mute">]</span>
       </p>
     </div>
   );
@@ -172,11 +172,11 @@ function SatisfactionHeatMap({
         <thead>
           <tr>
             <th className="text-left">
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">FEATURE</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">FEATURE</span>
             </th>
             {milestones.map((m) => (
               <th key={m} className="px-1 text-center">
-                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
                   {MILESTONE_LABEL[m]}
                 </span>
               </th>
@@ -187,7 +187,7 @@ function SatisfactionHeatMap({
           {heatMap.map((cell, idx) => (
             <tr key={cell.featureName}>
               <td className="py-1 pr-3">
-                <span className="block max-w-[280px] truncate text-[13px] text-[#EDEDED]" title={cell.featureName}>
+                <span className="block max-w-[280px] truncate text-[13px] text-text" title={cell.featureName}>
                   {cell.featureName}
                 </span>
               </td>
@@ -232,7 +232,7 @@ function HeatCell({ rating, delayMs }: { rating: number | null; delayMs: number 
   if (rating == null) {
     return (
       <div
-        className="flex h-8 min-w-[64px] items-center justify-center rounded-chip border border-dashed border-white/[0.08] font-mono text-[10px] text-[#6A6A6A]"
+        className="flex h-8 min-w-[64px] items-center justify-center rounded-chip border border-dashed border-white/[0.08] font-mono text-[10px] text-text-mute"
         title="Not submitted"
         aria-label="Not submitted"
       >
@@ -253,7 +253,7 @@ function HeatCell({ rating, delayMs }: { rating: number | null; delayMs: number 
       aria-label={`Rating ${rating} out of 5`}
     >
       {rating}
-      <span className="ml-0.5 text-[9px] text-[#B5B5B5]">/5</span>
+      <span className="ml-0.5 text-[9px] text-text-2">/5</span>
       <style>{`
         @keyframes spec-heat-reveal {
           from { opacity: 0; transform: scale(0.96); }
@@ -286,13 +286,13 @@ function RatingChip({ rating }: { rating: number }) {
 function RatingLegend() {
   return (
     <div className="mt-4 flex flex-wrap items-center gap-3">
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">SCALE</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">SCALE</span>
       {[1, 2, 3, 4, 5].map((n) => {
         const p = RATING_COLORS[n];
         return (
           <span
             key={n}
-            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A]"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-text-3"
           >
             <span
               className="inline-block h-3 w-3 rounded-bar"
@@ -319,11 +319,11 @@ function ratingMeaning(n: number): string {
 }
 
 function ratingTone(avg: number | null): string {
-  if (avg == null) return "text-[#EDEDED]";
-  if (avg >= 4) return "text-[#9DB582]";
-  if (avg >= 3) return "text-[#C4A868]";
-  if (avg >= 2) return "text-[#B58289]";
-  return "text-[#93321A]";
+  if (avg == null) return "text-text";
+  if (avg >= 4) return "text-olive";
+  if (avg >= 3) return "text-tan";
+  if (avg >= 2) return "text-rose";
+  return "text-brick";
 }
 
 function FilterChips({
@@ -353,15 +353,15 @@ function FilterChips({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(opt.value)}
-            className={`rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+            className={`rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-smooth ${
               active
-                ? "border-[#6F94B0] text-[#EDEDED]"
-                : "border-white/[0.10] text-[#8A8A8A] hover:text-[#EDEDED]"
+                ? "border-text text-text"
+                : "border-white/[0.10] text-text-3 hover:text-text"
             }`}
           >
             {opt.label}
             {opt.count != null && (
-              <span className="ml-1.5 tabular-nums text-[#6A6A6A]">({opt.count})</span>
+              <span className="ml-1.5 tabular-nums text-text-mute">({opt.count})</span>
             )}
           </button>
         );
@@ -372,11 +372,11 @@ function FilterChips({
 
 function EmptyState() {
   return (
-    <div className="rounded-panel border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
-      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
+    <div className="rounded-panel border border-white/[0.08] bg-fill-neutral-dim p-8 text-center backdrop-blur-[28px]">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
         — no ratings yet
       </p>
-      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
         midpoint + delivery surveys auto-fire on milestone acceptance.
       </p>
     </div>
@@ -386,7 +386,7 @@ function EmptyState() {
 function Th({ children, align }: { children: React.ReactNode; align?: "right" }) {
   return (
     <th
-      className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A] ${
+      className={`px-3 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute ${
         align === "right" ? "text-right" : ""
       }`}
     >
@@ -406,8 +406,8 @@ function Td({ children, align }: { children: React.ReactNode; align?: "right" })
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">{label}</p>
-      <p className={`mt-1 font-mono text-[16px] tabular-nums leading-none ${tone ?? "text-[#EDEDED]"}`}>
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">{label}</p>
+      <p className={`mt-1 font-mono text-[16px] tabular-nums leading-none ${tone ?? "text-text"}`}>
         {value}
       </p>
     </div>

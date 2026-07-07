@@ -10,11 +10,13 @@ import {
   getCampaignPerformanceForRange,
   queryDailyAccountData,
   queryDailyCampaignData,
+  queryDailySearchTermData,
 } from "@/lib/analytics/google-ads-client";
 import {
   upsertDailyAccount,
   upsertDailyAccountBatch,
   upsertDailyCampaigns,
+  upsertDailySearchTerms,
   updateSyncStatus,
 } from "./ads-history-queries";
 
@@ -40,6 +42,7 @@ export async function syncDay(date: Date): Promise<void> {
     getAccountSummaryForRange(date, date),
     getCampaignPerformanceForRange(date, date),
   ]);
+  const searchTerms = await queryDailySearchTermData(date, date);
 
   await upsertDailyAccount({
     date: dateStr,
@@ -64,6 +67,8 @@ export async function syncDay(date: Date): Promise<void> {
       ctr: c.ctr,
     }))
   );
+
+  await upsertDailySearchTerms(searchTerms);
 }
 
 /**
@@ -72,13 +77,15 @@ export async function syncDay(date: Date): Promise<void> {
  * Returns the count of account rows synced (= days with data in the range).
  */
 export async function syncChunk(chunkStart: Date, chunkEnd: Date): Promise<number> {
-  const [accountRows, campaignRows] = await Promise.all([
+  const [accountRows, campaignRows, searchTermRows] = await Promise.all([
     queryDailyAccountData(chunkStart, chunkEnd),
     queryDailyCampaignData(chunkStart, chunkEnd),
+    queryDailySearchTermData(chunkStart, chunkEnd),
   ]);
 
   await upsertDailyAccountBatch(accountRows);
   await upsertDailyCampaigns(campaignRows);
+  await upsertDailySearchTerms(searchTermRows);
 
   return accountRows.length;
 }

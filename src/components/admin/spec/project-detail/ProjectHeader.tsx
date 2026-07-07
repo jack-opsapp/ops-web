@@ -6,25 +6,25 @@ interface ProjectHeaderProps {
 }
 
 const STATUS_TONE: Record<SpecProjectStatus, string> = {
-  awaiting_owner_approval: "text-[#C4A868] border-[#C4A868]/40",
-  awaiting_deposit: "text-[#C4A868] border-[#C4A868]/40",
-  deposit_paid: "text-[#9DB582] border-[#9DB582]/40",
-  discovery: "text-[#6F94B0] border-[#6F94B0]/40",
-  building: "text-[#6F94B0] border-[#6F94B0]/40",
-  on_hold: "text-[#B58289] border-[#B58289]/40",
-  stalled_on_hold: "text-[#B58289] border-[#B58289]/40",
-  support: "text-[#9DB582] border-[#9DB582]/40",
-  on_retainer: "text-[#9DB582] border-[#9DB582]/40",
-  completed: "text-[#8A8A8A] border-white/[0.10]",
-  stalled: "text-[#8A8A8A] border-white/[0.10]",
-  cancelled: "text-[#B58289] border-[#B58289]/40",
-  refunded: "text-[#B58289] border-[#B58289]/40",
+  awaiting_owner_approval: "text-tan border-tan/40",
+  awaiting_deposit: "text-tan border-tan/40",
+  deposit_paid: "text-olive border-olive/40",
+  discovery: "text-olive border-olive/40",
+  building: "text-olive border-olive/40",
+  on_hold: "text-rose border-rose/40",
+  stalled_on_hold: "text-rose border-rose/40",
+  support: "text-olive border-olive/40",
+  on_retainer: "text-olive border-olive/40",
+  completed: "text-text-3 border-white/[0.10]",
+  stalled: "text-text-3 border-white/[0.10]",
+  cancelled: "text-rose border-rose/40",
+  refunded: "text-rose border-rose/40",
 };
 
 const TIER_TONE: Record<SpecTier, string> = {
-  setup: "text-[#9DB582] border-[#9DB582]/30",
-  build: "text-[#C4A868] border-[#C4A868]/30",
-  enterprise: "text-[#6F94B0] border-[#6F94B0]/40",
+  setup: "text-olive border-olive/30",
+  build: "text-tan border-tan/30",
+  enterprise: "text-rose border-rose/40",
 };
 
 function statusLabel(status: SpecProjectStatus): string {
@@ -37,7 +37,7 @@ export function ProjectHeader({ header }: ProjectHeaderProps) {
       <div className="mb-3">
         <Link
           href="/admin/spec"
-          className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#8A8A8A]"
+          className="font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute transition-colors duration-150 ease-smooth hover:text-text-3"
         >
           <span aria-hidden="true">{"// "}</span>
           BACK TO SPEC OPERATIONS
@@ -46,16 +46,16 @@ export function ProjectHeader({ header }: ProjectHeaderProps) {
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="truncate font-cakemono text-[28px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h1 className="truncate font-cakemono text-[28px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             {header.customerLabel}
           </h1>
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
+            <span className="text-text-mute">[</span>
             PROJECT ID · {header.id.slice(0, 8)}
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </p>
         </div>
 
@@ -64,12 +64,12 @@ export function ProjectHeader({ header }: ProjectHeaderProps) {
           {header.originalTier && header.originalTier !== header.tier && (
             <Badge
               label={`WAS ${header.originalTier.toUpperCase()}`}
-              tone="text-[#6A6A6A] border-white/[0.10]"
+              tone="text-text-mute border-white/[0.10]"
             />
           )}
           <Badge label={statusLabel(header.status)} tone={STATUS_TONE[header.status]} />
           {header.isTest && (
-            <Badge label="TEST MODE" tone="text-[#C4A868] border-[#C4A868]/40" />
+            <Badge label="TEST MODE" tone="text-tan border-tan/40" />
           )}
         </div>
       </div>

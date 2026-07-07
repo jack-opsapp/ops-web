@@ -15,6 +15,7 @@ import {
   getAccountSummaryFromHistory,
   getCampaignsFromHistory,
   getKeywordsFromHistory,
+  getSearchTermsFromHistory,
   getDailySpendFromHistory,
 } from "@/lib/admin/ads-history-queries";
 import type { AdsDayRange, GoogleAdsPageData } from "@/lib/analytics/google-ads-types";
@@ -58,10 +59,11 @@ export const GET = withAdmin(async (req: NextRequest) => {
   const hasSyncedData = await hasHistoryData(startDate, endDate);
 
   if (hasSyncedData) {
-    const [summary, campaigns, keywords, dailySpend] = await Promise.all([
+    const [summary, campaigns, keywords, searchTerms, dailySpend] = await Promise.all([
       safe(getAccountSummaryFromHistory(startDate, endDate), null),
       safe(getCampaignsFromHistory(startDate, endDate), []),
       safe(getKeywordsFromHistory(startDate, endDate, 50), []),
+      safe(getSearchTermsFromHistory(startDate, endDate, 50), []),
       safe(getDailySpendFromHistory(startDate, endDate), []),
     ]);
 
@@ -70,7 +72,7 @@ export const GET = withAdmin(async (req: NextRequest) => {
       summary,
       campaigns,
       keywords,
-      searchTerms: [], // Search terms not synced yet — would need separate table
+      searchTerms,
       dailySpend,
       conversions: [],  // Conversion breakdown not synced yet
     } satisfies GoogleAdsPageData);

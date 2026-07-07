@@ -29,15 +29,15 @@ export function OwnerApprovalRow({ approval }: OwnerApprovalRowProps) {
     <article className="grid grid-cols-1 gap-4 border-b border-white/[0.06] px-6 py-5 last:border-b-0 md:grid-cols-[1fr_auto] md:items-start">
       <div className="space-y-3">
         <header className="flex items-baseline gap-3">
-          <h3 className="font-cakemono text-[14px] font-light uppercase tracking-[0.04em] text-[#EDEDED]">
-            <span className="mr-2 font-mono text-[#6A6A6A]">{"//"}</span>
+          <h3 className="font-cakemono text-[14px] font-light uppercase tracking-[0.04em] text-text">
+            <span className="mr-2 font-mono text-text-mute">{"//"}</span>
             {approval.companyName ?? "—"}
           </h3>
-          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3">
+            <span className="text-text-mute">[</span>
             {formatTier(approval.tier)} · {approval.ageLabel} OLD
             {approval.isTest && " · TEST"}
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </span>
         </header>
 
@@ -81,7 +81,7 @@ export function OwnerApprovalRow({ approval }: OwnerApprovalRowProps) {
           <button
             type="submit"
             disabled={resendPending || cancelPending}
-            className={`inline-flex items-center gap-2 rounded border border-[#6F94B0] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black ${resendPending ? "opacity-50" : ""}`}
+            className={`inline-flex items-center gap-2 rounded border border-ops-accent px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black ${resendPending ? "opacity-50" : ""}`}
           >
             {resendPending ? "SENDING…" : "RESEND EMAIL"}
           </button>
@@ -92,7 +92,7 @@ export function OwnerApprovalRow({ approval }: OwnerApprovalRowProps) {
             type="button"
             onClick={() => setConfirmingCancel(true)}
             disabled={resendPending || cancelPending}
-            className="inline-flex items-center gap-2 rounded border border-white/[0.10] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#B58289] hover:text-[#B58289]"
+            className="inline-flex items-center gap-2 rounded border border-white/[0.10] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-text-3 transition-colors duration-150 ease-smooth hover:border-rose hover:text-rose"
           >
             CANCEL REQUEST
           </button>
@@ -106,24 +106,24 @@ export function OwnerApprovalRow({ approval }: OwnerApprovalRowProps) {
               name="approvalRequestId"
               value={approval.id}
             />
-            <p className="text-right font-mono text-[10px] uppercase tracking-[0.12em] text-[#B58289]">
-              <span className="text-[#3A3A3A]">[</span>
+            <p className="text-right font-mono text-[10px] uppercase tracking-[0.12em] text-rose">
+              <span className="text-text-mute">[</span>
               CANCELS PARENT PROJECT
-              <span className="text-[#3A3A3A]">]</span>
+              <span className="text-text-mute">]</span>
             </p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setConfirmingCancel(false)}
                 disabled={cancelPending}
-                className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#6A6A6A] hover:text-[#EDEDED]"
+                className="font-mono text-[10px] uppercase tracking-[0.12em] text-text-mute hover:text-text"
               >
                 BACK
               </button>
               <button
                 type="submit"
                 disabled={cancelPending}
-                className={`inline-flex items-center gap-2 rounded border border-[#B58289] px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-[#B58289] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#B58289] hover:text-black ${cancelPending ? "opacity-50" : ""}`}
+                className={`inline-flex items-center gap-2 rounded border border-rose px-4 py-[6px] font-mono text-[11px] uppercase tracking-[0.12em] text-rose transition-colors duration-150 ease-smooth hover:bg-rose hover:text-black ${cancelPending ? "opacity-50" : ""}`}
               >
                 {cancelPending ? "CANCELLING…" : "CONFIRM CANCEL"}
               </button>
@@ -132,17 +132,17 @@ export function OwnerApprovalRow({ approval }: OwnerApprovalRowProps) {
         )}
 
         {(resendState?.error || cancelState?.error) && (
-          <span className="text-right font-mono text-[10px] uppercase tracking-[0.12em] text-[#B58289]">
-            <span className="text-[#3A3A3A]">[</span>
+          <span className="text-right font-mono text-[10px] uppercase tracking-[0.12em] text-rose">
+            <span className="text-text-mute">[</span>
             ERR · {resendState?.error ?? cancelState?.error}
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </span>
         )}
         {(resendState?.ok || cancelState?.ok) && (
-          <span className="text-right font-mono text-[10px] uppercase tracking-[0.12em] text-[#9DB582]">
-            <span className="text-[#3A3A3A]">[</span>
+          <span className="text-right font-mono text-[10px] uppercase tracking-[0.12em] text-olive">
+            <span className="text-text-mute">[</span>
             {cancelState?.ok ? "CANCELLED" : "EMAIL QUEUED"} · refresh to confirm
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </span>
         )}
       </div>
@@ -163,16 +163,16 @@ function Field({
 }) {
   return (
     <div>
-      <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">{"//"}</span> {label}
+      <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+        <span className="text-text-mute">{"//"}</span> {label}
       </dt>
       <dd
-        className={`mt-1 ${mono ? "font-mono tabular-nums" : "font-cakemono uppercase tracking-[0.04em]"} text-[12px] text-[#EDEDED]`}
+        className={`mt-1 ${mono ? "font-mono tabular-nums" : "font-cakemono uppercase tracking-[0.04em]"} text-[12px] text-text`}
       >
         {primary}
       </dd>
       {secondary && (
-        <dd className="mt-[2px] font-mono text-[10px] tracking-[0.06em] text-[#8A8A8A]">
+        <dd className="mt-[2px] font-mono text-[10px] tracking-[0.06em] text-text-3">
           {secondary}
         </dd>
       )}

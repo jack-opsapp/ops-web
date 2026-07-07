@@ -6,8 +6,17 @@ import {
 } from "../../_components/sortable-table-header";
 import type { SearchTermData } from "@/lib/analytics/google-ads-types";
 
+const CAD = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const COLUMNS = [
   { key: "searchTerm", label: "Search Term" },
+  { key: "campaignName", label: "Campaign" },
+  { key: "adGroupName", label: "Ad Group" },
   { key: "impressions", label: "Impr." },
   { key: "clicks", label: "Clicks" },
   { key: "cost", label: "Cost" },
@@ -24,14 +33,14 @@ export function SearchTermsTable({ searchTerms }: SearchTermsTableProps) {
   if (searchTerms.length === 0) {
     return (
       <div className="border-l-2 border-l-white/[0.08] py-3 px-3">
-        <p className="font-mohave text-[14px] text-[#6B6B6B]">No search term data available</p>
+        <p className="font-mohave text-[14px] text-text-mute">No search term data available</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h2 className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
+      <h2 className="font-mono text-micro uppercase tracking-wider text-text-mute mb-4">
         Search Terms
       </h2>
       <div className="overflow-x-auto">
@@ -42,14 +51,16 @@ export function SearchTermsTable({ searchTerms }: SearchTermsTableProps) {
           <tbody>
             {sorted(searchTerms).map((t, i) => (
               <tr
-                key={`${t.searchTerm}-${i}`}
+                key={`${t.searchTerm}-${t.campaignName}-${t.adGroupName ?? "none"}-${i}`}
                 className="border-b border-white/[0.08] hover:bg-white/[0.02] transition-colors duration-100"
               >
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED]">{t.searchTerm}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.impressions.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.clicks.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED] tabular-nums">${t.cost.toFixed(2)}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{t.conversions.toFixed(1)}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-text">{t.searchTerm}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-text-2">{t.campaignName}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-text-2">{t.adGroupName ?? "—"}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-text-2 tabular-nums">{t.impressions.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-text-2 tabular-nums">{t.clicks.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-text tabular-nums">{CAD.format(t.cost)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-text-2 tabular-nums">{t.conversions.toFixed(1)}</td>
               </tr>
             ))}
           </tbody>

@@ -23,6 +23,7 @@ import {
   trackStarfieldLaunched,
   trackStarfieldExited,
 } from "@/lib/analytics/analytics";
+import { analyticsService } from "@/lib/analytics/analytics-service";
 import { useSetupStore, STARFIELD_QUESTIONS } from "@/stores/setup-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { OpsLockup, LogoLoader } from "@/components/brand";
@@ -61,6 +62,13 @@ const readSafeReturnTo = (): string | null => {
   if (raw.length < 2 || raw[0] !== "/" || raw[1] === "/") return null;
   if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(raw)) return null;
   return raw;
+};
+
+const readSetupSource = (): "direct" | "spec" => {
+  if (typeof window === "undefined") return "direct";
+  return new URLSearchParams(window.location.search).get("source") === "spec"
+    ? "spec"
+    : "direct";
 };
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -249,6 +257,12 @@ export default function SetupPage() {
   useEffect(() => {
     setupStartRef.current = Date.now();
     trackSetupStarted("direct");
+    if (readSetupSource() === "spec") {
+      analyticsService.track("lifecycle", "spec_default_ops_signup_started", {
+        source: "spec",
+        continue_to: readSafeReturnTo() ?? "/dashboard",
+      });
+    }
   }, []);
 
   // Fire step_viewed when phase changes (identity / company / starfield)
@@ -344,6 +358,20 @@ export default function SetupPage() {
     trackSetupStepSkipped(phase, "button");
     const totalDuration = Date.now() - setupStartRef.current;
     trackSetupCompleted("skipped", [], totalDuration);
+    if (readSetupSource() === "spec") {
+      analyticsService.track("lifecycle", "spec_default_ops_signup_completed", {
+        source: "spec",
+        method: "skipped",
+        steps_completed: [],
+        total_duration_ms: totalDuration,
+        continue_to: readSafeReturnTo() ?? "/dashboard",
+      });
+      try {
+        await analyticsService.flush();
+      } catch {
+        // Non-blocking
+      }
+    }
     try {
       const token = await getAuthToken();
       if (token) {
@@ -478,6 +506,20 @@ export default function SetupPage() {
     const method = stepsCompleted.length >= 3 ? "full" : "partial";
     const totalDuration = Date.now() - setupStartRef.current;
     trackSetupCompleted(method, stepsCompleted, totalDuration);
+    if (readSetupSource() === "spec") {
+      analyticsService.track("lifecycle", "spec_default_ops_signup_completed", {
+        source: "spec",
+        method,
+        steps_completed: stepsCompleted,
+        total_duration_ms: totalDuration,
+        continue_to: readSafeReturnTo() ?? "/dashboard",
+      });
+      try {
+        await analyticsService.flush();
+      } catch {
+        // Non-blocking
+      }
+    }
 
     // 6. Clean up persisted setup store and navigate
     resetSetupStore();
@@ -539,7 +581,7 @@ export default function SetupPage() {
           <button
             onClick={handleBack}
             aria-label="Back to company information"
-            className="flex items-center gap-0.5 px-2 min-h-[36px] min-w-[56px] rounded-sm bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] text-text-2 font-mohave text-body-sm uppercase hover:border-[rgba(255,255,255,0.18)] transition-colors"
+            className="flex items-center gap-0.5 px-2 min-h-[36px] min-w-[56px] rounded-sm bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-white/[0.08] text-text-2 font-mohave text-body-sm uppercase hover:border-white/[0.18] transition-colors"
           >
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             Back
@@ -565,7 +607,7 @@ export default function SetupPage() {
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="px-3 min-h-[36px] rounded-sm bg-ops-accent border border-ops-accent text-text font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent-hover transition-colors"
+              className="px-3 min-h-[36px] rounded-sm bg-transparent border border-ops-accent text-ops-accent font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent hover:text-black transition-colors"
             >
               Launch
             </button>
@@ -590,7 +632,7 @@ export default function SetupPage() {
                 style={{
                   background: "var(--surface-glass-dense)",
                   backdropFilter: "blur(24px) saturate(1.2)",
-                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  border: "1px solid var(--glass-border)",
                 }}
               >
                 <span className="font-mono text-[11px] text-text-3 uppercase tracking-[0.2em]">
@@ -599,20 +641,9 @@ export default function SetupPage() {
                 <button
                   onClick={handleLaunchFromStarfield}
                   aria-label="Launch your personalized dashboard"
-                  className="group relative px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] text-text transition-all duration-300 overflow-hidden"
-                  style={{
-                    background: "rgba(111, 148, 176, 0.12)",
-                    border: "1px solid rgba(111, 148, 176, 0.4)",
-                    boxShadow: "0 0 40px rgba(111, 148, 176, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-                  }}
+                  className="px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] bg-transparent text-ops-accent border border-ops-accent hover:bg-ops-accent hover:text-black transition-colors duration-300"
                 >
-                  <span className="relative z-10">LAUNCH</span>
-                  <div
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    style={{
-                      background: "linear-gradient(135deg, rgba(111, 148, 176, 0.15), rgba(111, 148, 176, 0.05))",
-                    }}
-                  />
+                  LAUNCH
                 </button>
                 <p className="font-mono text-micro text-text-mute uppercase tracking-[0.1em]">
                   Your dashboard is ready
@@ -667,7 +698,7 @@ export default function SetupPage() {
       </h1>
 
       {/* Glass surface card */}
-      <div className="bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm p-3">
+      <div className="bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-white/[0.08] rounded-sm p-3">
         {/* Progress bar + step label */}
         <div className="mb-3">
           <div className="mb-1">
@@ -691,7 +722,7 @@ export default function SetupPage() {
               className={`flex-1 h-[2px] transition-all duration-200 ${
                 phase === "company"
                   ? "bg-text-primary"
-                  : "bg-[rgba(255,255,255,0.08)]"
+                  : "bg-surface-active"
               }`}
               aria-hidden="true"
             />
@@ -699,7 +730,7 @@ export default function SetupPage() {
         </div>
 
         {/* Separator */}
-        <div className="border-t border-[rgba(255,255,255,0.08)] mb-3" />
+        <div className="border-t border-white/[0.08] mb-3" />
 
         {/* Step content */}
         <div className="animate-fade-in" key={phase}>
@@ -725,7 +756,7 @@ export default function SetupPage() {
         </div>
 
         {/* Navigation */}
-        <div className="flex items-center justify-between mt-3 pt-2 border-t border-[rgba(255,255,255,0.08)]">
+        <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/[0.08]">
           <button
             onClick={handleBack}
             disabled={phase === "identity"}
@@ -739,7 +770,7 @@ export default function SetupPage() {
           <button
             onClick={handleNext}
             aria-label={phase === "identity" ? "Continue to company information" : "Continue to questionnaire"}
-            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-ops-accent text-text px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent-hover transition-all duration-150"
+            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-transparent text-ops-accent px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent hover:text-black transition-all duration-150"
           >
             Next
             <ChevronRight className="w-4 h-4" aria-hidden="true" />
@@ -757,7 +788,7 @@ export default function SetupPage() {
           <LogOut className="w-3 h-3" />
           Log out
         </button>
-        <span className="text-[rgba(255,255,255,0.08)]">|</span>
+        <span className="text-fill-neutral-dim">|</span>
         <button
           onClick={handleSkip}
           aria-label="Skip setup and go to dashboard"

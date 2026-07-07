@@ -39,6 +39,21 @@ export interface AdsDailyKeyword {
   synced_at: string;
 }
 
+export interface AdsDailySearchTerm {
+  date: string;
+  search_term: string;
+  campaign_name: string;
+  ad_group_name: string;
+  spend: number;
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  cpa: number;
+  ctr: number;
+  waste_flag: string | null;
+  synced_at: string;
+}
+
 export interface AdsSyncStatus {
   id: string;
   status: "idle" | "running" | "complete" | "failed";
