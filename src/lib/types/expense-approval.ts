@@ -104,6 +104,12 @@ export interface ExpenseLineItem {
   paymentMethod: string | null;
   receiptImageUrl: string | null;
   receiptThumbnailUrl: string | null;
+  /** Why an expense has no receipt photo (require_receipt_photo escape hatch). */
+  receiptMissingReason: string | null;
+  receiptMissingNote: string | null;
+  /** Why an expense has no project (require_project_assignment escape hatch). */
+  projectMissingReason: string | null;
+  projectMissingNote: string | null;
   ocrRawData: unknown | null;
   ocrConfidence: number | null;
   approvedBy: string | null;
