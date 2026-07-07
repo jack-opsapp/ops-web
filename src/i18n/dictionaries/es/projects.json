@@ -325,6 +325,7 @@
   "notesFeed.searchPlaceholder": "Buscar notas...",
   "taskForm.title.create": "Nueva Tarea",
   "taskForm.title.edit": "Editar Tarea",
+  "taskForm.projectFallback": "Proyecto",
   "taskForm.dependencies": "Dependencias",
   "taskForm.noDependencies": "Sin dependencias",
   "taskForm.override": "Modificar",

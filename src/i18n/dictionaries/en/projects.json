@@ -317,6 +317,7 @@
   "notesFeed.searchPlaceholder": "Search notes...",
   "taskForm.title.create": "New Task",
   "taskForm.title.edit": "Edit Task",
+  "taskForm.projectFallback": "Project",
   "taskForm.dependencies": "Dependencies",
   "taskForm.noDependencies": "No dependencies",
   "taskForm.override": "Override",
