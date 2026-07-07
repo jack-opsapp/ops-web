@@ -27,6 +27,7 @@
   "type.send_status_email": "Status Update",
   "type.reassign_task": "Reassign Task",
   "type.archive_project": "Archive Project",
+  "type.close_project": "Close Project",
 
   "priority.low": "Low",
   "priority.normal": "Normal",

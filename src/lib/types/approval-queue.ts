@@ -16,6 +16,7 @@ export type AgentActionType =
   | "send_payment_reminder"
   | "reassign_task"
   | "archive_project"
+  | "close_project"
   | "client_health_alert"
   | "financial_insight"
   | "optimize_schedule"
@@ -140,6 +141,24 @@ export interface ReassignTaskActionData {
 // ─── Archive Project Payload ────────────────────────────────────────────
 
 export interface ArchiveProjectActionData {
+  project_id: string;
+  project_title: string;
+  completed_date: string | null;
+  days_since_completion: number;
+  total_tasks: number;
+  completed_tasks: number;
+  total_invoiced: number;
+  outstanding_balance: number;
+}
+
+// ─── Close Project Payload ──────────────────────────────────────────────
+//
+// Terminal SUCCESS: a project that is complete AND fully paid. Distinct from
+// archive_project (operator pause/cancel). Same shape as ArchiveProjectActionData
+// — the card reuses the lifecycle summary layout — but the executor writes
+// status = 'closed', never 'archived'.
+
+export interface CloseProjectActionData {
   project_id: string;
   project_title: string;
   completed_date: string | null;

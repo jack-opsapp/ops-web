@@ -23,7 +23,7 @@ import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
 import type {
   SendStatusEmailActionData,
   ReassignTaskActionData,
-  ArchiveProjectActionData,
+  CloseProjectActionData,
   CreateTaskActionData,
 } from "@/lib/types/approval-queue";
 
@@ -1149,23 +1149,30 @@ export const ProjectLifecycleService = {
     return proposed;
   },
 
-  // ── P3.4 — Project Archival ────────────────────────────────────────
+  // ── P3.4 — Project Closure ─────────────────────────────────────────
 
   /**
-   * Find completed projects that are candidates for archival.
-   * Criteria: status = completed, all tasks done, 30+ days since last activity.
+   * Find completed + fully paid projects that are candidates for auto-close.
+   * Criteria: status = completed, all tasks done, no outstanding balance,
+   * 30+ days since last activity.
+   *
+   * A complete + paid project is a terminal SUCCESS → `closed` (Automation F),
+   * never `archived` (that is reserved for operator pause/cancel). The
+   * paid-invoice DB cascade closes most of these the moment the final payment
+   * lands; this scan proposes a `close_project` action for any that linger in
+   * `completed` — the operator-approved fallback.
    */
-  async detectArchivableProjects(companyId: string): Promise<number> {
+  async detectClosableProjects(companyId: string): Promise<number> {
     const supabase = requireSupabase();
     const config = await getLifecycleConfig(companyId);
-    const archiveDays = config.archive_after_days;
+    const closeAfterDays = config.archive_after_days;
 
-    if (archiveDays <= 0) return 0; // Disabled
+    if (closeAfterDays <= 0) return 0; // Disabled
 
     const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - archiveDays);
+    cutoffDate.setDate(cutoffDate.getDate() - closeAfterDays);
 
-    // Find completed (not already archived) projects
+    // Find completed (not yet closed/archived) projects
     const { data: completedProjects } = await supabase
       .from("projects")
       .select("id, title, client_id")
@@ -1176,15 +1183,15 @@ export const ProjectLifecycleService = {
 
     if (!completedProjects || completedProjects.length === 0) return 0;
 
-    // Check for existing pending archive actions
+    // Check for existing pending close actions
     const { data: existingActions } = await supabase
       .from("agent_actions")
       .select("source_id")
       .eq("company_id", companyId)
-      .eq("action_type", "archive_project")
+      .eq("action_type", "close_project")
       .eq("status", "pending");
 
-    const pendingArchiveSourceIds = new Set(
+    const pendingCloseSourceIds = new Set(
       (existingActions ?? []).map((a) => a.source_id as string)
     );
 
@@ -1196,9 +1203,9 @@ export const ProjectLifecycleService = {
 
     for (const project of completedProjects) {
       const projectId = project.id as string;
-      const sourceId = `${projectId}:archive`;
+      const sourceId = `${projectId}:close`;
 
-      if (pendingArchiveSourceIds.has(sourceId)) continue;
+      if (pendingCloseSourceIds.has(sourceId)) continue;
 
       // Check all tasks are complete or cancelled
       const { data: incompleteTasks } = await supabase
@@ -1247,16 +1254,16 @@ export const ProjectLifecycleService = {
         projectId
       );
       const outstandingBalance = projectCtx.financials?.outstandingBalance ?? 0;
-      if (outstandingBalance > 0) continue; // Don't archive with outstanding invoices
+      if (outstandingBalance > 0) continue; // Not fully paid — don't close with money owed
 
       const completedDate = lastActivityDate?.toISOString() ?? null;
       const daysAgo = lastActivityDate
         ? Math.floor(
             (Date.now() - lastActivityDate.getTime()) / (1000 * 60 * 60 * 24)
           )
-        : archiveDays;
+        : closeAfterDays;
 
-      const actionData: ArchiveProjectActionData = {
+      const actionData: CloseProjectActionData = {
         project_id: projectId,
         project_title: (project.title as string) ?? "Unknown",
         completed_date: completedDate,
@@ -1270,9 +1277,9 @@ export const ProjectLifecycleService = {
       await ApprovalQueueService.proposeAction({
         companyId,
         userId,
-        actionType: "archive_project",
+        actionType: "close_project",
         actionData: actionData as unknown as Record<string, unknown>,
-        contextSummary: `Archive "${project.title}" — completed ${daysAgo} days ago, all tasks done, fully invoiced.`,
+        contextSummary: `Close "${project.title}" — completed ${daysAgo} days ago, all tasks done, fully paid.`,
         contextSource: "lifecycle_automation",
         sourceId,
         confidence: 0.9,
