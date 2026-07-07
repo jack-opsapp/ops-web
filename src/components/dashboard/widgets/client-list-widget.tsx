@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, FolderPlus, Receipt, FileText, ClipboardList, ArrowUpRight, Trash2 } from "lucide-react";
+import { Loader2, Plus, FolderPlus, Receipt, FileText, ArrowUpRight, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { WidgetLineItem } from "./shared/widget-line-item";
 import { WidgetInlineAction } from "./shared/widget-inline-action";
@@ -420,7 +420,6 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
                             { icon: FolderPlus, label: t("clientList.createProject") ?? "Create Project", onAction: () => openProjectWindow({ projectId: null, mode: "creating", initialClientId: client.id }) },
                             { icon: Receipt, label: t("clientList.createInvoice") ?? "Create Invoice", onAction: () => navigate(`/books?segment=invoices&action=new&clientId=${client.id}`) },
                             { icon: FileText, label: t("clientList.createEstimate") ?? "Create Estimate", onAction: () => navigate(`/books?segment=estimates&action=new&clientId=${client.id}`) },
-                            { icon: ClipboardList, label: t("clientList.createTask") ?? "Create Task", onAction: () => navigate(`/tasks/new?clientId=${client.id}`) },
                             { icon: Trash2, label: t("clientList.deleteClient") ?? "Delete Client", onAction: () => handleDeleteClient(client.id, client.name) },
                           ]}
                         />

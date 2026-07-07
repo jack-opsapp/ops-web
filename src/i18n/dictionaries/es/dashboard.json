@@ -800,7 +800,6 @@
   "clientList.createEstimate": "Crear presupuesto",
   "clientList.createInvoice": "Crear factura",
   "clientList.createProject": "Crear proyecto",
-  "clientList.createTask": "Crear tarea",
   "clientList.deleteClient": "Eliminar cliente",
   "clientList.deleted": "eliminado",
   "clientList.due": "vence",
