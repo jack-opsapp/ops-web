@@ -11,7 +11,8 @@ import { useWindowStore } from "@/stores/window-store";
  *
  * Number keys 1-9: Navigate to main sections
  * Cmd+Shift+P: New project (opens the workspace create window in place)
- * Cmd+Shift+C: New client (/clients/new page)
+ * Cmd+Shift+C: New client (opens the workspace create window in place)
+ * Cmd+B: Toggle sidebar
  * Cmd+K: Command palette (handled by CommandPalette component)
  * ?: Show keyboard shortcuts help
  */
@@ -66,7 +67,13 @@ export function KeyboardShortcuts() {
             return;
           case "c":
             e.preventDefault();
-            router.push("/clients/new");
+            // Straight onto the workspace create window — no route hop
+            // (/clients/new is itself just a hand-off to the same window
+            // via the /dashboard?openClient=new deep link). getState():
+            // this is a bare event handler, not a subscriber.
+            useWindowStore
+              .getState()
+              .openClientWindow({ clientId: null, mode: "creating" });
             return;
         }
       }

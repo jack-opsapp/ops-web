@@ -56,6 +56,10 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
   // straight onto the workspace window, seeded with this row's client
   // (route consolidation 2026-07-03; /projects/new is now a hand-off).
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
+  // Same idiom as useWidgetEntityOpen's client path — creating mode goes
+  // straight onto the workspace window instead of hopping through the
+  // /clients/new redirect (create-entry consistency 2026-07-04).
+  const openClientWindow = useWindowStore((s) => s.openClientWindow);
   const queryClient = useQueryClient();
   const { queueAction } = useWidgetActionQueue();
 
@@ -290,7 +294,7 @@ export function ClientListWidget({ size, config }: ClientListWidgetProps) {
               size={size}
             />
             <button
-              onClick={() => navigate("/clients/new")}
+              onClick={() => openClientWindow({ clientId: null, mode: "creating" })}
               className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-surface-hover transition-colors text-text-mute hover:text-text-2"
               title={t("clientList.newClient") ?? "New Client"}
             >
