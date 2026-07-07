@@ -1,4 +1,4 @@
-// @template-version: 1.0.0
+// @template-version: 1.0.1
 import * as React from "react";
 import {
   Html,
@@ -16,7 +16,7 @@ import { FounderFooter } from "@/lib/email/react/primitives/FounderFooter";
  * onboarding OR has zero projects. Sent from OPS Dispatch.
  * Body copy is canonical per spec §6.
  *
- * @template-version 1.0.0
+ * @template-version 1.0.1
  */
 export interface Day1NoProjectProps {
   ctaUrl: string;
