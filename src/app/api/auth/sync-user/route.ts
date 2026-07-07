@@ -3,16 +3,28 @@
  *
  * Syncs a Firebase-authenticated user with the Supabase `users` table.
  * - Verifies the Firebase ID token via jose JWKS verification
- * - Looks up the user by auth_id (Firebase UID) or email
+ * - Looks up the user by auth_id, then firebase_uid, then email — the email
+ *   fallback resolves on the VERIFIED TOKEN email, never the caller-supplied
+ *   body email (CRIT-3), and can never rewrite / hand back a row already bound
+ *   to a different identity from an unverified email-only match
  * - Creates a new user record if none exists
  * - Updates last-login timestamp on existing users
+ * - Sets `firebase_uid` from the verified token at creation and repairs
+ *   null/stale values on login — every firebase_uid write is gated on the
+ *   token being Firebase-issued (audit risk R8 — the shared RPCs resolve
+ *   identity via users.firebase_uid = JWT sub). OPS is Firebase-only today, so
+ *   that gate is a defense-in-depth invariant (always true), not an active
+ *   dual-issuer switch
  * - Returns the user and their associated company (if any)
  *
  * Body: { idToken, email, displayName?, firstName?, lastName?, photoURL? }
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAuthToken } from "@/lib/firebase/admin-verify";
+import {
+  verifyAuthToken,
+  isFirebaseIssuedToken,
+} from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { parseDate } from "@/lib/supabase/helpers";
 import { normalizeImageUrl } from "@/lib/utils/image-url";
@@ -154,7 +166,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Verify auth token (Supabase or Firebase)
+    // Verify the Firebase ID token
     const firebaseUser = await verifyAuthToken(idToken);
     const firebaseUid = firebaseUser.uid;
 
@@ -181,26 +193,83 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       existingRow = byFirebaseUid;
     }
 
+    // Email fallback is resolved on the VERIFIED TOKEN email, never the caller-
+    // supplied body email (CRIT-3): the body email is attacker-controllable
+    // independently of the signed token. `matchedByEmail` flags a row found
+    // only by email (not by the cryptographic sub) — it gates the identity
+    // writes below.
+    let matchedByEmail = false;
     if (!existingRow) {
-      const { data: byEmail } = await db
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .is("deleted_at", null)
-        .maybeSingle();
+      const tokenEmail = firebaseUser.email;
+      if (tokenEmail) {
+        const { data: byEmail } = await db
+          .from("users")
+          .select("*")
+          .eq("email", tokenEmail)
+          .is("deleted_at", null)
+          .maybeSingle();
 
-      existingRow = byEmail;
+        existingRow = byEmail;
+        matchedByEmail = Boolean(byEmail);
+      }
     }
 
     // ── Existing user: update last login and auth_id ──
     if (existingRow) {
-      const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      const updates: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
 
-      // Ensure auth_id and firebase_uid are set
+      // CRIT-3 — account-takeover guard. A row matched ONLY by email that is
+      // already bound to a DIFFERENT identity (a non-null auth_id/firebase_uid
+      // that isn't this token's sub) must not have its identity rewritten, nor
+      // be handed back, to a caller who has not proven ownership of the address.
+      // OPS never sends Firebase email verification, so email/password tokens
+      // are permanently email_verified=false; the legacy-link path (an UNCLAIMED
+      // row — both identity columns null) therefore stays open so the ~75% of
+      // users whose rows predate firebase_uid-at-creation can still attach on
+      // first web login. Sub-matched rows are provably the caller's. The full
+      // closure (re-key the RLS helpers off the token sub + roll out email
+      // verification + backfill the unlinked rows) is the documented follow-up;
+      // this stops the clearest hijack — rewriting / handing back an already-
+      // linked account from an unverified email-only match.
+      const emailVerified = firebaseUser.claims.email_verified === true;
+      const claimedByDifferentIdentity =
+        matchedByEmail &&
+        ((existingRow.firebase_uid != null &&
+          existingRow.firebase_uid !== firebaseUid) ||
+          (existingRow.auth_id != null && existingRow.auth_id !== firebaseUid));
+
+      if (claimedByDifferentIdentity && !emailVerified) {
+        console.warn(
+          "[sync-user] Refused unverified email-only match against a row bound to a different identity",
+          { rowId: existingRow.id }
+        );
+        return NextResponse.json(
+          { error: "Email verification required to access this account." },
+          { status: 403 }
+        );
+      }
+
+      // Ensure auth_id is set (only ever sets a NULL column — never overwrites).
       if (!existingRow.auth_id) {
         updates.auth_id = firebaseUid;
       }
-      if (!existingRow.firebase_uid) {
+
+      // firebase_uid must mirror the VERIFIED token's uid (audit risk R8 — the
+      // shared RPCs resolve identity via users.firebase_uid = JWT sub).
+      // Backfill legacy null rows AND repair stale/divergent values. The
+      // isFirebaseIssuedToken gate is a defense-in-depth invariant (OPS is
+      // Firebase-only, so it is always true today) that keeps a non-Firebase
+      // issuer's sub out of the column if one is ever reintroduced. The
+      // claimed-by-different-identity guard above has already rejected an
+      // unverified email-only match against a row linked to another sub, so
+      // reaching here means the rewrite is the caller's own row (or the email
+      // is verified).
+      if (
+        isFirebaseIssuedToken(firebaseUser.claims) &&
+        existingRow.firebase_uid !== firebaseUid
+      ) {
         updates.firebase_uid = firebaseUid;
       }
 
@@ -238,9 +307,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const derivedFirst = firstName || displayName?.split(" ")[0] || "";
     const derivedLast = lastName || displayName?.split(" ").slice(1).join(" ") || "";
 
+    // auth_id maps the verified token's sub (the Firebase UID) to the app user;
+    // RLS helpers resolve identity via auth_id, so it is always written.
+    // firebase_uid must only ever hold Firebase UIDs (audit risk R8 — the
+    // shared RPCs resolve identity via users.firebase_uid = JWT sub), so it
+    // carries the same defense-in-depth Firebase-issued gate as the backfill
+    // above (always true today, since OPS is Firebase-only) — a non-Firebase
+    // issuer's sub must never seed the column.
     const newRow = {
       auth_id: firebaseUid,
-      firebase_uid: firebaseUid,
+      firebase_uid: isFirebaseIssuedToken(firebaseUser.claims)
+        ? firebaseUid
+        : null,
       email,
       first_name: derivedFirst,
       last_name: derivedLast,
@@ -267,12 +345,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // 23505 — re-fetch the row that raced us and return it as if
       // this call had created it, so both callers see a 200.
       if ((insertError as { code?: string } | null)?.code === "23505") {
-        const { data: raced } = await db
+        // Look up by auth_id first (always written at creation for both
+        // providers), then firebase_uid (covers legacy rows whose auth_id
+        // diverged) — a Supabase-token raced row has firebase_uid = null, so a
+        // firebase_uid-only lookup would miss it.
+        let { data: raced } = await db
           .from("users")
           .select("*")
-          .eq("firebase_uid", firebaseUid)
+          .eq("auth_id", firebaseUid)
           .is("deleted_at", null)
           .maybeSingle();
+        if (!raced) {
+          ({ data: raced } = await db
+            .from("users")
+            .select("*")
+            .eq("firebase_uid", firebaseUid)
+            .is("deleted_at", null)
+            .maybeSingle());
+        }
         if (raced) {
           const user = mapUserFromDb(raced);
           const company = user.companyId ? await fetchCompanyById(user.companyId) : null;
