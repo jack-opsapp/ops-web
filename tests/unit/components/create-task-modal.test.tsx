@@ -54,6 +54,11 @@ vi.mock("@/lib/store/auth-store", () => ({
 
 const { CreateTaskForm } = await import("@/components/ops/create-task-modal");
 
+async function openProjectPicker() {
+  await userEvent.click(screen.getByRole("button", { name: /select project/i }));
+  return screen.findByPlaceholderText("Search projects");
+}
+
 describe("<CreateTaskForm>", () => {
   beforeEach(() => {
     openProjectWindowMock.mockReset();
@@ -63,11 +68,9 @@ describe("<CreateTaskForm>", () => {
   it("clicking 'Create new project' dispatches openProjectWindow with a creating-mode + onProjectCreated callback", async () => {
     render(<CreateTaskForm />);
 
-    // Focus the search input to surface the dropdown which contains the
-    // "Create new project" affordance. The selector renders the
-    // affordance only after the dropdown opens.
-    await userEvent.click(screen.getByPlaceholderText("Search projects..."));
-    const createNewBtn = await screen.findByText(/Create new project/i);
+    // Open the canonical picker to surface the create footer action.
+    await openProjectPicker();
+    const createNewBtn = await screen.findByText(/^New project$/i);
     await userEvent.click(createNewBtn);
 
     expect(openProjectWindowMock).toHaveBeenCalledTimes(1);
@@ -80,8 +83,8 @@ describe("<CreateTaskForm>", () => {
   it("the onProjectCreated callback auto-selects the new project in the picker", async () => {
     render(<CreateTaskForm />);
 
-    await userEvent.click(screen.getByPlaceholderText("Search projects..."));
-    const createNewBtn = await screen.findByText(/Create new project/i);
+    await openProjectPicker();
+    const createNewBtn = await screen.findByText(/^New project$/i);
     await userEvent.click(createNewBtn);
 
     // Simulate the workspace finishing its create — the container would
@@ -119,11 +122,11 @@ describe("<CreateTaskForm>", () => {
     permissionMockCan = (key: string) => key !== "projects.create";
     render(<CreateTaskForm />);
 
-    await userEvent.click(screen.getByPlaceholderText("Search projects..."));
+    await openProjectPicker();
 
     // Existing project still appears in the dropdown — only the create-new
     // affordance is suppressed.
     expect(await screen.findByText("Acme Reroof")).toBeInTheDocument();
-    expect(screen.queryByText(/Create new project/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^New project$/i)).not.toBeInTheDocument();
   });
 });

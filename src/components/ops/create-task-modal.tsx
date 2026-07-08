@@ -41,7 +41,7 @@ function ProjectSelector({
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        {t("taskForm.field.project")}
+        {t("taskForm.field.project", "Project")}
       </label>
       <EntityPicker<Project>
         trigger={
@@ -85,7 +85,7 @@ function ProjectSelector({
               <span className="flex items-center gap-[6px] min-w-0">
                 <Search className="w-[16px] h-[16px] text-text-3 shrink-0" />
                 <span className="text-text-3 truncate">
-                  {t("taskForm.field.projectPlaceholder")}
+                  {t("taskForm.field.projectPlaceholder", "Select project")}
                 </span>
               </span>
               <ChevronDown
@@ -99,7 +99,7 @@ function ProjectSelector({
         }
         open={open}
         onOpenChange={setOpen}
-        label={t("taskForm.field.project")}
+        label={t("taskForm.field.project", "Project")}
         items={projects}
         value={value}
         onChange={onChange}
@@ -119,8 +119,8 @@ function ProjectSelector({
             ),
           ].filter((k): k is string => Boolean(k))
         }
-        searchPlaceholder={t("taskForm.field.projectSearch")}
-        emptyLabel={t("taskForm.field.projectEmpty")}
+        searchPlaceholder={t("taskForm.field.projectSearch", "Search projects")}
+        emptyLabel={t("taskForm.field.projectEmpty", "No projects")}
         clearLabel={tp("clear")}
         createAction={
           canCreateProject
@@ -128,7 +128,7 @@ function ProjectSelector({
                 label: (q) =>
                   q.trim()
                     ? t("taskForm.field.projectCreateNamed", { name: q.trim() })
-                    : t("taskForm.field.projectCreateNew"),
+                    : t("taskForm.field.projectCreateNew", "New project"),
                 onCreate: (q) => onCreateNew(q),
               }
             : undefined
