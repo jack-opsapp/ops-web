@@ -20,8 +20,11 @@
   "unit.search": "Buscar unidades",
   "unit.create": "Nueva unidad",
   "unit.empty": "Sin unidades",
+  "unit.label": "Unidad",
+  "unit.placeholder": "Seleccionar unidad",
   "unit.none": "Sin unidad",
 
+  "tag.label": "Etiquetas",
   "tag.search": "Buscar etiquetas",
   "tag.create": "Nueva etiqueta",
   "tag.createNamed": "Crear etiqueta \"{name}\"",

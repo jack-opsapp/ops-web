@@ -20,8 +20,11 @@
   "unit.search": "Search units",
   "unit.create": "New unit",
   "unit.empty": "No units",
+  "unit.label": "Unit",
+  "unit.placeholder": "Select unit",
   "unit.none": "No unit",
 
+  "tag.label": "Tags",
   "tag.search": "Search tags",
   "tag.create": "New tag",
   "tag.createNamed": "Create tag \"{name}\"",

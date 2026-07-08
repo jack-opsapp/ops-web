@@ -447,7 +447,7 @@ export function ItemFormDialog({
                               {selectedUnit.display}
                             </span>
                           ) : (
-                            <span className="text-text-3">Select unit</span>
+                            <span className="text-text-3">{tp("unit.placeholder")}</span>
                           )}
                           <ChevronDown
                             className={cn(
@@ -459,7 +459,7 @@ export function ItemFormDialog({
                       }
                       open={unitPickerOpen}
                       onOpenChange={setUnitPickerOpen}
-                      label="Unit"
+                      label={tp("unit.label")}
                       items={units}
                       value={unitId || null}
                       onChange={(id) => setUnitId(id ?? "")}
@@ -548,7 +548,7 @@ export function ItemFormDialog({
                     }
                     open={tagPickerOpen}
                     onOpenChange={setTagPickerOpen}
-                    label="Tags"
+                    label={tp("tag.label")}
                     items={tagPickerItems}
                     value={selectedTagValues}
                     onChange={handleTagsChange}
