@@ -552,7 +552,7 @@ function SensitiveExport({ href }: { href: string }) {
       <button
         type="button"
         onClick={() => setArmed(false)}
-        className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute transition-colors duration-150 hover:text-text-3"
+        className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute transition-colors duration-150 ease-smooth hover:text-text-3"
       >
         CANCEL
       </button>

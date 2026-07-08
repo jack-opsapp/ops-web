@@ -58,7 +58,7 @@ function CrewPicker({
           type="button"
           className={cn(
             "w-full flex h-7 items-center justify-between gap-[6px] px-1.5 py-1.5",
-            "bg-surface-input border rounded font-mohave text-body text-left transition-all duration-150",
+            "bg-surface-input border rounded font-mohave text-body text-left transition-all duration-150 ease-smooth",
             open ? "border-line-hi" : "border-border",
             "focus:border-line-hi focus:outline-none",
             count > 0 ? "text-text" : "text-text-3",
@@ -84,7 +84,7 @@ function CrewPicker({
           )}
           <ChevronDown
             className={cn(
-              "w-[16px] h-[16px] text-text-3 shrink-0 transition-transform duration-150",
+              "w-[16px] h-[16px] text-text-3 shrink-0 transition-transform duration-150 ease-smooth",
               open && "rotate-180",
             )}
           />

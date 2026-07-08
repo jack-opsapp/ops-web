@@ -77,7 +77,7 @@ function ProjectSelector({
                 "flex items-center justify-between w-full",
                 "bg-surface-input border rounded-sm",
                 "px-1.5 py-1.5",
-                "font-mohave text-body transition-all duration-150",
+                "font-mohave text-body transition-all duration-150 ease-smooth",
                 open ? "border-line-hi" : "border-border",
                 "focus:border-line-hi focus:outline-none"
               )}
@@ -90,7 +90,7 @@ function ProjectSelector({
               </span>
               <ChevronDown
                 className={cn(
-                  "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
+                  "w-[16px] h-[16px] text-text-3 transition-transform duration-150 ease-smooth",
                   open && "rotate-180"
                 )}
               />

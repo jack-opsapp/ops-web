@@ -121,7 +121,7 @@ function TaskTypeDropdown({
               "flex items-center justify-between w-full",
               "bg-surface-input border rounded-sm",
               "px-1.5 py-1.5",
-              "font-mohave text-body transition-all duration-150",
+              "font-mohave text-body transition-all duration-150 ease-smooth",
               open ? "border-line-hi" : error ? "border-status-error" : "border-border",
               "focus:border-line-hi focus:outline-none"
             )}
@@ -139,7 +139,7 @@ function TaskTypeDropdown({
             )}
             <ChevronDown
               className={cn(
-                "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
+                "w-[16px] h-[16px] text-text-3 transition-transform duration-150 ease-smooth",
                 open && "rotate-180"
               )}
             />
@@ -198,7 +198,7 @@ function StatusDropdown({
               "flex items-center justify-between w-full",
               "bg-surface-input border border-border rounded-sm",
               "px-1.5 py-1.5",
-              "font-mohave text-body transition-all duration-150",
+              "font-mohave text-body transition-all duration-150 ease-smooth",
               open && "border-line-hi",
               "focus:border-line-hi focus:outline-none"
             )}
@@ -212,7 +212,7 @@ function StatusDropdown({
             </span>
             <ChevronDown
               className={cn(
-                "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
+                "w-[16px] h-[16px] text-text-3 transition-transform duration-150 ease-smooth",
                 open && "rotate-180"
               )}
             />
@@ -273,7 +273,7 @@ function TeamMemberDropdown({
               "flex items-center justify-between w-full",
               "bg-surface-input border border-border rounded-sm",
               "px-1.5 py-1.5",
-              "font-mohave text-body transition-all duration-150",
+              "font-mohave text-body transition-all duration-150 ease-smooth",
               open && "border-line-hi",
               "focus:border-line-hi focus:outline-none",
               count > 0 ? "text-text" : "text-text-3"
@@ -300,7 +300,7 @@ function TeamMemberDropdown({
             )}
             <ChevronDown
               className={cn(
-                "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
+                "w-[16px] h-[16px] text-text-3 transition-transform duration-150 ease-smooth",
                 open && "rotate-180"
               )}
             />

@@ -437,7 +437,7 @@ export function ItemFormDialog({
                             "flex items-center justify-between w-full",
                             "bg-surface-input border rounded-sm",
                             "px-1.5 py-1.5",
-                            "font-mohave text-body transition-all duration-150",
+                            "font-mohave text-body transition-all duration-150 ease-smooth",
                             unitPickerOpen ? "border-line-hi" : "border-border",
                             "focus:border-line-hi focus:outline-none"
                           )}
@@ -451,7 +451,7 @@ export function ItemFormDialog({
                           )}
                           <ChevronDown
                             className={cn(
-                              "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
+                              "w-[16px] h-[16px] text-text-3 transition-transform duration-150 ease-smooth",
                               unitPickerOpen && "rotate-180"
                             )}
                           />
@@ -524,7 +524,7 @@ export function ItemFormDialog({
                           "flex items-center justify-between w-full",
                           "bg-surface-input border rounded-sm",
                           "px-1.5 py-1.5",
-                          "font-mohave text-body transition-all duration-150",
+                          "font-mohave text-body transition-all duration-150 ease-smooth",
                           tagPickerOpen ? "border-line-hi" : "border-border",
                           "focus:border-line-hi focus:outline-none"
                         )}
@@ -540,7 +540,7 @@ export function ItemFormDialog({
                         )}
                         <ChevronDown
                           className={cn(
-                            "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
+                            "w-[16px] h-[16px] text-text-3 transition-transform duration-150 ease-smooth",
                             tagPickerOpen && "rotate-180"
                           )}
                         />

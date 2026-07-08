@@ -7,7 +7,7 @@ export function CapacityEditorHeader() {
         <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.20em] text-text-mute">
           <Link
             href="/admin/spec"
-            className="text-text-3 underline-offset-4 transition-colors hover:text-text hover:underline"
+            className="text-text-3 underline-offset-4 transition-colors duration-150 ease-smooth hover:text-text hover:underline"
           >
             <span aria-hidden="true" className="text-text-mute">
               [

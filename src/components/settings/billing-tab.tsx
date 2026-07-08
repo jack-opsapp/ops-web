@@ -117,7 +117,7 @@ function PaymentMethodCard({
             onClick={() => onSetDefault(method.id)}
             disabled={isSettingDefault}
             title={t("billing.setDefaultHint")}
-            className="font-mono text-micro uppercase tracking-wider px-[6px] py-[2px] rounded-chip text-text-3 border border-white/10 hover:text-text hover:border-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="font-mono text-micro uppercase tracking-wider px-[6px] py-[2px] rounded-chip text-text-3 border border-white/10 hover:text-text hover:border-white/20 transition-colors duration-150 ease-smooth disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSettingDefault ? (
               <Loader2 className="w-[12px] h-[12px] animate-spin inline" />

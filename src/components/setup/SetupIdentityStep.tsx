@@ -92,7 +92,7 @@ function IndustryDropdown({
               "w-full flex items-center justify-between",
               "bg-surface-input text-text font-mohave text-body",
               "px-2 py-1.5 rounded-sm min-h-[36px]",
-              "border transition-all duration-150",
+              "border transition-all duration-150 ease-smooth",
               open ? "border-line-hi" : "border-border",
               "focus:border-line-hi focus:outline-none",
               value.length === 0 && "text-text-mute"
@@ -101,7 +101,7 @@ function IndustryDropdown({
             <span className="truncate">{displayText || "Select industries"}</span>
             <ChevronDown
               className={cn(
-                "w-5 h-5 text-text-3 transition-transform flex-shrink-0",
+                "w-5 h-5 text-text-3 transition-transform duration-150 ease-smooth flex-shrink-0",
                 open && "rotate-180"
               )}
               aria-hidden="true"

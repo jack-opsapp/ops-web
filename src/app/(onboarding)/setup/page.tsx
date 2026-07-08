@@ -581,7 +581,7 @@ export default function SetupPage() {
           <button
             onClick={handleBack}
             aria-label="Back to company information"
-            className="flex items-center gap-0.5 px-2 min-h-[36px] min-w-[56px] rounded-sm bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-white/[0.08] text-text-2 font-mohave text-body-sm uppercase hover:border-white/[0.18] transition-colors"
+            className="flex items-center gap-0.5 px-2 min-h-[36px] min-w-[56px] rounded-sm bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] border border-white/[0.08] text-text-2 font-mohave text-body-sm uppercase hover:border-white/[0.18] transition-colors duration-150 ease-smooth"
           >
             <ChevronLeft className="w-4 h-4" aria-hidden="true" />
             Back
@@ -607,7 +607,7 @@ export default function SetupPage() {
             <button
               onClick={handleLaunchFromStarfield}
               aria-label="Launch your personalized dashboard"
-              className="px-3 min-h-[36px] rounded-sm bg-transparent border border-ops-accent text-ops-accent font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent hover:text-black transition-colors"
+              className="px-3 min-h-[36px] rounded-sm bg-transparent border border-ops-accent text-ops-accent font-mohave text-body-sm uppercase tracking-[0.08em] hover:bg-ops-accent hover:text-black transition-colors duration-150 ease-smooth"
             >
               Launch
             </button>
@@ -641,7 +641,7 @@ export default function SetupPage() {
                 <button
                   onClick={handleLaunchFromStarfield}
                   aria-label="Launch your personalized dashboard"
-                  className="px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] bg-transparent text-ops-accent border border-ops-accent hover:bg-ops-accent hover:text-black transition-colors duration-300"
+                  className="px-10 py-4 rounded-sm font-mohave text-[22px] uppercase tracking-[0.15em] bg-transparent text-ops-accent border border-ops-accent hover:bg-ops-accent hover:text-black transition-colors duration-300 ease-smooth"
                 >
                   LAUNCH
                 </button>
@@ -770,7 +770,7 @@ export default function SetupPage() {
           <button
             onClick={handleNext}
             aria-label={phase === "identity" ? "Continue to company information" : "Continue to questionnaire"}
-            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-transparent text-ops-accent px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent hover:text-black transition-all duration-150"
+            className="flex items-center gap-0.5 font-mohave text-button uppercase bg-transparent text-ops-accent px-3 min-h-[36px] rounded-sm border border-ops-accent hover:bg-ops-accent hover:text-black transition-all duration-150 ease-smooth"
           >
             Next
             <ChevronRight className="w-4 h-4" aria-hidden="true" />
