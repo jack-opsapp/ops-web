@@ -40,7 +40,7 @@ import {
 } from "@/lib/types/inventory";
 import type { InventoryItem, ThresholdStatus } from "@/lib/types/inventory";
 import { cn } from "@/lib/utils/cn";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 // ─── Props ──────────────────────────────────────────────────────────────────────
 

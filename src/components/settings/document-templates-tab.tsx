@@ -31,7 +31,7 @@ import type {
 } from "@/lib/types/document-template";
 import { DEFAULT_FIELD_VISIBILITY } from "@/lib/types/document-template";
 import type { PortalTemplate, PortalThemeMode } from "@/lib/types/portal";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 

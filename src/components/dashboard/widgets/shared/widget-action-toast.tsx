@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 /** Show a widget action toast with undo button — returns toast id for dismissal */
 export function showWidgetActionToast(options: {

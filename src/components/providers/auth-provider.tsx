@@ -8,7 +8,7 @@ import { onAuthStateChanged, getIdToken, checkRedirectResult, clearRedirectFlag,
 import { getFirebaseAuth } from "@/lib/firebase/config";
 import { attemptDevBypass, isDevBypassEnabled } from "@/lib/firebase/dev-bypass";
 import { UserService } from "@/lib/api/services/user-service";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 /**
  * Set a cookie so the Next.js middleware can check auth status server-side.

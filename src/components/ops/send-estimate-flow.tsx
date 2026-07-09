@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useSendEstimate, useClients } from "@/lib/hooks";
 import { formatCurrency } from "@/lib/types/pipeline";
 import type { Estimate } from "@/lib/types/pipeline";

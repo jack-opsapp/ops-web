@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, RotateCcw, Save } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";

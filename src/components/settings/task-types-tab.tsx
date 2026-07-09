@@ -27,7 +27,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { getUserFullName } from "@/lib/types/models";
 import type { TaskType, User } from "@/lib/types/models";
 import type { TaskTemplate } from "@/lib/types/pipeline";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { TaskTypesWizard } from "./task-types-wizard";

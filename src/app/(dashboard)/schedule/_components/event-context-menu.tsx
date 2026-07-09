@@ -12,7 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { addDays, nextMonday, differenceInCalendarDays } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import {
   useCreateTask,

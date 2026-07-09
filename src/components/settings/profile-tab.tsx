@@ -10,7 +10,7 @@ import { useCurrentUser, useUpdateUser, useImageUpload } from "@/lib/hooks";
 import { getUserFullName } from "@/lib/types/models";
 import { isEmailPasswordUser, getAuthProvider, changePassword } from "@/lib/firebase/auth";
 import { useResetPassword } from "@/lib/hooks/use-users";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 
 // ---------------------------------------------------------------------------

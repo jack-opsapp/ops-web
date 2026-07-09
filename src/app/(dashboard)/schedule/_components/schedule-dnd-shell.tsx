@@ -37,7 +37,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { addDays, differenceInCalendarDays } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import {
   FIRST_HOUR,

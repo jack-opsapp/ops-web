@@ -3,7 +3,7 @@
 import { useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ChevronRight, Mail, ArrowUpRight } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { Card } from "@/components/ui/card";
 import {
   Popover,

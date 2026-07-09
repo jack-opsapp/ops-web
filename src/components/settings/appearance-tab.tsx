@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils/cn";
 import { Card, CardContent } from "@/components/ui/card";
 import { SegmentControl } from "@/components/ui/segment-control";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import {
   usePreferencesStore,

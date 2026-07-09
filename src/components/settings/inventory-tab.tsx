@@ -12,7 +12,7 @@ import {
   TablePrimary,
   type RegisterTableColumn,
 } from "@/components/ui/register-table";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import type { InventoryUnit } from "@/lib/types/inventory";

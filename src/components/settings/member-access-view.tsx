@@ -56,7 +56,7 @@ import {
   type MemberException,
 } from "@/lib/permissions/resolve";
 import { useDictionary } from "@/i18n/client";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 interface PermissionEdit {
   permission: string;

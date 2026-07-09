@@ -33,7 +33,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { formatEnumLabel } from "@/lib/utils/format";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import {
   DropdownMenu,
   DropdownMenuTrigger,

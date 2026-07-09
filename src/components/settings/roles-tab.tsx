@@ -76,7 +76,7 @@ import {
   detectModuleTier,
   getPermissionScopes,
 } from "@/lib/types/permissions";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 
 // ─── Types ───────────────────────────────────────────────────────────────────

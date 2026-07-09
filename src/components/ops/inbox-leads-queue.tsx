@@ -27,7 +27,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { GmailService } from "@/lib/api/services";
 import { useAuthStore } from "@/lib/store/auth-store";

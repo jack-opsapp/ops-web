@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useMemo } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { ProjectTask } from "@/lib/types/models";
 import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { useTasks, useUpdateTask, useRecurrenceEdit } from "@/lib/hooks";

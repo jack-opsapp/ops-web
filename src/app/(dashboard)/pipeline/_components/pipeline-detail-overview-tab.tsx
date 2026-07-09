@@ -45,7 +45,7 @@ import {
   UserPlus,
 } from "lucide-react";
 
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 import { useDictionary } from "@/i18n/client";
 import { useOpportunityFieldEdit } from "@/lib/hooks/use-opportunity-field-edit";

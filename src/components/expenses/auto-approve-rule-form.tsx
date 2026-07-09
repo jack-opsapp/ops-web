@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import { Input } from "@/components/ui/input";
 import { useCreateAutoApproveRule, useTeamMembers } from "@/lib/hooks";

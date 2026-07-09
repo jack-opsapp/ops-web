@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useCreateClient } from "@/lib/hooks/use-clients";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useAuthStore } from "@/lib/store/auth-store";

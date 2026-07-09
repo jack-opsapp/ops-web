@@ -26,7 +26,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
 import { useViewportBreakpoint } from "@/lib/hooks/use-viewport-breakpoint";

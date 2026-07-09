@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { format, differenceInCalendarDays } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { Trash2, Check, ArrowRight, ArrowLeft, Zap, Plus, X } from "lucide-react";
 import { useScheduleStore } from "@/stores/schedule-store";
 import {

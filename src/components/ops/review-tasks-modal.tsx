@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useProposedTasks } from "@/lib/hooks/use-task-templates";
 import { useTeamMembers } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";

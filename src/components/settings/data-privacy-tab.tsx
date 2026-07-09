@@ -5,7 +5,7 @@ import { Download, Trash2, Database, Clock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 
 /** A `// TITLE` section header — the canonical settings/register grammar. */

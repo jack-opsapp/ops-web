@@ -19,7 +19,7 @@ import {
 import { useInventoryItems } from "@/lib/hooks/use-inventory";
 import type { InventoryItem } from "@/lib/types/inventory";
 import type { CreateProductMaterial } from "@/lib/types/product-materials";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 interface Row {
   inventoryItemId: string;

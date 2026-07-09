@@ -27,7 +27,7 @@ import { categoryLabel } from "./category-chip";
 import { SlashLabel } from "./voice/slash-label";
 import { KeyHint } from "@/components/ui/key-hint";
 import { enqueueUndoToast } from "./undo-toast";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 interface RecategorizeMenuProps {
   threadId: string;

@@ -30,7 +30,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { useDictionary } from "@/i18n/client";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 // ─── Extracted Form Component ─────────────────────────────────────────────────
 

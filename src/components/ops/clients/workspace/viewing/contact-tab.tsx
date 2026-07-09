@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Copy, Phone, Mail, MapPin, Plus, Trash2, Check, X } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import type { Client } from "@/lib/types/models";
 import { getInitials } from "@/lib/types/models";

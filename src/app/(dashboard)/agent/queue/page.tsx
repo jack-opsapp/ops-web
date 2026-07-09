@@ -3,7 +3,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { AnimatePresence, useReducedMotion } from "framer-motion";
 import { Filter, CheckSquare, Square, Inbox } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
