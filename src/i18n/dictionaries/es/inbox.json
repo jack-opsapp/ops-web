@@ -551,6 +551,7 @@
   "toast.threadLinkCopyFailedTactic": "SYS :: COPIA FALLIDA",
   "toast.threadRefreshedTactic": "SYS :: HILO ACTUALIZADO",
   "toast.undoTactic": "DESHACER",
+  "toast.retryTactic": "REINTENTAR",
 
   "mobile.listPane": "// LISTA",
   "mobile.threadPane": "// HILO",

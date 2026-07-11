@@ -310,8 +310,8 @@ vi.mock("../command-palette", () => ({
   ),
 }));
 
-vi.mock("../undo-toast", () => ({
-  enqueueUndoToast: vi.fn(),
+vi.mock("@/components/ui/toast-undo", () => ({
+  showUndoToast: vi.fn(),
 }));
 
 vi.mock("../composer/draft-switcher", () => ({
