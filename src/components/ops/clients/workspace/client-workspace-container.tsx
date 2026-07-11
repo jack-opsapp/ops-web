@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
+import { Calculator, FolderKanban, FileText } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import {
   useWindowStore,
@@ -20,7 +22,10 @@ import { useDictionary } from "@/i18n/client";
 import { formatCurrency } from "@/lib/utils/format";
 import { ProjectWorkspaceWindow } from "@/components/ops/projects/workspace/shell/project-workspace-window";
 import { ConfirmModal } from "@/components/ops/projects/workspace/confirm-modal";
-import type { ModeFooterConfig } from "@/components/ops/projects/workspace/shell/mode-footer";
+import type {
+  ModeFooterConfig,
+  ModeFooterAction,
+} from "@/components/ops/projects/workspace/shell/mode-footer";
 import type { ChipVariant } from "@/components/ops/projects/workspace/atoms/chip";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 import { ClientViewingBody } from "./viewing/client-viewing-body";
@@ -39,11 +44,19 @@ import {
 
 export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
   const { t } = useDictionary("clients");
+  // Estimate/project openers reuse the FAB's creation windows verbatim — the
+  // only delta is the client seed. The estimate floating-window title matches
+  // the FAB's ("New estimate") so a client-seeded open focuses the same
+  // singleton window rather than minting a divergent one.
+  const { t: tQuick } = useDictionary("quick-actions");
+  const router = useRouter();
   const win = useWindowStore((s) =>
     s.windows.find((w) => w.id === windowId && w.type === "client-workspace"),
   );
   const closeWindow = useWindowStore((s) => s.closeWindow);
   const updateWindowMeta = useWindowStore((s) => s.updateWindowMeta);
+  const openWindow = useWindowStore((s) => s.openWindow);
+  const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
 
   // Window type is narrowed above, so meta is the client variant.
   const meta = win?.meta as ClientWorkspaceWindowMeta | undefined;
@@ -73,8 +86,47 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
   const can = usePermissionStore((s) => s.can);
   const canEdit = can("clients.edit");
   const canDelete = can("clients.delete");
+  // Quick-action gates — granular permissions only, never role names. A denied
+  // action is absent from the footer, never a dead/disabled button.
+  const canCreateEstimate = can("estimates.create");
+  const canCreateProject = can("projects.create");
+  const canCreateInvoice = can("invoices.create");
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+
+  // ── Quick actions (viewing mode) ──────────────────────────────────────
+  // Start the things you actually do with a client — a new estimate, project,
+  // or invoice — each seeded with THIS client so the operator never re-picks
+  // them. Every opener stacks a new window; the client window stays open
+  // underneath (nothing closes).
+  const handleNewEstimate = React.useCallback(() => {
+    if (!clientId) return;
+    // Same singleton window the FAB opens (id "create-estimate"); the seed
+    // rides in as metadata, consumed by createEstimateDefaultsFromMeta.
+    openWindow({
+      id: "create-estimate",
+      title: tQuick("action.estimate"),
+      type: "create-estimate",
+      metadata: { clientId },
+    });
+  }, [clientId, openWindow, tQuick]);
+
+  const handleNewProject = React.useCallback(() => {
+    if (!clientId) return;
+    openProjectWindow({
+      projectId: null,
+      mode: "creating",
+      initialClientId: clientId,
+    });
+  }, [clientId, openProjectWindow]);
+
+  const handleNewInvoice = React.useCallback(() => {
+    if (!clientId) return;
+    // Invoices live in Books; the create form reads the client seed off the
+    // URL (books-page → InvoicesSegment → InvoiceFormModal). The client window
+    // stays open — the operator returns via back/nav.
+    router.push(`/books?segment=invoices&action=new&client=${clientId}`);
+  }, [clientId, router]);
 
   const handleSaved = React.useCallback(
     (savedId: string) => {
@@ -116,10 +168,40 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
 
   let footerConfig: ModeFooterConfig;
   if (isViewing) {
-    // EDIT is the only viewing action; hide it entirely for operators
-    // without clients.edit (read-only viewer) rather than show a dead button.
+    // Frequent creation actions earn always-visible footer placement (never a
+    // hidden overflow). Order = pipeline frequency: estimate → project →
+    // invoice. Each is permission-gated (absent when denied) and disabled
+    // until the client row loads — a phantom / not-found client can't seed a
+    // creation. EDIT stays the single accent primary.
+    const quickActions: ModeFooterAction[] = [];
+    if (canCreateEstimate) {
+      quickActions.push({
+        label: t("footer.newEstimate"),
+        icon: <Calculator className="h-[14px] w-[14px]" aria-hidden />,
+        onClick: handleNewEstimate,
+        disabled: !client,
+      });
+    }
+    if (canCreateProject) {
+      quickActions.push({
+        label: t("footer.newProject"),
+        icon: <FolderKanban className="h-[14px] w-[14px]" aria-hidden />,
+        onClick: handleNewProject,
+        disabled: !client,
+      });
+    }
+    if (canCreateInvoice) {
+      quickActions.push({
+        label: t("footer.newInvoice"),
+        icon: <FileText className="h-[14px] w-[14px]" aria-hidden />,
+        onClick: handleNewInvoice,
+        disabled: !client,
+      });
+    }
+    // EDIT hides entirely for operators without clients.edit (read-only
+    // viewer) rather than showing a dead button.
     footerConfig = {
-      secondary: [],
+      secondary: quickActions,
       primary: canEdit
         ? {
             label: t("footer.edit"),

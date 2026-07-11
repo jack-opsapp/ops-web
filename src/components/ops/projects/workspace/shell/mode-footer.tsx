@@ -31,6 +31,11 @@ export interface ModeFooterAction {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  // Optional leading glyph rendered before the label (14–16px lucide,
+  // monochrome via `currentColor`). Only the client-workspace quick actions
+  // (NEW ESTIMATE / PROJECT / INVOICE) set it today; every existing project-
+  // workspace action omits it and renders label-only, unchanged.
+  icon?: React.ReactNode;
   // Optional native button attributes — used by the workspace container
   // to bind a footer CTA to the edit/create composer's form via the HTML
   // `form="<id>"` association. The body's react-hook-form handler then
@@ -112,6 +117,7 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
               type={destructive.type}
               form={destructive.form}
             >
+              {destructive.icon}
               {destructive.label}
             </Btn>
           </motion.div>
@@ -147,6 +153,7 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
               type={action.type}
               form={action.form}
             >
+              {action.icon}
               {action.label}
             </Btn>
           </motion.div>
@@ -170,6 +177,7 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
               type={ghost.type}
               form={ghost.form}
             >
+              {ghost.icon}
               {ghost.label}
             </Btn>
           </motion.div>
@@ -193,6 +201,7 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
               type={primary.type}
               form={primary.form}
             >
+              {primary.icon}
               {primary.label}
             </Btn>
           </motion.div>
