@@ -32,7 +32,7 @@ export function ProjectsViewTabs({
         : null;
 
   return (
-    <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+    <div className="flex w-full min-w-0 items-center gap-1 overflow-x-auto">
       {statusLabel ? (
         <div className="shrink-0 px-2 py-1 font-mono text-micro uppercase tracking-wider text-text-3">
           {statusLabel}

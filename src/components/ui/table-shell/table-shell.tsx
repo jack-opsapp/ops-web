@@ -154,7 +154,16 @@ export function Workbar({
           ) : null}
         </div>
       ) : null}
-      {tabStrip}
+      {tabStrip != null ? (
+        // Row 2 — a row-flex wrapper so inline-flex children keep their
+        // intrinsic width. A direct child of the column-flex TableWorkbar gets
+        // cross-axis stretched to full row width (align-items:stretch
+        // blockifies the inline-flex SegmentControl) — the full-bleed
+        // segment-control bug. Consumers that DID want the full width (a
+        // justify-between spread, a flex-1 scroll rail) opt back in with
+        // `w-full` on their own tabStrip root, deliberately.
+        <div className="flex min-w-0 items-center gap-2">{tabStrip}</div>
+      ) : null}
       {children}
     </TableWorkbar>
   );

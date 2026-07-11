@@ -304,7 +304,7 @@ export function SyncSegment({
           // strip + its status badge, kept together on the strip row.
           <Workbar
             tabStrip={
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex w-full flex-wrap items-center justify-between gap-2">
                 {segmentControl}
                 {badge}
               </div>
