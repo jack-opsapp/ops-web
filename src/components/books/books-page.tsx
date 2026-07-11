@@ -120,19 +120,16 @@ export function BooksPage() {
     window.localStorage.setItem(PERIOD_STORAGE_KEY, p);
   }, []);
 
-  // ── Drill state (ledger strip → filtered segment + rose chip) ─────────
-  const [drilled, setDrilled] = useState(false);
-
-  const drillOverdue = useCallback(() => {
-    setDrilled(true);
-    // "overdue" is the date-based virtual filter (any open balance past its
-    // due date) — the A/R tile counts by date, and most overdue invoices sit
-    // in sent/awaiting_payment/partially_paid, never the past_due enum.
-    updateParams({ segment: "invoices", status: "overdue", view: null });
-  }, [updateParams]);
+  // ── Drill chip (rose "overdue" chip) ──────────────────────────────────
+  // A/R overdue is pure URL state now — metric cells flip to their formula, they
+  // never navigate. The rose chip surfaces whenever invoices are scoped to
+  // overdue (from the status control or a dashboard deep link alike) and clears
+  // by dropping the status param. "overdue" is the date-based virtual filter
+  // (any open balance past its due date): most overdue invoices sit in
+  // sent/awaiting_payment/partially_paid, never the past_due enum.
+  const drilled = statusParam === "overdue";
 
   const clearDrill = useCallback(() => {
-    setDrilled(false);
     updateParams({ status: null });
   }, [updateParams]);
 
@@ -176,7 +173,6 @@ export function BooksPage() {
 
   const handleSegmentChange = useCallback(
     (segment: BooksSegment) => {
-      setDrilled(false);
       updateParams({ segment, view: null, status: null, action: null });
     },
     [updateParams],
@@ -250,7 +246,6 @@ export function BooksPage() {
     <LedgerStrip
       period={period}
       onPeriodChange={handlePeriodChange}
-      onDrillOverdue={can("invoices.view") ? drillOverdue : undefined}
       clientName={clientName}
       arExtra={arExtra}
     />
@@ -269,7 +264,6 @@ export function BooksPage() {
           onViewChange={(view) => updateParams({ view: view === "aging" ? "aging" : null })}
           statusFilter={invoiceStatusFilter}
           onStatusFilterChange={(status) => {
-            setDrilled(false);
             updateParams({ status: status === "all" ? null : status });
           }}
           drilled={drilled}
@@ -285,7 +279,6 @@ export function BooksPage() {
           segmentControl={segmentControl}
           statusFilter={estimateStatusFilter}
           onStatusFilterChange={(status) => {
-            setDrilled(false);
             updateParams({ status: status === "all" ? null : status });
           }}
           drilled={drilled}

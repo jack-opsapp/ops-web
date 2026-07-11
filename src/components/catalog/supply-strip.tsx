@@ -36,9 +36,6 @@ export interface SupplyStripProps {
   product: ProductAggregate | null;
   showStock: boolean;
   showProducts: boolean;
-  onDrillBelowThreshold?: () => void;
-  onOpenCounts?: () => void;
-  onFixCosts?: () => void;
 }
 
 export function SupplyStrip({
@@ -49,9 +46,6 @@ export function SupplyStrip({
   product,
   showStock,
   showProducts,
-  onDrillBelowThreshold,
-  onOpenCounts,
-  onFixCosts,
 }: SupplyStripProps) {
   const { t } = useDictionary("catalog");
   const avgMargin = product?.avgMargin ?? null;
@@ -86,7 +80,7 @@ export function SupplyStrip({
           ],
         },
         sub: healthSub,
-        onClick: onDrillBelowThreshold,
+        breakdown: `${health.belowThreshold} below min ÷ ${health.ok + health.low + health.critical} tracked`,
       });
 
       // ── ON-HAND ── total costed value (— when nothing costed). Meter = costed
@@ -108,7 +102,8 @@ export function SupplyStrip({
         value: onHand.costedCount > 0 ? fmtMoney(onHand.value) : "—",
         viz: { type: "meter", pct: coverage, color: "var(--text-2)" },
         sub: onHandSub,
-        onClick: onOpenCounts,
+        breakdown:
+          onHand.total > 0 ? `${onHand.costedCount} costed ÷ ${onHand.total} items` : undefined,
       });
     }
 
@@ -133,7 +128,10 @@ export function SupplyStrip({
         tone: avgMargin != null ? "olive" : "default",
         viz: { type: "meter", pct: activeShare, color: "var(--olive)" },
         sub: productsSub,
-        onClick: onFixCosts,
+        breakdown:
+          avgMargin != null
+            ? `avg across ${Math.max(0, product.total - product.missingCost)} costed`
+            : undefined,
       });
     }
 
@@ -146,9 +144,6 @@ export function SupplyStrip({
     health,
     onHand,
     lastCountDate,
-    onDrillBelowThreshold,
-    onOpenCounts,
-    onFixCosts,
     t,
   ]);
 
@@ -156,7 +151,6 @@ export function SupplyStrip({
     <MetricsStrip
       metrics={cells}
       isLoading={loading}
-      label={t("supply.title", "SUPPLY")}
       ariaLabel={t("supply.title", "SUPPLY")}
     />
   );

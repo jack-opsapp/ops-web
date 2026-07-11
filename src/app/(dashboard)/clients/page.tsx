@@ -301,7 +301,7 @@ export default function ClientsPage() {
                 .filter(Boolean)
                 .join("  ·  ")
             : undefined,
-        onClick: amt > 0 ? () => setFilter("owes") : undefined,
+        breakdown: amt > 0 ? `across ${owes} clients owing` : undefined,
       });
       cells.push({
         label: t("metrics.owing"),
@@ -309,6 +309,7 @@ export default function ClientsPage() {
         tone: owes > 0 ? "rose" : "default",
         sub: t("metrics.ofClients", { count: String(totalClients) }),
         viz: totalClients > 0 ? { type: "meter", pct: owes / totalClients, color: "var(--rose)" } : undefined,
+        breakdown: totalClients > 0 ? `${owes} owing ÷ ${totalClients} clients` : undefined,
       });
     }
     cells.push({
@@ -316,6 +317,7 @@ export default function ClientsPage() {
       value: withProjectsCount,
       tone: "olive",
       viz: totalClients > 0 ? { type: "meter", pct: withProjectsCount / totalClients, color: "var(--olive)" } : undefined,
+      breakdown: totalClients > 0 ? `${withProjectsCount} ÷ ${totalClients} clients` : undefined,
     });
     cells.push({ label: t("metrics.new"), value: newCount });
     return cells;
