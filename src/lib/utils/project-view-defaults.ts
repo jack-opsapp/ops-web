@@ -33,6 +33,41 @@ export const PROJECT_TABLE_VIEW_DEFAULT_SORT = [
   { field: "updated_at", direction: "desc" },
 ] as const satisfies readonly ProjectTableSort[];
 
+// ── The synthetic "ALL" view ────────────────────────────────────────────────
+// "ALL" is the unfiltered company-scoped baseline — every project, no saved
+// filter. It has no DB row: it is built client-side and never persisted. The
+// same token doubles as the localStorage sentinel written when the user
+// explicitly deselects to ALL; the URL expresses ALL as `?view=all`.
+export const ALL_PROJECTS_VIEW_ID = "__all__";
+export const ALL_PROJECTS_VIEW_URL_VALUE = "all";
+
+// Stable timestamp so the synthetic view is referentially inert — a module-scope
+// Date.now() would re-key the table query on every evaluation.
+const ALL_PROJECTS_VIEW_UPDATED_AT = "1970-01-01T00:00:00.000Z";
+
+/**
+ * Build the synthetic ALL view. Empty `filters` means the query layer runs a
+ * company-scoped select with zero filter instructions (see
+ * `project-table-service.ts` — `filters: {}` → ALL). Columns / sort / density /
+ * zoom mirror the seeded default so the ALL table reads like a normal view.
+ */
+export function buildAllProjectsView(): ProjectTableViewDefinition {
+  return {
+    id: ALL_PROJECTS_VIEW_ID,
+    name: "All projects",
+    icon: null,
+    permissionKey: null,
+    columns: [...PROJECT_TABLE_VIEW_DEFAULT_COLUMNS],
+    filters: {},
+    sort: [...PROJECT_TABLE_VIEW_DEFAULT_SORT],
+    density: PROJECT_TABLE_VIEW_DEFAULT_DENSITY,
+    zoomLevel: PROJECT_TABLE_VIEW_DEFAULT_ZOOM_LEVEL,
+    isDefault: false,
+    sortPosition: -1,
+    updatedAt: ALL_PROJECTS_VIEW_UPDATED_AT,
+  };
+}
+
 export interface ProjectTableViewDefinitionPayload {
   columns?: Array<{ id: ProjectTableColumnId }>;
   filters?: Json;

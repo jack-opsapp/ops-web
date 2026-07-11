@@ -10,6 +10,7 @@ import {
   type ProjectTableViewDefinition,
 } from "@/lib/types/project-table";
 import { useProjectViewUrlState } from "@/lib/hooks/projects-table/use-project-view-url-state";
+import { buildAllProjectsView } from "@/lib/utils/project-view-defaults";
 
 export {
   PROJECT_VIEW_STORAGE_KEY,
@@ -149,20 +150,24 @@ export function useProjectView(views: ProjectTableViewDefinition[] | undefined) 
     [searchParams],
   );
 
-  const activeView = useMemo<ProjectTableViewDefinition | null>(() => {
-    if (!viewState.activeView) return null;
+  // A null underlying view means ALL — synthesize the ALL definition so the
+  // data hook + table stay dumb (they always receive a real view shape). URL
+  // sort/filter overrides still layer on top of ALL (`?view=all&sort=…`).
+  const activeView = useMemo<ProjectTableViewDefinition>(() => {
+    const base = viewState.activeView ?? buildAllProjectsView();
 
     return {
-      ...viewState.activeView,
-      columns: sanitizeColumns(viewState.activeView.columns),
-      filters: layerFilters(viewState.activeView.filters, filterOverride),
-      sort: sortOverride ?? normalizeSort(viewState.activeView.sort),
+      ...base,
+      columns: sanitizeColumns(base.columns),
+      filters: layerFilters(base.filters, filterOverride),
+      sort: sortOverride ?? normalizeSort(base.sort),
     };
   }, [filterOverride, sortOverride, viewState.activeView]);
 
   return {
     ...viewState,
     activeView,
+    activeViewId: activeView.id,
     savedView: viewState.activeView,
     urlOverrides: {
       filters: filterOverride,

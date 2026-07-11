@@ -87,6 +87,10 @@ interface PreferencesState {
   resetWidgetInstances: () => void;
   applyWidgetInstances: (instances: WidgetInstance[]) => void;
 
+  // Projects table
+  projectsDefaultViewId: string | null;
+  setProjectsDefaultViewId: (viewId: string | null) => void;
+
   // Scheduling
   schedulingType: SchedulingTypeId;
   setSchedulingType: (type: SchedulingTypeId) => void;
@@ -209,6 +213,9 @@ export const usePreferencesStore = create<PreferencesState>()(
 
       applyWidgetInstances: (instances) => set({ widgetInstances: instances }),
 
+      projectsDefaultViewId: null,
+      setProjectsDefaultViewId: (viewId) => set({ projectsDefaultViewId: viewId }),
+
       schedulingType: "both",
       setSchedulingType: (type) => set({ schedulingType: type }),
 
@@ -223,7 +230,7 @@ export const usePreferencesStore = create<PreferencesState>()(
     }),
     {
       name: "ops-preferences",
-      version: 15,
+      version: 16,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown> | null;
         if (!state) return {} as Record<string, unknown>;
@@ -353,6 +360,8 @@ export const usePreferencesStore = create<PreferencesState>()(
             });
           }
         }
+
+        // ── v15 → v16: Add projectsDefaultViewId (projects table default view) — no data migration needed, default (null) applies ──
 
         // ── v10 → v11: Add widgetGap preference — no migration needed, default applies ──
 

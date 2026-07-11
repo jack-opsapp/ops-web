@@ -30,6 +30,9 @@ export function useProjectsTableData(args: {
   const query = useInfiniteQuery({
     queryKey: queryKeys.projects.tableRows(queryParams),
     queryFn: ({ pageParam }) => {
+      // A null view now means "views not resolved yet" (the shell's loading
+      // gate) — never "ALL". ALL arrives as the synthetic ALL view definition,
+      // whose empty `filters` fetch the full company-scoped table.
       if (!args.view) {
         return Promise.resolve({ rows: [], count: 0, nextPage: null });
       }
