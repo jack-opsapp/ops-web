@@ -1001,8 +1001,11 @@ export default function PipelinePage() {
               }
               tools={
                 <>
-                  {/* Table grid controls portal here (table mode only). */}
-                  <div ref={setClusterSlot} className="contents" />
+                  {/* Table grid controls portal here — the target only exists in
+                      table mode, so focused mode carries no empty cluster slot. */}
+                  {effectiveMode === "table" ? (
+                    <div ref={setClusterSlot} className="contents" />
+                  ) : null}
                   {reviewCount > 0 && (
                     <button
                       type="button"
@@ -1028,13 +1031,25 @@ export default function PipelinePage() {
                 ) : null
               }
               tabStrip={
-                // Row-2 tab strip: the FOCUSED/TABLE mode switcher + (table mode)
-                // the saved-view tabs the table surface portals in. The tabs slot
-                // is flex-1 so the (potentially many) saved views scroll on this one
-                // line beside the switcher instead of wrapping to another row.
-                <div className="flex min-w-0 items-center gap-2">
+                // Row-2 tab strip: the FOCUSED/TABLE mode switcher, plus (table
+                // mode only) the saved-view tabs the table surface portals in.
+                // Focused mode = just the switcher, hugging left at intrinsic
+                // width (the Workbar tabStrip wrapper handles that) with no empty
+                // tabs-slot spacer. Table mode opts into w-full over that wrapper
+                // so the flex-1 tabs slot gets a bounded width and the (possibly
+                // many) saved views scroll on this one line beside the switcher.
+                // The switcher stays in a stable DOM position across the toggle so
+                // it keeps focus after a mode switch.
+                <div
+                  className={cn(
+                    "flex min-w-0 items-center gap-2",
+                    effectiveMode === "table" && "w-full",
+                  )}
+                >
                   <PipelineModeSwitcher />
-                  <div ref={setTabsSlot} className="min-w-0 flex-1" />
+                  {effectiveMode === "table" ? (
+                    <div ref={setTabsSlot} className="min-w-0 flex-1" />
+                  ) : null}
                 </div>
               }
             />
