@@ -71,7 +71,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
     parseFloat(threshold) > 0 && (appliesToAll || selectedMembers.length > 0);
 
   return (
-    <div className="border border-border rounded p-3 space-y-3 bg-surface-faint">
+    <div className="border border-border rounded p-3 space-y-3 bg-surface-hover-subtle">
       {/* Rule type picker */}
       <div>
         <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1.5">
@@ -165,7 +165,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
             {teamMembers.map((member) => (
               <label
                 key={member.id}
-                className="flex items-center gap-2 py-1 cursor-pointer hover:bg-surface-faint rounded px-1"
+                className="flex items-center gap-2 py-1 cursor-pointer hover:bg-surface-hover-subtle rounded px-1"
               >
                 <input
                   type="checkbox"
@@ -201,7 +201,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
           className={cn(
             "px-3 py-1.5 rounded border font-mono text-caption-sm uppercase tracking-wider transition-colors flex items-center gap-1.5",
             canSubmit
-              ? "border-olive-line bg-olive-soft text-olive hover:bg-olive-soft/25"
+              ? "border-olive-line bg-olive-soft text-olive hover:border-olive"
               : "border-border bg-surface-input text-text-mute cursor-not-allowed"
           )}
         >
