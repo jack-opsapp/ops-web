@@ -8,7 +8,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { ExpenseApprovalService } from "../api/services/expense-approval-service";
-import { dispatchExpenseApproved } from "../api/services/notification-dispatch";
+import {
+  dispatchExpenseApproved,
+  dispatchExpensePaid,
+} from "../api/services/notification-dispatch";
 import { useAuthStore } from "../store/auth-store";
 import { usePermissionStore } from "../store/permissions-store";
 import type { ExpenseBatch, CreateAutoApproveRule } from "../types/expense-approval";
@@ -91,13 +94,17 @@ export function useApproveBatch() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       batchId,
-      reviewedBy,
-      approvedAmount,
       expenseIds,
     }: {
       batchId: string;
+      /**
+       * Reviewer + approved amount are retained on the mutation interface for
+       * call-site compatibility, but are no longer sent from the client: the
+       * `approve_expense_batch` RPC derives the reviewer from the authenticated
+       * session and recalculates the approved amount server-side.
+       */
       reviewedBy: string;
       approvedAmount: number;
       expenseIds: string[];
@@ -105,11 +112,13 @@ export function useApproveBatch() {
       submittedBy?: string | null;
       companyId?: string;
       batchNumber?: string;
-    }) =>
-      Promise.all([
-        ExpenseApprovalService.approveBatch(batchId, reviewedBy, approvedAmount),
-        ExpenseApprovalService.approveExpenses(expenseIds, reviewedBy),
-      ]),
+    }) => {
+      // Single atomic, permission-enforced approval (batch + lines + recalc).
+      await ExpenseApprovalService.approveBatch(batchId);
+
+      // Best-effort accounting sync — must never fail/roll back the approval.
+      await ExpenseApprovalService.syncExpensesToAccounting(expenseIds);
+    },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });
 
@@ -122,6 +131,68 @@ export function useApproveBatch() {
           actionUrl: "/expenses",
         });
       }
+    },
+  });
+}
+
+/**
+ * Early-clear a single expense line via the `early_clear_expense_line` RPC —
+ * approves just that line, leaves the envelope in place, recalculates the
+ * total, and notifies the submitter server-side (no client dispatch here).
+ */
+export function useEarlyClearLine() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (expenseId: string) =>
+      ExpenseApprovalService.earlyClearLine(expenseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });
+    },
+  });
+}
+
+/**
+ * Record a batch as paid out (`mark_expense_batch_paid` RPC) and tell the
+ * submitter their money moved. The RPC stamps paid_at/paid_by and flips the
+ * approved lines to `reimbursed` — iOS renders those as "paid" natively.
+ */
+export function useMarkBatchPaid() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      batchId,
+    }: {
+      batchId: string;
+      /** Batch metadata for the submitter notification */
+      submittedBy?: string | null;
+      companyId?: string;
+      batchNumber?: string;
+    }) => ExpenseApprovalService.markBatchPaid(batchId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });
+
+      if (variables.submittedBy && variables.companyId) {
+        dispatchExpensePaid({
+          batchLabel: variables.batchNumber ?? variables.batchId,
+          submitterId: variables.submittedBy,
+          companyId: variables.companyId,
+        });
+      }
+    },
+  });
+}
+
+/** Reverse a payout recording — mis-click recovery. No notification. */
+export function useUnmarkBatchPaid() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ batchId }: { batchId: string }) =>
+      ExpenseApprovalService.unmarkBatchPaid(batchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });
     },
   });
 }

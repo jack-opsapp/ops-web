@@ -18,6 +18,7 @@ type NotificationEventType =
   | "schedule_change"
   | "expense_submitted"
   | "expense_approved"
+  | "expense_paid"
   | "mention";
 
 interface DispatchParams {
@@ -364,6 +365,30 @@ export function dispatchExpenseApproved(params: {
     actionLabel: "View",
     pushData: {
       type: "expenseApproved",
+      screen: "expenses",
+    },
+  });
+}
+
+/**
+ * Notify the submitter when their approved batch is recorded as paid out.
+ */
+export function dispatchExpensePaid(params: {
+  batchLabel: string;
+  submitterId: string;
+  companyId: string;
+  actionUrl?: string;
+}): void {
+  dispatch({
+    eventType: "expense_paid",
+    recipientIds: [params.submitterId],
+    companyId: params.companyId,
+    title: "Expenses Paid Out",
+    body: `Your expense batch ${params.batchLabel} has been paid out`,
+    actionUrl: params.actionUrl ?? "/expenses",
+    actionLabel: "View",
+    pushData: {
+      type: "expensePaid",
       screen: "expenses",
     },
   });

@@ -259,7 +259,7 @@ export {
   useUpdateExpenseSettings,
 } from "./use-expense-settings";
 
-// Expense Approval (batches, flagging, approval, auto-approve rules)
+// Expense Approval (batches, flagging, approval, payout, auto-approve rules)
 export {
   useAllExpenses,
   useExpenseBatches,
@@ -267,6 +267,9 @@ export {
   useFlagExpense,
   useUnflagExpense,
   useApproveBatch,
+  useEarlyClearLine,
+  useMarkBatchPaid,
+  useUnmarkBatchPaid,
   useRejectWithRevisions,
   useQuickRejectBatch,
   useAutoApproveRules,
@@ -274,6 +277,7 @@ export {
   useToggleAutoApproveRule,
   useDeleteAutoApproveRule,
 } from "./use-expense-approval";
+export { useExpenseRealtime } from "./use-expense-realtime";
 
 // Notification Preferences
 export {

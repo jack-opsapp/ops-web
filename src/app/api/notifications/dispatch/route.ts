@@ -32,6 +32,7 @@ type NotificationEventType =
   | "schedule_change"
   | "expense_submitted"
   | "expense_approved"
+  | "expense_paid"
   | "mention";
 
 interface DispatchBody {
@@ -76,6 +77,9 @@ const CHANNEL_PREF_KEY: Record<NotificationEventType, string> = {
   schedule_change: "schedule_changes",
   expense_submitted: "expense_submitted",
   expense_approved: "expense_approved",
+  // Payout notices ride the approval preference — a submitter who wants
+  // approval pings wants to know when the money moves; no separate toggle.
+  expense_paid: "expense_approved",
   mention: "team_mentions",
 };
 
@@ -93,6 +97,7 @@ const INAPP_TYPE: Record<NotificationEventType, string> = {
   schedule_change: "schedule_change",
   expense_submitted: "expense_submitted",
   expense_approved: "expense_approved",
+  expense_paid: "expense_paid",
   mention: "mention",
 };
 
