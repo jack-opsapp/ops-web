@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { toast } from "@/components/ui/toast";
+import { DEFAULT_TOAST_DURATION_MS, toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 
 export function useConnectivity() {
@@ -19,7 +19,14 @@ export function useConnectivity() {
   useEffect(() => {
     function handleOnline() {
       setIsOnline(true);
-      toast.success(t("connectivity.online", "BACK ONLINE"), { id: "connectivity" });
+      // Same id updates the persistent offline toast in place. Sonner merges
+      // update payloads, so the stale offline description and Infinity
+      // duration must be cleared explicitly.
+      toast.success(t("connectivity.online", "BACK ONLINE"), {
+        id: "connectivity",
+        description: undefined,
+        duration: DEFAULT_TOAST_DURATION_MS,
+      });
     }
 
     function handleOffline() {
