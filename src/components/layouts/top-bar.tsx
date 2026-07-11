@@ -220,6 +220,16 @@ export function TopBar() {
   const titleReady = !!titleKey && resolvedTitle !== titleKey;
   const rootTitle = titleReady ? resolvedTitle : "";
   const parentRoute = "/" + segments[0];
+  // Nested parent crumb resolves from the PARENT route, not the full path.
+  // A nested route with its own registry entry (e.g. /catalog/setup →
+  // "Catalog setup") would otherwise print the whole entry as the parent
+  // crumb and the leaf would repeat it — "CATALOG SETUP // SETUP". Deriving
+  // from `parentRoute` yields the parent's own title ("CATALOG // SETUP").
+  const parentTitleKey = getTitleKeyForPath(parentRoute);
+  const resolvedParentTitle = parentTitleKey ? tNav(parentTitleKey) : "";
+  const parentTitleReady =
+    !!parentTitleKey && resolvedParentTitle !== parentTitleKey;
+  const parentTitle = parentTitleReady ? resolvedParentTitle : "";
   // Last-resort leaf fallback while the breadcrumb store hydrates — never
   // print a raw slug/UUID as the page title (DESIGN.md §14: no raw data as
   // display copy). IDs render as the `—` empty mark instead.
@@ -287,16 +297,16 @@ export function TopBar() {
               ))
             ) : (
               /* Auto-generated: parent route title from the registry */
-              rootTitle && (
+              parentTitle && (
                 <button
                   onClick={() => router.push(parentRoute)}
                   className="font-mono text-micro text-text-3 hover:text-text-2 transition-colors uppercase tracking-[0.16em]"
                 >
-                  {rootTitle}
+                  {parentTitle}
                 </button>
               )
             )}
-            {(parentCrumbs || rootTitle) && (
+            {(parentCrumbs || parentTitle) && (
               <span className="text-text-mute font-mono text-micro">{"//"}</span>
             )}
             <span className="font-cakemono font-light text-heading text-text uppercase truncate">
