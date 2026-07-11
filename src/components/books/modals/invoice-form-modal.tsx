@@ -60,6 +60,7 @@ export function InvoiceFormModal({
   onClose,
   invoice,
   loading = false,
+  defaultClientId,
   clients,
   projects,
   products,
@@ -71,6 +72,10 @@ export function InvoiceFormModal({
   onClose: () => void;
   invoice: Invoice | null;
   loading?: boolean;
+  /** Preselects the client field on a fresh create (client window → NEW
+   *  INVOICE). Ignored while editing — the invoice row drives the field.
+   *  Left editable. */
+  defaultClientId?: string | null;
   clients: Array<{ id: string; name: string }>;
   projects: Array<{ id: string; title: string }>;
   products: Array<Product>;
@@ -139,7 +144,9 @@ export function InvoiceFormModal({
           : [createEmptyLineItem()]
       );
     } else {
-      setClientId("");
+      // Fresh create — seed the client from the caller (client window → NEW
+      // INVOICE) when provided, else blank. Field stays editable either way.
+      setClientId(defaultClientId ?? "");
       setProjectId("");
       setDate(new Date().toISOString().slice(0, 10));
       setPaymentTerms("Net 30");
@@ -148,7 +155,7 @@ export function InvoiceFormModal({
       setInternalNotes("");
       setLineItems([createEmptyLineItem()]);
     }
-  }, [invoice, loading]);
+  }, [invoice, loading, defaultClientId]);
 
   const handleSubmit = () => {
     const mappedLineItems = lineItems.map((li, index) => {

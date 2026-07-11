@@ -73,6 +73,9 @@ export function BooksPage() {
   const viewParam = searchParams.get("view");
   const statusParam = searchParams.get("status");
   const actionParam = searchParams.get("action");
+  // Optional client seed for ?action=new (client window → NEW INVOICE). Read
+  // once, seeds the create form's client field, then strips with `action`.
+  const clientParam = searchParams.get("client");
 
   // The stored default hydrates in an effect (this route prerenders, so a
   // lazy initializer would mismatch). Until it lands, a no-?segment visit
@@ -199,7 +202,13 @@ export function BooksPage() {
 
   const showStrip = can("accounting.view");
   const openCreate = actionParam === "new";
-  const handleCreateHandled = useCallback(() => updateParams({ action: null }), [updateParams]);
+  // Strip `client` alongside `action` — the segment has already captured the
+  // seed into local state by the time this fires, so dropping it here just
+  // keeps the URL clean (a lingering seed would re-preselect on the next open).
+  const handleCreateHandled = useCallback(
+    () => updateParams({ action: null, client: null }),
+    [updateParams],
+  );
 
   // The ledger is shared across every segment and PINNED in the TableShell's
   // metrics slot (WEB OVERHAUL P6-2). Build it once here and pass the node down;
@@ -286,6 +295,7 @@ export function BooksPage() {
               drilled={drilled}
               onClearDrill={clearDrill}
               openCreate={openCreate}
+              createClientId={clientParam}
               onCreateHandled={handleCreateHandled}
             />
           )}

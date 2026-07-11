@@ -121,6 +121,10 @@ export interface InvoicesSegmentProps {
   onClearDrill: () => void;
   /** ?action=new — open the create modal (through the setup gate). */
   openCreate: boolean;
+  /** ?client=<id> — preselect this client in the create form (client window
+   *  → NEW INVOICE). Captured into local state on open so a URL cleanup can't
+   *  clobber the seed; left editable. */
+  createClientId?: string | null;
   onCreateHandled: () => void;
 }
 
@@ -135,6 +139,7 @@ export function InvoicesSegment({
   drilled,
   onClearDrill,
   openCreate,
+  createClientId,
   onCreateHandled,
 }: InvoicesSegmentProps) {
   const { t } = useDictionary("pipeline");
@@ -159,6 +164,9 @@ export function InvoicesSegment({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  // Client seed for the create modal, captured at open-time so the URL cleanup
+  // (onCreateHandled strips ?client) can't wipe the preselection.
+  const [seedClientId, setSeedClientId] = useState<string | undefined>(undefined);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
@@ -184,22 +192,27 @@ export function InvoicesSegment({
   const { isComplete: setupComplete, missingSteps } = useSetupGate();
   const [showSetupModal, setShowSetupModal] = useState(false);
 
-  const gatedOpenCreate = useCallback(() => {
-    if (!can("invoices.create")) return;
-    if (!setupComplete) {
-      setShowSetupModal(true);
-      return;
-    }
-    setShowCreateModal(true);
-  }, [can, setupComplete]);
+  const gatedOpenCreate = useCallback(
+    (seed?: string) => {
+      if (!can("invoices.create")) return;
+      setSeedClientId(seed);
+      if (!setupComplete) {
+        setShowSetupModal(true);
+        return;
+      }
+      setShowCreateModal(true);
+    },
+    [can, setupComplete],
+  );
 
-  // ?action=new (FAB / redirect deep link)
+  // ?action=new (FAB / redirect deep link). ?client=<id> seeds the client
+  // field; captured into local state here so the ensuing URL cleanup is safe.
   useEffect(() => {
     if (openCreate) {
-      gatedOpenCreate();
+      gatedOpenCreate(createClientId ?? undefined);
       onCreateHandled();
     }
-  }, [openCreate, gatedOpenCreate, onCreateHandled]);
+  }, [openCreate, gatedOpenCreate, onCreateHandled, createClientId]);
 
   async function handleDownloadPdf(invoiceId: string) {
     setGeneratingPdfId(invoiceId);
@@ -419,7 +432,7 @@ export function InvoicesSegment({
     />
   ) : undefined;
   const createSlot = canCreate ? (
-    <WorkbarButton onClick={gatedOpenCreate}>
+    <WorkbarButton onClick={() => gatedOpenCreate()}>
       <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
       {t("invoices.newInvoice")}
     </WorkbarButton>
@@ -445,16 +458,26 @@ export function InvoicesSegment({
         onClose={() => {
           setShowCreateModal(false);
           setEditingInvoice(null);
+          setSeedClientId(undefined);
         }}
         invoice={invoiceDetail ?? editingInvoice}
         loading={isEditingLoading}
+        defaultClientId={seedClientId}
         clients={clients}
         projects={projects}
         products={products}
         companyId={companyId}
         onCreate={(data, lineItems) => {
           if (!can("invoices.create")) return;
-          createInvoice.mutate({ data, lineItems }, { onSuccess: () => setShowCreateModal(false) });
+          createInvoice.mutate(
+            { data, lineItems },
+            {
+              onSuccess: () => {
+                setShowCreateModal(false);
+                setSeedClientId(undefined);
+              },
+            },
+          );
         }}
         onUpdate={(id, data, lineItems) => {
           if (!can("invoices.edit")) return;
