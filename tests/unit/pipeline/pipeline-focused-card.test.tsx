@@ -266,7 +266,9 @@ describe("<PipelineFocusedCard>", () => {
     });
 
     expect(dragActivator).toHaveAttribute("data-dnd-activator", "true");
-    expect(dragActivator).toHaveClass("min-h-11", "w-11");
+    // Dense card: the activator fills the full height of the narrow rail so
+    // the grab surface spans the card edge (rail width lives on the wrapper).
+    expect(dragActivator).toHaveClass("h-full", "w-full", "cursor-grab");
     expect(dndMocks.setActivatorNodeRef).toHaveBeenCalled();
   });
 

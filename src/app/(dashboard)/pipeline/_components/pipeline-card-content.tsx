@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useReducedMotion } from "framer-motion";
+import { CalendarClock, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { EntityPicker } from "@/components/ui/entity-picker";
@@ -17,9 +18,15 @@ import type { Client } from "@/lib/types/models";
 import {
   formatCurrency,
   getDaysInStage,
-  getStageDisplayName,
+  isTerminalStage,
 } from "@/lib/types/pipeline";
-import { formatTimeAgo } from "@/lib/utils/date";
+import {
+  daysOverdue,
+  formatShortDay,
+  formatTimeAgo,
+  isDateOverdue,
+  isDateToday,
+} from "@/lib/utils/date";
 import {
   AddressAutocomplete,
   type AddressSelection,
@@ -169,7 +176,6 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   }
 
   const displayTitle = opportunity.title || clientName;
-  const stageName = getStageDisplayName(opportunity.stage);
   const daysInStage = getDaysInStage(opportunity);
   const activeSurface = isHovered || isExpanded;
   const clampedStaleness = Math.max(0, Math.min(1, stalenessOpacity));
@@ -188,13 +194,45 @@ export const PipelineCardContent = memo(function PipelineCardContent({
     .filter(Boolean)
     .sort((a, b) => b!.getTime() - a!.getTime())[0];
 
+  // ── Dense signal line ──────────────────────────────────────────────────
+  // Only signals that exist render — a card with no email history and no
+  // scheduled follow-up shows no signal line at all (no empty placeholders).
+  const hasEmailSignal = opportunity.correspondenceCount > 0;
+  const followUpDate = opportunity.nextFollowUpAt;
+  const hasFollowUpSignal = Boolean(followUpDate);
+  const hasSignals = hasEmailSignal || hasFollowUpSignal;
+  const followUpOverdue = isDateOverdue(followUpDate);
+  const followUpToday = isDateToday(followUpDate);
+  // Follow-up tone mirrors the board card: overdue = rose, due today = tan,
+  // future = quiet. Its label reuses the existing dictionary strings.
+  const followUpTone = followUpOverdue
+    ? "text-financial-overdue"
+    : followUpToday
+      ? "text-tan"
+      : "text-text-3";
+  const followUpText = !followUpDate
+    ? ""
+    : followUpOverdue
+      ? applyTemplate(t("card.overdue", "Overdue {count}d"), {
+          count: String(daysOverdue(followUpDate)),
+        })
+      : followUpToday
+        ? t("card.today", "Today")
+        : applyTemplate(t("card.followUpDate", "Follow up {date}"), {
+            date: formatShortDay(followUpDate),
+          });
+  // Days-in-stage attention tone: stale active deals (past ~70% of the
+  // staleness ramp) count in tan; terminal/settled deals stay quiet.
+  const staleCount =
+    !isTerminalStage(opportunity.stage) && clampedStaleness <= 0.7;
+
   return (
     <div
       data-opportunity-card-id={isFocusedSurface ? opportunity.id : undefined}
       data-pipeline-card-shell={isFocusedSurface ? "focused" : undefined}
       tabIndex={isFocusedSurface ? -1 : undefined}
       className={cn(
-        "glass-surface relative w-full overflow-hidden rounded-panel [&::before]:rounded-panel",
+        "glass-surface group/card relative w-full overflow-hidden rounded-panel [&::before]:rounded-panel",
         !reduced && "transition-[border-color] duration-150"
       )}
       style={{
@@ -232,15 +270,15 @@ export const PipelineCardContent = memo(function PipelineCardContent({
 
       <div className="relative z-[1] flex min-w-0">
         {leadingAccessory ? (
-          <div className="flex w-12 shrink-0 items-center justify-center py-2 pl-1">
+          <div className="flex w-5 shrink-0 items-stretch justify-center">
             {leadingAccessory}
           </div>
         ) : null}
 
         <div
           className={cn(
-            "flex min-w-0 flex-1 flex-col gap-1 p-2",
-            isFocusedSurface && "gap-1.5 px-2.5 py-2.5",
+            "relative flex min-w-0 flex-1 flex-col gap-1 p-2",
+            isFocusedSurface && "px-2.5 py-2",
             leadingAccessory ? "pl-1" : "pl-3",
             isFocusedSurface && leadingAccessory && "pl-1.5"
           )}
@@ -249,6 +287,8 @@ export const PipelineCardContent = memo(function PipelineCardContent({
             className="block w-full rounded-sm text-left"
             aria-label={openDetailLabel ?? t("card.viewDetails")}
           >
+            {/* Row 1 — title + days-in-stage. The column IS the stage, so only
+                the day count survives; stale active deals count in tan. */}
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <InlineTitleEditor
@@ -257,71 +297,130 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                   canManage={canManage}
                   onTitleSave={onTitleSave}
                 />
-                <ClientLinkControl
-                  opportunity={opportunity}
-                  clientName={clientName}
-                  clients={clients}
-                  canManage={canManage}
-                  onLinkClient={onLinkClient}
-                  onCreateAndLinkClient={onCreateAndLinkClient}
-                />
-                <InlineAddressEditor
-                  opportunity={opportunity}
-                  canManage={canManage}
-                  onAddressSave={onAddressSave}
-                />
               </div>
-              <InlineValueEditor
-                opportunity={opportunity}
-                canManage={canManage}
-                onValueSave={onValueSave}
-              />
+              <span
+                title={applyTemplate(
+                  t("card.daysInStage", "{count}d in stage"),
+                  { count: String(daysInStage) }
+                )}
+                className={cn(
+                  "shrink-0 pt-[3px] font-mono text-micro tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]",
+                  staleCount ? "text-tan" : "text-text-3"
+                )}
+              >
+                {daysInStage}D
+              </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-1 border-t border-line pt-1">
-              <Metric label={stageName} value={`${daysInStage}d`} />
-              <Metric
-                label={t("card.emailCount", "{count} emails").replace(
-                  "{count}",
-                  String(opportunity.correspondenceCount)
-                )}
-                value={
-                  lastCorrespondence
-                    ? formatTimeAgo(lastCorrespondence)
-                    : "—"
-                }
+            {/* Row 2 — client · address merged on one truncating line, value
+                right-aligned. Editors stay live as inline spans; an active
+                address editor wraps to its own full-width line. */}
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5">
+              <ClientLinkControl
+                opportunity={opportunity}
+                clientName={clientName}
+                clients={clients}
+                canManage={canManage}
+                onLinkClient={onLinkClient}
+                onCreateAndLinkClient={onCreateAndLinkClient}
               />
-              <Metric
-                label={t("card.followUpDate", "Follow up {date}").replace(
-                  "{date}",
-                  ""
-                )}
-                value={
-                  opportunity.nextFollowUpAt
-                    ? formatTimeAgo(opportunity.nextFollowUpAt)
-                    : "—"
-                }
+              {(opportunity.address || (canManage && onAddressSave)) && (
+                <span
+                  aria-hidden="true"
+                  className="shrink-0 font-mono text-micro text-text-mute"
+                >
+                  ·
+                </span>
+              )}
+              <InlineAddressEditor
+                opportunity={opportunity}
+                canManage={canManage}
+                onAddressSave={onAddressSave}
               />
+              <div className="ml-auto shrink-0">
+                <InlineValueEditor
+                  opportunity={opportunity}
+                  canManage={canManage}
+                  onValueSave={onValueSave}
+                />
+              </div>
             </div>
           </div>
 
-          <PipelineCardActions
-            opportunityId={opportunity.id}
-            stage={opportunity.stage}
-            canManage={canManage}
-            stageActions={quickStageActions}
-            onLogCall={onLogCall}
-            onLogText={onLogText}
-            onAddNote={onAddNote}
-            onArchive={onArchive}
-            onMarkWon={onMarkWon}
-            onMarkLost={onMarkLost}
-            onDiscard={onDiscard}
-            onAssign={onAssign}
-            onScheduleFollowUp={onScheduleFollowUp}
-            onOpenDetail={onOpenDetail}
-            onConvert={onConvert}
-          />
+          {/* Bottom slot — signal line at rest, actions on hover/focus-within.
+              Both live in one fixed-height slot so the reveal never shifts
+              layout. Reduced motion: both render in flow, always visible. */}
+          {reduced ? (
+            <>
+              <SignalLine
+                hasEmailSignal={hasEmailSignal}
+                hasFollowUpSignal={hasFollowUpSignal}
+                emailCount={opportunity.correspondenceCount}
+                lastCorrespondence={lastCorrespondence ?? null}
+                followUpText={followUpText}
+                followUpTone={followUpTone}
+                emailTitle={applyTemplate(
+                  t("card.emailCount", "{count} emails"),
+                  { count: String(opportunity.correspondenceCount) }
+                )}
+              />
+              <PipelineCardActions
+                opportunityId={opportunity.id}
+                stage={opportunity.stage}
+                canManage={canManage}
+                stageActions={quickStageActions}
+                onLogCall={onLogCall}
+                onLogText={onLogText}
+                onAddNote={onAddNote}
+                onArchive={onArchive}
+                onMarkWon={onMarkWon}
+                onMarkLost={onMarkLost}
+                onDiscard={onDiscard}
+                onAssign={onAssign}
+                onScheduleFollowUp={onScheduleFollowUp}
+                onOpenDetail={onOpenDetail}
+                onConvert={onConvert}
+              />
+            </>
+          ) : (
+            <div className="relative min-h-[28px]">
+              {hasSignals && (
+                <div className="pointer-events-none absolute inset-0 flex items-center transition-opacity duration-150 ease-smooth group-focus-within/card:opacity-0 group-hover/card:opacity-0">
+                  <SignalLine
+                    hasEmailSignal={hasEmailSignal}
+                    hasFollowUpSignal={hasFollowUpSignal}
+                    emailCount={opportunity.correspondenceCount}
+                    lastCorrespondence={lastCorrespondence ?? null}
+                    followUpText={followUpText}
+                    followUpTone={followUpTone}
+                    emailTitle={applyTemplate(
+                      t("card.emailCount", "{count} emails"),
+                      { count: String(opportunity.correspondenceCount) }
+                    )}
+                  />
+                </div>
+              )}
+              <div className="opacity-0 transition-opacity duration-150 ease-smooth group-focus-within/card:opacity-100 group-hover/card:opacity-100">
+                <PipelineCardActions
+                  opportunityId={opportunity.id}
+                  stage={opportunity.stage}
+                  canManage={canManage}
+                  stageActions={quickStageActions}
+                  onLogCall={onLogCall}
+                  onLogText={onLogText}
+                  onAddNote={onAddNote}
+                  onArchive={onArchive}
+                  onMarkWon={onMarkWon}
+                  onMarkLost={onMarkLost}
+                  onDiscard={onDiscard}
+                  onAssign={onAssign}
+                  onScheduleFollowUp={onScheduleFollowUp}
+                  onOpenDetail={onOpenDetail}
+                  onConvert={onConvert}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -656,20 +755,20 @@ function ClientLinkControl({
 
   if (!canEdit) {
     return (
-      <p className="truncate font-mohave text-body-sm text-text-2">
+      <p className="min-w-0 shrink truncate font-mono text-micro text-text-3">
         {displayClientName}
       </p>
     );
   }
 
   return (
-    <div className="relative min-w-0">
+    <div className="relative min-w-0 shrink">
       <EntityPicker<Client>
         trigger={
           <button
             type="button"
             aria-label={label}
-            className="block w-full truncate rounded text-left font-mohave text-body-sm text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            className="block max-w-full truncate rounded text-left font-mono text-micro text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
             onClick={(event) => event.stopPropagation()}
             onPointerDown={(event) => event.stopPropagation()}
             onMouseDown={(event) => event.stopPropagation()}
@@ -731,7 +830,7 @@ function InlineAddressEditor({
     return (
       <div
         data-keyboard-scope="modal-or-menu"
-        className="mt-1"
+        className="w-full"
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.stopPropagation();
@@ -768,7 +867,7 @@ function InlineAddressEditor({
 
   if (!canEdit) {
     return (
-      <p className="mt-1 truncate font-mohave text-body-sm text-text-3">
+      <p className="min-w-0 flex-1 truncate font-mono text-micro text-text-3">
         {addressText}
       </p>
     );
@@ -778,7 +877,7 @@ function InlineAddressEditor({
     <button
       type="button"
       aria-label={addressLabel}
-      className="mt-1 block w-full truncate rounded text-left font-mohave text-body-sm text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+      className="min-w-0 flex-1 truncate rounded text-left font-mono text-micro text-text-3 transition-colors duration-150 hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
       onClick={(event) => {
         event.stopPropagation();
         setEditing(true);
@@ -791,13 +890,76 @@ function InlineAddressEditor({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+/**
+ * SignalLine — the card's one-line email + follow-up readout. Only signals
+ * that exist render (a card with no email history and no follow-up shows
+ * nothing — no empty placeholders). Icons are 12px metadata glyphs; counts
+ * and dates stay mono micro with tabular-lining figures.
+ */
+function SignalLine({
+  hasEmailSignal,
+  hasFollowUpSignal,
+  emailCount,
+  lastCorrespondence,
+  followUpText,
+  followUpTone,
+  emailTitle,
+}: {
+  hasEmailSignal: boolean;
+  hasFollowUpSignal: boolean;
+  emailCount: number;
+  lastCorrespondence: Date | null;
+  followUpText: string;
+  followUpTone: string;
+  emailTitle: string;
+}) {
+  if (!hasEmailSignal && !hasFollowUpSignal) return null;
+
   return (
-    <div className="min-w-0">
-      <p className="truncate font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-        {label}
-      </p>
-      <p className="truncate font-mono text-data-sm text-text-2">{value}</p>
+    <div className="flex min-w-0 items-center gap-1 font-mono text-micro text-text-3 [font-feature-settings:'tnum'_1,'zero'_1]">
+      {hasEmailSignal && (
+        <span
+          className="inline-flex min-w-0 items-center gap-1"
+          title={emailTitle}
+        >
+          <Mail
+            aria-hidden="true"
+            className="h-3 w-3 shrink-0"
+            strokeWidth={1.5}
+          />
+          <span className="tabular-nums">{emailCount}</span>
+          {lastCorrespondence && (
+            <>
+              <span aria-hidden="true" className="text-text-mute">
+                ·
+              </span>
+              <span className="truncate">
+                {formatTimeAgo(lastCorrespondence)}
+              </span>
+            </>
+          )}
+        </span>
+      )}
+      {hasEmailSignal && hasFollowUpSignal && (
+        <span aria-hidden="true" className="shrink-0 text-text-mute">
+          ·
+        </span>
+      )}
+      {hasFollowUpSignal && (
+        <span
+          className={cn(
+            "inline-flex min-w-0 items-center gap-1",
+            followUpTone
+          )}
+        >
+          <CalendarClock
+            aria-hidden="true"
+            className="h-3 w-3 shrink-0"
+            strokeWidth={1.5}
+          />
+          <span className="truncate">{followUpText}</span>
+        </span>
+      )}
     </div>
   );
 }
