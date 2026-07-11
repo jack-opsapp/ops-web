@@ -108,6 +108,31 @@ describe("title resolution (replaces top-bar routeTitles)", () => {
   });
 });
 
+describe("nested breadcrumb parent-crumb resolution (top-bar CATALOG // SETUP)", () => {
+  // A nested route that owns a registry entry (/catalog/setup) resolves its
+  // OWN label on the full path. Deriving the parent crumb from the full path
+  // printed the whole entry, then the leaf repeated it → "CATALOG SETUP //
+  // SETUP". The top bar now derives the parent crumb from the parent route
+  // ("/" + first segment), which yields the parent's own, distinct label so
+  // the trail reads "CATALOG // SETUP". This test pins that the two titles
+  // are distinct — the invariant the fix depends on.
+  it("full-path title is distinct from parent-route title for /catalog/setup", () => {
+    expect(getTitleKeyForPath("/catalog/setup")).toBe("nav.catalogSetup");
+    expect(getTitleKeyForPath("/catalog")).toBe("nav.catalog");
+    expect(getTitleKeyForPath("/catalog/setup")).not.toBe(
+      getTitleKeyForPath("/catalog"),
+    );
+  });
+
+  it("dynamic detail routes keep the parent title from the parent route", () => {
+    // /projects/[id] has no registry entry of its own; both the full path and
+    // the parent route resolve to the projects title, so the auto-generated
+    // crumb stays "PROJECTS // {name}" under the fix (no regression).
+    expect(getTitleKeyForPath("/projects/abc-123")).toBe("nav.projects");
+    expect(getTitleKeyForPath("/projects")).toBe("nav.projects");
+  });
+});
+
 describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", () => {
   it.each([
     ["/projects", "projects.view"],
