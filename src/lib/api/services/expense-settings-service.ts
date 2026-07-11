@@ -18,6 +18,8 @@ export interface ExpenseSettings {
   adminApprovalThreshold: number | null;
   requireReceiptPhoto: boolean;
   requireProjectAssignment: boolean;
+  /** Days after a period ends before its envelope auto-sends for review (server sweep). */
+  autoSubmitGraceDays: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +42,7 @@ function mapFromDb(row: Record<string, unknown>): ExpenseSettings {
     adminApprovalThreshold: row.admin_approval_threshold != null ? Number(row.admin_approval_threshold) : null,
     requireReceiptPhoto: (row.require_receipt_photo as boolean) ?? true,
     requireProjectAssignment: (row.require_project_assignment as boolean) ?? false,
+    autoSubmitGraceDays: row.auto_submit_grace_days != null ? Number(row.auto_submit_grace_days) : 7,
     createdAt: parseDateRequired(row.created_at),
     updatedAt: parseDateRequired(row.updated_at),
   };
@@ -54,6 +57,7 @@ function defaultSettings(companyId: string): ExpenseSettings {
     adminApprovalThreshold: null,
     requireReceiptPhoto: true,
     requireProjectAssignment: false,
+    autoSubmitGraceDays: 7,
     createdAt: now,
     updatedAt: now,
   };
