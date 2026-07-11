@@ -67,7 +67,7 @@ import { PipelineFocusedDetailWindow } from "./_components/pipeline-focused-deta
 import { PipelineFocusedDragOverlay } from "./_components/pipeline-focused-drag-overlay";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
 import { PipelineModeSwitcher } from "./_components/pipeline-mode-switcher";
-import { PipelineFilterRow } from "./_components/pipeline-filter-row";
+import { PipelineFilterChips } from "./_components/pipeline-filter-chips";
 import { usePipelineModeShortcut } from "./_components/pipeline-mode-shortcuts";
 import {
   resolvePipelineDragEnd,
@@ -991,19 +991,12 @@ export default function PipelinePage() {
                 />
               }
               filters={
-                <PipelineFilterRow
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
+                <PipelineFilterChips
                   stageFilter={stageFilter}
                   onStageFilterChange={setStageFilter}
                   assigneeFilter={assigneeFilter}
                   onAssigneeFilterChange={setAssigneeFilter}
                   teamMembers={teamMembers}
-                  onAddLead={gatedOpenCreate}
-                  canManage={canManage}
-                  variant="toolbar"
-                  showSearch={false}
-                  showNewLead={false}
                 />
               }
               tools={

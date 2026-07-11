@@ -9,7 +9,7 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Opportunity, OpportunityStage } from "@/lib/types/pipeline";
-import { PipelineFilterRow } from "@/app/(dashboard)/pipeline/_components/pipeline-filter-row";
+import { PipelineFilterChips } from "@/app/(dashboard)/pipeline/_components/pipeline-filter-chips";
 import { PipelineFocusedShell } from "@/app/(dashboard)/pipeline/_components/pipeline-focused-shell";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import {
@@ -222,16 +222,21 @@ function PipelineFocusedModeHarness() {
 
   return (
     <div>
-      <PipelineFilterRow
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+      {/* The production toolbar keeps search in the Workbar's `search` slot and
+          the stage/assignee filters in `PipelineFilterChips`; the harness mirrors
+          that split so it exercises the same filter state wiring. */}
+      <input
+        type="search"
+        aria-label="search pipeline..."
+        value={searchQuery}
+        onChange={(event) => setSearchQuery(event.target.value)}
+      />
+      <PipelineFilterChips
         stageFilter={stageFilter}
         onStageFilterChange={setStageFilter}
         assigneeFilter={assigneeFilter}
         onAssigneeFilterChange={setAssigneeFilter}
         teamMembers={[]}
-        onAddLead={vi.fn()}
-        canManage={true}
       />
       {mode === "focused" ? (
         <PipelineFocusedShell
@@ -314,8 +319,8 @@ describe("pipeline focused mode integration", () => {
       screen.getByRole("searchbox", { name: "search pipeline..." }),
       "deck"
     );
-    await user.click(screen.getByRole("button", { name: "All Stages" }));
-    await user.click(screen.getByRole("option", { name: "Quoted" }));
+    // Stage is now an inline chip — click it directly (no dropdown to open).
+    await user.click(screen.getByRole("button", { name: "Quoted" }));
 
     fireEvent.keyDown(window, { key: "v" });
 
@@ -335,8 +340,8 @@ describe("pipeline focused mode integration", () => {
     });
     render(<PipelineFocusedModeHarness />);
 
-    await user.click(screen.getByRole("button", { name: "All Stages" }));
-    await user.click(screen.getByRole("option", { name: "New Lead" }));
+    // Stage is now an inline chip — click it directly (no dropdown to open).
+    await user.click(screen.getByRole("button", { name: "New Lead" }));
 
     expect(screen.getByText("// NO MATCHES FOR FILTERS")).toBeInTheDocument();
     expect(usePipelineModeStore.getState().focusedStage).toBe(
