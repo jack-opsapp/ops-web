@@ -37,18 +37,19 @@ export function ExpensesSegment({
 
   const [activePeriod, setActivePeriod] = useState<string>("");
 
-  // Period keys, deduplicated, sorted descending.
+  // Period keys, deduplicated, oldest→newest — the chip strip runs left→right
+  // in this order and docks the newest month at the far right (WEB POLISH).
   const periods = useMemo(() => {
     const keys = new Set<string>();
     for (const b of batches) {
       const key = periodKeyFromBatch(b);
       if (key && key !== "unknown") keys.add(key);
     }
-    return [...keys].sort().reverse();
+    return [...keys].sort();
   }, [batches]);
 
-  // Auto-select latest period if none selected.
-  const effectivePeriod = activePeriod || periods[0] || "";
+  // Default = newest period = the last chip (rightmost).
+  const effectivePeriod = activePeriod || periods[periods.length - 1] || "";
 
   const periodBatches = useMemo(
     () => batches.filter((b) => periodKeyFromBatch(b) === effectivePeriod),
