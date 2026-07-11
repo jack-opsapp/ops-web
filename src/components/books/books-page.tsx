@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary, useLocale } from "@/i18n/client";
@@ -30,6 +31,7 @@ import { InvoicesSegment, type InvoicesView } from "./segments/invoices-segment"
 import { EstimatesSegment } from "./segments/estimates-segment";
 import { ExpensesSegment } from "./segments/expenses-segment";
 import { SyncSegment, type SyncView } from "./segments/sync-segment";
+import { scheduleViewVariants, scheduleViewVariantsReduced } from "@/lib/utils/motion";
 
 export type BooksSegment = "invoices" | "estimates" | "expenses" | "sync";
 
@@ -58,6 +60,7 @@ export function BooksPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const can = usePermissionStore((s) => s.can);
+  const reducedMotion = useReducedMotion();
 
   // ── Visible segments ──────────────────────────────────────────────────
   const visibleSegments = useMemo(
@@ -255,65 +258,81 @@ export function BooksPage() {
     // Fixed-viewport: the page never scrolls — each segment's TableShell owns an
     // internal scroll body under the pinned metrics + workbar (WEB OVERHAUL P6-2).
     <div className="flex h-full min-h-0 flex-col">
-      {activeSegment === "invoices" && (
-        <InvoicesSegment
-          metrics={ledger}
-          segmentControl={segmentControl}
-          listAllowed={can("invoices.view")}
-          view={invoicesView}
-          onViewChange={(view) => updateParams({ view: view === "aging" ? "aging" : null })}
-          statusFilter={invoiceStatusFilter}
-          onStatusFilterChange={(status) => {
-            updateParams({ status: status === "all" ? null : status });
-          }}
-          drilled={drilled}
-          onClearDrill={clearDrill}
-          openCreate={openCreate}
-          onCreateHandled={handleCreateHandled}
-        />
-      )}
+      {/* Segment body swap — one keyed motion.div per active segment. mode="wait"
+          fades the outgoing segment out before the incoming fades in, so only one
+          TableShell (and its query subscriptions) mounts at a time. The pinned
+          chrome geometry is now constant across all four segments, so the swap
+          reads as one surface breathing rather than the chrome jumping. */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={activeSegment ?? "none"}
+          className="flex h-full min-h-0 flex-col"
+          variants={reducedMotion ? scheduleViewVariantsReduced : scheduleViewVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+        >
+          {activeSegment === "invoices" && (
+            <InvoicesSegment
+              metrics={ledger}
+              segmentControl={segmentControl}
+              listAllowed={can("invoices.view")}
+              view={invoicesView}
+              onViewChange={(view) => updateParams({ view: view === "aging" ? "aging" : null })}
+              statusFilter={invoiceStatusFilter}
+              onStatusFilterChange={(status) => {
+                updateParams({ status: status === "all" ? null : status });
+              }}
+              drilled={drilled}
+              onClearDrill={clearDrill}
+              openCreate={openCreate}
+              onCreateHandled={handleCreateHandled}
+            />
+          )}
 
-      {activeSegment === "estimates" && (
-        <EstimatesSegment
-          metrics={ledger}
-          segmentControl={segmentControl}
-          statusFilter={estimateStatusFilter}
-          onStatusFilterChange={(status) => {
-            updateParams({ status: status === "all" ? null : status });
-          }}
-          drilled={drilled}
-          onClearDrill={clearDrill}
-          openCreate={openCreate}
-          onCreateHandled={handleCreateHandled}
-        />
-      )}
+          {activeSegment === "estimates" && (
+            <EstimatesSegment
+              metrics={ledger}
+              segmentControl={segmentControl}
+              statusFilter={estimateStatusFilter}
+              onStatusFilterChange={(status) => {
+                updateParams({ status: status === "all" ? null : status });
+              }}
+              drilled={drilled}
+              onClearDrill={clearDrill}
+              openCreate={openCreate}
+              onCreateHandled={handleCreateHandled}
+            />
+          )}
 
-      {activeSegment === "expenses" && (
-        <ExpensesSegment metrics={ledger} segmentControl={segmentControl} />
-      )}
+          {activeSegment === "expenses" && (
+            <ExpensesSegment metrics={ledger} segmentControl={segmentControl} />
+          )}
 
-      {activeSegment === "sync" && (
-        <SyncSegment
-          metrics={ledger}
-          segmentControl={segmentControl}
-          view={syncView}
-          onViewChange={(view) =>
-            updateParams({ view: view === "import" ? "import" : null })
-          }
-        />
-      )}
+          {activeSegment === "sync" && (
+            <SyncSegment
+              metrics={ledger}
+              segmentControl={segmentControl}
+              view={syncView}
+              onViewChange={(view) =>
+                updateParams({ view: view === "import" ? "import" : null })
+              }
+            />
+          )}
 
-      {/* No visible segment: the route gate should prevent this, but never
-          render a blank canvas — show the tactical empty state. (Suppressed
-          during the one-frame localStorage hydration.) */}
-      {segmentHydrated && !activeSegment && (
-        <div className="flex flex-col items-start py-8">
-          <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-            <span className="text-text-mute">{"// "}</span>
-            {t("ledger.noData")}
-          </span>
-        </div>
-      )}
+          {/* No visible segment: the route gate should prevent this, but never
+              render a blank canvas — show the tactical empty state. (Suppressed
+              during the one-frame localStorage hydration.) */}
+          {segmentHydrated && !activeSegment && (
+            <div className="flex flex-col items-start py-8">
+              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+                <span className="text-text-mute">{"// "}</span>
+                {t("ledger.noData")}
+              </span>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
