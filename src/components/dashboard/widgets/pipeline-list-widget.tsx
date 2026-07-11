@@ -278,6 +278,7 @@ function PipelineInlineActions({
     });
     showWidgetActionToast({
       label: `${t("pipelineList.advancedTo") ?? "Advanced to"} ${getStageDisplayName(nextStage)}`,
+      undoLabel: t("pipelineList.undo") ?? "Undo",
       onUndo: () => {
         moveStage.mutate({
           id: opportunity.id,
@@ -313,6 +314,7 @@ function PipelineInlineActions({
           opportunity.contactName ?? opportunity.client?.name ?? opportunity.contactEmail;
         showWidgetActionToast({
           label: `${t("pipelineList.followUpSent") ?? "Follow-up sent to"} ${recipientName}`,
+          undoLabel: t("pipelineList.undo") ?? "Undo",
           onUndo: () => {
             createActivity.mutate({
               companyId: company.id,

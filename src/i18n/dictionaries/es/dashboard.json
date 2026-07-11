@@ -893,6 +893,7 @@
 
   "pipelineList.advance": "Avanzar",
   "pipelineList.advancedTo": "Avanzado a",
+  "pipelineList.undo": "Deshacer",
   "pipelineList.composePlaceholder": "Mensaje rápido de seguimiento...",
   "pipelineList.defaultProjectTitle": "Tu proyecto",
   "pipelineList.followUp": "Seguimiento",

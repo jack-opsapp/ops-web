@@ -7,6 +7,7 @@ import {
   PROJECT_TABLE_COLUMN_IDS,
   getProjectTableEditValue,
   type ProjectTableColumnId,
+  type ProjectTableEditableColumnId,
   type ProjectTableSort,
 } from "@/lib/types/project-table";
 import { useCellEdit } from "@/lib/hooks/projects-table/use-cell-edit";
@@ -28,7 +29,7 @@ import { ProjectsDensityControl } from "./projects-density-control";
 import { ProjectsEmptyState } from "./projects-empty-state";
 import { ProjectsTable } from "./projects-table";
 import { ProjectsToolbar, ProjectsRowCount } from "./projects-toolbar";
-import { ProjectsUndoToast } from "./projects-undo-toast";
+import { showUndoToast } from "@/components/ui/toast-undo";
 import { ProjectsViewCreateDialog } from "./projects-view-create-dialog";
 import { ProjectsViewSettingsMenu } from "./projects-view-settings-menu";
 import { ProjectsViewTabs } from "./projects-view-tabs";
@@ -59,6 +60,17 @@ function upsertProjectView(
 function pickFallbackView(views: ProjectTableViewDefinition[]) {
   return views.find((view) => view.isDefault) ?? views[0] ?? null;
 }
+
+// Editable column id → its `table.column.<id>` dictionary key, for the undo
+// toast body ("{column} updated on {project}").
+const UNDO_COLUMN_LABEL_KEYS = {
+  name: "table.column.name",
+  status: "table.column.status",
+  client: "table.column.client",
+  address: "table.column.address",
+  start_date: "table.column.startDate",
+  end_date: "table.column.endDate",
+} as const satisfies Record<ProjectTableEditableColumnId, string>;
 
 function ProjectsViewState({ label }: { label: string }) {
   return (
@@ -295,6 +307,40 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
   const handleUndoLatest = useCallback(() => {
     void undoLatest();
   }, [undoLatest]);
+
+  // ── Undo toast (canonical system) ───────────────────────────────────────
+  // The cell-edit engine surfaces `latestUndo` (single-cell or bulk);
+  // presentation renders through the shared Sonner-based undo toast. Refs keep
+  // the callbacks fresh without re-firing the effect — it fires exactly once
+  // per new undo entry.
+  const { clearLatestUndo } = cellEdit;
+  const undoActionRef = useRef(handleUndoLatest);
+  const undoClearRef = useRef(clearLatestUndo);
+  useEffect(() => {
+    undoActionRef.current = handleUndoLatest;
+    undoClearRef.current = clearLatestUndo;
+  }, [handleUndoLatest, clearLatestUndo]);
+
+  const latestUndoEntry = cellEdit.latestUndo;
+  const lastToastedUndoIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!latestUndoEntry || latestUndoEntry.id === lastToastedUndoIdRef.current) return;
+    lastToastedUndoIdRef.current = latestUndoEntry.id;
+    const isBulk = "kind" in latestUndoEntry && latestUndoEntry.kind === "bulk";
+    showUndoToast({
+      title: isBulk ? t("table.bulk.undoTitle") : t("table.undo.toastTitle"),
+      description: isBulk
+        ? t("table.bulk.undoBody", { count: String(latestUndoEntry.projectIds.length) })
+        : t("table.undo.body", {
+            column: t(UNDO_COLUMN_LABEL_KEYS[latestUndoEntry.columnId]),
+            project: latestUndoEntry.projectTitle,
+          }),
+      undoLabel: t("table.undo.action"),
+      dismissLabel: t("table.undo.dismiss"),
+      onUndo: () => undoActionRef.current(),
+      onDismiss: () => undoClearRef.current(),
+    });
+  }, [latestUndoEntry, t]);
 
   const handleFocusSearch = useCallback(() => {
     searchInputRef.current?.focus();
@@ -634,11 +680,6 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
           recordBulkUndo={cellEdit.pushBulkUndo}
         />
       ) : null}
-      <ProjectsUndoToast
-        entry={cellEdit.latestUndo}
-        onUndo={handleUndoLatest}
-        onDismiss={cellEdit.clearLatestUndo}
-      />
       <ProjectsConflictOverlay
         conflict={cellEdit.conflict}
         currentValue={currentConflictValue}

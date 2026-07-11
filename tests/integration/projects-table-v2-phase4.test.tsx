@@ -32,8 +32,10 @@ const {
   analyticsTrackMock,
   dispatchProjectAssignmentMock,
   createSystemEventMock,
+  showUndoToastMock,
 } = vi.hoisted(() => ({
   openProjectWindow: vi.fn(),
+  showUndoToastMock: vi.fn(),
   assignTeamMemberMock: vi.fn(),
   removeTeamMemberMock: vi.fn(),
   createFirstTaskMock: vi.fn(),
@@ -400,7 +402,20 @@ function resetTeamState() {
 
 vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({
-    t: (key: string, fallback?: string) => dictionary[key] ?? fallback ?? key,
+    // Mirrors the real t(): a params object interpolates {token} placeholders,
+    // a string second arg is an English fallback for missing keys.
+    t: (key: string, fallbackOrParams?: string | Record<string, unknown>) => {
+      const value = dictionary[key];
+      if (typeof value === "string") {
+        if (fallbackOrParams && typeof fallbackOrParams === "object") {
+          return value.replace(/\{(\w+)\}/g, (match, token) =>
+            token in fallbackOrParams ? String(fallbackOrParams[token]) : match,
+          );
+        }
+        return value;
+      }
+      return typeof fallbackOrParams === "string" ? fallbackOrParams : key;
+    },
   }),
 }));
 
@@ -463,6 +478,10 @@ vi.mock("@/lib/api/services/project-table-team-service", async () => {
     },
   };
 });
+
+vi.mock("@/components/ui/toast-undo", () => ({
+  showUndoToast: showUndoToastMock,
+}));
 
 vi.mock("@/stores/window-store", () => ({
   useWindowStore: (selector: (state: { openProjectWindow: typeof openProjectWindow }) => unknown) =>
@@ -1224,8 +1243,11 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
     );
     await user.click(screen.getByRole("button", { name: "Change status" }));
 
-    expect(await screen.findByRole("status")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(showUndoToastMock).toHaveBeenCalled());
+    const undoToast = showUndoToastMock.mock.calls.at(-1)![0];
+    expect(undoToast.title).toBe("// BULK CHANGE SAVED");
+    expect(undoToast.description).toBe("2 projects updated.");
+    await undoToast.onUndo();
 
     await waitFor(() => {
       expect(bulkUpdateProjectsMock).toHaveBeenLastCalledWith({
