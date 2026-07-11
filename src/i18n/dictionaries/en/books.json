@@ -80,6 +80,7 @@
 
   "sync.badge.live": "Live",
   "sync.badge.offline": "Offline",
+  "expenses.rejectDisabledHint": "Flag a line item to reject",
   "sync.badge.sandbox": "Sandbox",
   "sync.badge.notConnected": "Not connected",
   "sync.badge.review": "{count} to review",

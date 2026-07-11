@@ -80,6 +80,7 @@
 
   "sync.badge.live": "Activo",
   "sync.badge.offline": "Desconectado",
+  "expenses.rejectDisabledHint": "Marca una línea para rechazar",
   "sync.badge.sandbox": "Pruebas",
   "sync.badge.notConnected": "Sin conexión",
   "sync.badge.review": "{count} por revisar",

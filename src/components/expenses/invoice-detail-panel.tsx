@@ -13,6 +13,7 @@ import {
   useRejectWithRevisions,
 } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useDictionary } from "@/i18n/client";
 import type { ExpenseBatch } from "@/lib/types/expense-approval";
 import {
   getBatchDisplayName,
@@ -50,6 +51,7 @@ export function InvoiceDetailPanel({
 }: InvoiceDetailPanelProps) {
   const { currentUser } = useAuthStore();
   const userId = currentUser?.id ?? "";
+  const { t } = useDictionary("books");
 
   // Data
   const { data: expenses = [], isLoading } = useBatchExpenses(batch.id);
@@ -185,7 +187,7 @@ export function InvoiceDetailPanel({
   const statusColor = BATCH_STATUS_COLOR[batch.status];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
       {/* Header card */}
       <div className="p-3 border-b border-border space-y-2">
         <div className="flex items-start justify-between">
@@ -259,8 +261,9 @@ export function InvoiceDetailPanel({
         </div>
       </div>
 
-      {/* Line items */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Line items — bottom padding keeps the last row clear of the floating
+          approve/reject cluster that floats over the panel's bottom-right. */}
+      <div className="flex-1 overflow-y-auto pb-12">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-[20px] h-[20px] text-text-mute animate-spin" />
@@ -276,47 +279,50 @@ export function InvoiceDetailPanel({
         )}
       </div>
 
-      {/* Sticky footer — only for reviewable batches */}
+      {/* Floating action cluster — compact, bottom-right of the panel, over the
+          scroller (content z-tier). Same review logic as before; only the chrome
+          changed from a full-width footer to a small floating cluster. */}
       {reviewable && canReview && (
-        <div className="border-t border-border p-3 space-y-2">
+        <div className="absolute bottom-3 right-3 z-[5] flex items-center gap-1.5">
           {flagCount > 0 ? (
             <>
-              {/* Remove all flags text link */}
+              {/* Remove all flags — text link, left of the buttons */}
               <button
                 onClick={handleRemoveAllFlags}
                 className="font-mono text-micro text-text-3 hover:text-text-2 uppercase tracking-wider transition-colors"
               >
                 REMOVE ALL FLAGS
               </button>
-              {/* Full-width reject button */}
+              {/* Reject with revisions */}
               <button
                 onClick={() => setShowRejectModal(true)}
-                className="w-full px-4 py-2 rounded bg-[#93321A] hover:bg-[#a83d20] text-white font-mono text-caption-sm uppercase tracking-wider transition-colors"
+                className="flex h-[28px] items-center rounded border border-rose-line bg-rose-soft px-2.5 font-mono text-micro uppercase tracking-wider text-rose transition-colors hover:bg-rose-soft/80"
               >
-                REJECT WITH {flagCount} REVISION{flagCount !== 1 ? "S" : ""}
+                REJECT · {flagCount}
               </button>
             </>
           ) : (
-            <div className="flex gap-2">
-              {/* Reject — dimmed when no flags */}
+            <>
+              {/* Reject — disabled until a line item is flagged */}
               <button
                 disabled
-                className="flex-1 px-4 py-2 rounded border border-border text-text-mute font-mono text-caption-sm uppercase tracking-wider cursor-not-allowed"
+                title={t("expenses.rejectDisabledHint")}
+                className="flex h-[28px] items-center rounded border border-border px-2.5 font-mono text-micro uppercase tracking-wider text-text-mute cursor-not-allowed"
               >
                 REJECT
               </button>
-              {/* Approve */}
+              {/* Approve all */}
               <button
                 onClick={handleApprove}
                 disabled={approveMutation.isPending}
-                className="flex-1 px-4 py-2 rounded bg-[rgba(157,181,130,0.15)] hover:bg-[rgba(157,181,130,0.25)] text-[#9DB582] font-mono text-caption-sm uppercase tracking-wider transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="flex h-[28px] items-center gap-1.5 rounded border border-olive-line bg-olive-soft px-2.5 font-mono text-micro uppercase tracking-wider text-olive transition-colors hover:bg-olive-soft/80 disabled:opacity-50"
               >
                 {approveMutation.isPending && (
                   <Loader2 className="w-[12px] h-[12px] animate-spin" />
                 )}
                 APPROVE ALL
               </button>
-            </div>
+            </>
           )}
         </div>
       )}
