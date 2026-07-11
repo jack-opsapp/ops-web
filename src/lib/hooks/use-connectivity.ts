@@ -7,8 +7,11 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "@/components/ui/toast";
+import { useDictionary } from "@/i18n/client";
 
 export function useConnectivity() {
+  // Copy lives in the topbar namespace — the hook's only consumer.
+  const { t } = useDictionary("topbar");
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator !== "undefined" ? navigator.onLine : true
   );
@@ -16,15 +19,18 @@ export function useConnectivity() {
   useEffect(() => {
     function handleOnline() {
       setIsOnline(true);
-      toast.success("Back online", { id: "connectivity" });
+      toast.success(t("connectivity.online", "BACK ONLINE"), { id: "connectivity" });
     }
 
     function handleOffline() {
       setIsOnline(false);
-      toast.error("No internet connection", {
+      toast.error(t("connectivity.offline", "OFFLINE"), {
         id: "connectivity",
         duration: Infinity,
-        description: "Changes will sync when connection is restored.",
+        description: t(
+          "connectivity.offlineDetail",
+          "Changes sync when connection is restored."
+        ),
       });
     }
 
@@ -35,7 +41,7 @@ export function useConnectivity() {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [t]);
 
   return isOnline;
 }
