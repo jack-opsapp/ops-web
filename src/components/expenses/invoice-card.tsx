@@ -36,8 +36,21 @@ function getInitials(batch: ExpenseBatch): string {
   return "??";
 }
 
+/** Numbers keep tabular + slashed-zero so amounts don't jitter as they change. */
+const NUM_FEAT = { fontFeatureSettings: '"tnum" 1, "zero" 1' } as const;
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
+/**
+ * Dense two-row expense row-card (target ≤56px):
+ *
+ *   [avatar]  NAME                          $1,234.56
+ *             INV-0042 · STATUS · +A1
+ *
+ * Flat register row (no per-card glass/pill chrome) with a hairline base and an
+ * accent left-rail for the selected master-detail row. Amounts are mono; the
+ * status reads as plain colored text (the label already carries the meaning).
+ */
 export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
   const displayName = getBatchDisplayName(batch);
   const statusLabel = BATCH_STATUS_DISPLAY[batch.status];
@@ -50,70 +63,53 @@ export function InvoiceCard({ batch, isSelected, onClick }: InvoiceCardProps) {
       type="button"
       onClick={onClick}
       className={cn(
-        // Layout
-        "w-full text-left px-3 py-2 flex flex-col gap-1.5",
-        // Surface
-        "bg-glass glass-surface border rounded",
-        // Transition
-        "transition-colors duration-150",
-        // States
+        "w-full text-left flex flex-col gap-0.5 px-3 py-1.5",
+        "border-l-2 border-b border-b-line transition-colors duration-150",
         isSelected
-          ? "border-[#6F94B0] bg-[rgba(111, 148, 176,0.06)]"
-          : "border-border hover:border-[rgba(255,255,255,0.30)] cursor-pointer"
+          ? "border-l-ops-accent bg-ops-accent/[0.06]"
+          : "border-l-transparent hover:bg-[rgba(255,255,255,0.03)] cursor-pointer"
       )}
     >
-      {/* Row 1 — Avatar + Name */}
+      {/* Row 1 — avatar · name · amount */}
       <div className="flex items-center gap-1.5">
-        {/* Avatar */}
-        <div className="relative h-[32px] w-[32px] shrink-0 overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
+        <div className="relative h-[20px] w-[20px] shrink-0 overflow-hidden rounded-full bg-[rgba(255,255,255,0.08)]">
           {hasProfileImage ? (
             <Image
               src={batch.submitter!.profileImageUrl!}
               alt={displayName}
               fill
               className="object-cover"
-              sizes="32px"
+              sizes="20px"
             />
           ) : (
-            <span className="flex h-full w-full items-center justify-center font-mohave text-caption-sm text-text-2 select-none">
+            <span className="flex h-full w-full items-center justify-center font-mohave text-micro-sm text-text-2 select-none">
               {getInitials(batch)}
             </span>
           )}
         </div>
 
-        <span className="font-mohave text-body text-text truncate">
+        <span className="font-mohave text-body-sm text-text truncate">
           {displayName}
+        </span>
+
+        <span
+          className="ml-auto shrink-0 font-mono text-data text-text tabular-nums"
+          style={NUM_FEAT}
+        >
+          {formatCurrency(batch.totalAmount ?? 0)}
         </span>
       </div>
 
-      {/* Row 2 — Invoice number */}
-      <span className="font-mono text-caption-sm text-text-3 uppercase">
-        {batch.batchNumber}
-      </span>
-
-      {/* Row 3 — Total amount */}
-      <span className="font-mohave text-body-lg text-text">
-        {formatCurrency(batch.totalAmount ?? 0)}
-      </span>
-
-      {/* Row 4 — Status pill + amendment indicator */}
-      <div className="flex items-center gap-1">
-        {/* Status pill */}
-        <span
-          className="inline-flex items-center rounded-full px-1.5 py-[2px] font-mono text-micro uppercase tracking-wider"
-          style={{
-            backgroundColor: `${statusColor}26`,
-            color: statusColor,
-          }}
-        >
-          {statusLabel}
-        </span>
-
-        {/* Amendment indicator */}
+      {/* Row 2 — number · status · amendment (indented under the name) */}
+      <div className="pl-[26px] truncate font-mono text-micro uppercase tracking-wider text-text-3">
+        <span>{batch.batchNumber}</span>
+        <span className="text-text-mute"> · </span>
+        <span style={{ color: statusColor }}>{statusLabel}</span>
         {hasAmendment && (
-          <span className="inline-flex items-center rounded-full px-1.5 py-[2px] font-mono text-micro uppercase tracking-wider bg-ops-amber-muted text-ops-amber">
-            +A{batch.amendmentNumber}
-          </span>
+          <>
+            <span className="text-text-mute"> · </span>
+            <span className="text-tan">+A{batch.amendmentNumber}</span>
+          </>
         )}
       </div>
     </button>
