@@ -173,9 +173,13 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
     // invoice. Each is permission-gated (absent when denied) and disabled
     // until the client row loads — a phantom / not-found client can't seed a
     // creation. EDIT stays the single accent primary.
+    // Stable `id` per action so the async-dictionary label resolve (raw key →
+    // "New estimate") re-renders in place instead of churning AnimatePresence
+    // exit nodes that would inflate the row and clip the buttons.
     const quickActions: ModeFooterAction[] = [];
     if (canCreateEstimate) {
       quickActions.push({
+        id: "new-estimate",
         label: t("footer.newEstimate"),
         icon: <Calculator className="h-[14px] w-[14px]" aria-hidden />,
         onClick: handleNewEstimate,
@@ -184,6 +188,7 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
     }
     if (canCreateProject) {
       quickActions.push({
+        id: "new-project",
         label: t("footer.newProject"),
         icon: <FolderKanban className="h-[14px] w-[14px]" aria-hidden />,
         onClick: handleNewProject,
@@ -192,6 +197,7 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
     }
     if (canCreateInvoice) {
       quickActions.push({
+        id: "new-invoice",
         label: t("footer.newInvoice"),
         icon: <FileText className="h-[14px] w-[14px]" aria-hidden />,
         onClick: handleNewInvoice,
@@ -204,6 +210,7 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
       secondary: quickActions,
       primary: canEdit
         ? {
+            id: "edit",
             label: t("footer.edit"),
             onClick: () => setMode("editing"),
             disabled: !client,
@@ -214,6 +221,7 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
     footerConfig = {
       destructive: canDelete
         ? {
+            id: "delete",
             label: t("footer.delete"),
             onClick: () => setConfirmDeleteOpen(true),
             disabled: !client || deleteClient.isPending,
@@ -221,12 +229,18 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
         : undefined,
       secondary: [
         {
+          id: "discard",
           label: t("footer.discard"),
           onClick: () => composerRef.current?.discard(),
         },
       ],
-      ghost: { label: t("footer.cancel"), onClick: () => setMode("viewing") },
+      ghost: {
+        id: "cancel",
+        label: t("footer.cancel"),
+        onClick: () => setMode("viewing"),
+      },
       primary: {
+        id: "save",
         label: t("footer.save"),
         type: "submit",
         form: formId,
@@ -237,8 +251,13 @@ export function ClientWorkspaceContainer({ windowId }: { windowId: string }) {
   } else {
     footerConfig = {
       secondary: [],
-      ghost: { label: t("footer.cancel"), onClick: () => closeWindow(windowId) },
+      ghost: {
+        id: "cancel",
+        label: t("footer.cancel"),
+        onClick: () => closeWindow(windowId),
+      },
       primary: {
+        id: "create",
         label: t("footer.create"),
         type: "submit",
         form: formId,
