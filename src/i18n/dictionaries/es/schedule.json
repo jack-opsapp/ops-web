@@ -181,6 +181,23 @@
   "grid.errorResizeOutsideHours": "No se puede redimensionar fuera del horario laboral",
   "grid.errorResizeOutsideHoursDescription": "El evento debe permanecer entre las {first}:00 y las {last}:00.",
 
+  "toast.moveRecurringFailed": "No se pudo mover la tarea recurrente",
+  "toast.moveFailed": "No se pudo mover la tarea",
+  "toast.scheduleFailed": "No se pudo programar la tarea",
+  "toast.resizeRecurringFailed": "No se pudo redimensionar la tarea recurrente",
+  "toast.resizeFailed": "No se pudo redimensionar la tarea",
+  "toast.moveOutsideHours": "No se puede mover fuera del horario laboral",
+  "toast.commentPosted": "Comentario publicado",
+  "toast.commentFailed": "No se pudo publicar el comentario",
+  "toast.pushedOneDay": "Aplazado +1 día",
+  "toast.pushedOneDayCascade": "Aplazado +1 día (vista previa en cadena)",
+  "toast.pushedNextMonday": "Aplazado al próximo lunes",
+  "toast.pushFailed": "No se pudo aplazar",
+  "toast.duplicated": "Tarea duplicada",
+  "toast.duplicateFailed": "No se pudo duplicar",
+  "toast.deleted": "Tarea eliminada",
+  "toast.deleteFailed": "No se pudo eliminar",
+
   "month.collapse": "// COLLAPSE",
   "month.collapseRow": "Contraer fila de la semana"
 }

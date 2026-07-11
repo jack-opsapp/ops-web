@@ -14,6 +14,7 @@ import {
 import { addDays, nextMonday, differenceInCalendarDays } from "date-fns";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary } from "@/i18n/client";
 import {
   useCreateTask,
   useDeleteTask,
@@ -68,6 +69,7 @@ export function EventContextMenu({
   onClose,
   allEvents = [],
 }: EventContextMenuProps) {
+  const { t } = useDictionary("schedule");
   const { company, currentUser } = useAuthStore();
   const { setSidePanelTask } = useScheduleStore();
   const deleteMutation = useDeleteTask();
@@ -142,17 +144,17 @@ export function EventContextMenu({
       },
       {
         onSuccess: () => {
-          toast.success("Comment posted");
+          toast.success(t("toast.commentPosted"));
           setDraft("");
           setComposerOpen(false);
           onClose();
         },
         onError: (err) => {
-          toast.error("Failed to post comment", { description: err.message });
+          toast.error(t("toast.commentFailed"), { description: err.message });
         },
       }
     );
-  }, [event, company?.id, currentUser?.id, draft, createNote, onClose]);
+  }, [event, company?.id, currentUser?.id, draft, createNote, onClose, t]);
 
   const handlePush1Day = useCallback(() => {
     if (!event) return;
@@ -164,15 +166,15 @@ export function EventContextMenu({
       { id: event.id, data: { startDate: newStart, endDate: newEnd } },
       {
         onSuccess: () => {
-          toast.success("Pushed +1 day");
+          toast.success(t("toast.pushedOneDay"));
           onClose();
         },
         onError: (err) => {
-          toast.error("Failed to push", { description: err.message });
+          toast.error(t("toast.pushFailed"), { description: err.message });
         },
       }
     );
-  }, [event, updateMutation, onClose]);
+  }, [event, updateMutation, onClose, t]);
 
   const handlePush1DayCascade = useCallback(() => {
     if (!event) return;
@@ -196,15 +198,15 @@ export function EventContextMenu({
       {
         onSuccess: () => {
           previewCascade(event.id, newStart, newEnd, schedulableTasks, false);
-          toast.success("Pushed +1 day (cascade preview shown)");
+          toast.success(t("toast.pushedOneDayCascade"));
           onClose();
         },
         onError: (err) => {
-          toast.error("Failed to push", { description: err.message });
+          toast.error(t("toast.pushFailed"), { description: err.message });
         },
       }
     );
-  }, [event, allEvents, updateMutation, previewCascade, onClose]);
+  }, [event, allEvents, updateMutation, previewCascade, onClose, t]);
 
   const handlePushNextWeek = useCallback(() => {
     if (!event) return;
@@ -216,15 +218,15 @@ export function EventContextMenu({
       { id: event.id, data: { startDate: newStart, endDate: newEnd } },
       {
         onSuccess: () => {
-          toast.success("Pushed to next Monday");
+          toast.success(t("toast.pushedNextMonday"));
           onClose();
         },
         onError: (err) => {
-          toast.error("Failed to push", { description: err.message });
+          toast.error(t("toast.pushFailed"), { description: err.message });
         },
       }
     );
-  }, [event, updateMutation, onClose]);
+  }, [event, updateMutation, onClose, t]);
 
   const handleDuplicate = useCallback(() => {
     if (!event || !company?.id) return;
@@ -242,15 +244,15 @@ export function EventContextMenu({
       },
       {
         onSuccess: () => {
-          toast.success("Task duplicated");
+          toast.success(t("toast.duplicated"));
           onClose();
         },
         onError: (err) => {
-          toast.error("Failed to duplicate", { description: err.message });
+          toast.error(t("toast.duplicateFailed"), { description: err.message });
         },
       }
     );
-  }, [event, company?.id, duplicateMutation, onClose]);
+  }, [event, company?.id, duplicateMutation, onClose, t]);
 
   const handleDelete = useCallback(() => {
     if (!event) return;
@@ -258,15 +260,15 @@ export function EventContextMenu({
       { id: event.id },
       {
         onSuccess: () => {
-          toast.success("Task deleted");
+          toast.success(t("toast.deleted"));
           onClose();
         },
         onError: (err) => {
-          toast.error("Failed to delete", { description: err.message });
+          toast.error(t("toast.deleteFailed"), { description: err.message });
         },
       }
     );
-  }, [event, deleteMutation, onClose]);
+  }, [event, deleteMutation, onClose, t]);
 
   const actions: Record<MenuItemId, () => void> = {
     edit: handleEdit,

@@ -38,6 +38,7 @@ import {
 } from "@dnd-kit/core";
 import { addDays, differenceInCalendarDays } from "date-fns";
 import { toast } from "@/components/ui/toast";
+import { useDictionary } from "@/i18n/client";
 import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import {
   FIRST_HOUR,
@@ -121,6 +122,7 @@ interface ScheduleDndShellProps {
 }
 
 export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
+  const { t } = useDictionary("schedule");
   const updateTask = useUpdateTask();
   const recurrenceEdit = useRecurrenceEdit();
   const recurrencePrompt = useRecurrenceEditPrompt();
@@ -212,7 +214,7 @@ export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
             { task: sourceTask, scope, patch },
             {
               onError: (err) =>
-                toast.error("Failed to move recurring task", {
+                toast.error(t("toast.moveRecurringFailed"), {
                   description: err.message,
                 }),
             }
@@ -223,7 +225,7 @@ export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
           { id: sourceTaskId, data: patch },
           {
             onError: (err) =>
-              toast.error("Failed to move task", { description: err.message }),
+              toast.error(t("toast.moveFailed"), { description: err.message }),
           }
         );
       };
@@ -305,7 +307,7 @@ export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
             },
             {
               onError: (err) =>
-                toast.error("Failed to schedule task", {
+                toast.error(t("toast.scheduleFailed"), {
                   description: err.message,
                 }),
             },
@@ -332,7 +334,7 @@ export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
             },
             {
               onError: (err) =>
-                toast.error("Failed to schedule task", {
+                toast.error(t("toast.scheduleFailed"), {
                   description: err.message,
                 }),
             },
@@ -443,8 +445,11 @@ export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
           endHourFloat > LAST_HOUR ||
           newEnd.getTime() <= newStart.getTime()
         ) {
-          toast.error("Cannot move outside business hours", {
-            description: `Event must stay between ${FIRST_HOUR}:00 and ${LAST_HOUR}:00.`,
+          toast.error(t("toast.moveOutsideHours"), {
+            description: t("grid.errorResizeOutsideHoursDescription", {
+              first: FIRST_HOUR,
+              last: LAST_HOUR,
+            }),
           });
           return;
         }
@@ -505,7 +510,7 @@ export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
           { id: task.id, data: { startDate: newStart, endDate: newEnd } },
           {
             onError: (err) =>
-              toast.error("Failed to schedule task", {
+              toast.error(t("toast.scheduleFailed"), {
                 description: err.message,
               }),
           }
@@ -523,7 +528,7 @@ export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
           { id: task.id, data: { startDate: newStart, endDate: newEnd } },
           {
             onError: (err) =>
-              toast.error("Failed to schedule task", {
+              toast.error(t("toast.scheduleFailed"), {
                 description: err.message,
               }),
           }
@@ -531,7 +536,7 @@ export function ScheduleDndShell({ children }: ScheduleDndShellProps) {
         return;
       }
     },
-    [tasksById, updateTask, recurrenceEdit, recurrencePrompt]
+    [tasksById, updateTask, recurrenceEdit, recurrencePrompt, t]
   );
 
   const dragState = useMemo<ScheduleDragState>(
