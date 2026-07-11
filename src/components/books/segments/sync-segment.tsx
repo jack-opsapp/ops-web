@@ -306,9 +306,15 @@ export function SyncSegment({
           // header no longer jumps on segment switch. The tab strip owns Row 2.
           <Workbar
             meta={
-              badge ?? (
-                <WorkbarCount>{t("sync.badge.notConnected")}</WorkbarCount>
-              )
+              // Pin to the 32px list-surface Row-1 height (matches the other
+              // segments' filter/chip row) so all four Books toolbars are the
+              // same height in EVERY connection state — connected badge, offline
+              // badge, or the not-connected readout alike.
+              <div className="flex min-h-[32px] items-center">
+                {badge ?? (
+                  <WorkbarCount>{t("sync.badge.notConnected")}</WorkbarCount>
+                )}
+              </div>
             }
             tabStrip={segmentControl}
           />
