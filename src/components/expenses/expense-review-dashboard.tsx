@@ -14,7 +14,7 @@ import {
   formatPeriodDisplay,
 } from "@/lib/types/expense-approval";
 import { formatCurrency } from "@/lib/types/pipeline";
-import { ExpenseFilters, type ExpenseFilterTab } from "./expense-filters";
+import { ExpenseFilters } from "./expense-filters";
 import { RegisterEmpty } from "@/components/ui/register-table";
 import { InvoiceCard } from "./invoice-card";
 import { InvoiceDetailPanel } from "./invoice-detail-panel";
@@ -27,7 +27,6 @@ export function ExpenseReviewDashboard() {
   const canReview = can("expenses.approve");
 
   // State
-  const [activeTab, setActiveTab] = useState<ExpenseFilterTab>("review");
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [activePeriod, setActivePeriod] = useState<string>("");
 
@@ -83,11 +82,14 @@ export function ExpenseReviewDashboard() {
     [periodBatches]
   );
 
-  // Which batches to display based on active tab
-  const displayBatches =
-    activeTab === "review"
-      ? [...reviewBatches, ...autoApprovedBatches]
-      : [...approvedBatches, ...rejectedBatches];
+  // Keyboard-nav list — arrow-key order mirrors the visual order (review
+  // sections above history), so ↑/↓ walk straight across section boundaries.
+  const displayBatches = [
+    ...reviewBatches,
+    ...autoApprovedBatches,
+    ...approvedBatches,
+    ...rejectedBatches,
+  ];
 
   // Total for the period
   const periodTotal = periodBatches.reduce(
@@ -140,20 +142,14 @@ export function ExpenseReviewDashboard() {
 
   return (
     <div className="space-y-3">
-      {/* Filters */}
+      {/* Month-chip strip */}
       <ExpenseFilters
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          setSelectedBatchId(null);
-        }}
         periods={periods}
         activePeriod={effectivePeriod}
         onPeriodChange={(p) => {
           setActivePeriod(p);
           setSelectedBatchId(null);
         }}
-        reviewCount={reviewBatches.length}
       />
 
       {/* Period summary */}
@@ -185,7 +181,9 @@ export function ExpenseReviewDashboard() {
         <div className="lg:grid lg:grid-cols-[380px_1fr] lg:gap-0 lg:border lg:border-border lg:rounded lg:overflow-hidden">
           {/* Left panel — invoice list */}
           <div className="lg:border-r lg:border-border lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto">
-            {activeTab === "review" && reviewBatches.length > 0 && (
+            {/* One list — review sections above history, all statuses in a
+                single scroll (NEED REVIEW → AUTO-APPROVED → APPROVED → REJECTED). */}
+            {reviewBatches.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 border-b border-border">
                   <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
@@ -203,7 +201,7 @@ export function ExpenseReviewDashboard() {
               </div>
             )}
 
-            {activeTab === "review" && autoApprovedBatches.length > 0 && (
+            {autoApprovedBatches.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 border-b border-border">
                   <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
@@ -221,7 +219,7 @@ export function ExpenseReviewDashboard() {
               </div>
             )}
 
-            {activeTab === "history" && approvedBatches.length > 0 && (
+            {approvedBatches.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 border-b border-border">
                   <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
@@ -239,7 +237,7 @@ export function ExpenseReviewDashboard() {
               </div>
             )}
 
-            {activeTab === "history" && rejectedBatches.length > 0 && (
+            {rejectedBatches.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 border-b border-border">
                   <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
