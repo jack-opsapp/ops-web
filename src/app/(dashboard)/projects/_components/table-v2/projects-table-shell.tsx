@@ -367,9 +367,15 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
   const handleViewChange = useCallback(
     (viewId: string) => {
       setUnavailableViewId(null);
+      // Clicking the ALL chip, or clicking the already-active saved chip again,
+      // deselects to the ALL baseline (null).
+      if (viewId === ALL_PROJECTS_VIEW_ID || viewId === activeViewId) {
+        setActiveViewId(null);
+        return;
+      }
       setActiveViewId(viewId);
     },
-    [setActiveViewId],
+    [activeViewId, setActiveViewId],
   );
 
   const handleViewUpdated = useCallback(

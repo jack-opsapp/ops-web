@@ -62,6 +62,7 @@
   "table.error.saveFailedDiscard": "Discard",
   "table.error.readOnly": "// READ-ONLY - no edit permission",
   "table.views.newView": "New view",
+  "table.views.all": "ALL",
   "table.views.unavailable": "// VIEW UNAVAILABLE",
   "table.views.myActiveWork": "My Active Work",
   "table.views.allActive": "All Active",

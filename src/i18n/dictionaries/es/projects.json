@@ -62,6 +62,7 @@
   "table.error.saveFailedDiscard": "Descartar",
   "table.error.readOnly": "// SOLO LECTURA - sin permiso de edición",
   "table.views.newView": "Nueva vista",
+  "table.views.all": "TODOS",
   "table.views.unavailable": "// VISTA NO DISPONIBLE",
   "table.views.myActiveWork": "Mi trabajo activo",
   "table.views.allActive": "Todo activo",
