@@ -302,7 +302,13 @@ export function BatchDetailPanel({
               {fmtMoney(totalAmount)}
             </span>
           </div>
-          {batch.approvedAmount != null && batch.approvedAmount !== totalAmount && (
+          {/* The approved figure only differs meaningfully from the total on a
+              partial approval (reject-with-revisions sets it to the clean-line
+              total). Full approvals leave approved_amount at its creation
+              value, so showing it would just read as a $0 contradiction. */}
+          {batch.status === ExpenseBatchStatus.PartiallyApproved &&
+            batch.approvedAmount != null &&
+            batch.approvedAmount !== totalAmount && (
             <div>
               <span className="block font-mono text-micro uppercase tracking-wider text-text-3">
                 {t("expenses.detail.approvedAmount")}

@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/table-shell";
 import { FilterChips, type FilterChipOption } from "@/components/ui/filter-chip";
 import {
+  batchOwedAmount,
   type ExpenseBatch,
 } from "@/lib/types/expense-approval";
 import {
@@ -276,7 +277,7 @@ export function ExpensesSegment({
             batchNumber: batch.batchNumber,
           });
           if (!quiet) {
-            const owed = batch.approvedAmount ?? batch.totalAmount ?? 0;
+            const owed = batchOwedAmount(batch);
             toast.success(t("expenses.toast.markedPaid", { total: fmtMoney(owed) }), {
               action: {
                 label: t("expenses.toast.undo"),
@@ -379,7 +380,7 @@ export function ExpensesSegment({
       for (const batch of group.batches) {
         try {
           await doMarkPaid(batch, { quiet: true });
-          total += batch.approvedAmount ?? batch.totalAmount ?? 0;
+          total += batchOwedAmount(batch);
         } catch {
           toast.error(t("expenses.toast.markPaidFailed"));
           return;

@@ -23,6 +23,7 @@ import {
   ExpenseBatchStatus,
   formatPeriodDisplay,
   getBatchDisplayName,
+  batchOwedAmount,
   type ExpenseBatch,
   type ExpenseBatchUser,
 } from "@/lib/types/expense-approval";
@@ -223,6 +224,42 @@ function BatchRow({
   const items = stats?.count;
   const flagged = stats?.flagged ?? 0;
 
+  const periodEl = (
+    <span
+      className="shrink-0 font-mono text-caption-sm text-text-2"
+      style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+    >
+      {formatPeriodRange(batch.periodStart, batch.periodEnd, locale)}
+    </span>
+  );
+
+  const itemsEl =
+    items != null ? (
+      <span
+        className="shrink-0 font-mono text-micro uppercase tracking-wider text-text-3"
+        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+      >
+        {t(items === 1 ? "expenses.row.itemsOne" : "expenses.row.items", { n: items })}
+      </span>
+    ) : null;
+
+  const flagsEl =
+    flagged > 0 ? (
+      <span className="inline-flex shrink-0 items-center gap-[3px] rounded-chip border border-tan-line bg-tan-soft px-1 py-[1px] font-mono text-micro font-medium uppercase tracking-[0.12em] text-tan">
+        <Flag aria-hidden className="h-[9px] w-[9px]" />
+        {t("expenses.row.flagged", { n: flagged })}
+      </span>
+    ) : null;
+
+  const amountEl = (
+    <span
+      className="shrink-0 font-mono text-data-sm text-text"
+      style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+    >
+      {fmtMoney(amount, locale)}
+    </span>
+  );
+
   return (
     <div
       role="button"
@@ -236,7 +273,7 @@ function BatchRow({
         }
       }}
       className={cn(
-        "group relative flex w-full cursor-pointer items-center gap-2 border-b border-line px-3 py-2 text-left",
+        "group relative block w-full cursor-pointer border-b border-line px-3 py-2 text-left",
         "transition-colors duration-150 ease-smooth",
         isSelected ? "bg-surface-active" : "hover:bg-surface-hover",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-inset"
@@ -251,57 +288,53 @@ function BatchRow({
         )}
       />
 
-      {showPerson && (
-        <span className="flex min-w-0 items-center gap-1.5">
-          <SubmitterAvatar user={batch.submitter} name={personName ?? ""} size={20} />
-          <span className="truncate font-mohave text-body-sm text-text">
-            {personName}
-          </span>
-        </span>
-      )}
-
-      {/* Period */}
-      <span
-        className="shrink-0 font-mono text-caption-sm text-text-2"
-        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-      >
-        {formatPeriodRange(batch.periodStart, batch.periodEnd, locale)}
-      </span>
-
-      {/* Items */}
-      {items != null && (
-        <span
-          className="shrink-0 font-mono text-micro uppercase tracking-wider text-text-3"
-          style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-        >
-          {t(items === 1 ? "expenses.row.itemsOne" : "expenses.row.items", { n: items })}
-        </span>
-      )}
-
-      {/* Flags */}
-      {flagged > 0 && (
-        <span className="inline-flex shrink-0 items-center gap-[3px] rounded-chip border border-tan-line bg-tan-soft px-1 py-[1px] font-mono text-micro font-medium uppercase tracking-[0.12em] text-tan">
-          <Flag aria-hidden className="h-[9px] w-[9px]" />
-          {t("expenses.row.flagged", { n: flagged })}
-        </span>
-      )}
-
-      <span className="min-w-0 flex-1" />
-
-      {/* Bucket-contextual meta (status pill / dates) */}
-      {meta}
-
-      {/* Amount */}
-      <span
-        className="shrink-0 font-mono text-data-sm text-text"
-        style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
-      >
-        {fmtMoney(amount, locale)}
-      </span>
-
-      {/* Hover quick action */}
-      {action && (
-        <HoverAction label={action.label} onClick={action.onClick} disabled={action.disabled} />
+      {showPerson ? (
+        /* Person-inline rows (PAID / WITH CREW) — two lines so the name
+           never fights the metadata for width: identity + amount, then
+           period · items · state. */
+        <>
+          <div className="flex items-center gap-2">
+            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+              <SubmitterAvatar user={batch.submitter} name={personName ?? ""} size={20} />
+              <span className="truncate font-mohave text-body-sm text-text">
+                {personName}
+              </span>
+            </span>
+            {amountEl}
+            {action && (
+              <HoverAction
+                label={action.label}
+                onClick={action.onClick}
+                disabled={action.disabled}
+              />
+            )}
+          </div>
+          <div className="mt-1 flex items-center gap-2 pl-[26px]">
+            {periodEl}
+            {itemsEl}
+            {flagsEl}
+            <span className="min-w-0 flex-1" />
+            {meta}
+          </div>
+        </>
+      ) : (
+        /* Grouped rows (TO REVIEW / TO PAY) — one scan line under the
+           person header. */
+        <div className="flex items-center gap-2">
+          {periodEl}
+          {itemsEl}
+          {flagsEl}
+          <span className="min-w-0 flex-1" />
+          {meta}
+          {amountEl}
+          {action && (
+            <HoverAction
+              label={action.label}
+              onClick={action.onClick}
+              disabled={action.disabled}
+            />
+          )}
+        </div>
       )}
     </div>
   );
@@ -323,9 +356,9 @@ function PersonHeader({
   return (
     <div className="group flex items-center gap-2 border-b border-line bg-surface-input px-3 py-[6px]">
       <SubmitterAvatar user={group.submitter} name={group.name} size={20} />
-      <span className="truncate font-mohave text-body-sm text-text">{group.name}</span>
+      <span className="min-w-0 truncate font-mohave text-body-sm text-text">{group.name}</span>
       <span
-        className="font-mono text-micro uppercase tracking-wider text-text-3"
+        className="shrink-0 whitespace-nowrap font-mono text-micro uppercase tracking-wider text-text-3"
         style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
       >
         {t(
@@ -492,7 +525,7 @@ export function BatchList({
                 stats={lineStats.get(batch.id)}
                 isSelected={selectedId === batch.id}
                 showPerson={false}
-                amount={batch.approvedAmount ?? batch.totalAmount ?? 0}
+                amount={batchOwedAmount(batch)}
                 onSelect={() => onSelect(batch.id)}
                 locale={numLocale}
                 t={t}
@@ -554,7 +587,7 @@ export function BatchList({
                 isSelected={selectedId === batch.id}
                 showPerson
                 personName={personNameOf(batch)}
-                amount={batch.approvedAmount ?? batch.totalAmount ?? 0}
+                amount={batchOwedAmount(batch)}
                 onSelect={() => onSelect(batch.id)}
                 locale={numLocale}
                 t={t}

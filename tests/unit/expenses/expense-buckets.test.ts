@@ -171,6 +171,19 @@ describe("groupForPay", () => {
     expect(groups[0].total).toBe(300); // falls back to totalAmount
     expect(groups[1].total).toBe(120); // approvedAmount wins
   });
+
+  it("treats a zero approved_amount on a full approval as the whole envelope", () => {
+    // approve_expense_batch approves every line but never writes
+    // approved_amount — it stays 0 from batch creation. Owed = total.
+    const rpcApproved = makeBatch({
+      submittedBy: "user-a",
+      status: ExpenseBatchStatus.Approved,
+      totalAmount: 562.75,
+      approvedAmount: 0,
+    });
+    const groups = groupForPay([rpcApproved]);
+    expect(groups[0].total).toBe(562.75);
+  });
 });
 
 // ─── groupPaidByMonth ─────────────────────────────────────────────────────────

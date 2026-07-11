@@ -252,11 +252,25 @@ export function isBatchPaid(batch: Pick<ExpenseBatch, "paidAt">): boolean {
   return batch.paidAt != null;
 }
 
-/** The amount actually owed for a batch — approved figure when the review recalculated it. */
+/**
+ * The amount actually owed for a batch.
+ *
+ * `approved_amount` is only authoritative for partial approvals (the reject-
+ * with-revisions flow sets it to the clean-line total). The atomic
+ * `approve_expense_batch` RPC approves every line but leaves approved_amount
+ * at its creation value (often 0), so for full approvals a zero/absent figure
+ * means "the whole envelope" — fall back to the recalculated total.
+ */
 export function batchOwedAmount(
-  batch: Pick<ExpenseBatch, "approvedAmount" | "totalAmount">
+  batch: Pick<ExpenseBatch, "status" | "approvedAmount" | "totalAmount">
 ): number {
-  return batch.approvedAmount ?? batch.totalAmount ?? 0;
+  if (batch.status === ExpenseBatchStatus.PartiallyApproved) {
+    return batch.approvedAmount ?? batch.totalAmount ?? 0;
+  }
+  if (batch.approvedAmount != null && batch.approvedAmount > 0) {
+    return batch.approvedAmount;
+  }
+  return batch.totalAmount ?? 0;
 }
 
 /**
