@@ -13,6 +13,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import {
+  buildReturnRedirect,
+  sanitizeReturnTo,
+} from "@/lib/utils/oauth-return";
 import { defaultAutoSendSettings } from "@/lib/api/services/mailbox-draft-helpers";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
@@ -29,6 +33,14 @@ interface OAuthState {
    * by the email-ingest-down alert flow.
    */
   source: "wizard" | "alert";
+  /**
+   * Optional app-internal path (allowlisted: must be a "/..." path) to land
+   * on instead of /settings — set when the flow started somewhere else in
+   * the app (e.g. the pipeline connect banner). Success appends
+   * `?connected=gmail`, failure `?connect_error=1`, so the origin page can
+   * fire its toast. Null keeps every legacy landing exactly as before.
+   */
+  returnTo: string | null;
 }
 
 /**
@@ -47,6 +59,9 @@ function decodeState(raw: string): OAuthState | null {
         userId: typeof json.userId === "string" ? json.userId : null,
         type: json.type === "individual" ? "individual" : "company",
         source: json.source === "alert" ? "alert" : "wizard",
+        // Re-sanitize on the way back — state round-trips through Google
+        // and must be treated as attacker-controlled.
+        returnTo: sanitizeReturnTo(json.returnTo),
       };
     }
   } catch {
@@ -55,9 +70,33 @@ function decodeState(raw: string): OAuthState | null {
 
   // Legacy format: state was just the raw companyId string.
   if (raw && !raw.includes("=") && !raw.includes(":")) {
-    return { companyId: raw, userId: null, type: "company", source: "wizard" };
+    return {
+      companyId: raw,
+      userId: null,
+      type: "company",
+      source: "wizard",
+      returnTo: null,
+    };
   }
   return null;
+}
+
+/**
+ * Failure landing: when the flow carried a valid app-internal `returnTo`,
+ * send the user back there with `?connect_error=1` so the origin page fires
+ * its error toast. Flows without returnTo (settings wizard, alert email)
+ * keep today's /settings error redirect exactly.
+ */
+function errorRedirect(returnTo: string | null, message: string) {
+  if (returnTo) {
+    const url = buildReturnRedirect(getAppUrl(), returnTo, {
+      connect_error: "1",
+    });
+    if (url) return NextResponse.redirect(url);
+  }
+  return NextResponse.redirect(
+    `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(message)}`
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -66,31 +105,27 @@ export async function GET(request: NextRequest) {
   const rawState = searchParams.get("state");
   const error = searchParams.get("error");
 
+  // Decode state up-front (it arrives even on provider errors/denials) so
+  // every failure path can honor a valid returnTo.
+  const state = rawState ? decodeState(rawState) : null;
+  const returnTo = state?.returnTo ?? null;
+
   // Handle user denial
   if (error) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(error)}`
-    );
+    return errorRedirect(returnTo, error);
   }
 
   if (!code || !rawState) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_params`
-    );
+    return errorRedirect(returnTo, "missing_params");
   }
 
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=not_configured`
-    );
+    return errorRedirect(returnTo, "not_configured");
   }
 
-  const state = decodeState(rawState);
   if (!state) {
     console.error("[Gmail OAuth] Failed to decode state:", rawState);
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=invalid_state`
-    );
+    return errorRedirect(returnTo, "invalid_state");
   }
 
   // Individual connections MUST carry a userId. If the state came through
@@ -99,9 +134,7 @@ export async function GET(request: NextRequest) {
   // company-scope, because Phase C depends on user_id being non-null.
   if (state.type === "individual" && !state.userId) {
     console.error("[Gmail OAuth] Individual connection missing userId");
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_user_id`
-    );
+    return errorRedirect(returnTo, "missing_user_id");
   }
 
   try {
@@ -129,9 +162,7 @@ export async function GET(request: NextRequest) {
         console.error("[Gmail OAuth] Error code:", parsed.error);
         console.error("[Gmail OAuth] Error description:", parsed.error_description);
       } catch { /* not JSON */ }
-      return NextResponse.redirect(
-        `${getAppUrl()}/settings?tab=integrations&status=error&message=token_exchange_failed`
-      );
+      return errorRedirect(returnTo, "token_exchange_failed");
     }
 
     const tokens = await tokenResponse.json();
@@ -196,9 +227,7 @@ export async function GET(request: NextRequest) {
 
     if (upsertError) {
       console.error("Failed to store Gmail tokens:", upsertError.message);
-      return NextResponse.redirect(
-        `${getAppUrl()}/settings?tab=integrations&status=error&message=storage_failed`
-      );
+      return errorRedirect(returnTo, "storage_failed");
     }
 
     if (state.source === "alert") {
@@ -212,13 +241,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // App-initiated flows (e.g. the pipeline connect banner) land back where
+    // they started with ?connected=gmail so the origin page fires its toast.
+    if (returnTo) {
+      const url = buildReturnRedirect(getAppUrl(), returnTo, {
+        connected: "gmail",
+      });
+      if (url) return NextResponse.redirect(url);
+    }
+
     return NextResponse.redirect(
       `${getAppUrl()}/settings?tab=integrations&status=connected&firstConnect=true`
     );
   } catch (err) {
     console.error("Gmail OAuth callback error:", err);
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=unexpected_error`
-    );
+    return errorRedirect(returnTo, "unexpected_error");
   }
 }
