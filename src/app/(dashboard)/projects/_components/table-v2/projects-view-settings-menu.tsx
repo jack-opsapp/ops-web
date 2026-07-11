@@ -9,10 +9,14 @@ import {
   Pencil,
   RotateCcw,
   Shield,
+  Star,
+  StarOff,
   User,
   Users,
 } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
+import { toast } from "@/components/ui/toast";
+import { usePreferencesStore } from "@/stores/preferences-store";
 import type { useProjectViewActions } from "@/lib/hooks/projects-table/use-project-view-actions";
 import type {
   ProjectTableViewDefinition,
@@ -76,23 +80,29 @@ function MenuCommand({
   icon,
   onClick,
   destructive = false,
+  disabled = false,
 }: {
   children: ReactNode;
   icon: ReactNode;
-  onClick: () => void;
+  onClick?: () => void;
   destructive?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       role="menuitem"
       onClick={onClick}
+      disabled={disabled}
+      aria-disabled={disabled || undefined}
       className={cn(
         "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left font-mohave text-body-sm transition-colors",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
-        destructive
-          ? "text-rose hover:bg-surface-hover"
-          : "text-text-2 hover:bg-surface-hover hover:text-text",
+        disabled
+          ? "cursor-default text-text-3"
+          : destructive
+            ? "text-rose hover:bg-surface-hover"
+            : "text-text-2 hover:bg-surface-hover hover:text-text",
       )}
     >
       <span className="text-text-3 [&_svg]:h-3.5 [&_svg]:w-3.5">{icon}</span>
@@ -119,6 +129,9 @@ export function ProjectsViewSettingsMenu({
   onViewShared: (view: ProjectTableViewDefinition) => void;
 }) {
   const { t } = useDictionary("projects");
+  const projectsDefaultViewId = usePreferencesStore((s) => s.projectsDefaultViewId);
+  const setProjectsDefaultViewId = usePreferencesStore((s) => s.setProjectsDefaultViewId);
+  const isDefaultView = Boolean(activeView && projectsDefaultViewId === activeView.id);
   const inputId = useId();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -235,6 +248,19 @@ export function ProjectsViewSettingsMenu({
     }
   }
 
+  function handleSetDefault() {
+    if (!activeView) return;
+    setProjectsDefaultViewId(activeView.id);
+    setOpen(false);
+    toast.success(t("table.views.defaultSet"), { description: activeView.name });
+  }
+
+  function handleClearDefault() {
+    setProjectsDefaultViewId(null);
+    setOpen(false);
+    toast.success(t("table.views.defaultCleared"));
+  }
+
   return (
     <>
       <div ref={menuRef} className="relative">
@@ -269,6 +295,20 @@ export function ProjectsViewSettingsMenu({
               {badgeIcon}
               {badgeLabel}
             </div>
+            {isDefaultView ? (
+              <>
+                <MenuCommand icon={<Star />} disabled>
+                  {t("table.views.defaultView")}
+                </MenuCommand>
+                <MenuCommand icon={<StarOff />} onClick={handleClearDefault}>
+                  {t("table.views.clearDefault")}
+                </MenuCommand>
+              </>
+            ) : (
+              <MenuCommand icon={<Star />} onClick={handleSetDefault}>
+                {t("table.views.setAsDefault")}
+              </MenuCommand>
+            )}
             <MenuCommand
               icon={<Pencil />}
               onClick={() => {
