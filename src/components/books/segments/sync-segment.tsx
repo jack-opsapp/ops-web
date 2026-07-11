@@ -40,7 +40,7 @@ import { AccountingProvider } from "@/lib/types/pipeline";
 import type { AccountingConnection } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
-import { TableShell, Workbar } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarCount } from "@/components/ui/table-shell";
 import { QuickBooksImportTab } from "@/components/accounting/qbo/quickbooks-import-tab";
 import { ConnectionBadge } from "../sync/connection-badge";
 import { ConnectPanel } from "../sync/connect-panel";
@@ -300,15 +300,17 @@ export function SyncSegment({
       <TableShell
         metrics={metrics}
         toolbar={
-          // Sync is a config surface (no list controls) — just the segment tab
-          // strip + its status badge, kept together on the strip row.
+          // Sync is a config surface (no list controls). Its status readout pins
+          // in the Workbar meta slot (Row 1) so this segment carries the same
+          // two-row chrome height as invoices/estimates/expenses — the pinned
+          // header no longer jumps on segment switch. The tab strip owns Row 2.
           <Workbar
-            tabStrip={
-              <div className="flex w-full flex-wrap items-center justify-between gap-2">
-                {segmentControl}
-                {badge}
-              </div>
+            meta={
+              badge ?? (
+                <WorkbarCount>{t("sync.badge.notConnected")}</WorkbarCount>
+              )
             }
+            tabStrip={segmentControl}
           />
         }
         bottomFade={false}

@@ -2,56 +2,43 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { FileText } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
-import { useExpenseBatches } from "@/lib/hooks";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import type { ExpenseBatch } from "@/lib/types/expense-approval";
 import {
   ExpenseBatchStatus,
   isBatchNeedsReview,
-  isBatchApproved,
-  periodKeyFromBatch,
-  formatPeriodDisplay,
 } from "@/lib/types/expense-approval";
-import { formatCurrency } from "@/lib/types/pipeline";
-import { ExpenseFilters } from "./expense-filters";
 import { RegisterEmpty } from "@/components/ui/register-table";
 import { InvoiceCard } from "./invoice-card";
 import { InvoiceDetailPanel } from "./invoice-detail-panel";
 
+// ─── Props ────────────────────────────────────────────────────────────────────
+
+interface ExpenseReviewDashboardProps {
+  /** Batches for the active period. Period state (chips + count) lives up in
+   *  ExpensesSegment so it can pin in the Workbar Row 1 alongside the tab strip. */
+  periodBatches: ExpenseBatch[];
+  /** The active period key — selection clears when it changes. */
+  effectivePeriod: string;
+  /** Query loading state, owned by the segment. */
+  isLoading: boolean;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ExpenseReviewDashboard() {
-  const { data: batches = [], isLoading } = useExpenseBatches();
+export function ExpenseReviewDashboard({
+  periodBatches,
+  effectivePeriod,
+  isLoading,
+}: ExpenseReviewDashboardProps) {
   const can = usePermissionStore((s) => s.can);
   const canReview = can("expenses.approve");
 
-  // State
+  // Selection — cleared whenever the active period changes.
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
-  const [activePeriod, setActivePeriod] = useState<string>("");
-
-  // Derive period list from all batches (deduplicated, sorted descending)
-  const periods = useMemo(() => {
-    const keys = new Set<string>();
-    for (const b of batches) {
-      const key = periodKeyFromBatch(b);
-      if (key && key !== "unknown") keys.add(key);
-    }
-    return [...keys].sort().reverse();
-  }, [batches]);
-
-  // Auto-select latest period if none selected
-  const effectivePeriod = activePeriod || periods[0] || "";
-
-  // Filter batches by period
-  const periodBatches = useMemo(
-    () =>
-      batches.filter((b) => {
-        const key = periodKeyFromBatch(b);
-        return key === effectivePeriod;
-      }),
-    [batches, effectivePeriod]
-  );
+  useEffect(() => {
+    setSelectedBatchId(null);
+  }, [effectivePeriod]);
 
   // Split into review vs history
   const reviewBatches = useMemo(
@@ -91,14 +78,9 @@ export function ExpenseReviewDashboard() {
     ...rejectedBatches,
   ];
 
-  // Total for the period
-  const periodTotal = periodBatches.reduce(
-    (sum, b) => sum + (b.totalAmount ?? 0),
-    0
-  );
-
-  // Selected batch object
-  const selectedBatch = batches.find((b) => b.id === selectedBatchId) ?? null;
+  // Selected batch object — always within the active period.
+  const selectedBatch =
+    periodBatches.find((b) => b.id === selectedBatchId) ?? null;
 
   // ─── Keyboard shortcuts ──────────────────────────────────────────────────────
 
@@ -142,31 +124,6 @@ export function ExpenseReviewDashboard() {
 
   return (
     <div className="space-y-3">
-      {/* Month-chip strip */}
-      <ExpenseFilters
-        periods={periods}
-        activePeriod={effectivePeriod}
-        onPeriodChange={(p) => {
-          setActivePeriod(p);
-          setSelectedBatchId(null);
-        }}
-      />
-
-      {/* Period summary */}
-      {effectivePeriod && (
-        <div className="flex items-baseline gap-3">
-          <span className="font-mohave text-body text-text uppercase">
-            {formatPeriodDisplay(effectivePeriod)}
-          </span>
-          <span className="font-mono text-data text-text-2">
-            {formatCurrency(periodTotal)}
-          </span>
-          <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
-            {periodBatches.length} INVOICE{periodBatches.length !== 1 ? "S" : ""}
-          </span>
-        </div>
-      )}
-
       {/* Loading */}
       {isLoading && (
         <div className="animate-pulse space-y-[2px] motion-reduce:animate-none">

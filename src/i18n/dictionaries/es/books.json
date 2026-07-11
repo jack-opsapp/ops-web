@@ -81,6 +81,7 @@
   "sync.badge.live": "Activo",
   "sync.badge.offline": "Desconectado",
   "sync.badge.sandbox": "Pruebas",
+  "sync.badge.notConnected": "Sin conexión",
   "sync.badge.review": "{count} por revisar",
 
   "sync.status.synced": "Sincronizado",

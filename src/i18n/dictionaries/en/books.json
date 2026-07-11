@@ -81,6 +81,7 @@
   "sync.badge.live": "Live",
   "sync.badge.offline": "Offline",
   "sync.badge.sandbox": "Sandbox",
+  "sync.badge.notConnected": "Not connected",
   "sync.badge.review": "{count} to review",
 
   "sync.status.synced": "Synced",
