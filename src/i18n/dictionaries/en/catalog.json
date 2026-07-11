@@ -91,7 +91,7 @@
   "drawer.delete": "DELETE VARIANT",
 
   "products.search": "Search products…",
-  "products.newProduct": "+ NEW PRODUCT",
+  "products.newProduct": "NEW PRODUCT",
   "products.count": "{n} PRODUCTS",
   "products.active": "ACTIVE",
   "products.col.product": "PRODUCT",
