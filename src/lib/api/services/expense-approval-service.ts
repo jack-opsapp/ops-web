@@ -38,9 +38,53 @@ function mapBatchFromDb(row: Record<string, unknown>): ExpenseBatch {
     parentBatchId: (row.parent_batch_id as string) ?? null,
     amendmentNumber: row.amendment_number != null ? Number(row.amendment_number) : 0,
     reviewNotes: (row.review_notes as string) ?? null,
+    paidAt: (row.paid_at as string) ?? null,
+    paidBy: (row.paid_by as string) ?? null,
     createdAt: row.created_at as string,
     updatedAt: (row.updated_at as string) ?? undefined,
   };
+}
+
+/**
+ * Merge project titles onto line items. `expense_project_allocations.project_id`
+ * is TEXT with no FK, so PostgREST can't join it — collect the ids and resolve
+ * them in one `projects` query. Non-fatal: on error the lines keep their raw id.
+ */
+async function mergeProjectNames(
+  supabase: ReturnType<typeof requireSupabase>,
+  expenses: ExpenseLineItem[]
+): Promise<ExpenseLineItem[]> {
+  const projectIds = [
+    ...new Set(
+      expenses
+        .map((e) => e.projectId)
+        .filter((id): id is string => id != null && id !== "")
+    ),
+  ];
+  if (projectIds.length === 0) return expenses;
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, title")
+    .in("id", projectIds);
+
+  if (error) {
+    console.warn(`Failed to resolve expense project names: ${error.message}`);
+    return expenses;
+  }
+
+  const titleById = new Map<string, string>();
+  for (const row of data ?? []) {
+    const r = row as Record<string, unknown>;
+    if (r.id != null && r.title != null) titleById.set(String(r.id), String(r.title));
+  }
+
+  for (const expense of expenses) {
+    expense.projectName = expense.projectId
+      ? titleById.get(expense.projectId) ?? null
+      : null;
+  }
+  return expenses;
 }
 
 function mapUserFromDb(row: Record<string, unknown>): ExpenseBatchUser {
@@ -240,7 +284,8 @@ export const ExpenseApprovalService = {
     if (error) throw new Error(`Failed to fetch batch expenses: ${error.message}`);
     if (!data) return [];
 
-    return data.map((r) => mapExpenseFromDb(r as Record<string, unknown>));
+    const expenses = data.map((r) => mapExpenseFromDb(r as Record<string, unknown>));
+    return mergeProjectNames(supabase, expenses);
   },
 
   // ── Flagging ──────────────────────────────────────────────────────────────
@@ -288,49 +333,107 @@ export const ExpenseApprovalService = {
   // ── Approval / Rejection ──────────────────────────────────────────────────
 
   /**
-   * Approve an entire batch.
+   * Approve an entire batch via the `approve_expense_batch` SECURITY DEFINER
+   * RPC. The RPC enforces the `expenses.approve` permission internally and, in
+   * a single transaction, approves the batch, approves its non-rejected line
+   * items, and recalculates the approved amount. This replaces the previous
+   * two non-transactional direct writes (batch + lines) that risked partial
+   * failure. The reviewer is derived from the authenticated session inside the
+   * RPC, so no reviewer/amount arguments are sent from the client.
    */
-  async approveBatch(
-    batchId: string,
-    reviewedBy: string,
-    approvedAmount: number
-  ): Promise<void> {
+  async approveBatch(batchId: string): Promise<void> {
     const supabase = requireSupabase();
 
-    const { error } = await supabase
-      .from("expense_batches")
-      .update({
-        status: ExpenseBatchStatus.Approved,
-        reviewed_by: reviewedBy,
-        reviewed_at: new Date().toISOString(),
-        approved_amount: approvedAmount,
-      })
-      .eq("id", batchId);
+    const { error } = await supabase.rpc("approve_expense_batch", {
+      p_batch_id: batchId,
+    });
 
     if (error) throw new Error(`Failed to approve batch: ${error.message}`);
   },
 
   /**
-   * Bulk-approve individual expenses.
+   * Early-clear a single line via the `early_clear_expense_line` SECURITY
+   * DEFINER RPC: approves just this line, leaves the envelope where it is,
+   * recalculates the total, and notifies the submitter server-side. After the
+   * clear we kick off a best-effort accounting sync for the line.
    */
-  async approveExpenses(
-    expenseIds: string[],
-    approvedBy: string
-  ): Promise<void> {
+  async earlyClearLine(expenseId: string): Promise<void> {
+    const supabase = requireSupabase();
+
+    const { error } = await supabase.rpc("early_clear_expense_line", {
+      p_expense_id: expenseId,
+    });
+
+    if (error) throw new Error(`Failed to clear expense: ${error.message}`);
+
+    await this.syncExpensesToAccounting([expenseId]);
+  },
+
+  /**
+   * Record a batch as paid out via the `mark_expense_batch_paid` SECURITY
+   * DEFINER RPC: stamps paid_at/paid_by on the envelope and moves its approved
+   * lines to `reimbursed` (which iOS already renders as "paid"). Permission-
+   * checked server-side (`expenses.approve`); only approved envelopes qualify.
+   */
+  async markBatchPaid(batchId: string): Promise<void> {
+    const supabase = requireSupabase();
+
+    const { error } = await supabase.rpc("mark_expense_batch_paid", {
+      p_batch_id: batchId,
+    });
+
+    if (error) throw new Error(`Failed to mark batch paid: ${error.message}`);
+  },
+
+  /**
+   * Reverse a payout recording (mis-click recovery): clears paid_at/paid_by
+   * and returns the batch's reimbursed lines to `approved`.
+   */
+  async unmarkBatchPaid(batchId: string): Promise<void> {
+    const supabase = requireSupabase();
+
+    const { error } = await supabase.rpc("unmark_expense_batch_paid", {
+      p_batch_id: batchId,
+    });
+
+    if (error) throw new Error(`Failed to undo paid: ${error.message}`);
+  },
+
+  /**
+   * Best-effort accounting sync for a set of approved expenses.
+   *
+   * Mirrors the iOS contract (`ExpenseRepository.triggerAccountingSync`):
+   * invokes the `accounting-sync-expense` Edge Function once per expense with
+   * `{ expense_id }`. Fire-and-forget — a missing accounting connection or any
+   * sync error must NEVER fail or roll back the approval, so every invocation
+   * is individually guarded and only warns on failure.
+   */
+  async syncExpensesToAccounting(expenseIds: string[]): Promise<void> {
     if (expenseIds.length === 0) return;
 
     const supabase = requireSupabase();
 
-    const { error } = await supabase
-      .from("expenses")
-      .update({
-        status: "approved",
-        approved_by: approvedBy,
-        approved_at: new Date().toISOString(),
+    await Promise.all(
+      expenseIds.map(async (expenseId) => {
+        try {
+          const { error } = await supabase.functions.invoke(
+            "accounting-sync-expense",
+            { body: { expense_id: expenseId } }
+          );
+          if (error) {
+            console.warn(
+              `[ExpenseApproval] Accounting sync failed for expense ${expenseId}:`,
+              error.message
+            );
+          }
+        } catch (err) {
+          console.warn(
+            `[ExpenseApproval] Accounting sync threw for expense ${expenseId}:`,
+            err
+          );
+        }
       })
-      .in("id", expenseIds);
-
-    if (error) throw new Error(`Failed to approve expenses: ${error.message}`);
+    );
   },
 
   /**

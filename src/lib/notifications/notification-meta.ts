@@ -53,6 +53,7 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   schedule_change: { label: "SCHEDULE", icon: "calendar-clock", tone: "attn" },
   expense_submitted: { label: "EXPENSE", icon: "receipt", tone: "attn" },
   expense_approved: { label: "EXP", icon: "receipt-text", tone: "ambient" },
+  expense_paid: { label: "PAID", icon: "receipt-text", tone: "ambient" },
   duplicates_found: { label: "DUPES", icon: "copy", tone: "critical" },
   duplicates_merged: { label: "MERGED", icon: "check-circle-2", tone: "ambient" },
   data_review_resolved: { label: "DATA REVIEW", icon: "list-checks", tone: "ambient" },

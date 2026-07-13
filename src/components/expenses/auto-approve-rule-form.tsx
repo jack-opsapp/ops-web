@@ -71,7 +71,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
     parseFloat(threshold) > 0 && (appliesToAll || selectedMembers.length > 0);
 
   return (
-    <div className="border border-border rounded p-3 space-y-3 bg-[rgba(255,255,255,0.02)]">
+    <div className="border border-border rounded p-3 space-y-3 bg-surface-hover-subtle">
       {/* Rule type picker */}
       <div>
         <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1.5">
@@ -83,8 +83,8 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
             className={cn(
               "flex-1 px-3 py-2 rounded border text-left transition-all",
               ruleType === AutoApproveRuleType.Invoice
-                ? "border-[#6F94B0] bg-[rgba(111, 148, 176,0.08)]"
-                : "border-border hover:border-[rgba(255,255,255,0.20)]"
+                ? "border-border-medium bg-surface-active"
+                : "border-border hover:border-border-medium"
             )}
           >
             <span className="font-mohave text-body-sm text-text uppercase block">
@@ -99,8 +99,8 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
             className={cn(
               "flex-1 px-3 py-2 rounded border text-left transition-all",
               ruleType === AutoApproveRuleType.LineItem
-                ? "border-[#6F94B0] bg-[rgba(111, 148, 176,0.08)]"
-                : "border-border hover:border-[rgba(255,255,255,0.20)]"
+                ? "border-border-medium bg-surface-active"
+                : "border-border hover:border-border-medium"
             )}
           >
             <span className="font-mohave text-body-sm text-text uppercase block">
@@ -165,7 +165,7 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
             {teamMembers.map((member) => (
               <label
                 key={member.id}
-                className="flex items-center gap-2 py-1 cursor-pointer hover:bg-[rgba(255,255,255,0.02)] rounded px-1"
+                className="flex items-center gap-2 py-1 cursor-pointer hover:bg-surface-hover-subtle rounded px-1"
               >
                 <input
                   type="checkbox"
@@ -199,10 +199,10 @@ export function AutoApproveRuleForm({ onClose }: AutoApproveRuleFormProps) {
           onClick={handleSubmit}
           disabled={!canSubmit || createRule.isPending}
           className={cn(
-            "px-3 py-1.5 rounded font-mono text-caption-sm uppercase tracking-wider transition-colors flex items-center gap-1.5",
+            "px-3 py-1.5 rounded border font-mono text-caption-sm uppercase tracking-wider transition-colors flex items-center gap-1.5",
             canSubmit
-              ? "bg-[rgba(157,181,130,0.15)] text-[#9DB582] hover:bg-[rgba(157,181,130,0.25)]"
-              : "bg-[rgba(255,255,255,0.04)] text-text-mute cursor-not-allowed"
+              ? "border-olive-line bg-olive-soft text-olive hover:border-olive"
+              : "border-border bg-surface-input text-text-mute cursor-not-allowed"
           )}
         >
           {createRule.isPending && (
