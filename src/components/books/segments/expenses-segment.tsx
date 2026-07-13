@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import { usePermissionStore } from "@/lib/store/permissions-store";

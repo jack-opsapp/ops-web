@@ -17,7 +17,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Loader2, Flag } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
