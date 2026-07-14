@@ -16,8 +16,10 @@ import {
   type AddressSelection,
 } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import { useCreateOpportunity, useClients, useCreateClient } from "@/lib/hooks";
+import { ClientService } from "@/lib/api/services";
 import { OpportunityStage, OpportunitySource, OpportunityPriority } from "@/lib/types/pipeline";
 import { buildLeadTitle } from "@/lib/utils/lead-title";
+import { resolveLeadClientId } from "@/lib/utils/lead-client-matcher";
 import type { Client } from "@/lib/types/models";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
@@ -219,7 +221,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
     watch,
     setValue,
     getValues,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LeadFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -424,17 +426,43 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
-  function onSubmit(data: LeadFormData) {
+  async function onSubmit(data: LeadFormData) {
     if (!can("pipeline.manage")) return;
     if (!companyId) {
       toast.error(t("createLead.noCompany"));
       return;
     }
 
+    // Bug 1d5ab9aa parity (iOS fixed 2026-07-14): a manual lead lands with
+    // its client linked, like every email/lead-engine import path. No client
+    // picked → match-or-create one from the typed contact fields (phone →
+    // email → name, mirroring LeadClientMatcher.swift so both platforms
+    // converge on the same rows). Resolution failure never blocks the lead —
+    // it saves unlinked, matching the iOS fallback.
+    let clientId = data.clientId ?? null;
+    if (!clientId) {
+      const pin = data.address?.trim() ? coords : null;
+      clientId = await resolveLeadClientId(
+        {
+          name: data.contactName,
+          email: data.contactEmail || null,
+          phone: data.contactPhone || null,
+          address: data.address || null,
+          latitude: pin?.latitude ?? null,
+          longitude: pin?.longitude ?? null,
+        },
+        {
+          fetchClients: () => ClientService.fetchAllClients(companyId),
+          createClient: (fields) => createClient.mutateAsync(fields),
+          cachedClients: clients,
+        }
+      );
+    }
+
     createOpportunity.mutate(
       {
         companyId,
-        clientId: data.clientId ?? null,
+        clientId,
         title: data.title,
         description: data.description || null,
         contactName: data.contactName,
@@ -479,7 +507,9 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
     );
   }
 
-  const isSaving = createOpportunity.isPending;
+  // isSubmitting covers the client match-or-create await before the mutation
+  // takes over — one continuous loading state, no double-submit window.
+  const isSaving = createOpportunity.isPending || isSubmitting;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
