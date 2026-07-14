@@ -68,27 +68,53 @@ the overview to lead with the story + the contact.
   glyph + chevron. The OVERVIEW tab leads with `// CONTACT` → `// SCOPE` →
   `// HEALTH` (this lead has no AI summary, so Contact leads).
 - **`B2-lead-detail-expanded-map-band.png`** — strip tapped open: the full band
-  reveals the facts row (`// PRIORITY / CLIENT / SOURCE / OWNER`, expected close),
-  the OPEN IN MAPS pill, and the map area. (Local dev has no Mapbox token, so the
-  map shows ProjectMap's own "MAP UNAVAILABLE" message; production renders real
-  tiles. The band's own grid fallback is gone.)
+  reveals the OPEN IN MAPS pill (top-right), the value hero + win readout, and
+  the facts rows (`// PRIORITY / CLIENT / SOURCE / OWNER`, expected close) — all
+  stacked with zero overlap. (Local dev has no Mapbox token, so the map backdrop
+  shows ProjectMap's own "MAP UNAVAILABLE" message behind the content; production
+  renders real tiles. The band's own grid fallback is gone.)
+
+### Overlap fix (coordinator flag, 2026-07-13)
+
+The first B2 capture showed the OPEN IN MAPS pill rendering on top of the
+`// OWNER` fact at the window's 780px width. Diagnosed live: the pill wrapper
+and the value/facts block were both `absolute` (top- and bottom-anchored) inside
+a **fixed 114px** reveal, while the wrapped facts made the content 187px tall —
+the block overflowed upward (clipping the value hero) and collided with the
+pill. **Fix:** the reveal is now `min-height: 114px` with everything in normal
+flow (pill row → flex spacer → content), animated to `height: auto`. Overlap is
+structurally impossible in both map states (real tiles or token-missing
+fallback): the reveal **grows** when the facts wrap. Verified live post-fix:
+pill bottom 316 < hero top 356 < facts top 423 — zero intersection, zero
+clipping.
 
 ### Scroller reclaim — measured live (`getBoundingClientRect`)
 
 The reading scroller is the `flex-1 overflow-y-auto` record area below the band.
-Measured at 1440×960 with a real lead open:
+Measured at 1440×960 with a real lead open (detail window 780×680):
 
 | State | Band height | Reading scroller height |
 |---|---:|---:|
 | **Collapsed (new default)** | 45 px | **364 px** |
-| **Expanded (map open)** | 159 px | **250 px** |
-| **Delta** | **+114 px** | **−114 px** |
+| **Expanded (on demand)** | content-driven, min 158 px (291 px on this lead — its facts wrap at 780px) | 118 px on this lead |
 
-- Collapsing the band hands the record scroller **exactly 114 px** (band 45 → 159).
-- The old always-on 158px band gave the reader ~250 px (matching the audit's
-  measured 251 px baseline). The new collapsed default gives **364 px** — the
-  audit predicted "roughly 365 px," measured **364 px**. That is a **~46% larger
+- The old always-on 158px band gave the reader ~250 px (the audit's measured
+  251 px baseline). The new collapsed default gives **364 px** — the audit
+  predicted "roughly 365 px," measured **364 px**. That is a **~46% larger
   reading window** by default, with the map one tap away.
+- The expanded state is deliberately honest about its height: it takes exactly
+  what the pill + value + facts need (never less than the original 158px total),
+  never clipping or overlapping, and hands it all back on collapse.
+
+### Collapsed-strip border (coordinator question)
+
+The steel-blue outline on the strip in B1/B2 is the **`:focus-visible` ring**,
+not a resting accent border — verified live: `document.activeElement` is the
+strip and `strip.matches(':focus-visible') === true`. The detail window
+auto-focuses its first focusable element on open (pre-existing behavior; that
+element is now the strip), and programmatic focus triggers `:focus-visible`.
+The strip carries no border class at rest; accent-as-focus-ring is the
+sanctioned use.
 
 ### No-coordinates lead
 
