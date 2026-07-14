@@ -86,7 +86,10 @@ export function PipelineDetailBody({
           <PipelineDetailTimelineTab opportunityId={opportunity.id} />
         )}
         {activeTab === "photos" && (
-          <PipelineDetailPhotosTab opportunityId={opportunity.id} />
+          <PipelineDetailPhotosTab
+            opportunity={opportunity}
+            canManage={canManage}
+          />
         )}
       </div>
     </div>
