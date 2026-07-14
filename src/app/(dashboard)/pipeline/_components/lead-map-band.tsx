@@ -76,11 +76,16 @@ const EMPTY = "—";
 
 /**
  * Strip + reveal heights. The collapsed strip is the sole default chrome; the
- * reveal restores the band to its original 158px total (44 strip + 114 reveal)
- * from spec §6 / Phase 3. Collapsing hands the 114 back to the record scroller.
+ * reveal restores the band to roughly its original 158px total (44 strip +
+ * ≥114 reveal) from spec §6 / Phase 3. The reveal is a `min-height`, not a
+ * fixed height: its content (pill row → spacer → value hero + facts) is normal
+ * flow, so when the facts row wraps at the window's 780px width the reveal
+ * GROWS instead of letting a bottom-anchored block overflow into the
+ * Open-in-Maps pill (the B2 collision). Collapsing hands the whole reveal back
+ * to the record scroller.
  */
 const STRIP_HEIGHT = 44;
-const REVEAL_HEIGHT = 114;
+const REVEAL_MIN_HEIGHT = 114;
 
 /**
  * Bottom-weighted scrim (rendered only over a real map). Two stacked layers,
@@ -188,7 +193,7 @@ export function LeadMapBand({
         onClick={() => setExpanded((prev) => !prev)}
         className={cn(
           "flex w-full items-center gap-2 px-[11px] text-left",
-          "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "transition-colors duration-150 ease-smooth",
           "hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ops-accent",
         )}
         style={{ height: STRIP_HEIGHT }}
@@ -220,7 +225,7 @@ export function LeadMapBand({
           strokeWidth={1.5}
           aria-hidden="true"
           className={cn(
-            "ml-auto shrink-0 text-text-3 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            "ml-auto shrink-0 text-text-3 transition-transform duration-200 ease-smooth motion-reduce:transition-none",
             expanded && "rotate-180",
           )}
         />
@@ -234,9 +239,7 @@ export function LeadMapBand({
             id={revealId}
             initial={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
             animate={
-              reduceMotion
-                ? { opacity: 1 }
-                : { height: REVEAL_HEIGHT, opacity: 1 }
+              reduceMotion ? { opacity: 1 } : { height: "auto", opacity: 1 }
             }
             exit={reduceMotion ? { opacity: 0 } : { height: 0, opacity: 0 }}
             transition={{
@@ -245,7 +248,14 @@ export function LeadMapBand({
             }}
             className="relative overflow-hidden border-t border-border-subtle"
           >
-            <div className="relative" style={{ height: REVEAL_HEIGHT }}>
+            {/* Flow column over the backdrop: pill row → spacer → content.
+                Everything is normal flow (min-height, never fixed), so the
+                pill and the facts can NEVER overlap — when the facts row wraps
+                at drawer/window width, the reveal grows instead of colliding. */}
+            <div
+              className="relative flex flex-col"
+              style={{ minHeight: REVEAL_MIN_HEIGHT }}
+            >
               {/* Backdrop — real map ONLY when we have coordinates; otherwise the
                   plain canvas (no decorative grid). */}
               {hasCoords ? (
@@ -267,9 +277,10 @@ export function LeadMapBand({
                 </>
               ) : null}
 
-              {/* Open-in-Maps pill (top-right). */}
+              {/* Open-in-Maps pill (top-right, in flow — structurally cannot
+                  overlap the facts below). */}
               {mapsUrl ? (
-                <div className="absolute inset-x-0 top-0 flex justify-end p-[11px]">
+                <div className="relative flex justify-end px-[11px] pt-[11px]">
                   <a
                     href={mapsUrl}
                     target="_blank"
@@ -278,7 +289,7 @@ export function LeadMapBand({
                     className={cn(
                       "inline-flex shrink-0 items-center gap-1 rounded-[5px] border border-glass-border px-2 py-1",
                       "font-mono text-[9px] uppercase tracking-[0.16em] text-text-2",
-                      "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-text",
+                      "transition-colors duration-150 ease-smooth hover:text-text",
                       "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
                     )}
                     style={{
@@ -294,8 +305,14 @@ export function LeadMapBand({
                 </div>
               ) : null}
 
-              {/* band-content: value hero + win + priority + facts, anchored to bottom. */}
-              <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1.5 p-3">
+              {/* Spacer — flexes so the content sits at the bottom of the
+                  min-height reveal (map showing through), but always keeps at
+                  least 8px between the pill row and the value hero. */}
+              <div className="min-h-2 flex-1" aria-hidden="true" />
+
+              {/* band-content: value hero + win + priority + facts — bottom of
+                  the reveal, in flow (grows the reveal when the facts wrap). */}
+              <div className="relative flex flex-col gap-1.5 p-3">
                 {/* Value hero row — `// ESTIMATED VALUE` + the big editable currency. */}
                 <div className="flex items-end justify-between gap-3">
                   <div className="flex min-w-0 flex-col gap-1">
