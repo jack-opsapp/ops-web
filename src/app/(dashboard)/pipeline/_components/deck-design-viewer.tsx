@@ -64,6 +64,7 @@ export function DeckDesignViewer({
 
   return createPortal(
     <motion.div
+      data-pipeline-detail-modal=""
       className="fixed inset-0 z-[3000] flex items-center justify-center bg-background/80 p-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}

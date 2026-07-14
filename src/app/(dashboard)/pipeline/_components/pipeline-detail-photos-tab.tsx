@@ -122,6 +122,7 @@ function PhotoLightbox({
 
   return (
     <div
+      data-pipeline-detail-modal=""
       className="fixed inset-0 z-[3000] flex items-center justify-center bg-background/80"
       onClick={onClose}
     >
