@@ -81,6 +81,11 @@ vi.mock("@/lib/hooks/use-opportunities", () => ({
   useUpdateOpportunity: () => ({ mutateAsync }),
   useAttachClientToOpportunity: () => ({ mutate: attachMutate, isPending: false }),
 }));
+// Deck designs are covered by pipeline-detail-deck-section.test.tsx; the
+// Overview suite runs with no attached decks so the section renders null.
+vi.mock("@/lib/hooks/use-opportunity-deck-designs", () => ({
+  useOpportunityDeckDesigns: () => ({ data: [] }),
+}));
 
 // Owner/team hook is reached by no Overview field directly, but the reused
 // TagsField/TextAreaField/AddressField don't load it — still, keep a safe stub

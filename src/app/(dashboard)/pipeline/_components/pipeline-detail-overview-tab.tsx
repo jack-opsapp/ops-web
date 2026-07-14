@@ -81,6 +81,7 @@ import {
   TagsField,
   TextAreaField,
 } from "./lead-field-editors";
+import { PipelineDetailDeckSection } from "./pipeline-detail-deck-section";
 import { CreateSiteVisitModal } from "@/components/ops/site-visit/create-site-visit-modal";
 
 const EMPTY = "—";
@@ -119,6 +120,9 @@ export function PipelineDetailOverviewTab({
       <ContactSection opportunity={opportunity} canManage={canManage} />
 
       <LocationSection opportunity={opportunity} edit={edit} canManage={canManage} />
+
+      {/* State-aware: renders nothing unless the lead carries a deck sketch. */}
+      <PipelineDetailDeckSection opportunityId={opportunity.id} />
 
       <LinkedSection opportunity={opportunity} canManage={canManage} />
     </Stack>
