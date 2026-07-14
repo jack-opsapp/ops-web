@@ -388,7 +388,10 @@ export function BatchDetailPanel({
           click-through to the lines behind; only the puck is interactive.
           Handlers + mutation wiring are unchanged from the old full-width bar. */}
       {canReview && reviewable && (
-        <div className="pointer-events-none sticky bottom-0 z-10 flex justify-end px-3 pb-3 pt-2">
+        <div
+          data-testid="review-action-cluster"
+          className="pointer-events-none sticky bottom-0 z-10 flex justify-end px-3 pb-3 pt-2"
+        >
           <div className="glass-dense pointer-events-auto flex items-center gap-1 rounded-panel border border-line p-1">
             {flagCount > 0 ? (
               <>
