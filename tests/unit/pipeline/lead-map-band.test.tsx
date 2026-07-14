@@ -1,10 +1,14 @@
 /**
- * Tests for the map-backed lead summary band (`lead-map-band.tsx`).
+ * Tests for the collapsible lead summary strip (`lead-map-band.tsx`).
  *
- * `LeadMapBand` sits at the top of the lead-detail window. It paints a
- * non-interactive ProjectMap (or a tactical-grid fallback when the lead has no
- * coordinates) under a bottom-weighted scrim, then anchors the estimated-value
- * hero + the inline-editable facts row along the bottom.
+ * Redesign (lead-detail audit, Direction A, 2026-07-09): the band no longer
+ * paints a fixed 158px map slab. By default it is a slim ~44px ADDRESS STRIP
+ * (address + a map glyph + an expand chevron). Tapping the strip reveals the
+ * full deal band — a non-interactive ProjectMap backdrop (ONLY when the lead
+ * has coordinates; a lead with no coordinates reveals its facts on the plain
+ * canvas — never a decorative grid), a bottom-weighted scrim, the
+ * estimated-value hero, the read-only win readout, and the inline-editable
+ * facts row. Tapping again collapses it.
  *
  * The band owns ONE `useOpportunityFieldEdit` instance and threads it into every
  * editor — but the hook hits TanStack Query + the live mutation engine, so here
@@ -12,18 +16,21 @@
  * sits on (`useUpdateOpportunity`). That keeps the component honest about wiring
  * `edit` through while never touching Supabase.
  *
- * Contract under test (mirrors the Phase 3 plan + §6 of the design spec):
- *  - coords present  → the (mocked) ProjectMap backdrop renders,
- *  - no coords       → a tactical-grid fallback renders AND there is no
- *                      "Open in Maps" link when there's also no address,
- *  - "Open in Maps"  → href is the google maps search URL for `lat,lng`,
- *  - value           → shows the `—` sentinel when `estimatedValue` is null,
- *  - read-only       → when `canManage` is false the facts render as pure
- *                      read-outs (no edit trigger buttons).
+ * Contract under test:
+ *  - collapsed default → only the strip: address is shown; the map, the
+ *    value hero, the facts, and the Open-in-Maps link are NOT rendered,
+ *  - the strip toggle advertises "Show map" (has coords) / "Show details"
+ *    (no coords) and carries `aria-expanded`,
+ *  - no coordinates → NO map and NO decorative grid, ever (collapsed OR
+ *    expanded); the facts still reveal on the plain canvas,
+ *  - expand → the ProjectMap backdrop, value hero, win readout, facts, and
+ *    the Open-in-Maps link appear,
+ *  - read-only (!canManage) → once expanded the facts are pure read-outs; the
+ *    strip toggle is the only button and no edit ever reaches the mutation.
  */
 
 import * as React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import * as jestDomMatchers from "@testing-library/jest-dom/matchers";
 
@@ -144,15 +151,105 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
   };
 }
 
+/** Open the reveal by clicking the persistent strip toggle. */
+function expandBand() {
+  fireEvent.click(screen.getByTestId("lead-map-strip"));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-// ─── Backdrop ───────────────────────────────────────────────────────────────
+// ─── Collapsed default (strip only) ───────────────────────────────────────────
 
-describe("LeadMapBand — backdrop", () => {
-  it("renders the ProjectMap backdrop (stage-colored pin) when coordinates exist", () => {
+describe("LeadMapBand — collapsed default", () => {
+  it("shows only the address strip — the map, hero, facts, and Open-in-Maps are not rendered", () => {
     render(<LeadMapBand opportunity={makeOpportunity()} canManage />);
+
+    const band = screen.getByTestId("lead-map-band");
+    // The address rides in the persistent strip.
+    expect(within(band).getByText(/1180 Howe St/)).toBeInTheDocument();
+    // Collapsed: none of the reveal content is mounted.
+    expect(screen.queryByTestId("project-map-mock")).toBeNull();
+    expect(screen.queryByRole("link", { name: /open in maps/i })).toBeNull();
+    expect(screen.queryByText(formatCurrency(14200))).toBeNull();
+
+    const strip = screen.getByTestId("lead-map-strip");
+    expect(strip).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("advertises 'Show map' when the lead has coordinates", () => {
+    render(<LeadMapBand opportunity={makeOpportunity()} canManage />);
+    expect(
+      screen.getByRole("button", { name: /show map/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("advertises 'Show details' (not a map) when the lead has NO coordinates", () => {
+    render(
+      <LeadMapBand
+        opportunity={makeOpportunity({ latitude: null, longitude: null })}
+        canManage
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: /show details/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /show map/i })).toBeNull();
+  });
+
+  it("shows the em-dash sentinel in the strip when there is no address", () => {
+    render(
+      <LeadMapBand
+        opportunity={makeOpportunity({
+          latitude: null,
+          longitude: null,
+          address: null,
+        })}
+        canManage
+      />,
+    );
+    const band = screen.getByTestId("lead-map-band");
+    expect(within(band).getByText("—")).toBeInTheDocument();
+  });
+});
+
+// ─── No decorative grid, ever ─────────────────────────────────────────────────
+
+describe("LeadMapBand — no coordinates never paints a grid", () => {
+  it("collapsed: no map and no grid fallback", () => {
+    render(
+      <LeadMapBand
+        opportunity={makeOpportunity({ latitude: null, longitude: null })}
+        canManage
+      />,
+    );
+    expect(screen.queryByTestId("project-map-mock")).toBeNull();
+    // The retired tactical-grid fallback must never render again.
+    expect(screen.queryByTestId("lead-map-grid-fallback")).toBeNull();
+  });
+
+  it("expanded: the facts reveal on the plain canvas — still no map, still no grid", () => {
+    render(
+      <LeadMapBand
+        opportunity={makeOpportunity({ latitude: null, longitude: null })}
+        canManage
+      />,
+    );
+    expandBand();
+    expect(screen.queryByTestId("project-map-mock")).toBeNull();
+    expect(screen.queryByTestId("lead-map-grid-fallback")).toBeNull();
+    // The value hero (an editor with nowhere else to live) still reveals.
+    expect(screen.getByText(formatCurrency(14200))).toBeInTheDocument();
+  });
+});
+
+// ─── Expand → reveal ──────────────────────────────────────────────────────────
+
+describe("LeadMapBand — expand reveals the deal band", () => {
+  it("reveals the ProjectMap backdrop (stage-colored pin) when coordinates exist", () => {
+    render(<LeadMapBand opportunity={makeOpportunity()} canManage />);
+    expandBand();
 
     const map = screen.getByTestId("project-map-mock");
     expect(map).toBeInTheDocument();
@@ -160,28 +257,34 @@ describe("LeadMapBand — backdrop", () => {
       "data-pin-color",
       OPPORTUNITY_STAGE_COLORS[OpportunityStage.Quoting],
     );
-    // The grid fallback must NOT render when there's a map.
-    expect(screen.queryByTestId("lead-map-grid-fallback")).toBeNull();
+    expect(screen.getByTestId("lead-map-strip")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 
-  it("renders the tactical-grid fallback (no ProjectMap) when coordinates are missing", () => {
+  it("reveals the estimated-value hero and the read-only win readout", () => {
     render(
-      <LeadMapBand
-        opportunity={makeOpportunity({ latitude: null, longitude: null })}
-        canManage
-      />,
+      <LeadMapBand opportunity={makeOpportunity({ estimatedValue: 14200, winProbability: 40 })} canManage />,
     );
+    expandBand();
+    expect(screen.getByText(formatCurrency(14200))).toBeInTheDocument();
+    expect(screen.getByText(/40%/)).toBeInTheDocument();
+  });
 
-    expect(screen.queryByTestId("project-map-mock")).toBeNull();
-    expect(screen.getByTestId("lead-map-grid-fallback")).toBeInTheDocument();
+  it("shows the em-dash sentinel for a null value once expanded", () => {
+    render(<LeadMapBand opportunity={makeOpportunity({ estimatedValue: null })} canManage />);
+    expandBand();
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 });
 
-// ─── Open in Maps ─────────────────────────────────────────────────────────────
+// ─── Open in Maps (inside the reveal) ─────────────────────────────────────────
 
 describe("LeadMapBand — Open in Maps link", () => {
-  it("links to the google maps coordinate search when lat/lng exist", () => {
+  it("links to the coordinate search when lat/lng exist", () => {
     render(<LeadMapBand opportunity={makeOpportunity()} canManage />);
+    expandBand();
 
     const link = screen.getByRole("link", { name: /open in maps/i });
     expect(link).toHaveAttribute(
@@ -203,6 +306,7 @@ describe("LeadMapBand — Open in Maps link", () => {
         canManage
       />,
     );
+    expandBand();
 
     const link = screen.getByRole("link", { name: /open in maps/i });
     expect(link).toHaveAttribute(
@@ -224,74 +328,55 @@ describe("LeadMapBand — Open in Maps link", () => {
         canManage
       />,
     );
-
+    expandBand();
     expect(screen.queryByRole("link", { name: /open in maps/i })).toBeNull();
-    // And the grid fallback still paints — never a naked/empty map.
-    expect(screen.getByTestId("lead-map-grid-fallback")).toBeInTheDocument();
-  });
-});
-
-// ─── Value hero ───────────────────────────────────────────────────────────────
-
-describe("LeadMapBand — estimated value hero", () => {
-  it("shows the formatted currency value", () => {
-    render(<LeadMapBand opportunity={makeOpportunity({ estimatedValue: 14200 })} canManage />);
-    expect(screen.getByText(formatCurrency(14200))).toBeInTheDocument();
-  });
-
-  it("shows the em-dash sentinel when the value is null", () => {
-    render(<LeadMapBand opportunity={makeOpportunity({ estimatedValue: null })} canManage />);
-    expect(screen.getByText("—")).toBeInTheDocument();
-  });
-});
-
-// ─── Win probability (read-only) ──────────────────────────────────────────────
-
-describe("LeadMapBand — win probability", () => {
-  it("renders the read-only win percentage (never an edit trigger)", () => {
-    render(<LeadMapBand opportunity={makeOpportunity({ winProbability: 40 })} canManage />);
-    // The win readout is informational text, not a button.
-    expect(screen.getByText(/40%/)).toBeInTheDocument();
   });
 });
 
 // ─── Read-only mode ───────────────────────────────────────────────────────────
 
 describe("LeadMapBand — read-only (!canManage)", () => {
-  it("renders the facts as pure read-outs with no edit triggers", () => {
+  it("reveals the facts as pure read-outs — the strip toggle is the only button", () => {
     render(<LeadMapBand opportunity={makeOpportunity()} canManage={false} />);
+    expandBand();
 
-    // No inline-edit trigger buttons anywhere in the band when read-only.
-    expect(screen.queryByRole("button")).toBeNull();
+    // The only interactive button is the strip toggle itself — every fact
+    // editor degrades to a read-out, so there are no edit-trigger buttons.
+    const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toBe(screen.getByTestId("lead-map-strip"));
     // The value is still legible …
     expect(screen.getByText(formatCurrency(14200))).toBeInTheDocument();
     // … and editing never reaches the mutation engine.
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
-  it("still renders the Open-in-Maps link in read-only mode", () => {
+  it("still exposes the Open-in-Maps link on expand in read-only mode", () => {
     render(<LeadMapBand opportunity={makeOpportunity()} canManage={false} />);
-    const link = screen.getByRole("link", { name: /open in maps/i });
-    expect(link).toBeInTheDocument();
+    expandBand();
+    expect(
+      screen.getByRole("link", { name: /open in maps/i }),
+    ).toBeInTheDocument();
   });
 
-  it("shows the client/contact name read-only", () => {
+  it("shows the client/contact name read-only once expanded", () => {
     render(
       <LeadMapBand
         opportunity={makeOpportunity({ client: null, contactName: "Dana Scully" })}
         canManage={false}
       />,
     );
+    expandBand();
     expect(screen.getByText("Dana Scully")).toBeInTheDocument();
   });
 });
 
-// ─── Address line ─────────────────────────────────────────────────────────────
+// ─── Address strip (persistent) ───────────────────────────────────────────────
 
-describe("LeadMapBand — band-top address", () => {
-  it("renders the address in the band-top region", () => {
+describe("LeadMapBand — persistent address strip", () => {
+  it("renders the address inside the always-visible strip toggle", () => {
     render(<LeadMapBand opportunity={makeOpportunity()} canManage />);
-    const band = screen.getByTestId("lead-map-band");
-    expect(within(band).getByText(/1180 Howe St/)).toBeInTheDocument();
+    const strip = screen.getByTestId("lead-map-strip");
+    expect(within(strip).getByText(/1180 Howe St/)).toBeInTheDocument();
   });
 });

@@ -261,7 +261,6 @@
   "detail.scopeLabel": "Scope",
   "detail.scopePlaceholder": "[ no scope captured ]",
   "detail.addressLabel": "Address",
-
   "band.saving": "saving…",
   "band.saved": "Saved",
   "band.saveError": "Save failed",
@@ -282,6 +281,10 @@
   "band.removeTag": "Remove {tag}",
   "band.tagPlaceholder": "[ type, then ↵ ]",
   "band.openInMaps": "Open in Maps",
+  "band.showMap": "Show map",
+  "band.hideMap": "Hide map",
+  "band.showDetails": "Show details",
+  "band.hideDetails": "Hide details",
   "band.source.referral": "Referral",
   "band.source.website": "Website",
   "band.source.email": "Email",
@@ -294,7 +297,6 @@
   "band.priority.high": "High",
   "band.priority.medium": "Medium",
   "band.priority.low": "Low",
-
   "overview.scope": "Scope",
   "overview.tags": "Tags",
   "overview.summary": "Summary",
@@ -345,7 +347,6 @@
   "overview.siteVisitStatus.in_progress": "In progress",
   "overview.siteVisitStatus.completed": "Completed",
   "overview.siteVisitStatus.cancelled": "Cancelled",
-
   "transition.wonDescription": "Congratulations on closing",
   "transition.finalValue": "Final value",
   "transition.nameAuto": "Name",

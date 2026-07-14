@@ -261,7 +261,6 @@
   "detail.scopeLabel": "Alcance",
   "detail.scopePlaceholder": "[ sin alcance capturado ]",
   "detail.addressLabel": "Dirección",
-
   "band.saving": "guardando…",
   "band.saved": "Guardado",
   "band.saveError": "Error al guardar",
@@ -282,6 +281,10 @@
   "band.removeTag": "Quitar {tag}",
   "band.tagPlaceholder": "[ escribe y pulsa ↵ ]",
   "band.openInMaps": "Abrir en Mapas",
+  "band.showMap": "Mostrar mapa",
+  "band.hideMap": "Ocultar mapa",
+  "band.showDetails": "Mostrar detalles",
+  "band.hideDetails": "Ocultar detalles",
   "band.source.referral": "Referido",
   "band.source.website": "Sitio web",
   "band.source.email": "Correo",
@@ -294,7 +297,6 @@
   "band.priority.high": "Alta",
   "band.priority.medium": "Media",
   "band.priority.low": "Baja",
-
   "overview.scope": "Alcance",
   "overview.tags": "Etiquetas",
   "overview.summary": "Resumen",
@@ -345,7 +347,6 @@
   "overview.siteVisitStatus.in_progress": "En progreso",
   "overview.siteVisitStatus.completed": "Completada",
   "overview.siteVisitStatus.cancelled": "Cancelada",
-
   "transition.wonDescription": "Felicidades por cerrar",
   "transition.finalValue": "Valor final",
   "transition.nameAuto": "Nombre",

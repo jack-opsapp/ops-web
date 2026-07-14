@@ -102,9 +102,15 @@ export function PipelineDetailOverviewTab({
   // ONE optimistic edit engine for the whole tab; threaded into every editor.
   const edit = useOpportunityFieldEdit(opportunity.id);
 
+  // Order = why an operator opens a lead: read the story (Summary), see who to
+  // call (Contact) — then the deeper record (Scope, Health, Tags, Location,
+  // Linked). Location/map are demoted below the action. Lead-detail audit,
+  // Direction A (2026-07-09).
   return (
     <Stack gap={3}>
       <SummarySection opportunity={opportunity} />
+
+      <ContactSection opportunity={opportunity} canManage={canManage} />
 
       <Section title={t("overview.scope", "Scope")}>
         <TextAreaField edit={edit} canManage={canManage} value={opportunity.description} />
@@ -115,8 +121,6 @@ export function PipelineDetailOverviewTab({
       <Section title={t("overview.tags", "Tags")}>
         <TagsField edit={edit} canManage={canManage} value={opportunity.tags} />
       </Section>
-
-      <ContactSection opportunity={opportunity} canManage={canManage} />
 
       <LocationSection opportunity={opportunity} edit={edit} canManage={canManage} />
 
