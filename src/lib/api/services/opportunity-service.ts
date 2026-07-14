@@ -27,6 +27,7 @@ import {
   FollowUpType,
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
+import { mergeImageUrls, removeImageUrl } from "@/lib/utils/opportunity-images";
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
@@ -115,6 +116,7 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     lastActivityAt: parseDate(row.last_activity_at),
     nextFollowUpAt: parseDate(row.next_follow_up_at),
     tags: (row.tags as string[]) ?? [],
+    images: (row.images as string[]) ?? [],
 
     // System
     createdAt: parseDateRequired(row.created_at),
@@ -539,6 +541,66 @@ export const OpportunityService = {
 
     if (error) {
       throw new Error(`Failed to update opportunity ${id}: ${error.message}`);
+    }
+
+    return mapOpportunityFromDb(updated as Record<string, unknown>);
+  },
+
+  /**
+   * Append lead-photo URLs against the SERVER row: fetch → merge → update,
+   * mirroring iOS `OpportunityRepository.appendImages` exactly, so a client
+   * holding a stale local array can never blow away photos another producer
+   * (an iOS device, the email-extract pipeline, another tab) already landed.
+   * Duplicate and empty URLs are dropped. Returns the updated opportunity.
+   *
+   * `images` is deliberately NOT part of `mapOpportunityToDb` — the array is
+   * only writable through these two read-modify-write methods.
+   */
+  async appendImages(id: string, urls: string[]): Promise<Opportunity> {
+    const supabase = requireSupabase();
+
+    const current = await this.fetchOpportunity(id);
+    const merged = mergeImageUrls(current.images, urls);
+
+    const { data: updated, error } = await supabase
+      .from("opportunities")
+      .update({ images: merged })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(
+        `Failed to append images to opportunity ${id}: ${error.message}`
+      );
+    }
+
+    return mapOpportunityFromDb(updated as Record<string, unknown>);
+  },
+
+  /**
+   * Remove one lead-photo URL — same server-state read-modify-write contract
+   * as {@link appendImages}. The S3 object is left in place: `/api/uploads/delete`
+   * does not exist, and photo deletion is an array PATCH by design (bible 03
+   * § Images contract).
+   */
+  async removeImage(id: string, url: string): Promise<Opportunity> {
+    const supabase = requireSupabase();
+
+    const current = await this.fetchOpportunity(id);
+    const remaining = removeImageUrl(current.images, url);
+
+    const { data: updated, error } = await supabase
+      .from("opportunities")
+      .update({ images: remaining })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(
+        `Failed to remove image from opportunity ${id}: ${error.message}`
+      );
     }
 
     return mapOpportunityFromDb(updated as Record<string, unknown>);

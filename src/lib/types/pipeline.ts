@@ -467,6 +467,11 @@ export interface Opportunity {
   nextFollowUpAt: Date | null;
   tags: string[];
 
+  // Lead photos — full public S3 URLs, never storage keys. Written by iOS
+  // lead photos + the email-extract pipeline + the web photos tab, all via
+  // server-state read-modify-write (bible 03 § Images contract).
+  images: string[];
+
   // System
   createdAt: Date;
   updatedAt: Date;
