@@ -33,7 +33,9 @@ export class ImageUploadError extends Error {
 
 // ─── Image Compression ──────────────────────────────────────────────────────
 
-async function compressImage(file: File, maxWidth = 1920): Promise<Blob> {
+// Exported for the presign-flow uploader (lead-photo-upload.ts) so both
+// upload paths share one canvas-JPEG recipe.
+export async function compressImage(file: File, maxWidth = 1920): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const canvas = document.createElement("canvas");

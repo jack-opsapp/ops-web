@@ -1166,6 +1166,9 @@ export type CreateOpportunity = Omit<
   | "followUps"
   | "stageTransitions"
   | "sourceEmailId"
+  // Lead photos are never supplied at creation — producers append them
+  // post-create via the read-modify-write methods only.
+  | "images"
 > & {
   sourceEmailId?: string | null;
   correspondenceCount?: number;

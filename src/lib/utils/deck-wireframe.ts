@@ -17,6 +17,7 @@ export interface DeckWireVertexInput {
 }
 
 export interface DeckWireEdgeInput {
+  id?: unknown;
   startVertexId?: unknown;
   endVertexId?: unknown;
 }

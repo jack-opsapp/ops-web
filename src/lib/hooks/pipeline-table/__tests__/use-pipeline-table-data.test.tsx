@@ -134,6 +134,7 @@ function makeOpportunity(overrides: Partial<Opportunity> & { id: string }): Oppo
     lastActivityAt: daysBeforeNow(1),
     nextFollowUpAt: null,
     tags: [],
+    images: [],
     createdAt: daysBeforeNow(30),
     updatedAt: daysBeforeNow(1),
     deletedAt: null,

@@ -212,6 +212,86 @@ export function useUpdateOpportunity() {
 }
 
 /**
+ * Write a server-returned opportunity through the detail + list caches,
+ * merging into the existing entries so separately-loaded relationship fields
+ * (e.g. `client`) survive. Used by the image mutations, where the server row
+ * — not an optimistic patch — is canonical (RMW contract).
+ */
+function writeOpportunityThrough(
+  queryClient: ReturnType<typeof useQueryClient>,
+  id: string,
+  server: Opportunity
+) {
+  queryClient.setQueryData<Opportunity>(
+    queryKeys.opportunities.detail(id),
+    (old) => (old ? { ...old, ...server } : server)
+  );
+  queryClient.setQueriesData<Opportunity[]>(
+    { queryKey: queryKeys.opportunities.lists() },
+    (old) => {
+      if (!old) return old;
+      return old.map((opportunity) =>
+        opportunity.id === id ? { ...opportunity, ...server } : opportunity
+      );
+    }
+  );
+}
+
+/**
+ * Append lead-photo URLs to an opportunity via the server-state
+ * read-modify-write (`OpportunityService.appendImages`). No optimistic
+ * pre-write: the upload UI already shows per-tile progress, and under the
+ * RMW contract the merged server row is the only truth worth caching.
+ */
+export function useAddOpportunityImages() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, urls }: { id: string; urls: string[] }) =>
+      OpportunityService.appendImages(id, urls),
+
+    onSuccess: (updated, { id }) => {
+      writeOpportunityThrough(queryClient, id, updated);
+    },
+
+    onSettled: (_data, _error, { id }) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.detail(id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.lists(),
+      });
+    },
+  });
+}
+
+/**
+ * Remove one lead-photo URL — same server-state read-modify-write contract
+ * as {@link useAddOpportunityImages}.
+ */
+export function useRemoveOpportunityImage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, url }: { id: string; url: string }) =>
+      OpportunityService.removeImage(id, url),
+
+    onSuccess: (updated, { id }) => {
+      writeOpportunityThrough(queryClient, id, updated);
+    },
+
+    onSettled: (_data, _error, { id }) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.detail(id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.lists(),
+      });
+    },
+  });
+}
+
+/**
  * Attach an existing client to an opportunity.
  *
  * Uses the service helper instead of a raw opportunity update so linked

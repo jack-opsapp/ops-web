@@ -199,7 +199,10 @@ export {
   useCreateFollowUp,
   useCompleteFollowUp,
   useStageTransitions,
+  useAddOpportunityImages,
+  useRemoveOpportunityImage,
 } from "./use-opportunities";
+export { useOpportunityDeckDesigns } from "./use-opportunity-deck-designs";
 
 // Accounting
 export {
