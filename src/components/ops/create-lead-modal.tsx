@@ -32,7 +32,7 @@ import { toast } from "sonner";
 // `.transform()` here — transforms split input/output types and fight RHF's
 // resolver generics; instead source/priority stay `"" | Enum` (the "" sentinel
 // is the cleared state) and `onSubmit` normalizes "" → null on the way out.
-function buildLeadFormSchema(t: (key: string) => string) {
+export function buildLeadFormSchema(t: (key: string) => string) {
   return z.object({
     contactName: z.string().min(1, t("createLead.errors.contactRequired")).max(200),
     title: z.string().min(1, t("createLead.errors.titleRequired")).max(200),
@@ -44,7 +44,11 @@ function buildLeadFormSchema(t: (key: string) => string) {
     contactPhone: z.string().max(30).optional().or(z.literal("")),
     clientId: z.string().nullable(),
     source: z.union([z.nativeEnum(OpportunitySource), z.literal("")]),
-    estimatedValue: z.number().nullable(),
+    // "" is the untouched/cleared state: RHF reads the DOM value for a
+    // number input the user never focused (setValueAs only runs on events),
+    // so a plain z.number() here fails EVERY submit silently — the field
+    // renders no error. Same sentinel convention as source/priority.
+    estimatedValue: z.union([z.number().nullable(), z.literal("")]),
     priority: z.union([z.nativeEnum(OpportunityPriority), z.literal("")]),
     description: z.string().max(2000).optional().or(z.literal("")),
     address: z.string().max(500).optional().or(z.literal("")),
@@ -472,7 +476,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
         source: data.source || null,
         assignedTo: currentUser?.id ?? null,
         priority: data.priority || null,
-        estimatedValue: data.estimatedValue ?? null,
+        estimatedValue: data.estimatedValue === "" ? null : (data.estimatedValue ?? null),
         actualValue: null,
         winProbability: 10,
         expectedCloseDate: null,
@@ -605,7 +609,13 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
           prefixIcon={<DollarSign className="w-[16px] h-[16px]" />}
           className="font-mono tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]"
           {...register("estimatedValue", {
-            setValueAs: (v) => (v === "" || v === undefined ? null : parseFloat(v)),
+            // NaN (half-typed "1e", cleared spinner) folds to null — an
+            // unparseable amount is an empty amount, never a dead submit.
+            setValueAs: (v) => {
+              if (v === "" || v === undefined || v === null) return null;
+              const n = typeof v === "number" ? v : parseFloat(v);
+              return Number.isNaN(n) ? null : n;
+            },
           })}
         />
 
