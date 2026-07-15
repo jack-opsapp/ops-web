@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, type FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useProject } from "@/lib/hooks/use-projects";
@@ -59,6 +59,15 @@ export interface ProjectEditCreateBodyProps {
   formId: string;
   /** Fires after a successful save/create with the resulting project id. */
   onSaved?: (projectId: string) => void;
+  /**
+   * Fires when submit fails validation, with the tab that renders the first
+   * erroring field. The footer's CTA submits from outside the form, so the
+   * failing field's error may live on the tab that is NOT mounted (e.g. trade
+   * is required for creating but its error renders in the identity tab) —
+   * without this report the click dead-ends with zero feedback. The container
+   * wires it to its tab state so the failure becomes visible.
+   */
+  onInvalid?: (tabWithError: EditCreateTabId) => void;
   /** Ref the workspace container reads to trigger DISCARD CHANGES. */
   discardRef?: React.Ref<ProjectEditCreateBodyHandle>;
   className?: string;
@@ -80,7 +89,7 @@ const TRADE_VALUES = ["roofing", "hvac", "plumbing"] as const;
 // Schema is a factory because Zod messages need to land in the active
 // locale — the body resolves the t() function and re-builds the schema
 // on locale change via useMemo.
-function buildEditingSchema(messages: { titleTooLong: string }) {
+export function buildEditingSchema(messages: { titleTooLong: string }) {
   return z.object({
     // Title is OPTIONAL on both surfaces now: blank ⇒ auto-named from the
     // address by the DB trigger (titleIsAuto=true). Only `titleTooLong` survives
@@ -101,7 +110,7 @@ function buildEditingSchema(messages: { titleTooLong: string }) {
   });
 }
 
-function buildCreatingSchema(messages: {
+export function buildCreatingSchema(messages: {
   titleTooLong: string;
   tradeRequired: string;
 }) {
@@ -115,6 +124,26 @@ function buildCreatingSchema(messages: {
 export type ProjectEditCreateFormValues = z.infer<
   ReturnType<typeof buildEditingSchema>
 >;
+
+// Every schema field, in schema order, mapped to the tab that renders its
+// error. The invalid-submit report picks the first erroring field's tab so
+// the container can flip somewhere the failure is actually visible.
+const FIELD_TAB: ReadonlyArray<
+  [keyof ProjectEditCreateFormValues, EditCreateTabId]
+> = [
+  ["title", "identity"],
+  ["titleIsAuto", "identity"],
+  ["clientId", "identity"],
+  ["address", "identity"],
+  ["latitude", "identity"],
+  ["longitude", "identity"],
+  ["projectDescription", "identity"],
+  ["trade", "identity"],
+  ["startDate", "schedule"],
+  ["endDate", "schedule"],
+  ["duration", "schedule"],
+  ["visibility", "schedule"],
+];
 
 const EMPTY_DEFAULTS: ProjectEditCreateFormValues = {
   title: "",
@@ -201,6 +230,7 @@ export function ProjectEditCreateBody({
   tab,
   formId,
   onSaved,
+  onInvalid,
   discardRef,
   className,
 }: ProjectEditCreateBodyProps) {
@@ -289,6 +319,17 @@ export function ProjectEditCreateBody({
     [form, defaults],
   );
 
+  // Validation failure is never a silent dead-end: report the tab that
+  // renders the first erroring field so the container can flip to it and
+  // the field's inline error is actually on screen.
+  const handleInvalid = React.useCallback(
+    (fieldErrors: FieldErrors<ProjectEditCreateFormValues>) => {
+      const errored = FIELD_TAB.find(([name]) => fieldErrors[name]);
+      if (errored) onInvalid?.(errored[1]);
+    },
+    [onInvalid],
+  );
+
   const handleSubmit = form.handleSubmit(async (values) => {
     // Resolve the name into the (title, titleIsAuto) the DB expects: auto when
     // the operator left it on auto OR cleared a custom name; otherwise the typed
@@ -333,7 +374,7 @@ export function ProjectEditCreateBody({
       visibility: values.visibility,
     });
     onSaved?.(created.id);
-  });
+  }, handleInvalid);
 
   if (!isAllowed) {
     return <PermissionDeniedState />;

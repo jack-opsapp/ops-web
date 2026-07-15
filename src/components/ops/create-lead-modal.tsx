@@ -16,8 +16,10 @@ import {
   type AddressSelection,
 } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import { useCreateOpportunity, useClients, useCreateClient } from "@/lib/hooks";
+import { ClientService } from "@/lib/api/services";
 import { OpportunityStage, OpportunitySource, OpportunityPriority } from "@/lib/types/pipeline";
 import { buildLeadTitle } from "@/lib/utils/lead-title";
+import { resolveLeadClientId } from "@/lib/utils/lead-client-matcher";
 import type { Client } from "@/lib/types/models";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
@@ -30,7 +32,7 @@ import { toast } from "sonner";
 // `.transform()` here — transforms split input/output types and fight RHF's
 // resolver generics; instead source/priority stay `"" | Enum` (the "" sentinel
 // is the cleared state) and `onSubmit` normalizes "" → null on the way out.
-function buildLeadFormSchema(t: (key: string) => string) {
+export function buildLeadFormSchema(t: (key: string) => string) {
   return z.object({
     contactName: z.string().min(1, t("createLead.errors.contactRequired")).max(200),
     title: z.string().min(1, t("createLead.errors.titleRequired")).max(200),
@@ -42,7 +44,11 @@ function buildLeadFormSchema(t: (key: string) => string) {
     contactPhone: z.string().max(30).optional().or(z.literal("")),
     clientId: z.string().nullable(),
     source: z.union([z.nativeEnum(OpportunitySource), z.literal("")]),
-    estimatedValue: z.number().nullable(),
+    // "" is the untouched/cleared state: RHF reads the DOM value for a
+    // number input the user never focused (setValueAs only runs on events),
+    // so a plain z.number() here fails EVERY submit silently — the field
+    // renders no error. Same sentinel convention as source/priority.
+    estimatedValue: z.union([z.number().nullable(), z.literal("")]),
     priority: z.union([z.nativeEnum(OpportunityPriority), z.literal("")]),
     description: z.string().max(2000).optional().or(z.literal("")),
     address: z.string().max(500).optional().or(z.literal("")),
@@ -219,7 +225,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
     watch,
     setValue,
     getValues,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LeadFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -424,17 +430,43 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
-  function onSubmit(data: LeadFormData) {
+  async function onSubmit(data: LeadFormData) {
     if (!can("pipeline.manage")) return;
     if (!companyId) {
       toast.error(t("createLead.noCompany"));
       return;
     }
 
+    // Bug 1d5ab9aa parity (iOS fixed 2026-07-14): a manual lead lands with
+    // its client linked, like every email/lead-engine import path. No client
+    // picked → match-or-create one from the typed contact fields (phone →
+    // email → name, mirroring LeadClientMatcher.swift so both platforms
+    // converge on the same rows). Resolution failure never blocks the lead —
+    // it saves unlinked, matching the iOS fallback.
+    let clientId = data.clientId ?? null;
+    if (!clientId) {
+      const pin = data.address?.trim() ? coords : null;
+      clientId = await resolveLeadClientId(
+        {
+          name: data.contactName,
+          email: data.contactEmail || null,
+          phone: data.contactPhone || null,
+          address: data.address || null,
+          latitude: pin?.latitude ?? null,
+          longitude: pin?.longitude ?? null,
+        },
+        {
+          fetchClients: () => ClientService.fetchAllClients(companyId),
+          createClient: (fields) => createClient.mutateAsync(fields),
+          cachedClients: clients,
+        }
+      );
+    }
+
     createOpportunity.mutate(
       {
         companyId,
-        clientId: data.clientId ?? null,
+        clientId,
         title: data.title,
         description: data.description || null,
         contactName: data.contactName,
@@ -444,7 +476,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
         source: data.source || null,
         assignedTo: currentUser?.id ?? null,
         priority: data.priority || null,
-        estimatedValue: data.estimatedValue ?? null,
+        estimatedValue: data.estimatedValue === "" ? null : (data.estimatedValue ?? null),
         actualValue: null,
         winProbability: 10,
         expectedCloseDate: null,
@@ -479,7 +511,9 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
     );
   }
 
-  const isSaving = createOpportunity.isPending;
+  // isSubmitting covers the client match-or-create await before the mutation
+  // takes over — one continuous loading state, no double-submit window.
+  const isSaving = createOpportunity.isPending || isSubmitting;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
@@ -575,7 +609,13 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
           prefixIcon={<DollarSign className="w-[16px] h-[16px]" />}
           className="font-mono tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]"
           {...register("estimatedValue", {
-            setValueAs: (v) => (v === "" || v === undefined ? null : parseFloat(v)),
+            // NaN (half-typed "1e", cleared spinner) folds to null — an
+            // unparseable amount is an empty amount, never a dead submit.
+            setValueAs: (v) => {
+              if (v === "" || v === undefined || v === null) return null;
+              const n = typeof v === "number" ? v : parseFloat(v);
+              return Number.isNaN(n) ? null : n;
+            },
           })}
         />
 

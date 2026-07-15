@@ -266,8 +266,12 @@ function SetValueBinder() {
 
 function NameAddressSection({ projectId }: { projectId: string | null }) {
   const { t } = useDictionary("project-workspace");
-  const { control, register, setValue } =
-    useFormContext<ProjectEditCreateFormValues>();
+  const {
+    control,
+    register,
+    setValue,
+    formState: { errors },
+  } = useFormContext<ProjectEditCreateFormValues>();
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
 
@@ -386,6 +390,7 @@ function NameAddressSection({ projectId }: { projectId: string | null }) {
             placeholder={preview}
             autoComplete="off"
             spellCheck={false}
+            aria-invalid={errors.title ? "true" : undefined}
             {...register("title", {
               onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
                 // Clearing a custom name reverts to auto (trigger refills it).
@@ -395,6 +400,17 @@ function NameAddressSection({ projectId }: { projectId: string | null }) {
               },
             })}
           />
+          {errors.title?.message && (
+            // Same error treatment as the Field atom — without this row a
+            // too-long pasted name fails validation with nothing on screen.
+            <p
+              data-testid="identity-name-error"
+              role="alert"
+              className="font-mono text-[10px] leading-[1.3] text-[var(--rose)]"
+            >
+              {errors.title.message}
+            </p>
+          )}
           {duplicateName && (
             <Mono
               size={11}
