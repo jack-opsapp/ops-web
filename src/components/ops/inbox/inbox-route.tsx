@@ -13,7 +13,7 @@
  * Known data-layer gaps (documented inline at the adapters):
  *  - `Project` / `Opportunity` / `Attachment` from the existing services
  *    don't expose every field the redesign cards consume (accounting
- *    totals, confidence, sizes). Missing fields render as zeros / dashes.
+ *    totals and sizes). Missing fields render as zeros / dashes.
  */
 
 import { useRouter } from "next/navigation";
@@ -29,6 +29,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
+import { normalizeReplySubject } from "@/lib/email/email-subject-policy";
 import { useViewportBreakpoint } from "@/lib/hooks/use-viewport-breakpoint";
 import { isYourMove, type RailFilter } from "@/lib/inbox/rail-predicates";
 import { formatWaitClock } from "@/lib/inbox/format-wait";
@@ -153,7 +154,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const openProjectWindow = useWindowStore((s) => s.openProjectWindow);
   const defaultRailFilter = useInboxLayoutStore((s) => s.defaultRailFilter);
   const setDefaultRailFilter = useInboxLayoutStore(
-    (s) => s.setDefaultRailFilter,
+    (s) => s.setDefaultRailFilter
   );
   const [composerValue, setComposerValue] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -170,7 +171,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     useState<ArchiveTarget | null>(null);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [filter, setFilter] = useState<RailFilter>(
-    () => useInboxLayoutStore.getState().defaultRailFilter,
+    () => useInboxLayoutStore.getState().defaultRailFilter
   );
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     () => initialThreadId ?? null
@@ -325,7 +326,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
 
     const unreadCount = Math.max(
       selectedRow?.unreadCount ?? 0,
-      detail?.thread.unreadCount ?? 0,
+      detail?.thread.unreadCount ?? 0
     );
     autoReadTargetRef.current = null;
 
@@ -347,21 +348,23 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   // thread id; local lifecycle drafts can also navigate by internal inbox id
   // or opportunity id when the provider thread could not be resolved.
   const allDrafts = draftsQuery.data ?? [];
-  const threadDrafts = useMemo(
-    () => {
-      const opportunityId = detail?.thread.opportunityId ?? null;
-      return allDrafts.filter((draft) => {
-        if (draft.inboxThreadId && draft.inboxThreadId === selectedThreadId) {
-          return true;
-        }
-        if (providerThreadId && draft.threadId === providerThreadId) {
-          return true;
-        }
-        return Boolean(opportunityId && draft.opportunityId === opportunityId);
-      });
-    },
-    [allDrafts, detail?.thread.opportunityId, providerThreadId, selectedThreadId]
-  );
+  const threadDrafts = useMemo(() => {
+    const opportunityId = detail?.thread.opportunityId ?? null;
+    return allDrafts.filter((draft) => {
+      if (draft.inboxThreadId && draft.inboxThreadId === selectedThreadId) {
+        return true;
+      }
+      if (providerThreadId && draft.threadId === providerThreadId) {
+        return true;
+      }
+      return Boolean(opportunityId && draft.opportunityId === opportunityId);
+    });
+  }, [
+    allDrafts,
+    detail?.thread.opportunityId,
+    providerThreadId,
+    selectedThreadId,
+  ]);
   const activeDraft = useMemo(
     () => threadDrafts.find((d) => d.id === activeDraftId) ?? null,
     [threadDrafts, activeDraftId]
@@ -453,7 +456,10 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   // creating another draft. AI drafts deliberately do NOT seed — they live on
   // a different table and aren't editable through this route.
   useEffect(() => {
-    if (activeDraft?.source === "provider" || activeDraft?.source === "lifecycle") {
+    if (
+      activeDraft?.source === "provider" ||
+      activeDraft?.source === "lifecycle"
+    ) {
       autoSaveDraftIdRef.current = activeDraft.id;
       lastSavedBodyRef.current = activeDraft.bodyText;
     }
@@ -501,11 +507,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     if (!recipient) return;
 
     const subjectBase = detail.thread.subject ?? "";
-    const replySubject = /^re:/i.test(subjectBase)
-      ? subjectBase
-      : subjectBase
-        ? `Re: ${subjectBase}`
-        : "(no subject)";
+    const replySubject = normalizeReplySubject(subjectBase || "(no subject)");
 
     const handle = window.setTimeout(() => {
       const valueAtFire = composerValue;
@@ -563,15 +565,12 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     window.open(url, "_blank", "noopener");
   }, []);
   const messageAttachmentsById = useMemo(
-    () =>
-      buildMessageAttachmentMap(threadAttachments, openThreadAttachment),
+    () => buildMessageAttachmentMap(threadAttachments, openThreadAttachment),
     [openThreadAttachment, threadAttachments]
   );
   const inlinePhotoEntries = useMemo<InlinePhotoEntry[]>(
     () =>
-      detail
-        ? buildInlinePhotoEntries(detail.messages, threadAttachments)
-        : [],
+      detail ? buildInlinePhotoEntries(detail.messages, threadAttachments) : [],
     [detail, threadAttachments]
   );
   const messageDrafts = useMemo<RenderableDraft[]>(
@@ -923,17 +922,23 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     if (!selectedThreadId) return;
     void copyTextToClipboard(absoluteInboxThreadUrl(selectedThreadId)).then(
       () => {
-        toast.success(t("toast.threadLinkCopiedTactic", "SYS :: THREAD LINK COPIED"));
+        toast.success(
+          t("toast.threadLinkCopiedTactic", "SYS :: THREAD LINK COPIED")
+        );
       },
       () => {
-        toast.error(t("toast.threadLinkCopyFailedTactic", "SYS :: COPY FAILED"));
+        toast.error(
+          t("toast.threadLinkCopyFailedTactic", "SYS :: COPY FAILED")
+        );
       }
     );
   }, [selectedThreadId, t]);
 
   const onRefreshSelectedThread = useCallback(() => {
     if (!selectedThreadId) return;
-    qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(selectedThreadId) });
+    qc.invalidateQueries({
+      queryKey: queryKeys.inbox.threadDetail(selectedThreadId),
+    });
     qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
     toast.success(t("toast.threadRefreshedTactic", "SYS :: THREAD REFRESHED"));
   }, [qc, selectedThreadId, t]);
@@ -1041,7 +1046,11 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   } as CSSProperties;
 
   const sendThreadReply = useCallback(
-    (value: string, currentDetail: NonNullable<typeof detail>) => {
+    (
+      value: string,
+      currentDetail: NonNullable<typeof detail>,
+      draft: Pick<RenderableDraft, "id" | "source" | "subject"> | null
+    ) => {
       if (!userId || !companyId || !selectedThreadId) return;
       // Free-form answer path: when an unresolved agent question is
       // attached to this thread, treat the operator's typed reply as
@@ -1065,11 +1074,10 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         return;
       }
       const subjectBase = currentDetail.thread.subject ?? "";
-      const replySubject = /^re:/i.test(subjectBase)
-        ? subjectBase
-        : subjectBase
-          ? `Re: ${subjectBase}`
-          : "(no subject)";
+      const draftSubject = draft?.subject?.trim() ?? "";
+      const replySubject = normalizeReplySubject(
+        draftSubject || subjectBase || "(no subject)"
+      );
       sendReply.mutate(
         {
           userId,
@@ -1082,6 +1090,8 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             inReplyTo: lastInbound?.id ?? null,
             providerThreadId: providerThreadId ?? null,
             opportunityId: currentDetail.thread.opportunityId,
+            draftHistoryId: draft?.source === "ai" ? draft.id : null,
+            followUpDraftId: draft?.source === "lifecycle" ? draft.id : null,
             format: "markdown",
           },
         },
@@ -1139,7 +1149,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         setComposerValue(next);
         if (composerError) setComposerError(null);
       }}
-      onSend={(value) => sendThreadReply(value, currentDetail)}
+      onSend={(value) => sendThreadReply(value, currentDetail, activeDraft)}
       disabled={sendReply.isPending}
       placeholder={t(
         "composer.tacticPlaceholder",
@@ -1233,7 +1243,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         ) : undefined
       }
       triageSlot={
-        triageStateForDetail && triageStateForDetail.kind !== "fyi" && triageTone ? (
+        triageStateForDetail &&
+        triageStateForDetail.kind !== "fyi" &&
+        triageTone ? (
           <StateTag
             tone={triageTone}
             variant="bare"
@@ -1252,7 +1264,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         ) : undefined
       }
       reviewBannerSlot={
-        detailHeldView?.held ? <HeldReviewBanner view={detailHeldView} /> : undefined
+        detailHeldView?.held ? (
+          <HeldReviewBanner view={detailHeldView} />
+        ) : undefined
       }
     >
       <CommitmentPills
@@ -1332,7 +1346,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
               setComposerError(null);
               composerInputRef.current?.focus();
             }}
-            onSendDraft={(draft) => sendThreadReply(draft.body, detail)}
+            onSendDraft={(draft) => sendThreadReply(draft.body, detail, draft)}
             isDraftSending={sendReply.isPending}
             sendCompletedAt={sendCompletedAt}
             scrollAnchorSignal={floatingComposerHeight}
@@ -1363,7 +1377,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
               setComposerError(null);
               composerInputRef.current?.focus();
             }}
-            onSendDraft={(draft) => sendThreadReply(draft.body, detail)}
+            onSendDraft={(draft) => sendThreadReply(draft.body, detail, draft)}
             isDraftSending={sendReply.isPending}
             sendCompletedAt={sendCompletedAt}
           />
@@ -1747,7 +1761,7 @@ function toRenderableMessage(
 }
 
 function latestDetailMessagePreview(
-  messages: InboxThreadMessage[],
+  messages: InboxThreadMessage[]
 ): string | null {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i];
@@ -1888,14 +1902,6 @@ function toPipelineOpp(
   linkedOppIds: Set<string>,
   currentThreadId: string | undefined
 ): PipelineOpp {
-  // winProbability is 0..1 — collapse into a tactile string that matches the
-  // canonical Pipeline tab data contract.
-  let confidence: "low" | "warm" | "high" | null = null;
-  if (typeof o.winProbability === "number") {
-    if (o.winProbability >= 0.7) confidence = "high";
-    else if (o.winProbability >= 0.4) confidence = "warm";
-    else confidence = "low";
-  }
   // PipelineList paints the "This thread" indicator when threadId on the opp
   // matches the currently-open thread. linkedOppIds is the set the
   // opportunity_email_threads junction returned for this thread.
@@ -1907,7 +1913,6 @@ function toPipelineOpp(
     value: o.estimatedValue ?? null,
     stage: String(o.stage),
     estimateRef: null,
-    confidence,
     priority: o.priority as PipelineOpp["priority"],
     source: o.source ? String(o.source) : null,
     threadId: isLinked ? (currentThreadId ?? null) : null,

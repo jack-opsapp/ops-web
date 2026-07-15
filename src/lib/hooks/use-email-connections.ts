@@ -11,6 +11,7 @@ import { queryKeys } from "../api/query-client";
 import { EmailService } from "../api/services/email-service";
 import { useAuthStore } from "../store/auth-store";
 import type { UpdateEmailConnection } from "../types/email-connection";
+import { authedFetch } from "../utils/authed-fetch";
 
 /**
  * Fetch all email connections for the current company.
@@ -76,11 +77,14 @@ export function useTriggerEmailSync() {
 
   return useMutation({
     mutationFn: async (connectionId: string) => {
-      const response = await fetch("/api/integrations/email/manual-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId }),
-      });
+      const response = await authedFetch(
+        "/api/integrations/email/manual-sync",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ connectionId }),
+        }
+      );
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? "Sync failed");
@@ -102,7 +106,10 @@ export function useTriggerEmailSync() {
       });
 
       const results = data.results ?? [];
-      const totalMatched = results.reduce((sum, r) => sum + (r.matched ?? 0), 0);
+      const totalMatched = results.reduce(
+        (sum, r) => sum + (r.matched ?? 0),
+        0
+      );
       const totalReview = results.reduce(
         (sum, r) => sum + (r.needsReview ?? 0),
         0

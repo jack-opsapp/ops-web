@@ -25,6 +25,13 @@ import { evaluateAutonomyGate } from "./conversation-state/autonomy-gate";
 import { persistRoutingDecision } from "./conversation-state/persist-routing";
 import type { ConversationState } from "./conversation-state/types";
 import { inboxModel } from "./conversation-state/inbox-models";
+import {
+  chooseNewThreadSubject,
+  contextualNewThreadSubject,
+  learnedNewThreadSubjectFromPreferences,
+  normalizeReplySubject,
+  type NewThreadSubjectSource,
+} from "@/lib/email/email-subject-policy";
 
 function getOpenAI() {
   return getDraftingOpenAI();
@@ -84,7 +91,7 @@ export function stripMarkdownFences(text: string): string {
 function determineProfileType(
   opportunityStage?: string,
   recipientDomain?: string,
-  threadSubject?: string,
+  threadSubject?: string
 ): string {
   // Internal emails
   if (recipientDomain && recipientDomain.includes("opsapp")) return "internal";
@@ -92,20 +99,49 @@ function determineProfileType(
   // Stage-based classification from opportunity
   if (opportunityStage) {
     const stage = opportunityStage.toLowerCase();
-    if (stage === "new" || stage === "inquiry" || stage === "lead") return "client_new_inquiry";
-    if (stage === "quoting" || stage === "estimate" || stage === "proposal") return "client_quoting";
-    if (stage === "active" || stage === "in_progress" || stage === "won") return "client_active_project";
-    if (stage === "follow_up" || stage === "followup" || stage === "closed") return "client_followup";
+    if (stage === "new" || stage === "inquiry" || stage === "lead")
+      return "client_new_inquiry";
+    if (stage === "quoting" || stage === "estimate" || stage === "proposal")
+      return "client_quoting";
+    if (stage === "active" || stage === "in_progress" || stage === "won")
+      return "client_active_project";
+    if (stage === "follow_up" || stage === "followup" || stage === "closed")
+      return "client_followup";
   }
 
   // Subject-based heuristics
   if (threadSubject) {
     const lower = threadSubject.toLowerCase();
-    if (lower.includes("warranty") || lower.includes("defect") || lower.includes("repair")) return "warranty_claim";
-    if (lower.includes("quote") || lower.includes("estimate") || lower.includes("pricing")) return "client_quoting";
-    if (lower.includes("invoice") || lower.includes("payment") || lower.includes("billing")) return "client_active_project";
-    if (lower.includes("order") || lower.includes("supply") || lower.includes("material")) return "vendor_ordering";
-    if (lower.includes("sub") || lower.includes("coordinate") || lower.includes("schedule")) return "subtrade_coordination";
+    if (
+      lower.includes("warranty") ||
+      lower.includes("defect") ||
+      lower.includes("repair")
+    )
+      return "warranty_claim";
+    if (
+      lower.includes("quote") ||
+      lower.includes("estimate") ||
+      lower.includes("pricing")
+    )
+      return "client_quoting";
+    if (
+      lower.includes("invoice") ||
+      lower.includes("payment") ||
+      lower.includes("billing")
+    )
+      return "client_active_project";
+    if (
+      lower.includes("order") ||
+      lower.includes("supply") ||
+      lower.includes("material")
+    )
+      return "vendor_ordering";
+    if (
+      lower.includes("sub") ||
+      lower.includes("coordinate") ||
+      lower.includes("schedule")
+    )
+      return "subtrade_coordination";
   }
 
   return "general";
@@ -124,6 +160,10 @@ export interface AIDraftRequest {
   recipientName?: string;
   /** Optional instruction from user e.g. "follow up on the quote" */
   userInstruction?: string;
+  /** Operator/template subject for a new thread. Never overrides reply threading. */
+  subject?: string;
+  /** Configured/template subject for a new thread, distinct from operator input. */
+  configuredSubject?: string;
   /** Explicit profile type override — bypasses heuristic detection */
   profileTypeOverride?: string;
   /**
@@ -156,6 +196,8 @@ export interface AIDraftResult {
    * opportunity_follow_up_drafts row's subject.
    */
   subject?: string;
+  /** Durable provenance for the generated subject. */
+  subjectSource?: NewThreadSubjectSource | "thread";
   /**
    * P4-B: the provider message id of the inbound message this draft replies
    * to (from the latest inbound activity). Persisted to
@@ -271,7 +313,11 @@ export function detectChanges(
   // Detect greeting changes
   const origGreeting = original.split("\n")[0]?.trim() ?? "";
   const editGreeting = edited.split("\n")[0]?.trim() ?? "";
-  if (origGreeting !== editGreeting && origGreeting.length < 50 && editGreeting.length < 50) {
+  if (
+    origGreeting !== editGreeting &&
+    origGreeting.length < 50 &&
+    editGreeting.length < 50
+  ) {
     changes.push({ type: "greeting", from: origGreeting, to: editGreeting });
   }
 
@@ -280,7 +326,11 @@ export function detectChanges(
   const editLines = edited.split("\n").filter((l) => l.trim());
   const origClosing = origLines[origLines.length - 1]?.trim() ?? "";
   const editClosing = editLines[editLines.length - 1]?.trim() ?? "";
-  if (origClosing !== editClosing && origClosing.length < 50 && editClosing.length < 50) {
+  if (
+    origClosing !== editClosing &&
+    origClosing.length < 50 &&
+    editClosing.length < 50
+  ) {
     changes.push({ type: "closing", from: origClosing, to: editClosing });
   }
 
@@ -296,13 +346,22 @@ export function detectChanges(
   }
 
   // Detect formality shift: contractions added/removed
-  const contractionPattern = /\b(don't|won't|can't|isn't|aren't|wasn't|weren't|hasn't|haven't|hadn't|wouldn't|couldn't|shouldn't|didn't|it's|i'm|i'll|i've|we're|we'll|we've|they're|they'll|you're|you'll)\b/gi;
+  const contractionPattern =
+    /\b(don't|won't|can't|isn't|aren't|wasn't|weren't|hasn't|haven't|hadn't|wouldn't|couldn't|shouldn't|didn't|it's|i'm|i'll|i've|we're|we'll|we've|they're|they'll|you're|you'll)\b/gi;
   const origContractions = (original.match(contractionPattern) || []).length;
   const editContractions = (edited.match(contractionPattern) || []).length;
   if (editContractions > origContractions + 1) {
-    changes.push({ type: "formality_shift", from: "formal", to: "less_formal" });
+    changes.push({
+      type: "formality_shift",
+      from: "formal",
+      to: "less_formal",
+    });
   } else if (origContractions > editContractions + 1) {
-    changes.push({ type: "formality_shift", from: "casual", to: "more_formal" });
+    changes.push({
+      type: "formality_shift",
+      from: "casual",
+      to: "more_formal",
+    });
   }
 
   // Detect structure change: bullets added/removed
@@ -319,9 +378,17 @@ export function detectChanges(
   const editWords = edited.split(/\s+/).length;
   const lengthRatio = editWords / (origWords || 1);
   if (lengthRatio < 0.6) {
-    changes.push({ type: "length", from: `${origWords} words`, to: `${editWords} words (shortened)` });
+    changes.push({
+      type: "length",
+      from: `${origWords} words`,
+      to: `${editWords} words (shortened)`,
+    });
   } else if (lengthRatio > 1.5) {
-    changes.push({ type: "length", from: `${origWords} words`, to: `${editWords} words (lengthened)` });
+    changes.push({
+      type: "length",
+      from: `${origWords} words`,
+      to: `${editWords} words (lengthened)`,
+    });
   }
 
   return changes;
@@ -369,11 +436,134 @@ Only include systematic patterns, not one-off edits. substitutions should be wor
 
     const content = response.choices[0]?.message?.content;
     if (!content) return null;
-    return JSON.parse(content);
+    const parsed = JSON.parse(content) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Draft edit analysis must be a JSON object");
+    }
+    const candidate = parsed as Record<string, unknown>;
+    const toneShift =
+      typeof candidate.toneShift === "string" && candidate.toneShift.trim()
+        ? candidate.toneShift.trim()
+        : null;
+    const substitutions = Array.isArray(candidate.substitutions)
+      ? candidate.substitutions.slice(0, 20).flatMap((value) => {
+          if (!value || typeof value !== "object" || Array.isArray(value)) {
+            return [];
+          }
+          const substitution = value as Record<string, unknown>;
+          return typeof substitution.from === "string" &&
+            typeof substitution.to === "string"
+            ? [{ from: substitution.from, to: substitution.to }]
+            : [];
+        })
+      : [];
+    const stringArray = (value: unknown): string[] =>
+      Array.isArray(value)
+        ? value
+            .filter((item): item is string => typeof item === "string")
+            .map((item) => item.trim())
+            .filter(Boolean)
+            .slice(0, 20)
+        : [];
+    return {
+      toneShift,
+      substitutions,
+      structureChanges: stringArray(candidate.structureChanges),
+      contentCorrections: stringArray(candidate.contentCorrections),
+    };
   } catch (err) {
     console.error("[ai-draft] GPT edit analysis failed:", err);
     return null;
   }
+}
+
+export interface PreparedSentDraftOutcome {
+  finalVersion: string;
+  editDistance: number;
+  changesMade: Array<{ type: string; from: string; to: string }>;
+  sentWithoutChanges: boolean;
+  subject: string;
+  subjectEdited: boolean;
+  edited: boolean;
+  contentCorrections: string[];
+}
+
+/**
+ * Prepare the deterministic/LLM portion of a sent-draft outcome without any
+ * database writes. The durable outbound-learning worker persists this payload
+ * before a short atomic apply transaction, so a crash cannot replay profile or
+ * memory effects with a different model response.
+ */
+export async function prepareSentDraftOutcome(input: {
+  originalDraft: string;
+  originalSubject?: string | null;
+  finalVersion: string;
+  finalSubject?: string | null;
+  analyzeSignificantEdits?: boolean;
+}): Promise<PreparedSentDraftOutcome> {
+  const original = input.originalDraft;
+  const finalVersion = input.finalVersion || original;
+  const originalSubject = input.originalSubject ?? "";
+  const finalSubject = input.finalSubject ?? originalSubject;
+  const editDistanceValue = editDistance(original, finalVersion);
+  const bodyUnchanged = original.trim() === finalVersion.trim();
+  const subjectEdited = originalSubject.trim() !== finalSubject.trim();
+  const sentWithoutChanges = bodyUnchanged && !subjectEdited;
+  const changes = sentWithoutChanges
+    ? []
+    : detectChanges(original, finalVersion, {
+        original: originalSubject,
+        edited: finalSubject,
+      });
+
+  const originalWordCount = original.split(/\s+/).length || 1;
+  const gptAnalysis =
+    input.analyzeSignificantEdits !== false &&
+    !bodyUnchanged &&
+    editDistanceValue / originalWordCount > 0.1
+      ? await analyzeEditWithGPT(original, finalVersion)
+      : null;
+
+  const changesMade = [...changes];
+  if (gptAnalysis?.toneShift) {
+    changesMade.push({
+      type: "tone_shift",
+      from: "original",
+      to: gptAnalysis.toneShift,
+    });
+  }
+  for (const substitution of gptAnalysis?.substitutions ?? []) {
+    changesMade.push({
+      type: "substitution",
+      from: substitution.from,
+      to: substitution.to,
+    });
+  }
+  for (const structureChange of gptAnalysis?.structureChanges ?? []) {
+    changesMade.push({
+      type: "structure_gpt",
+      from: "",
+      to: structureChange,
+    });
+  }
+  for (const correction of gptAnalysis?.contentCorrections ?? []) {
+    changesMade.push({
+      type: "content_correction",
+      from: "",
+      to: correction,
+    });
+  }
+
+  return {
+    finalVersion,
+    editDistance: editDistanceValue,
+    changesMade,
+    sentWithoutChanges,
+    subject: finalSubject,
+    subjectEdited,
+    edited: !sentWithoutChanges,
+    contentCorrections: gptAnalysis?.contentCorrections ?? [],
+  };
 }
 
 // ─── Operator escalation ────────────────────────────────────────────────────
@@ -391,7 +581,7 @@ Only include systematic patterns, not one-off edits. substitutions should be wor
 // surface as a visible error to the operator.
 
 export async function escalateToOperatorQuestion(
-  ctx: EscalationContext,
+  ctx: EscalationContext
 ): Promise<EscalationResult> {
   const {
     companyId,
@@ -416,9 +606,15 @@ export async function escalateToOperatorQuestion(
       ? `Client: ${clientName ?? ""}${clientEmail ? ` <${clientEmail}>` : ""}`
       : "",
     threadSubject ? `Subject: ${threadSubject}` : "",
-    opportunityContext ? `Opportunity:\n${opportunityContext.slice(0, 500)}` : "",
-    lastInboundBody ? `Latest inbound message:\n${lastInboundBody.slice(0, 1500)}` : "",
-    threadHistory ? `Thread history (oldest first):\n${threadHistory.slice(0, 2000)}` : "",
+    opportunityContext
+      ? `Opportunity:\n${opportunityContext.slice(0, 500)}`
+      : "",
+    lastInboundBody
+      ? `Latest inbound message:\n${lastInboundBody.slice(0, 1500)}`
+      : "",
+    threadHistory
+      ? `Thread history (oldest first):\n${threadHistory.slice(0, 2000)}`
+      : "",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -454,7 +650,10 @@ Rules:
     });
     const content = response.choices[0]?.message?.content ?? "";
     if (!content) {
-      return { written: false, reason: "escalation LLM returned empty content" };
+      return {
+        written: false,
+        reason: "escalation LLM returned empty content",
+      };
     }
     parsed = JSON.parse(content);
   } catch (err) {
@@ -466,10 +665,14 @@ Rules:
   }
 
   if (!parsed) {
-    return { written: false, reason: "escalation LLM returned unparseable JSON" };
+    return {
+      written: false,
+      reason: "escalation LLM returned unparseable JSON",
+    };
   }
 
-  const question = typeof parsed.question === "string" ? parsed.question.trim() : "";
+  const question =
+    typeof parsed.question === "string" ? parsed.question.trim() : "";
   if (!question) {
     return { written: false, reason: "escalation LLM omitted question field" };
   }
@@ -555,33 +758,58 @@ export const AIDraftService = {
     if (threadId) {
       const { data: messages } = await supabase
         .from("activities")
-        .select("direction, from_email, subject, body_text, created_at, email_message_id")
+        .select(
+          "direction, from_email, subject, body_text, created_at, email_message_id"
+        )
         .eq("company_id", companyId)
+        .eq("email_connection_id", connectionId)
         .eq("email_thread_id", threadId)
         .eq("type", "email")
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: false })
         .limit(20);
 
-      threadMessages = (messages ?? []) as typeof threadMessages;
+      threadMessages = (
+        [...(messages ?? [])] as typeof threadMessages
+      ).reverse();
     }
 
     // ── Fetch opportunity context ──────────────────────────────────────
     let opportunityContext = "";
     let opportunityStage = "";
+    let opportunityTitle = "";
+    let opportunityAddress = "";
     let clientEmail = recipientEmail || "";
     let clientName = recipientName || "";
+    let subjectContactName = recipientName || "";
+    let recipientCompany = "";
 
     if (opportunityId) {
       const { data: opp } = await supabase
         .from("opportunities")
-        .select("title, ai_summary, stage, clients!inner(name, email)")
+        .select(
+          "title, ai_summary, stage, address, contact_name, contact_email, clients!inner(name, email)"
+        )
         .eq("id", opportunityId)
         .single();
 
       if (opp) {
-        const client = opp.clients as unknown as Record<string, unknown>;
-        clientEmail = clientEmail || (client.email as string) || "";
-        clientName = clientName || (client.name as string) || "";
+        opportunityTitle = (opp.title as string) || "";
+        opportunityAddress = (opp.address as string) || "";
+        const clientValue = opp.clients as unknown;
+        const client = (
+          Array.isArray(clientValue) ? clientValue[0] : clientValue
+        ) as Record<string, unknown> | null;
+        const opportunityContactName = (opp.contact_name as string) || "";
+        const linkedClientName = (client?.name as string) || "";
+        clientEmail =
+          clientEmail ||
+          (opp.contact_email as string) ||
+          (client?.email as string) ||
+          "";
+        clientName =
+          clientName || opportunityContactName || linkedClientName || "";
+        subjectContactName = opportunityContactName || subjectContactName;
+        recipientCompany = linkedClientName;
         opportunityStage = (opp.stage as string) || "";
         opportunityContext = [
           opp.title ? `Project: ${opp.title}` : "",
@@ -607,6 +835,7 @@ export const AIDraftService = {
           .from("email_threads")
           .select("id")
           .eq("company_id", companyId)
+          .eq("connection_id", connectionId)
           .eq("provider_thread_id", threadId)
           .maybeSingle();
         const internalThreadId = (threadRow?.id as string | undefined) ?? null;
@@ -640,7 +869,10 @@ export const AIDraftService = {
       routingReasons: convRoutingReasons,
     });
     if (gate.hold) {
-      console.warn("[ai-draft] held for review — autonomous draft suppressed:", gate.reason);
+      console.warn(
+        "[ai-draft] held for review — autonomous draft suppressed:",
+        gate.reason
+      );
       return {
         draft: "",
         draftHistoryId: "",
@@ -655,12 +887,19 @@ export const AIDraftService = {
 
     // ── Determine profile type and get writing profile ─────────────────
     const threadSubject = threadMessages[0]?.subject || "";
-    const recipientDomain = (clientEmail || recipientEmail || "").split("@")[1] || "";
+    const recipientDomain =
+      (clientEmail || recipientEmail || "").split("@")[1] || "";
     // Use userInstruction as fallback signal when no thread subject exists
     const subjectSignal = threadSubject || userInstruction || "";
-    const profileType = req.profileTypeOverride ?? determineProfileType(opportunityStage, recipientDomain, subjectSignal);
+    const profileType =
+      req.profileTypeOverride ??
+      determineProfileType(opportunityStage, recipientDomain, subjectSignal);
 
-    const profile = await WritingProfileService.getProfile(companyId, userId, profileType);
+    const profile = await WritingProfileService.getProfile(
+      companyId,
+      userId,
+      profileType
+    );
     const emailsAnalyzed = (profile?.emails_analyzed as number) || 0;
     const confidence = WritingProfileService.getConfidence(emailsAnalyzed);
 
@@ -711,9 +950,7 @@ export const AIDraftService = {
             memoryContext += `\nClient history: ${JSON.stringify(mem.clientHistory.slice(0, 3))}`;
             sources.push("client_history");
           }
-          if (
-            mem.relevantFacts.some((f) => f.category === "limitation")
-          ) {
+          if (mem.relevantFacts.some((f) => f.category === "limitation")) {
             const limitations = mem.relevantFacts
               .filter((f) => f.category === "limitation")
               .map((f) => f.content);
@@ -725,7 +962,8 @@ export const AIDraftService = {
         // ── Live business data context (Layer 3) ────────────────────────
         // Company context — always included (lightweight)
         try {
-          const companyCx = await BusinessContextService.getCompanyContext(companyId);
+          const companyCx =
+            await BusinessContextService.getCompanyContext(companyId);
           if (companyCx.companyName !== "Unknown") {
             companyContextBlock = companyCx.summary;
             sources.push("company_data");
@@ -737,7 +975,10 @@ export const AIDraftService = {
         // Client context — if we have a client email
         if (clientEmail) {
           try {
-            const clientCx = await BusinessContextService.getClientContext(companyId, clientEmail);
+            const clientCx = await BusinessContextService.getClientContext(
+              companyId,
+              clientEmail
+            );
             if (clientCx.found) {
               clientContextBlock = clientCx.summary;
               sources.push("client_data");
@@ -748,12 +989,34 @@ export const AIDraftService = {
         }
 
         // Pricing context — if thread mentions pricing/quoting
-        const threadText = threadMessages.map((m) => `${m.subject} ${m.body_text}`).join(" ").toLowerCase();
-        const pricingSignals = ["quote", "estimate", "price", "pricing", "cost", "how much", "rate", "budget", "proposal"];
-        const mentionsPricing = pricingSignals.some((signal) => threadText.includes(signal));
-        if (mentionsPricing || (userInstruction && pricingSignals.some((s) => userInstruction.toLowerCase().includes(s)))) {
+        const threadText = threadMessages
+          .map((m) => `${m.subject} ${m.body_text}`)
+          .join(" ")
+          .toLowerCase();
+        const pricingSignals = [
+          "quote",
+          "estimate",
+          "price",
+          "pricing",
+          "cost",
+          "how much",
+          "rate",
+          "budget",
+          "proposal",
+        ];
+        const mentionsPricing = pricingSignals.some((signal) =>
+          threadText.includes(signal)
+        );
+        if (
+          mentionsPricing ||
+          (userInstruction &&
+            pricingSignals.some((s) =>
+              userInstruction.toLowerCase().includes(s)
+            ))
+        ) {
           try {
-            const pricingCx = await BusinessContextService.getPricingContext(companyId);
+            const pricingCx =
+              await BusinessContextService.getPricingContext(companyId);
             if (pricingCx.services.length > 0) {
               pricingContextBlock = pricingCx.summary;
               sources.push("pricing_data");
@@ -764,15 +1027,28 @@ export const AIDraftService = {
         }
 
         // Financial intelligence context — for quoting/pricing and payment-related emails
-        const paymentSignals = ["payment", "overdue", "invoice", "balance", "past due", "reminder", "collect"];
-        const mentionsPayment = paymentSignals.some((s) => threadText.includes(s));
+        const paymentSignals = [
+          "payment",
+          "overdue",
+          "invoice",
+          "balance",
+          "past due",
+          "reminder",
+          "collect",
+        ];
+        const mentionsPayment = paymentSignals.some((s) =>
+          threadText.includes(s)
+        );
         if (mentionsPricing || mentionsPayment) {
           try {
             const financialParts: string[] = [];
 
             if (mentionsPricing) {
               // Include win rate data for quoting context
-              const pricingOpt = await FinancialIntelligenceService.getPricingOptimization(companyId);
+              const pricingOpt =
+                await FinancialIntelligenceService.getPricingOptimization(
+                  companyId
+                );
               for (const svc of pricingOpt.serviceAnalysis.slice(0, 3)) {
                 financialParts.push(
                   `${svc.service}: ${svc.winRate}% win rate, avg winning estimate $${svc.avgWinPrice.toLocaleString()}`
@@ -780,20 +1056,46 @@ export const AIDraftService = {
               }
 
               // Include seasonal context
-              const seasonal = await FinancialIntelligenceService.getSeasonalPatterns(companyId);
+              const seasonal =
+                await FinancialIntelligenceService.getSeasonalPatterns(
+                  companyId
+                );
               if (seasonal.peakMonths.length > 0) {
                 const now = new Date();
-                const currentMonth = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][now.getMonth()];
+                const currentMonth = [
+                  "Jan",
+                  "Feb",
+                  "Mar",
+                  "Apr",
+                  "May",
+                  "Jun",
+                  "Jul",
+                  "Aug",
+                  "Sep",
+                  "Oct",
+                  "Nov",
+                  "Dec",
+                ][now.getMonth()];
                 const isPeak = seasonal.peakMonths.includes(currentMonth);
                 const isSlow = seasonal.slowMonths.includes(currentMonth);
-                if (isPeak) financialParts.push(`Current month (${currentMonth}) is a peak business period`);
-                else if (isSlow) financialParts.push(`Current month (${currentMonth}) is typically a slower period`);
+                if (isPeak)
+                  financialParts.push(
+                    `Current month (${currentMonth}) is a peak business period`
+                  );
+                else if (isSlow)
+                  financialParts.push(
+                    `Current month (${currentMonth}) is typically a slower period`
+                  );
               }
             }
 
             if (mentionsPayment) {
               // Include cash flow context for payment-related emails
-              const cashflow = await FinancialIntelligenceService.getCashFlowProjection(companyId, 30);
+              const cashflow =
+                await FinancialIntelligenceService.getCashFlowProjection(
+                  companyId,
+                  30
+                );
               if (cashflow.outstanding > 0) {
                 financialParts.push(
                   `Total outstanding: $${cashflow.outstanding.toLocaleString()}, overdue: $${cashflow.overdue.toLocaleString()}`
@@ -802,7 +1104,10 @@ export const AIDraftService = {
 
               // Include client-specific payment history if we have their email
               if (clientEmail) {
-                const clientCx = await BusinessContextService.getClientContext(companyId, clientEmail);
+                const clientCx = await BusinessContextService.getClientContext(
+                  companyId,
+                  clientEmail
+                );
                 if (clientCx.found && clientCx.invoices.overdue > 0) {
                   financialParts.push(
                     `This client has ${clientCx.invoices.overdue} overdue invoice(s) totaling $${clientCx.invoices.overdueAmount.toLocaleString()}`
@@ -871,28 +1176,47 @@ export const AIDraftService = {
     const toneTraits = profile?.tone_traits || {};
     const avgSentLen = (profile?.avg_sentence_length as number) || 15;
     const formality = (profile?.formality_score as number) || 0.6;
-    const vocabPrefs = (profile?.vocabulary_preferences as Record<string, unknown>) || {};
+    const vocabPrefs =
+      (profile?.vocabulary_preferences as Record<string, unknown>) || {};
 
     // Extract 12-dimension sub-objects from vocabulary_preferences
-    const paragraphStructure = vocabPrefs.paragraph_structure as Record<string, unknown> | undefined;
-    const hedgingTendency = typeof vocabPrefs.hedging_tendency === "number" ? vocabPrefs.hedging_tendency as number : null;
-    const punctuationHabits = vocabPrefs.punctuation_habits as Record<string, number> | undefined;
-    const vocabComplexity = vocabPrefs.vocabulary_complexity as Record<string, unknown> | undefined;
-    const engagementStyle = vocabPrefs.engagement_style as Record<string, number> | undefined;
-    const emailLengthData = vocabPrefs.email_length as Record<string, unknown> | undefined;
-    const substitutions = vocabPrefs.substitutions as Record<string, string> | undefined;
+    const paragraphStructure = vocabPrefs.paragraph_structure as
+      | Record<string, unknown>
+      | undefined;
+    const hedgingTendency =
+      typeof vocabPrefs.hedging_tendency === "number"
+        ? (vocabPrefs.hedging_tendency as number)
+        : null;
+    const punctuationHabits = vocabPrefs.punctuation_habits as
+      | Record<string, number>
+      | undefined;
+    const vocabComplexity = vocabPrefs.vocabulary_complexity as
+      | Record<string, unknown>
+      | undefined;
+    const engagementStyle = vocabPrefs.engagement_style as
+      | Record<string, number>
+      | undefined;
+    const emailLengthData = vocabPrefs.email_length as
+      | Record<string, unknown>
+      | undefined;
+    const substitutions = vocabPrefs.substitutions as
+      | Record<string, string>
+      | undefined;
 
     // Extract response_structure from tone_traits (dimension 10)
     const normalizedTraits = Array.isArray(toneTraits)
       ? Object.fromEntries((toneTraits as string[]).map((t) => [t, true]))
       : (toneTraits as Record<string, unknown>);
-    const responseStructure = normalizedTraits.response_structure as Record<string, string> | undefined;
+    const responseStructure = normalizedTraits.response_structure as
+      | Record<string, string>
+      | undefined;
     const traitLabels = Object.entries(normalizedTraits)
       .filter(([k, v]) => k !== "response_structure" && v === true)
       .map(([k]) => k);
 
     // Format tone traits as readable string
-    const toneString = traitLabels.length > 0 ? traitLabels.join(", ") : "neutral";
+    const toneString =
+      traitLabels.length > 0 ? traitLabels.join(", ") : "neutral";
 
     const systemPrompt = `You are drafting an email reply for a trades business owner. Write in THEIR exact voice and style. The draft must be indistinguishable from an email they would write themselves.
 
@@ -903,7 +1227,7 @@ WRITING VOICE (12 dimensions — match ALL of these):
 3. PARAGRAPH STRUCTURE: ${paragraphStructure ? `${(paragraphStructure.prefersBullets as boolean) ? "Prefers bullet points" : "Prefers prose paragraphs"}, avg ${((paragraphStructure.avgParagraphLines as number) || 3).toFixed(1)} lines per paragraph` : "Standard paragraphs"}
 4. HEDGING: ${hedgingTendency !== null ? `${(hedgingTendency * 100).toFixed(0)}% of sentences use hedging ("maybe", "I think", "perhaps")` : "Unknown"}${hedgingTendency !== null && hedgingTendency < 0.1 ? " — this person is DIRECT, avoid hedging language" : ""}
 5. PUNCTUATION: ${punctuationHabits ? `Exclamations: ${(punctuationHabits.exclamation_marks || 0).toFixed(1)}/email, Em-dashes: ${(punctuationHabits.em_dashes || 0).toFixed(1)}/email, Semicolons: ${(punctuationHabits.semicolons || 0).toFixed(1)}/email, Ellipsis: ${(punctuationHabits.ellipsis || 0).toFixed(1)}/email` : "Standard"}
-6. VOCABULARY: ${vocabComplexity ? `Avg word length ${(vocabComplexity.avgWordLength as number || 4.5).toFixed(1)} chars, ${(vocabComplexity.usesTradeJargon as boolean) ? "uses trade jargon freely" : "avoids jargon"}` : "Standard vocabulary"}
+6. VOCABULARY: ${vocabComplexity ? `Avg word length ${((vocabComplexity.avgWordLength as number) || 4.5).toFixed(1)} chars, ${(vocabComplexity.usesTradeJargon as boolean) ? "uses trade jargon freely" : "avoids jargon"}` : "Standard vocabulary"}
 7. ENGAGEMENT: ${engagementStyle ? `${(engagementStyle.questionsPerEmail || 0).toFixed(1)} questions/email, ${((engagementStyle.directAddressFreq || 0) * 100).toFixed(0)}% "you/your", ${((engagementStyle.firstPersonFreq || 0) * 100).toFixed(0)}% "I/we"` : "Standard engagement"}
 8. GREETING: ${greetings[0] || "Hi {name},"}${greetings.length > 1 ? ` (alternatives: ${greetings.slice(1, 3).join(", ")})` : ""}
 9. SIGN-OFF: ${closings[0] || "Cheers,"}${closings.length > 1 ? ` (alternatives: ${closings.slice(1, 3).join(", ")})` : ""}
@@ -911,7 +1235,15 @@ WRITING VOICE (12 dimensions — match ALL of these):
 11. TONE: ${toneString}
 12. EMAIL LENGTH: ${emailLengthData ? `Average ${((emailLengthData.avgWordCount as number) || 100).toFixed(0)} words` : "Medium length"}
 
-${substitutions && Object.keys(substitutions).length > 0 ? `WORD PREFERENCES (always use the right-side word):\n${Object.entries(substitutions).map(([from, to]) => `- "${from}" → "${to}"`).join("\n")}\n` : ""}
+${
+  substitutions && Object.keys(substitutions).length > 0
+    ? `WORD PREFERENCES (always use the right-side word):\n${Object.entries(
+        substitutions
+      )
+        .map(([from, to]) => `- "${from}" → "${to}"`)
+        .join("\n")}\n`
+    : ""
+}
 ${companyContextBlock ? `YOUR COMPANY:\n${companyContextBlock}\n` : ""}
 ${clientContextBlock ? `CLIENT HISTORY:\n${clientContextBlock}\n` : ""}
 ${pricingContextBlock ? `PRICING DATA:\n${pricingContextBlock}\n` : ""}
@@ -978,7 +1310,9 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       max_completion_tokens: 800,
     });
 
-    const draft = stripMarkdownFences(response.choices[0]?.message?.content || "");
+    const draft = stripMarkdownFences(
+      response.choices[0]?.message?.content || ""
+    );
 
     if (!draft) {
       // Empty draft — try to escalate to the operator with a thread-specific
@@ -993,6 +1327,7 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
           .from("email_threads")
           .select("id")
           .eq("company_id", companyId)
+          .eq("connection_id", connectionId)
           .eq("provider_thread_id", threadId)
           .maybeSingle();
         const threadInternalId = (threadRow?.id as string | undefined) ?? null;
@@ -1004,7 +1339,10 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
             .filter((m) => m.direction === "inbound")
             .pop();
           const formattedHistory = threadMessages
-            .map((m) => `[${m.direction}] ${m.subject}\n${m.body_text?.slice(0, 400) || ""}`)
+            .map(
+              (m) =>
+                `[${m.direction}] ${m.subject}\n${m.body_text?.slice(0, 400) || ""}`
+            )
             .join("\n\n");
           const result = await escalateToOperatorQuestion({
             companyId,
@@ -1025,7 +1363,9 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
         confidence,
         sources,
         available: false,
-        reason: escalated ? "escalated_to_operator" : "AI returned empty response",
+        reason: escalated
+          ? "escalated_to_operator"
+          : "AI returned empty response",
         escalated,
       };
     }
@@ -1039,15 +1379,36 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       .pop();
     const baseSubject =
       replySource?.subject || threadMessages[0]?.subject || "";
+    const learnedSubject = baseSubject
+      ? null
+      : learnedNewThreadSubjectFromPreferences(
+          (profile as Record<string, unknown> | null)?.subject_preferences,
+          {
+            contact: subjectContactName,
+            company: recipientCompany,
+            address: opportunityAddress,
+            project: opportunityTitle,
+            email: clientEmail,
+          }
+        );
+    const newThreadSubject = chooseNewThreadSubject({
+      operatorSubject: req.subject,
+      configuredSubject: req.configuredSubject,
+      learnedSubject,
+      generatedSubject: contextualNewThreadSubject({
+        opportunityTitle,
+        userInstruction,
+      }),
+      fallback: "Your inquiry",
+    });
     const derivedSubject = baseSubject
-      ? baseSubject.toLowerCase().startsWith("re:")
-        ? baseSubject
-        : `Re: ${baseSubject}`
-      : "";
+      ? normalizeReplySubject(baseSubject)
+      : newThreadSubject.subject;
+    const subjectSource = baseSubject ? "thread" : newThreadSubject.source;
     const sourceMessageId = replySource?.email_message_id ?? null;
 
     // ── Store in ai_draft_history ──────────────────────────────────────
-    const { data: historyRow } = await supabase
+    const { data: historyRow, error: historyError } = await supabase
       .from("ai_draft_history")
       .insert({
         company_id: companyId,
@@ -1060,21 +1421,35 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
         status: "drafted",
         // P4-B provenance columns (additive, nullable).
         subject: derivedSubject || null,
-        subject_source: derivedSubject ? "generated" : null,
+        subject_source: derivedSubject ? subjectSource : null,
         source_message_id: sourceMessageId,
         origin: req.origin ?? null,
       })
       .select("id")
       .single();
 
+    if (historyError) {
+      throw new Error(
+        `Failed to persist AI draft history: ${historyError.message}`
+      );
+    }
+    const draftHistoryId =
+      typeof historyRow?.id === "string" ? historyRow.id.trim() : "";
+    if (!draftHistoryId) {
+      throw new Error(
+        "Failed to persist AI draft history: insert returned no id"
+      );
+    }
+
     return {
       draft,
-      draftHistoryId: historyRow?.id || "",
+      draftHistoryId,
       confidence,
       sources,
       available: true,
       profileType,
       subject: derivedSubject || undefined,
+      subjectSource: derivedSubject ? subjectSource : undefined,
       sourceMessageId,
     };
   },
@@ -1115,7 +1490,8 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     const original = history.original_draft as string;
     const storedSubject = (history.subject as string | null) ?? "";
     // Use stored profile_type from when the draft was generated
-    const effectiveProfileType = (history.profile_type as string) || profileType;
+    const effectiveProfileType =
+      (history.profile_type as string) || profileType;
 
     if (outcome === "discarded" || outcome === "superseded") {
       // P4-B: stamp discarded_at on both discard and supersede (a draft
@@ -1159,10 +1535,18 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     const enrichedChanges = [...changes];
     if (gptAnalysis) {
       if (gptAnalysis.toneShift) {
-        enrichedChanges.push({ type: "tone_shift", from: "original", to: gptAnalysis.toneShift });
+        enrichedChanges.push({
+          type: "tone_shift",
+          from: "original",
+          to: gptAnalysis.toneShift,
+        });
       }
       for (const sub of gptAnalysis.substitutions || []) {
-        enrichedChanges.push({ type: "substitution", from: sub.from, to: sub.to });
+        enrichedChanges.push({
+          type: "substitution",
+          from: sub.from,
+          to: sub.to,
+        });
       }
       for (const sc of gptAnalysis.structureChanges || []) {
         enrichedChanges.push({ type: "structure_gpt", from: "", to: sc });
@@ -1204,7 +1588,12 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     // round-trip that can never mutate the profile. Subject deltas remain
     // recorded in changes_made above for analytics.
     if (enrichedChanges.some((c) => c.type !== "subject")) {
-      await this.learnFromEdits(companyId, userId, enrichedChanges, effectiveProfileType);
+      await this.learnFromEdits(
+        companyId,
+        userId,
+        enrichedChanges,
+        effectiveProfileType
+      );
     }
 
     // Store content corrections as high-priority agent_memories
@@ -1239,7 +1628,7 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
         AutonomyMilestoneService.checkMilestonesAfterDraftFeedback(
           companyId,
           userId,
-          draftRecord.connection_id as string,
+          draftRecord.connection_id as string
         ).catch((err) => {
           console.error("[ai-draft] Milestone check failed (non-fatal):", err);
         });
@@ -1302,7 +1691,22 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     // drafts so the delta+learn pipeline has a row to record against.
     if (!bridgeId) {
       const originalBody = (draftRow.original_body as string) ?? "";
-      const { data: bridge } = await supabase
+      const bridgeSubject = (draftRow.subject as string | null)?.trim() || null;
+      const bridgeOrigin =
+        (draftRow.origin as
+          | "operator"
+          | "template_follow_up"
+          | "phase_c"
+          | "system_handoff"
+          | null) ?? "template_follow_up";
+      const bridgeSubjectSource = bridgeSubject
+        ? bridgeOrigin === "operator"
+          ? "operator"
+          : bridgeOrigin === "template_follow_up"
+            ? "configured"
+            : "generated"
+        : null;
+      const { data: bridge, error: bridgeError } = await supabase
         .from("ai_draft_history")
         .insert({
           company_id: companyId,
@@ -1313,15 +1717,27 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
           original_draft: originalBody,
           profile_type: "client_followup",
           status: "drafted",
-          subject: (draftRow.subject as string | null) ?? null,
-          subject_source: draftRow.subject ? "generated" : null,
-          origin: (draftRow.origin as string | null) ?? "template_follow_up",
+          subject: bridgeSubject,
+          subject_source: bridgeSubjectSource,
+          origin: bridgeOrigin,
         })
         .select("id")
         .single();
 
-      bridgeId = (bridge?.id as string | undefined) ?? null;
-      if (!bridgeId) return;
+      if (bridgeError) {
+        throw new Error(
+          `Failed to persist lifecycle AI draft history: ${bridgeError.message}`
+        );
+      }
+      bridgeId =
+        typeof bridge?.id === "string" && bridge.id.trim()
+          ? bridge.id.trim()
+          : null;
+      if (!bridgeId) {
+        throw new Error(
+          "Failed to persist lifecycle AI draft history: insert returned no id"
+        );
+      }
 
       // Link the bridge back onto the lifecycle draft so the relationship is
       // durable (and idempotent on a retry).
@@ -1392,20 +1808,27 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     const substitutionCounts = new Map<string, { to: string; count: number }>();
     let structureToBullets = 0;
     let structureToProse = 0;
-    let lengthShortened = 0;
-    let lengthLengthened = 0;
+    let _lengthShortened = 0;
+    let _lengthLengthened = 0;
     let formalityMoreFormal = 0;
     let formalityLessFormal = 0;
 
     for (const row of recentDrafts) {
-      const rowChanges = (row.changes_made as Array<{ type: string; from: string; to: string }>) || [];
+      const rowChanges =
+        (row.changes_made as Array<{
+          type: string;
+          from: string;
+          to: string;
+        }>) || [];
       for (const c of rowChanges) {
         switch (c.type) {
           case "greeting":
-            if (c.to) greetingChanges.set(c.to, (greetingChanges.get(c.to) || 0) + 1);
+            if (c.to)
+              greetingChanges.set(c.to, (greetingChanges.get(c.to) || 0) + 1);
             break;
           case "closing":
-            if (c.to) closingChanges.set(c.to, (closingChanges.get(c.to) || 0) + 1);
+            if (c.to)
+              closingChanges.set(c.to, (closingChanges.get(c.to) || 0) + 1);
             break;
           case "tone_shift":
             if (c.to) toneShifts.set(c.to, (toneShifts.get(c.to) || 0) + 1);
@@ -1416,9 +1839,15 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
             const editCount = parseInt(c.to) || 0;
             if (editCount < origCount) {
               // User removed exclamations → prefers fewer
-              toneShifts.set("fewer_exclamations", (toneShifts.get("fewer_exclamations") || 0) + 1);
+              toneShifts.set(
+                "fewer_exclamations",
+                (toneShifts.get("fewer_exclamations") || 0) + 1
+              );
             } else if (editCount > origCount) {
-              toneShifts.set("more_exclamations", (toneShifts.get("more_exclamations") || 0) + 1);
+              toneShifts.set(
+                "more_exclamations",
+                (toneShifts.get("more_exclamations") || 0) + 1
+              );
             }
             break;
           }
@@ -1433,7 +1862,10 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
               if (existing && existing.to === c.to.toLowerCase()) {
                 existing.count++;
               } else if (!existing) {
-                substitutionCounts.set(key, { to: c.to.toLowerCase(), count: 1 });
+                substitutionCounts.set(key, {
+                  to: c.to.toLowerCase(),
+                  count: 1,
+                });
               }
             }
             break;
@@ -1443,11 +1875,11 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
             break;
           case "structure_gpt":
             if (c.to?.toLowerCase().includes("bullet")) structureToBullets++;
-            if (c.to?.toLowerCase().includes("shorten")) lengthShortened++;
+            if (c.to?.toLowerCase().includes("shorten")) _lengthShortened++;
             break;
           case "length":
-            if (c.to?.includes("shortened")) lengthShortened++;
-            else if (c.to?.includes("lengthened")) lengthLengthened++;
+            if (c.to?.includes("shortened")) _lengthShortened++;
+            else if (c.to?.includes("lengthened")) _lengthLengthened++;
             break;
         }
       }
@@ -1456,7 +1888,9 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     // Fetch current profile
     const { data: profile } = await supabase
       .from("agent_writing_profiles")
-      .select("id, greeting_patterns, closing_patterns, formality_score, vocabulary_preferences")
+      .select(
+        "id, greeting_patterns, closing_patterns, formality_score, vocabulary_preferences"
+      )
       .eq("company_id", companyId)
       .eq("user_id", userId)
       .eq("profile_type", profileType)
@@ -1465,7 +1899,8 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     if (!profile) return;
 
     const updates: Record<string, unknown> = {};
-    const vocabPrefs = (profile.vocabulary_preferences as Record<string, unknown>) || {};
+    const vocabPrefs =
+      (profile.vocabulary_preferences as Record<string, unknown>) || {};
 
     // ── Hard preferences (threshold: 3) ─────────────────────────────────
 
@@ -1490,7 +1925,8 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     }
 
     // Phrasing substitutions (3+ consistent changes to same replacement)
-    const existingSubs = (vocabPrefs.substitutions as Record<string, string>) || {};
+    const existingSubs =
+      (vocabPrefs.substitutions as Record<string, string>) || {};
     let subsUpdated = false;
     for (const [from, { to, count }] of substitutionCounts) {
       if (count >= 3) {
@@ -1518,10 +1954,14 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     for (const [shift, count] of toneShifts) {
       if (count >= 5) {
         if (shift === "more_formal" || shift === "less_formal") {
-          const currentFormality = (updates.formality_score as number) ?? (profile.formality_score as number) ?? 0.5;
-          updates.formality_score = shift === "more_formal"
-            ? Math.min(1.0, currentFormality + 0.1)
-            : Math.max(0.0, currentFormality - 0.1);
+          const currentFormality =
+            (updates.formality_score as number) ??
+            (profile.formality_score as number) ??
+            0.5;
+          updates.formality_score =
+            shift === "more_formal"
+              ? Math.min(1.0, currentFormality + 0.1)
+              : Math.max(0.0, currentFormality - 0.1);
         }
         // Other tone shifts stored for reference but don't auto-adjust numerical scores
       }
@@ -1529,12 +1969,14 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
 
     // Structure preference
     if (structureToBullets >= 5) {
-      const paragraphStructure = (vocabPrefs.paragraph_structure as Record<string, unknown>) || {};
+      const paragraphStructure =
+        (vocabPrefs.paragraph_structure as Record<string, unknown>) || {};
       paragraphStructure.prefersBullets = true;
       vocabPrefs.paragraph_structure = paragraphStructure;
       updates.vocabulary_preferences = vocabPrefs;
     } else if (structureToProse >= 5) {
-      const paragraphStructure = (vocabPrefs.paragraph_structure as Record<string, unknown>) || {};
+      const paragraphStructure =
+        (vocabPrefs.paragraph_structure as Record<string, unknown>) || {};
       paragraphStructure.prefersBullets = false;
       vocabPrefs.paragraph_structure = paragraphStructure;
       updates.vocabulary_preferences = vocabPrefs;
@@ -1544,7 +1986,8 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     const fewerExcl = toneShifts.get("fewer_exclamations") || 0;
     const moreExcl = toneShifts.get("more_exclamations") || 0;
     if (fewerExcl >= 5 || moreExcl >= 5) {
-      const punctHabits = (vocabPrefs.punctuation_habits as Record<string, number>) || {};
+      const punctHabits =
+        (vocabPrefs.punctuation_habits as Record<string, number>) || {};
       const current = punctHabits.exclamation_marks ?? 1.0;
       if (fewerExcl >= 5) {
         punctHabits.exclamation_marks = Math.max(0, current - 0.5);
@@ -1576,7 +2019,12 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     sentWithoutChanges: number;
     approvalRate: number;
     recentDrafts: number;
-    commonChanges: Array<{ type: string; from: string; to: string; count: number }>;
+    commonChanges: Array<{
+      type: string;
+      from: string;
+      to: string;
+      count: number;
+    }>;
     suggestAutoSend: boolean;
   }> {
     const supabase = requireSupabase();
@@ -1599,9 +2047,17 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     const approvalRate = totalSent > 0 ? sentWithoutChanges / totalSent : 0;
 
     // Aggregate common changes
-    const changeCounts = new Map<string, { from: string; to: string; count: number }>();
+    const changeCounts = new Map<
+      string,
+      { from: string; to: string; count: number }
+    >();
     for (const draft of drafts) {
-      const changes = (draft.changes_made as Array<{ type: string; from: string; to: string }>) || [];
+      const changes =
+        (draft.changes_made as Array<{
+          type: string;
+          from: string;
+          to: string;
+        }>) || [];
       for (const c of changes) {
         const key = `${c.type}:${c.to}`;
         const existing = changeCounts.get(key);

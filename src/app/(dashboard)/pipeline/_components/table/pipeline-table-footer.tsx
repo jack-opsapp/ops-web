@@ -2,13 +2,16 @@
 
 import { useDictionary } from "@/i18n/client";
 import type { GrandTotal } from "@/lib/utils/pipeline-table-grouping";
-import { formatCurrency, formatNumber } from "@/lib/utils/pipeline-table-formatters";
+import {
+  formatCurrency,
+  formatNumber,
+} from "@/lib/utils/pipeline-table-formatters";
 
 /**
  * Grand-total footer bar for the pipeline table. Always rendered below the
  * table (grouped or flat), pinned to the bottom of the table-mode surface. Shows
- * the aggregate across every in-scope row: deal count · total value · weighted
- * value. When grouped, this equals the sum of the visible stage rollups.
+ * the aggregate across every in-scope row: deal count · total value. When
+ * grouped, this equals the sum of the visible stage rollups.
  *
  * Numbers are mono + tabular + formatted; labels follow OPS voice (`//` deal
  * count, `[bracket]` metric labels). Borders-only, no shadow — a quiet `border-t`
@@ -30,10 +33,6 @@ export function PipelineTableFooter({ total }: { total: GrandTotal }) {
         <span className="flex items-center gap-1.5">
           <span className="text-text-mute">{t("table.footer.value")}</span>
           <span className="text-text">{formatCurrency(total.sumValue)}</span>
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="text-text-mute">{t("table.footer.weighted")}</span>
-          <span className="text-text-2">{formatCurrency(total.sumWeighted)}</span>
         </span>
       </span>
     </div>

@@ -18,7 +18,7 @@
 // DRY: phone shape is gated through the shared sanitizeContactFormPhoneValue
 // (email-parsing.ts) for the 7–15 digit tokenization, then a net-new structural
 // guard rejects date-like runs / order numbers it lets through. Email parsing
-// reuses extractEmailAddress. The CONTACT_FORM_* label sets and the operator
+// reuses normalizeEmailAddress. The CONTACT_FORM_* label sets and the operator
 // email/displayName guards in lead-enrichment.ts are NOT exported (private), so
 // the bounded collector defines a focused, local label set — see module notes.
 
@@ -30,7 +30,7 @@ import type {
   ResolvedContact,
 } from "@/lib/api/services/conversation-state/types";
 import {
-  extractEmailAddress,
+  normalizeEmailAddress,
   sanitizeContactFormPhoneValue,
 } from "@/lib/utils/email-parsing";
 
@@ -106,7 +106,7 @@ function cleanText(value: string | null | undefined): string | null {
 
 function normalizeEmail(value: string | null | undefined): string | null {
   if (!value) return null;
-  const email = extractEmailAddress(value).toLowerCase().trim();
+  const email = normalizeEmailAddress(value);
   return EMAIL_RE.test(email) ? email : null;
 }
 
@@ -143,13 +143,17 @@ function isOperatorPhone(phone: string, operator: OperatorIdentity): boolean {
   return false;
 }
 
-function isOperatorAddress(address: string, operator: OperatorIdentity): boolean {
+function isOperatorAddress(
+  address: string,
+  operator: OperatorIdentity
+): boolean {
   const key = addressKey(address);
   if (!key) return false;
   for (const op of operator.addresses) {
     const opKey = addressKey(op);
     if (!opKey) continue;
-    if (key === opKey || key.includes(opKey) || opKey.includes(key)) return true;
+    if (key === opKey || key.includes(opKey) || opKey.includes(key))
+      return true;
   }
   return false;
 }
@@ -228,7 +232,10 @@ function lineStartsWithLabel(line: string, labels: string[]): boolean {
 function matchAddressLabel(line: string): { inline: string } | null {
   const trimmed = line.trim();
   for (const label of [...ADDRESS_LABELS].sort((a, b) => b.length - a.length)) {
-    const re = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:?\\s*(.*)$`, "i");
+    const re = new RegExp(
+      `^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:?\\s*(.*)$`,
+      "i"
+    );
     const m = trimmed.match(re);
     if (m) return { inline: (m[1] ?? "").trim() };
   }
@@ -286,11 +293,19 @@ function provenance(
 // ── name derivation ──────────────────────────────────────────────────────────
 
 /** Display name from a real fromName (rejecting generics / bare emails). */
-function verifiedDisplayName(fromName: string | null | undefined): string | null {
+function verifiedDisplayName(
+  fromName: string | null | undefined,
+  fromEmail?: string | null
+): string | null {
   const cleaned = cleanText(fromName);
   if (!cleaned) return null;
   if (EMAIL_RE.test(cleaned)) return null;
   if (isGenericName(cleaned)) return null;
+  const email = normalizeEmail(fromEmail);
+  const rawLocalPart = email?.split("@")[0]?.trim().toLowerCase() ?? "";
+  if (rawLocalPart && cleaned.toLowerCase() === rawLocalPart) {
+    return null;
+  }
   return cleaned;
 }
 
@@ -365,7 +380,7 @@ export function resolveContact(input: ResolveContactInput): ResolvedContact {
   }
   if (!nameIsVerified) {
     for (const m of customerMessages) {
-      const verified = verifiedDisplayName(m.fromName);
+      const verified = verifiedDisplayName(m.fromName, m.fromEmail);
       if (verified) {
         name = verified;
         nameIsVerified = true;
@@ -381,14 +396,18 @@ export function resolveContact(input: ResolveContactInput): ResolvedContact {
     if (fallback) {
       name = fallback;
       // nameIsVerified intentionally stays false
-      prov.push(provenance("name", "email_local_part_unverified", 0.2, latestCustomer));
+      prov.push(
+        provenance("name", "email_local_part_unverified", 0.2, latestCustomer)
+      );
     }
   }
 
   // ── phone ──────────────────────────────────────────────────────────────
   let phone: string | null = null;
   if (contactFormSubmitter?.phone) {
-    const { phone: formPhone } = sanitizeContactFormPhoneValue(contactFormSubmitter.phone);
+    const { phone: formPhone } = sanitizeContactFormPhoneValue(
+      contactFormSubmitter.phone
+    );
     if (
       formPhone &&
       isPlausiblePhoneShape(formPhone) &&
@@ -443,14 +462,17 @@ export function resolveContact(input: ResolveContactInput): ResolvedContact {
 // entity_type, entity_id, field_name and source are NOT NULL; id / extracted_at /
 // created_at / updated_at carry DB defaults and are not set here.
 
-interface MinimalSupabaseInsert {
+interface MinimalSupabaseUpsert {
   from: (table: string) => {
-    insert: (rows: Record<string, unknown>[]) => Promise<{ error: unknown }>;
+    upsert: (
+      rows: Record<string, unknown>[],
+      options: { onConflict: string }
+    ) => Promise<{ error: unknown }>;
   };
 }
 
 export interface PersistContactProvenanceInput {
-  supabase: MinimalSupabaseInsert;
+  supabase: MinimalSupabaseUpsert;
   companyId: string;
   /** lead_field_provenance.entity_type — the entity the value was written to. */
   entityType: "opportunity" | "client";
@@ -461,6 +483,19 @@ export interface PersistContactProvenanceInput {
   providerThreadId: string | null;
   /** Falls back per-row to the provenance entry's own sourceMessageId. */
   providerMessageId?: string | null;
+}
+
+const CONTACT_PROVENANCE_FIELD_NAME: Record<FieldName, string> = {
+  name: "contact_name",
+  email: "contact_email",
+  phone: "contact_phone",
+  address: "contact_address",
+};
+
+function persistedContactProvenanceSource(
+  source: string
+): "contact_form" | "inbound" {
+  return source === "contact_form" ? "contact_form" : "inbound";
 }
 
 /**
@@ -479,7 +514,9 @@ export async function persistContactProvenance(
     providerThreadId,
     providerMessageId,
   } = input;
-  const rows = contact.provenance;
+  const rows = contact.provenance.filter(
+    (row) => row.field !== "name" || contact.nameIsVerified
+  );
   if (rows.length === 0) return { error: null };
 
   const valueByField: Record<FieldName, string | null> = {
@@ -493,12 +530,22 @@ export async function persistContactProvenance(
     company_id: companyId,
     entity_type: entityType,
     entity_id: entityId,
-    field_name: p.field,
+    field_name: CONTACT_PROVENANCE_FIELD_NAME[p.field],
     value_snapshot: valueByField[p.field] ?? null,
-    source: p.source,
+    source: persistedContactProvenanceSource(p.source),
     confidence: p.confidence,
     provider_thread_id: p.providerThreadId ?? providerThreadId,
     provider_message_id: p.sourceMessageId ?? providerMessageId ?? null,
   }));
-  return supabase.from("lead_field_provenance").insert(payload);
+  const { error } = await supabase
+    .from("lead_field_provenance")
+    .upsert(payload, {
+      onConflict: "company_id,entity_type,entity_id,field_name",
+    });
+  if (error) {
+    const failure = new Error("lead_field_provenance upsert failed");
+    (failure as Error & { cause?: unknown }).cause = error;
+    throw failure;
+  }
+  return { error: null };
 }

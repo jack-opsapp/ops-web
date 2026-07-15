@@ -38,6 +38,19 @@ describe("AdminFeatureOverrideService.isFeatureEnabled", () => {
     expect(result).toBe(false);
   });
 
+  it("throws when the feature-gate read fails instead of treating it as disabled", async () => {
+    maybeSingleMock.mockResolvedValueOnce({
+      data: null,
+      error: { message: "override read unavailable" },
+    });
+
+    await expect(
+      AdminFeatureOverrideService.isAIFeatureEnabled("company-abc", "phase_c")
+    ).rejects.toThrow(
+      "Failed to read AI feature override: override read unavailable"
+    );
+  });
+
   it("returns true when a row with enabled: true exists", async () => {
     maybeSingleMock.mockResolvedValueOnce({ data: { enabled: true } });
     const result = await AdminFeatureOverrideService.isFeatureEnabled(

@@ -37,36 +37,38 @@
  */
 export function htmlToPlainText(raw: string): string {
   if (!raw || !raw.includes("<")) return raw;
-  return raw
-    // Block-level content containers — must strip with their contents,
-    // otherwise CSS/JS/metadata leaks through the general tag regex below.
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<head[\s\S]*?<\/head>/gi, "")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, "")
-    // Structural tags become newlines so paragraphs don't merge into a blob
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
-    .replace(/<li[^>]*>/gi, "- ")
-    // Strip any other remaining tag (including Outlook `<![if]>` / `<![endif]>`)
-    .replace(/<[^>]+>/g, "")
-    // Decode common HTML entities
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#0?39;/gi, "'")
-    .replace(/&#x27;/gi, "'")
-    // Zero-width joiners used to obscure text in promotional emails
-    .replace(/&#x200[cdef];/gi, "")
-    .replace(/&zwnj;/gi, "")
-    .replace(/&zwj;/gi, "")
-    // Collapse whitespace
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[^\S\n]+/g, " ")
-    .trim();
+  return (
+    raw
+      // Block-level content containers — must strip with their contents,
+      // otherwise CSS/JS/metadata leaks through the general tag regex below.
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<head[\s\S]*?<\/head>/gi, "")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, "")
+      // Structural tags become newlines so paragraphs don't merge into a blob
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(?:p|div|li|tr|h[1-6])>/gi, "\n")
+      .replace(/<li[^>]*>/gi, "- ")
+      // Strip any other remaining tag (including Outlook `<![if]>` / `<![endif]>`)
+      .replace(/<[^>]+>/g, "")
+      // Decode common HTML entities
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#0?39;/gi, "'")
+      .replace(/&#x27;/gi, "'")
+      // Zero-width joiners used to obscure text in promotional emails
+      .replace(/&#x200[cdef];/gi, "")
+      .replace(/&zwnj;/gi, "")
+      .replace(/&zwj;/gi, "")
+      // Collapse whitespace
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[^\S\n]+/g, " ")
+      .trim()
+  );
 }
 
 // ─── HTML quote stripping ──────────────────────────────────────────────────
@@ -89,7 +91,8 @@ export function htmlToPlainText(raw: string): string {
  */
 function isTagBoundary(ch: string | undefined, isOpen: boolean): boolean {
   if (ch === undefined) return false;
-  if (ch === ">" || ch === " " || ch === "\t" || ch === "\n" || ch === "\r") return true;
+  if (ch === ">" || ch === " " || ch === "\t" || ch === "\n" || ch === "\r")
+    return true;
   // Opens only: `<div/>` is a (rare) self-closing form; `/` is a boundary.
   if (isOpen && ch === "/") return true;
   return false;
@@ -190,7 +193,10 @@ function stripDivByAttribute(
     }
     const openTag = html.slice(openIdx, tagEnd + 1);
     // Extract the target attribute value, tolerating single- or double-quoted.
-    const attrRE = new RegExp(`\\b${attrName}\\s*=\\s*("([^"]*)"|'([^']*)')`, "i");
+    const attrRE = new RegExp(
+      `\\b${attrName}\\s*=\\s*("([^"]*)"|'([^']*)')`,
+      "i"
+    );
     const m = openTag.match(attrRE);
     const value = m ? (m[2] ?? m[3] ?? "") : "";
 
@@ -278,13 +284,29 @@ export function stripQuotedHtml(html: string): string {
 // everyone has @gmail.com. Only match domains for custom/business addresses.
 
 const COMMON_EMAIL_DOMAINS = new Set([
-  "gmail.com", "googlemail.com",
-  "outlook.com", "hotmail.com", "live.com", "msn.com",
-  "yahoo.com", "yahoo.ca", "yahoo.co.uk", "yahoo.com.au",
-  "icloud.com", "me.com", "mac.com",
-  "aol.com", "protonmail.com", "proton.me",
-  "mail.com", "zoho.com", "ymail.com",
-  "shaw.ca", "telus.net", "rogers.com", "bell.net",
+  "gmail.com",
+  "googlemail.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "msn.com",
+  "yahoo.com",
+  "yahoo.ca",
+  "yahoo.co.uk",
+  "yahoo.com.au",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "aol.com",
+  "protonmail.com",
+  "proton.me",
+  "mail.com",
+  "zoho.com",
+  "ymail.com",
+  "shaw.ca",
+  "telus.net",
+  "rogers.com",
+  "bell.net",
 ]);
 
 export function isCommonEmailDomain(domain: string): boolean {
@@ -300,15 +322,15 @@ const QUOTE_MARKERS = [
   // Gmail line-wrapped: "On ... <email>\nwrote:" (wrote: on next line)
   /^On .{10,120}>[ \t]*\nwrote:/m,
   // Outlook: "-----Original Message-----"
-  /^-{3,}\s*Original Message\s*-{3,}/mi,
+  /^-{3,}\s*Original Message\s*-{3,}/im,
   // Outlook: "From: ... Sent: ... To: ..."
   /^From:\s.+\nSent:\s.+\nTo:\s/m,
   // Apple Mail: "On Jan 15, 2026, at 3:45 PM, John Smith wrote:"
   /^On .{10,60}, at .{5,20}, .{2,60} wrote:/m,
   // Forwarded message
-  /^-{5,}\s*Forwarded message\s*-{5,}/mi,
+  /^-{5,}\s*Forwarded message\s*-{5,}/im,
   // Begin forwarded message
-  /^Begin forwarded message:/mi,
+  /^Begin forwarded message:/im,
   // Generic ">" quote blocks (3+ consecutive lines starting with >)
   /(?:^>.*\n){3,}/m,
   // Outlook web: "________________________________\nFrom:"
@@ -467,14 +489,30 @@ export function extractEmailAddress(from: string | null | undefined): string {
   return match ? match[1] : from.trim();
 }
 
+/**
+ * Lowercase an RFC822 address and repair the one proven, unambiguous domain
+ * typo we accept automatically. Deliberately does not rewrite arbitrary
+ * `.con` domains because those may be real customer-owned addresses.
+ */
+export function normalizeEmailAddress(
+  value: string | null | undefined
+): string {
+  const email = extractEmailAddress(value).trim().toLowerCase();
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return email;
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  return domain === "gmail.con" ? `${local}@gmail.com` : email;
+}
+
 // ─── Forward detection (shared by deterministic-internal-rule) ──────────────
 
 const FORWARD_SUBJECT_RE = /^\s*fwd?:\s*/i;
 // Each marker tolerates leading "> " quote prefixes — when a forward gets
 // re-forwarded (or replied to with quoting on), every line of the inlined
 // block ends up with `> ` in front and the bare anchored regex misses.
-const FORWARDED_MESSAGE_BODY_RE = /^>?\s*-{5,}\s*Forwarded message\s*-{5,}/mi;
-const BEGIN_FORWARDED_BODY_RE = /^>?\s*Begin forwarded message:/mi;
+const FORWARDED_MESSAGE_BODY_RE = /^>?\s*-{5,}\s*Forwarded message\s*-{5,}/im;
+const BEGIN_FORWARDED_BODY_RE = /^>?\s*Begin forwarded message:/im;
 // Outlook/M365: a contiguous "From: …\nSent: …\nTo: …" block at the start
 // of the inlined upstream message. Gmail produces this shape too when the
 // user picks "Show original" before forwarding. Same `> `-tolerant prefix.
@@ -524,9 +562,9 @@ export function isForwardMarker(subject: string, bodyText: string): boolean {
 function parseAddressFromHeaderLine(line: string): string | null {
   if (!line) return null;
   const angle = line.match(/<([^>\s]+@[^>\s]+)>/);
-  if (angle) return angle[1].trim().toLowerCase();
+  if (angle) return normalizeEmailAddress(angle[1]);
   const bare = line.match(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/);
-  return bare ? bare[0].trim().toLowerCase() : null;
+  return bare ? normalizeEmailAddress(bare[0]) : null;
 }
 
 function parseDisplayNameFromHeaderLine(line: string): string | null {
@@ -788,9 +826,29 @@ function extractFormField(text: string, labels: string[]): string | null {
   return null;
 }
 
-function looksLikeContactFormSubmission(subject: string, body: string): boolean {
-  if (FORM_SUBMISSION_SUBJECT_RE.test(subject ?? "")) return true;
-  return FORM_SUBMISSION_BODY_MARKERS.some((marker) => marker.test(body));
+function looksLikeContactFormSubmission(
+  subject: string,
+  body: string
+): boolean {
+  // A reply can quote an entire prior form notification. It is still ordinary
+  // correspondence and must retain the provider-thread relationship.
+  if (/^\s*re\s*:/i.test(subject ?? "")) return false;
+
+  const hasPlatformBodyMarker = FORM_SUBMISSION_BODY_MARKERS.some((marker) =>
+    marker.test(body)
+  );
+  if (hasPlatformBodyMarker) return true;
+
+  // Generic subjects such as "Quote request" and "New inquiry" also occur in
+  // real customer mail. Require explicit submitted-contact structure before
+  // treating the body as a form and scanning beyond its sender headers.
+  const hasLabeledSubmitterEmail =
+    /^>?\s*(?:email|email address|e-mail|e-mail address|your email|reply-to)\s*:/im.test(
+      body
+    );
+  return (
+    FORM_SUBMISSION_SUBJECT_RE.test(subject ?? "") && hasLabeledSubmitterEmail
+  );
 }
 
 const CONTACT_FORM_DISPLAY_START_MARKERS = [
@@ -947,14 +1005,6 @@ function extractHeaderLine(text: string, header: string): string | null {
   return text.match(re)?.[1]?.trim() ?? null;
 }
 
-function localPartName(email: string): string {
-  return email
-    .split("@")[0]
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .trim();
-}
-
 /**
  * Extract the real submitter from common website/contact-form notification
  * bodies. Handles Wix-style forwarded notifications (`Reply-To:` plus a
@@ -963,7 +1013,7 @@ function localPartName(email: string): string {
  */
 export function extractContactFormSubmission(
   subject: string,
-  bodyText: string,
+  bodyText: string
 ): ContactFormSubmissionIdentity | null {
   return (
     extractContactFormSubmissionDiagnostics(subject, bodyText)?.identity ?? null
@@ -972,22 +1022,27 @@ export function extractContactFormSubmission(
 
 export function extractContactFormSubmissionDiagnostics(
   subject: string,
-  bodyText: string,
+  bodyText: string
 ): ContactFormSubmissionDiagnostics | null {
   if (!bodyText) return null;
   const body = normalizeFormSubmissionText(bodyText);
   if (!looksLikeContactFormSubmission(subject ?? "", body)) return null;
 
-  const emailField = extractFormField(body, CONTACT_FORM_SUBMITTED_EMAIL_LABELS);
+  const emailField = extractFormField(
+    body,
+    CONTACT_FORM_SUBMITTED_EMAIL_LABELS
+  );
   const replyToLine = extractHeaderLine(body, "Reply-To");
-  const replyToEmail = replyToLine ? parseAddressFromHeaderLine(replyToLine) : null;
+  const replyToEmail = replyToLine
+    ? parseAddressFromHeaderLine(replyToLine)
+    : null;
   const fieldEmail = emailField ? parseAddressFromHeaderLine(emailField) : null;
 
   let email = fieldEmail ?? replyToEmail ?? null;
   if (!email) {
     const candidates = Array.from(
       body.matchAll(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g),
-      (match) => match[0].toLowerCase(),
+      (match) => normalizeEmailAddress(match[0])
     ).filter((candidate) => !isPlatformOrSystemEmail(candidate));
     email = candidates[0] ?? null;
   }
@@ -996,12 +1051,13 @@ export function extractContactFormSubmissionDiagnostics(
   const firstName = extractFormField(body, CONTACT_FORM_FIRST_NAME_LABELS);
   const lastName = extractFormField(body, CONTACT_FORM_LAST_NAME_LABELS);
   const fullName = extractFormField(body, CONTACT_FORM_NAME_LABELS);
-  const replyToName = replyToLine ? parseDisplayNameFromHeaderLine(replyToLine) : null;
+  const replyToName = replyToLine
+    ? parseDisplayNameFromHeaderLine(replyToLine)
+    : null;
   const name =
     cleanContactFormValue(fullName) ??
     cleanContactFormValue([firstName, lastName].filter(Boolean).join(" ")) ??
     cleanContactFormValue(replyToName) ??
-    localPartName(email) ??
     null;
   const phoneSanitization = sanitizeContactFormPhoneValue(
     extractFormField(body, CONTACT_FORM_PHONE_LABELS)
@@ -1046,7 +1102,7 @@ export function extractContactFormSubmissionDiagnostics(
  */
 export function extractForwardedSender(
   subject: string,
-  bodyText: string,
+  bodyText: string
 ): string | null {
   if (!bodyText) return null;
   const body = bodyText.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
@@ -1065,7 +1121,10 @@ export function extractForwardedSender(
   let scanFrom = -1;
   for (const m of markers) {
     const match = body.match(m);
-    if (match?.index !== undefined && (scanFrom === -1 || match.index < scanFrom)) {
+    if (
+      match?.index !== undefined &&
+      (scanFrom === -1 || match.index < scanFrom)
+    ) {
       scanFrom = match.index;
     }
   }
@@ -1109,10 +1168,10 @@ export function resolveEffectiveSenderEmail(params: {
   bodyText: string;
   connectionEmail: string | null;
 }): EffectiveSenderIdentity {
-  const headerEmail = extractEmailAddress(params.fromHeader).toLowerCase();
+  const headerEmail = normalizeEmailAddress(params.fromHeader);
   const form = extractContactFormSubmission(
     params.subject ?? "",
-    params.bodyText ?? "",
+    params.bodyText ?? ""
   );
   if (form && form.email !== params.connectionEmail?.toLowerCase()) {
     return {
@@ -1124,7 +1183,10 @@ export function resolveEffectiveSenderEmail(params: {
     };
   }
 
-  const fwd = extractForwardedSender(params.subject ?? "", params.bodyText ?? "");
+  const fwd = extractForwardedSender(
+    params.subject ?? "",
+    params.bodyText ?? ""
+  );
   if (fwd && fwd !== params.connectionEmail?.toLowerCase()) {
     return { email: fwd, source: "forwarded" };
   }

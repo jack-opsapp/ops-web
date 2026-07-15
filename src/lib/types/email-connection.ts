@@ -14,7 +14,8 @@ export type EmailConnectionStatus =
   | "paused"
   | "error"
   | "setup_incomplete"
-  | "needs_reconnect";
+  | "needs_reconnect"
+  | "disconnected";
 
 // ─── Core Types ──────────────────────────────────────────────────────────────
 
@@ -28,13 +29,20 @@ export interface EmailConnection {
   accessToken: string;
   refreshToken: string;
   expiresAt: Date;
-  historyId: string | null; // Gmail historyId or M365 deltaLink
+  historyId: string | null; // Gmail historyId or M365 composite delta cursor
   syncEnabled: boolean;
   lastSyncedAt: Date | null;
   syncIntervalMinutes: number;
   syncFilters: SyncProfile; // renamed semantically, same JSONB column for now
+  /** Inclusive lower bound for an in-progress Gmail expired-history replay. */
+  historyRecoveryAnchor?: Date | null;
+  /** Gmail page token to resume after the last fully persisted recovery batch. */
+  historyRecoveryPageToken?: string | null;
+  /** Fresh Gmail historyId committed only after the recovery walk completes. */
+  historyRecoveryTargetToken?: string | null;
   webhookSubscriptionId: string | null;
   webhookExpiresAt: Date | null;
+  webhookClientStateHash?: string | null;
   opsLabelId: string | null;
   aiReviewEnabled: boolean;
   aiMemoryEnabled: boolean;
@@ -106,8 +114,12 @@ export interface UpdateEmailConnection {
   syncFilters?: Partial<SyncProfile>;
   historyId?: string;
   lastSyncedAt?: Date;
+  historyRecoveryAnchor?: Date | null;
+  historyRecoveryPageToken?: string | null;
+  historyRecoveryTargetToken?: string | null;
   webhookSubscriptionId?: string;
   webhookExpiresAt?: Date;
+  webhookClientStateHash?: string | null;
   opsLabelId?: string;
   aiReviewEnabled?: boolean;
   aiMemoryEnabled?: boolean;

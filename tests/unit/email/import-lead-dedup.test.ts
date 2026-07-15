@@ -74,6 +74,57 @@ describe("import-lead-dedup", () => {
     expect(result[0].duplicateGroupId).toBe("thread-primary,thread-secondary");
   });
 
+  it("preserves each provider message's raw thread when sibling leads merge", () => {
+    const result = deduplicateAnalyzedLeads([
+      lead({
+        id: "primary",
+        threadId: "thread-primary",
+        providerThreadId: "thread-primary",
+        correspondenceCount: 1,
+        emails: [
+          {
+            id: "message-primary",
+            providerThreadId: "thread-primary",
+            from: "liane@example.com",
+            subject: "Estimate request",
+            date: "2026-06-01T00:00:00.000Z",
+            direction: "inbound",
+          },
+        ],
+      }),
+      lead({
+        id: "secondary",
+        threadId: "thread-secondary",
+        providerThreadId: "thread-secondary",
+        correspondenceCount: 1,
+        emails: [
+          {
+            id: "message-secondary",
+            providerThreadId: "thread-secondary",
+            from: "liane@example.com",
+            subject: "Re: Estimate request",
+            date: "2026-06-02T00:00:00.000Z",
+            direction: "inbound",
+          },
+        ],
+      }),
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].emails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "message-primary",
+          providerThreadId: "thread-primary",
+        }),
+        expect.objectContaining({
+          id: "message-secondary",
+          providerThreadId: "thread-secondary",
+        }),
+      ])
+    );
+  });
+
   it("keeps the most terminal stage across duplicate siblings", () => {
     const result = deduplicateAnalyzedLeads([
       lead({
@@ -133,12 +184,24 @@ describe("import-lead-dedup", () => {
       lead({
         id: "a",
         threadId: "thread-a",
-        client: { name: "A", email: "", phone: null, description: "", address: null },
+        client: {
+          name: "A",
+          email: "",
+          phone: null,
+          description: "",
+          address: null,
+        },
       }),
       lead({
         id: "b",
         threadId: "thread-b",
-        client: { name: "B", email: "", phone: null, description: "", address: null },
+        client: {
+          name: "B",
+          email: "",
+          phone: null,
+          description: "",
+          address: null,
+        },
       }),
     ]);
 

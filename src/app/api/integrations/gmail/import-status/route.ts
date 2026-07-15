@@ -7,11 +7,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
-  setSupabaseOverride(supabase);
 
   try {
     const jobId = request.nextUrl.searchParams.get("jobId");
@@ -36,6 +35,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const authError = await requireEmailCompanyAccess(request, job.company_id);
+    if (authError) return authError;
+
     // Flat response — matches ImportStatusResponse shape in use-gmail-import.ts
     return NextResponse.json({
       status: job.status,
@@ -53,7 +55,5 @@ export async function GET(request: NextRequest) {
       { error: err instanceof Error ? err.message : "Internal error" },
       { status: 500 }
     );
-  } finally {
-    setSupabaseOverride(null);
   }
 }

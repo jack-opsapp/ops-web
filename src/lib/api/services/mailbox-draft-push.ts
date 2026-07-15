@@ -15,7 +15,10 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";
-import { pickExistingMailboxDraft, type MailboxDraftRow } from "./mailbox-draft-helpers";
+import {
+  pickExistingMailboxDraft,
+  type MailboxDraftRow,
+} from "./mailbox-draft-helpers";
 import type { CreateNewThreadDraftResult } from "./email-provider";
 import type { ContactFormSubmissionIdentity } from "@/lib/utils/email-parsing";
 
@@ -39,14 +42,16 @@ type PushProvider = {
   createNewThreadDraft: (
     to: string,
     subject: string,
-    body: string
+    body: string,
+    contentType?: "text" | "html"
   ) => Promise<CreateNewThreadDraftResult>;
   updateDraft: (
     draftId: string,
     to: string,
     subject: string,
     body: string,
-    threadId?: string
+    threadId?: string,
+    contentType?: "text" | "html"
   ) => Promise<void>;
 };
 
@@ -59,6 +64,7 @@ interface PlaceNewThreadDraftArgs {
   to: string;
   subject: string;
   body: string;
+  contentType?: "text" | "html";
 }
 
 /** A reusable prior draft also carries its minted thread so updateDraft can
@@ -81,7 +87,11 @@ export async function placeNewThreadDraft({
   to,
   subject,
   body,
-}: PlaceNewThreadDraftArgs): Promise<{ mailboxDraftId: string; threadId: string | null }> {
+  contentType = "text",
+}: PlaceNewThreadDraftArgs): Promise<{
+  mailboxDraftId: string;
+  threadId: string | null;
+}> {
   const supabase = requireSupabase();
 
   // Idempotency: keyed on the opportunity, not a thread — at first run no new
@@ -101,34 +111,76 @@ export async function placeNewThreadDraft({
 
   if (existing?.mailbox_draft_id) {
     const reuseThread = existing.thread_id ?? undefined;
-    await provider.updateDraft(existing.mailbox_draft_id, to, subject, body, reuseThread);
+    await provider.updateDraft(
+      existing.mailbox_draft_id,
+      to,
+      subject,
+      body,
+      reuseThread,
+      contentType
+    );
     mailboxDraftId = existing.mailbox_draft_id;
     threadId = existing.thread_id ?? null;
   } else {
-    const created = await provider.createNewThreadDraft(to, subject, body);
+    const created = await provider.createNewThreadDraft(
+      to,
+      subject,
+      body,
+      contentType
+    );
     mailboxDraftId = created.draftId;
     threadId = created.threadId;
   }
 
-  await supabase
+  const { error: historyError } = await supabase
     .from("ai_draft_history")
     .update({
       status: "auto_drafted",
       mailbox_draft_id: mailboxDraftId,
       thread_id: threadId,
       subject,
-      subject_source: "generated",
     })
     .eq("id", draftHistoryId);
+  if (historyError) {
+    throw new Error(
+      `Failed to persist mailbox draft identity: ${historyError.message ?? "unknown error"}`
+    );
+  }
 
   // Link the new thread to the opportunity so processSentEmail attaches the
   // user's eventual send as an outbound activity (reconciliation reads it) and
   // future client replies inherit the lead.
   if (threadId) {
-    await supabase.from("opportunity_email_threads").upsert(
-      { opportunity_id: opportunityId, thread_id: threadId, connection_id: connectionId },
-      { onConflict: "thread_id,connection_id" }
-    );
+    const { error: linkError } = await supabase
+      .from("opportunity_email_threads")
+      .upsert(
+        {
+          opportunity_id: opportunityId,
+          thread_id: threadId,
+          connection_id: connectionId,
+        },
+        {
+          onConflict: "thread_id,connection_id",
+          ignoreDuplicates: true,
+        }
+      );
+    if (linkError) {
+      throw new Error(
+        `Failed to claim mailbox draft thread: ${linkError.message ?? "unknown error"}`
+      );
+    }
+    const { data: canonicalLink, error: canonicalError } = await supabase
+      .from("opportunity_email_threads")
+      .select("opportunity_id")
+      .eq("thread_id", threadId)
+      .eq("connection_id", connectionId)
+      .limit(1)
+      .maybeSingle();
+    if (canonicalError || canonicalLink?.opportunity_id !== opportunityId) {
+      throw new Error(
+        `Mailbox draft thread belongs to a different opportunity: ${canonicalError?.message ?? canonicalLink?.opportunity_id ?? "missing owner"}`
+      );
+    }
   }
 
   return { mailboxDraftId, threadId };

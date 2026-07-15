@@ -89,7 +89,7 @@ export interface UsePipelineTableDataResult {
  */
 function sortValue(
   row: PipelineTableRow,
-  field: PipelineTableColumnId,
+  field: PipelineTableColumnId
 ): string | number | null {
   switch (field) {
     case "deal":
@@ -100,10 +100,6 @@ function sortValue(
       return row.clientName;
     case "value":
       return row.estimatedValue;
-    case "win_probability":
-      return row.winProbability;
-    case "weighted":
-      return row.weightedValue;
     case "age_in_stage":
       return row.ageInStageDays;
     case "last_activity":
@@ -148,7 +144,7 @@ function comparePresent(a: string | number, b: string | number): number {
 function compareForSort(
   a: string | number | null,
   b: string | number | null,
-  direction: 1 | -1,
+  direction: 1 | -1
 ): number {
   if (a === null && b === null) return 0;
   if (a === null) return 1;
@@ -243,7 +239,7 @@ export function usePipelineTableData({
 
   const stageConfigMap = useMemo(
     () => stageConfigBySlug(stageConfigs ?? []),
-    [stageConfigs],
+    [stageConfigs]
   );
 
   // ── In-scope, mapped rows (pre-search) ───────────────────────────────────
@@ -259,14 +255,15 @@ export function usePipelineTableData({
       // as the focused board's `filteredOpportunities` does, so both surfaces stay
       // in lockstep and the count reflects the active filter.
       if (stageFilter !== "all" && opp.stage !== stageFilter) continue;
-      if (assigneeFilter !== "all" && opp.assignedTo !== assigneeFilter) continue;
+      if (assigneeFilter !== "all" && opp.assignedTo !== assigneeFilter)
+        continue;
       rows.push(
         mapOpportunityToTableRow(opp, {
           clientNameMap,
           assigneeNameMap,
           stageConfigBySlug: stageConfigMap,
           now,
-        }),
+        })
       );
     }
     return rows;
@@ -283,10 +280,13 @@ export function usePipelineTableData({
 
   // Scale-ceiling breadcrumb (spec §3.4) — warn once per mount.
   useEffect(() => {
-    if (mappedRows.length > PIPELINE_TABLE_SCALE_CEILING && !scaleWarnedRef.current) {
+    if (
+      mappedRows.length > PIPELINE_TABLE_SCALE_CEILING &&
+      !scaleWarnedRef.current
+    ) {
       scaleWarnedRef.current = true;
       console.warn(
-        `[pipeline-table] ${mappedRows.length} active deals exceeds the ${PIPELINE_TABLE_SCALE_CEILING}-row client-side ceiling; windowed fetching is required at this scale.`,
+        `[pipeline-table] ${mappedRows.length} active deals exceeds the ${PIPELINE_TABLE_SCALE_CEILING}-row client-side ceiling; windowed fetching is required at this scale.`
       );
     }
   }, [mappedRows.length]);
@@ -304,8 +304,8 @@ export function usePipelineTableData({
           .filter(Boolean)
           .join(" ")
           .toLowerCase(),
-        search,
-      ),
+        search
+      )
     );
   }, [mappedRows, search]);
 
@@ -324,8 +324,8 @@ export function usePipelineTableData({
       compareForSort(
         sortValue(rowA, primary.field),
         sortValue(rowB, primary.field),
-        direction,
-      ),
+        direction
+      )
     );
   }, [searchedRows, sorting, now]);
 

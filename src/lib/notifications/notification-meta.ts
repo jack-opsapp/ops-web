@@ -40,7 +40,11 @@ export interface NotificationMeta {
 export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   mention: { label: "MENTION", icon: "at-sign", tone: "attn" },
   role_needed: { label: "ROLE", icon: "user-plus", tone: "critical" },
-  pipeline_complete: { label: "PIPELINE", icon: "check-circle-2", tone: "accent" },
+  pipeline_complete: {
+    label: "PIPELINE",
+    icon: "check-circle-2",
+    tone: "accent",
+  },
   gmail_sync: { label: "SYNC", icon: "refresh-cw", tone: "ambient" },
   intel_available: { label: "INTEL", icon: "radar", tone: "attn" },
   setup_prompt: { label: "SETUP", icon: "settings-2", tone: "ambient" },
@@ -54,18 +58,39 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   expense_submitted: { label: "EXPENSE", icon: "receipt", tone: "attn" },
   expense_approved: { label: "EXP", icon: "receipt-text", tone: "ambient" },
   duplicates_found: { label: "DUPES", icon: "copy", tone: "critical" },
-  duplicates_merged: { label: "MERGED", icon: "check-circle-2", tone: "ambient" },
-  data_review_resolved: { label: "DATA REVIEW", icon: "list-checks", tone: "ambient" },
+  duplicates_merged: {
+    label: "MERGED",
+    icon: "check-circle-2",
+    tone: "ambient",
+  },
+  data_review_resolved: {
+    label: "DATA REVIEW",
+    icon: "list-checks",
+    tone: "ambient",
+  },
   ai_milestone: { label: "AI", icon: "sparkle", tone: "accent" },
   agent_suggestion: { label: "AGENT", icon: "bot", tone: "accent" },
   // AlarmClock in lucide 0.468 — ClockAlert (0.475+) preferred long-term; upgrade when lucide-react is bumped.
   trial_expiry: { label: "TRIAL", icon: "alarm-clock", tone: "critical" },
   payment_review_stack: { label: "PAY REV", icon: "layers", tone: "attn" },
   task_review_stack: { label: "TASK REV", icon: "list-checks", tone: "attn" },
-  unscheduled_review_stack: { label: "UNSCHED", icon: "calendar-x", tone: "attn" },
+  unscheduled_review_stack: {
+    label: "UNSCHED",
+    icon: "calendar-x",
+    tone: "attn",
+  },
   email_sync_complete: { label: "INBOX", icon: "inbox", tone: "accent" },
+  email_signature_required: {
+    label: "SIGNATURE",
+    icon: "settings-2",
+    tone: "critical",
+  },
   projects_needing_tasks: { label: "PLAN", icon: "list-checks", tone: "attn" },
-  accounting_import_complete: { label: "BOOKS", icon: "receipt-text", tone: "accent" },
+  accounting_import_complete: {
+    label: "BOOKS",
+    icon: "receipt-text",
+    tone: "accent",
+  },
   accounting_sync: { label: "QB SYNC", icon: "receipt-text", tone: "critical" },
 };
 
@@ -101,7 +126,7 @@ const LUCIDE_REGISTRY: Record<string, LucideIcon> = {
   bot: Bot,
   "alarm-clock": AlarmClock,
   circle: Circle,
-  "layers": Layers,
+  layers: Layers,
   "list-checks": ListChecks,
   "calendar-x": CalendarX,
 };

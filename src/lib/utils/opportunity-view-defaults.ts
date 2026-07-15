@@ -23,7 +23,8 @@ import {
   type PipelineTableSort,
 } from "@/lib/types/pipeline-table";
 
-export const OPPORTUNITY_VIEW_DEFAULT_DENSITY: OpportunityViewDensity = "comfortable";
+export const OPPORTUNITY_VIEW_DEFAULT_DENSITY: OpportunityViewDensity =
+  "comfortable";
 export const OPPORTUNITY_VIEW_DEFAULT_ZOOM_LEVEL = 1;
 export const OPPORTUNITY_VIEW_MIN_ZOOM_LEVEL = 0.75;
 export const OPPORTUNITY_VIEW_MAX_ZOOM_LEVEL = 1.5;
@@ -33,7 +34,6 @@ export const OPPORTUNITY_VIEW_DEFAULT_COLUMNS = [
   "stage",
   "client",
   "value",
-  "weighted",
   "age_in_stage",
   "next_follow_up",
   "assignee",
@@ -42,7 +42,14 @@ export const OPPORTUNITY_VIEW_DEFAULT_COLUMNS = [
 export const OPPORTUNITY_VIEW_DEFAULT_FILTERS: Json = {
   field: "stage",
   op: "in",
-  value: ["new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation"],
+  value: [
+    "new_lead",
+    "qualifying",
+    "quoting",
+    "quoted",
+    "follow_up",
+    "negotiation",
+  ],
 };
 
 export const OPPORTUNITY_VIEW_DEFAULT_SORT = [
@@ -64,7 +71,9 @@ function isColumnId(value: unknown): value is PipelineTableColumnId {
   );
 }
 
-function sanitizeColumns(columns: readonly PipelineTableColumnId[] | undefined) {
+function sanitizeColumns(
+  columns: readonly PipelineTableColumnId[] | undefined
+) {
   if (!columns) return undefined;
   const seen = new Set<PipelineTableColumnId>();
   const safeColumns: PipelineTableColumnId[] = [];
@@ -81,33 +90,41 @@ function sanitizeColumns(columns: readonly PipelineTableColumnId[] | undefined) 
 function sanitizeSort(sort: readonly PipelineTableSort[] | undefined) {
   if (!sort) return undefined;
   return sort
-    .filter((item): item is PipelineTableSort => (
-      item !== null &&
-      typeof item === "object" &&
-      typeof item.field === "string" &&
-      isColumnId(item.field) &&
-      (item.direction === "asc" || item.direction === "desc")
-    ))
+    .filter(
+      (item): item is PipelineTableSort =>
+        item !== null &&
+        typeof item === "object" &&
+        typeof item.field === "string" &&
+        isColumnId(item.field) &&
+        (item.direction === "asc" || item.direction === "desc")
+    )
     .map((item) => ({ field: item.field, direction: item.direction }));
 }
 
 function sanitizeDensity(density: OpportunityViewDensity | undefined) {
-  return density === "compact" || density === "spacious" || density === "comfortable"
+  return density === "compact" ||
+    density === "spacious" ||
+    density === "comfortable"
     ? density
     : undefined;
 }
 
 function sanitizeZoomLevel(zoomLevel: number | undefined) {
-  if (typeof zoomLevel !== "number" || !Number.isFinite(zoomLevel)) return undefined;
+  if (typeof zoomLevel !== "number" || !Number.isFinite(zoomLevel))
+    return undefined;
   const clamped = Math.min(
     OPPORTUNITY_VIEW_MAX_ZOOM_LEVEL,
-    Math.max(OPPORTUNITY_VIEW_MIN_ZOOM_LEVEL, zoomLevel),
+    Math.max(OPPORTUNITY_VIEW_MIN_ZOOM_LEVEL, zoomLevel)
   );
   return Math.round(clamped * 100) / 100;
 }
 
 function definitionInputFromView(
-  input: OpportunityViewDefinitionInput | OpportunityViewDefinition | null | undefined,
+  input:
+    | OpportunityViewDefinitionInput
+    | OpportunityViewDefinition
+    | null
+    | undefined
 ): OpportunityViewDefinitionInput {
   if (!input) return {};
   return {
@@ -130,8 +147,12 @@ export function createDefaultOpportunityViewDefinitionInput(): Required<Opportun
 }
 
 export function buildOpportunityViewDefinitionPayload(
-  input: OpportunityViewDefinitionInput | OpportunityViewDefinition | null | undefined,
-  options: { partial?: boolean } = {},
+  input:
+    | OpportunityViewDefinitionInput
+    | OpportunityViewDefinition
+    | null
+    | undefined,
+  options: { partial?: boolean } = {}
 ): OpportunityViewDefinitionPayload {
   const definition = definitionInputFromView(input);
   const fallback: Partial<OpportunityViewDefinitionInput> = options.partial
@@ -151,7 +172,9 @@ export function buildOpportunityViewDefinitionPayload(
   const density = sanitizeDensity(definition.density ?? fallback.density);
   if (density) payload.density = density;
 
-  const zoomLevel = sanitizeZoomLevel(definition.zoomLevel ?? fallback.zoomLevel);
+  const zoomLevel = sanitizeZoomLevel(
+    definition.zoomLevel ?? fallback.zoomLevel
+  );
   if (zoomLevel !== undefined) payload.zoom_level = zoomLevel;
 
   return payload;

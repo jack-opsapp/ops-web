@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { Save } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
@@ -26,7 +34,10 @@ import {
   type PipelineTableEditValue,
   type PipelineTableSort,
 } from "@/lib/types/pipeline-table";
-import { buildFlattenedRows, grandTotal } from "@/lib/utils/pipeline-table-grouping";
+import {
+  buildFlattenedRows,
+  grandTotal,
+} from "@/lib/utils/pipeline-table-grouping";
 import { usePipelineModeStore } from "../pipeline-mode-store";
 import { StageTransitionDialog } from "../stage-transition-dialog";
 import { useStageTransition } from "../use-stage-transition";
@@ -55,14 +66,15 @@ const EMPTY_COLLAPSED_STAGES: ReadonlySet<OpportunityStage> = new Set();
 
 function sortOpportunityViews(views: OpportunityViewDefinition[]) {
   return [...views].sort((a, b) => {
-    if (a.sortPosition !== b.sortPosition) return a.sortPosition - b.sortPosition;
+    if (a.sortPosition !== b.sortPosition)
+      return a.sortPosition - b.sortPosition;
     return a.name.localeCompare(b.name);
   });
 }
 
 function upsertOpportunityView(
   views: OpportunityViewDefinition[],
-  view: OpportunityViewDefinition,
+  view: OpportunityViewDefinition
 ) {
   const index = views.findIndex((candidate) => candidate.id === view.id);
   if (index === -1) return sortOpportunityViews([...views, view]);
@@ -89,7 +101,7 @@ function sanitizeSort(sort: readonly PipelineTableSort[] | undefined) {
       Boolean(item) &&
       isColumnId(item.field) &&
       item.field !== "select" &&
-      (item.direction === "asc" || item.direction === "desc"),
+      (item.direction === "asc" || item.direction === "desc")
   );
 }
 
@@ -97,7 +109,9 @@ function stableKey(value: unknown) {
   return JSON.stringify(value);
 }
 
-function getViewMutationErrorCode(error: unknown): OpportunityViewMutationErrorCode {
+function getViewMutationErrorCode(
+  error: unknown
+): OpportunityViewMutationErrorCode {
   if (error && typeof error === "object" && "code" in error) {
     const code = (error as { code?: unknown }).code;
     if (
@@ -183,7 +197,7 @@ export function PipelineTableShell({
   const [grouped, setGrouped] = useState(false);
   const [closedDeals, setClosedDeals] = useState(false);
   const [collapsedStages, setCollapsedStages] = useState<Set<OpportunityStage>>(
-    () => new Set(),
+    () => new Set()
   );
 
   const handleToggleStageCollapse = useCallback((stage: OpportunityStage) => {
@@ -209,9 +223,15 @@ export function PipelineTableShell({
   // the optimistic list so a freshly-created/renamed/archived view shows in the
   // tabs before the list query refetches.
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [managedViews, setManagedViews] = useState<OpportunityViewDefinition[] | null>(null);
-  const [pendingActiveViewId, setPendingActiveViewId] = useState<string | null>(null);
-  const [unavailableViewId, setUnavailableViewId] = useState<string | null>(null);
+  const [managedViews, setManagedViews] = useState<
+    OpportunityViewDefinition[] | null
+  >(null);
+  const [pendingActiveViewId, setPendingActiveViewId] = useState<string | null>(
+    null
+  );
+  const [unavailableViewId, setUnavailableViewId] = useState<string | null>(
+    null
+  );
   const [densityErrorKey, setDensityErrorKey] = useState<string | null>(null);
   const [densitySaving, setDensitySaving] = useState(false);
   const [viewSaveErrorKey, setViewSaveErrorKey] = useState<string | null>(null);
@@ -225,20 +245,26 @@ export function PipelineTableShell({
 
   const views = useMemo(
     () =>
-      (managedViews ?? viewsQuery.data ?? []).filter((view) => view.isArchived !== true),
-    [managedViews, viewsQuery.data],
+      (managedViews ?? viewsQuery.data ?? []).filter(
+        (view) => view.isArchived !== true
+      ),
+    [managedViews, viewsQuery.data]
   );
   const { activeView, activeViewId, setActiveViewId, unavailableView } =
     useOpportunityView(views);
-  const viewActions = useOpportunityViewActions({ views, activeViewId, setActiveViewId });
+  const viewActions = useOpportunityViewActions({
+    views,
+    activeViewId,
+    setActiveViewId,
+  });
 
   const savedActiveView = useMemo(
     () => views.find((view) => view.id === activeViewId) ?? null,
-    [activeViewId, views],
+    [activeViewId, views]
   );
   const activeViewSortKey = useMemo(
     () => stableKey(activeView?.sort ?? []),
-    [activeView?.sort],
+    [activeView?.sort]
   );
 
   // Seed (and re-seed) the shell's sort from the active view whenever the view —
@@ -262,7 +288,9 @@ export function PipelineTableShell({
     setPendingActiveViewId(null);
   }, [pendingActiveViewId, setActiveViewId, views]);
 
-  const openDetailPanel = usePipelineModeStore((state) => state.openDetailPanel);
+  const openDetailPanel = usePipelineModeStore(
+    (state) => state.openDetailPanel
+  );
   const canManage = usePermissionStore((s) => s.can("pipeline.manage"));
 
   // Density persists back to the active view on change (mirrors the projects
@@ -284,19 +312,21 @@ export function PipelineTableShell({
           viewId: activeView.id,
           definition: { density: nextDensity, zoomLevel },
         });
-        setManagedViews((current) => upsertOpportunityView(current ?? views, updatedView));
+        setManagedViews((current) =>
+          upsertOpportunityView(current ?? views, updatedView)
+        );
       } catch (error) {
         setDensityErrorKey(
           getViewMutationErrorCode(error) === "PERMISSION_DENIED"
             ? "table.density.errorPermissionDenied"
-            : "table.density.errorGeneric",
+            : "table.density.errorGeneric"
         );
         throw error;
       } finally {
         setDensitySaving(false);
       }
     },
-    [activeView, viewActions.updateViewDefinition, views],
+    [activeView, viewActions.updateViewDefinition, views]
   );
 
   const { density, metrics, setPreset } = useTableZoom({
@@ -307,14 +337,14 @@ export function PipelineTableShell({
       setDensityErrorKey(
         getViewMutationErrorCode(error) === "PERMISSION_DENIED"
           ? "table.density.errorPermissionDenied"
-          : "table.density.errorGeneric",
+          : "table.density.errorGeneric"
       ),
   });
   const handleDensityChange = useCallback(
     (next: ProjectTableDensity) => {
       void setPreset(next);
     },
-    [setPreset],
+    [setPreset]
   );
 
   // Reset transient view error/saving copy when the active view changes.
@@ -334,7 +364,10 @@ export function PipelineTableShell({
   const sanitizedSorting = useMemo(() => sanitizeSort(sorting), [sorting]);
   const hasUnsavedDefinition = useMemo(() => {
     if (!activeView || !savedActiveView) return false;
-    return stableKey(sanitizedSorting) !== stableKey(sanitizeSort(savedActiveView.sort));
+    return (
+      stableKey(sanitizedSorting) !==
+      stableKey(sanitizeSort(savedActiveView.sort))
+    );
   }, [activeView, sanitizedSorting, savedActiveView]);
 
   const persistPendingViewDefinition = useCallback(async () => {
@@ -346,7 +379,9 @@ export function PipelineTableShell({
         viewId: activeView.id,
         definition: { sort: sanitizedSorting },
       });
-      setManagedViews((current) => upsertOpportunityView(current ?? views, updatedView));
+      setManagedViews((current) =>
+        upsertOpportunityView(current ?? views, updatedView)
+      );
       setSorting(updatedView.sort);
       return updatedView;
     } catch (error) {
@@ -360,11 +395,13 @@ export function PipelineTableShell({
   // ── View-lifecycle callbacks ─────────────────────────────────────────────────
   const handleViewCreated = useCallback(
     (view: OpportunityViewDefinition) => {
-      setManagedViews((current) => upsertOpportunityView(current ?? views, view));
+      setManagedViews((current) =>
+        upsertOpportunityView(current ?? views, view)
+      );
       setUnavailableViewId(null);
       setPendingActiveViewId(view.id);
     },
-    [views],
+    [views]
   );
 
   const handleViewChange = useCallback(
@@ -372,14 +409,16 @@ export function PipelineTableShell({
       setUnavailableViewId(null);
       setActiveViewId(viewId);
     },
-    [setActiveViewId],
+    [setActiveViewId]
   );
 
   const handleViewUpdated = useCallback(
     (view: OpportunityViewDefinition) => {
-      setManagedViews((current) => upsertOpportunityView(current ?? views, view));
+      setManagedViews((current) =>
+        upsertOpportunityView(current ?? views, view)
+      );
     },
-    [views],
+    [views]
   );
 
   const handleViewArchived = useCallback(
@@ -391,7 +430,7 @@ export function PipelineTableShell({
         if (fallbackView) setActiveViewId(fallbackView.id);
       }
     },
-    [activeViewId, setActiveViewId, views],
+    [activeViewId, setActiveViewId, views]
   );
 
   const handleInlineArchiveView = useCallback(
@@ -404,7 +443,7 @@ export function PipelineTableShell({
         setViewSaveErrorKey(viewPersistenceErrorCopyKey(error));
       }
     },
-    [handleViewArchived, viewActions.archiveView],
+    [handleViewArchived, viewActions.archiveView]
   );
 
   // Share must capture the live (possibly-unsaved) sort, exactly like the
@@ -423,7 +462,7 @@ export function PipelineTableShell({
         },
       },
     }),
-    [hasUnsavedDefinition, persistPendingViewDefinition, viewActions],
+    [hasUnsavedDefinition, persistPendingViewDefinition, viewActions]
   );
 
   const { rows, now, isLoading, isError } = usePipelineTableData({
@@ -508,7 +547,7 @@ export function PipelineTableShell({
     (rowId: string, columnId: PipelineTableEditableColumnId) => {
       beginEdit(rowId, columnId);
     },
-    [beginEdit],
+    [beginEdit]
   );
 
   const handleCancelEdit = useCallback(() => {
@@ -516,11 +555,15 @@ export function PipelineTableShell({
   }, [cancelEdit]);
 
   const handleCommitCell = useCallback(
-    (rowId: string, columnId: PipelineTableEditableColumnId, value: PipelineTableEditValue) => {
+    (
+      rowId: string,
+      columnId: PipelineTableEditableColumnId,
+      value: PipelineTableEditValue
+    ) => {
       void commitEdit(rowId, columnId, value);
       cancelEdit({ rowId, columnId });
     },
-    [cancelEdit, commitEdit],
+    [cancelEdit, commitEdit]
   );
 
   // ── Row-order stabilization (no row-jump on commit) ────────────────────────
@@ -532,7 +575,7 @@ export function PipelineTableShell({
   // re-sorts naturally) once editing stops and no save is pending.
   const isSaving = useMemo(
     () => Array.from(saveStates.values()).some((state) => state === "saving"),
-    [saveStates],
+    [saveStates]
   );
   const freezeActive = editingCell != null || isSaving;
   const frozenOrderRef = useRef<string[] | null>(null);
@@ -594,23 +637,25 @@ export function PipelineTableShell({
   //     never silently selected and never count toward the checkbox.
   const selectableRowIds = useMemo(
     () =>
-      buildFlattenedRows(displayRows, { grouped, collapsedStages: EMPTY_COLLAPSED_STAGES }).flatMap(
-        (item) => (item.kind === "data" ? [item.row.id] : []),
-      ),
-    [displayRows, grouped],
+      buildFlattenedRows(displayRows, {
+        grouped,
+        collapsedStages: EMPTY_COLLAPSED_STAGES,
+      }).flatMap((item) => (item.kind === "data" ? [item.row.id] : [])),
+    [displayRows, grouped]
   );
   const renderedDataRowIds = useMemo(
     () =>
-      buildFlattenedRows(displayRows, { grouped, collapsedStages }).flatMap((item) =>
-        item.kind === "data" ? [item.row.id] : [],
+      buildFlattenedRows(displayRows, { grouped, collapsedStages }).flatMap(
+        (item) => (item.kind === "data" ? [item.row.id] : [])
       ),
-    [displayRows, grouped, collapsedStages],
+    [displayRows, grouped, collapsedStages]
   );
   // Unlike the projects shell, we deliberately omit `useTableSelection`'s `resetKey`:
   // pipeline views only re-sort the same in-memory opportunities (the row population
   // never changes), so there is nothing to force-clear — the membership-prune effect
   // already drops search-removed rows, and selections correctly survive a pure view switch.
-  const { selectedIds, toggleRow, clearSelection } = useTableSelection(selectableRowIds);
+  const { selectedIds, toggleRow, clearSelection } =
+    useTableSelection(selectableRowIds);
 
   // Shell-owned select-all, scoped to RENDERED rows. We deliberately do NOT use
   // the hook's `selectAllVisible` — it seeds from the hook's row set, which is
@@ -625,7 +670,9 @@ export function PipelineTableShell({
   // collapse, while collapsed selections persist.
   const handleSelectAllVisible = useCallback(() => {
     if (renderedDataRowIds.length === 0) return;
-    const everyRenderedSelected = renderedDataRowIds.every((id) => selectedIds.has(id));
+    const everyRenderedSelected = renderedDataRowIds.every((id) =>
+      selectedIds.has(id)
+    );
     if (everyRenderedSelected) {
       for (const id of renderedDataRowIds) toggleRow(id, "toggle");
       return;
@@ -643,10 +690,10 @@ export function PipelineTableShell({
     () =>
       renderedDataRowIds.length > 0 &&
       renderedDataRowIds.every((id) => selectedIds.has(id)),
-    [renderedDataRowIds, selectedIds],
+    [renderedDataRowIds, selectedIds]
   );
 
-  // Grand total across the displayed row set — count · Σvalue · Σweighted. Built
+  // Grand total across the displayed row set — count · Σvalue. Built
   // from `displayRows` (the same post-search, frozen-order-aware set the table
   // renders) so the footer always equals the sum of the visible stage rollups.
   const total = useMemo(() => grandTotal(displayRows), [displayRows]);
@@ -658,7 +705,10 @@ export function PipelineTableShell({
   // A ref indirection avoids re-instantiating the nav hook (which lives above
   // the selection hook) on every selection-state change.
   useEffect(() => {
-    selectionRef.current = { selectAllVisible: handleSelectAllVisible, clearSelection };
+    selectionRef.current = {
+      selectAllVisible: handleSelectAllVisible,
+      clearSelection,
+    };
   }, [handleSelectAllVisible, clearSelection]);
 
   const stateMessage = (key: string) => (
@@ -698,14 +748,19 @@ export function PipelineTableShell({
       onClosedDealsChange={setClosedDeals}
       density={density}
       onDensityChange={handleDensityChange}
-      densityDisabled={densitySaving || viewActions.updateViewDefinition.isPending}
+      densityDisabled={
+        densitySaving || viewActions.updateViewDefinition.isPending
+      }
       saveAffordance={
         activeView ? (
           <>
             {hasUnsavedDefinition ? (
               <button
                 type="button"
-                disabled={viewDefinitionSaving || viewActions.updateViewDefinition.isPending}
+                disabled={
+                  viewDefinitionSaving ||
+                  viewActions.updateViewDefinition.isPending
+                }
                 onClick={() => {
                   void persistPendingViewDefinition();
                 }}

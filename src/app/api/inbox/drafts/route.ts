@@ -30,11 +30,14 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailService } from "@/lib/api/services/email-service";
+import {
+  loadKnownEmailSignaturesForMessage,
+  normalizeMailboxDraftAuthoredBody,
+  renderMailboxDraftWithSignature,
+  resolveEmailSignatureForMessage,
+} from "@/lib/email/email-signature-runtime";
 import type { NormalizedDraft } from "@/lib/api/services/email-provider";
-import type {
-  InboxDraftRow,
-  InboxScope,
-} from "@/lib/types/email-thread";
+import type { InboxDraftRow, InboxScope } from "@/lib/types/email-thread";
 import { DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT } from "@/lib/email/opportunity-lifecycle-evaluator";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -49,7 +52,10 @@ function nonEmptyText(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function threadMapKey(connectionId: string | null, providerThreadId: string | null) {
+function threadMapKey(
+  connectionId: string | null,
+  providerThreadId: string | null
+) {
   return `${connectionId ?? ""}:${providerThreadId ?? ""}`;
 }
 
@@ -61,7 +67,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+  const user = await findUserByAuth(
+    authUser.uid,
+    authUser.email,
+    "id, company_id"
+  );
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -113,6 +123,14 @@ export async function GET(request: NextRequest) {
       try {
         const provider = EmailService.getProvider(conn);
         const drafts = await provider.listDrafts();
+        const signature = await resolveEmailSignatureForMessage({
+          supabase,
+          connection: conn,
+          userId,
+        });
+        const knownSignatures = await loadKnownEmailSignaturesForMessage({
+          connection: conn,
+        });
         return drafts.map<InboxDraftRow>((d: NormalizedDraft) => ({
           source: "provider",
           id: d.id,
@@ -122,7 +140,11 @@ export async function GET(request: NextRequest) {
           to: d.to,
           cc: d.cc,
           subject: d.subject,
-          bodyText: d.bodyText,
+          bodyText: normalizeMailboxDraftAuthoredBody(
+            d.bodyText,
+            signature,
+            knownSignatures
+          ),
           updatedAt: d.updatedAt.toISOString(),
         }));
       } catch (err) {
@@ -149,7 +171,7 @@ export async function GET(request: NextRequest) {
   let aiQuery = supabase
     .from("ai_draft_history")
     .select(
-      "id, user_id, connection_id, thread_id, opportunity_id, original_draft, final_version, created_at"
+      "id, user_id, connection_id, thread_id, opportunity_id, subject, original_draft, final_version, created_at"
     )
     .eq("company_id", companyId)
     .eq("status", "drafted")
@@ -165,10 +187,9 @@ export async function GET(request: NextRequest) {
     console.error("[/api/inbox/drafts] ai_draft_history query failed:", aiErr);
   }
 
-  // AI drafts don't store to/cc/subject — those live on the associated
-  // thread. We leave them empty and let the UI derive from thread context
-  // on click (Continue → compose modal). Body is final_version when the
-  // user edited it, else the original AI suggestion.
+  // Recipient fields still come from thread context. Subject is durable draft
+  // provenance and must round-trip so edits can be compared against the exact
+  // suggestion the operator saw.
   const aiDrafts: InboxDraftRow[] = (aiRows ?? []).map((r) => {
     const conn =
       connections.find((c) => c.id === (r.connection_id as string)) ?? null;
@@ -180,10 +201,12 @@ export async function GET(request: NextRequest) {
       fromEmail: conn?.email ?? "",
       to: [],
       cc: [],
-      subject: "",
-      bodyText:
-        ((r.final_version as string) || (r.original_draft as string) || "")
-          .trim(),
+      subject: nonEmptyText(r.subject) ?? "",
+      bodyText: (
+        (r.final_version as string) ||
+        (r.original_draft as string) ||
+        ""
+      ).trim(),
       updatedAt: (r.created_at as string) ?? new Date().toISOString(),
     };
   });
@@ -234,14 +257,20 @@ export async function GET(request: NextRequest) {
       .eq("company_id", companyId)
       .in("provider_thread_id", providerThreadIds);
     if (threadErr) {
-      console.error("[/api/inbox/drafts] email_threads query failed:", threadErr);
+      console.error(
+        "[/api/inbox/drafts] email_threads query failed:",
+        threadErr
+      );
     } else {
       for (const row of threadRows ?? []) {
         const providerThreadId = nonEmptyText(row.provider_thread_id);
         const connectionId = nonEmptyText(row.connection_id);
         const id = nonEmptyText(row.id);
         if (providerThreadId && id) {
-          threadByProvider.set(threadMapKey(connectionId, providerThreadId), id);
+          threadByProvider.set(
+            threadMapKey(connectionId, providerThreadId),
+            id
+          );
         }
       }
     }
@@ -256,7 +285,8 @@ export async function GET(request: NextRequest) {
       id: row.id as string,
       threadId: providerThreadId,
       inboxThreadId:
-        threadByProvider.get(threadMapKey(connectionId, providerThreadId)) ?? null,
+        threadByProvider.get(threadMapKey(connectionId, providerThreadId)) ??
+        null,
       opportunityId: nonEmptyText(row.opportunity_id),
       connectionId,
       fromEmail: conn?.email ?? "",
@@ -264,9 +294,7 @@ export async function GET(request: NextRequest) {
       cc: [],
       subject: nonEmptyText(row.subject) ?? DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT,
       bodyText:
-        nonEmptyText(row.current_body) ??
-        nonEmptyText(row.original_body) ??
-        "",
+        nonEmptyText(row.current_body) ?? nonEmptyText(row.original_body) ?? "",
       updatedAt:
         nonEmptyText(row.edited_at) ??
         nonEmptyText(row.updated_at) ??
@@ -362,7 +390,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+  const user = await findUserByAuth(
+    authUser.uid,
+    authUser.email,
+    "id, company_id"
+  );
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -374,7 +406,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const payload = (await request.json().catch(() => null)) as SaveDraftBody | null;
+  const payload = (await request
+    .json()
+    .catch(() => null)) as SaveDraftBody | null;
   if (!payload || typeof payload !== "object") {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -445,7 +479,11 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  if (typeof to !== "string" || typeof subject !== "string" || typeof body !== "string") {
+  if (
+    typeof to !== "string" ||
+    typeof subject !== "string" ||
+    typeof body !== "string"
+  ) {
     return NextResponse.json(
       { error: "to, subject, and body are required strings" },
       { status: 400 }
@@ -457,7 +495,10 @@ export async function POST(request: NextRequest) {
     EmailService.getConnection(connectionId)
   );
   if (!conn) {
-    return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Connection not found" },
+      { status: 404 }
+    );
   }
   if (conn.companyId !== companyId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -465,13 +506,36 @@ export async function POST(request: NextRequest) {
 
   try {
     const provider = EmailService.getProvider(conn);
+    const signature = await resolveEmailSignatureForMessage({
+      supabase,
+      connection: conn,
+      userId,
+    });
+    if (!signature) {
+      return NextResponse.json(
+        {
+          error: "Create an email signature before saving mailbox drafts.",
+          code: "EMAIL_SIGNATURE_REQUIRED",
+        },
+        { status: 409 }
+      );
+    }
+    const knownSignatures = await loadKnownEmailSignaturesForMessage({
+      connection: conn,
+    });
+    const rendered = renderMailboxDraftWithSignature(
+      body,
+      signature,
+      knownSignatures
+    );
     if (draftId) {
       await provider.updateDraft(
         draftId,
         to,
         subject,
-        body,
+        rendered.body,
         providerThreadId ?? undefined,
+        rendered.contentType
       );
       return NextResponse.json({
         ok: true,
@@ -482,8 +546,9 @@ export async function POST(request: NextRequest) {
     const newId = await provider.createDraft(
       to,
       subject,
-      body,
+      rendered.body,
       providerThreadId ?? undefined,
+      rendered.contentType
     );
     return NextResponse.json({
       ok: true,
@@ -507,7 +572,11 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+  const user = await findUserByAuth(
+    authUser.uid,
+    authUser.email,
+    "id, company_id"
+  );
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -524,7 +593,10 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get("id");
   const connectionId = searchParams.get("connectionId");
 
-  if (!id || (source !== "provider" && source !== "ai" && source !== "lifecycle")) {
+  if (
+    !id ||
+    (source !== "provider" && source !== "ai" && source !== "lifecycle")
+  ) {
     return NextResponse.json(
       { error: "Missing or invalid source/id" },
       { status: 400 }
@@ -567,10 +639,7 @@ export async function DELETE(request: NextRequest) {
       .eq("status", "drafted");
     if (updErr) {
       console.error("[/api/inbox/drafts] lifecycle discard failed:", updErr);
-      return NextResponse.json(
-        { error: "Discard failed" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Discard failed" }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }
@@ -598,10 +667,7 @@ export async function DELETE(request: NextRequest) {
       .eq("id", id);
     if (updErr) {
       console.error("[/api/inbox/drafts] ai discard failed:", updErr);
-      return NextResponse.json(
-        { error: "Discard failed" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Discard failed" }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }
@@ -618,7 +684,10 @@ export async function DELETE(request: NextRequest) {
     EmailService.getConnection(connectionId)
   );
   if (!conn) {
-    return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Connection not found" },
+      { status: 404 }
+    );
   }
   if (conn.companyId !== companyId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

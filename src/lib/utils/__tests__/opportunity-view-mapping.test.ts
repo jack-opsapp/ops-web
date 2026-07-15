@@ -18,7 +18,9 @@ import { mapOpportunityView } from "../pipeline-table-formatters";
 import { buildOpportunityViewDefinitionPayload } from "../opportunity-view-defaults";
 import type { OpportunityViewDbRow } from "@/lib/types/pipeline-table";
 
-function makeRow(overrides: Partial<OpportunityViewDbRow> = {}): OpportunityViewDbRow {
+function makeRow(
+  overrides: Partial<OpportunityViewDbRow> = {}
+): OpportunityViewDbRow {
   return {
     id: "view-1",
     company_id: "company-1",
@@ -70,7 +72,7 @@ describe("mapOpportunityView", () => {
 
   it("accepts bare-string column ids alongside the { id } object form", () => {
     const result = mapOpportunityView(
-      makeRow({ columns: ["deal", { id: "stage" }, "assignee"] }),
+      makeRow({ columns: ["deal", { id: "stage" }, "assignee"] })
     );
 
     expect(result.columns).toEqual(["deal", "stage", "assignee"]);
@@ -81,13 +83,15 @@ describe("mapOpportunityView", () => {
       makeRow({
         columns: [
           { id: "deal" },
+          { id: "win_probability" },
+          { id: "weighted" },
           { id: "not_a_real_column" },
           { id: "stage" },
           { nope: true },
           42,
           null,
         ] as unknown as OpportunityViewDbRow["columns"],
-      }),
+      })
     );
 
     expect(result.columns).toEqual(["deal", "stage"]);
@@ -95,7 +99,9 @@ describe("mapOpportunityView", () => {
 
   it("returns an empty column list when columns is not an array", () => {
     const result = mapOpportunityView(
-      makeRow({ columns: { id: "deal" } as unknown as OpportunityViewDbRow["columns"] }),
+      makeRow({
+        columns: { id: "deal" } as unknown as OpportunityViewDbRow["columns"],
+      })
     );
 
     expect(result.columns).toEqual([]);
@@ -110,13 +116,14 @@ describe("mapOpportunityView", () => {
       makeRow({
         sort: [
           { field: "value", direction: "desc" },
+          { field: "weighted", direction: "asc" },
           { field: "value", direction: "sideways" }, // bad direction → dropped
           { field: "not_a_column", direction: "asc" }, // unknown field → dropped
           { direction: "asc" }, // missing field → dropped
           null,
           "value",
         ] as unknown as OpportunityViewDbRow["sort"],
-      }),
+      })
     );
 
     expect(result.sort).toEqual([{ field: "value", direction: "desc" }]);
@@ -124,25 +131,37 @@ describe("mapOpportunityView", () => {
 
   it("returns an empty sort list when sort is not an array", () => {
     const result = mapOpportunityView(
-      makeRow({ sort: "next_follow_up" as unknown as OpportunityViewDbRow["sort"] }),
+      makeRow({
+        sort: "next_follow_up" as unknown as OpportunityViewDbRow["sort"],
+      })
     );
 
     expect(result.sort).toEqual([]);
   });
 
   it("normalizes an unknown density to 'comfortable' and preserves valid ones", () => {
-    expect(mapOpportunityView(makeRow({ density: "bogus" })).density).toBe("comfortable");
-    expect(mapOpportunityView(makeRow({ density: "compact" })).density).toBe("compact");
-    expect(mapOpportunityView(makeRow({ density: "spacious" })).density).toBe("spacious");
+    expect(mapOpportunityView(makeRow({ density: "bogus" })).density).toBe(
+      "comfortable"
+    );
+    expect(mapOpportunityView(makeRow({ density: "compact" })).density).toBe(
+      "compact"
+    );
+    expect(mapOpportunityView(makeRow({ density: "spacious" })).density).toBe(
+      "spacious"
+    );
   });
 
   it("defaults zoomLevel to 1 when the stored value is non-numeric, else coerces", () => {
     expect(
       mapOpportunityView(
-        makeRow({ zoom_level: null as unknown as OpportunityViewDbRow["zoom_level"] }),
-      ).zoomLevel,
+        makeRow({
+          zoom_level: null as unknown as OpportunityViewDbRow["zoom_level"],
+        })
+      ).zoomLevel
     ).toBe(1);
-    expect(mapOpportunityView(makeRow({ zoom_level: 1.25 })).zoomLevel).toBe(1.25);
+    expect(mapOpportunityView(makeRow({ zoom_level: 1.25 })).zoomLevel).toBe(
+      1.25
+    );
   });
 });
 
@@ -156,7 +175,6 @@ describe("buildOpportunityViewDefinitionPayload", () => {
         { id: "stage" },
         { id: "client" },
         { id: "value" },
-        { id: "weighted" },
         { id: "age_in_stage" },
         { id: "next_follow_up" },
         { id: "assignee" },
@@ -164,7 +182,14 @@ describe("buildOpportunityViewDefinitionPayload", () => {
       filters: {
         field: "stage",
         op: "in",
-        value: ["new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation"],
+        value: [
+          "new_lead",
+          "qualifying",
+          "quoting",
+          "quoted",
+          "follow_up",
+          "negotiation",
+        ],
       },
       sort: [{ field: "next_follow_up", direction: "asc" }],
       density: "comfortable",
@@ -175,7 +200,7 @@ describe("buildOpportunityViewDefinitionPayload", () => {
   it("does NOT inject defaults in partial mode — only provided fields are emitted", () => {
     const payload = buildOpportunityViewDefinitionPayload(
       { density: "compact" },
-      { partial: true },
+      { partial: true }
     );
 
     expect(payload).toEqual({ density: "compact" });
@@ -187,14 +212,21 @@ describe("buildOpportunityViewDefinitionPayload", () => {
 
   it("maps camelCase zoomLevel to snake_case zoom_level and clamps to range", () => {
     expect(
-      buildOpportunityViewDefinitionPayload({ zoomLevel: 1.25 }, { partial: true }).zoom_level,
+      buildOpportunityViewDefinitionPayload(
+        { zoomLevel: 1.25 },
+        { partial: true }
+      ).zoom_level
     ).toBe(1.25);
     // clamps above max (1.5) and below min (0.75)
     expect(
-      buildOpportunityViewDefinitionPayload({ zoomLevel: 9 }, { partial: true }).zoom_level,
+      buildOpportunityViewDefinitionPayload({ zoomLevel: 9 }, { partial: true })
+        .zoom_level
     ).toBe(1.5);
     expect(
-      buildOpportunityViewDefinitionPayload({ zoomLevel: 0.1 }, { partial: true }).zoom_level,
+      buildOpportunityViewDefinitionPayload(
+        { zoomLevel: 0.1 },
+        { partial: true }
+      ).zoom_level
     ).toBe(0.75);
   });
 
@@ -206,9 +238,11 @@ describe("buildOpportunityViewDefinitionPayload", () => {
           "deal",
           "not_a_column",
           "stage",
-        ] as unknown as NonNullable<Parameters<typeof buildOpportunityViewDefinitionPayload>[0]>["columns"],
+        ] as unknown as NonNullable<
+          Parameters<typeof buildOpportunityViewDefinitionPayload>[0]
+        >["columns"],
       },
-      { partial: true },
+      { partial: true }
     );
 
     expect(payload.columns).toEqual([{ id: "deal" }, { id: "stage" }]);
@@ -221,7 +255,7 @@ describe("buildOpportunityViewDefinitionPayload", () => {
           Parameters<typeof buildOpportunityViewDefinitionPayload>[0]
         >["columns"],
       },
-      { partial: true },
+      { partial: true }
     );
 
     expect(payload.columns).toBeUndefined();

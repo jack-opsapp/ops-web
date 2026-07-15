@@ -5,6 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AutoSendService } from "@/lib/api/services/auto-send-service";
@@ -25,6 +26,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      companyId,
+      "inbox.send"
+    );
+    if (authError) return authError;
 
     const cancelled = await AutoSendService.cancelAutoSend(id, companyId);
 

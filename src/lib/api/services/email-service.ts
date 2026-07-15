@@ -41,8 +41,14 @@ function mapFromDb(row: Record<string, unknown>): EmailConnection {
     lastSyncedAt: parseDate(row.last_synced_at),
     syncIntervalMinutes: (row.sync_interval_minutes as number) ?? 60,
     syncFilters: (row.sync_filters as EmailConnection["syncFilters"]) ?? {},
+    historyRecoveryAnchor: parseDate(row.history_recovery_anchor),
+    historyRecoveryPageToken:
+      (row.history_recovery_page_token as string) ?? null,
+    historyRecoveryTargetToken:
+      (row.history_recovery_target_token as string) ?? null,
     webhookSubscriptionId: (row.webhook_subscription_id as string) ?? null,
     webhookExpiresAt: parseDate(row.webhook_expires_at),
+    webhookClientStateHash: (row.webhook_client_state_hash as string) ?? null,
     opsLabelId: (row.ops_label_id as string) ?? null,
     aiReviewEnabled: (row.ai_review_enabled as boolean) ?? false,
     aiMemoryEnabled: (row.ai_memory_enabled as boolean) ?? false,
@@ -79,6 +85,7 @@ export const EmailService = {
       .from("email_connections")
       .select("*")
       .eq("company_id", companyId)
+      .neq("status", "disconnected")
       .order("created_at", { ascending: false });
 
     if (error)
@@ -158,6 +165,18 @@ export const EmailService = {
           ? data.lastSyncedAt.toISOString()
           : data.lastSyncedAt;
     }
+    if (data.historyRecoveryAnchor !== undefined) {
+      row.history_recovery_anchor =
+        data.historyRecoveryAnchor instanceof Date
+          ? data.historyRecoveryAnchor.toISOString()
+          : data.historyRecoveryAnchor;
+    }
+    if (data.historyRecoveryPageToken !== undefined) {
+      row.history_recovery_page_token = data.historyRecoveryPageToken;
+    }
+    if (data.historyRecoveryTargetToken !== undefined) {
+      row.history_recovery_target_token = data.historyRecoveryTargetToken;
+    }
     if (data.webhookSubscriptionId !== undefined)
       row.webhook_subscription_id = data.webhookSubscriptionId;
     if (data.webhookExpiresAt !== undefined) {
@@ -165,6 +184,9 @@ export const EmailService = {
         data.webhookExpiresAt instanceof Date
           ? data.webhookExpiresAt.toISOString()
           : data.webhookExpiresAt;
+    }
+    if (data.webhookClientStateHash !== undefined) {
+      row.webhook_client_state_hash = data.webhookClientStateHash;
     }
     if (data.opsLabelId !== undefined) row.ops_label_id = data.opsLabelId;
     if (data.aiReviewEnabled !== undefined)
@@ -194,17 +216,34 @@ export const EmailService = {
   },
 
   /**
-   * Delete a connection.
+   * Disconnect a mailbox while retaining its immutable provider identity.
+   * Activities and correspondence events depend on this row for scoped
+   * idempotency, so hard deletion would either break audit history or make a
+   * future provider message collide with an ownerless legacy row.
    */
   async deleteConnection(connectionId: string): Promise<void> {
     const supabase = requireSupabase();
 
     const { error } = await supabase
       .from("email_connections")
-      .delete()
+      .update({
+        status: "disconnected",
+        sync_enabled: false,
+        access_token: "",
+        refresh_token: "",
+        webhook_subscription_id: null,
+        webhook_expires_at: null,
+        webhook_client_state_hash: null,
+        history_recovery_anchor: null,
+        history_recovery_page_token: null,
+        history_recovery_target_token: null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", connectionId);
 
     if (error)
-      throw new Error(`Failed to delete email connection: ${error.message}`);
+      throw new Error(
+        `Failed to disconnect email connection: ${error.message}`
+      );
   },
 };

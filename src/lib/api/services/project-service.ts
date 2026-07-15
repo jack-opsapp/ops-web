@@ -15,14 +15,22 @@ import type { Project, ProjectTrade } from "../../types/models";
 function parseProjectStatus(raw: unknown): ProjectStatus {
   if (typeof raw !== "string") return ProjectStatus.RFQ;
   switch (raw.toLowerCase().replace(/\s+/g, "_")) {
-    case "rfq": return ProjectStatus.RFQ;
-    case "estimated": return ProjectStatus.Estimated;
-    case "accepted": return ProjectStatus.Accepted;
-    case "in_progress": return ProjectStatus.InProgress;
-    case "completed": return ProjectStatus.Completed;
-    case "closed": return ProjectStatus.Closed;
-    case "archived": return ProjectStatus.Archived;
-    default: return ProjectStatus.RFQ;
+    case "rfq":
+      return ProjectStatus.RFQ;
+    case "estimated":
+      return ProjectStatus.Estimated;
+    case "accepted":
+      return ProjectStatus.Accepted;
+    case "in_progress":
+      return ProjectStatus.InProgress;
+    case "completed":
+      return ProjectStatus.Completed;
+    case "closed":
+      return ProjectStatus.Closed;
+    case "archived":
+      return ProjectStatus.Archived;
+    default:
+      return ProjectStatus.RFQ;
   }
 }
 
@@ -32,14 +40,22 @@ function serializeProjectStatus(status: ProjectStatus): string {
   //   rfq, estimated, accepted, in_progress, completed, closed, archived.
   // The migration-file Title Case CHECK has been relaxed in prod.
   switch (status) {
-    case ProjectStatus.RFQ: return "rfq";
-    case ProjectStatus.Estimated: return "estimated";
-    case ProjectStatus.Accepted: return "accepted";
-    case ProjectStatus.InProgress: return "in_progress";
-    case ProjectStatus.Completed: return "completed";
-    case ProjectStatus.Closed: return "closed";
-    case ProjectStatus.Archived: return "archived";
-    default: return "rfq";
+    case ProjectStatus.RFQ:
+      return "rfq";
+    case ProjectStatus.Estimated:
+      return "estimated";
+    case ProjectStatus.Accepted:
+      return "accepted";
+    case ProjectStatus.InProgress:
+      return "in_progress";
+    case ProjectStatus.Completed:
+      return "completed";
+    case ProjectStatus.Closed:
+      return "closed";
+    case ProjectStatus.Archived:
+      return "archived";
+    default:
+      return "rfq";
   }
 }
 
@@ -101,19 +117,32 @@ function mapToDb(data: Partial<Project>): Record<string, unknown> {
   if (data.endDate !== undefined)
     row.end_date = data.endDate?.toISOString() ?? null;
   if (data.duration !== undefined) row.duration = data.duration;
-  if (data.status !== undefined) row.status = serializeProjectStatus(data.status);
+  if (data.status !== undefined)
+    row.status = serializeProjectStatus(data.status);
   if (data.notes !== undefined) row.notes = data.notes;
   if (data.companyId !== undefined) row.company_id = data.companyId;
   if (data.clientId !== undefined) row.client_id = data.clientId;
   if (data.allDay !== undefined) row.all_day = data.allDay;
-  if (data.teamMemberIds !== undefined) row.team_member_ids = data.teamMemberIds;
-  if (data.projectDescription !== undefined) row.description = data.projectDescription;
+  if (data.teamMemberIds !== undefined)
+    row.team_member_ids = data.teamMemberIds;
+  if (data.projectDescription !== undefined)
+    row.description = data.projectDescription;
   if (data.projectImages !== undefined) row.project_images = data.projectImages;
   if (data.trade !== undefined) row.trade = data.trade;
   if (data.visibility !== undefined) row.visibility = data.visibility;
-  if (data.opportunityId !== undefined) row.opportunity_id = data.opportunityId;
-  if (data.opportunityRef !== undefined) row.opportunity_ref = data.opportunityRef;
-  if (data.estimatedValue !== undefined) row.estimated_value = data.estimatedValue;
+  if (data.opportunityId !== undefined || data.opportunityRef !== undefined) {
+    // opportunity_ref is the normalized FK; opportunity_id remains the legacy
+    // text mirror consumed by iOS and older readers. Never write only one side.
+    // When both are supplied, the FK-backed value is canonical.
+    const opportunityLink =
+      data.opportunityRef !== undefined
+        ? data.opportunityRef
+        : data.opportunityId;
+    row.opportunity_id = opportunityLink;
+    row.opportunity_ref = opportunityLink;
+  }
+  if (data.estimatedValue !== undefined)
+    row.estimated_value = data.estimatedValue;
   if (data.source !== undefined) row.source = data.source;
   if (data.platformMetadata !== undefined)
     row.platform_metadata = data.platformMetadata;
@@ -178,7 +207,9 @@ export const ProjectService = {
     }
 
     if (options.sortField) {
-      query = query.order(options.sortField, { ascending: !options.descending });
+      query = query.order(options.sortField, {
+        ascending: !options.descending,
+      });
     } else {
       query = query.order("created_at", { ascending: false });
     }
@@ -228,7 +259,9 @@ export const ProjectService = {
     }
 
     if (options.sortField) {
-      query = query.order(options.sortField, { ascending: !options.descending });
+      query = query.order(options.sortField, {
+        ascending: !options.descending,
+      });
     } else {
       query = query.order("created_at", { ascending: false });
     }
@@ -236,7 +269,8 @@ export const ProjectService = {
     query = query.range(offset, offset + limit - 1);
 
     const { data, error, count } = await query;
-    if (error) throw new Error(`Failed to fetch user projects: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch user projects: ${error.message}`);
 
     const total = count ?? 0;
     const projects = (data ?? []).map(mapFromDb);
@@ -291,10 +325,7 @@ export const ProjectService = {
     const supabase = requireSupabase();
     const row = mapToDb(data);
 
-    const { error } = await supabase
-      .from("projects")
-      .update(row)
-      .eq("id", id);
+    const { error } = await supabase.from("projects").update(row).eq("id", id);
 
     if (error) throw new Error(`Failed to update project: ${error.message}`);
   },
@@ -312,7 +343,7 @@ export const ProjectService = {
     id: string,
     status: ProjectStatus,
     changedByUserId?: string,
-    changedByName?: string,
+    changedByName?: string
   ): Promise<void> {
     const supabase = requireSupabase();
 
@@ -332,7 +363,8 @@ export const ProjectService = {
       .update({ status: newStatus })
       .eq("id", id);
 
-    if (error) throw new Error(`Failed to update project status: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to update project status: ${error.message}`);
 
     // Fire-and-forget: trigger lifecycle automation on stage change
     if (oldStatus && newStatus && oldStatus !== newStatus && companyId) {
@@ -344,14 +376,11 @@ export const ProjectService = {
             oldStatus,
             newStatus,
             changedByUserId,
-            changedByName,
+            changedByName
           )
         )
         .catch((err) =>
-          console.error(
-            "[project-service] Lifecycle stage change error:",
-            err
-          )
+          console.error("[project-service] Lifecycle stage change error:", err)
         );
     }
   },

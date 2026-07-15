@@ -448,7 +448,6 @@
   "pipelineValue.title": "Pipeline Value",
   "pipelineValue.active": "active",
   "pipelineValue.loading": "Loading pipeline...",
-  "pipelineValue.weightedTotal": "Weighted Total",
 
   "pipelineSources.title": "Lead Sources",
   "pipelineSources.sources": "sources",
@@ -643,7 +642,6 @@
 
   "pipelineFunnel.noProjects": "NO ACTIVE PIPELINE",
   "pipelineFunnel.ofPipeline": "Of pipeline",
-  "pipelineFunnel.weighted": "Weighted",
   "pipelineFunnel.viewPipeline": "View Pipeline",
   "pipelineFunnel.distribution": "Distribution",
   "pipelineFunnel.stageTab": "Stage",

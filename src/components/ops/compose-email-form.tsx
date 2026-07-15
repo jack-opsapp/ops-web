@@ -19,9 +19,22 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { useEmailConnections } from "@/lib/hooks/use-email-connections";
 import { useEmailTemplates } from "@/lib/hooks/use-email-templates";
 import { Button } from "@/components/ui/button";
-import type { ComposeEmailData, EmailTemplate, MergeFieldContext } from "@/lib/types/email-template";
-import { resolveMergeFields, hasUnresolvedFields } from "@/lib/types/email-template";
+import type {
+  ComposeEmailData,
+  EmailTemplate,
+  MergeFieldContext,
+} from "@/lib/types/email-template";
+import {
+  resolveMergeFields,
+  hasUnresolvedFields,
+} from "@/lib/types/email-template";
 import type { EmailConnection } from "@/lib/types/email-connection";
+import {
+  normalizeReplySubject,
+  subjectDraftRequestFields,
+  type DraftSubjectInputSource,
+} from "@/lib/email/email-subject-policy";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -62,13 +75,13 @@ function LinkInsertPopover({
   const [text, setText] = useState("");
 
   return (
-    <div className="absolute top-full left-0 mt-1 z-10 p-2 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] space-y-1.5 min-w-[240px]">
+    <div className="absolute left-0 top-full z-10 mt-1 min-w-[240px] space-y-1.5 rounded-chip border border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] p-2 backdrop-blur-[20px] backdrop-saturate-[1.2]">
       <input
         type="url"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder={t("toolbar.link.url")}
-        className="w-full px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(111, 148, 176,0.4)]"
+        className="focus:border-[rgba(111, 148, 176,0.4)] w-full rounded-panel border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-2 py-1 font-mohave text-body-sm text-text outline-none placeholder:text-text-mute"
         autoFocus
       />
       <input
@@ -76,7 +89,7 @@ function LinkInsertPopover({
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={t("toolbar.link.text")}
-        className="w-full px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-body-sm text-text placeholder:text-text-mute outline-none focus:border-[rgba(111, 148, 176,0.4)]"
+        className="focus:border-[rgba(111, 148, 176,0.4)] w-full rounded-panel border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] px-2 py-1 font-mohave text-body-sm text-text outline-none placeholder:text-text-mute"
       />
       <div className="flex items-center gap-1 pt-0.5">
         <button
@@ -84,13 +97,13 @@ function LinkInsertPopover({
             if (url) onInsert(url, text || url);
           }}
           disabled={!url}
-          className="px-2 py-0.5 rounded-panel bg-[rgba(255,255,255,0.08)] font-mono text-micro text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="rounded-panel bg-[rgba(255,255,255,0.08)] px-2 py-0.5 font-mono text-micro uppercase tracking-wider text-text transition-colors hover:bg-[rgba(255,255,255,0.12)] disabled:cursor-not-allowed disabled:opacity-40"
         >
           {t("toolbar.link.insert")}
         </button>
         <button
           onClick={onCancel}
-          className="px-2 py-0.5 rounded-panel font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+          className="rounded-panel px-2 py-0.5 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:text-text-2"
         >
           {t("toolbar.link.cancel")}
         </button>
@@ -125,7 +138,7 @@ function TemplatePicker({
 
   if (templates.length === 0) {
     return (
-      <div className="absolute top-full right-0 mt-1 z-10 p-3 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[220px]">
+      <div className="absolute right-0 top-full z-10 mt-1 min-w-[220px] rounded-chip border border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] p-3 backdrop-blur-[20px] backdrop-saturate-[1.2]">
         <p className="font-mohave text-body-sm text-text-mute">
           {t("template.none")}
         </p>
@@ -135,13 +148,13 @@ function TemplatePicker({
 
   return (
     <div
-      className="absolute top-full right-0 mt-1 z-10 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px] max-h-[300px] overflow-y-auto scrollbar-hide"
+      className="scrollbar-hide absolute right-0 top-full z-10 mt-1 max-h-[300px] min-w-[260px] overflow-y-auto rounded-chip border border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2]"
       onMouseDown={(e) => e.preventDefault()}
     >
       {Array.from(grouped.entries()).map(([category, items]) => (
         <div key={category}>
-          <div className="px-2.5 py-1 sticky top-0 bg-[var(--surface-glass-dense)]">
-            <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
+          <div className="sticky top-0 bg-[var(--surface-glass-dense)] px-2.5 py-1">
+            <span className="font-mono text-micro uppercase tracking-wider text-text-mute">
               {tTemplates(`category.${category}`)}
             </span>
           </div>
@@ -152,13 +165,13 @@ function TemplatePicker({
                 onSelect(tpl);
                 onClose();
               }}
-              className="w-full text-left px-2.5 py-1.5 hover:bg-[rgba(255,255,255,0.04)] transition-colors"
+              className="w-full px-2.5 py-1.5 text-left transition-colors hover:bg-[rgba(255,255,255,0.04)]"
             >
-              <span className="font-mohave text-body-sm text-text block truncate">
+              <span className="block truncate font-mohave text-body-sm text-text">
                 {tpl.name}
               </span>
               {tpl.subject && (
-                <span className="font-mohave text-caption-sm text-text-mute block truncate">
+                <span className="block truncate font-mohave text-caption-sm text-text-mute">
                   {tpl.subject}
                 </span>
               )}
@@ -175,22 +188,28 @@ function TemplatePicker({
 function MergeFieldHighlightOverlay({ text }: { text: string }) {
   if (!hasUnresolvedFields(text)) return null;
 
-  const parts = text.split(/(\{\{(?:client_name|project_title|company_name)\}\})/g);
+  const parts = text.split(
+    /(\{\{(?:client_name|project_title|company_name)\}\})/g
+  );
 
   return (
-    <div className="absolute inset-0 pointer-events-none px-3 py-2 font-mohave text-body-sm leading-relaxed whitespace-pre-wrap break-words overflow-hidden">
+    <div className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-3 py-2 font-mohave text-body-sm leading-relaxed">
       {parts.map((part, i) => {
         if (/^\{\{.+\}\}$/.test(part)) {
           return (
             <span
               key={i}
-              className="bg-[rgba(196,168,104,0.15)] text-[#C4A868] rounded-bar px-0.5"
+              className="rounded-bar bg-[rgba(196,168,104,0.15)] px-0.5 text-[#C4A868]"
             >
               {part}
             </span>
           );
         }
-        return <span key={i} className="invisible">{part}</span>;
+        return (
+          <span key={i} className="invisible">
+            {part}
+          </span>
+        );
       })}
     </div>
   );
@@ -222,10 +241,15 @@ export function ComposeEmailForm({
   const [showCc, setShowCc] = useState(!!composeData?.cc?.length);
   const [subject, setSubject] = useState(
     mode === "reply" && composeData?.subject
-      ? composeData.subject.startsWith("Re: ")
-        ? composeData.subject
-        : `Re: ${composeData.subject}`
-      : composeData?.subject ?? ""
+      ? normalizeReplySubject(composeData.subject)
+      : (composeData?.subject ?? "")
+  );
+  const [subjectSource, setSubjectSource] = useState<DraftSubjectInputSource>(
+    mode === "reply"
+      ? "thread"
+      : composeData?.subject
+        ? "configured"
+        : "operator"
   );
   const [body, setBody] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -239,7 +263,8 @@ export function ComposeEmailForm({
   const [showLinkPopover, setShowLinkPopover] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
-  const [showReplaceConfirm, setShowReplaceConfirm] = useState<EmailTemplate | null>(null);
+  const [showReplaceConfirm, setShowReplaceConfirm] =
+    useState<EmailTemplate | null>(null);
   const [showSenderDropdown, setShowSenderDropdown] = useState(false);
 
   const bodyRef = useRef<HTMLTextAreaElement>(null);
@@ -259,11 +284,12 @@ export function ComposeEmailForm({
   // When opening compose for a thread, check if an auto-draft exists
   // and pre-populate the body + AI state.
   useEffect(() => {
-    if (!composeData?.threadId || !company?.id || body.trim().length > 0) return;
+    if (!composeData?.threadId || !company?.id || body.trim().length > 0)
+      return;
 
     const checkAutoDraft = async () => {
       try {
-        const res = await fetch(
+        const res = await authedFetch(
           `/api/integrations/email/auto-drafts?companyId=${company.id}&threadId=${composeData.threadId}`
         );
         if (!res.ok) return;
@@ -291,7 +317,7 @@ export function ComposeEmailForm({
     };
 
     checkAutoDraft();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [composeData?.threadId, company?.id]);
 
   // ─── Markdown Toolbar Actions ───────────────────────────────────────────
@@ -318,8 +344,14 @@ export function ComposeEmailForm({
     [body]
   );
 
-  const handleBold = useCallback(() => wrapSelection("**", "**"), [wrapSelection]);
-  const handleItalic = useCallback(() => wrapSelection("*", "*"), [wrapSelection]);
+  const handleBold = useCallback(
+    () => wrapSelection("**", "**"),
+    [wrapSelection]
+  );
+  const handleItalic = useCallback(
+    () => wrapSelection("*", "*"),
+    [wrapSelection]
+  );
 
   const handleInsertLink = useCallback(
     (url: string, text: string) => {
@@ -351,6 +383,7 @@ export function ComposeEmailForm({
       const resolvedSubject = resolveMergeFields(template.subject, fullCtx);
       const resolvedBody = resolveMergeFields(template.body, fullCtx);
       setSubject(resolvedSubject);
+      setSubjectSource("configured");
       setBody(resolvedBody);
       setAiState(EMPTY_AI_STATE);
     },
@@ -377,7 +410,7 @@ export function ComposeEmailForm({
     }
     setIsGeneratingDraft(true);
     try {
-      const response = await fetch("/api/integrations/email/ai-draft", {
+      const response = await authedFetch("/api/integrations/email/ai-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -388,25 +421,34 @@ export function ComposeEmailForm({
           threadId: composeData?.threadId,
           recipientEmail: to || composeData?.to,
           recipientName: composeData?.recipientName,
+          ...subjectDraftRequestFields(subject, subjectSource),
         }),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Draft generation failed");
+        throw new Error(
+          (data as { error?: string }).error ?? "Draft generation failed"
+        );
       }
-      const result = await response.json() as {
+      const result = (await response.json()) as {
         available: boolean;
         draft: string;
         draftHistoryId: string;
         confidence: number;
         sources: string[];
         reason?: string;
+        subject?: string;
+        subjectSource?: DraftSubjectInputSource;
       };
       if (!result.available) {
         toast.error(result.reason || "AI drafting unavailable");
         return;
       }
       setBody(result.draft);
+      if (!subject.trim() && result.subject) {
+        setSubject(result.subject);
+        setSubjectSource(result.subjectSource ?? "generated");
+      }
       setAiState({
         isAIDraft: true,
         originalDraft: result.draft,
@@ -418,11 +460,21 @@ export function ComposeEmailForm({
         bodyRef.current?.focus();
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to generate draft");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to generate draft"
+      );
     } finally {
       setIsGeneratingDraft(false);
     }
-  }, [effectiveConnectionId, currentUser?.id, company?.id, composeData, to]);
+  }, [
+    effectiveConnectionId,
+    currentUser?.id,
+    company?.id,
+    composeData,
+    to,
+    subject,
+    subjectSource,
+  ]);
 
   const handleAiDraft = useCallback(() => {
     if (body.trim().length > 0) {
@@ -435,7 +487,7 @@ export function ComposeEmailForm({
   const clearAiDraft = useCallback(() => {
     setBody("");
     if (aiState.draftHistoryId && currentUser?.id && company?.id) {
-      fetch("/api/integrations/email/draft-feedback", {
+      authedFetch("/api/integrations/email/draft-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -470,16 +522,28 @@ export function ComposeEmailForm({
         userId: currentUser?.id,
         companyId: company?.id,
         connectionId: effectiveConnectionId,
-        to: to.split(",").map((e) => e.trim()).filter(Boolean),
-        cc: cc ? cc.split(",").map((e) => e.trim()).filter(Boolean) : [],
+        to: to
+          .split(",")
+          .map((e) => e.trim())
+          .filter(Boolean),
+        cc: cc
+          ? cc
+              .split(",")
+              .map((e) => e.trim())
+              .filter(Boolean)
+          : [],
         subject: subject.trim(),
         body: body.trim(),
         threadId: composeData?.threadId ?? null,
         opportunityId: composeData?.opportunityId ?? null,
         inReplyTo: composeData?.inReplyTo ?? null,
+        draftHistoryId:
+          aiState.isAIDraft && aiState.draftHistoryId
+            ? aiState.draftHistoryId
+            : null,
         format: "markdown" as const,
       };
-      const response = await fetch("/api/integrations/email/send", {
+      const response = await authedFetch("/api/integrations/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -488,27 +552,29 @@ export function ComposeEmailForm({
         const data = await response.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? "Send failed");
       }
-      if (aiState.isAIDraft && aiState.draftHistoryId && currentUser?.id && company?.id) {
-        fetch("/api/integrations/email/draft-feedback", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            draftHistoryId: aiState.draftHistoryId,
-            companyId: company.id,
-            userId: currentUser.id,
-            outcome: "sent",
-            finalVersion: body.trim(),
-          }),
-        }).catch(() => {});
-      }
       toast.success("Email sent");
       onClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to send email");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send email"
+      );
     } finally {
       setIsSending(false);
     }
-  }, [effectiveConnectionId, to, cc, subject, body, composeData?.threadId, onClose, aiState, currentUser?.id, company?.id]);
+  }, [
+    effectiveConnectionId,
+    to,
+    cc,
+    subject,
+    body,
+    composeData?.threadId,
+    composeData?.opportunityId,
+    composeData?.inReplyTo,
+    onClose,
+    aiState,
+    currentUser?.id,
+    company?.id,
+  ]);
 
   // ─── Discard ────────────────────────────────────────────────────────────
 
@@ -522,8 +588,13 @@ export function ComposeEmailForm({
   }, [to, subject, body, onClose]);
 
   const handleDiscard = useCallback(() => {
-    if (aiState.isAIDraft && aiState.draftHistoryId && currentUser?.id && company?.id) {
-      fetch("/api/integrations/email/draft-feedback", {
+    if (
+      aiState.isAIDraft &&
+      aiState.draftHistoryId &&
+      currentUser?.id &&
+      company?.id
+    ) {
+      authedFetch("/api/integrations/email/draft-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -542,16 +613,16 @@ export function ComposeEmailForm({
   // ─── Render ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="relative flex h-full flex-col">
       {/* Fields */}
-      <div className="shrink-0 px-3 py-1.5 space-y-0 border-b border-[rgba(255,255,255,0.04)]">
+      <div className="shrink-0 space-y-0 border-b border-[rgba(255,255,255,0.04)] px-3 py-1.5">
         {/* From */}
         <div className="flex items-center gap-2 py-1">
-          <span className="font-mono text-micro text-text-mute uppercase tracking-wider w-[32px] shrink-0">
+          <span className="w-[32px] shrink-0 font-mono text-micro uppercase tracking-wider text-text-mute">
             {t("from")}
           </span>
           {activeConnections.length === 0 ? (
-            <span className="font-mohave text-body-sm text-text-mute italic">
+            <span className="font-mohave text-body-sm italic text-text-mute">
               {t("from.noConnections")}
             </span>
           ) : activeConnections.length === 1 ? (
@@ -562,13 +633,13 @@ export function ComposeEmailForm({
             <div className="relative flex-1">
               <button
                 onClick={() => setShowSenderDropdown(!showSenderDropdown)}
-                className="flex items-center gap-1 font-mohave text-body-sm text-text-2 hover:text-text transition-colors"
+                className="flex items-center gap-1 font-mohave text-body-sm text-text-2 transition-colors hover:text-text"
               >
                 {selectedConnection?.email ?? t("from.select")}
-                <ChevronDown className="w-[12px] h-[12px] text-text-mute" />
+                <ChevronDown className="h-[12px] w-[12px] text-text-mute" />
               </button>
               {showSenderDropdown && (
-                <div className="absolute top-full left-0 mt-1 z-10 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] min-w-[260px]">
+                <div className="absolute left-0 top-full z-10 mt-1 min-w-[260px] rounded-chip border border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
                   {activeConnections.map((conn: EmailConnection) => (
                     <button
                       key={conn.id}
@@ -577,15 +648,15 @@ export function ComposeEmailForm({
                         setShowSenderDropdown(false);
                       }}
                       className={cn(
-                        "w-full text-left px-2.5 py-1.5 hover:bg-[rgba(255,255,255,0.04)] transition-colors",
+                        "w-full px-2.5 py-1.5 text-left transition-colors hover:bg-[rgba(255,255,255,0.04)]",
                         conn.id === effectiveConnectionId &&
                           "bg-[rgba(255,255,255,0.03)]"
                       )}
                     >
-                      <span className="font-mohave text-body-sm text-text block truncate">
+                      <span className="block truncate font-mohave text-body-sm text-text">
                         {conn.email}
                       </span>
-                      <span className="font-mono text-micro text-text-mute uppercase">
+                      <span className="font-mono text-micro uppercase text-text-mute">
                         {conn.provider}
                       </span>
                     </button>
@@ -598,7 +669,7 @@ export function ComposeEmailForm({
 
         {/* To */}
         <div className="flex items-center gap-2 py-1">
-          <span className="font-mono text-micro text-text-mute uppercase tracking-wider w-[32px] shrink-0">
+          <span className="w-[32px] shrink-0 font-mono text-micro uppercase tracking-wider text-text-mute">
             {t("to")}
           </span>
           <input
@@ -606,13 +677,13 @@ export function ComposeEmailForm({
             value={to}
             onChange={(e) => setTo(e.target.value)}
             placeholder={t("to.placeholder")}
-            className="flex-1 bg-transparent font-mohave text-body-sm text-text placeholder:text-text-mute outline-none"
+            className="flex-1 bg-transparent font-mohave text-body-sm text-text outline-none placeholder:text-text-mute"
             readOnly={mode === "reply" && !!composeData?.to}
           />
           {!showCc && (
             <button
               onClick={() => setShowCc(true)}
-              className="font-mono text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
+              className="font-mono text-micro uppercase tracking-wider text-text-mute transition-colors hover:text-text-3"
             >
               {t("cc.show")}
             </button>
@@ -622,7 +693,7 @@ export function ComposeEmailForm({
         {/* CC */}
         {showCc && (
           <div className="flex items-center gap-2 py-1">
-            <span className="font-mono text-micro text-text-mute uppercase tracking-wider w-[32px] shrink-0">
+            <span className="w-[32px] shrink-0 font-mono text-micro uppercase tracking-wider text-text-mute">
               {t("cc")}
             </span>
             <input
@@ -630,14 +701,14 @@ export function ComposeEmailForm({
               value={cc}
               onChange={(e) => setCc(e.target.value)}
               placeholder={t("cc.placeholder")}
-              className="flex-1 bg-transparent font-mohave text-body-sm text-text placeholder:text-text-mute outline-none"
+              className="flex-1 bg-transparent font-mohave text-body-sm text-text outline-none placeholder:text-text-mute"
             />
             <button
               onClick={() => {
                 setShowCc(false);
                 setCc("");
               }}
-              className="font-mono text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
+              className="font-mono text-micro uppercase tracking-wider text-text-mute transition-colors hover:text-text-3"
             >
               {t("cc.hide")}
             </button>
@@ -646,37 +717,48 @@ export function ComposeEmailForm({
 
         {/* Subject */}
         <div className="flex items-center gap-2 py-1">
-          <span className="font-mono text-micro text-text-mute uppercase tracking-wider w-[32px] shrink-0">
+          <span className="w-[32px] shrink-0 font-mono text-micro uppercase tracking-wider text-text-mute">
             {t("subject")}
           </span>
           <input
             type="text"
             value={subject}
-            onChange={(e) => setSubject(e.target.value)}
+            onChange={(e) => {
+              setSubject(e.target.value);
+              setSubjectSource("operator");
+            }}
             placeholder={t("subject.placeholder")}
-            className="flex-1 bg-transparent font-mohave text-body-sm text-text placeholder:text-text-mute outline-none"
+            className="flex-1 bg-transparent font-mohave text-body-sm text-text outline-none placeholder:text-text-mute"
           />
         </div>
       </div>
 
       {/* Toolbar */}
-      <div className="shrink-0 px-3 py-1 flex items-center gap-0.5 border-b border-[rgba(255,255,255,0.04)]">
-        <button onClick={handleBold} title={t("toolbar.bold")} className="p-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors">
-          <Bold className="w-[14px] h-[14px]" />
+      <div className="flex shrink-0 items-center gap-0.5 border-b border-[rgba(255,255,255,0.04)] px-3 py-1">
+        <button
+          onClick={handleBold}
+          title={t("toolbar.bold")}
+          className="rounded-panel p-1 text-text-3 transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-text"
+        >
+          <Bold className="h-[14px] w-[14px]" />
         </button>
-        <button onClick={handleItalic} title={t("toolbar.italic")} className="p-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors">
-          <Italic className="w-[14px] h-[14px]" />
+        <button
+          onClick={handleItalic}
+          title={t("toolbar.italic")}
+          className="rounded-panel p-1 text-text-3 transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-text"
+        >
+          <Italic className="h-[14px] w-[14px]" />
         </button>
         <div className="relative">
           <button
             onClick={() => setShowLinkPopover(!showLinkPopover)}
             title={t("toolbar.link")}
             className={cn(
-              "p-1 rounded-panel text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors",
+              "rounded-panel p-1 text-text-3 transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-text",
               showLinkPopover && "bg-[rgba(255,255,255,0.06)] text-text"
             )}
           >
-            <Link2 className="w-[14px] h-[14px]" />
+            <Link2 className="h-[14px] w-[14px]" />
           </button>
           {showLinkPopover && (
             <LinkInsertPopover
@@ -686,7 +768,7 @@ export function ComposeEmailForm({
           )}
         </div>
 
-        <div className="w-px h-[14px] bg-[rgba(255,255,255,0.06)] mx-1" />
+        <div className="mx-1 h-[14px] w-px bg-[rgba(255,255,255,0.06)]" />
 
         {/* AI Draft Button */}
         <button
@@ -694,19 +776,21 @@ export function ComposeEmailForm({
           disabled={isGeneratingDraft || !effectiveConnectionId}
           title={t("toolbar.aiDraft.tooltip")}
           className={cn(
-            "flex items-center gap-1 px-1.5 py-0.5 rounded-panel font-mono text-micro uppercase tracking-wider transition-colors",
+            "flex items-center gap-1 rounded-panel px-1.5 py-0.5 font-mono text-micro uppercase tracking-wider transition-colors",
             isGeneratingDraft
-              ? "text-[#6F94B0] bg-[rgba(111, 148, 176,0.1)]"
-              : "text-text-3 hover:text-[#6F94B0] hover:bg-[rgba(111, 148, 176,0.08)]",
-            !effectiveConnectionId && "opacity-40 cursor-not-allowed"
+              ? "bg-[rgba(111, 148, 176,0.1)] text-[#6F94B0]"
+              : "hover:bg-[rgba(111, 148, 176,0.08)] text-text-3 hover:text-[#6F94B0]",
+            !effectiveConnectionId && "cursor-not-allowed opacity-40"
           )}
         >
           {isGeneratingDraft ? (
-            <Loader2 className="w-[12px] h-[12px] animate-spin" />
+            <Loader2 className="h-[12px] w-[12px] animate-spin" />
           ) : (
-            <Sparkles className="w-[12px] h-[12px]" />
+            <Sparkles className="h-[12px] w-[12px]" />
           )}
-          {isGeneratingDraft ? t("toolbar.aiDraft.loading") : t("toolbar.aiDraft")}
+          {isGeneratingDraft
+            ? t("toolbar.aiDraft.loading")
+            : t("toolbar.aiDraft")}
         </button>
 
         {/* Template Picker */}
@@ -714,13 +798,13 @@ export function ComposeEmailForm({
           <button
             onClick={() => setShowTemplatePicker(!showTemplatePicker)}
             className={cn(
-              "flex items-center gap-1 px-1.5 py-0.5 rounded-panel font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 hover:bg-[rgba(255,255,255,0.04)] transition-colors",
+              "flex items-center gap-1 rounded-panel px-1.5 py-0.5 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-text-2",
               showTemplatePicker && "bg-[rgba(255,255,255,0.06)] text-text-2"
             )}
           >
-            <FileText className="w-[12px] h-[12px]" />
+            <FileText className="h-[12px] w-[12px]" />
             {t("template")}
-            <ChevronDown className="w-[10px] h-[10px]" />
+            <ChevronDown className="h-[10px] w-[10px]" />
           </button>
           {showTemplatePicker && (
             <TemplatePicker
@@ -734,23 +818,23 @@ export function ComposeEmailForm({
 
       {/* AI Draft Banner */}
       {aiState.isAIDraft && (
-        <div className="shrink-0 mx-3 mt-1.5 px-2 py-1 rounded-panel bg-[rgba(111, 148, 176,0.06)] border border-[rgba(111, 148, 176,0.12)] flex items-center gap-1.5">
-          <Sparkles className="w-[12px] h-[12px] text-[#6F94B0] shrink-0" />
-          <div className="flex-1 min-w-0">
+        <div className="bg-[rgba(111, 148, 176,0.06)] border-[rgba(111, 148, 176,0.12)] mx-3 mt-1.5 flex shrink-0 items-center gap-1.5 rounded-panel border px-2 py-1">
+          <Sparkles className="h-[12px] w-[12px] shrink-0 text-[#6F94B0]" />
+          <div className="min-w-0 flex-1">
             <span className="font-mohave text-caption-sm text-[#6F94B0]">
               {aiState.sources.includes("auto_draft")
                 ? t("aiDraft.banner.auto")
                 : t("aiDraft.banner")}
             </span>
             {!aiState.sources.includes("auto_draft") && (
-              <span className="font-mohave text-caption-sm text-text-mute ml-1.5">
+              <span className="ml-1.5 font-mohave text-caption-sm text-text-mute">
                 {t("aiDraft.banner.description")}
               </span>
             )}
           </div>
           <button
             onClick={clearAiDraft}
-            className="font-mono text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors shrink-0"
+            className="shrink-0 font-mono text-micro uppercase tracking-wider text-text-mute transition-colors hover:text-text-3"
           >
             {t("aiDraft.banner.discard")}
           </button>
@@ -758,21 +842,21 @@ export function ComposeEmailForm({
       )}
 
       {/* Body */}
-      <div className="flex-1 min-h-0 relative">
+      <div className="relative min-h-0 flex-1">
         <textarea
           ref={bodyRef}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={t("body.placeholder")}
-          className="w-full h-full min-h-[200px] resize-none bg-transparent px-3 py-2 font-mohave text-body-sm text-text placeholder:text-text-mute outline-none leading-relaxed"
+          className="h-full min-h-[200px] w-full resize-none bg-transparent px-3 py-2 font-mohave text-body-sm leading-relaxed text-text outline-none placeholder:text-text-mute"
         />
         <MergeFieldHighlightOverlay text={body} />
       </div>
 
       {/* Unresolved merge fields warning */}
       {hasUnresolvedFields(body) && (
-        <div className="shrink-0 mx-3 px-2 py-1 rounded-panel bg-[rgba(196,168,104,0.08)] border border-[rgba(196,168,104,0.15)] flex items-center gap-1.5">
-          <AlertTriangle className="w-[12px] h-[12px] text-[#C4A868] shrink-0" />
+        <div className="mx-3 flex shrink-0 items-center gap-1.5 rounded-panel border border-[rgba(196,168,104,0.15)] bg-[rgba(196,168,104,0.08)] px-2 py-1">
+          <AlertTriangle className="h-[12px] w-[12px] shrink-0 text-[#C4A868]" />
           <span className="font-mohave text-caption-sm text-[#C4A868]">
             {t("mergeField.unresolved")}
           </span>
@@ -781,21 +865,21 @@ export function ComposeEmailForm({
 
       {/* Quoted Message (Reply mode) */}
       {mode === "reply" && composeData?.quotedMessage && (
-        <div className="shrink-0 mx-3 mt-1 px-2.5 py-2 rounded-chip bg-[rgba(255,255,255,0.02)] border-l-2 border-[rgba(255,255,255,0.08)] max-h-[120px] overflow-y-auto scrollbar-hide">
-          <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-1">
+        <div className="scrollbar-hide mx-3 mt-1 max-h-[120px] shrink-0 overflow-y-auto rounded-chip border-l-2 border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-2.5 py-2">
+          <span className="mb-1 block font-mono text-micro uppercase tracking-wider text-text-mute">
             {t("quotedMessage")}
           </span>
-          <p className="font-mohave text-caption-sm text-text-mute whitespace-pre-wrap leading-relaxed">
+          <p className="whitespace-pre-wrap font-mohave text-caption-sm leading-relaxed text-text-mute">
             {composeData.quotedMessage}
           </p>
         </div>
       )}
 
       {/* Footer */}
-      <div className="shrink-0 px-3 py-2 border-t border-[rgba(255,255,255,0.06)] flex items-center justify-between">
+      <div className="flex shrink-0 items-center justify-between border-t border-[rgba(255,255,255,0.06)] px-3 py-2">
         <button
           onClick={handleClose}
-          className="font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+          className="font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:text-text-2"
         >
           {t("discard")}
         </button>
@@ -803,18 +887,18 @@ export function ComposeEmailForm({
         <Button
           onClick={handleSend}
           disabled={isSending || !effectiveConnectionId || !to.trim()}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-text-primary text-[#0A0A0A] font-mono text-[11px] uppercase tracking-wider rounded-panel hover:bg-text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-1.5 rounded-panel bg-text-primary px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[#0A0A0A] transition-colors hover:bg-text-secondary disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Send className="w-[12px] h-[12px]" />
+          <Send className="h-[12px] w-[12px]" />
           {isSending ? t("send.sending") : t("send")}
         </Button>
       </div>
 
       {/* Discard Confirmation Overlay */}
       {showDiscardConfirm && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm rounded-sm">
-          <div className="p-3 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
-            <p className="font-mohave text-body text-text font-semibold">
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-sm bg-[rgba(0,0,0,0.4)] backdrop-blur-sm">
+          <div className="max-w-[280px] space-y-2 rounded-chip border border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] p-3 backdrop-blur-[20px]">
+            <p className="font-mohave text-body font-semibold text-text">
               {t("discard.confirm.title")}
             </p>
             <p className="font-mohave text-body-sm text-text-2">
@@ -823,13 +907,13 @@ export function ComposeEmailForm({
             <div className="flex items-center gap-1 pt-1">
               <button
                 onClick={handleDiscard}
-                className="px-2.5 py-1 rounded-panel bg-[rgba(147,50,26,0.2)] border border-[rgba(147,50,26,0.3)] font-mono text-micro text-[#93321A] uppercase tracking-wider hover:bg-[rgba(147,50,26,0.3)] transition-colors"
+                className="rounded-panel border border-[rgba(147,50,26,0.3)] bg-[rgba(147,50,26,0.2)] px-2.5 py-1 font-mono text-micro uppercase tracking-wider text-[#93321A] transition-colors hover:bg-[rgba(147,50,26,0.3)]"
               >
                 {t("discard.confirm.yes")}
               </button>
               <button
                 onClick={() => setShowDiscardConfirm(false)}
-                className="px-2.5 py-1 rounded-panel font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+                className="rounded-panel px-2.5 py-1 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:text-text-2"
               >
                 {t("discard.confirm.no")}
               </button>
@@ -840,9 +924,9 @@ export function ComposeEmailForm({
 
       {/* Template Replace Confirmation Overlay */}
       {showReplaceConfirm && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm rounded-sm">
-          <div className="p-3 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
-            <p className="font-mohave text-body text-text font-semibold">
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-sm bg-[rgba(0,0,0,0.4)] backdrop-blur-sm">
+          <div className="max-w-[280px] space-y-2 rounded-chip border border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] p-3 backdrop-blur-[20px]">
+            <p className="font-mohave text-body font-semibold text-text">
               {t("template.replace.title")}
             </p>
             <p className="font-mohave text-body-sm text-text-2">
@@ -854,13 +938,13 @@ export function ComposeEmailForm({
                   applyTemplate(showReplaceConfirm);
                   setShowReplaceConfirm(null);
                 }}
-                className="px-2.5 py-1 rounded-panel bg-[rgba(255,255,255,0.08)] font-mono text-micro text-text uppercase tracking-wider hover:bg-[rgba(255,255,255,0.12)] transition-colors"
+                className="rounded-panel bg-[rgba(255,255,255,0.08)] px-2.5 py-1 font-mono text-micro uppercase tracking-wider text-text transition-colors hover:bg-[rgba(255,255,255,0.12)]"
               >
                 {t("template.replace.confirm")}
               </button>
               <button
                 onClick={() => setShowReplaceConfirm(null)}
-                className="px-2.5 py-1 rounded-panel font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+                className="rounded-panel px-2.5 py-1 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:text-text-2"
               >
                 {t("template.replace.cancel")}
               </button>
@@ -871,9 +955,9 @@ export function ComposeEmailForm({
 
       {/* AI Draft Replace Confirmation Overlay */}
       {showAiReplaceConfirm && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[rgba(0,0,0,0.4)] backdrop-blur-sm rounded-sm">
-          <div className="p-3 rounded-chip bg-[var(--surface-glass-dense)] backdrop-blur-[20px] border border-[rgba(255,255,255,0.08)] max-w-[280px] space-y-2">
-            <p className="font-mohave text-body text-text font-semibold">
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-sm bg-[rgba(0,0,0,0.4)] backdrop-blur-sm">
+          <div className="max-w-[280px] space-y-2 rounded-chip border border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] p-3 backdrop-blur-[20px]">
+            <p className="font-mohave text-body font-semibold text-text">
               {t("aiDraft.replace.title")}
             </p>
             <p className="font-mohave text-body-sm text-text-2">
@@ -885,13 +969,13 @@ export function ComposeEmailForm({
                   setShowAiReplaceConfirm(false);
                   applyAiDraft();
                 }}
-                className="px-2.5 py-1 rounded-panel bg-[rgba(111, 148, 176,0.15)] border border-[rgba(111, 148, 176,0.25)] font-mono text-micro text-[#6F94B0] uppercase tracking-wider hover:bg-[rgba(111, 148, 176,0.25)] transition-colors"
+                className="bg-[rgba(111, 148, 176,0.15)] border-[rgba(111, 148, 176,0.25)] hover:bg-[rgba(111, 148, 176,0.25)] rounded-panel border px-2.5 py-1 font-mono text-micro uppercase tracking-wider text-[#6F94B0] transition-colors"
               >
                 {t("aiDraft.replace.confirm")}
               </button>
               <button
                 onClick={() => setShowAiReplaceConfirm(false)}
-                className="px-2.5 py-1 rounded-panel font-mono text-micro text-text-3 uppercase tracking-wider hover:text-text-2 transition-colors"
+                className="rounded-panel px-2.5 py-1 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:text-text-2"
               >
                 {t("aiDraft.replace.cancel")}
               </button>

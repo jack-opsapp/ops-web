@@ -51,6 +51,7 @@ import {
   getStorageBackend,
 } from "@/lib/s3/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
 
 export const maxDuration = 800; // Pro plan max
 
@@ -61,6 +62,9 @@ interface OppThreadEntry {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = requireEmailPipelineSecret(request);
+  if (authError) return authError;
+
   const { jobId, connectionId, companyId, oppThreadPayload } =
     (await request.json()) as {
       jobId?: string;
@@ -69,7 +73,12 @@ export async function POST(request: NextRequest) {
       oppThreadPayload?: OppThreadEntry[];
     };
 
-  if (!jobId || !connectionId || !companyId || !Array.isArray(oppThreadPayload)) {
+  if (
+    !jobId ||
+    !connectionId ||
+    !companyId ||
+    !Array.isArray(oppThreadPayload)
+  ) {
     return NextResponse.json(
       { error: "jobId, connectionId, companyId, oppThreadPayload required" },
       { status: 400 }
@@ -81,11 +90,25 @@ export async function POST(request: NextRequest) {
     EmailService.getConnection(connectionId)
   );
 
-  if (!connection) {
+  if (!connection || connection.companyId !== companyId) {
     return NextResponse.json(
       { error: "Connection not found" },
       { status: 404 }
     );
+  }
+
+  const { data: job, error: jobError } = await supabase
+    .from("gmail_scan_jobs")
+    .select("id, connection_id, company_id")
+    .eq("id", jobId)
+    .single();
+  if (
+    jobError ||
+    !job ||
+    job.connection_id !== connectionId ||
+    job.company_id !== companyId
+  ) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
   // Fire-and-forget. The import route dispatches this route and returns;
@@ -95,7 +118,13 @@ export async function POST(request: NextRequest) {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
       try {
-        await runExtraction(jobId, companyId, connection, oppThreadPayload, bgSupabase);
+        await runExtraction(
+          jobId,
+          companyId,
+          connection,
+          oppThreadPayload,
+          bgSupabase
+        );
       } catch (err) {
         console.error("[extract-images] Extraction failed:", err);
       }
@@ -110,7 +139,9 @@ export async function POST(request: NextRequest) {
 async function runExtraction(
   jobId: string,
   companyId: string,
-  connection: NonNullable<Awaited<ReturnType<typeof EmailService.getConnection>>>,
+  connection: NonNullable<
+    Awaited<ReturnType<typeof EmailService.getConnection>>
+  >,
   oppThreadPayload: OppThreadEntry[],
   supabase: SupabaseClient
 ) {
@@ -125,7 +156,9 @@ async function runExtraction(
 
   for (const entry of oppThreadPayload) {
     const { opportunityId, threadIds, allowedSenders } = entry;
-    const allowedSenderSet = new Set(allowedSenders.map((s) => s.toLowerCase().trim()));
+    const allowedSenderSet = new Set(
+      allowedSenders.map((s) => s.toLowerCase().trim())
+    );
 
     try {
       // Collect image attachment metadata from all threads
@@ -143,7 +176,10 @@ async function runExtraction(
           const images = await provider.getImageAttachmentsFromThread(tid);
           allImageMeta.push(...images);
         } catch (err) {
-          console.warn(`[extract-images] Failed to scan thread ${tid} for images:`, err);
+          console.warn(
+            `[extract-images] Failed to scan thread ${tid} for images:`,
+            err
+          );
         }
       }
 
@@ -176,10 +212,14 @@ async function runExtraction(
         const batch = uniqueImages.slice(i, i + IMAGE_CONCURRENCY);
         const results = await Promise.allSettled(
           batch.map(async (img) => {
-            const buffer = await provider.fetchAttachment(img.messageId, img.attachmentId);
-            const ext = (img.filename.split(".").pop()?.toLowerCase() || "jpg")
-              .replace(/[^a-z0-9]/g, "")
-              .slice(0, 12) || "jpg";
+            const buffer = await provider.fetchAttachment(
+              img.messageId,
+              img.attachmentId
+            );
+            const ext =
+              (img.filename.split(".").pop()?.toLowerCase() || "jpg")
+                .replace(/[^a-z0-9]/g, "")
+                .slice(0, 12) || "jpg";
             const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
             if (backend === "s3") {
@@ -203,7 +243,8 @@ async function runExtraction(
                 contentType: img.mimeType,
                 upsert: false,
               });
-            if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
+            if (uploadErr)
+              throw new Error(`Upload failed: ${uploadErr.message}`);
             const { data: urlData } = supabase.storage
               .from("images")
               .getPublicUrl(storagePath);

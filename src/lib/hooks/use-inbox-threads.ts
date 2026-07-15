@@ -263,7 +263,7 @@ type InboxThreadsInfiniteCache = {
 };
 
 function isInboxThreadsInfiniteCache(
-  value: unknown,
+  value: unknown
 ): value is InboxThreadsInfiniteCache {
   return (
     !!value &&
@@ -272,9 +272,7 @@ function isInboxThreadsInfiniteCache(
   );
 }
 
-function withoutAwaitingReply(
-  labels: EmailThreadLabel[],
-): EmailThreadLabel[] {
+function withoutAwaitingReply(labels: EmailThreadLabel[]): EmailThreadLabel[] {
   return labels.includes("AWAITING_REPLY")
     ? labels.filter((label) => label !== "AWAITING_REPLY")
     : labels;
@@ -282,7 +280,7 @@ function withoutAwaitingReply(
 
 function updateInboxThreadListCaches(
   qc: QueryClient,
-  mapRow: (row: InboxThreadRow) => InboxThreadRow,
+  mapRow: (row: InboxThreadRow) => InboxThreadRow
 ) {
   const entries = qc.getQueriesData({
     queryKey: queryKeys.inbox.threadsAll(),
@@ -530,7 +528,9 @@ export interface BatchArchiveResponse {
   leadArchivedOpportunityId: string | null;
 }
 
-async function batchArchiveRequest(args: BatchArchiveArgs): Promise<BatchArchiveResponse> {
+async function batchArchiveRequest(
+  args: BatchArchiveArgs
+): Promise<BatchArchiveResponse> {
   const headers = {
     ...(await authHeaders()),
     "Content-Type": "application/json",
@@ -782,7 +782,7 @@ export function useResolveCommitment() {
           return {
             ...detail,
             commitments: detail.commitments.filter(
-              (commitment) => commitment.id !== args.id,
+              (commitment) => commitment.id !== args.id
             ),
           };
         });
@@ -803,7 +803,9 @@ export function useResolveCommitment() {
     onSuccess: (_res, args) => {
       // Invalidate both the thread detail (pill disappears) and the list
       // (rail sort + unread signal may shift).
-      qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(args.threadId) });
+      qc.invalidateQueries({
+        queryKey: queryKeys.inbox.threadDetail(args.threadId),
+      });
       qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
     },
   });
@@ -926,11 +928,11 @@ export function useThreadActions() {
               threads: page.threads.map((t) =>
                 t.id === args.threadId
                   ? { ...t, unreadCount: nextUnreadCount }
-                  : t,
+                  : t
               ),
             })),
           };
-        },
+        }
       );
 
       qc.setQueryData(detailKey, (old: unknown) => {
@@ -995,7 +997,10 @@ export function useThreadActions() {
         (old: unknown) => {
           if (!old || typeof old !== "object") return old;
           const data = old as {
-            pages?: Array<{ threads: InboxThreadRow[]; nextCursor: string | null }>;
+            pages?: Array<{
+              threads: InboxThreadRow[];
+              nextCursor: string | null;
+            }>;
             pageParams?: unknown;
           };
           if (!Array.isArray(data.pages)) return old;
@@ -1005,12 +1010,15 @@ export function useThreadActions() {
               ...page,
               threads: page.threads.map((t) =>
                 t.id === threadId
-                  ? { ...t, labels: t.labels.filter((l) => l !== "AWAITING_REPLY") }
-                  : t,
+                  ? {
+                      ...t,
+                      labels: t.labels.filter((l) => l !== "AWAITING_REPLY"),
+                    }
+                  : t
               ),
             })),
           };
-        },
+        }
       );
 
       return { snapshot };
@@ -1048,7 +1056,10 @@ export function useThreadActions() {
         (old: unknown) => {
           if (!old || typeof old !== "object") return old;
           const data = old as {
-            pages?: Array<{ threads: InboxThreadRow[]; nextCursor: string | null }>;
+            pages?: Array<{
+              threads: InboxThreadRow[];
+              nextCursor: string | null;
+            }>;
             pageParams?: unknown;
           };
           if (!Array.isArray(data.pages)) return old;
@@ -1058,12 +1069,18 @@ export function useThreadActions() {
               ...page,
               threads: page.threads.map((t) =>
                 t.id === threadId && !t.labels.includes("AWAITING_REPLY")
-                  ? { ...t, labels: [...t.labels, "AWAITING_REPLY" as EmailThreadLabel] }
-                  : t,
+                  ? {
+                      ...t,
+                      labels: [
+                        ...t.labels,
+                        "AWAITING_REPLY" as EmailThreadLabel,
+                      ],
+                    }
+                  : t
               ),
             })),
           };
-        },
+        }
       );
 
       return { snapshot };
@@ -1171,7 +1188,7 @@ export function useAnswerAgentQuestion() {
             answer: args.answer,
             optionId: args.optionId ?? null,
           }),
-        },
+        }
       );
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
@@ -1209,6 +1226,10 @@ export interface SendReplyArgs {
   providerThreadId?: string | null;
   /** Linked opportunity for correspondence-count bump. */
   opportunityId?: string | null;
+  /** ai_draft_history identity when this reply started from an OPS AI draft. */
+  draftHistoryId?: string | null;
+  /** Local lifecycle-draft identity when this reply started from that queue. */
+  followUpDraftId?: string | null;
   /** Format hint for the route — markdown bodies get HTML-converted server-side. */
   format?: "markdown" | "text";
 }
@@ -1249,6 +1270,8 @@ export function useSendReply() {
           opportunityId: args.payload.opportunityId ?? null,
           inReplyTo: args.payload.inReplyTo ?? null,
           threadId: args.payload.providerThreadId ?? null,
+          draftHistoryId: args.payload.draftHistoryId ?? null,
+          followUpDraftId: args.payload.followUpDraftId ?? null,
         }),
       });
       if (!res.ok) {
@@ -1296,9 +1319,11 @@ export function useSendReply() {
               messageCount: detail.thread.messageCount + 1,
             },
           };
-        },
+        }
       );
-      qc.invalidateQueries({ queryKey: queryKeys.inbox.threadDetail(args.payload.threadId) });
+      qc.invalidateQueries({
+        queryKey: queryKeys.inbox.threadDetail(args.payload.threadId),
+      });
       qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
       qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
     },

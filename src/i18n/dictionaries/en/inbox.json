@@ -132,9 +132,6 @@
   "pipeline.priority.high": "HIGH",
   "pipeline.priority.medium": "MED",
   "pipeline.priority.low": "LOW",
-  "pipeline.confidence.high": "HIGH INTENT",
-  "pipeline.confidence.warm": "WARM INTENT",
-  "pipeline.confidence.low": "LOW INTENT",
 
   "files.imagesLabel": "Images · {count}",
   "files.documentsLabel": "Documents · {count}",

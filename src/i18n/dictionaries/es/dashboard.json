@@ -411,7 +411,6 @@
   "pipelineValue.title": "Valor del pipeline",
   "pipelineValue.active": "activos",
   "pipelineValue.loading": "Cargando pipeline...",
-  "pipelineValue.weightedTotal": "Total ponderado",
 
   "pipelineSources.title": "Fuentes de prospectos",
   "pipelineSources.sources": "fuentes",
@@ -606,7 +605,6 @@
 
   "pipelineFunnel.noProjects": "SIN PIPELINE ACTIVO",
   "pipelineFunnel.ofPipeline": "Del pipeline",
-  "pipelineFunnel.weighted": "Ponderado",
   "pipelineFunnel.viewPipeline": "Ver Pipeline",
 
   "taskPulse.title": "Tareas",

@@ -1,3 +1,5 @@
+import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
+
 export type OpportunityRelationshipConfidence =
   | "provider_thread"
   | "exact_contact_email"
@@ -321,14 +323,20 @@ export function decideOpportunityRelationshipMatch({
   providerLinkedOpportunityId,
 }: DecideInput): OpportunityRelationshipDecision {
   if (providerLinkedOpportunityId) {
-    return {
-      action: "link",
-      opportunityId: providerLinkedOpportunityId,
-      clientId: null,
-      confidence: "provider_thread",
-      reason: "Existing provider thread link",
-      evidence: ["provider_thread_link"],
-    };
+    const linkedCandidate = candidates.find(
+      (candidate) => candidate.id === providerLinkedOpportunityId
+    );
+    if (!linkedCandidate) {
+      throw new Error(
+        "Provider-linked opportunity identity was not loaded in the mailbox company"
+      );
+    }
+    return linkDecision(
+      linkedCandidate,
+      "provider_thread",
+      "Existing provider thread link",
+      ["provider_thread_link"]
+    );
   }
 
   const sortedCandidates = [...candidates].sort(byNewest);
@@ -447,8 +455,16 @@ async function rowsFrom(
 ): Promise<Record<string, unknown>[]> {
   const { data, error } = await query;
   if (error) {
-    console.warn("[opportunity-relationship-matching] read failed", error);
-    return [];
+    const message =
+      typeof error === "object" &&
+      error !== null &&
+      "message" in error &&
+      typeof error.message === "string"
+        ? error.message
+        : "unknown error";
+    throw new Error(`Opportunity relationship lookup failed: ${message}`, {
+      cause: error,
+    });
   }
   if (!data) return [];
   return Array.isArray(data)
@@ -530,13 +546,18 @@ function projectRowToRelationshipProject(
 async function fetchOpportunityRowsByColumn(
   supabase: SupabaseLike,
   companyId: string,
-  column: "client_id" | "contact_email" | "contact_phone" | "address",
+  column: "id" | "client_id" | "contact_email" | "contact_phone" | "address",
   value: string
 ): Promise<Record<string, unknown>[]> {
   const query = table(supabase, "opportunities")
     .select(OPPORTUNITY_SELECT)
     .eq("company_id", companyId)
-    [column === "client_id" ? "eq" : "ilike"](column, value)
+    [column === "id" || column === "client_id" ? "eq" : "ilike"](
+      column,
+      column === "id" || column === "client_id"
+        ? value
+        : escapeIlikeLiteral(value)
+    )
     .is("deleted_at", null)
     .order("updated_at", { ascending: false })
     .limit(10);
@@ -552,7 +573,7 @@ async function fetchClientRowsByColumn(
   const query = table(supabase, "clients")
     .select("id, email, phone_number, address")
     .eq("company_id", companyId)
-    .ilike(column, value)
+    .ilike(column, escapeIlikeLiteral(value))
     .is("deleted_at", null)
     .limit(10);
   return rowsFrom(query);
@@ -567,7 +588,7 @@ async function fetchSubClientRowsByColumn(
   const query = table(supabase, "sub_clients")
     .select("id, client_id, email, phone_number, address")
     .eq("company_id", companyId)
-    .ilike(column, value)
+    .ilike(column, escapeIlikeLiteral(value))
     .is("deleted_at", null)
     .limit(10);
   return rowsFrom(query);
@@ -583,7 +604,7 @@ async function fetchProjectRowsByAddress(
       "id, opportunity_id, client_id, status, title, description, address, completed_at, deleted_at"
     )
     .eq("company_id", companyId)
-    .ilike("address", address)
+    .ilike("address", escapeIlikeLiteral(address))
     .is("deleted_at", null)
     .limit(10);
   return rowsFrom(query);
@@ -730,6 +751,20 @@ export async function findOpportunityRelationshipMatch({
   }
 
   const byId = new Map<string, Record<string, unknown>>();
+  if (providerLinkedOpportunityId) {
+    const linkedRows = await fetchOpportunityRowsByColumn(
+      supabase,
+      companyId,
+      "id",
+      providerLinkedOpportunityId
+    );
+    if (linkedRows.length !== 1) {
+      throw new Error(
+        "Provider-linked opportunity identity was not loaded in the mailbox company"
+      );
+    }
+    addRows(linkedRows, byId);
+  }
   if (clientId) {
     addRows(
       await fetchOpportunityRowsByColumn(

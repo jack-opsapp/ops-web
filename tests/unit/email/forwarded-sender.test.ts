@@ -17,9 +17,74 @@ import {
   extractContactFormSubmission,
   extractContactFormSubmissionDiagnostics,
   extractForwardedSender,
+  normalizeEmailAddress,
   resolveEffectiveSenderEmail,
   stripQuotedContent,
 } from "@/lib/utils/email-parsing";
+
+describe("email address typo normalization", () => {
+  it("repairs only the exact gmail.con domain typo", () => {
+    expect(normalizeEmailAddress("Sarah <sarah.lee@gmail.con>")).toBe(
+      "sarah.lee@gmail.com"
+    );
+    expect(normalizeEmailAddress("owner@business.con")).toBe(
+      "owner@business.con"
+    );
+  });
+
+  it("repairs gmail.con in a contact-form submitter email", () => {
+    const submission = extractContactFormSubmission(
+      "New contact form submission",
+      [
+        "Submission summary",
+        "Name: Sarah Lee",
+        "Email: sarah.lee@gmail.con",
+        "Message: Please quote my deck.",
+      ].join("\n")
+    );
+
+    expect(submission?.email).toBe("sarah.lee@gmail.com");
+  });
+});
+
+describe("contact-form name extraction", () => {
+  it("leaves name empty instead of fabricating it from the email local-part", () => {
+    const submission = extractContactFormSubmission(
+      "New contact form submission",
+      [
+        "Submission summary",
+        "Email: chezbear02@gmail.com",
+        "Message: Please quote my project.",
+      ].join("\n")
+    );
+
+    expect(submission?.email).toBe("chezbear02@gmail.com");
+    expect(submission?.name).toBeNull();
+  });
+
+  it("does not treat an ordinary quote-request email with an address in prose as a form", () => {
+    expect(
+      extractContactFormSubmission(
+        "Quote request",
+        "Please send the estimate to my partner at pat@example.com as well."
+      )
+    ).toBeNull();
+  });
+
+  it("does not treat a reply quoting a prior submission block as a new form", () => {
+    expect(
+      extractContactFormSubmission(
+        "Re: Free Quote form got a new submission",
+        [
+          "Thanks, Tuesday works for me.",
+          "Submission summary:",
+          "Name: Sandra Dunford",
+          "Email: sandra@example.com",
+        ].join("\n")
+      )
+    ).toBeNull();
+  });
+});
 
 const GMAIL_FORWARDED = `Hi team — forwarding this lead. Take a look.
 
@@ -78,19 +143,28 @@ Looking for a quote on the front porch railing.
 describe("extractForwardedSender", () => {
   it("parses Gmail-style forwarded preamble", () => {
     expect(
-      extractForwardedSender("Fwd: Canpro Deck and Rail Estimate", GMAIL_FORWARDED)
+      extractForwardedSender(
+        "Fwd: Canpro Deck and Rail Estimate",
+        GMAIL_FORWARDED
+      )
     ).toBe("judy55love@gmail.com");
   });
 
   it("parses Apple Mail 'Begin forwarded message:' preamble", () => {
     expect(
-      extractForwardedSender("Fwd: Canpro Deck and Rail Estimate", APPLE_MAIL_FORWARDED)
+      extractForwardedSender(
+        "Fwd: Canpro Deck and Rail Estimate",
+        APPLE_MAIL_FORWARDED
+      )
     ).toBe("riddellholdings@gmail.com");
   });
 
   it("parses Outlook-style header block with no preamble", () => {
     expect(
-      extractForwardedSender("Fwd: Canpro Deck and Rail Estimate", OUTLOOK_FORWARDED)
+      extractForwardedSender(
+        "Fwd: Canpro Deck and Rail Estimate",
+        OUTLOOK_FORWARDED
+      )
     ).toBe("marie@example.com");
   });
 
@@ -112,12 +186,16 @@ describe("extractForwardedSender", () => {
 
   it("normalizes CRLF line endings before scanning", () => {
     const crlf = GMAIL_FORWARDED.replace(/\n/g, "\r\n");
-    expect(extractForwardedSender("Fwd: Test", crlf)).toBe("judy55love@gmail.com");
+    expect(extractForwardedSender("Fwd: Test", crlf)).toBe(
+      "judy55love@gmail.com"
+    );
   });
 
   it("ignores prose 'from:' phrases above the forwarded block", () => {
     const body = `Got a note from: the field crew on this one — see below.\n\n${GMAIL_FORWARDED}`;
-    expect(extractForwardedSender("Fwd: Test", body)).toBe("judy55love@gmail.com");
+    expect(extractForwardedSender("Fwd: Test", body)).toBe(
+      "judy55love@gmail.com"
+    );
   });
 
   it("strips angle brackets from RFC822 'Display Name <email>' header values", () => {
@@ -133,7 +211,9 @@ describe("extractForwardedSender", () => {
 
   it("lowercases the extracted email for stable comparison", () => {
     const body = `---------- Forwarded message ---------\nFrom: Judith Love <Judy55LOVE@Gmail.COM>\n\nHi.\n`;
-    expect(extractForwardedSender("Fwd: Test", body)).toBe("judy55love@gmail.com");
+    expect(extractForwardedSender("Fwd: Test", body)).toBe(
+      "judy55love@gmail.com"
+    );
   });
 });
 

@@ -69,7 +69,10 @@ export interface PipelineTableColumnLayout {
  * Clamp a column's scaled width into its [min, max] band. Density scales the
  * base width up/down; the band keeps frozen rails from collapsing or runaway.
  */
-function getColumnWidth(column: PipelineTableColumnConfig, scale: number): number {
+function getColumnWidth(
+  column: PipelineTableColumnConfig,
+  scale: number
+): number {
   const scaled = Math.round(column.width * scale);
   return Math.min(column.maxWidth, Math.max(column.minWidth, scaled));
 }
@@ -133,12 +136,12 @@ export function PipelineTable({
   onCellKeyDown: (
     rowId: string,
     columnId: PipelineTableColumnId,
-    event: KeyboardEvent<HTMLElement>,
+    event: KeyboardEvent<HTMLElement>
   ) => void;
   onCommitCell: (
     rowId: string,
     columnId: PipelineTableEditableColumnId,
-    value: PipelineTableEditValue,
+    value: PipelineTableEditValue
   ) => void;
   onRequestStageChange: (rowId: string, next: OpportunityStage) => void;
   onRequestConvertAlreadyWon: (rowId: string) => void;
@@ -177,14 +180,17 @@ export function PipelineTable({
   }, []);
 
   const columnLayouts = useMemo<PipelineTableColumnLayout[]>(() => {
-    const baseWidths = visibleColumns.map((column) => getColumnWidth(column, metrics.columnScale));
+    const baseWidths = visibleColumns.map((column) =>
+      getColumnWidth(column, metrics.columnScale)
+    );
     const baseTotalWidth = baseWidths.reduce((sum, width) => sum + width, 0);
     const stretchIndex = baseWidths.length - 1;
     const extraWidth = Math.max(0, containerWidth - baseTotalWidth);
     let stickyOffset = 0;
 
     return visibleColumns.map((column, index) => {
-      const width = baseWidths[index] + (index === stretchIndex ? extraWidth : 0);
+      const width =
+        baseWidths[index] + (index === stretchIndex ? extraWidth : 0);
       const stickyLeft = column.frozen ? stickyOffset : null;
       if (column.frozen) stickyOffset += width;
       return { column, width, stickyLeft };
@@ -193,7 +199,7 @@ export function PipelineTable({
 
   const totalWidth = useMemo(
     () => columnLayouts.reduce((sum, item) => sum + item.width, 0),
-    [columnLayouts],
+    [columnLayouts]
   );
 
   // ── Flattened render stream (the SINGLE virtualizer's source of truth) ──────
@@ -203,7 +209,7 @@ export function PipelineTable({
   // only their header; their data rows are simply absent (not rendered).
   const flatItems = useMemo(
     () => buildFlattenedRows(rows, { grouped, collapsedStages }),
-    [rows, grouped, collapsedStages],
+    [rows, grouped, collapsedStages]
   );
 
   // The actually-rendered data rows — every `data` item in the stream, which
@@ -215,11 +221,12 @@ export function PipelineTable({
   // selection hook the FULL post-search set, so collapse never prunes).
   const visibleDataRows = useMemo(
     () => flatItems.flatMap((item) => (item.kind === "data" ? [item.row] : [])),
-    [flatItems],
+    [flatItems]
   );
 
   const allVisibleSelected =
-    visibleDataRows.length > 0 && visibleDataRows.every((row) => selectedIds.has(row.id));
+    visibleDataRows.length > 0 &&
+    visibleDataRows.every((row) => selectedIds.has(row.id));
 
   // Stable per-item key so the virtualizer's index→key map survives count
   // changes (collapse/expand, refetch): data rows key on their row id, headers
@@ -229,9 +236,11 @@ export function PipelineTable({
     (index: number) => {
       const item = flatItems[index];
       if (!item) return index;
-      return item.kind === "group-header" ? `group-header:${item.stage}` : `data:${item.row.id}`;
+      return item.kind === "group-header"
+        ? `group-header:${item.stage}`
+        : `data:${item.row.id}`;
     },
-    [flatItems],
+    [flatItems]
   );
 
   // ONE virtualizer over the flattened array. Item heights are deterministic per
@@ -274,7 +283,7 @@ export function PipelineTable({
       }
       onSortingChange([]);
     },
-    [onSortingChange, sorting],
+    [onSortingChange, sorting]
   );
 
   // The checkbox is a pure toggle: the shell owns the select-vs-deselect
@@ -297,7 +306,7 @@ export function PipelineTable({
       if (!activeCell) return;
       onCellKeyDown(activeCell.rowId, activeCell.columnId, event);
     },
-    [activeCell, onCellKeyDown],
+    [activeCell, onCellKeyDown]
   );
 
   return (
@@ -344,7 +353,6 @@ export function PipelineTable({
                   stage={item.stage}
                   count={item.count}
                   sumValue={item.sumValue}
-                  sumWeighted={item.sumWeighted}
                   collapsed={item.collapsed}
                   virtualStart={virtualRow.start}
                   totalWidth={totalWidth}

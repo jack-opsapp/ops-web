@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
@@ -24,6 +25,11 @@ export async function GET(request: NextRequest) {
     if (!connection) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      connection.companyId
+    );
+    if (authError) return authError;
 
     // Return only safe fields — never expose tokens to the client
     return NextResponse.json({
@@ -68,6 +74,11 @@ export async function PATCH(request: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      existing.companyId
+    );
+    if (authError) return authError;
 
     const mergedFilters = {
       ...((existing.syncFilters as Record<string, unknown>) || {}),

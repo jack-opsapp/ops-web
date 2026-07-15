@@ -8,10 +8,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { AutoSendService } from "@/lib/api/services/auto-send-service";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 export const maxDuration = 15;
 
@@ -20,16 +19,6 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    // ── Auth ──────────────────────────────────────────────────────────────
-    const authUser = await verifyAdminAuth(request);
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get("companyId");
     const connectionId = searchParams.get("connectionId");
@@ -40,24 +29,38 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      companyId,
+      "email.configure_ai"
+    );
+    if (authError) return authError;
 
     // Check feature gate
-    const featureEnabled =
-      await AdminFeatureOverrideService.isAIFeatureEnabled(
-        companyId,
-        "ai_auto_send"
-      );
+    const featureEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
+      companyId,
+      "ai_auto_send"
+    );
 
     // E5: Always return raw JSONB for autonomy panel, even if auto-send is disabled.
     // Auto-draft and autonomy features are independent of the auto-send feature flag.
-    const { data: rawConn } = await supabase
+    const { data: rawConn, error: connectionError } = await supabase
       .from("email_connections")
       .select("auto_send_settings")
       .eq("id", connectionId)
       .eq("company_id", companyId)
-      .single();
+      .maybeSingle();
+    if (connectionError) {
+      throw new Error(
+        `Failed to validate email connection: ${connectionError.message}`
+      );
+    }
+    if (!rawConn) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-    const rawSettings = (rawConn?.auto_send_settings as Record<string, unknown>) || {};
+    const rawSettings =
+      (rawConn?.auto_send_settings as Record<string, unknown>) || {};
 
     if (!featureEnabled) {
       return NextResponse.json({
@@ -100,16 +103,6 @@ export async function PUT(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    // ── Auth ──────────────────────────────────────────────────────────────
-    const putAuthUser = await verifyAdminAuth(request);
-    if (!putAuthUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const putUser = await findUserByAuth(putAuthUser.uid, putAuthUser.email, "id, company_id");
-    if (!putUser) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const body = await request.json();
     const { companyId, connectionId, settings } = body;
 
@@ -118,6 +111,27 @@ export async function PUT(request: NextRequest) {
         { error: "companyId, connectionId, and settings are required" },
         { status: 400 }
       );
+    }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      companyId,
+      "email.configure_ai"
+    );
+    if (authError) return authError;
+
+    const { data: ownedConnection, error: connectionError } = await supabase
+      .from("email_connections")
+      .select("id")
+      .eq("id", connectionId)
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (connectionError) {
+      throw new Error(
+        `Failed to validate email connection: ${connectionError.message}`
+      );
+    }
+    if (!ownedConnection) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Check feature gate — allow writes if EITHER ai_auto_send OR phase_c is enabled.

@@ -8,6 +8,7 @@
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { htmlToPlainText } from "@/lib/utils/email-parsing";
+import { matchesMicrosoft365ClientState } from "@/lib/email/microsoft365-webhook-security";
 import {
   ProviderApiError,
   ProviderAuthError,
@@ -19,6 +20,7 @@ import {
   type ImageAttachmentMeta,
   type NormalizedDraft,
   type NormalizedEmail,
+  type ProviderEmailSignatureResult,
   type SendEmailParams,
   type SendEmailResult,
   type SyncResult,
@@ -26,7 +28,110 @@ import {
 } from "../email-provider";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
-const SCOPES = ["Mail.Read", "Mail.ReadWrite", "Mail.Send"];
+const SCOPES = ["User.Read", "Mail.Read", "Mail.ReadWrite", "Mail.Send"];
+const MICROSOFT365_CURSOR_V1_PREFIX = "m365:v1:";
+const MICROSOFT365_CURSOR_PREFIX = "m365:v2:";
+
+/**
+ * Graph message delta is folder-scoped; there is no mailbox-wide message
+ * delta endpoint. The lossless mailbox cursor therefore combines:
+ *
+ * 1. one mailFolder delta link, which discovers archive/custom folders and
+ *    their lifecycle; and
+ * 2. one message delta/continuation link for every live folder.
+ *
+ * `pendingFolderIds` is a durable snapshot of the current message-delta round.
+ * A returned continuation is persisted only after its returned messages are
+ * persisted by SyncEngine, so a timeout retries data rather than skipping it.
+ */
+interface Microsoft365DeltaCursor {
+  folderDeltaLink: string;
+  messageDeltaLinks: Record<string, string>;
+  pendingFolderIds: string[];
+}
+
+function emptyDeltaCursor(): Microsoft365DeltaCursor {
+  return {
+    folderDeltaLink: "",
+    messageDeltaLinks: {},
+    pendingFolderIds: [],
+  };
+}
+
+function encodeDeltaCursor(cursor: Microsoft365DeltaCursor): string {
+  return `${MICROSOFT365_CURSOR_PREFIX}${JSON.stringify(cursor)}`;
+}
+
+function decodeDeltaCursor(syncToken: string): Microsoft365DeltaCursor {
+  if (!syncToken) return emptyDeltaCursor();
+
+  if (syncToken.startsWith(MICROSOFT365_CURSOR_PREFIX)) {
+    try {
+      const parsed = JSON.parse(
+        syncToken.slice(MICROSOFT365_CURSOR_PREFIX.length)
+      ) as Partial<Microsoft365DeltaCursor>;
+      if (
+        typeof parsed.folderDeltaLink !== "string" ||
+        !parsed.messageDeltaLinks ||
+        typeof parsed.messageDeltaLinks !== "object" ||
+        Array.isArray(parsed.messageDeltaLinks) ||
+        !Array.isArray(parsed.pendingFolderIds)
+      ) {
+        throw new Error("missing mailbox cursor fields");
+      }
+
+      const messageDeltaLinks = Object.fromEntries(
+        Object.entries(parsed.messageDeltaLinks).map(([folderId, link]) => {
+          if (!folderId || typeof link !== "string") {
+            throw new Error("invalid folder message cursor");
+          }
+          return [folderId, link];
+        })
+      );
+      const pendingFolderIds = parsed.pendingFolderIds.map((folderId) => {
+        if (
+          typeof folderId !== "string" ||
+          !folderId ||
+          !Object.prototype.hasOwnProperty.call(messageDeltaLinks, folderId)
+        ) {
+          throw new Error("invalid pending folder cursor");
+        }
+        return folderId;
+      });
+      if (new Set(pendingFolderIds).size !== pendingFolderIds.length) {
+        throw new Error("duplicate pending folder cursor");
+      }
+
+      return {
+        folderDeltaLink: parsed.folderDeltaLink,
+        messageDeltaLinks,
+        pendingFolderIds,
+      };
+    } catch (error) {
+      throw new ProviderApiError(
+        `M365 sync cursor is malformed: ${error instanceof Error ? error.message : "invalid JSON"}`,
+        500,
+        syncToken
+      );
+    }
+  }
+
+  if (
+    syncToken.startsWith(MICROSOFT365_CURSOR_V1_PREFIX) ||
+    syncToken.startsWith("http")
+  ) {
+    // Inbox/Sent-only cursors cannot prove that archive or custom-folder mail
+    // was ever observed. Upgrade by replaying a complete folder inventory.
+    // Immutable provider ids + database idempotency make that replay safe.
+    return emptyDeltaCursor();
+  }
+
+  throw new ProviderApiError(
+    "M365 sync cursor has an unsupported format",
+    500,
+    syncToken
+  );
+}
 
 /**
  * Inspect a Graph error response and throw a typed error so sync-engine can
@@ -81,7 +186,11 @@ function throwForGraphError(
     throw new SyncTokenExpiredError(`M365 ${context}: ${message}`, status);
   }
 
-  throw new ProviderApiError(`M365 ${context}: ${message}`, status, parsed ?? bodyText);
+  throw new ProviderApiError(
+    `M365 ${context}: ${message}`,
+    status,
+    parsed ?? bodyText
+  );
 }
 
 export class Microsoft365Provider implements EmailProviderInterface {
@@ -146,7 +255,9 @@ export class Microsoft365Provider implements EmailProviderInterface {
     }
 
     const newAccessToken = data.access_token as string;
-    const newExpiresAt = new Date(Date.now() + (data.expires_in as number) * 1000);
+    const newExpiresAt = new Date(
+      Date.now() + (data.expires_in as number) * 1000
+    );
 
     // Update in-memory
     this.connection.accessToken = newAccessToken;
@@ -184,6 +295,11 @@ export class Microsoft365Provider implements EmailProviderInterface {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        // Outlook's default REST ids change when a message moves folders.
+        // Immutable ids keep activity/event dedupe stable across Inbox,
+        // Archive, Sent, and webhook/delta reads. This must be sent on every
+        // message request and subscription creation for a consistent identity.
+        Prefer: 'IdType="ImmutableId"',
         ...(options?.headers || {}),
       },
     });
@@ -199,95 +315,231 @@ export class Microsoft365Provider implements EmailProviderInterface {
   }
 
   async getInitialSyncToken(): Promise<string> {
-    // M365's delta query is self-seeding: the first call with no deltaLink
-    // fetches an initial page and returns a deltaLink in the response. We
-    // return an empty string so fetchNewEmailsSince takes the "no deltaLink"
-    // branch on its next call.
-    return "";
+    return encodeDeltaCursor(emptyDeltaCursor());
   }
 
   /**
-   * Walk a Graph delta query's pagination chain from `startUrl` until we
-   * hit either a terminal `@odata.deltaLink` (end of the sync window) or
-   * our safety cap. Returns all messages collected across pages plus the
-   * final deltaLink to persist as the next sync token.
+   * Microsoft Graph only supports message delta per folder. A fixed
+   * Inbox/Sent pair is lossy: a server rule can deliver directly to a custom
+   * folder, and a move out of Inbox is represented there only as `@removed`.
    *
-   * Graph delta responses are paginated with `@odata.nextLink` (same-sync
-   * continuation) and terminated with `@odata.deltaLink` (next-sync
-   * pointer). Mutually exclusive: a given page has exactly one or the
-   * other. The original implementation only read the first page and
-   * treated the nextLink as "done, no deltaLink" — so:
-   *   - initial syncs against a busy mailbox only imported the first ~10
-   *     messages and immediately marked the connection as synced with
-   *     whatever deltaLink it saw last (sometimes none, masking the loss)
-   *   - the nextSyncToken could regress to `syncToken` when deltaLink
-   *     wasn't present, getting stuck on that page forever
+   * The smallest lossless Graph strategy is therefore a folder delta followed
+   * by one message delta per discovered folder. Both pagination layers share a
+   * 50-page invocation budget. Their nextLinks are embedded in the returned
+   * v2 cursor, and SyncEngine persists that cursor only after all returned
+   * messages are durably projected. Large mailboxes resume exactly where the
+   * last successful cycle stopped.
    *
-   * Cap at 50 pages per invocation to avoid unbounded loops on an
-   * active mailbox — ~500 messages at Graph's default page size, plenty
-   * for a 15-minute cron window.
+   * Message and folder tombstones advance their owning delta streams but never
+   * delete OPS correspondence. A move produces a source-folder tombstone plus
+   * a destination-folder addition; immutable ids collapse that addition to the
+   * same provider identity. Hard deletion means there is no body left to ingest.
    */
-  private async fetchDeltaPages(
-    startUrl: string
-  ): Promise<{ emails: NormalizedEmail[]; nextDeltaLink: string | null }> {
+  private async fetchMailboxDeltaPages(
+    sourceCursor: Microsoft365DeltaCursor
+  ): Promise<{
+    emails: NormalizedEmail[];
+    cursor: Microsoft365DeltaCursor;
+  }> {
     const MAX_PAGES = 50;
-    const emails: NormalizedEmail[] = [];
-    let currentUrl: string | null = startUrl;
-    let nextDeltaLink: string | null = null;
+    const cursor: Microsoft365DeltaCursor = {
+      folderDeltaLink: sourceCursor.folderDeltaLink,
+      messageDeltaLinks: { ...sourceCursor.messageDeltaLinks },
+      pendingFolderIds: [...sourceCursor.pendingFolderIds],
+    };
+    const emailsById = new Map<string, NormalizedEmail>();
+    let pagesRead = 0;
 
-    for (let page = 0; page < MAX_PAGES && currentUrl; page++) {
-      // Tag context as "delta" so throwForGraphError can map syncStateNotFound
-      // / syncStateInvalid responses to SyncTokenExpiredError for re-seed.
-      const data = await this.graphFetch(currentUrl, undefined, "delta");
-      const value = (data.value as Array<Record<string, unknown>>) || [];
-      for (const msg of value) {
-        emails.push(this.normalizeM365Message(msg));
+    // A non-empty pending queue means the preceding folder inventory already
+    // completed. Finish that exact message-delta round before asking for newer
+    // folder changes, otherwise a busy folder tree could starve continuations.
+    if (cursor.pendingFolderIds.length === 0) {
+      let folderUrl =
+        cursor.folderDeltaLink ||
+        "/me/mailFolders/delta?$select=id,parentFolderId";
+      let folderInventoryComplete = false;
+
+      while (pagesRead < MAX_PAGES) {
+        const requestedUrl = folderUrl;
+        pagesRead += 1;
+        const data = await this.graphFetch(
+          requestedUrl,
+          undefined,
+          "mailFolders delta"
+        );
+        for (const folder of (data.value as Array<Record<string, unknown>>) ||
+          []) {
+          const folderId = folder.id;
+          if (typeof folderId !== "string" || !folderId) {
+            throw new ProviderApiError(
+              "M365 mailFolders delta returned a folder without an id",
+              500,
+              folder
+            );
+          }
+          if (folder["@removed"]) {
+            delete cursor.messageDeltaLinks[folderId];
+          } else if (
+            !Object.prototype.hasOwnProperty.call(
+              cursor.messageDeltaLinks,
+              folderId
+            )
+          ) {
+            cursor.messageDeltaLinks[folderId] = "";
+          }
+        }
+
+        const delta = data["@odata.deltaLink"] as string | undefined;
+        const next = data["@odata.nextLink"] as string | undefined;
+        if (delta && next) {
+          throw new ProviderApiError(
+            "M365 mailFolders delta returned both deltaLink and nextLink",
+            500,
+            data
+          );
+        }
+        if (delta) {
+          cursor.folderDeltaLink = delta;
+          folderInventoryComplete = true;
+          break;
+        }
+        if (!next) {
+          throw new ProviderApiError(
+            "M365 mailFolders delta ended without a deltaLink or nextLink",
+            500,
+            data
+          );
+        }
+        if (next === requestedUrl) {
+          throw new ProviderApiError(
+            "M365 mailFolders delta returned a non-advancing nextLink",
+            500,
+            { requestedUrl, next }
+          );
+        }
+        cursor.folderDeltaLink = next;
+        folderUrl = next;
+      }
+
+      if (!folderInventoryComplete) {
+        return { emails: [], cursor };
+      }
+
+      cursor.pendingFolderIds = Object.keys(cursor.messageDeltaLinks).sort();
+    }
+
+    const messageSelect = [
+      "id",
+      "conversationId",
+      "from",
+      "toRecipients",
+      "ccRecipients",
+      "subject",
+      "bodyPreview",
+      "body",
+      "receivedDateTime",
+      "categories",
+      "isDraft",
+      "isRead",
+      "hasAttachments",
+    ].join(",");
+
+    while (pagesRead < MAX_PAGES && cursor.pendingFolderIds.length > 0) {
+      const folderId = cursor.pendingFolderIds[0];
+      const requestedUrl =
+        cursor.messageDeltaLinks[folderId] ||
+        `/me/mailFolders/${encodeURIComponent(folderId)}/messages/delta?$select=${messageSelect}`;
+
+      let data: Record<string, unknown>;
+      pagesRead += 1;
+      try {
+        data = await this.graphFetch(
+          requestedUrl,
+          undefined,
+          `messages delta (${folderId})`
+        );
+      } catch (error) {
+        if (error instanceof ProviderApiError && error.providerStatus === 404) {
+          // A folder can be deleted between inventory and its message walk,
+          // but a generic 404 is not sufficient proof to forget its cursor.
+          // Skip it for this round so other folders keep advancing, retain it
+          // for retry, and let a positive mailFolders @removed tombstone be
+          // the only event that permanently removes the stream.
+          cursor.pendingFolderIds.shift();
+          continue;
+        }
+        throw error;
+      }
+
+      for (const message of (data.value as Array<Record<string, unknown>>) ||
+        []) {
+        // Folder-wide discovery includes Drafts/Outbox. Unsent drafts are not
+        // correspondence and must never create a lead; once sent, Graph emits
+        // the resulting non-draft message through the destination folder.
+        if (message["@removed"] || message.isDraft === true) continue;
+        if (typeof message.id !== "string" || !message.id) {
+          throw new ProviderApiError(
+            `M365 messages delta (${folderId}) returned a message without an id`,
+            500,
+            message
+          );
+        }
+        emailsById.set(message.id, this.normalizeM365Message(message));
       }
 
       const delta = data["@odata.deltaLink"] as string | undefined;
       const next = data["@odata.nextLink"] as string | undefined;
-
-      if (delta) {
-        nextDeltaLink = delta;
-        currentUrl = null;
-      } else if (next) {
-        currentUrl = next;
-      } else {
-        // Neither link present — end of page chain without a clear
-        // terminator. Keep currentUrl null to break out.
-        currentUrl = null;
+      if (delta && next) {
+        throw new ProviderApiError(
+          `M365 messages delta (${folderId}) returned both deltaLink and nextLink`,
+          500,
+          data
+        );
       }
+      if (delta) {
+        cursor.messageDeltaLinks[folderId] = delta;
+        cursor.pendingFolderIds.shift();
+        continue;
+      }
+      if (!next) {
+        throw new ProviderApiError(
+          `M365 messages delta (${folderId}) ended without a deltaLink or nextLink`,
+          500,
+          data
+        );
+      }
+      if (next === requestedUrl) {
+        throw new ProviderApiError(
+          `M365 messages delta (${folderId}) returned a non-advancing nextLink`,
+          500,
+          { requestedUrl, next }
+        );
+      }
+      cursor.messageDeltaLinks[folderId] = next;
     }
 
-    return { emails, nextDeltaLink };
+    return { emails: [...emailsById.values()], cursor };
   }
 
   async fetchNewEmailsSince(syncToken: string): Promise<SyncResult> {
-    // M365 delta query — syncToken is the deltaLink from last sync. On
-    // first sync (empty string) start from the folder's delta endpoint
-    // with $select so body.contentType is normalized (see B16 notes).
-    const startUrl = syncToken && syncToken.startsWith("http")
-      ? syncToken
-      : `/me/mailFolders/inbox/messages/delta?$select=id,conversationId,from,toRecipients,ccRecipients,subject,bodyPreview,body,receivedDateTime,categories,isRead,hasAttachments`;
-
-    const { emails, nextDeltaLink } = await this.fetchDeltaPages(startUrl);
+    const cursor = decodeDeltaCursor(syncToken);
+    const result = await this.fetchMailboxDeltaPages(cursor);
 
     return {
-      emails,
-      nextSyncToken: nextDeltaLink || syncToken,
+      emails: result.emails,
+      nextSyncToken: encodeDeltaCursor(result.cursor),
     };
   }
 
   async fetchSentEmailsSince(syncToken: string): Promise<SyncResult> {
-    const startUrl = syncToken && syncToken.startsWith("http")
-      ? syncToken
-      : `/me/mailFolders/sentitems/messages/delta?$select=id,conversationId,from,toRecipients,ccRecipients,subject,bodyPreview,body,receivedDateTime,categories,isRead,hasAttachments`;
-
-    const { emails, nextDeltaLink } = await this.fetchDeltaPages(startUrl);
-
+    // fetchNewEmailsSince is mailbox-wide and already includes Sent plus any
+    // outbound message moved elsewhere. Keep the provider interface's second
+    // seam as a cursor-preserving no-op so SyncEngine does not walk or advance
+    // the same folder streams twice.
+    const cursor = decodeDeltaCursor(syncToken);
     return {
-      emails,
-      nextSyncToken: nextDeltaLink || syncToken,
+      emails: [],
+      nextSyncToken: encodeDeltaCursor(cursor),
     };
   }
 
@@ -319,19 +571,45 @@ export class Microsoft365Provider implements EmailProviderInterface {
     // never show quoted reply chains inline. `body` stays required for the
     // full-context fields that feed classification / Phase C memory.
     const selectFields = [
-      "id", "conversationId", "from", "toRecipients", "ccRecipients",
-      "subject", "bodyPreview", "body", "uniqueBody",
-      "receivedDateTime", "categories", "isRead", "hasAttachments",
+      "id",
+      "conversationId",
+      "from",
+      "toRecipients",
+      "ccRecipients",
+      "subject",
+      "bodyPreview",
+      "body",
+      "uniqueBody",
+      "receivedDateTime",
+      "categories",
+      "isDraft",
+      "isRead",
+      "hasAttachments",
     ].join(",");
-    const data = await this.graphFetch(
+    const MAX_THREAD_PAGES = 50;
+    const messages: NormalizedEmail[] = [];
+    let nextUrl: string | null =
       `/me/messages?$filter=conversationId eq '${threadId}'` +
       `&$select=${selectFields}` +
-      `&$orderby=receivedDateTime asc&$top=100`
-    );
+      `&$orderby=receivedDateTime asc&$top=100`;
 
-    return ((data.value as Array<Record<string, unknown>>) || []).map((msg) =>
-      this.normalizeM365Message(msg)
-    );
+    for (let page = 0; page < MAX_THREAD_PAGES && nextUrl; page++) {
+      const data = await this.graphFetch(nextUrl);
+      for (const msg of (data.value as Array<Record<string, unknown>>) || []) {
+        if (msg["@removed"] || msg.isDraft === true) continue;
+        messages.push(this.normalizeM365Message(msg));
+      }
+      nextUrl = (data["@odata.nextLink"] as string | undefined) ?? null;
+    }
+
+    if (nextUrl) {
+      throw new ProviderApiError(
+        `M365 thread ${threadId} exceeded ${MAX_THREAD_PAGES * 100} messages; full analysis was not attempted`,
+        500,
+        { threadId, nextUrl }
+      );
+    }
+    return messages;
   }
 
   async listThreadIds(options: {
@@ -385,7 +663,10 @@ export class Microsoft365Provider implements EmailProviderInterface {
     // graphFetch the next time round. graphFetch prepends the base, so strip
     // it here if it's absolute.
     let nextPageToken: string | null = data["@odata.nextLink"] ?? null;
-    if (nextPageToken && nextPageToken.startsWith("https://graph.microsoft.com")) {
+    if (
+      nextPageToken &&
+      nextPageToken.startsWith("https://graph.microsoft.com")
+    ) {
       nextPageToken = nextPageToken.replace(
         /^https:\/\/graph\.microsoft\.com\/v1\.0/,
         ""
@@ -556,11 +837,15 @@ export class Microsoft365Provider implements EmailProviderInterface {
     to: string,
     subject: string,
     body: string,
-    threadId?: string
+    threadId?: string,
+    contentType: "text" | "html" = "text"
   ): Promise<string> {
     const message: Record<string, unknown> = {
       subject,
-      body: { contentType: "text", content: body },
+      body: {
+        contentType: contentType === "html" ? "HTML" : "Text",
+        content: body,
+      },
       toRecipients: [{ emailAddress: { address: to } }],
     };
     if (threadId) message.conversationId = threadId;
@@ -575,13 +860,17 @@ export class Microsoft365Provider implements EmailProviderInterface {
   async createNewThreadDraft(
     to: string,
     subject: string,
-    body: string
+    body: string,
+    contentType: "text" | "html" = "text"
   ): Promise<CreateNewThreadDraftResult> {
     // No conversationId → Graph mints a fresh conversation for the draft. The
     // created message resource carries that conversation id at conversationId.
     const message: Record<string, unknown> = {
       subject,
-      body: { contentType: "text", content: body },
+      body: {
+        contentType: contentType === "html" ? "HTML" : "Text",
+        content: body,
+      },
       toRecipients: [{ emailAddress: { address: to } }],
     };
     const data = await this.graphFetch("/me/messages", {
@@ -599,7 +888,8 @@ export class Microsoft365Provider implements EmailProviderInterface {
     to: string,
     subject: string,
     body: string,
-    _threadId?: string
+    _threadId?: string,
+    contentType: "text" | "html" = "text"
   ): Promise<void> {
     // Graph drafts live as regular messages in the Drafts folder; PATCH on
     // the message id replaces the writable fields without disturbing
@@ -610,7 +900,10 @@ export class Microsoft365Provider implements EmailProviderInterface {
       method: "PATCH",
       body: JSON.stringify({
         subject,
-        body: { contentType: "text", content: body },
+        body: {
+          contentType: contentType === "html" ? "HTML" : "Text",
+          content: body,
+        },
         toRecipients: [{ emailAddress: { address: to } }],
       }),
     });
@@ -621,15 +914,53 @@ export class Microsoft365Provider implements EmailProviderInterface {
     // Outlook's Drafts view. $select keeps the payload tight; $top=100 caps
     // the list (same as Gmail — we don't paginate drafts).
     const selectFields = [
-      "id", "conversationId", "toRecipients", "ccRecipients",
-      "subject", "body", "lastModifiedDateTime",
+      "id",
+      "conversationId",
+      "toRecipients",
+      "ccRecipients",
+      "subject",
+      "body",
+      "isDraft",
+      "lastModifiedDateTime",
     ].join(",");
     const data = (await this.graphFetch(
       `/me/mailFolders/drafts/messages?$select=${selectFields}` +
-      `&$orderby=lastModifiedDateTime desc&$top=100`
+        `&$orderby=lastModifiedDateTime desc&$top=100`
     )) as { value?: Array<Record<string, unknown>> };
 
     return (data.value ?? []).map((msg) => this.normalizeM365Draft(msg));
+  }
+
+  async getDraft(draftId: string): Promise<NormalizedDraft | null> {
+    const selectFields = [
+      "id",
+      "conversationId",
+      "toRecipients",
+      "ccRecipients",
+      "subject",
+      "body",
+      "isDraft",
+      "lastModifiedDateTime",
+    ].join(",");
+    const token = await this.getToken();
+    const encodedId = encodeURIComponent(draftId);
+    const res = await fetch(
+      `${GRAPH_BASE}/me/messages/${encodedId}?$select=${selectFields}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Prefer: 'IdType="ImmutableId"',
+        },
+      }
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throwForGraphError(res.status, body, "messages/get (draft)");
+    }
+    const message = (await res.json()) as Record<string, unknown>;
+    if (message.isDraft !== true) return null;
+    return this.normalizeM365Draft(message);
   }
 
   async deleteDraft(draftId: string): Promise<void> {
@@ -641,7 +972,10 @@ export class Microsoft365Provider implements EmailProviderInterface {
     const token = await this.getToken();
     const res = await fetch(`${GRAPH_BASE}/me/messages/${draftId}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Prefer: 'IdType="ImmutableId"',
+      },
     });
     if (!res.ok && res.status !== 404) {
       const body = await res.text().catch(() => "");
@@ -688,6 +1022,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
 
   async setupWebhook(webhookUrl: string): Promise<WebhookSubscription> {
     const expiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days max
+    const clientState = crypto.randomUUID();
     const data = await this.graphFetch("/subscriptions", {
       method: "POST",
       body: JSON.stringify({
@@ -695,13 +1030,14 @@ export class Microsoft365Provider implements EmailProviderInterface {
         notificationUrl: webhookUrl,
         resource: "me/messages",
         expirationDateTime: expiry.toISOString(),
-        clientState: this.connection.id,
+        clientState,
       }),
     });
 
     return {
       subscriptionId: data.id as string,
       expiresAt: new Date(data.expirationDateTime as string),
+      clientState,
     };
   }
 
@@ -722,27 +1058,48 @@ export class Microsoft365Provider implements EmailProviderInterface {
     _headers: Record<string, string>,
     body: string
   ): Promise<boolean> {
-    // M365 sends clientState in the notification — verify it matches our connection ID
+    // Bind both the random clientState secret and Graph subscription id to
+    // this connection. The webhook route performs the same check against the
+    // database before any service-role dispatch.
     try {
       const payload = JSON.parse(body);
       const notifications = payload.value || [];
-      return notifications.every(
-        (n: { clientState?: string }) =>
-          n.clientState === this.connection.id
-      );
+      if (!Array.isArray(notifications) || notifications.length === 0) {
+        return false;
+      }
+      for (const n of notifications as Array<{
+        clientState?: string;
+        subscriptionId?: string;
+      }>) {
+        if (
+          typeof n.clientState !== "string" ||
+          n.subscriptionId !== this.connection.webhookSubscriptionId ||
+          !(await matchesMicrosoft365ClientState(
+            n.clientState,
+            this.connection.webhookClientStateHash
+          ))
+        ) {
+          return false;
+        }
+      }
+      return true;
     } catch {
       return false;
     }
   }
 
-  async getImageAttachmentsFromThread(threadId: string): Promise<ImageAttachmentMeta[]> {
+  async getImageAttachmentsFromThread(
+    threadId: string
+  ): Promise<ImageAttachmentMeta[]> {
     const all = await this.getAttachmentsFromThread(threadId);
     return all
       .filter((a) => a.mimeType.startsWith("image/"))
       .map(({ date: _date, ...rest }) => rest);
   }
 
-  async getAttachmentsFromThread(threadId: string): Promise<EmailAttachmentMeta[]> {
+  async getAttachmentsFromThread(
+    threadId: string
+  ): Promise<EmailAttachmentMeta[]> {
     // Fetch the full thread once so we have both the message date and a
     // way to skip messages that the provider already flagged as
     // attachment-free (avoids a per-message attachment fetch on threads
@@ -786,7 +1143,10 @@ export class Microsoft365Provider implements EmailProviderInterface {
     return out;
   }
 
-  async fetchAttachment(messageId: string, attachmentId: string): Promise<Buffer> {
+  async fetchAttachment(
+    messageId: string,
+    attachmentId: string
+  ): Promise<Buffer> {
     const data = await this.graphFetch(
       `/me/messages/${messageId}/attachments/${attachmentId}`
     );
@@ -798,12 +1158,20 @@ export class Microsoft365Provider implements EmailProviderInterface {
   async getProfile(): Promise<{ email: string; name: string }> {
     const data = await this.graphFetch("/me");
     return {
-      email:
-        (data.mail as string) || (data.userPrincipalName as string),
-      name:
-        (data.displayName as string) ||
-        (data.mail as string) ||
-        "",
+      email: (data.mail as string) || (data.userPrincipalName as string),
+      name: (data.displayName as string) || (data.mail as string) || "",
+    };
+  }
+
+  async getEmailSignature(): Promise<ProviderEmailSignatureResult> {
+    // Microsoft Graph does not expose the user's Outlook/Office signature.
+    // Keep this deliberately local: no speculative mailbox request and no
+    // mutation. The settings flow can store an explicitly confirmed copy.
+    return {
+      status: "unsupported",
+      source: "microsoft_confirmed",
+      providerIdentity: this.connection.email.trim() || null,
+      contentHtml: null,
     };
   }
 
@@ -817,13 +1185,13 @@ export class Microsoft365Provider implements EmailProviderInterface {
    */
   private async graphSend(messageId: string): Promise<void> {
     const token = await this.getToken();
-    const res = await fetch(
-      `${GRAPH_BASE}/me/messages/${messageId}/send`,
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const res = await fetch(`${GRAPH_BASE}/me/messages/${messageId}/send`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Prefer: 'IdType="ImmutableId"',
+      },
+    });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throwForGraphError(res.status, body, "messages/send");
@@ -844,29 +1212,33 @@ export class Microsoft365Provider implements EmailProviderInterface {
     return htmlToPlainText(msgBody.content);
   }
 
-  private normalizeM365Message(
-    msg: Record<string, unknown>
-  ): NormalizedEmail {
-    const from = msg.from as {
-      emailAddress?: { address?: string; name?: string };
-    } | undefined;
+  private normalizeM365Message(msg: Record<string, unknown>): NormalizedEmail {
+    const from = msg.from as
+      | {
+          emailAddress?: { address?: string; name?: string };
+        }
+      | undefined;
     const toRecipients = (msg.toRecipients || []) as Array<{
       emailAddress?: { address?: string };
     }>;
     const ccRecipients = (msg.ccRecipients || []) as Array<{
       emailAddress?: { address?: string };
     }>;
-    const msgBody = msg.body as {
-      contentType?: string;
-      content?: string;
-    } | undefined;
+    const msgBody = msg.body as
+      | {
+          contentType?: string;
+          content?: string;
+        }
+      | undefined;
     // uniqueBody is Graph's server-stripped variant (new content only, no
     // quoted chain). Only present when we $select it on the thread endpoint —
     // delta / list paths still populate `body` alone and this stays undefined.
-    const msgUniqueBody = msg.uniqueBody as {
-      contentType?: string;
-      content?: string;
-    } | undefined;
+    const msgUniqueBody = msg.uniqueBody as
+      | {
+          contentType?: string;
+          content?: string;
+        }
+      | undefined;
 
     const fullText = this.bodyToText(msgBody);
     const cleanText = msgUniqueBody?.content

@@ -206,21 +206,23 @@ export enum QuoteDeliveryMethod {
   Other = "other",
 }
 
-export const QUOTE_DELIVERY_METHOD_LABELS: Record<QuoteDeliveryMethod, string> = {
-  [QuoteDeliveryMethod.InPerson]: "In Person",
-  [QuoteDeliveryMethod.Email]: "Email",
-  [QuoteDeliveryMethod.Phone]: "Phone",
-  [QuoteDeliveryMethod.Mail]: "Mail",
-  [QuoteDeliveryMethod.Other]: "Other",
-};
+export const QUOTE_DELIVERY_METHOD_LABELS: Record<QuoteDeliveryMethod, string> =
+  {
+    [QuoteDeliveryMethod.InPerson]: "In Person",
+    [QuoteDeliveryMethod.Email]: "Email",
+    [QuoteDeliveryMethod.Phone]: "Phone",
+    [QuoteDeliveryMethod.Mail]: "Mail",
+    [QuoteDeliveryMethod.Other]: "Other",
+  };
 
-export const QUOTE_DELIVERY_METHOD_ICONS: Record<QuoteDeliveryMethod, string> = {
-  [QuoteDeliveryMethod.InPerson]: "user",
-  [QuoteDeliveryMethod.Email]: "mail",
-  [QuoteDeliveryMethod.Phone]: "phone",
-  [QuoteDeliveryMethod.Mail]: "mailbox",
-  [QuoteDeliveryMethod.Other]: "more-horizontal",
-};
+export const QUOTE_DELIVERY_METHOD_ICONS: Record<QuoteDeliveryMethod, string> =
+  {
+    [QuoteDeliveryMethod.InPerson]: "user",
+    [QuoteDeliveryMethod.Email]: "mail",
+    [QuoteDeliveryMethod.Phone]: "phone",
+    [QuoteDeliveryMethod.Mail]: "mailbox",
+    [QuoteDeliveryMethod.Other]: "more-horizontal",
+  };
 
 /** Discount type for estimates and invoices */
 export enum DiscountType {
@@ -532,9 +534,9 @@ export interface Product {
   defaultPrice: number;
   unitCost: number | null;
   unit: string;
-  unitId?: string | null;      // FK to catalog_units.id; nullable for legacy rows
+  unitId?: string | null; // FK to catalog_units.id; nullable for legacy rows
   category: string | null;
-  categoryId?: string | null;  // FK to catalog_categories.id; nullable for legacy rows
+  categoryId?: string | null; // FK to catalog_categories.id; nullable for legacy rows
   type: LineItemType;
   taskTypeId: string | null;
   isTaxable: boolean;
@@ -823,6 +825,7 @@ export interface Activity {
   direction: "inbound" | "outbound" | null;
   durationMinutes: number | null;
   attachments: string[];
+  emailConnectionId: string | null;
   emailThreadId: string | null;
   emailMessageId: string | null;
   isRead: boolean;
@@ -908,12 +911,20 @@ export function previousOpportunityStage(
 
 /** Active stages (neither Won nor Lost) */
 export function isActiveStage(stage: OpportunityStage): boolean {
-  return stage !== OpportunityStage.Won && stage !== OpportunityStage.Lost && stage !== OpportunityStage.Discarded;
+  return (
+    stage !== OpportunityStage.Won &&
+    stage !== OpportunityStage.Lost &&
+    stage !== OpportunityStage.Discarded
+  );
 }
 
 /** Terminal stages (Won or Lost) */
 export function isTerminalStage(stage: OpportunityStage): boolean {
-  return stage === OpportunityStage.Won || stage === OpportunityStage.Lost || stage === OpportunityStage.Discarded;
+  return (
+    stage === OpportunityStage.Won ||
+    stage === OpportunityStage.Lost ||
+    stage === OpportunityStage.Discarded
+  );
 }
 
 /** Get ordered active stages only (excludes Won and Lost) */
@@ -944,7 +955,11 @@ export function getWeightedValue(
   opportunity: Pick<Opportunity, "estimatedValue" | "winProbability">
 ): number {
   if (!opportunity.estimatedValue) return 0;
-  return Math.round(opportunity.estimatedValue * (opportunity.winProbability / 100) * 100) / 100;
+  return (
+    Math.round(
+      opportunity.estimatedValue * (opportunity.winProbability / 100) * 100
+    ) / 100
+  );
 }
 
 /** Check if an opportunity is stale (no activity within threshold) */
@@ -952,7 +967,8 @@ export function isOpportunityStale(
   opportunity: Pick<Opportunity, "lastActivityAt" | "stageEnteredAt">,
   staleThresholdDays: number = 7
 ): boolean {
-  const referenceDate = opportunity.lastActivityAt ?? opportunity.stageEnteredAt;
+  const referenceDate =
+    opportunity.lastActivityAt ?? opportunity.stageEnteredAt;
   if (!referenceDate) return false;
   const now = new Date();
   const diffMs = now.getTime() - referenceDate.getTime();
@@ -1040,9 +1056,7 @@ export function isInvoicePayable(
 }
 
 /** Get days until due (negative means overdue) */
-export function getDaysUntilDue(
-  invoice: Pick<Invoice, "dueDate">
-): number {
+export function getDaysUntilDue(invoice: Pick<Invoice, "dueDate">): number {
   const now = new Date();
   const diffMs = invoice.dueDate.getTime() - now.getTime();
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
@@ -1079,7 +1093,9 @@ export function calculateLineTotal(
   unitPrice: number,
   discountPercent: number = 0
 ): number {
-  return Math.round(quantity * unitPrice * (1 - discountPercent / 100) * 100) / 100;
+  return (
+    Math.round(quantity * unitPrice * (1 - discountPercent / 100) * 100) / 100
+  );
 }
 
 /** Calculate line item tax amount */
@@ -1089,7 +1105,10 @@ export function calculateLineTax(lineTotal: number, taxRate: number): number {
 
 /** Calculate document totals from line items and a tax rate */
 export function calculateDocumentTotals(
-  lineItems: Pick<LineItem, "lineTotal" | "isTaxable" | "isOptional" | "isSelected">[],
+  lineItems: Pick<
+    LineItem,
+    "lineTotal" | "isTaxable" | "isOptional" | "isSelected"
+  >[],
   taxRate: number = 0,
   discountAmount: number = 0
 ): { subtotal: number; taxAmount: number; total: number } {
@@ -1122,7 +1141,10 @@ export function formatTaxRate(rate: number): string {
 }
 
 /** Format currency amount */
-export function formatCurrency(amount: number, currency: string = "USD"): string {
+export function formatCurrency(
+  amount: number,
+  currency: string = "USD"
+): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
@@ -1163,6 +1185,8 @@ export type CreateOpportunity = Omit<
   | "sourceEmailId"
 > & {
   sourceEmailId?: string | null;
+  /** Stable logical ingestion key written atomically with email opportunities. */
+  sourceThreadKey?: string | null;
   correspondenceCount?: number;
   outboundCount?: number;
   inboundCount?: number;
@@ -1227,6 +1251,7 @@ export type CreateActivity = Omit<
   | "projectId"
   | "siteVisitId"
   | "attachments"
+  | "emailConnectionId"
   | "emailThreadId"
   | "emailMessageId"
   | "isRead"
@@ -1243,6 +1268,7 @@ export type CreateActivity = Omit<
   projectId?: string | null;
   siteVisitId?: string | null;
   attachments?: string[];
+  emailConnectionId?: string | null;
   emailThreadId?: string | null;
   emailMessageId?: string | null;
   isRead?: boolean;
@@ -1257,6 +1283,8 @@ export type CreateActivity = Omit<
   matchConfidence?: string | null;
   matchNeedsReview?: boolean;
   suggestedClientId?: string | null;
+  /** Provider/business occurrence time; defaults to the database insert time. */
+  occurredAt?: Date | string;
 };
 
 export type CreateFollowUp = Omit<
@@ -1284,7 +1312,9 @@ export type CreateAccountingConnection = Omit<
   "id" | "createdAt" | "updatedAt"
 >;
 
-export type UpdateAccountingConnection = Partial<CreateAccountingConnection> & { id: string };
+export type UpdateAccountingConnection = Partial<CreateAccountingConnection> & {
+  id: string;
+};
 
 /**
  * Update type - all fields optional except id.
@@ -1303,12 +1333,16 @@ export type UpdateEstimate = Partial<CreateEstimate> & { id: string };
 export type UpdateInvoice = Partial<CreateInvoice> & { id: string };
 export type UpdateLineItem = Partial<CreateLineItem> & { id: string };
 export type UpdatePayment = Partial<CreatePayment> & { id: string };
-export type UpdatePaymentMilestone = Partial<CreatePaymentMilestone> & { id: string };
+export type UpdatePaymentMilestone = Partial<CreatePaymentMilestone> & {
+  id: string;
+};
 export type UpdateActivity = Partial<CreateActivity> & { id: string };
 export type UpdateFollowUp = Partial<CreateFollowUp> & { id: string };
 export type UpdateProduct = Partial<CreateProduct> & { id: string };
 export type UpdateTaxRate = Partial<CreateTaxRate> & { id: string };
-export type UpdatePipelineStageConfig = Partial<CreatePipelineStageConfig> & { id: string };
+export type UpdatePipelineStageConfig = Partial<CreatePipelineStageConfig> & {
+  id: string;
+};
 
 // ─── Helper Props Type ────────────────────────────────────────────────────────
 
@@ -1572,7 +1606,8 @@ export type GmailConnectionStatus =
   | "paused"
   | "error"
   | "setup_incomplete"
-  | "needs_reconnect";
+  | "needs_reconnect"
+  | "disconnected";
 
 export interface GmailConnection {
   id: string;
@@ -1619,7 +1654,12 @@ export interface UpdateGmailConnection {
 
 // ─── Email CRM Integration Types ─────────────────────────────────────────────
 
-export type MatchConfidence = "exact" | "domain" | "phone" | "manual" | "unmatched";
+export type MatchConfidence =
+  | "exact"
+  | "domain"
+  | "phone"
+  | "manual"
+  | "unmatched";
 
 export interface GmailSyncFilters {
   labelIds: string[];
@@ -1654,8 +1694,19 @@ export interface GmailSyncFilters {
 
 // ─── Structured Filter Rules ─────────────────────────────────────────────────
 
-export type EmailFilterField = "subject" | "from_email" | "from_domain" | "label" | "body";
-export type EmailFilterOperator = "contains" | "not_contains" | "equals" | "not_equals" | "starts_with" | "ends_with";
+export type EmailFilterField =
+  | "subject"
+  | "from_email"
+  | "from_domain"
+  | "label"
+  | "body";
+export type EmailFilterOperator =
+  | "contains"
+  | "not_contains"
+  | "equals"
+  | "not_equals"
+  | "starts_with"
+  | "ends_with";
 
 export interface EmailFilterRule {
   id: string;
@@ -1689,41 +1740,96 @@ export interface EmailFilterPreset {
 
 export const PUBLIC_EMAIL_DOMAINS = new Set([
   // Global providers
-  "gmail.com", "googlemail.com",
-  "yahoo.com", "yahoo.ca", "yahoo.co.uk", "yahoo.com.au", "ymail.com", "rocketmail.com",
-  "outlook.com", "outlook.ca", "outlook.co.uk", "outlook.com.au",
-  "hotmail.com", "hotmail.ca", "hotmail.co.uk", "hotmail.com.au",
-  "live.com", "live.ca", "live.co.uk", "live.com.au",
-  "msn.com", "msn.ca",
-  "aol.com", "aol.ca",
-  "icloud.com", "me.com", "mac.com",
-  "protonmail.com", "proton.me", "pm.me",
-  "mail.com", "email.com",
-  "zoho.com", "zohomail.com",
-  "gmx.com", "gmx.net", "gmx.ca",
-  "inbox.com", "fastmail.com",
-  "tutanota.com", "tuta.io",
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "yahoo.ca",
+  "yahoo.co.uk",
+  "yahoo.com.au",
+  "ymail.com",
+  "rocketmail.com",
+  "outlook.com",
+  "outlook.ca",
+  "outlook.co.uk",
+  "outlook.com.au",
+  "hotmail.com",
+  "hotmail.ca",
+  "hotmail.co.uk",
+  "hotmail.com.au",
+  "live.com",
+  "live.ca",
+  "live.co.uk",
+  "live.com.au",
+  "msn.com",
+  "msn.ca",
+  "aol.com",
+  "aol.ca",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "protonmail.com",
+  "proton.me",
+  "pm.me",
+  "mail.com",
+  "email.com",
+  "zoho.com",
+  "zohomail.com",
+  "gmx.com",
+  "gmx.net",
+  "gmx.ca",
+  "inbox.com",
+  "fastmail.com",
+  "tutanota.com",
+  "tuta.io",
   "hey.com",
   // US ISPs
-  "comcast.net", "xfinity.com",
-  "att.net", "sbcglobal.net", "bellsouth.net",
+  "comcast.net",
+  "xfinity.com",
+  "att.net",
+  "sbcglobal.net",
+  "bellsouth.net",
   "verizon.net",
-  "cox.net", "charter.net", "spectrum.net",
-  "earthlink.net", "windstream.net", "frontier.com",
-  "centurylink.net", "centurytel.net",
+  "cox.net",
+  "charter.net",
+  "spectrum.net",
+  "earthlink.net",
+  "windstream.net",
+  "frontier.com",
+  "centurylink.net",
+  "centurytel.net",
   // Canadian ISPs
-  "telus.net", "telusplanet.net",
-  "shaw.ca", "shawcable.com",
-  "bell.net", "bell.ca", "bellnet.ca", "sympatico.ca",
-  "rogers.com", "cogeco.ca", "cogeco.net",
-  "videotron.ca", "videotron.qc.ca",
-  "eastlink.ca", "ns.sympatico.ca",
-  "sasktel.net", "mts.net", "tbaytel.net",
-  "execulink.com", "persona.ca", "teksavvy.com",
+  "telus.net",
+  "telusplanet.net",
+  "shaw.ca",
+  "shawcable.com",
+  "bell.net",
+  "bell.ca",
+  "bellnet.ca",
+  "sympatico.ca",
+  "rogers.com",
+  "cogeco.ca",
+  "cogeco.net",
+  "videotron.ca",
+  "videotron.qc.ca",
+  "eastlink.ca",
+  "ns.sympatico.ca",
+  "sasktel.net",
+  "mts.net",
+  "tbaytel.net",
+  "execulink.com",
+  "persona.ca",
+  "teksavvy.com",
   // UK ISPs
-  "btinternet.com", "virginmedia.com", "sky.com", "talktalk.net", "plusnet.com",
+  "btinternet.com",
+  "virginmedia.com",
+  "sky.com",
+  "talktalk.net",
+  "plusnet.com",
   // Australian ISPs
-  "bigpond.com", "bigpond.net.au", "optusnet.com.au", "tpg.com.au",
+  "bigpond.com",
+  "bigpond.net.au",
+  "optusnet.com.au",
+  "tpg.com.au",
 ]);
 
 export const DEFAULT_SYNC_FILTERS: GmailSyncFilters = {

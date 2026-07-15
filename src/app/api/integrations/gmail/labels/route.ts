@@ -8,10 +8,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import type { GmailSyncFilters } from "@/lib/types/pipeline";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 interface ConnectionRow {
   id: string;
+  company_id: string;
   access_token: string;
   refresh_token: string;
   expires_at: string;
@@ -41,7 +42,8 @@ async function getValidToken(conn: ConnectionRow): Promise<string> {
   });
 
   const json = await response.json();
-  if (!json.access_token) throw new Error("Failed to refresh Gmail access token");
+  if (!json.access_token)
+    throw new Error("Failed to refresh Gmail access token");
 
   const supabase = getServiceRoleClient();
   await supabase
@@ -62,36 +64,53 @@ export async function GET(request: NextRequest) {
   try {
     const connectionId = request.nextUrl.searchParams.get("connectionId");
     if (!connectionId) {
-      return NextResponse.json({ error: "connectionId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "connectionId is required" },
+        { status: 400 }
+      );
     }
 
     const { data: connRow, error: connError } = await supabase
       .from("email_connections")
-      .select("id, access_token, refresh_token, expires_at")
+      .select("id, company_id, access_token, refresh_token, expires_at")
       .eq("id", connectionId)
       .single();
 
     if (connError || !connRow) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Connection not found" },
+        { status: 404 }
+      );
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      connRow.company_id as string
+    );
+    if (authError) return authError;
 
     const token = await getValidToken(connRow as ConnectionRow);
 
     const resp = await fetch(
       "https://gmail.googleapis.com/gmail/v1/users/me/labels",
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: { Authorization: `Bearer ${token}` } }
     );
 
     if (!resp.ok) {
       return NextResponse.json(
         { error: `Gmail API error: ${resp.status}` },
-        { status: 502 },
+        { status: 502 }
       );
     }
 
     const data = await resp.json();
     const labels: GmailLabel[] = (data.labels ?? [])
-      .filter((l: GmailLabel) => l.type === "user" || ["INBOX", "SENT", "IMPORTANT", "STARRED", "SPAM", "TRASH"].includes(l.id))
+      .filter(
+        (l: GmailLabel) =>
+          l.type === "user" ||
+          ["INBOX", "SENT", "IMPORTANT", "STARRED", "SPAM", "TRASH"].includes(
+            l.id
+          )
+      )
       .map((l: GmailLabel) => ({ id: l.id, name: l.name, type: l.type }))
       .sort((a: GmailLabel, b: GmailLabel) => {
         if (a.type === "system" && b.type !== "system") return -1;
@@ -104,7 +123,7 @@ export async function GET(request: NextRequest) {
     console.error("[gmail-labels]", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal error" },
-      { status: 500 },
+      { status: 500 }
     );
   } finally {
     setSupabaseOverride(null);

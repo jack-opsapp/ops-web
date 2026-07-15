@@ -4,14 +4,8 @@
  * Pure value → display-string formatters for the pipeline table's cells. Three
  * formatters (`formatCurrency`, `formatNumber`, `formatDate`) are byte-for-byte
  * identical to the projects table's, so they are re-exported rather than
- * duplicated. Two pipeline-specific formatters live here:
- *
- *   - `formatPercentInt` — pipeline `winProbability` is ALREADY an integer
- *     percent (e.g. `50` ⇒ "50%"), unlike the projects `formatPercent` which
- *     expects a 0–1 decimal and multiplies by 100. Reusing that would render
- *     `50` as "5000%", so the pipeline needs its own no-×100 variant.
- *   - `formatAgeDays` — compact day-count rendering ("9d", "0d") for the
- *     age-in-stage column.
+ * duplicated. `formatAgeDays` is the one pipeline-specific formatter: compact
+ * day-count rendering ("9d", "0d") for the age-in-stage column.
  *
  * The empty/null sentinel ("—") is kept identical to the projects formatters so
  * blank cells read the same across both tables.
@@ -25,25 +19,13 @@ import {
   type PipelineTableColumnId,
 } from "@/lib/types/pipeline-table";
 
-export { formatCurrency, formatNumber, formatDate } from "./project-table-formatters";
+export {
+  formatCurrency,
+  formatNumber,
+  formatDate,
+} from "./project-table-formatters";
 
 const EMPTY = "—";
-
-/**
- * Format an already-integer percent (0–100) as a display string. Pipeline
- * `winProbability` is stored as an integer percent, so — unlike the projects
- * `formatPercent` — this does NOT multiply by 100. Fractional inputs are
- * rounded to the nearest whole percent.
- *
- *   formatPercentInt(50)   ⇒ "50%"
- *   formatPercentInt(64.4) ⇒ "64%"
- *   formatPercentInt(0)    ⇒ "0%"
- *   formatPercentInt(null) ⇒ "—"
- */
-export function formatPercentInt(value: number | null): string {
-  if (value == null) return EMPTY;
-  return `${Math.round(value)}%`;
-}
 
 /**
  * Format a day count as a compact age label. Rendering as mono/tabular is the
@@ -80,7 +62,9 @@ function normalizePipelineViewDensity(value: string): OpportunityViewDensity {
  * pairs; density falls back to "comfortable"; zoom defaults to 1 when the stored
  * value is non-numeric. `filters` is passed through opaquely.
  */
-export function mapOpportunityView(row: OpportunityViewDbRow): OpportunityViewDefinition {
+export function mapOpportunityView(
+  row: OpportunityViewDbRow
+): OpportunityViewDefinition {
   const columns = Array.isArray(row.columns)
     ? row.columns
         .map((item) => {
@@ -94,11 +78,21 @@ export function mapOpportunityView(row: OpportunityViewDbRow): OpportunityViewDe
     : [];
 
   const sort = Array.isArray(row.sort)
-    ? row.sort.filter((item): item is { field: PipelineTableColumnId; direction: "asc" | "desc" } => {
-        if (!item || typeof item !== "object") return false;
-        const candidate = item as { field?: unknown; direction?: unknown };
-        return isPipelineColumnId(candidate.field) && (candidate.direction === "asc" || candidate.direction === "desc");
-      })
+    ? row.sort.filter(
+        (
+          item
+        ): item is {
+          field: PipelineTableColumnId;
+          direction: "asc" | "desc";
+        } => {
+          if (!item || typeof item !== "object") return false;
+          const candidate = item as { field?: unknown; direction?: unknown };
+          return (
+            isPipelineColumnId(candidate.field) &&
+            (candidate.direction === "asc" || candidate.direction === "desc")
+          );
+        }
+      )
     : [];
 
   return {

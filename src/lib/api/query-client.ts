@@ -325,6 +325,18 @@ export const queryKeys = {
       [...queryKeys.emailConnections.all, companyId] as const,
   },
 
+  // User-authored and provider-imported signatures, scoped to one mailbox.
+  emailSignatures: {
+    all: ["emailSignatures"] as const,
+    detail: (companyId: string, userId: string, connectionId: string) =>
+      [
+        ...queryKeys.emailSignatures.all,
+        companyId,
+        userId,
+        connectionId,
+      ] as const,
+  },
+
   // Inventory
   inventory: {
     all: ["inventory"] as const,

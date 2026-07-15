@@ -8,7 +8,10 @@ import {
   OPPORTUNITY_STAGE_COLORS,
   type OpportunityStage,
 } from "@/lib/types/pipeline";
-import { formatCurrency, formatNumber } from "@/lib/utils/pipeline-table-formatters";
+import {
+  formatCurrency,
+  formatNumber,
+} from "@/lib/utils/pipeline-table-formatters";
 
 /** Fixed height of a stage group-header row, in px. Slightly shorter than a
  *  data row so the header band reads as a divider, not another record. The
@@ -23,7 +26,7 @@ export const GROUP_HEADER_HEIGHT = 30;
  *
  * Shows a collapse/expand chevron, a stage-color dot (from
  * `OPPORTUNITY_STAGE_COLORS` — never the accent) + the stage label in Cake Mono
- * Light, and right-aligned rollups: count · Σvalue · Σweighted (mono, tabular).
+ * Light, and right-aligned rollups: count · Σvalue (mono, tabular).
  * The whole band is the toggle — clicking it (or the chevron) collapses /
  * expands the stage via `onToggle`. Rollup numbers reflect the FULL stage even
  * when collapsed (the stream drops the rows, never the totals).
@@ -36,7 +39,6 @@ export function PipelineStageGroupHeader({
   stage,
   count,
   sumValue,
-  sumWeighted,
   collapsed,
   virtualStart,
   totalWidth,
@@ -45,7 +47,6 @@ export function PipelineStageGroupHeader({
   stage: OpportunityStage;
   count: number;
   sumValue: number;
-  sumWeighted: number;
   collapsed: boolean;
   virtualStart: number;
   totalWidth: number;
@@ -67,7 +68,7 @@ export function PipelineStageGroupHeader({
       onClick={() => onToggle(stage)}
       className={cn(
         "group/header absolute left-0 top-0 flex items-center gap-2 border-b border-border bg-surface-hover-subtle px-[8px] text-left outline-none transition-colors",
-        "hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent",
+        "hover:bg-surface-hover focus-visible:ring-1 focus-visible:ring-ops-accent"
       )}
       style={{
         height: GROUP_HEADER_HEIGHT,
@@ -98,10 +99,6 @@ export function PipelineStageGroupHeader({
         <span className="flex items-center gap-1">
           <span className="text-text-mute">{t("table.group.value")}</span>
           <span className="text-text-2">{formatCurrency(sumValue)}</span>
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="text-text-mute">{t("table.group.weighted")}</span>
-          <span className="text-text-2">{formatCurrency(sumWeighted)}</span>
         </span>
       </span>
     </button>

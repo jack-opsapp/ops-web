@@ -17,6 +17,7 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 import { getCompanyManagerUserIds } from "./company-managers";
 import { WritingProfileService } from "./writing-profile-service";
 import { NotificationService } from "./notification-service";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -61,8 +62,7 @@ async function isCommsWizardCompleted(companyId: string): Promise<boolean> {
     .eq("id", companyId)
     .maybeSingle();
 
-  const raw =
-    (data?.client_comms_settings as Record<string, unknown>) ?? {};
+  const raw = (data?.client_comms_settings as Record<string, unknown>) ?? {};
   const completedAt = raw.comms_wizard_completed_at;
   const version = (raw.comms_wizard_version as number) ?? 0;
   const CURRENT_VERSION = 1;
@@ -81,7 +81,15 @@ function computeLevel(params: {
   approvalRate: number;
   totalDrafts: number;
 }): AutonomyLevel {
-  const { emailsAnalyzed, confidence, autoDraftEnabled, autoSendEnabled, categoryAutonomyConfigured, approvalRate, totalDrafts } = params;
+  const {
+    emailsAnalyzed,
+    confidence,
+    autoDraftEnabled,
+    autoSendEnabled,
+    categoryAutonomyConfigured,
+    approvalRate,
+    totalDrafts,
+  } = params;
 
   if (categoryAutonomyConfigured && autoSendEnabled) return 5;
   if (autoSendEnabled && approvalRate >= 0.95 && totalDrafts >= 20) return 4;
@@ -89,6 +97,41 @@ function computeLevel(params: {
   if (emailsAnalyzed >= 100 && confidence > 0.5) return 2;
   if (emailsAnalyzed >= 25 && confidence > 0.2) return 1;
   return 0;
+}
+
+async function getHumanDraftApprovalStats(
+  companyId: string,
+  userId: string
+): Promise<{ approvalRate: number; totalDrafts: number }> {
+  const supabase = requireSupabase() as unknown as SupabaseClient;
+  const { data, error } = await supabase
+    .from("email_outbound_learning_queue")
+    .select("draft_outcome")
+    .eq("company_id", companyId)
+    .eq("user_id", userId)
+    .eq("status", "completed")
+    .eq("learning_authority", "operator_approved")
+    .not("draft_history_id", "is", null)
+    .order("occurred_at", { ascending: false })
+    .limit(50);
+
+  if (error || !data) return { approvalRate: 0, totalDrafts: 0 };
+
+  const outcomes = data.flatMap((row) => {
+    const outcome = row.draft_outcome;
+    return outcome && typeof outcome === "object" && !Array.isArray(outcome)
+      ? [outcome as Record<string, unknown>]
+      : [];
+  });
+  const sentWithoutChanges = outcomes.filter(
+    (outcome) => outcome.sentWithoutChanges === true
+  ).length;
+
+  return {
+    totalDrafts: outcomes.length,
+    approvalRate:
+      outcomes.length > 0 ? sentWithoutChanges / outcomes.length : 0,
+  };
 }
 
 // ─── Service ────────────────────────────────────────────────────────────────
@@ -102,7 +145,7 @@ export const AutonomyMilestoneService = {
   async checkMilestonesAfterSync(
     companyId: string,
     userId: string,
-    connectionId: string,
+    connectionId: string
   ): Promise<void> {
     try {
       const supabase = requireSupabase();
@@ -117,7 +160,8 @@ export const AutonomyMilestoneService = {
 
       if (!conn) return;
 
-      const settings = (conn.auto_send_settings as Record<string, unknown>) || {};
+      const settings =
+        (conn.auto_send_settings as Record<string, unknown>) || {};
       const milestones = parseMilestones(settings.milestones);
 
       // ── Fetch writing profile confidence ──────────────────────────────
@@ -128,7 +172,11 @@ export const AutonomyMilestoneService = {
       const confidence = WritingProfileService.getConfidence(emailsAnalyzed);
 
       // ── Milestone 1: DRAFT_AVAILABLE (confidence crosses 0.2) ─────────
-      if (!milestones.draft_available_shown && confidence > 0.2 && emailsAnalyzed >= 25) {
+      if (
+        !milestones.draft_available_shown &&
+        confidence > 0.2 &&
+        emailsAnalyzed >= 25
+      ) {
         await NotificationService.create({
           userId,
           companyId,
@@ -201,7 +249,10 @@ export const AutonomyMilestoneService = {
         .eq("id", connectionId)
         .eq("company_id", companyId);
     } catch (err) {
-      console.error("[autonomy-milestones] Check after sync failed (non-fatal):", err);
+      console.error(
+        "[autonomy-milestones] Check after sync failed (non-fatal):",
+        err
+      );
     }
   },
 
@@ -213,7 +264,7 @@ export const AutonomyMilestoneService = {
   async checkMilestonesAfterDraftFeedback(
     companyId: string,
     userId: string,
-    connectionId: string,
+    connectionId: string
   ): Promise<void> {
     try {
       const supabase = requireSupabase();
@@ -228,7 +279,8 @@ export const AutonomyMilestoneService = {
 
       if (!conn) return;
 
-      const settings = (conn.auto_send_settings as Record<string, unknown>) || {};
+      const settings =
+        (conn.auto_send_settings as Record<string, unknown>) || {};
       const milestones = parseMilestones(settings.milestones);
       const autoDraftEnabled = settings.auto_draft_enabled === true;
 
@@ -236,28 +288,10 @@ export const AutonomyMilestoneService = {
       if (!autoDraftEnabled || milestones.auto_send_suggested) return;
 
       // ── Fetch draft approval stats ────────────────────────────────────
-      const { data: draftStats } = await supabase
-        .from("ai_draft_history")
-        .select("status, sent_without_changes")
-        .eq("company_id", companyId)
-        .eq("user_id", userId)
-        .in("status", ["sent", "auto_drafted"])
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (!draftStats) return;
-
-      const sentDrafts = draftStats.filter(
-        (d) => (d.status as string) === "sent"
-      );
-      const totalSent = sentDrafts.length;
+      const { approvalRate, totalDrafts: totalSent } =
+        await getHumanDraftApprovalStats(companyId, userId);
 
       if (totalSent < 20) return;
-
-      const sentWithoutChanges = sentDrafts.filter(
-        (d) => d.sent_without_changes === true
-      ).length;
-      const approvalRate = sentWithoutChanges / totalSent;
 
       // ── Milestone 3: AUTO_SEND_SUGGESTED ──────────────────────────────
       if (approvalRate >= 0.95) {
@@ -286,7 +320,10 @@ export const AutonomyMilestoneService = {
           .eq("company_id", companyId);
       }
     } catch (err) {
-      console.error("[autonomy-milestones] Check after draft feedback failed (non-fatal):", err);
+      console.error(
+        "[autonomy-milestones] Check after draft feedback failed (non-fatal):",
+        err
+      );
     }
   },
 
@@ -297,7 +334,7 @@ export const AutonomyMilestoneService = {
   async getAutonomyLevel(
     companyId: string,
     userId: string,
-    connectionId: string,
+    connectionId: string
   ): Promise<{
     level: AutonomyLevel;
     emailsAnalyzed: number;
@@ -319,11 +356,13 @@ export const AutonomyMilestoneService = {
       .eq("company_id", companyId)
       .single();
 
-    const settings = (conn?.auto_send_settings as Record<string, unknown>) || {};
+    const settings =
+      (conn?.auto_send_settings as Record<string, unknown>) || {};
     const milestones = parseMilestones(settings.milestones);
     const autoDraftEnabled = settings.auto_draft_enabled === true;
     const autoSendEnabled = settings.enabled === true;
-    const categoryAutonomy = (settings.category_autonomy as Record<string, string>) || {};
+    const categoryAutonomy =
+      (settings.category_autonomy as Record<string, string>) || {};
 
     // Fetch writing profile
     const profile = await WritingProfileService.getProfile(companyId, userId);
@@ -331,20 +370,10 @@ export const AutonomyMilestoneService = {
     const confidence = WritingProfileService.getConfidence(emailsAnalyzed);
 
     // Fetch draft stats
-    const { data: draftStats } = await supabase
-      .from("ai_draft_history")
-      .select("status, sent_without_changes")
-      .eq("company_id", companyId)
-      .eq("user_id", userId)
-      .eq("status", "sent")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    const totalDrafts = draftStats?.length || 0;
-    const sentWithoutChanges = draftStats?.filter(
-      (d) => d.sent_without_changes === true
-    ).length || 0;
-    const approvalRate = totalDrafts > 0 ? sentWithoutChanges / totalDrafts : 0;
+    const { totalDrafts, approvalRate } = await getHumanDraftApprovalStats(
+      companyId,
+      userId
+    );
 
     const categoryAutonomyConfigured = Object.values(categoryAutonomy).some(
       (v) => v !== "draft_on_request"
@@ -459,7 +488,7 @@ export const AutonomyMilestoneService = {
    */
   async getCategoryStats(
     companyId: string,
-    userId: string,
+    userId: string
   ): Promise<Record<string, number>> {
     const supabase = requireSupabase();
 

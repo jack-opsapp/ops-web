@@ -10,6 +10,7 @@ import { queryKeys } from "../api/query-client";
 import { GmailService } from "../api/services";
 import { useAuthStore } from "../store/auth-store";
 import type { UpdateGmailConnection } from "../types/pipeline";
+import { authedFetch } from "../utils/authed-fetch";
 
 /**
  * Fetch all Gmail connections for the current company.
@@ -70,11 +71,14 @@ export function useTriggerGmailSync() {
   return useMutation({
     mutationFn: async () => {
       if (!company?.id) throw new Error("No company");
-      const response = await fetch("/api/integrations/gmail/manual-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyId: company.id }),
-      });
+      const response = await authedFetch(
+        "/api/integrations/gmail/manual-sync",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyId: company.id }),
+        }
+      );
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? "Sync failed");
@@ -93,8 +97,14 @@ export function useTriggerGmailSync() {
       queryClient.invalidateQueries({ queryKey: ["activities"] });
 
       const results = data.results ?? [];
-      const totalMatched = results.reduce((sum, r) => sum + (r.matched ?? 0), 0);
-      const totalReview = results.reduce((sum, r) => sum + (r.needsReview ?? 0), 0);
+      const totalMatched = results.reduce(
+        (sum, r) => sum + (r.matched ?? 0),
+        0
+      );
+      const totalReview = results.reduce(
+        (sum, r) => sum + (r.needsReview ?? 0),
+        0
+      );
       const totalNew = results.reduce((sum, r) => sum + (r.newLeads ?? 0), 0);
       toast.success(
         `Synced — ${totalMatched} matched, ${totalReview} need review, ${totalNew} new leads`

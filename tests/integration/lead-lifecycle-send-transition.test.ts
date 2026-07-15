@@ -1,12 +1,10 @@
 /**
- * P4-D — operator-send transition for lifecycle follow-up drafts.
+ * Durable lifecycle-draft handoff on the real send route.
  *
- * Verifies the send route, on the REAL operator-send path, marks the matching
- * opportunity_follow_up_drafts row sent (status + final_sent_body + subject +
- * sent_at), is idempotent (a re-send re-processes nothing), invokes
- * recordLifecycleDraftOutcome only when LIFECYCLE_LEARNING_ENABLED is on, never
- * fires on the auto-send/cron (internal) path, and leaves non-lifecycle sends
- * untouched.
+ * Provider delivery and CRM persistence stay in the route; draft outcomes are
+ * handed to the receipt-idempotent outbound-learning queue. The route must
+ * validate explicit draft provenance before delivery, pass the validated id to
+ * the queue, and never mutate or learn from lifecycle drafts inline.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,8 +16,8 @@ const {
   dismissAwaitingReplyMock,
   verifyAdminAuthMock,
   findUserByAuthMock,
-  recordLifecycleDraftOutcomeMock,
-  learningFlag,
+  checkPermissionByIdMock,
+  enqueueIfEnabledMock,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
   getConnectionMock: vi.fn(),
@@ -28,9 +26,8 @@ const {
   dismissAwaitingReplyMock: vi.fn(),
   verifyAdminAuthMock: vi.fn(),
   findUserByAuthMock: vi.fn(),
-  recordLifecycleDraftOutcomeMock: vi.fn(),
-  // Mutable so individual tests can flip the go-live flag.
-  learningFlag: { enabled: false },
+  checkPermissionByIdMock: vi.fn(),
+  enqueueIfEnabledMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -43,6 +40,10 @@ vi.mock("@/lib/firebase/admin-verify", () => ({
 
 vi.mock("@/lib/supabase/find-user-by-auth", () => ({
   findUserByAuth: findUserByAuthMock,
+}));
+
+vi.mock("@/lib/supabase/check-permission", () => ({
+  checkPermissionById: checkPermissionByIdMock,
 }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
@@ -60,14 +61,9 @@ vi.mock("@/lib/api/services/email-thread-service", () => ({
   },
 }));
 
-// Control the go-live flag + spy on the learning hook without pulling in the
-// real OpenAI-backed service.
-vi.mock("@/lib/api/services/ai-draft-service", () => ({
-  get LIFECYCLE_LEARNING_ENABLED() {
-    return learningFlag.enabled;
-  },
-  AIDraftService: {
-    recordLifecycleDraftOutcome: recordLifecycleDraftOutcomeMock,
+vi.mock("@/lib/api/services/email-outbound-learning-service", () => ({
+  EmailOutboundLearningService: class {
+    enqueueIfEnabled = enqueueIfEnabledMock;
   },
 }));
 
@@ -91,13 +87,17 @@ interface DraftRow {
 interface SendState {
   drafts: DraftRow[];
   draftUpdates: Array<{ id: string; payload: Record<string, unknown> }>;
+  canonicalThreadOwnerId?: string | null;
 }
 
 function operatorRequest(body: Record<string, unknown>): Request {
   // No CRON_SECRET → routes through verifyAdminAuth (operator path).
   return new Request("https://ops.test/api/integrations/email/send", {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: "Bearer user-token" },
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer user-token",
+    },
     body: JSON.stringify(body),
   });
 }
@@ -133,6 +133,11 @@ function makeSupabaseDouble(state: SendState) {
       return this;
     }
 
+    is(column: string, value: unknown) {
+      this.filters.set(column, value);
+      return this;
+    }
+
     in(column: string, values: unknown[]) {
       this.inFilters.set(column, values);
       return this;
@@ -158,15 +163,20 @@ function makeSupabaseDouble(state: SendState) {
       return this;
     }
 
-    upsert() {
+    upsert(payload: Record<string, unknown> = {}) {
       this.action = "upsert";
+      if (this.table === "opportunity_email_threads") {
+        state.canonicalThreadOwnerId ??=
+          (payload.opportunity_id as string | null | undefined) ?? null;
+      }
       return this;
     }
 
     private matchingDrafts(): DraftRow[] {
       return state.drafts.filter((d) => {
         for (const [col, val] of this.filters) {
-          if ((d as unknown as Record<string, unknown>)[col] !== val) return false;
+          if ((d as unknown as Record<string, unknown>)[col] !== val)
+            return false;
         }
         for (const [col, vals] of this.inFilters) {
           if (!vals.includes((d as unknown as Record<string, unknown>)[col]))
@@ -201,7 +211,11 @@ function makeSupabaseDouble(state: SendState) {
       }
       if (this.table === "opportunities") {
         return {
-          data: { correspondence_count: 1, outbound_count: 0, last_outbound_at: null },
+          data: {
+            correspondence_count: 1,
+            outbound_count: 0,
+            last_outbound_at: null,
+          },
           error: null,
         };
       }
@@ -212,6 +226,17 @@ function makeSupabaseDouble(state: SendState) {
     }
 
     async maybeSingle() {
+      if (this.table === "opportunities") {
+        return { data: { id: "opp-1" }, error: null };
+      }
+      if (this.table === "opportunity_email_threads") {
+        return {
+          data: state.canonicalThreadOwnerId
+            ? { opportunity_id: state.canonicalThreadOwnerId }
+            : null,
+          error: null,
+        };
+      }
       if (this.table === "opportunity_follow_up_drafts") {
         const [first] = this.matchingDrafts();
         return { data: first ?? null, error: null };
@@ -244,6 +269,10 @@ function makeSupabaseDouble(state: SendState) {
     from(table: string) {
       return new Query(table);
     },
+    rpc: vi.fn(async () => ({
+      data: [{ changed: true }],
+      error: null,
+    })),
   };
 }
 
@@ -303,7 +332,6 @@ const BASE_PAYLOAD = {
 describe("lifecycle follow-up draft send-transition", () => {
   beforeEach(() => {
     process.env.CRON_SECRET = "test-cron-secret";
-    learningFlag.enabled = false;
     setSupabaseOverride(null);
     getServiceRoleClientMock.mockReset();
     getConnectionMock.mockReset();
@@ -312,10 +340,18 @@ describe("lifecycle follow-up draft send-transition", () => {
     dismissAwaitingReplyMock.mockReset();
     verifyAdminAuthMock.mockReset();
     findUserByAuthMock.mockReset();
-    recordLifecycleDraftOutcomeMock.mockReset();
-    recordLifecycleDraftOutcomeMock.mockResolvedValue(undefined);
-    verifyAdminAuthMock.mockResolvedValue({ uid: "auth-1", email: "op@ops.test" });
-    findUserByAuthMock.mockResolvedValue({ id: "user-1", company_id: "company-1" });
+    checkPermissionByIdMock.mockReset();
+    enqueueIfEnabledMock.mockReset();
+    enqueueIfEnabledMock.mockResolvedValue({ queueId: "queue-1" });
+    verifyAdminAuthMock.mockResolvedValue({
+      uid: "auth-1",
+      email: "op@ops.test",
+    });
+    findUserByAuthMock.mockResolvedValue({
+      id: "user-1",
+      company_id: "company-1",
+    });
+    checkPermissionByIdMock.mockResolvedValue(true);
     upsertFromEmailMock.mockResolvedValue({
       threadRow: {
         id: "thread-row-1",
@@ -327,83 +363,64 @@ describe("lifecycle follow-up draft send-transition", () => {
     wireProvider();
   });
 
-  it("marks the matching lifecycle draft sent with final body + subject (resolved by thread + opportunity)", async () => {
+  it("queues a validated lifecycle draft and leaves its sent transition to the durable worker", async () => {
     const state: SendState = { drafts: [makeDraft()], draftUpdates: [] };
     getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
 
-    const res = await POST(operatorRequest(BASE_PAYLOAD) as never);
+    const res = await POST(
+      operatorRequest({ ...BASE_PAYLOAD, followUpDraftId: "draft-1" }) as never
+    );
     expect(res.status).toBe(200);
-
-    const draft = state.drafts[0];
-    expect(draft.status).toBe("sent");
-    expect(draft.final_sent_body).toBe("Operator-edited follow-up body.");
-    expect(draft.subject).toBe("Operator-edited subject");
-    expect(draft.sent_at).not.toBeNull();
-  });
-
-  it("invokes recordLifecycleDraftOutcome only when LIFECYCLE_LEARNING_ENABLED is on", async () => {
-    // Flag off → transition happens, learning does NOT.
-    const offState: SendState = { drafts: [makeDraft()], draftUpdates: [] };
-    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(offState));
-    await POST(operatorRequest(BASE_PAYLOAD) as never);
-    expect(offState.drafts[0].status).toBe("sent");
-    expect(recordLifecycleDraftOutcomeMock).not.toHaveBeenCalled();
-
-    // Flag on → learning fires with the operator's final body + subject.
-    learningFlag.enabled = true;
-    const onState: SendState = { drafts: [makeDraft()], draftUpdates: [] };
-    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(onState));
-    await POST(operatorRequest(BASE_PAYLOAD) as never);
-    expect(recordLifecycleDraftOutcomeMock).toHaveBeenCalledTimes(1);
-    expect(recordLifecycleDraftOutcomeMock).toHaveBeenCalledWith(
-      "draft-1",
-      "company-1",
-      "user-1",
-      "Operator-edited follow-up body.",
-      "Operator-edited subject"
+    expect(state.drafts[0].status).toBe("drafted");
+    expect(state.draftUpdates).toHaveLength(0);
+    expect(enqueueIfEnabledMock).toHaveBeenCalledTimes(1);
+    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        providerMessageId: "msg-send-1",
+        providerThreadId: "thread-send-1",
+        userId: "user-1",
+        subject: "Operator-edited subject",
+        bodyText: "Operator-edited follow-up body.",
+        followUpDraftId: "draft-1",
+        draftHistoryId: null,
+        opportunityId: "opp-1",
+      })
     );
   });
 
-  it("resolves precisely by explicit followUpDraftId", async () => {
-    learningFlag.enabled = true;
-    const state: SendState = {
-      drafts: [makeDraft({ id: "draft-explicit" })],
-      draftUpdates: [],
-    };
+  it("rejects a browser caller whose authenticated company does not own the payload", async () => {
+    const state: SendState = { drafts: [makeDraft()], draftUpdates: [] };
     getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+    findUserByAuthMock.mockResolvedValue({
+      id: "user-1",
+      company_id: "company-other",
+    });
 
-    await POST(
-      operatorRequest({ ...BASE_PAYLOAD, followUpDraftId: "draft-explicit" }) as never
-    );
-    expect(state.drafts[0].status).toBe("sent");
-    expect(recordLifecycleDraftOutcomeMock).toHaveBeenCalledWith(
-      "draft-explicit",
-      "company-1",
-      "user-1",
-      expect.any(String),
-      expect.any(String)
-    );
+    const response = await POST(operatorRequest(BASE_PAYLOAD) as never);
+
+    expect(response.status).toBe(403);
+    expect(getProviderMock).not.toHaveBeenCalled();
   });
 
-  it("is idempotent — a second send of an already-sent draft re-processes nothing", async () => {
-    learningFlag.enabled = true;
+  it("rejects an invalid explicit lifecycle-draft id before provider delivery", async () => {
     const state: SendState = { drafts: [makeDraft()], draftUpdates: [] };
     getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
 
-    await POST(operatorRequest(BASE_PAYLOAD) as never);
-    expect(state.drafts[0].status).toBe("sent");
-    expect(recordLifecycleDraftOutcomeMock).toHaveBeenCalledTimes(1);
+    const response = await POST(
+      operatorRequest({
+        ...BASE_PAYLOAD,
+        followUpDraftId: "draft-from-another-scope",
+      }) as never
+    );
 
-    // Second send: the draft is now status='sent'. The status='drafted' guard
-    // means zero rows update → no re-record, no re-learn.
-    const sentBefore = state.drafts[0].sent_at;
-    await POST(operatorRequest(BASE_PAYLOAD) as never);
-    expect(recordLifecycleDraftOutcomeMock).toHaveBeenCalledTimes(1);
-    expect(state.drafts[0].sent_at).toBe(sentBefore);
+    expect(response.status).toBe(409);
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
   });
 
-  it("refuses to guess when the thread + opportunity pair maps to multiple open drafts", async () => {
-    learningFlag.enabled = true;
+  it("never guesses a lifecycle draft from thread + opportunity", async () => {
     const state: SendState = {
       drafts: [makeDraft({ id: "draft-a" }), makeDraft({ id: "draft-b" })],
       draftUpdates: [],
@@ -412,30 +429,53 @@ describe("lifecycle follow-up draft send-transition", () => {
 
     await POST(operatorRequest(BASE_PAYLOAD) as never);
     expect(state.drafts.every((d) => d.status === "drafted")).toBe(true);
-    expect(recordLifecycleDraftOutcomeMock).not.toHaveBeenCalled();
+    expect(state.draftUpdates).toHaveLength(0);
+    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
+      expect.objectContaining({ followUpDraftId: null })
+    );
   });
 
-  it("leaves non-lifecycle sends untouched (no matching draft)", async () => {
-    learningFlag.enabled = true;
+  it("queues non-lifecycle sends without attaching a draft outcome", async () => {
     const state: SendState = { drafts: [], draftUpdates: [] };
     getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
 
     const res = await POST(operatorRequest(BASE_PAYLOAD) as never);
     expect(res.status).toBe(200);
     expect(state.draftUpdates).toHaveLength(0);
-    expect(recordLifecycleDraftOutcomeMock).not.toHaveBeenCalled();
+    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftHistoryId: null,
+        followUpDraftId: null,
+      })
+    );
   });
 
-  it("never fires on the auto-send / cron (internal) path", async () => {
-    learningFlag.enabled = true;
-    // A matching open draft exists, but the cron path must skip the transition.
+  it("preserves explicit lifecycle provenance on the internal auto-send path", async () => {
     const state: SendState = { drafts: [makeDraft()], draftUpdates: [] };
     getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
 
-    const res = await POST(cronRequest(BASE_PAYLOAD) as never);
+    const res = await POST(
+      cronRequest({ ...BASE_PAYLOAD, followUpDraftId: "draft-1" }) as never
+    );
     expect(res.status).toBe(200);
     expect(state.drafts[0].status).toBe("drafted");
     expect(state.draftUpdates).toHaveLength(0);
-    expect(recordLifecycleDraftOutcomeMock).not.toHaveBeenCalled();
+    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
+      expect.objectContaining({ followUpDraftId: "draft-1" })
+    );
+  });
+
+  it("does not report an already-delivered message as failed when queueing errors", async () => {
+    const state: SendState = { drafts: [], draftUpdates: [] };
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+    enqueueIfEnabledMock.mockRejectedValueOnce(new Error("queue unavailable"));
+
+    const response = await POST(operatorRequest(BASE_PAYLOAD) as never);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      messageId: "msg-send-1",
+    });
   });
 });

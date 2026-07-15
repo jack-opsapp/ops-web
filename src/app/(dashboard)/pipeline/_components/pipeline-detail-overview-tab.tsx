@@ -51,7 +51,11 @@ import { useDictionary } from "@/i18n/client";
 import { useOpportunityFieldEdit } from "@/lib/hooks/use-opportunity-field-edit";
 import { useEstimates } from "@/lib/hooks/use-estimates";
 import { useSiteVisits } from "@/lib/hooks/use-site-visits";
-import { useClient, useClients, useCreateSubClient } from "@/lib/hooks/use-clients";
+import {
+  useClient,
+  useClients,
+  useCreateSubClient,
+} from "@/lib/hooks/use-clients";
 import { useAttachClientToOpportunity } from "@/lib/hooks/use-opportunities";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useWindowStore } from "@/stores/window-store";
@@ -60,7 +64,6 @@ import {
   SiteVisitStatus,
   formatCurrency,
   getDaysInStage,
-  getWeightedValue,
   type Estimate,
   type Opportunity,
   type SiteVisit,
@@ -74,7 +77,10 @@ import { Stack } from "@/components/ops/projects/workspace/atoms/stack";
 import { Inline } from "@/components/ops/projects/workspace/atoms/inline";
 import { Mono } from "@/components/ops/projects/workspace/atoms/mono";
 import { Body } from "@/components/ops/projects/workspace/atoms/body";
-import { Chip, type ChipVariant } from "@/components/ops/projects/workspace/atoms/chip";
+import {
+  Chip,
+  type ChipVariant,
+} from "@/components/ops/projects/workspace/atoms/chip";
 import {
   AddressField,
   EditPopover,
@@ -107,7 +113,11 @@ export function PipelineDetailOverviewTab({
       <SummarySection opportunity={opportunity} />
 
       <Section title={t("overview.scope", "Scope")}>
-        <TextAreaField edit={edit} canManage={canManage} value={opportunity.description} />
+        <TextAreaField
+          edit={edit}
+          canManage={canManage}
+          value={opportunity.description}
+        />
       </Section>
 
       <HealthSection opportunity={opportunity} />
@@ -118,7 +128,11 @@ export function PipelineDetailOverviewTab({
 
       <ContactSection opportunity={opportunity} canManage={canManage} />
 
-      <LocationSection opportunity={opportunity} edit={edit} canManage={canManage} />
+      <LocationSection
+        opportunity={opportunity}
+        edit={edit}
+        canManage={canManage}
+      />
 
       <LinkedSection opportunity={opportunity} canManage={canManage} />
     </Stack>
@@ -168,7 +182,7 @@ function SummarySection({ opportunity }: { opportunity: Opportunity }) {
                 className={cn(
                   "inline-flex shrink-0 items-center rounded-chip px-1.5 py-[2px]",
                   "border border-[var(--agent-border-hi)] bg-[var(--agent-bg-hi)]",
-                  "font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--agent-text-2)]",
+                  "font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--agent-text-2)]"
                 )}
               >
                 {signal}
@@ -184,14 +198,12 @@ function SummarySection({ opportunity }: { opportunity: Opportunity }) {
 // ─── Health (read-only) ───────────────────────────────────────────────────────
 
 /**
- * The deal's vital signs — all read-only (win probability is stage-derived; the
- * rest are denormalized facts). A 2-column grid of label-over-value cells with
- * mono, tabular numbers.
+ * The deal's operational vital signs. A 2-column grid of label-over-value cells
+ * with mono, tabular numbers.
  */
 function HealthSection({ opportunity }: { opportunity: Opportunity }) {
   const { t } = useDictionary("pipeline");
 
-  const weighted = getWeightedValue(opportunity);
   const daysInStage = getDaysInStage(opportunity);
 
   return (
@@ -200,14 +212,6 @@ function HealthSection({ opportunity }: { opportunity: Opportunity }) {
         data-testid="overview-health"
         className="grid grid-cols-2 gap-x-3 gap-y-2.5"
       >
-        <HealthCell label={t("overview.winProbability", "Win probability")}>
-          <span className={NUM_CLASS}>{opportunity.winProbability}%</span>
-        </HealthCell>
-
-        <HealthCell label={t("overview.weightedValue", "Weighted value")}>
-          <span className={NUM_CLASS}>{formatCurrency(weighted)}</span>
-        </HealthCell>
-
         <HealthCell label={t("overview.daysInStage", "Days in stage")}>
           <span className={NUM_CLASS}>{daysInStage}</span>
         </HealthCell>
@@ -226,7 +230,10 @@ function HealthSection({ opportunity }: { opportunity: Opportunity }) {
           )}
         </HealthCell>
 
-        <HealthCell label={t("overview.correspondence", "Correspondence")}>
+        <HealthCell
+          label={t("overview.correspondence", "Correspondence")}
+          className="col-span-2"
+        >
           <span className={NUM_CLASS}>
             {opportunity.inboundCount}
             <span className="text-text-3"> {t("overview.in", "in")} </span>
@@ -240,9 +247,17 @@ function HealthSection({ opportunity }: { opportunity: Opportunity }) {
   );
 }
 
-function HealthCell({ label, children }: { label: string; children: ReactNode }) {
+function HealthCell({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5">
+    <div className={cn("flex min-w-0 flex-col gap-0.5", className)}>
       <Mono color="text-3" size={11}>
         {label}
       </Mono>
@@ -328,9 +343,7 @@ function ContactLinks({
 }) {
   const { t } = useDictionary("pipeline");
   if (!email && !phone) {
-    return (
-      <span className="font-mono text-[11px] text-text-3">{EMPTY}</span>
-    );
+    return <span className="font-mono text-[11px] text-text-3">{EMPTY}</span>;
   }
   return (
     <Inline gap={2} wrap>
@@ -397,18 +410,28 @@ function DealContactRow({
 
   // The deal contact IS the client record itself — nothing new to file.
   const mirrorsClient =
-    (!contactName || normalizeIdentity(contactName) === normalizeIdentity(client.name)) &&
-    (!contactEmail || normalizeIdentity(contactEmail) === normalizeIdentity(client.email)) &&
-    (!contactPhone || normalizePhone(contactPhone) === normalizePhone(client.phoneNumber));
+    (!contactName ||
+      normalizeIdentity(contactName) === normalizeIdentity(client.name)) &&
+    (!contactEmail ||
+      normalizeIdentity(contactEmail) === normalizeIdentity(client.email)) &&
+    (!contactPhone ||
+      normalizePhone(contactPhone) === normalizePhone(client.phoneNumber));
   if (mirrorsClient) return null;
 
   const subClients = client.subClients ?? [];
   const onFile = subClients.some((sc) => {
     if (sc.deletedAt) return false;
-    if (contactEmail && sc.email && normalizeIdentity(sc.email) === normalizeIdentity(contactEmail)) {
+    if (
+      contactEmail &&
+      sc.email &&
+      normalizeIdentity(sc.email) === normalizeIdentity(contactEmail)
+    ) {
       return true;
     }
-    return Boolean(contactName) && normalizeIdentity(sc.name) === normalizeIdentity(contactName);
+    return (
+      Boolean(contactName) &&
+      normalizeIdentity(sc.name) === normalizeIdentity(contactName)
+    );
   });
 
   function save() {
@@ -425,21 +448,27 @@ function DealContactRow({
           toast.success(
             t("overview.contactSaved", "Contact saved to {client}").replace(
               "{client}",
-              client.name,
-            ),
+              client.name
+            )
           );
         },
         onError: (error) => {
-          toast.error(t("overview.contactSaveFailed", "Failed to save contact"), {
-            description: error instanceof Error ? error.message : undefined,
-          });
+          toast.error(
+            t("overview.contactSaveFailed", "Failed to save contact"),
+            {
+              description: error instanceof Error ? error.message : undefined,
+            }
+          );
         },
-      },
+      }
     );
   }
 
   return (
-    <div data-testid="overview-deal-contact" className="mt-1 border-t border-line pt-1.5">
+    <div
+      data-testid="overview-deal-contact"
+      className="mt-1 border-t border-line pt-1.5"
+    >
       <Stack gap={1}>
         <Inline gap={1.5} justify="between">
           <Mono color="text-3" size={11}>
@@ -471,7 +500,7 @@ function DealContactRow({
                 "font-mono text-[10px] uppercase tracking-[0.14em] text-text-2",
                 "transition-colors duration-150 hover:bg-surface-hover hover:text-text",
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
-                "disabled:cursor-not-allowed disabled:opacity-40",
+                "disabled:cursor-not-allowed disabled:opacity-40"
               )}
             >
               <UserPlus className="h-3 w-3" strokeWidth={1.75} />
@@ -501,7 +530,7 @@ function AttachClientControl({ opportunityId }: { opportunityId: string }) {
   const clients = clientsQuery.data?.clients ?? [];
   const filtered = query.trim()
     ? clients.filter((c) =>
-        c.name.toLowerCase().includes(query.trim().toLowerCase()),
+        c.name.toLowerCase().includes(query.trim().toLowerCase())
       )
     : clients;
 
@@ -523,7 +552,7 @@ function AttachClientControl({ opportunityId }: { opportunityId: string }) {
           "inline-flex items-center gap-1.5 rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2 py-1",
           "font-mono text-[10px] uppercase tracking-[0.14em] text-text-2",
           "transition-colors duration-150 hover:bg-surface-hover hover:text-text",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
         )}
       >
         <UserPlus className="h-3 w-3" strokeWidth={1.75} />
@@ -542,14 +571,20 @@ function AttachClientControl({ opportunityId }: { opportunityId: string }) {
           aria-label={t("overview.searchClients", "Search clients")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={t("overview.searchClientsPlaceholder", "[ search clients ]")}
+          placeholder={t(
+            "overview.searchClientsPlaceholder",
+            "[ search clients ]"
+          )}
           className={cn(
             "mb-1 h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mohave text-[14px] text-text outline-none transition-colors duration-150 placeholder:text-text-mute",
-            "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent",
+            "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent"
           )}
         />
-        <div role="listbox" aria-label={t("overview.attachClient", "Attach client")}>
+        <div
+          role="listbox"
+          aria-label={t("overview.attachClient", "Attach client")}
+        >
           {filtered.length === 0 ? (
             <p className="px-2 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
               {t("overview.noClients", "No clients")}
@@ -566,7 +601,7 @@ function AttachClientControl({ opportunityId }: { opportunityId: string }) {
                   "flex h-9 w-full min-w-0 items-center rounded-[5px] px-2 text-left",
                   "font-mohave text-[14px] text-text-2 transition-colors duration-100",
                   "hover:bg-surface-hover hover:text-text",
-                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                 )}
               >
                 <span className="min-w-0 truncate">{c.name}</span>
@@ -635,14 +670,14 @@ function LocationSection({
  * the project sidebar / map-page format already shipping in OPS-Web.
  */
 function buildMapsUrl(
-  opportunity: Pick<Opportunity, "address" | "latitude" | "longitude">,
+  opportunity: Pick<Opportunity, "address" | "latitude" | "longitude">
 ): string | null {
   if (opportunity.latitude != null && opportunity.longitude != null) {
     return `https://www.google.com/maps/search/?api=1&query=${opportunity.latitude},${opportunity.longitude}`;
   }
   if (opportunity.address && opportunity.address.trim().length > 0) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      opportunity.address,
+      opportunity.address
     )}`;
   }
   return null;
@@ -723,7 +758,9 @@ function LinkedSection({
   const { t } = useDictionary("pipeline");
   // Creating an estimate is governed by `estimates.create` — independent of the
   // pipeline `canManage` gate (a user may quote without managing the deal).
-  const canCreateEstimate = usePermissionStore((s) => s.can("estimates.create"));
+  const canCreateEstimate = usePermissionStore((s) =>
+    s.can("estimates.create")
+  );
   const openWindow = useWindowStore((s) => s.openWindow);
   const estimatesQuery = useEstimates({ opportunityId: opportunity.id });
   const siteVisitsQuery = useSiteVisits({ opportunityId: opportunity.id });
@@ -857,7 +894,7 @@ function EstimateRow({ estimate }: { estimate: Estimate }) {
   const variant = estimateChipVariant(estimate.status);
   const label = t(
     `overview.estimateStatus.${estimate.status}`,
-    ESTIMATE_STATUS_FALLBACK[estimate.status],
+    ESTIMATE_STATUS_FALLBACK[estimate.status]
   );
 
   return (
@@ -866,7 +903,7 @@ function EstimateRow({ estimate }: { estimate: Estimate }) {
       className={cn(
         "group flex items-center gap-2 rounded-[5px] px-1.5 py-1",
         "transition-colors duration-150 hover:bg-surface-hover",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
       )}
     >
       <FileText className="h-3 w-3 shrink-0 text-text-3" strokeWidth={1.75} />
@@ -890,7 +927,7 @@ function SiteVisitRow({ visit }: { visit: SiteVisit }) {
   const variant = siteVisitChipVariant(visit.status);
   const label = t(
     `overview.siteVisitStatus.${visit.status}`,
-    SITE_VISIT_STATUS_FALLBACK[visit.status],
+    SITE_VISIT_STATUS_FALLBACK[visit.status]
   );
 
   return (
@@ -919,10 +956,12 @@ function LinkedRow({
       className={cn(
         "group flex items-center gap-2 rounded-[5px] px-1.5 py-1",
         "transition-colors duration-150 hover:bg-surface-hover",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
       )}
     >
-      <span className="shrink-0 text-text-3 group-hover:text-text-2">{icon}</span>
+      <span className="shrink-0 text-text-3 group-hover:text-text-2">
+        {icon}
+      </span>
       <span className="min-w-0 truncate font-mono text-[11px] uppercase tracking-[0.12em] text-text-2 group-hover:text-text">
         {label}
       </span>

@@ -14,6 +14,7 @@
 
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { ApprovalQueueService } from "./approval-queue-service";
+import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
 import { AIDraftService } from "./ai-draft-service";
 import { BusinessContextService } from "./business-context-service";
 import { ScheduleOptimizationService } from "./schedule-optimization-service";
@@ -21,6 +22,7 @@ import { AssignmentService } from "./assignment-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getDraftingOpenAI } from "./openai-clients";
 import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
+import { isReplyLikeSubject } from "@/lib/email/email-subject-policy";
 import type { Locale } from "@/i18n/types";
 import type {
   SendAppointmentConfirmationActionData,
@@ -125,7 +127,9 @@ async function loadClientCommsSettings(
   const d = DEFAULT_CLIENT_COMMS_SETTINGS;
 
   // ── Appointment confirmation (new schema, fallback: always enabled → draft_on_confirm)
-  const acNew = raw.appointment_confirmation as Record<string, unknown> | undefined;
+  const acNew = raw.appointment_confirmation as
+    | Record<string, unknown>
+    | undefined;
   const acLegacy = raw.appointment_confirmations as
     | Record<string, unknown>
     | undefined;
@@ -236,14 +240,21 @@ async function loadClientCommsSettings(
     },
     payment_reminder: {
       enabled:
-        typeof pr?.enabled === "boolean" ? pr.enabled : d.payment_reminder.enabled,
+        typeof pr?.enabled === "boolean"
+          ? pr.enabled
+          : d.payment_reminder.enabled,
       preset:
         typeof pr?.preset === "string"
           ? (pr.preset as ClientCommsSettings["payment_reminder"]["preset"])
           : d.payment_reminder.preset,
       custom_days:
         Array.isArray(pr?.custom_days) && pr.custom_days.length === 4
-          ? ([...(pr.custom_days as number[])] as [number, number, number, number])
+          ? ([...(pr.custom_days as number[])] as [
+              number,
+              number,
+              number,
+              number,
+            ])
           : [...d.payment_reminder.custom_days],
       max_reminders:
         typeof pr?.max_reminders === "number"
@@ -354,9 +365,7 @@ function formatTime(time: string | null): string | null {
 /** Normalize a Supabase embedded-join value that may be either an object or
  *  an array (PostgREST returns arrays for to-many and objects for to-one,
  *  but the generated types sometimes type it as an array even when to-one). */
-function normalizeJoinedRow(
-  raw: unknown
-): Record<string, unknown> | null {
+function normalizeJoinedRow(raw: unknown): Record<string, unknown> | null {
   if (!raw) return null;
   if (Array.isArray(raw)) return (raw[0] as Record<string, unknown>) ?? null;
   if (typeof raw === "object") return raw as Record<string, unknown>;
@@ -383,7 +392,9 @@ async function loadCrewNames(
       `${(u.first_name as string) ?? ""} ${(u.last_name as string) ?? ""}`.trim();
     if (name) byId.set(u.id as string, name);
   }
-  return teamMemberIds.map((id) => byId.get(id)).filter((n): n is string => !!n);
+  return teamMemberIds
+    .map((id) => byId.get(id))
+    .filter((n): n is string => !!n);
 }
 
 // ─── Reschedule Detection Helpers ────────────────────────────────────────
@@ -490,7 +501,9 @@ Body: ${emailBody.slice(0, 1500)}`,
     return {
       isReschedule: Boolean(parsed.isReschedule),
       taskDescription:
-        typeof parsed.taskDescription === "string" ? parsed.taskDescription : null,
+        typeof parsed.taskDescription === "string"
+          ? parsed.taskDescription
+          : null,
       requestedDate:
         typeof parsed.requestedDate === "string" ? parsed.requestedDate : null,
       requestedTiming:
@@ -634,6 +647,16 @@ export const ClientSchedulingCommsService = {
             date: displayDate,
           }
         );
+    const draftHistoryId = await ensureApprovalDraftHistory({
+      draftHistoryId: draftResult.draftHistoryId || null,
+      companyId,
+      userId,
+      connectionId,
+      originalDraft: draftText,
+      subject,
+      profileType: "client_active_project",
+      atProposal: true,
+    });
 
     const structured: StructuredSummary = {
       type: "appointment_confirmation",
@@ -663,6 +686,7 @@ export const ClientSchedulingCommsService = {
       draft_text: draftText,
       original_draft_text: draftText,
       connection_id: connectionId,
+      draft_history_id: draftHistoryId,
       context_summary_structured: structured,
     };
 
@@ -829,6 +853,16 @@ export const ClientSchedulingCommsService = {
             newDate: displayNewDate,
           }
         );
+    const draftHistoryId = await ensureApprovalDraftHistory({
+      draftHistoryId: draftResult.draftHistoryId || null,
+      companyId,
+      userId,
+      connectionId,
+      originalDraft: draftText,
+      subject,
+      profileType: "client_active_project",
+      atProposal: true,
+    });
 
     const structured: StructuredSummary = {
       type: "schedule_changed",
@@ -859,6 +893,7 @@ export const ClientSchedulingCommsService = {
       draft_text: draftText,
       original_draft_text: draftText,
       connection_id: connectionId,
+      draft_history_id: draftHistoryId,
       context_summary_structured: structured,
     };
 
@@ -1027,7 +1062,11 @@ export const ClientSchedulingCommsService = {
       )
     );
     const whenPhrase =
-      daysUntil === 0 ? "today" : daysUntil === 1 ? "tomorrow" : `in ${daysUntil} days`;
+      daysUntil === 0
+        ? "today"
+        : daysUntil === 1
+          ? "tomorrow"
+          : `in ${daysUntil} days`;
 
     const instructionParts: string[] = [
       `Write a friendly reminder email for a visit ${whenPhrase}.`,
@@ -1071,6 +1110,16 @@ export const ClientSchedulingCommsService = {
             date: displayDate,
           }
         );
+    const draftHistoryId = await ensureApprovalDraftHistory({
+      draftHistoryId: draftResult.draftHistoryId || null,
+      companyId,
+      userId,
+      connectionId,
+      originalDraft: draftText,
+      subject,
+      profileType: "client_active_project",
+      atProposal: true,
+    });
 
     const structured: StructuredSummary = {
       type: "appointment_reminder",
@@ -1102,6 +1151,7 @@ export const ClientSchedulingCommsService = {
       draft_text: draftText,
       original_draft_text: draftText,
       connection_id: connectionId,
+      draft_history_id: draftHistoryId,
       context_summary_structured: structured,
     };
 
@@ -1232,7 +1282,9 @@ export const ClientSchedulingCommsService = {
     );
     if (!classification) return null;
     if (!classification.isReschedule) return null;
-    if (classification.confidence < settings.reschedule_request.min_confidence) {
+    if (
+      classification.confidence < settings.reschedule_request.min_confidence
+    ) {
       return null;
     }
 
@@ -1287,10 +1339,7 @@ export const ClientSchedulingCommsService = {
           },
         });
       } catch (err) {
-        console.error(
-          "[client-scheduling-comms] findScheduleGap error:",
-          err
-        );
+        console.error("[client-scheduling-comms] findScheduleGap error:", err);
       }
     }
 
@@ -1397,9 +1446,19 @@ export const ClientSchedulingCommsService = {
       "rescheduleRequest.subject",
       { taskTitle: taskTitle || (projectCtx.title as string) || "" }
     );
-    const subjectText = subject.startsWith("Re: ")
+    const subjectText = isReplyLikeSubject(subject)
       ? subject
       : localizedRescheduleSubject;
+    const draftHistoryId = await ensureApprovalDraftHistory({
+      draftHistoryId: draftResult.draftHistoryId || null,
+      companyId,
+      userId,
+      connectionId,
+      originalDraft: replyDraft,
+      subject: subjectText,
+      profileType: "client_active_project",
+      atProposal: true,
+    });
 
     const actionData: ProcessRescheduleRequestActionData = {
       activity_id: activityId,
@@ -1423,6 +1482,7 @@ export const ClientSchedulingCommsService = {
       reply_draft_text: replyDraft,
       original_reply_draft_text: replyDraft,
       connection_id: connectionId,
+      draft_history_id: draftHistoryId,
       classification_confidence: classification.confidence,
       selected_alternative_index: 0,
       context_summary_structured: structured,
@@ -1506,7 +1566,8 @@ export const ClientSchedulingCommsService = {
       .order("start_date", { ascending: true })
       .limit(1);
 
-    let mainCrewBlock: SendSubcontractorCoordinationActionData["main_crew_schedule"] = null;
+    let mainCrewBlock: SendSubcontractorCoordinationActionData["main_crew_schedule"] =
+      null;
     if (upcomingTasks && upcomingTasks[0]) {
       const first = upcomingTasks[0];
       const crewIds = Array.isArray(first.team_member_ids)
@@ -1570,6 +1631,16 @@ export const ClientSchedulingCommsService = {
             address: projectAddress ?? projectTitle,
           }
         );
+    const draftHistoryId = await ensureApprovalDraftHistory({
+      draftHistoryId: draftResult.draftHistoryId || null,
+      companyId,
+      userId,
+      connectionId,
+      originalDraft: draftText,
+      subject,
+      profileType: "subtrade_coordination",
+      atProposal: true,
+    });
 
     const structured: StructuredSummary = {
       type: "subcontractor_coordination",
@@ -1594,6 +1665,7 @@ export const ClientSchedulingCommsService = {
       draft_text: draftText,
       original_draft_text: draftText,
       connection_id: connectionId,
+      draft_history_id: draftHistoryId,
       context_summary_structured: structured,
     };
 
@@ -1622,7 +1694,9 @@ export const ClientSchedulingCommsService = {
 
     const now = new Date();
     const targetStart = new Date(now);
-    targetStart.setUTCDate(targetStart.getUTCDate() + Math.max(0, Math.min(7, leadDays)));
+    targetStart.setUTCDate(
+      targetStart.getUTCDate() + Math.max(0, Math.min(7, leadDays))
+    );
     targetStart.setUTCHours(0, 0, 0, 0);
 
     const targetEnd = new Date(targetStart);
@@ -1831,7 +1905,8 @@ export const ClientSchedulingCommsService = {
               "notification.confirmedTaskRescheduled.action"
             ),
           ]);
-          const { NotificationService } = await import("./notification-service");
+          const { NotificationService } =
+            await import("./notification-service");
           await NotificationService.create({
             userId,
             companyId,
@@ -1900,7 +1975,9 @@ export const ClientSchedulingCommsService = {
     if (!autoLevels.includes(ac.level)) return [];
 
     const supabase = requireSupabase();
-    const cutoff = new Date(Date.now() - ac.auto_confirm_after_hours * 60 * 60 * 1000);
+    const cutoff = new Date(
+      Date.now() - ac.auto_confirm_after_hours * 60 * 60 * 1000
+    );
 
     const { data } = await supabase
       .from("project_tasks")

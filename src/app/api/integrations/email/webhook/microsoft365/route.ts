@@ -6,9 +6,11 @@
  * Also handles the subscription validation handshake.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { hashMicrosoft365ClientState } from "@/lib/email/microsoft365-webhook-security";
+import { emailPipelineAuthorizationHeaders } from "@/lib/email/email-route-auth";
 
 export async function POST(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -23,51 +25,107 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
-    const notifications = body.value || [];
-
-    // Phase C observability: log every webhook hit for the heartbeat cron.
-    console.log("[email-ingest] webhook", {
-      provider: "microsoft365",
-      notificationCount: notifications.length,
-      at: new Date().toISOString(),
-    });
+    const body = (await request.json()) as {
+      value?: Array<{ clientState?: unknown; subscriptionId?: unknown }>;
+    };
+    const notifications = body.value;
+    if (
+      !Array.isArray(notifications) ||
+      notifications.length === 0 ||
+      notifications.length > 100
+    ) {
+      return NextResponse.json(
+        { error: "Invalid notification batch" },
+        { status: 400 }
+      );
+    }
 
     const supabase = getServiceRoleClient();
+    const connectionIds = new Set<string>();
 
     for (const notification of notifications) {
-      const connectionId = notification.clientState; // Set during subscription creation
-
-      if (!connectionId) continue;
-
-      // Debounce check
-      const { data: conn } = await supabase
+      if (
+        typeof notification.clientState !== "string" ||
+        typeof notification.subscriptionId !== "string"
+      ) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      const clientStateHash = await hashMicrosoft365ClientState(
+        notification.clientState
+      );
+      const { data: conn, error: connectionError } = await supabase
         .from("email_connections")
         .select("id, last_synced_at")
-        .eq("id", connectionId)
+        .eq("provider", "microsoft365")
         .eq("status", "active")
-        .single();
-
-      if (!conn) continue;
+        .eq("sync_enabled", true)
+        .eq("webhook_subscription_id", notification.subscriptionId)
+        .eq("webhook_client_state_hash", clientStateHash)
+        .maybeSingle();
+      if (connectionError) {
+        throw new Error(
+          `Microsoft 365 webhook binding lookup failed: ${connectionError.message}`
+        );
+      }
+      if (!conn) {
+        // Reject the entire batch. Accepting a partial batch would let a forged
+        // notification hide beside a valid subscription and still trigger
+        // service-role work.
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
 
       if (conn.last_synced_at) {
         const lastSync = new Date(conn.last_synced_at);
         if (Date.now() - lastSync.getTime() < 30_000) continue;
       }
-
-      fetch(`${getAppUrl()}/api/integrations/email/manual-sync`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.CRON_SECRET}`,
-        },
-        body: JSON.stringify({ connectionId: conn.id, source: "webhook" }),
-      }).catch(() => {}); // fire and forget
+      connectionIds.add(conn.id as string);
     }
 
-    return NextResponse.json({ ok: true });
+    const authorizationHeaders = emailPipelineAuthorizationHeaders();
+
+    // Phase C observability: log only authenticated webhook batches.
+    console.log("[email-ingest] webhook", {
+      provider: "microsoft365",
+      notificationCount: notifications.length,
+      connectionCount: connectionIds.size,
+      at: new Date().toISOString(),
+    });
+
+    after(async () => {
+      for (const connectionId of connectionIds) {
+        try {
+          const response = await fetch(
+            `${getAppUrl()}/api/integrations/email/manual-sync`,
+            {
+              method: "POST",
+              headers: authorizationHeaders,
+              body: JSON.stringify({ connectionId, source: "webhook" }),
+            }
+          );
+          if (!response.ok) {
+            console.error("[M365 Webhook] Sync dispatch failed", {
+              connectionId,
+              status: response.status,
+            });
+          }
+        } catch (error) {
+          console.error("[M365 Webhook] Sync dispatch threw", {
+            connectionId,
+            error,
+          });
+        }
+      }
+    });
+
+    return NextResponse.json(
+      { ok: true, accepted: connectionIds.size },
+      { status: 202 }
+    );
   } catch (err) {
     console.error("[M365 Webhook] Error:", err);
-    return NextResponse.json({ ok: true }); // Always return 200
+    return NextResponse.json(
+      { error: "Webhook processing failed" },
+      { status: 503 }
+    );
   }
 }

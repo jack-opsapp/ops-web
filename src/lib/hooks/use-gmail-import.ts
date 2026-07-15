@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCreateNotification } from "./use-notifications";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -55,14 +56,19 @@ export function useGmailImport() {
 
   const startImport = useMutation({
     mutationFn: async (params: StartImportParams) => {
-      const response = await fetch("/api/integrations/gmail/historical-import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
+      const response = await authedFetch(
+        "/api/integrations/gmail/historical-import",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+        }
+      );
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Failed to start import");
+        throw new Error(
+          (data as { error?: string }).error ?? "Failed to start import"
+        );
       }
       return response.json() as Promise<{ jobId: string }>;
     },
@@ -96,8 +102,8 @@ export function useGmailImport() {
 
     async function poll() {
       try {
-        const response = await fetch(
-          `/api/integrations/gmail/import-status?jobId=${encodeURIComponent(jobId!)}`,
+        const response = await authedFetch(
+          `/api/integrations/gmail/import-status?jobId=${encodeURIComponent(jobId!)}`
         );
         if (!response.ok) return;
         const data = (await response.json()) as ImportStatusResponse;
@@ -114,8 +120,10 @@ export function useGmailImport() {
           let desc: string;
           if (cCreated > 0 || lCreated > 0) {
             const parts: string[] = [];
-            if (cCreated > 0) parts.push(`${cCreated} client${cCreated !== 1 ? "s" : ""}`);
-            if (lCreated > 0) parts.push(`${lCreated} lead${lCreated !== 1 ? "s" : ""}`);
+            if (cCreated > 0)
+              parts.push(`${cCreated} client${cCreated !== 1 ? "s" : ""}`);
+            if (lCreated > 0)
+              parts.push(`${lCreated} lead${lCreated !== 1 ? "s" : ""}`);
             desc = `Created ${parts.join(" & ")} from ${data.processedEmails ?? 0} emails.`;
             if (hasReview) desc += ` ${data.needsReview} need review.`;
           } else {
@@ -128,8 +136,18 @@ export function useGmailImport() {
             type: "pipeline_complete",
             title: "Import complete",
             body: desc,
-            actionUrl: lCreated > 0 ? "/pipeline" : hasReview ? "/pipeline?review=true" : "/settings?tab=integrations",
-            actionLabel: lCreated > 0 ? "View Pipeline" : hasReview ? "Review Matches" : "View",
+            actionUrl:
+              lCreated > 0
+                ? "/pipeline"
+                : hasReview
+                  ? "/pipeline?review=true"
+                  : "/settings?tab=integrations",
+            actionLabel:
+              lCreated > 0
+                ? "View Pipeline"
+                : hasReview
+                  ? "Review Matches"
+                  : "View",
           });
         } else if (data.status === "failed") {
           stopPolling();
@@ -184,7 +202,7 @@ export function useImportHistory(companyId: string | undefined) {
     queryKey: ["gmail-import-history", companyId],
     queryFn: async (): Promise<ImportHistoryJob[]> => {
       if (!companyId) return [];
-      const resp = await fetch(
+      const resp = await authedFetch(
         `/api/integrations/gmail/import-history?companyId=${encodeURIComponent(companyId)}&limit=3`
       );
       if (!resp.ok) return [];

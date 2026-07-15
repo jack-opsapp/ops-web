@@ -33,6 +33,10 @@ vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: getServiceRoleClientMock,
 }));
 
+vi.mock("@/lib/email/email-route-auth", () => ({
+  requireEmailCompanyAccess: vi.fn(async () => null),
+}));
+
 vi.mock("@/lib/api/services/email-filter-service", () => ({
   EmailFilterService: {
     buildBlocklist: buildBlocklistMock,

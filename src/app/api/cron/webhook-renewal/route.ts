@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
+import { hashMicrosoft365ClientState } from "@/lib/email/microsoft365-webhook-security";
+import { getAppUrl } from "@/lib/utils/app-url";
 
 export const maxDuration = 300;
 
@@ -49,15 +51,17 @@ export async function GET(request: NextRequest) {
 
     const { data: connections, error: connectionsError } = await supabase
       .from("email_connections")
-      .select("id, provider, webhook_subscription_id, webhook_expires_at")
+      .select(
+        "id, provider, webhook_subscription_id, webhook_expires_at, webhook_client_state_hash"
+      )
       .eq("sync_enabled", true)
-      .eq("status", "active")
-      .or(
-        `webhook_subscription_id.is.null,webhook_expires_at.lt.${expiryThreshold}`
-      );
+      .eq("status", "active");
 
     if (connectionsError) {
-      console.error("[webhook-renewal] connections query failed:", connectionsError);
+      console.error(
+        "[webhook-renewal] connections query failed:",
+        connectionsError
+      );
       throw new Error(
         `webhook-renewal connections query failed: ${connectionsError.message}`
       );
@@ -71,18 +75,37 @@ export async function GET(request: NextRequest) {
     }> = [];
 
     for (const conn of connections ?? []) {
+      const expiresAt = conn.webhook_expires_at
+        ? new Date(conn.webhook_expires_at as string).getTime()
+        : 0;
+      const requiresRenewal =
+        !conn.webhook_subscription_id ||
+        !Number.isFinite(expiresAt) ||
+        expiresAt < new Date(expiryThreshold).getTime() ||
+        (conn.provider === "microsoft365" && !conn.webhook_client_state_hash);
+      if (!requiresRenewal) continue;
+
       try {
         const connection = await EmailService.getConnection(conn.id as string);
         if (!connection) continue;
 
         const provider = EmailService.getProvider(connection);
-        const webhook = await provider.renewWebhook(
-          conn.webhook_subscription_id as string
-        );
+        const needsFreshSubscription =
+          !conn.webhook_subscription_id ||
+          (connection.provider === "microsoft365" &&
+            !connection.webhookClientStateHash);
+        const webhook = needsFreshSubscription
+          ? await provider.setupWebhook(
+              `${getAppUrl()}/api/integrations/email/webhook/${connection.provider}`
+            )
+          : await provider.renewWebhook(conn.webhook_subscription_id as string);
 
         await EmailService.updateConnection(conn.id as string, {
           webhookSubscriptionId: webhook.subscriptionId,
           webhookExpiresAt: webhook.expiresAt,
+          webhookClientStateHash: webhook.clientState
+            ? await hashMicrosoft365ClientState(webhook.clientState)
+            : (connection.webhookClientStateHash ?? null),
         });
 
         results.push({

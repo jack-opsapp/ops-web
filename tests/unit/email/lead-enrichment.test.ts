@@ -5,7 +5,10 @@ import {
   leadEnrichmentFactsFromEmail,
 } from "@/lib/email/lead-enrichment";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
-import type { EmailConnection, SyncProfile } from "@/lib/types/email-connection";
+import type {
+  EmailConnection,
+  SyncProfile,
+} from "@/lib/types/email-connection";
 
 function baseEmail(overrides: Partial<NormalizedEmail> = {}): NormalizedEmail {
   return {
@@ -65,6 +68,23 @@ const syncProfile: SyncProfile = {
 };
 
 describe("lead lifecycle enrichment decisions", () => {
+  it("repairs the exact gmail.con typo in contact-form facts", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail(),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+      submitter: {
+        name: "Sarah Lee",
+        email: "sarah.lee@gmail.con",
+        phone: null,
+        message: "Please quote my deck.",
+      },
+    });
+
+    expect(facts.contactEmail).toBe("sarah.lee@gmail.com");
+  });
+
   it("fills blank opportunity and client fields from contact-form facts", () => {
     const facts = leadEnrichmentFactsFromEmail({
       email: baseEmail(),
@@ -219,6 +239,24 @@ describe("lead lifecycle enrichment decisions", () => {
     expect(facts.providerMessageId).toBe("provider-message-1");
   });
 
+  it("does not fabricate an outbound recipient name from a bare email local-part", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Operator <office@example-contractors.com>",
+        fromName: "Operator",
+        to: ["chezbear02@gmail.com"],
+        subject: "Deck estimate",
+        labelIds: ["SENT"],
+      }),
+      direction: "outbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+
+    expect(facts.contactEmail).toBe("chezbear02@gmail.com");
+    expect(facts.contactName).toBeNull();
+  });
+
   it("does not fabricate a contact name from the email local-part for a bare inbound sender (P0-C)", () => {
     const facts = leadEnrichmentFactsFromEmail({
       email: baseEmail({
@@ -236,6 +274,83 @@ describe("lead lifecycle enrichment decisions", () => {
     expect(facts.contactEmail).toBe("canprojack@gmail.com");
     // … but the name is NOT fabricated from the local-part ("Canprojack").
     expect(facts.contactName).toBeNull();
+  });
+
+  it("rejects a provider-synthesized fromName that is just the email local-part", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "chezbear02@gmail.com",
+        fromName: "chezbear02",
+        subject: "Need a fence quote",
+        bodyText: "Hi, can you quote a 40ft cedar fence?",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+
+    expect(facts.contactEmail).toBe("chezbear02@gmail.com");
+    expect(facts.contactName).toBeNull();
+  });
+
+  it("replaces a legacy local-part-derived name with verified contact-form evidence", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail(),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+      submitter: {
+        name: "Sarah Anne Lee",
+        email: "sarah.lee@gmail.com",
+        phone: null,
+        message: "Please quote my deck.",
+      },
+    });
+
+    const updates = buildLeadEnrichmentUpdates({
+      existingOpportunity: {
+        contact_name: "Sarah Lee",
+        contact_email: "sarah.lee@gmail.com",
+      },
+      existingClient: {
+        name: "Sarah Lee",
+        email: "sarah.lee@gmail.com",
+      },
+      facts,
+    });
+
+    expect(updates.opportunity.contact_name).toBe("Sarah Anne Lee");
+    expect(updates.client.name).toBe("Sarah Anne Lee");
+  });
+
+  it("does not overwrite a non-placeholder name with incoming contact evidence", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail(),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+      submitter: {
+        name: "Sarah Anne Lee",
+        email: "sarah.lee@gmail.com",
+        phone: null,
+        message: "Please quote my deck.",
+      },
+    });
+
+    const updates = buildLeadEnrichmentUpdates({
+      existingOpportunity: {
+        contact_name: "S. Lee",
+        contact_email: "sarah.lee@gmail.com",
+      },
+      existingClient: {
+        name: "S. Lee",
+        email: "sarah.lee@gmail.com",
+      },
+      facts,
+    });
+
+    expect(updates.opportunity.contact_name).toBeUndefined();
+    expect(updates.client.name).toBeUndefined();
   });
 
   it("fills address and value from an ordinary inbound body (Tier A)", () => {
@@ -333,7 +448,8 @@ describe("lead lifecycle enrichment decisions", () => {
       email: baseEmail({
         from: "Kara Beach <kara.beach@example.com>",
         fromName: "Kara Beach",
-        bodyText: "New job at 99 Different Road, Sidney BC V8L 1A1 for $25,000.",
+        bodyText:
+          "New job at 99 Different Road, Sidney BC V8L 1A1 for $25,000.",
         bodyTextClean:
           "New job at 99 Different Road, Sidney BC V8L 1A1 for $25,000.",
       }),

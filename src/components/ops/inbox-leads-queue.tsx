@@ -33,6 +33,7 @@ import { GmailService } from "@/lib/api/services";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useGmailConnections } from "@/lib/hooks/use-gmail-connections";
 import { EmailReviewPanel } from "@/components/ops/email-review-panel";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,8 @@ function useIgnoreLead() {
   const { company } = useAuthStore();
 
   return useMutation({
-    mutationFn: (activityId: string) => GmailService.ignoreInboxLead(activityId),
+    mutationFn: (activityId: string) =>
+      GmailService.ignoreInboxLead(activityId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["inboxLeads", company?.id] });
     },
@@ -104,7 +106,7 @@ function useBlockDomain() {
       domain: string;
       connectionId: string;
     }) => {
-      const res = await fetch("/api/integrations/gmail/block-domain", {
+      const res = await authedFetch("/api/integrations/gmail/block-domain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain, connectionId, companyId: company?.id }),
@@ -204,18 +206,18 @@ function LeadCard({
   };
 
   return (
-    <div className="rounded-sm border border-[rgba(255,255,255,0.08)] bg-black p-3 space-y-2">
+    <div className="space-y-2 rounded-sm border border-[rgba(255,255,255,0.08)] bg-black p-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="font-mohave text-sm font-medium text-[#EDEDED] truncate">
+          <p className="truncate font-mohave text-sm font-medium text-[#EDEDED]">
             {lead.subject || "(no subject)"}
           </p>
         </div>
         <button
           onClick={onIgnore}
           disabled={isIgnoring}
-          className="shrink-0 text-[#444] hover:text-[#9CA3AF] transition-colors"
+          className="shrink-0 text-[#444] transition-colors hover:text-[#9CA3AF]"
         >
           {isIgnoring ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -227,7 +229,7 @@ function LeadCard({
 
       {/* Snippet */}
       {lead.snippet && (
-        <p className="font-mono text-xs text-[#999] line-clamp-2 leading-relaxed">
+        <p className="line-clamp-2 font-mono text-xs leading-relaxed text-[#999]">
           {lead.snippet}
         </p>
       )}
@@ -235,7 +237,7 @@ function LeadCard({
       {/* Action */}
       <button
         onClick={() => onCreateLead(prefill)}
-        className="w-full flex items-center justify-center gap-2 py-1.5 rounded-sm bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.08)] text-[#6F94B0] text-xs font-medium transition-colors font-mono"
+        className="flex w-full items-center justify-center gap-2 rounded-sm bg-[rgba(255,255,255,0.06)] py-1.5 font-mono text-xs font-medium text-[#6F94B0] transition-colors hover:bg-[rgba(255,255,255,0.08)]"
       >
         <UserPlus className="h-3 w-3" />
         Create Lead
@@ -263,13 +265,13 @@ function SenderGroupSection({
     <div className="space-y-1.5">
       {/* Sender count header */}
       {count > 1 && (
-        <p className="font-mono text-[11px] text-[#999] px-1">
+        <p className="px-1 font-mono text-[11px] text-[#999]">
           {count} {count === 1 ? "email" : "emails"} from{" "}
           <span className="text-[#EDEDED]">{senderGroup.email}</span>
         </p>
       )}
       {count === 1 && (
-        <p className="font-mono text-[11px] text-[#999] px-1">
+        <p className="px-1 font-mono text-[11px] text-[#999]">
           <span className="text-[#EDEDED]">{senderGroup.email}</span>
         </p>
       )}
@@ -316,17 +318,17 @@ function DomainGroupSection({
       <div className="flex items-center justify-between gap-2">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1.5 min-w-0 group"
+          className="group flex min-w-0 items-center gap-1.5"
         >
           {expanded ? (
-            <ChevronDown className="h-3 w-3 text-[#555] shrink-0" />
+            <ChevronDown className="h-3 w-3 shrink-0 text-[#555]" />
           ) : (
-            <ChevronRight className="h-3 w-3 text-[#555] shrink-0" />
+            <ChevronRight className="h-3 w-3 shrink-0 text-[#555]" />
           )}
-          <span className="font-cakemono text-xs font-light text-[#EDEDED] uppercase tracking-wide truncate group-hover:text-white transition-colors">
+          <span className="truncate font-cakemono text-xs font-light uppercase tracking-wide text-[#EDEDED] transition-colors group-hover:text-white">
             @{group.domain}
           </span>
-          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.08)] px-1 font-mono text-micro font-bold text-[#999] shrink-0">
+          <span className="flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded-full bg-[rgba(255,255,255,0.08)] px-1 font-mono text-micro font-bold text-[#999]">
             {group.totalCount}
           </span>
         </button>
@@ -336,10 +338,10 @@ function DomainGroupSection({
           onClick={() => onBlockDomain(group.domain)}
           disabled={isBlocking}
           className={cn(
-            "flex items-center gap-1 rounded-sm px-2 py-1 font-mono text-micro transition-colors shrink-0",
+            "flex shrink-0 items-center gap-1 rounded-sm px-2 py-1 font-mono text-micro transition-colors",
             isThisDomainBlocking
               ? "text-[#555]"
-              : "text-[#93321A] hover:text-[#b5432a] hover:bg-[rgba(147,50,26,0.10)]"
+              : "text-[#93321A] hover:bg-[rgba(147,50,26,0.10)] hover:text-[#b5432a]"
           )}
         >
           {isThisDomainBlocking ? (
@@ -385,11 +387,7 @@ export function InboxLeadsQueue({
   const companyId = company?.id ?? "";
   const queryClient = useQueryClient();
 
-  const {
-    data: leads = [],
-    isLoading,
-    isFetching,
-  } = useInboxLeads(companyId);
+  const { data: leads = [], isLoading, isFetching } = useInboxLeads(companyId);
   const ignoreLead = useIgnoreLead();
   const blockDomain = useBlockDomain();
   const { data: connections = [] } = useGmailConnections();
@@ -443,7 +441,7 @@ export function InboxLeadsQueue({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Inbox className="h-4 w-4 text-[#999]" />
-            <h3 className="font-cakemono text-sm font-light text-[#EDEDED] uppercase tracking-wide">
+            <h3 className="font-cakemono text-sm font-light uppercase tracking-wide text-[#EDEDED]">
               Inbox Leads
             </h3>
             {leads.length > 0 && (
@@ -458,7 +456,7 @@ export function InboxLeadsQueue({
             {reviewCount > 0 && (
               <button
                 onClick={() => setReviewPanelOpen(true)}
-                className="flex items-center gap-1.5 rounded-sm px-2 py-1 font-mono text-micro uppercase tracking-wider text-[#C4A868] hover:bg-[rgba(196,168,104,0.10)] transition-colors"
+                className="flex items-center gap-1.5 rounded-sm px-2 py-1 font-mono text-micro uppercase tracking-wider text-[#C4A868] transition-colors hover:bg-[rgba(196,168,104,0.10)]"
               >
                 <AlertTriangle className="h-3 w-3" />
                 Review ({reviewCount})
@@ -468,7 +466,7 @@ export function InboxLeadsQueue({
             <button
               onClick={handleRefresh}
               disabled={isFetching}
-              className="text-[#444] hover:text-[#999] transition-colors"
+              className="text-[#444] transition-colors hover:text-[#999]"
               title="Refresh"
             >
               <RefreshCw
@@ -484,11 +482,9 @@ export function InboxLeadsQueue({
             <Loader2 className="h-5 w-5 animate-spin text-[#6F94B0]" />
           </div>
         ) : leads.length === 0 ? (
-          <div className="rounded-sm border border-dashed border-[rgba(255,255,255,0.10)] py-8 flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-2 rounded-sm border border-dashed border-[rgba(255,255,255,0.10)] py-8">
             <Inbox className="h-7 w-7 text-[#333]" />
-            <p className="font-mono text-sm text-[#555]">
-              No new inbox leads
-            </p>
+            <p className="font-mono text-sm text-[#555]">No new inbox leads</p>
             <p className="font-mono text-xs text-[#444]">
               Unmatched emails from synced Gmail accounts appear here
             </p>

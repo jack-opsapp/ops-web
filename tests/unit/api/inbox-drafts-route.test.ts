@@ -9,6 +9,8 @@ const {
   getConnectionsMock,
   getProviderMock,
   getServiceRoleClientMock,
+  loadKnownEmailSignaturesForMessageMock,
+  resolveEmailSignatureForMessageMock,
   runWithSupabaseMock,
   verifyAdminAuthMock,
 } = vi.hoisted(() => ({
@@ -18,9 +20,22 @@ const {
   getConnectionsMock: vi.fn(),
   getProviderMock: vi.fn(),
   getServiceRoleClientMock: vi.fn(),
+  loadKnownEmailSignaturesForMessageMock: vi.fn(),
+  resolveEmailSignatureForMessageMock: vi.fn(),
   runWithSupabaseMock: vi.fn(async (_supabase, fn) => fn()),
   verifyAdminAuthMock: vi.fn(),
 }));
+
+vi.mock("@/lib/email/email-signature-runtime", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/email/email-signature-runtime")
+  >("@/lib/email/email-signature-runtime");
+  return {
+    ...actual,
+    loadKnownEmailSignaturesForMessage: loadKnownEmailSignaturesForMessageMock,
+    resolveEmailSignatureForMessage: resolveEmailSignatureForMessageMock,
+  };
+});
 
 vi.mock("@/lib/firebase/admin-verify", () => ({
   verifyAdminAuth: verifyAdminAuthMock,
@@ -213,6 +228,27 @@ describe("/api/inbox/drafts lifecycle drafts", () => {
     checkPermissionByIdMock.mockResolvedValue(true);
     getConnectionsMock.mockResolvedValue([activeConnection]);
     getConnectionMock.mockResolvedValue(activeConnection);
+    resolveEmailSignatureForMessageMock.mockResolvedValue({
+      recordId: "signature-1",
+      source: "ops",
+      scope: "mailbox",
+      html: "<div>Jackson<br>OPS</div>",
+      text: "Jackson\nOPS",
+      hash: "a".repeat(64),
+      providerIdentity: null,
+    });
+    loadKnownEmailSignaturesForMessageMock.mockResolvedValue([
+      {
+        html: "<div>Jackson<br>OPS</div>",
+        text: "Jackson\nOPS",
+        hash: "a".repeat(64),
+      },
+      {
+        html: "<div>Old Jackson<br>Old OPS</div>",
+        text: "Old Jackson\nOld OPS",
+        hash: "b".repeat(64),
+      },
+    ]);
     getProviderMock.mockReturnValue({
       listDrafts: vi.fn().mockResolvedValue([]),
       createDraft: vi.fn().mockResolvedValue("provider-draft-1"),
@@ -220,6 +256,65 @@ describe("/api/inbox/drafts lifecycle drafts", () => {
       deleteDraft: vi.fn().mockResolvedValue(undefined),
     });
     runWithSupabaseMock.mockImplementation(async (_supabase, fn) => fn());
+  });
+
+  it("keeps provider-rendered signatures out of composer state and appends once on autosave", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [],
+      opportunity_follow_up_drafts: [],
+    };
+    const provider = {
+      listDrafts: vi.fn().mockResolvedValue([
+        {
+          id: "provider-draft-1",
+          threadId: "provider-thread-1",
+          to: ["lead@example.com"],
+          cc: [],
+          subject: "Re: Quote",
+          bodyText: "Authored body\n\nOld Jackson\nOld OPS",
+          updatedAt: new Date("2026-07-14T18:00:00.000Z"),
+        },
+      ]),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn().mockResolvedValue(undefined),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+
+    const listResponse = await GET(
+      new NextRequest("http://test.local/api/inbox/drafts?scope=own")
+    );
+    const listed = await listResponse.json();
+    const providerDraft = listed.drafts.find(
+      (draft: Record<string, unknown>) => draft.source === "provider"
+    );
+
+    expect(providerDraft.bodyText).toBe("Authored body");
+    expect(loadKnownEmailSignaturesForMessageMock).toHaveBeenCalledWith({
+      connection: activeConnection,
+    });
+
+    const saveResponse = await POST(
+      new NextRequest("http://test.local/api/inbox/drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          connectionId: "connection-1",
+          to: "lead@example.com",
+          subject: "Re: Quote",
+          body: providerDraft.bodyText,
+          providerThreadId: "provider-thread-1",
+          draftId: "provider-draft-1",
+        }),
+      })
+    );
+
+    expect(saveResponse.status).toBe(200);
+    expect(provider.updateDraft).toHaveBeenCalledOnce();
+    const renderedBody = provider.updateDraft.mock.calls[0][3] as string;
+    expect(renderedBody.match(/data-ops-signature-hash/g)).toHaveLength(1);
+    expect(renderedBody.match(/Jackson/g)).toHaveLength(1);
   });
 
   it("surfaces all drafted template follow-ups as local editable inbox drafts", async () => {

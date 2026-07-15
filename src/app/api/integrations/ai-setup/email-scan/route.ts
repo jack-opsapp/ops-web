@@ -3,7 +3,7 @@
  *
  * Sprint E3.2: Full email history scan for AI knowledge acquisition.
  * Fetches ALL sent emails from the last 12 months, processes them in batches
- * of 50 through the MemoryService and WritingProfileService pipeline.
+ * of 50 through the receipt-idempotent outbound-learning queue.
  *
  * Uses a progress record in ai_setup_jobs table (or localStorage polling pattern).
  * Returns immediately with a jobId, then processes in background via after().
@@ -22,8 +22,11 @@ import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
 import { EmailService } from "@/lib/api/services/email-service";
-import { MemoryService } from "@/lib/api/services/memory-service";
-import { WritingProfileService } from "@/lib/api/services/writing-profile-service";
+import { EmailOutboundLearningService } from "@/lib/api/services/email-outbound-learning-service";
+import {
+  isPersonalHistoricalLearningConnection,
+  prepareHistoricalOutboundBodyForLearning,
+} from "@/lib/email/email-signature-runtime";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 
 export const maxDuration = 800;
@@ -45,7 +48,8 @@ interface ScanProgress {
 // ─── In-memory progress store (per-request lifetime via after()) ────────────────
 // We store progress in the gmail_scan_jobs table for polling.
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ─── GET: Poll progress ────────────────────────────────────────────────────────
 
@@ -97,7 +101,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
-      const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+      const user = await findUserByAuth(
+        authUser.uid,
+        authUser.email,
+        "id, company_id"
+      );
       if (!user) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
@@ -110,9 +118,15 @@ export async function POST(request: NextRequest) {
       }
 
       // Feature gate
-      const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "phase_c");
+      const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
+        companyId,
+        "phase_c"
+      );
       if (!enabled) {
-        return NextResponse.json({ error: "Phase C not enabled" }, { status: 403 });
+        return NextResponse.json(
+          { error: "Phase C not enabled" },
+          { status: 403 }
+        );
       }
 
       // Find the email connection
@@ -128,10 +142,21 @@ export async function POST(request: NextRequest) {
         connection = connections[0] ?? null;
       }
 
-      if (!connection) {
+      if (
+        !connection ||
+        connection.companyId !== companyId ||
+        (connectionId !== undefined && connection.id !== connectionId)
+      ) {
         return NextResponse.json(
           { error: "No email connection found" },
           { status: 400 }
+        );
+      }
+
+      if (!isPersonalHistoricalLearningConnection(connection, userId)) {
+        return NextResponse.json(
+          { error: "Connect your own inbox to build your email profile." },
+          { status: 403 }
         );
       }
 
@@ -158,7 +183,10 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!jobRecord) {
-        return NextResponse.json({ error: "Failed to create scan job" }, { status: 500 });
+        return NextResponse.json(
+          { error: "Failed to create scan job" },
+          { status: 500 }
+        );
       }
 
       const jobId = jobRecord.id as string;
@@ -169,7 +197,13 @@ export async function POST(request: NextRequest) {
         const bgSupabase = getServiceRoleClient();
         await runWithSupabase(bgSupabase, async () => {
           try {
-            await runFullHistoryScan(bgSupabase, jobId, connection, companyId, userId);
+            await runFullHistoryScan(
+              bgSupabase,
+              jobId,
+              connection,
+              companyId,
+              userId
+            );
           } catch (err) {
             console.error("[email-scan] Full history scan failed:", err);
             await updateProgress(bgSupabase, jobId, {
@@ -239,12 +273,12 @@ async function runFullHistoryScan(
   userId: string
 ): Promise<void> {
   const startTime = Date.now();
-  console.log(`[email-scan] Starting full history scan for company ${companyId}`);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[email-scan] Starting full history scan for company ${companyId}`
+  );
 
   await updateProgress(supabase, jobId, { status: "scanning" });
-
-  const provider = EmailService.getProvider(connection);
-  const ownerEmail = connection.email.toLowerCase();
 
   // Get company employee emails for classification
   const { data: companyUsers } = await supabase
@@ -261,7 +295,6 @@ async function runFullHistoryScan(
   const twelveMonthsAgo = new Date();
   twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-  const allSentEmails: NormalizedEmail[] = [];
   let pageToken: string | undefined;
   const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 
@@ -300,7 +333,10 @@ async function runFullHistoryScan(
     await delay(200);
   } while (pageToken);
 
-  console.log(`[email-scan] Found ${allMessageIds.length} sent emails in last 12 months`);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[email-scan] Found ${allMessageIds.length} sent emails in last 12 months`
+  );
 
   await updateProgress(supabase, jobId, {
     status: "processing",
@@ -322,15 +358,12 @@ async function runFullHistoryScan(
     for (const msgId of batchIds) {
       try {
         const token = connection.accessToken;
-        const res = await fetch(
-          `${GMAIL_API}/messages/${msgId}?format=full`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const res = await fetch(`${GMAIL_API}/messages/${msgId}?format=full`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
         if (!res.ok) continue;
         const msgData = await res.json();
@@ -341,7 +374,8 @@ async function runFullHistoryScan(
           value: string;
         }>;
         const getHeader = (name: string) =>
-          headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
+          headers.find((h) => h.name.toLowerCase() === name.toLowerCase())
+            ?.value ?? "";
 
         // Extract body text
         let bodyText = "";
@@ -369,9 +403,13 @@ async function runFullHistoryScan(
           threadId: msgData.threadId,
           from: getHeader("From"),
           fromName: "",
-          to: getHeader("To").split(",").map((s: string) => s.trim()),
+          to: getHeader("To")
+            .split(",")
+            .map((s: string) => s.trim()),
           cc: getHeader("Cc")
-            ? getHeader("Cc").split(",").map((s: string) => s.trim())
+            ? getHeader("Cc")
+                .split(",")
+                .map((s: string) => s.trim())
             : [],
           subject: getHeader("Subject"),
           bodyText,
@@ -387,25 +425,41 @@ async function runFullHistoryScan(
       }
     }
 
-    // Process each email through writing profile and memory services.
-    // Service-role client is bound by the caller's runWithSupabase().
+    // Queue each immutable provider message through the same receipt-backed
+    // learning path used by live sync. Re-running onboarding/history scans can
+    // repair missing jobs but can never increment a profile twice.
+    const outboundLearning = new EmailOutboundLearningService(supabase);
     for (const email of batchEmails) {
       try {
-        // Update writing profile from every outbound email
-        await WritingProfileService.updateFromEmail(companyId, userId, {
-          bodyText: email.bodyText,
-        });
-        totalProfileUpdates++;
-
-        // Extract facts and entities via MemoryService
-        await MemoryService.processOutboundEmail(companyId, userId, {
-          from: email.from,
-          to: email.to,
+        const preparedBody = await prepareHistoricalOutboundBodyForLearning({
+          connection,
+          userId,
+          body: email.bodyText,
           subject: email.subject,
-          bodyText: email.bodyText,
-          date: email.date instanceof Date ? email.date.toISOString() : String(email.date),
         });
-        totalFactsExtracted++; // Approximate — processOutboundEmail doesn't return count
+        if (!preparedBody.exactSignatureRemoved) continue;
+
+        const queued = await outboundLearning.enqueueIfEnabled({
+          companyId,
+          connectionId: connection.id,
+          providerMessageId: email.id,
+          providerThreadId: email.threadId,
+          userId,
+          fromEmail: email.from,
+          toEmails: email.to,
+          subject: email.subject,
+          bodyText: preparedBody.authoredBody,
+          authoredBody: preparedBody.authoredBody,
+          cleanBody: preparedBody.cleanBody,
+          occurredAt: email.date,
+          labelIds: email.labelIds,
+          profileType: "general",
+          learningAuthority: "operator_authored",
+        });
+        if (queued) {
+          totalProfileUpdates++;
+          totalFactsExtracted++;
+        }
       } catch (err) {
         console.error(`[email-scan] Processing email ${email.id} failed:`, err);
       }
@@ -451,6 +505,7 @@ async function runFullHistoryScan(
   });
 
   const durationMs = Date.now() - startTime;
+  // eslint-disable-next-line no-console
   console.log(
     `[email-scan] Complete — ${totalProcessed} emails, ${totalFactsExtracted} facts, ${totalProfileUpdates} profile updates, ${(durationMs / 1000).toFixed(1)}s`
   );

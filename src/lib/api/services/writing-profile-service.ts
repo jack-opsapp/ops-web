@@ -14,38 +14,134 @@ function getOpenAI() {
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
-const CONTRACTION_PATTERNS = /\b(don'?t|won'?t|can'?t|isn'?t|aren'?t|wasn'?t|weren'?t|hasn'?t|haven'?t|hadn'?t|wouldn'?t|couldn'?t|shouldn'?t|didn'?t|ain'?t|it'?s|i'?m|i'?ll|i'?ve|i'?d|we'?re|we'?ll|we'?ve|they'?re|they'?ll|they'?ve|you'?re|you'?ll|you'?ve|he'?s|she'?s|that'?s|there'?s|here'?s|what'?s|who'?s|let'?s)\b/gi;
+const CONTRACTION_PATTERNS =
+  /\b(don'?t|won'?t|can'?t|isn'?t|aren'?t|wasn'?t|weren'?t|hasn'?t|haven'?t|hadn'?t|wouldn'?t|couldn'?t|shouldn'?t|didn'?t|ain'?t|it'?s|i'?m|i'?ll|i'?ve|i'?d|we'?re|we'?ll|we'?ve|they'?re|they'?ll|they'?ve|you'?re|you'?ll|you'?ve|he'?s|she'?s|that'?s|there'?s|here'?s|what'?s|who'?s|let'?s)\b/gi;
 
 const COLLOQUIALISMS = [
-  "gonna", "wanna", "gotta", "kinda", "sorta", "yeah", "yep", "nope",
-  "hey", "btw", "fyi", "asap", "lol", "haha", "no worries", "sounds good",
-  "cool", "awesome", "great", "perfect", "gotcha", "alright",
+  "gonna",
+  "wanna",
+  "gotta",
+  "kinda",
+  "sorta",
+  "yeah",
+  "yep",
+  "nope",
+  "hey",
+  "btw",
+  "fyi",
+  "asap",
+  "lol",
+  "haha",
+  "no worries",
+  "sounds good",
+  "cool",
+  "awesome",
+  "great",
+  "perfect",
+  "gotcha",
+  "alright",
 ];
 
 const HEDGING_PHRASES = [
-  "perhaps", "might", "maybe", "i think", "possibly", "it seems",
-  "if i'm not mistaken", "i believe", "not sure but", "could be",
-  "it appears", "presumably", "arguably", "in my opinion", "i suppose",
-  "more or less", "kind of", "sort of", "to some extent", "roughly",
+  "perhaps",
+  "might",
+  "maybe",
+  "i think",
+  "possibly",
+  "it seems",
+  "if i'm not mistaken",
+  "i believe",
+  "not sure but",
+  "could be",
+  "it appears",
+  "presumably",
+  "arguably",
+  "in my opinion",
+  "i suppose",
+  "more or less",
+  "kind of",
+  "sort of",
+  "to some extent",
+  "roughly",
 ];
 
 const TRADE_JARGON = [
-  "lf", "sqft", "sq ft", "fascia", "soffit", "joist", "riser", "baluster",
-  "flashing", "shingle", "truss", "stud", "drywall", "plywood", "osb",
-  "subfloor", "underlayment", "decking", "railing", "post", "beam",
-  "footing", "grade", "pitch", "slope", "eave", "ridge", "valley",
-  "gutter", "downspout", "hvac", "conduit", "romex", "pex", "abs",
-  "backfill", "grading", "excavation", "concrete", "rebar", "form",
-  "header", "sill plate", "top plate", "blocking", "bridging", "furring",
-  "trim", "casing", "baseboard", "crown", "wainscot", "bead board",
-  "p-trap", "shutoff", "rough-in", "finish", "punch list", "change order",
-  "scope", "spec", "bid", "estimate", "invoice", "draw", "progress payment",
+  "lf",
+  "sqft",
+  "sq ft",
+  "fascia",
+  "soffit",
+  "joist",
+  "riser",
+  "baluster",
+  "flashing",
+  "shingle",
+  "truss",
+  "stud",
+  "drywall",
+  "plywood",
+  "osb",
+  "subfloor",
+  "underlayment",
+  "decking",
+  "railing",
+  "post",
+  "beam",
+  "footing",
+  "grade",
+  "pitch",
+  "slope",
+  "eave",
+  "ridge",
+  "valley",
+  "gutter",
+  "downspout",
+  "hvac",
+  "conduit",
+  "romex",
+  "pex",
+  "abs",
+  "backfill",
+  "grading",
+  "excavation",
+  "concrete",
+  "rebar",
+  "form",
+  "header",
+  "sill plate",
+  "top plate",
+  "blocking",
+  "bridging",
+  "furring",
+  "trim",
+  "casing",
+  "baseboard",
+  "crown",
+  "wainscot",
+  "bead board",
+  "p-trap",
+  "shutoff",
+  "rough-in",
+  "finish",
+  "punch list",
+  "change order",
+  "scope",
+  "spec",
+  "bid",
+  "estimate",
+  "invoice",
+  "draw",
+  "progress payment",
 ];
 
 // ─── Dimension Extractors ──────────────────────────────────────────────────
 
 /** Dim 1: Enhanced formality score — contractions + colloquialisms (0-1 scale). */
-function extractFormality(body: string): { formalityScore: number; contractionCount: number; colloquialismCount: number } {
+function extractFormality(body: string): {
+  formalityScore: number;
+  contractionCount: number;
+  colloquialismCount: number;
+} {
   const words = body.split(/\s+/);
   const wordCount = words.length || 1;
 
@@ -55,21 +151,37 @@ function extractFormality(body: string): { formalityScore: number; contractionCo
   const lowerBody = body.toLowerCase();
   let colloquialismCount = 0;
   for (const c of COLLOQUIALISMS) {
-    const regex = new RegExp(`\\b${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
+    const regex = new RegExp(
+      `\\b${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "gi"
+    );
     colloquialismCount += (body.match(regex) || []).length;
   }
   const colloquialismDensity = colloquialismCount / wordCount;
 
   // Formal markers
   let formalMarkers = 0;
-  const formalPhrases = ["please", "kindly", "regarding", "furthermore", "however", "therefore", "accordingly", "pursuant"];
+  const formalPhrases = [
+    "please",
+    "kindly",
+    "regarding",
+    "furthermore",
+    "however",
+    "therefore",
+    "accordingly",
+    "pursuant",
+  ];
   for (const fp of formalPhrases) {
     if (lowerBody.includes(fp)) formalMarkers++;
   }
   const formalDensity = formalMarkers / wordCount;
 
   // Score: higher = more formal. Contractions/colloquialisms pull it down, formal words push up.
-  const rawScore = 0.5 - (contractionDensity * 5) - (colloquialismDensity * 8) + (formalDensity * 10);
+  const rawScore =
+    0.5 -
+    contractionDensity * 5 -
+    colloquialismDensity * 8 +
+    formalDensity * 10;
   const formalityScore = Math.max(0, Math.min(1, rawScore));
 
   return { formalityScore, contractionCount: contractions, colloquialismCount };
@@ -79,7 +191,10 @@ function extractFormality(body: string): { formalityScore: number; contractionCo
 function extractSentenceLength(body: string): number {
   const sentences = body.split(/[.!?]+/).filter((s) => s.trim().length > 10);
   if (sentences.length === 0) return 0;
-  return sentences.reduce((sum, s) => sum + s.trim().split(/\s+/).length, 0) / sentences.length;
+  return (
+    sentences.reduce((sum, s) => sum + s.trim().split(/\s+/).length, 0) /
+    sentences.length
+  );
 }
 
 /** Dim 3: Paragraph structure — bullets, paragraph length, bullet preference. */
@@ -109,9 +224,10 @@ function extractParagraphStructure(body: string): {
   }
   if (currentLength > 0) paragraphs.push(currentLength);
 
-  const avgParagraphLines = paragraphs.length > 0
-    ? paragraphs.reduce((a, b) => a + b, 0) / paragraphs.length
-    : 1;
+  const avgParagraphLines =
+    paragraphs.length > 0
+      ? paragraphs.reduce((a, b) => a + b, 0) / paragraphs.length
+      : 1;
 
   return {
     bulletFrequency,
@@ -128,7 +244,10 @@ function extractHedgingFrequency(body: string): number {
 
   let hedgeCount = 0;
   for (const phrase of HEDGING_PHRASES) {
-    const regex = new RegExp(`\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
+    const regex = new RegExp(
+      `\\b${phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "gi"
+    );
     hedgeCount += (lowerBody.match(regex) || []).length;
   }
 
@@ -158,10 +277,16 @@ function extractVocabularyComplexity(body: string): {
   uniqueWordRatio: number;
   usesTradeJargon: boolean;
 } {
-  const words = body.toLowerCase().split(/\s+/).filter((w) => w.length > 0);
-  if (words.length === 0) return { avgWordLength: 0, uniqueWordRatio: 0, usesTradeJargon: false };
+  const words = body
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 0);
+  if (words.length === 0)
+    return { avgWordLength: 0, uniqueWordRatio: 0, usesTradeJargon: false };
 
-  const avgWordLength = words.reduce((sum, w) => sum + w.replace(/[^a-z]/g, "").length, 0) / words.length;
+  const avgWordLength =
+    words.reduce((sum, w) => sum + w.replace(/[^a-z]/g, "").length, 0) /
+    words.length;
 
   // Type-token ratio on a sample (first 200 words to avoid length bias)
   const sample = words.slice(0, 200);
@@ -193,11 +318,16 @@ function extractEngagementStyle(body: string): {
   const questionsPerEmail = (body.match(/\?/g) || []).length;
 
   // Direct address: "you", "your", "you're"
-  const directAddress = (body.match(/\b(you|your|you're|you'll|you've|yourself)\b/gi) || []).length;
+  const directAddress = (
+    body.match(/\b(you|your|you're|you'll|you've|yourself)\b/gi) || []
+  ).length;
   const directAddressFreq = directAddress / wordCount;
 
   // First person: "I", "we", "our", "my"
-  const firstPerson = (body.match(/\b(i|we|our|my|me|us|i'm|i'll|i've|we're|we'll|we've)\b/gi) || []).length;
+  const firstPerson = (
+    body.match(/\b(i|we|our|my|me|us|i'm|i'll|i've|we're|we'll|we've)\b/gi) ||
+    []
+  ).length;
   const firstPersonFreq = firstPerson / wordCount;
 
   return { questionsPerEmail, directAddressFreq, firstPersonFreq };
@@ -243,14 +373,19 @@ function extractEmailLength(body: string): {
   category: "short" | "medium" | "long";
 } {
   const wordCount = body.split(/\s+/).filter((w) => w.length > 0).length;
-  const category = wordCount < 50 ? "short" : wordCount <= 200 ? "medium" : "long";
+  const category =
+    wordCount < 50 ? "short" : wordCount <= 200 ? "medium" : "long";
   return { wordCount, category };
 }
 
 // ─── Rolling Average Helpers ───────────────────────────────────────────────
 
 /** Compute a weighted rolling average: existing * (n-1)/n + new * 1/n */
-function rollingAvg(existing: number | undefined | null, newVal: number, count: number): number {
+function rollingAvg(
+  existing: number | undefined | null,
+  newVal: number,
+  count: number
+): number {
   if (!existing || count <= 1) return newVal;
   return (existing * (count - 1) + newVal) / count;
 }
@@ -376,7 +511,10 @@ async function deepToneAnalysis(
 
     const existingTraits = normalizeToneTraits(existingProfile?.tone_traits);
     const newTraits = analysis.traits || {};
-    const mergedTraits: Record<string, unknown> = { ...existingTraits, ...newTraits };
+    const mergedTraits: Record<string, unknown> = {
+      ...existingTraits,
+      ...newTraits,
+    };
 
     // Store response_structure (dimension 10) inside tone_traits
     if (analysis.response_structure) {
@@ -386,11 +524,13 @@ async function deepToneAnalysis(
     // Blend GPT formality with existing rolling average (70% existing, 30% GPT)
     // rather than overwriting the accumulated local analysis
     const gptFormality = analysis.formality || 0.5;
-    const existingFormality = (existingProfile?.formality_score as number) || 0.5;
+    const existingFormality =
+      (existingProfile?.formality_score as number) || 0.5;
     const emailsAnalyzed = (existingProfile?.emails_analyzed as number) || 0;
-    const blendedFormality = emailsAnalyzed > 10
-      ? existingFormality * 0.7 + gptFormality * 0.3
-      : gptFormality; // Trust GPT more when few emails analyzed locally
+    const blendedFormality =
+      emailsAnalyzed > 10
+        ? existingFormality * 0.7 + gptFormality * 0.3
+        : gptFormality; // Trust GPT more when few emails analyzed locally
 
     await supabase
       .from("agent_writing_profiles")
@@ -410,6 +550,29 @@ async function deepToneAnalysis(
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export const WritingProfileService = {
+  /**
+   * Deterministically extract one clean outbound sample without touching the
+   * database. The outbound-learning worker persists this payload before the
+   * atomic receipt/profile transaction, so retries reuse identical metrics.
+   */
+  prepareOutboundEmailSample(body: string, profileType: string = "general") {
+    const normalizedProfileType = profileType.trim().slice(0, 64) || "general";
+    const formality = extractFormality(body);
+    return {
+      profileType: normalizedProfileType,
+      formalityScore: formality.formalityScore,
+      avgSentenceLength: extractSentenceLength(body),
+      greeting: extractGreeting(body),
+      closing: extractClosing(body),
+      hedgingFrequency: extractHedgingFrequency(body),
+      punctuation: extractPunctuationStyle(body),
+      paragraphStructure: extractParagraphStructure(body),
+      vocabularyComplexity: extractVocabularyComplexity(body),
+      engagementStyle: extractEngagementStyle(body),
+      emailLength: extractEmailLength(body),
+    };
+  },
+
   /**
    * Update writing profile from an outbound email.
    * Extracts all 12 dimensions: 7 via regex/NLP (every email, no API cost),
@@ -484,14 +647,23 @@ export const WritingProfileService = {
 
     // ── Update existing profile with rolling averages ───────────────────
     const analyzed = ((profile.emails_analyzed as number) || 0) + 1;
-    const existingVocab = (profile.vocabulary_preferences as Record<string, unknown>) || {};
+    const existingVocab =
+      (profile.vocabulary_preferences as Record<string, unknown>) || {};
 
     // Rolling average for formality (blend local + any GPT-derived score)
     const existingFormality = (profile.formality_score as number) || 0.5;
-    const newFormality = rollingAvg(existingFormality, formality.formalityScore, analyzed);
+    const newFormality = rollingAvg(
+      existingFormality,
+      formality.formalityScore,
+      analyzed
+    );
 
     // Rolling average for sentence length
-    const newSentLen = rollingAvg(profile.avg_sentence_length as number, sentenceLen, analyzed);
+    const newSentLen = rollingAvg(
+      profile.avg_sentence_length as number,
+      sentenceLen,
+      analyzed
+    );
 
     // Merge greeting/closing patterns
     const greetings = [
@@ -508,44 +680,104 @@ export const WritingProfileService = {
     ].slice(0, 10);
 
     // ── Merge vocabulary_preferences with rolling averages ──────────────
-    const existingParagraph = (existingVocab.paragraph_structure as Record<string, number>) || {};
-    const existingVocabComplexity = (existingVocab.vocabulary_complexity as Record<string, number>) || {};
-    const existingEngagement = (existingVocab.engagement_style as Record<string, number>) || {};
-    const existingEmailLength = (existingVocab.email_length as Record<string, unknown>) || {};
-    const existingPunctuation = (existingVocab.punctuation_habits as Record<string, number>) || {};
-    const existingDist = (existingEmailLength.lengthDistribution as Record<string, number>) || { short: 0, medium: 0, long: 0 };
+    const existingParagraph =
+      (existingVocab.paragraph_structure as Record<string, number>) || {};
+    const existingVocabComplexity =
+      (existingVocab.vocabulary_complexity as Record<string, number>) || {};
+    const existingEngagement =
+      (existingVocab.engagement_style as Record<string, number>) || {};
+    const existingEmailLength =
+      (existingVocab.email_length as Record<string, unknown>) || {};
+    const existingPunctuation =
+      (existingVocab.punctuation_habits as Record<string, number>) || {};
+    const existingDist = (existingEmailLength.lengthDistribution as Record<
+      string,
+      number
+    >) || { short: 0, medium: 0, long: 0 };
 
     const updatedVocab = {
       words: existingVocab.words || [],
       common_phrases: existingVocab.common_phrases || [],
       substitutions: existingVocab.substitutions || {},
       hedging_tendency: rollingAvg(
-        typeof existingVocab.hedging_tendency === "number" ? existingVocab.hedging_tendency as number : null,
+        typeof existingVocab.hedging_tendency === "number"
+          ? (existingVocab.hedging_tendency as number)
+          : null,
         hedgingFreq,
         analyzed
       ),
-      punctuation_habits: mergePunctuation(existingPunctuation, punctuation, analyzed),
+      punctuation_habits: mergePunctuation(
+        existingPunctuation,
+        punctuation,
+        analyzed
+      ),
       paragraph_structure: {
-        bulletFrequency: rollingAvg(existingParagraph.bulletFrequency, paragraphStructure.bulletFrequency, analyzed),
-        avgParagraphLines: rollingAvg(existingParagraph.avgParagraphLines, paragraphStructure.avgParagraphLines, analyzed),
-        prefersBullets: rollingAvg(existingParagraph.bulletFrequency, paragraphStructure.bulletFrequency, analyzed) > 0.2,
+        bulletFrequency: rollingAvg(
+          existingParagraph.bulletFrequency,
+          paragraphStructure.bulletFrequency,
+          analyzed
+        ),
+        avgParagraphLines: rollingAvg(
+          existingParagraph.avgParagraphLines,
+          paragraphStructure.avgParagraphLines,
+          analyzed
+        ),
+        prefersBullets:
+          rollingAvg(
+            existingParagraph.bulletFrequency,
+            paragraphStructure.bulletFrequency,
+            analyzed
+          ) > 0.2,
       },
       vocabulary_complexity: {
-        avgWordLength: rollingAvg(existingVocabComplexity.avgWordLength, vocabComplexity.avgWordLength, analyzed),
-        uniqueWordRatio: rollingAvg(existingVocabComplexity.uniqueWordRatio, vocabComplexity.uniqueWordRatio, analyzed),
-        usesTradeJargon: vocabComplexity.usesTradeJargon || (existingVocabComplexity as unknown as { usesTradeJargon?: boolean }).usesTradeJargon === true,
+        avgWordLength: rollingAvg(
+          existingVocabComplexity.avgWordLength,
+          vocabComplexity.avgWordLength,
+          analyzed
+        ),
+        uniqueWordRatio: rollingAvg(
+          existingVocabComplexity.uniqueWordRatio,
+          vocabComplexity.uniqueWordRatio,
+          analyzed
+        ),
+        usesTradeJargon:
+          vocabComplexity.usesTradeJargon ||
+          (existingVocabComplexity as unknown as { usesTradeJargon?: boolean })
+            .usesTradeJargon === true,
       },
       engagement_style: {
-        questionsPerEmail: rollingAvg(existingEngagement.questionsPerEmail, engagement.questionsPerEmail, analyzed),
-        directAddressFreq: rollingAvg(existingEngagement.directAddressFreq, engagement.directAddressFreq, analyzed),
-        firstPersonFreq: rollingAvg(existingEngagement.firstPersonFreq, engagement.firstPersonFreq, analyzed),
+        questionsPerEmail: rollingAvg(
+          existingEngagement.questionsPerEmail,
+          engagement.questionsPerEmail,
+          analyzed
+        ),
+        directAddressFreq: rollingAvg(
+          existingEngagement.directAddressFreq,
+          engagement.directAddressFreq,
+          analyzed
+        ),
+        firstPersonFreq: rollingAvg(
+          existingEngagement.firstPersonFreq,
+          engagement.firstPersonFreq,
+          analyzed
+        ),
       },
       email_length: {
-        avgWordCount: rollingAvg(existingEmailLength.avgWordCount as number | undefined, emailLength.wordCount, analyzed),
+        avgWordCount: rollingAvg(
+          existingEmailLength.avgWordCount as number | undefined,
+          emailLength.wordCount,
+          analyzed
+        ),
         lengthDistribution: {
-          short: (existingDist.short || 0) + (emailLength.category === "short" ? 1 : 0),
-          medium: (existingDist.medium || 0) + (emailLength.category === "medium" ? 1 : 0),
-          long: (existingDist.long || 0) + (emailLength.category === "long" ? 1 : 0),
+          short:
+            (existingDist.short || 0) +
+            (emailLength.category === "short" ? 1 : 0),
+          medium:
+            (existingDist.medium || 0) +
+            (emailLength.category === "medium" ? 1 : 0),
+          long:
+            (existingDist.long || 0) +
+            (emailLength.category === "long" ? 1 : 0),
         },
       },
     };
@@ -607,7 +839,11 @@ export const WritingProfileService = {
           .single();
 
         if (generalProfile) {
-          return this.blendProfiles(specificProfile, generalProfile, emailsAnalyzed);
+          return this.blendProfiles(
+            specificProfile,
+            generalProfile,
+            emailsAnalyzed
+          );
         }
         return specificProfile;
       }
@@ -679,7 +915,9 @@ export const WritingProfileService = {
       },
       // Vocab prefs: use specific if it has data, otherwise general
       vocabulary_preferences:
-        Object.keys((specific.vocabulary_preferences as Record<string, unknown>) || {}).length > 2
+        Object.keys(
+          (specific.vocabulary_preferences as Record<string, unknown>) || {}
+        ).length > 2
           ? specific.vocabulary_preferences
           : general.vocabulary_preferences,
     };
@@ -691,8 +929,7 @@ export const WritingProfileService = {
   getConfidence(emailsAnalyzed: number): number {
     if (emailsAnalyzed < 25) return emailsAnalyzed / 125; // 0-0.2
     if (emailsAnalyzed < 100) return 0.2 + (emailsAnalyzed - 25) * 0.004; // 0.2-0.5
-    if (emailsAnalyzed < 250)
-      return 0.5 + (emailsAnalyzed - 100) * 0.00167; // 0.5-0.75
+    if (emailsAnalyzed < 250) return 0.5 + (emailsAnalyzed - 100) * 0.00167; // 0.5-0.75
     return Math.min(1.0, 0.75 + (emailsAnalyzed - 250) * 0.001); // 0.75-1.0
   },
 

@@ -14,7 +14,14 @@
  */
 
 import React from "react";
-import { act, fireEvent, render, renderHook, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OpportunityStage } from "@/lib/types/pipeline";
@@ -32,10 +39,10 @@ vi.mock("@/i18n/client", () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
         "table.gridLabel": "Pipeline table",
-        "table.group.toggleLabel": "{stage} stage, {count} deals — collapse or expand",
+        "table.group.toggleLabel":
+          "{stage} stage, {count} deals — collapse or expand",
         "table.group.count": "// {count}",
         "table.group.value": "[VALUE]",
-        "table.group.weighted": "[WTD]",
       };
       return translations[key] ?? key;
     },
@@ -74,9 +81,14 @@ vi.mock(
   "@/app/(dashboard)/pipeline/_components/table/pipeline-table-row",
   () => ({
     PipelineTableRow: ({ row }: { row: PipelineTableRowModel }) => (
-      <div data-testid="data-row" data-row-id={row.id} data-row-stage={row.stage} role="row" />
+      <div
+        data-testid="data-row"
+        data-row-id={row.id}
+        data-row-stage={row.stage}
+        role="row"
+      />
     ),
-  }),
+  })
 );
 
 // ── Stub the header chrome (sticky column header). Expose the select-all state
@@ -102,7 +114,7 @@ vi.mock(
         />
       </div>
     ),
-  }),
+  })
 );
 
 import { PipelineTable } from "@/app/(dashboard)/pipeline/_components/table/pipeline-table";
@@ -110,7 +122,9 @@ import { GROUP_HEADER_HEIGHT } from "@/app/(dashboard)/pipeline/_components/tabl
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-function makeRow(overrides: Partial<PipelineTableRowModel> & { id: string }): PipelineTableRowModel {
+function makeRow(
+  overrides: Partial<PipelineTableRowModel> & { id: string }
+): PipelineTableRowModel {
   return {
     companyId: "co-1",
     title: overrides.id,
@@ -142,11 +156,36 @@ function makeRow(overrides: Partial<PipelineTableRowModel> & { id: string }): Pi
 // unambiguous. NewLead: value 100, wtd 10 · Qualifying: value 200, wtd 40 ·
 // Quoting: value 350, wtd 210. Grand: value 650, wtd 260.
 const ROWS: PipelineTableRowModel[] = [
-  makeRow({ id: "n1", stage: OpportunityStage.NewLead, estimatedValue: 100, weightedValue: 10 }),
-  makeRow({ id: "n2", stage: OpportunityStage.NewLead, estimatedValue: 0, weightedValue: 0 }),
-  makeRow({ id: "ql1", stage: OpportunityStage.Qualifying, estimatedValue: 200, weightedValue: 40 }),
-  makeRow({ id: "q1", stage: OpportunityStage.Quoting, estimatedValue: 300, weightedValue: 180 }),
-  makeRow({ id: "q2", stage: OpportunityStage.Quoting, estimatedValue: 50, weightedValue: 30 }),
+  makeRow({
+    id: "n1",
+    stage: OpportunityStage.NewLead,
+    estimatedValue: 100,
+    weightedValue: 10,
+  }),
+  makeRow({
+    id: "n2",
+    stage: OpportunityStage.NewLead,
+    estimatedValue: 0,
+    weightedValue: 0,
+  }),
+  makeRow({
+    id: "ql1",
+    stage: OpportunityStage.Qualifying,
+    estimatedValue: 200,
+    weightedValue: 40,
+  }),
+  makeRow({
+    id: "q1",
+    stage: OpportunityStage.Quoting,
+    estimatedValue: 300,
+    weightedValue: 180,
+  }),
+  makeRow({
+    id: "q2",
+    stage: OpportunityStage.Quoting,
+    estimatedValue: 50,
+    weightedValue: 30,
+  }),
 ];
 
 const METRICS = {
@@ -163,7 +202,7 @@ const METRICS = {
 const NOOP = () => {};
 
 function renderTable(
-  props: Partial<React.ComponentProps<typeof PipelineTable>> = {},
+  props: Partial<React.ComponentProps<typeof PipelineTable>> = {}
 ) {
   return render(
     <PipelineTable
@@ -191,7 +230,7 @@ function renderTable(
       onRequestStageChange={NOOP}
       onRequestConvertAlreadyWon={NOOP}
       {...props}
-    />,
+    />
   );
 }
 
@@ -235,16 +274,17 @@ describe("PipelineTable — grouped mode", () => {
     expect(screen.getAllByTestId("data-row")).toHaveLength(5);
   });
 
-  it("shows the correct rollups (count · Σvalue · Σweighted) per stage", () => {
+  it("shows count and concrete value rollups without weighted forecasts", () => {
     const newLead = headerRollup("New Lead");
     expect(within(newLead).getByText("// 2")).toBeInTheDocument();
     expect(within(newLead).getByText("$100")).toBeInTheDocument();
-    expect(within(newLead).getByText("$10")).toBeInTheDocument();
+    expect(within(newLead).queryByText("$10")).not.toBeInTheDocument();
+    expect(within(newLead).queryByText("[WTD]")).not.toBeInTheDocument();
 
     const quoting = headerRollup("Quoting");
     expect(within(quoting).getByText("// 2")).toBeInTheDocument();
     expect(within(quoting).getByText("$350")).toBeInTheDocument();
-    expect(within(quoting).getByText("$210")).toBeInTheDocument();
+    expect(within(quoting).queryByText("$210")).not.toBeInTheDocument();
   });
 
   it("marks every header expanded (aria-expanded=true) when nothing is collapsed", () => {
@@ -258,7 +298,9 @@ describe("PipelineTable — grouped mode", () => {
   });
 
   it("uses per-kind estimateSize: GROUP_HEADER_HEIGHT for headers, rowHeight for data", () => {
-    const estimateSize = virtualizerOptions.current?.estimateSize as (i: number) => number;
+    const estimateSize = virtualizerOptions.current?.estimateSize as (
+      i: number
+    ) => number;
     // Stream order: header(0), n1(1), n2(2), header(3), ql1(4), header(5), q1(6), q2(7).
     expect(estimateSize(0)).toBe(GROUP_HEADER_HEIGHT);
     expect(estimateSize(1)).toBe(METRICS.rowHeight);
@@ -267,7 +309,9 @@ describe("PipelineTable — grouped mode", () => {
   });
 
   it("derives a stable per-item key (data:id / group-header:stage)", () => {
-    const getItemKey = virtualizerOptions.current?.getItemKey as (i: number) => string;
+    const getItemKey = virtualizerOptions.current?.getItemKey as (
+      i: number
+    ) => string;
     expect(getItemKey(0)).toBe(`group-header:${OpportunityStage.NewLead}`);
     expect(getItemKey(1)).toBe("data:n1");
     expect(getItemKey(5)).toBe(`group-header:${OpportunityStage.Quoting}`);
@@ -293,7 +337,9 @@ describe("PipelineTable — collapse / expand", () => {
     const dataRows = screen.getAllByTestId("data-row");
     expect(dataRows).toHaveLength(3);
     expect(
-      dataRows.filter((r) => r.getAttribute("data-row-stage") === OpportunityStage.NewLead),
+      dataRows.filter(
+        (r) => r.getAttribute("data-row-stage") === OpportunityStage.NewLead
+      )
     ).toHaveLength(0);
 
     // Virtualizer count drops to 3 headers + 3 data rows.
@@ -414,7 +460,9 @@ describe("PipelineTableShell selection wiring — persistence across collapse", 
 
     const selectAllVisible = () => {
       if (renderedDataRowIds.length === 0) return;
-      const allRenderedSelected = renderedDataRowIds.every((id) => selectedIds.has(id));
+      const allRenderedSelected = renderedDataRowIds.every((id) =>
+        selectedIds.has(id)
+      );
       if (allRenderedSelected) {
         for (const id of renderedDataRowIds) toggleRow(id, "toggle");
         return;
@@ -425,7 +473,8 @@ describe("PipelineTableShell selection wiring — persistence across collapse", 
     };
 
     const allRenderedSelected =
-      renderedDataRowIds.length > 0 && renderedDataRowIds.every((id) => selectedIds.has(id));
+      renderedDataRowIds.length > 0 &&
+      renderedDataRowIds.every((id) => selectedIds.has(id));
 
     return {
       selectedIds,
@@ -443,8 +492,12 @@ describe("PipelineTableShell selection wiring — persistence across collapse", 
     // Select 2 deals in NewLead (n1, n2) and 1 in Qualifying (ql1) → count 3.
     const { result, rerender } = renderHook(
       ({ collapsed }: { collapsed: ReadonlySet<OpportunityStage> }) =>
-        useShellSelection({ rows: ROWS, grouped: true, collapsedStages: collapsed }),
-      { initialProps: { collapsed: new Set<OpportunityStage>() } },
+        useShellSelection({
+          rows: ROWS,
+          grouped: true,
+          collapsedStages: collapsed,
+        }),
+      { initialProps: { collapsed: new Set<OpportunityStage>() } }
     );
 
     act(() => result.current.toggleRow("n1", "toggle"));
@@ -472,7 +525,7 @@ describe("PipelineTableShell selection wiring — persistence across collapse", 
     const { result, rerender } = renderHook(
       ({ rows }: { rows: PipelineTableRowModel[] }) =>
         useShellSelection({ rows, grouped: true, collapsedStages: new Set() }),
-      { initialProps: { rows: ROWS } },
+      { initialProps: { rows: ROWS } }
     );
 
     act(() => result.current.toggleRow("ql1", "toggle"));
@@ -489,7 +542,7 @@ describe("PipelineTableShell selection wiring — persistence across collapse", 
         rows: ROWS,
         grouped: true,
         collapsedStages: new Set([OpportunityStage.NewLead]),
-      }),
+      })
     );
 
     act(() => result.current.selectAllVisible());
@@ -504,7 +557,7 @@ describe("PipelineTableShell selection wiring — persistence across collapse", 
         rows: ROWS,
         grouped: true,
         collapsedStages: new Set([OpportunityStage.NewLead]),
-      }),
+      })
     );
 
     // Pre-select a hidden (collapsed-stage) row, then run select-all.
@@ -512,7 +565,12 @@ describe("PipelineTableShell selection wiring — persistence across collapse", 
     act(() => result.current.selectAllVisible());
 
     // The hidden n1 stays selected; the rendered rows get added on top.
-    expect([...result.current.selectedIds].sort()).toEqual(["n1", "q1", "q2", "ql1"]);
+    expect([...result.current.selectedIds].sort()).toEqual([
+      "n1",
+      "q1",
+      "q2",
+      "ql1",
+    ]);
   });
 
   it("select-all toggles OFF only the rendered rows when all rendered are already selected, leaving hidden selections intact", () => {
@@ -521,7 +579,7 @@ describe("PipelineTableShell selection wiring — persistence across collapse", 
         rows: ROWS,
         grouped: true,
         collapsedStages: new Set([OpportunityStage.NewLead]),
-      }),
+      })
     );
 
     // Hidden n1 selected + all rendered (ql1, q1, q2) selected.
@@ -559,9 +617,16 @@ describe("PipelineTableShell selection wiring — grouped range-select order", (
       collapsedStages: args.collapsedStages,
     }).flatMap((item) => (item.kind === "data" ? [item.row.id] : []));
 
-    const { selectedIds, selectedCount, toggleRow } = useTableSelection(selectableRowIds);
+    const { selectedIds, selectedCount, toggleRow } =
+      useTableSelection(selectableRowIds);
 
-    return { selectedIds, selectedCount, selectableRowIds, renderedDataRowIds, toggleRow };
+    return {
+      selectedIds,
+      selectedCount,
+      selectableRowIds,
+      renderedDataRowIds,
+      toggleRow,
+    };
   }
 
   // Flat (data-arrival) order interleaves stages: q-first, then a New Lead, then
@@ -577,15 +642,29 @@ describe("PipelineTableShell selection wiring — grouped range-select order", (
 
   it("orders selectableRowIds by the rendered (stage-grouped) sequence, not flat arrival order", () => {
     const { result } = renderHook(() =>
-      useShellSelection({ rows: INTERLEAVED, grouped: true, collapsedStages: new Set() }),
+      useShellSelection({
+        rows: INTERLEAVED,
+        grouped: true,
+        collapsedStages: new Set(),
+      })
     );
     // NewLead (a1,a2) → Qualifying (c1) → Quoting (b1,b2).
-    expect(result.current.selectableRowIds).toEqual(["a1", "a2", "c1", "b1", "b2"]);
+    expect(result.current.selectableRowIds).toEqual([
+      "a1",
+      "a2",
+      "c1",
+      "b1",
+      "b2",
+    ]);
   });
 
   it("a shift-click from a row in stage A to a row in stage B selects the rendered-contiguous span (stage order)", () => {
     const { result } = renderHook(() =>
-      useShellSelection({ rows: INTERLEAVED, grouped: true, collapsedStages: new Set() }),
+      useShellSelection({
+        rows: INTERLEAVED,
+        grouped: true,
+        collapsedStages: new Set(),
+      })
     );
 
     // Anchor on a2 (last NewLead row), then shift-click b1 (first Quoting row).
@@ -604,8 +683,12 @@ describe("PipelineTableShell selection wiring — grouped range-select order", (
   it("range-selected rows persist across a collapse/expand of an unrelated stage", () => {
     const { result, rerender } = renderHook(
       ({ collapsed }: { collapsed: ReadonlySet<OpportunityStage> }) =>
-        useShellSelection({ rows: INTERLEAVED, grouped: true, collapsedStages: collapsed }),
-      { initialProps: { collapsed: new Set<OpportunityStage>() } },
+        useShellSelection({
+          rows: INTERLEAVED,
+          grouped: true,
+          collapsedStages: collapsed,
+        }),
+      { initialProps: { collapsed: new Set<OpportunityStage>() } }
     );
 
     // Select the rendered span a2..b1 = {a2, c1, b1}.

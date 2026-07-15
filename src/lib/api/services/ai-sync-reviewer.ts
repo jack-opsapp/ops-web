@@ -10,6 +10,7 @@ import { EmailAIClassifier } from "./email-ai-classifier";
 import { EmailService } from "./email-service";
 import { getSyncOpenAI } from "./openai-clients";
 import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
+import { resolvePersistedEmailDirection } from "@/lib/email/email-ingestion-routing";
 import type { NormalizedEmail } from "./email-provider";
 import type {
   EmailConnection,
@@ -18,8 +19,8 @@ import type {
 
 export interface AIClassifiedLead {
   email: NormalizedEmail;
-  clientName: string;
-  clientEmail: string;
+  clientName: string | null;
+  clientEmail: string | null;
   clientPhone: string | null;
   address: string | null;
   description: string;
@@ -43,15 +44,29 @@ export interface AIReviewResult {
 
 // ─── Stage validation ────────────────────────────────────────────────────────
 
-const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation'] as const;
+const VALID_STAGES = [
+  "new_lead",
+  "qualifying",
+  "quoting",
+  "quoted",
+  "follow_up",
+  "negotiation",
+] as const;
+type ActiveOpportunityStage = (typeof VALID_STAGES)[number];
 
-function sanitizeStage(raw: string | null | undefined): string {
-  if (raw && (VALID_STAGES as readonly string[]).includes(raw)) return raw;
-  return 'new_lead';
+function sanitizeStage(
+  raw: string | null | undefined
+): ActiveOpportunityStage | null {
+  if (raw && (VALID_STAGES as readonly string[]).includes(raw)) {
+    return raw as ActiveOpportunityStage;
+  }
+  return null;
 }
 
-function sanitizeTerminalFlag(raw: string | null | undefined): 'likely_won' | 'likely_lost' | null {
-  if (raw === 'likely_won' || raw === 'likely_lost') return raw;
+function sanitizeTerminalFlag(
+  raw: string | null | undefined
+): "likely_won" | "likely_lost" | null {
+  if (raw === "likely_won" || raw === "likely_lost") return raw;
   return null;
 }
 
@@ -87,27 +102,42 @@ export const AISyncReviewer = {
     if (!enabled) return emptyReviewResult();
 
     const threshold =
-      (connection.syncFilters as SyncProfile).aiClassificationThreshold || 0.7;
+      (connection.syncFilters as SyncProfile | undefined)
+        ?.aiClassificationThreshold || 0.7;
 
     // Pass the SYNC OpenAI client so classification uses the sync API key
     const syncClient = getSyncOpenAI();
 
+    const sourceEmailById = new Map<string, NormalizedEmail>();
+    for (const sourceEmail of unmatchedEmails) {
+      if (!sourceEmail.id || sourceEmailById.has(sourceEmail.id)) {
+        throw new Error(
+          `[ai-sync-reviewer] duplicate unmatched input ${sourceEmail.id || "<empty>"}`
+        );
+      }
+      sourceEmailById.set(sourceEmail.id, sourceEmail);
+    }
+
+    const classificationInputs = unmatchedEmails.map((e) => ({
+      id: e.id,
+      threadId: e.threadId,
+      from: e.from,
+      to: e.to,
+      subject: e.subject,
+      snippet: e.snippet,
+      // Pass the cleaned body so the classifier can recover address/scope;
+      // it is capped to 1500 chars inside classifySingleBatch.
+      body: e.bodyTextClean || e.bodyText || e.snippet,
+      date: e.date.toISOString(),
+      direction: resolvePersistedEmailDirection(e, {
+        connectionEmail: connection.email,
+        companyDomains:
+          connection.syncFilters?.companyDomains ?? companyContext.domains,
+        userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
+      }),
+    }));
     const classifications = await EmailAIClassifier.classifyBatch(
-      unmatchedEmails.map((e) => ({
-        id: e.id,
-        threadId: e.threadId,
-        from: e.from,
-        to: e.to,
-        subject: e.subject,
-        snippet: e.snippet,
-        // Pass the cleaned body so the classifier can recover address/scope;
-        // it is capped to 1500 chars inside classifySingleBatch.
-        body: e.bodyTextClean || e.bodyText || e.snippet,
-        date: e.date.toISOString(),
-        direction: e.to.some((t) => t.includes(connection.email))
-          ? ("outbound" as const)
-          : ("inbound" as const),
-      })),
+      classificationInputs,
       {
         companyName: companyContext.name,
         industry: companyContext.industry,
@@ -117,35 +147,57 @@ export const AISyncReviewer = {
       syncClient
     );
 
-    const leads = classifications.filter(
+    const classificationById = new Map<
+      string,
+      (typeof classifications)[number]
+    >();
+    for (const classification of classifications) {
+      if (!sourceEmailById.has(classification.id)) {
+        throw new Error(
+          `[ai-sync-reviewer] classifier returned unknown input ${classification.id}`
+        );
+      }
+      if (classificationById.has(classification.id)) {
+        throw new Error(
+          `[ai-sync-reviewer] classifier duplicated input ${classification.id}`
+        );
+      }
+      classificationById.set(classification.id, classification);
+    }
+
+    const orderedClassifications = unmatchedEmails.map((sourceEmail) => {
+      const classification = classificationById.get(sourceEmail.id);
+      if (!classification) {
+        throw new Error(
+          `[ai-sync-reviewer] classifier omitted input ${sourceEmail.id}`
+        );
+      }
+      return classification;
+    });
+
+    const leads = orderedClassifications.filter(
       (c) => c.verdict === "lead" && c.confidence >= threshold
     );
 
     // Build classified leads with their source emails for persistence
-    const classifiedLeads: AIClassifiedLead[] = leads
-      .map((c) => {
-        const sourceEmail = unmatchedEmails.find((e) => e.id === c.id);
-        if (!sourceEmail || !c.client) return null;
-        return {
-          email: sourceEmail,
-          clientName: c.client.name,
-          clientEmail: c.client.email,
-          clientPhone: c.client.phone,
-          address: c.client.address ?? null,
-          description: c.client.description,
-          stage: c.stage || "new_lead",
-          estimatedValue: c.estimatedValue,
-          confidence: c.confidence,
-        };
-      })
-      .filter((l): l is AIClassifiedLead => l !== null);
+    const classifiedLeads: AIClassifiedLead[] = leads.map((c) => ({
+      email: sourceEmailById.get(c.id)!,
+      clientName: c.client?.name ?? null,
+      clientEmail: c.client?.email ?? null,
+      clientPhone: c.client?.phone ?? null,
+      address: c.client?.address ?? null,
+      description: c.client?.description ?? "",
+      stage: c.stage || "new_lead",
+      estimatedValue: c.estimatedValue,
+      confidence: c.confidence,
+    }));
 
     return {
       newLeadsClassified: leads.length,
       classifiedLeads,
       stageChanges: 0,
       terminalFlags: [],
-      duplicatesDetected: classifications.filter(
+      duplicatesDetected: orderedClassifications.filter(
         (c) => c.duplicateOf.length > 0
       ).length,
     };
@@ -160,14 +212,22 @@ export const AISyncReviewer = {
    * Uses OPENAI_API_KEY_SYNC directly (no delegation to EmailAIClassifier).
    */
   async evaluateStagesWithSummary(
-    activeLeadThreadIds: string[],
+    activeLeadTargets: Array<
+      | string
+      | {
+          /** Logical evaluation key; message-scoped for contact forms. */
+          threadId: string;
+          /** Explicit messages prevent fetching a reused platform thread. */
+          messages: NormalizedEmail[];
+        }
+    >,
     connection: EmailConnection,
     companyContext: { name: string }
   ): Promise<
     Array<{
       threadId: string;
-      newStage: string;
-      terminalFlag: 'likely_won' | 'likely_lost' | null;
+      newStage: string | null;
+      terminalFlag: "likely_won" | "likely_lost" | null;
       summary: string | null;
     }>
   > {
@@ -179,7 +239,8 @@ export const AISyncReviewer = {
 
     const provider = EmailService.getProvider(connection);
 
-    // Fetch full threads for analysis — cap at 20 per sync
+    // Fetch every active thread. Silently truncating this list leaves later
+    // opportunities permanently stale when a busy sync contains >20 threads.
     const threadInputs: Array<{
       threadId: string;
       messages: Array<{
@@ -188,32 +249,41 @@ export const AISyncReviewer = {
         subject: string;
         bodyText: string;
         date: string;
-        direction: 'inbound' | 'outbound';
+        direction: "inbound" | "outbound";
       }>;
     }> = [];
 
-    for (const threadId of activeLeadThreadIds.slice(0, 20)) {
-      try {
-        const messages = await provider.fetchThread(threadId);
-        threadInputs.push({
-          threadId,
-          messages: messages.map((m) => ({
-            from: m.from,
-            to: m.to,
-            subject: m.subject,
-            bodyText: m.bodyText,
-            date: m.date.toISOString(),
-            direction: (
-              m.from.includes(connection.email) ? "outbound" : "inbound"
-            ) as "inbound" | "outbound",
-          })),
-        });
-      } catch (err) {
-        console.error(
-          `[ai-sync-reviewer] Failed to fetch thread ${threadId}:`,
-          err
-        );
+    for (const target of activeLeadTargets) {
+      const threadId = typeof target === "string" ? target : target.threadId;
+      let messages: NormalizedEmail[];
+      if (typeof target === "string") {
+        try {
+          messages = await provider.fetchThread(threadId);
+        } catch (err) {
+          throw new Error(
+            `[ai-sync-reviewer] failed to fetch thread ${threadId}: ${err instanceof Error ? err.message : "unknown error"}`,
+            { cause: err }
+          );
+        }
+      } else {
+        messages = target.messages;
       }
+      threadInputs.push({
+        threadId,
+        messages: messages.map((m) => ({
+          from: m.from,
+          to: m.to,
+          subject: m.subject,
+          bodyText: m.bodyText,
+          date: m.date.toISOString(),
+          direction: resolvePersistedEmailDirection(m, {
+            connectionEmail: connection.email,
+            companyDomains: connection.syncFilters?.companyDomains ?? [],
+            userEmailAddresses:
+              connection.syncFilters?.userEmailAddresses ?? [],
+          }),
+        })),
+      });
     }
 
     if (threadInputs.length === 0) return [];
@@ -221,15 +291,19 @@ export const AISyncReviewer = {
     // Process in batches of 5 threads per API call
     const results: Array<{
       threadId: string;
-      newStage: string;
-      terminalFlag: 'likely_won' | 'likely_lost' | null;
+      newStage: string | null;
+      terminalFlag: "likely_won" | "likely_lost" | null;
       summary: string | null;
     }> = [];
 
     const BATCH_SIZE = 5;
     for (let i = 0; i < threadInputs.length; i += BATCH_SIZE) {
       const batch = threadInputs.slice(i, i + BATCH_SIZE);
-      const batchResults = await this.evaluateSingleBatch(batch, companyContext.name, connection.email);
+      const batchResults = await this.evaluateSingleBatch(
+        batch,
+        companyContext.name,
+        connection.email
+      );
       results.push(...batchResults);
       if (i + BATCH_SIZE < threadInputs.length) {
         await new Promise((r) => setTimeout(r, 200));
@@ -252,7 +326,7 @@ export const AISyncReviewer = {
         subject: string;
         bodyText: string;
         date: string;
-        direction: 'inbound' | 'outbound';
+        direction: "inbound" | "outbound";
       }>;
     }>,
     companyName: string,
@@ -260,8 +334,8 @@ export const AISyncReviewer = {
   ): Promise<
     Array<{
       threadId: string;
-      newStage: string;
-      terminalFlag: 'likely_won' | 'likely_lost' | null;
+      newStage: string | null;
+      terminalFlag: "likely_won" | "likely_lost" | null;
       summary: string | null;
     }>
   > {
@@ -306,62 +380,104 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
 
     try {
       const response = await getSyncOpenAI().chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: "gpt-4o-mini",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
         // Stage (~15 tokens) + summary (~50 tokens) + metadata (~10 tokens) per thread
         max_tokens: threads.length * 80,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
       });
 
       const content = response.choices[0]?.message?.content || '{"results":[]}';
       const parsed = JSON.parse(content);
       const rawResults = parsed.results || parsed;
-      const threadById = new Map(threads.map((thread) => [thread.threadId, thread]));
+      if (!Array.isArray(rawResults)) {
+        throw new Error("model response did not contain a results array");
+      }
+      const threadById = new Map(
+        threads.map((thread) => [thread.threadId, thread])
+      );
+      const resultByThreadId = new Map<string, Record<string, unknown>>();
 
-      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => {
-        const rawStage = (r.stage as string) || null;
-        const rawFlag = (r.flag as string) || (r.terminalFlag as string) || null;
-        const threadId = (r.tid as string) || (r.threadId as string);
+      for (const rawResult of rawResults) {
+        if (!rawResult || typeof rawResult !== "object") {
+          throw new Error("model response contained an invalid result");
+        }
+        const result = rawResult as Record<string, unknown>;
+        const threadId =
+          typeof result.tid === "string"
+            ? result.tid
+            : typeof result.threadId === "string"
+              ? result.threadId
+              : null;
+        if (!threadId || !threadById.has(threadId)) {
+          throw new Error("model response contained an unknown evaluation key");
+        }
+        if (resultByThreadId.has(threadId)) {
+          throw new Error(
+            `model response duplicated evaluation key ${threadId}`
+          );
+        }
+        resultByThreadId.set(threadId, result);
+      }
+
+      return threads.map((thread) => {
+        const result = resultByThreadId.get(thread.threadId);
+        if (!result) {
+          throw new Error(
+            `model response omitted evaluation key ${thread.threadId}`
+          );
+        }
+        if (typeof result.summary !== "string" || !result.summary.trim()) {
+          throw new Error(
+            `model response omitted summary for ${thread.threadId}`
+          );
+        }
+        const rawStage =
+          typeof result?.stage === "string" ? result.stage : null;
+        const rawFlag =
+          typeof result?.flag === "string"
+            ? result.flag
+            : typeof result?.terminalFlag === "string"
+              ? result.terminalFlag
+              : null;
 
         // Rescue terminal flags from stage field
         let stage = sanitizeStage(rawStage);
         let terminalFlag = sanitizeTerminalFlag(rawFlag);
-        if (!terminalFlag && (rawStage === 'likely_won' || rawStage === 'likely_lost')) {
+        if (
+          !terminalFlag &&
+          (rawStage === "likely_won" || rawStage === "likely_lost")
+        ) {
           terminalFlag = rawStage;
-          stage = sanitizeStage(null); // falls back to new_lead
+          stage = null;
         }
 
-        const deterministicTerminal = threadId
-          ? detectTerminalStageFromMessages(
-              (threadById.get(threadId)?.messages ?? []).map((message) => ({
-                direction: message.direction,
-                body: message.bodyText,
-              }))
-            )
-          : null;
+        const deterministicTerminal = detectTerminalStageFromMessages(
+          thread.messages.map((message) => ({
+            direction: message.direction,
+            body: message.bodyText,
+          }))
+        );
         if (deterministicTerminal) {
           terminalFlag = deterministicTerminal.terminalFlag;
         }
 
         return {
-          threadId,
+          threadId: thread.threadId,
           newStage: stage,
           terminalFlag,
-          summary: (r.summary as string) || null,
+          summary: result.summary.trim(),
         };
       });
     } catch (err) {
-      console.error('[ai-sync-reviewer] Combined stage+summary evaluation failed:', err);
-      return threads.map((t) => ({
-        threadId: t.threadId,
-        newStage: 'new_lead',
-        terminalFlag: null,
-        summary: null,
-      }));
+      throw new Error(
+        `[ai-sync-reviewer] stage and summary evaluation failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        { cause: err }
+      );
     }
   },
 };

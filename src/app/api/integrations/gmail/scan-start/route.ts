@@ -25,6 +25,7 @@ import {
   getValidGmailToken,
   type GmailConnectionRow,
 } from "@/lib/api/services/gmail-token";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 export const maxDuration = 300;
 
@@ -61,6 +62,13 @@ interface ScanEmail {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAX_SCAN = 500;
+const NON_DELIVERY_GMAIL_LABELS = new Set(["DRAFT", "SPAM", "TRASH"]);
+
+function isDeliveryMessage(labelIds: string[] | undefined): boolean {
+  return !(labelIds ?? []).some((label) =>
+    NON_DELIVERY_GMAIL_LABELS.has(label.toUpperCase())
+  );
+}
 
 // ─── Route Handler ───────────────────────────────────────────────────────────
 
@@ -71,10 +79,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const connectionId = body.connectionId;
     const rawDays = parseInt(body.days ?? "30", 10);
-    const days = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 365) : 30;
+    const days = Number.isFinite(rawDays)
+      ? Math.min(Math.max(rawDays, 1), 365)
+      : 30;
 
     if (!connectionId) {
-      return NextResponse.json({ error: "connectionId required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "connectionId required" },
+        { status: 400 }
+      );
     }
 
     // Load connection
@@ -85,8 +98,16 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (connError || !connRow) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Connection not found" },
+        { status: 404 }
+      );
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      connRow.company_id as string
+    );
+    if (authError) return authError;
 
     // Check for an existing in-progress scan — return its jobId instead of starting a new one.
     // Only reuse jobs created in the last 5 minutes to avoid returning stale/crashed jobs.
@@ -95,7 +116,13 @@ export async function POST(request: NextRequest) {
       .from("gmail_scan_jobs")
       .select("id, updated_at")
       .eq("connection_id", connectionId)
-      .in("status", ["pending", "listing", "fetching", "pre_filtering", "classifying"])
+      .in("status", [
+        "pending",
+        "listing",
+        "fetching",
+        "pre_filtering",
+        "classifying",
+      ])
       .gte("updated_at", fiveMinutesAgo)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -111,11 +138,22 @@ export async function POST(request: NextRequest) {
       .update({
         status: "error",
         error_message: "Job expired (no progress for 5+ minutes)",
-        progress: { stage: "error", current: 0, total: 0, message: "Scan expired" },
+        progress: {
+          stage: "error",
+          current: 0,
+          total: 0,
+          message: "Scan expired",
+        },
         updated_at: new Date().toISOString(),
       })
       .eq("connection_id", connectionId)
-      .in("status", ["pending", "listing", "fetching", "pre_filtering", "classifying"])
+      .in("status", [
+        "pending",
+        "listing",
+        "fetching",
+        "pre_filtering",
+        "classifying",
+      ])
       .lt("updated_at", fiveMinutesAgo);
 
     // Create job row
@@ -125,14 +163,22 @@ export async function POST(request: NextRequest) {
         connection_id: connectionId,
         company_id: connRow.company_id,
         status: "pending",
-        progress: { stage: "pending", current: 0, total: 0, message: "Starting scan..." },
+        progress: {
+          stage: "pending",
+          current: 0,
+          total: 0,
+          message: "Starting scan...",
+        },
       })
       .select("id")
       .single();
 
     if (jobError || !job) {
       console.error("[scan-start] Failed to create job:", jobError);
-      return NextResponse.json({ error: "Failed to create scan job" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to create scan job" },
+        { status: 500 }
+      );
     }
 
     const conn = connRow as unknown as GmailConnectionRow;
@@ -147,19 +193,23 @@ export async function POST(request: NextRequest) {
     console.error("[scan-start]", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal error" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
 // ─── Background Processing ──────────────────────────────────────────────────
 
-async function processScanJob(jobId: string, conn: GmailConnectionRow, days: number) {
+async function processScanJob(
+  jobId: string,
+  conn: GmailConnectionRow,
+  days: number
+) {
   const supabase = getServiceRoleClient();
 
   async function updateJob(
     status: string,
-    progress: { stage: string; current: number; total: number; message: string },
+    progress: { stage: string; current: number; total: number; message: string }
   ) {
     await supabase
       .from("gmail_scan_jobs")
@@ -187,7 +237,9 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
     let pageToken: string | undefined;
 
     do {
-      const listUrl = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+      const listUrl = new URL(
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages"
+      );
       listUrl.searchParams.set("q", `after:${queryDate}`);
       listUrl.searchParams.set("maxResults", "200");
       if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
@@ -196,7 +248,8 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!listResp.ok) throw new Error(`Gmail messages.list failed: ${listResp.status}`);
+      if (!listResp.ok)
+        throw new Error(`Gmail messages.list failed: ${listResp.status}`);
 
       const listData: GmailMessageListResponse = await listResp.json();
       for (const msg of listData.messages ?? []) {
@@ -216,8 +269,19 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
         .from("gmail_scan_jobs")
         .update({
           status: "complete",
-          progress: { stage: "complete", current: 100, total: 100, message: "No emails found." },
-          result: { emails: [], total: 0, preFiltered: 0, aiAnalyzed: 0, recommendedFilters: null },
+          progress: {
+            stage: "complete",
+            current: 100,
+            total: 100,
+            message: "No emails found.",
+          },
+          result: {
+            emails: [],
+            total: 0,
+            preFiltered: 0,
+            aiAnalyzed: 0,
+            recommendedFilters: null,
+          },
           updated_at: new Date().toISOString(),
         })
         .eq("id", jobId);
@@ -235,7 +299,11 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
     const emails: ScanEmail[] = [];
     const BATCH_SIZE = 50;
 
-    for (let batchStart = 0; batchStart < allMessageIds.length; batchStart += BATCH_SIZE) {
+    for (
+      let batchStart = 0;
+      batchStart < allMessageIds.length;
+      batchStart += BATCH_SIZE
+    ) {
       const batch = allMessageIds.slice(batchStart, batchStart + BATCH_SIZE);
 
       const results = await Promise.all(
@@ -243,17 +311,21 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
           try {
             const msgResp = await fetch(
               `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
-              { headers: { Authorization: `Bearer ${token}` } },
+              { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (!msgResp.ok) return null;
 
             const msg: GmailMessage = await msgResp.json();
+            if (!isDeliveryMessage(msg.labelIds)) return null;
             const headers = msg.payload?.headers ?? [];
             const from = headers.find((h) => h.name === "From")?.value ?? "";
-            const subject = headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
+            const subject =
+              headers.find((h) => h.name === "Subject")?.value ??
+              "(no subject)";
             const date = headers.find((h) => h.name === "Date")?.value ?? "";
-            const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
+            const fromEmail =
+              (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
             const domain = fromEmail.split("@")[1] ?? "";
 
             return {
@@ -271,7 +343,7 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
           } catch {
             return null;
           }
-        }),
+        })
       );
 
       for (const r of results) {
@@ -295,7 +367,10 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
       message: "Pre-filtering known noise...",
     });
 
-    const presetFilters: GmailSyncFilters = { ...DEFAULT_SYNC_FILTERS, usePresetBlocklist: true };
+    const presetFilters: GmailSyncFilters = {
+      ...DEFAULT_SYNC_FILTERS,
+      usePresetBlocklist: true,
+    };
     const blocklist = await EmailFilterService.buildBlocklist(presetFilters);
     const presetDomains = blocklist.domains;
     const autoFiltered: ScanEmail[] = [];
@@ -345,20 +420,30 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
 
       // Apply AI-recommended filters to determine per-email import/filter status
       // Subdomain-aware: "marks.com" catches "email.marks.com"
-      const blockedDomainList = aiResult.filters.excludeDomains.map((d) => d.toLowerCase());
-      const blockedAddresses = new Set(aiResult.filters.excludeAddresses.map((a) => a.toLowerCase()));
-      const blockedKeywords = aiResult.filters.excludeSubjectKeywords.map((k) => k.toLowerCase());
+      const blockedDomainList = aiResult.filters.excludeDomains.map((d) =>
+        d.toLowerCase()
+      );
+      const blockedAddresses = new Set(
+        aiResult.filters.excludeAddresses.map((a) => a.toLowerCase())
+      );
+      const blockedKeywords = aiResult.filters.excludeSubjectKeywords.map((k) =>
+        k.toLowerCase()
+      );
 
       const isDomainBlocked = (emailDomain: string): boolean => {
         const d = emailDomain.toLowerCase();
-        return blockedDomainList.some((blocked) => d === blocked || d.endsWith("." + blocked));
+        return blockedDomainList.some(
+          (blocked) => d === blocked || d.endsWith("." + blocked)
+        );
       };
 
       for (const email of ambiguous) {
         const domainBlocked = isDomainBlocked(email.domain);
-        const addressBlocked = blockedAddresses.has(email.fromEmail.toLowerCase());
+        const addressBlocked = blockedAddresses.has(
+          email.fromEmail.toLowerCase()
+        );
         const keywordBlocked = blockedKeywords.some((kw) =>
-          email.subject.toLowerCase().includes(kw),
+          email.subject.toLowerCase().includes(kw)
         );
 
         if (domainBlocked || addressBlocked || keywordBlocked) {
@@ -394,10 +479,15 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
       .from("gmail_scan_jobs")
       .update({
         status: "complete",
-        progress: { stage: "complete", current: 100, total: 100, message: completeMessage },
+        progress: {
+          stage: "complete",
+          current: 100,
+          total: 100,
+          message: completeMessage,
+        },
         result: {
           emails: allResults,
-          total: allMessageIds.length,
+          total: emails.length,
           preFiltered: autoFiltered.length,
           aiAnalyzed: ambiguous.length,
           recommendedFilters,
@@ -408,7 +498,9 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
       .eq("id", jobId);
 
     // eslint-disable-next-line no-console
-    console.log(`[scan-job] Job ${jobId} complete: ${allResults.length} emails processed`);
+    console.log(
+      `[scan-job] Job ${jobId} complete: ${allResults.length} emails processed`
+    );
   } catch (err) {
     console.error(`[scan-job] Job ${jobId} failed:`, err);
     await supabase
@@ -416,7 +508,12 @@ async function processScanJob(jobId: string, conn: GmailConnectionRow, days: num
       .update({
         status: "error",
         error_message: err instanceof Error ? err.message : "Unknown error",
-        progress: { stage: "error", current: 0, total: 0, message: "Scan failed" },
+        progress: {
+          stage: "error",
+          current: 0,
+          total: 0,
+          message: "Scan failed",
+        },
         updated_at: new Date().toISOString(),
       })
       .eq("id", jobId);

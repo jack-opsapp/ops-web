@@ -417,6 +417,7 @@ export type Database = {
           direction: string | null
           draft_history_id: string | null
           duration_minutes: number | null
+          email_connection_id: string | null
           email_message_id: string | null
           email_thread_id: string | null
           estimate_id: string | null
@@ -453,6 +454,7 @@ export type Database = {
           direction?: string | null
           draft_history_id?: string | null
           duration_minutes?: number | null
+          email_connection_id?: string | null
           email_message_id?: string | null
           email_thread_id?: string | null
           estimate_id?: string | null
@@ -489,6 +491,7 @@ export type Database = {
           direction?: string | null
           draft_history_id?: string | null
           duration_minutes?: number | null
+          email_connection_id?: string | null
           email_message_id?: string | null
           email_thread_id?: string | null
           estimate_id?: string | null
@@ -510,6 +513,13 @@ export type Database = {
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "activities_email_connection_id_fkey"
+            columns: ["email_connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "activities_draft_history_id_fkey"
             columns: ["draft_history_id"]
@@ -1133,6 +1143,7 @@ export type Database = {
           greeting_patterns: string[] | null
           id: string
           profile_type: string
+          subject_preferences: Json
           tone_traits: Json | null
           updated_at: string
           user_id: string
@@ -1148,6 +1159,7 @@ export type Database = {
           greeting_patterns?: string[] | null
           id?: string
           profile_type?: string
+          subject_preferences?: Json
           tone_traits?: Json | null
           updated_at?: string
           user_id: string
@@ -1163,6 +1175,7 @@ export type Database = {
           greeting_patterns?: string[] | null
           id?: string
           profile_type?: string
+          subject_preferences?: Json
           tone_traits?: Json | null
           updated_at?: string
           user_id?: string
@@ -1195,6 +1208,7 @@ export type Database = {
           original_draft: string
           profile_type: string
           sent_at: string | null
+          sent_provider_message_id: string | null
           sent_without_changes: boolean | null
           source_message_id: string | null
           status: string
@@ -1219,6 +1233,7 @@ export type Database = {
           original_draft: string
           profile_type?: string
           sent_at?: string | null
+          sent_provider_message_id?: string | null
           sent_without_changes?: boolean | null
           source_message_id?: string | null
           status?: string
@@ -1243,6 +1258,7 @@ export type Database = {
           original_draft?: string
           profile_type?: string
           sent_at?: string | null
+          sent_provider_message_id?: string | null
           sent_without_changes?: boolean | null
           source_message_id?: string | null
           status?: string
@@ -4792,6 +4808,9 @@ export type Database = {
           email: string
           expires_at: string
           history_id: string | null
+          history_recovery_anchor: string | null
+          history_recovery_page_token: string | null
+          history_recovery_target_token: string | null
           id: string
           last_synced_at: string | null
           ops_label_id: string | null
@@ -4800,11 +4819,14 @@ export type Database = {
           status: string
           sync_enabled: boolean
           sync_filters: Json
+          sync_in_progress_at: string | null
           sync_interval_minutes: number
+          sync_lock_owner: string | null
           type: Database["public"]["Enums"]["gmail_connection_type"]
           updated_at: string | null
           user_id: string | null
           webhook_expires_at: string | null
+          webhook_client_state_hash: string | null
           webhook_subscription_id: string | null
         }
         Insert: {
@@ -4820,6 +4842,9 @@ export type Database = {
           email: string
           expires_at: string
           history_id?: string | null
+          history_recovery_anchor?: string | null
+          history_recovery_page_token?: string | null
+          history_recovery_target_token?: string | null
           id?: string
           last_synced_at?: string | null
           ops_label_id?: string | null
@@ -4828,11 +4853,14 @@ export type Database = {
           status?: string
           sync_enabled?: boolean
           sync_filters?: Json
+          sync_in_progress_at?: string | null
           sync_interval_minutes?: number
+          sync_lock_owner?: string | null
           type?: Database["public"]["Enums"]["gmail_connection_type"]
           updated_at?: string | null
           user_id?: string | null
           webhook_expires_at?: string | null
+          webhook_client_state_hash?: string | null
           webhook_subscription_id?: string | null
         }
         Update: {
@@ -4848,6 +4876,9 @@ export type Database = {
           email?: string
           expires_at?: string
           history_id?: string | null
+          history_recovery_anchor?: string | null
+          history_recovery_page_token?: string | null
+          history_recovery_target_token?: string | null
           id?: string
           last_synced_at?: string | null
           ops_label_id?: string | null
@@ -4856,14 +4887,627 @@ export type Database = {
           status?: string
           sync_enabled?: boolean
           sync_filters?: Json
+          sync_in_progress_at?: string | null
           sync_interval_minutes?: number
+          sync_lock_owner?: string | null
           type?: Database["public"]["Enums"]["gmail_connection_type"]
           updated_at?: string | null
           user_id?: string | null
           webhook_expires_at?: string | null
+          webhook_client_state_hash?: string | null
           webhook_subscription_id?: string | null
         }
         Relationships: []
+      }
+      email_oauth_states: {
+        Row: {
+          company_id: string
+          connection_id: string | null
+          connection_type: string
+          created_at: string
+          expected_email: string | null
+          expires_at: string
+          nonce_hash: string
+          provider: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          connection_id?: string | null
+          connection_type: string
+          created_at?: string
+          expected_email?: string | null
+          expires_at: string
+          nonce_hash: string
+          provider: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          connection_id?: string | null
+          connection_type?: string
+          created_at?: string
+          expected_email?: string | null
+          expires_at?: string
+          nonce_hash?: string
+          provider?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_oauth_states_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_oauth_states_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_oauth_states_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_outbound_edit_evidence: {
+        Row: {
+          company_id: string
+          created_at: string
+          evidence_key: string
+          evidence_kind: string
+          from_value: string | null
+          id: string
+          learning_authority: string
+          pattern_value: string
+          profile_type: string
+          queue_id: string
+          source_type: string
+          to_value: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          evidence_key: string
+          evidence_kind: string
+          from_value?: string | null
+          id?: string
+          learning_authority: string
+          pattern_value: string
+          profile_type: string
+          queue_id: string
+          source_type: string
+          to_value: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          evidence_key?: string
+          evidence_kind?: string
+          from_value?: string | null
+          id?: string
+          learning_authority?: string
+          pattern_value?: string
+          profile_type?: string
+          queue_id?: string
+          source_type?: string
+          to_value?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbound_edit_evidence_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_edit_evidence_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_outbound_learning_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_edit_evidence_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_outbound_edit_promotions: {
+        Row: {
+          company_id: string
+          evidence_count: number
+          evidence_key: string
+          evidence_kind: string
+          id: string
+          pattern_value: string
+          profile_id: string
+          profile_type: string
+          promoted_at: string
+          promoted_by_queue_id: string
+          threshold: number
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          evidence_count: number
+          evidence_key: string
+          evidence_kind: string
+          id?: string
+          pattern_value: string
+          profile_id: string
+          profile_type: string
+          promoted_at?: string
+          promoted_by_queue_id: string
+          threshold: number
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          evidence_count?: number
+          evidence_key?: string
+          evidence_kind?: string
+          id?: string
+          pattern_value?: string
+          profile_id?: string
+          profile_type?: string
+          promoted_at?: string
+          promoted_by_queue_id?: string
+          threshold?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbound_edit_promotions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_edit_promotions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "agent_writing_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_edit_promotions_promoted_by_queue_id_fkey"
+            columns: ["promoted_by_queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_outbound_learning_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_edit_promotions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_outbound_learning_queue: {
+        Row: {
+          applied_at: string | null
+          apply_full_body_learning: boolean | null
+          apply_learning: boolean | null
+          attempts: number
+          authored_body: string
+          clean_body: string
+          company_id: string
+          completed_at: string | null
+          completed_lease_token: string | null
+          connection_id: string
+          created_at: string
+          draft_correction_facts: Json | null
+          draft_delivery_channel: string | null
+          draft_history_id: string | null
+          draft_outcome: Json | null
+          follow_up_draft_id: string | null
+          from_email: string | null
+          id: string
+          last_error: string | null
+          last_failed_at: string | null
+          last_requeue_reason: string | null
+          last_requeued_at: string | null
+          last_terminal_error: string | null
+          learning_authority: string
+          lease_expires_at: string | null
+          lease_token: string | null
+          max_attempts: number
+          memory_extraction: Json | null
+          next_attempt_at: string
+          occurred_at: string | null
+          opportunity_id: string | null
+          preparation_version: string | null
+          prepared_at: string | null
+          profile_type: string
+          provider_message_id: string
+          provider_thread_id: string | null
+          requeue_count: number
+          status: string
+          subject: string
+          to_emails: string[]
+          updated_at: string
+          user_id: string
+          writing_sample: Json | null
+        }
+        Insert: {
+          applied_at?: string | null
+          apply_full_body_learning?: boolean | null
+          apply_learning?: boolean | null
+          attempts?: number
+          authored_body: string
+          clean_body: string
+          company_id: string
+          completed_at?: string | null
+          completed_lease_token?: string | null
+          connection_id: string
+          created_at?: string
+          draft_correction_facts?: Json | null
+          draft_delivery_channel?: string | null
+          draft_history_id?: string | null
+          draft_outcome?: Json | null
+          follow_up_draft_id?: string | null
+          from_email?: string | null
+          id?: string
+          last_error?: string | null
+          last_failed_at?: string | null
+          last_requeue_reason?: string | null
+          last_requeued_at?: string | null
+          last_terminal_error?: string | null
+          learning_authority?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          max_attempts?: number
+          memory_extraction?: Json | null
+          next_attempt_at?: string
+          occurred_at?: string | null
+          opportunity_id?: string | null
+          preparation_version?: string | null
+          prepared_at?: string | null
+          profile_type?: string
+          provider_message_id: string
+          provider_thread_id?: string | null
+          requeue_count?: number
+          status?: string
+          subject?: string
+          to_emails?: string[]
+          updated_at?: string
+          user_id: string
+          writing_sample?: Json | null
+        }
+        Update: {
+          applied_at?: string | null
+          apply_full_body_learning?: boolean | null
+          apply_learning?: boolean | null
+          attempts?: number
+          authored_body?: string
+          clean_body?: string
+          company_id?: string
+          completed_at?: string | null
+          completed_lease_token?: string | null
+          connection_id?: string
+          created_at?: string
+          draft_correction_facts?: Json | null
+          draft_delivery_channel?: string | null
+          draft_history_id?: string | null
+          draft_outcome?: Json | null
+          follow_up_draft_id?: string | null
+          from_email?: string | null
+          id?: string
+          last_error?: string | null
+          last_failed_at?: string | null
+          last_requeue_reason?: string | null
+          last_requeued_at?: string | null
+          last_terminal_error?: string | null
+          learning_authority?: string
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          max_attempts?: number
+          memory_extraction?: Json | null
+          next_attempt_at?: string
+          occurred_at?: string | null
+          opportunity_id?: string | null
+          preparation_version?: string | null
+          prepared_at?: string | null
+          profile_type?: string
+          provider_message_id?: string
+          provider_thread_id?: string | null
+          requeue_count?: number
+          status?: string
+          subject?: string
+          to_emails?: string[]
+          updated_at?: string
+          user_id?: string
+          writing_sample?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbound_learning_queue_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_learning_queue_draft_history_id_fkey"
+            columns: ["draft_history_id"]
+            isOneToOne: false
+            referencedRelation: "ai_draft_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_learning_queue_follow_up_draft_id_fkey"
+            columns: ["follow_up_draft_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_follow_up_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_learning_queue_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_outbound_memory_evidence: {
+        Row: {
+          applied_at: string
+          company_id: string
+          connection_id: string
+          effect: string
+          evidence_key: string
+          evidence_kind: string
+          id: string
+          knowledge_graph_id: string | null
+          memory_id: string | null
+          provider_message_id: string
+          queue_id: string
+          user_id: string
+          writing_sample_id: string | null
+        }
+        Insert: {
+          applied_at?: string
+          company_id: string
+          connection_id: string
+          effect: string
+          evidence_key: string
+          evidence_kind: string
+          id?: string
+          knowledge_graph_id?: string | null
+          memory_id?: string | null
+          provider_message_id: string
+          queue_id: string
+          user_id: string
+          writing_sample_id?: string | null
+        }
+        Update: {
+          applied_at?: string
+          company_id?: string
+          connection_id?: string
+          effect?: string
+          evidence_key?: string
+          evidence_kind?: string
+          id?: string
+          knowledge_graph_id?: string | null
+          memory_id?: string | null
+          provider_message_id?: string
+          queue_id?: string
+          user_id?: string
+          writing_sample_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbound_memory_evidence_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_memory_evidence_knowledge_graph_id_fkey"
+            columns: ["knowledge_graph_id"]
+            isOneToOne: false
+            referencedRelation: "agent_knowledge_graph"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_memory_evidence_memory_id_fkey"
+            columns: ["memory_id"]
+            isOneToOne: false
+            referencedRelation: "agent_memories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_memory_evidence_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "email_outbound_learning_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_memory_evidence_writing_sample_id_fkey"
+            columns: ["writing_sample_id"]
+            isOneToOne: false
+            referencedRelation: "email_outbound_writing_samples"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_outbound_writing_samples: {
+        Row: {
+          applied_at: string
+          company_id: string
+          connection_id: string
+          id: string
+          profile_id: string | null
+          profile_type: string
+          provider_message_id: string
+          queue_id: string
+          sample: Json
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string
+          company_id: string
+          connection_id: string
+          id?: string
+          profile_id?: string | null
+          profile_type: string
+          provider_message_id: string
+          queue_id: string
+          sample: Json
+          user_id: string
+        }
+        Update: {
+          applied_at?: string
+          company_id?: string
+          connection_id?: string
+          id?: string
+          profile_id?: string | null
+          profile_type?: string
+          provider_message_id?: string
+          queue_id?: string
+          sample?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbound_writing_samples_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_writing_samples_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "agent_writing_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_writing_samples_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: true
+            referencedRelation: "email_outbound_learning_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_signatures: {
+        Row: {
+          active: boolean
+          company_id: string
+          confirmed_at: string | null
+          connection_id: string
+          content_hash: string
+          content_html: string | null
+          content_text: string | null
+          created_at: string
+          created_by: string | null
+          fetched_at: string | null
+          id: string
+          provider_identity: string | null
+          scope_user_id: string | null
+          source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          confirmed_at?: string | null
+          connection_id: string
+          content_hash: string
+          content_html?: string | null
+          content_text?: string | null
+          created_at?: string
+          created_by?: string | null
+          fetched_at?: string | null
+          id?: string
+          provider_identity?: string | null
+          scope_user_id?: string | null
+          source: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          confirmed_at?: string | null
+          connection_id?: string
+          content_hash?: string
+          content_html?: string | null
+          content_text?: string | null
+          created_at?: string
+          created_by?: string | null
+          fetched_at?: string | null
+          id?: string
+          provider_identity?: string | null
+          scope_user_id?: string | null
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_signatures_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_signatures_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_signatures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_signatures_scope_user_id_fkey"
+            columns: ["scope_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_signatures_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_events: {
         Row: {
@@ -15335,6 +15979,26 @@ export type Database = {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean
       }
+      apply_email_outbound_learning: {
+        Args: { p_job_id: string; p_lease_token: string }
+        Returns: Database["public"]["Tables"]["email_outbound_learning_queue"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      apply_email_outbound_learning_legacy_internal: {
+        Args: { p_job_id: string; p_lease_token: string }
+        Returns: Database["public"]["Tables"]["email_outbound_learning_queue"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       approve_expense_batch: {
         Args: { p_batch_id: string }
         Returns: undefined
@@ -15408,7 +16072,10 @@ export type Database = {
         }
         Returns: Json
       }
-      bulk_update_project_table: { Args: { p_operations: Json }; Returns: Json }
+      bulk_update_project_table: {
+        Args: { p_operations: Json }
+        Returns: Json
+      }
       campaign_engagement_stats: {
         Args: { p_campaign_id: string }
         Returns: Json
@@ -15462,6 +16129,16 @@ export type Database = {
           template_payload: Json
         }[]
       }
+      claim_email_outbound_learning: {
+        Args: { p_lease_seconds?: number; p_limit?: number }
+        Returns: Database["public"]["Tables"]["email_outbound_learning_queue"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       complete_project_task: {
         Args: {
           p_idempotency_key: string
@@ -15469,6 +16146,17 @@ export type Database = {
           p_task_id: string
         }
         Returns: Json
+      }
+      consume_email_oauth_state: {
+        Args: { p_nonce_hash: string; p_provider: string }
+        Returns: {
+          company_id: string
+          connection_id: string | null
+          connection_type: string
+          expected_email: string | null
+          source: string
+          user_id: string
+        }[]
       }
       compute_reminder_fires_at: {
         Args: {
@@ -15511,7 +16199,11 @@ export type Database = {
         Returns: Json
       }
       count_distinct_users: {
-        Args: { end_date: string; platform_filter?: string; start_date: string }
+        Args: {
+          end_date: string
+          platform_filter?: string
+          start_date: string
+        }
         Returns: number
       }
       create_notification_if_new: {
@@ -15520,6 +16212,8 @@ export type Database = {
           p_action_url?: string
           p_body: string
           p_company_id: string
+          p_dedupe_key?: string
+          p_deep_link_type?: string
           p_persistent?: boolean
           p_project_id?: string
           p_title: string
@@ -15600,6 +16294,60 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      defer_email_outbound_learning: {
+        Args: {
+          p_delay_seconds?: number
+          p_job_id: string
+          p_lease_token: string
+          p_reason: string
+        }
+        Returns: Database["public"]["Tables"]["email_outbound_learning_queue"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      diagnose_email_outbound_learning: {
+        Args: {
+          p_before_id?: string
+          p_before_sort_at?: string
+          p_company_id?: string
+          p_limit?: number
+          p_status?: string
+        }
+        Returns: {
+          applied_at: string
+          attempts: number
+          company_id: string
+          completed_at: string
+          connection_id: string
+          created_at: string
+          draft_delivery_channel: string
+          draft_history_id: string
+          follow_up_draft_id: string
+          has_learning_receipt: boolean
+          id: string
+          is_prepared: boolean
+          last_error: string
+          last_failed_at: string
+          last_requeue_reason: string
+          last_requeued_at: string
+          last_terminal_error: string
+          lease_expires_at: string
+          max_attempts: number
+          next_attempt_at: string
+          occurred_at: string
+          opportunity_id: string
+          provider_message_id: string
+          provider_thread_id: string
+          requeue_count: number
+          status: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       early_clear_expense_line: {
         Args: { p_expense_id: string }
         Returns: undefined
@@ -15641,6 +16389,60 @@ export type Database = {
           bounce_pct: number
           domain: string
         }[]
+      }
+      enqueue_email_outbound_learning: {
+        Args: {
+          p_authored_body?: string
+          p_clean_body?: string
+          p_company_id: string
+          p_connection_id: string
+          p_draft_delivery_channel?: string
+          p_draft_history_id?: string
+          p_follow_up_draft_id?: string
+          p_from_email?: string
+          p_learning_authority?: string
+          p_occurred_at?: string
+          p_opportunity_id?: string
+          p_profile_type?: string
+          p_provider_message_id: string
+          p_provider_thread_id?: string
+          p_subject?: string
+          p_to_emails?: string[]
+          p_user_id?: string
+        }
+        Returns: Database["public"]["Tables"]["email_outbound_learning_queue"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      enqueue_email_outbound_learning_legacy_internal: {
+        Args: {
+          p_authored_body?: string
+          p_clean_body?: string
+          p_company_id: string
+          p_connection_id: string
+          p_draft_delivery_channel?: string
+          p_draft_history_id?: string
+          p_follow_up_draft_id?: string
+          p_from_email?: string
+          p_occurred_at?: string
+          p_opportunity_id?: string
+          p_provider_message_id: string
+          p_provider_thread_id?: string
+          p_subject?: string
+          p_to_emails?: string[]
+          p_user_id?: string
+        }
+        Returns: Database["public"]["Tables"]["email_outbound_learning_queue"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       execute_client_merge_guarded: {
         Args: {
@@ -15829,6 +16631,37 @@ export type Database = {
           last_inbound_at: string
           last_outbound_at: string
           outbound_count: number
+          stage: string
+          stage_manually_set: boolean
+        }[]
+      }
+      apply_opportunity_correspondence_event: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_opportunity_id: string
+          p_provider_message_id: string
+        }
+        Returns: {
+          correspondence_count: number
+          inbound_count: number
+          last_inbound_at: string
+          last_message_direction: string
+          last_outbound_at: string
+          outbound_count: number
+          stage: string
+          stage_manually_set: boolean
+        }[]
+      }
+      apply_email_opportunity_stage_transition: {
+        Args: {
+          p_ai_signal?: string
+          p_company_id: string
+          p_opportunity_id: string
+          p_to_stage: string
+        }
+        Returns: {
+          changed: boolean
           stage: string
           stage_manually_set: boolean
         }[]
@@ -16032,12 +16865,36 @@ export type Database = {
         }[]
       }
       pmf_sparkline: { Args: { kind: string }; Returns: number[] }
+      prepare_email_outbound_learning: {
+        Args: {
+          p_apply_full_body_learning: boolean
+          p_apply_learning: boolean
+          p_draft_correction_facts: Json
+          p_draft_outcome: Json
+          p_job_id: string
+          p_lease_token: string
+          p_memory_extraction: Json
+          p_preparation_version: string
+          p_writing_sample: Json
+        }
+        Returns: Database["public"]["Tables"]["email_outbound_learning_queue"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       products_import_apply: {
         Args: { p_company_id: string; p_payload: Json }
         Returns: Json
       }
       products_import_validate: {
         Args: { p_company_id: string; p_payload: Json }
+        Returns: Json
+      }
+      promote_email_outbound_edit_learning: {
+        Args: { p_job_id: string }
         Returns: Json
       }
       project_pipeline_summary: {
@@ -16192,6 +17049,50 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reassign_phase_c_mailbox_draft: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_expected_old_draft_history_id?: string | null
+          p_mailbox_draft_id: string
+          p_new_draft_history_id: string
+          p_subject?: string | null
+          p_thread_id: string
+        }
+        Returns: Json
+      }
+      requeue_failed_email_outbound_learning: {
+        Args: { p_job_id: string; p_reason: string }
+        Returns: Database["public"]["Tables"]["email_outbound_learning_queue"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      replace_email_signature: {
+        Args: {
+          p_actor_user_id: string | null
+          p_company_id: string
+          p_confirmed_at: string | null
+          p_connection_id: string
+          p_content_hash: string
+          p_content_html: string | null
+          p_content_text: string | null
+          p_fetched_at: string | null
+          p_provider_identity: string | null
+          p_scope_user_id: string | null
+          p_source: string
+        }
+        Returns: Database["public"]["Tables"]["email_signatures"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_signatures"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       reset_opportunity_table_view: {
         Args: { p_view_id: string }
         Returns: {
@@ -16264,6 +17165,16 @@ export type Database = {
           p_task_team_members: string[]
         }
         Returns: string[]
+      }
+      retry_email_outbound_learning: {
+        Args: { p_error: string; p_job_id: string; p_lease_token: string }
+        Returns: Database["public"]["Tables"]["email_outbound_learning_queue"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_outbound_learning_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_company_inventory_mode: {
         Args: { p_company_id: string; p_inventory_mode: string }
@@ -16344,6 +17255,20 @@ export type Database = {
           p_user_name?: string
         }
         Returns: undefined
+      }
+      sync_email_signature_notification: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_scope_user_id: string
+        }
+        Returns: Database["public"]["Tables"]["notifications"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "notifications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       template_version_compare: {
         Args: {

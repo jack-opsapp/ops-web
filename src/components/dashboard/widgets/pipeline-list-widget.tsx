@@ -46,6 +46,7 @@ import { useDictionary } from "@/i18n/client";
 import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 import { WidgetTitle } from "./shared/widget-title";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -116,12 +117,22 @@ function daysInStage(stageEnteredAt: Date | string): number {
       ? new Date(stageEnteredAt)
       : stageEnteredAt;
   const now = new Date();
-  return Math.floor((now.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.floor(
+    (now.getTime() - entered.getTime()) / (1000 * 60 * 60 * 24)
+  );
 }
 
 /** Primary: client/contact name — who is this lead? */
-function getOpportunityPrimary(opportunity: Opportunity, unknownLabel: string): string {
-  return opportunity.client?.name ?? opportunity.contactName ?? opportunity.title ?? unknownLabel;
+function getOpportunityPrimary(
+  opportunity: Opportunity,
+  unknownLabel: string
+): string {
+  return (
+    opportunity.client?.name ??
+    opportunity.contactName ??
+    opportunity.title ??
+    unknownLabel
+  );
 }
 
 /** Secondary: opportunity context — what do they want + where in pipeline */
@@ -135,7 +146,10 @@ function getOpportunitySecondary(opportunity: Opportunity): string {
     let cleanTitle = title;
     if (clientName) {
       // Strip exact client name prefix (e.g., "Jared Lantzmann - Deck Rebuild" → "Deck Rebuild")
-      const prefixPattern = new RegExp(`^${clientName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[-–—]\\s*`, "i");
+      const prefixPattern = new RegExp(
+        `^${clientName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[-–—]\\s*`,
+        "i"
+      );
       cleanTitle = cleanTitle.replace(prefixPattern, "");
       // Strip "Lead[LastName]" prefix (e.g., "LeadLantzmann Deck Rebuild" → "Deck Rebuild")
       const lastName = clientName.split(/\s+/).pop() ?? "";
@@ -147,7 +161,9 @@ function getOpportunitySecondary(opportunity: Opportunity): string {
       parts.push(cleanTitle);
     }
   }
-  parts.push(`${getStageDisplayName(opportunity.stage)} · ${daysInStage(opportunity.stageEnteredAt)}d`);
+  parts.push(
+    `${getStageDisplayName(opportunity.stage)} · ${daysInStage(opportunity.stageEnteredAt)}d`
+  );
   return parts.join(" · ");
 }
 
@@ -195,7 +211,10 @@ function StageDistributionBar({
     })
     .filter((s) => s.count > 0);
 
-  const handleSegmentHover = (e: React.MouseEvent, seg: typeof segments[number]) => {
+  const handleSegmentHover = (
+    e: React.MouseEvent,
+    seg: (typeof segments)[number]
+  ) => {
     if (!enableTooltip || !barRef.current) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const parentRect = barRef.current.getBoundingClientRect();
@@ -212,12 +231,18 @@ function StageDistributionBar({
   return (
     <div ref={barRef} className="relative mb-2">
       {enableTooltip && (
-        <WidgetTooltip visible={tip.visible} x={tip.x} y={tip.y} anchorRef={barRef} anchor="above">
+        <WidgetTooltip
+          visible={tip.visible}
+          x={tip.x}
+          y={tip.y}
+          anchorRef={barRef}
+          anchor="above"
+        >
           <TooltipRow label={tip.label} value={`${tip.count}`} />
           <TooltipRow label="Value" value={formatCompactCurrency(tip.value)} />
         </WidgetTooltip>
       )}
-      <div className="flex h-[6px] rounded-sm overflow-hidden">
+      <div className="flex h-[6px] overflow-hidden rounded-sm">
         {segments.map((seg) => (
           <div
             key={seg.stage}
@@ -293,7 +318,7 @@ function PipelineInlineActions({
       if (!activeConnection || !opportunity.contactEmail || !company) return;
       setSending(true);
       try {
-        const res = await fetch("/api/integrations/email/send", {
+        const res = await authedFetch("/api/integrations/email/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -310,7 +335,9 @@ function PipelineInlineActions({
         if (!res.ok) throw new Error("Send failed");
 
         const recipientName =
-          opportunity.contactName ?? opportunity.client?.name ?? opportunity.contactEmail;
+          opportunity.contactName ??
+          opportunity.client?.name ??
+          opportunity.contactEmail;
         showWidgetActionToast({
           label: `${t("pipelineList.followUpSent") ?? "Follow-up sent to"} ${recipientName}`,
           onUndo: () => {
@@ -321,7 +348,8 @@ function PipelineInlineActions({
               estimateId: null,
               invoiceId: null,
               type: ActivityType.Note,
-              subject: t("pipelineList.followUpUndoSubject") ?? "Follow-up undo",
+              subject:
+                t("pipelineList.followUpUndoSubject") ?? "Follow-up undo",
               content:
                 t("pipelineList.sentInError") ??
                 "Follow-up sent in error (undone from dashboard)",
@@ -368,7 +396,15 @@ function PipelineInlineActions({
       sendFollowUp(resolvedBody, resolvedSubject);
     }
     // Path B (no template) handled by the Popover below
-  }, [activeConnection, followUpTemplate, opportunity, company, sendFollowUp, navigate, t]);
+  }, [
+    activeConnection,
+    followUpTemplate,
+    opportunity,
+    company,
+    sendFollowUp,
+    navigate,
+    t,
+  ]);
 
   return (
     <div className="flex items-center gap-0.5">
@@ -385,16 +421,16 @@ function PipelineInlineActions({
           <PopoverTrigger asChild>
             <button
               onClick={(e) => e.stopPropagation()}
-              className="w-[20px] h-[20px] flex items-center justify-center rounded-sm hover:bg-surface-hover transition-colors text-text-mute hover:text-text-2"
+              className="flex h-[20px] w-[20px] items-center justify-center rounded-sm text-text-mute transition-colors hover:bg-surface-hover hover:text-text-2"
               title={t("pipelineList.followUp") ?? "Follow Up"}
               aria-label={t("pipelineList.followUp") ?? "Follow Up"}
             >
-              <Mail className="w-[14px] h-[14px]" />
+              <Mail className="h-[14px] w-[14px]" />
             </button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-[260px] p-2">
             <textarea
-              className="w-full bg-transparent border border-border-subtle rounded-sm p-1.5 font-mohave text-caption-sm text-text resize-none focus:outline-none focus:border-[rgba(255,255,255,0.20)]/50"
+              className="w-full resize-none rounded-sm border border-border-subtle bg-transparent p-1.5 font-mohave text-caption-sm text-text focus:border-[rgba(255,255,255,0.20)]/50 focus:outline-none"
               rows={3}
               placeholder={
                 t("pipelineList.composePlaceholder") ??
@@ -403,7 +439,7 @@ function PipelineInlineActions({
               value={composeText}
               onChange={(e) => setComposeText(e.target.value)}
             />
-            <div className="flex items-center justify-between mt-1">
+            <div className="mt-1 flex items-center justify-between">
               <span className="font-mono text-micro text-text-mute">
                 {t("pipelineList.mergeHint") ??
                   "Use {{client_name}}, {{project_title}}"}
@@ -424,10 +460,10 @@ function PipelineInlineActions({
                 }}
                 disabled={!composeText.trim() || sending}
                 className={cn(
-                  "font-mono text-micro uppercase tracking-[0.16em] px-2 py-[2px] rounded-sm transition-colors",
+                  "rounded-sm px-2 py-[2px] font-mono text-micro uppercase tracking-[0.16em] transition-colors",
                   composeText.trim() && !sending
                     ? "text-text hover:bg-surface-hover"
-                    : "text-text-mute cursor-not-allowed"
+                    : "cursor-not-allowed text-text-mute"
                 )}
               >
                 {sending ? "..." : (t("pipelineList.send") ?? "Send")}
@@ -485,16 +521,16 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
   if (size === "sm") {
     return (
       <Card className="h-full p-0" ref={ref}>
-        <div className="h-full flex flex-col p-3">
+        <div className="flex h-full flex-col p-3">
           <div className="flex items-baseline justify-between">
             <span className="font-mono text-data-lg font-bold leading-none text-text">
               {isLoading ? "—" : filtered.length}
             </span>
             <button
               onClick={() => navigate("/pipeline")}
-              className="p-0.5 rounded-sm text-text-mute hover:text-text-2 hover:bg-surface-hover transition-colors"
+              className="rounded-sm p-0.5 text-text-mute transition-colors hover:bg-surface-hover hover:text-text-2"
             >
-              <ArrowUpRight className="w-[14px] h-[14px]" />
+              <ArrowUpRight className="h-[14px] w-[14px]" />
             </button>
           </div>
           <WidgetTitle className="mt-1">
@@ -508,7 +544,7 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             />
           )}
           {!isLoading && (
-            <span className="font-mono text-micro text-text-3 mt-0.5">
+            <span className="mt-0.5 font-mono text-micro text-text-3">
               {formatCompactCurrency(totalValue)}
             </span>
           )}
@@ -543,11 +579,9 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
 
     return (
       <Card className="h-full p-0" ref={ref}>
-        <div className="h-full flex flex-col p-3">
-          <div className="flex items-center justify-between mb-1">
-            <WidgetTitle>
-              {t(FILTER_LABEL_KEYS[filter])}
-            </WidgetTitle>
+        <div className="flex h-full flex-col p-3">
+          <div className="mb-1 flex items-center justify-between">
+            <WidgetTitle>{t(FILTER_LABEL_KEYS[filter])}</WidgetTitle>
             <span className="font-mono text-micro text-text-3">
               {isLoading
                 ? "..."
@@ -565,13 +599,13 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
           <ScrollFade>
             {isLoading ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
-                <span className="font-mono text-micro text-text-mute ml-1">
+                <Loader2 className="h-[16px] w-[16px] animate-spin text-text-mute" />
+                <span className="ml-1 font-mono text-micro text-text-mute">
                   {t("pipelineList.loading")}
                 </span>
               </div>
             ) : filtered.length === 0 ? (
-              <p className="font-mohave text-body-sm text-text-mute py-2">
+              <p className="py-2 font-mohave text-body-sm text-text-mute">
                 {t("pipelineList.empty")}
               </p>
             ) : (
@@ -584,15 +618,15 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                   return (
                     <div key={group.stage}>
                       {/* Stage header */}
-                      <div className="flex items-center gap-1 mb-0.5 px-1">
+                      <div className="mb-0.5 flex items-center gap-1 px-1">
                         <span
-                          className="w-[8px] h-[8px] rounded-sm shrink-0"
+                          className="h-[8px] w-[8px] shrink-0 rounded-sm"
                           style={{ backgroundColor: group.color }}
                         />
                         <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-2">
                           {group.label}
                         </span>
-                        <span className="font-mono text-micro text-text-mute ml-auto">
+                        <span className="ml-auto font-mono text-micro text-text-mute">
                           {group.items.length}
                         </span>
                       </div>
@@ -600,8 +634,15 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                       {visibleItems.map((opp, i) => (
                         <WidgetLineItem
                           key={opp.id}
-                          indicator={{ type: "bar", color: group.color, label: group.label }}
-                          primary={getOpportunityPrimary(opp, t("pipelineList.unknown"))}
+                          indicator={{
+                            type: "bar",
+                            color: group.color,
+                            label: group.label,
+                          }}
+                          primary={getOpportunityPrimary(
+                            opp,
+                            t("pipelineList.unknown")
+                          )}
                           secondary={getOpportunitySecondary(opp)}
                           metric={
                             opp.estimatedValue != null
@@ -617,14 +658,19 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
                           index={i}
                           isVisible={isVisible}
                           reducedMotion={reducedMotion}
-                          onClick={(e) => openEntity({
-                          entityType: "opportunity",
-                          entityId: opp.id,
-                          title: getOpportunityPrimary(opp, t("pipelineList.unknown")),
-                          color: group.color,
-                          event: e,
-                          fallbackPath: "/pipeline",
-                        })}
+                          onClick={(e) =>
+                            openEntity({
+                              entityType: "opportunity",
+                              entityId: opp.id,
+                              title: getOpportunityPrimary(
+                                opp,
+                                t("pipelineList.unknown")
+                              ),
+                              color: group.color,
+                              event: e,
+                              fallbackPath: "/pipeline",
+                            })
+                          }
                         />
                       ))}
                       {group.items.length > visibleItems.length && (
@@ -647,7 +693,6 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
               </div>
             )}
           </ScrollFade>
-
         </div>
       </Card>
     );
@@ -657,11 +702,9 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
   const MAX_MD_ITEMS = 5;
   return (
     <Card className="h-full p-0" ref={ref}>
-      <div className="h-full flex flex-col p-3">
-        <div className="flex items-center justify-between mb-1">
-          <WidgetTitle>
-            {t(FILTER_LABEL_KEYS[filter])}
-          </WidgetTitle>
+      <div className="flex h-full flex-col p-3">
+        <div className="mb-1 flex items-center justify-between">
+          <WidgetTitle>{t(FILTER_LABEL_KEYS[filter])}</WidgetTitle>
           <span className="font-mono text-micro text-text-3">
             {isLoading
               ? "..."
@@ -678,54 +721,64 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
         )}
         {isLoading ? (
           <div className="flex items-center justify-center py-4">
-            <Loader2 className="w-[16px] h-[16px] text-text-mute animate-spin" />
-            <span className="font-mono text-micro text-text-mute ml-1">
+            <Loader2 className="h-[16px] w-[16px] animate-spin text-text-mute" />
+            <span className="ml-1 font-mono text-micro text-text-mute">
               {t("pipelineList.loading")}
             </span>
           </div>
         ) : filtered.length === 0 ? (
-          <p className="font-mohave text-body-sm text-text-mute py-2">
+          <p className="py-2 font-mohave text-body-sm text-text-mute">
             {t("pipelineList.empty")}
           </p>
         ) : (
           <>
             <ScrollFade>
-              {(showAllItems ? filtered : filtered.slice(0, MAX_MD_ITEMS)).map((opp, i) => (
-                <WidgetLineItem
-                  key={opp.id}
-                  indicator={{
-                    type: "bar",
-                    color: OPPORTUNITY_STAGE_COLORS[opp.stage],
-                    label: getStageDisplayName(opp.stage),
-                  }}
-                  primary={getOpportunityPrimary(opp, t("pipelineList.unknown"))}
-                  secondary={getOpportunitySecondary(opp)}
-                  metric={
-                    opp.estimatedValue != null
-                      ? formatCompactCurrency(opp.estimatedValue)
-                      : undefined
-                  }
-                  action={
-                    showActions(size) ? (
-                      <PipelineInlineActions
-                        opportunity={opp}
-                        navigate={navigate}
-                      />
-                    ) : undefined
-                  }
-                  index={i}
-                  isVisible={isVisible}
-                  reducedMotion={reducedMotion}
-                  onClick={(e) => openEntity({
-                    entityType: "opportunity",
-                    entityId: opp.id,
-                    title: getOpportunityPrimary(opp, t("pipelineList.unknown")),
-                    color: OPPORTUNITY_STAGE_COLORS[opp.stage],
-                    event: e,
-                    fallbackPath: "/pipeline",
-                  })}
-                />
-              ))}
+              {(showAllItems ? filtered : filtered.slice(0, MAX_MD_ITEMS)).map(
+                (opp, i) => (
+                  <WidgetLineItem
+                    key={opp.id}
+                    indicator={{
+                      type: "bar",
+                      color: OPPORTUNITY_STAGE_COLORS[opp.stage],
+                      label: getStageDisplayName(opp.stage),
+                    }}
+                    primary={getOpportunityPrimary(
+                      opp,
+                      t("pipelineList.unknown")
+                    )}
+                    secondary={getOpportunitySecondary(opp)}
+                    metric={
+                      opp.estimatedValue != null
+                        ? formatCompactCurrency(opp.estimatedValue)
+                        : undefined
+                    }
+                    action={
+                      showActions(size) ? (
+                        <PipelineInlineActions
+                          opportunity={opp}
+                          navigate={navigate}
+                        />
+                      ) : undefined
+                    }
+                    index={i}
+                    isVisible={isVisible}
+                    reducedMotion={reducedMotion}
+                    onClick={(e) =>
+                      openEntity({
+                        entityType: "opportunity",
+                        entityId: opp.id,
+                        title: getOpportunityPrimary(
+                          opp,
+                          t("pipelineList.unknown")
+                        ),
+                        color: OPPORTUNITY_STAGE_COLORS[opp.stage],
+                        event: e,
+                        fallbackPath: "/pipeline",
+                      })
+                    }
+                  />
+                )
+              )}
             </ScrollFade>
             {filtered.length > MAX_MD_ITEMS && (
               <WidgetMoreButton
@@ -737,7 +790,6 @@ export function PipelineListWidget({ size, config }: PipelineListWidgetProps) {
             )}
           </>
         )}
-
       </div>
     </Card>
   );

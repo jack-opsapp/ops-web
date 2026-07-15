@@ -57,10 +57,18 @@ interface DbState {
   followUpDrafts: Map<string, Record<string, unknown>>;
   writingProfiles: Map<string, Record<string, unknown>>;
   // recorded mutations
-  updates: Array<{ table: string; payload: Record<string, unknown>; filters: Record<string, unknown> }>;
+  updates: Array<{
+    table: string;
+    payload: Record<string, unknown>;
+    filters: Record<string, unknown>;
+  }>;
   inserts: Array<{ table: string; payload: Record<string, unknown> }>;
   learnSentDrafts: Array<{ changes_made: unknown }>; // rows returned to learnFromEdits
   learnFromEditsReads: number; // count of learnFromEdits' recent-sent-drafts query
+  aiDraftHistoryInsertResult?: {
+    data: Record<string, unknown> | null;
+    error: { message: string } | null;
+  };
 }
 
 let db: DbState;
@@ -77,7 +85,10 @@ vi.mock("@/lib/supabase/helpers", async () => {
     const chain: Record<string, unknown> = {};
     const ret = () => chain;
     chain.select = ret;
-    chain.eq = (c: string, v: unknown) => { filters[c] = v; return chain; };
+    chain.eq = (c: string, v: unknown) => {
+      filters[c] = v;
+      return chain;
+    };
     chain.in = ret;
     chain.not = ret;
     chain.order = ret;
@@ -97,11 +108,18 @@ vi.mock("@/lib/supabase/helpers", async () => {
     chain.single = async () => resolveSingle();
     function resolveSingle() {
       if (op === "insert") {
+        if (table === "ai_draft_history" && db.aiDraftHistoryInsertResult) {
+          return db.aiDraftHistoryInsertResult;
+        }
         const id = (insertPayload?.id as string) || `${table}-new`;
         return { data: { id }, error: null };
       }
       if (op === "update") {
-        db.updates.push({ table, payload: updatePayload as Record<string, unknown>, filters: { ...filters } });
+        db.updates.push({
+          table,
+          payload: updatePayload as Record<string, unknown>,
+          filters: { ...filters },
+        });
         return { data: null, error: null };
       }
       // select
@@ -123,7 +141,11 @@ vi.mock("@/lib/supabase/helpers", async () => {
     // reading recent sent drafts).
     chain.then = (resolve: (v: { data: unknown; error: null }) => void) => {
       if (op === "update") {
-        db.updates.push({ table, payload: updatePayload as Record<string, unknown>, filters: { ...filters } });
+        db.updates.push({
+          table,
+          payload: updatePayload as Record<string, unknown>,
+          filters: { ...filters },
+        });
         resolve({ data: null, error: null });
         return;
       }
@@ -176,11 +198,18 @@ describe("P4-B — detectChanges subject delta", () => {
       original: "Re: Quote",
       edited: "Re: Updated quote",
     });
-    expect(changes).toContainEqual({ type: "subject", from: "Re: Quote", to: "Re: Updated quote" });
+    expect(changes).toContainEqual({
+      type: "subject",
+      from: "Re: Quote",
+      to: "Re: Updated quote",
+    });
   });
 
   it("emits no subject change when subjects match", () => {
-    const changes = detectChanges("Body", "Body", { original: "X", edited: "X" });
+    const changes = detectChanges("Body", "Body", {
+      original: "X",
+      edited: "X",
+    });
     expect(changes.some((c) => c.type === "subject")).toBe(false);
   });
 
@@ -192,7 +221,11 @@ describe("P4-B — detectChanges subject delta", () => {
 
 describe("P4-B — recordDraftOutcome provenance stamping", () => {
   it("stamps discarded_at + status=discarded on discard", async () => {
-    db.aiDraftHistory.set("d1", { original_draft: "x", profile_type: "general", subject: null });
+    db.aiDraftHistory.set("d1", {
+      original_draft: "x",
+      profile_type: "general",
+      subject: null,
+    });
     await AIDraftService.recordDraftOutcome("d1", "co-1", "u-1", "discarded");
     const upd = db.updates.find((u) => u.table === "ai_draft_history");
     expect(upd?.payload).toMatchObject({ status: "discarded" });
@@ -200,7 +233,11 @@ describe("P4-B — recordDraftOutcome provenance stamping", () => {
   });
 
   it("stamps status=superseded + discarded_at on supersede", async () => {
-    db.aiDraftHistory.set("d2", { original_draft: "x", profile_type: "general", subject: null });
+    db.aiDraftHistory.set("d2", {
+      original_draft: "x",
+      profile_type: "general",
+      subject: null,
+    });
     await AIDraftService.recordDraftOutcome("d2", "co-1", "u-1", "superseded");
     const upd = db.updates.find((u) => u.table === "ai_draft_history");
     expect(upd?.payload).toMatchObject({ status: "superseded" });
@@ -208,10 +245,23 @@ describe("P4-B — recordDraftOutcome provenance stamping", () => {
   });
 
   it("stamps edited_at on an edited send", async () => {
-    db.aiDraftHistory.set("d3", { original_draft: "Hello there", profile_type: "general", subject: "Re: A" });
-    await AIDraftService.recordDraftOutcome("d3", "co-1", "u-1", "sent", "Hello, friend.");
+    db.aiDraftHistory.set("d3", {
+      original_draft: "Hello there",
+      profile_type: "general",
+      subject: "Re: A",
+    });
+    await AIDraftService.recordDraftOutcome(
+      "d3",
+      "co-1",
+      "u-1",
+      "sent",
+      "Hello, friend."
+    );
     const sentUpd = db.updates.find((u) => u.table === "ai_draft_history");
-    expect(sentUpd?.payload).toMatchObject({ status: "sent", sent_without_changes: false });
+    expect(sentUpd?.payload).toMatchObject({
+      status: "sent",
+      sent_without_changes: false,
+    });
     expect(sentUpd?.payload.edited_at).toBeTruthy();
   });
 
@@ -236,7 +286,9 @@ describe("P4-B — recordDraftOutcome provenance stamping", () => {
     expect(sentUpd?.payload.subject_source).toBe("operator");
     expect(sentUpd?.payload.sent_without_changes).toBe(false);
     // No writing-profile update was attempted/promoted.
-    expect(db.updates.some((u) => u.table === "agent_writing_profiles")).toBe(false);
+    expect(db.updates.some((u) => u.table === "agent_writing_profiles")).toBe(
+      false
+    );
   });
 
   it("skips the learnFromEdits read for a subject-ONLY edit (subject never promotes the profile)", async () => {
@@ -280,8 +332,18 @@ describe("P4-B — recordDraftOutcome provenance stamping", () => {
   });
 
   it("does not flip sent_without_changes false when nothing changed", async () => {
-    db.aiDraftHistory.set("d5", { original_draft: "Body", profile_type: "general", subject: "S" });
-    await AIDraftService.recordDraftOutcome("d5", "co-1", "u-1", "sent", "Body");
+    db.aiDraftHistory.set("d5", {
+      original_draft: "Body",
+      profile_type: "general",
+      subject: "S",
+    });
+    await AIDraftService.recordDraftOutcome(
+      "d5",
+      "co-1",
+      "u-1",
+      "sent",
+      "Body"
+    );
     const sentUpd = db.updates.find((u) => u.table === "ai_draft_history");
     expect(sentUpd?.payload.sent_without_changes).toBe(true);
     expect(sentUpd?.payload.edited_at).toBeUndefined();
@@ -321,18 +383,55 @@ describe("P4-D — recordLifecycleDraftOutcome (operator-send learning)", () => 
       origin: "template_follow_up",
       profile_type: "client_followup",
       original_draft: "Original template body",
+      subject_source: "configured",
     });
 
     // The follow-up draft was linked back to the bridge id.
     const linkUpd = db.updates.find(
-      (u) => u.table === "opportunity_follow_up_drafts" && "ai_draft_history_id" in u.payload
+      (u) =>
+        u.table === "opportunity_follow_up_drafts" &&
+        "ai_draft_history_id" in u.payload
     );
     expect(linkUpd?.payload.ai_draft_history_id).toBeTruthy();
   });
 
   it("returns silently when the follow-up draft does not exist (no learning from a phantom)", async () => {
-    await AIDraftService.recordLifecycleDraftOutcome("missing", "co-1", "u-1", "body");
+    await AIDraftService.recordLifecycleDraftOutcome(
+      "missing",
+      "co-1",
+      "u-1",
+      "body"
+    );
     expect(db.inserts).toHaveLength(0);
     expect(db.updates).toHaveLength(0);
+  });
+
+  it("fails loudly when a lifecycle bridge history row cannot be persisted", async () => {
+    db.followUpDrafts.set("fu-error", {
+      id: "fu-error",
+      company_id: "co-1",
+      opportunity_id: "opp-1",
+      connection_id: "conn-1",
+      provider_thread_id: null,
+      origin: "template_follow_up",
+      subject: "Payment reminder",
+      original_body: "Original template body",
+      ai_draft_history_id: null,
+    });
+    db.aiDraftHistoryInsertResult = {
+      data: null,
+      error: { message: "subject source violates check constraint" },
+    };
+
+    await expect(
+      AIDraftService.recordLifecycleDraftOutcome(
+        "fu-error",
+        "co-1",
+        "u-1",
+        "Final body"
+      )
+    ).rejects.toThrow(
+      "Failed to persist lifecycle AI draft history: subject source violates check constraint"
+    );
   });
 });

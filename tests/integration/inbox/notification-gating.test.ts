@@ -88,6 +88,7 @@ interface DbState {
   aiDraftHistory: Array<Record<string, unknown>>;
   emailConnections: Array<Record<string, unknown>>;
   notifications: Array<Record<string, unknown>>;
+  emailSignatures?: Array<Record<string, unknown>>;
 }
 
 /**
@@ -110,7 +111,9 @@ function makeSupabaseDouble(state: DbState) {
       this._table = table;
     }
 
-    select(_cols?: string) { return this; }
+    select(_cols?: string) {
+      return this;
+    }
 
     eq(col: string, val: unknown) {
       this._filters.set(col, val);
@@ -121,6 +124,10 @@ function makeSupabaseDouble(state: DbState) {
       // Only "is null" / "is not null" patterns are used here.
       // Record the column as a "must not be null" filter.
       this._notNullCols.push(col);
+      return this;
+    }
+
+    order(_col: string, _opts?: { ascending?: boolean }) {
       return this;
     }
 
@@ -153,6 +160,15 @@ function makeSupabaseDouble(state: DbState) {
             (c) => c.id === id && (!companyId || c.company_id === companyId)
           ) ?? null;
         return { data: row, error: null };
+      }
+      if (this._table === "email_signatures" && this._action === "select") {
+        const rows = (state.emailSignatures ?? [makeSignatureRow()]).filter(
+          (row) =>
+            row.company_id === this._filters.get("company_id") &&
+            row.connection_id === this._filters.get("connection_id") &&
+            row.active === this._filters.get("active")
+        );
+        return { data: rows, error: null };
       }
       if (this._table === "ai_draft_history" && this._action === "select") {
         const connId = this._filters.get("connection_id");
@@ -194,18 +210,24 @@ function makeSupabaseDouble(state: DbState) {
     }
 
     async single() {
-      return this._resolve() as { data: Record<string, unknown> | null; error: null };
+      return this._resolve() as {
+        data: Record<string, unknown> | null;
+        error: null;
+      };
     }
   }
 
   return {
     from: (table: string) => new Query(table),
+    rpc: async () => ({ data: null, error: null }),
   };
 }
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
-function makeConnection(overrides: Partial<EmailConnection> = {}): EmailConnection {
+function makeConnection(
+  overrides: Partial<EmailConnection> = {}
+): EmailConnection {
   return {
     id: "conn-1",
     companyId: "company-1",
@@ -238,7 +260,30 @@ function makeConnection(overrides: Partial<EmailConnection> = {}): EmailConnecti
   };
 }
 
-function makeInboundEmail(overrides: Partial<NormalizedEmail> = {}): NormalizedEmail {
+function makeSignatureRow(): Record<string, unknown> {
+  return {
+    id: "signature-1",
+    company_id: "company-1",
+    connection_id: "conn-1",
+    scope_user_id: "user-1",
+    source: "ops",
+    content_html: "<div>Jackson<br>OPS</div>",
+    content_text: "Jackson\nOPS",
+    content_hash: "a".repeat(64),
+    provider_identity: null,
+    active: true,
+    fetched_at: null,
+    confirmed_at: null,
+    created_by: "user-1",
+    updated_by: "user-1",
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function makeInboundEmail(
+  overrides: Partial<NormalizedEmail> = {}
+): NormalizedEmail {
   return {
     id: "msg-1",
     threadId: "thread-1",

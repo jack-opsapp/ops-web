@@ -10,7 +10,8 @@ vi.mock("@/lib/supabase/helpers", () => ({
 }));
 
 function makeNotificationQueryDouble(rows: Array<Record<string, unknown>>) {
-  const calls: Array<{ method: string; column?: string; options?: unknown }> = [];
+  const calls: Array<{ method: string; column?: string; options?: unknown }> =
+    [];
 
   class Query {
     private filters = new Map<string, unknown>();
@@ -40,7 +41,9 @@ function makeNotificationQueryDouble(rows: Array<Record<string, unknown>>) {
 
     private result() {
       let data = rows.filter((row) =>
-        [...this.filters.entries()].every(([column, value]) => row[column] === value)
+        [...this.filters.entries()].every(
+          ([column, value]) => row[column] === value
+        )
       );
       for (const order of [...this.orders].reverse()) {
         data = [...data].sort((a, b) => {
@@ -166,7 +169,9 @@ describe("NotificationService", () => {
   });
 
   it("omits p_deep_link_type entirely when deepLinkType is not set, so the call stays resolvable against the pre-migration 9-arg RPC", async () => {
-    const rpc = vi.fn(async () => ({ error: null }));
+    const rpc = vi.fn(
+      async (_name: string, _args: Record<string, unknown>) => ({ error: null })
+    );
     requireSupabaseMock.mockReturnValue({ rpc } as never);
 
     await NotificationService.create({
@@ -177,7 +182,8 @@ describe("NotificationService", () => {
       body: "",
     });
 
-    const args = rpc.mock.calls[0][1] as Record<string, unknown>;
+    const args = rpc.mock.calls[0]?.[1];
+    if (!args) throw new Error("Expected notification RPC arguments");
     expect("p_deep_link_type" in args).toBe(false);
     // The original nine named args are still all present.
     expect(Object.keys(args).sort()).toEqual(

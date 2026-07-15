@@ -8,6 +8,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 import { matchesAllTokens } from "@/lib/utils/search";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
@@ -108,8 +109,8 @@ function PipelineSkeleton() {
           <div className="flex items-center gap-[16px] px-3 py-[8px]">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex flex-col gap-[2px]">
-                <div className="h-[18px] w-[60px] animate-pulse motion-reduce:animate-none rounded bg-fill-neutral-dim" />
-                <div className="h-[10px] w-[40px] animate-pulse motion-reduce:animate-none rounded bg-fill-neutral-dim" />
+                <div className="h-[18px] w-[60px] animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+                <div className="h-[10px] w-[40px] animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
               </div>
             ))}
           </div>
@@ -141,7 +142,7 @@ function PipelineSkeleton() {
                 {[1, 2].map((j) => (
                   <div
                     key={j}
-                    className="glass-surface animate-pulse motion-reduce:animate-none space-y-1.5 rounded border border-border-medium bg-glass p-1.5"
+                    className="glass-surface animate-pulse space-y-1.5 rounded border border-border-medium bg-glass p-1.5 motion-reduce:animate-none"
                   >
                     <div className="h-[14px] w-3/4 rounded bg-fill-neutral-dim" />
                     <div className="h-[10px] w-1/2 rounded bg-fill-neutral-dim" />
@@ -293,7 +294,7 @@ export default function PipelinePage() {
   const { data: reviewCount = 0 } = useQuery({
     queryKey: ["emailReviewCount", company?.id],
     queryFn: async () => {
-      const resp = await fetch(
+      const resp = await authedFetch(
         `/api/integrations/gmail/review-items?companyId=${encodeURIComponent(company!.id)}`
       );
       if (!resp.ok) return 0;
@@ -397,8 +398,10 @@ export default function PipelinePage() {
           ? (clientNameMap.get(opp.clientId) ?? "")
           : "";
         return matchesAllTokens(
-          [clientName, opp.contactName ?? "", opp.title ?? ""].join(" ").toLowerCase(),
-          searchQuery,
+          [clientName, opp.contactName ?? "", opp.title ?? ""]
+            .join(" ")
+            .toLowerCase(),
+          searchQuery
         );
       });
     }
@@ -1017,7 +1020,10 @@ export default function PipelinePage() {
                       title={t("gmail.reviewEmailsHint")}
                       className="flex h-[26px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                     >
-                      <Mail className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} />
+                      <Mail
+                        className="h-[11px] w-[11px] shrink-0"
+                        strokeWidth={1.5}
+                      />
                       {t("gmail.reviewEmails")}
                       <span className="rounded-bar bg-surface-active px-1 font-mono text-micro tabular-nums text-text">
                         {reviewCount > 99 ? "99+" : reviewCount}
@@ -1029,7 +1035,11 @@ export default function PipelinePage() {
               create={
                 canManage ? (
                   <WorkbarButton onClick={gatedOpenCreate}>
-                    <Plus className="h-[11px] w-[11px] shrink-0" strokeWidth={1.5} aria-hidden />
+                    <Plus
+                      className="h-[11px] w-[11px] shrink-0"
+                      strokeWidth={1.5}
+                      aria-hidden
+                    />
                     {t("newLead")}
                   </WorkbarButton>
                 ) : null

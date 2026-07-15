@@ -1,5 +1,10 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { verifyAuthToken } from "@/lib/firebase/admin-verify";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { resolveEmailOAuthAlertConnection } from "@/lib/email/email-oauth-state";
 import { ReconnectInboxClient } from "./ReconnectInboxClient";
 
 interface SearchParams {
@@ -7,6 +12,8 @@ interface SearchParams {
   userId?: string;
   type?: string;
   provider?: string;
+  connectionId?: string;
+  expectedEmail?: string;
 }
 
 interface PageProps {
@@ -14,21 +21,9 @@ interface PageProps {
 }
 
 /**
- * Pre-OAuth confirmation page. Shown to anyone landing from an inbox-down
- * alert email *before* we hand them off to Google / Microsoft for the
- * actual re-grant. Confirms the company + the user-of-record so the
- * operator can spot a wrong-account click before granting full mailbox
- * scope.
- *
- * Public route by design — auth might be expired (the alert lives in
- * email and may be read days later). The (auth) group's RouteGate
- * allowlist exempts /reconnect-inbox so authed users see the same
- * confirmation instead of being bounced to /dashboard.
- *
- * Identity attribution is verified server-side: the page only displays
- * a user name if that user's company_id actually matches the URL's
- * companyId. Mismatches render an anonymous "your team" so a crafted URL
- * can't be used to enumerate names.
+ * Pre-OAuth confirmation page for an inbox-down alert. A stale OPS session is
+ * sent through login and returned here. Only the exact same-company user with
+ * integration permission may see tenant identity or begin the provider grant.
  */
 export default async function ReconnectInboxPage({ searchParams }: PageProps) {
   const sp = await searchParams;
@@ -36,25 +31,73 @@ export default async function ReconnectInboxPage({ searchParams }: PageProps) {
   const userId = sp.userId?.trim();
   const type = sp.type === "individual" ? "individual" : "company";
   const provider = sp.provider === "microsoft365" ? "microsoft365" : "gmail";
+  const connectionId = sp.connectionId?.trim();
+  const expectedEmail = sp.expectedEmail?.trim().toLowerCase();
 
-  if (!companyId || !userId) {
+  if (!companyId || !userId || !connectionId || !expectedEmail) {
     redirect("/login");
   }
 
-  const supabase = getServiceRoleClient();
+  const reconnectPath = `/reconnect-inbox?${new URLSearchParams({
+    companyId,
+    userId,
+    type,
+    provider,
+    connectionId,
+    expectedEmail,
+  }).toString()}`;
+  const loginPath = `/login?redirect=${encodeURIComponent(reconnectPath)}`;
 
-  const [companyResult, userResult] = await Promise.all([
-    supabase
-      .from("companies")
-      .select("id, name")
-      .eq("id", companyId)
-      .maybeSingle(),
-    supabase
-      .from("users")
-      .select("id, first_name, last_name, email, company_id")
-      .eq("id", userId)
-      .maybeSingle(),
-  ]);
+  const cookieStore = await cookies();
+  const token =
+    cookieStore.get("__session")?.value ??
+    cookieStore.get("ops-auth-token")?.value;
+  if (!token) redirect(loginPath);
+
+  let authUser;
+  try {
+    authUser = await verifyAuthToken(token);
+  } catch {
+    redirect(loginPath);
+  }
+
+  const user = await findUserByAuth(
+    authUser.uid,
+    authUser.email,
+    "id, company_id, first_name, last_name, email"
+  );
+  if (
+    !user ||
+    user.id !== userId ||
+    user.company_id !== companyId ||
+    !(await checkPermissionById(userId, "settings.integrations"))
+  ) {
+    redirect("/settings?tab=integrations");
+  }
+
+  const supabase = getServiceRoleClient();
+  let alertBinding;
+  try {
+    alertBinding = await resolveEmailOAuthAlertConnection(supabase, {
+      companyId,
+      provider,
+      type,
+      connectionId,
+      expectedEmail,
+    });
+  } catch (error) {
+    console.error("[Reconnect inbox] Failed to verify connection:", error);
+    redirect("/settings?tab=integrations");
+  }
+  if (!alertBinding) {
+    redirect("/settings?tab=integrations");
+  }
+
+  const companyResult = await supabase
+    .from("companies")
+    .select("id, name")
+    .eq("id", companyId)
+    .maybeSingle();
 
   if (!companyResult.data) {
     // Stale link — the company no longer exists. Push to login so they at
@@ -63,17 +106,9 @@ export default async function ReconnectInboxPage({ searchParams }: PageProps) {
   }
 
   const companyName = (companyResult.data.name as string) ?? "your company";
-  const userBelongsToCompany =
-    userResult.data?.company_id === companyId;
-  const userFirstName = userBelongsToCompany
-    ? ((userResult.data?.first_name as string | null) ?? null)
-    : null;
-  const userLastName = userBelongsToCompany
-    ? ((userResult.data?.last_name as string | null) ?? null)
-    : null;
-  const userEmail = userBelongsToCompany
-    ? ((userResult.data?.email as string | null) ?? null)
-    : null;
+  const userFirstName = (user.first_name as string | null) ?? null;
+  const userLastName = (user.last_name as string | null) ?? null;
+  const userEmail = (user.email as string | null) ?? null;
   const fullName =
     [userFirstName, userLastName].filter(Boolean).join(" ").trim() || null;
 
@@ -83,6 +118,8 @@ export default async function ReconnectInboxPage({ searchParams }: PageProps) {
       userId={userId}
       type={type}
       provider={provider}
+      connectionId={alertBinding.connectionId}
+      expectedEmail={alertBinding.expectedEmail}
       companyName={companyName}
       userName={fullName}
       userEmail={userEmail}

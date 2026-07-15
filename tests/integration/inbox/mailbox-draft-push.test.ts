@@ -44,6 +44,9 @@ function makeSupabaseDouble(state: DbState) {
       this._filters.set(c, v);
       return this;
     }
+    limit(_n: number) {
+      return this;
+    }
     update(p: Record<string, unknown>) {
       this._action = "update";
       this._payload = p;
@@ -71,13 +74,39 @@ function makeSupabaseDouble(state: DbState) {
         if (row && this._payload) Object.assign(row, this._payload);
         return { data: null, error: null };
       }
-      if (this._t === "opportunity_email_threads" && this._action === "upsert") {
-        state.opportunityEmailThreads.push(
-          this._payload as Record<string, unknown>
+      if (
+        this._t === "opportunity_email_threads" &&
+        this._action === "upsert"
+      ) {
+        const payload = this._payload as Record<string, unknown>;
+        const exists = state.opportunityEmailThreads.some(
+          (row) =>
+            row.thread_id === payload.thread_id &&
+            row.connection_id === payload.connection_id
         );
+        if (!exists) state.opportunityEmailThreads.push(payload);
         return { data: null, error: null };
       }
+      if (
+        this._t === "opportunity_email_threads" &&
+        this._action === "select"
+      ) {
+        const threadId = this._filters.get("thread_id");
+        const connectionId = this._filters.get("connection_id");
+        return {
+          data: state.opportunityEmailThreads.filter(
+            (row) =>
+              row.thread_id === threadId && row.connection_id === connectionId
+          ),
+          error: null,
+        };
+      }
       return { data: null, error: null };
+    }
+    async maybeSingle() {
+      const result = this._resolve();
+      const rows = Array.isArray(result.data) ? result.data : [];
+      return { data: rows[0] ?? null, error: result.error };
     }
     then<A = unknown, B = never>(
       f?: ((v: unknown) => A | PromiseLike<A>) | null,
@@ -103,6 +132,7 @@ describe("placeNewThreadDraft", () => {
           status: "drafted",
           thread_id: null,
           mailbox_draft_id: null,
+          subject_source: "learned",
         },
       ],
       opportunityEmailThreads: [],
@@ -127,7 +157,8 @@ describe("placeNewThreadDraft", () => {
     expect(createNewThreadDraft).toHaveBeenCalledWith(
       "client@customer.com",
       CONTACT_FORM_OUTREACH_SUBJECT,
-      expect.stringContaining("deck")
+      expect.stringContaining("deck"),
+      "text"
     );
     expect(updateDraft).not.toHaveBeenCalled();
     expect(out).toEqual({ mailboxDraftId: "pd-1", threadId: "new-thread-1" });
@@ -137,7 +168,7 @@ describe("placeNewThreadDraft", () => {
     expect(row.mailbox_draft_id).toBe("pd-1");
     expect(row.thread_id).toBe("new-thread-1"); // tracks the NEW thread
     expect(row.subject).toBe(CONTACT_FORM_OUTREACH_SUBJECT);
-    expect(row.subject_source).toBe("generated");
+    expect(row.subject_source).toBe("learned");
 
     // The new thread must be linked to the opportunity so the user's eventual
     // send creates an outbound activity reconciliation can detect.
@@ -190,7 +221,8 @@ describe("placeNewThreadDraft", () => {
       "client@customer.com",
       CONTACT_FORM_OUTREACH_SUBJECT,
       "Updated body",
-      "new-thread-1"
+      "new-thread-1",
+      "text"
     );
     expect(createNewThreadDraft).not.toHaveBeenCalled();
     expect(out).toEqual({ mailboxDraftId: "pd-1", threadId: "new-thread-1" });

@@ -1,64 +1,22 @@
 /**
  * OPS Web - Gmail OAuth Callback
  *
- * GET /api/integrations/gmail/callback?code=...&state=<base64>
+ * GET /api/integrations/gmail/callback?code=...&state=<opaque-nonce>
  *
- * Exchanges auth code for tokens and persists the connection. The `state`
- * parameter carries a base64-encoded JSON `{companyId, userId, type}` set
- * by the OAuth initiation route — we decode it so the connection row gets
- * the correct user_id (critical for Phase C hooks to fire) and type
- * (company vs individual).
+ * Exchanges auth code for tokens and persists the connection. The callback
+ * atomically consumes a short-lived server-side state row; unsigned legacy
+ * tenant context is intentionally rejected.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { consumeEmailOAuthState } from "@/lib/email/email-oauth-state";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { persistEmailOAuthConnection } from "@/lib/email/email-oauth-connection";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
-import { defaultAutoSendSettings } from "@/lib/api/services/mailbox-draft-helpers";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_GMAIL_CLIENT_SECRET;
-
-interface OAuthState {
-  companyId: string;
-  userId: string | null;
-  type: "company" | "individual";
-  /**
-   * Where to land the user after the connection is written. `wizard` (default)
-   * keeps the existing /settings landing for in-app reconnects. `alert` lands
-   * them on /reconnect-inbox/success — the auth-aware confirmation page used
-   * by the email-ingest-down alert flow.
-   */
-  source: "wizard" | "alert";
-}
-
-/**
- * Decode the base64-encoded JSON state set by gmail/route.ts. Falls back
- * to treating the state as a plain companyId string for backward
- * compatibility with in-flight OAuth sessions that were initiated before
- * the state format was upgraded.
- */
-function decodeState(raw: string): OAuthState | null {
-  // Try the new base64-JSON format first.
-  try {
-    const json = JSON.parse(Buffer.from(raw, "base64").toString("utf-8"));
-    if (json && typeof json === "object" && typeof json.companyId === "string") {
-      return {
-        companyId: json.companyId,
-        userId: typeof json.userId === "string" ? json.userId : null,
-        type: json.type === "individual" ? "individual" : "company",
-        source: json.source === "alert" ? "alert" : "wizard",
-      };
-    }
-  } catch {
-    // Not base64 JSON — fall through to legacy path.
-  }
-
-  // Legacy format: state was just the raw companyId string.
-  if (raw && !raw.includes("=") && !raw.includes(":")) {
-    return { companyId: raw, userId: null, type: "company", source: "wizard" };
-  }
-  return null;
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -66,14 +24,7 @@ export async function GET(request: NextRequest) {
   const rawState = searchParams.get("state");
   const error = searchParams.get("error");
 
-  // Handle user denial
-  if (error) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(error)}`
-    );
-  }
-
-  if (!code || !rawState) {
+  if (!rawState) {
     return NextResponse.redirect(
       `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_params`
     );
@@ -85,22 +36,60 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const state = decodeState(rawState);
+  const supabase = getServiceRoleClient();
+  let state;
+  try {
+    state = await consumeEmailOAuthState(supabase, "gmail", rawState);
+  } catch (stateError) {
+    console.error("[Gmail OAuth] State consumption failed:", stateError);
+    return NextResponse.redirect(
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=invalid_state`
+    );
+  }
   if (!state) {
-    console.error("[Gmail OAuth] Failed to decode state:", rawState);
+    console.error("[Gmail OAuth] Rejected expired, replayed, or invalid state");
     return NextResponse.redirect(
       `${getAppUrl()}/settings?tab=integrations&status=error&message=invalid_state`
     );
   }
 
-  // Individual connections MUST carry a userId. If the state came through
-  // without one (legacy init or missing query param), we can't attribute
-  // the connection correctly — reject rather than silently fall back to
-  // company-scope, because Phase C depends on user_id being non-null.
-  if (state.type === "individual" && !state.userId) {
-    console.error("[Gmail OAuth] Individual connection missing userId");
+  // Bind the provider callback to the same OPS identity that created state.
+  // Without this second check an attacker could relay their provider consent
+  // URL and attach another person's mailbox to the attacker's company.
+  const authError = await requireEmailCompanyAccess(
+    request,
+    state.companyId,
+    "settings.integrations",
+    state.userId
+  );
+  if (authError) {
+    console.error("[Gmail OAuth] Callback OPS session did not match initiator");
+    const retryPath =
+      state.source === "alert"
+        ? `/reconnect-inbox?${new URLSearchParams({
+            companyId: state.companyId,
+            userId: state.userId,
+            type: state.type,
+            provider: "gmail",
+            connectionId: state.connectionId,
+            expectedEmail: state.expectedEmail,
+          }).toString()}`
+        : "/settings?tab=integrations";
     return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_user_id`
+      `${getAppUrl()}/login?redirect=${encodeURIComponent(retryPath)}`
+    );
+  }
+
+  // Consume denied callbacks too, so their state can never be replayed with a
+  // different authorization code.
+  if (error) {
+    return NextResponse.redirect(
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(error)}`
+    );
+  }
+  if (!code) {
+    return NextResponse.redirect(
+      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_params`
     );
   }
 
@@ -123,12 +112,20 @@ export async function GET(request: NextRequest) {
       console.error("[Gmail OAuth] Token exchange failed");
       console.error("[Gmail OAuth] Status:", tokenResponse.status);
       console.error("[Gmail OAuth] Response:", errorData);
-      console.error("[Gmail OAuth] Redirect URI used:", `${getAppUrl()}/api/integrations/gmail/callback`);
+      console.error(
+        "[Gmail OAuth] Redirect URI used:",
+        `${getAppUrl()}/api/integrations/gmail/callback`
+      );
       try {
         const parsed = JSON.parse(errorData);
         console.error("[Gmail OAuth] Error code:", parsed.error);
-        console.error("[Gmail OAuth] Error description:", parsed.error_description);
-      } catch { /* not JSON */ }
+        console.error(
+          "[Gmail OAuth] Error description:",
+          parsed.error_description
+        );
+      } catch {
+        /* not JSON */
+      }
       return NextResponse.redirect(
         `${getAppUrl()}/settings?tab=integrations&status=error&message=token_exchange_failed`
       );
@@ -136,66 +133,53 @@ export async function GET(request: NextRequest) {
 
     const tokens = await tokenResponse.json();
 
-    // Get user email from the access token
-    let gmailEmail = "";
-    try {
-      const userInfoResponse = await fetch(
-        "https://www.googleapis.com/oauth2/v2/userinfo",
-        { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+    // Mailbox identity is a hard ingestion invariant. The Gmail profile
+    // endpoint is covered by the mailbox scope already granted above.
+    const profileResponse = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+      { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+    );
+    if (!profileResponse.ok) {
+      console.error(
+        "[Gmail OAuth] Mailbox profile lookup failed:",
+        profileResponse.status
       );
-      if (userInfoResponse.ok) {
-        const userInfo = await userInfoResponse.json();
-        gmailEmail = userInfo.email || "";
-      }
-    } catch {
-      // Non-critical — email is nice to have
+      return NextResponse.redirect(
+        `${getAppUrl()}/settings?tab=integrations&status=error&message=mailbox_identity_failed`
+      );
+    }
+    const profile = await profileResponse.json();
+    const gmailEmail = String(profile.emailAddress || "")
+      .trim()
+      .toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gmailEmail)) {
+      console.error("[Gmail OAuth] Profile returned no valid mailbox email");
+      return NextResponse.redirect(
+        `${getAppUrl()}/settings?tab=integrations&status=error&message=mailbox_identity_failed`
+      );
+    }
+    if (state.source === "alert" && gmailEmail !== state.expectedEmail) {
+      console.error(
+        "[Gmail OAuth] Reconnect mailbox did not match alert state"
+      );
+      return NextResponse.redirect(
+        `${getAppUrl()}/settings?tab=integrations&status=error&message=mailbox_identity_mismatch`
+      );
     }
 
-    // Persist the connection with explicit user_id, type, provider, and
-    // status. We write status='setup_incomplete' because the wizard has
-    // additional steps (pattern detection, filter config, activate). The
-    // activate endpoint flips it to 'active' when the user finishes.
-    //
-    // Auto-draft defaults are seeded only on a genuinely new connection —
-    // reconnects must preserve whatever settings the user has already
-    // configured, so we check existence before upserting.
-    const supabase = getServiceRoleClient();
-
-    const { data: existingRow } = await supabase
-      .from("email_connections")
-      .select("id, auto_send_settings")
-      .eq("company_id", state.companyId)
-      .eq("email", gmailEmail)
-      .maybeSingle();
-
-    const isNewConnection = !existingRow;
-
-    const upsertPayload: Record<string, unknown> = {
-      company_id: state.companyId,
-      user_id: state.userId,
-      type: state.type,
-      provider: "gmail",
-      status: "setup_incomplete",
-      email: gmailEmail,
-      access_token: tokens.access_token || "",
-      refresh_token: tokens.refresh_token || "",
-      expires_at: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
-      sync_enabled: true,
-      updated_at: new Date().toISOString(),
-    };
-
-    // Only seed defaults on initial creation — never overwrite a reconnect's
-    // existing settings (user may have customised them via the settings UI).
-    if (isNewConnection) {
-      upsertPayload.auto_send_settings = defaultAutoSendSettings();
-    }
-
-    const { error: upsertError } = await supabase
-      .from("email_connections")
-      .upsert(upsertPayload, { onConflict: "company_id,email" });
-
-    if (upsertError) {
-      console.error("Failed to store Gmail tokens:", upsertError.message);
+    try {
+      await persistEmailOAuthConnection(supabase, {
+        state,
+        provider: "gmail",
+        email: gmailEmail,
+        accessToken: tokens.access_token || "",
+        refreshToken: tokens.refresh_token,
+        expiresAt: new Date(
+          Date.now() + (tokens.expires_in || 3600) * 1000
+        ).toISOString(),
+      });
+    } catch (storageError) {
+      console.error("Failed to store Gmail tokens:", storageError);
       return NextResponse.redirect(
         `${getAppUrl()}/settings?tab=integrations&status=error&message=storage_failed`
       );

@@ -32,10 +32,7 @@ import { WT, isCompact, showActions } from "@/lib/widget-tokens";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useTeamMembers, useProjects } from "@/lib/hooks";
-import {
-  ActivityType,
-  ACTIVITY_TYPE_COLORS,
-} from "@/lib/types/pipeline";
+import { ActivityType, ACTIVITY_TYPE_COLORS } from "@/lib/types/pipeline";
 import type { Activity } from "@/lib/types/pipeline";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
@@ -82,6 +79,7 @@ function useRecentActivities(companyId: string | undefined) {
         durationMinutes:
           row.duration_minutes != null ? Number(row.duration_minutes) : null,
         attachments: (row.attachments as string[]) ?? [],
+        emailConnectionId: (row.email_connection_id as string) ?? null,
         emailThreadId: (row.email_thread_id as string) ?? null,
         emailMessageId: (row.email_message_id as string) ?? null,
         isRead: (row.is_read as boolean) ?? true,
@@ -136,7 +134,10 @@ function activityColor(type: ActivityType): string {
   return ACTIVITY_TYPE_COLORS[type] ?? WT.muted;
 }
 
-function activityTypeLabel(type: ActivityType, t: (key: string) => string): string {
+function activityTypeLabel(
+  type: ActivityType,
+  t: (key: string) => string
+): string {
   return t(`activity.type.${type}`) ?? type;
 }
 
@@ -148,8 +149,10 @@ function timeAgo(date: Date, t: (key: string) => string): string {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
   if (diffMinutes < 1) return t("activity.justNow");
-  if (diffMinutes < 60) return t("activity.minutesAgo").replace("{count}", String(diffMinutes));
-  if (diffHours < 24) return t("activity.hoursAgo").replace("{count}", String(diffHours));
+  if (diffMinutes < 60)
+    return t("activity.minutesAgo").replace("{count}", String(diffMinutes));
+  if (diffHours < 24)
+    return t("activity.hoursAgo").replace("{count}", String(diffHours));
   if (diffDays === 0) return t("activity.today");
   return t("activity.daysAgo").replace("{count}", String(diffDays));
 }
@@ -228,7 +231,11 @@ export function ActivityWidget({
     if (!activities || !showActions(size)) return null;
 
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
 
     const todayActivities = activities.filter((a) => a.createdAt >= todayStart);
     const todayCount = todayActivities.length;
@@ -259,7 +266,7 @@ export function ActivityWidget({
   if (isCompact(size)) {
     return (
       <Card className="h-full p-0">
-        <div className="h-full flex flex-col p-3">
+        <div className="flex h-full flex-col p-3">
           <span
             className={`font-mono text-data-lg font-bold leading-none ${
               isLoading
@@ -271,17 +278,19 @@ export function ActivityWidget({
           >
             {isLoading ? "—" : count}
           </span>
-          <WidgetTitle className="mt-1">
-            {t("activity.title")}
-          </WidgetTitle>
-          <span className="font-mono text-micro text-text-mute uppercase mt-0.5 truncate">
+          <WidgetTitle className="mt-1">{t("activity.title")}</WidgetTitle>
+          <span className="mt-0.5 truncate font-mono text-micro uppercase text-text-mute">
             {isLoading
               ? "..."
               : activities && activities.length > 0
-                ? activities[0].subject || activityTypeLabel(activities[0].type, t)
+                ? activities[0].subject ||
+                  activityTypeLabel(activities[0].type, t)
                 : t("activity.empty")}
           </span>
-          <WidgetTrendContext variant="snapshot" label={t("trend.recent") ?? "Recent"} />
+          <WidgetTrendContext
+            variant="snapshot"
+            label={t("trend.recent") ?? "Recent"}
+          />
         </div>
       </Card>
     );
@@ -292,50 +301,56 @@ export function ActivityWidget({
   const maxItems = listExpanded ? (activities?.length ?? 0) : defaultMax;
   const remaining = (activities?.length ?? 0) - defaultMax;
 
-  const getActivityEntityClick = (activity: Activity): ((e?: React.MouseEvent) => void) | undefined => {
+  const getActivityEntityClick = (
+    activity: Activity
+  ): ((e?: React.MouseEvent) => void) | undefined => {
     const color = activityColor(activity.type);
     const title = activity.subject || activityTypeLabel(activity.type, t);
 
     if (activity.projectId) {
       const projectName = projectNameMap[activity.projectId];
-      return (e) => openEntity({
-        entityType: "project",
-        entityId: activity.projectId!,
-        title: projectName || title,
-        color,
-        event: e,
-        fallbackPath: `/projects/${activity.projectId}`,
-      });
+      return (e) =>
+        openEntity({
+          entityType: "project",
+          entityId: activity.projectId!,
+          title: projectName || title,
+          color,
+          event: e,
+          fallbackPath: `/projects/${activity.projectId}`,
+        });
     }
     if (activity.opportunityId) {
-      return (e) => openEntity({
-        entityType: "opportunity",
-        entityId: activity.opportunityId!,
-        title,
-        color,
-        event: e,
-        fallbackPath: "/pipeline",
-      });
+      return (e) =>
+        openEntity({
+          entityType: "opportunity",
+          entityId: activity.opportunityId!,
+          title,
+          color,
+          event: e,
+          fallbackPath: "/pipeline",
+        });
     }
     if (activity.invoiceId) {
-      return (e) => openEntity({
-        entityType: "invoice",
-        entityId: activity.invoiceId!,
-        title,
-        color,
-        event: e,
-        fallbackPath: "/books?segment=invoices",
-      });
+      return (e) =>
+        openEntity({
+          entityType: "invoice",
+          entityId: activity.invoiceId!,
+          title,
+          color,
+          event: e,
+          fallbackPath: "/books?segment=invoices",
+        });
     }
     if (activity.estimateId) {
-      return (e) => openEntity({
-        entityType: "estimate",
-        entityId: activity.estimateId!,
-        title,
-        color,
-        event: e,
-        fallbackPath: "/books?segment=estimates",
-      });
+      return (e) =>
+        openEntity({
+          entityType: "estimate",
+          entityId: activity.estimateId!,
+          title,
+          color,
+          event: e,
+          fallbackPath: "/books?segment=estimates",
+        });
     }
     return undefined;
   };
@@ -345,9 +360,11 @@ export function ActivityWidget({
       const IconComp = ACTIVITY_TYPE_ICONS[activity.type] ?? Settings;
       const author = activity.createdBy ? authorMap[activity.createdBy] : null;
       const preview = activity.content
-        ? activity.content.slice(0, 40) + (activity.content.length > 40 ? "..." : "")
+        ? activity.content.slice(0, 40) +
+          (activity.content.length > 40 ? "..." : "")
         : null;
-      const secondary = [author, preview].filter(Boolean).join(" · ") || undefined;
+      const secondary =
+        [author, preview].filter(Boolean).join(" · ") || undefined;
 
       return (
         <WidgetLineItem
@@ -370,12 +387,10 @@ export function ActivityWidget({
 
   return (
     <Card className="h-full p-0" ref={ref}>
-      <div className="h-full flex flex-col p-3">
+      <div className="flex h-full flex-col p-3">
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
-          <WidgetTitle>
-            {t("activity.title")}
-          </WidgetTitle>
+        <div className="mb-2 flex items-center justify-between">
+          <WidgetTitle>{t("activity.title")}</WidgetTitle>
           <span className="font-mono text-micro text-text-3">
             {isLoading ? "..." : `${count} ${t("activity.events")}`}
           </span>
@@ -383,30 +398,34 @@ export function ActivityWidget({
 
         {/* LG Hero Metrics */}
         {lgMetrics && showActions(size) && (
-          <WidgetHeroCollapse collapsed={heroCollapsed} collapsedHeight="0px" expandedHeight="50px">
-            <div className="flex items-start gap-4 mb-2">
+          <WidgetHeroCollapse
+            collapsed={heroCollapsed}
+            collapsedHeight="0px"
+            expandedHeight="50px"
+          >
+            <div className="mb-2 flex items-start gap-4">
               <div>
-                <span className="font-mono text-data-lg font-bold text-text block leading-none">
+                <span className="block font-mono text-data-lg font-bold leading-none text-text">
                   {lgMetrics.todayCount}
                 </span>
-                <span className="font-mono text-micro text-text-3 uppercase">
+                <span className="font-mono text-micro uppercase text-text-3">
                   {t("activity.todayCount")}
                 </span>
               </div>
               <div>
-                <span className="font-mono text-data-lg font-bold text-text block leading-none">
+                <span className="block font-mono text-data-lg font-bold leading-none text-text">
                   {lgMetrics.activeUsers}
                 </span>
-                <span className="font-mono text-micro text-text-3 uppercase">
+                <span className="font-mono text-micro uppercase text-text-3">
                   {t("activity.activeUsers")}
                 </span>
               </div>
               {lgMetrics.mostActiveProjectName && (
                 <div className="min-w-0">
-                  <span className="font-mohave text-caption-sm text-text block truncate leading-none">
+                  <span className="block truncate font-mohave text-caption-sm leading-none text-text">
                     {lgMetrics.mostActiveProjectName}
                   </span>
-                  <span className="font-mono text-micro text-text-3 uppercase">
+                  <span className="font-mono text-micro uppercase text-text-3">
                     {t("activity.mostActive")}
                   </span>
                 </div>
@@ -416,7 +435,7 @@ export function ActivityWidget({
         )}
 
         {/* Feed list */}
-        <div className="flex-1 min-h-0 flex flex-col" ref={scrollContainerRef}>
+        <div className="flex min-h-0 flex-1 flex-col" ref={scrollContainerRef}>
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <span className="font-mono text-[11px] text-text-mute">
@@ -424,7 +443,7 @@ export function ActivityWidget({
               </span>
             </div>
           ) : !activities || activities.length === 0 ? (
-            <p className="font-mohave text-body-sm text-text-mute py-2">
+            <p className="py-2 font-mohave text-body-sm text-text-mute">
               {t("activity.empty")}
             </p>
           ) : listExpanded ? (
@@ -432,7 +451,12 @@ export function ActivityWidget({
               <div className="flex flex-col gap-[2px]">
                 {renderActivityRows(activities)}
               </div>
-              <WidgetMoreButton remaining={remaining} expanded={listExpanded} onToggle={() => setListExpanded((v) => !v)} className="mt-1" />
+              <WidgetMoreButton
+                remaining={remaining}
+                expanded={listExpanded}
+                onToggle={() => setListExpanded((v) => !v)}
+                className="mt-1"
+              />
             </ScrollFade>
           ) : (
             <>
@@ -440,12 +464,16 @@ export function ActivityWidget({
                 {renderActivityRows(activities.slice(0, maxItems))}
               </div>
               {remaining > 0 && (
-                <WidgetMoreButton remaining={remaining} expanded={listExpanded} onToggle={() => setListExpanded((v) => !v)} className="mt-1" />
+                <WidgetMoreButton
+                  remaining={remaining}
+                  expanded={listExpanded}
+                  onToggle={() => setListExpanded((v) => !v)}
+                  className="mt-1"
+                />
               )}
             </>
           )}
         </div>
-
       </div>
     </Card>
   );

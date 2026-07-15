@@ -64,8 +64,20 @@ vi.mock("@/lib/hooks/use-users", () => ({
   useTeamMembers: () => ({
     data: {
       users: [
-        { id: "user-ada", firstName: "Ada", lastName: "Lovelace", isActive: true, profileImageURL: null },
-        { id: "user-grace", firstName: "Grace", lastName: "Hopper", isActive: true, profileImageURL: null },
+        {
+          id: "user-ada",
+          firstName: "Ada",
+          lastName: "Lovelace",
+          isActive: true,
+          profileImageURL: null,
+        },
+        {
+          id: "user-grace",
+          firstName: "Grace",
+          lastName: "Hopper",
+          isActive: true,
+          profileImageURL: null,
+        },
       ],
     },
     isLoading: false,
@@ -79,7 +91,7 @@ vi.mock(
     AddressAutocomplete: ({ value }: { value: string }) => (
       <input aria-label="address-autocomplete-stub" defaultValue={value} />
     ),
-  }),
+  })
 );
 
 // The band owns a real `useOpportunityFieldEdit`, which sits on
@@ -158,7 +170,7 @@ describe("LeadMapBand — backdrop", () => {
     expect(map).toBeInTheDocument();
     expect(map).toHaveAttribute(
       "data-pin-color",
-      OPPORTUNITY_STAGE_COLORS[OpportunityStage.Quoting],
+      OPPORTUNITY_STAGE_COLORS[OpportunityStage.Quoting]
     );
     // The grid fallback must NOT render when there's a map.
     expect(screen.queryByTestId("lead-map-grid-fallback")).toBeNull();
@@ -169,7 +181,7 @@ describe("LeadMapBand — backdrop", () => {
       <LeadMapBand
         opportunity={makeOpportunity({ latitude: null, longitude: null })}
         canManage
-      />,
+      />
     );
 
     expect(screen.queryByTestId("project-map-mock")).toBeNull();
@@ -186,7 +198,7 @@ describe("LeadMapBand — Open in Maps link", () => {
     const link = screen.getByRole("link", { name: /open in maps/i });
     expect(link).toHaveAttribute(
       "href",
-      "https://www.google.com/maps/search/?api=1&query=49.2785,-123.1278",
+      "https://www.google.com/maps/search/?api=1&query=49.2785,-123.1278"
     );
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
@@ -201,15 +213,15 @@ describe("LeadMapBand — Open in Maps link", () => {
           address: "1180 Howe St, Vancouver, BC",
         })}
         canManage
-      />,
+      />
     );
 
     const link = screen.getByRole("link", { name: /open in maps/i });
     expect(link).toHaveAttribute(
       "href",
       `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        "1180 Howe St, Vancouver, BC",
-      )}`,
+        "1180 Howe St, Vancouver, BC"
+      )}`
     );
   });
 
@@ -222,7 +234,7 @@ describe("LeadMapBand — Open in Maps link", () => {
           address: null,
         })}
         canManage
-      />,
+      />
     );
 
     expect(screen.queryByRole("link", { name: /open in maps/i })).toBeNull();
@@ -235,23 +247,38 @@ describe("LeadMapBand — Open in Maps link", () => {
 
 describe("LeadMapBand — estimated value hero", () => {
   it("shows the formatted currency value", () => {
-    render(<LeadMapBand opportunity={makeOpportunity({ estimatedValue: 14200 })} canManage />);
+    render(
+      <LeadMapBand
+        opportunity={makeOpportunity({ estimatedValue: 14200 })}
+        canManage
+      />
+    );
     expect(screen.getByText(formatCurrency(14200))).toBeInTheDocument();
   });
 
   it("shows the em-dash sentinel when the value is null", () => {
-    render(<LeadMapBand opportunity={makeOpportunity({ estimatedValue: null })} canManage />);
+    render(
+      <LeadMapBand
+        opportunity={makeOpportunity({ estimatedValue: null })}
+        canManage
+      />
+    );
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 });
 
-// ─── Win probability (read-only) ──────────────────────────────────────────────
+// ─── Probability-free summary ──────────────────────────────────────────────
 
-describe("LeadMapBand — win probability", () => {
-  it("renders the read-only win percentage (never an edit trigger)", () => {
-    render(<LeadMapBand opportunity={makeOpportunity({ winProbability: 40 })} canManage />);
-    // The win readout is informational text, not a button.
-    expect(screen.getByText(/40%/)).toBeInTheDocument();
+describe("LeadMapBand — probability-free summary", () => {
+  it("does not render the legacy win-probability readout", () => {
+    render(
+      <LeadMapBand
+        opportunity={makeOpportunity({ winProbability: 40 })}
+        canManage
+      />
+    );
+    expect(screen.queryByText(/40%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\bwin\b/i)).not.toBeInTheDocument();
   });
 });
 
@@ -278,9 +305,12 @@ describe("LeadMapBand — read-only (!canManage)", () => {
   it("shows the client/contact name read-only", () => {
     render(
       <LeadMapBand
-        opportunity={makeOpportunity({ client: null, contactName: "Dana Scully" })}
+        opportunity={makeOpportunity({
+          client: null,
+          contactName: "Dana Scully",
+        })}
         canManage={false}
-      />,
+      />
     );
     expect(screen.getByText("Dana Scully")).toBeInTheDocument();
   });

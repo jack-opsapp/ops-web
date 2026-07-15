@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useGmailConnections } from "@/lib/hooks/use-gmail-connections";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,12 +78,14 @@ function useReviewItems(companyId: string) {
   return useQuery<ReviewItem[]>({
     queryKey: ["emailReviewItems", companyId],
     queryFn: async () => {
-      const res = await fetch(
+      const res = await authedFetch(
         `/api/integrations/gmail/review-items?companyId=${encodeURIComponent(companyId)}`
       );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Failed to fetch review items");
+        throw new Error(
+          (data as { error?: string }).error ?? "Failed to fetch review items"
+        );
       }
       const json = (await res.json()) as { ok: boolean; items: ReviewItem[] };
       return json.items;
@@ -100,18 +103,22 @@ function useConfirmMatch(companyId: string) {
 
   return useMutation({
     mutationFn: async (activityId: string) => {
-      const res = await fetch("/api/integrations/gmail/confirm-match", {
+      const res = await authedFetch("/api/integrations/gmail/confirm-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ activityId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Failed to confirm match");
+        throw new Error(
+          (data as { error?: string }).error ?? "Failed to confirm match"
+        );
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["emailReviewItems", companyId] });
+      queryClient.invalidateQueries({
+        queryKey: ["emailReviewItems", companyId],
+      });
       queryClient.invalidateQueries({ queryKey: ["inboxLeads", companyId] });
       toast.success("Match confirmed");
     },
@@ -126,18 +133,22 @@ function useRejectMatch(companyId: string) {
 
   return useMutation({
     mutationFn: async (activityId: string) => {
-      const res = await fetch("/api/integrations/gmail/reject-match", {
+      const res = await authedFetch("/api/integrations/gmail/reject-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ activityId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Failed to reject match");
+        throw new Error(
+          (data as { error?: string }).error ?? "Failed to reject match"
+        );
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["emailReviewItems", companyId] });
+      queryClient.invalidateQueries({
+        queryKey: ["emailReviewItems", companyId],
+      });
       queryClient.invalidateQueries({ queryKey: ["inboxLeads", companyId] });
       toast.success("Match rejected");
     },
@@ -152,18 +163,22 @@ function useIgnoreActivity(companyId: string) {
 
   return useMutation({
     mutationFn: async (activityId: string) => {
-      const res = await fetch("/api/integrations/gmail/ignore", {
+      const res = await authedFetch("/api/integrations/gmail/ignore", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ activityId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Failed to ignore activity");
+        throw new Error(
+          (data as { error?: string }).error ?? "Failed to ignore activity"
+        );
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["emailReviewItems", companyId] });
+      queryClient.invalidateQueries({
+        queryKey: ["emailReviewItems", companyId],
+      });
       queryClient.invalidateQueries({ queryKey: ["inboxLeads", companyId] });
     },
     onError: (err: Error) => {
@@ -183,18 +198,22 @@ function useBlockDomain(companyId: string) {
       domain: string;
       connectionId: string;
     }) => {
-      const res = await fetch("/api/integrations/gmail/block-domain", {
+      const res = await authedFetch("/api/integrations/gmail/block-domain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain, connectionId, companyId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Failed to block domain");
+        throw new Error(
+          (data as { error?: string }).error ?? "Failed to block domain"
+        );
       }
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["emailReviewItems", companyId] });
+      queryClient.invalidateQueries({
+        queryKey: ["emailReviewItems", companyId],
+      });
       queryClient.invalidateQueries({ queryKey: ["inboxLeads", companyId] });
       toast.success(`Blocked @${variables.domain}`);
     },
@@ -288,43 +307,43 @@ function NeedsReviewCard({
   const busy = isConfirming || isRejecting;
 
   return (
-    <div className="rounded-sm border border-[rgba(255,255,255,0.10)] bg-black p-4 space-y-3">
+    <div className="space-y-3 rounded-sm border border-[rgba(255,255,255,0.10)] bg-black p-4">
       {/* Header */}
       <div className="flex items-start gap-2">
-        <div className="h-7 w-7 rounded-full bg-[rgba(255,255,255,0.06)] flex items-center justify-center shrink-0 mt-0.5">
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[rgba(255,255,255,0.06)]">
           <Mail className="h-3.5 w-3.5 text-[#6F94B0]" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mohave text-sm font-medium text-[#EDEDED] truncate">
+          <p className="truncate font-mohave text-sm font-medium text-[#EDEDED]">
             {item.subject || "(no subject)"}
           </p>
           {item.fromEmail && (
-            <p className="font-mono text-xs text-[#999] truncate mt-0.5">
+            <p className="mt-0.5 truncate font-mono text-xs text-[#999]">
               {item.fromEmail}
             </p>
           )}
         </div>
-        <span className="font-mono text-micro text-[#555] uppercase tracking-wider shrink-0">
+        <span className="shrink-0 font-mono text-micro uppercase tracking-wider text-[#555]">
           {formatDate(item.createdAt)}
         </span>
       </div>
 
       {/* Snippet */}
       {item.content && (
-        <p className="font-mohave text-xs text-[#999] line-clamp-2 leading-relaxed">
+        <p className="line-clamp-2 font-mohave text-xs leading-relaxed text-[#999]">
           {item.content}
         </p>
       )}
 
       {/* Match info */}
-      <div className="flex items-center gap-2 rounded-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] px-3 py-2">
-        <AlertTriangle className="h-3.5 w-3.5 text-[#C4A868] shrink-0" />
+      <div className="flex items-center gap-2 rounded-sm border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-3 py-2">
+        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-[#C4A868]" />
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-micro text-[#C4A868] uppercase tracking-wider">
+          <p className="font-mono text-micro uppercase tracking-wider text-[#C4A868]">
             {confidenceLabel(item.matchConfidence)}
           </p>
           {item.suggestedClientName && (
-            <p className="font-mohave text-sm text-[#EDEDED] truncate mt-0.5">
+            <p className="mt-0.5 truncate font-mohave text-sm text-[#EDEDED]">
               {item.suggestedClientName}
             </p>
           )}
@@ -380,30 +399,30 @@ function UnmatchedCard({
   const busy = isIgnoring || isBlocking;
 
   return (
-    <div className="rounded-sm border border-[rgba(255,255,255,0.10)] bg-black p-4 space-y-3">
+    <div className="space-y-3 rounded-sm border border-[rgba(255,255,255,0.10)] bg-black p-4">
       {/* Header */}
       <div className="flex items-start gap-2">
-        <div className="h-7 w-7 rounded-full bg-[rgba(255,255,255,0.05)] flex items-center justify-center shrink-0 mt-0.5">
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[rgba(255,255,255,0.05)]">
           <Mail className="h-3.5 w-3.5 text-[#999]" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mohave text-sm font-medium text-[#EDEDED] truncate">
+          <p className="truncate font-mohave text-sm font-medium text-[#EDEDED]">
             {item.subject || "(no subject)"}
           </p>
           {item.fromEmail && (
-            <p className="font-mono text-xs text-[#999] truncate mt-0.5">
+            <p className="mt-0.5 truncate font-mono text-xs text-[#999]">
               {item.fromEmail}
             </p>
           )}
         </div>
-        <span className="font-mono text-micro text-[#555] uppercase tracking-wider shrink-0">
+        <span className="shrink-0 font-mono text-micro uppercase tracking-wider text-[#555]">
           {formatDate(item.createdAt)}
         </span>
       </div>
 
       {/* Snippet */}
       {item.content && (
-        <p className="font-mohave text-xs text-[#999] line-clamp-2 leading-relaxed">
+        <p className="line-clamp-2 font-mohave text-xs leading-relaxed text-[#999]">
           {item.content}
         </p>
       )}
@@ -452,45 +471,51 @@ function UnmatchedCard({
 }
 
 /** Card for the "Matched" tab — confirmed matches with view link */
-function MatchedCard({ item, onViewClient }: { item: ReviewItem; onViewClient?: (clientId: string) => void }) {
+function MatchedCard({
+  item,
+  onViewClient,
+}: {
+  item: ReviewItem;
+  onViewClient?: (clientId: string) => void;
+}) {
   return (
-    <div className="rounded-sm border border-[rgba(255,255,255,0.06)] bg-black p-4 space-y-3 opacity-80">
+    <div className="space-y-3 rounded-sm border border-[rgba(255,255,255,0.06)] bg-black p-4 opacity-80">
       {/* Header */}
       <div className="flex items-start gap-2">
-        <div className="h-7 w-7 rounded-full bg-[#9DB582]/15 flex items-center justify-center shrink-0 mt-0.5">
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#9DB582]/15">
           <CheckCircle2 className="h-3.5 w-3.5 text-[#9DB582]" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-mohave text-sm font-medium text-[#EDEDED] truncate">
+          <p className="truncate font-mohave text-sm font-medium text-[#EDEDED]">
             {item.subject || "(no subject)"}
           </p>
           {item.fromEmail && (
-            <p className="font-mono text-xs text-[#999] truncate mt-0.5">
+            <p className="mt-0.5 truncate font-mono text-xs text-[#999]">
               {item.fromEmail}
             </p>
           )}
         </div>
-        <span className="font-mono text-micro text-[#555] uppercase tracking-wider shrink-0">
+        <span className="shrink-0 font-mono text-micro uppercase tracking-wider text-[#555]">
           {formatDate(item.createdAt)}
         </span>
       </div>
 
       {/* Matched client */}
       {item.clientName && (
-        <div className="flex items-center gap-2 rounded-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] px-3 py-2">
-          <Link2 className="h-3.5 w-3.5 text-[#9DB582] shrink-0" />
+        <div className="flex items-center gap-2 rounded-sm border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-3 py-2">
+          <Link2 className="h-3.5 w-3.5 shrink-0 text-[#9DB582]" />
           <div className="min-w-0 flex-1">
-            <p className="font-mono text-micro text-[#9DB582] uppercase tracking-wider">
+            <p className="font-mono text-micro uppercase tracking-wider text-[#9DB582]">
               {confidenceLabel(item.matchConfidence)}
             </p>
-            <p className="font-mohave text-sm text-[#EDEDED] truncate mt-0.5">
+            <p className="mt-0.5 truncate font-mohave text-sm text-[#EDEDED]">
               {item.clientName}
             </p>
           </div>
           {item.clientId && onViewClient && (
             <button
               onClick={() => onViewClient(item.clientId!)}
-              className="shrink-0 font-mono text-micro text-[#6F94B0] hover:text-[#7a9ab8] uppercase tracking-wider transition-colors"
+              className="shrink-0 font-mono text-micro uppercase tracking-wider text-[#6F94B0] transition-colors hover:text-[#7a9ab8]"
             >
               View Client
             </button>
@@ -646,7 +671,7 @@ export function EmailReviewPanel({
             {/* ── Sticky Header ─────────────────────────────────────── */}
             <div className="shrink-0 border-b border-[rgba(255,255,255,0.10)] px-5 py-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-cakemono text-lg font-light text-white uppercase tracking-wide">
+                <h2 className="font-cakemono text-lg font-light uppercase tracking-wide text-white">
                   Email Review
                 </h2>
                 <button
@@ -667,7 +692,7 @@ export function EmailReviewPanel({
                       "flex items-center gap-1.5 rounded-sm px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors",
                       activeTab === tab.key
                         ? "bg-[rgba(255,255,255,0.08)] text-white"
-                        : "text-[#555] hover:text-[#999] hover:bg-[rgba(255,255,255,0.03)]"
+                        : "text-[#555] hover:bg-[rgba(255,255,255,0.03)] hover:text-[#999]"
                     )}
                   >
                     {tab.label}
@@ -721,9 +746,7 @@ export function EmailReviewPanel({
                         item={item}
                         onCreateLead={() => handleCreateLead(item)}
                         onIgnore={() => handleIgnore(item.id)}
-                        onBlockDomain={() =>
-                          handleBlockDomain(item.fromEmail)
-                        }
+                        onBlockDomain={() => handleBlockDomain(item.fromEmail)}
                         isIgnoring={
                           actioningId === item.id && actionType === "ignore"
                         }
@@ -733,7 +756,11 @@ export function EmailReviewPanel({
 
                   {activeTab === "matched" &&
                     matched.map((item) => (
-                      <MatchedCard key={item.id} item={item} onViewClient={onViewClient} />
+                      <MatchedCard
+                        key={item.id}
+                        item={item}
+                        onViewClient={onViewClient}
+                      />
                     ))}
                 </div>
               )}
@@ -741,7 +768,7 @@ export function EmailReviewPanel({
 
             {/* ── Footer summary ────────────────────────────────────── */}
             <div className="shrink-0 border-t border-[rgba(255,255,255,0.10)] px-5 py-3">
-              <p className="font-mono text-micro text-[#555] uppercase tracking-wider">
+              <p className="font-mono text-micro uppercase tracking-wider text-[#555]">
                 {allItems.length} total
                 {needsReview.length > 0 &&
                   ` \u00b7 ${needsReview.length} need review`}

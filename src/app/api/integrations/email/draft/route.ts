@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AIDraftService } from "@/lib/api/services/ai-draft-service";
@@ -22,6 +23,11 @@ import {
   CONTACT_FORM_OUTREACH_SUBJECT,
 } from "@/lib/api/services/mailbox-draft-push";
 import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
+import { normalizeReplySubject } from "@/lib/email/email-subject-policy";
+import {
+  renderMailboxDraftWithSignature,
+  resolveEmailSignatureForMessage,
+} from "@/lib/email/email-signature-runtime";
 
 export const maxDuration = 300;
 
@@ -39,17 +45,36 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      companyId,
+      "inbox.send",
+      userId
+    );
+    if (authError) return authError;
+
+    const { data: ownedOpportunity, error: opportunityError } = await supabase
+      .from("opportunities")
+      .select("id")
+      .eq("id", opportunityId)
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (opportunityError) {
+      throw new Error(
+        `Failed to validate opportunity ownership: ${opportunityError.message}`
+      );
+    }
+    if (!ownedOpportunity) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // ── Resolve email connection for this company/user ───────────────────
     // We need this for both the availability check and draft generation.
     const connections = await EmailService.getConnections(companyId);
     // Prefer a user-specific active connection; fall back to company-level one.
     const connection =
-      connections.find(
-        (c) =>
-          c.userId === userId &&
-          c.status === "active"
-      ) ??
+      connections.find((c) => c.userId === userId && c.status === "active") ??
       connections.find((c) => c.status === "active") ??
       null;
 
@@ -125,6 +150,19 @@ export async function POST(request: NextRequest) {
 
     try {
       const provider = EmailService.getProvider(connection);
+      const signature = await resolveEmailSignatureForMessage({
+        supabase,
+        connection,
+        userId,
+        refreshProviderIfMissing: true,
+      });
+      if (!signature) {
+        throw new Error("EMAIL_SIGNATURE_REQUIRED");
+      }
+      const renderedDraft = renderMailboxDraftWithSignature(
+        draftResult.draft,
+        signature
+      );
 
       // Fetch the opportunity's thread context for subject + recipient
       const { data: opp } = await supabase
@@ -182,8 +220,9 @@ export async function POST(request: NextRequest) {
           opportunityId,
           draftHistoryId: draftResult.draftHistoryId,
           to,
-          subject: CONTACT_FORM_OUTREACH_SUBJECT,
-          body: draftResult.draft,
+          subject: draftResult.subject || CONTACT_FORM_OUTREACH_SUBJECT,
+          body: renderedDraft.body,
+          contentType: renderedDraft.contentType,
         });
         return NextResponse.json({
           draft: draftResult.draft,
@@ -201,9 +240,7 @@ export async function POST(request: NextRequest) {
         (lastActivity?.[0]?.subject as string) ||
         (opp?.title as string) ||
         "Your inquiry";
-      const replySubject = /^re:/i.test(rawSubject)
-        ? rawSubject
-        : `Re: ${rawSubject}`;
+      const replySubject = normalizeReplySubject(rawSubject);
       const providerThreadId: string | undefined =
         (lastActivity?.[0]?.email_thread_id as string) ?? undefined;
 
@@ -252,16 +289,18 @@ export async function POST(request: NextRequest) {
           existingMailboxDraftId,
           clientEmail,
           replySubject,
-          draftResult.draft,
-          mailboxThreadId
+          renderedDraft.body,
+          mailboxThreadId,
+          renderedDraft.contentType
         );
         mailboxDraftId = existingMailboxDraftId;
       } else {
         mailboxDraftId = await provider.createDraft(
           clientEmail,
           replySubject,
-          draftResult.draft,
-          mailboxThreadId
+          renderedDraft.body,
+          mailboxThreadId,
+          renderedDraft.contentType
         );
       }
 
@@ -272,6 +311,8 @@ export async function POST(request: NextRequest) {
           .update({
             status: "auto_drafted",
             mailbox_draft_id: mailboxDraftId,
+            subject: replySubject,
+            subject_source: "thread",
           })
           .eq("id", draftResult.draftHistoryId);
       }
@@ -299,6 +340,7 @@ export async function POST(request: NextRequest) {
       draftHistoryId: draftResult.draftHistoryId,
       mailboxSaved,
       mailboxDraftId,
+      subject: draftResult.subject,
       provider: connection.provider,
     });
   } catch (err) {

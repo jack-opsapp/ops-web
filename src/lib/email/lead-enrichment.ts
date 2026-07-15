@@ -5,7 +5,7 @@ import type {
   SyncProfile,
 } from "@/lib/types/email-connection";
 import {
-  extractEmailAddress,
+  normalizeEmailAddress,
   type ContactFormSubmissionIdentity,
 } from "@/lib/utils/email-parsing";
 import {
@@ -53,6 +53,7 @@ export interface LeadEnrichmentFacts {
 }
 
 export interface ExistingOpportunityForEnrichment {
+  company_id?: string | null;
   client_id?: string | null;
   contact_name?: string | null;
   contact_email?: string | null;
@@ -77,6 +78,18 @@ export interface ExistingClientForEnrichment {
 export interface LeadEnrichmentUpdateDecision {
   opportunity: Record<string, unknown>;
   client: Record<string, unknown>;
+}
+
+interface LeadEnrichmentFieldProtection {
+  opportunity: ReadonlySet<string>;
+  client: ReadonlySet<string>;
+  opportunityEvidence: ReadonlyMap<string, LeadEnrichmentFieldEvidence>;
+  clientEvidence: ReadonlyMap<string, LeadEnrichmentFieldEvidence>;
+}
+
+interface LeadEnrichmentFieldEvidence {
+  valueSnapshot: string | null;
+  confidence: number | null;
 }
 
 interface LeadEnrichmentFromEmailInput {
@@ -176,7 +189,7 @@ function cleanMultilineText(value: string | null | undefined): string | null {
 }
 
 function normalizeEmail(value: string | null | undefined): string | null {
-  const email = extractEmailAddress(value).toLowerCase().trim();
+  const email = normalizeEmailAddress(value);
   if (!EMAIL_RE.test(email)) return null;
   return email;
 }
@@ -193,12 +206,21 @@ function displayNameFromMailbox(
   mailbox: string | null | undefined,
   explicitName?: string | null
 ): string | null {
+  const email = normalizeEmail(mailbox);
+  const rawLocalPart = localPart(email);
+  const isLocalPartDisplay = (value: string | null): boolean =>
+    Boolean(
+      value && rawLocalPart && value.trim().toLowerCase() === rawLocalPart
+    );
   const explicit = cleanText(explicitName);
-  if (explicit && !EMAIL_RE.test(explicit)) return explicit;
+  if (explicit && !EMAIL_RE.test(explicit) && !isLocalPartDisplay(explicit)) {
+    return explicit;
+  }
 
   const match = mailbox?.match(/^\s*"?([^"<]+?)"?\s*<[^>]+@[^>]+>/);
   const candidate = cleanText(match?.[1] ?? null);
   if (!candidate || EMAIL_RE.test(candidate)) return null;
+  if (isLocalPartDisplay(candidate)) return null;
   return candidate;
 }
 
@@ -276,7 +298,7 @@ function externalRecipient(
     if (!candidateEmail) continue;
     return {
       email: candidateEmail,
-      name: displayNameFromMailbox(mailbox) ?? localPartToName(candidateEmail),
+      name: displayNameFromMailbox(mailbox),
     };
   }
   return null;
@@ -288,6 +310,41 @@ function isWeakName(value: string | null | undefined): boolean {
   if (GENERIC_NAME_RE.test(cleaned)) return true;
   if (EMAIL_RE.test(cleaned)) return true;
   return false;
+}
+
+function normalizedNameKey(value: string | null | undefined): string {
+  return (cleanText(value) ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function isLocalPartDerivedName(
+  name: string | null | undefined,
+  email: string | null | undefined
+): boolean {
+  const derived = localPartToName(normalizeEmail(email));
+  return Boolean(
+    derived && normalizedNameKey(name) === normalizedNameKey(derived)
+  );
+}
+
+function hasVerifiedContactNameEvidence(facts: LeadEnrichmentFacts): boolean {
+  return (
+    facts.extractionSource === "contact_form" ||
+    facts.extractionSource === "inbound_sender" ||
+    facts.extractionSource === "outbound_recipient"
+  );
+}
+
+function canReplaceContactName(
+  name: string | null | undefined,
+  email: string | null | undefined,
+  facts: LeadEnrichmentFacts
+): boolean {
+  if (isWeakName(name)) return true;
+  return (
+    hasVerifiedContactNameEvidence(facts) &&
+    normalizeEmail(email) === normalizeEmail(facts.contactEmail) &&
+    isLocalPartDerivedName(name, email)
+  );
 }
 
 function isWeakEmail(value: string | null | undefined): boolean {
@@ -308,9 +365,50 @@ function isWeakNumber(value: number | string | null | undefined): boolean {
   return !Number.isFinite(number) || number <= 0;
 }
 
-function isBlankJson(value: Record<string, unknown> | null | undefined): boolean {
+function isBlankJson(
+  value: Record<string, unknown> | null | undefined
+): boolean {
   if (value == null) return true;
   return Object.keys(value).length === 0;
+}
+
+function hasStrictlyBetterMatchingEvidence(
+  currentValue: unknown,
+  fieldName: string,
+  incomingConfidence: number | null,
+  evidence: ReadonlyMap<string, LeadEnrichmentFieldEvidence> | undefined
+): boolean {
+  if (incomingConfidence == null) return false;
+  const currentEvidence = evidence?.get(fieldName);
+  if (currentEvidence?.confidence == null) return false;
+  if (incomingConfidence <= currentEvidence.confidence) return false;
+
+  // Provenance may only authorize replacement while it still describes the
+  // canonical value. If a human or another path changed the field without
+  // updating provenance, fail closed instead of overwriting that newer value.
+  return snapshotValue(currentValue) === currentEvidence.valueSnapshot;
+}
+
+function databaseFailure(operation: string, cause: unknown): Error {
+  const detail =
+    cause && typeof cause === "object" && "message" in cause
+      ? String((cause as { message?: unknown }).message ?? "unknown error")
+      : cause instanceof Error
+        ? cause.message
+        : "unknown error";
+  const failure = new Error(`${operation} failed: ${detail}`);
+  (failure as Error & { cause?: unknown }).cause = cause;
+  return failure;
+}
+
+function isUndefinedColumnError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  if (candidate.code === "42703") return true;
+  return (
+    typeof candidate.message === "string" &&
+    /column\s+.+\s+does not exist/i.test(candidate.message)
+  );
 }
 
 // opportunities.estimated_value is numeric(12) — total of 12 digits, no scale,
@@ -400,17 +498,17 @@ const OPPORTUNITY_PROVENANCE_FIELDS: Record<string, string> = {
   contact_name: "contact_name",
   contact_email: "contact_email",
   contact_phone: "contact_phone",
-  address: "address",
+  address: "contact_address",
   estimated_value: "estimated_value",
   detected_value: "detected_value",
   description: "description",
 };
 
 const CLIENT_PROVENANCE_FIELDS: Record<string, string> = {
-  name: "name",
-  email: "email",
-  phone_number: "phone_number",
-  address: "address",
+  name: "contact_name",
+  email: "contact_email",
+  phone_number: "contact_phone",
+  address: "contact_address",
 };
 
 interface ProvenanceUpsertRow {
@@ -621,27 +719,84 @@ export function buildLeadEnrichmentUpdates(input: {
   existingOpportunity?: ExistingOpportunityForEnrichment | null;
   existingClient?: ExistingClientForEnrichment | null;
   facts: LeadEnrichmentFacts;
+  protectedFields?: LeadEnrichmentFieldProtection;
 }): LeadEnrichmentUpdateDecision {
-  const { existingOpportunity, existingClient, facts } = input;
+  const { existingOpportunity, existingClient, facts, protectedFields } = input;
   const opportunity: Record<string, unknown> = {};
   const client: Record<string, unknown> = {};
+  const incomingSource = provenanceSourceForFacts(facts);
+  const incomingConfidence = provenanceConfidenceForFacts(
+    facts,
+    incomingSource
+  );
 
   if (existingOpportunity) {
-    if (facts.contactName && isWeakName(existingOpportunity.contact_name)) {
+    if (
+      facts.contactName &&
+      !protectedFields?.opportunity.has("contact_name") &&
+      (canReplaceContactName(
+        existingOpportunity.contact_name,
+        existingOpportunity.contact_email,
+        facts
+      ) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingOpportunity.contact_name,
+          "contact_name",
+          incomingConfidence,
+          protectedFields?.opportunityEvidence
+        ))
+    ) {
       opportunity.contact_name = facts.contactName;
     }
-    if (facts.contactEmail && isWeakEmail(existingOpportunity.contact_email)) {
+    if (
+      facts.contactEmail &&
+      !protectedFields?.opportunity.has("contact_email") &&
+      (isWeakEmail(existingOpportunity.contact_email) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingOpportunity.contact_email,
+          "contact_email",
+          incomingConfidence,
+          protectedFields?.opportunityEvidence
+        ))
+    ) {
       opportunity.contact_email = facts.contactEmail;
     }
-    if (facts.contactPhone && isWeakText(existingOpportunity.contact_phone)) {
+    if (
+      facts.contactPhone &&
+      !protectedFields?.opportunity.has("contact_phone") &&
+      (isWeakText(existingOpportunity.contact_phone) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingOpportunity.contact_phone,
+          "contact_phone",
+          incomingConfidence,
+          protectedFields?.opportunityEvidence
+        ))
+    ) {
       opportunity.contact_phone = facts.contactPhone;
     }
-    if (facts.address && isWeakText(existingOpportunity.address)) {
+    if (
+      facts.address &&
+      !protectedFields?.opportunity.has("contact_address") &&
+      (isWeakText(existingOpportunity.address) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingOpportunity.address,
+          "contact_address",
+          incomingConfidence,
+          protectedFields?.opportunityEvidence
+        ))
+    ) {
       opportunity.address = facts.address;
     }
     if (
       facts.estimatedValue != null &&
-      isWeakNumber(existingOpportunity.estimated_value)
+      !protectedFields?.opportunity.has("estimated_value") &&
+      (isWeakNumber(existingOpportunity.estimated_value) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingOpportunity.estimated_value,
+          "estimated_value",
+          incomingConfidence,
+          protectedFields?.opportunityEvidence
+        ))
     ) {
       opportunity.estimated_value = facts.estimatedValue;
     }
@@ -651,11 +806,28 @@ export function buildLeadEnrichmentUpdates(input: {
     if (
       facts.estimatedValue != null &&
       facts.estimatedValue <= DETECTED_VALUE_MAX &&
-      isWeakNumber(existingOpportunity.detected_value)
+      !protectedFields?.opportunity.has("detected_value") &&
+      (isWeakNumber(existingOpportunity.detected_value) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingOpportunity.detected_value,
+          "detected_value",
+          incomingConfidence,
+          protectedFields?.opportunityEvidence
+        ))
     ) {
       opportunity.detected_value = facts.estimatedValue;
     }
-    if (facts.description && isWeakText(existingOpportunity.description)) {
+    if (
+      facts.description &&
+      !protectedFields?.opportunity.has("description") &&
+      (isWeakText(existingOpportunity.description) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingOpportunity.description,
+          "description",
+          incomingConfidence,
+          protectedFields?.opportunityEvidence
+        ))
+    ) {
       opportunity.description = facts.description;
     }
     if (facts.source && isWeakText(existingOpportunity.source)) {
@@ -690,21 +862,166 @@ export function buildLeadEnrichmentUpdates(input: {
 
   if (existingClient) {
     const clientName = facts.companyName ?? facts.contactName;
-    if (clientName && isWeakName(existingClient.name)) {
+    if (
+      clientName &&
+      !protectedFields?.client.has("contact_name") &&
+      (canReplaceContactName(
+        existingClient.name,
+        existingClient.email,
+        facts
+      ) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingClient.name,
+          "contact_name",
+          incomingConfidence,
+          protectedFields?.clientEvidence
+        ))
+    ) {
       client.name = clientName;
     }
-    if (facts.contactEmail && isWeakEmail(existingClient.email)) {
+    if (
+      facts.contactEmail &&
+      !protectedFields?.client.has("contact_email") &&
+      (isWeakEmail(existingClient.email) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingClient.email,
+          "contact_email",
+          incomingConfidence,
+          protectedFields?.clientEvidence
+        ))
+    ) {
       client.email = facts.contactEmail;
     }
-    if (facts.contactPhone && isWeakText(existingClient.phone_number)) {
+    if (
+      facts.contactPhone &&
+      !protectedFields?.client.has("contact_phone") &&
+      (isWeakText(existingClient.phone_number) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingClient.phone_number,
+          "contact_phone",
+          incomingConfidence,
+          protectedFields?.clientEvidence
+        ))
+    ) {
       client.phone_number = facts.contactPhone;
     }
-    if (facts.address && isWeakText(existingClient.address)) {
+    if (
+      facts.address &&
+      !protectedFields?.client.has("contact_address") &&
+      (isWeakText(existingClient.address) ||
+        hasStrictlyBetterMatchingEvidence(
+          existingClient.address,
+          "contact_address",
+          incomingConfidence,
+          protectedFields?.clientEvidence
+        ))
+    ) {
       client.address = facts.address;
     }
   }
 
   return { opportunity, client };
+}
+
+async function loadProtectedLeadFields(params: {
+  supabase: { from: (table: string) => unknown };
+  companyId: string;
+  opportunityId: string;
+  clientId: string | null;
+}): Promise<LeadEnrichmentFieldProtection> {
+  interface ProvenanceRow {
+    entity_type: string;
+    entity_id: string;
+    field_name: string;
+    source: string;
+    actor_user_id: string | null;
+    confirmed_at: string | null;
+    confirmed_by: string | null;
+    value_snapshot: string | null;
+    confidence: number | null;
+  }
+  interface ProvenanceQuery {
+    eq: (column: string, value: string) => ProvenanceQuery;
+    limit: (
+      count: number
+    ) => Promise<{ data: ProvenanceRow[] | null; error?: unknown }>;
+  }
+
+  const readEntity = async (
+    entityType: "opportunity" | "client",
+    entityId: string
+  ): Promise<ProvenanceRow[]> => {
+    const { data, error } = await (
+      params.supabase.from("lead_field_provenance") as {
+        select: (columns: string) => ProvenanceQuery;
+      }
+    )
+      .select(
+        "entity_type, entity_id, field_name, value_snapshot, source, confidence, actor_user_id, confirmed_at, confirmed_by"
+      )
+      .eq("company_id", params.companyId)
+      .eq("entity_type", entityType)
+      .eq("entity_id", entityId)
+      .limit(100);
+    if (error) {
+      throw databaseFailure("lead field provenance read", error);
+    }
+    return data ?? [];
+  };
+
+  const opportunityRows = await readEntity("opportunity", params.opportunityId);
+  const clientRows = params.clientId
+    ? await readEntity("client", params.clientId)
+    : [];
+  const opportunity = new Set<string>();
+  const client = new Set<string>();
+  const opportunityEvidence = new Map<string, LeadEnrichmentFieldEvidence>();
+  const clientEvidence = new Map<string, LeadEnrichmentFieldEvidence>();
+  const canonicalFieldName = (fieldName: string): string => {
+    switch (fieldName) {
+      case "name":
+        return "contact_name";
+      case "email":
+        return "contact_email";
+      case "phone":
+      case "phone_number":
+        return "contact_phone";
+      case "address":
+        return "contact_address";
+      default:
+        return fieldName;
+    }
+  };
+  for (const row of [...opportunityRows, ...clientRows]) {
+    if (
+      (row.entity_type === "opportunity" &&
+        row.entity_id !== params.opportunityId) ||
+      (row.entity_type === "client" && row.entity_id !== params.clientId)
+    ) {
+      continue;
+    }
+    const fieldName = canonicalFieldName(row.field_name);
+    const evidence = {
+      valueSnapshot: row.value_snapshot ?? null,
+      confidence:
+        row.confidence == null || !Number.isFinite(Number(row.confidence))
+          ? null
+          : Number(row.confidence),
+    };
+    if (row.entity_type === "opportunity") {
+      opportunityEvidence.set(fieldName, evidence);
+    }
+    if (row.entity_type === "client") {
+      clientEvidence.set(fieldName, evidence);
+    }
+    const isProtected =
+      row.source === "operator" ||
+      Boolean(row.actor_user_id || row.confirmed_at || row.confirmed_by);
+    if (!isProtected) continue;
+    if (row.entity_type === "opportunity") opportunity.add(fieldName);
+    if (row.entity_type === "client") client.add(fieldName);
+  }
+  return { opportunity, client, opportunityEvidence, clientEvidence };
 }
 
 export function buildNewOpportunityEnrichmentFields(
@@ -757,6 +1074,7 @@ export async function applyCanonicalLeadEnrichment({
   // migration has not been applied in this environment the wider select errors,
   // so we fall back to the base columns rather than failing the whole write.
   const BASE_OPPORTUNITY_COLUMNS = [
+    "company_id",
     "client_id",
     "contact_name",
     "contact_email",
@@ -770,26 +1088,30 @@ export async function applyCanonicalLeadEnrichment({
   ];
   const ADDITIVE_OPPORTUNITY_COLUMNS = ["source_message_id", "source_metadata"];
 
-  const selectOpportunity = (columns: string[]) =>
-    (
+  const selectOpportunity = (columns: string[]) => {
+    type OpportunityQuery = {
+      eq: (column: string, value: string) => OpportunityQuery;
+      maybeSingle: () => Promise<{
+        data:
+          | (ExistingOpportunityForEnrichment & {
+              client_id?: string | null;
+            })
+          | null;
+        error?: unknown;
+      }>;
+    };
+    let query = (
       supabase.from("opportunities") as {
-        select: (columns: string) => {
-          eq: (column: string, value: string) => {
-            maybeSingle: () => Promise<{
-              data:
-                | (ExistingOpportunityForEnrichment & {
-                    client_id?: string | null;
-                  })
-                | null;
-              error?: unknown;
-            }>;
-          };
-        };
+        select: (columns: string) => OpportunityQuery;
       }
     )
       .select(columns.join(", "))
-      .eq("id", opportunityId)
-      .maybeSingle();
+      .eq("id", opportunityId);
+    if (companyId != null) {
+      query = query.eq("company_id", companyId);
+    }
+    return query.maybeSingle();
+  };
 
   let opportunityRow:
     | (ExistingOpportunityForEnrichment & { client_id?: string | null })
@@ -800,78 +1122,142 @@ export async function applyCanonicalLeadEnrichment({
       ...ADDITIVE_OPPORTUNITY_COLUMNS,
     ]);
     if (wide.error) {
-      // Likely the additive columns are absent (migration not yet applied).
-      // Retry with the base columns so enrichment still fills the legacy fields.
+      if (!isUndefinedColumnError(wide.error)) {
+        throw databaseFailure("opportunity enrichment read", wide.error);
+      }
+      // The additive columns are absent (migration not yet applied). Retry with
+      // the base columns so enrichment still fills the legacy fields.
       console.warn(
         "[lead-enrichment] additive opportunity columns unavailable; falling back",
         wide.error
       );
       const base = await selectOpportunity(BASE_OPPORTUNITY_COLUMNS);
+      if (base.error) {
+        throw databaseFailure(
+          "opportunity enrichment fallback read",
+          base.error
+        );
+      }
       opportunityRow = base.data ?? null;
     } else {
       opportunityRow = wide.data ?? null;
     }
   }
-  const resolvedClientId = clientId ?? opportunityRow?.client_id ?? null;
+  if (!opportunityRow) {
+    throw new Error(`Opportunity ${opportunityId} was not found`);
+  }
+  if (companyId != null && opportunityRow.company_id !== companyId) {
+    throw new Error(
+      `Opportunity ${opportunityId} does not belong to company ${companyId}`
+    );
+  }
+
+  const authoritativeClientId = opportunityRow.client_id ?? null;
+  if (clientId != null && clientId !== authoritativeClientId) {
+    throw new Error(
+      `Explicit client ${clientId} does not match opportunity ${opportunityId} client ${authoritativeClientId ?? "none"}`
+    );
+  }
+
+  const resolvedClientId = authoritativeClientId;
+  const provenanceCompanyId = companyId ?? opportunityRow.company_id ?? null;
 
   let clientRow: ExistingClientForEnrichment | null = null;
   if (resolvedClientId) {
-    const clientQuery = (
+    type ClientQuery = {
+      eq: (column: string, value: string) => ClientQuery;
+      maybeSingle: () => Promise<{
+        data: ExistingClientForEnrichment | null;
+        error?: unknown;
+      }>;
+    };
+    let clientQuery = (
       supabase.from("clients") as {
-        select: (columns: string) => {
-          eq: (column: string, value: string) => {
-            maybeSingle: () => Promise<{
-              data: ExistingClientForEnrichment | null;
-              error?: unknown;
-            }>;
-          };
-        };
+        select: (columns: string) => ClientQuery;
       }
     )
       .select("name, email, phone_number, address")
       .eq("id", resolvedClientId);
-    const { data } = await clientQuery.maybeSingle();
+    if (provenanceCompanyId != null) {
+      clientQuery = clientQuery.eq("company_id", provenanceCompanyId);
+    }
+    const { data, error } = await clientQuery.maybeSingle();
+    if (error) {
+      throw databaseFailure("client enrichment read", error);
+    }
     clientRow = data ?? null;
   }
+
+  const protectedFields = provenanceCompanyId
+    ? await loadProtectedLeadFields({
+        supabase,
+        companyId: provenanceCompanyId,
+        opportunityId,
+        clientId: resolvedClientId,
+      })
+    : undefined;
 
   const updates = buildLeadEnrichmentUpdates({
     existingOpportunity: opportunityRow,
     existingClient: clientRow,
     facts,
+    protectedFields,
   });
 
   if (Object.keys(updates.opportunity).length > 0) {
-    await (
+    type UpdateQuery = {
+      eq: (column: string, value: string) => UpdateQuery;
+      then: Promise<{ error?: unknown }>["then"];
+    };
+    let updateQuery = (
       supabase.from("opportunities") as {
         update: (payload: Record<string, unknown>) => {
-          eq: (column: string, value: string) => Promise<unknown>;
+          eq: (column: string, value: string) => UpdateQuery;
         };
       }
     )
       .update(updates.opportunity)
       .eq("id", opportunityId);
+    if (provenanceCompanyId != null) {
+      updateQuery = updateQuery.eq("company_id", provenanceCompanyId);
+    }
+    const { error } = await updateQuery;
+    if (error) {
+      throw databaseFailure("opportunity enrichment update", error);
+    }
   }
 
   if (resolvedClientId && Object.keys(updates.client).length > 0) {
-    await (
+    type UpdateQuery = {
+      eq: (column: string, value: string) => UpdateQuery;
+      then: Promise<{ error?: unknown }>["then"];
+    };
+    let updateQuery = (
       supabase.from("clients") as {
         update: (payload: Record<string, unknown>) => {
-          eq: (column: string, value: string) => Promise<unknown>;
+          eq: (column: string, value: string) => UpdateQuery;
         };
       }
     )
       .update(updates.client)
       .eq("id", resolvedClientId);
+    if (provenanceCompanyId != null) {
+      updateQuery = updateQuery.eq("company_id", provenanceCompanyId);
+    }
+    const { error } = await updateQuery;
+    if (error) {
+      throw databaseFailure("client enrichment update", error);
+    }
   }
 
   // Record field-level provenance for every field this enrichment filled. One
   // row per (company, entity, field), upserted so re-running enrichment on the
   // same field refreshes rather than duplicates. Skipped when companyId is
   // absent (provenance is company-scoped).
-  if (companyId) {
+  if (provenanceCompanyId) {
     await writeFieldProvenance({
       supabase,
-      companyId,
+      companyId: provenanceCompanyId,
       opportunityId,
       clientId: resolvedClientId,
       opportunityUpdates: updates.opportunity,
@@ -889,9 +1275,8 @@ export async function applyCanonicalLeadEnrichment({
  * field), upserted on the unique key so re-running refreshes rather than
  * duplicates. Used both by the canonical enrichment choke point (for
  * reuse/link/thread-inherit branches) and by the create-new path (so freshly
- * inserted leads also get provenance). Degrades gracefully — a missing relation
- * (migration not yet applied) is logged and skipped, never throwing into the
- * surrounding write.
+ * inserted leads also get provenance). A failed write is surfaced to the caller
+ * so ingestion cannot report success while the audit trail was rejected.
  */
 export async function writeFieldProvenance(params: {
   supabase: { from: (table: string) => unknown };
@@ -920,21 +1305,17 @@ export async function writeFieldProvenance(params: {
 
   if (rows.length === 0) return;
 
-  try {
-    await (
-      params.supabase.from("lead_field_provenance") as {
-        upsert: (
-          payload: Record<string, unknown>[],
-          options: { onConflict: string }
-        ) => Promise<{ error?: unknown }>;
-      }
-    ).upsert(rows as unknown as Record<string, unknown>[], {
-      onConflict: "company_id,entity_type,entity_id,field_name",
-    });
-  } catch (error) {
-    // The provenance table is additive and may not yet exist in an environment
-    // where the migration has not been applied. Provenance is an audit side
-    // effect — never fail the canonical lead write because of it.
-    console.warn("[lead-enrichment] provenance upsert skipped", error);
+  const { error } = await (
+    params.supabase.from("lead_field_provenance") as {
+      upsert: (
+        payload: Record<string, unknown>[],
+        options: { onConflict: string }
+      ) => Promise<{ error?: unknown }>;
+    }
+  ).upsert(rows as unknown as Record<string, unknown>[], {
+    onConflict: "company_id,entity_type,entity_id,field_name",
+  });
+  if (error) {
+    throw databaseFailure("lead_field_provenance upsert", error);
   }
 }

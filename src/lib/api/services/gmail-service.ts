@@ -14,7 +14,11 @@
  * migrated every sync path to SyncEngine + EmailMatchingServiceV2.
  */
 
-import { requireSupabase, parseDate, parseDateRequired } from "@/lib/supabase/helpers";
+import {
+  requireSupabase,
+  parseDate,
+  parseDateRequired,
+} from "@/lib/supabase/helpers";
 import type {
   GmailConnection,
   CreateGmailConnection,
@@ -56,13 +60,17 @@ export const GmailService = {
       .from("email_connections")
       .select("*")
       .eq("company_id", companyId)
+      .neq("status", "disconnected")
       .order("created_at");
 
-    if (error) throw new Error(`Failed to fetch Gmail connections: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch Gmail connections: ${error.message}`);
     return (data ?? []).map(mapFromDb);
   },
 
-  async createConnection(data: CreateGmailConnection): Promise<GmailConnection> {
+  async createConnection(
+    data: CreateGmailConnection
+  ): Promise<GmailConnection> {
     const supabase = requireSupabase();
 
     const { data: created, error } = await supabase
@@ -74,38 +82,46 @@ export const GmailService = {
         email: data.email,
         access_token: data.accessToken,
         refresh_token: data.refreshToken,
-        expires_at: data.expiresAt instanceof Date
-          ? data.expiresAt.toISOString()
-          : data.expiresAt,
+        expires_at:
+          data.expiresAt instanceof Date
+            ? data.expiresAt.toISOString()
+            : data.expiresAt,
         history_id: data.historyId,
         sync_enabled: data.syncEnabled ?? true,
       })
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to create Gmail connection: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to create Gmail connection: ${error.message}`);
     return mapFromDb(created);
   },
 
-  async updateConnection(id: string, data: UpdateGmailConnection): Promise<GmailConnection> {
+  async updateConnection(
+    id: string,
+    data: UpdateGmailConnection
+  ): Promise<GmailConnection> {
     const supabase = requireSupabase();
 
     const row: Record<string, unknown> = {};
     if (data.accessToken !== undefined) row.access_token = data.accessToken;
     if (data.refreshToken !== undefined) row.refresh_token = data.refreshToken;
     if (data.expiresAt !== undefined) {
-      row.expires_at = data.expiresAt instanceof Date
-        ? data.expiresAt.toISOString()
-        : data.expiresAt;
+      row.expires_at =
+        data.expiresAt instanceof Date
+          ? data.expiresAt.toISOString()
+          : data.expiresAt;
     }
     if (data.historyId !== undefined) row.history_id = data.historyId;
     if (data.syncEnabled !== undefined) row.sync_enabled = data.syncEnabled;
-    if (data.syncIntervalMinutes !== undefined) row.sync_interval_minutes = data.syncIntervalMinutes;
+    if (data.syncIntervalMinutes !== undefined)
+      row.sync_interval_minutes = data.syncIntervalMinutes;
     if (data.syncFilters !== undefined) row.sync_filters = data.syncFilters;
     if (data.lastSyncedAt !== undefined) {
-      row.last_synced_at = data.lastSyncedAt instanceof Date
-        ? data.lastSyncedAt.toISOString()
-        : data.lastSyncedAt;
+      row.last_synced_at =
+        data.lastSyncedAt instanceof Date
+          ? data.lastSyncedAt.toISOString()
+          : data.lastSyncedAt;
     }
 
     const { data: updated, error } = await supabase
@@ -115,7 +131,8 @@ export const GmailService = {
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to update Gmail connection: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to update Gmail connection: ${error.message}`);
     return mapFromDb(updated);
   },
 
@@ -124,30 +141,49 @@ export const GmailService = {
 
     const { error } = await supabase
       .from("email_connections")
-      .delete()
+      .update({
+        status: "disconnected",
+        sync_enabled: false,
+        access_token: "",
+        refresh_token: "",
+        webhook_subscription_id: null,
+        webhook_expires_at: null,
+        webhook_client_state_hash: null,
+        history_recovery_anchor: null,
+        history_recovery_page_token: null,
+        history_recovery_target_token: null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", id);
 
-    if (error) throw new Error(`Failed to delete Gmail connection: ${error.message}`);
+    if (error)
+      throw new Error(
+        `Failed to disconnect Gmail connection: ${error.message}`
+      );
   },
 
   /**
    * Returns unread Activities of type 'email' that don't have an opportunityId
    * (i.e., emails from unknown senders or new inquiries).
    */
-  async getInboxLeads(companyId: string): Promise<Array<{
-    messageId: string;
-    threadId: string;
-    subject: string;
-    snippet: string;
-    fromEmail: string;
-    activityId: string;
-    needsReview: boolean;
-  }>> {
+  async getInboxLeads(companyId: string): Promise<
+    Array<{
+      messageId: string;
+      threadId: string;
+      subject: string;
+      snippet: string;
+      fromEmail: string;
+      activityId: string;
+      needsReview: boolean;
+    }>
+  > {
     const supabase = requireSupabase();
 
     const { data, error } = await supabase
       .from("activities")
-      .select("id, email_message_id, email_thread_id, subject, content, from_email, match_needs_review")
+      .select(
+        "id, email_message_id, email_thread_id, subject, content, from_email, match_needs_review"
+      )
       .eq("company_id", companyId)
       .eq("type", "email")
       .is("opportunity_id", null)

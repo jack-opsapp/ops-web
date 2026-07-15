@@ -20,7 +20,6 @@ import { useDictionary } from "@/i18n/client";
 import { pipelineOppDisplayTitle } from "@/lib/inbox/opp-display";
 import { cn } from "@/lib/utils/cn";
 
-export type PipelineConfidence = "low" | "warm" | "high";
 export type PipelinePriority = "low" | "medium" | "high";
 
 export interface PipelineOpp {
@@ -33,7 +32,6 @@ export interface PipelineOpp {
   value: number | null;
   stage: string;
   estimateRef?: string | null;
-  confidence?: PipelineConfidence | null;
   priority?: PipelinePriority | null;
   source?: string | null;
   /** Thread id this opp was extracted from. Null when unattributed. */
@@ -80,10 +78,10 @@ const formatCurrency = (n: number) =>
 
 function compareStages(a: string, b: string): number {
   const ai = STAGE_ORDER.indexOf(
-    normalizeStage(a) as (typeof STAGE_ORDER)[number],
+    normalizeStage(a) as (typeof STAGE_ORDER)[number]
   );
   const bi = STAGE_ORDER.indexOf(
-    normalizeStage(b) as (typeof STAGE_ORDER)[number],
+    normalizeStage(b) as (typeof STAGE_ORDER)[number]
   );
   if (ai === -1 && bi === -1) return a.localeCompare(b);
   if (ai === -1) return 1;
@@ -96,11 +94,7 @@ function normalizeStage(stage: string): string {
 }
 
 function formatLooseLabel(value: string): string {
-  return value
-    .trim()
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .toUpperCase();
+  return value.trim().replace(/[_-]+/g, " ").replace(/\s+/g, " ").toUpperCase();
 }
 
 function formatStageLabel(stage: string): string {
@@ -148,15 +142,6 @@ function formatPriorityLabel(priority: PipelinePriority, t: TFn): string {
     low: t("pipeline.priority.low", "LOW"),
   };
   return labels[priority];
-}
-
-function formatConfidenceLabel(confidence: PipelineConfidence, t: TFn): string {
-  const labels: Record<PipelineConfidence, string> = {
-    high: t("pipeline.confidence.high", "HIGH INTENT"),
-    warm: t("pipeline.confidence.warm", "WARM INTENT"),
-    low: t("pipeline.confidence.low", "LOW INTENT"),
-  };
-  return labels[confidence];
 }
 
 function priorityTone(priority: PipelinePriority | null | undefined): string {
@@ -258,17 +243,13 @@ export function PipelineOppCard({
   const isLinked = !isWon && opp.threadId === currentThreadId;
   const displayTitle = pipelineOppDisplayTitle(
     opp,
-    t("pipeline.untitledOpportunity", "[UNTITLED OPPORTUNITY]"),
+    t("pipeline.untitledOpportunity", "[UNTITLED OPPORTUNITY]")
   );
   const stageLabel = formatStageLabel(opp.stage);
   const sourceLabel = opp.source ? formatSourceLabel(opp.source) : null;
   const priorityLabel = opp.priority
     ? formatPriorityLabel(opp.priority, t)
     : null;
-  const confidenceLabel =
-    !priorityLabel && opp.confidence
-      ? formatConfidenceLabel(opp.confidence, t)
-      : null;
   const valueLabel = opp.value != null ? formatCurrency(opp.value) : "—";
 
   return (
@@ -278,10 +259,8 @@ export function PipelineOppCard({
       data-variant={variant}
       className={cn(
         "rounded-chip border px-2.5 py-1.5",
-        isWon
-          ? "border-line/60 bg-transparent"
-          : "border-line bg-transparent",
-        isLinked && "border-line-hi bg-transparent",
+        isWon ? "border-line/60 bg-transparent" : "border-line bg-transparent",
+        isLinked && "border-line-hi bg-transparent"
       )}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
@@ -290,7 +269,7 @@ export function PipelineOppCard({
             data-testid={`pipeline-opp-title-${opp.id}`}
             className={cn(
               "block min-w-0 truncate font-mohave text-[12px] font-medium leading-[1.08]",
-              isWon ? "text-text-3" : "text-text",
+              isWon ? "text-text-3" : "text-text"
             )}
           >
             {displayTitle}
@@ -315,18 +294,10 @@ export function PipelineOppCard({
               <span
                 data-testid={`pipeline-opp-priority-${opp.id}`}
                 className={cn(
-                  isWon ? "text-text-mute" : priorityTone(opp.priority),
+                  isWon ? "text-text-mute" : priorityTone(opp.priority)
                 )}
               >
                 {priorityLabel}
-              </span>
-            )}
-            {confidenceLabel && (
-              <span
-                data-testid={`pipeline-opp-confidence-${opp.id}`}
-                className={isWon ? "text-text-mute" : "text-text-3"}
-              >
-                {confidenceLabel}
               </span>
             )}
             {sourceLabel && (
@@ -343,8 +314,8 @@ export function PipelineOppCard({
           <span
             data-testid={`pipeline-opp-value-${opp.id}`}
             className={cn(
-              "font-mono text-[12px] leading-none tabular-nums",
-              isWon ? "text-text-3" : "text-text-2",
+              "font-mono text-[12px] tabular-nums leading-none",
+              isWon ? "text-text-3" : "text-text-2"
             )}
             style={TNUM_ZERO}
           >

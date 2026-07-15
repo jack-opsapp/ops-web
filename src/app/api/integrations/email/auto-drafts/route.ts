@@ -28,7 +28,11 @@ export async function GET(request: NextRequest) {
     if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+    const user = await findUserByAuth(
+      authUser.uid,
+      authUser.email,
+      "id, company_id"
+    );
     if (!user) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -106,7 +110,11 @@ export async function PATCH(request: NextRequest) {
     if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+    const user = await findUserByAuth(
+      authUser.uid,
+      authUser.email,
+      "id, company_id"
+    );
     if (!user) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -180,7 +188,11 @@ export async function DELETE(request: NextRequest) {
     if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+    const user = await findUserByAuth(
+      authUser.uid,
+      authUser.email,
+      "id, company_id"
+    );
     if (!user) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -220,9 +232,13 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabase
       .from("ai_draft_history")
-      .update({ status: "discarded" })
+      .update({
+        status: "discarded",
+        discarded_at: new Date().toISOString(),
+      })
       .eq("id", id)
-      .eq("company_id", companyId);
+      .eq("company_id", companyId)
+      .eq("status", "auto_drafted");
 
     if (error) {
       console.error("[auto-drafts] DELETE error:", error.message);

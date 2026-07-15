@@ -51,25 +51,27 @@ export const maxDuration = 60;
 
 /**
  * Build the deep-link the email button points to. Lands the operator on
- * /reconnect-inbox — the public confirmation page that surfaces the
- * company + user identity *before* handing off to Google / Microsoft for
- * the actual OAuth grant. Skips the OPS login wall (the page works for
- * both authenticated and unauthenticated visitors), and the page's own
- * "Continue" button forwards to /api/integrations/<provider>?source=alert
- * so the callback knows to land on the auth-aware success page.
+ * /reconnect-inbox — the confirmation page that requires the named OPS
+ * operator to authenticate before surfacing tenant identity or handing off to
+ * Google / Microsoft. Its "Continue" button forwards to the provider route
+ * with source=alert so the callback returns to the success page.
  */
-function buildReconnectDeepLink(opts: {
+export function buildReconnectDeepLink(opts: {
   appUrl: string;
   provider: "gmail" | "microsoft365";
   companyId: string;
   userId: string;
   type: "company" | "individual";
+  connectionId: string;
+  expectedEmail: string;
 }): string {
   const params = new URLSearchParams({
     companyId: opts.companyId,
     userId: opts.userId,
     type: opts.type,
     provider: opts.provider,
+    connectionId: opts.connectionId,
+    expectedEmail: opts.expectedEmail,
   });
   return `${opts.appUrl}/reconnect-inbox?${params.toString()}`;
 }
@@ -79,7 +81,7 @@ export async function GET(request: NextRequest) {
   if (!cronSecret) {
     return NextResponse.json(
       { error: "CRON_SECRET not configured" },
-      { status: 500 },
+      { status: 500 }
     );
   }
   const authHeader = request.headers.get("authorization");
@@ -94,7 +96,7 @@ export async function GET(request: NextRequest) {
   const { data: connections, error: connErr } = await supabase
     .from("email_connections")
     .select(
-      "id, company_id, user_id, email, provider, type, status, sync_enabled, webhook_subscription_id, webhook_expires_at, last_synced_at, created_at",
+      "id, company_id, user_id, email, provider, type, status, sync_enabled, webhook_subscription_id, webhook_expires_at, last_synced_at, created_at"
     );
   if (connErr) {
     console.error("[email-heartbeat] fetch connections failed", connErr);
@@ -127,17 +129,23 @@ export async function GET(request: NextRequest) {
 
   // 3. Dedup against the 4h alert log.
   const dedupSince = new Date(now - ALERT_DEDUP_MS).toISOString();
-  const { data: recentAlerts } = await supabase
+  const { data: recentAlerts, error: recentAlertsError } = await supabase
     .from("email_ingest_heartbeat_log")
     .select("company_id")
     .gte("triggered_at", dedupSince)
     .in("company_id", failedCompanyIds);
+  if (recentAlertsError) {
+    return NextResponse.json(
+      { error: recentAlertsError.message },
+      { status: 500 }
+    );
+  }
 
   const recentlyAlertedIds = new Set(
-    (recentAlerts ?? []).map((r) => r.company_id as string),
+    (recentAlerts ?? []).map((r) => r.company_id as string)
   );
   const toAlertIds = failedCompanyIds.filter(
-    (id) => !recentlyAlertedIds.has(id),
+    (id) => !recentlyAlertedIds.has(id)
   );
 
   if (toAlertIds.length === 0) {
@@ -151,26 +159,38 @@ export async function GET(request: NextRequest) {
   }
 
   // 4. Resolve company name + admin recipient.
-  const { data: companies } = await supabase
+  const { data: companies, error: companiesError } = await supabase
     .from("companies")
     .select("id, name, admin_ids")
     .in("id", toAlertIds);
+  if (companiesError) {
+    return NextResponse.json(
+      { error: companiesError.message },
+      { status: 500 }
+    );
+  }
 
   const adminIds = (companies ?? []).flatMap(
-    (c) => (c.admin_ids as string[]) ?? [],
+    (c) => (c.admin_ids as string[]) ?? []
   );
-  const { data: admins } =
+  const { data: admins, error: adminsError } =
     adminIds.length > 0
       ? await supabase
           .from("users")
           .select("id, email, company_id")
           .in("id", adminIds)
-      : { data: [] };
+      : { data: [], error: null };
+  if (adminsError) {
+    return NextResponse.json({ error: adminsError.message }, { status: 500 });
+  }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
 
   let alertedCount = 0;
+  let deliveryFailureCount = Math.max(
+    0,
+    toAlertIds.length - (companies?.length ?? 0)
+  );
   for (const company of companies ?? []) {
     const companyId = company.id as string;
     const companyName = (company.name as string) ?? "Your company";
@@ -178,18 +198,15 @@ export async function GET(request: NextRequest) {
     if (!failures || failures.length === 0) continue;
     const worst = pickWorstFailure(failures);
 
-    const recipient = (admins ?? []).find(
-      (a) => a.company_id === companyId,
-    );
+    const recipient = (admins ?? []).find((a) => a.company_id === companyId);
     const recipientEmail = recipient?.email as string | undefined;
     const recipientUserId = recipient?.id as string | undefined;
 
-    // Email button → straight to the provider's OAuth start endpoint. The
-    // provider's consent screen is the auth gate, so OPS login isn't
-    // required to begin the reconnect — fixes the "click email while logged
-    // out → bounce to /login" wall. Falls back to the connection's original
-    // user_id when the recipient admin isn't resolvable (rare; the
-    // connection upserts on (company_id, email) so identity drift is OK).
+    // Email button → authenticated reconnect confirmation. Logged-out users
+    // sign in and return to the same confirmation before provider consent.
+    // Falls back to the connection's original user_id when the recipient
+    // admin isn't resolvable (rare; the
+    // reconnect state remains bound to the exact failed mailbox row).
     const deepLinkUserId = recipientUserId ?? worst.connectionUserId;
     const reconnectUrl = buildReconnectDeepLink({
       appUrl,
@@ -197,27 +214,39 @@ export async function GET(request: NextRequest) {
       companyId,
       userId: deepLinkUserId,
       type: worst.type,
+      connectionId: worst.connectionId,
+      expectedEmail: worst.email,
     });
 
     // Notification rail entry — non-technical wording. Uses the in-app
     // settings URL because the user is already authenticated when reading
     // the rail; the deep-link is only needed for the email path.
-    await supabase.from("notifications").insert({
-      user_id: recipientUserId ?? null,
-      company_id: companyId,
-      type: "system_alert",
-      title: "Your inbox stopped sending leads to OPS",
-      body: `${worst.email} is disconnected. Reconnect to start capturing leads again.`,
-      is_read: false,
-      persistent: true,
-      action_url: "/settings?tab=integrations",
-      action_label: "RECONNECT INBOX",
-    });
+    const { error: notificationError } = await supabase
+      .from("notifications")
+      .insert({
+        user_id: recipientUserId ?? null,
+        company_id: companyId,
+        type: "system_alert",
+        title: "Your inbox stopped sending leads to OPS",
+        body: `${worst.email} is disconnected. Reconnect to start capturing leads again.`,
+        is_read: false,
+        persistent: true,
+        action_url: "/settings?tab=integrations",
+        action_label: "RECONNECT INBOX",
+      });
+    const inAppDelivered = !notificationError;
+    if (notificationError) {
+      console.error("[email-heartbeat] notification insert failed", {
+        companyId,
+        error: notificationError.message,
+      });
+    }
 
     // SendGrid alert — properly templated, dispatched through gatedSend.
+    let emailDelivered = false;
     if (recipientEmail) {
       try {
-        await sendInboxConnectionDown({
+        const sendResult = await sendInboxConnectionDown({
           email: recipientEmail,
           companyName,
           inboxAddress: worst.email,
@@ -225,6 +254,13 @@ export async function GET(request: NextRequest) {
           hoursSilent: worst.hoursSilent,
           reconnectUrl,
         });
+        emailDelivered = sendResult.status === "sent";
+        if (!emailDelivered) {
+          console.error("[email-heartbeat] email alert skipped", {
+            companyId,
+            status: sendResult.status,
+          });
+        }
       } catch (err) {
         console.error("[email-heartbeat] sendInboxConnectionDown failed", {
           companyId,
@@ -233,21 +269,44 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    await supabase.from("email_ingest_heartbeat_log").insert({
-      company_id: companyId,
-      triggered_at: new Date(now).toISOString(),
-      reason: recipientEmail
+    if (!inAppDelivered && !emailDelivered) {
+      deliveryFailureCount += 1;
+      continue;
+    }
+
+    const deliveryReason =
+      inAppDelivered && emailDelivered
         ? `${worst.reason}_email_and_inapp`
-        : `${worst.reason}_inapp_only`,
-    });
+        : emailDelivered
+          ? `${worst.reason}_email_only`
+          : `${worst.reason}_inapp_only`;
+    const { error: logError } = await supabase
+      .from("email_ingest_heartbeat_log")
+      .insert({
+        company_id: companyId,
+        triggered_at: new Date(now).toISOString(),
+        reason: deliveryReason,
+      });
+    if (logError) {
+      console.error("[email-heartbeat] delivered-alert log failed", {
+        companyId,
+        error: logError.message,
+      });
+      deliveryFailureCount += 1;
+      continue;
+    }
 
     alertedCount += 1;
   }
 
-  return NextResponse.json({
-    ok: true,
-    checked: checkedCount,
-    failed: failedCompanyIds.length,
-    alerted: alertedCount,
-  });
+  return NextResponse.json(
+    {
+      ok: deliveryFailureCount === 0,
+      checked: checkedCount,
+      failed: failedCompanyIds.length,
+      alerted: alertedCount,
+      deliveryFailures: deliveryFailureCount,
+    },
+    { status: deliveryFailureCount === 0 ? 200 : 503 }
+  );
 }

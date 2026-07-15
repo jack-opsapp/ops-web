@@ -4,15 +4,20 @@
 
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireSupabase } from "@/lib/supabase/helpers";
+import { requireSupabase, runWithSupabase } from "@/lib/supabase/helpers";
+import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 import { EmailService } from "./email-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
 import { EmailFilterService } from "./email-filter-service";
 import { StageEvaluator } from "./stage-evaluator";
 import { AISyncReviewer } from "./ai-sync-reviewer";
-import { MemoryService } from "./memory-service";
-import { WritingProfileService } from "./writing-profile-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
+import { EmailOutboundLearningService } from "./email-outbound-learning-service";
+import {
+  EmailSignatureService,
+  stripRenderedEmailSignature,
+} from "./email-signature-service";
+import { WritingProfileService } from "./writing-profile-service";
 import { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
 import { AutoSendService } from "./auto-send-service";
 import { AIDraftService } from "./ai-draft-service";
@@ -30,6 +35,11 @@ import { reconcilePendingMailboxDrafts } from "./draft-reconciliation";
 import { maybeSuggestProject } from "./project-suggestion-service";
 import { EmailThreadService } from "./email-thread-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
+import { normalizeReplySubject } from "@/lib/email/email-subject-policy";
+import {
+  renderMailboxDraftWithSignature,
+  resolveEmailSignatureForMessage,
+} from "@/lib/email/email-signature-runtime";
 import { ProjectConversionService } from "./project-conversion-service";
 import {
   buildEmailOpportunityTitle,
@@ -52,6 +62,11 @@ import {
   type OpportunityRelationshipFacts,
 } from "@/lib/email/opportunity-relationship-matching";
 import {
+  buildLeadRoutingIdentity,
+  resolvePersistedEmailDirection,
+  type LeadRoutingIdentity,
+} from "@/lib/email/email-ingestion-routing";
+import {
   logInvalidProviderEmailIds,
   validateProviderEmailIds,
 } from "@/lib/email/provider-email-ids";
@@ -72,6 +87,7 @@ import {
   ProviderAuthError,
   ProviderScopeError,
   SyncTokenExpiredError,
+  type EmailProviderInterface,
   type NormalizedEmail,
   type SyncResult,
 } from "./email-provider";
@@ -85,8 +101,10 @@ import { decideAcceptStage } from "./conversation-state/accept-stage";
 import { persistRoutingDecision } from "./conversation-state/persist-routing";
 import { ingestAndInspectThreadAttachments } from "./conversation-state/attachment-ingest";
 import { fetchOperatorIdentity } from "./conversation-state/operator-identity";
-import { persistContactProvenance } from "./conversation-state/contact-resolver";
-import type { OperatorIdentity, ResolvedContact } from "./conversation-state/types";
+import type {
+  OperatorIdentity,
+  ResolvedContact,
+} from "./conversation-state/types";
 
 export interface SyncCycleResult {
   activitiesCreated: number;
@@ -97,6 +115,14 @@ export interface SyncCycleResult {
   labelsApplied: number;
   invalidProviderEmails: number;
   errors: string[];
+}
+
+/** A semantic opportunity write failed, so the provider cursor must not move. */
+class LifecyclePersistenceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LifecyclePersistenceError";
+  }
 }
 
 // ─── Module-level helpers ───────────────────────────────────────────────────
@@ -137,7 +163,10 @@ async function getCachedOperatorIdentity(
   if (cached && now - cached.at < OPERATOR_IDENTITY_TTL_MS) {
     return cached.identity;
   }
-  const identity = await fetchOperatorIdentity(connection.companyId, connection);
+  const identity = await fetchOperatorIdentity(
+    connection.companyId,
+    connection
+  );
   operatorIdentityCache.set(connection.id, { identity, at: now });
   return identity;
 }
@@ -202,40 +231,12 @@ function applyResolvedContactToFacts(
   facts: LeadEnrichmentFacts,
   resolved: ResolvedContact
 ): void {
-  facts.contactName = resolved.nameIsVerified ? resolved.name : null;
+  if (resolved.nameIsVerified && resolved.name) {
+    facts.contactName = resolved.name;
+  }
   if (resolved.email) facts.contactEmail = resolved.email;
   facts.contactPhone = resolved.phone;
   facts.address = resolved.address;
-}
-
-/**
- * Append field-level provenance for a newly-created opportunity to the latent
- * `lead_field_provenance` table. Append-only audit; failures never break sync.
- */
-async function recordInboundLeadProvenance(
-  supabase: ReturnType<typeof requireSupabase>,
-  opportunityId: string,
-  resolved: ResolvedContact | null,
-  companyId: string,
-  providerThreadId: string
-): Promise<void> {
-  if (!resolved || resolved.provenance.length === 0) return;
-  const { error } = await persistContactProvenance({
-    // The real Supabase client is runtime-compatible with the minimal insert
-    // shape persistContactProvenance accepts; the structural cast bridges the
-    // typed builder return (same pattern as applyCanonicalLeadEnrichment).
-    supabase: supabase as unknown as Parameters<
-      typeof persistContactProvenance
-    >[0]["supabase"],
-    companyId,
-    entityType: "opportunity",
-    entityId: opportunityId,
-    contact: resolved,
-    providerThreadId,
-  });
-  if (error) {
-    console.error("[sync-engine] lead provenance write failed (non-fatal):", error);
-  }
 }
 
 // ─── P0-A: per-connection sync lock ──────────────────────────────────────────
@@ -244,44 +245,72 @@ async function recordInboundLeadProvenance(
 // 15-min cron cannot overlap and double-create leads for the same thread. The
 // claim is a single atomic conditional UPDATE: it succeeds only when no fresh
 // lock is held (NULL or older than the TTL — a crashed sync self-heals). The DB
-// UNIQUE (company_id, source_thread_key) is the hard guarantee; this lock just
-// avoids the wasted concurrent work, so it FAILS OPEN on any error.
+// UNIQUE (company_id, source_thread_key) and scoped provider ids are hard
+// guarantees, but not every downstream side effect is one statement. If lock
+// ownership cannot be proven, fail closed rather than run overlapping cycles.
 const SYNC_LOCK_TTL_MS = 10 * 60 * 1000;
+const SYNC_LOCK_RENEW_INTERVAL_MS = 2 * 60 * 1000;
 
-async function acquireSyncLock(connectionId: string): Promise<boolean> {
-  // Lock bookkeeping must NEVER crash a sync — fail open on any error/throw.
-  try {
-    const supabase = requireSupabase();
-    const staleCutoff = new Date(Date.now() - SYNC_LOCK_TTL_MS).toISOString();
-    const { data, error } = await supabase
-      .from("email_connections")
-      .update({ sync_in_progress_at: new Date().toISOString() })
-      .eq("id", connectionId)
-      .or(`sync_in_progress_at.is.null,sync_in_progress_at.lt.${staleCutoff}`)
-      .select("id");
-    if (error) {
-      console.error(
-        "[sync-engine] acquireSyncLock failed (proceeding without lock):",
-        error.message
-      );
-      return true;
-    }
-    return (data?.length ?? 0) > 0;
-  } catch (err) {
-    console.error("[sync-engine] acquireSyncLock threw (proceeding without lock):", err);
-    return true;
+async function acquireSyncLock(connectionId: string): Promise<string | null> {
+  const supabase = requireSupabase();
+  const staleCutoff = new Date(Date.now() - SYNC_LOCK_TTL_MS).toISOString();
+  const ownerId = crypto.randomUUID();
+  const { data, error } = await supabase
+    .from("email_connections")
+    .update({
+      sync_in_progress_at: new Date().toISOString(),
+      sync_lock_owner: ownerId,
+    })
+    .eq("id", connectionId)
+    .or(`sync_in_progress_at.is.null,sync_in_progress_at.lt.${staleCutoff}`)
+    .select("id");
+  if (error) {
+    throw new Error(
+      `[sync-engine] acquireSyncLock failed: ${error.message ?? "unknown error"}`
+    );
+  }
+  return (data?.length ?? 0) > 0 ? ownerId : null;
+}
+
+async function renewSyncLock(
+  connectionId: string,
+  ownerId: string
+): Promise<void> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from("email_connections")
+    .update({ sync_in_progress_at: new Date().toISOString() })
+    .eq("id", connectionId)
+    .eq("sync_lock_owner", ownerId)
+    .select("id");
+  if (error) {
+    throw new Error(
+      `[sync-engine] renewSyncLock failed: ${error.message ?? "unknown error"}`
+    );
+  }
+  if ((data?.length ?? 0) !== 1) {
+    throw new Error(
+      `[sync-engine] sync lease ownership was lost for ${connectionId}`
+    );
   }
 }
 
-async function releaseSyncLock(connectionId: string): Promise<void> {
+async function releaseSyncLock(
+  connectionId: string,
+  ownerId: string
+): Promise<void> {
   try {
     const supabase = requireSupabase();
     const { error } = await supabase
       .from("email_connections")
-      .update({ sync_in_progress_at: null })
-      .eq("id", connectionId);
+      .update({ sync_in_progress_at: null, sync_lock_owner: null })
+      .eq("id", connectionId)
+      .eq("sync_lock_owner", ownerId);
     if (error) {
-      console.error("[sync-engine] releaseSyncLock failed (non-fatal):", error.message);
+      console.error(
+        "[sync-engine] releaseSyncLock failed (non-fatal):",
+        error.message
+      );
     }
   } catch (err) {
     console.error("[sync-engine] releaseSyncLock threw (non-fatal):", err);
@@ -293,6 +322,15 @@ interface CreateOpportunityTitleOptions {
   candidates?: EmailOpportunityIdentityCandidate[];
   unsafe?: EmailOpportunityUnsafeIdentity;
   enrichmentFacts?: LeadEnrichmentFacts;
+  /** CRM dedupe identity. Contact-form submissions use a message-scoped key. */
+  sourceKey?: string | null;
+}
+
+interface OpportunityResolution {
+  id: string;
+  /** The client attached to the persisted winner, including a source-key race. */
+  clientId: string;
+  created: boolean;
 }
 
 function syncTitleUnsafeIdentity(
@@ -331,7 +369,7 @@ function applyContactFormSubmitterIdentity(email: NormalizedEmail): {
 } {
   const submitter = extractContactFormSubmission(
     email.subject,
-    email.bodyText || email.snippet || "",
+    email.bodyText || email.snippet || ""
   );
   if (!submitter) return { email, submitter: null };
 
@@ -377,7 +415,9 @@ async function resolveAutoFollowUpDays(
     return value;
   }
 
-  const defaultConfig = PIPELINE_STAGES_DEFAULT.find((s) => s.slug === stageSlug);
+  const defaultConfig = PIPELINE_STAGES_DEFAULT.find(
+    (s) => s.slug === stageSlug
+  );
   // null on terminal stages (won/lost/discarded) — return a large value so
   // StageEvaluator treats it as "never stale," not "stale in 0 days."
   const resolved = defaultConfig?.autoFollowUpDays ?? 365;
@@ -385,7 +425,9 @@ async function resolveAutoFollowUpDays(
   return resolved;
 }
 
-async function loadInternalPhonesForCompany(companyId: string): Promise<string[]> {
+async function loadInternalPhonesForCompany(
+  companyId: string
+): Promise<string[]> {
   const supabase = requireSupabase();
   const phones: string[] = [];
 
@@ -422,12 +464,203 @@ function emptyResult(): SyncCycleResult {
   };
 }
 
+// Incremental provider cursors eventually expire. A fresh cursor cannot be
+// committed until the interval since the last successful sync has been
+// replayed. Gmail walks that interval in bounded batches, durably checkpointing
+// the next page only after every message in the current batch has persisted.
+const GMAIL_HISTORY_RECONCILIATION_OVERLAP_MS = 15 * 60 * 1000;
+const GMAIL_HISTORY_RECONCILIATION_PAGE_SIZE = 100;
+const GMAIL_HISTORY_RECONCILIATION_MAX_PAGES = 10;
+const GMAIL_HISTORY_RECONCILIATION_MAX_THREADS = 500;
+const GMAIL_HISTORY_RECONCILIATION_FETCH_CONCURRENCY = 10;
+
+interface GmailHistoryRecoveryCheckpoint {
+  anchor: Date;
+  nextPageToken: string | null;
+  targetToken: string;
+}
+
+interface MailboxHistoryReconciliation {
+  inboxResult: SyncResult;
+  sentResult: SyncResult;
+  gmailCheckpoint?: GmailHistoryRecoveryCheckpoint;
+}
+
+async function reconcileExpiredMailboxHistory(
+  provider: EmailProviderInterface,
+  connection: EmailConnection,
+  anchorOverride?: Date | null,
+  includeSentMail = true
+): Promise<MailboxHistoryReconciliation> {
+  const persistedRecoveryTarget = connection.historyRecoveryTargetToken ?? null;
+  const persistedRecoveryAnchor = connection.historyRecoveryAnchor ?? null;
+  const persistedRecoveryPageToken =
+    connection.historyRecoveryPageToken ?? null;
+  const hasPersistedGmailRecovery =
+    provider.providerType === "gmail" &&
+    (persistedRecoveryTarget !== null ||
+      persistedRecoveryAnchor !== null ||
+      persistedRecoveryPageToken !== null);
+  const recoveryAnchor = hasPersistedGmailRecovery
+    ? persistedRecoveryAnchor
+      ? new Date(persistedRecoveryAnchor)
+      : null
+    : anchorOverride
+      ? new Date(anchorOverride)
+      : connection.lastSyncedAt
+        ? new Date(connection.lastSyncedAt)
+        : null;
+  if (!recoveryAnchor || Number.isNaN(recoveryAnchor.getTime())) {
+    throw new Error(
+      `[sync-engine] ${provider.providerType ?? "unknown"} recovery anchor is missing; cursor was not advanced`
+    );
+  }
+
+  const after = hasPersistedGmailRecovery
+    ? recoveryAnchor
+    : new Date(
+        recoveryAnchor.getTime() - GMAIL_HISTORY_RECONCILIATION_OVERLAP_MS
+      );
+
+  if (provider.providerType === "microsoft365") {
+    // A blank Graph delta cursor starts a bounded full walk of the current
+    // Inbox and Sent folders and yields fresh terminal links. Snapshot both
+    // streams in sequence, then replay only the overlap interval. Mail arriving
+    // during the walk is either present in the snapshot or appears after the
+    // terminal delta links, so the combined cursor has no gap.
+    const initialCursor = await provider.getInitialSyncToken();
+    if (!initialCursor) {
+      throw new Error(
+        "[sync-engine] Microsoft 365 expired-token recovery returned an empty initial cursor; cursor was not advanced"
+      );
+    }
+    const inboxSnapshot = await provider.fetchNewEmailsSince(initialCursor);
+    const sentSnapshot = await provider.fetchSentEmailsSince(
+      inboxSnapshot.nextSyncToken
+    );
+    return {
+      inboxResult: {
+        // M365 continuation cursors can expire during a multi-cycle initial
+        // mailbox walk. Replay the fresh snapshot from its beginning instead
+        // of filtering by a moving last_synced_at anchor; scoped immutable
+        // provider IDs make the replay idempotent and preserve older pages.
+        emails: inboxSnapshot.emails,
+        nextSyncToken: inboxSnapshot.nextSyncToken,
+      },
+      sentResult: {
+        emails: includeSentMail ? sentSnapshot.emails : [],
+        nextSyncToken: sentSnapshot.nextSyncToken,
+      },
+    };
+  }
+
+  if (provider.providerType !== "gmail") {
+    throw new Error(
+      `[sync-engine] ${provider.providerType ?? "unknown"} expired-token recovery has no completeness guarantee; cursor was not advanced`
+    );
+  }
+
+  const persistedTargetToken = persistedRecoveryTarget?.trim() || null;
+  if (hasPersistedGmailRecovery && !persistedTargetToken) {
+    throw new Error(
+      "[sync-engine] Gmail expired-history recovery checkpoint is incomplete; cursor was not advanced"
+    );
+  }
+
+  // Snapshot the future incremental boundary before listing. Persist it with
+  // the fixed overlap anchor before the first provider page is requested so a
+  // crash or function timeout resumes the same finite interval.
+  const targetToken =
+    persistedTargetToken ?? (await provider.getInitialSyncToken()).trim();
+  if (!targetToken) {
+    throw new Error(
+      "[sync-engine] Gmail expired-token recovery returned an empty fresh cursor; cursor was not advanced"
+    );
+  }
+  if (!hasPersistedGmailRecovery) {
+    await EmailService.updateConnection(connection.id, {
+      historyRecoveryAnchor: after,
+      historyRecoveryPageToken: null,
+      historyRecoveryTargetToken: targetToken,
+    });
+  }
+
+  const threadIds = new Set<string>();
+  let pageToken = hasPersistedGmailRecovery ? persistedRecoveryPageToken : null;
+  let nextPageToken: string | null = pageToken;
+  let pagesRead = 0;
+
+  do {
+    const page = await provider.listThreadIds({
+      pageSize: GMAIL_HISTORY_RECONCILIATION_PAGE_SIZE,
+      after,
+      pageToken,
+    });
+    pagesRead += 1;
+
+    for (const threadId of page.threadIds) {
+      const normalized = threadId.trim();
+      if (normalized) threadIds.add(normalized);
+    }
+
+    nextPageToken = page.nextPageToken?.trim() || null;
+    if (
+      !nextPageToken ||
+      pagesRead >= GMAIL_HISTORY_RECONCILIATION_MAX_PAGES ||
+      threadIds.size >= GMAIL_HISTORY_RECONCILIATION_MAX_THREADS
+    ) {
+      break;
+    }
+    pageToken = nextPageToken;
+  } while (pageToken);
+
+  const recoveredByMessageId = new Map<string, NormalizedEmail>();
+  const ids = [...threadIds];
+  for (
+    let index = 0;
+    index < ids.length;
+    index += GMAIL_HISTORY_RECONCILIATION_FETCH_CONCURRENCY
+  ) {
+    const batch = ids.slice(
+      index,
+      index + GMAIL_HISTORY_RECONCILIATION_FETCH_CONCURRENCY
+    );
+    const threads = await Promise.all(
+      batch.map((threadId) => provider.fetchThread(threadId))
+    );
+
+    for (const emails of threads) {
+      for (const email of emails) {
+        // fetchThread returns the whole conversation. Only replay the bounded
+        // overlap; older messages are outside the lost incremental interval.
+        if (email.date.getTime() < after.getTime()) continue;
+        recoveredByMessageId.set(email.id, email);
+      }
+    }
+  }
+
+  return {
+    // Discovery bucket does not determine persisted direction. runSync merges
+    // and re-partitions these messages from author identity + labels below.
+    inboxResult: {
+      emails: [...recoveredByMessageId.values()],
+      nextSyncToken: targetToken,
+    },
+    sentResult: { emails: [], nextSyncToken: targetToken },
+    gmailCheckpoint: {
+      anchor: after,
+      nextPageToken,
+      targetToken,
+    },
+  };
+}
+
 function normalizeProviderBackedEmailForSync(
   email: NormalizedEmail,
   connection: EmailConnection,
   result: SyncCycleResult,
   boundary: string
-): NormalizedEmail | null {
+): NormalizedEmail {
   const validation = validateProviderEmailIds({
     boundary,
     providerThreadId: email.threadId,
@@ -443,7 +676,9 @@ function normalizeProviderBackedEmailForSync(
       subject: email.subject,
       fromEmail: extractSenderEmail(email.from),
     });
-    return null;
+    throw new Error(
+      `[sync-engine] ${boundary} rejected invalid provider identity: ${validation.reasons.join(", ")}`
+    );
   }
 
   return {
@@ -463,7 +698,7 @@ async function createClient(
   const senderEmail =
     enrichmentFacts !== undefined
       ? enrichmentFacts?.contactEmail
-      : submitter?.email ?? extractSenderEmail(email.from);
+      : (submitter?.email ?? extractSenderEmail(email.from));
   const senderName =
     enrichmentFacts?.companyName ??
     enrichmentFacts?.contactName ??
@@ -474,15 +709,21 @@ async function createClient(
     "New Lead";
 
   // Check for existing client first to avoid duplicates
-  const { data: existingClients } = senderEmail
+  const { data: existingClients, error: existingClientError } = senderEmail
     ? await supabase
         .from("clients")
         .select("id")
         .eq("company_id", companyId)
-        .ilike("email", senderEmail)
+        .ilike("email", escapeIlikeLiteral(senderEmail))
         .is("deleted_at", null)
         .limit(1)
-    : { data: null };
+    : { data: null, error: null };
+
+  if (existingClientError) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] client dedupe lookup failed: ${existingClientError.message ?? "unknown error"}`
+    );
+  }
 
   if (existingClients && existingClients.length > 0) {
     return existingClients[0].id;
@@ -498,12 +739,17 @@ async function createClient(
     phone_number: enrichmentFacts?.contactPhone ?? submitter?.phone ?? null,
     ...enrichmentFields,
   };
-  const { data } = await supabase
+  const { data, error: insertError } = await supabase
     .from("clients")
     .insert(insertedClient)
     .select("id")
     .single();
-  const clientId = data!.id as string;
+  if (insertError || !data?.id) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] client insert failed: ${insertError?.message ?? "missing inserted client"}`
+    );
+  }
+  const clientId = data.id as string;
 
   // Record provenance for the customer facts this insert established. A fresh
   // insert cannot clobber anything, but the dossier/audit feature needs a row
@@ -511,11 +757,15 @@ async function createClient(
   if (enrichmentFacts) {
     const clientUpdates: Record<string, unknown> = {};
     if (enrichmentFacts.companyName ?? enrichmentFacts.contactName) {
-      clientUpdates.name = enrichmentFacts.companyName ?? enrichmentFacts.contactName;
+      clientUpdates.name =
+        enrichmentFacts.companyName ?? enrichmentFacts.contactName;
     }
-    if (enrichmentFacts.contactEmail) clientUpdates.email = enrichmentFacts.contactEmail;
-    if (enrichmentFacts.contactPhone) clientUpdates.phone_number = enrichmentFacts.contactPhone;
-    if (enrichmentFacts.address) clientUpdates.address = enrichmentFacts.address;
+    if (enrichmentFacts.contactEmail)
+      clientUpdates.email = enrichmentFacts.contactEmail;
+    if (enrichmentFacts.contactPhone)
+      clientUpdates.phone_number = enrichmentFacts.contactPhone;
+    if (enrichmentFacts.address)
+      clientUpdates.address = enrichmentFacts.address;
     await writeFieldProvenance({
       supabase,
       companyId,
@@ -527,6 +777,21 @@ async function createClient(
     });
   }
   return clientId;
+}
+
+function subClientIdentityFromFacts(
+  facts: LeadEnrichmentFacts
+): ContactFormSubmissionIdentity | null {
+  if (!facts.contactEmail) return null;
+  return {
+    name: facts.contactName,
+    email: facts.contactEmail,
+    phone: facts.contactPhone,
+    message: facts.description,
+    address: facts.address,
+    company: facts.companyName,
+    estimatedValue: facts.estimatedValue,
+  };
 }
 
 async function createSubClient(
@@ -541,23 +806,34 @@ async function createSubClient(
   const senderName = submitter?.name || email.fromName || "New Lead";
 
   // Check for existing sub-client to avoid duplicates
-  const { data: existingSub } = await supabase
+  const { data: existingSub, error: existingSubError } = await supabase
     .from("sub_clients")
     .select("id")
     .eq("client_id", clientId)
-    .ilike("email", senderEmail)
+    .ilike("email", escapeIlikeLiteral(senderEmail))
     .is("deleted_at", null)
     .limit(1);
 
+  if (existingSubError) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] sub-client lookup failed: ${existingSubError.message}`
+    );
+  }
+
   if (existingSub && existingSub.length > 0) return;
 
-  await supabase.from("sub_clients").insert({
+  const { error: insertError } = await supabase.from("sub_clients").insert({
     company_id: companyId,
     client_id: clientId,
     name: senderName,
     email: senderEmail,
     phone_number: submitter?.phone ?? null,
   });
+  if (insertError) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] sub-client insert failed: ${insertError.message}`
+    );
+  }
 }
 
 async function getClientOpportunityTitleCandidate(
@@ -585,9 +861,10 @@ async function createOpportunity(
   companyId: string,
   stage: string,
   titleOptions: CreateOpportunityTitleOptions = {}
-): Promise<string> {
+): Promise<OpportunityResolution> {
   const supabase = requireSupabase();
   const isOutbound = stage === "qualifying"; // sent folder leads start at qualifying
+  const sourceKey = titleOptions.sourceKey ?? email.threadId ?? null;
   const startedAt = Date.now();
   const clientCandidate = await getClientOpportunityTitleCandidate(clientId);
   const senderCandidate = identityCandidateFromMailbox(
@@ -617,36 +894,37 @@ async function createOpportunity(
       source: "email",
       // P0-A: dedupe key. UNIQUE (company_id, source_thread_key) makes a given
       // email thread spawn at most one opportunity, closing the sync race.
-      source_thread_key: email.threadId || null,
+      source_thread_key: sourceKey,
       ...opportunityEnrichmentFields,
-      correspondence_count: 1,
-      outbound_count: isOutbound ? 1 : 0,
-      inbound_count: isOutbound ? 0 : 1,
-      last_inbound_at: isOutbound ? null : email.date.toISOString(),
-      last_outbound_at: isOutbound ? email.date.toISOString() : null,
-      last_message_direction: isOutbound ? "out" : "in",
+      // First-message aggregates are intentionally left at their database
+      // defaults. The immutable provider event below is the only authority
+      // allowed to project counters, including after a create race or replay.
       tags: ["email-import"],
     })
-    .select("id")
+    .select("id, client_id")
     .single();
 
   // P0-A: a concurrent sync may have created this thread's opportunity first.
   // The UNIQUE (company_id, source_thread_key) raises 23505 — fetch and return
   // the existing winner instead of inserting a duplicate.
   if (error) {
-    if ((error as { code?: string }).code === "23505" && email.threadId) {
+    if ((error as { code?: string }).code === "23505" && sourceKey) {
       const { data: existing } = await supabase
         .from("opportunities")
-        .select("id")
+        .select("id, client_id")
         .eq("company_id", companyId)
-        .eq("source_thread_key", email.threadId)
+        .eq("source_thread_key", sourceKey)
         .maybeSingle();
-      if (existing?.id) {
+      if (existing?.id && existing.client_id) {
         console.log("[email-ingest] lead-dedupe-hit", {
-          threadKey: email.threadId,
+          threadKey: sourceKey,
           companyId,
         });
-        return existing.id as string;
+        return {
+          id: existing.id as string,
+          clientId: existing.client_id as string,
+          created: false,
+        };
       }
     }
     throw new Error(
@@ -656,7 +934,13 @@ async function createOpportunity(
     );
   }
 
-  const opportunityId = data!.id as string;
+  if (!data?.id || !data.client_id) {
+    throw new Error(
+      "[sync-engine] createOpportunity returned no authoritative opportunity/client identity"
+    );
+  }
+  const opportunityId = data.id as string;
+  const authoritativeClientId = data.client_id as string;
 
   // Record provenance for the customer facts this insert established, so new
   // leads (the majority) carry a dossier/audit trail — not only the
@@ -685,7 +969,11 @@ async function createOpportunity(
     msToCreate: Date.now() - startedAt,
   });
 
-  return opportunityId;
+  return {
+    id: opportunityId,
+    clientId: authoritativeClientId,
+    created: true,
+  };
 }
 
 async function getOrCreateOpportunity(
@@ -696,12 +984,12 @@ async function getOrCreateOpportunity(
   // Stage used only when creating a NEW opportunity (existing active opps keep
   // their stage). Defaults to new_lead so existing callers are unchanged.
   stage: string = "new_lead"
-): Promise<string> {
+): Promise<OpportunityResolution> {
   const supabase = requireSupabase();
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("opportunities")
-    .select("id")
+    .select("id, client_id")
     .eq("client_id", clientId)
     .eq("company_id", companyId)
     .not("stage", "in", '("won","lost","discarded")')
@@ -709,6 +997,12 @@ async function getOrCreateOpportunity(
     .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(1);
+
+  if (existingError) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] active opportunity lookup failed: ${existingError.message ?? "unknown error"}`
+    );
+  }
 
   if (existing && existing.length > 0) {
     if (titleOptions.enrichmentFacts) {
@@ -720,7 +1014,11 @@ async function getOrCreateOpportunity(
         companyId,
       });
     }
-    return existing[0].id;
+    return {
+      id: existing[0].id as string,
+      clientId: existing[0].client_id as string,
+      created: false,
+    };
   }
 
   return createOpportunity(email, clientId, companyId, stage, titleOptions);
@@ -764,15 +1062,243 @@ async function linkThread(
   }
 
   const supabase = requireSupabase();
-  await supabase.from("opportunity_email_threads").upsert(
+  const { error } = await supabase.from("opportunity_email_threads").upsert(
     {
       opportunity_id: opportunityId,
       thread_id: validation.providerThreadId,
       connection_id: connectionId,
     },
-    { onConflict: "thread_id,connection_id" }
+    {
+      onConflict: "thread_id,connection_id",
+      ignoreDuplicates: true,
+    }
   );
+  if (error) {
+    throw new Error(
+      `[sync-engine] linkThread failed: ${error.message ?? "unknown error"}`
+    );
+  }
+
+  // An existing provider thread is immutable CRM ownership. The first writer
+  // wins; a concurrent loser must retry and adopt that canonical owner on the
+  // next sync, never rewrite the junction row and split future correspondence.
+  const { data: canonicalRows, error: canonicalError } = await supabase
+    .from("opportunity_email_threads")
+    .select("opportunity_id")
+    .eq("thread_id", validation.providerThreadId)
+    .eq("connection_id", connectionId)
+    .limit(1);
+  if (canonicalError) {
+    throw new Error(
+      `[sync-engine] linkThread canonical read failed: ${canonicalError.message ?? "unknown error"}`
+    );
+  }
+  const canonicalOpportunityId = canonicalRows?.[0]?.opportunity_id as
+    | string
+    | undefined;
+  if (!canonicalOpportunityId) {
+    throw new Error(
+      "[sync-engine] linkThread did not persist a canonical provider-thread owner"
+    );
+  }
+  if (canonicalOpportunityId !== opportunityId) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] provider thread is already owned by opportunity ${canonicalOpportunityId}`
+    );
+  }
   return true;
+}
+
+interface ProviderThreadOpportunity {
+  opportunityId: string;
+  clientId: string | null;
+}
+
+async function loadProviderThreadOpportunity(
+  supabase: ReturnType<typeof requireSupabase>,
+  connection: EmailConnection,
+  providerThreadId: string
+): Promise<ProviderThreadOpportunity | null> {
+  const { data: links, error: linkError } = await supabase
+    .from("opportunity_email_threads")
+    .select("opportunity_id")
+    .eq("thread_id", providerThreadId)
+    .eq("connection_id", connection.id)
+    .limit(1);
+  if (linkError) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] provider thread lookup failed: ${linkError.message ?? "unknown error"}`
+    );
+  }
+  const opportunityId = links?.[0]?.opportunity_id as string | undefined;
+  if (!opportunityId) return null;
+
+  const { data: opportunityRows, error: opportunityError } = await supabase
+    .from("opportunities")
+    .select("id, client_id")
+    .eq("id", opportunityId)
+    .eq("company_id", connection.companyId)
+    .is("deleted_at", null)
+    .limit(1);
+  if (opportunityError) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] provider thread opportunity lookup failed: ${opportunityError.message ?? "unknown error"}`
+    );
+  }
+  if (!opportunityRows?.[0]?.id) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] provider thread owner is not an active opportunity in the mailbox company"
+    );
+  }
+
+  return {
+    opportunityId: opportunityRows[0].id as string,
+    clientId: (opportunityRows[0].client_id as string | null) ?? null,
+  };
+}
+
+async function recordActivityCorrespondenceEvent(
+  email: NormalizedEmail,
+  connection: EmailConnection,
+  opportunityId: string | null,
+  activityId: string | null,
+  direction: "inbound" | "outbound"
+): Promise<void> {
+  if (!opportunityId) return;
+  const supabase = requireSupabase();
+  const profile = connection.syncFilters as Partial<SyncProfile> | null;
+  const result = await OpportunityLifecycleService.recordCorrespondenceEvent({
+    supabase,
+    companyId: connection.companyId,
+    opportunityId,
+    activityId,
+    connectionId: connection.id,
+    providerThreadId: email.threadId,
+    providerMessageId: email.id,
+    requireProviderMessageId: true,
+    direction,
+    occurredAt: email.date,
+    source: "sync_activity",
+    applyOpportunityProjection: true,
+    fromEmail: extractSenderEmail(email.from),
+    fromName: email.fromName,
+    toEmails: email.to.map(extractSenderEmail),
+    ccEmails: email.cc.map(extractSenderEmail),
+    subject: email.subject,
+    bodyText: email.bodyText,
+    labels: email.labelIds,
+    connectionEmail: connection.email,
+    companyDomains: profile?.companyDomains ?? [],
+    userEmailAddresses: profile?.userEmailAddresses ?? [],
+    knownPlatformSenders: profile?.knownPlatformSenders ?? [],
+  });
+
+  if (!result.created && result.reason !== "duplicate_provider_message_id") {
+    throw new Error(
+      `[sync-engine] correspondence event rejected: ${result.reason}`
+    );
+  }
+}
+
+interface ActivityPersistenceOptions {
+  matchNeedsReview?: boolean;
+  suggestedClientId?: string | null;
+  matchConfidence?: string;
+  /** A platform thread may contain unrelated form submitters; do not collapse it. */
+  skipThreadState?: boolean;
+}
+
+/**
+ * Keep thread classification off the synchronous sync/send path without
+ * assuming the caller is currently inside a Next.js request. Route handlers
+ * get Next's response-lifecycle guarantee; cron workers and direct provider
+ * syncs fall back to a detached task. New messages are already persisted with
+ * category_classified_at cleared, so interruption or failure remains eligible
+ * for the bounded durable retry sweep.
+ */
+function scheduleThreadBackgroundTask(task: () => Promise<void>): void {
+  const supabase = requireSupabase();
+  const scopedTask = () => runWithSupabase(supabase, task);
+
+  try {
+    after(scopedTask);
+  } catch {
+    setTimeout(() => {
+      void scopedTask();
+    }, 0);
+  }
+}
+
+async function persistDeterministicEmailThreadState(
+  email: NormalizedEmail,
+  connection: EmailConnection,
+  opportunityId: string | null,
+  direction: "inbound" | "outbound",
+  skipThreadState = false,
+  messageIsNew = true
+): Promise<void> {
+  if (skipThreadState) return;
+
+  try {
+    const { threadRow, isNew } = await EmailThreadService.upsertFromEmail({
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      providerThreadId: email.threadId,
+      email,
+      direction,
+      opportunityId,
+      markClassificationDirty: messageIsNew,
+    });
+
+    const needsClassify =
+      isNew ||
+      messageIsNew ||
+      threadRow.categoryClassifiedAt === null ||
+      threadRow.categoryConfidence < 0.6 ||
+      (direction === "inbound" && !threadRow.categoryManuallySet);
+
+    if (needsClassify) {
+      scheduleThreadBackgroundTask(async () => {
+        try {
+          await EmailThreadService.classifyAndUpdate(threadRow);
+        } catch (err) {
+          console.error(
+            "[sync-engine] thread classify failed (non-fatal) for",
+            threadRow.id,
+            err instanceof Error ? err.message : err
+          );
+        }
+      });
+    } else if (direction === "inbound") {
+      scheduleThreadBackgroundTask(async () => {
+        try {
+          const { PhaseCAutonomyRouter } =
+            await import("./phase-c-autonomy-router");
+          const result = await PhaseCAutonomyRouter.route(threadRow);
+          if (
+            result.outcome !== "noop_off" &&
+            result.outcome !== "noop_draft_on_request"
+          ) {
+            console.log(
+              "[phase-c-router] thread=%s outcome=%s level=%s (inbound reuse)",
+              threadRow.id,
+              result.outcome,
+              result.effectiveLevel
+            );
+          }
+        } catch (err) {
+          console.error(
+            "[phase-c-router] sync-engine inbound route failed (non-fatal):",
+            err instanceof Error ? err.message : err
+          );
+        }
+      });
+    }
+  } catch (err) {
+    throw new Error(
+      `[sync-engine] email_threads upsert failed: ${err instanceof Error ? err.message : "unknown error"}`
+    );
+  }
 }
 
 async function createActivity(
@@ -780,11 +1306,7 @@ async function createActivity(
   connection: EmailConnection,
   opportunityId: string | null,
   direction: "inbound" | "outbound",
-  extra?: {
-    matchNeedsReview?: boolean;
-    suggestedClientId?: string | null;
-    matchConfidence?: string;
-  }
+  extra?: ActivityPersistenceOptions
 ): Promise<boolean> {
   const validation = validateProviderEmailIds({
     boundary: "sync_activity",
@@ -825,165 +1347,98 @@ async function createActivity(
     subject: normalizedEmail.subject,
     providerCleanBody: normalizedEmail.bodyTextClean ?? null,
   });
-  const { data: insertedActivity } = await supabase.from("activities").insert({
-    company_id: connection.companyId,
-    type: "email",
-    subject: normalizedEmail.subject,
-    content: normalizedEmail.snippet,
-    body_text: normalizedEmail.bodyText || null,
-    body_text_clean: bodyTextClean || null,
-    email_message_id: normalizedEmail.id,
-    email_thread_id: normalizedEmail.threadId,
-    opportunity_id: opportunityId,
-    direction,
-    from_email: fromEmail,
-    to_emails: toEmails,
-    cc_emails: ccEmails,
-    has_attachments: normalizedEmail.hasAttachments,
-    attachment_count: normalizedEmail.hasAttachments ? 1 : 0, // provider doesn't give exact count yet
-    match_needs_review: extra?.matchNeedsReview || false,
-    suggested_client_id: extra?.suggestedClientId || null,
-    match_confidence: extra?.matchConfidence || "pattern",
-    is_read: !extra?.matchNeedsReview,
-  }).select("id").single();
-
-  const profile = connection.syncFilters as Partial<SyncProfile> | null;
-  await OpportunityLifecycleService.recordCorrespondenceEvent({
-    supabase,
-    companyId: connection.companyId,
-    opportunityId,
-    activityId:
-      ((insertedActivity as Record<string, unknown> | null)?.id as string | null) ??
-      null,
-    connectionId: connection.id,
-    providerThreadId: normalizedEmail.threadId,
-    providerMessageId: normalizedEmail.id,
-    requireProviderMessageId: true,
-    direction,
-    occurredAt: normalizedEmail.date,
-    source: "sync_activity",
-    fromEmail,
-    fromName: normalizedEmail.fromName,
-    toEmails,
-    ccEmails,
-    subject: normalizedEmail.subject,
-    bodyText: normalizedEmail.bodyText,
-    labels: normalizedEmail.labelIds,
-    connectionEmail: connection.email,
-    companyDomains: profile?.companyDomains ?? [],
-    userEmailAddresses: profile?.userEmailAddresses ?? [],
-    knownPlatformSenders: profile?.knownPlatformSenders ?? [],
-  });
-
-  // ── Inbox v2: Sync-step 7.5 — upsert email_threads row + classify ──────
-  //
-  // Every email flows through this function, so it's the single integration
-  // point for the new inbox's per-thread state. We upsert first (fast), then
-  // defer classification to after the response so an OpenAI call never blocks
-  // sync — Next.js `after()` keeps the function alive past the response so
-  // the in-flight OpenAI + Supabase UPDATE aren't aborted when the serverless
-  // container freezes (the pre-`after()` `.catch()` form left ~95% of threads
-  // with NULL `ai_summary` because the UPDATE never reached Postgres).
-  //
-  // A failure here must not break the sync loop — swallow errors into the
-  // log and keep going.
-  try {
-    const { threadRow, isNew } = await EmailThreadService.upsertFromEmail({
-      companyId: connection.companyId,
-      connectionId: connection.id,
-      providerThreadId: normalizedEmail.threadId,
-      email: normalizedEmail,
+  const { data: insertedActivity, error: activityError } = await supabase
+    .from("activities")
+    .insert({
+      company_id: connection.companyId,
+      type: "email",
+      subject: normalizedEmail.subject,
+      content: normalizedEmail.snippet,
+      body_text: normalizedEmail.bodyText || null,
+      body_text_clean: bodyTextClean || null,
+      email_connection_id: connection.id,
+      email_message_id: normalizedEmail.id,
+      email_thread_id: normalizedEmail.threadId,
+      opportunity_id: opportunityId,
       direction,
-      opportunityId,
-    });
-
-    const needsClassify =
-      isNew ||
-      threadRow.categoryConfidence < 0.6 ||
-      (direction === "inbound" && !threadRow.categoryManuallySet);
-
-    if (needsClassify) {
-      after(async () => {
-        try {
-          await EmailThreadService.classifyAndUpdate(threadRow);
-        } catch (err) {
-          console.error(
-            "[sync-engine] thread classify failed (non-fatal) for",
-            threadRow.id,
-            err instanceof Error ? err.message : err
-          );
-        }
-      });
-    } else if (direction === "inbound") {
-      // New inbound on an already-classified thread — no need to reclassify,
-      // but Phase C still needs to decide whether to draft/send/archive.
-      after(async () => {
-        try {
-          const { PhaseCAutonomyRouter } = await import("./phase-c-autonomy-router");
-          const result = await PhaseCAutonomyRouter.route(threadRow);
-          if (
-            result.outcome !== "noop_off" &&
-            result.outcome !== "noop_draft_on_request"
-          ) {
-            console.log(
-              "[phase-c-router] thread=%s outcome=%s level=%s (inbound reuse)",
-              threadRow.id,
-              result.outcome,
-              result.effectiveLevel
-            );
-          }
-        } catch (err) {
-          console.error(
-            "[phase-c-router] sync-engine inbound route failed (non-fatal):",
-            err instanceof Error ? err.message : err
-          );
-        }
-      });
-    }
-  } catch (err) {
-    console.error(
-      "[sync-engine] email_threads upsert failed (non-fatal):",
-      err instanceof Error ? err.message : err
+      from_email: fromEmail,
+      to_emails: toEmails,
+      cc_emails: ccEmails,
+      has_attachments: normalizedEmail.hasAttachments,
+      attachment_count: normalizedEmail.hasAttachments ? 1 : 0, // provider doesn't give exact count yet
+      match_needs_review: extra?.matchNeedsReview || false,
+      suggested_client_id: extra?.suggestedClientId || null,
+      match_confidence: extra?.matchConfidence || "pattern",
+      is_read: !extra?.matchNeedsReview,
+      // `activities.created_at` is the conversation occurrence timestamp for
+      // email rows. Persist the provider timestamp so delayed catch-up and
+      // history pagination cannot rewrite conversation chronology as worker
+      // insertion order.
+      created_at: normalizedEmail.date.toISOString(),
+    })
+    .select("id")
+    .single();
+  if (activityError || !insertedActivity) {
+    throw new Error(
+      `[sync-engine] createActivity failed: ${activityError?.message ?? "insert returned no row"}`
     );
   }
+
+  await recordActivityCorrespondenceEvent(
+    normalizedEmail,
+    connection,
+    opportunityId,
+    ((insertedActivity as Record<string, unknown> | null)?.id as
+      | string
+      | null) ?? null,
+    direction
+  );
+
+  await persistDeterministicEmailThreadState(
+    normalizedEmail,
+    connection,
+    opportunityId,
+    direction,
+    extra?.skipThreadState
+  );
   return true;
 }
 
 async function updateCorrespondenceCounts(
   opportunityId: string,
-  direction: "inbound" | "outbound",
-  date: Date,
-  companyId: string,
+  email: NormalizedEmail,
+  connection: EmailConnection,
   followUpDaysCache: Map<string, number>,
   result: SyncCycleResult
 ): Promise<void> {
   const supabase = requireSupabase();
 
-  // Atomic increment via RPC so two concurrent syncs can't both read
-  // count=5, both write count=6 (instead of 7). The function also
-  // clears stage_manually_set on inbound (situation evolved, AI may
-  // re-evaluate) and only advances last_inbound_at / last_outbound_at
-  // if the new date is strictly newer.
+  // Apply the immutable provider event to the opportunity projection exactly
+  // once. The event row is the retry latch: if a later write fails, the same
+  // provider message can be replayed without skipping or double-incrementing.
   const { data: updated, error: rpcError } = await supabase.rpc(
-    "increment_opportunity_correspondence",
+    "apply_opportunity_correspondence_event",
     {
+      p_company_id: connection.companyId,
       p_opportunity_id: opportunityId,
-      p_is_inbound: direction === "inbound",
-      p_email_date: date.toISOString(),
+      p_connection_id: connection.id,
+      p_provider_message_id: email.id,
     }
   );
 
   if (rpcError || !updated) {
-    console.error(
-      `[sync-engine] Atomic count increment failed for ${opportunityId}:`,
-      rpcError
+    throw new Error(
+      `[sync-engine] correspondence projection failed for ${opportunityId}: ${rpcError?.message ?? "RPC returned no rows"}`
     );
-    return;
   }
 
   // RPC returns a single-row table — Supabase shapes that as an array.
   const row = Array.isArray(updated) ? updated[0] : updated;
-  if (!row) return;
+  if (!row) {
+    throw new Error(
+      `[sync-engine] correspondence projection returned no opportunity for ${opportunityId}`
+    );
+  }
 
   const newCorrespondenceCount = Number(row.correspondence_count ?? 0);
   const newInboundCount = Number(row.inbound_count ?? 0);
@@ -1000,7 +1455,7 @@ async function updateCorrespondenceCounts(
   // Evaluate stage — respect manual overrides.
   if (!stageManuallySet) {
     const autoFollowUpDays = await resolveAutoFollowUpDays(
-      companyId,
+      connection.companyId,
       currentStage,
       followUpDaysCache
     );
@@ -1008,7 +1463,7 @@ async function updateCorrespondenceCounts(
       outboundCount: newOutboundCount,
       inboundCount: newInboundCount,
       totalMessages: newCorrespondenceCount,
-      lastMessageDirection: direction === "inbound" ? "in" : "out",
+      lastMessageDirection: row.last_message_direction === "out" ? "out" : "in",
       lastInboundAt,
       lastOutboundAt,
       currentStage,
@@ -1016,14 +1471,26 @@ async function updateCorrespondenceCounts(
     });
 
     if (evaluation.changed) {
-      await supabase
-        .from("opportunities")
-        .update({
-          stage: evaluation.stage,
-          stage_entered_at: new Date().toISOString(),
-        })
-        .eq("id", opportunityId);
-      result.stageChanges++;
+      const { data: transitionRows, error: stageUpdateError } =
+        await supabase.rpc("apply_email_opportunity_stage_transition", {
+          p_company_id: connection.companyId,
+          p_opportunity_id: opportunityId,
+          p_to_stage: evaluation.stage,
+        });
+      if (stageUpdateError || !transitionRows) {
+        throw new Error(
+          `[sync-engine] deterministic stage transition failed for ${opportunityId}: ${stageUpdateError?.message ?? "RPC returned no rows"}`
+        );
+      }
+      const transition = Array.isArray(transitionRows)
+        ? transitionRows[0]
+        : transitionRows;
+      if (!transition) {
+        throw new Error(
+          `[sync-engine] deterministic stage transition returned no opportunity for ${opportunityId}`
+        );
+      }
+      if (transition.changed) result.stageChanges++;
     }
   }
 }
@@ -1065,21 +1532,29 @@ async function maybeAutoAdvanceOnAccept(args: {
   try {
     const supabase = requireSupabase();
 
-    const { data: opp } = await supabase
+    const { data: opp, error: opportunityError } = await supabase
       .from("opportunities")
       .select("stage, stage_manually_set, title, client_id")
       .eq("id", opportunityId)
       .maybeSingle();
+    if (opportunityError) {
+      throw new Error(
+        `accept opportunity lookup failed: ${opportunityError.message}`
+      );
+    }
     if (!opp) return;
     if (opp.stage_manually_set) return;
     if (["won", "lost", "discarded"].includes(opp.stage as string)) return;
 
-    const { data: threadRow } = await supabase
+    const { data: threadRow, error: threadError } = await supabase
       .from("email_threads")
       .select("id")
       .eq("company_id", connection.companyId)
       .eq("provider_thread_id", providerThreadId)
       .maybeSingle();
+    if (threadError) {
+      throw new Error(`accept thread lookup failed: ${threadError.message}`);
+    }
     const internalThreadId = (threadRow?.id as string | undefined) ?? null;
     if (!internalThreadId) return;
 
@@ -1115,12 +1590,24 @@ async function maybeAutoAdvanceOnAccept(args: {
     }
 
     if (action.kind === "auto_advance_won") {
-      await supabase
-        .from("opportunities")
-        .update({ stage: "won", stage_entered_at: new Date().toISOString() })
-        .eq("id", opportunityId);
-      result.stageChanges++;
-      console.log("[email-ingest] accept-auto-won", { opportunityId, reason: action.reason });
+      const conversion =
+        await ProjectConversionService.convertOpportunityToProject({
+          opportunityId,
+          companyId: connection.companyId,
+          decidedBy: connection.userId ?? null,
+          sourcePath: "email_accept",
+          expectedStage: opp.stage as string,
+        });
+      if (!conversion.won) {
+        throw new Error(
+          "canonical email acceptance conversion did not win the opportunity"
+        );
+      }
+      if (conversion.won) result.stageChanges++;
+      console.log("[email-ingest] accept-auto-won", {
+        opportunityId,
+        reason: action.reason,
+      });
       if (connection.userId) {
         await supabase.from("notifications").insert({
           user_id: connection.userId,
@@ -1135,7 +1622,10 @@ async function maybeAutoAdvanceOnAccept(args: {
         });
       }
     } else if (action.kind === "surface_mark_won") {
-      console.log("[email-ingest] accept-surface-markwon", { opportunityId, reason: action.reason });
+      console.log("[email-ingest] accept-surface-markwon", {
+        opportunityId,
+        reason: action.reason,
+      });
       if (connection.userId) {
         await supabase.from("notifications").insert({
           user_id: connection.userId,
@@ -1151,41 +1641,45 @@ async function maybeAutoAdvanceOnAccept(args: {
       }
     }
   } catch (err) {
-    console.error("[sync-engine] accept→stage failed (non-fatal):", err);
+    throw new LifecyclePersistenceError(
+      `[sync-engine] accept-to-project conversion failed before cursor advancement: ${err instanceof Error ? err.message : "unknown error"}`
+    );
   }
 }
 
 async function createTerminalFlagNotification(
   stageResult: { threadId: string; terminalFlag: string | null },
-  connection: EmailConnection
+  connection: EmailConnection,
+  opportunityId: string
 ): Promise<void> {
   if (!stageResult.terminalFlag || !connection.userId) return;
 
   const supabase = requireSupabase();
 
-  const { data: threadLink } = await supabase
-    .from("opportunity_email_threads")
-    .select("opportunity_id")
-    .eq("thread_id", stageResult.threadId)
-    .eq("connection_id", connection.id)
-    .limit(1);
-
-  if (!threadLink || threadLink.length === 0) return;
-
-  const oppId = threadLink[0].opportunity_id;
-  const { data: opp } = await supabase
+  const { data: opp, error: opportunityError } = await supabase
     .from("opportunities")
     .select("title, client_id")
-    .eq("id", oppId)
+    .eq("id", opportunityId)
+    .eq("company_id", connection.companyId)
     .single();
+  if (opportunityError || !opp) {
+    throw new Error(
+      `terminal notification opportunity lookup failed for ${opportunityId}: ${opportunityError?.message ?? "row not found"}`
+    );
+  }
 
   let clientName = "A client";
   if (opp?.client_id) {
-    const { data: client } = await supabase
+    const { data: client, error: clientError } = await supabase
       .from("clients")
       .select("name")
       .eq("id", opp.client_id as string)
       .single();
+    if (clientError) {
+      throw new Error(
+        `terminal notification client lookup failed: ${clientError.message}`
+      );
+    }
     if (client?.name) clientName = client.name as string;
   }
 
@@ -1194,21 +1688,28 @@ async function createTerminalFlagNotification(
       ? "accepted your estimate"
       : "declined";
 
-  await supabase.from("notifications").insert({
-    user_id: connection.userId,
-    company_id: connection.companyId,
-    type: "role_needed",
-    title:
-      stageResult.terminalFlag === "likely_won"
-        ? "Possible deal won"
-        : "Possible deal lost",
-    body: `${clientName} may have ${action}. Review and confirm.`,
-    is_read: false,
-    persistent: true,
-    action_url: "/pipeline",
-    action_label:
-      stageResult.terminalFlag === "likely_won" ? "Mark as Won" : "Review",
-  });
+  const { error: notificationError } = await supabase
+    .from("notifications")
+    .insert({
+      user_id: connection.userId,
+      company_id: connection.companyId,
+      type: "role_needed",
+      title:
+        stageResult.terminalFlag === "likely_won"
+          ? "Possible deal won"
+          : "Possible deal lost",
+      body: `${clientName} may have ${action}. Review and confirm.`,
+      is_read: false,
+      persistent: true,
+      action_url: "/pipeline",
+      action_label:
+        stageResult.terminalFlag === "likely_won" ? "Mark as Won" : "Review",
+    });
+  if (notificationError) {
+    throw new Error(
+      `terminal notification persistence failed: ${notificationError.message}`
+    );
+  }
 }
 
 function numericOpportunityValue(value: unknown): number | null {
@@ -1257,11 +1758,9 @@ async function maybeAutoConvertLikelyWon(
     });
     return true;
   } catch (err) {
-    console.error(
-      `[sync-engine] Auto-convert likely_won failed for opportunity ${opportunityId}:`,
-      err
+    throw new LifecyclePersistenceError(
+      `[sync-engine] likely-won conversion failed before cursor advancement for opportunity ${opportunityId}: ${err instanceof Error ? err.message : "unknown error"}`
     );
-    return false;
   }
 }
 
@@ -1279,9 +1778,7 @@ async function createSyncNotification(
   // lead) and points the action button at the right destination.
   const parts: string[] = [];
   if (result.newLeads > 0)
-    parts.push(
-      `${result.newLeads} new lead${result.newLeads > 1 ? "s" : ""}`
-    );
+    parts.push(`${result.newLeads} new lead${result.newLeads > 1 ? "s" : ""}`);
   if (result.matched > 0)
     parts.push(
       `${result.matched} email${result.matched > 1 ? "s" : ""} matched`
@@ -1305,6 +1802,7 @@ async function createSyncNotification(
       .from("activities")
       .select("from_email, subject")
       .eq("company_id", connection.companyId)
+      .eq("email_connection_id", connection.id)
       .eq("direction", "inbound")
       .not("email_message_id", "is", null)
       .order("created_at", { ascending: false })
@@ -1407,112 +1905,289 @@ async function markConnectionNeedsReconnect(
   }
 }
 
-// ─── Import-shell reconciliation ───────────────────────────────────────────
+interface ExistingProviderActivity {
+  id?: string | null;
+  opportunity_id?: string | null;
+  email_connection_id?: string | null;
+  email_thread_id?: string | null;
+  subject?: string | null;
+  body_text?: string | null;
+  draft_history_id?: string | null;
+  created_by?: string | null;
+}
 
-/**
- * Reconcile a wizard-import shell activity against a freshly-synced provider
- * message on the same thread.
- *
- * The wizard import (`/api/integrations/email/import`) creates "shell"
- * activities with a deterministic synthetic message id of the form
- * `import:<threadId>:<seq>` because it has no real Gmail message id. Steady
- * sync dedupes on the exact `email_message_id`, so those synthetic shells are
- * invisible to it — a re-sync of an imported thread would otherwise create a
- * duplicate activity for correspondence the import already captured.
- *
- * This promotes the oldest still-synthetic shell on the thread to the real
- * provider message id and reports the reconciliation, so the caller skips
- * creating a new row. It only ever touches the `import:<threadId>:%` synthetic
- * form, never a real-id activity, and each promotion writes a unique real id —
- * respecting the partial unique index `activities_email_message_id_unique`.
- *
- * Returns true when a shell was reconciled (caller must NOT create a new row),
- * false otherwise.
- */
-async function reconcileImportShell(
+async function legacyActivityMatchesConnection(
   supabase: SupabaseClient,
-  threadId: string,
-  realMessageId: string
-): Promise<boolean> {
-  const { data: importShells } = await supabase
-    .from("activities")
-    .select("id")
-    .eq("email_thread_id", threadId)
-    .like("email_message_id", `import:${threadId}:%`)
-    .order("created_at", { ascending: true })
-    .limit(1);
+  connection: EmailConnection,
+  activity: ExistingProviderActivity,
+  providerThreadId: string
+): Promise<"match" | "different" | "unknown"> {
+  if (!activity.id) return "unknown";
 
-  if (!importShells || importShells.length === 0) return false;
-
-  const { error } = await supabase
-    .from("activities")
-    .update({ email_message_id: realMessageId })
-    .eq("id", importShells[0].id);
-
-  if (error) {
-    // A unique-violation here means the real id already exists on another row
-    // (it was synced into a different activity). The exact-id dedup upstream
-    // already handles that case, so treat the shell as un-reconciled and let
-    // the caller proceed; do not duplicate or crash the sync loop.
-    console.error(
-      "[sync-engine] Failed to reconcile import shell (non-fatal):",
-      error.message
+  const { data: eventRows, error: eventError } = await supabase
+    .from("opportunity_correspondence_events")
+    .select("connection_id")
+    .eq("company_id", connection.companyId)
+    .eq("activity_id", activity.id)
+    .limit(2);
+  if (eventError) {
+    throw new Error(
+      `[sync-engine] legacy activity event proof failed: ${eventError.message ?? "unknown error"}`
     );
-    return false;
+  }
+  const eventConnectionIds = Array.from(
+    new Set(
+      (eventRows ?? [])
+        .map((row) => (row.connection_id as string | null) ?? null)
+        .filter((value): value is string => Boolean(value))
+    )
+  );
+  if (eventConnectionIds.length > 1) {
+    throw new Error(
+      `[sync-engine] legacy activity ${activity.id} has conflicting connection evidence`
+    );
+  }
+  if (eventConnectionIds[0]) {
+    return eventConnectionIds[0] === connection.id ? "match" : "different";
   }
 
-  return true;
+  if (activity.opportunity_id && providerThreadId) {
+    const { data: threadLinks, error: threadLinkError } = await supabase
+      .from("opportunity_email_threads")
+      .select("id")
+      .eq("opportunity_id", activity.opportunity_id)
+      .eq("thread_id", providerThreadId)
+      .eq("connection_id", connection.id)
+      .limit(1);
+    if (threadLinkError) {
+      throw new Error(
+        `[sync-engine] legacy activity thread proof failed: ${threadLinkError.message ?? "unknown error"}`
+      );
+    }
+    if (threadLinks && threadLinks.length > 0) return "match";
+  }
+
+  const { data: deterministicThreads, error: deterministicThreadError } =
+    await supabase
+      .from("email_threads")
+      .select("id")
+      .eq("company_id", connection.companyId)
+      .eq("connection_id", connection.id)
+      .eq("provider_thread_id", providerThreadId)
+      .limit(1);
+  if (deterministicThreadError) {
+    throw new Error(
+      `[sync-engine] legacy email-thread proof failed: ${deterministicThreadError.message ?? "unknown error"}`
+    );
+  }
+  return deterministicThreads && deterministicThreads.length > 0
+    ? "match"
+    : "unknown";
+}
+
+async function findExistingProviderActivity(
+  supabase: SupabaseClient,
+  connection: EmailConnection,
+  providerMessageId: string,
+  providerThreadId: string
+): Promise<ExistingProviderActivity | null> {
+  const { data, error } = await supabase
+    .from("activities")
+    .select(
+      "id, opportunity_id, email_connection_id, email_thread_id, subject, body_text, draft_history_id, created_by"
+    )
+    .eq("company_id", connection.companyId)
+    .eq("email_message_id", providerMessageId);
+
+  if (error) {
+    throw new Error(
+      `[sync-engine] activity dedupe failed: ${error.message ?? "unknown error"}`
+    );
+  }
+
+  const rows = (data ?? []) as ExistingProviderActivity[];
+  const exact = rows.filter((row) => row.email_connection_id === connection.id);
+  if (exact.length > 1) {
+    throw new Error(
+      `[sync-engine] duplicate scoped activities for provider message ${providerMessageId}`
+    );
+  }
+  if (exact[0]) return exact[0];
+
+  // Legacy activities predate email_connection_id. Never infer ownership from
+  // a same-company opaque ID alone: require an immutable correspondence event,
+  // an opportunity-thread link, or the deterministic email_threads row.
+  const legacy = rows.filter((row) => !row.email_connection_id);
+  const matchingLegacy: ExistingProviderActivity[] = [];
+  let hasUnknownLegacy = false;
+  for (const row of legacy) {
+    const proof = await legacyActivityMatchesConnection(
+      supabase,
+      connection,
+      row,
+      providerThreadId
+    );
+    if (proof === "match") matchingLegacy.push(row);
+    if (proof === "unknown") hasUnknownLegacy = true;
+  }
+  if (matchingLegacy.length > 1) {
+    throw new Error(
+      `[sync-engine] multiple proven legacy activities for provider message ${providerMessageId}`
+    );
+  }
+  if (matchingLegacy[0]) {
+    const { data: claimedRows, error: claimError } = await supabase
+      .from("activities")
+      .update({ email_connection_id: connection.id })
+      .eq("id", matchingLegacy[0].id)
+      .eq("company_id", connection.companyId)
+      .is("email_connection_id", null)
+      .select("id, email_connection_id");
+    if (claimError) {
+      throw new Error(
+        `[sync-engine] legacy activity connection claim failed: ${claimError.message ?? "unknown error"}`
+      );
+    }
+    if (!Array.isArray(claimedRows) || claimedRows.length !== 1) {
+      throw new Error(
+        `[sync-engine] legacy activity connection claim lost a concurrent race for ${providerMessageId}`
+      );
+    }
+    return { ...matchingLegacy[0], email_connection_id: connection.id };
+  }
+  if (hasUnknownLegacy) {
+    throw new Error(
+      `[sync-engine] legacy activity ownership is unproven for provider message ${providerMessageId}`
+    );
+  }
+  return null;
 }
 
 // ─── Inbound / Outbound Processors ─────────────────────────────────────────
 
-/** Returns true if the email was unmatched (no pattern, no thread link). */
+interface UnmatchedInboundContext {
+  email: NormalizedEmail;
+  effectiveEmail: NormalizedEmail;
+  routingIdentity: LeadRoutingIdentity;
+  contactFormSubmitter: ContactFormSubmissionIdentity | null;
+  enrichmentFacts: LeadEnrichmentFacts;
+  resolvedContact: ResolvedContact;
+}
+
+/** Returns the sanitized context only when no deterministic branch claimed it. */
 async function processInboundEmail(
   email: NormalizedEmail,
   connection: EmailConnection,
   profile: SyncProfile,
   followUpDaysCache: Map<string, number>,
   result: SyncCycleResult
-): Promise<boolean> {
+): Promise<UnmatchedInboundContext | null> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
     connection,
     result,
     "sync_inbound_email"
   );
-  if (!normalizedEmail) return false;
   email = normalizedEmail;
 
   const supabase = requireSupabase();
 
   // Dedup: check if we already have this email
-  const { data: existing } = await supabase
-    .from("activities")
-    .select("id")
-    .eq("email_message_id", email.id)
-    .limit(1);
+  const existingActivity = await findExistingProviderActivity(
+    supabase,
+    connection,
+    email.id,
+    email.threadId
+  );
+  if (existingActivity) {
+    const { email: effectiveExistingEmail, submitter: existingSubmitter } =
+      applyContactFormSubmitterIdentity(email);
+    const existingRoutingIdentity = buildLeadRoutingIdentity(email, {
+      provider: connection.provider,
+      connectionId: connection.id,
+    });
+    const existingEnrichmentFacts = leadEnrichmentFactsFromEmail({
+      email,
+      direction: "inbound",
+      connection,
+      profile,
+      submitter: existingSubmitter,
+    });
+    let existingResolvedContact: ResolvedContact | null = null;
+    try {
+      existingResolvedContact = await resolveInboundLeadContact(
+        effectiveExistingEmail,
+        connection,
+        existingSubmitter
+      );
+      applyResolvedContactToFacts(
+        existingEnrichmentFacts,
+        existingResolvedContact
+      );
+    } catch (err) {
+      throw new Error(
+        `[sync-engine] contact hygiene retry failed: ${err instanceof Error ? err.message : "unknown error"}`
+      );
+    }
 
-  if (existing && existing.length > 0) return false;
-
-  // Reconcile a wizard-import shell on the same provider thread before
-  // creating a fresh activity. Wizard imports mint synthetic message ids of
-  // the form `import:<threadId>:<seq>` (see email/import/route.ts); those
-  // shells carry no real Gmail message id, so the exact-id dedup above can
-  // never match them. Without reconciliation a re-sync of an imported thread
-  // would create a duplicate activity for correspondence the import already
-  // recorded. Promote the oldest unreconciled shell to this real message id
-  // instead. Guarded to the synthetic form so a real-id activity is never
-  // touched. The partial unique index activities_email_message_id_unique is
-  // respected: each promotion writes a real, unique id and frees the synthetic
-  // one.
-  if (await reconcileImportShell(supabase, email.threadId, email.id)) {
-    return false;
+    if (
+      existingActivity.opportunity_id &&
+      existingRoutingIdentity.mayInheritProviderThread
+    ) {
+      await linkThread(
+        existingActivity.opportunity_id,
+        email.threadId,
+        connection.id
+      );
+    }
+    await persistDeterministicEmailThreadState(
+      effectiveExistingEmail,
+      connection,
+      existingActivity.opportunity_id ?? null,
+      "inbound",
+      existingRoutingIdentity.isContactFormSubmission,
+      false
+    );
+    if (existingActivity.opportunity_id) {
+      await applyCanonicalLeadEnrichment({
+        supabase,
+        opportunityId: existingActivity.opportunity_id,
+        facts: existingEnrichmentFacts,
+        companyId: connection.companyId,
+      });
+    }
+    await recordActivityCorrespondenceEvent(
+      effectiveExistingEmail,
+      connection,
+      existingActivity.opportunity_id ?? null,
+      existingActivity.id ?? null,
+      "inbound"
+    );
+    if (existingActivity.opportunity_id) {
+      await updateCorrespondenceCounts(
+        existingActivity.opportunity_id,
+        effectiveExistingEmail,
+        connection,
+        followUpDaysCache,
+        result
+      );
+    }
+    return null;
   }
 
-  const {
-    email: effectiveEmail,
-    submitter: contactFormSubmitter,
-  } = applyContactFormSubmitterIdentity(email);
+  const { email: effectiveEmail, submitter: contactFormSubmitter } =
+    applyContactFormSubmitterIdentity(email);
+  const routingIdentity = buildLeadRoutingIdentity(email, {
+    provider: connection.provider,
+    connectionId: connection.id,
+  });
+  const activityRoutingExtra = routingIdentity.isContactFormSubmission
+    ? { skipThreadState: true }
+    : undefined;
+  const linkInboundThread = (opportunityId: string) =>
+    routingIdentity.mayInheritProviderThread
+      ? linkThread(opportunityId, email.threadId, connection.id)
+      : Promise.resolve(true);
   const inboundEnrichmentFacts = leadEnrichmentFactsFromEmail({
     email,
     direction: "inbound",
@@ -1526,8 +2201,9 @@ async function processInboundEmail(
   // lead's operator signature cannot pollute the customer record), then override
   // the polluted enrichment-derived fields BEFORE any branch creates or enriches.
   // The resolved contact is also the provenance source for newly-created leads.
-  // Non-fatal: a failure here must never break ingestion.
-  let resolvedInboundContact: ResolvedContact | null = null;
+  // This deterministic contact resolution is part of the durable ingest
+  // boundary; a failure must retry before the provider cursor advances.
+  let resolvedInboundContact: ResolvedContact;
   try {
     resolvedInboundContact = await resolveInboundLeadContact(
       effectiveEmail,
@@ -1536,36 +2212,35 @@ async function processInboundEmail(
     );
     applyResolvedContactToFacts(inboundEnrichmentFacts, resolvedInboundContact);
   } catch (err) {
-    console.error("[sync-engine] contact hygiene failed (non-fatal):", err);
+    throw new Error(
+      `[sync-engine] contact hygiene failed: ${err instanceof Error ? err.message : "unknown error"}`
+    );
   }
 
   // Thread inheritance — is this thread already linked to an OPS lead?
-  const { data: threadLink } = await supabase
-    .from("opportunity_email_threads")
-    .select("opportunity_id")
-    .eq("thread_id", email.threadId)
-    .eq("connection_id", connection.id)
-    .limit(1);
+  const threadOpportunity = routingIdentity.mayInheritProviderThread
+    ? await loadProviderThreadOpportunity(supabase, connection, email.threadId)
+    : null;
 
-  if (threadLink && threadLink.length > 0) {
+  if (threadOpportunity) {
     const activityCreated = await createActivity(
       effectiveEmail,
       connection,
-      threadLink[0].opportunity_id,
+      threadOpportunity.opportunityId,
       "inbound"
     );
-    if (!activityCreated) return false;
+    if (!activityCreated) return null;
     await applyCanonicalLeadEnrichment({
       supabase,
-      opportunityId: threadLink[0].opportunity_id,
+      opportunityId: threadOpportunity.opportunityId,
+      clientId: threadOpportunity.clientId,
       facts: inboundEnrichmentFacts,
       companyId: connection.companyId,
     });
     await updateCorrespondenceCounts(
-      threadLink[0].opportunity_id,
-      "inbound",
-      email.date,
-      connection.companyId,
+      threadOpportunity.opportunityId,
+      effectiveEmail,
+      connection,
       followUpDaysCache,
       result
     );
@@ -1576,25 +2251,37 @@ async function processInboundEmail(
     // ── Phase 2: deterministic accept → stage (auto-Won / surface Mark Won) ──
     await maybeAutoAdvanceOnAccept({
       providerThreadId: email.threadId,
-      opportunityId: threadLink[0].opportunity_id,
+      opportunityId: threadOpportunity.opportunityId,
       connection,
       result,
     });
 
     // ── E5: Auto-draft / auto-send trigger (fire-and-forget) ───────────
     // Never awaited — AI inference must not block the sync loop.
-    maybeAutoGenerateDraft(effectiveEmail, connection, threadLink[0].opportunity_id, contactFormSubmitter)
-      .catch((err) => console.error("[sync-engine] Auto-draft error (non-fatal):", err));
+    maybeAutoGenerateDraft(
+      effectiveEmail,
+      connection,
+      threadOpportunity.opportunityId,
+      contactFormSubmitter
+    ).catch((err) =>
+      console.error("[sync-engine] Auto-draft error (non-fatal):", err)
+    );
 
     // ── S2.3: Reschedule request detection (fire-and-forget) ───────────
     // Looks up the just-created activity row and runs the reschedule
     // classifier (phase_c gated + heuristic + GPT). Never blocks sync.
-    maybeDetectRescheduleRequest(effectiveEmail, connection, threadLink[0].opportunity_id)
-      .catch((err) =>
-        console.error("[sync-engine] Reschedule detection error (non-fatal):", err)
-      );
+    maybeDetectRescheduleRequest(
+      effectiveEmail,
+      connection,
+      threadOpportunity.opportunityId
+    ).catch((err) =>
+      console.error(
+        "[sync-engine] Reschedule detection error (non-fatal):",
+        err
+      )
+    );
 
-    return false;
+    return null;
   }
 
   // Pattern matching
@@ -1606,21 +2293,32 @@ async function processInboundEmail(
       senderEmail.includes(f.toLowerCase())
     ) && isFormSubmissionSubject(email.subject);
 
-  if (isPatternMatch || isPlatformMatch || isForwarderMatch) {
+  if (
+    isPatternMatch ||
+    isPlatformMatch ||
+    isForwarderMatch ||
+    routingIdentity.isContactFormSubmission
+  ) {
     const matchResult = await EmailMatchingServiceV2.match(
       connection.companyId,
       extractSenderEmail(effectiveEmail.from),
       {
-        threadId: email.threadId,
+        ...(routingIdentity.mayInheritProviderThread
+          ? {
+              threadId: routingIdentity.providerThreadId,
+              connectionId: connection.id,
+            }
+          : {}),
         name: effectiveEmail.fromName,
-        connectionId: connection.id,
       }
     );
     const relationshipDecision = await findOpportunityRelationshipMatch({
       supabase,
       companyId: connection.companyId,
       connectionId: connection.id,
-      providerThreadId: email.threadId,
+      providerThreadId: routingIdentity.mayInheritProviderThread
+        ? email.threadId
+        : null,
       clientId: matchResult.clientId,
       facts: opportunityRelationshipFactsFromLeadEnrichment(
         inboundEnrichmentFacts,
@@ -1632,8 +2330,37 @@ async function processInboundEmail(
 
     if (relationshipDecision.action === "link") {
       const oppId = relationshipDecision.opportunityId;
-      const linked = await linkThread(oppId, email.threadId, connection.id);
-      if (!linked) return false;
+      const authoritativeClientId = relationshipDecision.clientId;
+
+      // Finish retryable semantic writes before the activity checkpoint. If a
+      // sub-contact insert fails once, retry must run this branch again rather
+      // than short-circuit through the existing-activity replay path.
+      await applyCanonicalLeadEnrichment({
+        supabase,
+        opportunityId: oppId,
+        clientId: authoritativeClientId,
+        facts: inboundEnrichmentFacts,
+        companyId: connection.companyId,
+      });
+      const subClientIdentity = subClientIdentityFromFacts(
+        inboundEnrichmentFacts
+      );
+      if (
+        matchResult.action === "create_subclient" &&
+        authoritativeClientId &&
+        matchResult.clientId === authoritativeClientId &&
+        subClientIdentity
+      ) {
+        await createSubClient(
+          effectiveEmail,
+          authoritativeClientId,
+          connection.companyId,
+          subClientIdentity
+        );
+      }
+
+      const linked = await linkInboundThread(oppId);
+      if (!linked) return null;
       const activityCreated = await createActivity(
         effectiveEmail,
         connection,
@@ -1641,36 +2368,20 @@ async function processInboundEmail(
         "inbound",
         {
           matchConfidence: relationshipDecision.confidence,
+          ...activityRoutingExtra,
         }
       );
-      if (!activityCreated) return false;
-      await applyCanonicalLeadEnrichment({
-        supabase,
-        opportunityId: oppId,
-        clientId: relationshipDecision.clientId ?? matchResult.clientId,
-        facts: inboundEnrichmentFacts,
-        companyId: connection.companyId,
-      });
+      if (!activityCreated) return null;
       await updateCorrespondenceCounts(
         oppId,
-        "inbound",
-        email.date,
-        connection.companyId,
+        effectiveEmail,
+        connection,
         followUpDaysCache,
         result
       );
       await applyLabel(email.threadId, connection, result);
       result.matched++;
       result.activitiesCreated++;
-
-      if (matchResult.action === "create_subclient" && matchResult.clientId) {
-        await createSubClient(
-          effectiveEmail,
-          matchResult.clientId,
-          connection.companyId,
-          contactFormSubmitter
-        );
-      }
 
       // ── Phase 2: deterministic accept → stage ──
       await maybeAutoAdvanceOnAccept({
@@ -1680,58 +2391,73 @@ async function processInboundEmail(
         result,
       });
 
-      maybeAutoGenerateDraft(effectiveEmail, connection, oppId, contactFormSubmitter)
-        .catch((err) => console.error("[sync-engine] Auto-draft error (non-fatal):", err));
-      return false;
+      maybeAutoGenerateDraft(
+        effectiveEmail,
+        connection,
+        oppId,
+        contactFormSubmitter
+      ).catch((err) =>
+        console.error("[sync-engine] Auto-draft error (non-fatal):", err)
+      );
+      return null;
     }
 
     if (matchResult.action === "create_new") {
-      const clientId = await createClient(
+      const requestedClientId = await createClient(
         effectiveEmail,
         connection.companyId,
         contactFormSubmitter,
         inboundEnrichmentFacts
       );
-      const oppId = await createOpportunity(
+      const opportunity = await createOpportunity(
         effectiveEmail,
-        clientId,
+        requestedClientId,
         connection.companyId,
         "new_lead",
         {
           candidates: contactFormTitleCandidate(contactFormSubmitter),
           unsafe: syncTitleUnsafeIdentity(connection, profile),
           enrichmentFacts: inboundEnrichmentFacts,
+          sourceKey: routingIdentity.sourceKey,
         }
       );
-      const linked = await linkThread(oppId, email.threadId, connection.id);
-      if (!linked) return false;
+      const oppId = opportunity.id;
+      const clientId = opportunity.clientId;
+
+      const linked = await linkInboundThread(oppId);
+      if (!linked) return null;
       const activityCreated = await createActivity(
         effectiveEmail,
         connection,
         oppId,
-        "inbound"
+        "inbound",
+        activityRoutingExtra
       );
-      if (!activityCreated) return false;
+      if (!activityCreated) return null;
+      await updateCorrespondenceCounts(
+        oppId,
+        effectiveEmail,
+        connection,
+        followUpDaysCache,
+        result
+      );
       await applyLabel(email.threadId, connection, result);
       result.newLeads++;
       result.activitiesCreated++;
-
-      // P0-C: record field-level provenance for the newly-created lead.
-      await recordInboundLeadProvenance(
-        supabase,
-        oppId,
-        resolvedInboundContact,
-        connection.companyId,
-        email.threadId
-      );
 
       // ── Forwarded contact-form NEW lead: draft a fresh first reply on a new
       // thread to the client. Scoped to contact-form submissions so ordinary new
       // leads are unchanged — this create_new branch does not otherwise
       // auto-draft. Gating (phase_c + autonomy + confidence) lives inside.
       if (contactFormSubmitter) {
-        maybeAutoGenerateDraft(effectiveEmail, connection, oppId, contactFormSubmitter)
-          .catch((err) => console.error("[sync-engine] Auto-draft error (non-fatal):", err));
+        maybeAutoGenerateDraft(
+          effectiveEmail,
+          connection,
+          oppId,
+          contactFormSubmitter
+        ).catch((err) =>
+          console.error("[sync-engine] Auto-draft error (non-fatal):", err)
+        );
       }
 
       // ── P1: Suggest project creation for new leads (fire-and-forget) ──
@@ -1740,20 +2466,25 @@ async function processInboundEmail(
         AdminFeatureOverrideService.isAIFeatureEnabled(
           connection.companyId,
           "phase_c"
-        ).then((enabled) => {
-          if (!enabled) return;
-          maybeSuggestProject({
-            email: effectiveEmail,
-            companyId: connection.companyId,
-            userId: connection.userId!,
-            clientId,
-            opportunityId: oppId,
-          }).catch((err) =>
-            console.error("[sync-engine] Project suggestion error (non-fatal):", err)
+        )
+          .then((enabled) => {
+            if (!enabled) return;
+            maybeSuggestProject({
+              email: effectiveEmail,
+              companyId: connection.companyId,
+              userId: connection.userId!,
+              clientId,
+              opportunityId: oppId,
+            }).catch((err) =>
+              console.error(
+                "[sync-engine] Project suggestion error (non-fatal):",
+                err
+              )
+            );
+          })
+          .catch((err) =>
+            console.error("[sync-engine] Phase C check error (non-fatal):", err)
           );
-        }).catch((err) =>
-          console.error("[sync-engine] Phase C check error (non-fatal):", err)
-        );
       }
     } else if (
       matchResult.action === "link" ||
@@ -1764,8 +2495,9 @@ async function processInboundEmail(
         candidates: contactFormTitleCandidate(contactFormSubmitter),
         unsafe: syncTitleUnsafeIdentity(connection, profile),
         enrichmentFacts: inboundEnrichmentFacts,
+        sourceKey: routingIdentity.sourceKey,
       };
-      const oppId = relationshipDecisionRequiresNewOpportunity
+      const opportunity = relationshipDecisionRequiresNewOpportunity
         ? await createOpportunity(
             effectiveEmail,
             matchedClientId,
@@ -1779,40 +2511,49 @@ async function processInboundEmail(
             effectiveEmail,
             titleOptions
           );
-      const linked = await linkThread(oppId, email.threadId, connection.id);
-      if (!linked) return false;
+      const oppId = opportunity.id;
+      const authoritativeClientId = opportunity.clientId;
+
+      await applyCanonicalLeadEnrichment({
+        supabase,
+        opportunityId: oppId,
+        clientId: authoritativeClientId,
+        facts: inboundEnrichmentFacts,
+        companyId: connection.companyId,
+      });
+      const subClientIdentity = subClientIdentityFromFacts(
+        inboundEnrichmentFacts
+      );
+      if (
+        matchResult.action === "create_subclient" &&
+        matchResult.clientId === authoritativeClientId &&
+        subClientIdentity
+      ) {
+        await createSubClient(
+          effectiveEmail,
+          authoritativeClientId,
+          connection.companyId,
+          subClientIdentity
+        );
+      }
+
+      const linked = await linkInboundThread(oppId);
+      if (!linked) return null;
       const activityCreated = await createActivity(
         effectiveEmail,
         connection,
         oppId,
-        "inbound"
+        "inbound",
+        activityRoutingExtra
       );
-      if (!activityCreated) return false;
-      if (relationshipDecisionRequiresNewOpportunity) {
-        await applyCanonicalLeadEnrichment({
-          supabase,
-          opportunityId: oppId,
-          clientId: matchedClientId,
-          facts: inboundEnrichmentFacts,
-          companyId: connection.companyId,
-        });
-        await recordInboundLeadProvenance(
-          supabase,
-          oppId,
-          resolvedInboundContact,
-          connection.companyId,
-          email.threadId
-        );
-      } else {
-        await updateCorrespondenceCounts(
-          oppId,
-          "inbound",
-          email.date,
-          connection.companyId,
-          followUpDaysCache,
-          result
-        );
-      }
+      if (!activityCreated) return null;
+      await updateCorrespondenceCounts(
+        oppId,
+        effectiveEmail,
+        connection,
+        followUpDaysCache,
+        result
+      );
       await applyLabel(email.threadId, connection, result);
       if (relationshipDecisionRequiresNewOpportunity) {
         result.newLeads++;
@@ -1820,15 +2561,6 @@ async function processInboundEmail(
         result.matched++;
       }
       result.activitiesCreated++;
-
-      if (matchResult.action === "create_subclient") {
-        await createSubClient(
-          effectiveEmail,
-          matchedClientId,
-          connection.companyId,
-          contactFormSubmitter
-        );
-      }
 
       // ── Phase 2 + E5: accept→stage, then auto-draft — only when reusing an
       //    existing opportunity (a brand-new lead has nothing to accept yet). ──
@@ -1839,24 +2571,43 @@ async function processInboundEmail(
           connection,
           result,
         });
-        maybeAutoGenerateDraft(effectiveEmail, connection, oppId)
-          .catch((err) => console.error("[sync-engine] Auto-draft error (non-fatal):", err));
+        maybeAutoGenerateDraft(effectiveEmail, connection, oppId).catch((err) =>
+          console.error("[sync-engine] Auto-draft error (non-fatal):", err)
+        );
       }
     } else if (matchResult.action === "review") {
-      const activityCreated = await createActivity(effectiveEmail, connection, null, "inbound", {
-        matchNeedsReview: true,
-        suggestedClientId: matchResult.suggestedClientId,
-        matchConfidence: matchResult.confidence,
-      });
-      if (!activityCreated) return false;
+      const activityCreated = await createActivity(
+        effectiveEmail,
+        connection,
+        null,
+        "inbound",
+        {
+          matchNeedsReview: true,
+          suggestedClientId: matchResult.suggestedClientId,
+          matchConfidence: matchResult.confidence,
+          ...activityRoutingExtra,
+        }
+      );
+      if (!activityCreated) return null;
       result.needsReview++;
       result.activitiesCreated++;
     }
-    return false; // Matched by pattern
+    return null; // Matched by a deterministic rule.
   }
 
   // Unmatched — upsert into email_threads so it appears in inbox,
   // then send to AI classification if feature-gated.
+  if (routingIdentity.isContactFormSubmission) {
+    return {
+      email,
+      effectiveEmail,
+      routingIdentity,
+      contactFormSubmitter,
+      enrichmentFacts: inboundEnrichmentFacts,
+      resolvedContact: resolvedInboundContact,
+    };
+  }
+
   try {
     await EmailThreadService.upsertFromEmail({
       companyId: connection.companyId,
@@ -1866,9 +2617,18 @@ async function processInboundEmail(
       direction: "inbound",
     });
   } catch (err) {
-    console.error("[sync-engine] upsertFromEmail failed for unmatched email (non-fatal):", err);
+    throw new Error(
+      `[sync-engine] unmatched email thread persistence failed: ${err instanceof Error ? err.message : "unknown error"}`
+    );
   }
-  return true;
+  return {
+    email,
+    effectiveEmail,
+    routingIdentity,
+    contactFormSubmitter,
+    enrichmentFacts: inboundEnrichmentFacts,
+    resolvedContact: resolvedInboundContact,
+  };
 }
 
 async function processSentEmail(
@@ -1884,47 +2644,92 @@ async function processSentEmail(
     result,
     "sync_sent_email"
   );
-  if (!normalizedEmail) return;
   email = normalizedEmail;
+  const routingIdentity = buildLeadRoutingIdentity(email, {
+    provider: connection.provider,
+    connectionId: connection.id,
+  });
 
   const supabase = requireSupabase();
 
   // Dedup
-  const { data: existing } = await supabase
-    .from("activities")
-    .select("id")
-    .eq("email_message_id", email.id)
-    .limit(1);
-
-  if (existing && existing.length > 0) return;
-
-  // Reconcile a wizard-import shell before minting a fresh sent activity, for
-  // the same reason as inbound: import shells carry synthetic ids and are
-  // invisible to the exact-id dedup. Promote the oldest shell on this thread
-  // to the real message id rather than duplicating the row.
-  if (await reconcileImportShell(supabase, email.threadId, email.id)) {
+  const existingActivity = await findExistingProviderActivity(
+    supabase,
+    connection,
+    email.id,
+    email.threadId
+  );
+  // Queue the immutable provider sample before any ownership branch. If the
+  // queue write fails, the sync checkpoint must not advance; replay then
+  // repairs the same provider identity without double-learning.
+  await learnFromOutboundEmail(email, connection, existingActivity);
+  if (existingActivity) {
+    if (existingActivity.opportunity_id) {
+      await linkThread(
+        existingActivity.opportunity_id,
+        email.threadId,
+        connection.id
+      );
+    }
+    await persistDeterministicEmailThreadState(
+      email,
+      connection,
+      existingActivity.opportunity_id ?? null,
+      "outbound",
+      false,
+      false
+    );
+    if (existingActivity.opportunity_id) {
+      await applyCanonicalLeadEnrichment({
+        supabase,
+        opportunityId: existingActivity.opportunity_id,
+        facts: leadEnrichmentFactsFromEmail({
+          email,
+          direction: "outbound",
+          connection,
+          profile,
+        }),
+        companyId: connection.companyId,
+      });
+    }
+    await recordActivityCorrespondenceEvent(
+      email,
+      connection,
+      existingActivity.opportunity_id ?? null,
+      existingActivity.id ?? null,
+      "outbound"
+    );
+    if (existingActivity.opportunity_id) {
+      await updateCorrespondenceCounts(
+        existingActivity.opportunity_id,
+        email,
+        connection,
+        followUpDaysCache,
+        result
+      );
+    }
     return;
   }
 
   // Thread inheritance for sent mail
-  const { data: threadLink } = await supabase
-    .from("opportunity_email_threads")
-    .select("opportunity_id")
-    .eq("thread_id", email.threadId)
-    .eq("connection_id", connection.id)
-    .limit(1);
+  const threadOpportunity = await loadProviderThreadOpportunity(
+    supabase,
+    connection,
+    email.threadId
+  );
 
-  if (threadLink && threadLink.length > 0) {
+  if (threadOpportunity) {
     const activityCreated = await createActivity(
       email,
       connection,
-      threadLink[0].opportunity_id,
+      threadOpportunity.opportunityId,
       "outbound"
     );
     if (!activityCreated) return;
     await applyCanonicalLeadEnrichment({
       supabase,
-      opportunityId: threadLink[0].opportunity_id,
+      opportunityId: threadOpportunity.opportunityId,
+      clientId: threadOpportunity.clientId,
       facts: leadEnrichmentFactsFromEmail({
         email,
         direction: "outbound",
@@ -1934,18 +2739,14 @@ async function processSentEmail(
       companyId: connection.companyId,
     });
     await updateCorrespondenceCounts(
-      threadLink[0].opportunity_id,
-      "outbound",
-      email.date,
-      connection.companyId,
+      threadOpportunity.opportunityId,
+      email,
+      connection,
       followUpDaysCache,
       result
     );
     result.activitiesCreated++;
     result.matched++;
-
-    // Memory/profile learning fires below for ALL outbound emails
-    await learnFromOutboundEmail(email, connection);
 
     // Task 5: Reconcile pending mailbox drafts now that the outbound activity
     // is persisted. Fire-and-forget — must not block or throw from the sync loop.
@@ -1954,7 +2755,10 @@ async function processSentEmail(
       providerThreadId: email.threadId,
       supabase,
     }).catch((err) =>
-      console.error("[sync-engine] reconcilePendingMailboxDrafts error (non-fatal):", err)
+      console.error(
+        "[sync-engine] reconcilePendingMailboxDrafts error (non-fatal):",
+        err
+      )
     );
     return;
   }
@@ -1974,7 +2778,8 @@ async function processSentEmail(
       "outbound_recipient",
       recipient
     );
-    const recipientEmail = recipientCandidate.email || extractSenderEmail(recipient);
+    const recipientEmail =
+      recipientCandidate.email || extractSenderEmail(recipient);
     const recipientDomain = recipientEmail.split("@")[1]?.toLowerCase();
 
     // Skip internal/company emails
@@ -2022,7 +2827,7 @@ async function processSentEmail(
           null,
           outboundEnrichmentFacts
         );
-        const oppId = await createOpportunity(
+        const opportunity = await createOpportunity(
           effectiveRecipientEmail,
           clientId,
           connection.companyId,
@@ -2032,33 +2837,10 @@ async function processSentEmail(
             candidates: [recipientCandidate],
             unsafe: syncTitleUnsafeIdentity(connection, profile),
             enrichmentFacts: outboundEnrichmentFacts,
+            sourceKey: routingIdentity.sourceKey,
           }
         );
-        const linked = await linkThread(oppId, email.threadId, connection.id);
-        if (!linked) return;
-        const activityCreated = await createActivity(
-          email,
-          connection,
-          oppId,
-          "outbound"
-        );
-        if (!activityCreated) return;
-        await applyLabel(email.threadId, connection, result);
-        result.newLeads++;
-        result.activitiesCreated++;
-        threadLinkedByThisEmail = true;
-      } else if (matchResult.clientId) {
-        const oppId = await getOrCreateOpportunity(
-          matchResult.clientId,
-          connection.companyId,
-          email,
-          {
-            kind: "estimate",
-            candidates: [recipientCandidate],
-            unsafe: syncTitleUnsafeIdentity(connection, profile),
-            enrichmentFacts: outboundEnrichmentFacts,
-          }
-        );
+        const oppId = opportunity.id;
         const linked = await linkThread(oppId, email.threadId, connection.id);
         if (!linked) return;
         const activityCreated = await createActivity(
@@ -2070,9 +2852,42 @@ async function processSentEmail(
         if (!activityCreated) return;
         await updateCorrespondenceCounts(
           oppId,
-          "outbound",
-          email.date,
+          email,
+          connection,
+          followUpDaysCache,
+          result
+        );
+        await applyLabel(email.threadId, connection, result);
+        result.newLeads++;
+        result.activitiesCreated++;
+        threadLinkedByThisEmail = true;
+      } else if (matchResult.clientId) {
+        const opportunity = await getOrCreateOpportunity(
+          matchResult.clientId,
           connection.companyId,
+          email,
+          {
+            kind: "estimate",
+            candidates: [recipientCandidate],
+            unsafe: syncTitleUnsafeIdentity(connection, profile),
+            enrichmentFacts: outboundEnrichmentFacts,
+            sourceKey: routingIdentity.sourceKey,
+          }
+        );
+        const oppId = opportunity.id;
+        const linked = await linkThread(oppId, email.threadId, connection.id);
+        if (!linked) return;
+        const activityCreated = await createActivity(
+          email,
+          connection,
+          oppId,
+          "outbound"
+        );
+        if (!activityCreated) return;
+        await updateCorrespondenceCounts(
+          oppId,
+          email,
+          connection,
           followUpDaysCache,
           result
         );
@@ -2083,11 +2898,6 @@ async function processSentEmail(
     }
   }
 
-  // Phase C: Learn from ALL outbound emails — not just thread-linked ones.
-  // Emails that matched an estimate pattern above already created activities;
-  // emails that matched nothing are still valuable learning signals.
-  await learnFromOutboundEmail(email, connection);
-
   // Task 5: Reconcile pending mailbox drafts after activities are persisted.
   // Fires for the safety-net path (new-external-address sends and estimate
   // pattern matches that didn't hit the thread-linked early-return above).
@@ -2097,48 +2907,164 @@ async function processSentEmail(
     providerThreadId: email.threadId,
     supabase,
   }).catch((err) =>
-    console.error("[sync-engine] reconcilePendingMailboxDrafts error (non-fatal):", err)
+    console.error(
+      "[sync-engine] reconcilePendingMailboxDrafts error (non-fatal):",
+      err
+    )
   );
 }
 
 /**
- * Phase C: Extract memory facts and update writing profile from any outbound email.
- * Gated behind the phase_c admin feature flag. Fire-and-forget (errors logged, not thrown).
+ * Persist one durable learning sample for any operator-authored outbound email.
+ * Model work happens later in the bounded cron worker. A queue failure is a
+ * semantic sync failure so the provider cursor cannot advance past lost data.
  */
 async function learnFromOutboundEmail(
   email: NormalizedEmail,
-  connection: EmailConnection
+  connection: EmailConnection,
+  existingActivity: ExistingProviderActivity | null
 ): Promise<void> {
-  if (!connection.userId) return;
-
   try {
-    const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-      connection.companyId,
-      "phase_c"
+    const supabase = requireSupabase();
+    const userId = await resolveOutboundLearningUserId(
+      supabase,
+      email,
+      connection,
+      existingActivity
     );
-    if (!enabled) return;
+    // Shared-mailbox provider messages do not identify the human sender. If no
+    // in-app activity or exact active-user email proves authorship, skip the
+    // personal profile update instead of poisoning another operator's voice.
+    if (!userId) return;
+    // The send route stores the exact source body before provider rendering.
+    // When that canonical activity carries draft provenance, use it for the
+    // edit diff so markdown/HTML/plain-text conversion is never learned as a
+    // human correction during a provider replay race.
+    const hasAuthenticatedOpsActivity = Boolean(existingActivity?.created_by);
+    const canonicalDraftSubject =
+      hasAuthenticatedOpsActivity && existingActivity?.subject != null
+        ? existingActivity.subject
+        : email.subject;
+    const canonicalDraftBody =
+      hasAuthenticatedOpsActivity && existingActivity?.body_text != null
+        ? existingActivity.body_text
+        : email.bodyText;
+    let canonicalAuthoredBody = canonicalDraftBody;
+    const hasCanonicalOpsBody = Boolean(
+      hasAuthenticatedOpsActivity && existingActivity?.body_text != null
+    );
+    if (!hasCanonicalOpsBody) {
+      // Provider sent-mail bodies include the mailbox signature. Keep that
+      // deterministic footer out of both the voice sample and AI-draft edit
+      // distance. Prefer the exact configured signature; if the provider has
+      // reformatted it beyond recognition, fall back to the conservative clean
+      // body rather than teach contact details as writing style.
+      const effectiveSignature = await EmailSignatureService.resolveEffective({
+        companyId: connection.companyId,
+        connectionId: connection.id,
+        userId,
+        mailboxAddress: connection.email,
+      });
+      const withoutKnownSignature = effectiveSignature
+        ? stripRenderedEmailSignature({
+            body: canonicalDraftBody,
+            contentType: "text",
+            signature: effectiveSignature,
+          }).trim()
+        : canonicalDraftBody.trim();
+      canonicalAuthoredBody =
+        withoutKnownSignature &&
+        withoutKnownSignature !== canonicalDraftBody.trim()
+          ? withoutKnownSignature
+          : cleanMessageBody(canonicalDraftBody, {
+              subject: canonicalDraftSubject,
+              providerCleanBody: email.bodyTextClean ?? null,
+            });
+    }
 
-    await Promise.all([
-      MemoryService.processOutboundEmail(
-        connection.companyId,
-        connection.userId,
-        {
-          from: email.from,
-          to: email.to,
-          subject: email.subject,
-          bodyText: email.bodyText,
-          date: email.date.toISOString(),
-        }
-      ),
-      WritingProfileService.updateFromEmail(
-        connection.companyId,
-        connection.userId,
-        { bodyText: email.bodyText }
-      ),
-    ]);
+    let profileType = "general";
+    if (existingActivity?.draft_history_id) {
+      const { data: draftProfile, error: draftProfileError } = await supabase
+        .from("ai_draft_history")
+        .select("profile_type")
+        .eq("id", existingActivity.draft_history_id)
+        .eq("company_id", connection.companyId)
+        .maybeSingle();
+      if (draftProfileError) throw draftProfileError;
+      if (
+        typeof draftProfile?.profile_type === "string" &&
+        draftProfile.profile_type.trim()
+      ) {
+        profileType = draftProfile.profile_type;
+      }
+    }
+    await new EmailOutboundLearningService(supabase).enqueueIfEnabled({
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      providerMessageId: email.id,
+      providerThreadId: email.threadId,
+      userId,
+      fromEmail: email.from,
+      toEmails: email.to,
+      subject: canonicalDraftSubject,
+      bodyText: canonicalDraftBody,
+      authoredBody: canonicalAuthoredBody,
+      occurredAt: email.date,
+      labelIds: email.labelIds,
+      draftHistoryId: existingActivity?.draft_history_id ?? null,
+      draftDeliveryChannel: existingActivity?.draft_history_id
+        ? "ops_send"
+        : null,
+      opportunityId: existingActivity?.opportunity_id ?? null,
+      profileType,
+      // Only an OPS-created activity with an authenticated actor proves human
+      // authorship here. Generic provider Sent mail and mailbox-draft sends are
+      // recorded as autonomous; exact mailbox-draft reconciliation upgrades
+      // the latter only after immutable draft/message evidence is matched.
+      learningAuthority: existingActivity?.draft_history_id
+        ? "autonomous"
+        : hasAuthenticatedOpsActivity
+          ? "operator_authored"
+          : "autonomous",
+    });
   } catch (err) {
-    console.error("[sync-engine] Phase C learning error (non-fatal):", err);
+    throw new LifecyclePersistenceError(
+      `[sync-engine] outbound learning enqueue failed before cursor advancement: ${err instanceof Error ? err.message : "unknown error"}`
+    );
   }
+}
+
+async function resolveOutboundLearningUserId(
+  supabase: SupabaseClient,
+  email: NormalizedEmail,
+  connection: EmailConnection,
+  existingActivity: ExistingProviderActivity | null
+): Promise<string | null> {
+  if (existingActivity?.created_by) return existingActivity.created_by;
+
+  // An individual mailbox has one authoritative owner, including messages sent
+  // through a provider-side alias. Company/shared mailboxes need stronger proof.
+  if (connection.type === "individual") return connection.userId;
+
+  const senderEmail = extractSenderEmail(email.from);
+  if (!senderEmail) return null;
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, email")
+    .eq("company_id", connection.companyId)
+    .eq("is_active", true)
+    .is("deleted_at", null);
+  if (error) {
+    throw new Error(
+      `outbound learning actor lookup failed: ${error.message ?? "unknown error"}`
+    );
+  }
+  const matches = (data ?? []).filter(
+    (row) =>
+      typeof row.email === "string" &&
+      row.email.trim().toLowerCase() === senderEmail
+  );
+  return matches.length === 1 ? String(matches[0].id) : null;
 }
 
 /** True when no ai_draft_history row for this connection has yet carried a
@@ -2201,7 +3127,7 @@ export async function maybeAutoGenerateDraft(
   email: NormalizedEmail,
   connection: EmailConnection,
   opportunityId: string,
-  submitter?: ContactFormSubmissionIdentity | null,
+  submitter?: ContactFormSubmissionIdentity | null
 ): Promise<void> {
   if (!connection.userId) return;
 
@@ -2225,7 +3151,8 @@ export async function maybeAutoGenerateDraft(
     if (!conn?.auto_send_settings) return;
 
     const settings = conn.auto_send_settings as Record<string, unknown>;
-    const categoryAutonomy = (settings.category_autonomy as Record<string, string>) || {};
+    const categoryAutonomy =
+      (settings.category_autonomy as Record<string, string>) || {};
     const primaryCustomerLevel = categoryAutonomy["primary:CUSTOMER"];
     const primaryCustomerDraftEnabled =
       primaryCustomerLevel === "auto_draft" ||
@@ -2244,11 +3171,30 @@ export async function maybeAutoGenerateDraft(
     const lowerSubject = email.subject.toLowerCase();
     let profileType = "general";
     if (!submitter) {
-      if (lowerSubject.includes("warranty") || lowerSubject.includes("defect")) profileType = "warranty_claim";
-      else if (lowerSubject.includes("quote") || lowerSubject.includes("estimate") || lowerSubject.includes("pricing")) profileType = "client_quoting";
-      else if (lowerSubject.includes("order") || lowerSubject.includes("supply") || lowerSubject.includes("material")) profileType = "vendor_ordering";
-      else if (lowerSubject.includes("sub") || lowerSubject.includes("coordinate")) profileType = "subtrade_coordination";
-      else if (lowerSubject.includes("follow") || lowerSubject.includes("checking in")) profileType = "client_followup";
+      if (lowerSubject.includes("warranty") || lowerSubject.includes("defect"))
+        profileType = "warranty_claim";
+      else if (
+        lowerSubject.includes("quote") ||
+        lowerSubject.includes("estimate") ||
+        lowerSubject.includes("pricing")
+      )
+        profileType = "client_quoting";
+      else if (
+        lowerSubject.includes("order") ||
+        lowerSubject.includes("supply") ||
+        lowerSubject.includes("material")
+      )
+        profileType = "vendor_ordering";
+      else if (
+        lowerSubject.includes("sub") ||
+        lowerSubject.includes("coordinate")
+      )
+        profileType = "subtrade_coordination";
+      else if (
+        lowerSubject.includes("follow") ||
+        lowerSubject.includes("checking in")
+      )
+        profileType = "client_followup";
     }
 
     let categoryLevel = categoryAutonomy[profileType];
@@ -2290,7 +3236,11 @@ export async function maybeAutoGenerateDraft(
         userInstruction: buildContactFormDraftInstruction(submitter),
         origin: "phase_c",
       });
-      if (!draftResult.available || !draftResult.draft || !draftResult.draftHistoryId) {
+      if (
+        !draftResult.available ||
+        !draftResult.draft ||
+        !draftResult.draftHistoryId
+      ) {
         return;
       }
 
@@ -2300,6 +3250,17 @@ export async function maybeAutoGenerateDraft(
       );
       try {
         const provider = EmailService.getProvider(connection);
+        const signature = await resolveEmailSignatureForMessage({
+          supabase,
+          connection,
+          userId: connection.userId,
+          refreshProviderIfMissing: true,
+        });
+        if (!signature) throw new Error("EMAIL_SIGNATURE_REQUIRED");
+        const renderedDraft = renderMailboxDraftWithSignature(
+          draftResult.draft,
+          signature
+        );
         // Compute BEFORE the push so this placement isn't counted as prior.
         const wasFirstMailboxDraft =
           !inboxUiEnabled &&
@@ -2310,8 +3271,9 @@ export async function maybeAutoGenerateDraft(
           opportunityId,
           draftHistoryId: draftResult.draftHistoryId,
           to: submitter.email,
-          subject: CONTACT_FORM_OUTREACH_SUBJECT,
-          body: draftResult.draft,
+          subject: draftResult.subject || CONTACT_FORM_OUTREACH_SUBJECT,
+          body: renderedDraft.body,
+          contentType: renderedDraft.contentType,
         });
         if (wasFirstMailboxDraft) {
           await fireFirstMailboxDraftExplainer(supabase, connection);
@@ -2370,9 +3332,18 @@ export async function maybeAutoGenerateDraft(
     if (draftResult.draftHistoryId) {
       try {
         const provider = EmailService.getProvider(connection);
-        const replySubject = /^re:/i.test(email.subject)
-          ? email.subject
-          : `Re: ${email.subject}`;
+        const signature = await resolveEmailSignatureForMessage({
+          supabase,
+          connection,
+          userId: connection.userId,
+          refreshProviderIfMissing: true,
+        });
+        if (!signature) throw new Error("EMAIL_SIGNATURE_REQUIRED");
+        const renderedDraft = renderMailboxDraftWithSignature(
+          draftResult.draft,
+          signature
+        );
+        const replySubject = normalizeReplySubject(email.subject);
         const to = extractSenderEmail(email.from);
 
         const { data: priorRows } = await supabase
@@ -2393,16 +3364,18 @@ export async function maybeAutoGenerateDraft(
             existing.mailbox_draft_id,
             to,
             replySubject,
-            draftResult.draft,
-            email.threadId
+            renderedDraft.body,
+            email.threadId,
+            renderedDraft.contentType
           );
           mailboxDraftId = existing.mailbox_draft_id;
         } else {
           mailboxDraftId = await provider.createDraft(
             to,
             replySubject,
-            draftResult.draft,
-            email.threadId
+            renderedDraft.body,
+            email.threadId,
+            renderedDraft.contentType
           );
 
           // One-time discovery explainer: fired the first time OPS successfully
@@ -2457,9 +3430,7 @@ export async function maybeAutoGenerateDraft(
           threadId: email.threadId,
           inReplyTo: email.id,
           toEmails: [extractSenderEmail(email.from)],
-          subject: email.subject.startsWith("Re: ")
-            ? email.subject
-            : `Re: ${email.subject}`,
+          subject: normalizeReplySubject(email.subject),
           settings: autoSendSettings,
         });
 
@@ -2473,7 +3444,9 @@ export async function maybeAutoGenerateDraft(
           body: `Sending in ~${delayMin} min: ${email.subject.slice(0, 50)}`,
           is_read: false,
           persistent: true,
-          action_url: pending ? `/inbox?cancelAutoSend=${pending.id}` : "/inbox",
+          action_url: pending
+            ? `/inbox?cancelAutoSend=${pending.id}`
+            : "/inbox",
           action_label: "Cancel",
         });
         return; // auto-send path done — don't also send "Draft ready"
@@ -2497,7 +3470,10 @@ export async function maybeAutoGenerateDraft(
       });
     }
   } catch (err) {
-    console.error("[sync-engine] Auto-draft generation failed (non-fatal):", err);
+    console.error(
+      "[sync-engine] Auto-draft generation failed (non-fatal):",
+      err
+    );
   }
 }
 
@@ -2565,14 +3541,14 @@ async function maybeDetectRescheduleRequest(
       .select("id")
       .eq("email_message_id", email.id)
       .eq("company_id", connection.companyId)
+      .eq("email_connection_id", connection.id)
       .limit(1)
       .maybeSingle();
 
     if (!activityRow?.id) return;
 
-    const { ClientSchedulingCommsService } = await import(
-      "./client-scheduling-comms-service"
-    );
+    const { ClientSchedulingCommsService } =
+      await import("./client-scheduling-comms-service");
     await ClientSchedulingCommsService.detectRescheduleRequest(
       connection.companyId,
       connection.userId,
@@ -2612,27 +3588,73 @@ export const SyncEngine = {
     // P0-A: claim the per-connection sync lock. If another sync holds it, skip
     // this cycle rather than racing it (the next cron tick re-runs). Released in
     // finally below so a crash can't strand the lock past its TTL.
-    if (!(await acquireSyncLock(connectionId))) {
-      return { ...emptyResult(), errors: ["Sync already in progress for this connection"] };
+    const syncLockOwner = await acquireSyncLock(connectionId);
+    if (!syncLockOwner) {
+      return {
+        ...emptyResult(),
+        errors: ["Sync already in progress for this connection"],
+      };
     }
+    let syncLockRenewedAt = Date.now();
+    const renewSyncLeaseIfNeeded = async (force = false) => {
+      if (
+        !force &&
+        Date.now() - syncLockRenewedAt < SYNC_LOCK_RENEW_INTERVAL_MS
+      ) {
+        return;
+      }
+      await renewSyncLock(connectionId, syncLockOwner);
+      syncLockRenewedAt = Date.now();
+    };
 
     try {
+      const includeSentMail = profile.includeSentMail !== false;
+      let mailboxReconciliation: MailboxHistoryReconciliation | null = null;
+
+      // A recovery page token is a durable cursor in its own right. Resume it
+      // before touching the expired historyId so retries advance through large
+      // mailboxes instead of restarting from page one forever.
+      if (
+        provider.providerType === "gmail" &&
+        connection.historyRecoveryTargetToken
+      ) {
+        mailboxReconciliation = await reconcileExpiredMailboxHistory(
+          provider,
+          connection,
+          undefined,
+          includeSentMail
+        );
+      }
+
       // ── Step 0: Bootstrap sync token if missing ─────────────────────────
       //
-      // First-ever sync for a newly-activated connection: historyId is null.
-      // Fetch a fresh token from the provider (Gmail: /profile.historyId,
-      // M365: empty — delta self-seeds), persist it, and return empty
-      // without touching the message pipeline for this cycle. The next
-      // cron tick will start fetching real messages.
-      if (!connection.historyId) {
+      // A fresh Gmail token is only a future boundary. Reconcile from the
+      // connection creation time before committing it, otherwise mail arriving
+      // between authorization and the first cron tick is permanently skipped.
+      if (!connection.historyId && !mailboxReconciliation) {
         try {
-          const freshToken = await provider.getInitialSyncToken();
-          await EmailService.updateConnection(connectionId, {
-            historyId: freshToken,
-            lastSyncedAt: new Date(),
-          });
-          connection.historyId = freshToken;
-          return result;
+          if (provider.providerType === "gmail") {
+            mailboxReconciliation = await reconcileExpiredMailboxHistory(
+              provider,
+              connection,
+              connection.lastSyncedAt ?? connection.createdAt
+            );
+          } else if (provider.providerType === "microsoft365") {
+            // Graph delta's initial walk returns the full current contents of
+            // each folder before yielding its terminal deltaLink. The provider
+            // encodes independent Inbox/Sent links in one non-empty cursor;
+            // neither link is committed until this entire cycle succeeds.
+            connection.historyId = await provider.getInitialSyncToken();
+            if (!connection.historyId) {
+              throw new Error(
+                "[sync-engine] microsoft365 returned an empty initial folder cursor"
+              );
+            }
+          } else {
+            throw new Error(
+              `[sync-engine] ${provider.providerType ?? "unknown"} initial-token bootstrap has no completeness guarantee; cursor was not advanced`
+            );
+          }
         } catch (err) {
           if (err instanceof ProviderAuthError) {
             await markConnectionNeedsReconnect(connectionId, err.message);
@@ -2655,59 +3677,146 @@ export const SyncEngine = {
       // means no outbound-triggered thread linking and no writing-profile
       // learning from outbound mail).
       //
-      // Wrapped in a re-seed recovery: if either side reports
-      // SyncTokenExpiredError, re-fetch the mailbox's current historyId
-      // from /profile, persist it, and return empty. The next cron tick
-      // will pick up from the new baseline.
-      const includeSentMail = profile.includeSentMail !== false;
+      // If either side reports SyncTokenExpiredError, Gmail must reconcile a
+      // bounded overlap from the last committed sync before the fresh historyId
+      // can be persisted. Providers without a complete reconciliation seam fail
+      // closed and keep their old cursor.
       let inboxResult: SyncResult;
       let sentResult: SyncResult;
-      try {
-        const fetches: [Promise<SyncResult>, Promise<SyncResult>] = [
-          provider.fetchNewEmailsSince(syncToken),
-          includeSentMail
-            ? provider.fetchSentEmailsSince(syncToken)
-            : Promise.resolve({ emails: [], nextSyncToken: syncToken }),
-        ];
-        [inboxResult, sentResult] = await Promise.all(fetches);
-      } catch (err) {
-        if (err instanceof SyncTokenExpiredError) {
-          console.warn(
-            `[sync-engine] Sync token expired for ${connectionId}, re-seeding`
-          );
-          try {
-            const freshToken = await provider.getInitialSyncToken();
-            await EmailService.updateConnection(connectionId, {
-              historyId: freshToken,
-              lastSyncedAt: new Date(),
-            });
-          } catch (reseedErr) {
-            if (reseedErr instanceof ProviderAuthError) {
-              await markConnectionNeedsReconnect(connectionId, reseedErr.message);
-            } else if (reseedErr instanceof ProviderScopeError) {
-              await markConnectionNeedsReconnect(connectionId, reseedErr.message);
-            }
-            throw reseedErr;
+      if (mailboxReconciliation) {
+        ({ inboxResult, sentResult } = mailboxReconciliation);
+      } else
+        try {
+          if (!syncToken) {
+            throw new Error(
+              `[sync-engine] ${provider.providerType ?? "unknown"} sync token is missing; cursor was not advanced`
+            );
           }
-          return result;
+          const usesUnifiedMailboxHistory = provider.providerType === "gmail";
+          if (provider.providerType === "microsoft365") {
+            // Inbox and Sent are distinct Graph delta streams. Walk them in
+            // sequence so the second call receives and preserves the first
+            // folder's new cursor, then commit the combined token atomically at
+            // the end of the cycle.
+            inboxResult = await provider.fetchNewEmailsSince(syncToken);
+            sentResult = includeSentMail
+              ? await provider.fetchSentEmailsSince(inboxResult.nextSyncToken)
+              : { emails: [], nextSyncToken: inboxResult.nextSyncToken };
+          } else {
+            const fetches: [Promise<SyncResult>, Promise<SyncResult>] = [
+              provider.fetchNewEmailsSince(syncToken),
+              includeSentMail && !usesUnifiedMailboxHistory
+                ? provider.fetchSentEmailsSince(syncToken)
+                : Promise.resolve({ emails: [], nextSyncToken: syncToken }),
+            ];
+            [inboxResult, sentResult] = await Promise.all(fetches);
+          }
+        } catch (err) {
+          if (err instanceof SyncTokenExpiredError) {
+            console.warn(
+              `[sync-engine] Sync token expired for ${connectionId}, reconciling bounded overlap`
+            );
+            try {
+              mailboxReconciliation = await reconcileExpiredMailboxHistory(
+                provider,
+                connection,
+                undefined,
+                includeSentMail
+              );
+              ({ inboxResult, sentResult } = mailboxReconciliation);
+            } catch (reconciliationErr) {
+              if (reconciliationErr instanceof ProviderAuthError) {
+                await markConnectionNeedsReconnect(
+                  connectionId,
+                  reconciliationErr.message
+                );
+              } else if (reconciliationErr instanceof ProviderScopeError) {
+                await markConnectionNeedsReconnect(
+                  connectionId,
+                  reconciliationErr.message
+                );
+              }
+              throw reconciliationErr;
+            }
+          } else {
+            if (err instanceof ProviderAuthError) {
+              await markConnectionNeedsReconnect(connectionId, err.message);
+            } else if (err instanceof ProviderScopeError) {
+              await markConnectionNeedsReconnect(connectionId, err.message);
+            }
+            throw err;
+          }
         }
-        if (err instanceof ProviderAuthError) {
-          await markConnectionNeedsReconnect(connectionId, err.message);
-        } else if (err instanceof ProviderScopeError) {
-          await markConnectionNeedsReconnect(connectionId, err.message);
-        }
-        throw err;
+
+      // Discovery buckets are not authoritative direction. Gmail labels can
+      // overlap and aliases/forwarding can surface operator-authored messages in
+      // an INBOX history result. Dedupe across both provider reads, then resolve
+      // each persisted direction from author identity before any CRM write.
+      const discoveredByMessageId = new Map<string, NormalizedEmail>();
+      for (const discovered of [...inboxResult.emails, ...sentResult.emails]) {
+        const existing = discoveredByMessageId.get(discovered.id);
+        discoveredByMessageId.set(
+          discovered.id,
+          existing
+            ? {
+                ...existing,
+                ...discovered,
+                labelIds: Array.from(
+                  new Set([...existing.labelIds, ...discovered.labelIds])
+                ),
+              }
+            : discovered
+        );
       }
+      const discoveredEmails = [...discoveredByMessageId.values()];
+      const directionIdentity = {
+        connectionEmail: connection.email,
+        userEmailAddresses: profile.userEmailAddresses ?? [],
+        companyDomains: profile.companyDomains ?? [],
+      };
+      const rawInboxEmails = discoveredEmails.filter(
+        (email) =>
+          resolvePersistedEmailDirection(email, directionIdentity) === "inbound"
+      );
+      const rawSentEmails = includeSentMail
+        ? discoveredEmails.filter(
+            (email) =>
+              resolvePersistedEmailDirection(email, directionIdentity) ===
+              "outbound"
+          )
+        : [];
+      const newSyncToken =
+        provider.providerType === "microsoft365"
+          ? sentResult.nextSyncToken
+          : inboxResult.nextSyncToken;
+      const gmailRecoveryCheckpoint =
+        mailboxReconciliation?.gmailCheckpoint ?? null;
+      const persistSyncCheckpoint = async () => {
+        if (gmailRecoveryCheckpoint?.nextPageToken) {
+          await EmailService.updateConnection(connectionId, {
+            historyRecoveryAnchor: gmailRecoveryCheckpoint.anchor,
+            historyRecoveryPageToken: gmailRecoveryCheckpoint.nextPageToken,
+            historyRecoveryTargetToken: gmailRecoveryCheckpoint.targetToken,
+          });
+          return;
+        }
 
-      const rawInboxEmails = inboxResult.emails;
-      const rawSentEmails = sentResult.emails;
-      const newSyncToken = inboxResult.nextSyncToken;
-
-      if (rawInboxEmails.length === 0 && rawSentEmails.length === 0) {
         await EmailService.updateConnection(connectionId, {
           lastSyncedAt: new Date(),
           historyId: newSyncToken,
+          ...(gmailRecoveryCheckpoint
+            ? {
+                historyRecoveryAnchor: null,
+                historyRecoveryPageToken: null,
+                historyRecoveryTargetToken: null,
+              }
+            : {}),
         });
+      };
+      await renewSyncLeaseIfNeeded(true);
+
+      if (rawInboxEmails.length === 0 && rawSentEmails.length === 0) {
+        await persistSyncCheckpoint();
         return result;
       }
 
@@ -2740,16 +3849,48 @@ export const SyncEngine = {
       // to the pipeline (auto-linking, writing-profile learning).
       const sentEmails = rawSentEmails;
 
-      // Step 2-4: Process inbound emails, collect unmatched for AI review
-      const unmatchedEmails: NormalizedEmail[] = [];
-      for (const email of inboxEmails) {
-        const unmatched = await processInboundEmail(email, connection, profile, followUpDaysCache, result);
-        if (unmatched) unmatchedEmails.push(email);
-      }
+      // Step 2-4: Process the canonical delivered-message stream in provider
+      // chronology. Provider discovery order is not conversation order, and
+      // processing inbound/outbound buckets separately destroys interleaving
+      // during catch-up. A stable message-id tie-breaker keeps retries
+      // deterministic when providers return identical timestamps.
+      const unmatchedContexts: UnmatchedInboundContext[] = [];
+      const processingQueue = [
+        ...inboxEmails.map((email) => ({
+          email,
+          direction: "inbound" as const,
+        })),
+        ...sentEmails.map((email) => ({
+          email,
+          direction: "outbound" as const,
+        })),
+      ].sort((left, right) => {
+        const byDate = left.email.date.getTime() - right.email.date.getTime();
+        return byDate !== 0
+          ? byDate
+          : left.email.id.localeCompare(right.email.id);
+      });
 
-      // Step 3: Process sent emails (sent folder safety net)
-      for (const email of sentEmails) {
-        await processSentEmail(email, connection, profile, followUpDaysCache, result);
+      for (const item of processingQueue) {
+        await renewSyncLeaseIfNeeded();
+        if (item.direction === "inbound") {
+          const unmatchedContext = await processInboundEmail(
+            item.email,
+            connection,
+            profile,
+            followUpDaysCache,
+            result
+          );
+          if (unmatchedContext) unmatchedContexts.push(unmatchedContext);
+        } else {
+          await processSentEmail(
+            item.email,
+            connection,
+            profile,
+            followUpDaysCache,
+            result
+          );
+        }
       }
 
       // Step 5: AI classification for unmatched emails (feature-gated)
@@ -2768,7 +3909,17 @@ export const SyncEngine = {
         const companyIndustry = (company?.industry as string) || "trades";
 
         // Step 5: AI classification for unmatched emails
-        if (unmatchedEmails.length > 0) {
+        if (unmatchedContexts.length > 0) {
+          await renewSyncLeaseIfNeeded(true);
+          const unmatchedEmails = unmatchedContexts.map(
+            (context) => context.email
+          );
+          const unmatchedContextByIdentity = new Map(
+            unmatchedContexts.map((context) => [
+              `${context.email.threadId}\u0000${context.email.id}`,
+              context,
+            ])
+          );
           const aiResult = await AISyncReviewer.reviewUnmatchedEmails(
             unmatchedEmails,
             connection,
@@ -2781,6 +3932,7 @@ export const SyncEngine = {
 
           // Persist AI-classified leads as opportunities
           for (const classified of aiResult.classifiedLeads) {
+            await renewSyncLeaseIfNeeded();
             try {
               const classifiedEmail = normalizeProviderBackedEmailForSync(
                 classified.email,
@@ -2788,126 +3940,269 @@ export const SyncEngine = {
                 result,
                 "sync_ai_classified_lead"
               );
-              if (!classifiedEmail) continue;
+              const context = unmatchedContextByIdentity.get(
+                `${classifiedEmail.threadId}\u0000${classifiedEmail.id}`
+              );
+              if (!context) {
+                throw new Error(
+                  "AI reviewer returned a message outside the sanitized unmatched set"
+                );
+              }
+              const {
+                effectiveEmail,
+                routingIdentity,
+                contactFormSubmitter,
+                enrichmentFacts: deterministicFacts,
+                resolvedContact,
+              } = context;
 
               const matchResult = await EmailMatchingServiceV2.match(
                 connection.companyId,
-                classified.clientEmail,
+                deterministicFacts.contactEmail ?? "",
                 {
-                  threadId: classifiedEmail.threadId,
-                  name: classified.clientName,
-                  connectionId: connection.id,
+                  ...(routingIdentity.mayInheritProviderThread
+                    ? {
+                        threadId: routingIdentity.providerThreadId,
+                        connectionId: connection.id,
+                      }
+                    : {}),
+                  name: deterministicFacts.contactName ?? undefined,
                 }
               );
 
-              const classifiedEnrichmentFacts = leadEnrichmentFactsFromImport({
-                contactName: classified.clientName,
-                contactEmail: classified.clientEmail,
-                contactPhone: classified.clientPhone,
-                address: classified.address,
-                estimatedValue: classified.estimatedValue,
-                description: classified.description,
+              // The model may classify the lead/stage and fill safe missing
+              // non-identity facts. Customer identity always comes from the
+              // deterministic operator-excluding context captured before AI.
+              const aiSupplementalFacts = leadEnrichmentFactsFromImport({
+                contactName: null,
+                contactEmail: null,
+                contactPhone: null,
+                address: null,
+                estimatedValue:
+                  deterministicFacts.estimatedValue == null
+                    ? classified.estimatedValue
+                    : null,
+                description:
+                  deterministicFacts.description == null
+                    ? classified.description
+                    : null,
                 providerThreadId: classifiedEmail.threadId,
                 providerMessageId: classifiedEmail.id,
-                // Steady-sync AI classifier output is genuinely model-derived;
-                // record it as source='ai' carrying the model's own confidence.
                 extractionSource: "ai_classified",
                 aiConfidence: classified.confidence,
               });
 
-              let clientId: string;
-              if (matchResult.action === "link" || matchResult.action === "create_subclient") {
-                clientId = matchResult.clientId!;
+              const relationshipDecision =
+                await findOpportunityRelationshipMatch({
+                  supabase,
+                  companyId: connection.companyId,
+                  connectionId: connection.id,
+                  providerThreadId: routingIdentity.mayInheritProviderThread
+                    ? classifiedEmail.threadId
+                    : null,
+                  clientId: matchResult.clientId,
+                  facts: opportunityRelationshipFactsFromLeadEnrichment(
+                    deterministicFacts,
+                    effectiveEmail
+                  ),
+                });
+
+              let clientId =
+                matchResult.action === "link" ||
+                matchResult.action === "create_subclient"
+                  ? matchResult.clientId!
+                  : null;
+              let oppId: string;
+
+              if (relationshipDecision.action === "link") {
+                oppId = relationshipDecision.opportunityId;
+                // The relationship winner is authoritative even when the
+                // opportunity legitimately has no client yet. Never fall back
+                // to a preliminary email/domain match for another customer.
+                clientId = relationshipDecision.clientId;
               } else {
-                clientId = await createClient(
-                  classifiedEmail,
+                clientId ??= await createClient(
+                  effectiveEmail,
                   connection.companyId,
-                  null,
-                  classifiedEnrichmentFacts
+                  contactFormSubmitter,
+                  deterministicFacts
+                );
+                const opportunity = await createOpportunity(
+                  effectiveEmail,
+                  clientId,
+                  connection.companyId,
+                  classified.stage,
+                  {
+                    candidates: [
+                      {
+                        source: "contact",
+                        name: deterministicFacts.contactName,
+                        email: deterministicFacts.contactEmail,
+                      },
+                    ],
+                    unsafe: syncTitleUnsafeIdentity(connection, profile),
+                    enrichmentFacts: deterministicFacts,
+                    sourceKey: routingIdentity.sourceKey,
+                  }
+                );
+                oppId = opportunity.id;
+                clientId = opportunity.clientId;
+              }
+
+              // Complete retryable semantic writes before publishing the
+              // durable thread/activity checkpoints. A failure now retries AI
+              // instead of being diverted by an already-created activity.
+              await applyCanonicalLeadEnrichment({
+                supabase,
+                opportunityId: oppId,
+                clientId,
+                facts: deterministicFacts,
+                companyId: connection.companyId,
+              });
+              if (
+                aiSupplementalFacts.estimatedValue != null ||
+                aiSupplementalFacts.description != null
+              ) {
+                await applyCanonicalLeadEnrichment({
+                  supabase,
+                  opportunityId: oppId,
+                  clientId,
+                  facts: aiSupplementalFacts,
+                  companyId: connection.companyId,
+                });
+              }
+
+              const subClientIdentity =
+                subClientIdentityFromFacts(deterministicFacts);
+              if (
+                matchResult.action === "create_subclient" &&
+                clientId &&
+                matchResult.clientId === clientId &&
+                subClientIdentity
+              ) {
+                await createSubClient(
+                  effectiveEmail,
+                  clientId,
+                  connection.companyId,
+                  subClientIdentity
                 );
               }
 
-              // P0-A: route AI-classified leads through the client-dedupe path so
-              // an existing active opportunity for this client is reused instead of
-              // spawning a second one; createOpportunity additionally dedupes by the
-              // thread key. The AI-classified stage is preserved on a fresh create.
-              const oppId = await getOrCreateOpportunity(
-                clientId,
-                connection.companyId,
-                classifiedEmail,
-                {
-                  candidates: [
-                    {
-                      source: "contact",
-                      name: classified.clientName,
-                      email: classified.clientEmail,
-                    },
-                  ],
-                  unsafe: syncTitleUnsafeIdentity(connection, profile),
-                  enrichmentFacts: classifiedEnrichmentFacts,
-                },
-                classified.stage
-              );
-              const linked = await linkThread(
-                oppId,
-                classifiedEmail.threadId,
-                connection.id
-              );
+              const linked = routingIdentity.mayInheritProviderThread
+                ? await linkThread(
+                    oppId,
+                    classifiedEmail.threadId,
+                    connection.id
+                  )
+                : true;
               if (!linked) continue;
-              const activityCreated = await createActivity(classifiedEmail, connection, oppId, "inbound", {
-                matchConfidence: "ai",
-              });
+              const activityCreated = await createActivity(
+                effectiveEmail,
+                connection,
+                oppId,
+                "inbound",
+                {
+                  matchConfidence:
+                    relationshipDecision.action === "link"
+                      ? relationshipDecision.confidence
+                      : "ai",
+                  ...(routingIdentity.isContactFormSubmission
+                    ? { skipThreadState: true }
+                    : {}),
+                }
+              );
               if (!activityCreated) continue;
+              await updateCorrespondenceCounts(
+                oppId,
+                effectiveEmail,
+                connection,
+                followUpDaysCache,
+                result
+              );
               await applyLabel(classifiedEmail.threadId, connection, result);
               result.activitiesCreated++;
             } catch (err) {
-              console.error(`[sync-engine] Failed to persist AI lead ${classified.clientEmail}:`, err);
+              throw new LifecyclePersistenceError(
+                `[sync-engine] failed to persist AI-classified lead ${classified.clientEmail}: ${err instanceof Error ? err.message : "unknown error"}`
+              );
             }
           }
           result.newLeads += aiResult.newLeadsClassified;
         }
 
         // Step 6: AI stage evaluation for threads that received new emails
-        const activeThreadIds: string[] = [];
+        const activeLeadTargets = new Map<
+          string,
+          string | { threadId: string; messages: NormalizedEmail[] }
+        >();
+        const opportunityByEvaluationKey = new Map<string, string>();
         for (const email of [...inboxEmails, ...sentEmails]) {
-          const { data: tl } = await supabase
-            .from("opportunity_email_threads")
-            .select("thread_id")
-            .eq("thread_id", email.threadId)
-            .eq("connection_id", connection.id)
-            .limit(1);
-          if (tl && tl.length > 0 && !activeThreadIds.includes(email.threadId)) {
-            activeThreadIds.push(email.threadId);
+          const activity = await findExistingProviderActivity(
+            supabase,
+            connection,
+            email.id,
+            email.threadId
+          );
+          const opportunityId = activity?.opportunity_id ?? null;
+          if (!opportunityId) continue;
+
+          const routing = buildLeadRoutingIdentity(email, {
+            provider: connection.provider,
+            connectionId: connection.id,
+          });
+          const evaluationKey = routing.isContactFormSubmission
+            ? routing.sourceKey
+            : routing.providerThreadId;
+          const priorOpportunityId =
+            opportunityByEvaluationKey.get(evaluationKey);
+          if (priorOpportunityId && priorOpportunityId !== opportunityId) {
+            throw new LifecyclePersistenceError(
+              `[sync-engine] stage evaluation identity ${evaluationKey} resolved to multiple opportunities`
+            );
+          }
+          opportunityByEvaluationKey.set(evaluationKey, opportunityId);
+          if (!activeLeadTargets.has(evaluationKey)) {
+            activeLeadTargets.set(
+              evaluationKey,
+              routing.isContactFormSubmission
+                ? { threadId: evaluationKey, messages: [email] }
+                : email.threadId
+            );
           }
         }
 
-        if (activeThreadIds.length > 0) {
+        if (activeLeadTargets.size > 0) {
+          await renewSyncLeaseIfNeeded(true);
           // Combined stage evaluation + opportunity summary in a single AI call
           const stageResults = await AISyncReviewer.evaluateStagesWithSummary(
-            activeThreadIds,
+            [...activeLeadTargets.values()],
             connection,
             { name: companyName }
           );
 
           for (const sr of stageResults) {
-            // Resolve opportunity for this thread
-            const { data: threadOpp } = await supabase
-              .from("opportunity_email_threads")
-              .select("opportunity_id")
-              .eq("thread_id", sr.threadId)
-              .eq("connection_id", connection.id)
-              .limit(1);
-
-            if (!threadOpp || threadOpp.length === 0) continue;
-
-            const oppId = threadOpp[0].opportunity_id;
+            await renewSyncLeaseIfNeeded();
+            const oppId = opportunityByEvaluationKey.get(sr.threadId);
+            if (!oppId) {
+              throw new LifecyclePersistenceError(
+                `[sync-engine] stage evaluation returned unknown identity ${sr.threadId}`
+              );
+            }
 
             // Check current stage + manual override flag
-            const { data: oppData } = await supabase
-              .from("opportunities")
-              .select("stage, stage_manually_set, actual_value, detected_value, estimated_value")
-              .eq("id", oppId)
-              .single();
+            const { data: oppData, error: opportunityLookupError } =
+              await supabase
+                .from("opportunities")
+                .select(
+                  "stage, stage_manually_set, actual_value, detected_value, estimated_value"
+                )
+                .eq("id", oppId)
+                .single();
+            if (opportunityLookupError || !oppData) {
+              throw new LifecyclePersistenceError(
+                `[sync-engine] stage evaluation opportunity lookup failed for ${oppId}: ${opportunityLookupError?.message ?? "row not found"}`
+              );
+            }
 
             let autoConvertedLikelyWon = false;
             if (sr.terminalFlag) {
@@ -2921,16 +4216,21 @@ export const SyncEngine = {
               if (!autoConvertedLikelyWon) {
                 // Manual stages, likely_lost, already-terminal opportunities,
                 // or conversion failures still surface for operator review.
-                await createTerminalFlagNotification(sr, connection);
+                await createTerminalFlagNotification(sr, connection, oppId);
               }
             }
 
             // Build update payload — always write summary if present
             const updates: Record<string, unknown> = {};
+            let requestedStage: string | null = null;
 
             if (sr.summary) {
               updates.ai_summary = sr.summary;
             }
+            // The evidence describes the latest evaluated conversation, not
+            // only the last transition. Refresh it even when the inferred
+            // stage remains unchanged so the lead never displays stale proof.
+            updates.ai_stage_signals = [sr.terminalFlag || "ai_evaluated"];
 
             // Only write stage if it actually changed AND user hasn't manually set it
             if (
@@ -2939,25 +4239,61 @@ export const SyncEngine = {
               !oppData?.stage_manually_set &&
               sr.newStage !== oppData?.stage
             ) {
-              updates.stage = sr.newStage;
-              updates.stage_entered_at = new Date().toISOString();
-              updates.ai_stage_confidence = 1.0;
-              // ai_stage_signals is text[] — wrap the signal in an array so
-              // Postgres doesn't reject the write with a type error.
-              updates.ai_stage_signals = [sr.terminalFlag || "ai_evaluated"];
-              result.stageChanges++;
+              requestedStage = sr.newStage;
             }
 
             if (Object.keys(updates).length > 0) {
-              await supabase
-                .from("opportunities")
-                .update(updates)
-                .eq("id", oppId);
+              try {
+                const { error: updateError } = await supabase
+                  .from("opportunities")
+                  .update(updates)
+                  .eq("id", oppId);
+
+                if (updateError) {
+                  throw new LifecyclePersistenceError(
+                    `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError.message ?? "unknown error"}`
+                  );
+                }
+              } catch (updateError) {
+                if (updateError instanceof LifecyclePersistenceError) {
+                  throw updateError;
+                }
+                throw new LifecyclePersistenceError(
+                  `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError instanceof Error ? updateError.message : "unknown error"}`
+                );
+              }
+            }
+
+            if (requestedStage) {
+              const { data: transitionRows, error: transitionError } =
+                await supabase.rpc("apply_email_opportunity_stage_transition", {
+                  p_company_id: connection.companyId,
+                  p_opportunity_id: oppId,
+                  p_to_stage: requestedStage,
+                  p_ai_signal: sr.terminalFlag || "ai_evaluated",
+                });
+              if (transitionError || !transitionRows) {
+                throw new LifecyclePersistenceError(
+                  `[sync-engine] AI stage transition failed for opportunity ${oppId}: ${transitionError?.message ?? "RPC returned no rows"}`
+                );
+              }
+              const transition = Array.isArray(transitionRows)
+                ? transitionRows[0]
+                : transitionRows;
+              if (!transition) {
+                throw new LifecyclePersistenceError(
+                  `[sync-engine] AI stage transition returned no opportunity for ${oppId}`
+                );
+              }
+              if (transition.changed) result.stageChanges++;
             }
           }
         }
       } catch (aiErr) {
-        console.error("[sync-engine] AI review error (non-fatal):", aiErr);
+        if (aiErr instanceof LifecyclePersistenceError) throw aiErr;
+        throw new LifecyclePersistenceError(
+          `[sync-engine] AI review failed before cursor advancement: ${aiErr instanceof Error ? aiErr.message : "unknown error"}`
+        );
       }
 
       // Step 11: Notifications
@@ -2970,25 +4306,24 @@ export const SyncEngine = {
         AutonomyMilestoneService.checkMilestonesAfterSync(
           connection.companyId,
           connection.userId,
-          connectionId,
+          connectionId
         ).catch((err) => {
-          console.error("[sync-engine] Milestone check failed (non-fatal):", err);
+          console.error(
+            "[sync-engine] Milestone check failed (non-fatal):",
+            err
+          );
         });
       }
 
       // Step 12: Update sync token
-      await EmailService.updateConnection(connectionId, {
-        lastSyncedAt: new Date(),
-        historyId: newSyncToken,
-      });
+      await renewSyncLeaseIfNeeded(true);
+      await persistSyncCheckpoint();
     } catch (err) {
       console.error(`[sync-engine] Error syncing ${connectionId}:`, err);
-      result.errors.push(
-        err instanceof Error ? err.message : "Unknown error"
-      );
+      result.errors.push(err instanceof Error ? err.message : "Unknown error");
     } finally {
       // P0-A: always release the per-connection sync lock.
-      await releaseSyncLock(connectionId);
+      await releaseSyncLock(connectionId, syncLockOwner);
     }
 
     return result;
@@ -3033,7 +4368,8 @@ export const SyncEngine = {
         outboundCount: opp.outbound_count || 0,
         inboundCount: opp.inbound_count || 0,
         totalMessages: opp.correspondence_count || 0,
-        lastMessageDirection: (opp.last_message_direction as "in" | "out") || "out",
+        lastMessageDirection:
+          (opp.last_message_direction as "in" | "out") || "out",
         lastInboundAt: opp.last_inbound_at
           ? new Date(opp.last_inbound_at)
           : null,

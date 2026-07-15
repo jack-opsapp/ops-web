@@ -1,167 +1,146 @@
 /**
- * Integration test — reconcilePendingMailboxDrafts (Task 5 / Part B)
- *
- * Tests the reconciliation runner that closes the Phase C learning loop when
- * users send from their native mail client (Gmail/Outlook) instead of the
- * OPS inbox composer.
- *
- * External boundaries mocked:
- *   - AIDraftService.recordDraftOutcome
- *   - EmailService.getProvider (fake provider with listDrafts)
- *   - requireSupabase / setSupabaseOverride (in-memory DB double)
+ * Integration tests for the native-mailbox Phase C reconciliation boundary.
+ * Provider delivery and the durable learning queue stay mocked; the query and
+ * state transitions run against an in-memory Supabase-shaped double.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import type { EmailConnection } from "@/lib/types/email-connection";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import type { NormalizedDraft } from "@/lib/api/services/email-provider";
+import type { EmailConnection } from "@/lib/types/email-connection";
 
-// ─── Hoisted mocks ────────────────────────────────────────────────────────────
-
-const { recordDraftOutcomeMock, getProviderMock } = vi.hoisted(() => ({
-  recordDraftOutcomeMock: vi.fn(),
-  getProviderMock: vi.fn(),
-}));
-
-vi.mock("@/lib/api/services/ai-draft-service", () => ({
-  AIDraftService: {
-    recordDraftOutcome: recordDraftOutcomeMock,
-  },
-}));
+const { enqueueIfEnabledMock, getProviderMock, listKnownSignaturesMock } =
+  vi.hoisted(() => ({
+    enqueueIfEnabledMock: vi.fn(),
+    getProviderMock: vi.fn(),
+    listKnownSignaturesMock: vi.fn(),
+  }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
-  EmailService: {
-    getProvider: getProviderMock,
-    getConnection: vi.fn(),
-    updateConnection: vi.fn(),
+  EmailService: { getProvider: getProviderMock },
+}));
+
+vi.mock("@/lib/api/services/email-outbound-learning-service", () => ({
+  EmailOutboundLearningService: class {
+    enqueueIfEnabled = enqueueIfEnabledMock;
   },
 }));
 
-// Import AFTER mocks are registered
-import { reconcilePendingMailboxDrafts } from "@/lib/api/services/draft-reconciliation";
-import { requireSupabase } from "@/lib/supabase/helpers";
+vi.mock("@/lib/api/services/email-signature-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/services/email-signature-service")
+  >("@/lib/api/services/email-signature-service");
+  return {
+    ...actual,
+    EmailSignatureService: {
+      ...actual.EmailSignatureService,
+      listKnown: listKnownSignaturesMock,
+    },
+  };
+});
 
-// ─── In-memory Supabase double ────────────────────────────────────────────────
+import { reconcilePendingMailboxDrafts } from "@/lib/api/services/draft-reconciliation";
 
 interface DbState {
-  aiDraftHistory: Array<Record<string, unknown>>;
+  ai_draft_history: Array<Record<string, unknown>>;
   activities: Array<Record<string, unknown>>;
+  opportunity_follow_up_drafts: Array<Record<string, unknown>>;
 }
 
 function makeSupabaseDouble(state: DbState) {
-  // Minimal builder that supports the exact query patterns used by
-  // reconcilePendingMailboxDrafts. Mirrors the pattern from auto-draft-mailbox.test.ts.
   class Query {
-    private _table: string;
-    private _action: "select" | "update" = "select";
-    private _payload: Record<string, unknown> | null = null;
-    private _filters = new Map<string, unknown>();
-    private _notFilters = new Map<string, unknown>();
-    private _selectCols = "*";
-    private _orderCol: string | null = null;
-    private _orderAsc = true;
+    private action: "select" | "update" = "select";
+    private payload: Record<string, unknown> | null = null;
+    private filters = new Map<string, unknown>();
+    private notNull = new Set<string>();
+    private orderColumn: string | null = null;
+    private orderAscending = true;
+    private limitCount: number | null = null;
 
-    constructor(table: string) {
-      this._table = table;
-    }
+    constructor(private readonly table: keyof DbState) {}
 
-    select(cols?: string) {
-      if (cols) this._selectCols = cols;
+    select() {
       return this;
     }
 
-    eq(col: string, val: unknown) {
-      this._filters.set(col, val);
+    eq(column: string, value: unknown) {
+      this.filters.set(column, value);
       return this;
     }
 
-    not(col: string, op: string, val: unknown) {
-      if (op === "is") {
-        // .not("mailbox_draft_id", "is", null) → require mailbox_draft_id to be not null
-        this._notFilters.set(col, "not_null");
-      }
+    not(column: string, operator: string, value: unknown) {
+      if (operator === "is" && value === null) this.notNull.add(column);
       return this;
     }
 
-    order(col: string, opts?: { ascending?: boolean }) {
-      this._orderCol = col;
-      this._orderAsc = opts?.ascending !== false;
+    order(column: string, options?: { ascending?: boolean }) {
+      this.orderColumn = column;
+      this.orderAscending = options?.ascending !== false;
+      return this;
+    }
+
+    limit(count: number) {
+      this.limitCount = count;
       return this;
     }
 
     update(payload: Record<string, unknown>) {
-      this._action = "update";
-      this._payload = payload;
+      this.action = "update";
+      this.payload = payload;
       return this;
     }
 
-    private _applyFilters(rows: Array<Record<string, unknown>>) {
-      let filtered = rows;
-      for (const [col, val] of this._filters) {
-        filtered = filtered.filter((r) => r[col] === val);
+    private matches(row: Record<string, unknown>) {
+      for (const [column, value] of this.filters) {
+        if (row[column] !== value) return false;
       }
-      for (const [col, rule] of this._notFilters) {
-        if (rule === "not_null") {
-          filtered = filtered.filter((r) => r[col] != null);
-        }
+      for (const column of this.notNull) {
+        if (row[column] == null) return false;
       }
-      return filtered;
+      return true;
     }
 
-    private _applyOrder(rows: Array<Record<string, unknown>>) {
-      if (!this._orderCol) return rows;
-      const col = this._orderCol;
-      return [...rows].sort((a, b) => {
-        const av = String(a[col] ?? "");
-        const bv = String(b[col] ?? "");
-        return this._orderAsc ? av.localeCompare(bv) : bv.localeCompare(av);
-      });
-    }
+    private resolve() {
+      let rows = state[this.table].filter((row) => this.matches(row));
+      if (this.orderColumn) {
+        const column = this.orderColumn;
+        rows = [...rows].sort((left, right) => {
+          const comparison = String(left[column] ?? "").localeCompare(
+            String(right[column] ?? "")
+          );
+          return this.orderAscending ? comparison : -comparison;
+        });
+      }
+      if (this.limitCount !== null) rows = rows.slice(0, this.limitCount);
 
-    private _resolve(): { data: unknown; error: null } {
-      if (this._action === "update") {
-        const idFilter = this._filters.get("id");
-        if (this._table === "ai_draft_history" && idFilter !== undefined) {
-          const row = state.aiDraftHistory.find((r) => r.id === idFilter);
-          if (row && this._payload) Object.assign(row, this._payload);
-        }
+      if (this.action === "update" && this.payload) {
+        for (const row of rows) Object.assign(row, this.payload);
         return { data: null, error: null };
       }
-
-      // SELECT
-      if (this._table === "ai_draft_history") {
-        const rows = this._applyOrder(this._applyFilters(state.aiDraftHistory));
-        return { data: rows, error: null };
-      }
-      if (this._table === "activities") {
-        const rows = this._applyOrder(this._applyFilters(state.activities));
-        return { data: rows, error: null };
-      }
-      return { data: [], error: null };
+      return { data: rows, error: null };
     }
 
-    then<T1 = unknown, T2 = never>(
-      onFulfilled?: ((val: unknown) => T1 | PromiseLike<T1>) | null,
-      onRejected?: ((reason: unknown) => T2 | PromiseLike<T2>) | null
+    then<TResult1 = unknown, TResult2 = never>(
+      onfulfilled?:
+        | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
+        | null,
+      onrejected?:
+        | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+        | null
     ) {
-      return Promise.resolve(this._resolve()).then(onFulfilled, onRejected);
-    }
-
-    async single() {
-      const { data, error } = this._resolve();
-      const arr = Array.isArray(data) ? data : [];
-      return { data: arr[0] ?? null, error };
+      return Promise.resolve(this.resolve()).then(onfulfilled, onrejected);
     }
   }
 
   return {
-    from: (table: string) => new Query(table),
+    from: (table: keyof DbState) => new Query(table),
+    rpc: vi.fn().mockResolvedValue({ data: {}, error: null }),
   };
 }
 
-// ─── Fixtures ─────────────────────────────────────────────────────────────────
-
-function makeConnection(overrides: Partial<EmailConnection> = {}): EmailConnection {
+function makeConnection(
+  overrides: Partial<EmailConnection> = {}
+): EmailConnection {
   return {
     id: "conn-1",
     companyId: "company-1",
@@ -176,12 +155,7 @@ function makeConnection(overrides: Partial<EmailConnection> = {}): EmailConnecti
     syncEnabled: true,
     lastSyncedAt: null,
     syncIntervalMinutes: 15,
-    syncFilters: {
-      includeSentMail: true,
-      estimateSubjectPatterns: ["estimate"],
-      companyDomains: ["example.com"],
-      teamForwarders: [],
-    },
+    syncFilters: {},
     webhookSubscriptionId: null,
     webhookExpiresAt: null,
     opsLabelId: null,
@@ -194,358 +168,195 @@ function makeConnection(overrides: Partial<EmailConnection> = {}): EmailConnecti
   };
 }
 
-/** A pending ai_draft_history row placed in the mailbox 2 days ago. */
-function makePendingDraftRow(overrides: Partial<Record<string, unknown>> = {}) {
-  const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+function pendingDraft(overrides: Record<string, unknown> = {}) {
   return {
     id: "draft-row-1",
     company_id: "company-1",
     user_id: "user-1",
     connection_id: "conn-1",
     thread_id: "thread-abc",
+    origin: "phase_c",
     status: "auto_drafted",
     mailbox_draft_id: "provider-draft-1",
     profile_type: "client_quoting",
-    original_draft: "Hi, here's your quote…",
-    created_at: twoDaysAgo,
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     ...overrides,
   };
 }
 
-/** An outbound activity that occurred AFTER the draft was placed. */
-function makeOutboundActivity(overrides: Partial<Record<string, unknown>> = {}) {
+function outboundActivity(overrides: Record<string, unknown> = {}) {
   return {
-    id: "act-1",
+    id: "activity-1",
     company_id: "company-1",
+    email_connection_id: "conn-1",
     email_thread_id: "thread-abc",
+    email_message_id: "sent-message-1",
     direction: "outbound",
-    body_text: "Thanks for reaching out. The price is $5,000.",
-    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(), // 1h ago
+    subject: "Re: Need a quote",
+    body_text:
+      "Final operator body\n\nOld Jackson\nOld OPS\n\n" +
+      "On Tue, Jul 14, 2026, Lead wrote:\n> Prior customer text",
+    from_email: "ops@example.com",
+    to_emails: ["lead@example.com"],
+    opportunity_id: "opportunity-1",
+    created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     ...overrides,
   };
 }
 
-function makeInboundActivity(overrides: Partial<Record<string, unknown>> = {}) {
+function providerDraft(): NormalizedDraft {
   return {
-    id: "act-0",
-    company_id: "company-1",
-    email_thread_id: "thread-abc",
-    direction: "inbound",
-    body_text: "Can you give me a quote for decking?",
-    created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-    ...overrides,
-  };
-}
-
-function makeDraft(id: string, threadId: string | null = null): NormalizedDraft {
-  return {
-    id,
-    threadId,
-    to: ["client@customer.com"],
+    id: "provider-draft-1",
+    threadId: "thread-abc",
+    to: ["lead@example.com"],
     cc: [],
     subject: "Re: Need a quote",
-    bodyText: "Hi, here's your quote…",
+    bodyText: "Still editing",
     updatedAt: new Date(),
   };
 }
 
-// ─── Setup / teardown ─────────────────────────────────────────────────────────
+function state(
+  drafts: Array<Record<string, unknown>>,
+  activities: Array<Record<string, unknown>> = []
+): DbState {
+  return {
+    ai_draft_history: drafts,
+    activities,
+    opportunity_follow_up_drafts: [],
+  };
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
-  recordDraftOutcomeMock.mockResolvedValue(undefined);
+  enqueueIfEnabledMock.mockResolvedValue({ id: "queue-1" });
+  listKnownSignaturesMock.mockResolvedValue([
+    {
+      scopeUserId: null,
+      contentHtml: "<div>Old Jackson<br>Old OPS</div>",
+      contentText: "Old Jackson\nOld OPS",
+      contentHash: "a".repeat(64),
+    },
+  ]);
 });
-
-afterEach(() => {
-  setSupabaseOverride(null);
-});
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("reconcilePendingMailboxDrafts", () => {
-  // ── "used" path ─────────────────────────────────────────────────────────────
-
-  it("used: calls recordDraftOutcome once with a cleaned body and updates status to sent_from_mailbox when draft is gone and outbound exists", async () => {
-    const pendingRow = makePendingDraftRow();
-
-    // The outbound body includes an Outlook-style quote header that
-    // stripQuotedContent should strip (the "On ... wrote:" pattern fires).
-    // We also include a sentence before the quote to confirm the new content
-    // survives the strip.
-    const outboundBodyWithQuote =
-      "Thanks for reaching out. The price is $5,000.\n\n" +
-      "On Mon, Jan 1, 2026, at 10:00 AM, Client wrote:\n" +
-      "> Can you give me a quote for decking?";
-
-    const state: DbState = {
-      aiDraftHistory: [pendingRow],
-      activities: [
-        makeInboundActivity(),
-        makeOutboundActivity({ body_text: outboundBodyWithQuote }),
-      ],
-    };
-
-    // Draft is NOT in listDrafts → draftStillInMailbox = false
+  it("queues one exact signature- and quote-free sample for a mailbox-sent draft", async () => {
+    const draft = pendingDraft();
     getProviderMock.mockReturnValue({
-      listDrafts: vi.fn().mockResolvedValue([
-        // Different draft (unrelated) — our draft-id not here
-        makeDraft("other-draft-999"),
-      ]),
+      getDraft: vi.fn().mockResolvedValue(null),
     });
-
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
-    const supabase = requireSupabase();
 
     await reconcilePendingMailboxDrafts({
       connection: makeConnection(),
       providerThreadId: "thread-abc",
-      supabase,
+      supabase: makeSupabaseDouble(
+        state([draft], [outboundActivity()])
+      ) as never,
     });
 
-    // recordDraftOutcome must have been called once
-    expect(recordDraftOutcomeMock).toHaveBeenCalledTimes(1);
-    expect(recordDraftOutcomeMock).toHaveBeenCalledWith(
-      "draft-row-1",      // draftHistoryId
-      "company-1",        // companyId
-      "user-1",           // userId
-      "sent",             // outcome
-      expect.any(String), // cleanBody (quote-stripped)
-      "client_quoting"    // profileType
+    expect(enqueueIfEnabledMock).toHaveBeenCalledOnce();
+    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerMessageId: "sent-message-1",
+        draftHistoryId: "draft-row-1",
+        authoredBody: "Final operator body",
+        cleanBody: "Final operator body",
+        learningAuthority: "operator_approved",
+      })
     );
-
-    // The clean body should NOT contain the quoted attribution line.
-    // stripQuotedContent fires on "On Mon, Jan 1, 2026, at 10:00 AM, Client wrote:"
-    // (matches QUOTE_MARKERS /^On .{10,80} wrote:\s*$/m).
-    const calledBody = recordDraftOutcomeMock.mock.calls[0][4] as string;
-    expect(calledBody).not.toMatch(/Jan 1, 2026/);
-    expect(calledBody).toContain("$5,000");
-
-    // Status must be overridden to sent_from_mailbox
-    expect(pendingRow.status).toBe("sent_from_mailbox");
+    // The durable queue owns the sent-state transition after learning applies.
+    expect(draft.status).toBe("auto_drafted");
   });
 
-  // ── "from_scratch" path ─────────────────────────────────────────────────────
-
-  it("from_scratch: does NOT call recordDraftOutcome and sets status to superseded when draft is still present and outbound exists", async () => {
-    const pendingRow = makePendingDraftRow();
-    const state: DbState = {
-      aiDraftHistory: [pendingRow],
-      activities: [makeInboundActivity(), makeOutboundActivity()],
-    };
-
-    // Draft IS still in listDrafts → draftStillInMailbox = true
+  it("treats a sent reply as from-scratch while the exact provider draft still exists", async () => {
+    const draft = pendingDraft();
     getProviderMock.mockReturnValue({
-      listDrafts: vi.fn().mockResolvedValue([
-        makeDraft("provider-draft-1", "thread-abc"),
-      ]),
+      getDraft: vi.fn().mockResolvedValue(providerDraft()),
     });
-
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
-    const supabase = requireSupabase();
 
     await reconcilePendingMailboxDrafts({
       connection: makeConnection(),
       providerThreadId: "thread-abc",
-      supabase,
+      supabase: makeSupabaseDouble(
+        state([draft], [outboundActivity()])
+      ) as never,
     });
 
-    // recordDraftOutcome must NOT be called — the existing learnFromOutboundEmail
-    // in sync-engine already captured this reply as a voice sample.
-    expect(recordDraftOutcomeMock).not.toHaveBeenCalled();
-
-    // Status should be superseded
-    expect(pendingRow.status).toBe("superseded");
+    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerMessageId: "sent-message-1",
+        learningAuthority: "operator_authored",
+      })
+    );
+    expect(enqueueIfEnabledMock.mock.calls[0][0]).not.toHaveProperty(
+      "draftHistoryId"
+    );
+    expect(draft.status).toBe("superseded");
+    expect(draft).toMatchObject({ discarded_at: expect.any(String) });
   });
 
-  // ── "discarded" path ────────────────────────────────────────────────────────
-
-  it("discarded: sets status to discarded_in_mailbox when draft is gone, no outbound, and past TTL (14 days)", async () => {
-    // Draft created 15 days ago
-    const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
-    const pendingRow = makePendingDraftRow({ created_at: fifteenDaysAgo });
-    const state: DbState = {
-      aiDraftHistory: [pendingRow],
-      activities: [makeInboundActivity({ created_at: fifteenDaysAgo })], // only inbound, no outbound
-    };
-
-    // Draft not in mailbox anymore
+  it("marks an exact missing draft discarded only after the TTL", async () => {
+    const draft = pendingDraft({
+      created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    });
     getProviderMock.mockReturnValue({
-      listDrafts: vi.fn().mockResolvedValue([]),
+      getDraft: vi.fn().mockResolvedValue(null),
     });
-
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
-    const supabase = requireSupabase();
 
     await reconcilePendingMailboxDrafts({
       connection: makeConnection(),
       providerThreadId: "thread-abc",
-      supabase,
+      supabase: makeSupabaseDouble(state([draft])) as never,
     });
 
-    expect(recordDraftOutcomeMock).not.toHaveBeenCalled();
-    expect(pendingRow.status).toBe("discarded_in_mailbox");
+    expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
+    expect(draft.status).toBe("discarded_in_mailbox");
   });
 
-  // ── cheap path: no pending rows ─────────────────────────────────────────────
-
-  it("cheap path: does NOT call provider.listDrafts when there are no pending rows for the thread", async () => {
-    const state: DbState = {
-      aiDraftHistory: [
-        // This row exists but is for a DIFFERENT thread — should not match
-        makePendingDraftRow({ thread_id: "thread-other" }),
-      ],
-      activities: [],
-    };
-
-    const listDraftsMock = vi.fn().mockResolvedValue([]);
-    getProviderMock.mockReturnValue({ listDrafts: listDraftsMock });
-
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
-    const supabase = requireSupabase();
-
-    await reconcilePendingMailboxDrafts({
-      connection: makeConnection(),
-      providerThreadId: "thread-abc",
-      supabase,
-    });
-
-    // The provider must NOT be called when there are no pending rows
-    expect(listDraftsMock).not.toHaveBeenCalled();
-    expect(recordDraftOutcomeMock).not.toHaveBeenCalled();
-  });
-
-  // ── cheap path: row without mailbox_draft_id excluded ──────────────────────
-
-  it("cheap path: does NOT call provider.listDrafts when auto_drafted row has no mailbox_draft_id", async () => {
-    const state: DbState = {
-      // Row is auto_drafted but mailbox_draft_id is null (push failed previously)
-      aiDraftHistory: [makePendingDraftRow({ mailbox_draft_id: null })],
-      activities: [],
-    };
-
-    const listDraftsMock = vi.fn().mockResolvedValue([]);
-    getProviderMock.mockReturnValue({ listDrafts: listDraftsMock });
-
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
-    const supabase = requireSupabase();
-
-    await reconcilePendingMailboxDrafts({
-      connection: makeConnection(),
-      providerThreadId: "thread-abc",
-      supabase,
-    });
-
-    expect(listDraftsMock).not.toHaveBeenCalled();
-  });
-
-  // ── "pending" path: within TTL, draft gone, no outbound ────────────────────
-
-  it("pending: does nothing (no DB update, no recordDraftOutcome) when draft is gone but within TTL and no outbound", async () => {
-    // Draft created 5 days ago — within default 14-day TTL
-    const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
-    const pendingRow = makePendingDraftRow({ created_at: fiveDaysAgo });
-    const initialStatus = pendingRow.status;
-
-    const state: DbState = {
-      aiDraftHistory: [pendingRow],
-      activities: [], // no outbound
-    };
-
-    // Draft not in mailbox (maybe user deleted it, or it's on another page)
+  it("keeps a missing draft pending inside the TTL", async () => {
+    const draft = pendingDraft();
     getProviderMock.mockReturnValue({
-      listDrafts: vi.fn().mockResolvedValue([]),
+      getDraft: vi.fn().mockResolvedValue(null),
     });
-
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
-    const supabase = requireSupabase();
 
     await reconcilePendingMailboxDrafts({
       connection: makeConnection(),
       providerThreadId: "thread-abc",
-      supabase,
+      supabase: makeSupabaseDouble(state([draft])) as never,
     });
 
-    expect(recordDraftOutcomeMock).not.toHaveBeenCalled();
-    // Status must remain unchanged — we did nothing
-    expect(pendingRow.status).toBe(initialStatus);
+    expect(draft.status).toBe("auto_drafted");
+    expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
   });
 
-  // ── provider listDrafts failure is non-fatal ────────────────────────────────
-
-  it("non-fatal: returns without throwing when listDrafts throws", async () => {
-    const pendingRow = makePendingDraftRow();
-    const state: DbState = {
-      aiDraftHistory: [pendingRow],
-      activities: [],
-    };
-
-    getProviderMock.mockReturnValue({
-      listDrafts: vi.fn().mockRejectedValue(new Error("Provider timeout")),
+  it("does not touch the provider when no pending mailbox history exists", async () => {
+    await reconcilePendingMailboxDrafts({
+      connection: makeConnection(),
+      providerThreadId: "thread-abc",
+      supabase: makeSupabaseDouble(
+        state([pendingDraft({ thread_id: "another-thread" })])
+      ) as never,
     });
 
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
-    const supabase = requireSupabase();
+    expect(getProviderMock).not.toHaveBeenCalled();
+  });
 
-    // Must not throw — returns early and the row stays as-is
+  it("fails closed and retries later when exact provider lookup errors", async () => {
+    const draft = pendingDraft();
+    getProviderMock.mockReturnValue({
+      getDraft: vi.fn().mockRejectedValue(new Error("Provider timeout")),
+    });
+
     await expect(
       reconcilePendingMailboxDrafts({
         connection: makeConnection(),
         providerThreadId: "thread-abc",
-        supabase,
+        supabase: makeSupabaseDouble(state([draft])) as never,
       })
     ).resolves.toBeUndefined();
 
-    expect(recordDraftOutcomeMock).not.toHaveBeenCalled();
-  });
-
-  // ── new-thread (forwarded contact-form) reconciliation contract ─────────────
-
-  it("new-thread (contact-form): reconciles to sent_from_mailbox when the user sends on the minted thread", async () => {
-    // A contact-form auto-draft is placed on a NEW client thread (not the
-    // forwarder's). placeNewThreadDraft stamps ai_draft_history.thread_id with
-    // that minted thread and links it, so when the user sends, processSentEmail
-    // records an outbound activity on the SAME thread. This locks the invariant
-    // that the learning loop then classifies the send as "used" — without the
-    // new thread_id + link, the send would be invisible here and the draft would
-    // rot to discarded_in_mailbox after the TTL, poisoning Phase C learning.
-    const draftRow = makePendingDraftRow({
-      thread_id: "client-thread-1",
-      mailbox_draft_id: "pd-new",
-      profile_type: "general",
-    });
-    const state: DbState = {
-      aiDraftHistory: [draftRow],
-      activities: [
-        makeOutboundActivity({
-          email_thread_id: "client-thread-1",
-          body_text:
-            "Thanks for reaching out. Happy to help with your deck — free for a call this week?",
-        }),
-      ],
-    };
-
-    // Draft gone from the mailbox → user sent it.
-    getProviderMock.mockReturnValue({
-      listDrafts: vi.fn().mockResolvedValue([]),
-    });
-
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
-    const supabase = requireSupabase();
-
-    await reconcilePendingMailboxDrafts({
-      connection: makeConnection(),
-      providerThreadId: "client-thread-1",
-      supabase,
-    });
-
-    expect(recordDraftOutcomeMock).toHaveBeenCalledWith(
-      "draft-row-1",
-      "company-1",
-      "user-1",
-      "sent",
-      expect.any(String),
-      "general"
-    );
-    expect(draftRow.status).toBe("sent_from_mailbox");
+    expect(draft.status).toBe("auto_drafted");
+    expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
   });
 });

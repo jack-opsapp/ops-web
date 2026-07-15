@@ -41,7 +41,10 @@ import { NotificationService } from "./notification-service";
 const CONVERSION_RPC = "convert_opportunity_to_project";
 const PREFLIGHT_RPC = "get_conversion_preflight";
 
-export type ConversionSourcePath = "won_dialog" | "approval_queue";
+export type ConversionSourcePath =
+  | "won_dialog"
+  | "approval_queue"
+  | "email_accept";
 
 export interface ConvertOpportunityParams {
   opportunityId: string;
@@ -74,8 +77,7 @@ export interface ConvertOpportunityParams {
   titleOverride?: string | null;
 }
 
-export interface LinkOpportunityToProjectParams
-  extends ConvertOpportunityParams {
+export interface LinkOpportunityToProjectParams extends ConvertOpportunityParams {
   /** Existing project to adopt — no NEW project is created. */
   linkToProjectId: string;
 }
@@ -168,15 +170,16 @@ interface RawPreflight {
 /**
  * Run the unified convert RPC and normalize its result. `linkToProjectId` set
  * ⇒ link an existing project (no new one); null ⇒ create. Win is derived from
- * the source path: won_dialog wins the opportunity atomically; approval_queue
- * creates the project WITHOUT touching the opportunity's stage.
+ * the source path: won_dialog and deterministic email acceptance win the
+ * opportunity atomically; approval_queue creates the project without touching
+ * the opportunity's stage.
  */
 async function runConversion(
   params: ConvertOpportunityParams,
   linkToProjectId: string | null
 ): Promise<ConvertOpportunityResult> {
   const supabase = requireSupabase();
-  const winOpportunity = params.sourcePath === "won_dialog";
+  const winOpportunity = params.sourcePath !== "approval_queue";
 
   const { data, error } = await supabase.rpc(CONVERSION_RPC, {
     p_company_id: params.companyId,
@@ -206,18 +209,28 @@ async function runConversion(
 
   // Idempotent no-op — the opportunity is already linked to a project.
   if (!result.converted && result.already_converted) {
+    if (!result.project_id) {
+      throw new Error(
+        "Project conversion RPC returned an already-converted result without a project id"
+      );
+    }
     return {
       converted: false,
       alreadyConverted: true,
-      projectId: (result.project_id as string) ?? "",
+      projectId: result.project_id,
       opportunityId: params.opportunityId,
+      won: result.won,
     };
+  }
+
+  if (!result.project_id) {
+    throw new Error("Project conversion RPC returned no project id");
   }
 
   return {
     converted: result.converted,
     alreadyConverted: false,
-    projectId: (result.project_id as string) ?? "",
+    projectId: result.project_id,
     opportunityId: params.opportunityId,
     dispositionId: result.disposition_id,
     relinkedEstimates: result.relinked_estimates,

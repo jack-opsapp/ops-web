@@ -29,8 +29,9 @@
 //   data. It performs no DB/network access and is unit-tested with inline
 //   fixtures.
 // - `fetchOperatorIdentity(companyId, connection)` is a thin SEPARATE wrapper
-//   that pulls the plain data (via the existing BusinessContextService) and a
-//   small user-phone read, then delegates to the pure core.
+//   that reads the authoritative company + active-user identity rows and then
+//   delegates to the pure core. Any read failure is authoritative and retries
+//   ingestion before contact facts can be written with an incomplete denylist.
 //
 // DRY NOTE: opportunity-relationship-matching.ts defines normalizeEmail /
 // normalizePhone / normalizeAddress but does NOT export them (module-private
@@ -40,7 +41,10 @@
 // layer. If those helpers are ever exported, swap these for the imports.
 
 import type { OperatorIdentity } from "@/lib/api/services/conversation-state/types";
-import type { EmailConnection, SyncProfile } from "@/lib/types/email-connection";
+import type {
+  EmailConnection,
+  SyncProfile,
+} from "@/lib/types/email-connection";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 
 // ─── Normalization (mirrors opportunity-relationship-matching.ts) ─────────────
@@ -191,54 +195,74 @@ export function buildOperatorIdentity(
 
 // ─── Thin fetch wrapper (separate; pure core does NOT call this) ──────────────
 
-import { BusinessContextService } from "@/lib/api/services/business-context-service";
 import { requireSupabase } from "@/lib/supabase/helpers";
 
 /**
  * Fetch the plain data the pure core needs and build the OperatorIdentity.
  *
- * Reuses BusinessContextService.getCompanyContext for the company record + team
- * email roster (already company-scoped, soft-delete-aware). Because that service
- * does not surface per-user phones, a single lightweight `users.phone` read is
- * added and joined by email. The connection supplies the authoritative mailbox
- * address and the optional wizard SyncProfile.
+ * Reads the company record and active user roster directly so database failures
+ * cannot be converted into an empty operator identity. The connection supplies
+ * the authoritative mailbox address and the optional wizard SyncProfile.
  */
 export async function fetchOperatorIdentity(
   companyId: string,
   connection: Pick<EmailConnection, "email" | "syncFilters">
 ): Promise<OperatorIdentity> {
-  const company = await BusinessContextService.getCompanyContext(companyId);
-
-  // Per-user phones aren't surfaced by getCompanyContext — one thin read.
   const supabase = requireSupabase();
-  const { data: userRows } = await supabase
-    .from("users")
-    .select("email, phone")
-    .eq("company_id", companyId)
-    .eq("is_active", true)
-    .is("deleted_at", null);
+  const [companyResult, usersResult] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("id, name, email, phone, address")
+      .eq("id", companyId)
+      .maybeSingle(),
+    supabase
+      .from("users")
+      .select("email, phone")
+      .eq("company_id", companyId)
+      .eq("is_active", true)
+      .is("deleted_at", null),
+  ]);
 
-  const phoneByEmail = new Map<string, string>();
-  for (const row of (userRows ?? []) as Array<{
-    email: string | null;
-    phone: string | null;
-  }>) {
-    const email = row.email?.trim().toLowerCase();
-    if (email && row.phone) phoneByEmail.set(email, row.phone);
+  if (companyResult.error) {
+    throw new Error(
+      `Failed to load operator company identity: ${companyResult.error.message}`
+    );
+  }
+  if (!companyResult.data) {
+    throw new Error(
+      "Failed to load operator company identity: company not found"
+    );
+  }
+  if (usersResult.error) {
+    throw new Error(
+      `Failed to load operator user identities: ${usersResult.error.message}`
+    );
   }
 
-  const companyUsers: OperatorUserInput[] = company.team.map((member) => ({
-    email: member.email ?? "",
-    phone: member.email
-      ? (phoneByEmail.get(member.email.trim().toLowerCase()) ?? null)
-      : null,
+  const company = companyResult.data as {
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+  };
+  const userRows = (usersResult.data ?? []) as Array<{
+    email: string | null;
+    phone: string | null;
+  }>;
+
+  const companyUsers: OperatorUserInput[] = userRows.map((row) => ({
+    email: row.email ?? "",
+    phone: row.phone,
   }));
+  if (company.email) {
+    companyUsers.push({ email: company.email, phone: company.phone });
+  }
 
   return buildOperatorIdentity({
     connectionEmail: connection.email,
     companyUsers,
     company: {
-      name: company.companyName === "Unknown" ? null : company.companyName,
+      name: company.name,
       emailDomains: [],
       phones: company.phone ? [company.phone] : [],
       addresses: company.address ? [company.address] : [],
