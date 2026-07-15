@@ -30,18 +30,32 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { PatternDetectionService } from "@/lib/api/services/pattern-detection-service";
-import { EmailAIClassifier, stripQuotedContent } from "@/lib/api/services/email-ai-classifier";
+import {
+  EmailAIClassifier,
+  stripQuotedContent,
+} from "@/lib/api/services/email-ai-classifier";
 import { EmailMatchingServiceV2 } from "@/lib/api/services/email-matching-service-v2";
-import { matchPlatform, PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
+import {
+  matchPlatform,
+  PLATFORM_DOMAINS,
+} from "@/lib/api/services/known-platforms";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import { getImportOpenAI } from "@/lib/api/services/openai-clients";
 import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
+import {
+  buildLeadRoutingIdentity,
+  resolvePersistedEmailDirection,
+} from "@/lib/email/email-ingestion-routing";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import type { TriageInput } from "@/lib/api/services/email-ai-classifier";
 import { getAppUrl } from "@/lib/utils/app-url";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  emailPipelineAuthorizationHeaders,
+  requireEmailCompanyAccess,
+} from "@/lib/email/email-route-auth";
 
 // Uses OPENAI_API_KEY_IMPORT — initial inbox scan.
 function getOpenAI() {
@@ -52,32 +66,29 @@ export const maxDuration = 800; // Pro plan max
 
 // ─── Valid stages for safety checks ──────────────────────────────────────────
 
-const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation', 'won', 'lost'];
-
-function sanitizeStage(stage: string | null | undefined): string {
-  if (stage && VALID_STAGES.includes(stage)) return stage;
-  return 'new_lead';
-}
-
 // Safe lowercase helper — Gmail messages can have null/undefined fields
 const safe = (s: string | null | undefined): string => (s || "").toLowerCase();
 
 // ─── Thread map types ────────────────────────────────────────────────────────
 
 interface ThreadInfo {
+  /** Logical lead key. Form submissions are message-scoped. */
   threadId: string;
+  /** Raw provider thread used only for mailbox operations and ordinary replies. */
+  providerThreadId: string;
+  mayInheritProviderThread: boolean;
   emails: NormalizedEmail[];
-  subject: string;               // original subject (stripped of Re:/Fwd:)
-  participants: string[];         // all unique email addresses
-  firstSender: string;            // who initiated the thread (email)
-  firstSenderName: string;        // display name of first sender
-  latestSnippet: string;          // snippet of most recent message
-  direction: 'inbound' | 'outbound';
+  subject: string; // original subject (stripped of Re:/Fwd:)
+  participants: string[]; // all unique email addresses
+  firstSender: string; // who initiated the thread (email)
+  firstSenderName: string; // display name of first sender
+  latestSnippet: string; // snippet of most recent message
+  direction: "inbound" | "outbound";
   messageCount: number;
   outboundCount: number;
   hasUserReply: boolean;
   dateRange: { first: string; last: string };
-  patternSource: 'estimate_pattern' | 'platform' | 'forwarder' | null;
+  patternSource: "estimate_pattern" | "platform" | "forwarder" | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -90,6 +101,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const authError = await requireEmailCompanyAccess(request, companyId);
+  if (authError) return authError;
+
   // Use service-role client for the initial connection lookup. The ALS
   // binding survives across awaits without colliding with concurrent requests.
   const supabase = getServiceRoleClient();
@@ -97,7 +111,7 @@ export async function POST(request: NextRequest) {
     EmailService.getConnection(connectionId)
   );
 
-  if (!connection) {
+  if (!connection || connection.companyId !== companyId) {
     return NextResponse.json(
       { error: "Connection not found" },
       { status: 404 }
@@ -112,7 +126,14 @@ export async function POST(request: NextRequest) {
     .from("gmail_scan_jobs")
     .select("id, status, created_at")
     .eq("connection_id", connectionId)
-    .in("status", ["pending", "analyzing_sent", "detecting_platforms", "classifying_ai", "analyzing_threads", "building_leads"])
+    .in("status", [
+      "pending",
+      "analyzing_sent",
+      "detecting_platforms",
+      "classifying_ai",
+      "analyzing_threads",
+      "building_leads",
+    ])
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -123,11 +144,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ jobId: existingJobs[0].id });
     }
     // Job is stale — mark it as error and create a new one
-    console.log(`[email-analyze] Stale job ${existingJobs[0].id} (${Math.round(jobAge / 1000)}s old), marking as error`);
-    await supabase.from("gmail_scan_jobs").update({
-      status: "error",
-      error_message: "Timed out — function exceeded max duration",
-    }).eq("id", existingJobs[0].id);
+    console.log(
+      `[email-analyze] Stale job ${existingJobs[0].id} (${Math.round(jobAge / 1000)}s old), marking as error`
+    );
+    await supabase
+      .from("gmail_scan_jobs")
+      .update({
+        status: "error",
+        error_message: "Timed out — function exceeded max duration",
+      })
+      .eq("id", existingJobs[0].id);
   }
 
   // Create analysis job
@@ -178,7 +204,13 @@ export async function POST(request: NextRequest) {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
       try {
-        await runPhaseA(job.id, connection, companyId, connectionId, bgSupabase);
+        await runPhaseA(
+          job.id,
+          connection,
+          companyId,
+          connectionId,
+          bgSupabase
+        );
       } catch (err) {
         console.error("[email-analyze] Phase A failed:", err);
         await bgSupabase
@@ -214,19 +246,29 @@ async function runPhaseA(
       .from("gmail_scan_jobs")
       .update({
         status: stage,
-        progress: { stage, message, percent, discoveredLeadNames: discoveredLeadNames.slice(-12) },
+        progress: {
+          stage,
+          message,
+          percent,
+          discoveredLeadNames: discoveredLeadNames.slice(-12),
+        },
       })
       .eq("id", jobId);
   };
 
   // ─── Phase 1: Pattern detection ──────────────────────────────────────────
-  await updateProgress("analyzing_sent", "Scanning your inbox and sent mail...", 5);
+  await updateProgress(
+    "analyzing_sent",
+    "Scanning your inbox and sent mail...",
+    5
+  );
 
   const detection = await PatternDetectionService.detect(connection, {
     monthsBack: 3,
   });
 
-  const totalEmails = detection.allInboxEmails.length + detection.allSentEmails.length;
+  const totalEmails =
+    detection.allInboxEmails.length + detection.allSentEmails.length;
   await updateProgress(
     "detecting_platforms",
     `Scanned ${totalEmails} emails. Found ${detection.detectedSources.length} lead sources. Mapping threads...`,
@@ -240,7 +282,9 @@ async function runPhaseA(
   const validEmails = allEmails.filter(
     (e) => e.threadId && e.threadId !== "undefined" && e.threadId !== "null"
   );
-  console.log(`[email-analyze] Phase 2: ${detection.allInboxEmails.length} inbox + ${detection.allSentEmails.length} sent = ${validEmails.length} valid emails`);
+  console.log(
+    `[email-analyze] Phase 2: ${detection.allInboxEmails.length} inbox + ${detection.allSentEmails.length} sent = ${validEmails.length} valid emails`
+  );
 
   // Determine owner email — fall back to detecting it from sent mail if connection.email is empty
   let ownerEmailLower = safe(connection.email);
@@ -249,17 +293,26 @@ async function runPhaseA(
     const firstSentFrom = detection.allSentEmails[0].from;
     const match = firstSentFrom.match(/<([^>]+)>/);
     ownerEmailLower = (match ? match[1] : firstSentFrom).toLowerCase().trim();
-    console.log(`[email-analyze] Owner email was empty on connection — detected from sent mail: ${ownerEmailLower}`);
+    console.log(
+      `[email-analyze] Owner email was empty on connection — detected from sent mail: ${ownerEmailLower}`
+    );
     // Also fix the connection so future runs don't hit this
-    await supabase.from("email_connections").update({ email: ownerEmailLower }).eq("id", connectionId);
+    await supabase
+      .from("email_connections")
+      .update({ email: ownerEmailLower })
+      .eq("id", connectionId);
   }
   if (!ownerEmailLower) {
-    console.error("[email-analyze] CRITICAL: Cannot determine owner email — results will be unreliable");
+    console.error(
+      "[email-analyze] CRITICAL: Cannot determine owner email — results will be unreliable"
+    );
   }
 
   // ─── Build company domain set ─────────────────────────────────────────────
   // Include: pattern detection domains + employee email domains + company name match
-  const companyDomainSet = new Set(detection.companyDomains.map((d) => d.toLowerCase()));
+  const companyDomainSet = new Set(
+    detection.companyDomains.map((d) => d.toLowerCase())
+  );
 
   // Add domains from employee emails (users table)
   const { data: companyUsers } = await supabase
@@ -269,9 +322,12 @@ async function runPhaseA(
 
   const employeeEmailSet = new Set<string>();
   const employeeNameSet = new Set<string>();
-  for (const u of (companyUsers || [])) {
+  for (const u of companyUsers || []) {
     if (u.email) employeeEmailSet.add(u.email.toLowerCase().trim());
-    const fullName = `${(u.first_name || '').trim()} ${(u.last_name || '').trim()}`.trim().toLowerCase();
+    const fullName =
+      `${(u.first_name || "").trim()} ${(u.last_name || "").trim()}`
+        .trim()
+        .toLowerCase();
     if (fullName) employeeNameSet.add(fullName);
   }
 
@@ -284,67 +340,95 @@ async function runPhaseA(
 
   // Scan all emails for non-public domains that match the company name
   // e.g., company "Canpro Deck and Rail" → domain "canprodeckandrail.com"
-  const companyNameLower = (company?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const companyNameLower = (company?.name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
   if (companyNameLower.length >= 4) {
     const allDomains = new Set<string>();
     for (const email of validEmails) {
       for (const addr of [email.from, ...email.to, ...email.cc]) {
-        const cleaned = (addr.match(/<([^>]+)>/)?.[1] || addr).toLowerCase().trim();
-        const domain = cleaned.split('@')[1];
+        const cleaned = (addr.match(/<([^>]+)>/)?.[1] || addr)
+          .toLowerCase()
+          .trim();
+        const domain = cleaned.split("@")[1];
         if (domain) allDomains.add(domain);
       }
     }
     for (const domain of allDomains) {
-      const domainClean = domain.replace(/[^a-z0-9]/g, '');
-      if (domainClean.includes(companyNameLower) || companyNameLower.includes(domainClean.replace(/\.(com|ca|net|org)$/g, ''))) {
+      const domainClean = domain.replace(/[^a-z0-9]/g, "");
+      if (
+        domainClean.includes(companyNameLower) ||
+        companyNameLower.includes(
+          domainClean.replace(/\.(com|ca|net|org)$/g, "")
+        )
+      ) {
         if (!PUBLIC_EMAIL_DOMAINS.has(domain)) {
           companyDomainSet.add(domain);
-          console.log(`[email-analyze] Detected company domain from name match: ${domain}`);
+          console.log(
+            `[email-analyze] Detected company domain from name match: ${domain}`
+          );
         }
       }
     }
   }
 
-  console.log(`[email-analyze] Company domains: [${[...companyDomainSet].join(', ')}], Employee emails: ${employeeEmailSet.size}, Employee names: ${employeeNameSet.size}`);
-  const forwarderEmailSet = new Set(detection.teamForwarders.map((f) => f.toLowerCase()));
+  console.log(
+    `[email-analyze] Company domains: [${[...companyDomainSet].join(", ")}], Employee emails: ${employeeEmailSet.size}, Employee names: ${employeeNameSet.size}`
+  );
+  const forwarderEmailSet = new Set(
+    detection.teamForwarders.map((f) => f.toLowerCase())
+  );
   const estimateThreadIds = new Set(
     detection.detectedSources
-      .filter((s) => s.type === 'estimate_pattern')
+      .filter((s) => s.type === "estimate_pattern")
       .flatMap(() => {
         // Get thread IDs from emailSourceMap
         return validEmails
-          .filter((e) => detection.emailSourceMap[e.id] === 'estimate_pattern')
+          .filter((e) => detection.emailSourceMap[e.id] === "estimate_pattern")
           .map((e) => e.threadId);
       })
   );
 
   // Also collect all estimate-pattern thread IDs from the emailSourceMap directly
   for (const email of validEmails) {
-    if (detection.emailSourceMap[email.id] === 'estimate_pattern') {
+    if (detection.emailSourceMap[email.id] === "estimate_pattern") {
       estimateThreadIds.add(email.threadId);
     }
   }
 
-  // Group all valid emails by threadId
+  const persistedDirection = (email: NormalizedEmail) =>
+    resolvePersistedEmailDirection(email, {
+      connectionEmail: connection.email,
+      companyDomains: [...companyDomainSet],
+      userEmailAddresses: [...employeeEmailSet],
+    });
+
+  // Ordinary conversations retain provider-thread grouping. Known contact-form
+  // notifications are message-scoped because Gmail/platform forwarders may
+  // reuse one raw thread for unrelated customers.
   const threadMap = new Map<string, ThreadInfo>();
 
   for (const email of validEmails) {
-    if (!threadMap.has(email.threadId)) {
-      const isFromOwner = safe(email.from).includes(ownerEmailLower);
-      const direction: 'inbound' | 'outbound' = isFromOwner ? 'outbound' : 'inbound';
+    const routing = buildLeadRoutingIdentity(email);
+    const groupingKey = routing.sourceKey;
+
+    if (!threadMap.has(groupingKey)) {
+      const direction = persistedDirection(email);
 
       // Determine pattern source for this thread
-      let patternSource: ThreadInfo['patternSource'] = null;
+      let patternSource: ThreadInfo["patternSource"] = null;
       if (estimateThreadIds.has(email.threadId)) {
-        patternSource = 'estimate_pattern';
+        patternSource = "estimate_pattern";
       } else if (matchPlatform(email.from)) {
-        patternSource = 'platform';
+        patternSource = "platform";
       } else if (forwarderEmailSet.has(safe(email.from))) {
-        patternSource = 'forwarder';
+        patternSource = "forwarder";
       }
 
-      threadMap.set(email.threadId, {
-        threadId: email.threadId,
+      threadMap.set(groupingKey, {
+        threadId: groupingKey,
+        providerThreadId: routing.providerThreadId,
+        mayInheritProviderThread: routing.mayInheritProviderThread,
         emails: [],
         subject: normalizeSubject(email.subject),
         participants: [],
@@ -363,11 +447,11 @@ async function runPhaseA(
       });
     }
 
-    const thread = threadMap.get(email.threadId)!;
+    const thread = threadMap.get(groupingKey)!;
     thread.emails.push(email);
     thread.messageCount++;
 
-    const isOutbound = safe(email.from).includes(ownerEmailLower);
+    const isOutbound = persistedDirection(email) === "outbound";
     if (isOutbound) {
       thread.outboundCount++;
       thread.hasUserReply = true;
@@ -388,7 +472,7 @@ async function runPhaseA(
       thread.dateRange.first = emailDate;
       thread.firstSender = email.from;
       thread.firstSenderName = email.fromName;
-      thread.direction = isOutbound ? 'outbound' : 'inbound';
+      thread.direction = isOutbound ? "outbound" : "inbound";
     }
     if (emailDate > thread.dateRange.last) {
       thread.dateRange.last = emailDate;
@@ -402,7 +486,9 @@ async function runPhaseA(
     }
   }
 
-  console.log(`[email-analyze] Built thread map: ${threadMap.size} threads from ${validEmails.length} emails (${validEmails.length - detection.allInboxEmails.length} filtered for invalid threadId)`);
+  console.log(
+    `[email-analyze] Built thread map: ${threadMap.size} threads from ${validEmails.length} emails (${validEmails.length - detection.allInboxEmails.length} filtered for invalid threadId)`
+  );
 
   // ─── Phase 3: Split threads into pattern-matched and unmatched ───────────
   const patternThreads: ThreadInfo[] = [];
@@ -410,11 +496,13 @@ async function runPhaseA(
 
   for (const thread of threadMap.values()) {
     // Skip threads from the owner's company domains (internal threads)
-    const firstSenderDomain = safe(thread.firstSender).split('@')[1] || "";
-    const isInternal = firstSenderDomain && companyDomainSet.has(firstSenderDomain)
-      && !thread.patternSource; // Don't skip if it's a forwarder match
+    const firstSenderDomain = safe(thread.firstSender).split("@")[1] || "";
+    const isInternal =
+      firstSenderDomain &&
+      companyDomainSet.has(firstSenderDomain) &&
+      !thread.patternSource; // Don't skip if it's a forwarder match
 
-    if (isInternal && thread.direction !== 'outbound') {
+    if (isInternal && thread.direction !== "outbound") {
       // Internal inbound from company domain and not a forwarder — skip
       continue;
     }
@@ -426,7 +514,9 @@ async function runPhaseA(
     }
   }
 
-  console.log(`[email-analyze] Pattern-matched threads: ${patternThreads.length}, unmatched for AI: ${unmatchedThreads.length}`);
+  console.log(
+    `[email-analyze] Pattern-matched threads: ${patternThreads.length}, unmatched for AI: ${unmatchedThreads.length}`
+  );
 
   // ─── Phase 4: AI triage of unmatched threads (lead or not?) ───────────────
   await updateProgress(
@@ -437,7 +527,9 @@ async function runPhaseA(
 
   // Build triage inputs — last 3 messages with FULL body text (no cap)
   const triageInputs: TriageInput[] = unmatchedThreads.map((t) => {
-    const sorted = [...t.emails].sort((a, b) => b.date.getTime() - a.date.getTime());
+    const sorted = [...t.emails].sort(
+      (a, b) => b.date.getTime() - a.date.getTime()
+    );
     const lastThree = sorted.slice(0, 3).reverse(); // chronological order
 
     return {
@@ -453,8 +545,11 @@ async function runPhaseA(
         fromName: e.fromName,
         to: e.to,
         date: e.date.toISOString(),
-        direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-        body: stripQuotedContent(e.bodyText || e.snippet || '', e.subject || t.subject),
+        direction: persistedDirection(e),
+        body: stripQuotedContent(
+          e.bodyText || e.snippet || "",
+          e.subject || t.subject
+        ),
       })),
     };
   });
@@ -478,56 +573,56 @@ async function runPhaseA(
   );
 
   // Build a map of triage results by threadId
-  const triageMap = new Map(
-    triageResults.map((r) => [r.threadId, r])
-  );
+  const triageMap = new Map(triageResults.map((r) => [r.threadId, r]));
 
   // ─── Phase 5: Build confirmed leads list ────────────────────────────────
-  await updateProgress(
-    "analyzing_threads",
-    "Building lead list...",
-    70
-  );
+  await updateProgress("analyzing_threads", "Building lead list...", 70);
 
   // Collect all lead threads: pattern-matched + AI-triaged leads
   const leadThreads: Array<{
     thread: ThreadInfo;
-    source: 'pattern' | 'platform' | 'forwarder' | 'ai';
+    source: "pattern" | "platform" | "forwarder" | "ai";
   }> = [];
 
   // Pattern-matched threads are AUTOMATICALLY leads
   for (const thread of patternThreads) {
-    const source: 'pattern' | 'platform' | 'forwarder' =
-      thread.patternSource === 'estimate_pattern' ? 'pattern'
-        : thread.patternSource === 'platform' ? 'platform'
-          : 'forwarder';
+    const source: "pattern" | "platform" | "forwarder" =
+      thread.patternSource === "estimate_pattern"
+        ? "pattern"
+        : thread.patternSource === "platform"
+          ? "platform"
+          : "forwarder";
     leadThreads.push({ thread, source });
   }
 
   // AI-triaged leads with confidence >= 0.5
   for (const thread of unmatchedThreads) {
     const triage = triageMap.get(thread.threadId);
-    if (triage && triage.verdict === 'lead' && triage.confidence >= 0.5) {
-      leadThreads.push({ thread, source: 'ai' });
+    if (triage && triage.verdict === "lead" && triage.confidence >= 0.5) {
+      leadThreads.push({ thread, source: "ai" });
     }
   }
 
-  console.log(`[email-analyze] Lead threads: ${leadThreads.length} (${patternThreads.length} pattern + ${leadThreads.length - patternThreads.length} AI)`);
+  console.log(
+    `[email-analyze] Lead threads: ${leadThreads.length} (${patternThreads.length} pattern + ${leadThreads.length - patternThreads.length} AI)`
+  );
 
   // ─── Phase 5b: AI-extract client info from forwarder/platform form bodies ─
   // Pre-extract all form submissions so the sync helpers can use a lookup map.
   // Runs in parallel for speed. Cost: ~$0.001 per email, < $0.05 for 30 forms.
   const formExtractionMap = new Map<string, ExtractedFormClient>();
   const formExtractionThreads = leadThreads.filter(
-    (lt) => lt.source === 'forwarder' || lt.source === 'platform'
+    (lt) => lt.source === "forwarder" || lt.source === "platform"
   );
 
   if (formExtractionThreads.length > 0) {
-    console.log(`[email-analyze] Extracting client info from ${formExtractionThreads.length} form submission threads via AI...`);
+    console.log(
+      `[email-analyze] Extracting client info from ${formExtractionThreads.length} form submission threads via AI...`
+    );
     const extractionPromises = formExtractionThreads.map(async ({ thread }) => {
       for (const email of thread.emails) {
         const extracted = await extractClientFromFormBody(
-          email.bodyText || '',
+          email.bodyText || "",
           email.snippet
         );
         if (extracted) {
@@ -537,46 +632,65 @@ async function runPhaseA(
       }
     });
     await Promise.all(extractionPromises);
-    console.log(`[email-analyze] AI form extraction complete: ${formExtractionMap.size}/${formExtractionThreads.length} threads had extractable client info`);
+    console.log(
+      `[email-analyze] AI form extraction complete: ${formExtractionMap.size}/${formExtractionThreads.length} threads had extractable client info`
+    );
   }
 
   // ─── Lightweight lead building ─────────────────────────────────────────────
   // Builds AnalyzedLead[] with fallback names and correspondence-based stages.
   // Phase B will override names, stages, sub-contacts, and excerpts via deep extraction.
-  await updateProgress(
-    "building_leads",
-    "Building leads...",
-    75
-  );
+  await updateProgress("building_leads", "Building leads...", 75);
 
   const leads: AnalyzedLead[] = [];
 
   for (const { thread, source } of leadThreads) {
     // Determine the client email (who is NOT the owner)
     const clientEmail = cleanEmailAddress(
-      findClientEmail(thread, ownerEmailLower, companyDomainSet, formExtractionMap)
+      findClientEmail(
+        thread,
+        ownerEmailLower,
+        companyDomainSet,
+        formExtractionMap
+      )
     );
 
     // Fallback name extraction — will be overridden by Phase B deep extraction
-    let clientName = capitalizeName(
-      findClientName(thread, ownerEmailLower, companyDomainSet, formExtractionMap, clientEmail, employeeEmailSet)
-    ) || '';
+    let clientName =
+      capitalizeName(
+        findClientName(
+          thread,
+          ownerEmailLower,
+          companyDomainSet,
+          formExtractionMap,
+          clientEmail,
+          employeeEmailSet
+        )
+      ) || "";
 
     // Name refinement from email body (still useful as fallback)
     if (isNameSuspicious(clientName, clientEmail)) {
-      const sigName = extractSignatureName(thread.emails, ownerEmailLower, employeeEmailSet);
+      const sigName = extractSignatureName(
+        thread.emails,
+        ownerEmailLower,
+        employeeEmailSet
+      );
       if (sigName) {
         clientName = capitalizeName(sigName);
       } else {
         const greetName = extractGreetingName(thread.emails, ownerEmailLower);
-        if (greetName && greetName.length > (clientName || '').length) {
+        if (greetName && greetName.length > (clientName || "").length) {
           clientName = capitalizeName(greetName);
         }
       }
     }
-    if ((clientName || '').split(' ').length < 2) {
-      const sigName = extractSignatureName(thread.emails, ownerEmailLower, employeeEmailSet);
-      if (sigName && sigName.split(' ').length >= 2) {
+    if ((clientName || "").split(" ").length < 2) {
+      const sigName = extractSignatureName(
+        thread.emails,
+        ownerEmailLower,
+        employeeEmailSet
+      );
+      if (sigName && sigName.split(" ").length >= 2) {
         clientName = capitalizeName(sigName);
       }
     }
@@ -598,7 +712,9 @@ async function runPhaseA(
       clientEmail,
       {
         name: clientName,
-        threadId: thread.threadId,
+        threadId: thread.mayInheritProviderThread
+          ? thread.providerThreadId
+          : undefined,
         connectionId: connection.id,
       }
     );
@@ -624,12 +740,14 @@ async function runPhaseA(
     leads.push({
       id: `lead-${thread.threadId}`,
       threadId: thread.threadId,
+      providerThreadId: thread.providerThreadId,
       emails: thread.emails.map((e) => ({
         id: e.id,
+        providerThreadId: e.threadId,
         from: e.from,
         subject: e.subject,
         date: e.date.toISOString(),
-        direction: safe(e.from).includes(ownerEmailLower) ? "outbound" : "inbound",
+        direction: persistedDirection(e),
       })),
       client: {
         name: safeName,
@@ -660,44 +778,58 @@ async function runPhaseA(
   }
 
   // ─── Save intermediate results and chain to Phase B ───────────────────────
-  console.log(`[email-analyze] Phase A complete: ${leads.length} raw leads built. Saving intermediate data and chaining to Phase B...`);
+  console.log(
+    `[email-analyze] Phase A complete: ${leads.length} raw leads built. Saving intermediate data and chaining to Phase B...`
+  );
 
-  await supabase.from("gmail_scan_jobs").update({
-    status: "building_leads",
-    progress: { stage: "building_leads", percent: 70, message: "Building leads...", discoveredLeadNames: discoveredLeadNames.slice(-12) },
-    result: {
-      phase: "leads_built",
-      detection: {
-        estimatePattern: detection.estimatePattern,
-        estimatePatternConfidence: detection.estimatePatternConfidence,
-        estimateThreadCount: detection.estimateThreadCount,
-        detectedSources: [
-          ...detection.detectedSources,
-          // Add AI-detected source so Step 3 shows it as a toggleable source
-          ...(leads.filter((l) => l.source === 'ai').length > 0 ? [{
-            type: 'ai_detected' as const,
-            label: 'AI-detected customer conversations',
-            pattern: 'ai',
-            count: leads.filter((l) => l.source === 'ai').length,
-            enabled: true,
-            sampleEmails: [],
-          }] : []),
-        ],
-        companyDomains: [...companyDomainSet],
-        teamForwarders: detection.teamForwarders,
-        totalEmailsScanned: detection.totalEmailsScanned,
+  await supabase
+    .from("gmail_scan_jobs")
+    .update({
+      status: "building_leads",
+      progress: {
+        stage: "building_leads",
+        percent: 70,
+        message: "Building leads...",
+        discoveredLeadNames: discoveredLeadNames.slice(-12),
       },
-      leads: leads, // The raw AnalyzedLead[] before filtering
-      ownerEmail: ownerEmailLower,
-      discoveredLeadNames,
-    },
-  }).eq("id", jobId);
+      result: {
+        phase: "leads_built",
+        detection: {
+          estimatePattern: detection.estimatePattern,
+          estimatePatternConfidence: detection.estimatePatternConfidence,
+          estimateThreadCount: detection.estimateThreadCount,
+          detectedSources: [
+            ...detection.detectedSources,
+            // Add AI-detected source so Step 3 shows it as a toggleable source
+            ...(leads.filter((l) => l.source === "ai").length > 0
+              ? [
+                  {
+                    type: "ai_detected" as const,
+                    label: "AI-detected customer conversations",
+                    pattern: "ai",
+                    count: leads.filter((l) => l.source === "ai").length,
+                    enabled: true,
+                    sampleEmails: [],
+                  },
+                ]
+              : []),
+          ],
+          companyDomains: [...companyDomainSet],
+          teamForwarders: detection.teamForwarders,
+          totalEmailsScanned: detection.totalEmailsScanned,
+        },
+        leads: leads, // The raw AnalyzedLead[] before filtering
+        ownerEmail: ownerEmailLower,
+        discoveredLeadNames,
+      },
+    })
+    .eq("id", jobId);
 
   // Chain to Phase B — a separate function invocation with its own 800s budget
   const baseUrl = getAppUrl();
   await fetch(`${baseUrl}/api/integrations/email/analyze-continue`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: emailPipelineAuthorizationHeaders(),
     body: JSON.stringify({ jobId, connectionId, companyId }),
   });
 }
@@ -708,7 +840,7 @@ async function runPhaseA(
 // Gmail stores addresses as "Laura Eby <laurakeby@gmail.com>" — extract just the email part.
 
 function cleanEmailAddress(raw: string | null | undefined): string {
-  if (!raw) return '';
+  if (!raw) return "";
   const match = raw.match(/<([^>]+)>/);
   return (match ? match[1] : raw).toLowerCase().trim();
 }
@@ -722,10 +854,15 @@ function cleanEmailAddress(raw: string | null | undefined): string {
 
 const PLATFORM_EMAIL_PATTERNS = [
   // Hard-coded patterns that aren't just domains
-  'reply-to+', 'noreply', 'no-reply', 'notifications@',
-  'mailer-daemon', 'postmaster@',
+  "reply-to+",
+  "noreply",
+  "no-reply",
+  "notifications@",
+  "mailer-daemon",
+  "postmaster@",
   // OPS internal addresses (inbound lead capture, system emails)
-  'inbound.opsapp.co', '@opsapp.co',
+  "inbound.opsapp.co",
+  "@opsapp.co",
   // All domains from the known-platforms registry
   ...Object.keys(PLATFORM_DOMAINS),
 ];
@@ -772,20 +909,20 @@ async function extractClientFromFormBody(
 
   try {
     const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: "gpt-4o-mini",
       messages: [
         {
-          role: 'system',
-          content: `Extract the customer's contact information from this form submission email. Return ONLY a JSON object with: name, email, phone (null if not found), message (null if not found). If you cannot identify a customer email, return null.`
+          role: "system",
+          content: `Extract the customer's contact information from this form submission email. Return ONLY a JSON object with: name, email, phone (null if not found), message (null if not found). If you cannot identify a customer email, return null.`,
         },
         {
-          role: 'user',
-          content: text.slice(0, 2000) // Cap to control tokens
-        }
+          role: "user",
+          content: text.slice(0, 2000), // Cap to control tokens
+        },
       ],
       temperature: 0,
       max_tokens: 100,
-      response_format: { type: 'json_object' },
+      response_format: { type: "json_object" },
     });
 
     const content = response.choices[0]?.message?.content;
@@ -795,7 +932,7 @@ async function extractClientFromFormBody(
     if (!parsed.email || isPlatformEmail(parsed.email)) return null;
 
     return {
-      name: parsed.name || parsed.email.split('@')[0],
+      name: parsed.name || parsed.email.split("@")[0],
       email: parsed.email.toLowerCase().trim(),
       phone: parsed.phone || null,
       message: parsed.message || null,
@@ -811,14 +948,15 @@ function correspondenceBasedStage(thread: ThreadInfo): string {
 
   // Check if the thread is dormant (last message > 5 days ago)
   const lastMessageDate = new Date(dateRange.last);
-  const daysSinceLastMessage = (Date.now() - lastMessageDate.getTime()) / (1000 * 60 * 60 * 24);
+  const daysSinceLastMessage =
+    (Date.now() - lastMessageDate.getTime()) / (1000 * 60 * 60 * 24);
 
-  if (outboundCount === 0) return 'new_lead';
-  if (hasUserReply && daysSinceLastMessage > 5) return 'follow_up';
-  if (outboundCount >= 3 && messageCount >= 6) return 'quoted';
-  if (outboundCount >= 2 && messageCount >= 4) return 'quoting';
-  if (outboundCount === 1 && messageCount <= 3) return 'qualifying';
-  return 'qualifying';
+  if (outboundCount === 0) return "new_lead";
+  if (hasUserReply && daysSinceLastMessage > 5) return "follow_up";
+  if (outboundCount >= 3 && messageCount >= 6) return "quoted";
+  if (outboundCount >= 2 && messageCount >= 4) return "quoting";
+  if (outboundCount === 1 && messageCount <= 3) return "qualifying";
+  return "qualifying";
 }
 
 /** Find the primary client email from a thread (not the owner, not company domain) */
@@ -831,12 +969,17 @@ function findClientEmail(
   // For forwarder threads, use AI-extracted client info from the form body first.
   // Forwarded form submissions (e.g. Wix) have the real client email in the body,
   // while the "from" / "reply-to" headers point to platform notification addresses.
-  if (thread.patternSource === 'forwarder' || thread.patternSource === 'platform') {
+  if (
+    thread.patternSource === "forwarder" ||
+    thread.patternSource === "platform"
+  ) {
     const extracted = formExtraction.get(thread.threadId);
     if (extracted?.email) return cleanEmailAddress(extracted.email);
   }
 
-  console.log(`[findClientEmail] Thread ${thread.threadId} (source: ${thread.patternSource}): ${thread.participants.length} participants, ${thread.emails.length} emails`);
+  console.log(
+    `[findClientEmail] Thread ${thread.threadId} (source: ${thread.patternSource}): ${thread.participants.length} participants, ${thread.emails.length} emails`
+  );
 
   // For estimate threads, the client is the RECIPIENT of the owner's outbound email.
   // Check 'to' addresses from outbound emails first.
@@ -846,7 +989,7 @@ function findClientEmail(
       const cleaned = cleanEmailAddress(toAddr);
       if (!cleaned) continue;
       if (cleaned.includes(ownerEmailLower)) continue;
-      const domain = cleaned.split('@')[1] || "";
+      const domain = cleaned.split("@")[1] || "";
       if (domain && companyDomainSet.has(domain)) continue;
       if (isPlatformEmail(cleaned)) continue;
       console.log(`[findClientEmail] → Found via outbound 'to': ${cleaned}`);
@@ -859,7 +1002,7 @@ function findClientEmail(
     const cleaned = cleanEmailAddress(participant);
     if (!cleaned) continue;
     if (cleaned.includes(ownerEmailLower)) continue;
-    const domain = cleaned.split('@')[1] || "";
+    const domain = cleaned.split("@")[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
     if (isPlatformEmail(cleaned)) continue;
     console.log(`[findClientEmail] → Found via participant: ${cleaned}`);
@@ -871,7 +1014,7 @@ function findClientEmail(
     if (safe(email.from).includes(ownerEmailLower)) continue; // skip outbound
     const cleaned = cleanEmailAddress(email.from);
     if (!cleaned) continue;
-    const domain = cleaned.split('@')[1] || "";
+    const domain = cleaned.split("@")[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
     if (isPlatformEmail(cleaned)) continue;
     console.log(`[findClientEmail] → Found via inbound sender: ${cleaned}`);
@@ -879,8 +1022,10 @@ function findClientEmail(
   }
 
   // Last resort: return empty (will be filtered out)
-  console.log(`[findClientEmail] → FAILED to find client email. Participants: ${thread.participants.map(p => cleanEmailAddress(p)).join(', ')}`);
-  return '';
+  console.log(
+    `[findClientEmail] → FAILED to find client email. Participants: ${thread.participants.map((p) => cleanEmailAddress(p)).join(", ")}`
+  );
+  return "";
 }
 
 /** Find the client display name — matches against the actual client email address */
@@ -893,12 +1038,15 @@ function findClientName(
   employeeEmailSet?: Set<string>
 ): string {
   // For forwarder/platform threads, use AI-extracted client name from the form body first.
-  if (thread.patternSource === 'forwarder' || thread.patternSource === 'platform') {
+  if (
+    thread.patternSource === "forwarder" ||
+    thread.patternSource === "platform"
+  ) {
     const extracted = formExtraction.get(thread.threadId);
     if (extracted?.name) return extracted.name;
   }
 
-  const clientEmailLower = clientEmail?.toLowerCase() || '';
+  const clientEmailLower = clientEmail?.toLowerCase() || "";
 
   // Priority 1: Find the display name from headers that match the client email exactly.
   // This prevents picking up a CC'd team member's name instead of the client's name.
@@ -931,11 +1079,11 @@ function findClientName(
   for (const email of thread.emails) {
     if (safe(email.from).includes(ownerEmailLower)) continue;
     const fromClean = cleanEmailAddress(email.from);
-    const domain = fromClean.split('@')[1] || "";
+    const domain = fromClean.split("@")[1] || "";
     if (domain && companyDomainSet.has(domain)) continue;
     if (employeeEmailSet?.has(fromClean)) continue;
     if (isPlatformEmail(fromClean)) continue;
-    if (email.fromName && email.fromName !== (email.from || "").split('@')[0]) {
+    if (email.fromName && email.fromName !== (email.from || "").split("@")[0]) {
       return email.fromName;
     }
   }
@@ -970,48 +1118,6 @@ function capitalizeName(name: string): string {
 }
 
 /**
- * Split a concatenated domain name into proper words using a business word dictionary.
- * "ardentproperties" → "Ardent Properties"
- * "marigoldcoop" → "Marigold Co-op"
- * "storyconstruction" → "Story Construction"
- * Falls back to capitalizing the raw string if no split is found.
- */
-function splitDomainName(domainLocal: string): string {
-  const lower = domainLocal.toLowerCase();
-
-  // Common business suffixes found in trades/construction/property domains
-  const SUFFIXES = [
-    'construction', 'renovations', 'renovation', 'properties', 'property',
-    'developments', 'development', 'contracting', 'contractors', 'contractor',
-    'installations', 'installation', 'engineering', 'landscaping', 'restoration',
-    'restorations', 'improvements', 'improvement', 'fabrication', 'consulting',
-    'maintenance', 'enterprises', 'mechanical', 'management', 'industries',
-    'associates', 'woodworks', 'woodwork', 'solutions', 'interiors', 'exteriors',
-    'millwork', 'builders', 'building', 'services', 'plumbing', 'painting',
-    'electric', 'electrical', 'flooring', 'roofing', 'fencing', 'decking',
-    'masonry', 'welding', 'designs', 'design', 'studios', 'studio',
-    'realty', 'supply', 'homes', 'home', 'group', 'works', 'hvac',
-    'media', 'labs', 'corp', 'coop', 'pros', 'pro',
-  ];
-
-  for (const suffix of SUFFIXES) {
-    if (lower.endsWith(suffix) && lower.length > suffix.length) {
-      const prefix = lower.slice(0, -suffix.length);
-      if (prefix.length >= 2) {
-        const capPrefix = prefix.charAt(0).toUpperCase() + prefix.slice(1);
-        let capSuffix = suffix.charAt(0).toUpperCase() + suffix.slice(1);
-        // Special handling: "coop" → "Co-op"
-        if (suffix === 'coop') capSuffix = 'Co-op';
-        return `${capPrefix} ${capSuffix}`;
-      }
-    }
-  }
-
-  // No split found — just capitalize the whole thing
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
-}
-
-/**
  * Extract a person's name from the owner's outbound greeting.
  * Looks for "Hi [Name]", "Hello [Name]", "Hey [Name]", "Dear [Name]" patterns
  * in the owner's replies. Returns the greeting name or null.
@@ -1026,7 +1132,7 @@ function extractGreetingName(
     .sort((a, b) => a.date.getTime() - b.date.getTime()); // oldest first
 
   for (const email of outbound) {
-    const body = email.bodyText || email.snippet || '';
+    const body = email.bodyText || email.snippet || "";
     // Match "Hi Name," or "Hi Name and Name," etc.
     // The name must start with an uppercase letter or we'll capitalize it
     const match = body.match(
@@ -1035,7 +1141,7 @@ function extractGreetingName(
     if (match) {
       const name = match[1].trim();
       // Reject if it looks like a generic greeting (e.g., "Hi there", "Hi team")
-      const GENERIC = ['there', 'team', 'all', 'everyone', 'folks', 'guys'];
+      const GENERIC = ["there", "team", "all", "everyone", "folks", "guys"];
       if (!GENERIC.includes(name.toLowerCase())) {
         return capitalizeName(name);
       }
@@ -1058,11 +1164,14 @@ function extractSignatureName(
   // Check inbound (client's) emails for signature patterns
   const inbound = emails.filter((e) => {
     const fromClean = cleanEmailAddress(e.from);
-    return !safe(e.from).includes(ownerEmailLower) && !employeeEmailSet.has(fromClean);
+    return (
+      !safe(e.from).includes(ownerEmailLower) &&
+      !employeeEmailSet.has(fromClean)
+    );
   });
 
   for (const email of inbound) {
-    const body = email.bodyText || '';
+    const body = email.bodyText || "";
     if (!body || body.length < 10) continue;
 
     // Pattern 1: Sign-off followed by name
@@ -1077,12 +1186,17 @@ function extractSignatureName(
     // Pattern 2: Name on a standalone line near the end (last 500 chars)
     // Look for "FirstName LastName" on its own line (2 or 3 capitalized words)
     const tail = body.slice(-500);
-    const lines = tail.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const lines = tail
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
     for (let i = lines.length - 1; i >= Math.max(0, lines.length - 8); i--) {
       const line = lines[i];
       // Must be a short line (under 50 chars) with 2-3 capitalized words
       if (line.length > 50 || line.length < 3) continue;
-      const nameMatch = line.match(/^([A-Z][a-z'-]+(?:\s+[A-Z][a-z'-]+){1,2})$/);
+      const nameMatch = line.match(
+        /^([A-Z][a-z'-]+(?:\s+[A-Z][a-z'-]+){1,2})$/
+      );
       if (nameMatch) {
         return nameMatch[1].trim();
       }
@@ -1102,10 +1216,10 @@ function extractSignatureName(
 function isNameSuspicious(name: string, clientEmail: string): boolean {
   if (!name) return true;
   // All lowercase (no capitalized words) — likely a username
-  if (name === name.toLowerCase() && !name.includes(' ')) return true;
+  if (name === name.toLowerCase() && !name.includes(" ")) return true;
   // Name matches the email domain prefix (e.g., "Uvic" for uvic.ca)
-  const domain = clientEmail.split('@')[1] || '';
-  const domainPrefix = domain.split('.')[0]?.toLowerCase() || '';
+  const domain = clientEmail.split("@")[1] || "";
+  const domainPrefix = domain.split(".")[0]?.toLowerCase() || "";
   if (domainPrefix && name.toLowerCase() === domainPrefix) return true;
   // Name has digits — likely derived from email address
   if (/\d/.test(name)) return true;
@@ -1115,7 +1229,7 @@ function isNameSuspicious(name: string, clientEmail: string): boolean {
 /** Normalize a subject line: strip Re:, Fwd:, and extra whitespace */
 function normalizeSubject(subject: string): string {
   return subject
-    .replace(/^(re|fwd|fw)\s*:\s*/gi, '')
-    .replace(/^(re|fwd|fw)\s*:\s*/gi, '')
+    .replace(/^(re|fwd|fw)\s*:\s*/gi, "")
+    .replace(/^(re|fwd|fw)\s*:\s*/gi, "")
     .trim();
 }

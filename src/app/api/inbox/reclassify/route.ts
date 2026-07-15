@@ -3,8 +3,10 @@
  *
  * POST /api/inbox/reclassify
  *
- * Clears the backlog of never-classified email_threads rows
- * (`category_classified_at IS NULL AND category_manually_set = false`).
+ * Clears the backlog of email_threads rows whose classification payload is
+ * dirty (`category_classified_at IS NULL`). This includes manually-categorized
+ * rows: classifyAndUpdate preserves their human category while refreshing the
+ * summary, labels, classifier version, and classified timestamp.
  *
  * Why this exists: historical backfill used to default `classify=false`, so
  * the initial import of a user's mailbox landed every thread in
@@ -23,9 +25,8 @@
  *   - Per-run cost ceiling: MAX_CALLS bounds how many classifier calls a
  *     single HTTP request can make. A stuck cron can't rack up unbounded $$.
  *
- * Idempotent: the WHERE clause excludes manually-set rows and any row
- * whose classified_at has been written, so re-running after a partial
- * success picks up only what's still missing.
+ * Idempotent: the WHERE clause excludes any row whose classified_at has been
+ * written, so re-running after a partial success picks up only what's missing.
  *
  * Auth: `inbox.categorize` (same permission as the recategorize action).
  */
@@ -103,9 +104,7 @@ export async function POST(request: NextRequest) {
   // routes use. Fail-closed on both paths.
   const authHeader = request.headers.get("authorization") ?? "";
   const cronSecret = process.env.CRON_SECRET;
-  const isCronAuth =
-    !!cronSecret &&
-    authHeader === `Bearer ${cronSecret}`;
+  const isCronAuth = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
 
   let companyId: string;
   const { searchParams } = new URL(request.url);
@@ -124,7 +123,11 @@ export async function POST(request: NextRequest) {
     if (!authUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
+    const user = await findUserByAuth(
+      authUser.uid,
+      authUser.email,
+      "id, company_id"
+    );
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -146,22 +149,24 @@ export async function POST(request: NextRequest) {
 
   const limitRaw = searchParams.get("limit");
   const limit = Math.min(
-    Math.max(limitRaw ? parseInt(limitRaw, 10) || LIMIT_PER_RUN : LIMIT_PER_RUN, 1),
+    Math.max(
+      limitRaw ? parseInt(limitRaw, 10) || LIMIT_PER_RUN : LIMIT_PER_RUN,
+      1
+    ),
     LIMIT_PER_RUN
   );
 
   const supabase = getServiceRoleClient();
 
   // ── Pull a page of unclassified threads ───────────────────────────────────
-  // Company-scoped — a user can only reclassify their own company's
-  // threads. manual_set=false guard ensures we never steamroll a category
-  // a human explicitly corrected.
+  // Company-scoped — a user can only reclassify their own company's threads.
+  // Manual categories remain eligible because classifyAndUpdate preserves the
+  // human category while refreshing the rest of the classification payload.
   const { data: rows, error } = await supabase
     .from("email_threads")
     .select("*")
     .eq("company_id", companyId)
     .is("category_classified_at", null)
-    .eq("category_manually_set", false)
     .order("last_message_at", { ascending: false })
     .limit(limit);
 
@@ -226,8 +231,7 @@ export async function POST(request: NextRequest) {
     .from("email_threads")
     .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
-    .is("category_classified_at", null)
-    .eq("category_manually_set", false);
+    .is("category_classified_at", null);
 
   result.remaining = count ?? null;
 

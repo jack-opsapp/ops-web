@@ -8,9 +8,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/toast";
 import { queryKeys } from "../api/query-client";
-import { EmailService } from "../api/services/email-service";
+import { EmailConnectionService } from "../api/services/email-connection-service";
 import { useAuthStore } from "../store/auth-store";
 import type { UpdateEmailConnection } from "../types/email-connection";
+import { authedFetch } from "../utils/authed-fetch";
 
 /**
  * Fetch all email connections for the current company.
@@ -21,7 +22,7 @@ export function useEmailConnections() {
 
   return useQuery({
     queryKey: queryKeys.emailConnections.list(companyId),
-    queryFn: () => EmailService.getConnections(companyId),
+    queryFn: () => EmailConnectionService.getConnections(companyId),
     enabled: !!companyId,
     staleTime: 5 * 60 * 1000, // 5 min
   });
@@ -35,7 +36,7 @@ export function useUpdateEmailConnection() {
 
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateEmailConnection }) =>
-      EmailService.updateConnection(id, data),
+      EmailConnectionService.updateConnection(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.emailConnections.all,
@@ -55,7 +56,7 @@ export function useDeleteEmailConnection() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => EmailService.deleteConnection(id),
+    mutationFn: (id: string) => EmailConnectionService.deleteConnection(id),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.emailConnections.all,
@@ -76,11 +77,14 @@ export function useTriggerEmailSync() {
 
   return useMutation({
     mutationFn: async (connectionId: string) => {
-      const response = await fetch("/api/integrations/email/manual-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId }),
-      });
+      const response = await authedFetch(
+        "/api/integrations/email/manual-sync",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ connectionId }),
+        }
+      );
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? "Sync failed");
@@ -102,7 +106,10 @@ export function useTriggerEmailSync() {
       });
 
       const results = data.results ?? [];
-      const totalMatched = results.reduce((sum, r) => sum + (r.matched ?? 0), 0);
+      const totalMatched = results.reduce(
+        (sum, r) => sum + (r.matched ?? 0),
+        0
+      );
       const totalReview = results.reduce(
         (sum, r) => sum + (r.needsReview ?? 0),
         0

@@ -32,8 +32,6 @@ export type PipelineTableColumnId =
   | "stage"
   | "client"
   | "value"
-  | "win_probability"
-  | "weighted"
   | "age_in_stage"
   | "last_activity"
   | "next_follow_up"
@@ -50,8 +48,6 @@ export const PIPELINE_TABLE_COLUMN_IDS = [
   "stage",
   "client",
   "value",
-  "win_probability",
-  "weighted",
   "age_in_stage",
   "last_activity",
   "next_follow_up",
@@ -70,7 +66,6 @@ export type PipelineTableCellKind =
   | "stage"
   | "relation"
   | "currency"
-  | "percent"
   | "number"
   | "date"
   | "assignee"
@@ -99,7 +94,7 @@ export const PIPELINE_TABLE_EDITABLE_COLUMN_IDS = [
 
 /** Narrow a column id to the inline-editable subset. */
 export function isPipelineTableEditableColumn(
-  id: PipelineTableColumnId,
+  id: PipelineTableColumnId
 ): id is PipelineTableEditableColumnId {
   return (PIPELINE_TABLE_EDITABLE_COLUMN_IDS as readonly string[]).includes(id);
 }
@@ -123,21 +118,133 @@ export interface PipelineTableColumnConfig {
 }
 
 export const PIPELINE_TABLE_COLUMNS: PipelineTableColumnConfig[] = [
-  { id: "select", labelKey: "table.column.select", kind: "select", frozen: true, minWidth: 36, width: 36, maxWidth: 36 },
-  { id: "deal", labelKey: "table.column.deal", kind: "text", frozen: true, sortable: true, minWidth: 200, width: 280, maxWidth: 480 },
-  { id: "stage", labelKey: "table.column.stage", kind: "stage", frozen: true, sortable: true, minWidth: 124, width: 136, maxWidth: 168 },
-  { id: "client", labelKey: "table.column.client", kind: "relation", sortable: true, editable: true, minWidth: 140, width: 180, maxWidth: 320 },
-  { id: "value", labelKey: "table.column.value", kind: "currency", sortable: true, editable: true, minWidth: 110, width: 130, maxWidth: 180, align: "right" },
-  { id: "win_probability", labelKey: "table.column.win_probability", kind: "percent", sortable: true, minWidth: 80, width: 90, maxWidth: 120, align: "right" },
-  { id: "weighted", labelKey: "table.column.weighted", kind: "currency", sortable: true, minWidth: 110, width: 130, maxWidth: 180, align: "right" },
-  { id: "age_in_stage", labelKey: "table.column.age_in_stage", kind: "number", sortable: true, minWidth: 90, width: 110, maxWidth: 140, align: "right" },
-  { id: "last_activity", labelKey: "table.column.last_activity", kind: "date", sortable: true, minWidth: 110, width: 130, maxWidth: 160 },
-  { id: "next_follow_up", labelKey: "table.column.next_follow_up", kind: "date", sortable: true, editable: true, minWidth: 110, width: 130, maxWidth: 160 },
-  { id: "expected_close", labelKey: "table.column.expected_close", kind: "date", sortable: true, editable: true, minWidth: 110, width: 130, maxWidth: 160 },
-  { id: "assignee", labelKey: "table.column.assignee", kind: "assignee", sortable: true, editable: true, minWidth: 120, width: 150, maxWidth: 240 },
-  { id: "source", labelKey: "table.column.source", kind: "text", sortable: true, minWidth: 100, width: 120, maxWidth: 180 },
-  { id: "priority", labelKey: "table.column.priority", kind: "priority", sortable: true, minWidth: 90, width: 100, maxWidth: 130 },
-  { id: "correspondence", labelKey: "table.column.correspondence", kind: "number", sortable: true, minWidth: 80, width: 90, maxWidth: 120, align: "right" },
+  {
+    id: "select",
+    labelKey: "table.column.select",
+    kind: "select",
+    frozen: true,
+    minWidth: 36,
+    width: 36,
+    maxWidth: 36,
+  },
+  {
+    id: "deal",
+    labelKey: "table.column.deal",
+    kind: "text",
+    frozen: true,
+    sortable: true,
+    minWidth: 200,
+    width: 280,
+    maxWidth: 480,
+  },
+  {
+    id: "stage",
+    labelKey: "table.column.stage",
+    kind: "stage",
+    frozen: true,
+    sortable: true,
+    minWidth: 124,
+    width: 136,
+    maxWidth: 168,
+  },
+  {
+    id: "client",
+    labelKey: "table.column.client",
+    kind: "relation",
+    sortable: true,
+    editable: true,
+    minWidth: 140,
+    width: 180,
+    maxWidth: 320,
+  },
+  {
+    id: "value",
+    labelKey: "table.column.value",
+    kind: "currency",
+    sortable: true,
+    editable: true,
+    minWidth: 110,
+    width: 130,
+    maxWidth: 180,
+    align: "right",
+  },
+  {
+    id: "age_in_stage",
+    labelKey: "table.column.age_in_stage",
+    kind: "number",
+    sortable: true,
+    minWidth: 90,
+    width: 110,
+    maxWidth: 140,
+    align: "right",
+  },
+  {
+    id: "last_activity",
+    labelKey: "table.column.last_activity",
+    kind: "date",
+    sortable: true,
+    minWidth: 110,
+    width: 130,
+    maxWidth: 160,
+  },
+  {
+    id: "next_follow_up",
+    labelKey: "table.column.next_follow_up",
+    kind: "date",
+    sortable: true,
+    editable: true,
+    minWidth: 110,
+    width: 130,
+    maxWidth: 160,
+  },
+  {
+    id: "expected_close",
+    labelKey: "table.column.expected_close",
+    kind: "date",
+    sortable: true,
+    editable: true,
+    minWidth: 110,
+    width: 130,
+    maxWidth: 160,
+  },
+  {
+    id: "assignee",
+    labelKey: "table.column.assignee",
+    kind: "assignee",
+    sortable: true,
+    editable: true,
+    minWidth: 120,
+    width: 150,
+    maxWidth: 240,
+  },
+  {
+    id: "source",
+    labelKey: "table.column.source",
+    kind: "text",
+    sortable: true,
+    minWidth: 100,
+    width: 120,
+    maxWidth: 180,
+  },
+  {
+    id: "priority",
+    labelKey: "table.column.priority",
+    kind: "priority",
+    sortable: true,
+    minWidth: 90,
+    width: 100,
+    maxWidth: 130,
+  },
+  {
+    id: "correspondence",
+    labelKey: "table.column.correspondence",
+    kind: "number",
+    sortable: true,
+    minWidth: 80,
+    width: 90,
+    maxWidth: 120,
+    align: "right",
+  },
 ];
 
 // ─── Row Shape ────────────────────────────────────────────────────────────────
@@ -187,7 +294,6 @@ export const DEFAULT_PIPELINE_TABLE_COLUMNS: PipelineTableColumnId[] = [
   "stage",
   "client",
   "value",
-  "weighted",
   "age_in_stage",
   "next_follow_up",
   "assignee",
@@ -204,7 +310,8 @@ export const DEFAULT_PIPELINE_TABLE_COLUMNS: PipelineTableColumnId[] = [
  */
 
 /** Raw `opportunity_views` row as returned by Supabase. */
-export type OpportunityViewDbRow = Database["public"]["Tables"]["opportunity_views"]["Row"];
+export type OpportunityViewDbRow =
+  Database["public"]["Tables"]["opportunity_views"]["Row"];
 
 /**
  * Density reuses the projects density type — pipeline rows share the same

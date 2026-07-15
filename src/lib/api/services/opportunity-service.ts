@@ -9,7 +9,11 @@
  * happens at the mapping layer in this file.
  */
 
-import { requireSupabase, parseDate, parseDateRequired } from "@/lib/supabase/helpers";
+import {
+  requireSupabase,
+  parseDate,
+  parseDateRequired,
+} from "@/lib/supabase/helpers";
 import type {
   Opportunity,
   CreateOpportunity,
@@ -75,7 +79,8 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     priority: (row.priority as Opportunity["priority"]) ?? null,
 
     // Financial
-    estimatedValue: row.estimated_value != null ? Number(row.estimated_value) : null,
+    estimatedValue:
+      row.estimated_value != null ? Number(row.estimated_value) : null,
     actualValue: row.actual_value != null ? Number(row.actual_value) : null,
     winProbability: Number(row.win_probability ?? 0),
 
@@ -100,12 +105,15 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
 
     // AI analysis
     aiSummary: (row.ai_summary as string) ?? null,
-    aiStageConfidence: row.ai_stage_confidence != null ? Number(row.ai_stage_confidence) : null,
+    aiStageConfidence:
+      row.ai_stage_confidence != null ? Number(row.ai_stage_confidence) : null,
     aiStageSignals: (row.ai_stage_signals as string[]) ?? null,
-    detectedValue: row.detected_value != null ? Number(row.detected_value) : null,
+    detectedValue:
+      row.detected_value != null ? Number(row.detected_value) : null,
 
     // Quote delivery
-    quoteDeliveryMethod: (row.quote_delivery_method as Opportunity["quoteDeliveryMethod"]) ?? null,
+    quoteDeliveryMethod:
+      (row.quote_delivery_method as Opportunity["quoteDeliveryMethod"]) ?? null,
 
     // Address
     address: (row.address as string) ?? null,
@@ -152,9 +160,11 @@ function mapOpportunityToDb(
   if (data.priority !== undefined) row.priority = data.priority;
 
   // Financial
-  if (data.estimatedValue !== undefined) row.estimated_value = data.estimatedValue;
+  if (data.estimatedValue !== undefined)
+    row.estimated_value = data.estimatedValue;
   if (data.actualValue !== undefined) row.actual_value = data.actualValue;
-  if (data.winProbability !== undefined) row.win_probability = data.winProbability;
+  if (data.winProbability !== undefined)
+    row.win_probability = data.winProbability;
 
   // Dates
   if (data.expectedCloseDate !== undefined) {
@@ -186,10 +196,14 @@ function mapOpportunityToDb(
   if (data.projectId !== undefined) row.project_id = data.projectId;
   if (data.lostReason !== undefined) row.lost_reason = data.lostReason;
   if (data.lostNotes !== undefined) row.lost_notes = data.lostNotes;
-  if (data.sourceEmailId !== undefined) row.source_email_id = data.sourceEmailId;
+  if (data.sourceEmailId !== undefined)
+    row.source_email_id = data.sourceEmailId;
+  if (data.sourceThreadKey !== undefined)
+    row.source_thread_key = data.sourceThreadKey;
 
   // Email correspondence tracking
-  if (data.correspondenceCount !== undefined) row.correspondence_count = data.correspondenceCount;
+  if (data.correspondenceCount !== undefined)
+    row.correspondence_count = data.correspondenceCount;
   if (data.outboundCount !== undefined) row.outbound_count = data.outboundCount;
   if (data.inboundCount !== undefined) row.inbound_count = data.inboundCount;
   if (data.lastInboundAt !== undefined) {
@@ -206,10 +220,12 @@ function mapOpportunityToDb(
         : data.lastOutboundAt
       : null;
   }
-  if (data.lastMessageDirection !== undefined) row.last_message_direction = data.lastMessageDirection;
+  if (data.lastMessageDirection !== undefined)
+    row.last_message_direction = data.lastMessageDirection;
 
   // Quote delivery
-  if (data.quoteDeliveryMethod !== undefined) row.quote_delivery_method = data.quoteDeliveryMethod;
+  if (data.quoteDeliveryMethod !== undefined)
+    row.quote_delivery_method = data.quoteDeliveryMethod;
 
   // Address
   if (data.address !== undefined) row.address = data.address;
@@ -247,8 +263,10 @@ function mapActivityFromDb(row: Record<string, unknown>): Activity {
     content: (row.content as string) ?? null,
     outcome: (row.outcome as string) ?? null,
     direction: (row.direction as Activity["direction"]) ?? null,
-    durationMinutes: row.duration_minutes != null ? Number(row.duration_minutes) : null,
+    durationMinutes:
+      row.duration_minutes != null ? Number(row.duration_minutes) : null,
     attachments: (row.attachments as string[]) ?? [],
+    emailConnectionId: (row.email_connection_id as string) ?? null,
     emailThreadId: (row.email_thread_id as string) ?? null,
     emailMessageId: (row.email_message_id as string) ?? null,
     isRead: (row.is_read as boolean) ?? true,
@@ -259,7 +277,8 @@ function mapActivityFromDb(row: Record<string, unknown>): Activity {
     ccEmails: (row.cc_emails as string[]) ?? [],
     bodyText: (row.body_text as string) ?? null,
     hasAttachments: (row.has_attachments as boolean) ?? false,
-    attachmentCount: row.attachment_count != null ? Number(row.attachment_count) : 0,
+    attachmentCount:
+      row.attachment_count != null ? Number(row.attachment_count) : 0,
     matchConfidence: (row.match_confidence as string) ?? null,
     matchNeedsReview: (row.match_needs_review as boolean) ?? false,
     suggestedClientId: (row.suggested_client_id as string) ?? null,
@@ -292,6 +311,7 @@ function mapActivityToDb(data: CreateActivity): Record<string, unknown> {
     direction: data.direction,
     duration_minutes: data.durationMinutes,
     attachments: data.attachments ?? [],
+    email_connection_id: data.emailConnectionId ?? null,
     email_thread_id: data.emailThreadId,
     email_message_id: data.emailMessageId,
     is_read: data.isRead ?? true,
@@ -305,6 +325,14 @@ function mapActivityToDb(data: CreateActivity): Record<string, unknown> {
     match_confidence: data.matchConfidence ?? null,
     match_needs_review: data.matchNeedsReview ?? false,
     suggested_client_id: data.suggestedClientId ?? null,
+    ...(data.occurredAt
+      ? {
+          created_at:
+            data.occurredAt instanceof Date
+              ? data.occurredAt.toISOString()
+              : data.occurredAt,
+        }
+      : {}),
   };
 }
 
@@ -364,7 +392,9 @@ function mapFollowUpToDb(data: CreateFollowUp): Record<string, unknown> {
 /**
  * Convert a snake_case database row into a camelCase StageTransition object.
  */
-function mapStageTransitionFromDb(row: Record<string, unknown>): StageTransition {
+function mapStageTransitionFromDb(
+  row: Record<string, unknown>
+): StageTransition {
   return {
     id: row.id as string,
     companyId: row.company_id as string,
@@ -373,7 +403,8 @@ function mapStageTransitionFromDb(row: Record<string, unknown>): StageTransition
     toStage: row.to_stage as OpportunityStage,
     transitionedAt: parseDateRequired(row.transitioned_at),
     transitionedBy: (row.transitioned_by as string) ?? null,
-    durationInStage: row.duration_in_stage != null ? Number(row.duration_in_stage) : null,
+    durationInStage:
+      row.duration_in_stage != null ? Number(row.duration_in_stage) : null,
   };
 }
 
@@ -387,7 +418,9 @@ function mapStageTransitionFromDb(row: Record<string, unknown>): StageTransition
  * false) so a malformed/partial row still produces a valid config rather than
  * propagating nulls into the weighted-forecast / rotting math.
  */
-export function mapStageConfigRow(row: Record<string, unknown>): PipelineStageConfig {
+export function mapStageConfigRow(
+  row: Record<string, unknown>
+): PipelineStageConfig {
   return {
     id: row.id as string,
     companyId: row.company_id as string,
@@ -461,7 +494,8 @@ export const OpportunityService = {
 
     // Sorting
     const sortColumn = options.sortField ?? "created_at";
-    const ascending = options.descending === undefined ? false : !options.descending;
+    const ascending =
+      options.descending === undefined ? false : !options.descending;
     query = query.order(sortColumn, { ascending });
 
     const { data, error } = await query;
@@ -510,7 +544,12 @@ export const OpportunityService = {
       .single();
 
     if (error) {
-      throw new Error(`Failed to create opportunity: ${error.message}`);
+      const createError = new Error(
+        `Failed to create opportunity: ${error.message}`,
+        { cause: error }
+      ) as Error & { code?: string };
+      createError.code = (error as { code?: string }).code;
+      throw createError;
     }
 
     return mapOpportunityFromDb(created as Record<string, unknown>);
@@ -529,7 +568,9 @@ export const OpportunityService = {
     // Strip the id field if present – it should not be sent as a column update
     const { id: _id, ...rest } = data as Record<string, unknown>;
     const row = mapOpportunityToDb(
-      rest as Partial<CreateOpportunity> & { nextFollowUpAt?: Date | string | null },
+      rest as Partial<CreateOpportunity> & {
+        nextFollowUpAt?: Date | string | null;
+      }
     );
 
     const { data: updated, error } = await supabase
@@ -639,7 +680,8 @@ export const OpportunityService = {
     const stageConfig = PIPELINE_STAGES_DEFAULT.find(
       (s) => s.slug === newStage
     );
-    const winProbability = stageConfig?.winProbability ?? current.winProbability;
+    const winProbability =
+      stageConfig?.winProbability ?? current.winProbability;
 
     // 2. Update the opportunity
     const { data: updated, error: updateError } = await supabase
@@ -712,7 +754,8 @@ export const OpportunityService = {
       .from("opportunities")
       .update({ archived_at: new Date().toISOString() })
       .eq("id", id);
-    if (error) throw new Error(`Failed to archive opportunity: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to archive opportunity: ${error.message}`);
   },
 
   /**
@@ -726,7 +769,8 @@ export const OpportunityService = {
       .from("opportunities")
       .update({ archived_at: null })
       .eq("id", id);
-    if (error) throw new Error(`Failed to unarchive opportunity: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to unarchive opportunity: ${error.message}`);
   },
 
   // ─── Activities ───────────────────────────────────────────────────────────
@@ -872,7 +916,10 @@ export const OpportunityService = {
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to attach client to opportunity: ${error.message}`);
+    if (error)
+      throw new Error(
+        `Failed to attach client to opportunity: ${error.message}`
+      );
 
     // Also update any estimates linked to this opportunity that lack a client
     await supabase

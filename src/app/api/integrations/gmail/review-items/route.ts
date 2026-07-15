@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
@@ -18,8 +19,17 @@ export async function GET(request: NextRequest) {
     const companyId = searchParams.get("companyId");
 
     if (!companyId) {
-      return NextResponse.json({ error: "companyId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "companyId is required" },
+        { status: 400 }
+      );
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      companyId,
+      "inbox.view"
+    );
+    if (authError) return authError;
 
     // The review queue surfaces inbound emails the auto-classification pipeline
     // couldn't confidently place (unmatched) or matched only weakly
@@ -87,11 +97,11 @@ export async function GET(request: NextRequest) {
       matchConfidence: a.match_confidence,
       suggestedClientId: a.suggested_client_id,
       suggestedClientName: a.suggested_client_id
-        ? clientMap[a.suggested_client_id as string] ?? null
+        ? (clientMap[a.suggested_client_id as string] ?? null)
         : null,
       clientId: a.client_id,
       clientName: a.client_id
-        ? clientMap[a.client_id as string] ?? null
+        ? (clientMap[a.client_id as string] ?? null)
         : null,
       emailThreadId: a.email_thread_id,
       createdAt: a.created_at,

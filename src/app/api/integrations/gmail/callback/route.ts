@@ -1,93 +1,22 @@
 /**
  * OPS Web - Gmail OAuth Callback
  *
- * GET /api/integrations/gmail/callback?code=...&state=<base64>
- *
- * Exchanges auth code for tokens and persists the connection. The `state`
- * parameter carries a base64-encoded JSON `{companyId, userId, type}` set
- * by the OAuth initiation route — we decode it so the connection row gets
- * the correct user_id (critical for Phase C hooks to fire) and type
- * (company vs individual).
+ * Exchanges an authorization code and persists the connection only after
+ * atomically consuming the short-lived, server-side OAuth state nonce.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { consumeEmailOAuthState } from "@/lib/email/email-oauth-state";
+import { persistEmailOAuthConnection } from "@/lib/email/email-oauth-connection";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
-import {
-  buildReturnRedirect,
-  sanitizeReturnTo,
-} from "@/lib/utils/oauth-return";
-import { defaultAutoSendSettings } from "@/lib/api/services/mailbox-draft-helpers";
+import { buildReturnRedirect } from "@/lib/utils/oauth-return";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_GMAIL_CLIENT_SECRET;
 
-interface OAuthState {
-  companyId: string;
-  userId: string | null;
-  type: "company" | "individual";
-  /**
-   * Where to land the user after the connection is written. `wizard` (default)
-   * keeps the existing /settings landing for in-app reconnects. `alert` lands
-   * them on /reconnect-inbox/success — the auth-aware confirmation page used
-   * by the email-ingest-down alert flow.
-   */
-  source: "wizard" | "alert";
-  /**
-   * Optional app-internal path (allowlisted: must be a "/..." path) to land
-   * on instead of /settings — set when the flow started somewhere else in
-   * the app (e.g. the pipeline connect banner). Success appends
-   * `?connected=gmail`, failure `?connect_error=1`, so the origin page can
-   * fire its toast. Null keeps every legacy landing exactly as before.
-   */
-  returnTo: string | null;
-}
-
-/**
- * Decode the base64-encoded JSON state set by gmail/route.ts. Falls back
- * to treating the state as a plain companyId string for backward
- * compatibility with in-flight OAuth sessions that were initiated before
- * the state format was upgraded.
- */
-function decodeState(raw: string): OAuthState | null {
-  // Try the new base64-JSON format first.
-  try {
-    const json = JSON.parse(Buffer.from(raw, "base64").toString("utf-8"));
-    if (json && typeof json === "object" && typeof json.companyId === "string") {
-      return {
-        companyId: json.companyId,
-        userId: typeof json.userId === "string" ? json.userId : null,
-        type: json.type === "individual" ? "individual" : "company",
-        source: json.source === "alert" ? "alert" : "wizard",
-        // Re-sanitize on the way back — state round-trips through Google
-        // and must be treated as attacker-controlled.
-        returnTo: sanitizeReturnTo(json.returnTo),
-      };
-    }
-  } catch {
-    // Not base64 JSON — fall through to legacy path.
-  }
-
-  // Legacy format: state was just the raw companyId string.
-  if (raw && !raw.includes("=") && !raw.includes(":")) {
-    return {
-      companyId: raw,
-      userId: null,
-      type: "company",
-      source: "wizard",
-      returnTo: null,
-    };
-  }
-  return null;
-}
-
-/**
- * Failure landing: when the flow carried a valid app-internal `returnTo`,
- * send the user back there with `?connect_error=1` so the origin page fires
- * its error toast. Flows without returnTo (settings wizard, alert email)
- * keep today's /settings error redirect exactly.
- */
-function errorRedirect(returnTo: string | null, message: string) {
+function errorRedirect(returnTo: string | null | undefined, message: string) {
   if (returnTo) {
     const url = buildReturnRedirect(getAppUrl(), returnTo, {
       connect_error: "1",
@@ -103,42 +32,56 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const rawState = searchParams.get("state");
-  const error = searchParams.get("error");
+  const providerError = searchParams.get("error");
 
-  // Decode state up-front (it arrives even on provider errors/denials) so
-  // every failure path can honor a valid returnTo.
-  const state = rawState ? decodeState(rawState) : null;
-  const returnTo = state?.returnTo ?? null;
+  if (!rawState) return errorRedirect(null, "missing_params");
 
-  // Handle user denial
-  if (error) {
-    return errorRedirect(returnTo, error);
+  const supabase = getServiceRoleClient();
+  let state;
+  try {
+    state = await consumeEmailOAuthState(supabase, "gmail", rawState);
+  } catch (stateError) {
+    console.error("[Gmail OAuth] State consumption failed:", stateError);
+    return errorRedirect(null, "invalid_state");
+  }
+  if (!state) {
+    console.error("[Gmail OAuth] Rejected expired, replayed, or invalid state");
+    return errorRedirect(null, "invalid_state");
   }
 
-  if (!code || !rawState) {
-    return errorRedirect(returnTo, "missing_params");
+  const returnTo = state.returnTo ?? null;
+  const authError = await requireEmailCompanyAccess(
+    request,
+    state.companyId,
+    "settings.integrations",
+    state.userId
+  );
+  if (authError) {
+    console.error("[Gmail OAuth] Callback OPS session did not match initiator");
+    const retryPath =
+      state.source === "alert"
+        ? `/reconnect-inbox?${new URLSearchParams({
+            companyId: state.companyId,
+            userId: state.userId,
+            type: state.type,
+            provider: "gmail",
+            connectionId: state.connectionId,
+            expectedEmail: state.expectedEmail,
+          }).toString()}`
+        : returnTo || "/settings?tab=integrations";
+    return NextResponse.redirect(
+      `${getAppUrl()}/login?redirect=${encodeURIComponent(retryPath)}`
+    );
   }
 
+  // State is consumed even when the operator denied provider consent.
+  if (providerError) return errorRedirect(returnTo, providerError);
+  if (!code) return errorRedirect(returnTo, "missing_params");
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     return errorRedirect(returnTo, "not_configured");
   }
 
-  if (!state) {
-    console.error("[Gmail OAuth] Failed to decode state:", rawState);
-    return errorRedirect(returnTo, "invalid_state");
-  }
-
-  // Individual connections MUST carry a userId. If the state came through
-  // without one (legacy init or missing query param), we can't attribute
-  // the connection correctly — reject rather than silently fall back to
-  // company-scope, because Phase C depends on user_id being non-null.
-  if (state.type === "individual" && !state.userId) {
-    console.error("[Gmail OAuth] Individual connection missing userId");
-    return errorRedirect(returnTo, "missing_user_id");
-  }
-
   try {
-    // Exchange authorization code for tokens
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -153,80 +96,52 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
-      console.error("[Gmail OAuth] Token exchange failed");
-      console.error("[Gmail OAuth] Status:", tokenResponse.status);
-      console.error("[Gmail OAuth] Response:", errorData);
-      console.error("[Gmail OAuth] Redirect URI used:", `${getAppUrl()}/api/integrations/gmail/callback`);
-      try {
-        const parsed = JSON.parse(errorData);
-        console.error("[Gmail OAuth] Error code:", parsed.error);
-        console.error("[Gmail OAuth] Error description:", parsed.error_description);
-      } catch { /* not JSON */ }
+      console.error("[Gmail OAuth] Token exchange failed", {
+        status: tokenResponse.status,
+        response: errorData,
+      });
       return errorRedirect(returnTo, "token_exchange_failed");
     }
 
     const tokens = await tokenResponse.json();
-
-    // Get user email from the access token
-    let gmailEmail = "";
-    try {
-      const userInfoResponse = await fetch(
-        "https://www.googleapis.com/oauth2/v2/userinfo",
-        { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+    const profileResponse = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+      { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+    );
+    if (!profileResponse.ok) {
+      console.error(
+        "[Gmail OAuth] Mailbox profile lookup failed:",
+        profileResponse.status
       );
-      if (userInfoResponse.ok) {
-        const userInfo = await userInfoResponse.json();
-        gmailEmail = userInfo.email || "";
-      }
-    } catch {
-      // Non-critical — email is nice to have
+      return errorRedirect(returnTo, "mailbox_identity_failed");
     }
 
-    // Persist the connection with explicit user_id, type, provider, and
-    // status. We write status='setup_incomplete' because the wizard has
-    // additional steps (pattern detection, filter config, activate). The
-    // activate endpoint flips it to 'active' when the user finishes.
-    //
-    // Auto-draft defaults are seeded only on a genuinely new connection —
-    // reconnects must preserve whatever settings the user has already
-    // configured, so we check existence before upserting.
-    const supabase = getServiceRoleClient();
-
-    const { data: existingRow } = await supabase
-      .from("email_connections")
-      .select("id, auto_send_settings")
-      .eq("company_id", state.companyId)
-      .eq("email", gmailEmail)
-      .maybeSingle();
-
-    const isNewConnection = !existingRow;
-
-    const upsertPayload: Record<string, unknown> = {
-      company_id: state.companyId,
-      user_id: state.userId,
-      type: state.type,
-      provider: "gmail",
-      status: "setup_incomplete",
-      email: gmailEmail,
-      access_token: tokens.access_token || "",
-      refresh_token: tokens.refresh_token || "",
-      expires_at: new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString(),
-      sync_enabled: true,
-      updated_at: new Date().toISOString(),
-    };
-
-    // Only seed defaults on initial creation — never overwrite a reconnect's
-    // existing settings (user may have customised them via the settings UI).
-    if (isNewConnection) {
-      upsertPayload.auto_send_settings = defaultAutoSendSettings();
+    const profile = await profileResponse.json();
+    const gmailEmail = String(profile.emailAddress || "")
+      .trim()
+      .toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gmailEmail)) {
+      console.error("[Gmail OAuth] Profile returned no valid mailbox email");
+      return errorRedirect(returnTo, "mailbox_identity_failed");
+    }
+    if (state.source === "alert" && gmailEmail !== state.expectedEmail) {
+      console.error("[Gmail OAuth] Reconnect mailbox did not match alert state");
+      return errorRedirect(returnTo, "mailbox_identity_mismatch");
     }
 
-    const { error: upsertError } = await supabase
-      .from("email_connections")
-      .upsert(upsertPayload, { onConflict: "company_id,email" });
-
-    if (upsertError) {
-      console.error("Failed to store Gmail tokens:", upsertError.message);
+    try {
+      await persistEmailOAuthConnection(supabase, {
+        state,
+        provider: "gmail",
+        email: gmailEmail,
+        accessToken: tokens.access_token || "",
+        refreshToken: tokens.refresh_token,
+        expiresAt: new Date(
+          Date.now() + (tokens.expires_in || 3600) * 1000
+        ).toISOString(),
+      });
+    } catch (storageError) {
+      console.error("Failed to store Gmail tokens:", storageError);
       return errorRedirect(returnTo, "storage_failed");
     }
 
@@ -241,8 +156,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // App-initiated flows (e.g. the pipeline connect banner) land back where
-    // they started with ?connected=gmail so the origin page fires its toast.
     if (returnTo) {
       const url = buildReturnRedirect(getAppUrl(), returnTo, {
         connected: "gmail",

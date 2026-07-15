@@ -15,11 +15,13 @@
  * layer agent-unaware means the router can evolve independently.
  */
 
-import { requireSupabase, parseDate, parseDateRequired } from "@/lib/supabase/helpers";
-import { EmailService } from "./email-service";
 import {
-  type EmailConnection,
-} from "@/lib/types/email-connection";
+  requireSupabase,
+  parseDate,
+  parseDateRequired,
+} from "@/lib/supabase/helpers";
+import { EmailService } from "./email-service";
+import { type EmailConnection } from "@/lib/types/email-connection";
 import {
   mapEmailThreadFromDb,
   type ArchiveLeadPreference,
@@ -57,6 +59,7 @@ import {
 } from "@/lib/utils/email-parsing";
 import { assertValidProviderEmailIds } from "@/lib/email/provider-email-ids";
 import type { NormalizedEmail } from "./email-provider";
+import { listEmailThreadSiblings } from "./email-thread-sibling-service";
 
 // ─── Sender-name resolution ──────────────────────────────────────────────────
 //
@@ -72,10 +75,30 @@ import type { NormalizedEmail } from "./email-provider";
 // are usually the same handful of senders per cycle.
 
 const GENERIC_MAILBOX_TOKENS = new Set([
-  "team", "info", "accounts", "accounting", "sales", "support", "billing",
-  "help", "hello", "contact", "noreply", "no-reply", "admin", "office",
-  "mailbox", "inbox", "notifications", "updates", "news", "marketing",
-  "service", "services", "enquiries", "inquiries",
+  "team",
+  "info",
+  "accounts",
+  "accounting",
+  "sales",
+  "support",
+  "billing",
+  "help",
+  "hello",
+  "contact",
+  "noreply",
+  "no-reply",
+  "admin",
+  "office",
+  "mailbox",
+  "inbox",
+  "notifications",
+  "updates",
+  "news",
+  "marketing",
+  "service",
+  "services",
+  "enquiries",
+  "inquiries",
 ]);
 
 /**
@@ -86,7 +109,10 @@ const GENERIC_MAILBOX_TOKENS = new Set([
  */
 function isGenericMailboxName(name: string | null | undefined): boolean {
   if (!name) return true;
-  const tokens = name.toLowerCase().split(/[\s_\-/.]+/).filter(Boolean);
+  const tokens = name
+    .toLowerCase()
+    .split(/[\s_\-/.]+/)
+    .filter(Boolean);
   if (tokens.length === 0) return true;
   return tokens.some((t) => GENERIC_MAILBOX_TOKENS.has(t));
 }
@@ -96,10 +122,7 @@ function isGenericMailboxName(name: string | null | undefined): boolean {
  * resolved name or an empty string to represent "looked up, no match"
  * (so we don't re-query every no-match sender repeatedly).
  */
-const senderNameCache = new Map<
-  string,
-  { name: string; expiresAt: number }
->();
+const senderNameCache = new Map<string, { name: string; expiresAt: number }>();
 const SENDER_NAME_CACHE_TTL_MS = 60_000;
 
 function getCachedSenderName(key: string): string | undefined {
@@ -239,9 +262,7 @@ async function resolveClientIdFromEmails(
   if (!companyId || participantEmails.length === 0) return null;
   const unique = Array.from(
     new Set(
-      participantEmails
-        .map((e) => e.toLowerCase().trim())
-        .filter(Boolean)
+      participantEmails.map((e) => e.toLowerCase().trim()).filter(Boolean)
     )
   );
   if (unique.length === 0) return null;
@@ -271,7 +292,11 @@ async function resolveClientIdFromEmails(
 // ─── Labels (label-toggle helpers) ───────────────────────────────────────────
 
 function evaluateLabelsFromMessages(
-  messages: Array<{ direction: "inbound" | "outbound"; bodyText: string; hasAttachments?: boolean }>,
+  messages: Array<{
+    direction: "inbound" | "outbound";
+    bodyText: string;
+    hasAttachments?: boolean;
+  }>,
   senderIsNew: boolean
 ): EmailThreadLabel[] {
   if (messages.length === 0) return [];
@@ -281,8 +306,11 @@ function evaluateLabelsFromMessages(
   // AWAITING_REPLY — last message inbound AND looks like a question/request
   if (last.direction === "inbound") {
     const body = (last.bodyText || "").toLowerCase();
-    const hasQuestion = body.includes("?") ||
-      /\b(can you|could you|please|let me know|any chance|when|what time|confirm|awaiting|looking forward)\b/i.test(body);
+    const hasQuestion =
+      body.includes("?") ||
+      /\b(can you|could you|please|let me know|any chance|when|what time|confirm|awaiting|looking forward)\b/i.test(
+        body
+      );
     if (hasQuestion) labels.add("AWAITING_REPLY");
   }
 
@@ -292,16 +320,29 @@ function evaluateLabelsFromMessages(
   }
 
   // HAS_QUOTE / HAS_INVOICE — simple keyword heuristics (classifier may add more)
-  const allText = messages.map((m) => m.bodyText || "").join(" ").toLowerCase();
-  if (/\b(quote|estimate|pricing|total due|subtotal)\b/i.test(allText) && /\$\s*\d/.test(allText)) {
+  const allText = messages
+    .map((m) => m.bodyText || "")
+    .join(" ")
+    .toLowerCase();
+  if (
+    /\b(quote|estimate|pricing|total due|subtotal)\b/i.test(allText) &&
+    /\$\s*\d/.test(allText)
+  ) {
     labels.add("HAS_QUOTE");
   }
-  if (/\binvoice\s*(?:#|number|:)\s*\w+/i.test(allText) || /\bpayable upon receipt\b/i.test(allText)) {
+  if (
+    /\binvoice\s*(?:#|number|:)\s*\w+/i.test(allText) ||
+    /\bpayable upon receipt\b/i.test(allText)
+  ) {
     labels.add("HAS_INVOICE");
   }
 
   // URGENT — explicit time pressure
-  if (/\b(urgent|asap|emergency|by (?:friday|monday|tomorrow|today|eod)|deadline)\b/i.test(allText)) {
+  if (
+    /\b(urgent|asap|emergency|by (?:friday|monday|tomorrow|today|eod)|deadline)\b/i.test(
+      allText
+    )
+  ) {
     labels.add("URGENT");
   }
 
@@ -334,14 +375,20 @@ async function loadLearnedRules(
           .select("from_category, to_category")
           .eq("company_id", companyId)
           .eq("sender_domain", senderDomain)
-      : Promise.resolve({ data: [] as Array<Record<string, unknown>>, error: null }),
+      : Promise.resolve({
+          data: [] as Array<Record<string, unknown>>,
+          error: null,
+        }),
     senderEmail
       ? supabase
           .from("email_thread_category_corrections")
           .select("from_category, to_category")
           .eq("company_id", companyId)
           .eq("sender_email", senderEmail.toLowerCase())
-      : Promise.resolve({ data: [] as Array<Record<string, unknown>>, error: null }),
+      : Promise.resolve({
+          data: [] as Array<Record<string, unknown>>,
+          error: null,
+        }),
   ]);
 
   return {
@@ -388,6 +435,12 @@ export interface UpsertFromEmailParams {
   direction: "inbound" | "outbound";
   opportunityId?: string | null;
   clientId?: string | null;
+  /**
+   * A newly materialized provider message invalidates every derived thread
+   * field, including summaries on manually categorized threads. Replays pass
+   * false so an already-classified row is not made dirty again.
+   */
+  markClassificationDirty?: boolean;
 }
 
 export interface UpsertFromEmailResult {
@@ -412,7 +465,9 @@ interface DraftHistoryQueryRow extends PhaseCDraftRow {
   created_at: string;
 }
 
-async function enrichWithPhaseC(threads: EmailThread[]): Promise<EmailThread[]> {
+async function enrichWithPhaseC(
+  threads: EmailThread[]
+): Promise<EmailThread[]> {
   if (threads.length === 0) return threads;
   const supabase = requireSupabase();
 
@@ -428,7 +483,9 @@ async function enrichWithPhaseC(threads: EmailThread[]): Promise<EmailThread[]> 
   // Index: idx_ai_draft_history_thread_lookup (connection_id, thread_id, created_at DESC).
   const { data, error } = await supabase
     .from("ai_draft_history")
-    .select("connection_id, thread_id, status, sent_without_changes, created_at")
+    .select(
+      "connection_id, thread_id, status, sent_without_changes, created_at"
+    )
     .in("connection_id", connectionIds)
     .in("thread_id", providerThreadIds)
     .order("created_at", { ascending: false });
@@ -468,7 +525,7 @@ async function enrichWithPhaseC(threads: EmailThread[]): Promise<EmailThread[]> 
 // memory per thread on the result set after dedupe).
 
 async function enrichWithNextCommitmentId(
-  threads: EmailThread[],
+  threads: EmailThread[]
 ): Promise<EmailThread[]> {
   const candidates = threads.filter((t) => t.hasUnresolvedCommitments);
   if (candidates.length === 0) return threads;
@@ -489,7 +546,7 @@ async function enrichWithNextCommitmentId(
   if (error) {
     console.error(
       "[email-thread-service] enrichWithNextCommitmentId query failed:",
-      error.message,
+      error.message
     );
     return threads;
   }
@@ -538,7 +595,9 @@ async function enrichWithActivitySnippets(
   const [activityRes, connectionRes] = await Promise.all([
     supabase
       .from("activities")
-      .select("email_thread_id, from_email, subject, body_text, content, created_at")
+      .select(
+        "email_thread_id, from_email, subject, body_text, content, created_at"
+      )
       .eq("company_id", companyId)
       .eq("type", "email")
       .in("email_thread_id", providerThreadIds)
@@ -554,7 +613,7 @@ async function enrichWithActivitySnippets(
   if (activityRes.error || connectionRes.error) {
     console.error(
       "[email-thread-service] enrichWithActivitySnippets query failed:",
-      activityRes.error?.message ?? connectionRes.error?.message,
+      activityRes.error?.message ?? connectionRes.error?.message
     );
     return threads;
   }
@@ -646,9 +705,7 @@ export function buildSearchOrExpression(raw: string): string {
     .replace(/\\/g, "\\\\")
     .replace(/%/g, "\\%")
     .replace(/_/g, "\\_");
-  const quoted = ilikePattern
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"');
+  const quoted = ilikePattern.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   const value = `"%${quoted}%"`;
   return [
     `subject.ilike.${value}`,
@@ -811,7 +868,7 @@ export const EmailThreadService = {
       companyId,
       senderEmail,
       resolved.source === "contact_form"
-        ? resolved.name ?? ""
+        ? (resolved.name ?? "")
         : resolved.source === "forwarded"
           ? ""
           : email.fromName
@@ -833,37 +890,168 @@ export const EmailThreadService = {
       }
       if (senderEmail) existingParticipants.add(senderEmail);
 
-      const emailDate = email.date instanceof Date ? email.date : new Date(email.date);
+      const emailDate =
+        email.date instanceof Date ? email.date : new Date(email.date);
       const existingLastMsg = parseDateRequired(existing.last_message_at);
       const isNewer = emailDate.getTime() >= existingLastMsg.getTime();
 
+      // `activities` is the delivered-message ledger. Sync and operator-send
+      // persist the provider activity before refreshing this cache, so retries
+      // must derive denormalized counts/head state from those immutable message
+      // identities instead of incrementing the thread row again. The mailbox
+      // scope is essential: Gmail thread IDs and M365 conversation IDs are only
+      // unique inside one connection.
+      const { data: deliveredRows, error: deliveredError } = await supabase
+        .from("activities")
+        .select(
+          "email_message_id, direction, from_email, subject, content, body_text, created_at, is_read"
+        )
+        .eq("company_id", companyId)
+        .eq("email_connection_id", connectionId)
+        .eq("email_thread_id", providerThreadId)
+        .eq("type", "email");
+
+      if (deliveredError) {
+        throw new Error(
+          `upsertFromEmail activity ledger read failed: ${deliveredError.message}`
+        );
+      }
+
+      const deliveredByMessageId = new Map<
+        string,
+        NonNullable<typeof deliveredRows>[number]
+      >();
+      for (const row of deliveredRows ?? []) {
+        const messageId = (
+          (row.email_message_id as string | null) ?? ""
+        ).trim();
+        if (!messageId) continue;
+        deliveredByMessageId.set(messageId, row);
+      }
+      const delivered = [...deliveredByMessageId.entries()].sort(
+        ([leftId, left], [rightId, right]) => {
+          const timeDifference =
+            parseDateRequired(left.created_at).getTime() -
+            parseDateRequired(right.created_at).getTime();
+          return timeDifference || leftId.localeCompare(rightId);
+        }
+      );
+
       const update: Record<string, unknown> = {
         participants: Array.from(existingParticipants),
-        message_count: (existing.message_count as number) + 1,
-        unread_count:
+      };
+      let deliveredStateChanged = false;
+
+      if (delivered.length > 0) {
+        const [, firstDelivered] = delivered[0];
+        const [latestMessageId, latestDelivered] =
+          delivered[delivered.length - 1];
+        const latestSenderEmail = extractEmailAddress(
+          (latestDelivered.from_email as string | null) ?? ""
+        ).toLowerCase();
+        const latestDirectionRaw = String(
+          latestDelivered.direction ?? ""
+        ).toLowerCase();
+        const latestDirection: "inbound" | "outbound" =
+          latestDirectionRaw === "outbound" || latestDirectionRaw === "out"
+            ? "outbound"
+            : latestDirectionRaw === "inbound" || latestDirectionRaw === "in"
+              ? "inbound"
+              : connectionEmail && latestSenderEmail === connectionEmail
+                ? "outbound"
+                : "inbound";
+        const latestSenderName =
+          latestMessageId === email.id
+            ? senderName
+            : latestSenderEmail ===
+                  String(existing.latest_sender_email ?? "").toLowerCase() &&
+                existing.latest_sender_name
+              ? String(existing.latest_sender_name)
+              : await composeSenderName(
+                  supabase,
+                  companyId,
+                  latestSenderEmail,
+                  ""
+                );
+
+        const firstDeliveredAt = parseDateRequired(firstDelivered.created_at);
+        const latestDeliveredAt = parseDateRequired(latestDelivered.created_at);
+        const unreadCount = delivered.reduce((count, [, row]) => {
+          const rowDirection = String(row.direction ?? "").toLowerCase();
+          const rowSenderEmail = extractEmailAddress(
+            (row.from_email as string | null) ?? ""
+          ).toLowerCase();
+          const inbound =
+            rowDirection === "inbound" ||
+            rowDirection === "in" ||
+            (!rowDirection &&
+              (!connectionEmail || rowSenderEmail !== connectionEmail));
+          return inbound && row.is_read !== true ? count + 1 : count;
+        }, 0);
+        const latestDeliveredSnippet = snippetFromMessage(
+          latestDelivered.content as string | null,
+          latestDelivered.body_text as string | null,
+          latestDelivered.subject as string | null
+        );
+
+        deliveredStateChanged =
+          Number(existing.message_count ?? 0) !== delivered.length ||
+          Number(existing.unread_count ?? 0) !== unreadCount ||
+          parseDateRequired(existing.first_message_at).getTime() !==
+            firstDeliveredAt.getTime() ||
+          existingLastMsg.getTime() !== latestDeliveredAt.getTime() ||
+          String(existing.latest_direction ?? "") !== latestDirection ||
+          String(existing.latest_snippet ?? "") !== latestDeliveredSnippet;
+
+        update.first_message_at = firstDeliveredAt.toISOString();
+        update.last_message_at = latestDeliveredAt.toISOString();
+        update.message_count = delivered.length;
+        update.unread_count = unreadCount;
+        update.latest_direction = latestDirection;
+        update.latest_sender_email = latestSenderEmail;
+        update.latest_sender_name = latestSenderName;
+        update.latest_snippet = latestDeliveredSnippet;
+
+        // Keep an existing subject unless it is blank. The first delivered
+        // activity is the same source used by historical activity backfills.
+        if (!(existing.subject as string).length) {
+          update.subject =
+            ((firstDelivered.subject as string | null) ?? "").trim() ||
+            email.subject;
+        }
+      } else {
+        // Provider-only inbox backfill intentionally has no activity rows.
+        // Preserve its sequential insert/update behavior until Task 8 routes
+        // historical messages through the canonical delivered ledger too.
+        update.message_count = (existing.message_count as number) + 1;
+        update.unread_count =
           direction === "inbound" && !email.isRead
             ? (existing.unread_count as number) + 1
-            : (existing.unread_count as number),
-      };
+            : (existing.unread_count as number);
 
-      if (isNewer) {
-        update.last_message_at = emailDate.toISOString();
-        update.latest_direction = direction;
-        update.latest_snippet = snippet;
-        // Self-forward guard: when the resolved sender is the operator's
-        // own mailbox (e.g. Gmail surfaced an outbound reply or a draft
-        // autosave under the INBOX label, or a forward whose upstream
-        // could not be parsed), skip the latest_sender_* writes. Keeping
-        // the prior values means the thread row continues to point at the
-        // real customer's identity even though a junk "from-self" message
-        // just came in.
-        if (!senderIsSelf) {
-          update.latest_sender_email = senderEmail;
-          update.latest_sender_name = senderName;
+        if (isNewer) {
+          update.last_message_at = emailDate.toISOString();
+          update.latest_direction = direction;
+          update.latest_snippet = snippet;
+          // Self-forward guard: when the resolved sender is the operator's
+          // own mailbox (e.g. Gmail surfaced an outbound reply or a draft
+          // autosave under the INBOX label, or a forward whose upstream
+          // could not be parsed), skip the latest_sender_* writes. Keeping
+          // the prior values means the thread row continues to point at the
+          // real customer's identity even though a junk "from-self" message
+          // just came in.
+          if (!senderIsSelf) {
+            update.latest_sender_email = senderEmail;
+            update.latest_sender_name = senderName;
+          }
+          if (email.subject && (existing.subject as string).length === 0) {
+            update.subject = email.subject;
+          }
         }
-        if (email.subject && (existing.subject as string).length === 0) {
-          update.subject = email.subject;
-        }
+      }
+
+      if (params.markClassificationDirty !== false || deliveredStateChanged) {
+        update.category_classified_at = null;
       }
 
       // Opportunity/client linkage — set if currently null. Explicit
@@ -922,12 +1110,14 @@ export const EmailThreadService = {
         .select("*")
         .single();
 
-      if (updError) throw new Error(`upsertFromEmail update failed: ${updError.message}`);
+      if (updError)
+        throw new Error(`upsertFromEmail update failed: ${updError.message}`);
       return { threadRow: mapEmailThreadFromDb(updated), isNew: false };
     }
 
     // New row
-    const emailDate = email.date instanceof Date ? email.date : new Date(email.date);
+    const emailDate =
+      email.date instanceof Date ? email.date : new Date(email.date);
     const participants = new Set<string>();
     for (const addr of [email.from, ...email.to, ...email.cc]) {
       const extracted = extractEmailAddress(addr).toLowerCase();
@@ -1001,7 +1191,8 @@ export const EmailThreadService = {
       .select("*")
       .single();
 
-    if (insError) throw new Error(`upsertFromEmail insert failed: ${insError.message}`);
+    if (insError)
+      throw new Error(`upsertFromEmail insert failed: ${insError.message}`);
     return { threadRow: mapEmailThreadFromDb(inserted), isNew: true };
   },
 
@@ -1015,23 +1206,32 @@ export const EmailThreadService = {
     // Pull last 5 messages from activities for classification context
     const { data: msgs, error: msgError } = await supabase
       .from("activities")
-      .select("from_email, direction, body_text, content, subject, created_at, to_emails, cc_emails, has_attachments")
+      .select(
+        "from_email, direction, body_text, content, subject, created_at, to_emails, cc_emails, has_attachments"
+      )
       .eq("company_id", threadRow.companyId)
+      .eq("email_connection_id", threadRow.connectionId)
       .eq("type", "email")
       .eq("email_thread_id", threadRow.providerThreadId)
       .order("created_at", { ascending: false })
       .limit(5);
 
     if (msgError) {
-      console.error("[email-thread-service] failed to load messages for classify:", msgError);
-      return threadRow;
+      throw new Error(
+        `classifyAndUpdate message load failed: ${msgError.message}`
+      );
     }
 
-    const messages: ClassifyMessage[] = ((msgs ?? []) as Array<Record<string, unknown>>)
+    const messages: ClassifyMessage[] = (
+      (msgs ?? []) as Array<Record<string, unknown>>
+    )
       .reverse()
       .map((row) => {
-        const messageSubject =
-          ((row.subject as string | null) ?? threadRow.subject ?? "").trim();
+        const messageSubject = (
+          (row.subject as string | null) ??
+          threadRow.subject ??
+          ""
+        ).trim();
         const rawBody =
           (row.body_text as string) || (row.content as string) || "";
         return {
@@ -1067,7 +1267,8 @@ export const EmailThreadService = {
       .eq("id", threadRow.connectionId)
       .maybeSingle();
     const connectionEmail =
-      (connectionRow?.email as string | null)?.toLowerCase().trim() ?? undefined;
+      (connectionRow?.email as string | null)?.toLowerCase().trim() ??
+      undefined;
 
     // ── Deterministic INTERNAL classification ──────────────────────────
     // When every participant of the thread is a company user (and the
@@ -1100,15 +1301,17 @@ export const EmailThreadService = {
         .from("email_threads")
         .update(detUpdate)
         .eq("id", threadRow.id)
+        .eq("message_count", threadRow.messageCount)
+        .eq("last_message_at", threadRow.lastMessageAt.toISOString())
+        .eq("category_manually_set", threadRow.categoryManuallySet)
+        .eq("primary_category", threadRow.primaryCategory)
         .select("*")
         .single();
 
       if (detErr) {
-        console.error(
-          "[email-thread-service] deterministic-internal update failed:",
-          detErr
+        throw new Error(
+          `classifyAndUpdate deterministic-internal update failed: ${detErr.message}`
         );
-        return threadRow;
       }
       const mappedInternal = mapEmailThreadFromDb(detUpdated);
       // P4-A: run the Phase C router uniformly. INTERNAL is unmapped in the
@@ -1165,15 +1368,17 @@ export const EmailThreadService = {
           .from("email_threads")
           .update(custUpdate)
           .eq("id", threadRow.id)
+          .eq("message_count", threadRow.messageCount)
+          .eq("last_message_at", threadRow.lastMessageAt.toISOString())
+          .eq("category_manually_set", threadRow.categoryManuallySet)
+          .eq("primary_category", threadRow.primaryCategory)
           .select("*")
           .single();
 
         if (custErr) {
-          console.error(
-            "[email-thread-service] deterministic-customer update failed:",
-            custErr
+          throw new Error(
+            `classifyAndUpdate deterministic-customer update failed: ${custErr.message}`
           );
-          return threadRow;
         }
 
         const mappedCustomer = mapEmailThreadFromDb(custUpdated);
@@ -1194,7 +1399,9 @@ export const EmailThreadService = {
       }
     }
 
-    const outboundCount = messages.filter((m) => m.direction === "outbound").length;
+    const outboundCount = messages.filter(
+      (m) => m.direction === "outbound"
+    ).length;
 
     const result = await ThreadClassifier.classifyThread({
       threadId: threadRow.id,
@@ -1211,10 +1418,18 @@ export const EmailThreadService = {
 
     // Merge classifier labels with heuristic labels
     const heuristicLabels = evaluateLabelsFromMessages(
-      messages.map((m) => ({ direction: m.direction, bodyText: m.bodyText, hasAttachments: (msgs ?? []).some((r) => (r as Record<string, unknown>).has_attachments) })),
+      messages.map((m) => ({
+        direction: m.direction,
+        bodyText: m.bodyText,
+        hasAttachments: (msgs ?? []).some(
+          (r) => (r as Record<string, unknown>).has_attachments
+        ),
+      })),
       senderIsNew
     );
-    const mergedLabels = Array.from(new Set([...result.labels, ...heuristicLabels]));
+    const mergedLabels = Array.from(
+      new Set([...result.labels, ...heuristicLabels])
+    );
 
     const update: Record<string, unknown> = {
       labels: mergedLabels,
@@ -1233,12 +1448,15 @@ export const EmailThreadService = {
       .from("email_threads")
       .update(update)
       .eq("id", threadRow.id)
+      .eq("message_count", threadRow.messageCount)
+      .eq("last_message_at", threadRow.lastMessageAt.toISOString())
+      .eq("category_manually_set", threadRow.categoryManuallySet)
+      .eq("primary_category", threadRow.primaryCategory)
       .select("*")
       .single();
 
     if (updError) {
-      console.error("[email-thread-service] classify update failed:", updError);
-      return threadRow;
+      throw new Error(`classifyAndUpdate update failed: ${updError.message}`);
     }
 
     const mappedUpdated = mapEmailThreadFromDb(updated);
@@ -1309,7 +1527,10 @@ export const EmailThreadService = {
       .select("id")
       .single();
 
-    if (corrError) throw new Error(`recategorize correction insert failed: ${corrError.message}`);
+    if (corrError)
+      throw new Error(
+        `recategorize correction insert failed: ${corrError.message}`
+      );
 
     // Update thread
     const { data: updated, error: updError } = await supabase
@@ -1324,7 +1545,8 @@ export const EmailThreadService = {
       .select("*")
       .single();
 
-    if (updError) throw new Error(`recategorize update failed: ${updError.message}`);
+    if (updError)
+      throw new Error(`recategorize update failed: ${updError.message}`);
 
     return {
       thread: mapEmailThreadFromDb(updated),
@@ -1369,7 +1591,9 @@ export const EmailThreadService = {
 
     const { data: row, error } = await supabase
       .from("email_threads")
-      .select("id, connection_id, provider_thread_id, company_id, opportunity_id")
+      .select(
+        "id, connection_id, provider_thread_id, company_id, opportunity_id"
+      )
       .eq("id", params.threadId)
       .single();
 
@@ -1384,14 +1608,19 @@ export const EmailThreadService = {
     if (connError || !connRow) throw new Error(`archive: connection not found`);
 
     const writebackPreference =
-      (connRow.archive_writeback_preference as ArchiveWritebackPreference) ?? "ask";
+      (connRow.archive_writeback_preference as ArchiveWritebackPreference) ??
+      "ask";
     if (writebackPreference === "ask") {
-      return { needsPreference: true, connectionId: row.connection_id as string };
+      return {
+        needsPreference: true,
+        connectionId: row.connection_id as string,
+      };
     }
 
     const opportunityId = (row.opportunity_id as string | null) ?? null;
     const leadPreference =
-      (connRow.archive_lead_preference as ArchiveLeadPreference | null) ?? "ask";
+      (connRow.archive_lead_preference as ArchiveLeadPreference | null) ??
+      "ask";
 
     // Inspect linked opportunity + siblings before deciding to commit. If the
     // opp is already archived we treat it as "no linked lead" — there's
@@ -1443,7 +1672,10 @@ export const EmailThreadService = {
 
     // If the opp is linked AND we either have siblings or the lead preference
     // is still 'ask', defer the decision to the user.
-    if (linkedOpportunity && (siblingThreads.length > 0 || leadPreference === "ask")) {
+    if (
+      linkedOpportunity &&
+      (siblingThreads.length > 0 || leadPreference === "ask")
+    ) {
       return {
         needsConfirmation: true,
         connectionId: row.connection_id as string,
@@ -1474,7 +1706,11 @@ export const EmailThreadService = {
     // No-prompt opp archive: only when the user has explicitly opted in via
     // the saved 'archive' preference AND the opp has no other live threads.
     let leadArchivedOpportunityId: string | null = null;
-    if (linkedOpportunity && leadPreference === "archive" && siblingThreads.length === 0) {
+    if (
+      linkedOpportunity &&
+      leadPreference === "archive" &&
+      siblingThreads.length === 0
+    ) {
       await supabase
         .from("opportunities")
         .update({ archived_at: new Date().toISOString() })
@@ -1533,7 +1769,9 @@ export const EmailThreadService = {
       try {
         const { data: row, error } = await supabase
           .from("email_threads")
-          .select("id, connection_id, provider_thread_id, company_id, archived_at")
+          .select(
+            "id, connection_id, provider_thread_id, company_id, archived_at"
+          )
           .eq("id", threadId)
           .eq("company_id", params.companyId)
           .single();
@@ -1569,7 +1807,8 @@ export const EmailThreadService = {
         }
 
         const writebackPreference =
-          (connRow.archive_writeback_preference as ArchiveWritebackPreference) ?? "ask";
+          (connRow.archive_writeback_preference as ArchiveWritebackPreference) ??
+          "ask";
 
         // 'ask' means the user hasn't picked yet — for the batch path we
         // skip provider write-back rather than block on a modal we can't
@@ -1578,7 +1817,9 @@ export const EmailThreadService = {
         // different connection) hit this branch.
         if (writebackPreference === "archive_in_gmail") {
           try {
-            const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
+            const provider = EmailService.getProvider(
+              mapConnectionFromDb(connRow)
+            );
             await provider.archiveThread(row.provider_thread_id as string);
           } catch (err) {
             console.error(
@@ -1588,8 +1829,13 @@ export const EmailThreadService = {
           }
         } else if (writebackPreference === "mark_read_only") {
           try {
-            const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
-            await provider.markThreadRead(row.provider_thread_id as string, true);
+            const provider = EmailService.getProvider(
+              mapConnectionFromDb(connRow)
+            );
+            await provider.markThreadRead(
+              row.provider_thread_id as string,
+              true
+            );
           } catch (err) {
             console.error(
               `[email-thread-service] archiveBatch provider.markRead failed for ${threadId}:`,
@@ -1605,7 +1851,10 @@ export const EmailThreadService = {
 
         archivedThreadIds.push(threadId);
       } catch (err) {
-        console.error(`[email-thread-service] archiveBatch failed for ${threadId}:`, err);
+        console.error(
+          `[email-thread-service] archiveBatch failed for ${threadId}:`,
+          err
+        );
         failedThreadIds.push(threadId);
       }
     }
@@ -1686,10 +1935,13 @@ export const EmailThreadService = {
         }
 
         const writebackPreference =
-          (connRow.archive_writeback_preference as ArchiveWritebackPreference) ?? "ask";
+          (connRow.archive_writeback_preference as ArchiveWritebackPreference) ??
+          "ask";
         if (writebackPreference === "archive_in_gmail") {
           try {
-            const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
+            const provider = EmailService.getProvider(
+              mapConnectionFromDb(connRow)
+            );
             await provider.unarchiveThread(row.provider_thread_id as string);
           } catch (err) {
             console.error(
@@ -1706,7 +1958,10 @@ export const EmailThreadService = {
 
         unarchivedThreadIds.push(threadId);
       } catch (err) {
-        console.error(`[email-thread-service] unarchiveBatch failed for ${threadId}:`, err);
+        console.error(
+          `[email-thread-service] unarchiveBatch failed for ${threadId}:`,
+          err
+        );
         failedThreadIds.push(threadId);
       }
     }
@@ -1750,13 +2005,18 @@ export const EmailThreadService = {
       .single();
 
     if (connRow) {
-      const preference = (connRow.archive_writeback_preference as ArchiveWritebackPreference) ?? "ask";
+      const preference =
+        (connRow.archive_writeback_preference as ArchiveWritebackPreference) ??
+        "ask";
       if (preference === "archive_in_gmail") {
         const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
         try {
           await provider.unarchiveThread(row.provider_thread_id as string);
         } catch (err) {
-          console.error("[email-thread-service] provider.unarchive failed:", err);
+          console.error(
+            "[email-thread-service] provider.unarchive failed:",
+            err
+          );
         }
       }
     }
@@ -1857,13 +2117,18 @@ export const EmailThreadService = {
       try {
         await provider.markThreadRead(row.provider_thread_id as string, isRead);
       } catch (err) {
-        console.error("[email-thread-service] provider.markThreadRead failed:", err);
+        console.error(
+          "[email-thread-service] provider.markThreadRead failed:",
+          err
+        );
       }
     }
 
     await supabase
       .from("email_threads")
-      .update({ unread_count: isRead ? 0 : Math.max(1, row.unread_count as number) })
+      .update({
+        unread_count: isRead ? 0 : Math.max(1, row.unread_count as number),
+      })
       .eq("id", threadId);
   },
 
@@ -1893,7 +2158,8 @@ export const EmailThreadService = {
 
     if (!row) return [];
 
-    const current = ((row.labels as EmailThreadLabel[] | null) ?? []) as EmailThreadLabel[];
+    const current = ((row.labels as EmailThreadLabel[] | null) ??
+      []) as EmailThreadLabel[];
     if (!current.includes("AWAITING_REPLY")) return current;
 
     const next = current.filter((l) => l !== "AWAITING_REPLY");
@@ -1923,7 +2189,8 @@ export const EmailThreadService = {
 
     if (!row) return [];
 
-    const current = ((row.labels as EmailThreadLabel[] | null) ?? []) as EmailThreadLabel[];
+    const current = ((row.labels as EmailThreadLabel[] | null) ??
+      []) as EmailThreadLabel[];
     if (current.includes("AWAITING_REPLY")) return current;
 
     const next: EmailThreadLabel[] = [...current, "AWAITING_REPLY"];
@@ -1953,7 +2220,10 @@ export const EmailThreadService = {
     return listThreads(companyId, userConnectionIds, params);
   },
 
-  async getThread(threadId: string, companyId: string): Promise<EmailThread | null> {
+  async getThread(
+    threadId: string,
+    companyId: string
+  ): Promise<EmailThread | null> {
     const supabase = requireSupabase();
     const { data, error } = await supabase
       .from("email_threads")
@@ -1968,6 +2238,76 @@ export const EmailThreadService = {
     const [withPhaseC] = await enrichWithPhaseC([mapped]);
     const [enriched] = await enrichWithNextCommitmentId([withPhaseC]);
     return enriched;
+  },
+
+  /**
+   * Retry the durable `category_classified_at IS NULL` queue. New provider
+   * messages clear that marker before background classification starts, so a
+   * serverless interruption or transient model/database failure cannot leave a
+   * stale summary forever. The caller supplies active tenant ids and tight
+   * bounds to keep each cron invocation predictable.
+   */
+  async retryDirtyClassifications(params: {
+    companyIds: string[];
+    limit?: number;
+    concurrency?: number;
+  }): Promise<{ scanned: number; classified: number; errors: number }> {
+    const companyIds = Array.from(
+      new Set(params.companyIds.map((id) => id.trim()).filter(Boolean))
+    );
+    if (companyIds.length === 0) {
+      return { scanned: 0, classified: 0, errors: 0 };
+    }
+
+    const limit = Math.min(Math.max(params.limit ?? 10, 1), 25);
+    const concurrency = Math.min(Math.max(params.concurrency ?? 2, 1), 3);
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("email_threads")
+      .select("*")
+      .in("company_id", companyIds)
+      .is("category_classified_at", null)
+      .order("last_message_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(
+        `retryDirtyClassifications query failed: ${error.message}`
+      );
+    }
+
+    const threads = (data ?? []).map(mapEmailThreadFromDb);
+    const result = { scanned: 0, classified: 0, errors: 0 };
+    let cursor = 0;
+    const worker = async () => {
+      while (true) {
+        const index = cursor++;
+        if (index >= threads.length) return;
+        const thread = threads[index];
+        result.scanned++;
+        try {
+          await EmailThreadService.classifyAndUpdate(thread);
+          result.classified++;
+        } catch (classificationError) {
+          result.errors++;
+          console.error(
+            "[email-thread-service] dirty classification retry failed:",
+            thread.id,
+            classificationError instanceof Error
+              ? classificationError.message
+              : classificationError
+          );
+        }
+      }
+    };
+
+    await Promise.all(
+      Array.from(
+        { length: Math.min(concurrency, Math.max(threads.length, 1)) },
+        () => worker()
+      )
+    );
+    return result;
   },
 
   /**
@@ -1989,25 +2329,12 @@ export const EmailThreadService = {
     excludingThreadId: string,
     limit = 5
   ): Promise<EmailThread[]> {
-    if (!companyId || !clientId) return [];
-    const supabase = requireSupabase();
-    // Exclude archived — "archive" is the user's explicit "I'm done" signal,
-    // and surfacing those in a context strip would drag old closed-out
-    // conversations back into a live triage surface. Snoozed is kept:
-    // snooze is deferral, not completion, and seeing "oh right, that
-    // quote is coming back Tuesday" is useful context when replying on a
-    // parallel thread.
-    const { data, error } = await supabase
-      .from("email_threads")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("client_id", clientId)
-      .neq("id", excludingThreadId)
-      .is("archived_at", null)
-      .order("last_message_at", { ascending: false })
-      .limit(limit);
-    if (error || !data) return [];
-    return data.map(mapEmailThreadFromDb);
+    return listEmailThreadSiblings(
+      companyId,
+      clientId,
+      excludingThreadId,
+      limit
+    );
   },
 };
 
@@ -2030,7 +2357,9 @@ function mapConnectionFromDb(row: Record<string, unknown>): EmailConnection {
     syncIntervalMinutes: (row.sync_interval_minutes as number) ?? 60,
     syncFilters: (row.sync_filters as EmailConnection["syncFilters"]) ?? {},
     webhookSubscriptionId: (row.webhook_subscription_id as string) ?? null,
-    webhookExpiresAt: row.webhook_expires_at ? new Date(row.webhook_expires_at as string) : null,
+    webhookExpiresAt: row.webhook_expires_at
+      ? new Date(row.webhook_expires_at as string)
+      : null,
     opsLabelId: (row.ops_label_id as string) ?? null,
     aiReviewEnabled: (row.ai_review_enabled as boolean) ?? false,
     aiMemoryEnabled: (row.ai_memory_enabled as boolean) ?? false,
@@ -2042,10 +2371,13 @@ function mapConnectionFromDb(row: Record<string, unknown>): EmailConnection {
 
 export function hashParticipants(participants: string[]): string {
   if (participants.length === 0) return "";
-  const normalized = [...participants].map((p) => p.toLowerCase()).sort().join("|");
+  const normalized = [...participants]
+    .map((p) => p.toLowerCase())
+    .sort()
+    .join("|");
   let hash = 0;
   for (let i = 0; i < normalized.length; i++) {
-    hash = ((hash << 5) - hash) + normalized.charCodeAt(i);
+    hash = (hash << 5) - hash + normalized.charCodeAt(i);
     hash |= 0;
   }
   return hash.toString(16);
@@ -2058,12 +2390,53 @@ export function extractSubjectKeywords(subject: string): string[] {
     .toLowerCase()
     .replace(/[^\w\s-]/g, " ");
   const stopwords = new Set([
-    "a","an","the","and","or","but","for","to","from","of","in","on","at",
-    "is","it","be","as","by","with","your","you","me","my","we","our","their",
-    "this","that","these","those","have","has","had","will","would","can",
-    "could","should","may","might","re","fwd","fw",
+    "a",
+    "an",
+    "the",
+    "and",
+    "or",
+    "but",
+    "for",
+    "to",
+    "from",
+    "of",
+    "in",
+    "on",
+    "at",
+    "is",
+    "it",
+    "be",
+    "as",
+    "by",
+    "with",
+    "your",
+    "you",
+    "me",
+    "my",
+    "we",
+    "our",
+    "their",
+    "this",
+    "that",
+    "these",
+    "those",
+    "have",
+    "has",
+    "had",
+    "will",
+    "would",
+    "can",
+    "could",
+    "should",
+    "may",
+    "might",
+    "re",
+    "fwd",
+    "fw",
   ]);
-  const words = cleaned.split(/\s+/).filter((w) => w.length >= 3 && !stopwords.has(w));
+  const words = cleaned
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !stopwords.has(w));
   return Array.from(new Set(words)).slice(0, 8);
 }
 
@@ -2146,9 +2519,7 @@ async function fireThreadNotifications(
   const isUrgent = next.labels.includes("URGENT");
 
   const sender =
-    next.latestSenderName ||
-    next.latestSenderEmail ||
-    "Unknown sender";
+    next.latestSenderName || next.latestSenderEmail || "Unknown sender";
   const subject = next.subject?.trim() || "(no subject)";
   // These page the operator to the inbox thread surface, so deep_link_type is
   // `inbox` and the thread id is always present in the URL (no email_threads

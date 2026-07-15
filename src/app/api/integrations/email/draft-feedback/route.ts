@@ -1,11 +1,11 @@
 /**
  * POST /api/integrations/email/draft-feedback
  *
- * Record the outcome of an AI-drafted email:
- * - "sent" with the final version (for edit tracking)
- * - "discarded" if user deleted the draft
+ * Record abandonment of an AI-drafted email.
  *
- * Computes edit distance and feeds changes back into writing profile.
+ * Sent outcomes are deliberately owned by the confirmed-delivery learning
+ * queue. Accepting a client-reported "sent" event here would allow an
+ * unconfirmed preview/edit to train the writing profile.
  * Authenticated: requires Firebase auth + company_id validation.
  */
 
@@ -42,7 +42,10 @@ export async function POST(request: NextRequest) {
     // is gated on the granular `inbox.send` permission (the same capability
     // that lets a user send the draft whose outcome this records) — never on
     // a coarse role check. Admins/account-holders bypass inside has_permission.
-    const canRecord = await checkPermissionById(user.id as string, "inbox.send");
+    const canRecord = await checkPermissionById(
+      user.id as string,
+      "inbox.send"
+    );
     if (!canRecord) {
       return NextResponse.json(
         { error: "You don't have permission to record draft feedback" },
@@ -51,11 +54,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { draftHistoryId, companyId, userId, outcome, finalVersion } = body;
+    const { draftHistoryId, companyId, userId, outcome } = body;
 
     if (!draftHistoryId || !companyId || !userId || !outcome) {
       return NextResponse.json(
-        { error: "draftHistoryId, companyId, userId, and outcome are required" },
+        {
+          error: "draftHistoryId, companyId, userId, and outcome are required",
+        },
         { status: 400 }
       );
     }
@@ -64,10 +69,29 @@ export async function POST(request: NextRequest) {
     if (companyId !== user.company_id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    if (userId !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-    if (outcome !== "sent" && outcome !== "discarded") {
+    const { data: ownedDraft, error: draftError } = await supabase
+      .from("ai_draft_history")
+      .select("id")
+      .eq("id", draftHistoryId)
+      .eq("company_id", companyId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (draftError) {
+      throw new Error(
+        `Failed to validate draft feedback ownership: ${draftError.message}`
+      );
+    }
+    if (!ownedDraft) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (outcome !== "discarded") {
       return NextResponse.json(
-        { error: "outcome must be 'sent' or 'discarded'" },
+        { error: "Only discarded draft feedback is accepted here" },
         { status: 400 }
       );
     }
@@ -76,15 +100,16 @@ export async function POST(request: NextRequest) {
       draftHistoryId,
       companyId,
       userId,
-      outcome,
-      finalVersion
+      "discarded"
     );
 
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[draft-feedback]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to record feedback" },
+      {
+        error: err instanceof Error ? err.message : "Failed to record feedback",
+      },
       { status: 500 }
     );
   } finally {

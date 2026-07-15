@@ -8,7 +8,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { ProductOptionsService } from "../api/services";
+import { ProductOptionsService } from "../api/services/product-options-service";
 import type {
   CreateProductOption,
   CreateProductOptionValue,

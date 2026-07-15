@@ -13,7 +13,6 @@ const opps: PipelineOpp[] = [
     value: 8500,
     stage: "Lead",
     estimateRef: null,
-    confidence: "low",
     priority: "medium",
     source: "Website",
     threadId: "th-other",
@@ -24,7 +23,6 @@ const opps: PipelineOpp[] = [
     value: 22000,
     stage: "Quoted",
     estimateRef: "EST-091",
-    confidence: "high",
     priority: "high",
     source: "Inbound email",
     threadId: "th-current",
@@ -35,7 +33,6 @@ const opps: PipelineOpp[] = [
     value: 4500,
     stage: "RFQ in",
     estimateRef: null,
-    confidence: "warm",
     priority: "low",
     source: "Phone",
     threadId: null,
@@ -45,10 +42,14 @@ const opps: PipelineOpp[] = [
 describe("<PipelineList>", () => {
   it("renders one section per stage with at least one opp", () => {
     render(
-      <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
+      <PipelineList
+        opps={opps}
+        threadId="th-current"
+        onNewOpportunity={() => {}}
+      />
     );
     const headers = Array.from(document.querySelectorAll("h4")).map(
-      (h) => h.textContent,
+      (h) => h.textContent
     );
     expect(headers).toEqual(["LEAD", "RFQ IN", "QUOTED"]);
     expect(screen.queryByText(/DISCOVERY/)).not.toBeInTheDocument();
@@ -56,7 +57,11 @@ describe("<PipelineList>", () => {
 
   it("orders stages: Lead → Discovery → RFQ in → Quoted → others", () => {
     const { container } = render(
-      <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
+      <PipelineList
+        opps={opps}
+        threadId="th-current"
+        onNewOpportunity={() => {}}
+      />
     );
     const headers = container.querySelectorAll("h4");
     const labels = Array.from(headers).map((h) => h.textContent);
@@ -65,19 +70,27 @@ describe("<PipelineList>", () => {
 
   it("shows a quiet linked-thread signal on opps linked to current threadId", () => {
     render(
-      <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
+      <PipelineList
+        opps={opps}
+        threadId="th-current"
+        onNewOpportunity={() => {}}
+      />
     );
     const tags = screen.getAllByText(/\[THIS THREAD\]/i);
     expect(tags.length).toBe(1);
     const card = screen.getByTestId("pipeline-opp-o2");
     expect(within(card).getByTestId("pipeline-opp-linked-o2")).toHaveClass(
-      "text-text-2",
+      "text-text-2"
     );
   });
 
   it("marks the linked opp card without the old accent inset shadow", () => {
     render(
-      <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
+      <PipelineList
+        opps={opps}
+        threadId="th-current"
+        onNewOpportunity={() => {}}
+      />
     );
     const card = screen.getByTestId("pipeline-opp-o2");
     expect(card.getAttribute("data-current")).toBe("true");
@@ -89,54 +102,64 @@ describe("<PipelineList>", () => {
 
   it("renders active card hierarchy: title, stage, value, priority, and source", () => {
     render(
-      <PipelineList opps={opps} threadId="th-current" onNewOpportunity={() => {}} />,
+      <PipelineList
+        opps={opps}
+        threadId="th-current"
+        onNewOpportunity={() => {}}
+      />
     );
     const card = screen.getByTestId("pipeline-opp-o2");
     expect(within(card).getByTestId("pipeline-opp-title-o2")).toHaveTextContent(
-      "Roof replacement quote",
+      "Roof replacement quote"
     );
     expect(within(card).getByTestId("pipeline-opp-value-o2")).toHaveTextContent(
-      "$22,000",
+      "$22,000"
     );
     expect(within(card).getByTestId("pipeline-opp-stage-o2")).toHaveTextContent(
-      "QUOTED",
+      "QUOTED"
     );
     expect(
-      within(card).getByTestId("pipeline-opp-priority-o2"),
+      within(card).getByTestId("pipeline-opp-priority-o2")
     ).toHaveTextContent("HIGH");
-    expect(within(card).getByTestId("pipeline-opp-source-o2")).toHaveTextContent(
-      "INBOUND EMAIL",
-    );
+    expect(
+      within(card).getByTestId("pipeline-opp-source-o2")
+    ).toHaveTextContent("INBOUND EMAIL");
   });
 
   it("renders the +New opportunity button at bottom", () => {
     const onNew = vi.fn();
     render(
-      <PipelineList opps={opps} threadId="th-current" onNewOpportunity={onNew} />,
+      <PipelineList
+        opps={opps}
+        threadId="th-current"
+        onNewOpportunity={onNew}
+      />
     );
     fireEvent.click(screen.getByRole("button", { name: /New opportunity/i }));
     expect(onNew).toHaveBeenCalled();
   });
 
-  it("renders confidence as an intent label when priority is absent", () => {
-    const confidenceOnly = [{ ...opps[1], priority: null }];
+  it("ignores the legacy win-probability-derived intent label", () => {
+    const legacyProbabilitySignal = [
+      { ...opps[1], priority: null, confidence: "high" as const },
+    ];
     render(
       <PipelineList
-        opps={confidenceOnly}
+        opps={legacyProbabilitySignal}
         threadId="th-current"
         onNewOpportunity={() => {}}
-      />,
+      />
     );
-    expect(screen.getByText("HIGH INTENT")).toBeInTheDocument();
+    expect(screen.queryByText(/INTENT/)).not.toBeInTheDocument();
   });
 
   it("renders empty state when no opps", () => {
     render(
-      <PipelineList opps={[]} threadId="th" onNewOpportunity={() => {}} />,
+      <PipelineList opps={[]} threadId="th" onNewOpportunity={() => {}} />
     );
     expect(screen.getByText(/no open opportunities/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /New opportunity/i }),
+      screen.getByRole("button", { name: /New opportunity/i })
     ).toBeInTheDocument();
   });
 
@@ -147,11 +170,13 @@ describe("<PipelineList>", () => {
         threadId="th"
         onNewOpportunity={() => {}}
         suppressEmpty
-      />,
+      />
     );
-    expect(screen.queryByText(/no open opportunities/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /New opportunity/i }),
+      screen.queryByText(/no open opportunities/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /New opportunity/i })
     ).toBeInTheDocument();
   });
 });
@@ -163,7 +188,6 @@ describe("<PipelineOppCard>", () => {
     value: 12000,
     stage: "won",
     estimateRef: null,
-    confidence: "high",
     priority: "high",
     source: "Referral",
     threadId: null,
@@ -172,12 +196,8 @@ describe("<PipelineOppCard>", () => {
   it("renders a muted WON history row when variant='won'", () => {
     render(
       <ul>
-        <PipelineOppCard
-          opp={oppFixture}
-          currentThreadId=""
-          variant="won"
-        />
-      </ul>,
+        <PipelineOppCard opp={oppFixture} currentThreadId="" variant="won" />
+      </ul>
     );
     const card = screen.getByTestId("pipeline-opp-won-1");
     expect(card.getAttribute("data-variant")).toBe("won");
@@ -188,10 +208,10 @@ describe("<PipelineOppCard>", () => {
     expect(card).toHaveClass("bg-transparent");
     expect(card).toHaveClass("border-line/60");
     expect(within(card).getByTestId("pipeline-opp-title-won-1")).toHaveClass(
-      "text-text-3",
+      "text-text-3"
     );
     expect(within(card).getByTestId("pipeline-opp-value-won-1")).toHaveClass(
-      "text-text-3",
+      "text-text-3"
     );
   });
 
@@ -202,7 +222,7 @@ describe("<PipelineOppCard>", () => {
           opp={{ ...oppFixture, stage: "Lead" }}
           currentThreadId=""
         />
-      </ul>,
+      </ul>
     );
     const card = screen.getByTestId("pipeline-opp-won-1");
     expect(card.getAttribute("data-variant")).toBe("open");
@@ -218,10 +238,10 @@ describe("<PipelineOppCard>", () => {
           currentThreadId="th-current"
           variant="won"
         />
-      </ul>,
+      </ul>
     );
     expect(
-      screen.getByTestId("pipeline-opp-won-1").getAttribute("data-current"),
+      screen.getByTestId("pipeline-opp-won-1").getAttribute("data-current")
     ).toBe("false");
     expect(screen.queryByText(/THIS THREAD/i)).not.toBeInTheDocument();
   });

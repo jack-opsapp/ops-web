@@ -13,7 +13,9 @@ describe("pipeline-table column model", () => {
   describe("PIPELINE_TABLE_COLUMNS registry", () => {
     it("has exactly one entry per id in PIPELINE_TABLE_COLUMN_IDS", () => {
       // Same length — no missing, no extra.
-      expect(PIPELINE_TABLE_COLUMNS).toHaveLength(PIPELINE_TABLE_COLUMN_IDS.length);
+      expect(PIPELINE_TABLE_COLUMNS).toHaveLength(
+        PIPELINE_TABLE_COLUMN_IDS.length
+      );
 
       const registryIds = PIPELINE_TABLE_COLUMNS.map((column) => column.id);
 
@@ -29,16 +31,31 @@ describe("pipeline-table column model", () => {
       expect(registryIds).toEqual([...PIPELINE_TABLE_COLUMN_IDS]);
     });
 
+    it("never exposes probability-derived metrics", () => {
+      for (const legacyMetric of ["win_probability", "weighted"]) {
+        expect(PIPELINE_TABLE_COLUMN_IDS as readonly string[]).not.toContain(
+          legacyMetric
+        );
+        expect(
+          PIPELINE_TABLE_COLUMNS.map((column) => column.id) as readonly string[]
+        ).not.toContain(legacyMetric);
+      }
+    });
+
     it("freezes exactly select, deal, and stage", () => {
-      const frozenIds = PIPELINE_TABLE_COLUMNS.filter((column) => column.frozen).map(
-        (column) => column.id,
-      );
+      const frozenIds = PIPELINE_TABLE_COLUMNS.filter(
+        (column) => column.frozen
+      ).map((column) => column.id);
       expect(new Set(frozenIds)).toEqual(new Set(["select", "deal", "stage"]));
     });
 
     it("marks nothing other than select, deal, and stage as frozen", () => {
       for (const column of PIPELINE_TABLE_COLUMNS) {
-        if (column.id === "select" || column.id === "deal" || column.id === "stage") {
+        if (
+          column.id === "select" ||
+          column.id === "deal" ||
+          column.id === "stage"
+        ) {
           expect(column.frozen).toBe(true);
         } else {
           expect(column.frozen ?? false).toBe(false);
@@ -53,7 +70,9 @@ describe("pipeline-table column model", () => {
     });
 
     it("pins select to a fixed 36px width", () => {
-      const select = PIPELINE_TABLE_COLUMNS.find((column) => column.id === "select");
+      const select = PIPELINE_TABLE_COLUMNS.find(
+        (column) => column.id === "select"
+      );
       expect(select).toBeDefined();
       expect(select?.kind).toBe("select");
       expect(select?.minWidth).toBe(36);
@@ -74,24 +93,31 @@ describe("pipeline-table column model", () => {
   describe("editable columns", () => {
     it("declares the same editable set in the union list and the registry", () => {
       const registryEditableIds = PIPELINE_TABLE_COLUMNS.filter(
-        (column) => column.editable,
+        (column) => column.editable
       ).map((column) => column.id);
 
       expect(new Set(registryEditableIds)).toEqual(
-        new Set(PIPELINE_TABLE_EDITABLE_COLUMN_IDS),
+        new Set(PIPELINE_TABLE_EDITABLE_COLUMN_IDS)
       );
     });
 
     it("ensures every PIPELINE_TABLE_EDITABLE_COLUMN_IDS entry exists and is editable", () => {
       for (const editableId of PIPELINE_TABLE_EDITABLE_COLUMN_IDS) {
-        const column = PIPELINE_TABLE_COLUMNS.find((entry) => entry.id === editableId);
-        expect(column, `missing registry entry for ${editableId}`).toBeDefined();
+        const column = PIPELINE_TABLE_COLUMNS.find(
+          (entry) => entry.id === editableId
+        );
+        expect(
+          column,
+          `missing registry entry for ${editableId}`
+        ).toBeDefined();
         expect(column?.editable).toBe(true);
       }
     });
 
     it("never marks a non-editable id as editable in the registry", () => {
-      const editableSet = new Set<PipelineTableColumnId>(PIPELINE_TABLE_EDITABLE_COLUMN_IDS);
+      const editableSet = new Set<PipelineTableColumnId>(
+        PIPELINE_TABLE_EDITABLE_COLUMN_IDS
+      );
       for (const column of PIPELINE_TABLE_COLUMNS) {
         if (!editableSet.has(column.id)) {
           expect(column.editable ?? false).toBe(false);
@@ -100,14 +126,18 @@ describe("pipeline-table column model", () => {
     });
 
     it("does NOT make stage inline-editable (it routes through a dialog)", () => {
-      const stage = PIPELINE_TABLE_COLUMNS.find((column) => column.id === "stage");
+      const stage = PIPELINE_TABLE_COLUMNS.find(
+        (column) => column.id === "stage"
+      );
       expect(stage).toBeDefined();
       expect(stage?.editable ?? false).toBe(false);
       expect(PIPELINE_TABLE_EDITABLE_COLUMN_IDS).not.toContain("stage");
     });
 
     it("does NOT make deal editable (identity / click-to-open column)", () => {
-      const deal = PIPELINE_TABLE_COLUMNS.find((column) => column.id === "deal");
+      const deal = PIPELINE_TABLE_COLUMNS.find(
+        (column) => column.id === "deal"
+      );
       expect(deal).toBeDefined();
       expect(deal?.editable ?? false).toBe(false);
     });
@@ -125,12 +155,12 @@ describe("pipeline-table column model", () => {
       expect(isPipelineTableEditableColumn("stage")).toBe(false);
       expect(isPipelineTableEditableColumn("deal")).toBe(false);
       expect(isPipelineTableEditableColumn("select")).toBe(false);
-      expect(isPipelineTableEditableColumn("weighted")).toBe(false);
-      expect(isPipelineTableEditableColumn("win_probability")).toBe(false);
     });
 
     it("agrees with PIPELINE_TABLE_EDITABLE_COLUMN_IDS for every column id", () => {
-      const editableSet = new Set<PipelineTableColumnId>(PIPELINE_TABLE_EDITABLE_COLUMN_IDS);
+      const editableSet = new Set<PipelineTableColumnId>(
+        PIPELINE_TABLE_EDITABLE_COLUMN_IDS
+      );
       for (const id of PIPELINE_TABLE_COLUMN_IDS) {
         expect(isPipelineTableEditableColumn(id)).toBe(editableSet.has(id));
       }
@@ -147,7 +177,7 @@ describe("pipeline-table column model", () => {
 
     it("contains no duplicates", () => {
       expect(new Set(DEFAULT_PIPELINE_TABLE_COLUMNS).size).toBe(
-        DEFAULT_PIPELINE_TABLE_COLUMNS.length,
+        DEFAULT_PIPELINE_TABLE_COLUMNS.length
       );
     });
 
@@ -158,7 +188,6 @@ describe("pipeline-table column model", () => {
         "stage",
         "client",
         "value",
-        "weighted",
         "age_in_stage",
         "next_follow_up",
         "assignee",

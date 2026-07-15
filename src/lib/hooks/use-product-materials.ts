@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { ProductMaterialsService } from "../api/services";
+import { ProductMaterialsService } from "../api/services/product-materials-service";
 import type { CreateProductMaterial } from "../types/product-materials";
 
 export function useProductMaterials(productId: string | undefined) {

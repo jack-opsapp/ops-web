@@ -19,6 +19,7 @@ import { EmailService } from "@/lib/api/services/email-service";
 import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityService } from "@/lib/api/services/opportunity-service";
 import { OpportunityLifecycleService } from "@/lib/api/services/opportunity-lifecycle-service";
+import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { buildEmailOpportunityTitle } from "@/lib/email/opportunity-title";
 import {
   applyCanonicalLeadEnrichment,
@@ -34,9 +35,11 @@ import {
   OpportunityStage,
   OpportunitySource,
 } from "@/lib/types/pipeline";
-import { getAppUrl } from "@/lib/utils/app-url";
+import { extractEmailAddress } from "@/lib/utils/email-parsing";
 import type { ImportPayload, ImportResult } from "@/lib/types/email-import";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 
 export const maxDuration = 300;
 
@@ -61,6 +64,121 @@ function buildImportedLeadOpportunityTitle(
   });
 }
 
+function databaseErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const directCode = (error as { code?: unknown }).code;
+  if (typeof directCode === "string") return directCode;
+  const cause = (error as { cause?: unknown }).cause;
+  if (!cause || typeof cause !== "object") return null;
+  const causeCode = (cause as { code?: unknown }).code;
+  return typeof causeCode === "string" ? causeCode : null;
+}
+
+function importDate(
+  value: string | null | undefined,
+  field: string
+): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid ${field} timestamp`);
+  }
+  return date;
+}
+
+function buildImportSourceKey({
+  provider,
+  connectionId,
+  logicalThreadKey,
+  providerThreadId,
+  isMessageScopedForm,
+}: {
+  provider: string;
+  connectionId: string;
+  logicalThreadKey: string;
+  providerThreadId: string;
+  isMessageScopedForm: boolean;
+}): string {
+  const contactFormPrefix = "contact-form-message:";
+  const providerMessageId = logicalThreadKey.startsWith(contactFormPrefix)
+    ? logicalThreadKey.slice(contactFormPrefix.length)
+    : "";
+  if (isMessageScopedForm && !providerMessageId) {
+    throw new Error("Message-scoped import is missing its provider message ID");
+  }
+  const kind = isMessageScopedForm ? "message" : "thread";
+  const providerIdentity = isMessageScopedForm
+    ? providerMessageId
+    : providerThreadId;
+  return `email:${provider.trim().toLowerCase()}:${connectionId}:${kind}:${providerIdentity}`;
+}
+
+interface ExactImportMessage {
+  providerMessageId: string;
+  providerThreadId: string;
+  fromEmail: string;
+  subject: string;
+  occurredAt: Date;
+  direction: "inbound" | "outbound";
+}
+
+function exactImportMessages({
+  lead,
+  companyId,
+  connectionId,
+}: {
+  lead: ImportPayload["leads"][number];
+  companyId: string;
+  connectionId: string;
+}): ExactImportMessage[] {
+  if (!Array.isArray(lead.emails) || lead.emails.length === 0) return [];
+
+  const messages: ExactImportMessage[] = [];
+  const seenProviderMessageIds = new Set<string>();
+
+  for (const [index, message] of lead.emails.entries()) {
+    const providerIds = validateProviderEmailIds({
+      boundary: "import_provider_activity",
+      providerThreadId: message?.providerThreadId,
+      providerMessageId: message?.id,
+      requireMessageId: true,
+    });
+    if (!providerIds.ok) {
+      logInvalidProviderEmailIds(providerIds, {
+        companyId,
+        connectionId,
+        leadId: lead.id,
+        messageIndex: index,
+      });
+      throw new Error(`Message ${index + 1} has no provider ID`);
+    }
+
+    const providerMessageId = providerIds.providerMessageId!;
+    if (seenProviderMessageIds.has(providerMessageId)) continue;
+    seenProviderMessageIds.add(providerMessageId);
+
+    if (message.direction !== "inbound" && message.direction !== "outbound") {
+      throw new Error(`Message ${index + 1} has no valid direction`);
+    }
+
+    const occurredAt = importDate(message.date, `message ${index + 1}`);
+    if (!occurredAt) {
+      throw new Error(`Message ${index + 1} has no date`);
+    }
+
+    messages.push({
+      providerMessageId,
+      providerThreadId: providerIds.providerThreadId,
+      fromEmail: extractEmailAddress(message.from).trim().toLowerCase(),
+      subject: message.subject?.trim() || "Imported email",
+      occurredAt,
+      direction: message.direction,
+    });
+  }
+
+  return messages;
+}
+
 export async function POST(request: NextRequest) {
   const payload: ImportPayload = await request.json();
   const { connectionId, companyId, leads } = payload;
@@ -72,6 +190,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const authError = await requireEmailCompanyAccess(request, companyId);
+  if (authError) return authError;
+
   const supabase = getServiceRoleClient();
 
   // Validate connection exists. Runs inside the supabase context so any
@@ -81,11 +202,47 @@ export async function POST(request: NextRequest) {
     EmailService.getConnection(connectionId)
   );
 
-  if (!connection) {
+  if (!connection || connection.companyId !== companyId) {
     return NextResponse.json(
       { error: "Connection not found" },
       { status: 404 }
     );
+  }
+
+  // existingClientId is caller-controlled. Resolve every supplied ID through
+  // the authenticated company before queuing any background work so discard,
+  // merge, link, and sub-client actions can never target another tenant.
+  const suppliedClientIds = Array.from(
+    new Set(
+      leads
+        .map((lead) => lead.existingClientId)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  if (suppliedClientIds.length > 0) {
+    const { data: ownedClients, error: ownedClientsError } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("company_id", companyId)
+      .in("id", suppliedClientIds)
+      .is("deleted_at", null);
+
+    if (ownedClientsError) {
+      return NextResponse.json(
+        { error: "Failed to validate selected clients" },
+        { status: 500 }
+      );
+    }
+
+    const ownedClientIds = new Set(
+      (ownedClients ?? []).map((client) => client.id)
+    );
+    if (suppliedClientIds.some((id) => !ownedClientIds.has(id))) {
+      return NextResponse.json(
+        { error: "One or more selected clients are unavailable" },
+        { status: 400 }
+      );
+    }
   }
 
   // ─── Create import job ──────────────────────────────────────────────────────
@@ -117,7 +274,10 @@ export async function POST(request: NextRequest) {
   }
 
   // Save import job ID to connection for wizard state restoration
-  const existingFilters = (connection.syncFilters || {}) as Record<string, unknown>;
+  const existingFilters = (connection.syncFilters || {}) as Record<
+    string,
+    unknown
+  >;
   await supabase
     .from("email_connections")
     .update({
@@ -210,12 +370,6 @@ async function runImport(
 
   // Track merge groups: mergeWithLeadId → primary lead's clientId
   const mergeMap = new Map<string, string>();
-  // Track lead.id → opportunityId for post-import image extraction
-  const oppMap = new Map<string, string>();
-  // Track lead.id → normalized provider thread id. Import activities are
-  // synthetic, but thread/link/image extraction still require real thread ids.
-  const threadIdMap = new Map<string, string>();
-
   // Sort leads so merge targets (primary leads) appear before dependents.
   // Leads without mergeWithLeadId come first, followed by leads that merge into others.
   const sortedLeads = [...leads].sort((a, b) => {
@@ -231,13 +385,15 @@ async function runImport(
     try {
       // ── Handle discard — skip this lead entirely ──────────────────────
       if (lead.action === "discard") {
-        console.log(`[email-import] DISCARD: Skipping lead "${lead.clientName}" (${lead.clientEmail})`);
+        console.log(
+          `[email-import] DISCARD: Skipping lead "${lead.clientName}" (${lead.clientEmail})`
+        );
         continue;
       }
 
       const providerIds = validateProviderEmailIds({
         boundary: "import_synthetic_activity",
-        providerThreadId: lead.threadId,
+        providerThreadId: lead.providerThreadId ?? lead.threadId,
         providerMessageId: null,
         requireMessageId: false,
       });
@@ -256,7 +412,36 @@ async function runImport(
       }
 
       const providerThreadId = providerIds.providerThreadId;
-      threadIdMap.set(lead.id, providerThreadId);
+      let providerMessages = exactImportMessages({
+        lead,
+        companyId,
+        connectionId,
+      });
+      const logicalThreadKey = lead.threadId;
+      const isMessageScopedForm = logicalThreadKey !== providerThreadId;
+      if (providerMessages.length === 0 && !isMessageScopedForm) {
+        throw new Error("Reanalyze the mailbox, then import again");
+      }
+      if (
+        providerMessages.length > 0 &&
+        providerMessages.length !== (lead.correspondenceCount || 0)
+      ) {
+        throw new Error("Email history changed. Reanalyze the mailbox");
+      }
+      if (
+        providerMessages.length === 0 &&
+        isMessageScopedForm &&
+        lead.correspondenceCount !== 1
+      ) {
+        throw new Error("Email history changed. Reanalyze the mailbox");
+      }
+      const sourceThreadKey = buildImportSourceKey({
+        provider: connection.provider,
+        connectionId,
+        logicalThreadKey,
+        providerThreadId,
+        isMessageScopedForm,
+      });
       const enrichmentFacts = leadEnrichmentFactsFromImport({
         contactName: lead.clientName,
         contactEmail: lead.clientEmail,
@@ -275,13 +460,25 @@ async function runImport(
 
       // ── Handle discard_existing — soft-delete existing, create new ────
       if (effectiveAction === "discard_existing" && effectiveExistingClientId) {
-        console.log(`[email-import] DISCARD_EXISTING: Soft-deleting client ${effectiveExistingClientId}, creating new for "${lead.clientName}"`);
-        await ClientService.softDeleteClient(effectiveExistingClientId);
+        console.log(
+          `[email-import] DISCARD_EXISTING: Soft-deleting client ${effectiveExistingClientId}, creating new for "${lead.clientName}"`
+        );
+        const { error: discardError } = await supabase
+          .from("clients")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", effectiveExistingClientId)
+          .eq("company_id", companyId);
+        if (discardError) {
+          throw new Error(
+            `Failed to discard selected client: ${discardError.message}`
+          );
+        }
         effectiveAction = "create_new";
         effectiveExistingClientId = null;
       }
 
       let clientId: string;
+      let createdClientId: string | null = null;
 
       // ── Handle merge — update existing client with imported data ───────
       if (effectiveAction === "merge") {
@@ -291,12 +488,15 @@ async function runImport(
           result.errors.push(msg);
           continue;
         }
-        console.log(`[email-import] MERGE (${lead.mergeMode || "fill_blanks"}): "${lead.clientName}" → existing client ${effectiveExistingClientId}`);
+        console.log(
+          `[email-import] MERGE (${lead.mergeMode || "fill_blanks"}): "${lead.clientName}" → existing client ${effectiveExistingClientId}`
+        );
 
         const { data: existingClient } = await supabase
           .from("clients")
           .select("*")
           .eq("id", effectiveExistingClientId)
+          .eq("company_id", companyId)
           .single();
 
         if (existingClient) {
@@ -309,20 +509,27 @@ async function runImport(
             if (lead.clientAddress) updates.address = lead.clientAddress;
           } else {
             // fill_blanks (default)
-            if (!existingClient.name && lead.clientName) updates.name = lead.clientName;
-            if (!existingClient.email && lead.clientEmail) updates.email = lead.clientEmail;
-            if (!existingClient.phone_number && lead.clientPhone) updates.phone_number = lead.clientPhone;
-            if (!existingClient.address && lead.clientAddress) updates.address = lead.clientAddress;
+            if (!existingClient.name && lead.clientName)
+              updates.name = lead.clientName;
+            if (!existingClient.email && lead.clientEmail)
+              updates.email = lead.clientEmail;
+            if (!existingClient.phone_number && lead.clientPhone)
+              updates.phone_number = lead.clientPhone;
+            if (!existingClient.address && lead.clientAddress)
+              updates.address = lead.clientAddress;
           }
 
           if (Object.keys(updates).length > 0) {
             const { error: updateErr } = await supabase
               .from("clients")
               .update(updates)
-              .eq("id", effectiveExistingClientId);
+              .eq("id", effectiveExistingClientId)
+              .eq("company_id", companyId);
 
             if (updateErr) {
-              console.error(`[email-import] Failed to merge client: ${updateErr.message}`);
+              console.error(
+                `[email-import] Failed to merge client: ${updateErr.message}`
+              );
             }
           }
         }
@@ -342,8 +549,9 @@ async function runImport(
           const { data: existingSub } = await supabase
             .from("sub_clients")
             .select("id")
+            .eq("company_id", companyId)
             .eq("client_id", clientId)
-            .ilike("email", lead.clientEmail.toLowerCase())
+            .ilike("email", escapeIlikeLiteral(lead.clientEmail.toLowerCase()))
             .is("deleted_at", null)
             .limit(1);
 
@@ -369,7 +577,7 @@ async function runImport(
           .from("clients")
           .select("id")
           .eq("company_id", companyId)
-          .ilike("email", lead.clientEmail.toLowerCase())
+          .ilike("email", escapeIlikeLiteral(lead.clientEmail.toLowerCase()))
           .is("deleted_at", null)
           .limit(1);
 
@@ -384,6 +592,7 @@ async function runImport(
             address: lead.clientAddress || null,
           });
           clientId = newClient.id;
+          createdClientId = newClient.id;
           result.clientsCreated++;
         }
       }
@@ -404,13 +613,92 @@ async function runImport(
         discarded: OpportunityStage.Discarded,
       };
       const stage = stageMap[lead.stage] || OpportunityStage.NewLead;
-      const isTerminal = stage === OpportunityStage.Won || stage === OpportunityStage.Lost || stage === OpportunityStage.Discarded;
+      const isTerminal =
+        stage === OpportunityStage.Won ||
+        stage === OpportunityStage.Lost ||
+        stage === OpportunityStage.Discarded;
+      const inboundCount = Math.max(
+        0,
+        (lead.correspondenceCount || 0) - (lead.outboundCount || 0)
+      );
+      const lastMessageDate = importDate(lead.lastMessageDate, "last message");
+      const suppliedLastInboundAt = importDate(
+        lead.lastInboundAt,
+        "last inbound"
+      );
+      const suppliedLastOutboundAt = importDate(
+        lead.lastOutboundAt,
+        "last outbound"
+      );
+      const timestampDirection =
+        suppliedLastInboundAt && suppliedLastOutboundAt
+          ? suppliedLastOutboundAt.getTime() > suppliedLastInboundAt.getTime()
+            ? "outbound"
+            : suppliedLastInboundAt.getTime() > suppliedLastOutboundAt.getTime()
+              ? "inbound"
+              : null
+          : suppliedLastOutboundAt
+            ? "outbound"
+            : suppliedLastInboundAt
+              ? "inbound"
+              : null;
+      const activityDirection: "inbound" | "outbound" =
+        timestampDirection ??
+        lead.lastMessageDirection ??
+        ((lead.outboundCount || 0) > 0 && inboundCount === 0
+          ? "outbound"
+          : "inbound");
+      const isOutbound = activityDirection === "outbound";
+      const lastInboundAt =
+        suppliedLastInboundAt ??
+        (inboundCount > 0 && !isOutbound ? lastMessageDate : null);
+      const lastOutboundAt =
+        suppliedLastOutboundAt ??
+        ((lead.outboundCount || 0) > 0 && isOutbound ? lastMessageDate : null);
+
+      if (providerMessages.length === 0) {
+        const messageId = logicalThreadKey.slice(
+          "contact-form-message:".length
+        );
+        const formProviderIds = validateProviderEmailIds({
+          boundary: "import_message_scoped_form",
+          providerThreadId,
+          providerMessageId: messageId,
+          requireMessageId: true,
+        });
+        if (!formProviderIds.ok || !lastMessageDate) {
+          if (!formProviderIds.ok) {
+            logInvalidProviderEmailIds(formProviderIds, {
+              companyId,
+              connectionId,
+              leadId: lead.id,
+            });
+          }
+          throw new Error("Reanalyze the mailbox, then import again");
+        }
+        providerMessages = [
+          {
+            providerMessageId: formProviderIds.providerMessageId!,
+            providerThreadId: formProviderIds.providerThreadId,
+            fromEmail: isOutbound ? connection.email : lead.clientEmail,
+            subject: lead.description || "Imported email",
+            occurredAt: lastMessageDate,
+            direction: activityDirection,
+          },
+        ];
+      }
+      const importedProviderThreadIds = Array.from(
+        new Set([
+          providerThreadId,
+          ...providerMessages.map((message) => message.providerThreadId),
+        ])
+      );
 
       const relationshipDecision = await findOpportunityRelationshipMatch({
         supabase,
         companyId,
         connectionId,
-        providerThreadId,
+        providerThreadId: isMessageScopedForm ? null : providerThreadId,
         clientId,
         facts: {
           contactName: enrichmentFacts.contactName,
@@ -419,7 +707,7 @@ async function runImport(
           address: enrichmentFacts.address,
           description: enrichmentFacts.description,
           subject: lead.title ?? lead.description ?? null,
-          providerThreadId,
+          providerThreadId: isMessageScopedForm ? null : providerThreadId,
           sourcePlatform: enrichmentFacts.sourcePlatform,
           phaseCEnabled: false,
         },
@@ -453,14 +741,18 @@ async function runImport(
       }
 
       let opportunityId: string;
+      let opportunityAggregatesSeededByImport = false;
 
       if (relationshipDecision.action === "link") {
         opportunityId = relationshipDecision.opportunityId;
+        clientId = relationshipDecision.clientId ?? clientId;
+        mergeMap.set(lead.id, clientId);
         await applyCanonicalLeadEnrichment({
           supabase,
           opportunityId,
-          clientId: relationshipDecision.clientId ?? clientId,
+          clientId,
           facts: enrichmentFacts,
+          companyId,
         });
         // Stamp provenance on the reused opportunity. The create branch sets
         // source_email_id, but link / existing-open-opp do not — so a re-used
@@ -478,6 +770,7 @@ async function runImport(
           opportunityId,
           clientId,
           facts: enrichmentFacts,
+          companyId,
         });
         await supabase
           .from("opportunities")
@@ -485,66 +778,175 @@ async function runImport(
           .eq("id", opportunityId)
           .is("source_email_id", null);
       } else {
-        const inboundCount = Math.max(0, (lead.correspondenceCount || 0) - (lead.outboundCount || 0));
-        const lastMessageDate = lead.lastMessageDate ? new Date(lead.lastMessageDate) : null;
-        const isOutbound = (lead.outboundCount || 0) > 0 && inboundCount === 0;
+        let createdOpportunity = false;
+        try {
+          const opp = await OpportunityService.createOpportunity({
+            companyId,
+            clientId,
+            title: buildImportedLeadOpportunityTitle(lead, payload.syncProfile),
+            stage,
+            source: OpportunitySource.Email,
+            contactName: lead.clientName,
+            contactEmail: lead.clientEmail,
+            contactPhone: lead.clientPhone,
+            description: lead.description,
+            assignedTo: null,
+            priority: null,
+            estimatedValue: lead.estimatedValue,
+            actualValue:
+              stage === OpportunityStage.Won ? lead.estimatedValue : null,
+            winProbability: isTerminal
+              ? stage === OpportunityStage.Won
+                ? 100
+                : 0
+              : stage === OpportunityStage.Quoted
+                ? 50
+                : stage === OpportunityStage.NewLead
+                  ? 20
+                  : 30,
+            expectedCloseDate: null,
+            actualCloseDate: isTerminal
+              ? lead.actualCloseDate
+                ? new Date(lead.actualCloseDate)
+                : new Date()
+              : null,
+            projectId: null,
+            lostReason: null,
+            lostNotes: null,
+            sourceEmailId: providerThreadId,
+            sourceThreadKey,
+            quoteDeliveryMethod: null,
+            address: lead.clientAddress || null,
+            latitude: null,
+            longitude: null,
+            correspondenceCount: lead.correspondenceCount || 0,
+            outboundCount: lead.outboundCount || 0,
+            inboundCount,
+            lastInboundAt,
+            lastOutboundAt,
+            lastMessageDirection: isOutbound ? "out" : "in",
+            tags: ["email-import", "pipeline-wizard"],
+          });
+          opportunityId = opp.id;
+          createdOpportunity = true;
+          opportunityAggregatesSeededByImport = true;
+        } catch (createError) {
+          if (databaseErrorCode(createError) !== "23505") {
+            throw createError;
+          }
 
-        const opp = await OpportunityService.createOpportunity({
-          companyId,
-          clientId,
-          title: buildImportedLeadOpportunityTitle(lead, payload.syncProfile),
-          stage,
-          source: OpportunitySource.Email,
-          contactName: lead.clientName,
-          contactEmail: lead.clientEmail,
-          contactPhone: lead.clientPhone,
-          description: lead.description,
-          assignedTo: null,
-          priority: null,
-          estimatedValue: lead.estimatedValue,
-          actualValue: stage === OpportunityStage.Won ? lead.estimatedValue : null,
-          winProbability: isTerminal
-            ? (stage === OpportunityStage.Won ? 100 : 0)
-            : stage === OpportunityStage.Quoted ? 50 : stage === OpportunityStage.NewLead ? 20 : 30,
-          expectedCloseDate: null,
-          actualCloseDate: isTerminal ? (lead.actualCloseDate ? new Date(lead.actualCloseDate) : new Date()) : null,
-          projectId: null,
-          lostReason: null,
-          lostNotes: null,
-          sourceEmailId: providerThreadId,
-          quoteDeliveryMethod: null,
-          address: lead.clientAddress || null,
-          latitude: null,
-          longitude: null,
-          correspondenceCount: lead.correspondenceCount || 0,
-          outboundCount: lead.outboundCount || 0,
-          inboundCount,
-          lastInboundAt: !isOutbound && lastMessageDate ? lastMessageDate : null,
-          lastOutboundAt: isOutbound && lastMessageDate ? lastMessageDate : null,
-          lastMessageDirection: isOutbound ? "out" : "in",
-          tags: ["email-import", "pipeline-wizard"],
-        });
-        opportunityId = opp.id;
-        result.leadsCreated++;
+          const { data: winner, error: winnerError } = await supabase
+            .from("opportunities")
+            .select("id, client_id")
+            .eq("company_id", companyId)
+            .eq("source_thread_key", sourceThreadKey)
+            .maybeSingle();
+          if (winnerError) {
+            throw new Error(
+              `Failed to recover concurrent opportunity: ${winnerError.message}`
+            );
+          }
+          if (!winner?.id) {
+            throw new Error(
+              "Opportunity source-key conflict has no same-company winner"
+            );
+          }
+          if (!winner.client_id) {
+            throw new Error(
+              "Concurrent opportunity winner has no canonical client"
+            );
+          }
+          opportunityId = winner.id as string;
+          // The source-key winner came from the same import path and therefore
+          // already seeded its aggregate correspondence counts.
+          opportunityAggregatesSeededByImport = true;
+          const winnerClientId = winner.client_id as string;
+
+          // Both concurrent imports can miss the pre-create client lookup. If
+          // this attempt created the losing client, use the existing guarded
+          // merge RPC to re-point every relationship and preserve an audit
+          // pointer. Never soft-delete by assumption or touch a client that
+          // this request did not create.
+          if (createdClientId && createdClientId !== winnerClientId) {
+            const { data: mergeResult, error: mergeError } = await supabase.rpc(
+              "execute_client_merge_guarded",
+              {
+                p_company_id: companyId,
+                p_winner_id: winnerClientId,
+                p_loser_id: createdClientId,
+                p_merge_key: `email-import-client-race:${companyId}:${sourceThreadKey}:${createdClientId}`,
+                p_field_fill: {},
+                p_confirmed_overrides: {},
+                p_run_id: jobId,
+              }
+            );
+            const mergeOutcome = mergeResult as {
+              applied?: boolean;
+              guard_reason?: string;
+              error_code?: string;
+            } | null;
+            const mergeAccepted =
+              mergeOutcome?.applied === true ||
+              mergeOutcome?.guard_reason === "duplicate_applied_merge";
+            if (mergeError || !mergeAccepted) {
+              throw new Error(
+                `Failed to reconcile concurrent client: ${
+                  mergeError?.message ??
+                  mergeOutcome?.error_code ??
+                  mergeOutcome?.guard_reason ??
+                  "guarded merge was not applied"
+                }`
+              );
+            }
+            result.clientsCreated = Math.max(0, result.clientsCreated - 1);
+          }
+          clientId = winnerClientId;
+          mergeMap.set(lead.id, clientId);
+          console.warn("[email-import] lead-dedupe-hit", {
+            companyId,
+            sourceThreadKey,
+            opportunityId,
+            clientId,
+          });
+        }
+        if (createdOpportunity) result.leadsCreated++;
 
         // Patch fields that CreateOpportunity omits
         const patches: Record<string, unknown> = {};
         // stage_entered_at → real timeline, not import date
-        if (lastMessageDate) patches.stage_entered_at = lastMessageDate.toISOString();
+        if (lastMessageDate)
+          patches.stage_entered_at = lastMessageDate.toISOString();
         // ai_summary → the AI-generated description from the classifier
         if (lead.description) patches.ai_summary = lead.description;
         if (lead.estimatedValue) patches.detected_value = lead.estimatedValue;
-
         if (Object.keys(patches).length > 0) {
-          await supabase
+          const { error: patchError } = await supabase
             .from("opportunities")
             .update(patches)
-            .eq("id", opportunityId);
+            .eq("id", opportunityId)
+            .eq("company_id", companyId);
+          if (patchError) {
+            throw new Error(
+              `Failed to persist imported opportunity metadata: ${patchError.message}`
+            );
+          }
         }
       }
 
-      // Track opportunity for post-import image extraction
-      if (opportunityId) oppMap.set(lead.id, opportunityId);
+      // Preserve the logical ingestion identity independently of the raw
+      // provider thread. Fill only so later correspondence cannot replace the
+      // opportunity's original source key.
+      const { error: sourceKeyError } = await supabase
+        .from("opportunities")
+        .update({ source_thread_key: sourceThreadKey })
+        .eq("id", opportunityId)
+        .eq("company_id", companyId)
+        .is("source_thread_key", null);
+      if (sourceKeyError) {
+        throw new Error(
+          `Failed to persist logical email source key: ${sourceKeyError.message}`
+        );
+      }
 
       // Create sub-clients from detected sub-contacts (spouse, PM, site super, etc.)
       if (lead.subContacts?.length) {
@@ -553,8 +955,9 @@ async function runImport(
             const { data: existingSub } = await supabase
               .from("sub_clients")
               .select("id")
+              .eq("company_id", companyId)
               .eq("client_id", clientId)
-              .ilike("email", sc.email.toLowerCase())
+              .ilike("email", escapeIlikeLiteral(sc.email.toLowerCase()))
               .is("deleted_at", null)
               .limit(1);
 
@@ -569,111 +972,364 @@ async function runImport(
               );
             }
           } catch (subErr) {
-            console.error(`[email-import] Failed to create sub-contact ${sc.email}:`, subErr);
+            console.error(
+              `[email-import] Failed to create sub-contact ${sc.email}:`,
+              subErr
+            );
           }
         }
       }
 
-      // Create opportunity_email_threads record — ON CONFLICT DO NOTHING
-      // The UNIQUE(thread_id, connection_id) constraint prevents duplicates
-      await supabase.from("opportunity_email_threads").upsert(
-        {
-          opportunity_id: opportunityId,
-          thread_id: providerThreadId,
-          connection_id: connectionId,
-        },
-        { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
-      );
+      // Ordinary replies inherit their provider-thread relationship. Contact
+      // form submissions deliberately do not: one Gmail thread can contain
+      // unrelated customers, while the logical source key remains message-
+      // scoped on the opportunity.
+      if (!isMessageScopedForm) {
+        for (const importedProviderThreadId of importedProviderThreadIds) {
+          const { error: threadLinkError } = await supabase
+            .from("opportunity_email_threads")
+            .upsert(
+              {
+                opportunity_id: opportunityId,
+                thread_id: importedProviderThreadId,
+                connection_id: connectionId,
+              },
+              { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
+            );
+          if (threadLinkError) {
+            throw new Error(
+              `Failed to persist provider thread relationship: ${threadLinkError.message}`
+            );
+          }
+          const { data: canonicalThreadLink, error: canonicalThreadLinkError } =
+            await supabase
+              .from("opportunity_email_threads")
+              .select("opportunity_id")
+              .eq("thread_id", importedProviderThreadId)
+              .eq("connection_id", connectionId)
+              .limit(1)
+              .maybeSingle();
+          if (
+            canonicalThreadLinkError ||
+            canonicalThreadLink?.opportunity_id !== opportunityId
+          ) {
+            throw new Error(
+              `Provider thread already belongs to another opportunity: ${canonicalThreadLinkError?.message ?? canonicalThreadLink?.opportunity_id ?? "missing owner"}`
+            );
+          }
+        }
+      }
 
-      // Check for existing activity before creating (idempotency)
-      const { data: existingActivity } = await supabase
-        .from("activities")
-        .select("id")
-        .eq("company_id", companyId)
-        .eq("opportunity_id", opportunityId)
-        .eq("email_thread_id", providerThreadId)
-        .eq("type", "email")
-        .limit(1);
+      if (providerMessages.length > 0) {
+        // New wizard imports preserve every provider message identity from the
+        // analysis scan. Dedupe each message independently so importing an old
+        // message can never suppress a newer message from the same thread.
+        for (const message of providerMessages) {
+          const { data: existingActivities, error: existingActivityError } =
+            await supabase
+              .from("activities")
+              .select("id, opportunity_id, client_id, is_read")
+              .eq("company_id", companyId)
+              .eq("email_connection_id", connectionId)
+              .eq("email_message_id", message.providerMessageId)
+              .eq("type", "email")
+              .limit(1);
+          if (existingActivityError) {
+            throw new Error(
+              `Failed to check imported message: ${existingActivityError.message}`
+            );
+          }
 
-      if (!existingActivity || existingActivity.length === 0) {
-        // Mint a deterministic synthetic provider message id for the import
-        // shell instead of NULL. The wizard import has no real Gmail message id,
-        // but a NULL message id is invisible to steady-sync's dedupe (which keys
-        // on `email_message_id`), so a later re-sync of the same thread would
-        // re-create the imported correspondence as duplicate activities. The
-        // synthetic form `import:<threadId>:<seq>` gives each shell a stable,
-        // dedupe-able identity. `activities_email_message_id_unique` is a global
-        // partial unique index over non-null values, so the id MUST be unique
-        // per activity — the per-thread sequence count is the discriminator,
-        // and counting existing email activities on the thread keeps a second
-        // wizard run idempotent against the first.
-        const { data: priorThreadActivities } = await supabase
-          .from("activities")
-          .select("id")
-          .eq("company_id", companyId)
-          .eq("email_thread_id", providerThreadId)
-          .eq("type", "email");
-        const syntheticSeq = (priorThreadActivities ?? []).length;
-        const syntheticMessageId = `import:${providerThreadId}:${syntheticSeq}`;
+          let existingActivity = (existingActivities ?? [])[0] as
+            | {
+                id: string;
+                opportunity_id: string | null;
+                client_id: string | null;
+                is_read: boolean | null;
+              }
+            | undefined;
 
-        const activity = await OpportunityService.createActivity({
-          companyId,
-          opportunityId,
-          clientId,
-          estimateId: null,
-          invoiceId: null,
-          type: ActivityType.Email,
-          subject: lead.description || `Imported from email pipeline`,
-          content: `Pipeline import: ${lead.clientName} — stage: ${lead.stage}`,
-          outcome: null,
-          direction: "inbound",
-          durationMinutes: null,
-          emailThreadId: providerThreadId,
-          emailMessageId: syntheticMessageId,
-          isRead: true,
-          fromEmail: lead.clientEmail,
-          createdBy: null,
-        });
-        await OpportunityLifecycleService.recordCorrespondenceEvent({
-          supabase,
-          companyId,
-          opportunityId,
-          activityId: activity.id,
-          connectionId,
-          providerThreadId,
-          providerMessageId: syntheticMessageId,
-          requireProviderMessageId: false,
-          direction: "inbound",
-          occurredAt: lead.lastMessageDate
-            ? new Date(lead.lastMessageDate)
-            : new Date(),
-          source: "email_import",
-          fromEmail: lead.clientEmail,
-          fromName: lead.clientName,
-          toEmails: [connection.email],
-          ccEmails: [],
-          subject: lead.description || "Imported from email pipeline",
-          bodyText: lead.description ?? null,
-          connectionEmail: connection.email,
-          companyDomains: payload.syncProfile?.companyDomains ?? [],
-          userEmailAddresses: payload.syncProfile?.userEmailAddresses ?? [],
-          knownPlatformSenders: payload.syncProfile?.knownPlatformSenders ?? [],
-          contactEmail: lead.clientEmail,
-        });
-        result.activitiesLogged++;
+          if (
+            existingActivity?.client_id &&
+            existingActivity.client_id !== clientId
+          ) {
+            throw new Error(
+              `Message ${message.providerMessageId} is linked to another client`
+            );
+          }
+
+          if (existingActivity && !existingActivity.opportunity_id) {
+            // A prior sync can persist an exact provider activity before lead
+            // matching finishes. Adopt that row with a compare-and-set so a
+            // concurrent matcher cannot silently move it between leads.
+            let adoptionQuery = supabase
+              .from("activities")
+              .update({
+                opportunity_id: opportunityId,
+                client_id: clientId,
+              })
+              .eq("id", existingActivity.id)
+              .eq("company_id", companyId)
+              .eq("email_connection_id", connectionId)
+              .is("opportunity_id", null);
+            adoptionQuery = existingActivity.client_id
+              ? adoptionQuery.eq("client_id", clientId)
+              : adoptionQuery.is("client_id", null);
+            const { data: adoptedActivity, error: adoptionError } =
+              await adoptionQuery
+                .select("id, opportunity_id, client_id, is_read")
+                .maybeSingle();
+            if (adoptionError) {
+              throw new Error(
+                `Failed to attach imported message: ${adoptionError.message}`
+              );
+            }
+
+            if (adoptedActivity) {
+              existingActivity = adoptedActivity as {
+                id: string;
+                opportunity_id: string | null;
+                client_id: string | null;
+                is_read: boolean | null;
+              };
+            } else {
+              const { data: racedActivity, error: racedActivityError } =
+                await supabase
+                  .from("activities")
+                  .select("id, opportunity_id, client_id, is_read")
+                  .eq("id", existingActivity.id)
+                  .eq("company_id", companyId)
+                  .eq("email_connection_id", connectionId)
+                  .maybeSingle();
+              if (racedActivityError || !racedActivity) {
+                throw new Error(
+                  `Failed to confirm imported message ownership: ${racedActivityError?.message ?? "message not found"}`
+                );
+              }
+              existingActivity = racedActivity as {
+                id: string;
+                opportunity_id: string | null;
+                client_id: string | null;
+                is_read: boolean | null;
+              };
+            }
+          }
+
+          if (
+            existingActivity?.opportunity_id === opportunityId &&
+            !existingActivity.client_id
+          ) {
+            const { data: adoptedClient, error: adoptedClientError } =
+              await supabase
+                .from("activities")
+                .update({ client_id: clientId })
+                .eq("id", existingActivity.id)
+                .eq("company_id", companyId)
+                .eq("email_connection_id", connectionId)
+                .eq("opportunity_id", opportunityId)
+                .is("client_id", null)
+                .select("id, opportunity_id, client_id, is_read")
+                .maybeSingle();
+            if (adoptedClientError) {
+              throw new Error(
+                `Failed to attach imported message client: ${adoptedClientError.message}`
+              );
+            }
+            if (adoptedClient) {
+              existingActivity = adoptedClient as {
+                id: string;
+                opportunity_id: string | null;
+                client_id: string | null;
+                is_read: boolean | null;
+              };
+            } else {
+              const { data: racedClient, error: racedClientError } =
+                await supabase
+                  .from("activities")
+                  .select("id, opportunity_id, client_id, is_read")
+                  .eq("id", existingActivity.id)
+                  .eq("company_id", companyId)
+                  .eq("email_connection_id", connectionId)
+                  .maybeSingle();
+              if (racedClientError || !racedClient) {
+                throw new Error(
+                  `Failed to confirm imported message client: ${racedClientError?.message ?? "message not found"}`
+                );
+              }
+              existingActivity = racedClient as {
+                id: string;
+                opportunity_id: string | null;
+                client_id: string | null;
+                is_read: boolean | null;
+              };
+            }
+          }
+
+          if (
+            existingActivity &&
+            (existingActivity.opportunity_id !== opportunityId ||
+              existingActivity.client_id !== clientId)
+          ) {
+            throw new Error(
+              `Message ${message.providerMessageId} is linked to another lead`
+            );
+          }
+
+          const fromEmail =
+            message.fromEmail ||
+            (message.direction === "outbound"
+              ? connection.email
+              : lead.clientEmail);
+          const toEmails =
+            message.direction === "outbound"
+              ? [lead.clientEmail]
+              : [connection.email];
+          let activityId = existingActivity?.id ?? null;
+          let activityIsRead = existingActivity?.is_read === true;
+
+          if (!activityId) {
+            const activity = await OpportunityService.createActivity({
+              companyId,
+              opportunityId,
+              clientId,
+              estimateId: null,
+              invoiceId: null,
+              type: ActivityType.Email,
+              subject: message.subject,
+              content: null,
+              outcome: null,
+              direction: message.direction,
+              durationMinutes: null,
+              emailThreadId: message.providerThreadId,
+              emailMessageId: message.providerMessageId,
+              emailConnectionId: connectionId,
+              isRead: true,
+              fromEmail,
+              toEmails,
+              occurredAt: message.occurredAt,
+              createdBy: null,
+            });
+            activityId = activity.id;
+            activityIsRead = true;
+            result.activitiesLogged++;
+          }
+
+          // The database trigger owns normal attachment enqueueing. This
+          // conflict-safe insert also covers imports running during a rolling
+          // deploy without resetting a completed or in-flight scan.
+          const { error: attachmentScanError } = await supabase
+            .from("email_attachment_scans")
+            .upsert(
+              {
+                company_id: companyId,
+                connection_id: connectionId,
+                activity_id: activityId,
+                provider_thread_id: message.providerThreadId,
+                message_id: message.providerMessageId,
+                status: "pending",
+              },
+              {
+                onConflict: "activity_id",
+                ignoreDuplicates: true,
+              }
+            );
+          if (attachmentScanError) {
+            throw new Error(
+              `Failed to queue imported message attachments: ${attachmentScanError.message}`
+            );
+          }
+
+          await OpportunityLifecycleService.recordCorrespondenceEvent({
+            supabase,
+            companyId,
+            opportunityId,
+            activityId,
+            connectionId,
+            providerThreadId: message.providerThreadId,
+            providerMessageId: message.providerMessageId,
+            requireProviderMessageId: true,
+            direction: message.direction,
+            occurredAt: message.occurredAt,
+            source: "email_import",
+            applyOpportunityProjection: !opportunityAggregatesSeededByImport,
+            fromEmail,
+            fromName:
+              message.direction === "inbound" &&
+              fromEmail.toLowerCase() === lead.clientEmail.toLowerCase()
+                ? lead.clientName
+                : null,
+            toEmails,
+            ccEmails: [],
+            subject: message.subject,
+            bodyText: null,
+            connectionEmail: connection.email,
+            companyDomains: payload.syncProfile?.companyDomains ?? [],
+            userEmailAddresses: payload.syncProfile?.userEmailAddresses ?? [],
+            knownPlatformSenders:
+              payload.syncProfile?.knownPlatformSenders ?? [],
+            contactEmail: lead.clientEmail,
+          });
+
+          if (!opportunityAggregatesSeededByImport) {
+            const { data: projectionRows, error: projectionError } =
+              await supabase.rpc("apply_opportunity_correspondence_event", {
+                p_company_id: companyId,
+                p_opportunity_id: opportunityId,
+                p_connection_id: connectionId,
+                p_provider_message_id: message.providerMessageId,
+              });
+            if (projectionError || !projectionRows) {
+              throw new Error(
+                `Failed to update lead correspondence: ${projectionError?.message ?? "no result"}`
+              );
+            }
+          }
+
+          await EmailThreadService.upsertFromEmail({
+            companyId,
+            connectionId,
+            providerThreadId: message.providerThreadId,
+            email: {
+              id: message.providerMessageId,
+              threadId: message.providerThreadId,
+              from: fromEmail,
+              fromName:
+                message.direction === "inbound" &&
+                fromEmail.toLowerCase() === lead.clientEmail.toLowerCase()
+                  ? lead.clientName
+                  : "",
+              to: toEmails,
+              cc: [],
+              subject: message.subject,
+              snippet: "",
+              bodyText: "",
+              date: message.occurredAt,
+              labelIds: [],
+              isRead: activityIsRead,
+              hasAttachments: false,
+              sizeEstimate: 0,
+            },
+            direction: message.direction,
+            opportunityId,
+            clientId,
+            markClassificationDirty: true,
+          });
+        }
       }
 
       // Apply label to thread
       if (labelId) {
-        try {
-          await provider.applyLabel(providerThreadId, labelId);
-          result.labelsApplied++;
-        } catch (labelErr) {
-          // Non-fatal
-          console.error(
-            `[email-import] Failed to apply label to thread ${providerThreadId}:`,
-            labelErr
-          );
+        for (const importedProviderThreadId of importedProviderThreadIds) {
+          try {
+            await provider.applyLabel(importedProviderThreadId, labelId);
+            result.labelsApplied++;
+          } catch (labelErr) {
+            // Non-fatal
+            console.error(
+              `[email-import] Failed to apply label to thread ${importedProviderThreadId}:`,
+              labelErr
+            );
+          }
         }
       }
     } catch (err) {
@@ -683,59 +1339,46 @@ async function runImport(
     }
   }
 
+  if (result.errors.length > 0) {
+    const failedLeads = result.errors.length;
+    const processedLeads = Math.max(0, leads.length - failedLeads);
+    const { error: jobError } = await supabase
+      .from("gmail_scan_jobs")
+      .update({
+        status: "import_error",
+        error_message: result.errors.join("\n"),
+        progress: {
+          stage: "import_error",
+          percent: Math.round((processedLeads / leads.length) * 100),
+          message: `Import stopped. Review the failed ${failedLeads === 1 ? "lead" : "leads"} and retry.`,
+          totalLeads: leads.length,
+          processedLeads,
+          clientsCreated: result.clientsCreated,
+          leadsCreated: result.leadsCreated,
+          labelsApplied: result.labelsApplied,
+        },
+        result,
+      })
+      .eq("id", jobId);
+    if (jobError) {
+      throw new Error(
+        `Failed to persist incomplete import state: ${jobError.message}`
+      );
+    }
+    console.error(
+      `[email-import] Incomplete: ${failedLeads} of ${leads.length} leads failed`
+    );
+    return;
+  }
+
   console.log(
     `[email-import] Complete: ${result.clientsCreated} clients, ${result.leadsCreated} leads, ${result.activitiesLogged} activities, ${result.labelsApplied} labels`
   );
 
-  // ─── Serialize image-extraction payload ────────────────────────────────────
-  // Image extraction is moved to a separate route (/api/integrations/email/
-  // extract-images) because the fetch+upload cycle for many attachments can
-  // easily exceed this route's 300s maxDuration, leaving jobs stuck in
-  // 'importing' forever. We build the opportunity → {threadIds, allowedSenders}
-  // map here, serialize it, mark the job complete, then dispatch the
-  // extraction in a background after() callback.
-  const oppThreadMap = new Map<string, {
-    opportunityId: string;
-    threadIds: string[];
-    allowedSenders: Set<string>;
-  }>();
-  for (const lead of leads) {
-    const oppId = oppMap.get(lead.id);
-    if (!oppId) continue;
-    const existing = oppThreadMap.get(oppId);
-    const threadIds = lead.mergeWithLeadId
-      ? lead.mergeWithLeadId.split(",").filter(Boolean)
-      : [threadIdMap.get(lead.id) ?? lead.threadId];
-
-    const senderEmails = new Set<string>();
-    if (lead.clientEmail) senderEmails.add(lead.clientEmail.toLowerCase().trim());
-    if (lead.subContacts) {
-      for (const sc of lead.subContacts) {
-        if (sc.email) senderEmails.add(sc.email.toLowerCase().trim());
-      }
-    }
-
-    if (existing) {
-      for (const tid of threadIds) {
-        if (!existing.threadIds.includes(tid)) existing.threadIds.push(tid);
-      }
-      for (const email of senderEmails) existing.allowedSenders.add(email);
-    } else {
-      oppThreadMap.set(oppId, { opportunityId: oppId, threadIds: [...threadIds], allowedSenders: senderEmails });
-    }
-  }
-
-  const oppThreadPayload = Array.from(oppThreadMap.values()).map((v) => ({
-    opportunityId: v.opportunityId,
-    threadIds: v.threadIds,
-    allowedSenders: Array.from(v.allowedSenders),
-  }));
-
-  // ─── Mark job complete BEFORE image extraction dispatches ──────────────────
+  // ─── Mark job complete ─────────────────────────────────────────────────────
   // The wizard polls analyze-status and advances past step 4 once status flips
-  // to import_complete. Writing the completion here (rather than after image
-  // extraction) ensures the wizard never stalls waiting for attachment work.
-  // imagesExtracted starts at 0 and grows as the background route finishes.
+  // to import_complete. Attachment scans were queued at each exact activity
+  // boundary and continue independently through the durable worker.
   await supabase
     .from("gmail_scan_jobs")
     .update({
@@ -743,9 +1386,7 @@ async function runImport(
       progress: {
         stage: "import_complete",
         percent: 100,
-        message: oppThreadPayload.length > 0
-          ? "Import complete! Extracting images in background..."
-          : "Import complete!",
+        message: "Import complete",
         totalLeads: leads.length,
         processedLeads: leads.length,
         clientsCreated: result.clientsCreated,
@@ -763,7 +1404,8 @@ async function runImport(
     .eq("id", connectionId)
     .single();
 
-  const existingFilters = (currentConn?.sync_filters as Record<string, unknown>) || {};
+  const existingFilters =
+    (currentConn?.sync_filters as Record<string, unknown>) || {};
 
   await supabase
     .from("email_connections")
@@ -779,48 +1421,25 @@ async function runImport(
 
   // ─── Create notification for background completion ────────────────────────
   if (currentConn?.user_id) {
-    await supabase.from("notifications").insert({
-      user_id: currentConn.user_id,
-      company_id: currentConn.company_id || companyId,
-      type: "mention",
-      title: "Pipeline import complete",
-      body: `Created ${result.clientsCreated} client${result.clientsCreated !== 1 ? "s" : ""} and ${result.leadsCreated} lead${result.leadsCreated !== 1 ? "s" : ""}`,
-      is_read: false,
-      persistent: true,
-      action_url: "/settings?tab=integrations",
-      action_label: "Activate Sync",
-    }).then(({ error: notifErr }) => {
-      if (notifErr) console.error("[email-import] Failed to create notification:", notifErr.message);
-    });
-  }
-
-  // ─── Dispatch image extraction as a separate background route ─────────────
-  // This runs AFTER the job is marked import_complete so the wizard advances
-  // past step 4 regardless of how long extraction takes. The extract-images
-  // route has its own 800s budget (Pro plan max) for the fetch+upload cycle
-  // and writes imagesExtracted back to result on completion.
-  if (oppThreadPayload.length > 0) {
-    after(async () => {
-      try {
-        const res = await fetch(`${getAppUrl()}/api/integrations/email/extract-images`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jobId,
-            connectionId,
-            companyId,
-            oppThreadPayload,
-          }),
-        });
-        if (!res.ok) {
-          const errBody = await res.text().catch(() => "");
+    await supabase
+      .from("notifications")
+      .insert({
+        user_id: currentConn.user_id,
+        company_id: currentConn.company_id || companyId,
+        type: "mention",
+        title: "Pipeline import complete",
+        body: `Created ${result.clientsCreated} client${result.clientsCreated !== 1 ? "s" : ""} and ${result.leadsCreated} lead${result.leadsCreated !== 1 ? "s" : ""}`,
+        is_read: false,
+        persistent: true,
+        action_url: "/settings?tab=integrations",
+        action_label: "Activate Sync",
+      })
+      .then(({ error: notifErr }) => {
+        if (notifErr)
           console.error(
-            `[email-import] extract-images dispatch failed (${res.status}): ${errBody}`
+            "[email-import] Failed to create notification:",
+            notifErr.message
           );
-        }
-      } catch (err) {
-        console.error("[email-import] Failed to dispatch image extraction:", err);
-      }
-    });
+      });
   }
 }

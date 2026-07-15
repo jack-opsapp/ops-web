@@ -10,7 +10,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { ProductService } from "../api/services";
+import { ProductService } from "../api/services/product-service";
 import type { CreateProduct } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 

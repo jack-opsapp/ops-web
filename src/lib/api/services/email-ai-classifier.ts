@@ -10,20 +10,31 @@
 // - Assigns pipeline stages based on thread context
 // - Validates stage values — allows won/lost as direct stages, rescues likely_won/likely_lost to terminalFlag
 
-import { getImportOpenAI } from './openai-clients';
+import { getImportOpenAI } from "./openai-clients";
 
 // Re-export from shared utility — keeps existing imports working
-export { stripQuotedContent } from '@/lib/utils/email-parsing';
+export { stripQuotedContent } from "@/lib/utils/email-parsing";
 
 // Uses OPENAI_API_KEY_IMPORT for initial inbox scan (Phase A triage + Phase B extraction).
 // Accepts an optional client override so the sync reviewer can pass its SYNC key client.
-function getOpenAI(override?: import('openai').default): import('openai').default {
+function getOpenAI(
+  override?: import("openai").default
+): import("openai").default {
   return override ?? getImportOpenAI();
 }
 
 // Valid pipeline stages — used for validation
-const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation', 'won', 'lost'] as const;
-type ValidStage = typeof VALID_STAGES[number];
+const VALID_STAGES = [
+  "new_lead",
+  "qualifying",
+  "quoting",
+  "quoted",
+  "follow_up",
+  "negotiation",
+  "won",
+  "lost",
+] as const;
+type ValidStage = (typeof VALID_STAGES)[number];
 
 function isValidStage(stage: string): stage is ValidStage {
   return (VALID_STAGES as readonly string[]).includes(stage);
@@ -33,16 +44,16 @@ function isValidStage(stage: string): stage is ValidStage {
 function sanitizeStageAndFlag(
   rawStage: string | null | undefined,
   rawFlag: string | null | undefined
-): { stage: string; terminalFlag: 'likely_won' | 'likely_lost' | null } {
-  const stage = rawStage && isValidStage(rawStage) ? rawStage : 'new_lead';
+): { stage: string; terminalFlag: "likely_won" | "likely_lost" | null } {
+  const stage = rawStage && isValidStage(rawStage) ? rawStage : "new_lead";
   // Derive terminal flag from stage or explicit flag
-  let terminalFlag: 'likely_won' | 'likely_lost' | null =
-    (rawFlag === 'likely_won' || rawFlag === 'likely_lost') ? rawFlag : null;
-  if (!terminalFlag && rawStage === 'likely_won') terminalFlag = 'likely_won';
-  if (!terminalFlag && rawStage === 'likely_lost') terminalFlag = 'likely_lost';
+  let terminalFlag: "likely_won" | "likely_lost" | null =
+    rawFlag === "likely_won" || rawFlag === "likely_lost" ? rawFlag : null;
+  if (!terminalFlag && rawStage === "likely_won") terminalFlag = "likely_won";
+  if (!terminalFlag && rawStage === "likely_lost") terminalFlag = "likely_lost";
   // If AI directly set won/lost as the stage, also set the terminal flag
-  if (!terminalFlag && stage === 'won') terminalFlag = 'likely_won';
-  if (!terminalFlag && stage === 'lost') terminalFlag = 'likely_lost';
+  if (!terminalFlag && stage === "won") terminalFlag = "likely_won";
+  if (!terminalFlag && stage === "lost") terminalFlag = "likely_lost";
   return { stage, terminalFlag };
 }
 
@@ -62,12 +73,12 @@ export interface ClassificationInput {
    */
   body?: string;
   date: string;
-  direction: 'inbound' | 'outbound';
+  direction: "inbound" | "outbound";
 }
 
 export interface ClassificationResult {
   id: string;
-  verdict: 'lead' | 'biz' | 'skip';
+  verdict: "lead" | "biz" | "skip";
   confidence: number;
   stage: string | null;
   estimatedValue: number | null;
@@ -79,7 +90,7 @@ export interface ClassificationResult {
     description: string;
   } | null;
   duplicateOf: string[];
-  terminalFlag: 'likely_won' | 'likely_lost' | null;
+  terminalFlag: "likely_won" | "likely_lost" | null;
 }
 
 // ─── Thread-based classification (new primary approach) ─────────────────────
@@ -93,7 +104,7 @@ export interface ThreadSummaryInput {
   latestSnippet: string;
   firstSender: string;
   firstSenderName: string;
-  direction: 'inbound' | 'outbound';
+  direction: "inbound" | "outbound";
   dateRange: { first: string; last: string };
   outboundCount: number;
   /** Up to 6 email excerpts (3 client + 3 owner) for context-rich classification */
@@ -102,14 +113,14 @@ export interface ThreadSummaryInput {
     fromName: string;
     to: string[];
     date: string;
-    direction: 'inbound' | 'outbound';
+    direction: "inbound" | "outbound";
     body: string; // first 500 chars
   }>;
 }
 
 export interface ThreadClassificationResult {
   threadId: string;
-  verdict: 'lead' | 'biz' | 'skip';
+  verdict: "lead" | "biz" | "skip";
   confidence: number;
   stage: string;
   estimatedValue: number | null;
@@ -119,9 +130,13 @@ export interface ThreadClassificationResult {
     phone: string | null;
     description: string;
   } | null;
-  additionalContacts: Array<{ name: string; email: string; phone: string | null }>;
+  additionalContacts: Array<{
+    name: string;
+    email: string;
+    phone: string | null;
+  }>;
   duplicateOf: string[];
-  terminalFlag: 'likely_won' | 'likely_lost' | null;
+  terminalFlag: "likely_won" | "likely_lost" | null;
 }
 
 // ─── Thread analysis (full content for stage determination) ─────────────────
@@ -134,7 +149,7 @@ export interface ThreadAnalysisInput {
     subject: string;
     bodyText: string;
     date: string;
-    direction: 'inbound' | 'outbound';
+    direction: "inbound" | "outbound";
   }>;
 }
 
@@ -144,7 +159,7 @@ export interface ThreadAnalysisResult {
   confidence: number;
   estimatedValue: number | null;
   signals: string[];
-  terminalFlag: 'likely_won' | 'likely_lost' | null;
+  terminalFlag: "likely_won" | "likely_lost" | null;
 }
 
 // ─── Triage types (Phase A: cheap lead/not_lead pass) ───────────────────────
@@ -155,7 +170,7 @@ export interface TriageInput {
   participants: string[];
   messageCount: number;
   hasUserReply: boolean;
-  direction: 'inbound' | 'outbound';
+  direction: "inbound" | "outbound";
   outboundCount: number;
   /** Last 3 messages with full body text (no cap) */
   messages: Array<{
@@ -163,14 +178,14 @@ export interface TriageInput {
     fromName: string;
     to: string[];
     date: string;
-    direction: 'inbound' | 'outbound';
+    direction: "inbound" | "outbound";
     body: string;
   }>;
 }
 
 export interface TriageResult {
   threadId: string;
-  verdict: 'lead' | 'not_lead';
+  verdict: "lead" | "not_lead";
   confidence: number;
 }
 
@@ -188,7 +203,7 @@ export interface DeepExtractionInput {
     fromName: string;
     to: string[];
     date: string;
-    direction: 'inbound' | 'outbound';
+    direction: "inbound" | "outbound";
     body: string;
   }>;
 }
@@ -209,9 +224,16 @@ export interface DeepExtractionResult {
   estimatedValue: number | null;
   isLead: boolean;
   needsReview: boolean;
-  reviewReason: 'legal' | 'job_seeker' | 'collections' | 'platform_bid' | 'warranty' | 'ambiguous' | null;
+  reviewReason:
+    | "legal"
+    | "job_seeker"
+    | "collections"
+    | "platform_bid"
+    | "warranty"
+    | "ambiguous"
+    | null;
   reason: string | null;
-  terminalFlag: 'likely_won' | 'likely_lost' | null;
+  terminalFlag: "likely_won" | "likely_lost" | null;
 }
 
 export const EmailAIClassifier = {
@@ -222,8 +244,17 @@ export const EmailAIClassifier = {
    */
   async classifyThreadBatch(
     threads: ThreadSummaryInput[],
-    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] },
-    onProgress?: (processed: number, total: number, batchResults: ThreadClassificationResult[]) => Promise<void>
+    context: {
+      companyName: string;
+      industry: string;
+      ownerEmail: string;
+      companyDomains: string[];
+    },
+    onProgress?: (
+      processed: number,
+      total: number,
+      batchResults: ThreadClassificationResult[]
+    ) => Promise<void>
   ): Promise<ThreadClassificationResult[]> {
     if (threads.length === 0) return [];
 
@@ -233,10 +264,17 @@ export const EmailAIClassifier = {
     const BATCH_SIZE = 15;
     for (let i = 0; i < threads.length; i += BATCH_SIZE) {
       const batch = threads.slice(i, i + BATCH_SIZE);
-      const batchResults = await EmailAIClassifier.classifySingleThreadBatch(batch, context);
+      const batchResults = await EmailAIClassifier.classifySingleThreadBatch(
+        batch,
+        context
+      );
       results.push(...batchResults);
       if (onProgress) {
-        await onProgress(Math.min(i + BATCH_SIZE, threads.length), threads.length, batchResults);
+        await onProgress(
+          Math.min(i + BATCH_SIZE, threads.length),
+          threads.length,
+          batchResults
+        );
       }
       if (i + BATCH_SIZE < threads.length) {
         await new Promise((r) => setTimeout(r, 200));
@@ -252,15 +290,24 @@ export const EmailAIClassifier = {
    */
   async classifyBatch(
     emails: ClassificationInput[],
-    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] },
-    openaiClient?: import('openai').default
+    context: {
+      companyName: string;
+      industry: string;
+      ownerEmail: string;
+      companyDomains: string[];
+    },
+    openaiClient?: import("openai").default
   ): Promise<ClassificationResult[]> {
     if (emails.length === 0) return [];
 
     const results: ClassificationResult[] = [];
     for (let i = 0; i < emails.length; i += 50) {
       const batch = emails.slice(i, i + 50);
-      const batchResults = await EmailAIClassifier.classifySingleBatch(batch, context, openaiClient);
+      const batchResults = await EmailAIClassifier.classifySingleBatch(
+        batch,
+        context,
+        openaiClient
+      );
       results.push(...batchResults);
       if (i + 50 < emails.length) {
         await new Promise((r) => setTimeout(r, 200));
@@ -283,7 +330,10 @@ export const EmailAIClassifier = {
     const results: ThreadAnalysisResult[] = [];
     for (let i = 0; i < threads.length; i += 5) {
       const batch = threads.slice(i, i + 5);
-      const batchResults = await EmailAIClassifier.analyzeThreadBatch(batch, context);
+      const batchResults = await EmailAIClassifier.analyzeThreadBatch(
+        batch,
+        context
+      );
       results.push(...batchResults);
       if (i + 5 < threads.length) {
         await new Promise((r) => setTimeout(r, 200));
@@ -300,7 +350,12 @@ export const EmailAIClassifier = {
    */
   async triageThreads(
     threads: TriageInput[],
-    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] },
+    context: {
+      companyName: string;
+      industry: string;
+      ownerEmail: string;
+      companyDomains: string[];
+    },
     onProgress?: (processed: number, total: number) => Promise<void>
   ): Promise<TriageResult[]> {
     if (threads.length === 0) return [];
@@ -310,10 +365,16 @@ export const EmailAIClassifier = {
 
     for (let i = 0; i < threads.length; i += BATCH_SIZE) {
       const batch = threads.slice(i, i + BATCH_SIZE);
-      const batchResults = await EmailAIClassifier.triageSingleBatch(batch, context);
+      const batchResults = await EmailAIClassifier.triageSingleBatch(
+        batch,
+        context
+      );
       results.push(...batchResults);
       if (onProgress) {
-        await onProgress(Math.min(i + BATCH_SIZE, threads.length), threads.length);
+        await onProgress(
+          Math.min(i + BATCH_SIZE, threads.length),
+          threads.length
+        );
       }
       if (i + BATCH_SIZE < threads.length) {
         await new Promise((r) => setTimeout(r, 200));
@@ -370,8 +431,10 @@ export const EmailAIClassifier = {
       let failedBatches: DeepExtractionInput[][] = [];
       for (let k = 0; k < settled.length; k++) {
         const result = settled[k];
-        if (result.status === 'fulfilled') {
-          const allFallback = result.value.every((r) => r.stageConfidence === 0.3 && r.reason === 'extraction_failed');
+        if (result.status === "fulfilled") {
+          const allFallback = result.value.every(
+            (r) => r.stageConfidence === 0.3 && r.reason === "extraction_failed"
+          );
           if (allFallback && result.value.length > 0) {
             failedBatches.push(batchInputs[k]);
           } else {
@@ -383,13 +446,24 @@ export const EmailAIClassifier = {
       }
 
       // Retry failed batches sequentially with multiple attempts
-      for (let attempt = 1; attempt <= MAX_RETRIES && failedBatches.length > 0; attempt++) {
-        console.log(`[deep-extract] Retry attempt ${attempt}/${MAX_RETRIES} for ${failedBatches.length} failed batches...`);
+      for (
+        let attempt = 1;
+        attempt <= MAX_RETRIES && failedBatches.length > 0;
+        attempt++
+      ) {
+        console.log(
+          `[deep-extract] Retry attempt ${attempt}/${MAX_RETRIES} for ${failedBatches.length} failed batches...`
+        );
         const stillFailed: DeepExtractionInput[][] = [];
         for (const batch of failedBatches) {
           await new Promise((r) => setTimeout(r, 1000 * attempt)); // increasing delay: 1s, 2s
-          const retryResult = await EmailAIClassifier.deepExtractSingleBatch(batch, context);
-          const allFallback = retryResult.every((r) => r.stageConfidence === 0.3 && r.reason === 'extraction_failed');
+          const retryResult = await EmailAIClassifier.deepExtractSingleBatch(
+            batch,
+            context
+          );
+          const allFallback = retryResult.every(
+            (r) => r.stageConfidence === 0.3 && r.reason === "extraction_failed"
+          );
           if (allFallback && retryResult.length > 0) {
             stillFailed.push(batch);
           } else {
@@ -401,8 +475,13 @@ export const EmailAIClassifier = {
 
       // Accept remaining failures as fallback
       for (const batch of failedBatches) {
-        console.warn(`[deep-extract] Batch permanently failed after ${MAX_RETRIES} retries — using fallback for ${batch.length} threads`);
-        const fallback = await EmailAIClassifier.deepExtractSingleBatch(batch, context);
+        console.warn(
+          `[deep-extract] Batch permanently failed after ${MAX_RETRIES} retries — using fallback for ${batch.length} threads`
+        );
+        const fallback = await EmailAIClassifier.deepExtractSingleBatch(
+          batch,
+          context
+        );
         results.push(...fallback);
       }
 
@@ -421,7 +500,12 @@ export const EmailAIClassifier = {
 
   async classifySingleThreadBatch(
     threads: ThreadSummaryInput[],
-    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] }
+    context: {
+      companyName: string;
+      industry: string;
+      ownerEmail: string;
+      companyDomains: string[];
+    }
   ): Promise<ThreadClassificationResult[]> {
     const systemPrompt = `You are classifying email THREADS for a trades/construction business.
 Each item is a THREAD SUMMARY with up to 6 email excerpts (3 from client, 3 from owner). Use the email content, signatures, and headers to extract accurate client information.
@@ -429,7 +513,7 @@ Each item is a THREAD SUMMARY with up to 6 email excerpts (3 from client, 3 from
 Company: ${context.companyName}
 Industry: ${context.industry}
 Owner email: ${context.ownerEmail}
-Company domains: ${context.companyDomains.join(', ')}
+Company domains: ${context.companyDomains.join(", ")}
 
 For each thread, determine:
 - verdict: "lead" (customer inquiry/project conversation), "biz" (subtrade/vendor/contractor pitching THEIR services TO the company), "skip" (noise/spam/newsletter/internal/marketing agency)
@@ -486,60 +570,72 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
         snip: t.latestSnippet,
         dates: t.dateRange,
         // Include email excerpts for context-rich classification
-        ...(t.emailExcerpts?.length ? {
-          emails: t.emailExcerpts.map((e) => ({
-            from: e.from,
-            name: e.fromName,
-            to: e.to.slice(0, 3),
-            dir: e.direction,
-            date: e.date,
-            body: e.body,
-          }))
-        } : {}),
+        ...(t.emailExcerpts?.length
+          ? {
+              emails: t.emailExcerpts.map((e) => ({
+                from: e.from,
+                name: e.fromName,
+                to: e.to.slice(0, 3),
+                dir: e.direction,
+                date: e.date,
+                body: e.body,
+              })),
+            }
+          : {}),
       }))
     );
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: "gpt-4o-mini",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
         max_tokens: threads.length * 150,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
       });
 
       const content = response.choices[0]?.message?.content || '{"results":[]}';
       const parsed = JSON.parse(content);
       const rawResults = parsed.results || parsed;
 
-      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => {
-        const { stage, terminalFlag } = sanitizeStageAndFlag(
-          (r.stage as string) || null,
-          (r.flag as string) || (r.terminalFlag as string) || null
-        );
+      return (Array.isArray(rawResults) ? rawResults : []).map(
+        (r: Record<string, unknown>) => {
+          const { stage, terminalFlag } = sanitizeStageAndFlag(
+            (r.stage as string) || null,
+            (r.flag as string) || (r.terminalFlag as string) || null
+          );
 
-        return {
-          threadId: (r.tid as string) || (r.threadId as string),
-          verdict: ((r.verdict as string) || 'skip') as ThreadClassificationResult['verdict'],
-          confidence: (r.confidence as number) || (r.c as number) || 0,
-          stage,
-          estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
-          client: (r.client as ThreadClassificationResult['client']) || null,
-          additionalContacts: (r.additionalContacts as ThreadClassificationResult['additionalContacts']) || [],
-          duplicateOf: (r.dupes as string[]) || (r.duplicateOf as string[]) || [],
-          terminalFlag,
-        };
-      });
+          return {
+            threadId: (r.tid as string) || (r.threadId as string),
+            verdict: ((r.verdict as string) ||
+              "skip") as ThreadClassificationResult["verdict"],
+            confidence: (r.confidence as number) || (r.c as number) || 0,
+            stage,
+            estimatedValue:
+              (r.val as number) || (r.estimatedValue as number) || null,
+            client: (r.client as ThreadClassificationResult["client"]) || null,
+            additionalContacts:
+              (r.additionalContacts as ThreadClassificationResult["additionalContacts"]) ||
+              [],
+            duplicateOf:
+              (r.dupes as string[]) || (r.duplicateOf as string[]) || [],
+            terminalFlag,
+          };
+        }
+      );
     } catch (err) {
-      console.error('[email-ai-classifier] Thread batch classification failed:', err);
+      console.error(
+        "[email-ai-classifier] Thread batch classification failed:",
+        err
+      );
       return threads.map((t) => ({
         threadId: t.threadId,
-        verdict: 'skip' as const,
+        verdict: "skip" as const,
         confidence: 0,
-        stage: 'new_lead',
+        stage: "new_lead",
         estimatedValue: null,
         client: null,
         additionalContacts: [],
@@ -551,15 +647,20 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
 
   async classifySingleBatch(
     emails: ClassificationInput[],
-    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] },
-    openaiClient?: import('openai').default
+    context: {
+      companyName: string;
+      industry: string;
+      ownerEmail: string;
+      companyDomains: string[];
+    },
+    openaiClient?: import("openai").default
   ): Promise<ClassificationResult[]> {
     const systemPrompt = `You are classifying emails for a trades business.
 
 Company: ${context.companyName}
 Industry: ${context.industry}
 Owner email: ${context.ownerEmail}
-Company domains: ${context.companyDomains.join(', ')}
+Company domains: ${context.companyDomains.join(", ")}
 
 For each email, determine:
 - verdict: "lead" (customer inquiry/conversation), "biz" (subtrade/vendor/contractor), "skip" (noise/spam/newsletter)
@@ -584,7 +685,7 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
         subj: e.subject,
         // Use the full body when available (capped at 1500 chars) so the model
         // can recover the job-site address and scope; fall back to snippet.
-        snip: (e.body || e.snippet || '').slice(0, 1500),
+        snip: (e.body || e.snippet || "").slice(0, 1500),
         date: e.date,
         dir: e.direction,
       }))
@@ -592,23 +693,97 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
 
     try {
       const response = await getOpenAI(openaiClient).chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: "gpt-4o-mini",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
         max_tokens: emails.length * 80,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
       });
 
-      const content = response.choices[0]?.message?.content || '{"results":[]}';
-      const parsed = JSON.parse(content);
-      const rawResults = parsed.results || parsed;
+      const content = response.choices[0]?.message?.content;
+      if (typeof content !== "string" || !content.trim()) {
+        throw new Error("model response was empty");
+      }
 
-      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(content);
+      } catch (err) {
+        throw new Error("model response was not valid JSON", { cause: err });
+      }
+
+      const rawResults =
+        parsed && typeof parsed === "object" && "results" in parsed
+          ? (parsed as { results?: unknown }).results
+          : parsed;
+      if (!Array.isArray(rawResults)) {
+        throw new Error("model response did not contain a results array");
+      }
+
+      const requestedIds = new Set<string>();
+      for (const email of emails) {
+        if (!email.id || requestedIds.has(email.id)) {
+          throw new Error(
+            `classification input duplicated id ${email.id || "<empty>"}`
+          );
+        }
+        requestedIds.add(email.id);
+      }
+
+      const resultById = new Map<string, ClassificationResult>();
+      for (const rawResult of rawResults) {
+        if (!rawResult || typeof rawResult !== "object") {
+          throw new Error(
+            "model response contained an invalid classification result"
+          );
+        }
+        const r = rawResult as Record<string, unknown>;
+        const id = typeof r.id === "string" && r.id ? r.id : null;
+        if (!id) {
+          throw new Error(
+            "model response contained a classification without an id"
+          );
+        }
+        if (!requestedIds.has(id)) {
+          throw new Error(
+            `model response contained unknown classification id ${id}`
+          );
+        }
+        if (resultById.has(id)) {
+          throw new Error(`model response duplicated classification id ${id}`);
+        }
+
+        const verdict = r.verdict;
+        if (verdict !== "lead" && verdict !== "biz" && verdict !== "skip") {
+          throw new Error(`model response contained invalid verdict for ${id}`);
+        }
+
+        let confidence =
+          typeof r.confidence === "number"
+            ? r.confidence
+            : typeof r.c === "number"
+              ? r.c
+              : null;
+        if (
+          confidence == null ||
+          !Number.isFinite(confidence) ||
+          confidence < 0 ||
+          confidence > 1
+        ) {
+          if (verdict === "lead") {
+            throw new Error(
+              `model response contained invalid confidence for ${id}`
+            );
+          }
+          confidence = 0;
+        }
+
         const rawStage = (r.stage as string) || null;
-        const rawFlag = (r.flag as string) || (r.terminalFlag as string) || null;
+        const rawFlag =
+          (r.flag as string) || (r.terminalFlag as string) || null;
         const { stage, terminalFlag } = sanitizeStageAndFlag(rawStage, rawFlag);
 
         const rawClient = r.client as
@@ -621,42 +796,51 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
               description?: string;
             })
           | null;
-        const client: ClassificationResult['client'] = rawClient
+        const client: ClassificationResult["client"] = rawClient
           ? {
-              name: (rawClient.name as string) || '',
-              email: (rawClient.email as string) || '',
+              name: (rawClient.name as string) || "",
+              email: (rawClient.email as string) || "",
               phone: (rawClient.phone as string | null) ?? null,
               address:
                 (rawClient.addr as string | null) ??
                 (rawClient.address as string | null) ??
                 null,
-              description: (rawClient.description as string) || '',
+              description: (rawClient.description as string) || "",
             }
           : null;
 
-        return {
-          id: r.id as string,
-          verdict: ((r.verdict as string) || 'skip') as ClassificationResult['verdict'],
-          confidence: (r.confidence as number) || (r.c as number) || 0,
-          stage: r.verdict === 'lead' ? stage : null,
-          estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
+        resultById.set(id, {
+          id,
+          verdict,
+          confidence,
+          stage: verdict === "lead" ? stage : null,
+          estimatedValue:
+            typeof r.val === "number"
+              ? r.val
+              : typeof r.estimatedValue === "number"
+                ? r.estimatedValue
+                : null,
           client,
-          duplicateOf: (r.dupes as string[]) || (r.duplicateOf as string[]) || [],
+          duplicateOf:
+            (r.dupes as string[]) || (r.duplicateOf as string[]) || [],
           terminalFlag,
-        };
+        });
+      }
+
+      return emails.map((email) => {
+        const result = resultById.get(email.id);
+        if (!result) {
+          throw new Error(
+            `model response omitted classification id ${email.id}`
+          );
+        }
+        return result;
       });
     } catch (err) {
-      console.error('[email-ai-classifier] Batch classification failed:', err);
-      return emails.map((e) => ({
-        id: e.id,
-        verdict: 'skip' as const,
-        confidence: 0,
-        stage: null,
-        estimatedValue: null,
-        client: null,
-        duplicateOf: [],
-        terminalFlag: null,
-      }));
+      throw new Error(
+        `[email-ai-classifier] batch classification failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        { cause: err }
+      );
     }
   },
 
@@ -705,40 +889,43 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: "gpt-4o-mini",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
         max_tokens: threads.length * 50,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
       });
 
       const content = response.choices[0]?.message?.content || '{"results":[]}';
       const parsed = JSON.parse(content);
       const rawResults = parsed.results || parsed;
 
-      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => {
-        const { stage, terminalFlag } = sanitizeStageAndFlag(
-          (r.stage as string) || null,
-          (r.flag as string) || (r.terminalFlag as string) || null
-        );
+      return (Array.isArray(rawResults) ? rawResults : []).map(
+        (r: Record<string, unknown>) => {
+          const { stage, terminalFlag } = sanitizeStageAndFlag(
+            (r.stage as string) || null,
+            (r.flag as string) || (r.terminalFlag as string) || null
+          );
 
-        return {
-          threadId: (r.tid as string) || (r.threadId as string),
-          stage,
-          confidence: (r.c as number) || (r.confidence as number) || 0.5,
-          estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
-          signals: (r.signals as string[]) || [],
-          terminalFlag,
-        };
-      });
+          return {
+            threadId: (r.tid as string) || (r.threadId as string),
+            stage,
+            confidence: (r.c as number) || (r.confidence as number) || 0.5,
+            estimatedValue:
+              (r.val as number) || (r.estimatedValue as number) || null,
+            signals: (r.signals as string[]) || [],
+            terminalFlag,
+          };
+        }
+      );
     } catch (err) {
-      console.error('[email-ai-classifier] Thread analysis failed:', err);
+      console.error("[email-ai-classifier] Thread analysis failed:", err);
       return threads.map((t) => ({
         threadId: t.threadId,
-        stage: 'new_lead',
+        stage: "new_lead",
         confidence: 0.5,
         estimatedValue: null,
         signals: [],
@@ -749,14 +936,19 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
 
   async triageSingleBatch(
     threads: TriageInput[],
-    context: { companyName: string; industry: string; ownerEmail: string; companyDomains: string[] }
+    context: {
+      companyName: string;
+      industry: string;
+      ownerEmail: string;
+      companyDomains: string[];
+    }
   ): Promise<TriageResult[]> {
     const systemPrompt = `You are triaging email threads for a trades/construction business. Your ONLY job is to decide: is this a potential customer lead, or not?
 
 Company: ${context.companyName}
 Industry: ${context.industry}
 Owner email: ${context.ownerEmail}
-Company domains: ${context.companyDomains.join(', ')}
+Company domains: ${context.companyDomains.join(", ")}
 
 For each thread, return:
 - verdict: "lead" or "not_lead"
@@ -791,31 +983,35 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", "v": "lead"|"not_lead", "c": 0.
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: "gpt-4o-mini",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         temperature: 0,
         max_tokens: threads.length * 20,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
       });
 
       const content = response.choices[0]?.message?.content || '{"results":[]}';
       const parsed = JSON.parse(content);
       const rawResults = parsed.results || parsed;
 
-      return (Array.isArray(rawResults) ? rawResults : []).map((r: Record<string, unknown>) => ({
-        threadId: (r.tid as string) || (r.threadId as string),
-        verdict: ((r.v as string) || (r.verdict as string) || 'not_lead') as TriageResult['verdict'],
-        confidence: (r.c as number) || (r.confidence as number) || 0,
-      }));
+      return (Array.isArray(rawResults) ? rawResults : []).map(
+        (r: Record<string, unknown>) => ({
+          threadId: (r.tid as string) || (r.threadId as string),
+          verdict: ((r.v as string) ||
+            (r.verdict as string) ||
+            "not_lead") as TriageResult["verdict"],
+          confidence: (r.c as number) || (r.confidence as number) || 0,
+        })
+      );
     } catch (err) {
-      console.error('[email-ai-classifier] Triage batch failed:', err);
+      console.error("[email-ai-classifier] Triage batch failed:", err);
       // Fail open — mark all as leads so we don't lose anything
       return threads.map((t) => ({
         threadId: t.threadId,
-        verdict: 'lead' as const,
+        verdict: "lead" as const,
         confidence: 0.5,
       }));
     }
@@ -835,22 +1031,27 @@ RESPOND WITH JSON: { "results": [{ "tid": "...", "v": "lead"|"not_lead", "c": 0.
       companyAddresses?: string[];
     }
   ): Promise<DeepExtractionResult[]> {
-    const teamList = context.employeeEmails.length > 0
-      ? context.employeeEmails.map((e, i) => `${context.employeeNames[i] || 'unknown'} (${e})`).join(', ')
-      : 'none known';
+    const teamList =
+      context.employeeEmails.length > 0
+        ? context.employeeEmails
+            .map((e, i) => `${context.employeeNames[i] || "unknown"} (${e})`)
+            .join(", ")
+        : "none known";
 
     const servicesLine = context.industries?.length
-      ? `Services offered: ${context.industries.join(', ')}`
+      ? `Services offered: ${context.industries.join(", ")}`
       : `Industry: ${context.industry}`;
-    const internalPhonesLine = context.internalPhones?.filter(Boolean).join(', ') || 'none known';
-    const companyAddressesLine = context.companyAddresses?.filter(Boolean).join(' | ') || 'none known';
+    const internalPhonesLine =
+      context.internalPhones?.filter(Boolean).join(", ") || "none known";
+    const companyAddressesLine =
+      context.companyAddresses?.filter(Boolean).join(" | ") || "none known";
 
     const systemPrompt = `You are extracting lead information from email threads for a trades/construction business.
 
 Company: ${context.companyName}
 ${servicesLine}
 Owner email: ${context.ownerEmail}
-Company domains: ${context.companyDomains.join(', ')}
+Company domains: ${context.companyDomains.join(", ")}
 Team members: ${teamList}
 Internal phone numbers: ${internalPhonesLine}
 Internal company addresses: ${companyAddressesLine}
@@ -957,25 +1158,29 @@ No explanation.`;
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-5.4-mini',
+        model: "gpt-5.4-mini",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
         max_completion_tokens: 4096,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
       });
 
-      const content = response.choices[0]?.message?.content || '{"leads":[],"skip":[]}';
+      const content =
+        response.choices[0]?.message?.content || '{"leads":[],"skip":[]}';
       const parsed = JSON.parse(content);
 
       // Format: { "leads": [...], "review": [...], "skip": ["tid1", ...] }
-      const rawLeads: Record<string, unknown>[] = parsed.leads || parsed.results || [];
+      const rawLeads: Record<string, unknown>[] =
+        parsed.leads || parsed.results || [];
       const rawReview: Record<string, unknown>[] = parsed.review || [];
       const skipTids = new Set<string>((parsed.skip || []) as string[]);
 
-      console.log(`[deep-extract] Batch of ${threads.length} threads → ${rawLeads.length} leads, ${rawReview.length} review, ${skipTids.size} skipped`);
+      console.log(
+        `[deep-extract] Batch of ${threads.length} threads → ${rawLeads.length} leads, ${rawReview.length} review, ${skipTids.size} skipped`
+      );
 
       const results: DeepExtractionResult[] = [];
 
@@ -986,7 +1191,15 @@ No explanation.`;
           (r.stage as string) || null,
           (r.flag as string) || null
         );
-        const client = r.client as { name?: string; email?: string; phone?: string | null; desc?: string; description?: string; addr?: string; address?: string } | null;
+        const client = r.client as {
+          name?: string;
+          email?: string;
+          phone?: string | null;
+          desc?: string;
+          description?: string;
+          addr?: string;
+          address?: string;
+        } | null;
 
         let threadId = (r.tid as string) || (r.threadId as string);
         if (!threadId && idx < threads.length) {
@@ -996,17 +1209,24 @@ No explanation.`;
         results.push({
           threadId,
           client: {
-            name: client?.name || '',
-            email: client?.email || '',
+            name: client?.name || "",
+            email: client?.email || "",
             phone: client?.phone || null,
-            description: client?.desc || client?.description || '',
+            description: client?.desc || client?.description || "",
             address: client?.addr || client?.address || null,
           },
-          subContacts: ((r.subContacts || r.additionalContacts) as Array<{ name: string; email: string; phone: string | null }>) || [],
+          subContacts:
+            ((r.subContacts || r.additionalContacts) as Array<{
+              name: string;
+              email: string;
+              phone: string | null;
+            }>) || [],
           companyName: (r.companyName as string) || null,
           stage,
-          stageConfidence: (r.stageC as number) || (r.stageConfidence as number) || 0.5,
-          estimatedValue: (r.val as number) || (r.estimatedValue as number) || null,
+          stageConfidence:
+            (r.stageC as number) || (r.stageConfidence as number) || 0.5,
+          estimatedValue:
+            (r.val as number) || (r.estimatedValue as number) || null,
           isLead: true,
           needsReview: false,
           reviewReason: null,
@@ -1017,28 +1237,38 @@ No explanation.`;
 
       // Parse review items — flagged for user attention
       for (const r of rawReview) {
-        const client = r.client as { name?: string; email?: string; phone?: string | null; desc?: string; description?: string; addr?: string; address?: string } | null;
+        const client = r.client as {
+          name?: string;
+          email?: string;
+          phone?: string | null;
+          desc?: string;
+          description?: string;
+          addr?: string;
+          address?: string;
+        } | null;
         const threadId = (r.tid as string) || (r.threadId as string);
-        const reviewReason = (r.reviewReason as string) || 'ambiguous';
-        console.log(`[deep-extract] REVIEW: tid=${threadId} reason=${reviewReason} name=${client?.name || '?'}`);
+        const reviewReason = (r.reviewReason as string) || "ambiguous";
+        console.log(
+          `[deep-extract] REVIEW: tid=${threadId} reason=${reviewReason} name=${client?.name || "?"}`
+        );
 
         results.push({
           threadId,
           client: {
-            name: client?.name || '',
-            email: client?.email || '',
+            name: client?.name || "",
+            email: client?.email || "",
             phone: client?.phone || null,
-            description: client?.desc || client?.description || '',
+            description: client?.desc || client?.description || "",
             address: client?.addr || client?.address || null,
           },
           subContacts: [],
           companyName: null,
-          stage: 'new_lead',
+          stage: "new_lead",
           stageConfidence: 0.5,
           estimatedValue: null,
           isLead: true, // Keep in results — user decides
           needsReview: true,
-          reviewReason: reviewReason as DeepExtractionResult['reviewReason'],
+          reviewReason: reviewReason as DeepExtractionResult["reviewReason"],
           reason: null,
           terminalFlag: null,
         });
@@ -1048,16 +1278,22 @@ No explanation.`;
       for (const tid of skipTids) {
         results.push({
           threadId: tid,
-          client: { name: '', email: '', phone: null, description: '', address: null },
+          client: {
+            name: "",
+            email: "",
+            phone: null,
+            description: "",
+            address: null,
+          },
           subContacts: [],
           companyName: null,
-          stage: 'new_lead',
+          stage: "new_lead",
           stageConfidence: 0,
           estimatedValue: null,
           isLead: false,
           needsReview: false,
           reviewReason: null,
-          reason: 'skipped by extraction',
+          reason: "skipped by extraction",
           terminalFlag: null,
         });
       }
@@ -1066,13 +1302,21 @@ No explanation.`;
       const accountedTids = new Set(results.map((r) => r.threadId));
       for (const t of threads) {
         if (!accountedTids.has(t.threadId)) {
-          console.warn(`[deep-extract] Thread ${t.threadId} not in leads/review/skip — keeping as lead (fail open)`);
+          console.warn(
+            `[deep-extract] Thread ${t.threadId} not in leads/review/skip — keeping as lead (fail open)`
+          );
           results.push({
             threadId: t.threadId,
-            client: { name: '', email: '', phone: null, description: '', address: null },
+            client: {
+              name: "",
+              email: "",
+              phone: null,
+              description: "",
+              address: null,
+            },
             subContacts: [],
             companyName: null,
-            stage: 'new_lead',
+            stage: "new_lead",
             stageConfidence: 0.3,
             estimatedValue: null,
             isLead: true,
@@ -1087,21 +1331,32 @@ No explanation.`;
       return results;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      const errDetail = (err as Record<string, unknown>)?.status || (err as Record<string, unknown>)?.code || '';
-      console.error(`[email-ai-classifier] Deep extraction batch FAILED: ${errMsg} ${errDetail}`);
+      const errDetail =
+        (err as Record<string, unknown>)?.status ||
+        (err as Record<string, unknown>)?.code ||
+        "";
+      console.error(
+        `[email-ai-classifier] Deep extraction batch FAILED: ${errMsg} ${errDetail}`
+      );
       // Return empty results so leads aren't lost — Phase B will use fallback data
       return threads.map((t) => ({
         threadId: t.threadId,
-        client: { name: '', email: '', phone: null, description: '', address: null },
+        client: {
+          name: "",
+          email: "",
+          phone: null,
+          description: "",
+          address: null,
+        },
         subContacts: [],
         companyName: null,
-        stage: 'new_lead',
+        stage: "new_lead",
         stageConfidence: 0.3,
         estimatedValue: null,
         isLead: true,
         needsReview: false,
         reviewReason: null,
-        reason: 'extraction_failed',
+        reason: "extraction_failed",
         terminalFlag: null,
       }));
     }

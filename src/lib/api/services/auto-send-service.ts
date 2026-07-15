@@ -16,7 +16,11 @@ import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { AIDraftService } from "./ai-draft-service";
 import { getAppUrl } from "@/lib/utils/app-url";
 import { getSubscriptionInfo } from "@/lib/subscription";
-import type { Company, SubscriptionPlan, SubscriptionStatus } from "@/lib/types/models";
+import type {
+  Company,
+  SubscriptionPlan,
+  SubscriptionStatus,
+} from "@/lib/types/models";
 
 /**
  * Resolve the subscription-gate fields for a company using the same
@@ -56,7 +60,8 @@ async function isCompanySubscriptionActive(
 
   const fields: CompanySubscriptionFields = {
     subscriptionPlan: (data.subscription_plan as SubscriptionPlan) ?? null,
-    subscriptionStatus: (data.subscription_status as SubscriptionStatus) ?? null,
+    subscriptionStatus:
+      (data.subscription_status as SubscriptionStatus) ?? null,
     trialEndDate: data.trial_end_date
       ? new Date(data.trial_end_date as string)
       : null,
@@ -171,11 +176,8 @@ function adjustToBusinessHours(
 
     // Set to business hours start in user's timezone
     // Approximate: add the difference to get to start time next day
-    const minutesUntilNextStart =
-      24 * 60 - scheduledMinutes + startMinutes;
-    return new Date(
-      scheduled.getTime() + minutesUntilNextStart * 60 * 1000
-    );
+    const minutesUntilNextStart = 24 * 60 - scheduledMinutes + startMinutes;
+    return new Date(scheduled.getTime() + minutesUntilNextStart * 60 * 1000);
   }
 
   // Before business hours today → push to start time today
@@ -206,6 +208,29 @@ function mapPendingFromDb(row: Record<string, unknown>): PendingAutoSend {
   };
 }
 
+async function markAutoSendDraftDiscarded(
+  supabase: ReturnType<typeof requireSupabase>,
+  draftHistoryId: string | null,
+  companyId: string,
+  discardedAt: string
+): Promise<void> {
+  if (!draftHistoryId) return;
+
+  const { error } = await supabase
+    .from("ai_draft_history")
+    .update({ status: "discarded", discarded_at: discardedAt })
+    .eq("id", draftHistoryId)
+    .eq("company_id", companyId)
+    .in("status", ["drafted", "auto_drafted"]);
+
+  if (error) {
+    console.error(
+      `[auto-send] Failed to retire draft history ${draftHistoryId}:`,
+      error
+    );
+  }
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export const AutoSendService = {
@@ -218,11 +243,10 @@ export const AutoSendService = {
     connectionId: string
   ): Promise<{ enabled: boolean; settings: AutoSendSettings | null }> {
     // Check admin feature gate first
-    const featureEnabled =
-      await AdminFeatureOverrideService.isAIFeatureEnabled(
-        companyId,
-        "ai_auto_send"
-      );
+    const featureEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
+      companyId,
+      "ai_auto_send"
+    );
     if (!featureEnabled) {
       return { enabled: false, settings: null };
     }
@@ -249,8 +273,7 @@ export const AutoSendService = {
         (settings.business_hours_end as string) ||
         DEFAULT_AUTO_SEND_SETTINGS.businessHoursEnd,
       timezone:
-        (settings.timezone as string) ||
-        DEFAULT_AUTO_SEND_SETTINGS.timezone,
+        (settings.timezone as string) || DEFAULT_AUTO_SEND_SETTINGS.timezone,
       delayMinMinutes:
         (settings.delay_min_minutes as number) ||
         DEFAULT_AUTO_SEND_SETTINGS.delayMinMinutes,
@@ -356,9 +379,15 @@ export const AutoSendService = {
     if (!draftResult.available || !draftResult.draft) {
       if (draftResult.heldForReview) {
         // Deliberate hold, not a failure — leave the thread for the operator.
-        console.warn("[auto-send] held for review — auto-send suppressed:", draftResult.reason);
+        console.warn(
+          "[auto-send] held for review — auto-send suppressed:",
+          draftResult.reason
+        );
       } else {
-        console.error("[auto-send] Draft generation failed:", draftResult.reason);
+        console.error(
+          "[auto-send] Draft generation failed:",
+          draftResult.reason
+        );
       }
       return null;
     }
@@ -401,10 +430,7 @@ export const AutoSendService = {
   /**
    * Cancel a pending auto-send.
    */
-  async cancelAutoSend(
-    id: string,
-    companyId: string
-  ): Promise<boolean> {
+  async cancelAutoSend(id: string, companyId: string): Promise<boolean> {
     const supabase = requireSupabase();
 
     const { data } = await supabase
@@ -428,10 +454,12 @@ export const AutoSendService = {
         .single();
 
       if (pending?.draft_history_id) {
-        await supabase
-          .from("ai_draft_history")
-          .update({ status: "discarded" })
-          .eq("id", pending.draft_history_id as string);
+        await markAutoSendDraftDiscarded(
+          supabase,
+          pending.draft_history_id as string,
+          companyId,
+          new Date().toISOString()
+        );
       }
     }
 
@@ -501,6 +529,12 @@ export const AutoSendService = {
               error: "Subscription inactive",
             })
             .eq("id", pending.id);
+          await markAutoSendDraftDiscarded(
+            supabase,
+            pending.draftHistoryId,
+            pending.companyId,
+            now
+          );
           continue;
         }
 
@@ -519,6 +553,12 @@ export const AutoSendService = {
               error: "Auto-send disabled",
             })
             .eq("id", pending.id);
+          await markAutoSendDraftDiscarded(
+            supabase,
+            pending.draftHistoryId,
+            pending.companyId,
+            now
+          );
           continue;
         }
 
@@ -556,6 +596,9 @@ export const AutoSendService = {
               // in the send route can record the link. Enables the inbox
               // UI to surface an AI-edit diff toggle on this bubble.
               draftHistoryId: pending.draftHistoryId,
+              // Autonomous output is recorded for delivery/provenance only. It
+              // must never train the operator's voice on the agent's own copy.
+              learningAuthority: "autonomous",
             }),
           }
         );
@@ -563,7 +606,8 @@ export const AutoSendService = {
         if (!sendResponse.ok) {
           const errData = await sendResponse.json().catch(() => ({}));
           throw new Error(
-            (errData as { error?: string }).error || `HTTP ${sendResponse.status}`
+            (errData as { error?: string }).error ||
+              `HTTP ${sendResponse.status}`
           );
         }
 
@@ -573,21 +617,9 @@ export const AutoSendService = {
           .update({ status: "sent", sent_at: now })
           .eq("id", pending.id);
 
-        // Update draft history as sent without changes
-        if (pending.draftHistoryId) {
-          await AIDraftService.recordDraftOutcome(
-            pending.draftHistoryId,
-            pending.companyId,
-            "", // No specific user for auto-sends
-            "sent",
-            pending.draftText
-          );
-        }
-
         sent++;
       } catch (err) {
-        const errorMsg =
-          err instanceof Error ? err.message : "Unknown error";
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
         errors.push(`${pending.id}: ${errorMsg}`);
 
         const newRetryCount = pending.retryCount + 1;

@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AIDraftService } from "@/lib/api/services/ai-draft-service";
@@ -28,6 +29,13 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      companyId,
+      "email.configure_ai",
+      userId
+    );
+    if (authError) return authError;
 
     const stats = await AIDraftService.getApprovalStats(companyId, userId);
     return NextResponse.json(stats);

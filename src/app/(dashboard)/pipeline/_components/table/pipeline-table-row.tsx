@@ -29,7 +29,6 @@ import { CellAssignee } from "./cells/cell-assignee";
 import { CellCurrency } from "./cells/cell-currency";
 import { CellDate } from "./cells/cell-date";
 import { CellNumber } from "./cells/cell-number";
-import { CellPercent } from "./cells/cell-percent";
 import { CellPriority } from "./cells/cell-priority";
 import { CellRelation } from "./cells/cell-relation";
 import { CellStageAction } from "./cells/cell-stage-action";
@@ -56,7 +55,7 @@ function renderReadOnlyCell(
   column: PipelineTableColumnConfig,
   onRequestStageChange: (rowId: string, next: OpportunityStage) => void,
   onRequestConvertAlreadyWon: (rowId: string) => void,
-  canManage: boolean,
+  canManage: boolean
 ): ReactNode {
   switch (column.id) {
     case "deal":
@@ -66,9 +65,7 @@ function renderReadOnlyCell(
         <CellStageAction
           stage={row.stage}
           canManage={canManage}
-          wonUnconverted={
-            row.stage === OpportunityStage.Won && !row.projectId
-          }
+          wonUnconverted={row.stage === OpportunityStage.Won && !row.projectId}
           onConvert={() => onRequestConvertAlreadyWon(row.id)}
           onSelectStage={(next) => onRequestStageChange(row.id, next)}
         />
@@ -77,10 +74,6 @@ function renderReadOnlyCell(
       return <CellRelation value={row.clientName} />;
     case "value":
       return <CellCurrency value={row.estimatedValue} />;
-    case "win_probability":
-      return <CellPercent value={row.winProbability} />;
-    case "weighted":
-      return <CellCurrency value={row.weightedValue} />;
     case "age_in_stage":
       return <CellAge value={row.ageInStageDays} />;
     case "last_activity":
@@ -111,7 +104,9 @@ function renderReadOnlyCell(
 function shouldIgnoreBubbledKeyDown(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   return Boolean(
-    target.closest("input, textarea, select, [contenteditable='true'], [role='option']"),
+    target.closest(
+      "input, textarea, select, [contenteditable='true'], [role='option']"
+    )
   );
 }
 
@@ -157,12 +152,12 @@ export function PipelineTableRow({
   onCellKeyDown: (
     rowId: string,
     columnId: PipelineTableColumnId,
-    event: KeyboardEvent<HTMLElement>,
+    event: KeyboardEvent<HTMLElement>
   ) => void;
   onCommitCell: (
     rowId: string,
     columnId: PipelineTableEditableColumnId,
-    value: PipelineTableEditValue,
+    value: PipelineTableEditValue
   ) => void;
   onRequestStageChange: (rowId: string, next: OpportunityStage) => void;
   onRequestConvertAlreadyWon: (rowId: string) => void;
@@ -181,7 +176,10 @@ export function PipelineTableRow({
   const followUpOverdue = isFollowUpOverdue(row.nextFollowUpAt, row.stage, now);
   const closeOverdue = isCloseOverdue(row.expectedCloseDate, row.stage, now);
   const rotting = isRotting(row.ageInStageDays, row.staleThresholdDays);
-  const severeRotting = isSevereRotting(row.ageInStageDays, row.staleThresholdDays);
+  const severeRotting = isSevereRotting(
+    row.ageInStageDays,
+    row.staleThresholdDays
+  );
 
   // Three tiers, most-severe wins:
   //   brick — long stale (≥2× threshold) AND follow-up overdue (the dying deal)
@@ -215,9 +213,12 @@ export function PipelineTableRow({
           ? t("table.signal.rotting")
           : undefined;
 
-  const renderEditableCell = (columnId: PipelineTableEditableColumnId): ReactNode => {
+  const renderEditableCell = (
+    columnId: PipelineTableEditableColumnId
+  ): ReactNode => {
     const saveState = saveStates.get(`${row.id}:${columnId}`) ?? "idle";
-    const isEditing = editingCell?.rowId === row.id && editingCell.columnId === columnId;
+    const isEditing =
+      editingCell?.rowId === row.id && editingCell.columnId === columnId;
     const beginEdit = () => onBeginEdit(row.id, columnId);
 
     switch (columnId) {
@@ -248,11 +249,17 @@ export function PipelineTableRow({
       case "expected_close":
         return (
           <EditableCellDate
-            value={columnId === "next_follow_up" ? row.nextFollowUpAt : row.expectedCloseDate}
+            value={
+              columnId === "next_follow_up"
+                ? row.nextFollowUpAt
+                : row.expectedCloseDate
+            }
             columnId={columnId}
             saveState={saveState}
             editing={isEditing}
-            overdue={columnId === "next_follow_up" ? followUpOverdue : closeOverdue}
+            overdue={
+              columnId === "next_follow_up" ? followUpOverdue : closeOverdue
+            }
             onBeginEdit={beginEdit}
             onCancelEdit={onCancelEdit}
             onCommit={(value) => onCommitCell(row.id, columnId, value)}
@@ -282,7 +289,7 @@ export function PipelineTableRow({
       className={cn(
         "group absolute left-0 top-0 flex outline-none hover:bg-surface-hover",
         selected && "bg-surface-active",
-        isEditingRow && "z-[120]",
+        isEditingRow && "z-[120]"
       )}
       style={{
         height: metrics.rowHeight,
@@ -292,7 +299,8 @@ export function PipelineTableRow({
       }}
     >
       {columns.map(({ column, width, stickyLeft }) => {
-        const isActiveCell = activeCell?.rowId === row.id && activeCell.columnId === column.id;
+        const isActiveCell =
+          activeCell?.rowId === row.id && activeCell.columnId === column.id;
         // Editing is a manage-only state; a view-only operator can never enter it.
         const isEditingCell =
           canManage &&
@@ -307,11 +315,16 @@ export function PipelineTableRow({
             tabIndex={isActiveCell ? 0 : -1}
             data-pipeline-table-row-id={row.id}
             data-pipeline-table-column-id={column.id}
-            onFocus={() => setActiveCell({ rowId: row.id, columnId: column.id })}
+            onFocus={() =>
+              setActiveCell({ rowId: row.id, columnId: column.id })
+            }
             onKeyDown={(event) => {
               // Let inline controls (inputs, listbox options) own their own keys;
               // only the cell shell's keystrokes drive navigation.
-              if (event.target !== event.currentTarget && shouldIgnoreBubbledKeyDown(event.target)) {
+              if (
+                event.target !== event.currentTarget &&
+                shouldIgnoreBubbledKeyDown(event.target)
+              ) {
                 return;
               }
               onCellKeyDown(row.id, column.id, event);
@@ -343,8 +356,9 @@ export function PipelineTableRow({
               // so rows never shift width as a signal appears/clears.
               column.id === "select" && cn("border-l-2", signalBorderClass),
               selected && "bg-surface-active",
-              isActiveCell && "bg-surface-active focus-visible:ring-1 focus-visible:ring-ops-accent",
-              isEditingCell && "z-[120]",
+              isActiveCell &&
+                "bg-surface-active focus-visible:ring-1 focus-visible:ring-ops-accent",
+              isEditingCell && "z-[120]"
             )}
             style={{
               width,
@@ -384,7 +398,7 @@ export function PipelineTableRow({
                       column,
                       onRequestStageChange,
                       onRequestConvertAlreadyWon,
-                      canManage,
+                      canManage
                     )}
               </div>
             )}

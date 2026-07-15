@@ -44,7 +44,6 @@ const opps: PipelineOpp[] = [
     title: "Annual maintenance",
     value: 8500,
     stage: "Lead",
-    confidence: "low",
     priority: "high",
     source: "Website",
     threadId: "th-current",
@@ -107,7 +106,7 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     expect(screen.getByText(/\/\/ LEADS/)).toBeInTheDocument();
     expect(screen.getByText(/\/\/ PROJECTS/)).toBeInTheDocument();
@@ -122,7 +121,7 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     // PipelineList's own empty body
     expect(screen.getByText(/no open opportunities/i)).toBeInTheDocument();
@@ -140,11 +139,11 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     expect(screen.getByText("Annual maintenance")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /NEW PROJECT/i }),
+      screen.getByRole("button", { name: /NEW PROJECT/i })
     ).toBeInTheDocument();
     // No project group rendered
     expect(screen.queryByTestId(/project-group-/)).not.toBeInTheDocument();
@@ -159,7 +158,7 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     // Initially collapsed — task labels not visible
     expect(screen.queryByText("Strip old shingles")).not.toBeInTheDocument();
@@ -174,7 +173,7 @@ describe("<WorkView>", () => {
     expect(screen.queryByText("Schedule inspection")).not.toBeInTheDocument();
     // Collapse again
     fireEvent.click(
-      screen.getByRole("button", { name: /Collapse Roof replacement/i }),
+      screen.getByRole("button", { name: /Collapse Roof replacement/i })
     );
     expect(screen.queryByText("Strip old shingles")).not.toBeInTheDocument();
   });
@@ -188,7 +187,7 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     // p1 owns opp1 which is linked to th-current → data-current="true"
     const linked = screen.getByTestId("project-group-p1");
@@ -207,7 +206,7 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     const openLinks = screen.getAllByRole("link", { name: /Open project/i });
     const hrefs = openLinks.map((a) => a.getAttribute("href"));
@@ -225,11 +224,9 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={onNewProject}
-      />,
+      />
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: /NEW PROJECT/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /NEW PROJECT/i }));
     expect(onNewProject).toHaveBeenCalledTimes(1);
   });
 
@@ -244,10 +241,12 @@ describe("<WorkView>", () => {
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
         onOpenProject={onOpenProject}
-      />,
+      />
     );
     const group = screen.getByTestId("project-group-p1");
-    fireEvent.click(within(group).getByRole("button", { name: /Open project/i }));
+    fireEvent.click(
+      within(group).getByRole("button", { name: /Open project/i })
+    );
     expect(onOpenProject).toHaveBeenCalledWith("p1");
   });
 
@@ -260,7 +259,7 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     // p1 has 2 tasks (none done), p2 has 1 task (none done)
     const groupP1 = screen.getByTestId("project-group-p1");
@@ -281,7 +280,6 @@ describe("<WorkView>", () => {
       title: "Skylight install",
       value: 12000,
       stage: "won",
-      confidence: "high",
       priority: "medium",
       source: "Referral",
       threadId: null,
@@ -292,7 +290,6 @@ describe("<WorkView>", () => {
       title: "Gutter cleanup",
       value: 800,
       stage: "won",
-      confidence: "high",
       priority: "low",
       source: "Email",
       threadId: null,
@@ -310,7 +307,7 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     expect(screen.queryByTestId("work-view-won")).not.toBeInTheDocument();
     expect(screen.queryByText(/\/\/ WON/)).not.toBeInTheDocument();
@@ -326,16 +323,20 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     const wonSection = screen.getByTestId("work-view-won");
     expect(within(wonSection).getByText(/\/\/ WON/)).toBeInTheDocument();
-    expect(within(wonSection).getByText("Skylight install")).toBeInTheDocument();
+    expect(
+      within(wonSection).getByText("Skylight install")
+    ).toBeInTheDocument();
     expect(within(wonSection).getByText("Gutter cleanup")).toBeInTheDocument();
     // Both cards expose data-variant="won" so downstream styling tests can
     // assert against the markup without relying on Tailwind class strings.
     expect(
-      within(wonSection).getByTestId("pipeline-opp-won1").getAttribute("data-variant"),
+      within(wonSection)
+        .getByTestId("pipeline-opp-won1")
+        .getAttribute("data-variant")
     ).toBe("won");
     // Each WON row renders a single quiet WON marker.
     expect(within(wonSection).getAllByText(/^WON$/)).toHaveLength(2);
@@ -351,24 +352,24 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     const activeCard = screen.getByTestId("pipeline-opp-opp1");
     const wonCard = screen.getByTestId("pipeline-opp-won1");
     expect(activeCard.getAttribute("data-current")).toBe("true");
-    expect(within(activeCard).getByTestId("pipeline-opp-title-opp1")).toHaveClass(
-      "text-text",
-    );
-    expect(within(activeCard).getByTestId("pipeline-opp-value-opp1")).toHaveClass(
-      "text-text-2",
-    );
+    expect(
+      within(activeCard).getByTestId("pipeline-opp-title-opp1")
+    ).toHaveClass("text-text");
+    expect(
+      within(activeCard).getByTestId("pipeline-opp-value-opp1")
+    ).toHaveClass("text-text-2");
     expect(wonCard).toHaveClass("bg-transparent");
     expect(within(wonCard).getByTestId("pipeline-opp-title-won1")).toHaveClass(
-      "text-text-3",
+      "text-text-3"
     );
-    expect(within(wonCard).getByTestId("pipeline-opp-stage-won1")).toHaveTextContent(
-      "WON",
-    );
+    expect(
+      within(wonCard).getByTestId("pipeline-opp-stage-won1")
+    ).toHaveTextContent("WON");
   });
 
   it("suppresses the LEADS empty body when there are 0 open + N won (no contradiction)", () => {
@@ -381,17 +382,19 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     // Empty body is gone — the WON section is the truth.
-    expect(screen.queryByText(/no open opportunities/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/no open opportunities/i)
+    ).not.toBeInTheDocument();
     // WON section + cards still render.
     expect(screen.getByTestId("work-view-won")).toBeInTheDocument();
     expect(screen.getByText("Skylight install")).toBeInTheDocument();
     // The +New opportunity button stays reachable so the operator can still
     // create a lead.
     expect(
-      screen.getByRole("button", { name: /New opportunity/i }),
+      screen.getByRole("button", { name: /New opportunity/i })
     ).toBeInTheDocument();
   });
 
@@ -405,7 +408,7 @@ describe("<WorkView>", () => {
         currentThreadId="th-current"
         onNewOpportunity={() => {}}
         onNewProject={() => {}}
-      />,
+      />
     );
     expect(screen.getByText(/no open opportunities/i)).toBeInTheDocument();
     expect(screen.queryByTestId("work-view-won")).not.toBeInTheDocument();

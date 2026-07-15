@@ -166,6 +166,25 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
     expect(args.p_notes).toBe("AI scope text");
   });
 
+  it("deterministic email acceptance converts and wins through the canonical RPC", async () => {
+    const fake = makeFakeSupabase();
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    const result = await ProjectConversionService.convertOpportunityToProject({
+      opportunityId: OPP,
+      companyId: COMPANY,
+      sourcePath: "email_accept",
+      expectedStage: "quoted",
+    });
+
+    expect(fake.rpcCalls[0].args).toMatchObject({
+      p_source_path: "email_accept",
+      p_win_opportunity: true,
+      p_expected_stage: "quoted",
+    });
+    expect(result.won).toBe(true);
+  });
+
   it("forwards an operator-typed name as p_title_override (hand-set)", async () => {
     const fake = makeFakeSupabase();
     requireSupabaseMock.mockReturnValue(fake.client);
@@ -191,6 +210,7 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
             already_converted: true,
             guard_reason: "already_converted",
             project_id: "existing-proj",
+            won: true,
           },
           error: null,
         },
@@ -208,6 +228,7 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
     expect(result.alreadyConverted).toBe(true);
     expect(result.converted).toBe(false);
     expect(result.projectId).toBe("existing-proj");
+    expect(result.won).toBe(true);
     expect(notifyMock).not.toHaveBeenCalled();
   });
 

@@ -10,12 +10,16 @@
  * application, send, draft, and label creation with 403 Insufficient
  * Permission. The wizard warns the user about the permission scope.
  *
- * State: base64-encoded JSON `{companyId, userId, type}`. The callback
- * decodes this so the connection row gets the correct user_id (required
- * for Phase C to fire) and type (company vs individual).
+ * State: one-time opaque nonce. Tenant context is stored server-side only.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import {
+  createEmailOAuthState,
+  resolveEmailOAuthAlertConnection,
+} from "@/lib/email/email-oauth-state";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
 import { sanitizeReturnTo } from "@/lib/utils/oauth-return";
 
@@ -25,24 +29,38 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const companyId = searchParams.get("companyId");
   const userId = searchParams.get("userId");
-  const type = (searchParams.get("type") || "company") as "company" | "individual";
+  const typeParam = searchParams.get("type") || "company";
   // `source` lets the callback know whether to land the user back on the
   // standard /settings page (wizard flow) or on /reconnect-inbox/success
   // (alert-email flow). Defaults to wizard so existing in-app callers
   // are unaffected.
   const source = searchParams.get("source") === "alert" ? "alert" : "wizard";
+  const connectionId = searchParams.get("connectionId");
+  const expectedEmail = searchParams.get("expectedEmail");
   // Optional app-internal path to land on after the callback (e.g.
-  // /pipeline). Sanitized here AND in the callback — only "/..." paths
-  // survive; absent keeps the legacy /settings landing.
+  // /pipeline). Only safe same-app paths are persisted with the opaque state.
   const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
 
   if (!companyId) {
-    return NextResponse.json({ error: "companyId is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "companyId is required" },
+      { status: 400 }
+    );
   }
+
+  if (typeParam !== "company" && typeParam !== "individual") {
+    return NextResponse.json(
+      { error: 'type must be "company" or "individual"' },
+      { status: 400 }
+    );
+  }
+  const type = typeParam;
 
   if (!GOOGLE_CLIENT_ID) {
     return NextResponse.json(
-      { error: "Gmail integration not configured. GOOGLE_CLIENT_ID is missing." },
+      {
+        error: "Gmail integration not configured. GOOGLE_CLIENT_ID is missing.",
+      },
       { status: 500 }
     );
   }
@@ -60,14 +78,85 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const redirectUri = `${getAppUrl()}/api/integrations/gmail/callback`;
+  const authError = await requireEmailCompanyAccess(
+    request,
+    companyId,
+    "settings.integrations",
+    userId
+  );
+  if (authError) return authError;
 
-  // Encode full OAuth context into state. Google returns this verbatim on
-  // the callback. Using base64 JSON so we can carry structured data through
-  // Google's opaque-string `state` parameter.
-  const state = Buffer.from(
-    JSON.stringify({ companyId, userId, type, source, returnTo })
-  ).toString("base64");
+  const redirectUri = `${getAppUrl()}/api/integrations/gmail/callback`;
+  const supabase = getServiceRoleClient();
+
+  let alertBinding: {
+    connectionId: string;
+    expectedEmail: string;
+  } | null = null;
+  if (source === "alert") {
+    if (!connectionId || !expectedEmail) {
+      return NextResponse.json(
+        { error: "Alert reconnect requires a connection and mailbox" },
+        { status: 400 }
+      );
+    }
+    try {
+      alertBinding = await resolveEmailOAuthAlertConnection(supabase, {
+        companyId,
+        provider: "gmail",
+        type,
+        connectionId,
+        expectedEmail,
+      });
+    } catch (bindingError) {
+      console.error(
+        "[Gmail OAuth] Failed to verify alert binding:",
+        bindingError
+      );
+      return NextResponse.json(
+        { error: "Failed to verify Gmail reconnect" },
+        { status: 500 }
+      );
+    }
+    if (!alertBinding) {
+      return NextResponse.json(
+        { error: "This Gmail reconnect link is no longer valid" },
+        { status: 400 }
+      );
+    }
+  }
+
+  let state: string;
+  try {
+    state = await createEmailOAuthState(
+      supabase,
+      source === "alert"
+        ? {
+            provider: "gmail",
+            companyId,
+            userId,
+            type,
+            source,
+            connectionId: alertBinding!.connectionId,
+            expectedEmail: alertBinding!.expectedEmail,
+            returnTo,
+          }
+        : {
+            provider: "gmail",
+            companyId,
+            userId,
+            type,
+            source,
+            returnTo,
+          }
+    );
+  } catch (error) {
+    console.error("[Gmail OAuth] Failed to create one-time state:", error);
+    return NextResponse.json(
+      { error: "Failed to initiate Gmail OAuth" },
+      { status: 500 }
+    );
+  }
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,

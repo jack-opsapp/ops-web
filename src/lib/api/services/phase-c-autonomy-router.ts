@@ -32,6 +32,11 @@ import {
   type MailboxDraftRow,
 } from "./mailbox-draft-helpers";
 import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
+import { normalizeReplySubject } from "@/lib/email/email-subject-policy";
+import {
+  renderMailboxDraftWithSignature,
+  resolveEmailSignatureForMessage,
+} from "@/lib/email/email-signature-runtime";
 import type {
   EmailThread,
   EmailThreadAutonomyLevel,
@@ -136,8 +141,7 @@ async function latestInboundNeedsDraft(
     .limit(1)
     .maybeSingle();
 
-  const sourceMessageId =
-    (latest?.email_message_id as string | null) ?? null;
+  const sourceMessageId = (latest?.email_message_id as string | null) ?? null;
 
   // Can't dedup without a stable message key — let the draft proceed. The
   // mailbox placement path still reuses an existing unresolved provider draft
@@ -167,6 +171,7 @@ async function latestInboundNeedsDraft(
 
 async function placePhaseCMailboxDraft(
   thread: EmailThread,
+  userId: string,
   draft: {
     draft: string;
     draftHistoryId: string;
@@ -188,15 +193,22 @@ async function placePhaseCMailboxDraft(
   }
 
   const provider = EmailService.getProvider(connection);
+  const signature = await resolveEmailSignatureForMessage({
+    supabase,
+    connection,
+    userId,
+    refreshProviderIfMissing: true,
+  });
+  if (!signature) throw new Error("EMAIL_SIGNATURE_REQUIRED");
+  const renderedDraft = renderMailboxDraftWithSignature(draft.draft, signature);
   const subject = draft.subject?.trim()
     ? draft.subject
-    : thread.subject?.toLowerCase().startsWith("re:")
-      ? thread.subject
-      : `Re: ${thread.subject ?? ""}`.trim();
+    : normalizeReplySubject(thread.subject ?? "");
 
   const { data: priorRows } = await supabase
     .from("ai_draft_history")
     .select("id, mailbox_draft_id, status")
+    .eq("company_id", thread.companyId)
     .eq("connection_id", thread.connectionId)
     .eq("thread_id", thread.providerThreadId)
     .eq("origin", "phase_c");
@@ -211,29 +223,37 @@ async function placePhaseCMailboxDraft(
       existing.mailbox_draft_id,
       to,
       subject,
-      draft.draft,
-      thread.providerThreadId
+      renderedDraft.body,
+      thread.providerThreadId,
+      renderedDraft.contentType
     );
     mailboxDraftId = existing.mailbox_draft_id;
   } else {
     mailboxDraftId = await provider.createDraft(
       to,
       subject,
-      draft.draft,
-      thread.providerThreadId
+      renderedDraft.body,
+      thread.providerThreadId,
+      renderedDraft.contentType
     );
   }
 
-  await supabase
-    .from("ai_draft_history")
-    .update({
-      status: "auto_drafted",
-      mailbox_draft_id: mailboxDraftId,
-      thread_id: thread.providerThreadId,
-      subject,
-      subject_source: "generated",
-    })
-    .eq("id", draft.draftHistoryId);
+  const { data: reassigned, error: reassignError } = await supabase.rpc(
+    "reassign_phase_c_mailbox_draft",
+    {
+      p_company_id: thread.companyId,
+      p_connection_id: thread.connectionId,
+      p_new_draft_history_id: draft.draftHistoryId,
+      p_mailbox_draft_id: mailboxDraftId,
+      p_thread_id: thread.providerThreadId,
+      p_expected_old_draft_history_id: existing?.id ?? null,
+    }
+  );
+  if (reassignError || !reassigned) {
+    throw new Error(
+      `mailbox draft history reassignment failed: ${reassignError?.message ?? "no row returned"}`
+    );
+  }
 
   return { mailboxDraftId };
 }
@@ -269,10 +289,7 @@ export const PhaseCAutonomyRouter = {
       // Global AUTO_SEND gate — cap any send-capable level to auto_draft
       // until the user has crossed the global milestone.
       let effective = declared;
-      if (
-        declared === "auto_send" ||
-        declared === "auto_follow_up"
-      ) {
+      if (declared === "auto_send" || declared === "auto_follow_up") {
         const globalState = await AutonomyMilestoneService.getAutonomyLevel(
           thread.companyId,
           userId,
@@ -420,7 +437,7 @@ export const PhaseCAutonomyRouter = {
     }
 
     try {
-      const placed = await placePhaseCMailboxDraft(thread, draft);
+      const placed = await placePhaseCMailboxDraft(thread, userId, draft);
       return {
         outcome: "auto_drafted",
         category: thread.primaryCategory,
@@ -474,9 +491,7 @@ export const PhaseCAutonomyRouter = {
     }
 
     // Resolve reply recipients from the latest inbound message.
-    const toEmails = thread.latestSenderEmail
-      ? [thread.latestSenderEmail]
-      : [];
+    const toEmails = thread.latestSenderEmail ? [thread.latestSenderEmail] : [];
     if (toEmails.length === 0) {
       return {
         outcome: "error",
@@ -486,9 +501,7 @@ export const PhaseCAutonomyRouter = {
       };
     }
 
-    const subject = thread.subject?.toLowerCase().startsWith("re:")
-      ? thread.subject
-      : `Re: ${thread.subject ?? ""}`;
+    const subject = normalizeReplySubject(thread.subject ?? "");
 
     const scheduled = await AutoSendService.scheduleAutoSend({
       companyId: thread.companyId,
@@ -599,9 +612,7 @@ export const PhaseCAutonomyRouter = {
       toEmails.push(thread.latestSenderEmail);
     }
 
-    const subject = thread.subject?.toLowerCase().startsWith("re:")
-      ? thread.subject
-      : `Re: ${thread.subject ?? ""}`;
+    const subject = normalizeReplySubject(thread.subject ?? "");
 
     const scheduled = await AutoSendService.scheduleAutoSend({
       companyId: thread.companyId,

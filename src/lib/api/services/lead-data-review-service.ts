@@ -87,6 +87,7 @@ export type ReviewItemKind = "split" | "terminal_live";
 
 export interface OppMeta {
   id: string;
+  companyId: string;
   title: string | null;
   stage: string | null;
   archived: boolean;
@@ -181,16 +182,22 @@ async function fetchOppMeta(ids: string[]): Promise<Map<string, OppMeta>> {
     const chunk = unique.slice(i, i + chunkSize);
     const { data, error } = await sb
       .from("opportunities")
-      .select("id, title, stage, archived_at, deleted_at, client_id, clients(name)")
+      .select(
+        "id, company_id, title, stage, archived_at, deleted_at, client_id, clients(name)"
+      )
       .in("id", chunk);
     if (error) throw new Error(error.message);
     for (const row of (data ?? []) as Array<Record<string, unknown>>) {
-      const client = row.clients as { name?: string } | { name?: string }[] | null;
+      const client = row.clients as
+        | { name?: string }
+        | { name?: string }[]
+        | null;
       const clientName = Array.isArray(client)
-        ? client[0]?.name ?? null
-        : client?.name ?? null;
+        ? (client[0]?.name ?? null)
+        : (client?.name ?? null);
       map.set(row.id as string, {
         id: row.id as string,
+        companyId: row.company_id as string,
         title: (row.title as string) ?? null,
         stage: (row.stage as string) ?? null,
         archived: row.archived_at !== null,
@@ -201,6 +208,64 @@ async function fetchOppMeta(ids: string[]): Promise<Map<string, OppMeta>> {
     }
   }
   return map;
+}
+
+/**
+ * Resolve one provider thread to exactly one mailbox inside the target's
+ * company. Provider thread IDs are mailbox-scoped; accepting an ambiguous ID
+ * here would let an operator action move another mailbox's correspondence.
+ */
+async function resolveThreadConnection(
+  companyId: string,
+  providerThreadId: string
+): Promise<string> {
+  const sb = requireSupabase();
+  const { data, error } = await sb
+    .from("email_threads")
+    .select("connection_id")
+    .eq("company_id", companyId)
+    .eq("provider_thread_id", providerThreadId);
+  if (error) throw new Error(error.message);
+
+  const connectionIds = Array.from(
+    new Set(
+      ((data ?? []) as Array<{ connection_id: string | null }>)
+        .map((row) => row.connection_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  if (connectionIds.length === 0) {
+    throw new Error("REFUSED: exact mailbox thread not found");
+  }
+  if (connectionIds.length > 1) {
+    throw new Error(
+      "REFUSED: provider thread resolves to more than one mailbox connection"
+    );
+  }
+  return connectionIds[0];
+}
+
+async function runGuardedThreadReassignment(input: {
+  companyId: string;
+  connectionId: string;
+  providerThreadId: string;
+  targetOpportunityId: string;
+  kind: ReviewItemKind;
+}): Promise<number> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc(
+    "reassign_opportunity_email_thread_guarded",
+    {
+      p_company_id: input.companyId,
+      p_connection_id: input.connectionId,
+      p_provider_thread_id: input.providerThreadId,
+      p_target_opportunity_id: input.targetOpportunityId,
+      p_kind: input.kind,
+    }
+  );
+  if (error) throw new Error(error.message);
+  const result = (data ?? {}) as { activities_repointed?: number };
+  return Number(result.activities_repointed ?? 0);
 }
 
 function ownerFrom(opp: OppMeta, activityCount: number): ReviewOwner {
@@ -269,7 +334,10 @@ async function fetchSplitItems(): Promise<DataReviewItem[]> {
       thread = { opps: new Map(), latest: a.created_at };
       byThread.set(a.email_thread_id, thread);
     }
-    const opp = thread.opps.get(a.opportunity_id) ?? { ids: [], latest: a.created_at };
+    const opp = thread.opps.get(a.opportunity_id) ?? {
+      ids: [],
+      latest: a.created_at,
+    };
     opp.ids.push(a.id);
     if (a.created_at > opp.latest) opp.latest = a.created_at;
     thread.opps.set(a.opportunity_id, opp);
@@ -308,7 +376,8 @@ async function fetchSplitItems(): Promise<DataReviewItem[]> {
     } else if (liveNonTerminal.length !== 1) {
       reason = `${liveNonTerminal.length} live owners — no single canonical opportunity`;
     } else {
-      reason = "Multiple owners on one provider thread — confirm the canonical owner";
+      reason =
+        "Multiple owners on one provider thread — confirm the canonical owner";
     }
 
     const top = owners[0].opp;
@@ -367,7 +436,9 @@ async function fetchTerminalLiveItems(): Promise<DataReviewItem[]> {
     for (;;) {
       const { data, error } = await sb
         .from("email_threads")
-        .select("id, provider_thread_id, connection_id, opportunity_id, subject, created_at")
+        .select(
+          "id, provider_thread_id, connection_id, opportunity_id, subject, created_at"
+        )
         .neq("provider_thread_id", "")
         .is("opportunity_id", null)
         .range(from, from + pageSize - 1);
@@ -520,18 +591,22 @@ export const LeadDataReviewService = {
       if (isHidden(target)) {
         throw new Error("REFUSED: target opportunity is archived/deleted");
       }
-      assertWriteAllowed("email_threads", "opportunity_id");
-      const { error } = await sb
-        .from("email_threads")
-        .update({ opportunity_id: targetOpportunityId })
-        .eq("provider_thread_id", providerThreadId)
-        .is("opportunity_id", null); // idempotency guard — only align NULL rows
-      if (error) throw new Error(error.message);
+      const connectionId = await resolveThreadConnection(
+        target.companyId,
+        providerThreadId
+      );
+      const repointed = await runGuardedThreadReassignment({
+        companyId: target.companyId,
+        connectionId,
+        providerThreadId,
+        targetOpportunityId,
+        kind,
+      });
       return {
         providerThreadId,
         targetOpportunityId,
         targetTitle: target.title,
-        activitiesRepointed: 0,
+        activitiesRepointed: repointed,
       };
     }
 
@@ -554,7 +629,9 @@ export const LeadDataReviewService = {
       throw new Error("No activities found for this provider thread");
     }
 
-    const ownerIds = Array.from(new Set(activities.map((a) => a.opportunity_id)));
+    const ownerIds = Array.from(
+      new Set(activities.map((a) => a.opportunity_id))
+    );
     if (!ownerIds.includes(targetOpportunityId)) {
       throw new Error(
         "REFUSED: target opportunity is not an owner of this thread — never fabricate a link"
@@ -573,6 +650,11 @@ export const LeadDataReviewService = {
     for (const id of ownerIds) {
       const o = meta.get(id);
       if (!o) continue;
+      if (o.companyId !== target.companyId) {
+        throw new Error(
+          "REFUSED: thread spans more than one company — re-point would cross tenant ownership"
+        );
+      }
       if (o.clientId !== targetClient) {
         throw new Error(
           "REFUSED: thread spans more than one client — re-point would move correspondence across customers"
@@ -580,25 +662,17 @@ export const LeadDataReviewService = {
       }
     }
 
-    // Re-point only the still-mislinked activities (idempotent guard).
-    let repointed = 0;
-    for (const a of activities) {
-      if (a.opportunity_id === targetOpportunityId) continue;
-      const { error } = await sb
-        .from("activities")
-        .update({ opportunity_id: targetOpportunityId })
-        .eq("id", a.id)
-        .eq("opportunity_id", a.opportunity_id); // idempotency guard
-      if (error) throw new Error(`activities ${a.id}: ${error.message}`);
-      repointed += 1;
-    }
-
-    // Align the cache row to the target where a singular cache row exists.
-    assertWriteAllowed("email_threads", "opportunity_id");
-    await sb
-      .from("email_threads")
-      .update({ opportunity_id: targetOpportunityId })
-      .eq("provider_thread_id", providerThreadId);
+    const connectionId = await resolveThreadConnection(
+      target.companyId,
+      providerThreadId
+    );
+    const repointed = await runGuardedThreadReassignment({
+      companyId: target.companyId,
+      connectionId,
+      providerThreadId,
+      targetOpportunityId,
+      kind,
+    });
 
     return {
       providerThreadId,
@@ -631,7 +705,10 @@ export const LeadDataReviewService = {
       .eq("type", "email")
       .eq("email_thread_id", providerThreadId);
     if (actErr) throw new Error(actErr.message);
-    const activities = (actData ?? []) as Array<{ id: string; subject: string }>;
+    const activities = (actData ?? []) as Array<{
+      id: string;
+      subject: string;
+    }>;
 
     // terminal_live items are NULL-canonical cache rows with no owning
     // activities. Leaving the cache unset IS the quarantined state — there is

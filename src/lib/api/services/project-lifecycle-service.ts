@@ -15,6 +15,7 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 import { parseStringArray } from "@/lib/utils/parse";
 import { getCompanyManagerUserIds } from "./company-managers";
 import { ApprovalQueueService } from "./approval-queue-service";
+import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
 import { AssignmentService } from "./assignment-service";
 import { BusinessContextService } from "./business-context-service";
 import { AIDraftService } from "./ai-draft-service";
@@ -38,14 +39,22 @@ import type {
 function normalizeProjectStage(input: string): string {
   const slug = input.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
   switch (slug) {
-    case "rfq": return "rfq";
-    case "estimated": return "estimated";
-    case "accepted": return "accepted";
-    case "in_progress": return "in_progress";
-    case "completed": return "completed";
-    case "closed": return "closed";
-    case "archived": return "archived";
-    default: return slug;
+    case "rfq":
+      return "rfq";
+    case "estimated":
+      return "estimated";
+    case "accepted":
+      return "accepted";
+    case "in_progress":
+      return "in_progress";
+    case "completed":
+      return "completed";
+    case "closed":
+      return "closed";
+    case "archived":
+      return "archived";
+    default:
+      return slug;
   }
 }
 
@@ -101,7 +110,9 @@ const DEFAULT_CONFIG: LifecycleConfig = {
  * Get an admin user ID for attributing proposals.
  * Falls back to any active user in the company if no admins configured.
  */
-async function getCompanyAdminUserId(companyId: string): Promise<string | null> {
+async function getCompanyAdminUserId(
+  companyId: string
+): Promise<string | null> {
   const supabase = requireSupabase();
 
   const managerIds = await getCompanyManagerUserIds(supabase, companyId);
@@ -112,9 +123,7 @@ function buildTransitionKey(oldStage: string, newStage: string): string {
   return `${oldStage.toLowerCase()}→${newStage.toLowerCase()}`;
 }
 
-async function getLifecycleConfig(
-  companyId: string
-): Promise<LifecycleConfig> {
+async function getLifecycleConfig(companyId: string): Promise<LifecycleConfig> {
   const supabase = requireSupabase();
 
   const { data } = await supabase
@@ -234,12 +243,18 @@ async function getHistoricalTaskPatterns(
   // Find projects that have passed through this stage (now in a later stage).
   // Stage order (DB CHECK-constraint values, title case):
   //   RFQ → Estimated → Accepted → In Progress → Completed → Closed → Archived
-  const STAGE_ORDER = ["rfq", "estimated", "accepted", "in_progress", "completed", "closed", "archived"];
+  const STAGE_ORDER = [
+    "rfq",
+    "estimated",
+    "accepted",
+    "in_progress",
+    "completed",
+    "closed",
+    "archived",
+  ];
   const normalizedInput = normalizeProjectStage(newStage);
   const stageIndex = STAGE_ORDER.indexOf(normalizedInput);
-  const laterStages = stageIndex >= 0
-    ? STAGE_ORDER.slice(stageIndex + 1)
-    : [];
+  const laterStages = stageIndex >= 0 ? STAGE_ORDER.slice(stageIndex + 1) : [];
 
   // Include the current stage AND later stages (they all went through this stage)
   const relevantStages = [normalizedInput, ...laterStages].filter(Boolean);
@@ -299,7 +314,7 @@ export const ProjectLifecycleService = {
     oldStage: string,
     newStage: string,
     changedByUserId?: string,
-    changedByName?: string,
+    changedByName?: string
   ): Promise<void> {
     // Always write a status_change row to the unified workspace timeline.
     // The phase_c gate below only governs the AI-driven approval-queue
@@ -325,7 +340,7 @@ export const ProjectLifecycleService = {
     } catch (err) {
       console.error(
         "[project-lifecycle] Failed to write status_change timeline event:",
-        err,
+        err
       );
       // Non-fatal — keep going so the rest of the lifecycle flow still runs.
     }
@@ -346,13 +361,12 @@ export const ProjectLifecycleService = {
         const projectTitle = (project?.title as string) ?? "Project";
         const teamMemberIds = parseStringArray(project?.team_member_ids);
         const recipientUserIds = teamMemberIds.filter(
-          (id) => id !== changedByUserId,
+          (id) => id !== changedByUserId
         );
 
         if (recipientUserIds.length > 0) {
-          const { dispatchProjectStatusChange } = await import(
-            "./notification-dispatch"
-          );
+          const { dispatchProjectStatusChange } =
+            await import("./notification-dispatch");
           dispatchProjectStatusChange({
             projectId,
             projectTitle,
@@ -366,7 +380,7 @@ export const ProjectLifecycleService = {
       } catch (err) {
         console.error(
           "[project-lifecycle] Failed to dispatch status_change notification:",
-          err,
+          err
         );
         // Non-fatal — timeline event already landed.
       }
@@ -438,9 +452,7 @@ export const ProjectLifecycleService = {
       .is("deleted_at", null);
 
     const existingTypeIds = new Set(
-      (existingTasks ?? [])
-        .map((t) => t.task_type_id as string)
-        .filter(Boolean)
+      (existingTasks ?? []).map((t) => t.task_type_id as string).filter(Boolean)
     );
     const existingTitles = new Set(
       (existingTasks ?? [])
@@ -460,7 +472,9 @@ export const ProjectLifecycleService = {
     // Get an admin userId for the proposal
     const userId = await getCompanyAdminUserId(companyId);
     if (!userId) {
-      console.log(`[project-lifecycle] No admin user found for company ${companyId}`);
+      console.log(
+        `[project-lifecycle] No admin user found for company ${companyId}`
+      );
       return;
     }
 
@@ -687,7 +701,10 @@ export const ProjectLifecycleService = {
 
     if (projectCtx.tasks) {
       const activeTasks = projectCtx.tasks.filter(
-        (t) => t.status !== "completed" && t.status !== "complete" && t.status !== "cancelled"
+        (t) =>
+          t.status !== "completed" &&
+          t.status !== "complete" &&
+          t.status !== "cancelled"
       );
       upcomingTaskCount = activeTasks.length;
     }
@@ -705,9 +722,8 @@ export const ProjectLifecycleService = {
       tasksCompletedSinceLast = count ?? 0;
     } else {
       // First status email — count all completed tasks
-      tasksCompletedSinceLast = projectCtx.tasks?.filter(
-        (t) => t.status === "completed"
-      ).length ?? 0;
+      tasksCompletedSinceLast =
+        projectCtx.tasks?.filter((t) => t.status === "completed").length ?? 0;
     }
 
     // Generate draft using AI
@@ -728,9 +744,7 @@ export const ProjectLifecycleService = {
       tasksCompletedSinceLast > 0
         ? `Tasks completed since last update: ${tasksCompletedSinceLast}`
         : null,
-      upcomingTaskCount > 0
-        ? `Upcoming tasks: ${upcomingTaskCount}`
-        : null,
+      upcomingTaskCount > 0 ? `Upcoming tasks: ${upcomingTaskCount}` : null,
       projectCtx.address ? `Location: ${projectCtx.address}` : null,
     ]
       .filter(Boolean)
@@ -745,9 +759,8 @@ export const ProjectLifecycleService = {
     const opportunityId = (projectRow?.opportunity_id as string) ?? undefined;
 
     // Use AIDraftService for voice-matched draft. profileTypeOverride
-    // pins this draft to the "client_active_project" writing profile so
-    // that recordDraftOutcome() at execution time feeds edits back into
-    // the correct profile instead of resolving to "general".
+    // pins this draft to the "client_active_project" writing profile so the
+    // durable outbound queue feeds edits back into the correct profile.
     const draftResult = await AIDraftService.generateDraft({
       companyId,
       userId,
@@ -766,9 +779,8 @@ export const ProjectLifecycleService = {
       draftText = draftResult.draft;
       draftHistoryId = draftResult.draftHistoryId || null;
     } else {
-      // AI unavailable — fall back to a templated message rendered in
-      // the company's locale. Insert a history row manually so edits to
-      // the fallback also feed the writing profile at execution time.
+      // AI unavailable — fall back to a templated message rendered in the
+      // company's locale. The shared provenance helper persists it below.
       const progressParts: string[] = [];
       if (completionPct > 0) {
         progressParts.push(
@@ -786,12 +798,9 @@ export const ProjectLifecycleService = {
             ? "statusEmail.progress.tasksCompletedSingular"
             : "statusEmail.progress.tasksCompletedPlural";
         progressParts.push(
-          await renderServerString(
-            locale,
-            "server-emails",
-            completedKey,
-            { count: tasksCompletedSinceLast }
-          )
+          await renderServerString(locale, "server-emails", completedKey, {
+            count: tasksCompletedSinceLast,
+          })
         );
       }
       if (upcomingTaskCount > 0) {
@@ -800,12 +809,9 @@ export const ProjectLifecycleService = {
             ? "statusEmail.progress.upcomingSingular"
             : "statusEmail.progress.upcomingPlural";
         progressParts.push(
-          await renderServerString(
-            locale,
-            "server-emails",
-            upcomingKey,
-            { count: upcomingTaskCount }
-          )
+          await renderServerString(locale, "server-emails", upcomingKey, {
+            count: upcomingTaskCount,
+          })
         );
       }
       const progressLine = progressParts.join("");
@@ -821,20 +827,20 @@ export const ProjectLifecycleService = {
         }
       );
 
-      const { data: fallbackHistory } = await supabase
-        .from("ai_draft_history")
-        .insert({
-          company_id: companyId,
-          user_id: userId,
-          connection_id: connectionId,
-          original_draft: draftText,
-          profile_type: "client_active_project",
-          status: "drafted",
-        })
-        .select("id")
-        .single();
-      draftHistoryId = (fallbackHistory?.id as string) ?? null;
+      draftHistoryId = null;
     }
+
+    draftHistoryId = await ensureApprovalDraftHistory({
+      draftHistoryId,
+      companyId,
+      userId,
+      connectionId,
+      opportunityId,
+      originalDraft: draftText,
+      subject,
+      profileType: "client_active_project",
+      atProposal: true,
+    });
 
     const actionData: SendStatusEmailActionData = {
       project_id: projectId,
@@ -986,9 +992,7 @@ export const ProjectLifecycleService = {
     if (!events || events.length === 0) return 0;
 
     const overdueEventIds = new Set(events.map((e) => e.id as string));
-    const eventMap = new Map(
-      events.map((e) => [e.id as string, e])
-    );
+    const eventMap = new Map(events.map((e) => [e.id as string, e]));
 
     // Check for existing pending reassign actions
     const taskIds = overdueTasks.map((t) => t.id as string);
@@ -1009,7 +1013,9 @@ export const ProjectLifecycleService = {
 
     // Fetch project titles in batch
     const projectIds = [
-      ...new Set(overdueTasks.map((t) => t.project_id as string).filter(Boolean)),
+      ...new Set(
+        overdueTasks.map((t) => t.project_id as string).filter(Boolean)
+      ),
     ];
     const projectNameMap = new Map<string, string>();
     if (projectIds.length > 0) {
@@ -1068,12 +1074,11 @@ export const ProjectLifecycleService = {
       const currentMemberIds = parseStringArray(task.team_member_ids);
       const currentMemberId = currentMemberIds[0] ?? null;
       const currentMemberName = currentMemberId
-        ? memberNameMap.get(currentMemberId) ?? null
+        ? (memberNameMap.get(currentMemberId) ?? null)
         : null;
       const projectId = task.project_id as string;
       const projectTitle = projectNameMap.get(projectId) ?? "Unknown Project";
-      const taskTitle =
-        (task.custom_title as string) ?? "Untitled Task";
+      const taskTitle = (task.custom_title as string) ?? "Untitled Task";
 
       // Suggest reassignment
       const taskTypeId = (task.task_type_id as string) ?? "";
@@ -1092,7 +1097,8 @@ export const ProjectLifecycleService = {
       if (!newCandidate) {
         // No reassignment candidate — still notify admin about the overdue task
         try {
-          const { NotificationService } = await import("./notification-service");
+          const { NotificationService } =
+            await import("./notification-service");
           await NotificationService.create({
             userId,
             companyId,

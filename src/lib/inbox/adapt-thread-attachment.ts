@@ -27,8 +27,10 @@ export interface ThreadAttachmentDto {
   fromEmail: string;
   /** ISO-8601 send/receive time of the parent message. */
   date: string;
-  /** Same-origin proxy URL that streams the live bytes. */
-  url: string;
+  /** Canonical availability state; only `stored` guarantees OPS-owned bytes. */
+  availability: "stored" | "external" | "oversized" | "unavailable" | "failed";
+  /** Same-origin OPS proxy or a validated external reference URL. */
+  url: string | null;
 }
 
 /**
@@ -41,8 +43,12 @@ export interface ThreadAttachmentDto {
 export function adaptImageAttachmentToPhoto(
   att: ThreadAttachmentDto,
   threadId: string,
-  companyId: string,
+  companyId: string
 ): ProjectPhoto {
+  if (att.availability !== "stored" || !att.url) {
+    throw new Error("Only stored attachments can be adapted as photos");
+  }
+
   return {
     id: `thread-att:${att.id}`,
     projectId: `thread:${threadId}`,
@@ -68,14 +74,14 @@ export function adaptImageAttachmentToPhoto(
  * provider's OAuth scope to the browser.
  */
 export function adaptNonImageAttachmentToDocument(
-  att: ThreadAttachmentDto,
+  att: ThreadAttachmentDto
 ): ProjectDocument {
   return {
     id: `email-att:${att.id}`,
     filename: att.filename,
     sourceType: "email_attachment",
     sourceId: att.id,
-    status: null,
+    status: att.availability,
     pdfStoragePath: att.url,
     mimeType: att.mimeType,
     sizeBytes: att.size,
@@ -86,22 +92,26 @@ export function adaptNonImageAttachmentToDocument(
 }
 
 /**
- * Split a list of thread attachments by MIME type. Images go to
- * `threadOnlyPhotos`; everything else lands in `documents`. Both lists are
- * already in newest-first order if the input was — this function preserves
- * the caller's ordering for each side of the split.
+ * Split a list by renderability. Only stored images with an OPS URL go to
+ * `threadOnlyPhotos`; documents and exception states land in `documents` so
+ * the operator sees a status instead of a broken thumbnail. Ordering is
+ * preserved within both buckets.
  */
 export function partitionThreadAttachments(
   attachments: ThreadAttachmentDto[],
   threadId: string,
-  companyId: string,
+  companyId: string
 ): { threadOnlyPhotos: ProjectPhoto[]; documents: ProjectDocument[] } {
   const threadOnlyPhotos: ProjectPhoto[] = [];
   const documents: ProjectDocument[] = [];
   for (const att of attachments) {
-    if (att.mimeType.startsWith("image/")) {
+    if (
+      att.availability === "stored" &&
+      Boolean(att.url) &&
+      att.mimeType.startsWith("image/")
+    ) {
       threadOnlyPhotos.push(
-        adaptImageAttachmentToPhoto(att, threadId, companyId),
+        adaptImageAttachmentToPhoto(att, threadId, companyId)
       );
     } else {
       documents.push(adaptNonImageAttachmentToDocument(att));

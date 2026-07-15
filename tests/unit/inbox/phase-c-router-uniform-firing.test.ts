@@ -21,8 +21,15 @@ const routerCalls: Array<{ id: string; primaryCategory: string }> = [];
 vi.mock("@/lib/api/services/phase-c-autonomy-router", () => ({
   PhaseCAutonomyRouter: {
     route: vi.fn(async (thread: { id: string; primaryCategory: string }) => {
-      routerCalls.push({ id: thread.id, primaryCategory: thread.primaryCategory });
-      return { outcome: "auto_drafted", category: thread.primaryCategory, effectiveLevel: "auto_draft" };
+      routerCalls.push({
+        id: thread.id,
+        primaryCategory: thread.primaryCategory,
+      });
+      return {
+        outcome: "auto_drafted",
+        category: thread.primaryCategory,
+        effectiveLevel: "auto_draft",
+      };
     }),
   },
 }));
@@ -43,7 +50,10 @@ vi.mock("@/lib/api/services/deterministic-customer-rule", () => ({
   tryDeterministicCustomer: () => detState.customer,
 }));
 vi.mock("@/lib/api/services/deterministic-customer-reads", () => ({
-  loadOpportunityForCustomerRule: async () => ({ stage: "quoting", archivedAt: null }),
+  loadOpportunityForCustomerRule: async () => ({
+    stage: "quoting",
+    archivedAt: null,
+  }),
 }));
 
 // notification-service is dynamically imported by fireThreadNotifications.
@@ -59,7 +69,10 @@ import type { EmailThread } from "@/lib/types/email-thread";
 
 // Minimal Supabase double: serves the activities select (1 inbound message),
 // the email_connections email lookup, and the email_threads UPDATE...select.
-function makeDouble() {
+const activityFilters: Array<[string, unknown]> = [];
+const classificationUpdateFilters: Array<[string, unknown]> = [];
+
+function makeDouble(options: { activityError?: string } = {}) {
   const updatedRow = {
     id: "thr-1",
     company_id: "co-1",
@@ -77,7 +90,13 @@ function makeDouble() {
       const builder: Record<string, unknown> = {};
       const chain = () => builder;
       builder.select = chain;
-      builder.eq = chain;
+      builder.eq = (column: string, value: unknown) => {
+        if (table === "activities") activityFilters.push([column, value]);
+        if (table === "email_threads") {
+          classificationUpdateFilters.push([column, value]);
+        }
+        return builder;
+      };
       builder.in = chain;
       builder.lt = chain;
       builder.is = chain;
@@ -85,6 +104,12 @@ function makeDouble() {
       builder.update = chain;
       builder.limit = async () => {
         if (table === "activities") {
+          if (options.activityError) {
+            return {
+              data: null,
+              error: { message: options.activityError },
+            };
+          }
           return {
             data: [
               {
@@ -105,7 +130,8 @@ function makeDouble() {
         return { data: [], error: null };
       };
       builder.maybeSingle = async () => {
-        if (table === "email_connections") return { data: { email: "owner@ops.com" }, error: null };
+        if (table === "email_connections")
+          return { data: { email: "owner@ops.com" }, error: null };
         return { data: null, error: null };
       };
       builder.single = async () => {
@@ -143,6 +169,8 @@ function baseThread(overrides: Partial<EmailThread> = {}): EmailThread {
 
 beforeEach(() => {
   routerCalls.length = 0;
+  activityFilters.length = 0;
+  classificationUpdateFilters.length = 0;
   detState.internal = null;
   detState.customer = null;
   notifyCreate.mockClear();
@@ -169,7 +197,19 @@ describe("P4-A — Phase C router uniform firing", () => {
     await new Promise((r) => setTimeout(r, 20));
 
     expect(routerCalls).toHaveLength(1);
-    expect(routerCalls[0]).toMatchObject({ id: "thr-1", primaryCategory: "CUSTOMER" });
+    expect(routerCalls[0]).toMatchObject({
+      id: "thr-1",
+      primaryCategory: "CUSTOMER",
+    });
+    expect(activityFilters).toContainEqual(["email_connection_id", "conn-1"]);
+    expect(classificationUpdateFilters).toEqual(
+      expect.arrayContaining([
+        ["message_count", 1],
+        ["last_message_at", expect.any(String)],
+        ["category_manually_set", false],
+        ["primary_category", "CUSTOMER"],
+      ])
+    );
   });
 
   it("fires the router on the deterministic INTERNAL branch (no notification)", async () => {
@@ -180,11 +220,23 @@ describe("P4-A — Phase C router uniform firing", () => {
       classifierVersion: "det-internal-1",
     };
 
-    await EmailThreadService.classifyAndUpdate(baseThread({ primaryCategory: "INTERNAL" }));
+    await EmailThreadService.classifyAndUpdate(
+      baseThread({ primaryCategory: "INTERNAL" })
+    );
     await new Promise((r) => setTimeout(r, 20));
 
     expect(routerCalls).toHaveLength(1);
     // INTERNAL must NOT page the operator.
     expect(notifyCreate).not.toHaveBeenCalled();
+  });
+
+  it("leaves a dirty thread retryable when classification context cannot load", async () => {
+    setSupabaseOverride(
+      makeDouble({ activityError: "activities unavailable" }) as never
+    );
+
+    await expect(
+      EmailThreadService.classifyAndUpdate(baseThread())
+    ).rejects.toThrow("activities unavailable");
   });
 });

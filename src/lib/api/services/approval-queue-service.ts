@@ -38,6 +38,8 @@ import type {
 import { ProjectStatus, TaskStatus } from "@/lib/types/models";
 import { InvoiceStatus, DiscountType } from "@/lib/types/pipeline";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
+import type { OutboundLearningAuthority } from "./email-outbound-learning-service";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -113,7 +115,8 @@ async function getAdminUserIds(companyId: string): Promise<string[]> {
 // ─── Action Executors ─────────────────────────────────────────────────────────
 
 async function executeAction(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority
 ): Promise<Record<string, unknown>> {
   switch (action.actionType) {
     case "create_project":
@@ -121,7 +124,7 @@ async function executeAction(
     case "create_task":
       return executeCreateTask(action);
     case "send_status_email":
-      return executeSendStatusEmail(action);
+      return executeSendStatusEmail(action, learningAuthority);
     case "reassign_task":
       return executeReassignTask(action);
     case "archive_project":
@@ -131,9 +134,9 @@ async function executeAction(
     case "create_invoice":
       return executeCreateInvoice(action);
     case "send_invoice_email":
-      return executeSendInvoiceEmail(action);
+      return executeSendInvoiceEmail(action, learningAuthority);
     case "send_payment_reminder":
-      return executeSendPaymentReminder(action);
+      return executeSendPaymentReminder(action, learningAuthority);
     case "client_health_alert":
       return executeClientHealthAlert(action);
     case "financial_insight":
@@ -143,16 +146,16 @@ async function executeAction(
     case "reschedule_tasks":
       return executeRescheduleTasks(action);
     case "send_appointment_confirmation":
-      return executeSendAppointmentConfirmation(action);
+      return executeSendAppointmentConfirmation(action, learningAuthority);
     case "send_day_before_reminder":
     case "send_appointment_reminder":
-      return executeSendDayBeforeReminder(action);
+      return executeSendDayBeforeReminder(action, learningAuthority);
     case "send_schedule_changed":
-      return executeSendScheduleChanged(action);
+      return executeSendScheduleChanged(action, learningAuthority);
     case "send_subcontractor_coordination":
-      return executeSendSubcontractorCoordination(action);
+      return executeSendSubcontractorCoordination(action, learningAuthority);
     case "process_reschedule_request":
-      return executeProcessRescheduleRequest(action);
+      return executeProcessRescheduleRequest(action, learningAuthority);
     default:
       throw new Error(`Unsupported action type: ${action.actionType}`);
   }
@@ -174,9 +177,8 @@ async function executeCreateProject(
     // This replaces the old bespoke create + wrong-column (project_id only)
     // write that produced the historical drift. Idempotent: if the opportunity
     // is already converted, the existing project is returned (no duplicate).
-    const { ProjectConversionService } = await import(
-      "./project-conversion-service"
-    );
+    const { ProjectConversionService } =
+      await import("./project-conversion-service");
     const result = await ProjectConversionService.convertOpportunityToProject({
       opportunityId: data.source_opportunity_id,
       companyId: action.companyId,
@@ -209,7 +211,10 @@ async function executeCreateProject(
           status: TaskStatus.Booked,
         });
       } catch (err) {
-        console.error(`[approval-queue] Failed to create task "${task.title}":`, err);
+        console.error(
+          `[approval-queue] Failed to create task "${task.title}":`,
+          err
+        );
       }
     }
   }
@@ -223,20 +228,25 @@ async function executeCreateProject(
   // Runs asynchronously so it doesn't block the approval flow
   import("./task-suggestion-service")
     .then(({ TaskSuggestionService }) =>
-      TaskSuggestionService.suggestTasksForProject(action.companyId, projectId)
-        .then((suggestions) => {
-          if (suggestions.length > 0) {
-            return TaskSuggestionService.proposeTaskCreation(
-              action.companyId,
-              action.userId,
-              projectId,
-              suggestions
-            );
-          }
-        })
+      TaskSuggestionService.suggestTasksForProject(
+        action.companyId,
+        projectId
+      ).then((suggestions) => {
+        if (suggestions.length > 0) {
+          return TaskSuggestionService.proposeTaskCreation(
+            action.companyId,
+            action.userId,
+            projectId,
+            suggestions
+          );
+        }
+      })
     )
     .catch((err) =>
-      console.error("[approval-queue] Task suggestion after project creation error:", err)
+      console.error(
+        "[approval-queue] Task suggestion after project creation error:",
+        err
+      )
     );
 
   return { projectId, tasksCreated: data.suggested_tasks?.length ?? 0 };
@@ -325,9 +335,20 @@ async function executeCreateTask(
 // ─── Send Status Email Executor ──────────────────────────────────────────────
 
 async function executeSendStatusEmail(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority
 ): Promise<Record<string, unknown>> {
   const data = action.actionData as unknown as SendStatusEmailActionData;
+
+  const draftHistoryId = await ensureApprovalDraftHistory({
+    draftHistoryId: data.draft_history_id,
+    companyId: action.companyId,
+    userId: action.userId,
+    connectionId: data.connection_id,
+    originalDraft: data.draft_text,
+    subject: data.subject,
+    profileType: "client_active_project",
+  });
 
   // Send via the internal email send endpoint (same pattern as auto-send)
   const appUrl = getAppUrl();
@@ -347,6 +368,8 @@ async function executeSendStatusEmail(
       subject: data.subject,
       body: data.draft_text,
       contentType: "text",
+      draftHistoryId,
+      learningAuthority,
     }),
   });
 
@@ -356,26 +379,6 @@ async function executeSendStatusEmail(
   }
 
   const result = await sendResponse.json();
-
-  // Feed the final (possibly-edited) draft back into the writing profile
-  // via recordDraftOutcome. This computes real edit distance against the
-  // ai_draft_history row created at proposal time, detects change types,
-  // and runs GPT analysis on significant edits.
-  if (data.draft_history_id) {
-    try {
-      const { AIDraftService } = await import("./ai-draft-service");
-      await AIDraftService.recordDraftOutcome(
-        data.draft_history_id,
-        action.companyId,
-        action.userId,
-        "sent",
-        data.draft_text,
-        "client_active_project"
-      );
-    } catch (err) {
-      console.error("[approval-queue] status email draft outcome:", err);
-    }
-  }
 
   return {
     messageId: result.messageId ?? null,
@@ -604,14 +607,17 @@ async function executeCreateInvoice(
   }
 
   // Fire-and-forget: generate cover email and propose send_invoice_email
-  if (data.cover_email && data.cover_email.to && data.cover_email.connection_id) {
+  if (
+    data.cover_email &&
+    data.cover_email.to &&
+    data.cover_email.connection_id
+  ) {
     const coverEmail = data.cover_email;
 
     import("./ai-draft-service")
       .then(async ({ AIDraftService }) => {
-        const { getCompanyLocale, renderServerString } = await import(
-          "@/i18n/server-render"
-        );
+        const { getCompanyLocale, renderServerString } =
+          await import("@/i18n/server-render");
         const locale = await getCompanyLocale(action.companyId);
         const bcp47 = locale === "es" ? "es-ES" : "en-US";
 
@@ -628,9 +634,9 @@ async function executeCreateInvoice(
         });
 
         // Generate cover email using writing profile.
-        // profileTypeOverride pins this to "client_active_project" so
-        // recordDraftOutcome() at execution time learns into the correct
-        // profile (invoice covers historically resolved to "general"
+        // profileTypeOverride pins this to "client_active_project" so the
+        // durable outbound queue learns into the correct profile (invoice
+        // covers historically resolved to "general"
         // because no thread subject/opportunity stage was present).
         // The userInstruction stays English — it's consumed by GPT —
         // but we ask it to write the output in the company locale.
@@ -690,6 +696,16 @@ async function executeCreateInvoice(
               projectTitle: data.project_title,
             }
           ));
+        draftHistoryId = await ensureApprovalDraftHistory({
+          draftHistoryId,
+          companyId: action.companyId,
+          userId: action.userId,
+          connectionId: coverEmail.connection_id!,
+          originalDraft: draftText,
+          subject: localizedSubject,
+          profileType: "client_active_project",
+          atProposal: true,
+        });
 
         const emailActionData: SendInvoiceEmailActionData = {
           invoice_id: invoice.id,
@@ -735,9 +751,20 @@ async function executeCreateInvoice(
 // ─── Send Invoice Email Executor ────────────────────────────────────────────
 
 async function executeSendInvoiceEmail(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority
 ): Promise<Record<string, unknown>> {
   const data = action.actionData as unknown as SendInvoiceEmailActionData;
+
+  const draftHistoryId = await ensureApprovalDraftHistory({
+    draftHistoryId: data.draft_history_id,
+    companyId: action.companyId,
+    userId: action.userId,
+    connectionId: data.connection_id,
+    originalDraft: data.draft_text,
+    subject: data.subject,
+    profileType: "client_active_project",
+  });
 
   // Send via the internal email send endpoint (same pattern as status emails)
   const appUrl = getAppUrl();
@@ -757,6 +784,8 @@ async function executeSendInvoiceEmail(
       subject: data.subject,
       body: data.draft_text,
       contentType: "text",
+      draftHistoryId,
+      learningAuthority,
     }),
   });
 
@@ -775,25 +804,6 @@ async function executeSendInvoiceEmail(
     // Non-critical — invoice may already be in a later status
   }
 
-  // Feed the final (possibly-edited) cover email back into the writing
-  // profile. recordDraftOutcome computes edit distance, runs GPT analysis,
-  // and updates the profile via learnFromEdits.
-  if (data.draft_history_id) {
-    try {
-      const { AIDraftService } = await import("./ai-draft-service");
-      await AIDraftService.recordDraftOutcome(
-        data.draft_history_id,
-        action.companyId,
-        action.userId,
-        "sent",
-        data.draft_text,
-        "client_active_project"
-      );
-    } catch (err) {
-      console.error("[approval-queue] invoice email draft outcome:", err);
-    }
-  }
-
   return {
     messageId: result.messageId ?? null,
     invoiceId: data.invoice_id,
@@ -805,15 +815,28 @@ async function executeSendInvoiceEmail(
 // ─── Send Payment Reminder Executor ─────────────────────────────────────────
 
 async function executeSendPaymentReminder(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority
 ): Promise<Record<string, unknown>> {
   const supabase = requireSupabase();
   const data = action.actionData as unknown as SendPaymentReminderActionData;
 
   // 1. Send the email via the internal email send endpoint
   if (!data.connection_id) {
-    throw new Error("No email connection configured — cannot send payment reminder");
+    throw new Error(
+      "No email connection configured — cannot send payment reminder"
+    );
   }
+
+  const draftHistoryId = await ensureApprovalDraftHistory({
+    draftHistoryId: data.draft_history_id,
+    companyId: action.companyId,
+    userId: action.userId,
+    connectionId: data.connection_id,
+    originalDraft: data.original_draft_text,
+    subject: data.subject,
+    profileType: "client_followup",
+  });
 
   const appUrl = getAppUrl();
   const cronSecret = process.env.CRON_SECRET;
@@ -832,6 +855,8 @@ async function executeSendPaymentReminder(
       subject: data.subject,
       body: data.draft_text,
       contentType: "text",
+      draftHistoryId,
+      learningAuthority,
     }),
   });
 
@@ -852,43 +877,7 @@ async function executeSendPaymentReminder(
     // Non-critical — invoice may already be past_due or partially_paid
   }
 
-  // 3. Record in ai_draft_history via recordDraftOutcome for full learning loop
-  //    (GPT diff analysis, learnFromEdits, content correction storage)
-  try {
-    const { AIDraftService } = await import("./ai-draft-service");
-    const originalDraft = data.original_draft_text;
-    const finalDraft = data.draft_text;
-
-    // First insert the draft history record
-    const { data: historyRow } = await supabase
-      .from("ai_draft_history")
-      .insert({
-        company_id: action.companyId,
-        user_id: action.userId,
-        connection_id: data.connection_id || null,
-        original_draft: originalDraft,
-        profile_type: "client_followup",
-        status: "drafted",
-      })
-      .select("id")
-      .single();
-
-    if (historyRow?.id) {
-      // Use recordDraftOutcome for the full learning pipeline
-      await AIDraftService.recordDraftOutcome(
-        historyRow.id as string,
-        action.companyId,
-        action.userId,
-        "sent",
-        finalDraft,
-        "client_followup"
-      );
-    }
-  } catch {
-    // Non-critical — don't block on draft history
-  }
-
-  // 4. Fire a notification to the user
+  // 3. Fire a notification to the user
   try {
     const { renderForCompany } = await import("@/i18n/server-render");
     const [title, body] = await Promise.all([
@@ -1001,7 +990,9 @@ async function executeOptimizeSchedule(
       .in("id", taskIds);
 
     if (fetchErr) {
-      throw new Error(`Failed to fetch tasks for route reorder: ${fetchErr.message}`);
+      throw new Error(
+        `Failed to fetch tasks for route reorder: ${fetchErr.message}`
+      );
     }
 
     // Build chronological slot list — sorted by start_time (nulls last)
@@ -1037,11 +1028,13 @@ async function executeOptimizeSchedule(
         display_order: i + 1,
       };
       if (slot) {
-        if (slot.start_time !== null) updatePayload.start_time = slot.start_time;
+        if (slot.start_time !== null)
+          updatePayload.start_time = slot.start_time;
         if (slot.end_time !== null) updatePayload.end_time = slot.end_time;
         // Keep start_date/end_date stable if they already match — but in case
         // multi-day routes were re-ordered across days, reflow those too.
-        if (slot.start_date !== null) updatePayload.start_date = slot.start_date;
+        if (slot.start_date !== null)
+          updatePayload.start_date = slot.start_date;
         if (slot.end_date !== null) updatePayload.end_date = slot.end_date;
       }
 
@@ -1108,7 +1101,10 @@ async function executeRescheduleTasks(
         )
       )
       .catch((err) =>
-        console.error("[approval-queue] Cascade after conflict resolution:", err)
+        console.error(
+          "[approval-queue] Cascade after conflict resolution:",
+          err
+        )
       );
 
     return {
@@ -1214,10 +1210,8 @@ async function executeRescheduleTasks(
 /**
  * Shared send path for appointment-confirmation / day-before-reminder /
  * subcontractor-coordination / reschedule-request-reply. Sends the email
- * via the internal send endpoint, records draft history via
- * AIDraftService.recordDraftOutcome for the full writing-profile learning
- * loop (edit distance, GPT diff analysis, content corrections), and logs
- * an activity on the thread/opportunity when available.
+ * via the internal send endpoint and hands the pre-delivery draft identity to
+ * the durable outbound queue for one idempotent writing-profile outcome.
  */
 async function sendClientCommsEmail(params: {
   companyId: string;
@@ -1228,16 +1222,27 @@ async function sendClientCommsEmail(params: {
   finalDraft: string;
   originalDraft: string;
   profileType: string;
+  draftHistoryId?: string | null;
   threadId?: string | null;
   opportunityId?: string | null;
+  learningAuthority: OutboundLearningAuthority;
 }): Promise<{ messageId: string | null }> {
-  const supabase = requireSupabase();
   const appUrl = getAppUrl();
   const cronSecret = process.env.CRON_SECRET;
 
   if (!params.connectionId) {
     throw new Error("No email connection configured — cannot send");
   }
+
+  const draftHistoryId = await ensureApprovalDraftHistory({
+    draftHistoryId: params.draftHistoryId,
+    companyId: params.companyId,
+    userId: params.userId,
+    connectionId: params.connectionId,
+    originalDraft: params.originalDraft,
+    subject: params.subject,
+    profileType: params.profileType,
+  });
 
   const sendResponse = await fetch(`${appUrl}/api/integrations/email/send`, {
     method: "POST",
@@ -1253,6 +1258,10 @@ async function sendClientCommsEmail(params: {
       subject: params.subject,
       body: params.finalDraft,
       contentType: "text",
+      draftHistoryId,
+      threadId: params.threadId ?? null,
+      opportunityId: params.opportunityId ?? null,
+      learningAuthority: params.learningAuthority,
     }),
   });
 
@@ -1263,74 +1272,14 @@ async function sendClientCommsEmail(params: {
 
   const result = await sendResponse.json();
 
-  // Record in ai_draft_history + run the full learning pipeline.
-  // Uses the correct column `original_draft` (NOT `draft_text`) and lets
-  // recordDraftOutcome compute the real edit distance — no hardcoded zero.
-  try {
-    const { data: historyRow } = await supabase
-      .from("ai_draft_history")
-      .insert({
-        company_id: params.companyId,
-        user_id: params.userId,
-        connection_id: params.connectionId,
-        original_draft: params.originalDraft,
-        profile_type: params.profileType,
-        status: "drafted",
-      })
-      .select("id")
-      .single();
-
-    if (historyRow?.id) {
-      const { AIDraftService } = await import("./ai-draft-service");
-      await AIDraftService.recordDraftOutcome(
-        historyRow.id as string,
-        params.companyId,
-        params.userId,
-        "sent",
-        params.finalDraft,
-        params.profileType
-      );
-    }
-  } catch (err) {
-    console.error(
-      "[approval-queue] recordDraftOutcome failed (non-fatal):",
-      err
-    );
-  }
-
-  // Log an activity row on the thread if we have one, so the outbound
-  // message appears in the thread timeline alongside the inbound email.
-  if (params.threadId || params.opportunityId) {
-    try {
-      await supabase.from("activities").insert({
-        company_id: params.companyId,
-        type: "email",
-        subject: params.subject,
-        content: params.finalDraft.slice(0, 300),
-        body_text: params.finalDraft,
-        email_thread_id: params.threadId ?? null,
-        opportunity_id: params.opportunityId ?? null,
-        direction: "outbound",
-        from_email: null,
-        to_emails: [params.toEmail],
-        cc_emails: [],
-        has_attachments: false,
-        attachment_count: 0,
-        match_confidence: "ai_agent",
-        is_read: true,
-      });
-    } catch {
-      // Non-critical
-    }
-  }
-
   return { messageId: (result.messageId as string) ?? null };
 }
 
 // ─── Send Appointment Confirmation Executor ──────────────────────────────────
 
 async function executeSendAppointmentConfirmation(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority
 ): Promise<Record<string, unknown>> {
   const data =
     action.actionData as unknown as SendAppointmentConfirmationActionData;
@@ -1344,6 +1293,8 @@ async function executeSendAppointmentConfirmation(
     finalDraft: data.draft_text,
     originalDraft: data.original_draft_text ?? data.draft_text,
     profileType: "client_active_project",
+    draftHistoryId: data.draft_history_id,
+    learningAuthority,
   });
 
   // Notify the user that the confirmation went out
@@ -1373,10 +1324,10 @@ async function executeSendAppointmentConfirmation(
 // ─── Send Day-Before Reminder Executor ───────────────────────────────────────
 
 async function executeSendDayBeforeReminder(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority
 ): Promise<Record<string, unknown>> {
-  const data =
-    action.actionData as unknown as SendDayBeforeReminderActionData;
+  const data = action.actionData as unknown as SendDayBeforeReminderActionData;
 
   const { messageId } = await sendClientCommsEmail({
     companyId: action.companyId,
@@ -1387,6 +1338,8 @@ async function executeSendDayBeforeReminder(
     finalDraft: data.draft_text,
     originalDraft: data.original_draft_text ?? data.draft_text,
     profileType: "client_active_project",
+    draftHistoryId: data.draft_history_id,
+    learningAuthority,
   });
 
   try {
@@ -1414,10 +1367,10 @@ async function executeSendDayBeforeReminder(
 // ─── Send Schedule Changed Executor (S2 Amendment) ──────────────────────────
 
 async function executeSendScheduleChanged(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority
 ): Promise<Record<string, unknown>> {
-  const data =
-    action.actionData as unknown as SendScheduleChangedActionData;
+  const data = action.actionData as unknown as SendScheduleChangedActionData;
 
   const { messageId } = await sendClientCommsEmail({
     companyId: action.companyId,
@@ -1428,6 +1381,8 @@ async function executeSendScheduleChanged(
     finalDraft: data.draft_text,
     originalDraft: data.original_draft_text ?? data.draft_text,
     profileType: "client_active_project",
+    draftHistoryId: data.draft_history_id,
+    learningAuthority,
   });
 
   try {
@@ -1455,7 +1410,8 @@ async function executeSendScheduleChanged(
 // ─── Send Subcontractor Coordination Executor ────────────────────────────────
 
 async function executeSendSubcontractorCoordination(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority
 ): Promise<Record<string, unknown>> {
   const data =
     action.actionData as unknown as SendSubcontractorCoordinationActionData;
@@ -1469,6 +1425,8 @@ async function executeSendSubcontractorCoordination(
     finalDraft: data.draft_text,
     originalDraft: data.original_draft_text ?? data.draft_text,
     profileType: "subtrade_coordination",
+    draftHistoryId: data.draft_history_id,
+    learningAuthority,
   });
 
   try {
@@ -1496,7 +1454,8 @@ async function executeSendSubcontractorCoordination(
 // ─── Process Reschedule Request Executor ─────────────────────────────────────
 
 async function executeProcessRescheduleRequest(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority
 ): Promise<Record<string, unknown>> {
   const supabase = requireSupabase();
   const data =
@@ -1512,8 +1471,10 @@ async function executeProcessRescheduleRequest(
     finalDraft: data.reply_draft_text,
     originalDraft: data.original_reply_draft_text ?? data.reply_draft_text,
     profileType: "client_active_project",
+    draftHistoryId: data.draft_history_id,
     threadId: data.thread_id,
     opportunityId: data.opportunity_id,
+    learningAuthority,
   });
 
   // 2. Resolve the confirmed new date — honor the user's edits.
@@ -1605,10 +1566,7 @@ async function executeProcessRescheduleRequest(
         )
       )
       .catch((err) =>
-        console.error(
-          "[approval-queue] Cascade after reschedule request:",
-          err
-        )
+        console.error("[approval-queue] Cascade after reschedule request:", err)
       );
   }
 
@@ -1796,7 +1754,10 @@ export const ApprovalQueueService = {
     actionId: string,
     companyId: string,
     userId: string,
-    editedActionData?: Record<string, unknown>
+    editedActionData?: Record<string, unknown>,
+    executionContext: {
+      learningAuthority?: OutboundLearningAuthority;
+    } = {}
   ): Promise<AgentAction> {
     const supabase = requireSupabase();
 
@@ -1829,7 +1790,10 @@ export const ApprovalQueueService = {
 
     // Execute
     try {
-      const result = await executeAction(action);
+      const result = await executeAction(
+        action,
+        executionContext.learningAuthority ?? "operator_approved"
+      );
 
       const { data: final } = await supabase
         .from("agent_actions")
@@ -1930,7 +1894,12 @@ export const ApprovalQueueService = {
 
     for (const actionId of actionIds) {
       try {
-        await ApprovalQueueService.rejectAction(actionId, companyId, userId, notes);
+        await ApprovalQueueService.rejectAction(
+          actionId,
+          companyId,
+          userId,
+          notes
+        );
         result.rejected++;
       } catch (err) {
         result.failed++;
@@ -1956,7 +1925,8 @@ export const ApprovalQueueService = {
       .select("id");
 
     if (error) throw new Error(`Failed to cancel action: ${error.message}`);
-    if (!data || data.length === 0) throw new Error("Action not found or already handled");
+    if (!data || data.length === 0)
+      throw new Error("Action not found or already handled");
   },
 
   /**

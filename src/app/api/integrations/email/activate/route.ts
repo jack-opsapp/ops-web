@@ -11,7 +11,10 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { hashMicrosoft365ClientState } from "@/lib/email/microsoft365-webhook-security";
 import type { ActivationPayload } from "@/lib/types/email-import";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailSignatureForMessage } from "@/lib/email/email-signature-runtime";
 
 export const maxDuration = 300;
 
@@ -37,6 +40,14 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+    if (connection.companyId !== companyId) {
+      return NextResponse.json(
+        { error: "Connection not found" },
+        { status: 404 }
+      );
+    }
+    const authError = await requireEmailCompanyAccess(request, companyId);
+    if (authError) return authError;
 
     const provider = EmailService.getProvider(connection);
 
@@ -59,14 +70,19 @@ export async function POST(request: NextRequest) {
     // 2. Set up webhook for push notifications
     let webhookSubscriptionId: string | null = null;
     let webhookExpiresAt: Date | null = null;
+    let webhookClientStateHash: string | null = null;
     try {
       const webhookUrl = `${getAppUrl()}/api/integrations/email/webhook/${connection.provider}`;
       const webhook = await provider.setupWebhook(webhookUrl);
       webhookSubscriptionId = webhook.subscriptionId;
-      // Guard against invalid date from provider response
-      webhookExpiresAt = webhook.expiresAt instanceof Date && !isNaN(webhook.expiresAt.getTime())
-        ? webhook.expiresAt
+      webhookClientStateHash = webhook.clientState
+        ? await hashMicrosoft365ClientState(webhook.clientState)
         : null;
+      // Guard against invalid date from provider response
+      webhookExpiresAt =
+        webhook.expiresAt instanceof Date && !isNaN(webhook.expiresAt.getTime())
+          ? webhook.expiresAt
+          : null;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("[email-activate] Failed to set up webhook:", err);
@@ -85,7 +101,8 @@ export async function POST(request: NextRequest) {
     // an already-active connection found empty state and fell through to a
     // phantom fresh analyze. The PATCH /connection route already uses this
     // merge pattern — activate should match.
-    const existingFilters = (connection.syncFilters as Record<string, unknown>) || {};
+    const existingFilters =
+      (connection.syncFilters as Record<string, unknown>) || {};
 
     await EmailService.updateConnection(connectionId, {
       syncFilters: {
@@ -99,8 +116,29 @@ export async function POST(request: NextRequest) {
       opsLabelId: labelId,
       webhookSubscriptionId: webhookSubscriptionId || undefined,
       webhookExpiresAt: webhookExpiresAt || undefined,
+      webhookClientStateHash,
       status: "active",
     });
+
+    // Read the provider signature (Gmail only) and reconcile the persistent
+    // setup prompt as soon as the inbox becomes active. This is deliberately
+    // non-fatal: signature setup can be completed from Settings, while
+    // autonomous draft placement remains blocked until a signature exists.
+    if (connection.userId) {
+      try {
+        await resolveEmailSignatureForMessage({
+          supabase,
+          connection,
+          userId: connection.userId,
+          refreshProviderIfMissing: true,
+        });
+      } catch (error) {
+        warnings.push({
+          step: "signature",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
     return NextResponse.json({
       ok: true,

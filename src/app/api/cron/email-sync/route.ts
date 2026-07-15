@@ -11,6 +11,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
+import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import { EmailOutboundLearningService } from "@/lib/api/services/email-outbound-learning-service";
+import {
+  buildEmailSyncCronResult,
+  type EmailSyncCronResult,
+} from "@/lib/email/email-sync-cron-result";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import {
   SubscriptionPlan,
@@ -31,11 +37,15 @@ type CompanySubscriptionFields = Pick<
 >;
 
 /** Minimal snake_case → camelCase mapper for subscription gating. */
-function mapSubscriptionRow(row: Record<string, unknown>): CompanySubscriptionFields {
+function mapSubscriptionRow(
+  row: Record<string, unknown>
+): CompanySubscriptionFields {
   return {
     subscriptionPlan: (row.subscription_plan as SubscriptionPlan) ?? null,
     subscriptionStatus: (row.subscription_status as SubscriptionStatus) ?? null,
-    trialEndDate: row.trial_end_date ? new Date(row.trial_end_date as string) : null,
+    trialEndDate: row.trial_end_date
+      ? new Date(row.trial_end_date as string)
+      : null,
     seatedEmployeeIds: (row.seated_employee_ids as string[]) ?? [],
     adminIds: (row.admin_ids as string[]) ?? [],
     maxSeats: (row.max_seats as number) ?? 10,
@@ -84,7 +94,10 @@ export async function GET(request: NextRequest) {
 
     if (companiesError) {
       // Fail closed — don't silently skip every connection when the gate query breaks.
-      console.error("[email-cron-sync] company subscription lookup failed:", companiesError);
+      console.error(
+        "[email-cron-sync] company subscription lookup failed:",
+        companiesError
+      );
       throw new Error(
         `Company subscription lookup failed: ${companiesError.message}`
       );
@@ -100,14 +113,7 @@ export async function GET(request: NextRequest) {
     );
 
     const now = Date.now();
-    const results: Array<{
-      connectionId: string;
-      email: string;
-      provider: string;
-      activitiesCreated: number;
-      newLeads: number;
-      error?: string;
-    }> = [];
+    const results: Array<EmailSyncCronResult & { error?: string }> = [];
     let skippedInactive = 0;
 
     for (const conn of connections ?? []) {
@@ -127,13 +133,16 @@ export async function GET(request: NextRequest) {
 
       try {
         const result = await SyncEngine.runSync(conn.id as string);
-        results.push({
-          connectionId: conn.id as string,
-          email: conn.email as string,
-          provider: conn.provider as string,
-          activitiesCreated: result.activitiesCreated,
-          newLeads: result.newLeads,
-        });
+        results.push(
+          buildEmailSyncCronResult(
+            {
+              id: conn.id as string,
+              email: conn.email as string,
+              provider: conn.provider as string,
+            },
+            result
+          )
+        );
       } catch (err) {
         results.push({
           connectionId: conn.id as string,
@@ -148,19 +157,112 @@ export async function GET(request: NextRequest) {
 
     // Sweep stale leads (follow-up detection independent of new email arrival)
     let staleSweepChanges = 0;
+    let staleSweepError: string | null = null;
     try {
       staleSweepChanges = await SyncEngine.sweepStaleLeads();
     } catch (sweepErr) {
       console.error("[email-cron-sync] stale sweep error:", sweepErr);
+      staleSweepError =
+        sweepErr instanceof Error
+          ? sweepErr.message
+          : "Unknown stale sweep error";
     }
 
-    return NextResponse.json({
-      ok: true,
-      synced: results.length,
-      skippedInactive,
-      staleSweepChanges,
-      results,
-    });
+    // New messages clear category_classified_at before their background
+    // classifier runs. Retry a small durable batch every sync cycle so a
+    // serverless interruption or transient model/database failure cannot leave
+    // thread summaries stale indefinitely.
+    let threadClassificationRetry = {
+      scanned: 0,
+      classified: 0,
+      errors: 0,
+    };
+    let threadClassificationRetryError: string | null = null;
+    try {
+      threadClassificationRetry =
+        await EmailThreadService.retryDirtyClassifications({
+          companyIds: [...activeCompanyIds],
+          limit: 10,
+          concurrency: 2,
+        });
+    } catch (retryError) {
+      console.error(
+        "[email-cron-sync] thread classification retry error:",
+        retryError
+      );
+      threadClassificationRetryError =
+        retryError instanceof Error
+          ? retryError.message
+          : "Unknown thread classification retry error";
+    }
+
+    // Drain a small durable outbound-learning batch after mailbox sync. Model
+    // work never runs on the irreversible send route; the worker persists its
+    // prepared payload, then one database transaction applies evidence
+    // receipts, profile/memory effects, draft outcomes, and job completion.
+    let outboundLearning = {
+      claimed: 0,
+      prepared: 0,
+      completed: 0,
+      deferred: 0,
+      retrying: 0,
+      bookkeepingFailed: 0,
+      terminalFailed: 0,
+      failed: 0,
+      errors: [] as Array<{
+        jobId: string;
+        providerMessageId: string;
+        error: string;
+      }>,
+    };
+    let outboundLearningError: string | null = null;
+    try {
+      outboundLearning = await new EmailOutboundLearningService(
+        supabase
+      ).runWorker({ limit: 10, concurrency: 2, leaseSeconds: 900 });
+    } catch (learningError) {
+      console.error(
+        "[email-cron-sync] outbound learning worker error:",
+        learningError
+      );
+      outboundLearningError =
+        learningError instanceof Error
+          ? learningError.message
+          : "Unknown outbound learning worker error";
+    }
+
+    const failedConnections = results.filter(
+      (result) => Boolean(result.error) || Boolean(result.errors?.length)
+    ).length;
+    const failed =
+      failedConnections +
+      (staleSweepError ? 1 : 0) +
+      (threadClassificationRetry.errors > 0 || threadClassificationRetryError
+        ? 1
+        : 0) +
+      (outboundLearning.terminalFailed > 0 ||
+      outboundLearning.bookkeepingFailed > 0 ||
+      outboundLearningError
+        ? 1
+        : 0);
+
+    return NextResponse.json(
+      {
+        ok: failed === 0,
+        synced: results.length,
+        failed,
+        failedConnections,
+        skippedInactive,
+        staleSweepChanges,
+        staleSweepError,
+        threadClassificationRetry,
+        threadClassificationRetryError,
+        outboundLearning,
+        outboundLearningError,
+        results,
+      },
+      { status: failed === 0 ? 200 : 503 }
+    );
   } catch (err) {
     console.error("[email-cron-sync]", err);
     return NextResponse.json(

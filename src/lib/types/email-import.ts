@@ -1,13 +1,20 @@
 // src/lib/types/email-import.ts
 // Types for the Import Your Pipeline wizard flow
 
-import type { DetectedSource, PatternDetectionResult } from '@/lib/api/services/pattern-detection-service';
-import type { ClassificationResult } from '@/lib/api/services/email-ai-classifier';
+import type { DetectedSource } from "@/lib/api/services/pattern-detection-service";
+import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 
 // Wizard Step 2 → Step 3: analysis results
 export interface AnalysisResult {
   jobId: string;
-  status: 'pending' | 'analyzing_sent' | 'detecting_platforms' | 'classifying_ai' | 'analyzing_threads' | 'complete' | 'error';
+  status:
+    | "pending"
+    | "analyzing_sent"
+    | "detecting_platforms"
+    | "classifying_ai"
+    | "analyzing_threads"
+    | "complete"
+    | "error";
   progress: {
     stage: string;
     message: string;
@@ -26,17 +33,24 @@ export interface AnalysisResult {
   error?: string;
 }
 
+export interface AnalyzedEmailMessage {
+  id: string;
+  /** Raw provider thread that owns this message. */
+  providerThreadId: string;
+  from: string;
+  subject: string;
+  date: string;
+  direction: "inbound" | "outbound";
+}
+
 // A lead ready for review in Step 4
 export interface AnalyzedLead {
   id: string;
+  /** Logical lead key. Contact-form submissions use their provider message id. */
   threadId: string;
-  emails: Array<{
-    id: string;
-    from: string;
-    subject: string;
-    date: string;
-    direction: 'inbound' | 'outbound';
-  }>;
+  /** Raw provider thread retained for mailbox fetches, labels, and activities. */
+  providerThreadId?: string;
+  emails: AnalyzedEmailMessage[];
   client: {
     name: string;
     email: string;
@@ -51,7 +65,7 @@ export interface AnalyzedLead {
   correspondenceCount: number;
   outboundCount: number;
   lastMessageDate: string;
-  source: 'pattern' | 'platform' | 'forwarder' | 'ai';
+  source: "pattern" | "platform" | "forwarder" | "ai";
   sourceLabel: string;
   duplicateGroupId: string | null;
   subContacts: Array<{ name: string; email: string; phone: string | null }>;
@@ -59,25 +73,59 @@ export interface AnalyzedLead {
   emailExcerpts?: Array<{
     from: string;
     fromName: string;
-    direction: 'inbound' | 'outbound';
+    direction: "inbound" | "outbound";
     date: string;
     body: string;
   }>;
   matchResult: {
     existingClientId: string | null;
     existingClientName: string | null;
-    action: 'link' | 'create_subclient' | 'review' | 'create_new' | 'merge' | 'discard' | 'discard_existing';
+    action:
+      | "link"
+      | "create_subclient"
+      | "review"
+      | "create_new"
+      | "merge"
+      | "discard"
+      | "discard_existing";
     confidence: string;
   };
   enabled: boolean;
   /** AI-detected terminal state: likely already won or lost */
-  terminalFlag?: 'likely_won' | 'likely_lost' | null;
+  terminalFlag?: "likely_won" | "likely_lost" | null;
   /** Flagged for user review — not a standard lead but needs attention */
   needsReview?: boolean;
   /** Why this was flagged for review */
-  reviewReason?: 'legal' | 'job_seeker' | 'collections' | 'platform_bid' | 'warranty' | 'ambiguous' | null;
+  reviewReason?:
+    | "legal"
+    | "job_seeker"
+    | "collections"
+    | "platform_bid"
+    | "warranty"
+    | "ambiguous"
+    | null;
   /** Merge mode for duplicate resolution — fill blanks or overwrite existing data */
-  mergeMode?: 'fill_blanks' | 'overwrite';
+  mergeMode?: "fill_blanks" | "overwrite";
+}
+
+/**
+ * Replace Phase A's lightweight scan subset with the complete provider thread
+ * fetched in Phase B. The wizard payload must inherit every exact provider
+ * message identity that contributed to the final correspondence aggregates.
+ */
+export function replaceAnalyzedLeadEmailsFromFetch(
+  lead: Pick<AnalyzedLead, "emails">,
+  fetchedMessages: readonly NormalizedEmail[],
+  directionOf: (message: NormalizedEmail) => "inbound" | "outbound"
+): void {
+  lead.emails = fetchedMessages.map((message) => ({
+    id: message.id,
+    providerThreadId: message.threadId,
+    from: message.from,
+    subject: message.subject,
+    date: message.date.toISOString(),
+    direction: directionOf(message),
+  }));
 }
 
 // ─── Consolidation types (import review sub-step 2) ──────────────────────────
@@ -100,10 +148,10 @@ export interface ConsolidationGroup {
     correspondenceCount: number;
     lastMessageDate: string;
   }>;
-  decision: 'confirm' | 'merge' | null;
+  decision: "confirm" | "merge" | null;
 }
 
-export type TriageDecision = 'won' | 'lost' | 'active' | 'discard';
+export type TriageDecision = "won" | "lost" | "active" | "discard";
 
 // Step 4 → Step 5: import payload
 export interface ImportPayload {
@@ -111,7 +159,17 @@ export interface ImportPayload {
   companyId: string;
   leads: Array<{
     id: string;
+    /** Logical lead key; may be message-scoped for forwarded contact forms. */
     threadId: string;
+    /** Raw provider thread used for Gmail/Microsoft operations. */
+    providerThreadId?: string;
+    /**
+     * Exact provider messages observed during analysis. New wizard imports
+     * always supply these. Optional only for a message-scoped form whose
+     * logical key already proves its exact provider message identity; ordinary
+     * imports without this list fail closed and require mailbox reanalysis.
+     */
+    emails?: AnalyzedEmailMessage[];
     clientName: string;
     clientEmail: string;
     clientPhone: string | null;
@@ -122,9 +180,21 @@ export interface ImportPayload {
     correspondenceCount: number;
     outboundCount: number;
     lastMessageDate: string | null;
+    /** Latest inbound message timestamp from the analyzed thread. */
+    lastInboundAt: string | null;
+    /** Latest outbound message timestamp from the analyzed thread. */
+    lastOutboundAt: string | null;
+    /** Direction of the chronologically latest analyzed message. */
+    lastMessageDirection: "inbound" | "outbound" | null;
     existingClientId: string | null;
-    action: 'create_new' | 'link' | 'create_subclient' | 'merge' | 'discard' | 'discard_existing';
-    mergeMode?: 'fill_blanks' | 'overwrite';
+    action:
+      | "create_new"
+      | "link"
+      | "create_subclient"
+      | "merge"
+      | "discard"
+      | "discard_existing";
+    mergeMode?: "fill_blanks" | "overwrite";
     mergeWithLeadId: string | null;
     subContacts?: Array<{ name: string; email: string; phone: string | null }>;
     /** Opportunity title — only set when client has multiple leads (distinguishing label) */
@@ -148,7 +218,7 @@ export interface ActivationPayload {
   connectionId: string;
   companyId: string;
   syncIntervalMinutes: number;
-  syncProfile: ImportPayload['syncProfile'];
+  syncProfile: ImportPayload["syncProfile"];
 }
 
 // Import result

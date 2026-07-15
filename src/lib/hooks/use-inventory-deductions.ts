@@ -4,7 +4,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { InventoryDeductionService } from "../api/services";
+import { InventoryDeductionService } from "../api/services/inventory-deduction-service";
 
 export function useProjectDeductions(projectId: string | undefined) {
   return useQuery({

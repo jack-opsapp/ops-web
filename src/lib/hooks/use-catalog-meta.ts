@@ -11,15 +11,15 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
+import { CatalogMetaService } from "../api/services/catalog-meta-service";
+import { CatalogCategoryService } from "../api/services/catalog-category-service";
 import {
-  CatalogMetaService,
-  CatalogCategoryService,
   CatalogUnitService,
-  CatalogSnapshotService,
-  CatalogProductService,
   CATALOG_UNIT_DIMENSIONS,
-} from "../api/services";
-import type { CatalogUnitDimension } from "../api/services";
+  type CatalogUnitDimension,
+} from "../api/services/catalog-unit-service";
+import { CatalogSnapshotService } from "../api/services/catalog-snapshot-service";
+import { CatalogProductService } from "../api/services/catalog-product-service";
 import { useAuthStore } from "../store/auth-store";
 import type { CatalogStockRow } from "../types/catalog";
 

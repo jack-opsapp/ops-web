@@ -18,20 +18,33 @@ import {
   SubscriptionStatus,
   type Company,
 } from "@/lib/types/models";
+import {
+  requireEmailCompanyAccess,
+  requireEmailPipelineSecret,
+} from "@/lib/email/email-route-auth";
 
 export const maxDuration = 300;
 
 type CompanySubscriptionFields = Pick<
   Company,
-  "subscriptionPlan" | "subscriptionStatus" | "trialEndDate" | "seatedEmployeeIds" | "adminIds" | "maxSeats"
+  | "subscriptionPlan"
+  | "subscriptionStatus"
+  | "trialEndDate"
+  | "seatedEmployeeIds"
+  | "adminIds"
+  | "maxSeats"
 >;
 
 /** Minimal snake_case → camelCase mapper for subscription gating. */
-function mapSubscriptionRow(row: Record<string, unknown>): CompanySubscriptionFields {
+function mapSubscriptionRow(
+  row: Record<string, unknown>
+): CompanySubscriptionFields {
   return {
     subscriptionPlan: (row.subscription_plan as SubscriptionPlan) ?? null,
     subscriptionStatus: (row.subscription_status as SubscriptionStatus) ?? null,
-    trialEndDate: row.trial_end_date ? new Date(row.trial_end_date as string) : null,
+    trialEndDate: row.trial_end_date
+      ? new Date(row.trial_end_date as string)
+      : null,
     seatedEmployeeIds: (row.seated_employee_ids as string[]) ?? [],
     adminIds: (row.admin_ids as string[]) ?? [],
     maxSeats: (row.max_seats as number) ?? 10,
@@ -54,24 +67,44 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Resolve companyId for subscription check ─────────────────────────
-    let resolvedCompanyId = companyId;
-    if (!resolvedCompanyId && connectionId) {
-      const { data: conn } = await supabase
+    let resolvedCompanyId = companyId as string | undefined;
+    if (connectionId) {
+      const { data: conn, error: connectionError } = await supabase
         .from("email_connections")
         .select("company_id")
         .eq("id", connectionId)
         .single();
-      resolvedCompanyId = conn?.company_id as string;
+      if (connectionError || !conn) {
+        return NextResponse.json(
+          { error: "Connection not found" },
+          { status: 404 }
+        );
+      }
+      const connectionCompanyId = conn.company_id as string;
+      if (resolvedCompanyId && resolvedCompanyId !== connectionCompanyId) {
+        return NextResponse.json(
+          { error: "Connection not found" },
+          { status: 404 }
+        );
+      }
+      resolvedCompanyId = connectionCompanyId;
     }
 
     // ── Subscription gate ────────────────────────────────────────────────
     // Webhook callers (source="webhook") pass CRON_SECRET in the body to
     // bypass this check (the cron already gates on subscription).
     // All other callers must have an active subscription.
-    const authHeader = request.headers.get("authorization");
-    const isInternalCaller =
-      authHeader === `Bearer ${process.env.CRON_SECRET}` &&
-      (source === "webhook" || source === "system");
+    const isInternalCaller = source === "webhook" || source === "system";
+    if (isInternalCaller) {
+      const authError = requireEmailPipelineSecret(request);
+      if (authError) return authError;
+    } else {
+      const authError = await requireEmailCompanyAccess(
+        request,
+        resolvedCompanyId as string
+      );
+      if (authError) return authError;
+    }
 
     if (!isInternalCaller && resolvedCompanyId) {
       const { data: company, error: companyError } = await supabase
@@ -84,7 +117,10 @@ export async function POST(request: NextRequest) {
 
       if (companyError || !company) {
         // Fail closed — don't let a broken lookup bypass the subscription gate.
-        console.error("[email-manual-sync] company subscription lookup failed:", companyError);
+        console.error(
+          "[email-manual-sync] company subscription lookup failed:",
+          companyError
+        );
         return NextResponse.json(
           { error: "Failed to verify subscription" },
           { status: 500 }

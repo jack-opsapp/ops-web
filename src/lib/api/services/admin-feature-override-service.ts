@@ -44,12 +44,16 @@ export const AdminFeatureOverrideService = {
   ): Promise<boolean> {
     const supabase = getServiceRoleClient();
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("admin_feature_overrides")
       .select("enabled")
       .eq("company_id", companyId)
       .eq("feature_key", feature)
-      .single();
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to read AI feature override: ${error.message}`);
+    }
 
     return data?.enabled === true;
   },
@@ -66,9 +70,7 @@ export const AdminFeatureOverrideService = {
       .eq("company_id", companyId);
 
     if (error)
-      throw new Error(
-        `Failed to fetch feature overrides: ${error.message}`
-      );
+      throw new Error(`Failed to fetch feature overrides: ${error.message}`);
     return (data ?? []).map(mapFromDb);
   },
 
@@ -76,14 +78,20 @@ export const AdminFeatureOverrideService = {
    * Generic per-company feature gate (non-AI flags like `inbox_ui`).
    * Reads admin_feature_overrides via the service-role client (no RLS).
    */
-  async isFeatureEnabled(companyId: string, featureKey: string): Promise<boolean> {
+  async isFeatureEnabled(
+    companyId: string,
+    featureKey: string
+  ): Promise<boolean> {
     const supabase = getServiceRoleClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("admin_feature_overrides")
       .select("enabled")
       .eq("company_id", companyId)
       .eq("feature_key", featureKey)
       .maybeSingle();
+    if (error) {
+      throw new Error(`Failed to read feature override: ${error.message}`);
+    }
     return data?.enabled === true;
   },
 
@@ -107,7 +115,8 @@ export const AdminFeatureOverrideService = {
       },
       { onConflict: "company_id,feature_key" }
     );
-    if (error) throw new Error(`Failed to set feature override: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to set feature override: ${error.message}`);
   },
 
   /**
@@ -136,18 +145,16 @@ export const AdminFeatureOverrideService = {
 
     const wasEnabled = prior?.enabled === true;
 
-    const { error } = await supabase
-      .from("admin_feature_overrides")
-      .upsert(
-        {
-          company_id: companyId,
-          feature_key: feature,
-          enabled,
-          enabled_by: adminUserId,
-          enabled_at: enabled ? new Date().toISOString() : null,
-        },
-        { onConflict: "company_id,feature_key" }
-      );
+    const { error } = await supabase.from("admin_feature_overrides").upsert(
+      {
+        company_id: companyId,
+        feature_key: feature,
+        enabled,
+        enabled_by: adminUserId,
+        enabled_at: enabled ? new Date().toISOString() : null,
+      },
+      { onConflict: "company_id,feature_key" }
+    );
 
     if (error)
       throw new Error(`Failed to set feature override: ${error.message}`);
@@ -155,9 +162,8 @@ export const AdminFeatureOverrideService = {
     // On first phase_c enable, fire the wizard notification to all admins
     if (feature === "phase_c" && enabled && !wasEnabled) {
       try {
-        const { AutonomyMilestoneService } = await import(
-          "./autonomy-milestone-service"
-        );
+        const { AutonomyMilestoneService } =
+          await import("./autonomy-milestone-service");
         await AutonomyMilestoneService.fireCommsWizardReadyOnPhaseCEnable(
           companyId
         );

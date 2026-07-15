@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MemoryService, type PhaseCPipelineState } from "./memory-service";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { emailPipelineAuthorizationHeaders } from "@/lib/email/email-route-auth";
 
 // Lease duration for the Phase C row-level execution lock. Chosen slightly
 // longer than the route's 800s maxDuration so that a hard crash between the
@@ -33,7 +34,7 @@ const PHASE_C_LOCK_LEASE_SECONDS = 900;
  */
 export async function buildPersistStateFn(
   supabase: SupabaseClient,
-  jobId: string,
+  jobId: string
 ): Promise<(state: PhaseCPipelineState) => Promise<void>> {
   return async (state: PhaseCPipelineState) => {
     const { data: row } = await supabase
@@ -68,7 +69,7 @@ export async function buildPersistStateFn(
 export async function acquirePhaseCLock(
   supabase: SupabaseClient,
   jobId: string,
-  stageLabel: "entry" | "continuation",
+  stageLabel: "entry" | "continuation"
 ): Promise<string | null> {
   const holderId = `${stageLabel}:${randomUUID()}`;
   const { data, error } = await supabase.rpc("acquire_phase_c_lock", {
@@ -77,7 +78,10 @@ export async function acquirePhaseCLock(
     p_lease_seconds: PHASE_C_LOCK_LEASE_SECONDS,
   });
   if (error) {
-    console.error(`[phase-c] acquirePhaseCLock RPC error for job ${jobId}:`, error);
+    console.error(
+      `[phase-c] acquirePhaseCLock RPC error for job ${jobId}:`,
+      error
+    );
     return null;
   }
   return data === true ? holderId : null;
@@ -97,14 +101,17 @@ export async function acquirePhaseCLock(
 export async function releasePhaseCLock(
   supabase: SupabaseClient,
   jobId: string,
-  holderId: string,
+  holderId: string
 ): Promise<void> {
   const { error } = await supabase.rpc("release_phase_c_lock", {
     p_job_id: jobId,
     p_holder: holderId,
   });
   if (error) {
-    console.error(`[phase-c] releasePhaseCLock RPC error for job ${jobId}:`, error);
+    console.error(
+      `[phase-c] releasePhaseCLock RPC error for job ${jobId}:`,
+      error
+    );
   }
 }
 
@@ -123,7 +130,7 @@ export async function writePhaseCError(
   supabase: SupabaseClient,
   jobId: string,
   err: unknown,
-  stage: "entry" | "continuation",
+  stage: "entry" | "continuation"
 ): Promise<void> {
   const message = err instanceof Error ? err.message : String(err);
 
@@ -134,7 +141,9 @@ export async function writePhaseCError(
     .single();
 
   const currentResult = (row?.result as Record<string, unknown>) || {};
-  const currentState = currentResult.phaseCPipeline as PhaseCPipelineState | undefined;
+  const currentState = currentResult.phaseCPipeline as
+    | PhaseCPipelineState
+    | undefined;
 
   await supabase
     .from("gmail_scan_jobs")
@@ -165,19 +174,17 @@ export async function writePhaseCError(
 export function dispatchPhaseCContinuation(
   jobId: string,
   connectionId: string,
-  companyId: string,
+  companyId: string
 ): void {
   const baseUrl = getAppUrl();
   fetch(`${baseUrl}/api/integrations/email/analyze-memory-continue`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: emailPipelineAuthorizationHeaders(),
     body: JSON.stringify({ jobId, connectionId, companyId }),
   }).catch(() => {
     /* fire-and-forget */
   });
-  console.log(
-    `[phase-c] Continuation dispatched for job ${jobId}`,
-  );
+  console.log(`[phase-c] Continuation dispatched for job ${jobId}`);
 }
 
 /**
@@ -199,7 +206,9 @@ export async function finalizePhaseC(params: {
 }): Promise<void> {
   const { supabase, jobId, companyId, userId, state, priorResult } = params;
 
-  const emailsByProfileType = new Map(Object.entries(state.emailsByProfileType));
+  const emailsByProfileType = new Map(
+    Object.entries(state.emailsByProfileType)
+  );
 
   // Record per-type sample distribution BEFORE the threshold gate so we can
   // tell at a glance whether a low profilesBuilt reflects (a) genuinely
@@ -211,17 +220,19 @@ export async function finalizePhaseC(params: {
   }
 
   console.log(
-    `[phase-c] Finalize: building writing profiles from ${emailsByProfileType.size} profile types (distribution: ${JSON.stringify(profilesByTypeStats)})`,
+    `[phase-c] Finalize: building writing profiles from ${emailsByProfileType.size} profile types (distribution: ${JSON.stringify(profilesByTypeStats)})`
   );
   const profilesBuilt = await MemoryService.buildWritingProfiles(
     companyId,
     userId,
-    emailsByProfileType,
+    emailsByProfileType
   );
 
   const processingTimeMs = Date.now() - new Date(state.startedAt).getTime();
   const totalDataPoints =
-    state.stats.factsExtracted + state.stats.entitiesCreated + state.stats.edgesCreated;
+    state.stats.factsExtracted +
+    state.stats.entitiesCreated +
+    state.stats.edgesCreated;
 
   // Drop the working pipeline buffer from result so it doesn't linger as a
   // several-megabyte JSONB payload on every future read of the job row. Also
@@ -266,6 +277,6 @@ export async function finalizePhaseC(params: {
   });
 
   console.log(
-    `[phase-c] Complete in ${(processingTimeMs / 1000).toFixed(1)}s — ${state.stats.factsExtracted} facts, ${state.stats.entitiesCreated} entities, ${state.stats.edgesCreated} edges, ${profilesBuilt} profiles`,
+    `[phase-c] Complete in ${(processingTimeMs / 1000).toFixed(1)}s — ${state.stats.factsExtracted} facts, ${state.stats.entitiesCreated} entities, ${state.stats.edgesCreated} edges, ${profilesBuilt} profiles`
   );
 }

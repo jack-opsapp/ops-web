@@ -6,7 +6,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { ProductPricingModifiersService } from "../api/services";
+import { ProductPricingModifiersService } from "../api/services/product-pricing-modifiers-service";
 import type {
   CreateProductPricingModifier,
   UpdateProductPricingModifier,

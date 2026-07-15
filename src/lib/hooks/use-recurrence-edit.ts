@@ -16,7 +16,8 @@
 import { addDays, format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { RecurrenceService, TaskService } from "../api/services";
+import { RecurrenceService } from "../api/services/recurrence-service";
+import { TaskService } from "../api/services/task-service";
 import { requireSupabase } from "../supabase/helpers";
 import type {
   ProjectTask,

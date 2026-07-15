@@ -18,6 +18,7 @@ import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
+import { EmailService } from "@/lib/api/services/email-service";
 import {
   MemoryService,
   type PhaseCPipelineState,
@@ -31,17 +32,22 @@ import {
   writePhaseCError,
 } from "@/lib/api/services/phase-c-pipeline-helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
 
 export const maxDuration = 800;
 
 const CHUNK_TIME_BUDGET_MS = 550_000;
 const CHUNK_SIZE = 12;
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ─── POST handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  const authError = requireEmailPipelineSecret(request);
+  if (authError) return authError;
+
   const { jobId, connectionId, companyId } = await request.json();
 
   if (!jobId || !connectionId || !companyId) {
@@ -61,12 +67,38 @@ export async function POST(request: NextRequest) {
   // Feature gate check — defensive; caller is always the entry route or a
   // prior continuation, but skip cleanly if phase_c was disabled mid-run.
   const supabase = getServiceRoleClient();
+  const { data: scopedJob, error: scopedJobError } = await supabase
+    .from("gmail_scan_jobs")
+    .select("id, connection_id, company_id")
+    .eq("id", jobId)
+    .single();
+  if (
+    scopedJobError ||
+    !scopedJob ||
+    scopedJob.connection_id !== connectionId ||
+    scopedJob.company_id !== companyId
+  ) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
+
+  const scopedConnection = await runWithSupabase(supabase, () =>
+    EmailService.getConnection(connectionId)
+  );
+  if (!scopedConnection || scopedConnection.companyId !== companyId) {
+    return NextResponse.json(
+      { error: "Connection not found" },
+      { status: 404 }
+    );
+  }
+
   const enabled = await runWithSupabase(supabase, () =>
     AdminFeatureOverrideService.isAIFeatureEnabled(companyId, "phase_c")
   );
 
   if (!enabled) {
-    console.log(`[analyze-memory-continue] Phase C skipped — phase_c disabled for ${companyId}`);
+    console.log(
+      `[analyze-memory-continue] Phase C skipped — phase_c disabled for ${companyId}`
+    );
     return NextResponse.json({ skipped: true });
   }
 
@@ -77,21 +109,37 @@ export async function POST(request: NextRequest) {
       // double-dispatch races — a webhook retry or a sluggish Vercel that
       // re-fires the same fetch can put two runners on the same thread
       // range simultaneously. See migration 070_phase_c_row_lock.sql.
-      const holderId = await acquirePhaseCLock(bgSupabase, jobId, "continuation");
+      const holderId = await acquirePhaseCLock(
+        bgSupabase,
+        jobId,
+        "continuation"
+      );
       if (!holderId) {
         console.log(
-          `[analyze-memory-continue] Phase C lock held by another runner for job ${jobId} — skipping duplicate dispatch`,
+          `[analyze-memory-continue] Phase C lock held by another runner for job ${jobId} — skipping duplicate dispatch`
         );
         return;
       }
       try {
-        await runPhaseCContinuation(jobId, connectionId, companyId, bgSupabase, holderId);
+        await runPhaseCContinuation(
+          jobId,
+          connectionId,
+          companyId,
+          bgSupabase,
+          holderId
+        );
       } catch (err) {
-        console.error("[analyze-memory-continue] Phase C continuation failed:", err);
+        console.error(
+          "[analyze-memory-continue] Phase C continuation failed:",
+          err
+        );
         try {
           await writePhaseCError(bgSupabase, jobId, err, "continuation");
         } catch (markErr) {
-          console.error("[analyze-memory-continue] Failed to persist phaseCError marker:", markErr);
+          console.error(
+            "[analyze-memory-continue] Failed to persist phaseCError marker:",
+            markErr
+          );
         }
       } finally {
         // Idempotent safety net: the inner function releases ahead of any
@@ -112,9 +160,11 @@ async function runPhaseCContinuation(
   connectionId: string,
   companyId: string,
   supabase: SupabaseClient,
-  holderId: string,
+  holderId: string
 ) {
-  console.log(`[analyze-memory-continue] Phase C continuation starting for job ${jobId} (lock holder ${holderId})`);
+  console.log(
+    `[analyze-memory-continue] Phase C continuation starting for job ${jobId} (lock holder ${holderId})`
+  );
 
   // Read durable pipeline state off the job row
   const { data: job } = await supabase
@@ -124,27 +174,31 @@ async function runPhaseCContinuation(
     .single();
 
   if (!job?.result) {
-    console.error(`[analyze-memory-continue] Job ${jobId} has no result — cannot continue`);
+    console.error(
+      `[analyze-memory-continue] Job ${jobId} has no result — cannot continue`
+    );
     return;
   }
 
   const priorResult = job.result as Record<string, unknown>;
 
   if (priorResult.phaseCComplete) {
-    console.log(`[analyze-memory-continue] Phase C already complete for job ${jobId} — skipping`);
+    console.log(
+      `[analyze-memory-continue] Phase C already complete for job ${jobId} — skipping`
+    );
     return;
   }
 
   const state = priorResult.phaseCPipeline as PhaseCPipelineState | undefined;
   if (!state) {
     console.error(
-      `[analyze-memory-continue] Job ${jobId} has no phaseCPipeline state — continuation aborted. Entry route may have failed during bootstrap.`,
+      `[analyze-memory-continue] Job ${jobId} has no phaseCPipeline state — continuation aborted. Entry route may have failed during bootstrap.`
     );
     return;
   }
 
   console.log(
-    `[analyze-memory-continue] Resuming at thread ${state.startIndex}/${state.classifiedThreads.length}, ${state.stats.factsExtracted} facts / ${state.stats.entitiesCreated} entities / ${state.stats.edgesCreated} edges so far`,
+    `[analyze-memory-continue] Resuming at thread ${state.startIndex}/${state.classifiedThreads.length}, ${state.stats.factsExtracted} facts / ${state.stats.entitiesCreated} entities / ${state.stats.edgesCreated} edges so far`
   );
 
   const persistState = await buildPersistStateFn(supabase, jobId);
@@ -157,7 +211,7 @@ async function runPhaseCContinuation(
       chunkSize: CHUNK_SIZE,
       timeBudgetMs: CHUNK_TIME_BUDGET_MS,
       persistState,
-    },
+    }
   );
 
   if (done) {
@@ -168,7 +222,8 @@ async function runPhaseCContinuation(
       .select("result")
       .eq("id", jobId)
       .single();
-    const currentPriorResult = (currentRow?.result as Record<string, unknown>) || {};
+    const currentPriorResult =
+      (currentRow?.result as Record<string, unknown>) || {};
 
     await finalizePhaseC({
       supabase,

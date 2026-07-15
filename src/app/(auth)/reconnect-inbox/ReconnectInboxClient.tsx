@@ -10,6 +10,8 @@ interface ReconnectInboxClientProps {
   userId: string;
   type: "company" | "individual";
   provider: "gmail" | "microsoft365";
+  connectionId: string;
+  expectedEmail: string;
   companyName: string;
   userName: string | null;
   userEmail: string | null;
@@ -28,6 +30,8 @@ export function ReconnectInboxClient({
   userId,
   type,
   provider,
+  connectionId,
+  expectedEmail,
   companyName,
   userName,
   userEmail,
@@ -47,9 +51,11 @@ export function ReconnectInboxClient({
       userId,
       type,
       source: "alert",
+      connectionId,
+      expectedEmail,
     });
     return `/api/integrations/${provider}?${params.toString()}`;
-  }, [companyId, userId, type, provider]);
+  }, [companyId, userId, type, provider, connectionId, expectedEmail]);
 
   // "Sign in as a different user" route — drops them on /login. After they
   // authenticate the redirect lands them on the integrations tab where they
@@ -58,13 +64,13 @@ export function ReconnectInboxClient({
     "/login?redirect=" + encodeURIComponent("/settings?tab=integrations");
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-[460px] flex flex-col">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+      <div className="flex w-full max-w-[460px] flex-col">
         <motion.div
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={t()}
-          className="font-cakemono font-light uppercase text-text mb-6"
+          className="mb-6 font-cakemono font-light uppercase text-text"
           style={{ fontSize: "20px", letterSpacing: "0.18em" }}
         >
           OPS
@@ -83,7 +89,7 @@ export function ReconnectInboxClient({
           }}
         >
           <div
-            className="font-cakemono font-light uppercase text-text-3 mb-5"
+            className="mb-5 font-cakemono font-light uppercase text-text-3"
             style={{
               fontSize: "11px",
               letterSpacing: "0.18em",
@@ -94,14 +100,14 @@ export function ReconnectInboxClient({
           </div>
 
           <h1
-            className="font-mohave text-text mb-2"
+            className="mb-2 font-mohave text-text"
             style={{ fontSize: "26px", lineHeight: "32px", fontWeight: 600 }}
           >
             Reconnect {companyName}&apos;s inbox
           </h1>
 
           <p
-            className="font-mohave text-text-2 mb-6"
+            className="mb-6 font-mohave text-text-2"
             style={{ fontSize: "15px", lineHeight: "22px" }}
           >
             You&rsquo;ll re-grant access through {providerCopy.label}. Takes
@@ -114,7 +120,7 @@ export function ReconnectInboxClient({
               party. Same visual language as the InfoBlock primitive in the
               email template. */}
           <div
-            className="rounded p-4 mb-6"
+            className="mb-6 rounded p-4"
             style={{
               background: "rgba(255, 255, 255, 0.04)",
               border: "1px solid rgba(255, 255, 255, 0.10)",
@@ -131,7 +137,7 @@ export function ReconnectInboxClient({
             >
               {userName ?? "your team"}
               {userEmail ? (
-                <span className="block font-mono text-text-3 text-[11px] mt-[2px]">
+                <span className="mt-[2px] block font-mono text-[11px] text-text-3">
                   {userEmail}
                 </span>
               ) : null}
@@ -143,7 +149,7 @@ export function ReconnectInboxClient({
 
           <a
             href={oauthHref}
-            className="flex items-center justify-start w-full rounded font-cakemono font-light uppercase text-ops-accent border border-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black px-4"
+            className="flex w-full items-center justify-start rounded border border-ops-accent px-4 font-cakemono font-light uppercase text-ops-accent transition-colors duration-200 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             style={{
               minHeight: "60px",
               fontSize: "13px",
@@ -156,7 +162,7 @@ export function ReconnectInboxClient({
 
           <a
             href={switchUserHref}
-            className="block mt-3 font-mono uppercase text-text-3 hover:text-text-2 transition-colors"
+            className="mt-3 block font-mono uppercase text-text-3 transition-colors hover:text-text-2"
             style={{ fontSize: "11px", letterSpacing: "0.12em" }}
           >
             [Sign in as someone else]
@@ -167,7 +173,7 @@ export function ReconnectInboxClient({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={t(0.16)}
-          className="font-mono uppercase text-text-mute mt-5"
+          className="mt-5 font-mono uppercase text-text-mute"
           style={{ fontSize: "11px", letterSpacing: "0.12em" }}
         >
           [stuck — reply to the alert email]
@@ -198,15 +204,13 @@ function IdentityRow({
       }
     >
       <div
-        className="font-mono uppercase text-text-3 mb-1"
+        className="mb-1 font-mono uppercase text-text-3"
         style={{ fontSize: "11px", letterSpacing: "0.16em" }}
       >
         {label}
       </div>
       <div
-        className={
-          valueClassName ?? "font-mohave text-text"
-        }
+        className={valueClassName ?? "font-mohave text-text"}
         style={{ fontSize: "15px", lineHeight: "20px" }}
       >
         {children}

@@ -1,65 +1,19 @@
 /**
  * OPS Web - Microsoft 365 OAuth Callback
  *
- * GET /api/integrations/microsoft365/callback?code=...&state=...
- * Exchanges auth code for tokens, stores in email_connections table.
+ * Exchanges an authorization code and persists the connection only after
+ * atomically consuming the short-lived, server-side OAuth state nonce.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { consumeEmailOAuthState } from "@/lib/email/email-oauth-state";
+import { persistEmailOAuthConnection } from "@/lib/email/email-oauth-connection";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
-import {
-  buildReturnRedirect,
-  sanitizeReturnTo,
-} from "@/lib/utils/oauth-return";
-import { defaultAutoSendSettings } from "@/lib/api/services/mailbox-draft-helpers";
+import { buildReturnRedirect } from "@/lib/utils/oauth-return";
 
-interface M365OAuthState {
-  companyId: string;
-  userId: string | undefined;
-  type: string | undefined;
-  /** `alert` lands on /reconnect-inbox/success; `wizard` keeps /settings. */
-  source: "wizard" | "alert";
-  /**
-   * Optional app-internal path (allowlisted: must be a "/..." path) to land
-   * on instead of /settings — set when the flow started elsewhere in the app
-   * (e.g. the pipeline connect banner). Success appends
-   * `?connected=microsoft365`, failure `?connect_error=1`.
-   */
-  returnTo: string | null;
-}
-
-/** Decode the base64-JSON state set by microsoft365/route.ts. */
-function decodeState(raw: string): M365OAuthState | null {
-  try {
-    const decoded = JSON.parse(Buffer.from(raw, "base64").toString());
-    if (
-      !decoded ||
-      typeof decoded !== "object" ||
-      typeof decoded.companyId !== "string"
-    ) {
-      return null;
-    }
-    return {
-      companyId: decoded.companyId,
-      userId: typeof decoded.userId === "string" ? decoded.userId : undefined,
-      type: typeof decoded.type === "string" ? decoded.type : undefined,
-      source: decoded.source === "alert" ? "alert" : "wizard",
-      // Re-sanitize on the way back — state round-trips through Microsoft
-      // and must be treated as attacker-controlled.
-      returnTo: sanitizeReturnTo(decoded.returnTo),
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Failure landing: when the flow carried a valid app-internal `returnTo`,
- * send the user back there with `?connect_error=1` so the origin page fires
- * its error toast. Flows without returnTo keep today's /settings redirect.
- */
-function errorRedirect(returnTo: string | null, message: string) {
+function errorRedirect(returnTo: string | null | undefined, message: string) {
   if (returnTo) {
     const url = buildReturnRedirect(getAppUrl(), returnTo, {
       connect_error: "1",
@@ -74,113 +28,126 @@ function errorRedirect(returnTo: string | null, message: string) {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
-  const stateParam = searchParams.get("state");
-  const error = searchParams.get("error");
+  const rawState = searchParams.get("state");
+  const providerError = searchParams.get("error");
 
-  // Decode state up-front (it arrives even on provider errors/denials) so
-  // every failure path can honor a valid returnTo.
-  const state = stateParam ? decodeState(stateParam) : null;
-  const returnTo = state?.returnTo ?? null;
+  if (!rawState) return errorRedirect(null, "missing_params");
 
-  // Handle user denial
-  if (error) {
-    return errorRedirect(returnTo, error);
+  const supabase = getServiceRoleClient();
+  let state;
+  try {
+    state = await consumeEmailOAuthState(supabase, "microsoft365", rawState);
+  } catch (stateError) {
+    console.error("[M365 OAuth] State consumption failed:", stateError);
+    return errorRedirect(null, "invalid_state");
+  }
+  if (!state) {
+    console.error("[M365 OAuth] Rejected expired, replayed, or invalid state");
+    return errorRedirect(null, "invalid_state");
   }
 
-  if (!code || !stateParam) {
-    return errorRedirect(returnTo, "missing_params");
+  const returnTo = state.returnTo ?? null;
+  const authError = await requireEmailCompanyAccess(
+    request,
+    state.companyId,
+    "settings.integrations",
+    state.userId
+  );
+  if (authError) {
+    console.error("[M365 OAuth] Callback OPS session did not match initiator");
+    const retryPath =
+      state.source === "alert"
+        ? `/reconnect-inbox?${new URLSearchParams({
+            companyId: state.companyId,
+            userId: state.userId,
+            type: state.type,
+            provider: "microsoft365",
+            connectionId: state.connectionId,
+            expectedEmail: state.expectedEmail,
+          }).toString()}`
+        : returnTo || "/settings?tab=integrations";
+    return NextResponse.redirect(
+      `${getAppUrl()}/login?redirect=${encodeURIComponent(retryPath)}`
+    );
   }
 
-  if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) {
+  // State is consumed even when the operator denied provider consent.
+  if (providerError) return errorRedirect(returnTo, providerError);
+  if (!code) return errorRedirect(returnTo, "missing_params");
+  if (
+    !process.env.MICROSOFT_CLIENT_ID ||
+    !process.env.MICROSOFT_CLIENT_SECRET
+  ) {
     return errorRedirect(returnTo, "not_configured");
   }
 
-  if (!state) {
-    console.error("[M365 OAuth] Failed to decode state");
-    return errorRedirect(returnTo, "invalid_state");
-  }
-
   try {
-    const companyId = state.companyId;
-    const userId = state.userId;
-    const type = state.type;
-    // `source === "alert"` lands the user on /reconnect-inbox/success after
-    // the connection is written. Defaults to wizard for in-app flows.
-    const source = state.source;
-
-    // Exchange authorization code for tokens
     const tokenRes = await fetch(
       "https://login.microsoftonline.com/common/oauth2/v2.0/token",
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          client_id: process.env.MICROSOFT_CLIENT_ID!,
-          client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+          client_id: process.env.MICROSOFT_CLIENT_ID,
+          client_secret: process.env.MICROSOFT_CLIENT_SECRET,
           code,
           redirect_uri: `${getAppUrl()}/api/integrations/microsoft365/callback`,
           grant_type: "authorization_code",
-          // Full mail access — must match the scope requested in
-          // microsoft365/route.ts so the exchange succeeds without
-          // prompting the user for additional consent.
-          scope: "Mail.Read Mail.ReadWrite Mail.Send offline_access",
+          scope: "User.Read Mail.Read Mail.ReadWrite Mail.Send offline_access",
         }),
       }
     );
 
     if (!tokenRes.ok) {
       const errorData = await tokenRes.text();
-      console.error("[M365 OAuth] Token exchange failed:", tokenRes.status, errorData);
+      console.error("[M365 OAuth] Token exchange failed:", {
+        status: tokenRes.status,
+        response: errorData,
+      });
       return errorRedirect(returnTo, "token_exchange_failed");
     }
 
     const tokens = await tokenRes.json();
-
-    // Get user profile to get email address
-    let email = "";
-    try {
-      const profileRes = await fetch("https://graph.microsoft.com/v1.0/me", {
-        headers: { Authorization: `Bearer ${tokens.access_token}` },
-      });
-      if (profileRes.ok) {
-        const profile = await profileRes.json();
-        email = profile.mail || profile.userPrincipalName || "";
-      }
-    } catch {
-      // Non-critical — email is nice to have
+    const profileRes = await fetch("https://graph.microsoft.com/v1.0/me", {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    if (!profileRes.ok) {
+      console.error("[M365 OAuth] Profile lookup failed:", profileRes.status);
+      return errorRedirect(returnTo, "mailbox_identity_failed");
     }
 
-    // Store in email_connections table. This is always a new connection
-    // (raw INSERT — no upsert), so it's safe to seed auto-draft defaults
-    // unconditionally. Reconnects use a separate flow that calls UPDATE.
-    const supabase = getServiceRoleClient();
-    const { error: insertError } = await supabase
-      .from("email_connections")
-      .insert({
-        company_id: companyId,
+    const profile = await profileRes.json();
+    const email = String(profile.mail || profile.userPrincipalName || "")
+      .trim()
+      .toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      console.error("[M365 OAuth] Profile returned no valid mailbox email");
+      return errorRedirect(returnTo, "mailbox_identity_failed");
+    }
+    if (state.source === "alert" && email !== state.expectedEmail) {
+      console.error("[M365 OAuth] Reconnect mailbox did not match alert state");
+      return errorRedirect(returnTo, "mailbox_identity_mismatch");
+    }
+
+    try {
+      await persistEmailOAuthConnection(supabase, {
+        state,
         provider: "microsoft365",
-        type: type || "individual",
-        user_id: userId || null,
         email,
-        access_token: tokens.access_token || "",
-        refresh_token: tokens.refresh_token || "",
-        expires_at: new Date(
+        accessToken: tokens.access_token || "",
+        refreshToken: tokens.refresh_token,
+        expiresAt: new Date(
           Date.now() + (tokens.expires_in || 3600) * 1000
         ).toISOString(),
-        sync_enabled: true,
-        sync_interval_minutes: 60,
-        status: "setup_incomplete",
-        auto_send_settings: defaultAutoSendSettings(),
       });
-
-    if (insertError) {
-      console.error("[M365 OAuth] Failed to store tokens:", insertError.message);
+    } catch (storageError) {
+      console.error("[M365 OAuth] Failed to store tokens:", storageError);
       return errorRedirect(returnTo, "storage_failed");
     }
 
-    if (source === "alert") {
+    if (state.source === "alert") {
       const successParams = new URLSearchParams({
-        companyId,
+        companyId: state.companyId,
         email,
         provider: "microsoft365",
       });
@@ -189,9 +156,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // App-initiated flows (e.g. the pipeline connect banner) land back where
-    // they started with ?connected=microsoft365 so the origin page fires its
-    // toast.
     if (returnTo) {
       const url = buildReturnRedirect(getAppUrl(), returnTo, {
         connected: "microsoft365",

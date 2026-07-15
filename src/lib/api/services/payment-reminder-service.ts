@@ -10,6 +10,7 @@
 
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { ApprovalQueueService } from "./approval-queue-service";
+import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getCompanyManagerUserIds } from "./company-managers";
 import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
@@ -78,22 +79,40 @@ async function getReminderSettings(
   if (!data?.invoice_settings) return DEFAULT_REMINDER_SETTINGS;
 
   const settings = data.invoice_settings as Record<string, unknown>;
-  const reminder = settings.reminder_settings as Record<string, unknown> | undefined;
+  const reminder = settings.reminder_settings as
+    | Record<string, unknown>
+    | undefined;
   if (!reminder) return DEFAULT_REMINDER_SETTINGS;
 
   return {
     enabled: (reminder.enabled as boolean) ?? DEFAULT_REMINDER_SETTINGS.enabled,
-    reminder_days: Array.isArray(reminder.reminder_days) && reminder.reminder_days.length === 4
-      ? (reminder.reminder_days as [number, number, number, number])
-      : DEFAULT_REMINDER_SETTINGS.reminder_days,
-    max_reminders: Math.min(4, Math.max(1, Number(reminder.max_reminders) || DEFAULT_REMINDER_SETTINGS.max_reminders)),
-    skip_weekends: (reminder.skip_weekends as boolean) ?? DEFAULT_REMINDER_SETTINGS.skip_weekends,
+    reminder_days:
+      Array.isArray(reminder.reminder_days) &&
+      reminder.reminder_days.length === 4
+        ? (reminder.reminder_days as [number, number, number, number])
+        : DEFAULT_REMINDER_SETTINGS.reminder_days,
+    max_reminders: Math.min(
+      4,
+      Math.max(
+        1,
+        Number(reminder.max_reminders) ||
+          DEFAULT_REMINDER_SETTINGS.max_reminders
+      )
+    ),
+    skip_weekends:
+      (reminder.skip_weekends as boolean) ??
+      DEFAULT_REMINDER_SETTINGS.skip_weekends,
     excluded_client_ids: Array.isArray(reminder.excluded_client_ids)
       ? (reminder.excluded_client_ids as string[])
       : DEFAULT_REMINDER_SETTINGS.excluded_client_ids,
-    late_payment_threshold: Math.min(100, Math.max(0,
-      Number(reminder.late_payment_threshold) || DEFAULT_REMINDER_SETTINGS.late_payment_threshold
-    )),
+    late_payment_threshold: Math.min(
+      100,
+      Math.max(
+        0,
+        Number(reminder.late_payment_threshold) ||
+          DEFAULT_REMINDER_SETTINGS.late_payment_threshold
+      )
+    ),
   };
 }
 
@@ -224,7 +243,10 @@ export const PaymentReminderService = {
       .order("due_date", { ascending: true });
 
     if (error) {
-      console.error("[payment-reminder] Failed to fetch overdue invoices:", error.message);
+      console.error(
+        "[payment-reminder] Failed to fetch overdue invoices:",
+        error.message
+      );
       return [];
     }
     if (!invoices || invoices.length === 0) return [];
@@ -237,7 +259,9 @@ export const PaymentReminderService = {
     if (filtered.length === 0) return [];
 
     // Batch fetch client info
-    const clientIds = [...new Set(filtered.map((inv) => inv.client_id as string))];
+    const clientIds = [
+      ...new Set(filtered.map((inv) => inv.client_id as string)),
+    ];
     const { data: clients } = await supabase
       .from("clients")
       .select("id, name, email")
@@ -246,7 +270,10 @@ export const PaymentReminderService = {
     const clientMap = new Map(
       (clients ?? []).map((c) => [
         c.id as string,
-        { name: (c.name as string) ?? "Unknown", email: (c.email as string) ?? null },
+        {
+          name: (c.name as string) ?? "Unknown",
+          email: (c.email as string) ?? null,
+        },
       ])
     );
 
@@ -266,7 +293,10 @@ export const PaymentReminderService = {
         .in("id", projectIds);
 
       for (const p of projects ?? []) {
-        projectMap.set(p.id as string, (p.title as string) ?? "Untitled Project");
+        projectMap.set(
+          p.id as string,
+          (p.title as string) ?? "Untitled Project"
+        );
       }
     }
 
@@ -313,7 +343,11 @@ export const PaymentReminderService = {
         (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      const level = getReminderLevel(daysOverdue, settings.reminder_days, settings.max_reminders);
+      const level = getReminderLevel(
+        daysOverdue,
+        settings.reminder_days,
+        settings.max_reminders
+      );
       if (level === null) continue;
 
       // Check if this level was already sent
@@ -329,7 +363,9 @@ export const PaymentReminderService = {
         clientName: client.name,
         clientEmail: client.email,
         projectId,
-        projectTitle: projectId ? (projectMap.get(projectId) ?? "Untitled Project") : "N/A",
+        projectTitle: projectId
+          ? (projectMap.get(projectId) ?? "Untitled Project")
+          : "N/A",
         balanceDue: Number(inv.balance_due ?? 0),
         total: Number(inv.total ?? 0),
         dueDate: inv.due_date as string,
@@ -401,6 +437,7 @@ Key details to include:
 
     // Generate the draft via AI
     let draftText: string;
+    let draftHistoryId: string | null = null;
     const fallback = await buildFallbackDraft(tier, invoice, locale);
     try {
       const { AIDraftService } = await import("./ai-draft-service");
@@ -417,6 +454,7 @@ Key details to include:
         });
 
         draftText = result.available ? result.draft : fallback;
+        draftHistoryId = result.draftHistoryId || null;
       } else {
         draftText = fallback;
       }
@@ -438,10 +476,26 @@ Key details to include:
       }
     );
 
+    if (emailConnectionId) {
+      draftHistoryId = await ensureApprovalDraftHistory({
+        draftHistoryId,
+        companyId,
+        userId,
+        connectionId: emailConnectionId,
+        originalDraft: draftText,
+        subject,
+        profileType: "client_followup",
+        atProposal: true,
+      });
+    }
+
     // Fetch payment history summary for the approval card
     let paymentSummary: SendPaymentReminderActionData["payment_summary"];
     try {
-      const history = await this.getClientPaymentHistory(companyId, invoice.clientId);
+      const history = await this.getClientPaymentHistory(
+        companyId,
+        invoice.clientId
+      );
       paymentSummary = {
         on_time_rate: history.onTimeRate,
         avg_days_to_pay: history.avgDaysToPayment,
@@ -467,10 +521,12 @@ Key details to include:
       draft_text: draftText,
       original_draft_text: draftText,
       connection_id: emailConnectionId ?? "",
+      draft_history_id: draftHistoryId,
       payment_summary: paymentSummary,
     };
 
-    const priority: AgentActionPriority = invoice.daysOverdue > 30 ? "high" : "normal";
+    const priority: AgentActionPriority =
+      invoice.daysOverdue > 30 ? "high" : "normal";
 
     return ApprovalQueueService.proposeAction({
       companyId,
@@ -506,7 +562,10 @@ Key details to include:
     const adminUserId = await getCompanyAdminUserId(companyId);
     if (!adminUserId) return 0;
 
-    const overdueInvoices = await this.detectOverdueInvoices(companyId, settings);
+    const overdueInvoices = await this.detectOverdueInvoices(
+      companyId,
+      settings
+    );
     if (overdueInvoices.length === 0) return 0;
 
     // Rate limit: max 10 reminders per company per cron run
@@ -616,7 +675,9 @@ Key details to include:
           paidOnTime++;
         }
       } else if (
-        ["sent", "awaiting_payment", "partially_paid", "past_due"].includes(status) &&
+        ["sent", "awaiting_payment", "partially_paid", "past_due"].includes(
+          status
+        ) &&
         dueDate < today
       ) {
         currentlyOverdue++;
@@ -723,7 +784,9 @@ Key details to include:
           totalPaid++;
           if (paidAt > dueDate) latePaid++;
         } else if (
-          ["sent", "awaiting_payment", "partially_paid", "past_due"].includes(status) &&
+          ["sent", "awaiting_payment", "partially_paid", "past_due"].includes(
+            status
+          ) &&
           dueDate < today
         ) {
           overdueCount++;
@@ -750,7 +813,8 @@ Key details to include:
 
       if (existing && existing.length > 0) {
         const lastCreated = new Date(existing[0].created_at as string);
-        const daysSince = (today.getTime() - lastCreated.getTime()) / (1000 * 60 * 60 * 24);
+        const daysSince =
+          (today.getTime() - lastCreated.getTime()) / (1000 * 60 * 60 * 24);
         if (daysSince < 7) continue; // Already flagged recently
       }
 

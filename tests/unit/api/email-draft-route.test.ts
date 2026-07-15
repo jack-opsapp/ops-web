@@ -21,6 +21,7 @@ const {
   getProfileMock,
   getConfidenceMock,
   placeNewThreadDraftMock,
+  requireEmailCompanyAccessMock,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -29,6 +30,11 @@ const {
   getProfileMock: vi.fn(),
   getConfidenceMock: vi.fn(),
   placeNewThreadDraftMock: vi.fn(),
+  requireEmailCompanyAccessMock: vi.fn(),
+}));
+
+vi.mock("@/lib/email/email-route-auth", () => ({
+  requireEmailCompanyAccess: requireEmailCompanyAccessMock,
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -67,6 +73,7 @@ interface DbState {
   activities: Array<Record<string, unknown>>;
   email_threads: Array<Record<string, unknown>>;
   ai_draft_history: Array<Record<string, unknown>>;
+  email_signatures?: Array<Record<string, unknown>>;
 }
 
 function makeSupabaseDouble(state: DbState) {
@@ -83,6 +90,10 @@ function makeSupabaseDouble(state: DbState) {
       this._filters.set(c, v);
       return this;
     }
+    is(c: string, v: unknown) {
+      this._filters.set(c, v);
+      return this;
+    }
     order() {
       return this;
     }
@@ -96,7 +107,11 @@ function makeSupabaseDouble(state: DbState) {
       return this;
     }
     private _rows() {
-      return state[this.table].filter((r) => {
+      const tableRows =
+        this.table === "email_signatures"
+          ? (state.email_signatures ?? [makeSignatureRow()])
+          : (state[this.table] ?? []);
+      return tableRows.filter((r) => {
         for (const [c, v] of this._filters) if (r[c] !== v) return false;
         return true;
       });
@@ -115,6 +130,9 @@ function makeSupabaseDouble(state: DbState) {
       const arr = data as Array<Record<string, unknown>>;
       return { data: arr[0] ?? null, error: null };
     }
+    async maybeSingle() {
+      return this.single();
+    }
     then<A = unknown, B = never>(
       f?: ((v: unknown) => A | PromiseLike<A>) | null,
       r?: ((e: unknown) => B | PromiseLike<B>) | null
@@ -122,7 +140,31 @@ function makeSupabaseDouble(state: DbState) {
       return Promise.resolve(this._resolve()).then(f, r);
     }
   }
-  return { from: (t: keyof DbState) => new Query(t) };
+  return {
+    from: (t: keyof DbState) => new Query(t),
+    rpc: async () => ({ data: null, error: null }),
+  };
+}
+
+function makeSignatureRow(): Record<string, unknown> {
+  return {
+    id: "signature-1",
+    company_id: "company-1",
+    connection_id: "conn-1",
+    scope_user_id: "user-1",
+    source: "ops",
+    content_html: "<div>Jackson<br>OPS</div>",
+    content_text: "Jackson\nOPS",
+    content_hash: "a".repeat(64),
+    provider_identity: null,
+    active: true,
+    fetched_at: null,
+    confirmed_at: null,
+    created_by: "user-1",
+    updated_by: "user-1",
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+  };
 }
 
 const CONTACT_FORM_BODY = `New contact form submission
@@ -144,8 +186,16 @@ function makeRequest() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  requireEmailCompanyAccessMock.mockResolvedValue(null);
   getConnectionsMock.mockResolvedValue([
-    { id: "conn-1", userId: "user-1", status: "active", provider: "gmail" },
+    {
+      id: "conn-1",
+      companyId: "company-1",
+      userId: "user-1",
+      status: "active",
+      provider: "gmail",
+      email: "ops@example.com",
+    },
   ]);
   generateDraftMock.mockResolvedValue({
     available: true,
@@ -173,7 +223,13 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
 
     const state: DbState = {
       opportunities: [
-        { id: "opp-1", title: "Priya Shah — Email Inquiry", clients: { email: "priya@example.net", name: "Priya Shah" } },
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          deleted_at: null,
+          title: "Priya Shah — Email Inquiry",
+          clients: { email: "priya@example.net", name: "Priya Shah" },
+        },
       ],
       activities: [
         {
@@ -187,7 +243,15 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
         },
       ],
       email_threads: [],
-      ai_draft_history: [{ id: "dh-1", connection_id: "conn-1", thread_id: null, status: "drafted", mailbox_draft_id: null }],
+      ai_draft_history: [
+        {
+          id: "dh-1",
+          connection_id: "conn-1",
+          thread_id: null,
+          status: "drafted",
+          mailbox_draft_id: null,
+        },
+      ],
     };
     getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
 
@@ -201,6 +265,8 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
         draftHistoryId: "dh-1",
         to: "priya@example.net",
         subject: "Thanks for reaching out",
+        body: expect.stringContaining("Jackson"),
+        contentType: "html",
       })
     );
     expect(createDraft).not.toHaveBeenCalled();
@@ -218,7 +284,13 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
 
     const state: DbState = {
       opportunities: [
-        { id: "opp-1", title: "Acme Co — Email Inquiry", clients: { email: "bob@acme.com", name: "Bob" } },
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          deleted_at: null,
+          title: "Acme Co — Email Inquiry",
+          clients: { email: "bob@acme.com", name: "Bob" },
+        },
       ],
       activities: [
         {
@@ -231,8 +303,18 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
           created_at: "2026-06-01T10:00:00Z",
         },
       ],
-      email_threads: [{ id: "thread-internal-1", provider_thread_id: "gmail-thread-x" }],
-      ai_draft_history: [{ id: "dh-1", connection_id: "conn-1", thread_id: "gmail-thread-x", status: "drafted", mailbox_draft_id: null }],
+      email_threads: [
+        { id: "thread-internal-1", provider_thread_id: "gmail-thread-x" },
+      ],
+      ai_draft_history: [
+        {
+          id: "dh-1",
+          connection_id: "conn-1",
+          thread_id: "gmail-thread-x",
+          status: "drafted",
+          mailbox_draft_id: null,
+        },
+      ],
     };
     getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
 
@@ -243,7 +325,8 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       "bob@acme.com",
       "Re: Question about the deck timeline",
       expect.any(String),
-      "gmail-thread-x"
+      "gmail-thread-x",
+      "html"
     );
   });
 });

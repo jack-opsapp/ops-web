@@ -215,6 +215,19 @@ export function cleanMessageBody(
   rawBody: string,
   opts: CleanMessageOptions
 ): string {
+  return stripSignatureBlock(authoredMessageBody(rawBody, opts)).trim();
+}
+
+/**
+ * Produce only the human-authored portion of a message: provider/regex quote
+ * stripping plus optional prior-message overlap removal, while retaining the
+ * operator's sign-off and signature. Writing-profile and AI-draft comparison
+ * use this representation; factual memory uses `cleanMessageBody`.
+ */
+export function authoredMessageBody(
+  rawBody: string,
+  opts: CleanMessageOptions
+): string {
   if (!rawBody) return rawBody;
 
   const subject = opts.subject ?? "";
@@ -231,6 +244,5 @@ export function cleanMessageBody(
       ? stripPriorMessageOverlap(quoteStripped, opts.priorBodies)
       : quoteStripped;
 
-  // 3. Signature strip.
-  return stripSignatureBlock(overlapStripped).trim();
+  return overlapStripped.trim();
 }

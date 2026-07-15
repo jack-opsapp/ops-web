@@ -7,8 +7,8 @@
  * full deal band — a non-interactive ProjectMap backdrop (ONLY when the lead
  * has coordinates; a lead with no coordinates reveals its facts on the plain
  * canvas — never a decorative grid), a bottom-weighted scrim, the
- * estimated-value hero, the read-only win readout, and the inline-editable
- * facts row. Tapping again collapses it.
+ * estimated-value hero, and the inline-editable facts row. Tapping again
+ * collapses it.
  *
  * The band owns ONE `useOpportunityFieldEdit` instance and threads it into every
  * editor — but the hook hits TanStack Query + the live mutation engine, so here
@@ -23,8 +23,8 @@
  *    (no coords) and carries `aria-expanded`,
  *  - no coordinates → NO map and NO decorative grid, ever (collapsed OR
  *    expanded); the facts still reveal on the plain canvas,
- *  - expand → the ProjectMap backdrop, value hero, win readout, facts, and
- *    the Open-in-Maps link appear,
+ *  - expand → the ProjectMap backdrop, value hero, facts, and the Open-in-Maps
+ *    link appear; the retired win-probability metric stays absent,
  *  - read-only (!canManage) → once expanded the facts are pure read-outs; the
  *    strip toggle is the only button and no edit ever reaches the mutation.
  */
@@ -71,8 +71,20 @@ vi.mock("@/lib/hooks/use-users", () => ({
   useTeamMembers: () => ({
     data: {
       users: [
-        { id: "user-ada", firstName: "Ada", lastName: "Lovelace", isActive: true, profileImageURL: null },
-        { id: "user-grace", firstName: "Grace", lastName: "Hopper", isActive: true, profileImageURL: null },
+        {
+          id: "user-ada",
+          firstName: "Ada",
+          lastName: "Lovelace",
+          isActive: true,
+          profileImageURL: null,
+        },
+        {
+          id: "user-grace",
+          firstName: "Grace",
+          lastName: "Hopper",
+          isActive: true,
+          profileImageURL: null,
+        },
       ],
     },
     isLoading: false,
@@ -86,7 +98,7 @@ vi.mock(
     AddressAutocomplete: ({ value }: { value: string }) => (
       <input aria-label="address-autocomplete-stub" defaultValue={value} />
     ),
-  }),
+  })
 );
 
 // The band owns a real `useOpportunityFieldEdit`, which sits on
@@ -256,7 +268,7 @@ describe("LeadMapBand — expand reveals the deal band", () => {
     expect(map).toBeInTheDocument();
     expect(map).toHaveAttribute(
       "data-pin-color",
-      OPPORTUNITY_STAGE_COLORS[OpportunityStage.Quoting],
+      OPPORTUNITY_STAGE_COLORS[OpportunityStage.Quoting]
     );
     expect(screen.getByTestId("lead-map-strip")).toHaveAttribute(
       "aria-expanded",
@@ -264,13 +276,17 @@ describe("LeadMapBand — expand reveals the deal band", () => {
     );
   });
 
-  it("reveals the estimated-value hero and the read-only win readout", () => {
+  it("reveals the estimated-value hero without the retired win-probability metric", () => {
     render(
-      <LeadMapBand opportunity={makeOpportunity({ estimatedValue: 14200, winProbability: 40 })} canManage />,
+      <LeadMapBand
+        opportunity={makeOpportunity({ estimatedValue: 14200, winProbability: 40 })}
+        canManage
+      />,
     );
     expandBand();
     expect(screen.getByText(formatCurrency(14200))).toBeInTheDocument();
-    expect(screen.getByText(/40%/)).toBeInTheDocument();
+    expect(screen.queryByText(/40%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\bwin\b/i)).not.toBeInTheDocument();
   });
 
   it("shows the em-dash sentinel for a null value once expanded", () => {
@@ -290,7 +306,7 @@ describe("LeadMapBand — Open in Maps link", () => {
     const link = screen.getByRole("link", { name: /open in maps/i });
     expect(link).toHaveAttribute(
       "href",
-      "https://www.google.com/maps/search/?api=1&query=49.2785,-123.1278",
+      "https://www.google.com/maps/search/?api=1&query=49.2785,-123.1278"
     );
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
@@ -305,7 +321,7 @@ describe("LeadMapBand — Open in Maps link", () => {
           address: "1180 Howe St, Vancouver, BC",
         })}
         canManage
-      />,
+      />
     );
     expandBand();
 
@@ -313,8 +329,8 @@ describe("LeadMapBand — Open in Maps link", () => {
     expect(link).toHaveAttribute(
       "href",
       `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        "1180 Howe St, Vancouver, BC",
-      )}`,
+        "1180 Howe St, Vancouver, BC"
+      )}`
     );
   });
 
@@ -327,7 +343,7 @@ describe("LeadMapBand — Open in Maps link", () => {
           address: null,
         })}
         canManage
-      />,
+      />
     );
     expandBand();
     expect(screen.queryByRole("link", { name: /open in maps/i })).toBeNull();
@@ -363,9 +379,12 @@ describe("LeadMapBand — read-only (!canManage)", () => {
   it("shows the client/contact name read-only once expanded", () => {
     render(
       <LeadMapBand
-        opportunity={makeOpportunity({ client: null, contactName: "Dana Scully" })}
+        opportunity={makeOpportunity({
+          client: null,
+          contactName: "Dana Scully",
+        })}
         canManage={false}
-      />,
+      />
     );
     expandBand();
     expect(screen.getByText("Dana Scully")).toBeInTheDocument();

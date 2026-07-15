@@ -11,7 +11,7 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { CompanyService } from "../api/services";
+import { CompanyService } from "../api/services/company-service";
 import type { Company } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
 

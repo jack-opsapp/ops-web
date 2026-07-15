@@ -18,7 +18,7 @@ import {
   RecurrenceService,
   type CreateRecurrenceInput,
   type UpsertRecurrenceExceptionInput,
-} from "../api/services";
+} from "../api/services/recurrence-service";
 import type {
   TaskRecurrence,
   TaskRecurrenceException,

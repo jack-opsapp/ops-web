@@ -26,7 +26,7 @@ import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 import { useWindowStore } from "@/stores/window-store";
 import { useWidgetActionQueue } from "@/stores/widget-action-queue";
-import { ClientService } from "@/lib/api/services";
+import { ClientService } from "@/lib/api/services/client-service";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 

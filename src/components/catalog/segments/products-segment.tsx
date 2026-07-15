@@ -44,7 +44,7 @@ import {
 } from "@/lib/hooks";
 import { productMargin } from "@/lib/types/catalog";
 import type { Product } from "@/lib/types/pipeline";
-import type { ProductConfigCount } from "@/lib/api/services";
+import type { ProductConfigCount } from "@/lib/api/services/catalog-product-service";
 import {
   CatalogSegmentControl,
   FilterChips,

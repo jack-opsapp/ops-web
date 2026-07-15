@@ -12,7 +12,8 @@ import {
   type TimelineItem,
 } from "./wizard/dependency-timeline-step";
 import { ReviewStep } from "./wizard/review-step";
-import { TaskTypeService, CompanyService } from "@/lib/api/services";
+import { CompanyService } from "@/lib/api/services/company-service";
+import { TaskTypeService } from "@/lib/api/services/task-type-service";
 import { queryKeys } from "@/lib/api/query-client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import type { TaskTypeDependency } from "@/lib/types/scheduling";

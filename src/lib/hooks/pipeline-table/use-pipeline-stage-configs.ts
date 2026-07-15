@@ -13,7 +13,7 @@
 
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
-import { OpportunityService } from "@/lib/api/services";
+import { OpportunityService } from "@/lib/api/services/opportunity-service";
 import type { PipelineStageConfig } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";

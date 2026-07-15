@@ -89,7 +89,7 @@ function firebaseApiKeys() {
 /** A pipeline-table cell locator, mirroring the projects spec's `tableCell`. */
 function tableCell(page: Page, rowId: string, columnId: string) {
   return page.locator(
-    `[data-pipeline-table-row-id="${rowId}"][data-pipeline-table-column-id="${columnId}"]`,
+    `[data-pipeline-table-row-id="${rowId}"][data-pipeline-table-column-id="${columnId}"]`
   );
 }
 
@@ -173,6 +173,9 @@ function viewRow(input: {
       { id: "stage" },
       { id: "client" },
       { id: "value" },
+      // Legacy saved views may still contain these retired probability-derived
+      // columns. The client must filter them rather than rendering the metrics
+      // or breaking the view.
       { id: "win_probability" },
       { id: "weighted" },
     ],
@@ -191,11 +194,17 @@ function viewRow(input: {
 
 function createState(): PipelineTableState {
   return {
-    opportunityRows: Array.from({ length: OPPORTUNITY_COUNT }, (_unused, index) =>
-      createOpportunityRow(index + 1),
+    opportunityRows: Array.from(
+      { length: OPPORTUNITY_COUNT },
+      (_unused, index) => createOpportunityRow(index + 1)
     ),
     views: [
-      viewRow({ id: DEFAULT_VIEW_ID, name: "All Deals", sortPosition: 0, isDefault: true }),
+      viewRow({
+        id: DEFAULT_VIEW_ID,
+        name: "All Deals",
+        sortPosition: 0,
+        isDefault: true,
+      }),
       viewRow({ id: SECONDARY_VIEW_ID, name: "Hot List", sortPosition: 1 }),
     ],
     opportunityPatchCalls: [],
@@ -235,7 +244,7 @@ async function fulfillJson(
   route: Route,
   body: unknown,
   status = 200,
-  headers: Record<string, string> = {},
+  headers: Record<string, string> = {}
 ) {
   await route.fulfill({
     status,
@@ -260,7 +269,8 @@ function rangeSlice(route: Route, rows: JsonRecord[]) {
 
 async function fulfillRange(route: Route, rows: JsonRecord[]) {
   const slice = rangeSlice(route, rows);
-  const end = slice.rows.length > 0 ? slice.from + slice.rows.length - 1 : slice.from;
+  const end =
+    slice.rows.length > 0 ? slice.from + slice.rows.length - 1 : slice.from;
   await fulfillJson(route, slice.rows, 206, {
     "content-range": `${slice.from}-${end}/${rows.length}`,
     "range-unit": "items",
@@ -477,7 +487,7 @@ function authCompanyPayload() {
 async function installPipelineMocks(
   page: Page,
   state: PipelineTableState,
-  options: { initialMode: "focused" | "table" },
+  options: { initialMode: "focused" | "table" }
 ) {
   await page.context().addCookies([
     { name: "ops-auth-token", value: AUTH_TOKEN, url: E2E_ORIGIN },
@@ -498,7 +508,7 @@ async function installPipelineMocks(
             role: user.role,
           },
           version: 0,
-        }),
+        })
       );
       for (const apiKey of apiKeys) {
         window.localStorage.setItem(
@@ -532,7 +542,7 @@ async function installPipelineMocks(
             lastLoginAt: String(now),
             apiKey,
             appName: "[DEFAULT]",
-          }),
+          })
         );
       }
       // Seed the persisted pipeline mode so the page mounts the requested
@@ -548,7 +558,7 @@ async function installPipelineMocks(
             stageSortOverrides: { __map: [] },
           },
           version: 4,
-        }),
+        })
       );
     },
     {
@@ -557,7 +567,7 @@ async function installPipelineMocks(
       company: authCompanyPayload(),
       user: authUserPayload(),
       initialMode: options.initialMode,
-    },
+    }
   );
 
   await page.route("**/_next/image**", async (route) => {
@@ -566,7 +576,7 @@ async function installPipelineMocks(
       contentType: "image/png",
       body: Buffer.from(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
-        "base64",
+        "base64"
       ),
     });
   });
@@ -686,7 +696,7 @@ async function installPipelineMocks(
 async function openPipeline(
   page: Page,
   state: PipelineTableState,
-  options: { initialMode: "focused" | "table" } = { initialMode: "table" },
+  options: { initialMode: "focused" | "table" } = { initialMode: "table" }
 ) {
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => {
@@ -700,12 +710,17 @@ async function openPipeline(
 
   let lastError: unknown;
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    await page.goto("/pipeline", { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.goto("/pipeline", {
+      waitUntil: "domcontentloaded",
+      timeout: 60000,
+    });
 
     try {
       // The mode switcher is mounted unconditionally on the desktop pipeline,
       // so it is the most stable "the page is alive" anchor.
-      await expect(page.getByRole("group", { name: "Pipeline view" })).toBeVisible({
+      await expect(
+        page.getByRole("group", { name: "Pipeline view" })
+      ).toBeVisible({
         timeout: 15000,
       });
       return;
@@ -725,18 +740,20 @@ async function openPipeline(
       `Current URL: ${page.url()}`,
       `Browser errors: ${browserErrors.slice(0, 6).join(" | ") || "none captured"}`,
     ].join("\n"),
-    { cause: lastError },
+    { cause: lastError }
   );
 }
 
 /** Wait for the table surface to be present with its first known deal. */
 async function expectTableRendered(page: Page) {
-  await expect(page.locator('[data-pipeline-mode-surface="table"]')).toBeVisible({
+  await expect(
+    page.locator('[data-pipeline-mode-surface="table"]')
+  ).toBeVisible({
     timeout: 15000,
   });
   await expect(tableCell(page, opportunityId(1), "deal")).toContainText(
     "Pipeline Deal 001",
-    { timeout: 15000 },
+    { timeout: 15000 }
   );
 }
 
@@ -752,40 +769,70 @@ test.describe("Pipeline Table View browser gate", () => {
     await expectTableRendered(page);
 
     // The grid exposes its tactical aria-label, and multiple mocked rows render.
-    await expect(page.getByRole("grid", { name: "Pipeline table" })).toBeVisible();
+    await expect(
+      page.getByRole("grid", { name: "Pipeline table" })
+    ).toBeVisible();
     await expect(tableCell(page, opportunityId(2), "deal")).toContainText(
-      "Pipeline Deal 002",
+      "Pipeline Deal 002"
     );
     await expect(tableCell(page, opportunityId(6), "deal")).toContainText(
-      "Pipeline Deal 006",
+      "Pipeline Deal 006"
     );
+    await expect(
+      page.locator('[data-pipeline-table-column-id="win_probability"]')
+    ).toHaveCount(0);
+    await expect(
+      page.locator('[data-pipeline-table-column-id="weighted"]')
+    ).toHaveCount(0);
+    await expect(page.getByRole("columnheader", { name: "Win %" })).toHaveCount(
+      0
+    );
+    await expect(
+      page.getByRole("columnheader", { name: "Weighted" })
+    ).toHaveCount(0);
   });
 
-  test("switches FOCUSED ↔ TABLE through the mode switcher", async ({ page }) => {
+  test("switches FOCUSED ↔ TABLE through the mode switcher", async ({
+    page,
+  }) => {
     const state = createState();
     // Start in FOCUSED so the table is absent first, then switch it in.
     await openPipeline(page, state, { initialMode: "focused" });
 
-    await expect(page.locator('[data-pipeline-mode-surface="focused"]')).toBeVisible({
+    await expect(
+      page.locator('[data-pipeline-mode-surface="focused"]')
+    ).toBeVisible({
       timeout: 15000,
     });
-    await expect(page.locator('[data-pipeline-mode-surface="table"]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-pipeline-mode-surface="table"]')
+    ).toHaveCount(0);
 
     // Scope to the PipelineModeSwitcher group: the focused board also renders
     // its own inline `[ MODE: TABLE ▸ ]` shortcut, so an unscoped "Table" button
     // query is ambiguous. The switcher group is the stable, mode-independent
     // control.
     const modeSwitcher = page.getByRole("group", { name: "Pipeline view" });
-    await modeSwitcher.getByRole("button", { name: "Table", exact: true }).click();
+    await modeSwitcher
+      .getByRole("button", { name: "Table", exact: true })
+      .click();
     await expectTableRendered(page);
-    await expect(page.locator('[data-pipeline-mode-surface="focused"]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-pipeline-mode-surface="focused"]')
+    ).toHaveCount(0);
 
     // And back to FOCUSED — the table surface unmounts.
-    await modeSwitcher.getByRole("button", { name: "Focused", exact: true }).click();
-    await expect(page.locator('[data-pipeline-mode-surface="focused"]')).toBeVisible({
+    await modeSwitcher
+      .getByRole("button", { name: "Focused", exact: true })
+      .click();
+    await expect(
+      page.locator('[data-pipeline-mode-surface="focused"]')
+    ).toBeVisible({
       timeout: 15000,
     });
-    await expect(page.locator('[data-pipeline-mode-surface="table"]')).toHaveCount(0);
+    await expect(
+      page.locator('[data-pipeline-mode-surface="table"]')
+    ).toHaveCount(0);
   });
 
   test("groups rows under stage headers with rollups", async ({ page }) => {
@@ -798,12 +845,14 @@ test.describe("Pipeline Table View browser gate", () => {
 
     // Stage group-header rows are `role="row"` with an aria-label naming the
     // stage + deal count. We seeded two `new_lead` + two `qualifying` deals.
-    const newLeadHeader = page.getByRole("row", { name: /New Lead stage, 2 deals/i });
+    const newLeadHeader = page.getByRole("row", {
+      name: /New Lead stage, 2 deals/i,
+    });
     await expect(newLeadHeader).toBeVisible({ timeout: 10000 });
     await expect(newLeadHeader).toContainText("// 2");
 
     await expect(
-      page.getByRole("row", { name: /Qualifying stage, 2 deals/i }),
+      page.getByRole("row", { name: /Qualifying stage, 2 deals/i })
     ).toBeVisible();
   });
 
@@ -884,7 +933,7 @@ test.describe("Pipeline Table View browser gate", () => {
 
     // Rows persist across the view switch (same in-memory opportunity set).
     await expect(tableCell(page, opportunityId(1), "deal")).toContainText(
-      "Pipeline Deal 001",
+      "Pipeline Deal 001"
     );
   });
 
@@ -894,7 +943,9 @@ test.describe("Pipeline Table View browser gate", () => {
     await expectTableRendered(page);
 
     await tableCheckbox(page, opportunityId(1)).click();
-    await expect(page.getByText("// 1 SELECTED")).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("// 1 SELECTED")).toBeVisible({
+      timeout: 10000,
+    });
 
     await tableCheckbox(page, opportunityId(2)).click();
     await expect(page.getByText("// 2 SELECTED")).toBeVisible();

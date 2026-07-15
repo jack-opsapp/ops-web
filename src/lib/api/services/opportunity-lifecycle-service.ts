@@ -27,6 +27,12 @@ export interface RecordCorrespondenceEventInput {
   direction: OpportunityCorrespondenceDirection;
   occurredAt: Date | string;
   source: string;
+  /**
+   * Mark this provider event as waiting for the exactly-once opportunity
+   * counter projection. Provider ingestion paths set this true; only legacy
+   * backfills that already own aggregate counts leave it false.
+   */
+  applyOpportunityProjection?: boolean;
   fromEmail?: string | null;
   fromName?: string | null;
   toEmails?: string[] | null;
@@ -55,13 +61,14 @@ export type RecordCorrespondenceEventResult =
       reason:
         | "invalid_provider_ids"
         | "missing_opportunity"
-        | "duplicate_provider_message_id"
-        | "insert_failed";
+        | "duplicate_provider_message_id";
       classification?: OpportunityCorrespondenceClassification;
     };
 
 function iso(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }
 
 function normalizedText(value: string | null | undefined): string | null {
@@ -70,14 +77,16 @@ function normalizedText(value: string | null | undefined): string | null {
 }
 
 function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
-async function hasProviderMessageEvent(
+async function findProviderMessageEvent(
   input: RecordCorrespondenceEventInput,
   providerMessageId: string | null
-): Promise<boolean> {
-  if (!providerMessageId) return false;
+): Promise<{ id: string | null } | null> {
+  if (!providerMessageId) return null;
 
   const query = input.supabase
     .from("opportunity_correspondence_events")
@@ -90,8 +99,14 @@ async function hasProviderMessageEvent(
     query.eq("connection_id", input.connectionId);
   }
 
-  const { data } = await query;
-  return (data ?? []).length > 0;
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(
+      `Correspondence event dedupe lookup failed: ${error.message ?? "unknown error"}`
+    );
+  }
+  const row = (data ?? [])[0] as { id?: string | null } | undefined;
+  return row ? { id: row.id ?? null } : null;
 }
 
 async function updateLifecycleStateAfterMeaningfulEvent(
@@ -102,19 +117,26 @@ async function updateLifecycleStateAfterMeaningfulEvent(
   if (!input.opportunityId || !classification.isMeaningful) return;
 
   const occurredAt = iso(input.occurredAt);
-  const { data: current } = await input.supabase
+  const { data: current, error: currentError } = await input.supabase
     .from("opportunity_lifecycle_state")
     .select("last_meaningful_at")
     .eq("opportunity_id", input.opportunityId)
     .maybeSingle();
+  if (currentError) {
+    throw new Error(
+      `Lifecycle state read failed: ${currentError.message ?? "unknown error"}`
+    );
+  }
 
   const currentAt = normalizedText(
-    (current as Record<string, unknown> | null)?.last_meaningful_at as string | null
+    (current as Record<string, unknown> | null)?.last_meaningful_at as
+      | string
+      | null
   );
   if (currentAt && new Date(currentAt) > new Date(occurredAt)) return;
 
   if (input.direction === "inbound") {
-    await resetStaleLifecycleAfterMeaningfulInbound({
+    const reset = await resetStaleLifecycleAfterMeaningfulInbound({
       supabase: input.supabase,
       companyId: input.companyId,
       opportunityId: input.opportunityId,
@@ -122,6 +144,11 @@ async function updateLifecycleStateAfterMeaningfulEvent(
       occurredAt,
       mode: "apply",
     });
+    if (!reset.applied) {
+      throw new Error(
+        "Lifecycle state reset failed for meaningful inbound email"
+      );
+    }
     return;
   }
 
@@ -136,9 +163,14 @@ async function updateLifecycleStateAfterMeaningfulEvent(
     updated_at: new Date().toISOString(),
   };
 
-  await input.supabase
+  const { error: lifecycleStateError } = await input.supabase
     .from("opportunity_lifecycle_state")
     .upsert(row, { onConflict: "opportunity_id" });
+  if (lifecycleStateError) {
+    throw new Error(
+      `Lifecycle state upsert failed: ${lifecycleStateError.message ?? "unknown error"}`
+    );
+  }
 }
 
 export const OpportunityLifecycleService = {
@@ -166,7 +198,7 @@ export const OpportunityLifecycleService = {
       return { created: false, reason: "invalid_provider_ids" };
     }
 
-    const duplicate = await hasProviderMessageEvent(
+    const duplicate = await findProviderMessageEvent(
       input,
       providerIds.providerMessageId
     );
@@ -179,6 +211,14 @@ export const OpportunityLifecycleService = {
           ? [providerIds.providerMessageId]
           : [],
       });
+      // A prior attempt may have inserted the immutable event and then failed
+      // its lifecycle-state side effect. Re-run that idempotent side effect so
+      // cursor retry repairs the partial write before reporting a duplicate.
+      await updateLifecycleStateAfterMeaningfulEvent(
+        input,
+        classification,
+        duplicate.id
+      );
       return {
         created: false,
         reason: "duplicate_provider_message_id",
@@ -210,6 +250,7 @@ export const OpportunityLifecycleService = {
         linked_contact_kind: input.linkedContactKind ?? null,
         linked_contact_id: input.linkedContactId ?? null,
         source: input.source,
+        opportunity_projection_applied: !input.applyOpportunityProjection,
         subject: input.subject ?? null,
         from_email: input.fromEmail ?? null,
         to_emails: asStringArray(input.toEmails),
@@ -226,13 +267,17 @@ export const OpportunityLifecycleService = {
         providerMessageId: providerIds.providerMessageId,
         error,
       });
-      return { created: false, reason: "insert_failed", classification };
+      throw new Error(
+        `Correspondence event insert failed: ${error.message ?? "unknown error"}`
+      );
     }
 
     await updateLifecycleStateAfterMeaningfulEvent(
       input,
       classification,
-      ((insertedEvent as Record<string, unknown> | null)?.id as string | null) ?? null
+      ((insertedEvent as Record<string, unknown> | null)?.id as
+        | string
+        | null) ?? null
     );
     return { created: true, classification };
   },

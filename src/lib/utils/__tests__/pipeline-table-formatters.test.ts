@@ -1,17 +1,13 @@
 /**
  * Tests for the pipeline table cell formatters.
  *
- * Focus is the null/edge paths and the pipeline-specific percent contract:
- * `winProbability` is an integer percent (50 ⇒ "50%"), NOT a 0–1 decimal, so
- * `formatPercentInt` must never multiply by 100. The currency/date re-exports
- * are smoke-tested to prove the DRY re-export from the projects formatters is
- * wired correctly.
+ * Focus is the null/edge paths. The currency/date re-exports are smoke-tested
+ * to prove the DRY re-export from the projects formatters is wired correctly.
  */
 
 import { describe, it, expect } from "vitest";
 
 import {
-  formatPercentInt,
   formatAgeDays,
   formatCurrency,
   formatNumber,
@@ -19,28 +15,6 @@ import {
 } from "../pipeline-table-formatters";
 
 const EMPTY = "—";
-
-describe("formatPercentInt", () => {
-  it("renders an integer percent without ×100", () => {
-    expect(formatPercentInt(50)).toBe("50%");
-  });
-
-  it("returns the empty sentinel for null", () => {
-    expect(formatPercentInt(null)).toBe(EMPTY);
-  });
-
-  it("rounds fractional percents to the nearest whole", () => {
-    expect(formatPercentInt(64.4)).toBe("64%");
-  });
-
-  it("renders zero as 0%", () => {
-    expect(formatPercentInt(0)).toBe("0%");
-  });
-
-  it("renders 100 as 100% (full probability)", () => {
-    expect(formatPercentInt(100)).toBe("100%");
-  });
-});
 
 describe("formatAgeDays", () => {
   it("renders a positive day count with a 'd' suffix", () => {

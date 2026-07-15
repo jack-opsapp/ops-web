@@ -113,10 +113,10 @@ export interface SendStatusEmailActionData {
   tasks_completed_since_last: number;
   upcoming_tasks: number;
   /**
-   * ai_draft_history row ID created at proposal time. Threaded through
-   * so the executor can call recordDraftOutcome() with the real ID and
-   * compute edit distance against the AI's original draft. Null only
-   * when the AI draft fallback was used (no history row created).
+   * ai_draft_history row ID created at proposal time. The executor passes it
+   * to the canonical send route so the durable queue computes one idempotent
+   * outcome against the original draft. Null is retained only for legacy rows;
+   * current proposal paths always persist a fallback history before approval.
    */
   draft_history_id: string | null;
 }
@@ -324,6 +324,8 @@ export interface SendPaymentReminderActionData {
   /** Original AI-generated draft, preserved for edit distance calculation */
   original_draft_text: string;
   connection_id: string;
+  /** Durable ai_draft_history identity owned by the canonical send queue. */
+  draft_history_id: string | null;
   /** Embedded payment history summary for display in the approval card */
   payment_summary?: {
     on_time_rate: number;
@@ -378,7 +380,10 @@ export interface FinancialInsightActionData {
       win_rate: number;
       avg_win_price: number;
       avg_loss_price: number;
-      suggestion: { type: "increase" | "decrease" | "neutral"; params: Record<string, number> };
+      suggestion: {
+        type: "increase" | "decrease" | "neutral";
+        params: Record<string, number>;
+      };
     }>;
   };
   seasonal: {
@@ -584,6 +589,8 @@ export interface SendScheduleChangedActionData {
   draft_text: string;
   original_draft_text: string;
   connection_id: string;
+  /** Durable ai_draft_history identity owned by the canonical send queue. */
+  draft_history_id: string | null;
   context_summary_structured: StructuredSummary;
 }
 
@@ -610,6 +617,8 @@ export interface SendAppointmentConfirmationActionData {
   /** Original AI draft for edit distance computation */
   original_draft_text: string;
   connection_id: string;
+  /** Durable ai_draft_history identity owned by the canonical send queue. */
+  draft_history_id: string | null;
   /** Structured i18n form of context_summary */
   context_summary_structured: StructuredSummary;
 }
@@ -642,6 +651,8 @@ export interface SendAppointmentReminderActionData {
   draft_text: string;
   original_draft_text: string;
   connection_id: string;
+  /** Durable ai_draft_history identity owned by the canonical send queue. */
+  draft_history_id: string | null;
   context_summary_structured: StructuredSummary;
 }
 
@@ -671,6 +682,8 @@ export interface SendSubcontractorCoordinationActionData {
   draft_text: string;
   original_draft_text: string;
   connection_id: string;
+  /** Durable ai_draft_history identity owned by the canonical send queue. */
+  draft_history_id: string | null;
   context_summary_structured: StructuredSummary;
 }
 
@@ -712,6 +725,8 @@ export interface ProcessRescheduleRequestActionData {
   reply_draft_text: string;
   original_reply_draft_text: string;
   connection_id: string;
+  /** Durable ai_draft_history identity owned by the canonical send queue. */
+  draft_history_id: string | null;
   /** GPT classification confidence */
   classification_confidence: number;
   /** Which alternative index the user selected (server uses this on approve) */
@@ -741,7 +756,11 @@ export type AppointmentConfirmationLevel =
 export type ConfirmMode = "explicit" | "automatic";
 
 /** Behavior when a confirmed task gets rescheduled */
-export type RescheduleBehavior = "do_nothing" | "notify" | "draft" | "auto_send";
+export type RescheduleBehavior =
+  | "do_nothing"
+  | "notify"
+  | "draft"
+  | "auto_send";
 
 /** Simple three-level autonomy used by reminders, status updates, etc. */
 export type SimpleAutonomy = "off" | "draft_to_queue" | "auto_send";
@@ -755,7 +774,11 @@ export type StatusUpdateCadence =
   | "on_stage_change";
 
 /** Payment reminder escalation presets */
-export type PaymentReminderPreset = "standard" | "gentle" | "aggressive" | "custom";
+export type PaymentReminderPreset =
+  | "standard"
+  | "gentle"
+  | "aggressive"
+  | "custom";
 
 /** How reschedule request detection responds */
 export type RescheduleRequestBehavior = "detect_only" | "detect_and_draft";

@@ -12,7 +12,7 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { ClientService, type FetchClientsOptions } from "../api/services";
+import { ClientService, type FetchClientsOptions } from "../api/services/client-service";
 import type { Client, SubClient } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
 

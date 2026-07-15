@@ -21,6 +21,7 @@ import {
   classifyEmails,
   type EmailForClassification,
 } from "@/lib/api/services/email-classifier";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 // Vercel serverless function config — this route fetches 500 emails
 // then calls OpenAI, so it needs more than the default 15s timeout.
@@ -86,11 +87,14 @@ async function getValidToken(conn: ConnectionRow): Promise<string> {
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => "");
-    throw new Error(`Gmail token refresh failed (${response.status}): ${errorBody.slice(0, 200)}`);
+    throw new Error(
+      `Gmail token refresh failed (${response.status}): ${errorBody.slice(0, 200)}`
+    );
   }
 
   const json = await response.json();
-  if (!json.access_token) throw new Error("Gmail token refresh returned no access_token");
+  if (!json.access_token)
+    throw new Error("Gmail token refresh returned no access_token");
 
   const supabase = getServiceRoleClient();
   const { error: updateErr } = await supabase
@@ -102,7 +106,10 @@ async function getValidToken(conn: ConnectionRow): Promise<string> {
     .eq("id", conn.id);
 
   if (updateErr) {
-    console.warn("[gmail-scan-preview] Failed to persist refreshed token:", updateErr.message);
+    console.warn(
+      "[gmail-scan-preview] Failed to persist refreshed token:",
+      updateErr.message
+    );
   }
 
   return json.access_token as string;
@@ -112,6 +119,13 @@ async function getValidToken(conn: ConnectionRow): Promise<string> {
 
 const MAX_SCAN = 500;
 const BATCH_SIZE = 50;
+const NON_DELIVERY_GMAIL_LABELS = new Set(["DRAFT", "SPAM", "TRASH"]);
+
+function isDeliveryMessage(labelIds: string[] | undefined): boolean {
+  return !(labelIds ?? []).some((label) =>
+    NON_DELIVERY_GMAIL_LABELS.has(label.toUpperCase())
+  );
+}
 
 // ─── Route Handler ───────────────────────────────────────────────────────────
 
@@ -121,29 +135,41 @@ export async function GET(request: NextRequest) {
 
   try {
     const connectionId = request.nextUrl.searchParams.get("connectionId");
-    const rawDays = parseInt(request.nextUrl.searchParams.get("days") ?? "30", 10);
-    const days = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 365) : 30;
+    const rawDays = parseInt(
+      request.nextUrl.searchParams.get("days") ?? "30",
+      10
+    );
+    const days = Number.isFinite(rawDays)
+      ? Math.min(Math.max(rawDays, 1), 365)
+      : 30;
 
     if (!connectionId) {
       return NextResponse.json(
         { error: "connectionId is required" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     // Load connection
     const { data: connRow, error: connError } = await supabase
       .from("email_connections")
-      .select("id, company_id, access_token, refresh_token, expires_at, sync_filters")
+      .select(
+        "id, company_id, access_token, refresh_token, expires_at, sync_filters"
+      )
       .eq("id", connectionId)
       .single();
 
     if (connError || !connRow) {
       return NextResponse.json(
         { error: "Connection not found" },
-        { status: 404 },
+        { status: 404 }
       );
     }
+    const authError = await requireEmailCompanyAccess(
+      request,
+      connRow.company_id as string
+    );
+    if (authError) return authError;
 
     const conn = connRow as ConnectionRow;
     const token = await getValidToken(conn);
@@ -166,7 +192,7 @@ export async function GET(request: NextRequest) {
 
     do {
       const listUrl = new URL(
-        "https://gmail.googleapis.com/gmail/v1/users/me/messages",
+        "https://gmail.googleapis.com/gmail/v1/users/me/messages"
       );
       listUrl.searchParams.set("q", `after:${queryDate}`);
       listUrl.searchParams.set("maxResults", "200");
@@ -203,17 +229,21 @@ export async function GET(request: NextRequest) {
           try {
             const msgResp = await fetch(
               `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
-              { headers: { Authorization: `Bearer ${token}` } },
+              { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (!msgResp.ok) return null;
 
             const msg: GmailMessage = await msgResp.json();
+            if (!isDeliveryMessage(msg.labelIds)) return null;
             const headers = msg.payload?.headers ?? [];
             const from = headers.find((h) => h.name === "From")?.value ?? "";
-            const subject = headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
+            const subject =
+              headers.find((h) => h.name === "Subject")?.value ??
+              "(no subject)";
             const date = headers.find((h) => h.name === "Date")?.value ?? "";
-            const fromEmail = (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
+            const fromEmail =
+              (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
             const domain = fromEmail.split("@")[1] ?? "";
 
             return {
@@ -231,7 +261,7 @@ export async function GET(request: NextRequest) {
           } catch {
             return null;
           }
-        }),
+        })
       );
 
       for (const r of results) {
@@ -264,7 +294,7 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line no-console
     console.log(
       `[gmail-scan-preview] Pre-filtered ${autoFiltered.length} emails ` +
-      `from preset blocklist domains. Sending ${ambiguous.length} to AI.`,
+        `from preset blocklist domains. Sending ${ambiguous.length} to AI.`
     );
 
     // ─── AI Classification ────────────────────────────────────────────────
@@ -284,15 +314,23 @@ export async function GET(request: NextRequest) {
       recommendedFilters = aiResult.filters;
 
       // Apply AI-recommended filters to determine per-email import/filter status
-      const blockedDomains = new Set(aiResult.filters.excludeDomains.map((d) => d.toLowerCase()));
-      const blockedAddresses = new Set(aiResult.filters.excludeAddresses.map((a) => a.toLowerCase()));
-      const blockedKeywords = aiResult.filters.excludeSubjectKeywords.map((k) => k.toLowerCase());
+      const blockedDomains = new Set(
+        aiResult.filters.excludeDomains.map((d) => d.toLowerCase())
+      );
+      const blockedAddresses = new Set(
+        aiResult.filters.excludeAddresses.map((a) => a.toLowerCase())
+      );
+      const blockedKeywords = aiResult.filters.excludeSubjectKeywords.map((k) =>
+        k.toLowerCase()
+      );
 
       for (const email of ambiguous) {
         const domainBlocked = blockedDomains.has(email.domain.toLowerCase());
-        const addressBlocked = blockedAddresses.has(email.fromEmail.toLowerCase());
+        const addressBlocked = blockedAddresses.has(
+          email.fromEmail.toLowerCase()
+        );
         const keywordBlocked = blockedKeywords.some((kw) =>
-          email.subject.toLowerCase().includes(kw),
+          email.subject.toLowerCase().includes(kw)
         );
 
         if (domainBlocked || addressBlocked || keywordBlocked) {
@@ -308,7 +346,10 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (err) {
-      console.error("[gmail-scan-preview] AI classification failed, ambiguous emails default to import:", err);
+      console.error(
+        "[gmail-scan-preview] AI classification failed, ambiguous emails default to import:",
+        err
+      );
       // Ambiguous emails keep wouldImport=true — better to import too much than miss customers
       for (const email of ambiguous) {
         email.reason = "Unclassified (AI unavailable)";
@@ -321,7 +362,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       emails: allResults,
-      total: allMessageIds.length,
+      total: emails.length,
       preFiltered: autoFiltered.length,
       aiAnalyzed: ambiguous.length,
       recommendedFilters,
@@ -330,7 +371,7 @@ export async function GET(request: NextRequest) {
     console.error("[gmail-scan-preview]", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal error" },
-      { status: 500 },
+      { status: 500 }
     );
   } finally {
     setSupabaseOverride(null);

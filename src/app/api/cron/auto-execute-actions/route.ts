@@ -59,7 +59,13 @@ export async function GET(request: NextRequest) {
       const userId = row.user_id as string;
 
       try {
-        await ApprovalQueueService.approveAction(actionId, companyId, userId);
+        await ApprovalQueueService.approveAction(
+          actionId,
+          companyId,
+          userId,
+          undefined,
+          { learningAuthority: "autonomous" }
+        );
         results.push({ actionId, success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";

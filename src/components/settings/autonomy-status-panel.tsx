@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { EmailCategoryAutonomy } from "./email-category-autonomy";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -47,7 +48,9 @@ const LEVELS = [
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) {
+export function AutonomyStatusPanel({
+  connectionId,
+}: AutonomyStatusPanelProps) {
   const { t } = useDictionary("autonomy");
   const { currentUser, company } = useAuthStore();
 
@@ -56,9 +59,10 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
   const [data, setData] = useState<AutonomyData | null>(null);
   const [autoSendFeatureEnabled, setAutoSendFeatureEnabled] = useState(false);
 
-  const prefersReducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  const prefersReducedMotion =
+    typeof window !== "undefined"
+      ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      : false;
 
   // ─── Fetch autonomy status ────────────────────────────────────────────
   useEffect(() => {
@@ -67,7 +71,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch(
+        const res = await authedFetch(
           `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${connectionId}`
         );
         if (!res.ok) return;
@@ -82,7 +86,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         const categoryAutonomy = settings.category_autonomy || {};
 
         // Fetch draft stats for approval rate
-        const statsRes = await fetch(
+        const statsRes = await authedFetch(
           `/api/integrations/email/draft-stats?companyId=${company.id}&userId=${currentUser.id}`
         );
         let approvalRate = 0;
@@ -102,8 +106,10 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
 
         let level = 0;
         if (categoryConfigured && autoSendEnabled) level = 5;
-        else if (autoSendEnabled && approvalRate >= 0.95 && totalDrafts >= 20) level = 4;
-        else if (autoDraftEnabled && confidence > 0.75 && emailsAnalyzed >= 250) level = 3;
+        else if (autoSendEnabled && approvalRate >= 0.95 && totalDrafts >= 20)
+          level = 4;
+        else if (autoDraftEnabled && confidence > 0.75 && emailsAnalyzed >= 250)
+          level = 3;
         else if (emailsAnalyzed >= 100 && confidence > 0.5) level = 2;
         else if (emailsAnalyzed >= 25 && confidence > 0.2) level = 1;
 
@@ -164,7 +170,12 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-4">
-        <Loader2 className={cn("w-[14px] h-[14px] text-text-mute", !prefersReducedMotion && "animate-spin")} />
+        <Loader2
+          className={cn(
+            "h-[14px] w-[14px] text-text-mute",
+            !prefersReducedMotion && "animate-spin"
+          )}
+        />
         <span className="font-mohave text-body-sm text-text-mute">
           {t("loading")}
         </span>
@@ -212,53 +223,54 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
   return (
     <div className="space-y-3">
       {/* ─── Autonomy Level Status ─────────────────────────────────────── */}
-      <div className="px-3 py-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+      <div className="rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
         {/* Header */}
-        <div className="flex items-center gap-2 mb-2">
-          <CurrentIcon className="w-[14px] h-[14px] text-[#6F94B0]" />
-          <span className="font-cakemono text-body-sm text-text-2 font-light uppercase tracking-wide">
+        <div className="mb-2 flex items-center gap-2">
+          <CurrentIcon className="h-[14px] w-[14px] text-[#6F94B0]" />
+          <span className="font-cakemono text-body-sm font-light uppercase tracking-wide text-text-2">
             {t("status.title")}
           </span>
         </div>
 
         {/* Level indicator */}
-        <div className="flex items-center gap-3 mb-2">
+        <div className="mb-2 flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             {LEVELS.map((lvl, i) => (
               <div
                 key={lvl.key}
                 className={cn(
-                  "w-[6px] h-[6px] rounded-full transition-colors",
-                  i <= data.level
-                    ? "bg-text-2"
-                    : "bg-[rgba(255,255,255,0.08)]"
+                  "h-[6px] w-[6px] rounded-full transition-colors",
+                  i <= data.level ? "bg-text-2" : "bg-[rgba(255,255,255,0.08)]"
                 )}
               />
             ))}
           </div>
-          <span className="font-mohave text-body-sm text-text font-semibold">
+          <span className="font-mohave text-body-sm font-semibold text-text">
             {t(`status.level.${currentLevelConfig.key}`)}
           </span>
         </div>
 
         {/* Description */}
-        <p className="font-mohave text-caption-sm text-text-mute mb-2">
+        <p className="mb-2 font-mohave text-caption-sm text-text-mute">
           [{t(`status.level.${currentLevelConfig.key}.description`)}]
         </p>
 
         {/* Progress bar */}
         {data.level < 4 && (
           <div className="mb-2">
-            <div className="h-[3px] bg-[rgba(255,255,255,0.04)] rounded-full overflow-hidden">
+            <div className="h-[3px] overflow-hidden rounded-full bg-[rgba(255,255,255,0.04)]">
               <div
-                className={cn("h-full rounded-full", !prefersReducedMotion && "transition-all duration-500")}
+                className={cn(
+                  "h-full rounded-full",
+                  !prefersReducedMotion && "transition-all duration-500"
+                )}
                 style={{
                   width: `${progressPercent}%`,
                   backgroundColor: "#6F94B0",
                 }}
               />
             </div>
-            <span className="font-mohave text-[11px] text-text-mute mt-0.5 block">
+            <span className="mt-0.5 block font-mohave text-[11px] text-text-mute">
               {progressLabel}
             </span>
           </div>
@@ -266,12 +278,12 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
 
         {/* What's next */}
         {nextLevelConfig && (
-          <div className="pt-2 border-t border-[rgba(255,255,255,0.04)]">
-            <span className="font-mono text-micro text-text-mute uppercase tracking-wider block mb-0.5">
+          <div className="border-t border-[rgba(255,255,255,0.04)] pt-2">
+            <span className="mb-0.5 block font-mono text-micro uppercase tracking-wider text-text-mute">
               {t("status.whatsNext")}
             </span>
             <div className="flex items-start gap-1.5">
-              <ArrowRight className="w-[10px] h-[10px] text-text-mute mt-0.5 shrink-0" />
+              <ArrowRight className="mt-0.5 h-[10px] w-[10px] shrink-0 text-text-mute" />
               <span className="font-mohave text-caption-sm text-text-mute">
                 {t(`status.whatsNext.${currentLevelConfig.key}`)}
               </span>
@@ -281,11 +293,11 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
       </div>
 
       {/* ─── Auto-Draft Toggle ─────────────────────────────────────────── */}
-      <div className="px-3 py-2.5 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
-        <div className="flex items-center justify-between mb-1">
+      <div className="rounded-lg border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
+        <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Zap className="w-[14px] h-[14px] text-[#6F94B0]" />
-            <span className="font-cakemono text-body-sm text-text-2 font-light uppercase tracking-wide">
+            <Zap className="h-[14px] w-[14px] text-[#6F94B0]" />
+            <span className="font-cakemono text-body-sm font-light uppercase tracking-wide text-text-2">
               {t("autoDraft.title")}
             </span>
           </div>
@@ -295,13 +307,14 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
             onClick={handleAutoDraftToggle}
             disabled={saving || data.confidence <= 0.75}
             className={cn(
-              "relative flex items-center justify-center w-[56px] h-[56px] -m-[19px]",
-              (saving || data.confidence <= 0.75) && "opacity-50 cursor-not-allowed"
+              "relative -m-[19px] flex h-[56px] w-[56px] items-center justify-center",
+              (saving || data.confidence <= 0.75) &&
+                "cursor-not-allowed opacity-50"
             )}
           >
             <div
               className={cn(
-                "relative w-[36px] h-[18px] rounded-full transition-colors",
+                "relative h-[18px] w-[36px] rounded-full transition-colors",
                 data.autoDraftEnabled
                   ? "bg-text-2"
                   : "bg-[rgba(255,255,255,0.1)]"
@@ -309,7 +322,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
             >
               <div
                 className={cn(
-                  "absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform",
+                  "absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white transition-transform",
                   data.autoDraftEnabled
                     ? "translate-x-[20px]"
                     : "translate-x-[2px]"
@@ -324,7 +337,7 @@ export function AutonomyStatusPanel({ connectionId }: AutonomyStatusPanelProps) 
         </p>
 
         {data.confidence <= 0.75 && (
-          <p className="font-mono text-micro text-text-mute mt-1">
+          <p className="mt-1 font-mono text-micro text-text-mute">
             [{t("autoDraft.requiresConfidence")}]
           </p>
         )}

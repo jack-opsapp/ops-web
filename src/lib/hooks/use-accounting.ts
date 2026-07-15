@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-query";
 import { toast } from "@/components/ui/toast";
 import { queryKeys } from "../api/query-client";
-import { AccountingService } from "../api/services";
+import { AccountingService } from "../api/services/accounting-service";
 import type { AccountingProvider } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 

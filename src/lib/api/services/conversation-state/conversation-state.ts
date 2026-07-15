@@ -102,7 +102,9 @@ function cmpIso(a: string, b: string): number {
 
 /** Bare, lowercased email from a raw "Name <email>" / plain address. */
 function normalizeEmailBare(value: string | null | undefined): string {
-  return extractEmailAddress(value ?? "").toLowerCase().trim();
+  return extractEmailAddress(value ?? "")
+    .toLowerCase()
+    .trim();
 }
 
 /** A display name, or null when blank or itself an email address. */
@@ -117,10 +119,16 @@ function cleanDisplayName(value: string | null | undefined): string | null {
  * Deterministic attachment kind from mime type then filename extension.
  * Only `image` / `pdf` ever require inspection (the Phase 2 vision pass).
  */
-function classifyAttachmentKind(mimeType: string, filename: string): AttachmentKind {
+function classifyAttachmentKind(
+  mimeType: string,
+  filename: string
+): AttachmentKind {
   const mt = (mimeType || "").toLowerCase();
   const fn = (filename || "").toLowerCase();
-  if (mt.startsWith("image/") || /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?|svg)$/.test(fn)) {
+  if (
+    mt.startsWith("image/") ||
+    /\.(png|jpe?g|gif|webp|heic|heif|bmp|tiff?|svg)$/.test(fn)
+  ) {
     return "image";
   }
   if (mt.includes("pdf") || fn.endsWith(".pdf")) return "pdf";
@@ -149,7 +157,9 @@ function deriveRecipient(messages: CleanMessage[]): {
   const customer = inbound.filter((m) => m.isRealCustomerInbound);
   const pool = customer.length > 0 ? customer : inbound;
   if (pool.length === 0) return { email: null, name: null };
-  const latest = [...pool].sort((a, b) => cmpIso(a.sentAt, b.sentAt))[pool.length - 1];
+  const latest = [...pool].sort((a, b) => cmpIso(a.sentAt, b.sentAt))[
+    pool.length - 1
+  ];
   return { email: latest.fromEmail || null, name: latest.fromName };
 }
 
@@ -174,7 +184,9 @@ export function assembleConversationState(
   const { threadId, connectionId, companyId, operator, stage } = input;
 
   // 1. Chronological order.
-  const sorted = [...input.rawMessages].sort((a, b) => cmpIso(a.sentAt, b.sentAt));
+  const sorted = [...input.rawMessages].sort((a, b) =>
+    cmpIso(a.sentAt, b.sentAt)
+  );
 
   // 2. Build each CleanMessage, accumulating prior CLEAN bodies for overlap
   //    stripping (a prior message's clean opening is what a reply inlines).
@@ -184,7 +196,8 @@ export function assembleConversationState(
   for (const raw of sorted) {
     const cleanBody = cleanMessageBody(raw.rawBody, {
       subject: raw.subject,
-      priorBodies: priorCleanBodies.length > 0 ? [...priorCleanBodies] : undefined,
+      priorBodies:
+        priorCleanBodies.length > 0 ? [...priorCleanBodies] : undefined,
       providerCleanBody: raw.providerCleanBody ?? null,
     });
 
@@ -202,7 +215,8 @@ export function assembleConversationState(
     );
 
     const isCustomerInbound =
-      classification.direction === "inbound" && classification.partyRole === "customer";
+      classification.direction === "inbound" &&
+      classification.partyRole === "customer";
 
     const attachments: AttachmentRef[] = (raw.attachments ?? []).map((att) => {
       const kind = classifyAttachmentKind(att.mimeType, att.filename);
@@ -211,7 +225,8 @@ export function assembleConversationState(
         mimeType: att.mimeType,
         sizeBytes: att.sizeBytes,
         kind,
-        requiresInspection: isCustomerInbound && (kind === "image" || kind === "pdf"),
+        requiresInspection:
+          isCustomerInbound && (kind === "image" || kind === "pdf"),
         // Thread the CACHED inspection through (Phase 2). The pure core does not
         // inspect; the fetch wrapper supplies any cached inspection on the raw
         // attachment, and the deterministic accept-detector/router read it here.
@@ -298,7 +313,6 @@ import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
 import type { SyncProfile } from "@/lib/types/email-connection";
 import { fetchOperatorIdentity } from "./operator-identity";
 import { fetchCommitments } from "./sent-ledger";
-import { attachmentInspectionKey } from "./attachment-inspector";
 
 const LEAD_STAGES: ReadonlySet<LeadStage> = new Set<LeadStage>([
   "new_lead",
@@ -314,7 +328,9 @@ const LEAD_STAGES: ReadonlySet<LeadStage> = new Set<LeadStage>([
 
 /** Validate a raw stage string against the union; unknown / missing → new_lead. */
 function coerceStage(value: string | null | undefined): LeadStage {
-  return value && LEAD_STAGES.has(value as LeadStage) ? (value as LeadStage) : "new_lead";
+  return value && LEAD_STAGES.has(value as LeadStage)
+    ? (value as LeadStage)
+    : "new_lead";
 }
 
 /** Postgres timestamptz → canonical ISO-8601 (lexicographically sortable). */
@@ -350,44 +366,81 @@ interface ActivityEmailRow {
 async function loadThreadAttachments(
   supabase: ReturnType<typeof requireSupabase>,
   companyId: string,
-  providerThreadId: string
+  connectionId: string,
+  providerThreadId: string,
+  opportunityId: string | null
 ): Promise<Map<string, RawAttachment[]>> {
   const byMessageId = new Map<string, RawAttachment[]>();
 
-  const { data: attRows, error: attErr } = await supabase
+  let attachmentQuery = supabase
     .from("email_attachments")
-    .select("message_id, attachment_id, filename, mime_type, size_bytes")
+    .select(
+      "id, message_id, attachment_id, filename, mime_type, detected_mime_type, size_bytes"
+    )
     .eq("company_id", companyId)
+    .eq("connection_id", connectionId)
     .eq("provider_thread_id", providerThreadId);
+  attachmentQuery = opportunityId
+    ? attachmentQuery
+        .eq("opportunity_id", opportunityId)
+        .eq("attribution_status", "attributed")
+    : attachmentQuery.is("opportunity_id", null);
+  const { data: attRows, error: attErr } = await attachmentQuery;
   if (attErr) {
-    console.error("[conversation-state] email_attachments load failed:", attErr.message);
+    console.error(
+      "[conversation-state] email_attachments load failed:",
+      attErr.message
+    );
     return byMessageId;
   }
   const rows = (attRows ?? []) as Array<{
+    id: string;
     message_id: string;
     attachment_id: string;
     filename: string | null;
     mime_type: string | null;
+    detected_mime_type: string | null;
     size_bytes: number | null;
   }>;
   if (rows.length === 0) return byMessageId;
 
-  // Cached inspections for the same thread, keyed by (message_id, attachment_id).
-  const { data: inspRows } = await supabase
-    .from("attachment_inspections")
-    .select("message_id, attachment_id, summary, is_signed_estimate, facts, model")
-    .eq("company_id", companyId)
-    .eq("provider_thread_id", providerThreadId);
-  const inspectionByKey = new Map<string, AttachmentInspection>();
-  for (const r of (inspRows ?? []) as Array<{
-    message_id: string;
-    attachment_id: string;
+  // Cached inspections are queried only for this thread's immutable canonical
+  // ids. Chunking stays below PostgREST URL limits while avoiding an unbounded
+  // mailbox-wide read that could omit this thread under a server row cap.
+  const inspRows: Array<{
+    email_attachment_id: string | null;
     summary: string | null;
     is_signed_estimate: boolean | null;
     facts: Record<string, unknown> | null;
     model: string | null;
-  }>) {
-    inspectionByKey.set(attachmentInspectionKey(r.message_id, r.attachment_id), {
+  }> = [];
+  const canonicalIds = rows.map((row) => row.id);
+  const inspectionChunkSize = 80;
+  for (
+    let start = 0;
+    start < canonicalIds.length;
+    start += inspectionChunkSize
+  ) {
+    const ids = canonicalIds.slice(start, start + inspectionChunkSize);
+    const { data, error } = await supabase
+      .from("attachment_inspections")
+      .select("email_attachment_id, summary, is_signed_estimate, facts, model")
+      .eq("company_id", companyId)
+      .eq("connection_id", connectionId)
+      .in("email_attachment_id", ids);
+    if (error) {
+      console.error(
+        "[conversation-state] attachment_inspections load failed:",
+        error.message
+      );
+      continue;
+    }
+    inspRows.push(...((data ?? []) as typeof inspRows));
+  }
+  const inspectionByKey = new Map<string, AttachmentInspection>();
+  for (const r of inspRows) {
+    if (!r.email_attachment_id) continue;
+    inspectionByKey.set(r.email_attachment_id, {
       summary: r.summary ?? "",
       isSignedEstimate: r.is_signed_estimate === true,
       facts: r.facts ?? {},
@@ -399,10 +452,9 @@ async function loadThreadAttachments(
     const list = byMessageId.get(row.message_id) ?? [];
     list.push({
       filename: row.filename?.trim() || row.attachment_id,
-      mimeType: row.mime_type ?? "",
+      mimeType: row.detected_mime_type ?? row.mime_type ?? "",
       sizeBytes: typeof row.size_bytes === "number" ? row.size_bytes : 0,
-      inspection:
-        inspectionByKey.get(attachmentInspectionKey(row.message_id, row.attachment_id)) ?? null,
+      inspection: inspectionByKey.get(row.id) ?? null,
     });
     byMessageId.set(row.message_id, list);
   }
@@ -476,7 +528,10 @@ export async function buildConversationState(
     .eq("id", t.connection_id)
     .maybeSingle();
   if (!connRow) {
-    console.error("[conversation-state] connection load failed:", t.connection_id);
+    console.error(
+      "[conversation-state] connection load failed:",
+      t.connection_id
+    );
     return null;
   }
   const conn = connRow as { email: string; sync_filters: SyncProfile | null };
@@ -485,24 +540,32 @@ export async function buildConversationState(
     syncFilters: (conn.sync_filters ?? {}) as SyncProfile,
   });
 
-  // 3. Thread messages from `activities` (type='email'), chronological.
+  // 3. Newest thread messages from this mailbox's `activities` ledger.
+  //    Fetch newest-first so LIMIT retains current context, then reverse below
+  //    before the deterministic core consumes the rows chronologically.
   const { data: activityRows } = await supabase
     .from("activities")
     .select(
       "email_message_id, from_email, to_emails, cc_emails, subject, body_text, body_text_clean, direction, created_at"
     )
     .eq("company_id", t.company_id)
+    .eq("email_connection_id", t.connection_id)
     .eq("type", "email")
     .eq("email_thread_id", t.provider_thread_id)
-    .order("created_at", { ascending: true });
-  const activities = (activityRows ?? []) as unknown as ActivityEmailRow[];
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const activities = (
+    [...(activityRows ?? [])] as unknown as ActivityEmailRow[]
+  ).reverse();
 
   // 4. Attachments (Phase 2): provider identity + cached inspection, keyed by
   //    provider message id. A deterministic DB read — no vision call here.
   const attachmentsByMessageId = await loadThreadAttachments(
     supabase,
     t.company_id,
-    t.provider_thread_id
+    t.connection_id,
+    t.provider_thread_id,
+    t.opportunity_id
   );
 
   // 5. Map to the pure core's RawThreadMessage shape.
@@ -522,7 +585,8 @@ export async function buildConversationState(
       // P0-B: the quote+signature-stripped body persisted at ingestion. NULL for
       // rows ingested before the column existed → the cleaner derives it from raw.
       providerCleanBody: a.body_text_clean,
-      attachments: attachmentsByMessageId.get(a.email_message_id as string) ?? [],
+      attachments:
+        attachmentsByMessageId.get(a.email_message_id as string) ?? [],
     }));
 
   // 6. Opportunity stage.
@@ -542,7 +606,10 @@ export async function buildConversationState(
   // 8. Commitments. source_id is the PROVIDER thread id — that is what the
   //    memory-service writes on extraction (memory-service.ts:467 via the sync
   //    engine, which passes the provider threadId). NOT the email_threads.id.
-  const commitments = await fetchCommitments(t.company_id, t.provider_thread_id);
+  const commitments = await fetchCommitments(
+    t.company_id,
+    t.provider_thread_id
+  );
 
   return assembleConversationState({
     threadId: t.id,

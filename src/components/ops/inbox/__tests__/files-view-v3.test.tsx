@@ -164,6 +164,38 @@ describe("<FilesViewV3>", () => {
     expect(onFileOpen).toHaveBeenCalledWith(attachment);
   });
 
+  it("shows attachment availability and keeps unavailable files non-interactive", () => {
+    const onFileOpen = vi.fn();
+    const attachment = {
+      ...doc({
+        id: "email-att-missing",
+        filename: "site-walk.jpg",
+        sourceType: "email_attachment",
+        status: "unavailable",
+        pdfStoragePath: null,
+      }),
+      mimeType: "image/jpeg",
+      sizeBytes: 2_400_000,
+      sourceLabel: "email",
+    } as ProjectDocument;
+
+    render(
+      <FilesViewV3
+        documents={[attachment]}
+        photos={[]}
+        threadOnlyPhotos={[]}
+        projects={[]}
+        onFileOpen={onFileOpen}
+      />
+    );
+
+    const row = screen.getByTestId("files-row-email-att-missing");
+    expect(row).toHaveTextContent("UNAVAILABLE");
+    expect(row.tagName).toBe("DIV");
+    fireEvent.click(row);
+    expect(onFileOpen).not.toHaveBeenCalled();
+  });
+
   it("PHOTOS sub-view groups photos by project and renders project name headers", () => {
     const p1 = project("proj-1", "Roof replacement");
     const p2 = project("proj-2", "Boiler swap");

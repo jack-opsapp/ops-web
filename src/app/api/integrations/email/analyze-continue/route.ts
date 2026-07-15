@@ -19,7 +19,10 @@ import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
-import { EmailAIClassifier, stripQuotedContent } from "@/lib/api/services/email-ai-classifier";
+import {
+  EmailAIClassifier,
+  stripQuotedContent,
+} from "@/lib/api/services/email-ai-classifier";
 import { PLATFORM_DOMAINS } from "@/lib/api/services/known-platforms";
 import {
   sanitizeClientExtractionFacts,
@@ -27,21 +30,35 @@ import {
 } from "@/lib/email/import-extraction-sanitizer";
 import { deduplicateAnalyzedLeads } from "@/lib/email/import-lead-dedup";
 import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
+import { resolvePersistedEmailDirection } from "@/lib/email/email-ingestion-routing";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
-import type { AnalyzedLead } from "@/lib/types/email-import";
+import {
+  replaceAnalyzedLeadEmailsFromFetch,
+  type AnalyzedLead,
+} from "@/lib/types/email-import";
 import type { DeepExtractionInput } from "@/lib/api/services/email-ai-classifier";
+import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  emailPipelineAuthorizationHeaders,
+  requireEmailPipelineSecret,
+} from "@/lib/email/email-route-auth";
 import { getAppUrl } from "@/lib/utils/app-url";
 
 export const maxDuration = 800; // Pro plan max
 
 // ─── Timeout helper for thread fetches ───────────────────────────────────────
 
-async function fetchWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+async function fetchWithTimeout<T>(
+  promise: Promise<T>,
+  ms: number
+): Promise<T | null> {
   try {
     return await Promise.race([
       promise,
-      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+      new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), ms)
+      ),
     ]);
   } catch {
     return null;
@@ -54,30 +71,41 @@ function delay(ms: number): Promise<void> {
 
 // ─── Valid stages for safety checks ──────────────────────────────────────────
 
-const VALID_STAGES = ['new_lead', 'qualifying', 'quoting', 'quoted', 'follow_up', 'negotiation', 'won', 'lost'];
+const VALID_STAGES = [
+  "new_lead",
+  "qualifying",
+  "quoting",
+  "quoted",
+  "follow_up",
+  "negotiation",
+  "won",
+  "lost",
+];
 
 function sanitizeStage(stage: string | null | undefined): string {
   if (stage && VALID_STAGES.includes(stage)) return stage;
-  return 'new_lead';
+  return "new_lead";
 }
-
-// Safe lowercase helper — Gmail messages can have null/undefined fields
-const safe = (s: string | null | undefined): string => (s || "").toLowerCase();
 
 // ─── Duplicated helpers from analyze route (Phase A) ─────────────────────────
 // These are intentionally duplicated rather than shared to keep the two routes
 // independently deployable and avoid import coupling.
 
 function cleanEmailAddress(raw: string | null | undefined): string {
-  if (!raw) return '';
+  if (!raw) return "";
   const match = raw.match(/<([^>]+)>/);
   return (match ? match[1] : raw).toLowerCase().trim();
 }
 
 const PLATFORM_EMAIL_PATTERNS = [
-  'reply-to+', 'noreply', 'no-reply', 'notifications@',
-  'mailer-daemon', 'postmaster@',
-  'inbound.opsapp.co', '@opsapp.co',
+  "reply-to+",
+  "noreply",
+  "no-reply",
+  "notifications@",
+  "mailer-daemon",
+  "postmaster@",
+  "inbound.opsapp.co",
+  "@opsapp.co",
   ...Object.keys(PLATFORM_DOMAINS),
 ];
 
@@ -102,17 +130,68 @@ function capitalizeName(name: string): string {
 function splitDomainName(domainLocal: string): string {
   const lower = domainLocal.toLowerCase();
   const SUFFIXES = [
-    'construction', 'renovations', 'renovation', 'properties', 'property',
-    'developments', 'development', 'contracting', 'contractors', 'contractor',
-    'installations', 'installation', 'engineering', 'landscaping', 'restoration',
-    'restorations', 'improvements', 'improvement', 'fabrication', 'consulting',
-    'maintenance', 'enterprises', 'mechanical', 'management', 'industries',
-    'associates', 'woodworks', 'woodwork', 'solutions', 'interiors', 'exteriors',
-    'millwork', 'builders', 'building', 'services', 'plumbing', 'painting',
-    'electric', 'electrical', 'flooring', 'roofing', 'fencing', 'decking',
-    'masonry', 'welding', 'designs', 'design', 'studios', 'studio',
-    'realty', 'supply', 'homes', 'home', 'group', 'works', 'hvac',
-    'media', 'labs', 'corp', 'coop', 'pros', 'pro',
+    "construction",
+    "renovations",
+    "renovation",
+    "properties",
+    "property",
+    "developments",
+    "development",
+    "contracting",
+    "contractors",
+    "contractor",
+    "installations",
+    "installation",
+    "engineering",
+    "landscaping",
+    "restoration",
+    "restorations",
+    "improvements",
+    "improvement",
+    "fabrication",
+    "consulting",
+    "maintenance",
+    "enterprises",
+    "mechanical",
+    "management",
+    "industries",
+    "associates",
+    "woodworks",
+    "woodwork",
+    "solutions",
+    "interiors",
+    "exteriors",
+    "millwork",
+    "builders",
+    "building",
+    "services",
+    "plumbing",
+    "painting",
+    "electric",
+    "electrical",
+    "flooring",
+    "roofing",
+    "fencing",
+    "decking",
+    "masonry",
+    "welding",
+    "designs",
+    "design",
+    "studios",
+    "studio",
+    "realty",
+    "supply",
+    "homes",
+    "home",
+    "group",
+    "works",
+    "hvac",
+    "media",
+    "labs",
+    "corp",
+    "coop",
+    "pros",
+    "pro",
   ];
   for (const suffix of SUFFIXES) {
     if (lower.endsWith(suffix) && lower.length > suffix.length) {
@@ -120,7 +199,7 @@ function splitDomainName(domainLocal: string): string {
       if (prefix.length >= 2) {
         const capPrefix = prefix.charAt(0).toUpperCase() + prefix.slice(1);
         let capSuffix = suffix.charAt(0).toUpperCase() + suffix.slice(1);
-        if (suffix === 'coop') capSuffix = 'Co-op';
+        if (suffix === "coop") capSuffix = "Co-op";
         return `${capPrefix} ${capSuffix}`;
       }
     }
@@ -131,6 +210,9 @@ function splitDomainName(domainLocal: string): string {
 // ─── POST handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  const authError = requireEmailPipelineSecret(request);
+  if (authError) return authError;
+
   const { jobId, connectionId, companyId } = await request.json();
 
   if (!jobId || !connectionId || !companyId) {
@@ -142,15 +224,26 @@ export async function POST(request: NextRequest) {
 
   // Validate that the job exists and has Phase A data
   const supabase = getServiceRoleClient();
-  const { data: job } = await supabase
+  const { data: job, error: jobError } = await supabase
     .from("gmail_scan_jobs")
-    .select("id, result, status")
+    .select("id, result, status, connection_id, company_id")
     .eq("id", jobId)
     .single();
 
-  if (!job) {
+  if (jobError || !job) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
+
+  if (job.connection_id !== connectionId || job.company_id !== companyId) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
+
+  const connection = await runWithSupabase(supabase, () =>
+    EmailService.getConnection(connectionId)
+  );
+  if (!connection || connection.companyId !== companyId) {
     return NextResponse.json(
-      { error: "Job not found" },
+      { error: "Connection not found" },
       { status: 404 }
     );
   }
@@ -225,7 +318,9 @@ async function runPhaseB(
   };
 
   if (intermediate.phase !== "leads_built") {
-    throw new Error(`Unexpected phase: ${intermediate.phase} — expected 'leads_built'`);
+    throw new Error(
+      `Unexpected phase: ${intermediate.phase} — expected 'leads_built'`
+    );
   }
 
   const leads = intermediate.leads;
@@ -242,7 +337,12 @@ async function runPhaseB(
       .from("gmail_scan_jobs")
       .update({
         status: stage,
-        progress: { stage, message, percent, discoveredLeadNames: discoveredLeadNames.slice(-12) },
+        progress: {
+          stage,
+          message,
+          percent,
+          discoveredLeadNames: discoveredLeadNames.slice(-12),
+        },
       })
       .eq("id", jobId);
   };
@@ -251,11 +351,13 @@ async function runPhaseB(
   // Service-role client bound by outer after() runWithSupabase().
   const connection = await EmailService.getConnection(connectionId);
 
-  if (!connection) {
+  if (!connection || connection.companyId !== companyId) {
     throw new Error(`Connection ${connectionId} not found`);
   }
 
-  const companyDomainSet = new Set(detectionData.companyDomains.map((d: string) => d.toLowerCase()));
+  const companyDomainSet = new Set(
+    detectionData.companyDomains.map((d: string) => d.toLowerCase())
+  );
 
   const { data: companyUsers } = await supabase
     .from("users")
@@ -265,9 +367,12 @@ async function runPhaseB(
   const employeeEmailSet = new Set<string>();
   const employeeNameSet = new Set<string>();
   const employeePhones: string[] = [];
-  for (const u of (companyUsers || [])) {
+  for (const u of companyUsers || []) {
     if (u.email) employeeEmailSet.add(u.email.toLowerCase().trim());
-    const fullName = `${(u.first_name || '').trim()} ${(u.last_name || '').trim()}`.trim().toLowerCase();
+    const fullName =
+      `${(u.first_name || "").trim()} ${(u.last_name || "").trim()}`
+        .trim()
+        .toLowerCase();
     if (fullName) employeeNameSet.add(fullName);
     if (u.phone) employeePhones.push(u.phone);
   }
@@ -280,17 +385,26 @@ async function runPhaseB(
 
   const internalPhones = [
     ...employeePhones,
-    ...([(company as Record<string, unknown> | null)?.phone].filter(
-      (value): value is string => typeof value === "string" && value.trim().length > 0
-    )),
+    ...[(company as Record<string, unknown> | null)?.phone].filter(
+      (value): value is string =>
+        typeof value === "string" && value.trim().length > 0
+    ),
   ];
 
   const internalCompanyAddresses = [
     (company as Record<string, unknown> | null)?.address,
     (company as Record<string, unknown> | null)?.physical_address,
   ].filter(
-    (value): value is string => typeof value === "string" && value.trim().length > 0
+    (value): value is string =>
+      typeof value === "string" && value.trim().length > 0
   );
+
+  const persistedDirection = (email: NormalizedEmail) =>
+    resolvePersistedEmailDirection(email, {
+      connectionEmail: connection.email,
+      companyDomains: [...companyDomainSet],
+      userEmailAddresses: [...employeeEmailSet],
+    });
 
   // ─── 3. Full thread fetch for ALL confirmed leads (no cap) ─────────────────
   // Parallelized: fetch 5 threads concurrently to stay within 800s budget.
@@ -315,27 +429,43 @@ async function runPhaseB(
 
     const results = await Promise.allSettled(
       batch.map(async (lead) => {
-        const fetchedMessages = await fetchWithTimeout(
-          provider.fetchThread(lead.threadId),
+        const providerThreadId = lead.providerThreadId ?? lead.threadId;
+        const fetchedThread = await fetchWithTimeout(
+          provider.fetchThread(providerThreadId),
           10_000
         );
+        const allowedMessageIds = new Set(lead.emails.map((email) => email.id));
+        const fetchedMessages =
+          lead.providerThreadId && lead.providerThreadId !== lead.threadId
+            ? (fetchedThread?.filter((message) =>
+                allowedMessageIds.has(message.id)
+              ) ?? null)
+            : fetchedThread;
         return { lead, fetchedMessages };
       })
     );
 
     for (const result of results) {
-      if (result.status === 'fulfilled' && result.value.fetchedMessages) {
+      if (result.status === "fulfilled" && result.value.fetchedMessages) {
         const { lead, fetchedMessages } = result.value;
         fetchedThreads.set(lead.threadId, fetchedMessages);
+        replaceAnalyzedLeadEmailsFromFetch(
+          lead,
+          fetchedMessages,
+          persistedDirection
+        );
         lead.correspondenceCount = fetchedMessages.length;
         lead.outboundCount = fetchedMessages.filter(
-          (m: { from: string }) => safe(m.from).includes(ownerEmailLower)
+          (message) => persistedDirection(message) === "outbound"
         ).length;
         fetchedCount++;
       } else {
         skippedCount++;
-        if (result.status === 'rejected') {
-          console.error(`[email-analyze-continue] Thread fetch failed:`, result.reason);
+        if (result.status === "rejected") {
+          console.error(
+            `[email-analyze-continue] Thread fetch failed:`,
+            result.reason
+          );
         } else {
           console.warn(`[email-analyze-continue] Thread timed out — skipping`);
         }
@@ -349,13 +479,22 @@ async function runPhaseB(
 
     // Progress update every 2 batches
     if ((i / FETCH_CONCURRENCY) % 2 === 0) {
-      const pct = 75 + Math.round(((fetchedCount + skippedCount) / leads.length) * 7);
-      await updateProgress("analyzing_threads", `Fetched ${fetchedCount}/${leads.length} threads...`, pct);
+      const pct =
+        75 + Math.round(((fetchedCount + skippedCount) / leads.length) * 7);
+      await updateProgress(
+        "analyzing_threads",
+        `Fetched ${fetchedCount}/${leads.length} threads...`,
+        pct
+      );
     }
   }
 
-  console.log(`[email-analyze-continue] Thread fetch complete: ${fetchedCount} fetched, ${skippedCount} skipped`);
-  console.log(`[email-analyze-continue] Fetched threadIds sample: ${[...fetchedThreads.keys()].slice(0, 5).join(', ')}`);
+  console.log(
+    `[email-analyze-continue] Thread fetch complete: ${fetchedCount} fetched, ${skippedCount} skipped`
+  );
+  console.log(
+    `[email-analyze-continue] Fetched threadIds sample: ${[...fetchedThreads.keys()].slice(0, 5).join(", ")}`
+  );
 
   // ─── 3b. Build body-mention index ──────────────────────────────────────────
   // Scan all fetched message bodies for email addresses. This catches form
@@ -367,7 +506,7 @@ async function runPhaseB(
 
   for (const [threadId, messages] of fetchedThreads) {
     for (const msg of messages) {
-      const body = (msg.bodyText || msg.snippet || '') as string;
+      const body = (msg.bodyText || msg.snippet || "") as string;
       const matches = body.match(EMAIL_REGEX);
       if (!matches) continue;
       for (const rawEmail of matches) {
@@ -375,21 +514,35 @@ async function runPhaseB(
         // Skip owner, employees, company domains, and common platform/noreply addresses
         if (email === ownerEmailLower) continue;
         if (employeeEmailSet.has(email)) continue;
-        const domain = email.split('@')[1] || '';
+        const domain = email.split("@")[1] || "";
         if (companyDomainSet.has(domain)) continue;
-        if (email.startsWith('noreply') || email.startsWith('no-reply') || email.startsWith('donotreply')) continue;
+        if (
+          email.startsWith("noreply") ||
+          email.startsWith("no-reply") ||
+          email.startsWith("donotreply")
+        )
+          continue;
 
-        if (!bodyMentionIndex.has(email)) bodyMentionIndex.set(email, new Set());
+        if (!bodyMentionIndex.has(email))
+          bodyMentionIndex.set(email, new Set());
         bodyMentionIndex.get(email)!.add(threadId);
       }
     }
   }
 
-  const mentionLinks = [...bodyMentionIndex.entries()].filter(([, tids]) => tids.size > 0).length;
-  console.log(`[email-analyze-continue] Body mention index: ${mentionLinks} unique emails found across thread bodies`);
+  const mentionLinks = [...bodyMentionIndex.entries()].filter(
+    ([, tids]) => tids.size > 0
+  ).length;
+  console.log(
+    `[email-analyze-continue] Body mention index: ${mentionLinks} unique emails found across thread bodies`
+  );
 
   // ─── 4. Deep AI extraction ─────────────────────────────────────────────────
-  await updateProgress("analyzing_threads", "Extracting lead details with AI...", 82);
+  await updateProgress(
+    "analyzing_threads",
+    "Extracting lead details with AI...",
+    82
+  );
 
   // ── Build clientEmail → threadId[] map so AI sees ALL threads per client ──
   // Includes both direct threads (client.email matches) AND mention threads
@@ -417,13 +570,18 @@ async function runPhaseB(
 
   // Build deep extraction inputs — bundle ALL threads per client so AI has complete picture
   const extractionInputs: DeepExtractionInput[] = [];
-  const extractionMessagesByThreadId = new Map<string, DeepExtractionInput["messages"]>();
+  const extractionMessagesByThreadId = new Map<
+    string,
+    DeepExtractionInput["messages"]
+  >();
   const extractionThreadIds: string[] = [];
   let skippedNoMessages = 0;
 
   for (const lead of leads) {
     const normEmail = cleanEmailAddress(lead.client.email);
-    const siblingThreadIds = clientThreadMapForAI.get(normEmail) || [lead.threadId];
+    const siblingThreadIds = clientThreadMapForAI.get(normEmail) || [
+      lead.threadId,
+    ];
 
     // Collect messages from ALL sibling threads for this client
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -438,33 +596,46 @@ async function runPhaseB(
     }
 
     // Sort by date descending, take last 8 (bumped from 6 to accommodate cross-thread), reverse to chronological
-    const sorted = [...allMessages].sort((a: { date: Date }, b: { date: Date }) =>
-      b.date.getTime() - a.date.getTime()
+    const sorted = [...allMessages].sort(
+      (a: { date: Date }, b: { date: Date }) =>
+        b.date.getTime() - a.date.getTime()
     );
     const lastEight = sorted.slice(0, 8).reverse();
 
-    const extractionMessages: DeepExtractionInput["messages"] = lastEight.map((m: { from: string; fromName: string; to: string[]; date: Date; bodyText: string; snippet: string }) => ({
-      from: m.from,
-      fromName: m.fromName || '',
-      to: m.to,
-      date: m.date.toISOString(),
-      direction: (safe(m.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-      body: stripQuotedContent(
-        m.bodyText || m.snippet || '',
-        lead.emails[0]?.subject || ''
-      ),
-    }));
+    const extractionMessages: DeepExtractionInput["messages"] = lastEight.map(
+      (m: {
+        from: string;
+        fromName: string;
+        to: string[];
+        date: Date;
+        bodyText: string;
+        snippet: string;
+      }) => ({
+        from: m.from,
+        fromName: m.fromName || "",
+        to: m.to,
+        date: m.date.toISOString(),
+        direction: persistedDirection(m as NormalizedEmail),
+        body: stripQuotedContent(
+          m.bodyText || m.snippet || "",
+          lead.emails[0]?.subject || ""
+        ),
+      })
+    );
 
     extractionInputs.push({
       threadId: lead.threadId,
-      subject: lead.emails[0]?.subject || '',
-      participants: [...new Set(
-        allMessages.flatMap((m: { from: string; to: string[] }) => [m.from, ...m.to])
-          .map((a: string) => a.toLowerCase())
-      )],
+      subject: lead.emails[0]?.subject || "",
+      participants: [
+        ...new Set(
+          allMessages
+            .flatMap((m: { from: string; to: string[] }) => [m.from, ...m.to])
+            .map((a: string) => a.toLowerCase())
+        ),
+      ],
       messageCount: allMessages.length,
       outboundCount: allMessages.filter(
-        (m: { from: string }) => safe(m.from).includes(ownerEmailLower)
+        (message: NormalizedEmail) => persistedDirection(message) === "outbound"
       ).length,
       messages: extractionMessages,
     });
@@ -475,19 +646,22 @@ async function runPhaseB(
   // Build parallel employee name/email arrays for the AI context
   const employeeNames: string[] = [];
   const employeeEmails: string[] = [];
-  for (const u of (companyUsers || [])) {
+  for (const u of companyUsers || []) {
     if (u.email) {
       employeeEmails.push(u.email.toLowerCase().trim());
-      employeeNames.push(`${(u.first_name || '').trim()} ${(u.last_name || '').trim()}`.trim());
+      employeeNames.push(
+        `${(u.first_name || "").trim()} ${(u.last_name || "").trim()}`.trim()
+      );
     }
   }
 
   const extractions = await EmailAIClassifier.deepExtractLeads(
     extractionInputs,
     {
-      companyName: company?.name || '',
-      industry: (company?.industry as string) || 'trades',
-      industries: (company as Record<string, unknown>)?.industries as string[] || [],
+      companyName: company?.name || "",
+      industry: (company?.industry as string) || "trades",
+      industries:
+        ((company as Record<string, unknown>)?.industries as string[]) || [],
       ownerEmail: ownerEmailLower,
       companyDomains: [...companyDomainSet],
       employeeNames,
@@ -497,35 +671,56 @@ async function runPhaseB(
     },
     async (processed, total) => {
       const pct = 82 + Math.round((processed / total) * 8);
-      await updateProgress("analyzing_threads", `Deep extraction: ${processed}/${total} threads...`, pct);
+      await updateProgress(
+        "analyzing_threads",
+        `Deep extraction: ${processed}/${total} threads...`,
+        pct
+      );
     }
   );
 
-  console.log(`[email-analyze-continue] Extraction inputs: ${extractionInputs.length} threads (${skippedNoMessages} skipped — no fetched messages)`);
-  console.log(`[email-analyze-continue] Extraction results: ${extractions.length} total`);
+  console.log(
+    `[email-analyze-continue] Extraction inputs: ${extractionInputs.length} threads (${skippedNoMessages} skipped — no fetched messages)`
+  );
+  console.log(
+    `[email-analyze-continue] Extraction results: ${extractions.length} total`
+  );
 
   // Log extraction threadId mapping quality
   const extractionsWithTid = extractions.filter((e) => e.threadId);
   const extractionsWithoutTid = extractions.filter((e) => !e.threadId);
-  console.log(`[email-analyze-continue] Extraction tid mapping: ${extractionsWithTid.length} with tid, ${extractionsWithoutTid.length} missing tid`);
+  console.log(
+    `[email-analyze-continue] Extraction tid mapping: ${extractionsWithTid.length} with tid, ${extractionsWithoutTid.length} missing tid`
+  );
 
   // ─── 5. Apply extraction results to leads ──────────────────────────────────
-  const extractionMap = new Map(extractions.filter((e) => e.threadId).map((e) => [e.threadId, e]));
+  const extractionMap = new Map(
+    extractions.filter((e) => e.threadId).map((e) => [e.threadId, e])
+  );
 
   // Debug: track extraction application stats
-  const extractionStats = { applied: 0, skippedNoExtraction: 0, nameOverridden: 0, stageOverridden: 0, companyApplied: 0, flaggedNotLead: 0 };
+  const extractionStats = {
+    applied: 0,
+    skippedNoExtraction: 0,
+    nameOverridden: 0,
+    stageOverridden: 0,
+    companyApplied: 0,
+    flaggedNotLead: 0,
+  };
 
   for (const lead of leads) {
     const extraction = extractionMap.get(lead.threadId);
     if (!extraction) {
       extractionStats.skippedNoExtraction++;
-      if (!sanitizeExtractedClientName(lead.client.name, lead.client.email, {
-        internalNames: employeeNames,
-        internalEmails: employeeEmails,
-      })) {
+      if (
+        !sanitizeExtractedClientName(lead.client.name, lead.client.email, {
+          internalNames: employeeNames,
+          internalEmails: employeeEmails,
+        })
+      ) {
         lead.client.name = lead.client.email;
         lead.needsReview = true;
-        lead.reviewReason = 'ambiguous';
+        lead.reviewReason = "ambiguous";
         lead.enabled = false;
       }
       continue;
@@ -554,12 +749,14 @@ async function runPhaseB(
       const oldName = lead.client.name;
       lead.client.name = capitalizeName(sanitizedClient.name);
       if (oldName !== lead.client.name) extractionStats.nameOverridden++;
-    } else if (!sanitizeExtractedClientName(lead.client.name, lead.client.email)) {
+    } else if (
+      !sanitizeExtractedClientName(lead.client.name, lead.client.email)
+    ) {
       // Keep the lead reviewable without presenting an email-local-part guess
       // as a real customer name.
       lead.client.name = lead.client.email;
       lead.needsReview = true;
-      lead.reviewReason = 'ambiguous';
+      lead.reviewReason = "ambiguous";
       lead.enabled = false;
     }
     if (extraction.client.email) {
@@ -592,10 +789,12 @@ async function runPhaseB(
       lead.subContacts = extraction.subContacts
         .filter((sc) => {
           const scEmail = sc.email?.toLowerCase().trim();
-          return scEmail
-            && scEmail !== ownerEmailLower
-            && !employeeEmailSet.has(scEmail)
-            && !isPlatformEmail(scEmail);
+          return (
+            scEmail &&
+            scEmail !== ownerEmailLower &&
+            !employeeEmailSet.has(scEmail) &&
+            !isPlatformEmail(scEmail)
+          );
         })
         .map((sc) => ({
           name: capitalizeName(sc.name),
@@ -609,7 +808,10 @@ async function runPhaseB(
       extractionStats.companyApplied++;
       const currentName = lead.client.name;
       const aiCompanyName = capitalizeName(extraction.companyName);
-      if (aiCompanyName && aiCompanyName.toLowerCase() !== currentName.toLowerCase()) {
+      if (
+        aiCompanyName &&
+        aiCompanyName.toLowerCase() !== currentName.toLowerCase()
+      ) {
         // Move individual to subContacts, company becomes client name
         const clientEmail = lead.client.email.toLowerCase();
         if (!lead.subContacts.some((sc) => sc.email === clientEmail)) {
@@ -624,21 +826,38 @@ async function runPhaseB(
     } else {
       // Fallback: domain-based company-as-client for business email domains
       const clientEmailLower = lead.client.email.toLowerCase();
-      const clientDomain = clientEmailLower.split('@')[1] || '';
+      const clientDomain = clientEmailLower.split("@")[1] || "";
       if (
-        clientDomain
-        && !PUBLIC_EMAIL_DOMAINS.has(clientDomain)
-        && !companyDomainSet.has(clientDomain)
+        clientDomain &&
+        !PUBLIC_EMAIL_DOMAINS.has(clientDomain) &&
+        !companyDomainSet.has(clientDomain)
       ) {
         const PERSONAL_DOMAIN_PATTERNS = [
-          '.edu', '.ac.', '.gov', '.mil', '.org',
-          'university', 'college', 'school', 'uvic.', 'ubc.', 'sfu.',
-          'bcit.', 'camosun.', 'viu.', 'unbc.',
+          ".edu",
+          ".ac.",
+          ".gov",
+          ".mil",
+          ".org",
+          "university",
+          "college",
+          "school",
+          "uvic.",
+          "ubc.",
+          "sfu.",
+          "bcit.",
+          "camosun.",
+          "viu.",
+          "unbc.",
         ];
-        const isPersonalInstitution = PERSONAL_DOMAIN_PATTERNS.some((p) => clientDomain.includes(p));
+        const isPersonalInstitution = PERSONAL_DOMAIN_PATTERNS.some((p) =>
+          clientDomain.includes(p)
+        );
         if (!isPersonalInstitution) {
-          const companyFromDomain = splitDomainName(clientDomain.split('.')[0]);
-          if (lead.client.name && companyFromDomain.toLowerCase() !== lead.client.name.toLowerCase()) {
+          const companyFromDomain = splitDomainName(clientDomain.split(".")[0]);
+          if (
+            lead.client.name &&
+            companyFromDomain.toLowerCase() !== lead.client.name.toLowerCase()
+          ) {
             if (!lead.subContacts.some((sc) => sc.email === clientEmailLower)) {
               lead.subContacts.unshift({
                 name: lead.client.name,
@@ -653,10 +872,12 @@ async function runPhaseB(
     }
 
     const deterministicTerminal = detectTerminalStageFromMessages(
-      (extractionMessagesByThreadId.get(lead.threadId) ?? []).map((message) => ({
-        direction: message.direction,
-        body: message.body,
-      }))
+      (extractionMessagesByThreadId.get(lead.threadId) ?? []).map(
+        (message) => ({
+          direction: message.direction,
+          body: message.body,
+        })
+      )
     );
 
     // Apply terminal state from AI — either via flag or direct won/lost stage
@@ -664,19 +885,26 @@ async function runPhaseB(
     // replies the model missed.
     if (extraction.terminalFlag) {
       lead.terminalFlag = extraction.terminalFlag;
-      lead.stage = extraction.terminalFlag === 'likely_won' ? 'won' : 'lost';
+      lead.stage = extraction.terminalFlag === "likely_won" ? "won" : "lost";
       lead.enabled = true; // Terminal leads stay enabled — user triages in step 4
-      console.log(`[deep-extract] TERMINAL (flag): ${lead.client.name} (${lead.client.email}) — ${extraction.terminalFlag}`);
-    } else if (extraction.stage === 'won' || extraction.stage === 'lost') {
-      lead.terminalFlag = extraction.stage === 'won' ? 'likely_won' : 'likely_lost';
+      console.log(
+        `[deep-extract] TERMINAL (flag): ${lead.client.name} (${lead.client.email}) — ${extraction.terminalFlag}`
+      );
+    } else if (extraction.stage === "won" || extraction.stage === "lost") {
+      lead.terminalFlag =
+        extraction.stage === "won" ? "likely_won" : "likely_lost";
       lead.stage = extraction.stage;
       lead.enabled = true; // Terminal leads stay enabled — user triages in step 4
-      console.log(`[deep-extract] TERMINAL (stage): ${lead.client.name} (${lead.client.email}) — ${extraction.stage}`);
+      console.log(
+        `[deep-extract] TERMINAL (stage): ${lead.client.name} (${lead.client.email}) — ${extraction.stage}`
+      );
     } else if (deterministicTerminal) {
       lead.terminalFlag = deterministicTerminal.terminalFlag;
       lead.stage = deterministicTerminal.stage;
       lead.enabled = true;
-      console.log(`[deep-extract] TERMINAL (deterministic): ${lead.client.name} (${lead.client.email}) — ${deterministicTerminal.terminalFlag}`);
+      console.log(
+        `[deep-extract] TERMINAL (deterministic): ${lead.client.name} (${lead.client.email}) — ${deterministicTerminal.terminalFlag}`
+      );
     }
 
     // Apply review flags
@@ -684,18 +912,24 @@ async function runPhaseB(
       lead.needsReview = true;
       lead.reviewReason = extraction.reviewReason;
       lead.enabled = false; // Default disabled — user must explicitly enable review items
-      console.log(`[deep-extract] REVIEW: ${lead.client.name} (${lead.client.email}) — ${extraction.reviewReason}`);
+      console.log(
+        `[deep-extract] REVIEW: ${lead.client.name} (${lead.client.email}) — ${extraction.reviewReason}`
+      );
     }
 
     // Mark non-leads flagged by deep extraction
     if (!extraction.isLead) {
       (lead as unknown as Record<string, unknown>)._aiRejected = true;
       extractionStats.flaggedNotLead++;
-      console.log(`[deep-extract] Flagged not-lead: ${lead.client.name} (${lead.client.email}) — ${extraction.reason || 'no reason'}`);
+      console.log(
+        `[deep-extract] Flagged not-lead: ${lead.client.name} (${lead.client.email}) — ${extraction.reason || "no reason"}`
+      );
     }
   }
 
-  console.log(`[email-analyze-continue] Extraction stats: ${JSON.stringify(extractionStats)}`);
+  console.log(
+    `[email-analyze-continue] Extraction stats: ${JSON.stringify(extractionStats)}`
+  );
 
   // ── Build clientEmail → threadId[] map so we can bundle ALL threads per client ──
   // Includes body-mention threads (e.g. form submissions mentioning the client email)
@@ -735,30 +969,48 @@ async function runPhaseB(
     }
     if (allMessages.length === 0) continue;
 
-    const sorted = [...allMessages].sort((a: { date: Date }, b: { date: Date }) =>
-      b.date.getTime() - a.date.getTime()
+    const sorted = [...allMessages].sort(
+      (a: { date: Date }, b: { date: Date }) =>
+        b.date.getTime() - a.date.getTime()
     );
     // Take the 4 most recent client messages and 4 most recent owner messages
     // across ALL threads — gives a balanced view of both sides
     const clientMsgs = sorted
-      .filter((e: { from: string }) => !safe(e.from).includes(ownerEmailLower))
+      .filter(
+        (email: NormalizedEmail) => persistedDirection(email) === "inbound"
+      )
       .slice(0, 4);
     const ownerMsgs = sorted
-      .filter((e: { from: string }) => safe(e.from).includes(ownerEmailLower))
+      .filter(
+        (email: NormalizedEmail) => persistedDirection(email) === "outbound"
+      )
       .slice(0, 4);
 
     lead.emailExcerpts = [...clientMsgs, ...ownerMsgs]
-      .sort((a: { date: Date }, b: { date: Date }) => a.date.getTime() - b.date.getTime())
-      .map((e: { from: string; fromName: string; date: Date; bodyText: string; snippet: string }) => ({
-        from: e.from,
-        fromName: e.fromName || '',
-        direction: (safe(e.from).includes(ownerEmailLower) ? 'outbound' : 'inbound') as 'inbound' | 'outbound',
-        date: e.date.toISOString(),
-        body: (e.bodyText || e.snippet || '').slice(0, 4000),
-      }));
+      .sort(
+        (a: { date: Date }, b: { date: Date }) =>
+          a.date.getTime() - b.date.getTime()
+      )
+      .map(
+        (e: {
+          from: string;
+          fromName: string;
+          date: Date;
+          bodyText: string;
+          snippet: string;
+        }) => ({
+          from: e.from,
+          fromName: e.fromName || "",
+          direction: persistedDirection(e as NormalizedEmail),
+          date: e.date.toISOString(),
+          body: (e.bodyText || e.snippet || "").slice(0, 4000),
+        })
+      );
   }
 
-  console.log(`[email-analyze-continue] Cross-thread excerpt stats: ${[...clientThreadMap.entries()].filter(([, ids]) => ids.length > 1).length} clients with multi-thread correspondence`);
+  console.log(
+    `[email-analyze-continue] Cross-thread excerpt stats: ${[...clientThreadMap.entries()].filter(([, ids]) => ids.length > 1).length} clients with multi-thread correspondence`
+  );
 
   // Update discovered lead names
   for (const lead of leads) {
@@ -773,12 +1025,15 @@ async function runPhaseB(
     const msgs = lead.correspondenceCount;
     const out = lead.outboundCount;
 
-    if (msgs >= 20 && (lead.stage === 'new_lead' || lead.stage === 'qualifying')) {
-      lead.stage = 'quoted';
-    } else if (msgs >= 10 && lead.stage === 'new_lead') {
-      lead.stage = 'quoting';
-    } else if (msgs >= 4 && out >= 1 && lead.stage === 'new_lead') {
-      lead.stage = 'qualifying';
+    if (
+      msgs >= 20 &&
+      (lead.stage === "new_lead" || lead.stage === "qualifying")
+    ) {
+      lead.stage = "quoted";
+    } else if (msgs >= 10 && lead.stage === "new_lead") {
+      lead.stage = "quoting";
+    } else if (msgs >= 4 && out >= 1 && lead.stage === "new_lead") {
+      lead.stage = "qualifying";
     }
   }
 
@@ -788,13 +1043,17 @@ async function runPhaseB(
   const filteredLeads = leads.filter((lead) => {
     // Remove AI-flagged non-leads from deep extraction
     if ((lead as unknown as Record<string, unknown>)._aiRejected) {
-      console.log(`[filter] REMOVED (AI flagged not-lead): ${lead.client.name} (${lead.client.email})`);
+      console.log(
+        `[filter] REMOVED (AI flagged not-lead): ${lead.client.name} (${lead.client.email})`
+      );
       return false;
     }
 
     const email = cleanEmailAddress(lead.client.email);
     if (!email || !lead.client.name) {
-      console.log(`[filter] REMOVED (null): name=${lead.client.name}, email=${lead.client.email}`);
+      console.log(
+        `[filter] REMOVED (null): name=${lead.client.name}, email=${lead.client.email}`
+      );
       return false;
     }
     if (email === ownerEmailLower) {
@@ -805,7 +1064,7 @@ async function runPhaseB(
       console.log(`[filter] REMOVED (employee): ${email}`);
       return false;
     }
-    const domain = email.split('@')[1] || '';
+    const domain = email.split("@")[1] || "";
     if (domain && companyDomainSet.has(domain)) {
       console.log(`[filter] REMOVED (company domain ${domain}): ${email}`);
       return false;
@@ -822,21 +1081,30 @@ async function runPhaseB(
     delete (lead as unknown as Record<string, unknown>)._aiRejected;
   }
 
-  console.log(`[email-analyze-continue] Leads after hard-filter: ${filteredLeads.length} (${leads.length - filteredLeads.length} removed)`);
+  console.log(
+    `[email-analyze-continue] Leads after hard-filter: ${filteredLeads.length} (${leads.length - filteredLeads.length} removed)`
+  );
 
   await updateProgress("analyzing_threads", "Deduplicating leads...", 95);
 
   // ─── 8. Deduplicate leads by email plus strong phone/address identity ──────
   const deduplicatedLeads = deduplicateAnalyzedLeads(filteredLeads);
 
-  console.log(`[email-analyze-continue] Leads after dedup: ${deduplicatedLeads.length} (${filteredLeads.length} before dedup)`);
+  console.log(
+    `[email-analyze-continue] Leads after dedup: ${deduplicatedLeads.length} (${filteredLeads.length} before dedup)`
+  );
 
   // ─── 9. Save final results ─────────────────────────────────────────────────
   await supabase
     .from("gmail_scan_jobs")
     .update({
       status: "complete",
-      progress: { stage: "complete", message: "Analysis complete!", percent: 100, discoveredLeadNames: discoveredLeadNames.slice(-12) },
+      progress: {
+        stage: "complete",
+        message: "Analysis complete!",
+        percent: 100,
+        discoveredLeadNames: discoveredLeadNames.slice(-12),
+      },
       result: {
         estimatePattern: detectionData.estimatePattern,
         estimatePatternConfidence: detectionData.estimatePatternConfidence,
@@ -869,11 +1137,22 @@ async function runPhaseB(
           // All not-lead rejections with reasons
           notLeadReasons: extractions
             .filter((e) => !e.isLead)
-            .map((e) => ({ tid: e.threadId, name: e.client.name, email: e.client.email, reason: e.reason })),
+            .map((e) => ({
+              tid: e.threadId,
+              name: e.client.name,
+              email: e.client.email,
+              reason: e.reason,
+            })),
           // All review-flagged items
           reviewItems: extractions
             .filter((e) => e.needsReview)
-            .map((e) => ({ tid: e.threadId, name: e.client.name, email: e.client.email, reviewReason: e.reviewReason, desc: e.client.description })),
+            .map((e) => ({
+              tid: e.threadId,
+              name: e.client.name,
+              email: e.client.email,
+              reviewReason: e.reviewReason,
+              desc: e.client.description,
+            })),
         },
       },
     })
@@ -886,7 +1165,8 @@ async function runPhaseB(
     .eq("id", connectionId)
     .single();
 
-  const existingFilters = (currentConn?.sync_filters as Record<string, unknown>) || {};
+  const existingFilters =
+    (currentConn?.sync_filters as Record<string, unknown>) || {};
 
   await supabase
     .from("email_connections")
@@ -902,29 +1182,38 @@ async function runPhaseB(
 
   // ─── 10b. Create notification for background completion ─────────────────
   if (currentConn?.user_id) {
-    await supabase.from("notifications").insert({
-      user_id: currentConn.user_id,
-      company_id: currentConn.company_id || companyId,
-      type: "pipeline_complete",
-      title: "Pipeline analysis complete",
-      body: `Found ${deduplicatedLeads.length} lead${deduplicatedLeads.length !== 1 ? "s" : ""} from ${detectionData.totalEmailsScanned} emails`,
-      is_read: false,
-      persistent: true,
-      action_url: "/settings?tab=integrations",
-      action_label: "Review Results",
-    }).then(({ error: notifErr }) => {
-      if (notifErr) console.error("[email-analyze-continue] Failed to create notification:", notifErr.message);
-    });
+    await supabase
+      .from("notifications")
+      .insert({
+        user_id: currentConn.user_id,
+        company_id: currentConn.company_id || companyId,
+        type: "pipeline_complete",
+        title: "Pipeline analysis complete",
+        body: `Found ${deduplicatedLeads.length} lead${deduplicatedLeads.length !== 1 ? "s" : ""} from ${detectionData.totalEmailsScanned} emails`,
+        is_read: false,
+        persistent: true,
+        action_url: "/settings?tab=integrations",
+        action_label: "Review Results",
+      })
+      .then(({ error: notifErr }) => {
+        if (notifErr)
+          console.error(
+            "[email-analyze-continue] Failed to create notification:",
+            notifErr.message
+          );
+      });
   }
 
-  console.log(`[email-analyze-continue] Phase B complete. ${deduplicatedLeads.length} leads saved.`);
+  console.log(
+    `[email-analyze-continue] Phase B complete. ${deduplicatedLeads.length} leads saved.`
+  );
 
   // ─── 11. Chain to Phase C — background data indexing ──────────────────────
   // Phase C checks its own feature gate — always chain regardless
   const baseUrl = getAppUrl();
   fetch(`${baseUrl}/api/integrations/email/analyze-memory`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: emailPipelineAuthorizationHeaders(),
     body: JSON.stringify({ jobId, connectionId, companyId }),
   }).catch(() => {}); // Fire and forget — Phase C failure doesn't affect import
 

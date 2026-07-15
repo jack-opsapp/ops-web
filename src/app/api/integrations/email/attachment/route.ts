@@ -1,100 +1,170 @@
 /**
- * GET /api/integrations/email/attachment?companyId=...&messageId=...&attachmentId=...
+ * GET /api/integrations/email/attachment?id=<email_attachments.id>
  *
- * Proxies Gmail/M365 attachment downloads. Returns the raw binary with correct
- * Content-Type so it can be used as an <img src="..."> directly.
+ * Streams one canonical email attachment from private OPS storage. Provider
+ * message, mailbox, tenant, MIME, and filename values are never accepted from
+ * the caller; the canonical database row is the sole authority.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
+import {
+  canRenderAttachmentInline,
+  safeAttachmentFilename,
+} from "@/lib/api/services/email-attachments/attachment-policy";
+import { canAccessEmailMailbox } from "@/lib/email/server-mailbox-access";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { EmailService } from "@/lib/api/services/email-service";
-import type { EmailConnection } from "@/lib/types/email-connection";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
-function mapFromDb(row: Record<string, unknown>): EmailConnection {
-  return {
-    id: row.id as string,
-    companyId: row.company_id as string,
-    provider: row.provider as EmailConnection["provider"],
-    type: row.type as EmailConnection["type"],
-    userId: (row.user_id as string) ?? null,
-    email: row.email as string,
-    accessToken: row.access_token as string,
-    refreshToken: row.refresh_token as string,
-    expiresAt: new Date(row.expires_at as string),
-    historyId: (row.history_id as string) ?? null,
-    syncEnabled: (row.sync_enabled as boolean) ?? true,
-    lastSyncedAt: row.last_synced_at ? new Date(row.last_synced_at as string) : null,
-    syncIntervalMinutes: (row.sync_interval_minutes as number) ?? 60,
-    syncFilters: (row.sync_filters as EmailConnection["syncFilters"]) ?? {},
-    webhookSubscriptionId: (row.webhook_subscription_id as string) ?? null,
-    webhookExpiresAt: row.webhook_expires_at ? new Date(row.webhook_expires_at as string) : null,
-    opsLabelId: (row.ops_label_id as string) ?? null,
-    aiReviewEnabled: (row.ai_review_enabled as boolean) ?? false,
-    aiMemoryEnabled: (row.ai_memory_enabled as boolean) ?? false,
-    status: (row.status as EmailConnection["status"]) ?? "active",
-    createdAt: new Date(row.created_at as string),
-    updatedAt: new Date(row.updated_at as string),
-  };
+const ATTACHMENT_BUCKET = "email-attachments";
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface StoredAttachmentRow {
+  id: string;
+  company_id: string;
+  connection_id: string;
+  opportunity_id: string | null;
+  filename: string | null;
+  mime_type: string | null;
+  detected_mime_type: string | null;
+  storage_backend: string | null;
+  storage_path: string | null;
+  ingest_status: string;
+  attribution_status: string;
+}
+
+function unavailable(): NextResponse {
+  return NextResponse.json({ error: "Attachment not found" }, { status: 404 });
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    const authUser = await verifyAdminAuth(request);
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const authUser = await verifyAdminAuth(request);
+  if (!authUser) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-    const { searchParams } = new URL(request.url);
-    const companyId = searchParams.get("companyId");
-    const messageId = searchParams.get("messageId");
-    const attachmentId = searchParams.get("attachmentId");
-    const mimeType = searchParams.get("mimeType") || "image/jpeg";
-
-    if (!companyId || !messageId || !attachmentId) {
-      return NextResponse.json(
-        { error: "companyId, messageId, and attachmentId are required" },
-        { status: 400 }
-      );
-    }
-
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-    if (!user || (user.company_id as string) !== companyId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const supabase = getServiceRoleClient();
-    const { data: connRows } = await supabase
-      .from("email_connections")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("status", "active")
-      .eq("sync_enabled", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (!connRows || connRows.length === 0) {
-      return NextResponse.json({ error: "No email connection" }, { status: 404 });
-    }
-
-    const connection = mapFromDb(connRows[0]);
-    const provider = EmailService.getProvider(connection);
-
-    const buffer = await provider.fetchAttachment(messageId, attachmentId);
-
-    return new NextResponse(new Uint8Array(buffer), {
-      status: 200,
-      headers: {
-        "Content-Type": mimeType,
-        "Cache-Control": "private, max-age=86400", // Cache 24h
-      },
-    });
-  } catch (err) {
-    console.error("Attachment fetch error:", err);
+  const attachmentId =
+    new URL(request.url).searchParams.get("id")?.trim() ?? "";
+  if (!UUID_RE.test(attachmentId)) {
     return NextResponse.json(
-      { error: `Failed to fetch attachment: ${(err as Error).message}` },
+      { error: "A canonical attachment id is required" },
+      { status: 400 }
+    );
+  }
+
+  const user = await findUserByAuth(
+    authUser.uid,
+    authUser.email,
+    "id, company_id"
+  );
+  if (!user?.id || !user.company_id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const [canViewInbox, canViewCompany, canViewPipeline] = await Promise.all([
+    checkPermissionById(user.id as string, "inbox.view"),
+    checkPermissionById(user.id as string, "inbox.view_company"),
+    checkPermissionById(user.id as string, "pipeline.view"),
+  ]);
+  if (!canViewInbox && !canViewPipeline) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const supabase = getServiceRoleClient();
+  const { data, error } = await supabase
+    .from("email_attachments")
+    .select(
+      "id, company_id, connection_id, opportunity_id, filename, mime_type, detected_mime_type, storage_backend, storage_path, ingest_status, attribution_status"
+    )
+    .eq("id", attachmentId)
+    .eq("company_id", user.company_id as string)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[email-attachment] canonical lookup failed", {
+      attachmentId,
+      error: error.message,
+    });
+    return NextResponse.json(
+      { error: "Failed to load attachment" },
       { status: 500 }
     );
   }
+
+  const attachment = data as StoredAttachmentRow | null;
+  if (
+    !attachment ||
+    attachment.ingest_status !== "stored" ||
+    attachment.storage_backend !== "supabase" ||
+    !attachment.storage_path
+  ) {
+    return unavailable();
+  }
+
+  const canViewAttributedLeadFile =
+    canViewPipeline &&
+    attachment.attribution_status === "attributed" &&
+    Boolean(attachment.opportunity_id);
+  if (!canViewAttributedLeadFile) {
+    if (!canViewInbox) {
+      return unavailable();
+    }
+
+    try {
+      const canAccessMailbox = await canAccessEmailMailbox({
+        supabase,
+        companyId: user.company_id as string,
+        userId: user.id as string,
+        connectionId: attachment.connection_id,
+        canViewCompany,
+      });
+      if (!canAccessMailbox) {
+        return unavailable();
+      }
+    } catch (mailboxError) {
+      console.error("[email-attachment] mailbox authorization failed", {
+        attachmentId,
+        error: (mailboxError as Error).message,
+      });
+      return NextResponse.json(
+        { error: "Failed to load attachment" },
+        { status: 500 }
+      );
+    }
+  }
+
+  const { data: storedFile, error: downloadError } = await supabase.storage
+    .from(ATTACHMENT_BUCKET)
+    .download(attachment.storage_path);
+  if (downloadError || !storedFile) {
+    console.error("[email-attachment] private storage download failed", {
+      attachmentId,
+      error: downloadError?.message ?? "empty storage response",
+    });
+    return unavailable();
+  }
+
+  const mimeType =
+    attachment.detected_mime_type?.trim().toLowerCase() ||
+    attachment.mime_type?.trim().toLowerCase() ||
+    "application/octet-stream";
+  const filename = safeAttachmentFilename(attachment.filename);
+  const disposition = canRenderAttachmentInline(mimeType)
+    ? "inline"
+    : "attachment";
+
+  return new NextResponse(storedFile, {
+    status: 200,
+    headers: {
+      "Content-Type": mimeType,
+      "Content-Length": String(storedFile.size),
+      "Content-Disposition": `${disposition}; filename="${filename}"`,
+      "Cache-Control": "private, max-age=3600",
+      "Content-Security-Policy": "sandbox; default-src 'none'",
+      "Cross-Origin-Resource-Policy": "same-origin",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }

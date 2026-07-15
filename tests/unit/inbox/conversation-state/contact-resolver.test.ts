@@ -50,7 +50,9 @@ describe("resolveContact — name verification", () => {
     expect(result.name).toBe("Jane Doe");
     expect(result.nameIsVerified).toBe(true);
     expect(
-      result.provenance.some((p) => p.field === "name" && p.source === "from_header")
+      result.provenance.some(
+        (p) => p.field === "name" && p.source === "from_header"
+      )
     ).toBe(true);
   });
 
@@ -58,12 +60,17 @@ describe("resolveContact — name verification", () => {
     const result = resolveContact({
       messages: [customerInbound({ fromName: null })],
       operator: operator(),
-      contactFormSubmitter: { name: "Bob Vance", email: "bob@vancerefrigeration.com" },
+      contactFormSubmitter: {
+        name: "Bob Vance",
+        email: "bob@vancerefrigeration.com",
+      },
     });
     expect(result.name).toBe("Bob Vance");
     expect(result.nameIsVerified).toBe(true);
     expect(
-      result.provenance.some((p) => p.field === "name" && p.source === "contact_form")
+      result.provenance.some(
+        (p) => p.field === "name" && p.source === "contact_form"
+      )
     ).toBe(true);
   });
 
@@ -87,6 +94,21 @@ describe("resolveContact — name verification", () => {
     }
   });
 
+  it("rejects a provider-synthesized fromName that is just the email local-part", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "chezbear02@gmail.com",
+          fromName: "chezbear02",
+          providerMessageId: "msg-synthetic-name",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.nameIsVerified).toBe(false);
+  });
+
   it("rejects a generic fromName as a verified name", () => {
     const result = resolveContact({
       messages: [customerInbound({ fromName: "New Lead" })],
@@ -99,6 +121,20 @@ describe("resolveContact — name verification", () => {
 // ── (1) operator-exclusion on email ─────────────────────────────────────────
 
 describe("resolveContact — operator exclusion (email)", () => {
+  it("repairs the exact gmail.con typo before returning a customer email", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "sarah.lee@gmail.con",
+          fromName: "Sarah Lee",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.email).toBe("sarah.lee@gmail.com");
+  });
+
   it("never returns an operator email as the customer email", () => {
     const result = resolveContact({
       messages: [
@@ -120,9 +156,7 @@ describe("resolveContact — operator exclusion (email)", () => {
       operator: operator(),
     });
     expect(result.email).toBe("jane.doe@hotmail.com");
-    expect(
-      result.provenance.some((p) => p.field === "email")
-    ).toBe(true);
+    expect(result.provenance.some((p) => p.field === "email")).toBe(true);
   });
 });
 
@@ -200,7 +234,9 @@ describe("resolveContact — phone resolution", () => {
     });
     expect((result.phone ?? "").replace(/\D/g, "")).toBe("7785551234");
     expect(
-      result.provenance.some((p) => p.field === "phone" && p.source === "contact_form")
+      result.provenance.some(
+        (p) => p.field === "phone" && p.source === "contact_form"
+      )
     ).toBe(true);
   });
 });
@@ -245,7 +281,9 @@ describe("resolveContact — address resolution", () => {
           rawBody: "",
         }),
       ],
-      operator: operator({ addresses: new Set(["1200 industrial way, victoria, bc"]) }),
+      operator: operator({
+        addresses: new Set(["1200 industrial way, victoria, bc"]),
+      }),
     });
     expect(result.address).toBeNull();
   });
@@ -262,7 +300,9 @@ describe("resolveContact — address resolution", () => {
     });
     expect((result.address ?? "").toLowerCase()).toContain("42 wallaby way");
     expect(
-      result.provenance.some((p) => p.field === "address" && p.source === "contact_form")
+      result.provenance.some(
+        (p) => p.field === "address" && p.source === "contact_form"
+      )
     ).toBe(true);
   });
 });
@@ -303,24 +343,29 @@ describe("resolveContact — empty state", () => {
 // columns. These tests pin the insert payload to that schema so a future column
 // rename is caught here rather than at a runtime insert error.
 
-function fakeInsertClient() {
+function fakeProvenanceClient(error: unknown = null) {
   const captured: Record<string, unknown>[][] = [];
+  const options: { onConflict: string }[] = [];
   const client = {
     from(_table: string) {
       return {
-        insert(rows: Record<string, unknown>[]) {
+        upsert(
+          rows: Record<string, unknown>[],
+          upsertOptions: { onConflict: string }
+        ) {
           captured.push(rows);
-          return Promise.resolve({ error: null });
+          options.push(upsertOptions);
+          return Promise.resolve({ error });
         },
       };
     },
   };
-  return { client, captured };
+  return { client, captured, options };
 }
 
 describe("persistContactProvenance", () => {
   it("writes rows matching the lead_field_provenance schema", async () => {
-    const { client, captured } = fakeInsertClient();
+    const { client, captured, options } = fakeProvenanceClient();
     const contact: ResolvedContact = {
       name: "Sarah Lee",
       nameIsVerified: true,
@@ -328,8 +373,20 @@ describe("persistContactProvenance", () => {
       phone: "778-555-9999",
       address: "12 Oak St",
       provenance: [
-        { field: "name", source: "from_header", confidence: 0.85, providerThreadId: null, sourceMessageId: "m1" },
-        { field: "phone", source: "message_body", confidence: 0.6, providerThreadId: null, sourceMessageId: "m1" },
+        {
+          field: "name",
+          source: "from_header",
+          confidence: 0.85,
+          providerThreadId: null,
+          sourceMessageId: "m1",
+        },
+        {
+          field: "phone",
+          source: "message_body",
+          confidence: 0.6,
+          providerThreadId: null,
+          sourceMessageId: "m1",
+        },
       ],
     };
 
@@ -344,24 +401,28 @@ describe("persistContactProvenance", () => {
 
     expect(res.error).toBeNull();
     expect(captured).toHaveLength(1);
+    expect(options).toEqual([
+      { onConflict: "company_id,entity_type,entity_id,field_name" },
+    ]);
     const rows = captured[0];
     expect(rows).toHaveLength(2);
 
-    const nameRow = rows.find((r) => r.field_name === "name")!;
+    const nameRow = rows.find((r) => r.field_name === "contact_name")!;
     expect(nameRow).toMatchObject({
       company_id: "co-1",
       entity_type: "opportunity",
       entity_id: "opp-1",
-      field_name: "name",
+      field_name: "contact_name",
       value_snapshot: "Sarah Lee",
-      source: "from_header",
+      source: "inbound",
       confidence: 0.85,
       provider_thread_id: "thread-1",
       provider_message_id: "m1",
     });
 
-    const phoneRow = rows.find((r) => r.field_name === "phone")!;
+    const phoneRow = rows.find((r) => r.field_name === "contact_phone")!;
     expect(phoneRow.value_snapshot).toBe("778-555-9999");
+    expect(phoneRow.source).toBe("inbound");
 
     // Must NOT use the previous (wrong) column names.
     expect(nameRow).not.toHaveProperty("opportunity_id");
@@ -370,7 +431,7 @@ describe("persistContactProvenance", () => {
   });
 
   it("no-ops on empty provenance", async () => {
-    const { client, captured } = fakeInsertClient();
+    const { client, captured } = fakeProvenanceClient();
     const contact: ResolvedContact = {
       name: null,
       nameIsVerified: false,
@@ -389,5 +450,69 @@ describe("persistContactProvenance", () => {
     });
     expect(res.error).toBeNull();
     expect(captured).toHaveLength(0);
+  });
+
+  it("does not persist an unverified email-local-part display name", async () => {
+    const { client, captured } = fakeProvenanceClient();
+    const contact: ResolvedContact = {
+      name: "Chezbear02",
+      nameIsVerified: false,
+      email: "chezbear02@gmail.com",
+      phone: null,
+      address: null,
+      provenance: [
+        {
+          field: "name",
+          source: "email_local_part_unverified",
+          confidence: 0.2,
+          providerThreadId: null,
+          sourceMessageId: "m1",
+        },
+      ],
+    };
+
+    const result = await persistContactProvenance({
+      supabase: client,
+      companyId: "co-1",
+      entityType: "opportunity",
+      entityId: "opp-1",
+      contact,
+      providerThreadId: "thread-1",
+    });
+
+    expect(result.error).toBeNull();
+    expect(captured).toHaveLength(0);
+  });
+
+  it("throws a database upsert error instead of reporting success", async () => {
+    const databaseError = { code: "23514", message: "check constraint failed" };
+    const { client } = fakeProvenanceClient(databaseError);
+    const contact: ResolvedContact = {
+      name: "Sarah Lee",
+      nameIsVerified: true,
+      email: null,
+      phone: null,
+      address: null,
+      provenance: [
+        {
+          field: "name",
+          source: "contact_form",
+          confidence: 0.95,
+          providerThreadId: null,
+          sourceMessageId: "m1",
+        },
+      ],
+    };
+
+    await expect(
+      persistContactProvenance({
+        supabase: client,
+        companyId: "co-1",
+        entityType: "opportunity",
+        entityId: "opp-1",
+        contact,
+        providerThreadId: "thread-1",
+      })
+    ).rejects.toMatchObject({ cause: databaseError });
   });
 });

@@ -296,6 +296,13 @@ export {
   useTriggerGmailSync,
 } from "./use-gmail-connections";
 
+// Email signatures
+export {
+  useEmailSignature,
+  useSaveEmailSignature,
+  useImportProviderEmailSignature,
+} from "./use-email-signature";
+
 // Gmail Import
 export { useGmailImport, useImportHistory } from "./use-gmail-import";
 

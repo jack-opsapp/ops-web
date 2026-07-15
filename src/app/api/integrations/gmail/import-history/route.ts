@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +22,9 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authError = await requireEmailCompanyAccess(request, companyId);
+    if (authError) return authError;
 
     const supabase = getServiceRoleClient();
     const { data, error } = await supabase

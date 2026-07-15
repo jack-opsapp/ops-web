@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Sparkles, X, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 interface DraftReplyButtonProps {
   opportunityId: string;
@@ -45,7 +46,7 @@ export function DraftReplyButton({
   useEffect(() => {
     const checkAvailability = async () => {
       try {
-        const res = await fetch("/api/integrations/email/draft", {
+        const res = await authedFetch("/api/integrations/email/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -72,7 +73,7 @@ export function DraftReplyButton({
     setShowModal(true);
     setCopyState("idle");
     try {
-      const res = await fetch("/api/integrations/email/draft", {
+      const res = await authedFetch("/api/integrations/email/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ companyId, userId, opportunityId }),
@@ -104,10 +105,10 @@ export function DraftReplyButton({
     <>
       <button
         onClick={generateDraft}
-        className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono uppercase tracking-wider text-[#6F94B0] hover:text-white hover:bg-[rgba(255,255,255,0.05)] rounded transition-colors"
+        className="flex items-center gap-1 rounded px-2 py-1 font-mono text-[11px] uppercase tracking-wider text-[#6F94B0] transition-colors hover:bg-[rgba(255,255,255,0.05)] hover:text-white"
         title="Generate AI draft reply"
       >
-        <Sparkles className="w-3 h-3" />
+        <Sparkles className="h-3 w-3" />
         Draft
       </button>
 
@@ -126,27 +127,27 @@ export function DraftReplyButton({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ duration: 0.3, ease: EASE_SMOOTH }}
-              className="w-full max-w-lg mx-4 rounded border border-white/10 bg-black shadow-2xl"
+              className="mx-4 w-full max-w-lg rounded border border-white/10 bg-black shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <div className="flex items-center justify-between border-b border-white/10 p-4">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#6F94B0]" />
+                  <Sparkles className="h-4 w-4 text-[#6F94B0]" />
                   <span className="font-mohave text-sm font-semibold text-white">
                     Draft Reply
                   </span>
                   {draftResult && (
-                    <span className="px-1.5 py-0.5 text-micro font-mono uppercase tracking-wider rounded bg-[rgba(255,255,255,0.06)] text-[#6F94B0]">
+                    <span className="rounded bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 font-mono text-micro uppercase tracking-wider text-[#6F94B0]">
                       {(draftResult.confidence * 100).toFixed(0)}% confidence
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-1 text-[#999] hover:text-white transition-colors"
+                  className="p-1 text-[#999] transition-colors hover:text-white"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
@@ -163,7 +164,7 @@ export function DraftReplyButton({
                           ease: "linear",
                         }}
                       >
-                        <Sparkles className="w-4 h-4 text-[#6F94B0]" />
+                        <Sparkles className="h-4 w-4 text-[#6F94B0]" />
                       </motion.div>
                       <span className="font-mohave text-sm">
                         Generating draft...
@@ -172,22 +173,22 @@ export function DraftReplyButton({
                   </div>
                 ) : draftResult?.draft ? (
                   <div className="space-y-3">
-                    <div className="p-3 rounded border border-white/10 bg-glass glass-surface max-h-[300px] overflow-y-auto scrollbar-hide">
-                      <pre className="font-mohave text-sm text-white whitespace-pre-wrap leading-relaxed">
+                    <div className="glass-surface scrollbar-hide max-h-[300px] overflow-y-auto rounded border border-white/10 bg-glass p-3">
+                      <pre className="whitespace-pre-wrap font-mohave text-sm leading-relaxed text-white">
                         {draftResult.draft}
                       </pre>
                     </div>
 
                     {/* Sources */}
                     {draftResult.sources.length > 0 && (
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <span className="font-mono text-micro uppercase tracking-wider text-[#999]">
                           Sources:
                         </span>
                         {draftResult.sources.map((s) => (
                           <span
                             key={s}
-                            className="px-1.5 py-0.5 text-micro font-mono uppercase tracking-wider rounded bg-white/5 text-[#999] border border-white/5"
+                            className="rounded border border-white/5 bg-white/5 px-1.5 py-0.5 font-mono text-micro uppercase tracking-wider text-[#999]"
                           >
                             {s.replace("_", " ")}
                           </span>
@@ -198,7 +199,7 @@ export function DraftReplyButton({
                     {/* Mailbox save status */}
                     {draftResult.mailboxSaved === true && (
                       <div className="flex items-center gap-1.5 font-mono text-[11px] text-[#B5B5B5]">
-                        <Check className="w-3 h-3 text-[#9DB582] shrink-0" />
+                        <Check className="h-3 w-3 shrink-0 text-[#9DB582]" />
                         {`Saved to your ${mailboxName} drafts.`}
                       </div>
                     )}
@@ -217,19 +218,19 @@ export function DraftReplyButton({
 
               {/* Footer */}
               {draftResult?.draft && (
-                <div className="flex items-center justify-end gap-2 p-4 border-t border-white/10">
+                <div className="flex items-center justify-end gap-2 border-t border-white/10 p-4">
                   <button
                     onClick={copyDraft}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono uppercase tracking-wider rounded border border-white/10 text-[#B5B5B5] hover:text-white hover:bg-white/5 transition-colors"
+                    className="flex items-center gap-1.5 rounded border border-white/10 px-3 py-1.5 font-mono text-xs uppercase tracking-wider text-[#B5B5B5] transition-colors hover:bg-white/5 hover:text-white"
                   >
                     {copyState === "copied" ? (
                       <>
-                        <Check className="w-3 h-3 text-[#9DB582]" />
+                        <Check className="h-3 w-3 text-[#9DB582]" />
                         Copied
                       </>
                     ) : (
                       <>
-                        <Copy className="w-3 h-3" />
+                        <Copy className="h-3 w-3" />
                         Copy
                       </>
                     )}

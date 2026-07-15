@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   decideOpportunityRelationshipMatch,
+  findOpportunityRelationshipMatch,
   type OpportunityRelationshipCandidate,
   type OpportunityRelationshipFacts,
 } from "@/lib/email/opportunity-relationship-matching";
@@ -51,6 +52,48 @@ function facts(
 }
 
 describe("opportunity relationship matching", () => {
+  it("fails closed when a relationship lookup read fails", async () => {
+    const failedQuery = {
+      select() {
+        return this;
+      },
+      eq() {
+        return this;
+      },
+      ilike() {
+        return this;
+      },
+      is() {
+        return this;
+      },
+      order() {
+        return this;
+      },
+      limit() {
+        return this;
+      },
+      then(resolve: (value: unknown) => unknown) {
+        return Promise.resolve({
+          data: null,
+          error: { message: "relationship database unavailable" },
+        }).then(resolve);
+      },
+    };
+
+    await expect(
+      findOpportunityRelationshipMatch({
+        supabase: { from: () => failedQuery } as never,
+        companyId: "company-1",
+        connectionId: "connection-1",
+        providerThreadId: "thread-1",
+        clientId: null,
+        facts: facts(),
+      })
+    ).rejects.toThrow(
+      "Opportunity relationship lookup failed: relationship database unavailable"
+    );
+  });
+
   it("links a new thread from the exact same customer email to an active opportunity", () => {
     const decision = decideOpportunityRelationshipMatch({
       facts: facts(),
@@ -63,6 +106,37 @@ describe("opportunity relationship matching", () => {
       confidence: "exact_contact_email",
       reason: expect.stringContaining("email"),
     });
+  });
+
+  it("returns the provider-linked opportunity's real client instead of a separate matcher candidate", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts(),
+      candidates: [
+        candidate({
+          id: "opp-thread-owner",
+          clientId: "client-thread-owner",
+        }),
+        candidate({ id: "opp-other", clientId: "client-other" }),
+      ],
+      providerLinkedOpportunityId: "opp-thread-owner",
+    });
+
+    expect(decision).toMatchObject({
+      action: "link",
+      opportunityId: "opp-thread-owner",
+      clientId: "client-thread-owner",
+      confidence: "provider_thread",
+    });
+  });
+
+  it("fails closed when a provider-linked opportunity was not hydrated with its client", () => {
+    expect(() =>
+      decideOpportunityRelationshipMatch({
+        facts: facts(),
+        candidates: [candidate({ id: "opp-other" })],
+        providerLinkedOpportunityId: "opp-missing",
+      })
+    ).toThrow("Provider-linked opportunity identity was not loaded");
   });
 
   it("links an existing related sub-client email to the active parent opportunity", () => {

@@ -6,6 +6,7 @@ export type NotificationType =
   | "pipeline_complete"
   | "gmail_sync"
   | "email_sync_complete"
+  | "email_signature_required"
   | "intel_available"
   | "setup_prompt"
   | "leads_waiting"
@@ -201,7 +202,10 @@ export const NotificationService = {
     if (error) throw error;
   },
 
-  async dismissAllDismissible(userId: string, companyId: string): Promise<void> {
+  async dismissAllDismissible(
+    userId: string,
+    companyId: string
+  ): Promise<void> {
     const supabase = requireSupabase();
     const { error } = await supabase
       .from("notifications")

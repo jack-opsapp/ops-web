@@ -29,6 +29,8 @@ const {
   getProfileMock,
   getConfidenceMock,
   setSupabaseOverrideMock,
+  requireSupabaseMock,
+  requireEmailCompanyAccessMock,
 } = vi.hoisted(() => ({
   generateDraftMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -36,6 +38,12 @@ const {
   getProfileMock: vi.fn(),
   getConfidenceMock: vi.fn(),
   setSupabaseOverrideMock: vi.fn(),
+  requireSupabaseMock: vi.fn(),
+  requireEmailCompanyAccessMock: vi.fn(),
+}));
+
+vi.mock("@/lib/email/email-route-auth", () => ({
+  requireEmailCompanyAccess: requireEmailCompanyAccessMock,
 }));
 
 vi.mock("@/lib/api/services/ai-draft-service", () => ({
@@ -60,7 +68,7 @@ vi.mock("@/lib/api/services/email-service", () => ({
 
 vi.mock("@/lib/supabase/helpers", () => ({
   setSupabaseOverride: setSupabaseOverrideMock,
-  requireSupabase: vi.fn(),
+  requireSupabase: requireSupabaseMock,
 }));
 
 // ─── In-memory Supabase double ─────────────────────────────────────────────────
@@ -70,6 +78,7 @@ interface DbState {
   opportunities: Array<Record<string, unknown>>;
   activities: Array<Record<string, unknown>>;
   emailThreads: Array<Record<string, unknown>>;
+  emailSignatures?: Array<Record<string, unknown>>;
 }
 
 function makeSupabaseDouble(state: DbState) {
@@ -93,6 +102,11 @@ function makeSupabaseDouble(state: DbState) {
     }
 
     eq(col: string, val: unknown) {
+      this._filters.set(col, val);
+      return this;
+    }
+
+    is(col: string, val: unknown) {
       this._filters.set(col, val);
       return this;
     }
@@ -140,10 +154,24 @@ function makeSupabaseDouble(state: DbState) {
 
       // SELECT paths
       if (this._table === "opportunities") {
-        const id = this._filters.get("id");
         const row =
-          state.opportunities.find((r) => r.id === id) ?? null;
+          state.opportunities.find((candidate) => {
+            for (const [column, value] of this._filters) {
+              if (candidate[column] !== value) return false;
+            }
+            return true;
+          }) ?? null;
         return { data: row, error: null };
+      }
+
+      if (this._table === "email_signatures") {
+        const rows = (state.emailSignatures ?? [makeSignatureRow()]).filter(
+          (row) =>
+            row.company_id === this._filters.get("company_id") &&
+            row.connection_id === this._filters.get("connection_id") &&
+            row.active === this._filters.get("active")
+        );
+        return { data: rows, error: null };
       }
 
       if (this._table === "activities") {
@@ -194,7 +222,10 @@ function makeSupabaseDouble(state: DbState) {
       const { data, error } = this._resolve();
       // For single(), if data is an array, return first element
       if (Array.isArray(data)) {
-        return { data: (data[0] ?? null) as Record<string, unknown> | null, error };
+        return {
+          data: (data[0] ?? null) as Record<string, unknown> | null,
+          error,
+        };
       }
       return { data: data as Record<string, unknown> | null, error };
     }
@@ -206,6 +237,7 @@ function makeSupabaseDouble(state: DbState) {
 
   return {
     from: (table: string) => new Query(table),
+    rpc: async () => ({ data: null, error: null }),
   };
 }
 
@@ -239,6 +271,27 @@ function makeActiveConnection(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function makeSignatureRow(): Record<string, unknown> {
+  return {
+    id: "signature-1",
+    company_id: "company-1",
+    connection_id: "conn-1",
+    scope_user_id: "user-1",
+    source: "ops",
+    content_html: "<div>Jackson<br>OPS</div>",
+    content_text: "Jackson\nOPS",
+    content_hash: "a".repeat(64),
+    provider_identity: null,
+    active: true,
+    fetched_at: null,
+    confirmed_at: null,
+    created_by: "user-1",
+    updated_by: "user-1",
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+  };
+}
+
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest("http://localhost/api/integrations/email/draft", {
     method: "POST",
@@ -267,6 +320,8 @@ vi.mocked(setSupabaseOverrideMock).mockImplementation((client) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  requireEmailCompanyAccessMock.mockResolvedValue(null);
+  requireSupabaseMock.mockImplementation(() => capturedSupabaseDouble);
 
   // Default: writing profile with sufficient emails
   getProfileMock.mockResolvedValue({ emails_analyzed: 20 });
@@ -296,7 +351,6 @@ afterEach(() => {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
-
   it("generating a draft calls provider.createDraft and persists mailbox_draft_id + status='auto_drafted'", async () => {
     const state: DbState = {
       aiDraftHistory: [
@@ -311,6 +365,8 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       opportunities: [
         {
           id: "opp-1",
+          company_id: "company-1",
+          deleted_at: null,
           title: "Deck Repair",
           clients: { email: "client@example.com", name: "John Smith" },
         },
@@ -342,15 +398,15 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       updateDraft: updateDraftMock,
     });
 
-    const { POST } = await import(
-      "@/app/api/integrations/email/draft/route"
-    );
+    const { POST } = await import("@/app/api/integrations/email/draft/route");
 
-    const res = await POST(makeRequest({
-      companyId: "company-1",
-      userId: "user-1",
-      opportunityId: "opp-1",
-    }));
+    const res = await POST(
+      makeRequest({
+        companyId: "company-1",
+        userId: "user-1",
+        opportunityId: "opp-1",
+      })
+    );
 
     const json = await res.json();
 
@@ -367,8 +423,10 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       "client@example.com",
       "Re: Need a quote",
       expect.stringContaining("quote"),
-      "thread-provider-1"
+      "thread-provider-1",
+      "html"
     );
+    expect(createDraftMock.mock.calls[0][2]).toContain("Jackson");
     expect(updateDraftMock).not.toHaveBeenCalled();
 
     // ai_draft_history row updated
@@ -400,6 +458,8 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       opportunities: [
         {
           id: "opp-1",
+          company_id: "company-1",
+          deleted_at: null,
           title: "Deck Repair",
           clients: { email: "client@example.com", name: "John Smith" },
         },
@@ -431,15 +491,15 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       updateDraft: updateDraftMock,
     });
 
-    const { POST } = await import(
-      "@/app/api/integrations/email/draft/route"
-    );
+    const { POST } = await import("@/app/api/integrations/email/draft/route");
 
-    const res = await POST(makeRequest({
-      companyId: "company-1",
-      userId: "user-1",
-      opportunityId: "opp-1",
-    }));
+    const res = await POST(
+      makeRequest({
+        companyId: "company-1",
+        userId: "user-1",
+        opportunityId: "opp-1",
+      })
+    );
 
     const json = await res.json();
 
@@ -450,7 +510,8 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       "client@example.com",
       "Re: Need a quote",
       expect.any(String),
-      "thread-provider-1"
+      "thread-provider-1",
+      "html"
     );
     expect(createDraftMock).not.toHaveBeenCalled();
 
@@ -482,6 +543,8 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       opportunities: [
         {
           id: "opp-1",
+          company_id: "company-1",
+          deleted_at: null,
           title: "Fence install",
           clients: { email: "jane@example.com", name: "Jane Doe" },
         },
@@ -498,15 +561,15 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       updateDraft: vi.fn(),
     });
 
-    const { POST } = await import(
-      "@/app/api/integrations/email/draft/route"
-    );
+    const { POST } = await import("@/app/api/integrations/email/draft/route");
 
-    const res = await POST(makeRequest({
-      companyId: "company-1",
-      userId: "user-1",
-      opportunityId: "opp-1",
-    }));
+    const res = await POST(
+      makeRequest({
+        companyId: "company-1",
+        userId: "user-1",
+        opportunityId: "opp-1",
+      })
+    );
 
     const json = await res.json();
 
@@ -519,7 +582,8 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       "jane@example.com",
       expect.stringContaining("Fence install"),
       expect.any(String),
-      undefined // no provider thread id
+      undefined, // no provider thread id
+      "html"
     );
     expect(json.mailboxSaved).toBe(true);
   });
@@ -538,6 +602,8 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       opportunities: [
         {
           id: "opp-1",
+          company_id: "company-1",
+          deleted_at: null,
           title: "Roofing",
           clients: { email: "bob@example.com", name: "Bob" },
         },
@@ -556,15 +622,15 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       updateDraft: vi.fn(),
     });
 
-    const { POST } = await import(
-      "@/app/api/integrations/email/draft/route"
-    );
+    const { POST } = await import("@/app/api/integrations/email/draft/route");
 
-    const res = await POST(makeRequest({
-      companyId: "company-1",
-      userId: "user-1",
-      opportunityId: "opp-1",
-    }));
+    const res = await POST(
+      makeRequest({
+        companyId: "company-1",
+        userId: "user-1",
+        opportunityId: "opp-1",
+      })
+    );
 
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -586,21 +652,23 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
     // capturedSupabaseDouble doesn't matter here since we return before any DB call
     capturedSupabaseDouble = makeSupabaseDouble({
       aiDraftHistory: [],
-      opportunities: [],
+      opportunities: [
+        { id: "opp-1", company_id: "company-1", deleted_at: null },
+      ],
       activities: [],
       emailThreads: [],
     });
 
-    const { POST } = await import(
-      "@/app/api/integrations/email/draft/route"
-    );
+    const { POST } = await import("@/app/api/integrations/email/draft/route");
 
-    const res = await POST(makeRequest({
-      companyId: "company-1",
-      userId: "user-1",
-      opportunityId: "opp-1",
-      checkOnly: true,
-    }));
+    const res = await POST(
+      makeRequest({
+        companyId: "company-1",
+        userId: "user-1",
+        opportunityId: "opp-1",
+        checkOnly: true,
+      })
+    );
 
     const json = await res.json();
     expect(json.available).toBe(false);
@@ -613,21 +681,23 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
 
     capturedSupabaseDouble = makeSupabaseDouble({
       aiDraftHistory: [],
-      opportunities: [],
+      opportunities: [
+        { id: "opp-1", company_id: "company-1", deleted_at: null },
+      ],
       activities: [],
       emailThreads: [],
     });
 
-    const { POST } = await import(
-      "@/app/api/integrations/email/draft/route"
-    );
+    const { POST } = await import("@/app/api/integrations/email/draft/route");
 
-    const res = await POST(makeRequest({
-      companyId: "company-1",
-      userId: "user-1",
-      opportunityId: "opp-1",
-      checkOnly: true,
-    }));
+    const res = await POST(
+      makeRequest({
+        companyId: "company-1",
+        userId: "user-1",
+        opportunityId: "opp-1",
+        checkOnly: true,
+      })
+    );
 
     const json = await res.json();
     expect(json.available).toBe(true);
@@ -641,10 +711,22 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
 
     const state: DbState = {
       aiDraftHistory: [
-        { id: "history-1", connection_id: "conn-1", thread_id: null, status: "drafted", mailbox_draft_id: null },
+        {
+          id: "history-1",
+          connection_id: "conn-1",
+          thread_id: null,
+          status: "drafted",
+          mailbox_draft_id: null,
+        },
       ],
       opportunities: [
-        { id: "opp-1", title: "Paving", clients: { email: "mary@co.com", name: "Mary" } },
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          deleted_at: null,
+          title: "Paving",
+          clients: { email: "mary@co.com", name: "Mary" },
+        },
       ],
       activities: [],
       emailThreads: [],
@@ -657,15 +739,15 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       updateDraft: vi.fn(),
     });
 
-    const { POST } = await import(
-      "@/app/api/integrations/email/draft/route"
-    );
+    const { POST } = await import("@/app/api/integrations/email/draft/route");
 
-    const res = await POST(makeRequest({
-      companyId: "company-1",
-      userId: "user-1",
-      opportunityId: "opp-1",
-    }));
+    const res = await POST(
+      makeRequest({
+        companyId: "company-1",
+        userId: "user-1",
+        opportunityId: "opp-1",
+      })
+    );
 
     const json = await res.json();
     expect(json.provider).toBe("microsoft365");

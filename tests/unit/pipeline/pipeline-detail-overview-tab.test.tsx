@@ -13,7 +13,7 @@
  * Contract under test (mirrors Phase 4 of the plan + §8 of the design spec):
  *  - Summary is HIDDEN when `aiSummary` is null, and rendered on the agent
  *    provenance palette (lavender `--agent-*` tokens) when present,
- *  - Health surfaces the computed weighted value + days-in-stage,
+ *  - Health surfaces operational timing and correspondence without probability-derived values,
  *  - Scope + Tags render their inline editors,
  *  - Linked lists estimates (mocked) and degrades to a quiet empty state when
  *    there are none,
@@ -38,7 +38,6 @@ import {
   OpportunitySource,
   OpportunityStage,
   formatCurrency,
-  getWeightedValue,
   type Estimate,
   type Opportunity,
   type SiteVisit,
@@ -75,11 +74,17 @@ vi.mock("@/lib/hooks/use-site-visits", () => ({
 vi.mock("@/lib/hooks/use-clients", () => ({
   useClient: (id: unknown) => useClientMock(id),
   useClients: (opts?: unknown) => useClientsMock(opts),
-  useCreateSubClient: () => ({ mutate: createSubClientMutate, isPending: false }),
+  useCreateSubClient: () => ({
+    mutate: createSubClientMutate,
+    isPending: false,
+  }),
 }));
 vi.mock("@/lib/hooks/use-opportunities", () => ({
   useUpdateOpportunity: () => ({ mutateAsync }),
-  useAttachClientToOpportunity: () => ({ mutate: attachMutate, isPending: false }),
+  useAttachClientToOpportunity: () => ({
+    mutate: attachMutate,
+    isPending: false,
+  }),
 }));
 // Deck designs are covered by pipeline-detail-deck-section.test.tsx; the
 // Overview suite runs with no attached decks so the section renders null.
@@ -101,7 +106,7 @@ vi.mock(
     AddressAutocomplete: ({ value }: { value: string }) => (
       <input aria-label="address-autocomplete-stub" defaultValue={value} />
     ),
-  }),
+  })
 );
 
 // CreateSiteVisitModal is a portaled Radix dialog with its own data deps — stub
@@ -115,16 +120,18 @@ vi.mock("@/components/ops/site-visit/create-site-visit-modal", () => ({
 // permission; per-test overrides reassign `canMock`.
 let canMock: (permission: string) => boolean = () => true;
 vi.mock("@/lib/store/permissions-store", () => ({
-  usePermissionStore: (selector: (s: { can: (p: string) => boolean }) => unknown) =>
-    selector({ can: (p: string) => canMock(p) }),
+  usePermissionStore: (
+    selector: (s: { can: (p: string) => boolean }) => unknown
+  ) => selector({ can: (p: string) => canMock(p) }),
 }));
 
 // The New-estimate action opens the global create-estimate floating window —
 // capture the opener so we can assert the deal-scoped metadata it carries.
 const openWindowMock = vi.fn();
 vi.mock("@/stores/window-store", () => ({
-  useWindowStore: (selector: (s: { openWindow: typeof openWindowMock }) => unknown) =>
-    selector({ openWindow: openWindowMock }),
+  useWindowStore: (
+    selector: (s: { openWindow: typeof openWindowMock }) => unknown
+  ) => selector({ openWindow: openWindowMock }),
 }));
 
 import { PipelineDetailOverviewTab } from "@/app/(dashboard)/pipeline/_components/pipeline-detail-overview-tab";
@@ -285,7 +292,7 @@ beforeEach(() => {
 describe("PipelineDetailOverviewTab — Summary", () => {
   it("does NOT render the Summary section when aiSummary is null", () => {
     render(
-      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />,
+      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />
     );
     expect(screen.queryByTestId("overview-summary")).toBeNull();
   });
@@ -300,7 +307,7 @@ describe("PipelineDetailOverviewTab — Summary", () => {
           aiStageSignals: ["mentioned budget", "asked for timeline"],
         })}
         canManage
-      />,
+      />
     );
 
     const band = screen.getByTestId("overview-summary");
@@ -320,16 +327,17 @@ describe("PipelineDetailOverviewTab — Summary", () => {
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 describe("PipelineDetailOverviewTab — Health", () => {
-  it("shows the computed weighted value and days-in-stage", () => {
+  it("shows operational health without probability-derived metrics", () => {
     const opp = makeOpportunity({ estimatedValue: 14200, winProbability: 40 });
     render(<PipelineDetailOverviewTab opportunity={opp} canManage />);
 
-    // weighted = 14200 * 0.40 = 5680 → formatted currency.
-    expect(
-      screen.getByText(formatCurrency(getWeightedValue(opp))),
-    ).toBeInTheDocument();
-    // Win probability is shown as a percentage.
-    expect(screen.getByText("40%")).toBeInTheDocument();
+    expect(screen.queryByText("Win probability")).not.toBeInTheDocument();
+    expect(screen.queryByText("Weighted value")).not.toBeInTheDocument();
+    expect(screen.queryByText("$5,680")).not.toBeInTheDocument();
+    expect(screen.queryByText("40%")).not.toBeInTheDocument();
+    expect(screen.getByText("Correspondence").parentElement).toHaveClass(
+      "col-span-2"
+    );
     // Correspondence in/out counts come straight off the record. The cell mixes
     // text nodes (`5` · `in` · `/` · `2` · `out`), so assert against the cell's
     // normalized combined text content rather than a bare digit match.
@@ -350,7 +358,7 @@ describe("PipelineDetailOverviewTab — editors", () => {
       <PipelineDetailOverviewTab
         opportunity={makeOpportunity({ description: "Tear-off + 30yr arch" })}
         canManage
-      />,
+      />
     );
     const scope = screen.getByLabelText("Scope") as HTMLTextAreaElement;
     expect(scope).toBeInTheDocument();
@@ -362,7 +370,7 @@ describe("PipelineDetailOverviewTab — editors", () => {
       <PipelineDetailOverviewTab
         opportunity={makeOpportunity({ tags: ["urgent"] })}
         canManage
-      />,
+      />
     );
     expect(screen.getByText("urgent")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add tag" })).toBeInTheDocument();
@@ -378,7 +386,7 @@ describe("PipelineDetailOverviewTab — Linked estimates", () => {
       isLoading: false,
     });
     render(
-      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />,
+      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />
     );
 
     const linked = screen.getByTestId("overview-linked");
@@ -391,10 +399,12 @@ describe("PipelineDetailOverviewTab — Linked estimates", () => {
   it("shows a quiet empty state for estimates when there are none (or estimates.view denied → undefined)", () => {
     useEstimatesMock.mockReturnValue({ data: undefined, isLoading: false });
     render(
-      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />,
+      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />
     );
     const linked = screen.getByTestId("overview-linked");
-    expect(within(linked).getByTestId("overview-estimates-empty")).toBeInTheDocument();
+    expect(
+      within(linked).getByTestId("overview-estimates-empty")
+    ).toBeInTheDocument();
   });
 
   it("renders a Schedule affordance and lists a site visit when present", () => {
@@ -403,7 +413,7 @@ describe("PipelineDetailOverviewTab — Linked estimates", () => {
       isLoading: false,
     });
     render(
-      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />,
+      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />
     );
     const linked = screen.getByTestId("overview-linked");
     // The site-visit row is present (status label always shown).
@@ -421,7 +431,7 @@ describe("PipelineDetailOverviewTab — Contact", () => {
       <PipelineDetailOverviewTab
         opportunity={makeOpportunity({ clientId: "client-1" })}
         canManage
-      />,
+      />
     );
 
     const contact = screen.getByTestId("overview-contact");
@@ -431,11 +441,11 @@ describe("PipelineDetailOverviewTab — Contact", () => {
     expect(within(contact).getByText(client.email!)).toBeInTheDocument();
     const links = within(contact).getAllByRole("link");
     expect(
-      links.find((l) => l.getAttribute("href") === `mailto:${client.email}`),
+      links.find((l) => l.getAttribute("href") === `mailto:${client.email}`)
     ).toBeDefined();
     expect(within(contact).getByText(client.phoneNumber!)).toBeInTheDocument();
     expect(
-      links.find((l) => l.getAttribute("href") === `tel:${client.phoneNumber}`),
+      links.find((l) => l.getAttribute("href") === `tel:${client.phoneNumber}`)
     ).toBeDefined();
     // Link to the client record.
     const record = within(contact).getByRole("link", {
@@ -454,23 +464,23 @@ describe("PipelineDetailOverviewTab — Contact", () => {
           contactPhone: "+1 202 555 0150",
         })}
         canManage
-      />,
+      />
     );
 
     const contact = screen.getByTestId("overview-contact");
     expect(within(contact).getByText("Dana Scully")).toBeInTheDocument();
     expect(
-      within(contact).getByText("dana@x-files.example"),
+      within(contact).getByText("dana@x-files.example")
     ).toBeInTheDocument();
     const inlineLinks = within(contact).getAllByRole("link");
     expect(
       inlineLinks.find(
-        (l) => l.getAttribute("href") === "mailto:dana@x-files.example",
-      ),
+        (l) => l.getAttribute("href") === "mailto:dana@x-files.example"
+      )
     ).toBeDefined();
     // Attach-client affordance is offered when the operator can manage.
     expect(
-      within(contact).getByRole("button", { name: /attach client/i }),
+      within(contact).getByRole("button", { name: /attach client/i })
     ).toBeInTheDocument();
   });
 
@@ -479,11 +489,11 @@ describe("PipelineDetailOverviewTab — Contact", () => {
       <PipelineDetailOverviewTab
         opportunity={makeOpportunity({ clientId: null })}
         canManage={false}
-      />,
+      />
     );
     const contact = screen.getByTestId("overview-contact");
     expect(
-      within(contact).queryByRole("button", { name: /attach client/i }),
+      within(contact).queryByRole("button", { name: /attach client/i })
     ).toBeNull();
   });
 });
@@ -506,7 +516,7 @@ describe("PipelineDetailOverviewTab — deal contact → sub-client", () => {
           contactPhone: "+1 604 555 0199",
         })}
         canManage
-      />,
+      />
     );
 
     const row = screen.getByTestId("overview-deal-contact");
@@ -554,13 +564,13 @@ describe("PipelineDetailOverviewTab — deal contact → sub-client", () => {
           contactEmail: "marcus@site.example",
         })}
         canManage
-      />,
+      />
     );
 
     const row = screen.getByTestId("overview-deal-contact");
     expect(within(row).getByText("On file")).toBeInTheDocument();
     expect(
-      within(row).queryByRole("button", { name: /save contact to client/i }),
+      within(row).queryByRole("button", { name: /save contact to client/i })
     ).toBeNull();
   });
 
@@ -580,7 +590,7 @@ describe("PipelineDetailOverviewTab — deal contact → sub-client", () => {
           contactPhone: null,
         })}
         canManage
-      />,
+      />
     );
 
     expect(screen.queryByTestId("overview-deal-contact")).toBeNull();
@@ -593,22 +603,22 @@ describe("PipelineDetailOverviewTab — New estimate action", () => {
   it("renders a New estimate action in the Linked estimates section when estimates.create is allowed", () => {
     canMock = (p) => p === "estimates.create";
     render(
-      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />,
+      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />
     );
     const linked = screen.getByTestId("overview-linked");
     expect(
-      within(linked).getByRole("button", { name: /new estimate/i }),
+      within(linked).getByRole("button", { name: /new estimate/i })
     ).toBeInTheDocument();
   });
 
   it("hides the New estimate action when estimates.create is denied", () => {
     canMock = () => false;
     render(
-      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />,
+      <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />
     );
     const linked = screen.getByTestId("overview-linked");
     expect(
-      within(linked).queryByRole("button", { name: /new estimate/i }),
+      within(linked).queryByRole("button", { name: /new estimate/i })
     ).toBeNull();
   });
 
@@ -619,7 +629,7 @@ describe("PipelineDetailOverviewTab — New estimate action", () => {
 
     const linked = screen.getByTestId("overview-linked");
     fireEvent.click(
-      within(linked).getByRole("button", { name: /new estimate/i }),
+      within(linked).getByRole("button", { name: /new estimate/i })
     );
 
     expect(openWindowMock).toHaveBeenCalledTimes(1);

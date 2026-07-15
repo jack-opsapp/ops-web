@@ -8,8 +8,8 @@
  * rents a fixed 158px slab at the top of the window. By default the header is a
  * slim ~44px ADDRESS STRIP — address text + a small map glyph + an expand
  * control. Tapping it slides the full deal band (map backdrop + estimated-value
- * hero + win bar + priority + inline facts) open to its original height on
- * demand; tapping again collapses it. The ~114px reclaimed by the collapsed
+ * hero + priority + inline facts) open to its original height on demand;
+ * tapping again collapses it. The ~114px reclaimed by the collapsed
  * default flows straight into the record scroller below, so the operator lands
  * on the story and the contact instead of on a picture.
  *
@@ -21,8 +21,8 @@
  *    <ProjectMap expanded={false}> backdrop (ONLY when the lead has coordinates;
  *    a lead with no coordinates reveals the facts on the plain canvas — never a
  *    decorative grid), a bottom-weighted scrim, the estimated-value hero
- *    (CurrencyField), the read-only win readout + olive bar, the priority chip,
- *    and the inline-editable facts row (client · source · owner · close).
+ *    (CurrencyField), the priority chip, and the inline-editable facts row
+ *    (client · source · owner · close).
  *
  * A lead with no coordinates still expands: the value / priority / source /
  * owner / close editors live NOWHERE else, so the strip stays their one-tap
@@ -43,7 +43,6 @@
  *  - scrim / pill: `--map-fade-*`, `--scrim-overlay`, `--scrim-window-shadow`,
  *    `--map-canvas-bg`, `--fill-neutral-dim` — zero hex.
  *  - numbers: `font-mono` with `"tnum" 1, "zero" 1`; empty → the `—` sentinel.
- *  - win bar: `var(--olive)` (positive/probability semantic).
  *  - accent (`ops-accent`): focus rings ONLY (strip toggle + the editors).
  *  - voice: `//` + `▸` tactical prefixes, `[brackets]`, sentence case, no emoji.
  */
@@ -112,7 +111,7 @@ const SCRIM_BACKGROUND = [
 function buildMapsUrl(
   latitude: number | null,
   longitude: number | null,
-  address: string | null,
+  address: string | null
 ): string | null {
   if (latitude != null && longitude != null) {
     return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
@@ -153,20 +152,18 @@ export function LeadMapBand({
   // editor below. Editors never instantiate their own.
   const edit = useOpportunityFieldEdit(opportunity.id);
 
-  const { latitude, longitude, address, stage, winProbability } = opportunity;
+  const { latitude, longitude, address, stage } = opportunity;
   const hasCoords = latitude != null && longitude != null;
   const pinColor = OPPORTUNITY_STAGE_COLORS[stage];
 
   const mapsUrl = useMemo(
     () => buildMapsUrl(latitude, longitude, address),
-    [latitude, longitude, address],
+    [latitude, longitude, address]
   );
 
-  // Read-only win probability, clamped to a sane 0–100 bar width.
-  const winPct = Math.max(0, Math.min(100, Math.round(winProbability)));
-
   // Client > inline contact > sentinel — read-only in the band.
-  const clientName = opportunity.client?.name ?? opportunity.contactName ?? null;
+  const clientName =
+    opportunity.client?.name ?? opportunity.contactName ?? null;
 
   const revealId = `lead-band-reveal-${opportunity.id}`;
   const toggleLabel = expanded
@@ -310,11 +307,11 @@ export function LeadMapBand({
                   least 8px between the pill row and the value hero. */}
               <div className="min-h-2 flex-1" aria-hidden="true" />
 
-              {/* band-content: value hero + win + priority + facts — bottom of
+              {/* band-content: value hero + priority + facts — bottom of
                   the reveal, in flow (grows the reveal when the facts wrap). */}
               <div className="relative flex flex-col gap-1.5 p-3">
                 {/* Value hero row — `// ESTIMATED VALUE` + the big editable currency. */}
-                <div className="flex items-end justify-between gap-3">
+                <div className="flex items-end gap-3">
                   <div className="flex min-w-0 flex-col gap-1">
                     <FactLabel>{t("band.estimatedValue", "Estimated value")}</FactLabel>
                     <CurrencyField
@@ -323,23 +320,6 @@ export function LeadMapBand({
                       value={opportunity.estimatedValue}
                       className="text-[30px] font-medium leading-none text-white"
                     />
-                  </div>
-
-                  {/* Win probability — READ-ONLY readout + olive bar. */}
-                  <div className="flex shrink-0 flex-col items-end gap-1 pb-1">
-                    <span className="font-mono text-[10px] uppercase leading-none tracking-[0.12em] tabular-nums text-text-2 [font-feature-settings:'tnum'_1,'zero'_1]">
-                      {winPct}% {t("band.win", "win")}
-                    </span>
-                    <div
-                      className="h-[2px] w-[72px] overflow-hidden rounded-bar"
-                      style={{ background: "var(--fill-neutral-dim)" }}
-                      role="presentation"
-                    >
-                      <div
-                        className="h-full rounded-bar"
-                        style={{ width: `${winPct}%`, background: "var(--olive)" }}
-                      />
-                    </div>
                   </div>
                 </div>
 

@@ -11,14 +11,17 @@
 // mark the connection needs_reconnect without sniffing error strings.
 
 /**
- * The provider's incremental sync token is no longer valid and must be
- * re-seeded. Gmail: startHistoryId is older than ~7 days or never existed.
- * Callers should fetch a fresh token via `getInitialSyncToken()` and treat
- * this sync cycle as a no-op.
+ * The provider's incremental sync token is no longer valid. Gmail:
+ * startHistoryId is older than ~7 days or never existed. A fresh token is only
+ * a future boundary: callers must reconcile the lost interval completely (or
+ * fail closed) before persisting it.
  */
 export class SyncTokenExpiredError extends Error {
   readonly code = "sync_token_expired" as const;
-  constructor(message: string, public readonly providerStatus?: number) {
+  constructor(
+    message: string,
+    public readonly providerStatus?: number
+  ) {
     super(message);
     this.name = "SyncTokenExpiredError";
   }
@@ -30,7 +33,10 @@ export class SyncTokenExpiredError extends Error {
  */
 export class ProviderAuthError extends Error {
   readonly code = "provider_auth_error" as const;
-  constructor(message: string, public readonly providerStatus?: number) {
+  constructor(
+    message: string,
+    public readonly providerStatus?: number
+  ) {
     super(message);
     this.name = "ProviderAuthError";
   }
@@ -64,6 +70,23 @@ export class ProviderApiError extends Error {
   ) {
     super(message);
     this.name = "ProviderApiError";
+  }
+}
+
+/**
+ * Provider metadata understated or omitted an attachment size and the raw
+ * response crossed the caller's hard byte ceiling. Providers must throw this
+ * while streaming, before the full object is buffered in worker memory.
+ */
+export class ProviderAttachmentTooLargeError extends Error {
+  readonly code = "provider_attachment_too_large" as const;
+
+  constructor(
+    message: string,
+    public readonly observedSizeBytes: number | null = null
+  ) {
+    super(message);
+    this.name = "ProviderAttachmentTooLargeError";
   }
 }
 
@@ -102,6 +125,8 @@ export interface SyncResult {
 export interface WebhookSubscription {
   subscriptionId: string;
   expiresAt: Date;
+  /** Random M365 clientState returned only when a subscription is created. */
+  clientState?: string;
 }
 
 export interface SendEmailParams {
@@ -110,16 +135,25 @@ export interface SendEmailParams {
   subject: string;
   body: string;
   contentType?: "text" | "html"; // Default "text". Set "html" for pre-converted HTML.
-  inReplyTo?: string;   // Provider message ID to reply to (for threading)
-  threadId?: string;     // Gmail threadId or M365 conversationId
+  inReplyTo?: string; // Provider message ID to reply to (for threading)
+  threadId?: string; // Gmail threadId or M365 conversationId
 }
 
 export interface SendEmailResult {
-  messageId: string;     // Provider message ID of sent email (used for sync dedup)
-  threadId: string;      // Thread/conversation ID
+  messageId: string; // Provider message ID of sent email (used for sync dedup)
+  threadId: string; // Thread/conversation ID
+}
+
+export interface ProviderEmailSignatureResult {
+  status: "available" | "not_configured" | "unsupported";
+  source: "gmail_send_as" | "microsoft_confirmed";
+  providerIdentity: string | null;
+  contentHtml: string | null;
 }
 
 // ─── Attachment Types ────────────────────────────────────────────────────────
+
+export const DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES = 25 * 1024 * 1024;
 
 export interface ImageAttachmentMeta {
   messageId: string;
@@ -145,6 +179,19 @@ export interface EmailAttachmentMeta {
   fromEmail: string;
   /** Send/receive time of the message that owns this attachment. */
   date: Date;
+  /** Provider-native attachment class. Reference attachments are links whose
+   * raw bytes are not available through Microsoft Graph. */
+  providerKind: "file" | "inline" | "item" | "reference";
+  /** Immutable MIME part identity when the provider exposes one (Gmail). */
+  providerPartId: string | null;
+  /** CID without surrounding angle brackets, for inline HTML references. */
+  contentId: string | null;
+  isInline: boolean;
+  /** False only when the provider cannot return raw bytes. */
+  downloadSupported: boolean;
+  /** Provider-owned external link for reference attachments. Never treated as
+   * an OPS storage URL. */
+  sourceUrl: string | null;
 }
 
 // ─── Draft Types ─────────────────────────────────────────────────────────────
@@ -191,11 +238,11 @@ export interface EmailProviderInterface {
   readonly providerType: "gmail" | "microsoft365";
 
   /**
-   * Fetch a fresh sync token for a new connection or after a
-   * SyncTokenExpiredError. For Gmail this returns the current mailbox
-   * historyId from /profile. For M365 the delta query self-seeds, so this
-   * returns an empty string and the next fetchNewEmailsSince call will
-   * request the initial delta.
+   * Fetch a fresh sync token for a new connection or as the future boundary of
+   * a completeness-preserving expired-token reconciliation. For Gmail this
+   * returns the current mailbox historyId from /profile. For M365 this returns
+   * a versioned composite cursor whose empty folder/message links make the
+   * next fetchNewEmailsSince call inventory the complete mailbox.
    */
   getInitialSyncToken(): Promise<string>;
 
@@ -243,19 +290,32 @@ export interface EmailProviderInterface {
   fetchThread(threadId: string): Promise<NormalizedEmail[]>;
 
   // Attachments — scan threads for images and download them
-  getImageAttachmentsFromThread(threadId: string): Promise<ImageAttachmentMeta[]>;
+  getImageAttachmentsFromThread(
+    threadId: string
+  ): Promise<ImageAttachmentMeta[]>;
   /**
-   * Like `getImageAttachmentsFromThread` but returns ALL attachments on the
-   * thread (images + PDFs + every other MIME type). Inline images below the
-   * 5KB heuristic (signature decorations) are still skipped — they are noise
-   * regardless of where they're displayed.
+   * Like `getImageAttachmentsFromThread` but returns every provider attachment
+   * on the thread (images + PDFs + every other MIME type). Durable ingestion
+   * must not discard small or filename-less inline parts because real customer
+   * photos can be represented that way; presentation can classify decoration
+   * later without losing the source bytes.
    *
    * Returned items carry the parent message's date so the inbox FILES tab
    * can sort newest-first and render the "MMM DD" stamp without a follow-up
    * thread fetch.
    */
   getAttachmentsFromThread(threadId: string): Promise<EmailAttachmentMeta[]>;
-  fetchAttachment(messageId: string, attachmentId: string): Promise<Buffer>;
+  /** Enumerate one exact provider message. This is the durable ingestion seam:
+   * queue jobs are keyed to a message/activity, never a thread alone. */
+  getAttachmentsFromMessage(
+    messageId: string,
+    context?: { fromEmail?: string; date?: Date }
+  ): Promise<EmailAttachmentMeta[]>;
+  fetchAttachment(
+    messageId: string,
+    attachmentId: string,
+    maxBytes?: number
+  ): Promise<Buffer>;
 
   // Labels/categories
   createLabel(name: string): Promise<string>;
@@ -281,7 +341,8 @@ export interface EmailProviderInterface {
     to: string,
     subject: string,
     body: string,
-    threadId?: string
+    threadId?: string,
+    contentType?: "text" | "html"
   ): Promise<string>;
 
   /**
@@ -295,7 +356,8 @@ export interface EmailProviderInterface {
   createNewThreadDraft(
     to: string,
     subject: string,
-    body: string
+    body: string,
+    contentType?: "text" | "html"
   ): Promise<CreateNewThreadDraftResult>;
 
   /**
@@ -312,18 +374,23 @@ export interface EmailProviderInterface {
     to: string,
     subject: string,
     body: string,
-    threadId?: string
+    threadId?: string,
+    contentType?: "text" | "html"
   ): Promise<void>;
 
   /**
-   * List every draft currently sitting in the user's provider Drafts folder.
-   * Includes both reply-drafts (with threadId) and new-compose drafts. Used
-   * by /api/inbox/drafts to merge provider-side drafts with OPS AI drafts.
-   *
-   * Implementations fetch content too (not just ids) — cheap enough at the
-   * page sizes we care about, and the UI needs subject/body/to for the list.
+   * List a bounded newest-first Drafts-folder snapshot for the inbox UI.
+   * Absence from this list is never proof that an older draft was deleted or
+   * sent because providers may paginate or clamp the page. State machines must
+   * use getDraft() with the immutable provider draft id instead.
    */
   listDrafts(): Promise<NormalizedDraft[]>;
+
+  /**
+   * Fetch one provider draft by immutable draft identity. Returns null only
+   * when that exact resource no longer exists or is no longer a draft.
+   */
+  getDraft(draftId: string): Promise<NormalizedDraft | null>;
 
   /** Delete a draft from the provider. Idempotent on already-gone drafts. */
   deleteDraft(draftId: string): Promise<void>;
@@ -338,4 +405,13 @@ export interface EmailProviderInterface {
 
   // Profile
   getProfile(): Promise<{ email: string; name: string }>;
+
+  /**
+   * Read the provider-managed mailbox signature without mutating mailbox
+   * settings. Gmail can read send-as signatures when the OAuth grant includes
+   * gmail.settings.basic. Microsoft Graph exposes no equivalent signature
+   * resource, so that provider reports `unsupported` and OPS falls back to an
+   * explicitly confirmed signature stored in OPS.
+   */
+  getEmailSignature?(): Promise<ProviderEmailSignatureResult>;
 }

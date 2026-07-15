@@ -7,7 +7,7 @@
  * without needing to know about the originating tables.
  *
  * "Documents" today means OPS-produced PDFs for the current client
- * (estimates and invoices) plus transient provider attachments adapted by
+ * (estimates and invoices) plus durable private email attachments adapted by
  * the inbox thread-attachment proxy. Financial documents render in
  * ACCOUNTING; non-financial attachments render in FILES.
  */
@@ -22,9 +22,9 @@ import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
  *
  * `email_attachment` is the per-thread variant: it represents a non-image
  * file (PDF, CSV, etc.) attached to a message on the currently-open thread.
- * Email attachments are not persisted to OPS storage — `pdfStoragePath`
- * holds a same-origin proxy URL that streams the bytes from Gmail/M365 on
- * demand. See `/api/inbox/threads/[id]/attachments`.
+ * Email attachment bytes are persisted in private OPS storage;
+ * `pdfStoragePath` holds a permission-checked same-origin proxy URL. See
+ * `/api/inbox/threads/[id]/attachments`.
  */
 export interface ProjectDocument {
   id: string;
@@ -34,14 +34,14 @@ export interface ProjectDocument {
   sourceType: "estimate" | "invoice" | "email_attachment";
   /** Originating record id. Pair with sourceType to build a route. */
   sourceId: string;
-  /** Status of the source record (e.g. "draft", "sent", "paid"). Surfaced
-   *  alongside the filename so the operator can see "is this paid?" at a
-   *  glance without opening the doc. Always null for `email_attachment`. */
+  /** Status of the source record (e.g. "draft", "sent", "paid"). For an
+   *  `email_attachment`, this is its canonical availability state so files
+   *  that could not be copied remain visible and explainable. */
   status: string | null;
   /** Storage path of the rendered PDF when present; null when the PDF
    *  hasn't been generated yet (drafts can predate the render step).
    *  For `email_attachment` this is a same-origin proxy URL that streams
-   *  the live bytes from the provider via cookie-authed GET. */
+   *  the private OPS copy via authenticated GET. */
   pdfStoragePath: string | null;
   /** MIME type when the source exposes it. Provider attachments set this;
    *  OPS-produced PDFs can leave it null because `sourceType` carries the
@@ -81,7 +81,11 @@ interface InvoiceRow {
   total: number | null;
 }
 
-function safeFilename(prefix: string, number: string | null, id: string): string {
+function safeFilename(
+  prefix: string,
+  number: string | null,
+  id: string
+): string {
   // Fall back to a short id slice when the number is missing — better than
   // an empty string, and consistent with how the estimate/invoice list
   // pages render headerless rows.
@@ -112,7 +116,7 @@ export const ProjectFileService = {
   async listClientDocuments(
     clientId: string,
     companyId: string,
-    limit = 50,
+    limit = 50
   ): Promise<ProjectDocument[]> {
     if (!clientId || !companyId) return [];
     const supabase = requireSupabase();
@@ -123,14 +127,18 @@ export const ProjectFileService = {
     const [estimatesRes, invoicesRes] = await Promise.all([
       supabase
         .from("estimates")
-        .select("id, estimate_number, status, pdf_storage_path, updated_at, total")
+        .select(
+          "id, estimate_number, status, pdf_storage_path, updated_at, total"
+        )
         .eq("company_id", companyId)
         .eq("client_id", clientId)
         .order("updated_at", { ascending: false })
         .limit(limit),
       supabase
         .from("invoices")
-        .select("id, invoice_number, status, pdf_storage_path, updated_at, total")
+        .select(
+          "id, invoice_number, status, pdf_storage_path, updated_at, total"
+        )
         .eq("company_id", companyId)
         .eq("client_id", clientId)
         .order("updated_at", { ascending: false })
@@ -140,13 +148,13 @@ export const ProjectFileService = {
     if (estimatesRes.error) {
       console.error(
         "[project-file-service] estimates fetch failed:",
-        estimatesRes.error.message,
+        estimatesRes.error.message
       );
     }
     if (invoicesRes.error) {
       console.error(
         "[project-file-service] invoices fetch failed:",
-        invoicesRes.error.message,
+        invoicesRes.error.message
       );
     }
 
@@ -155,31 +163,31 @@ export const ProjectFileService = {
     // client returns `numeric` columns as JS numbers when in range; we
     // coerce defensively to handle the string fallback path and treat
     // unparseable values as null so the totals strip just drops the row.
-    const estimates: ProjectDocument[] = ((estimatesRes.data ?? []) as EstimateRow[]).map(
-      (r) => ({
-        id: `estimate:${r.id}`,
-        filename: safeFilename("Estimate", r.estimate_number, r.id),
-        sourceType: "estimate",
-        sourceId: r.id,
-        status: r.status,
-        pdfStoragePath: r.pdf_storage_path,
-        updatedAt: parseDateRequired(r.updated_at).toISOString(),
-        value: coerceMoney(r.total),
-      }),
-    );
+    const estimates: ProjectDocument[] = (
+      (estimatesRes.data ?? []) as EstimateRow[]
+    ).map((r) => ({
+      id: `estimate:${r.id}`,
+      filename: safeFilename("Estimate", r.estimate_number, r.id),
+      sourceType: "estimate",
+      sourceId: r.id,
+      status: r.status,
+      pdfStoragePath: r.pdf_storage_path,
+      updatedAt: parseDateRequired(r.updated_at).toISOString(),
+      value: coerceMoney(r.total),
+    }));
 
-    const invoices: ProjectDocument[] = ((invoicesRes.data ?? []) as InvoiceRow[]).map(
-      (r) => ({
-        id: `invoice:${r.id}`,
-        filename: safeFilename("Invoice", r.invoice_number, r.id),
-        sourceType: "invoice",
-        sourceId: r.id,
-        status: r.status,
-        pdfStoragePath: r.pdf_storage_path,
-        updatedAt: parseDateRequired(r.updated_at).toISOString(),
-        value: coerceMoney(r.total),
-      }),
-    );
+    const invoices: ProjectDocument[] = (
+      (invoicesRes.data ?? []) as InvoiceRow[]
+    ).map((r) => ({
+      id: `invoice:${r.id}`,
+      filename: safeFilename("Invoice", r.invoice_number, r.id),
+      sourceType: "invoice",
+      sourceId: r.id,
+      status: r.status,
+      pdfStoragePath: r.pdf_storage_path,
+      updatedAt: parseDateRequired(r.updated_at).toISOString(),
+      value: coerceMoney(r.total),
+    }));
 
     // Merge + sort. The id prefixes (`estimate:` / `invoice:`) keep the
     // composed list keyable in React without collision risk between

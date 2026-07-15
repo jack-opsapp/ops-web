@@ -11,6 +11,7 @@
 import { useRef, useEffect } from "react";
 import { useAuthStore } from "../store/auth-store";
 import { useCreateNotification } from "./use-notifications";
+import { authedFetch } from "../utils/authed-fetch";
 
 const POLL_INTERVAL = 60_000; // 60 seconds
 
@@ -27,7 +28,7 @@ export function useGmailSyncNotifications() {
       if (document.visibilityState !== "visible") return;
 
       try {
-        const resp = await fetch(
+        const resp = await authedFetch(
           `/api/integrations/gmail/review-items?companyId=${encodeURIComponent(companyId)}`
         );
         if (!resp.ok) return;

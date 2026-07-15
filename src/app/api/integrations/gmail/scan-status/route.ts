@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 export async function GET(request: NextRequest) {
   const jobId = request.nextUrl.searchParams.get("jobId");
@@ -21,13 +22,20 @@ export async function GET(request: NextRequest) {
 
   const { data: job, error } = await supabase
     .from("gmail_scan_jobs")
-    .select("id, status, progress, result, error_message, created_at, updated_at")
+    .select(
+      "id, company_id, status, progress, result, error_message, created_at, updated_at"
+    )
     .eq("id", jobId)
     .single();
 
   if (error || !job) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
+  const authError = await requireEmailCompanyAccess(
+    request,
+    job.company_id as string
+  );
+  if (authError) return authError;
 
   return NextResponse.json({
     jobId: job.id,

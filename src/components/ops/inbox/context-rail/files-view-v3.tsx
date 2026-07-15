@@ -94,10 +94,7 @@ export function FilesViewV3({
       </div>
 
       {view === "files" ? (
-        <FilesSubView
-          files={otherFiles}
-          onFileOpen={onFileOpen}
-        />
+        <FilesSubView files={otherFiles} onFileOpen={onFileOpen} />
       ) : (
         <PhotosByProject
           photos={photos}
@@ -120,7 +117,13 @@ interface TogglePillProps {
   testId?: string;
 }
 
-function TogglePill({ active, label, count, onClick, testId }: TogglePillProps) {
+function TogglePill({
+  active,
+  label,
+  count,
+  onClick,
+  testId,
+}: TogglePillProps) {
   return (
     <button
       type="button"
@@ -132,7 +135,7 @@ function TogglePill({ active, label, count, onClick, testId }: TogglePillProps) 
         "flex items-center gap-1.5 rounded-chip border px-2 py-1 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors",
         active
           ? "border-border-medium bg-transparent text-text"
-          : "border-line text-text-3 hover:border-line-hi hover:text-text",
+          : "border-line text-text-3 hover:border-line-hi hover:text-text"
       )}
       style={TNUM_ZERO}
     >
@@ -187,17 +190,11 @@ interface FileRowProps {
 
 function FileRow({ file, onFileOpen, t }: FileRowProps) {
   const metaSegments = fileMetaSegments(file, t);
+  const isOpenable = Boolean(file.pdfStoragePath);
 
-  return (
-    <button
-      type="button"
-      data-testid={`files-row-${file.id}`}
-      onClick={() => onFileOpen?.(file)}
-      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 px-1.5 py-2 text-left transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-    >
-      <span
-        className="min-w-0 truncate font-mohave text-[12px] font-medium text-text-2"
-      >
+  const contents = (
+    <>
+      <span className="min-w-0 truncate font-mohave text-[12px] font-medium text-text-2">
         {file.filename}
       </span>
       <span
@@ -207,7 +204,7 @@ function FileRow({ file, onFileOpen, t }: FileRowProps) {
         {formatDate(file.updatedAt)}
       </span>
       <span
-        className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[11px] uppercase text-text-mute"
+        className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 font-mono text-[11px] uppercase text-text-3"
         style={TNUM_ZERO}
       >
         {metaSegments.map((segment, index) => (
@@ -217,6 +214,31 @@ function FileRow({ file, onFileOpen, t }: FileRowProps) {
           </span>
         ))}
       </span>
+    </>
+  );
+
+  const rowClassName =
+    "grid w-full grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-1 px-1.5 py-2 text-left";
+
+  if (!isOpenable) {
+    return (
+      <div data-testid={`files-row-${file.id}`} className={rowClassName}>
+        {contents}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      data-testid={`files-row-${file.id}`}
+      onClick={() => onFileOpen?.(file)}
+      className={cn(
+        rowClassName,
+        "transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+      )}
+    >
+      {contents}
     </button>
   );
 }
@@ -237,18 +259,36 @@ function formatDate(iso: string): string {
 
 function fileMetaSegments(
   file: ProjectDocument,
-  t: (key: string, fallback: string) => string,
+  t: (key: string, fallback: string) => string
 ): string[] {
   return [
     fileTypeLabel(file, t),
     fileSourceLabel(file, t),
     formatSize(file.sizeBytes),
+    fileAvailabilityLabel(file, t),
   ].filter((segment): segment is string => segment !== null);
+}
+
+function fileAvailabilityLabel(
+  file: ProjectDocument,
+  t: (key: string, fallback: string) => string
+): string | null {
+  if (file.sourceType !== "email_attachment") return null;
+  if (file.status === "external") {
+    return t("rail.fileAvailabilityExternal", "LINKED");
+  }
+  if (file.status === "oversized") {
+    return t("rail.fileAvailabilityOversized", "TOO LARGE");
+  }
+  if (file.status === "unavailable" || file.status === "failed") {
+    return t("rail.fileAvailabilityUnavailable", "UNAVAILABLE");
+  }
+  return null;
 }
 
 function fileTypeLabel(
   file: ProjectDocument,
-  t: (key: string, fallback: string) => string,
+  t: (key: string, fallback: string) => string
 ): string {
   const fromMime = file.mimeType?.split("/").at(1)?.trim();
   const fromName = file.filename.match(/\.([^.]+)$/)?.[1]?.trim();
@@ -272,7 +312,7 @@ function fileTypeLabel(
 
 function fileSourceLabel(
   file: ProjectDocument,
-  t: (key: string, fallback: string) => string,
+  t: (key: string, fallback: string) => string
 ): string {
   const raw = file.sourceLabel?.trim().toLowerCase();
   if (raw === "email" || file.sourceType === "email_attachment") {

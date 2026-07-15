@@ -106,6 +106,11 @@ function makeSupabaseDouble(state: SupabaseState) {
       return this;
     }
 
+    or(value: string) {
+      this.filters.set("or", value);
+      return this;
+    }
+
     not(column: string, operator: string, value: unknown) {
       this.filters.set(`${column}:${operator}`, value);
       return this;
@@ -122,7 +127,10 @@ function makeSupabaseDouble(state: SupabaseState) {
     insert(payload: Record<string, unknown>) {
       this.action = "insert";
       if (this.table === "clients") {
-        state.clients.push({ id: `client-${state.clients.length + 1}`, ...payload });
+        state.clients.push({
+          id: `client-${state.clients.length + 1}`,
+          ...payload,
+        });
       }
       if (this.table === "opportunities") {
         state.opportunities.push({
@@ -134,7 +142,10 @@ function makeSupabaseDouble(state: SupabaseState) {
         });
       }
       if (this.table === "activities") {
-        state.activities.push({ id: `activity-${state.activities.length + 1}`, ...payload });
+        state.activities.push({
+          id: `activity-${state.activities.length + 1}`,
+          ...payload,
+        });
       }
       return this;
     }
@@ -146,7 +157,8 @@ function makeSupabaseDouble(state: SupabaseState) {
 
     upsert(payload: Record<string, unknown>) {
       this.action = "upsert";
-      if (this.table === "opportunity_email_threads") state.threadLinks.push(payload);
+      if (this.table === "opportunity_email_threads")
+        state.threadLinks.push(payload);
       return this;
     }
 
@@ -157,8 +169,14 @@ function makeSupabaseDouble(state: SupabaseState) {
       if (this.table === "opportunities" && this.action === "insert") {
         return { data: state.opportunities.at(-1), error: null };
       }
+      if (this.table === "activities" && this.action === "insert") {
+        return { data: state.activities.at(-1), error: null };
+      }
       if (this.table === "companies") {
-        return { data: { name: "Canpro Deck and Rail", industry: "deck and rail" }, error: null };
+        return {
+          data: { name: "Canpro Deck and Rail", industry: "deck and rail" },
+          error: null,
+        };
       }
       return { data: null, error: null };
     }
@@ -169,12 +187,32 @@ function makeSupabaseDouble(state: SupabaseState) {
         const client = state.clients.find((row) => row.id === id) ?? null;
         return { data: client, error: null };
       }
+      if (this.table === "opportunities") {
+        const id = this.filters.get("id");
+        const opportunity =
+          state.opportunities.find((row) => row.id === id) ?? null;
+        return { data: opportunity, error: null };
+      }
+      if (this.table === "opportunity_email_threads") {
+        const link =
+          state.threadLinks.find(
+            (row) =>
+              row.thread_id === this.filters.get("thread_id") &&
+              row.connection_id === this.filters.get("connection_id")
+          ) ?? null;
+        return { data: link, error: null };
+      }
       return { data: null, error: null };
     }
 
     private result() {
-      if (this.table === "activities" && this.action === "select") return { data: [], error: null };
-      if (this.table === "opportunities" && this.action === "select") return { data: [], error: null };
+      if (this.table === "email_connections" && this.action === "update") {
+        return { data: [{ id: "connection-1" }], error: null };
+      }
+      if (this.table === "activities" && this.action === "select")
+        return { data: [], error: null };
+      if (this.table === "opportunities" && this.action === "select")
+        return { data: [], error: null };
       if (this.table === "clients" && this.action === "select") {
         const email = String(this.filters.get("email") ?? "").toLowerCase();
         const matches = state.clients.filter(
@@ -182,15 +220,29 @@ function makeSupabaseDouble(state: SupabaseState) {
         );
         return { data: matches, error: null };
       }
-      if (this.table === "opportunity_email_threads" && this.action === "select") {
-        return { data: [], error: null };
+      if (
+        this.table === "opportunity_email_threads" &&
+        this.action === "select"
+      ) {
+        return {
+          data: state.threadLinks.filter(
+            (row) =>
+              row.thread_id === this.filters.get("thread_id") &&
+              row.connection_id === this.filters.get("connection_id")
+          ),
+          error: null,
+        };
       }
       return { data: null, error: null };
     }
 
     then<TResult1 = unknown, TResult2 = never>(
-      onfulfilled?: ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
-      onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+      onfulfilled?:
+        | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
+        | null,
+      onrejected?:
+        | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+        | null
     ) {
       return Promise.resolve(this.result()).then(onfulfilled, onrejected);
     }
@@ -200,7 +252,27 @@ function makeSupabaseDouble(state: SupabaseState) {
     from(table: string) {
       return new Query(table);
     },
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    rpc: vi.fn(async (name: string) => ({
+      data:
+        name === "apply_opportunity_correspondence_event"
+          ? [
+              {
+                changed: true,
+                correspondence_count: 1,
+                inbound_count: 0,
+                outbound_count: 1,
+                stage: "qualifying",
+                stage_manually_set: false,
+                last_message_direction: "out",
+                last_inbound_at: null,
+                last_outbound_at: "2026-05-25T23:05:00.000Z",
+              },
+            ]
+          : name === "apply_email_opportunity_stage_transition"
+            ? [{ changed: true }]
+            : null,
+      error: null,
+    })),
   };
 }
 
@@ -294,19 +366,21 @@ describe("SyncEngine live email opportunity title pattern", () => {
 
     getConnectionMock.mockResolvedValue(baseConnection());
     getProviderMock.mockReturnValue({
+      providerType: "gmail",
       fetchNewEmailsSince: vi.fn(async () => ({
-        emails: [],
+        emails: [sentEstimateEmail()],
         nextSyncToken: "sync-token-2",
       })),
       fetchSentEmailsSince: vi.fn(async () => ({
-        emails: [sentEstimateEmail()],
+        emails: [],
         nextSyncToken: "sync-token-2",
       })),
     });
     matchMock.mockResolvedValue({ action: "create_new", clientId: null });
 
-    await SyncEngine.runSync("connection-1");
+    const result = await SyncEngine.runSync("connection-1");
 
+    expect(result.errors).toEqual([]);
     expect(state.opportunities).toHaveLength(1);
     expect(state.opportunities[0].title).toBe("runningemu — Estimate");
     expect(state.opportunities[0].title).not.toContain("Jackson Sweet");

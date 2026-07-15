@@ -22,6 +22,7 @@ import {
   SubscriptionStatus,
   type Company,
 } from "@/lib/types/models";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 
 type CompanySubscriptionFields = Pick<
   Company,
@@ -33,11 +34,15 @@ type CompanySubscriptionFields = Pick<
   | "maxSeats"
 >;
 
-function mapSubscriptionRow(row: Record<string, unknown>): CompanySubscriptionFields {
+function mapSubscriptionRow(
+  row: Record<string, unknown>
+): CompanySubscriptionFields {
   return {
     subscriptionPlan: (row.subscription_plan as SubscriptionPlan) ?? null,
     subscriptionStatus: (row.subscription_status as SubscriptionStatus) ?? null,
-    trialEndDate: row.trial_end_date ? new Date(row.trial_end_date as string) : null,
+    trialEndDate: row.trial_end_date
+      ? new Date(row.trial_end_date as string)
+      : null,
     seatedEmployeeIds: (row.seated_employee_ids as string[]) ?? [],
     adminIds: (row.admin_ids as string[]) ?? [],
     maxSeats: (row.max_seats as number) ?? 10,
@@ -58,6 +63,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    const authError = await requireEmailCompanyAccess(request, companyId);
+    if (authError) return authError;
 
     // ── Subscription gate ───────────────────────────────────────────────
     // Fail closed — a broken company lookup must never let a lapsed
