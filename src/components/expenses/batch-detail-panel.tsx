@@ -17,7 +17,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Loader2, Flag } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
@@ -379,50 +379,62 @@ export function BatchDetailPanel({
         )}
       </div>
 
-      {/* Footer — lifecycle state machine */}
+      {/* Reviewable footer — compact floating action cluster, bottom-right.
+          Founder ask: "reject/approve too big — small floating buttons, bottom
+          right of the review panel." A `sticky bottom` puck keeps the verbs
+          reachable while the line list scrolls, then rests in-flow below the
+          last row at the bottom of the scroll (so nothing stays occluded).
+          The wrapper is pointer-events-none so the empty gutter stays
+          click-through to the lines behind; only the puck is interactive.
+          Handlers + mutation wiring are unchanged from the old full-width bar. */}
       {canReview && reviewable && (
-        <div className="space-y-2 border-t border-line p-3">
-          {flagCount > 0 ? (
-            <>
-              <button
-                type="button"
-                onClick={handleRemoveAllFlags}
-                className="font-mono text-micro uppercase tracking-wider text-text-3 transition-colors duration-150 ease-smooth hover:text-text-2"
-              >
-                {t("expenses.detail.removeAllFlags")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowRejectModal(true)}
-                className="w-full rounded border border-rose-line bg-rose-soft px-4 py-2 font-cakemono text-button-sm font-light uppercase text-rose transition-colors duration-150 ease-smooth hover:border-rose focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-              >
-                {t(flagCount === 1 ? "expenses.detail.rejectWithOne" : "expenses.detail.rejectWith", {
-                  n: flagCount,
-                })}
-              </button>
-            </>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled
-                className="flex-1 cursor-not-allowed rounded border border-line px-4 py-2 font-cakemono text-button-sm font-light uppercase text-text-mute"
-              >
-                {t("expenses.detail.reject")}
-              </button>
-              <button
-                type="button"
-                onClick={() => onApprove(batch)}
-                disabled={busy}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded border border-olive-line bg-olive-soft px-4 py-2 font-cakemono text-button-sm font-light uppercase text-olive transition-colors duration-150 ease-smooth hover:border-olive focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50"
-              >
-                {busy && (
-                  <Loader2 className="h-[12px] w-[12px] animate-spin motion-reduce:animate-none" />
-                )}
-                {t("expenses.detail.approveAll", { total: fmtMoney(totalAmount) })}
-              </button>
-            </div>
-          )}
+        <div
+          data-testid="review-action-cluster"
+          className="pointer-events-none sticky bottom-0 z-10 flex justify-end px-3 pb-3 pt-2"
+        >
+          <div className="glass-dense pointer-events-auto flex items-center gap-1 rounded-panel border border-line p-1">
+            {flagCount > 0 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleRemoveAllFlags}
+                  className="h-[28px] rounded px-2 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors duration-150 ease-smooth hover:text-text-2 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent"
+                >
+                  {t("expenses.detail.removeAllFlags")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRejectModal(true)}
+                  className="flex h-[28px] items-center rounded border border-rose-line bg-rose-soft px-3 font-cakemono text-button-sm font-light uppercase text-rose transition-colors duration-150 ease-smooth hover:border-rose focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                >
+                  {t(flagCount === 1 ? "expenses.detail.rejectWithOne" : "expenses.detail.rejectWith", {
+                    n: flagCount,
+                  })}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  disabled
+                  className="h-[28px] cursor-not-allowed rounded border border-line px-3 font-cakemono text-button-sm font-light uppercase text-text-mute"
+                >
+                  {t("expenses.detail.reject")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onApprove(batch)}
+                  disabled={busy}
+                  className="flex h-[28px] items-center gap-1.5 rounded border border-olive-line bg-olive-soft px-3 font-cakemono text-button-sm font-light uppercase text-olive transition-colors duration-150 ease-smooth hover:border-olive focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:opacity-50"
+                >
+                  {busy && (
+                    <Loader2 className="h-[12px] w-[12px] animate-spin motion-reduce:animate-none" />
+                  )}
+                  {t("expenses.detail.approveAll", { total: fmtMoney(totalAmount) })}
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 

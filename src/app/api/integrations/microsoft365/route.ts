@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { sanitizeReturnTo } from "@/lib/utils/oauth-return";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -18,6 +19,10 @@ export async function GET(request: NextRequest) {
   // (alert-email flow). Defaults to wizard so existing in-app callers
   // are unaffected.
   const source = searchParams.get("source") === "alert" ? "alert" : "wizard";
+  // Optional app-internal path to land on after the callback (e.g.
+  // /pipeline). Sanitized here AND in the callback — only "/..." paths
+  // survive; absent keeps the legacy /settings landing.
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
 
   if (!companyId) {
     return NextResponse.json(
@@ -44,7 +49,7 @@ export async function GET(request: NextRequest) {
   }
 
   const state = Buffer.from(
-    JSON.stringify({ companyId, userId, type, source })
+    JSON.stringify({ companyId, userId, type, source, returnTo })
   ).toString("base64");
 
   const authUrl = new URL(

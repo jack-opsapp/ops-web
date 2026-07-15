@@ -13,7 +13,7 @@ import { useTeamMembers } from "@/lib/hooks/use-users";
 import { useCreateTask, useCreateTaskWithEvent } from "@/lib/hooks/use-tasks";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { Project } from "@/lib/types/models";
 
 // ─── Project Selector ────────────────────────────────────────────────────────

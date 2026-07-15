@@ -13,11 +13,12 @@
  */
 
 import { useCallback, useMemo } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { ProjectTask } from "@/lib/types/models";
 import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { useTasks, useUpdateTask, useRecurrenceEdit } from "@/lib/hooks";
 import { useRecurrenceEditPrompt } from "@/components/ui/recurrence-edit-prompt";
+import { useDictionary } from "@/i18n/client";
 
 export interface ResizePatch {
   startDate?: Date;
@@ -27,6 +28,7 @@ export interface ResizePatch {
 }
 
 export function useScheduleResize() {
+  const { t } = useDictionary("schedule");
   const updateTask = useUpdateTask();
   const recurrenceEdit = useRecurrenceEdit();
   const recurrencePrompt = useRecurrenceEditPrompt();
@@ -55,7 +57,7 @@ export function useScheduleResize() {
           },
           {
             onError: (err) =>
-              toast.error("Failed to resize recurring task", {
+              toast.error(t("toast.resizeRecurringFailed"), {
                 description: err.message,
               }),
           }
@@ -67,11 +69,11 @@ export function useScheduleResize() {
         { id: event.id, data: patch as Partial<ProjectTask> },
         {
           onError: (err) =>
-            toast.error("Failed to resize task", { description: err.message }),
+            toast.error(t("toast.resizeFailed"), { description: err.message }),
         }
       );
     },
-    [tasksById, updateTask, recurrenceEdit, recurrencePrompt]
+    [tasksById, updateTask, recurrenceEdit, recurrencePrompt, t]
   );
 
   return {

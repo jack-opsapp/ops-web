@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Calendar, Play, Check, ArrowRight, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type {
   DataSetupQueueRow,
   DataSetupRequestStatus,

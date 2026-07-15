@@ -19,7 +19,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { useDraggable } from "@dnd-kit/core";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useScheduleStore } from "@/stores/schedule-store";
 import { useScheduleResizeContext } from "../schedule-dnd-shell";
 import {

@@ -8,6 +8,10 @@
   "sync.pendingTitle": "Cambios pendientes de sincronizar",
   "sync.offlineTitle": "Sin conexión a internet",
 
+  "connectivity.online": "CONEXIÓN RESTABLECIDA",
+  "connectivity.offline": "SIN CONEXIÓN",
+  "connectivity.offlineDetail": "Los cambios se sincronizan al restablecer la conexión.",
+
   "search.placeholder": "Buscar...",
   "search.shortcut": "⌘K",
   "search.ariaLabel": "Abrir búsqueda",

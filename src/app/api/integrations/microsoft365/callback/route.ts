@@ -8,7 +8,68 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import {
+  buildReturnRedirect,
+  sanitizeReturnTo,
+} from "@/lib/utils/oauth-return";
 import { defaultAutoSendSettings } from "@/lib/api/services/mailbox-draft-helpers";
+
+interface M365OAuthState {
+  companyId: string;
+  userId: string | undefined;
+  type: string | undefined;
+  /** `alert` lands on /reconnect-inbox/success; `wizard` keeps /settings. */
+  source: "wizard" | "alert";
+  /**
+   * Optional app-internal path (allowlisted: must be a "/..." path) to land
+   * on instead of /settings — set when the flow started elsewhere in the app
+   * (e.g. the pipeline connect banner). Success appends
+   * `?connected=microsoft365`, failure `?connect_error=1`.
+   */
+  returnTo: string | null;
+}
+
+/** Decode the base64-JSON state set by microsoft365/route.ts. */
+function decodeState(raw: string): M365OAuthState | null {
+  try {
+    const decoded = JSON.parse(Buffer.from(raw, "base64").toString());
+    if (
+      !decoded ||
+      typeof decoded !== "object" ||
+      typeof decoded.companyId !== "string"
+    ) {
+      return null;
+    }
+    return {
+      companyId: decoded.companyId,
+      userId: typeof decoded.userId === "string" ? decoded.userId : undefined,
+      type: typeof decoded.type === "string" ? decoded.type : undefined,
+      source: decoded.source === "alert" ? "alert" : "wizard",
+      // Re-sanitize on the way back — state round-trips through Microsoft
+      // and must be treated as attacker-controlled.
+      returnTo: sanitizeReturnTo(decoded.returnTo),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Failure landing: when the flow carried a valid app-internal `returnTo`,
+ * send the user back there with `?connect_error=1` so the origin page fires
+ * its error toast. Flows without returnTo keep today's /settings redirect.
+ */
+function errorRedirect(returnTo: string | null, message: string) {
+  if (returnTo) {
+    const url = buildReturnRedirect(getAppUrl(), returnTo, {
+      connect_error: "1",
+    });
+    if (url) return NextResponse.redirect(url);
+  }
+  return NextResponse.redirect(
+    `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(message)}`
+  );
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -16,35 +77,36 @@ export async function GET(request: NextRequest) {
   const stateParam = searchParams.get("state");
   const error = searchParams.get("error");
 
+  // Decode state up-front (it arrives even on provider errors/denials) so
+  // every failure path can honor a valid returnTo.
+  const state = stateParam ? decodeState(stateParam) : null;
+  const returnTo = state?.returnTo ?? null;
+
   // Handle user denial
   if (error) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(error)}`
-    );
+    return errorRedirect(returnTo, error);
   }
 
   if (!code || !stateParam) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_params`
-    );
+    return errorRedirect(returnTo, "missing_params");
   }
 
   if (!process.env.MICROSOFT_CLIENT_ID || !process.env.MICROSOFT_CLIENT_SECRET) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=not_configured`
-    );
+    return errorRedirect(returnTo, "not_configured");
+  }
+
+  if (!state) {
+    console.error("[M365 OAuth] Failed to decode state");
+    return errorRedirect(returnTo, "invalid_state");
   }
 
   try {
-    const decoded = JSON.parse(
-      Buffer.from(stateParam, "base64").toString()
-    );
-    const companyId = decoded.companyId as string;
-    const userId = decoded.userId as string | undefined;
-    const type = decoded.type as string | undefined;
+    const companyId = state.companyId;
+    const userId = state.userId;
+    const type = state.type;
     // `source === "alert"` lands the user on /reconnect-inbox/success after
     // the connection is written. Defaults to wizard for in-app flows.
-    const source = decoded.source === "alert" ? "alert" : "wizard";
+    const source = state.source;
 
     // Exchange authorization code for tokens
     const tokenRes = await fetch(
@@ -69,9 +131,7 @@ export async function GET(request: NextRequest) {
     if (!tokenRes.ok) {
       const errorData = await tokenRes.text();
       console.error("[M365 OAuth] Token exchange failed:", tokenRes.status, errorData);
-      return NextResponse.redirect(
-        `${getAppUrl()}/settings?tab=integrations&status=error&message=token_exchange_failed`
-      );
+      return errorRedirect(returnTo, "token_exchange_failed");
     }
 
     const tokens = await tokenRes.json();
@@ -115,9 +175,7 @@ export async function GET(request: NextRequest) {
 
     if (insertError) {
       console.error("[M365 OAuth] Failed to store tokens:", insertError.message);
-      return NextResponse.redirect(
-        `${getAppUrl()}/settings?tab=integrations&status=error&message=storage_failed`
-      );
+      return errorRedirect(returnTo, "storage_failed");
     }
 
     if (source === "alert") {
@@ -131,13 +189,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // App-initiated flows (e.g. the pipeline connect banner) land back where
+    // they started with ?connected=microsoft365 so the origin page fires its
+    // toast.
+    if (returnTo) {
+      const url = buildReturnRedirect(getAppUrl(), returnTo, {
+        connected: "microsoft365",
+      });
+      if (url) return NextResponse.redirect(url);
+    }
+
     return NextResponse.redirect(
       `${getAppUrl()}/settings?tab=integrations&status=connected&provider=microsoft365&firstConnect=true`
     );
   } catch (err) {
     console.error("[M365 OAuth] Callback error:", err);
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=unexpected_error`
-    );
+    return errorRedirect(returnTo, "unexpected_error");
   }
 }

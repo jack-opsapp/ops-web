@@ -7,6 +7,7 @@ import {
   PROJECT_TABLE_COLUMN_IDS,
   getProjectTableEditValue,
   type ProjectTableColumnId,
+  type ProjectTableEditableColumnId,
   type ProjectTableSort,
 } from "@/lib/types/project-table";
 import { useCellEdit } from "@/lib/hooks/projects-table/use-cell-edit";
@@ -28,7 +29,7 @@ import { ProjectsDensityControl } from "./projects-density-control";
 import { ProjectsEmptyState } from "./projects-empty-state";
 import { ProjectsTable } from "./projects-table";
 import { ProjectsToolbar, ProjectsRowCount } from "./projects-toolbar";
-import { ProjectsUndoToast } from "./projects-undo-toast";
+import { showUndoToast } from "@/components/ui/toast-undo";
 import { ProjectsViewCreateDialog } from "./projects-view-create-dialog";
 import { ProjectsViewSettingsMenu } from "./projects-view-settings-menu";
 import { ProjectsViewTabs } from "./projects-view-tabs";
@@ -37,6 +38,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { useDebouncedValue } from "@/lib/hooks/use-debounced-value";
 import { MetricsStrip, fromMetricColumns } from "@/components/ui/metrics-strip";
 import type { MetricColumnConfig } from "@/components/metrics/types";
+import { ALL_PROJECTS_VIEW_ID } from "@/lib/utils/project-view-defaults";
 
 function sortProjectViews(views: ProjectTableViewDefinition[]) {
   return [...views].sort((a, b) => {
@@ -59,6 +61,17 @@ function upsertProjectView(
 function pickFallbackView(views: ProjectTableViewDefinition[]) {
   return views.find((view) => view.isDefault) ?? views[0] ?? null;
 }
+
+// Editable column id → its `table.column.<id>` dictionary key, for the undo
+// toast body ("{column} updated on {project}").
+const UNDO_COLUMN_LABEL_KEYS = {
+  name: "table.column.name",
+  status: "table.column.status",
+  client: "table.column.client",
+  address: "table.column.address",
+  start_date: "table.column.startDate",
+  end_date: "table.column.endDate",
+} as const satisfies Record<ProjectTableEditableColumnId, string>;
 
 function ProjectsViewState({ label }: { label: string }) {
   return (
@@ -185,6 +198,10 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
 
   const views = (managedViews ?? viewsQuery.data ?? []).filter((view) => view.isArchived !== true);
   const { activeView, activeViewId, setActiveViewId, unavailableView } = useProjectView(views);
+  // ALL is the synthetic, unsaved baseline — no DB row. Anything that persists
+  // to a view id (density/zoom, definition save, the settings menu) must be
+  // suppressed while it is active.
+  const isAllView = activeViewId === ALL_PROJECTS_VIEW_ID;
   const viewActions = useProjectViewActions({ views, activeViewId, setActiveViewId });
   const [unavailableViewId, setUnavailableViewId] = useState<string | null>(null);
   const savedActiveView = useMemo(
@@ -248,12 +265,15 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
       pendingDefinitionKey !== savedDefinitionKey,
   );
   const tableView = useMemo<ProjectTableViewDefinition | null>(() => {
-    if (!pendingEffectiveView) return null;
+    // Hold the fetch until saved views resolve. `activeView` synthesizes ALL
+    // during the loading window; firing the query then would waste an ALL fetch
+    // that a stored/URL view immediately supersedes.
+    if (!pendingEffectiveView || viewsQuery.isLoading) return null;
     return {
       ...pendingEffectiveView,
       updatedAt: `${pendingEffectiveView.updatedAt}:${pendingDefinitionKey}`,
     };
-  }, [pendingDefinitionKey, pendingEffectiveView]);
+  }, [pendingDefinitionKey, pendingEffectiveView, viewsQuery.isLoading]);
   const tableQuery = useProjectsTableData({
     view: tableView,
     search: debouncedSearch,
@@ -296,6 +316,40 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
     void undoLatest();
   }, [undoLatest]);
 
+  // ── Undo toast (canonical system) ───────────────────────────────────────
+  // The cell-edit engine surfaces `latestUndo` (single-cell or bulk);
+  // presentation renders through the shared Sonner-based undo toast. Refs keep
+  // the callbacks fresh without re-firing the effect — it fires exactly once
+  // per new undo entry.
+  const { clearLatestUndo } = cellEdit;
+  const undoActionRef = useRef(handleUndoLatest);
+  const undoClearRef = useRef(clearLatestUndo);
+  useEffect(() => {
+    undoActionRef.current = handleUndoLatest;
+    undoClearRef.current = clearLatestUndo;
+  }, [handleUndoLatest, clearLatestUndo]);
+
+  const latestUndoEntry = cellEdit.latestUndo;
+  const lastToastedUndoIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!latestUndoEntry || latestUndoEntry.id === lastToastedUndoIdRef.current) return;
+    lastToastedUndoIdRef.current = latestUndoEntry.id;
+    const isBulk = "kind" in latestUndoEntry && latestUndoEntry.kind === "bulk";
+    showUndoToast({
+      title: isBulk ? t("table.bulk.undoTitle") : t("table.undo.toastTitle"),
+      description: isBulk
+        ? t("table.bulk.undoBody", { count: String(latestUndoEntry.projectIds.length) })
+        : t("table.undo.body", {
+            column: t(UNDO_COLUMN_LABEL_KEYS[latestUndoEntry.columnId]),
+            project: latestUndoEntry.projectTitle,
+          }),
+      undoLabel: t("table.undo.action"),
+      dismissLabel: t("table.undo.dismiss"),
+      onUndo: () => undoActionRef.current(),
+      onDismiss: () => undoClearRef.current(),
+    });
+  }, [latestUndoEntry, t]);
+
   const handleFocusSearch = useCallback(() => {
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
@@ -313,9 +367,15 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
   const handleViewChange = useCallback(
     (viewId: string) => {
       setUnavailableViewId(null);
+      // Clicking the ALL chip, or clicking the already-active saved chip again,
+      // deselects to the ALL baseline (null).
+      if (viewId === ALL_PROJECTS_VIEW_ID || viewId === activeViewId) {
+        setActiveViewId(null);
+        return;
+      }
       setActiveViewId(viewId);
     },
-    [setActiveViewId],
+    [activeViewId, setActiveViewId],
   );
 
   const handleViewUpdated = useCallback(
@@ -326,7 +386,10 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
   );
 
   const persistPendingViewDefinition = useCallback(async () => {
-    if (!pendingEffectiveView || !pendingDefinition) return null;
+    // ALL has no DB row — never attempt to save its definition. (The Save
+    // button is already gated out because `hasUnsavedDefinition` is false for
+    // ALL, but guard here too.)
+    if (!pendingEffectiveView || !pendingDefinition || isAllView) return null;
 
     setViewDefinitionSaving(true);
     setViewSaveErrorKey(null);
@@ -346,6 +409,7 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
     }
   }, [
     handleViewUpdated,
+    isAllView,
     pendingDefinition,
     pendingEffectiveView,
     viewActions.updateViewDefinition,
@@ -359,7 +423,9 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
       density: ProjectTableDensity;
       zoomLevel: number;
     }) => {
-      if (!activeView) return;
+      // Under ALL, density/zoom stay session-local (held by `useTableZoom`);
+      // there is no view row to persist them to.
+      if (!activeView || isAllView) return;
 
       setDensitySaving(true);
       setDensityErrorKey(null);
@@ -376,7 +442,7 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
         setDensitySaving(false);
       }
     },
-    [activeView, handleViewUpdated, viewActions.updateViewDefinition],
+    [activeView, handleViewUpdated, isAllView, viewActions.updateViewDefinition],
   );
 
   const zoom = useTableZoom({
@@ -504,7 +570,7 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
                 }
                 viewSettings={
                   <ProjectsViewSettingsMenu
-                    activeView={pendingEffectiveView}
+                    activeView={isAllView ? null : pendingEffectiveView}
                     actions={viewActionsWithPendingDefinition}
                     onViewRenamed={handleViewUpdated}
                     onViewDuplicated={handleViewCreated}
@@ -570,6 +636,10 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
   } else if (viewsQuery.isLoading) {
     body = withChrome(<ProjectsViewState label={t("table.views.loading")} />);
   } else if (views.length === 0) {
+    // Degenerate state only — companies are always seeded with non-archivable
+    // views, so this is unreachable in production. When saved views DO exist,
+    // ALL renders the full grid via the branch below (pendingEffectiveView is
+    // the synthetic ALL definition).
     body = withChrome(<ProjectsViewState label={t("table.views.empty")} />);
   } else if (!pendingEffectiveView) {
     body = withChrome(<ProjectsEmptyState mode="empty" />);
@@ -634,11 +704,6 @@ export function ProjectsTableShell({ projectMetrics }: { projectMetrics?: Metric
           recordBulkUndo={cellEdit.pushBulkUndo}
         />
       ) : null}
-      <ProjectsUndoToast
-        entry={cellEdit.latestUndo}
-        onUndo={handleUndoLatest}
-        onDismiss={cellEdit.clearLatestUndo}
-      />
       <ProjectsConflictOverlay
         conflict={cellEdit.conflict}
         currentValue={currentConflictValue}

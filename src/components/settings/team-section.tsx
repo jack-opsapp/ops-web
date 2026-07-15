@@ -78,7 +78,7 @@ import { getSubscriptionInfo } from "@/lib/subscription";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 // ── Role helpers ───────────────────────────────────────────────────────────────
 

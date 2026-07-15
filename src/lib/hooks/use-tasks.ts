@@ -26,7 +26,7 @@ import type { Project, ProjectTask, TaskStatus } from "../types/models";
 import { getTaskDisplayTitle } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
 import { usePermissionStore } from "../store/permissions-store";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 

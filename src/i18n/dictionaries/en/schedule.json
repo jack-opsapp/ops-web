@@ -181,6 +181,23 @@
   "grid.errorResizeOutsideHours": "Cannot resize outside business hours",
   "grid.errorResizeOutsideHoursDescription": "Event must stay between {first}:00 and {last}:00.",
 
+  "toast.moveRecurringFailed": "Failed to move recurring task",
+  "toast.moveFailed": "Failed to move task",
+  "toast.scheduleFailed": "Failed to schedule task",
+  "toast.resizeRecurringFailed": "Failed to resize recurring task",
+  "toast.resizeFailed": "Failed to resize task",
+  "toast.moveOutsideHours": "Cannot move outside business hours",
+  "toast.commentPosted": "Comment posted",
+  "toast.commentFailed": "Failed to post comment",
+  "toast.pushedOneDay": "Pushed +1 day",
+  "toast.pushedOneDayCascade": "Pushed +1 day (cascade preview shown)",
+  "toast.pushedNextMonday": "Pushed to next Monday",
+  "toast.pushFailed": "Failed to push",
+  "toast.duplicated": "Task duplicated",
+  "toast.duplicateFailed": "Failed to duplicate",
+  "toast.deleted": "Task deleted",
+  "toast.deleteFailed": "Failed to delete",
+
   "month.collapse": "// COLLAPSE",
   "month.collapseRow": "Collapse week row"
 }

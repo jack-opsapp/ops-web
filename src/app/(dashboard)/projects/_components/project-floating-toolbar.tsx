@@ -2,10 +2,11 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Maximize2, Search, SlidersHorizontal, Archive, ArrowUpDown, X } from "lucide-react";
+import { Maximize2, Search, SlidersHorizontal, Archive, ArrowUpDown, X, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { SegmentControl, type SegmentControlOption } from "@/components/ui/segment-control";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { useProjectCanvasStore, type ProjectSortOption } from "./project-canvas-store";
 import { ProjectStatus, PROJECT_STATUS_COLORS } from "@/lib/types/models";
 import { getProjectStatusDisplayName } from "./project-stage-stack";
@@ -82,6 +83,7 @@ export function ProjectFloatingToolbar({
   onBulkClear,
 }: ProjectFloatingToolbarProps) {
   const { t } = useDictionary("projects-canvas");
+  const { t: tp } = useDictionary("picker");
   const reduced = useReducedMotion();
   const variants = reduced ? toolbarVariantsReduced : toolbarVariants;
 
@@ -114,6 +116,15 @@ export function ProjectFloatingToolbar({
   useEffect(() => {
     if (!showSortMenu && !showFilterMenu && !showBulkStatusMenu) return;
     function handleClick(e: MouseEvent) {
+      // Interactions inside a portaled picker/popover (EntityPicker) live
+      // outside these refs in the DOM — don't let them collapse the menus.
+      const target = e.target;
+      if (
+        target instanceof Element &&
+        target.closest("[data-radix-popper-content-wrapper]")
+      ) {
+        return;
+      }
       if (showSortMenu && sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
         setShowSortMenu(false);
       }
@@ -170,7 +181,7 @@ export function ProjectFloatingToolbar({
               onSearchChange("");
             }
           }}
-          className="w-[160px] px-2 py-[3px] rounded-sm font-mohave text-[12px] text-text bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] placeholder:text-text-mute focus:outline-none focus:border-[rgba(111, 148, 176,0.3)]"
+          className="h-[28px] w-[160px] rounded border border-line bg-fill-neutral-dim px-2 font-mohave text-caption-sm text-text placeholder:text-text-3 focus:border-ops-accent focus:outline-none"
         />
       )}
 
@@ -184,50 +195,41 @@ export function ProjectFloatingToolbar({
             Filter
           </span>
           {hasActiveFilter && (
-            <span className="inline-flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-chip border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] font-mono text-micro text-text">
+            <span className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-chip border border-line-hi bg-surface-active px-1 font-mono text-micro text-text">
               {(selectedMemberId ? 1 : 0) + (selectedClientId ? 1 : 0)}
             </span>
           )}
         </ToolbarAction>
 
         {showFilterMenu && (
-          <div
-            className="absolute top-full left-0 mt-1 z-50 min-w-[200px] p-2 rounded-chip space-y-2"
-            style={{
-              background: "var(--surface-glass-dense)",
-              backdropFilter: "blur(28px) saturate(1.3)",
-              border: "1px solid rgba(255,255,255,0.10)",
-            }}
-          >
-            <div>
-              <span className="font-mono text-micro uppercase tracking-widest text-text-mute">
+          <div className="glass-dense absolute left-0 top-full z-50 mt-1 min-w-[200px] space-y-2 p-2">
+            <div className="space-y-1">
+              <span className="font-mono text-micro uppercase tracking-widest text-text-3">
                 {t("toolbar.allMembers")}
               </span>
-              <select
-                value={selectedMemberId ?? ""}
-                onChange={(e) => onMemberFilterChange(e.target.value || null)}
-                className="w-full mt-1 px-2 py-1.5 rounded-bar font-mohave text-[12px] text-text-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
-              >
-                <option value="">All</option>
-                {teamMembers.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
+              <FilterSelect
+                value={selectedMemberId}
+                onChange={onMemberFilterChange}
+                items={teamMembers}
+                allLabel={t("toolbar.allMembers")}
+                searchPlaceholder={tp("search")}
+                emptyLabel={tp("noResults")}
+                clearLabel={tp("clear")}
+              />
             </div>
-            <div>
-              <span className="font-mono text-micro uppercase tracking-widest text-text-mute">
+            <div className="space-y-1">
+              <span className="font-mono text-micro uppercase tracking-widest text-text-3">
                 {t("toolbar.allClients")}
               </span>
-              <select
-                value={selectedClientId ?? ""}
-                onChange={(e) => onClientFilterChange(e.target.value || null)}
-                className="w-full mt-1 px-2 py-1.5 rounded-bar font-mohave text-[12px] text-text-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] focus:outline-none"
-              >
-                <option value="">All</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <FilterSelect
+                value={selectedClientId}
+                onChange={onClientFilterChange}
+                items={clients}
+                allLabel={t("toolbar.allClients")}
+                searchPlaceholder={tp("search")}
+                emptyLabel={tp("noResults")}
+                clearLabel={tp("clear")}
+              />
             </div>
             {hasActiveFilter && (
               <button
@@ -236,7 +238,7 @@ export function ProjectFloatingToolbar({
                   onClientFilterChange(null);
                   setShowFilterMenu(false);
                 }}
-                className="w-full px-2 py-1.5 rounded-bar font-mono text-micro text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] transition-colors text-center"
+                className="w-full rounded-bar px-2 py-1.5 text-center font-mono text-micro text-text-3 transition-colors hover:bg-surface-hover hover:text-text"
               >
                 Clear filters
               </button>
@@ -288,23 +290,16 @@ export function ProjectFloatingToolbar({
             </ToolbarAction>
 
             {showSortMenu && (
-              <div
-                className="absolute top-full left-0 mt-1 z-50 min-w-[120px] p-1 rounded-chip"
-                style={{
-                  background: "var(--surface-glass-dense)",
-                  backdropFilter: "blur(28px) saturate(1.3)",
-                  border: "1px solid rgba(255,255,255,0.10)",
-                }}
-              >
+              <div className="glass-dense absolute left-0 top-full z-50 mt-1 min-w-[120px] p-1">
                 {sortOptions.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => { setSortBy(opt.value); setShowSortMenu(false); }}
                     className={cn(
-                      "flex items-center gap-2 w-full px-2 py-1.5 rounded-bar transition-colors",
+                      "flex w-full items-center gap-2 rounded-bar px-2 py-1.5 transition-colors",
                       sortBy === opt.value
-                        ? "text-text bg-[rgba(255,255,255,0.08)]"
-                        : "text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
+                        ? "bg-surface-active text-text"
+                        : "text-text-2 hover:bg-surface-hover"
                     )}
                   >
                     <span className="font-mono text-micro">{opt.label}</span>
@@ -334,19 +329,12 @@ export function ProjectFloatingToolbar({
                   </span>
                 </ToolbarAction>
                 {showBulkStatusMenu && (
-                  <div
-                    className="absolute top-full left-0 mt-1 z-50 min-w-[140px] p-1 rounded-chip"
-                    style={{
-                      background: "var(--surface-glass-dense)",
-                      backdropFilter: "blur(28px) saturate(1.3)",
-                      border: "1px solid rgba(255,255,255,0.10)",
-                    }}
-                  >
+                  <div className="glass-dense absolute left-0 top-full z-50 mt-1 min-w-[140px] p-1">
                     {BULK_STATUSES.map((s) => (
                       <button
                         key={s}
                         onClick={() => { onBulkChangeStatus(s); setShowBulkStatusMenu(false); }}
-                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded-bar text-text-2 hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+                        className="flex w-full items-center gap-2 rounded-bar px-2 py-1.5 text-text-2 transition-colors hover:bg-surface-hover"
                       >
                         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: PROJECT_STATUS_COLORS[s] }} />
                         <span className="font-mohave text-body-sm">{getProjectStatusDisplayName(s)}</span>
@@ -367,7 +355,7 @@ export function ProjectFloatingToolbar({
           {canDelete && (
             <button
               onClick={onBulkDelete}
-              className="flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer text-brick hover:text-ops-error-hover hover:bg-[rgba(147,50,26,0.1)]"
+              className="flex h-[28px] cursor-pointer items-center gap-[5px] rounded px-[8px] text-brick transition-colors duration-150 hover:bg-brick/10 hover:text-ops-error-hover"
             >
               <span className="font-mono text-micro uppercase tracking-wider">
                 {t("spreadsheet.bulk.delete")}
@@ -377,7 +365,7 @@ export function ProjectFloatingToolbar({
 
           <button
             onClick={onBulkClear}
-            className="flex items-center gap-1 px-[8px] py-[5px] rounded-sm text-text-3 hover:text-text transition-colors cursor-pointer"
+            className="flex h-[28px] cursor-pointer items-center gap-1 rounded px-[8px] text-text-3 transition-colors hover:text-text"
           >
             <X className="w-3 h-3" />
           </button>
@@ -414,14 +402,85 @@ function ToolbarAction({
   return (
     <button
       className={cn(
-        "flex items-center gap-[5px] px-[8px] py-[5px] rounded-sm transition-colors duration-150 cursor-pointer",
+        "flex h-[28px] cursor-pointer items-center gap-[5px] rounded-chip border px-[8px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         isActive
-          ? "text-text bg-[rgba(255,255,255,0.08)] border border-[rgba(255,255,255,0.18)]"
-          : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)] border border-transparent"
+          ? "border-line-hi bg-surface-active text-text"
+          : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text"
       )}
       onClick={onClick}
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * FilterSelect — a compact select-style trigger backed by the canonical
+ * {@link EntityPicker}, replacing the raw `<select>` filters (raw selects violate
+ * the component system). Filled active style whenever a value is set; the
+ * portaled picker carries `data-keyboard-scope` so global shortcuts stay
+ * suppressed while it is open, and its portal is excluded from the toolbar
+ * menu's outside-click handler.
+ */
+function FilterSelect({
+  value,
+  onChange,
+  items,
+  allLabel,
+  searchPlaceholder,
+  emptyLabel,
+  clearLabel,
+}: {
+  value: string | null;
+  onChange: (id: string | null) => void;
+  items: { id: string; name: string }[];
+  allLabel: string;
+  searchPlaceholder: string;
+  emptyLabel: string;
+  clearLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = value ? items.find((i) => i.id === value) : undefined;
+
+  return (
+    <div data-keyboard-scope="modal-or-menu">
+      <EntityPicker<{ id: string; name: string }>
+        trigger={
+          <button
+            type="button"
+            className={cn(
+              "flex h-[28px] w-full items-center justify-between gap-1 rounded border px-2",
+              "font-mohave text-caption-sm transition-colors focus:outline-none",
+              value
+                ? "border-line-hi bg-surface-active text-text"
+                : "border-line bg-surface-input text-text-2 hover:border-line-hi",
+            )}
+          >
+            <span className="truncate">{active ? active.name : allLabel}</span>
+            <ChevronDown
+              className={cn(
+                "h-[12px] w-[12px] shrink-0 text-text-3 transition-transform duration-150",
+                open && "rotate-180",
+              )}
+              strokeWidth={1.5}
+            />
+          </button>
+        }
+        open={open}
+        onOpenChange={setOpen}
+        label={allLabel}
+        items={items}
+        value={value}
+        onChange={onChange}
+        getId={(item) => item.id}
+        getLabel={(item) => item.name}
+        searchPlaceholder={searchPlaceholder}
+        emptyLabel={emptyLabel}
+        clearLabel={clearLabel}
+        noneOption
+        noneLabel={allLabel}
+        size="sm"
+      />
+    </div>
   );
 }

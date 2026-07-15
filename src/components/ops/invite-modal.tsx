@@ -21,7 +21,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useSendInvite, useCompany, useRoles } from "@/lib/hooks";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { normalizePhoneE164, formatPhoneNational, InvalidPhoneError } from "@/lib/sms/phone-utils";
 

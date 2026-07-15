@@ -12,7 +12,7 @@ import { MarkupCanvas, type MarkupCanvasRef } from "./markup-canvas";
 import { MarkupToolbar } from "./markup-toolbar";
 import { uploadImage } from "@/lib/api/services/image-service";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 interface PhotoMarkupDialogProps {
   open: boolean;

@@ -34,9 +34,9 @@ import {
   type BatchCompliance,
 } from "@/lib/utils/expense-urgency";
 import { formatCompactCurrency } from "@/components/dashboard/widgets/shared/widget-utils";
-import { showWidgetActionToast } from "@/components/dashboard/widgets/shared/widget-action-toast";
 import { WT } from "@/lib/widget-tokens";
 import { useDictionary } from "@/i18n/client";
+import { toast } from "@/components/ui/toast";
 
 // ── Easing ──
 const EASE_SMOOTH: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -359,13 +359,13 @@ export function ExpenseReviewListPopover() {
       companyId: batch.companyId ?? company?.id,
       batchNumber: batch.batchNumber,
     });
-    showWidgetActionToast({ label: t("expenseReview.approved") ?? "Batch approved", onUndo: () => {} });
+    toast.success(t("expenseReview.approved") ?? "Batch approved");
   };
 
   const handleQuickReject = async (batchId: string) => {
     if (!rejectNote.trim()) return;
     await quickReject.mutateAsync({ batchId, reviewedBy: currentUser?.id ?? "", reviewNotes: rejectNote.trim() });
-    showWidgetActionToast({ label: t("expenseReview.returnedForRevision") ?? "Returned for revision", onUndo: () => {} });
+    toast.success(t("expenseReview.returnedForRevision") ?? "Returned for revision");
     setRejectingBatchId(null);
     setRejectNote("");
   };

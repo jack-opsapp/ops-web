@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Mail, X, Loader2, Plus } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
@@ -62,12 +62,13 @@ import { EmailReviewPanel } from "@/components/ops/email-review-panel";
 import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { calculateBatchStaleness } from "./_components/pipeline-staleness";
+import { ConnectEmailMenu } from "./_components/connect-email-menu";
 import { PipelineDndProvider } from "./_components/pipeline-dnd-provider";
 import { PipelineFocusedDetailWindow } from "./_components/pipeline-focused-detail-window";
 import { PipelineFocusedDragOverlay } from "./_components/pipeline-focused-drag-overlay";
 import { PipelineFocusedShell } from "./_components/pipeline-focused-shell";
 import { PipelineModeSwitcher } from "./_components/pipeline-mode-switcher";
-import { PipelineFilterRow } from "./_components/pipeline-filter-row";
+import { PipelineFilterChips } from "./_components/pipeline-filter-chips";
 import { usePipelineModeShortcut } from "./_components/pipeline-mode-shortcuts";
 import {
   resolvePipelineDragEnd,
@@ -257,6 +258,40 @@ export default function PipelinePage() {
       openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
     }
   }, [searchParams, openWindow]);
+
+  // ── Email OAuth round-trip toast (?connected=<provider> / ?connect_error=1)
+  // The connect banner sends the user through the provider's OAuth dance with
+  // returnTo=/pipeline; the callback lands back here with a result param.
+  // Fire the standardized toast exactly once, then strip the param so a
+  // refresh or share of the URL never re-fires it.
+  const router = useRouter();
+  const pathname = usePathname();
+  const connectResultFiredRef = useRef(false);
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    const connectError = searchParams.get("connect_error");
+    if (!connected && !connectError) return;
+    if (connectResultFiredRef.current) return;
+    connectResultFiredRef.current = true;
+
+    if (connected) {
+      toast.success(t("email.connected"), {
+        description: t("email.connectedDesc"),
+      });
+    } else {
+      toast.error(t("email.connectFailed"), {
+        description: t("email.connectFailedDesc"),
+      });
+    }
+
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("connected");
+    next.delete("connect_error");
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  }, [searchParams, router, pathname, t]);
 
   // ── Auth ──────────────────────────────────────────────────────────────
   const { company, currentUser } = useAuthStore();
@@ -991,25 +1026,21 @@ export default function PipelinePage() {
                 />
               }
               filters={
-                <PipelineFilterRow
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
+                <PipelineFilterChips
                   stageFilter={stageFilter}
                   onStageFilterChange={setStageFilter}
                   assigneeFilter={assigneeFilter}
                   onAssigneeFilterChange={setAssigneeFilter}
                   teamMembers={teamMembers}
-                  onAddLead={gatedOpenCreate}
-                  canManage={canManage}
-                  variant="toolbar"
-                  showSearch={false}
-                  showNewLead={false}
                 />
               }
               tools={
                 <>
-                  {/* Table grid controls portal here (table mode only). */}
-                  <div ref={setClusterSlot} className="contents" />
+                  {/* Table grid controls portal here — the target only exists in
+                      table mode, so focused mode carries no empty cluster slot. */}
+                  {effectiveMode === "table" ? (
+                    <div ref={setClusterSlot} className="contents" />
+                  ) : null}
                   {reviewCount > 0 && (
                     <button
                       type="button"
@@ -1035,13 +1066,25 @@ export default function PipelinePage() {
                 ) : null
               }
               tabStrip={
-                // Row-2 tab strip: the FOCUSED/TABLE mode switcher + (table mode)
-                // the saved-view tabs the table surface portals in. The tabs slot
-                // is flex-1 so the (potentially many) saved views scroll on this one
-                // line beside the switcher instead of wrapping to another row.
-                <div className="flex min-w-0 items-center gap-2">
+                // Row-2 tab strip: the FOCUSED/TABLE mode switcher, plus (table
+                // mode only) the saved-view tabs the table surface portals in.
+                // Focused mode = just the switcher, hugging left at intrinsic
+                // width (the Workbar tabStrip wrapper handles that) with no empty
+                // tabs-slot spacer. Table mode opts into w-full over that wrapper
+                // so the flex-1 tabs slot gets a bounded width and the (possibly
+                // many) saved views scroll on this one line beside the switcher.
+                // The switcher stays in a stable DOM position across the toggle so
+                // it keeps focus after a mode switch.
+                <div
+                  className={cn(
+                    "flex min-w-0 items-center gap-2",
+                    effectiveMode === "table" && "w-full",
+                  )}
+                >
                   <PipelineModeSwitcher />
-                  <div ref={setTabsSlot} className="min-w-0 flex-1" />
+                  {effectiveMode === "table" ? (
+                    <div ref={setTabsSlot} className="min-w-0 flex-1" />
+                  ) : null}
                 </div>
               }
             />
@@ -1173,17 +1216,15 @@ export default function PipelinePage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-mohave text-body text-text">
-                  {t("gmail.connectBanner")}
+                  {t("email.connectBanner")}
                 </p>
                 <p className="font-mono text-micro text-text-mute">
-                  {t("gmail.connectDesc")}
+                  {t("email.connectDesc")}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  size="sm"
-                  className="gap-[6px]"
-                  onClick={() => {
+                <ConnectEmailMenu
+                  onSelect={(provider) => {
                     if (!currentUser?.id) {
                       console.error(
                         "[pipeline] No current user — cannot initiate OAuth"
@@ -1194,17 +1235,17 @@ export default function PipelinePage() {
                       companyId: company?.id ?? "",
                       userId: currentUser.id,
                       type: "company",
+                      // Land back on the pipeline after the OAuth dance so
+                      // the round-trip toast below can fire.
+                      returnTo: "/pipeline",
                     });
-                    window.location.href = `/api/integrations/gmail?${params}`;
+                    window.location.href = `/api/integrations/${provider}?${params}`;
                   }}
-                >
-                  <Mail className="h-[14px] w-[14px]" />
-                  {t("gmail.connect")}
-                </Button>
+                />
                 <button
                   onClick={() => setGmailBannerDismissed(true)}
                   className="p-[6px] text-text-mute transition-colors hover:text-text-3"
-                  title={t("gmail.dismiss")}
+                  title={t("email.dismiss")}
                 >
                   <X className="h-[14px] w-[14px]" />
                 </button>

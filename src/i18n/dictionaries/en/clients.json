@@ -108,6 +108,9 @@
   "activity.won": "Deal won — {ref}",
 
   "footer.edit": "Edit",
+  "footer.newEstimate": "New estimate",
+  "footer.newProject": "New project",
+  "footer.newInvoice": "New invoice",
   "footer.save": "Save",
   "footer.create": "Create",
   "footer.cancel": "Cancel",

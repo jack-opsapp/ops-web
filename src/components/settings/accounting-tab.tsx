@@ -44,7 +44,7 @@ import {
   useAccountingSyncIssues,
 } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { AccountingProvider } from "@/lib/types/pipeline";

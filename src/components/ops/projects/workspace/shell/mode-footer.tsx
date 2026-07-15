@@ -29,8 +29,21 @@ const FOOTER_LAYOUT_DURATION = 0.22;
 
 export interface ModeFooterAction {
   label: string;
+  // Stable identity for the AnimatePresence slot key. Defaults to `label`.
+  // Set it whenever the label can change WITHOUT the action changing — e.g.
+  // an async-loaded dictionary resolves the label from a raw key on the second
+  // render. Keying by a stable id keeps that a same-node re-render (label +
+  // width animate in place) instead of an exit/enter churn that can leave
+  // stuck exit nodes inflating the row. Mode swaps still animate because each
+  // mode supplies a distinct id per slot.
+  id?: string;
   onClick: () => void;
   disabled?: boolean;
+  // Optional leading glyph rendered before the label (14–16px lucide,
+  // monochrome via `currentColor`). Only the client-workspace quick actions
+  // (NEW ESTIMATE / PROJECT / INVOICE) set it today; every existing project-
+  // workspace action omits it and renders label-only, unchanged.
+  icon?: React.ReactNode;
   // Optional native button attributes — used by the workspace container
   // to bind a footer CTA to the edit/create composer's form via the HTML
   // `form="<id>"` association. The body's react-hook-form handler then
@@ -95,7 +108,7 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
       <AnimatePresence initial={false}>
         {destructive ? (
           <motion.div
-            key={`destructive:${destructive.label}`}
+            key={`destructive:${destructive.id ?? destructive.label}`}
             data-testid={`mode-footer-slot-destructive:${destructive.label}`}
             layout={!reducedMotion}
             initial={slotInitial}
@@ -112,6 +125,7 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
               type={destructive.type}
               form={destructive.form}
             >
+              {destructive.icon}
               {destructive.label}
             </Btn>
           </motion.div>
@@ -130,7 +144,7 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
       <AnimatePresence initial={false}>
         {secondary.map((action) => (
           <motion.div
-            key={`secondary:${action.label}`}
+            key={`secondary:${action.id ?? action.label}`}
             data-testid={`mode-footer-slot-secondary:${action.label}`}
             layout={!reducedMotion}
             initial={slotInitial}
@@ -147,13 +161,14 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
               type={action.type}
               form={action.form}
             >
+              {action.icon}
               {action.label}
             </Btn>
           </motion.div>
         ))}
         {ghost ? (
           <motion.div
-            key={`ghost:${ghost.label}`}
+            key={`ghost:${ghost.id ?? ghost.label}`}
             data-testid={`mode-footer-slot-ghost:${ghost.label}`}
             layout={!reducedMotion}
             initial={slotInitial}
@@ -170,13 +185,14 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
               type={ghost.type}
               form={ghost.form}
             >
+              {ghost.icon}
               {ghost.label}
             </Btn>
           </motion.div>
         ) : null}
         {primary ? (
           <motion.div
-            key={`primary:${primary.label}`}
+            key={`primary:${primary.id ?? primary.label}`}
             data-testid={`mode-footer-slot-primary:${primary.label}`}
             layout={!reducedMotion}
             initial={slotInitial}
@@ -193,6 +209,7 @@ export function ModeFooter({ config, className }: ModeFooterProps) {
               type={primary.type}
               form={primary.form}
             >
+              {primary.icon}
               {primary.label}
             </Btn>
           </motion.div>

@@ -13,7 +13,7 @@ import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetIntersection } from "./shared/use-widget-intersection";
 import { useReducedMotion } from "./shared/use-reduced-motion";
 import { formatCompactCurrency } from "./shared/widget-utils";
-import { showWidgetActionToast } from "./shared/widget-action-toast";
+import { toast } from "@/components/ui/toast";
 import { WT, HERO_SIZE_CLASS, isCompact, showDetail, showActions } from "@/lib/widget-tokens";
 import {
   useExpenseBatches,
@@ -159,10 +159,7 @@ export function ExpenseReviewWidget({
       batchNumber: batch.batchNumber,
     });
 
-    showWidgetActionToast({
-      label: t("expenseReview.approved") ?? "Batch approved",
-      onUndo: () => {},
-    });
+    toast.success(t("expenseReview.approved") ?? "Batch approved");
   };
 
   const handleQuickReject = async (batchId: string) => {
@@ -172,10 +169,7 @@ export function ExpenseReviewWidget({
       reviewedBy: currentUser?.id ?? "",
       reviewNotes: rejectNote.trim(),
     });
-    showWidgetActionToast({
-      label: t("expenseReview.returnedForRevision") ?? "Returned for revision",
-      onUndo: () => {},
-    });
+    toast.success(t("expenseReview.returnedForRevision") ?? "Returned for revision");
     setRejectingBatchId(null);
     setRejectNote("");
   };

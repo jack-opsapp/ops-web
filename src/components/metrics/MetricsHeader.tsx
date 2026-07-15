@@ -1,27 +1,15 @@
 "use client";
 
 import type { MetricColumnConfig, InlineMetricConfig } from "./types";
-import { MetricColumn } from "./MetricColumn";
 import { InlineMetric } from "./InlineMetric";
 import { MetricsToggle } from "./MetricsToggle";
 import { useMetricsVisibility } from "./hooks/useMetricsVisibility";
 import { cn } from "@/lib/utils/cn";
 
-interface MetricsHeaderFullProps {
-  variant: "full";
-  tabId: string;
-  title: string;
-  metrics: MetricColumnConfig[];
-  isLoading?: boolean;
-  actions?: React.ReactNode;
-  className?: string;
-  /**
-   * Opt-in `// LABEL` tactical grammar for the metric labels (WEB OVERHAUL
-   * P3-7, additive). Off by default so every other consumer is unchanged.
-   */
-  slashLabels?: boolean;
-}
-
+// The `full` tier (MetricColumn + its flip) was the pre-unification metric bar.
+// It is retired — every table surface now renders the unified MetricsStrip
+// (`@/components/ui/metrics-strip`), which owns the click-to-flip formula
+// reveal. Only the compact inline header survives here (Projects/Schedule/Map).
 interface MetricsHeaderCompactProps {
   variant: "compact";
   tabId: string;
@@ -32,48 +20,10 @@ interface MetricsHeaderCompactProps {
   className?: string;
 }
 
-export type MetricsHeaderProps = MetricsHeaderFullProps | MetricsHeaderCompactProps;
+export type MetricsHeaderProps = MetricsHeaderCompactProps;
 
 export function MetricsHeader(props: MetricsHeaderProps) {
-  if (props.variant === "full") return <FullMetricsHeader {...props} />;
   return <CompactMetricsHeader {...props} />;
-}
-
-// ---------------------------------------------------------------------------
-// Full-tier skeleton — matches MetricColumn layout (label + value + viz area)
-// ---------------------------------------------------------------------------
-function FullMetricsSkeleton() {
-  return (
-    <div className="flex gap-7">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} className="contents">
-          <div className="flex-1 min-w-0">
-            {/* Label placeholder — matches 9px uppercase label (h ~11px) */}
-            <div
-              className="mb-1 h-[11px] w-[52px] bg-white/[0.04] rounded-bar animate-pulse"
-            />
-            {/* Value placeholder — matches 28px font-mono value (h ~28px) */}
-            <div className="flex items-baseline gap-1.5">
-              <div
-                className="h-[28px] w-[72px] bg-white/[0.04] rounded-bar animate-pulse"
-              />
-              {/* Trend placeholder */}
-              <div
-                className="h-[10px] w-[32px] bg-white/[0.04] rounded-bar animate-pulse"
-              />
-            </div>
-            {/* Viz placeholder — matches sparkline/bar area (h ~24px, mt 6px) */}
-            <div
-              className="mt-1.5 h-[24px] w-full bg-white/[0.04] rounded-bar animate-pulse"
-            />
-          </div>
-          {i < 4 && (
-            <div className="self-stretch w-px bg-white/[0.05]" />
-          )}
-        </div>
-      ))}
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -96,41 +46,6 @@ function CompactMetricsSkeleton() {
         </div>
       ))}
     </>
-  );
-}
-
-function FullMetricsHeader({ title: _title, metrics, isLoading, actions, className, slashLabels }: MetricsHeaderFullProps) {
-  const showSkeleton = isLoading || metrics.length === 0;
-
-  return (
-    <div
-      className={cn("border border-white/[0.06] px-4 py-1.5 rounded-chip", className)}
-      style={{
-        background: "rgba(10, 10, 10, 0.50)",
-        backdropFilter: "blur(16px) saturate(1.2)",
-        WebkitBackdropFilter: "blur(16px) saturate(1.2)",
-      }}
-    >
-      {actions && (
-        <div className="flex items-center justify-end pb-1">
-          {actions}
-        </div>
-      )}
-      {showSkeleton ? (
-        <FullMetricsSkeleton />
-      ) : (
-        <div className="flex gap-7">
-          {metrics.map((metric, i) => (
-            <div key={metric.label} className="contents">
-              <MetricColumn config={metric} slashLabels={slashLabels} />
-              {i < metrics.length - 1 && (
-                <div className="self-stretch w-px bg-white/[0.05]" />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 

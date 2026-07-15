@@ -16,7 +16,7 @@ import {
   useInventoryTags,
   useBulkSetTags,
 } from "@/lib/hooks/use-inventory";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 // ─── Props ──────────────────────────────────────────────────────────────────────
 

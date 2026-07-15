@@ -26,7 +26,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
 import { useViewportBreakpoint } from "@/lib/hooks/use-viewport-breakpoint";
@@ -59,7 +59,7 @@ import {
 } from "./archive-confirm-modal";
 import { WritebackPreferenceModal } from "./writeback-preference-modal";
 import { CommandPalette } from "./command-palette";
-import { enqueueUndoToast } from "./undo-toast";
+import { showUndoToast } from "@/components/ui/toast-undo";
 import {
   useClientOpportunities,
   useClientOpportunitiesWon,
@@ -677,18 +677,21 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const onDismissAwaitingReply = (id: string) => {
     threadActions.dismissAwaitingReply.mutate(id, {
       onSuccess: () => {
-        enqueueUndoToast({
-          message: t("toast.dismissedTactic", "SYS :: MARKED NO REPLY NEEDED"),
+        showUndoToast({
+          title: t("toast.dismissedTactic", "SYS :: MARKED NO REPLY NEEDED"),
+          undoLabel: t("toast.undoTactic", "UNDO"),
           onUndo: () => threadActions.restoreAwaitingReply.mutate(id),
         });
       },
       onError: () => {
         // Failure path — the optimistic update has already rolled back inside
-        // the mutation. No undo is meaningful here; we render a transient
-        // failure toast whose "undo" is a retry that re-fires the dismiss.
-        enqueueUndoToast({
-          message: t("toast.dismissFailedTactic", "SYS :: DISMISS FAILED"),
-          onUndo: () => threadActions.dismissAwaitingReply.mutate(id),
+        // the mutation. Nothing to undo; render an error toast whose action
+        // retries the dismiss.
+        toast.error(t("toast.dismissFailedTactic", "SYS :: DISMISS FAILED"), {
+          action: {
+            label: t("toast.retryTactic", "RETRY"),
+            onClick: () => threadActions.dismissAwaitingReply.mutate(id),
+          },
         });
       },
     });
@@ -868,8 +871,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             return;
           }
           moveSelectionAfterArchive([target.threadId]);
-          enqueueUndoToast({
-            message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
+          showUndoToast({
+            title: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
+            undoLabel: t("toast.undoTactic", "UNDO"),
             onUndo: () =>
               threadActions.unarchive.mutate(target.threadId, {
                 onSuccess: () => moveSelectionAfterUnarchive([target.threadId]),
@@ -1562,8 +1566,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
           setArchiveOpen(false);
           setArchiveContext(null);
           moveSelectionAfterArchive(result.archivedThreadIds);
-          enqueueUndoToast({
-            message: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
+          showUndoToast({
+            title: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
+            undoLabel: t("toast.undoTactic", "UNDO"),
             onUndo: () =>
               threadActions.unarchiveBatch.mutate(
                 {

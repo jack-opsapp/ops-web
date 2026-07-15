@@ -144,15 +144,15 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
                 "Drag card to another stage"
               )}
               disabled={!canManage}
-              className="group flex min-h-11 w-11 shrink-0 cursor-grab touch-none appearance-none items-center justify-center rounded-sm bg-transparent text-line transition-colors duration-150 hover:text-text-3 focus-visible:text-text-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent active:cursor-grabbing disabled:cursor-not-allowed disabled:text-line"
+              className="group flex h-full w-full cursor-grab touch-none appearance-none items-center justify-center rounded-sm bg-transparent text-line transition-colors duration-150 hover:text-text-3 focus-visible:text-text-2 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ops-accent active:cursor-grabbing disabled:cursor-not-allowed disabled:text-line"
               {...(canManage ? attributes : {})}
               {...(canManage ? listeners : {})}
             >
               <span
                 aria-hidden="true"
-                className="grid grid-cols-2 gap-x-1.5 gap-y-1.5 text-current"
+                className="grid grid-cols-2 gap-x-1 gap-y-1 text-current"
               >
-                {Array.from({ length: 12 }).map((_, index) => (
+                {Array.from({ length: 6 }).map((_, index) => (
                   <span
                     key={index}
                     className="h-0.5 w-0.5 rounded-full bg-current transition-colors duration-150"

@@ -26,6 +26,11 @@
 import { Toaster as Sonner, toast } from "sonner";
 import { cn } from "@/lib/utils/cn";
 
+/** Default visibility window. Exported for callers that update a persistent
+ * toast in place (Sonner merges update payloads, so a previous Infinity
+ * duration must be overwritten explicitly). */
+export const DEFAULT_TOAST_DURATION_MS = 4500;
+
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 function Toaster({ className, ...props }: ToasterProps) {
@@ -35,7 +40,7 @@ function Toaster({ className, ...props }: ToasterProps) {
       position="top-right"
       offset={72}
       gap={8}
-      duration={4500}
+      duration={DEFAULT_TOAST_DURATION_MS}
       visibleToasts={3}
       className={cn("ops-toaster toaster group", className)}
       toastOptions={{

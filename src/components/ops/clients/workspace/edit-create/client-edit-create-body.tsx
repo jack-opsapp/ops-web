@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Crosshair, AlertCircle } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { useClient, type useCreateClient, type useUpdateClient } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";

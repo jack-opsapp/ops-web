@@ -13,6 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary, useLocale } from "@/i18n/client";
@@ -30,6 +31,7 @@ import { InvoicesSegment, type InvoicesView } from "./segments/invoices-segment"
 import { EstimatesSegment } from "./segments/estimates-segment";
 import { ExpensesSegment } from "./segments/expenses-segment";
 import { SyncSegment, type SyncView } from "./segments/sync-segment";
+import { scheduleViewVariants, scheduleViewVariantsReduced } from "@/lib/utils/motion";
 
 export type BooksSegment = "invoices" | "estimates" | "expenses" | "sync";
 
@@ -58,6 +60,7 @@ export function BooksPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const can = usePermissionStore((s) => s.can);
+  const reducedMotion = useReducedMotion();
 
   // ── Visible segments ──────────────────────────────────────────────────
   const visibleSegments = useMemo(
@@ -70,6 +73,9 @@ export function BooksPage() {
   const viewParam = searchParams.get("view");
   const statusParam = searchParams.get("status");
   const actionParam = searchParams.get("action");
+  // Optional client seed for ?action=new (client window → NEW INVOICE). Read
+  // once, seeds the create form's client field, then strips with `action`.
+  const clientParam = searchParams.get("client");
 
   // The stored default hydrates in an effect (this route prerenders, so a
   // lazy initializer would mismatch). Until it lands, a no-?segment visit
@@ -120,19 +126,16 @@ export function BooksPage() {
     window.localStorage.setItem(PERIOD_STORAGE_KEY, p);
   }, []);
 
-  // ── Drill state (ledger strip → filtered segment + rose chip) ─────────
-  const [drilled, setDrilled] = useState(false);
-
-  const drillOverdue = useCallback(() => {
-    setDrilled(true);
-    // "overdue" is the date-based virtual filter (any open balance past its
-    // due date) — the A/R tile counts by date, and most overdue invoices sit
-    // in sent/awaiting_payment/partially_paid, never the past_due enum.
-    updateParams({ segment: "invoices", status: "overdue", view: null });
-  }, [updateParams]);
+  // ── Drill chip (rose "overdue" chip) ──────────────────────────────────
+  // A/R overdue is pure URL state now — metric cells flip to their formula, they
+  // never navigate. The rose chip surfaces whenever invoices are scoped to
+  // overdue (from the status control or a dashboard deep link alike) and clears
+  // by dropping the status param. "overdue" is the date-based virtual filter
+  // (any open balance past its due date): most overdue invoices sit in
+  // sent/awaiting_payment/partially_paid, never the past_due enum.
+  const drilled = statusParam === "overdue";
 
   const clearDrill = useCallback(() => {
-    setDrilled(false);
     updateParams({ status: null });
   }, [updateParams]);
 
@@ -176,7 +179,6 @@ export function BooksPage() {
 
   const handleSegmentChange = useCallback(
     (segment: BooksSegment) => {
-      setDrilled(false);
       updateParams({ segment, view: null, status: null, action: null });
     },
     [updateParams],
@@ -200,7 +202,13 @@ export function BooksPage() {
 
   const showStrip = can("accounting.view");
   const openCreate = actionParam === "new";
-  const handleCreateHandled = useCallback(() => updateParams({ action: null }), [updateParams]);
+  // Strip `client` alongside `action` — the segment has already captured the
+  // seed into local state by the time this fires, so dropping it here just
+  // keeps the URL clean (a lingering seed would re-preselect on the next open).
+  const handleCreateHandled = useCallback(
+    () => updateParams({ action: null, client: null }),
+    [updateParams],
+  );
 
   // The ledger is shared across every segment and PINNED in the TableShell's
   // metrics slot (WEB OVERHAUL P6-2). Build it once here and pass the node down;
@@ -250,7 +258,6 @@ export function BooksPage() {
     <LedgerStrip
       period={period}
       onPeriodChange={handlePeriodChange}
-      onDrillOverdue={can("invoices.view") ? drillOverdue : undefined}
       clientName={clientName}
       arExtra={arExtra}
     />
@@ -260,67 +267,82 @@ export function BooksPage() {
     // Fixed-viewport: the page never scrolls — each segment's TableShell owns an
     // internal scroll body under the pinned metrics + workbar (WEB OVERHAUL P6-2).
     <div className="flex h-full min-h-0 flex-col">
-      {activeSegment === "invoices" && (
-        <InvoicesSegment
-          metrics={ledger}
-          segmentControl={segmentControl}
-          listAllowed={can("invoices.view")}
-          view={invoicesView}
-          onViewChange={(view) => updateParams({ view: view === "aging" ? "aging" : null })}
-          statusFilter={invoiceStatusFilter}
-          onStatusFilterChange={(status) => {
-            setDrilled(false);
-            updateParams({ status: status === "all" ? null : status });
-          }}
-          drilled={drilled}
-          onClearDrill={clearDrill}
-          openCreate={openCreate}
-          onCreateHandled={handleCreateHandled}
-        />
-      )}
+      {/* Segment body swap — one keyed motion.div per active segment. mode="wait"
+          fades the outgoing segment out before the incoming fades in, so only one
+          TableShell (and its query subscriptions) mounts at a time. The pinned
+          chrome geometry is now constant across all four segments, so the swap
+          reads as one surface breathing rather than the chrome jumping. */}
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={activeSegment ?? "none"}
+          className="flex h-full min-h-0 flex-col"
+          variants={reducedMotion ? scheduleViewVariantsReduced : scheduleViewVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+        >
+          {activeSegment === "invoices" && (
+            <InvoicesSegment
+              metrics={ledger}
+              segmentControl={segmentControl}
+              listAllowed={can("invoices.view")}
+              view={invoicesView}
+              onViewChange={(view) => updateParams({ view: view === "aging" ? "aging" : null })}
+              statusFilter={invoiceStatusFilter}
+              onStatusFilterChange={(status) => {
+                updateParams({ status: status === "all" ? null : status });
+              }}
+              drilled={drilled}
+              onClearDrill={clearDrill}
+              openCreate={openCreate}
+              createClientId={clientParam}
+              onCreateHandled={handleCreateHandled}
+            />
+          )}
 
-      {activeSegment === "estimates" && (
-        <EstimatesSegment
-          metrics={ledger}
-          segmentControl={segmentControl}
-          statusFilter={estimateStatusFilter}
-          onStatusFilterChange={(status) => {
-            setDrilled(false);
-            updateParams({ status: status === "all" ? null : status });
-          }}
-          drilled={drilled}
-          onClearDrill={clearDrill}
-          openCreate={openCreate}
-          onCreateHandled={handleCreateHandled}
-        />
-      )}
+          {activeSegment === "estimates" && (
+            <EstimatesSegment
+              metrics={ledger}
+              segmentControl={segmentControl}
+              statusFilter={estimateStatusFilter}
+              onStatusFilterChange={(status) => {
+                updateParams({ status: status === "all" ? null : status });
+              }}
+              drilled={drilled}
+              onClearDrill={clearDrill}
+              openCreate={openCreate}
+              onCreateHandled={handleCreateHandled}
+            />
+          )}
 
-      {activeSegment === "expenses" && (
-        <ExpensesSegment metrics={ledger} segmentControl={segmentControl} />
-      )}
+          {activeSegment === "expenses" && (
+            <ExpensesSegment metrics={ledger} segmentControl={segmentControl} />
+          )}
 
-      {activeSegment === "sync" && (
-        <SyncSegment
-          metrics={ledger}
-          segmentControl={segmentControl}
-          view={syncView}
-          onViewChange={(view) =>
-            updateParams({ view: view === "import" ? "import" : null })
-          }
-        />
-      )}
+          {activeSegment === "sync" && (
+            <SyncSegment
+              metrics={ledger}
+              segmentControl={segmentControl}
+              view={syncView}
+              onViewChange={(view) =>
+                updateParams({ view: view === "import" ? "import" : null })
+              }
+            />
+          )}
 
-      {/* No visible segment: the route gate should prevent this, but never
-          render a blank canvas — show the tactical empty state. (Suppressed
-          during the one-frame localStorage hydration.) */}
-      {segmentHydrated && !activeSegment && (
-        <div className="flex flex-col items-start py-8">
-          <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-            <span className="text-text-mute">{"// "}</span>
-            {t("ledger.noData")}
-          </span>
-        </div>
-      )}
+          {/* No visible segment: the route gate should prevent this, but never
+              render a blank canvas — show the tactical empty state. (Suppressed
+              during the one-frame localStorage hydration.) */}
+          {segmentHydrated && !activeSegment && (
+            <div className="flex flex-col items-start py-8">
+              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+                <span className="text-text-mute">{"// "}</span>
+                {t("ledger.noData")}
+              </span>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

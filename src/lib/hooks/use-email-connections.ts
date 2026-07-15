@@ -6,7 +6,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { queryKeys } from "../api/query-client";
 import { EmailService } from "../api/services/email-service";
 import { useAuthStore } from "../store/auth-store";

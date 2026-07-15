@@ -28,7 +28,7 @@ import {
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useDictionary } from "@/i18n/client";
 import type { InventoryItem, InventoryUnit } from "@/lib/types/inventory";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 // ─── Props ──────────────────────────────────────────────────────────────────────
 

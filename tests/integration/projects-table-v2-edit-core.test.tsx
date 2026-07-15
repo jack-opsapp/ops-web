@@ -10,6 +10,7 @@ import { ProjectsTableShell } from "@/app/(dashboard)/projects/_components/table
 const {
   commitEditMock,
   openProjectWindow,
+  showUndoToastMock,
   undoLatestMock,
   clearLatestUndoMock,
   resolveConflictUseMineMock,
@@ -19,6 +20,7 @@ const {
 } = vi.hoisted(() => ({
   commitEditMock: vi.fn(),
   openProjectWindow: vi.fn(),
+  showUndoToastMock: vi.fn(),
   undoLatestMock: vi.fn(),
   clearLatestUndoMock: vi.fn(),
   resolveConflictUseMineMock: vi.fn(),
@@ -131,8 +133,25 @@ function createRows(): ProjectTableRow[] {
 
 vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({
-    t: (key: string, fallback?: string) => dictionary[key] ?? fallback ?? key,
+    // Mirrors the real t(): a params object interpolates {token} placeholders,
+    // a string second arg is an English fallback for missing keys.
+    t: (key: string, fallbackOrParams?: string | Record<string, unknown>) => {
+      const value = dictionary[key];
+      if (typeof value === "string") {
+        if (fallbackOrParams && typeof fallbackOrParams === "object") {
+          return value.replace(/\{(\w+)\}/g, (match, token) =>
+            token in fallbackOrParams ? String(fallbackOrParams[token]) : match,
+          );
+        }
+        return value;
+      }
+      return typeof fallbackOrParams === "string" ? fallbackOrParams : key;
+    },
   }),
+}));
+
+vi.mock("@/components/ui/toast-undo", () => ({
+  showUndoToast: showUndoToastMock,
 }));
 
 vi.mock("@/stores/window-store", () => ({
@@ -234,6 +253,7 @@ describe("Projects table v2 edit core", () => {
     rows = createRows();
     commitEditMock.mockReset();
     openProjectWindow.mockReset();
+    showUndoToastMock.mockReset();
     undoLatestMock.mockReset();
     clearLatestUndoMock.mockReset();
     resolveConflictUseMineMock.mockReset();
@@ -362,8 +382,7 @@ describe("Projects table v2 edit core", () => {
     );
   });
 
-  it("renders the undo toast with dictionary copy and wires undo and dismiss actions", async () => {
-    const user = userEvent.setup();
+  it("routes the undo entry through the shared undo toast with dictionary copy", async () => {
     cellEditState.latestUndo = {
       id: "undo-1",
       rowId: "p-1",
@@ -377,13 +396,17 @@ describe("Projects table v2 edit core", () => {
 
     renderShell();
 
-    expect(screen.getByText("// CHANGE SAVED")).toBeInTheDocument();
-    expect(screen.getByText("Name updated on Deck rebuild.")).toBeInTheDocument();
+    await waitFor(() => expect(showUndoToastMock).toHaveBeenCalledTimes(1));
+    const undoToast = showUndoToastMock.mock.calls[0][0];
+    expect(undoToast.title).toBe("// CHANGE SAVED");
+    expect(undoToast.description).toBe("Name updated on Deck rebuild.");
+    expect(undoToast.undoLabel).toBe("Undo");
+    expect(undoToast.dismissLabel).toBe("Dismiss");
 
-    await user.click(screen.getByRole("button", { name: "Undo" }));
+    undoToast.onUndo();
     expect(undoLatestMock).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    undoToast.onDismiss();
     expect(clearLatestUndoMock).toHaveBeenCalledTimes(1);
   });
 

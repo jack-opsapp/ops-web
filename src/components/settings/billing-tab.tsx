@@ -33,7 +33,7 @@ import {
   type StripeInvoice,
 } from "@/lib/hooks/use-billing";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { getDateLocale } from "@/i18n/date-utils";

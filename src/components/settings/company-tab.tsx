@@ -11,7 +11,7 @@ import { Tag } from "@/components/ui/tag";
 import { SegmentControl, type SegmentControlOption } from "@/components/ui/segment-control";
 import { useCompany, useUpdateCompany, useImageUpload } from "@/lib/hooks";
 import { useGeolocationAddress } from "@/lib/hooks/use-geolocation-address";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";

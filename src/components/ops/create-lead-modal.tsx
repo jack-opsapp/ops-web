@@ -24,7 +24,7 @@ import type { Client } from "@/lib/types/models";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useDictionary } from "@/i18n/client";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 // ─── Form Schema ─────────────────────────────────────────────────────────────
 

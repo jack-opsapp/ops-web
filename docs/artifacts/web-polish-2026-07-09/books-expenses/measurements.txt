@@ -1,0 +1,66 @@
+BOOKS — EXPENSES REDESIGN + SEGMENT SWITCHING — live-preview measurements
+Captured 2026-07-10 against dev server (localhost:3210, DEV_BYPASS_AUTH), viewport 1440x900.
+
+── Constant-height workbar (Task 3) ──────────────────────────────────────────
+Pinned toolbar wrapper (the sticky div TableChrome publishes as --shell-header-top),
+measured after a full reload + settle per segment:
+
+  invoices    96px   (Row1 filter chips 31px + Row2 tab strip 28px)
+  estimates   ~96px  (same structure as invoices)
+  expenses    97px   (Row1 month chips 32px + Row2 tab strip 28px)
+  sync        97px   (Row1 status badge pinned to 32px + Row2 tab strip 28px)
+
+All four within 1px → the pinned chrome no longer jumps on segment switch.
+
+NOTE: before the sync fix, sync connected = 93px (badge Row1 = 28px) and, during
+the connections-query load window, the "NOT CONNECTED" readout made Row1 ~18px
+(toolbar ~79px). Fix: sync's meta cell is pinned to min-h-[32px] so Row1 matches
+the list-surface chip row in EVERY connection state (connected / offline / not
+connected).
+
+── Month chips newest-at-right (Task 4) ──────────────────────────────────────
+Chip order (left→right): SEP 2025, OCT 2025, NOV 2025, DEC 2025, JAN 2026,
+FEB 2026, MAR 2026, APR 2026, JUN 2026.
+Active/default chip: JUN 2026 (newest, rightmost).
+Strip scrollWidth == clientWidth (809px) at 1440px → all chips fit, newest visible
+at the right end; at narrower widths the strip opens scrolled to scrollWidth (jump,
+no smooth animation → reduced-motion safe).
+
+── Animated segment switch (Task 6) ──────────────────────────────────────────
+Client-side switch invoices → expenses. Sampled opacity of the keyed motion.div
+(class "flex h-full min-h-0 flex-col") via requestAnimationFrame:
+
+  t(ms)   opacity
+    3     1.00   ← invoices body, at rest
+   69     1.00
+  102     0.60   ← exit fade begins
+  135     0.21
+  169     0.06
+  202     0.02
+  235     0.00   ← invoices fully out (mode="wait" holds)
+  315     0.00
+  335     0.51   ← expenses body enters, fading in
+  369     0.84
+  402     0.95
+  435     0.99   ← settled
+
+Matches scheduleViewVariants (opacity + 8px y, 0.2s EASE_SMOOTH) with mode="wait":
+one segment fully exits before the next enters — only one TableShell mounts at a time.
+Reduced-motion path (scheduleViewVariantsReduced, opacity-only 150ms) verified by
+code review (books-page.tsx: reducedMotion ? reduced : full via useReducedMotion()).
+
+── Not verified in preview ───────────────────────────────────────────────────
+Floating approve/reject cluster (Task 5): the EXPENSES tab count is 0 — zero
+needs-review batches exist company-wide in the seed data, so no batch is reviewable
+(isBatchReviewable = PendingReview/Submitted only). The cluster therefore cannot
+render with live data; verified structurally (typecheck + code review). The redesigned
+detail panel itself is shown for the approved batch (02-expenses-detail-panel.png):
+relative root, line-item scroller with pb-12, no full-width footer.
+
+Screenshots (this folder):
+  01-expenses-one-list.png        one list, APPROVED section, dense 2-row cards, chips + count in workbar
+  02-expenses-detail-panel.png    redesigned detail panel (approved batch → no action footer)
+  03-sync-segment-row1-badge.png  sync — QUICKBOOKS · LIVE badge pinned in Row 1
+  04-invoices-toolbar.png         invoices toolbar (2-row workbar)
+  05-estimates-toolbar.png        estimates toolbar (2-row workbar)
+  06-switch-frame.png             post-switch settled frame (invoices)

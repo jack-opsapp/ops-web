@@ -24,7 +24,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
 import {
@@ -40,7 +40,7 @@ import { AccountingProvider } from "@/lib/types/pipeline";
 import type { AccountingConnection } from "@/lib/types/pipeline";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Button } from "@/components/ui/button";
-import { TableShell, Workbar } from "@/components/ui/table-shell";
+import { TableShell, Workbar, WorkbarCount } from "@/components/ui/table-shell";
 import { QuickBooksImportTab } from "@/components/accounting/qbo/quickbooks-import-tab";
 import { ConnectionBadge } from "../sync/connection-badge";
 import { ConnectPanel } from "../sync/connect-panel";
@@ -300,15 +300,23 @@ export function SyncSegment({
       <TableShell
         metrics={metrics}
         toolbar={
-          // Sync is a config surface (no list controls) — just the segment tab
-          // strip + its status badge, kept together on the strip row.
+          // Sync is a config surface (no list controls). Its status readout pins
+          // in the Workbar meta slot (Row 1) so this segment carries the same
+          // two-row chrome height as invoices/estimates/expenses — the pinned
+          // header no longer jumps on segment switch. The tab strip owns Row 2.
           <Workbar
-            tabStrip={
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {segmentControl}
-                {badge}
+            meta={
+              // Pin to the 32px list-surface Row-1 height (matches the other
+              // segments' filter/chip row) so all four Books toolbars are the
+              // same height in EVERY connection state — connected badge, offline
+              // badge, or the not-connected readout alike.
+              <div className="flex min-h-[32px] items-center">
+                {badge ?? (
+                  <WorkbarCount>{t("sync.badge.notConnected")}</WorkbarCount>
+                )}
               </div>
             }
+            tabStrip={segmentControl}
           />
         }
         bottomFade={false}

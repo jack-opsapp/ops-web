@@ -187,6 +187,10 @@ let viewListState: {
   isError: boolean;
 };
 let canManageViews = false;
+// The name-based "My Active Work" auto-default is gone; landing on a concrete
+// view is now expressed via the per-user default-view preference. These tests
+// were written against "view-active" as the default, so pin the preference to it.
+let defaultViewPreference: string | null = "view-active";
 let tableDataCalls: Array<{
   view: ProjectTableViewDefinition | null;
   search: string;
@@ -273,6 +277,23 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams,
 }));
 
+vi.mock("@/stores/preferences-store", () => ({
+  usePreferencesStore: Object.assign(
+    (
+      selector: (state: {
+        projectsDefaultViewId: string | null;
+        setProjectsDefaultViewId: (viewId: string | null) => void;
+      }) => unknown,
+    ) => selector({ projectsDefaultViewId: defaultViewPreference, setProjectsDefaultViewId: () => {} }),
+    {
+      getState: () => ({
+        projectsDefaultViewId: defaultViewPreference,
+        setProjectsDefaultViewId: () => {},
+      }),
+    },
+  ),
+}));
+
 vi.mock("@/stores/window-store", () => ({
   useWindowStore: (selector: (state: { openProjectWindow: () => void }) => unknown) =>
     selector({ openProjectWindow: vi.fn() }),
@@ -357,6 +378,7 @@ async function switchToView(user: ReturnType<typeof userEvent.setup>, name: stri
 describe("Projects table v2 saved-view management", () => {
   beforeEach(() => {
     canManageViews = false;
+    defaultViewPreference = "view-active";
     pathname = "/projects";
     setSearch("");
     tableDataCalls = [];

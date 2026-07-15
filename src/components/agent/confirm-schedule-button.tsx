@@ -28,7 +28,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { CheckCircle2, Circle, Loader2, Timer } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 

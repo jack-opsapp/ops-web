@@ -11,7 +11,7 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { Camera, Upload, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import {
   useProjectPhotos,

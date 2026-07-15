@@ -21,7 +21,7 @@ import type {
   CreateLineItemMaterial,
   MaterialSource,
 } from "@/lib/types/product-materials";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 interface Row {
   inventoryItemId: string;

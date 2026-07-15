@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { useUpdateInventoryItem } from "@/lib/hooks/use-inventory";
 import type { InventoryItem } from "@/lib/types/inventory";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 // ─── Props ──────────────────────────────────────────────────────────────────────
 

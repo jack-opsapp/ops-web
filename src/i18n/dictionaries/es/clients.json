@@ -108,6 +108,9 @@
   "activity.won": "Trato ganado — {ref}",
 
   "footer.edit": "Editar",
+  "footer.newEstimate": "Nueva cotización",
+  "footer.newProject": "Nuevo proyecto",
+  "footer.newInvoice": "Nueva factura",
   "footer.save": "Guardar",
   "footer.create": "Crear",
   "footer.cancel": "Cancelar",
