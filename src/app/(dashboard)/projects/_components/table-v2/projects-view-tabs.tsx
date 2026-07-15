@@ -4,6 +4,7 @@ import { Check, Plus, X } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type { ProjectTableViewDefinition } from "@/lib/types/project-table";
+import { ALL_PROJECTS_VIEW_ID } from "@/lib/utils/project-view-defaults";
 
 export function ProjectsViewTabs({
   views,
@@ -27,18 +28,42 @@ export function ProjectsViewTabs({
     ? t("table.views.loading")
     : isError
       ? t("table.views.error")
-      : views.length === 0
-        ? t("table.views.empty")
-        : null;
+      : null;
+  // No saved view selected → ALL is the active baseline.
+  const allActive = activeViewId === ALL_PROJECTS_VIEW_ID || activeViewId === null;
 
   return (
-    <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+    <div className="flex w-full min-w-0 items-center gap-1 overflow-x-auto">
       {statusLabel ? (
         <div className="shrink-0 px-2 py-1 font-mono text-micro uppercase tracking-wider text-text-3">
           {statusLabel}
         </div>
       ) : (
-        views.map((view) => {
+        <>
+          {/* Pinned ALL — the unfiltered baseline. No X, no settings; deselecting
+              any saved view lands here. */}
+          <div
+            className={cn(
+              "inline-flex h-[28px] shrink-0 items-center rounded-chip border font-mono text-[11px] uppercase tracking-wider transition-colors",
+              allActive
+                ? "border-border bg-surface-active text-text"
+                : "border-border text-text-3 hover:text-text-2",
+            )}
+          >
+            <button
+              type="button"
+              aria-pressed={allActive}
+              onClick={() => onViewChange(ALL_PROJECTS_VIEW_ID)}
+              className={cn(
+                "inline-flex h-full min-w-0 items-center gap-1 px-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                allActive && "bg-surface-active text-text",
+              )}
+            >
+              {allActive && <Check className="h-[12px] w-[12px]" strokeWidth={1.5} />}
+              <span className="truncate">{t("table.views.all")}</span>
+            </button>
+          </div>
+          {views.map((view) => {
           const active = view.id === activeViewId;
           return (
             <div
@@ -52,6 +77,7 @@ export function ProjectsViewTabs({
             >
               <button
                 type="button"
+                aria-pressed={active}
                 onClick={() => onViewChange(view.id)}
                 className={cn(
                   "inline-flex h-full min-w-0 items-center gap-1 px-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
@@ -76,7 +102,8 @@ export function ProjectsViewTabs({
               ) : null}
             </div>
           );
-        })
+          })}
+        </>
       )}
       <button
         type="button"

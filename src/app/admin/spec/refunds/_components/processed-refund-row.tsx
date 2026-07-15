@@ -17,7 +17,7 @@ export function ProcessedRefundRow({ refund }: ProcessedRefundRowProps) {
   return (
     <Link
       href={`/admin/spec/refunds/${refund.id}`}
-      className="group flex items-center justify-between border-b border-white/[0.04] px-4 py-3 transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/[0.03]"
+      className="group flex items-center justify-between border-b border-white/[0.04] px-4 py-3 transition-colors duration-150 ease-smooth hover:bg-white/[0.03]"
     >
       <div className="flex items-center gap-4">
         <span
@@ -25,25 +25,25 @@ export function ProcessedRefundRow({ refund }: ProcessedRefundRowProps) {
         >
           {refund.status.toUpperCase()}
         </span>
-        <span className="font-cakemono text-[13px] font-light uppercase tracking-[0.04em] text-[#EDEDED]">
+        <span className="font-cakemono text-[13px] font-light uppercase tracking-[0.04em] text-text">
           {customerLabel}
         </span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8A8A8A]">
-          <span className="text-[#3A3A3A]">[</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-3">
+          <span className="text-text-mute">[</span>
           {formatTier(refund.projectTier)}
           {refund.isGuaranteeInvocation && " · GUARANTEE"}
           {refund.isGoodwill && " · GOODWILL"}
           {refund.isTest && " · TEST"}
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </span>
       </div>
       <div className="flex items-center gap-4">
         {refund.totalRefundCents != null && (
-          <span className="font-mono text-[13px] tabular-nums text-[#EDEDED]">
+          <span className="font-mono text-[13px] tabular-nums text-text">
             {formatCents(refund.totalRefundCents)}
           </span>
         )}
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A] group-hover:text-[#EDEDED]">
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute group-hover:text-text">
           DETAIL →
         </span>
       </div>
@@ -54,14 +54,14 @@ export function ProcessedRefundRow({ refund }: ProcessedRefundRowProps) {
 function toneFor(status: string): string {
   switch (status) {
     case "processed":
-      return "border-[#9DB582]/40 bg-[#9DB582]/8 text-[#9DB582]";
+      return "border-olive/40 bg-olive/8 text-olive";
     case "partial":
-      return "border-[#C4A868]/40 bg-[#C4A868]/12 text-[#C4A868]";
+      return "border-tan/40 bg-tan/12 text-tan";
     case "denied":
-      return "border-[#B58289]/40 bg-[#B58289]/8 text-[#B58289]";
+      return "border-rose/40 bg-rose/8 text-rose";
     case "failed":
-      return "border-[#93321A]/40 bg-[#93321A]/12 text-[#B58289]";
+      return "border-brick/40 bg-brick/12 text-rose";
     default:
-      return "border-white/[0.10] text-[#B5B5B5]";
+      return "border-white/[0.10] text-text-2";
   }
 }

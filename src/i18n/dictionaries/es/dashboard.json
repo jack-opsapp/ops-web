@@ -798,7 +798,6 @@
   "clientList.createEstimate": "Crear presupuesto",
   "clientList.createInvoice": "Crear factura",
   "clientList.createProject": "Crear proyecto",
-  "clientList.createTask": "Crear tarea",
   "clientList.deleteClient": "Eliminar cliente",
   "clientList.deleted": "eliminado",
   "clientList.due": "vence",
@@ -892,6 +891,7 @@
 
   "pipelineList.advance": "Avanzar",
   "pipelineList.advancedTo": "Avanzado a",
+  "pipelineList.undo": "Deshacer",
   "pipelineList.composePlaceholder": "Mensaje rápido de seguimiento...",
   "pipelineList.defaultProjectTitle": "Tu proyecto",
   "pipelineList.followUp": "Seguimiento",

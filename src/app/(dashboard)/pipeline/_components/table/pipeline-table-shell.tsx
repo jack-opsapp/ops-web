@@ -45,7 +45,7 @@ import { PipelineBulkBar } from "./pipeline-bulk-bar";
 import { PipelineTable } from "./pipeline-table";
 import { PipelineTableFooter } from "./pipeline-table-footer";
 import { PipelineToolbar } from "./pipeline-toolbar";
-import { PipelineUndoToast } from "./pipeline-undo-toast";
+import { showUndoToast } from "@/components/ui/toast-undo";
 import { PipelineViewCreateDialog } from "./pipeline-view-create-dialog";
 import { PipelineViewSettingsMenu } from "./pipeline-view-settings-menu";
 import { PipelineViewTabs } from "./pipeline-view-tabs";
@@ -57,6 +57,16 @@ import { TableShell } from "@/components/ui/table-shell";
 // persistence) yet is ordered exactly as the grouped table renders (range math).
 // Module-level so the reference never changes across renders (stable memo dep).
 const EMPTY_COLLAPSED_STAGES: ReadonlySet<OpportunityStage> = new Set();
+
+// Editable column id → its `table.column.<id>` dictionary key, for the undo
+// toast body ("{column} updated on {deal}").
+const UNDO_COLUMN_LABEL_KEYS = {
+  value: "table.column.value",
+  client: "table.column.client",
+  next_follow_up: "table.column.next_follow_up",
+  expected_close: "table.column.expected_close",
+  assignee: "table.column.assignee",
+} as const satisfies Record<PipelineTableEditableColumnId, string>;
 
 // ── Saved-view helpers ───────────────────────────────────────────────────────
 // Mirror the projects shell's view-list bookkeeping (sort by position/name,
@@ -509,6 +519,34 @@ export function PipelineTableShell({
     void undoLatest();
   }, [undoLatest]);
 
+  // ── Undo toast (canonical system) ───────────────────────────────────────
+  // The cell-edit engine surfaces `latestUndo`; presentation renders through
+  // the shared Sonner-based undo toast. Refs keep the callbacks fresh without
+  // re-firing the effect — it fires exactly once per new undo entry.
+  const undoActionRef = useRef(handleUndoLatest);
+  const undoClearRef = useRef(clearLatestUndo);
+  useEffect(() => {
+    undoActionRef.current = handleUndoLatest;
+    undoClearRef.current = clearLatestUndo;
+  }, [handleUndoLatest, clearLatestUndo]);
+
+  const lastToastedUndoIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!latestUndo || latestUndo.id === lastToastedUndoIdRef.current) return;
+    lastToastedUndoIdRef.current = latestUndo.id;
+    showUndoToast({
+      title: t("table.undo.label"),
+      description: t("table.undo.body", {
+        column: t(UNDO_COLUMN_LABEL_KEYS[latestUndo.columnId]),
+        deal: latestUndo.dealTitle,
+      }),
+      undoLabel: t("table.undo.action"),
+      dismissLabel: t("table.undo.dismiss"),
+      onUndo: () => undoActionRef.current(),
+      onDismiss: () => undoClearRef.current(),
+    });
+  }, [latestUndo, t]);
+
   const handleFocusSearch = useCallback(() => {
     const input = searchInputRef.current;
     if (!input) return;
@@ -895,11 +933,6 @@ export function PipelineTableShell({
         onViewCreated={handleViewCreated}
       />
       {showFooter ? <PipelineTableFooter total={total} /> : null}
-      <PipelineUndoToast
-        entry={latestUndo}
-        onUndo={handleUndoLatest}
-        onDismiss={clearLatestUndo}
-      />
       {/* Stage transition dialog (Won/Lost prompts) — driven by the shared hook,
           identical to the focused board's. */}
       <StageTransitionDialog

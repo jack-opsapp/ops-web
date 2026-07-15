@@ -3,7 +3,7 @@
 import { Map } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { usePreferencesStore } from "@/stores/preferences-store";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 
 export function MapPreferencesTab() {

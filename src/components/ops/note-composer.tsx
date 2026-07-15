@@ -6,7 +6,7 @@ import { MentionTextArea, extractMentionedUserIds } from "@/components/ops/menti
 import { PhotoCaptionDialog } from "@/components/ops/photo-caption-dialog";
 import { PhotoMarkupDialog } from "@/components/ops/photo-markup/photo-markup-dialog";
 import { uploadImage } from "@/lib/api/services/image-service";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { User } from "@/lib/types/models";
 import type { NoteAttachment } from "@/lib/types/pipeline";
 

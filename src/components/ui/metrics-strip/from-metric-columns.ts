@@ -68,5 +68,6 @@ export function fromMetricColumns(configs: MetricColumnConfig[]): MetricCell[] {
     tone: toneFor(c.color),
     trend: c.trend,
     viz: vizFor(c),
+    breakdown: c.breakdown,
   }));
 }

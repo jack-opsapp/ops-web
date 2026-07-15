@@ -24,7 +24,7 @@ import {
   type TagProps,
 } from "@/components/ui/register-table";
 import { TableShell, Workbar, WorkbarButton, WorkbarCount } from "@/components/ui/table-shell";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/search-input";
 import { Checkbox } from "@/components/ui/checkbox";

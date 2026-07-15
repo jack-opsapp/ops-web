@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { useThreadActions } from "@/lib/hooks/use-inbox-threads";
 import { SlashLabel } from "./voice/slash-label";
-import { enqueueUndoToast } from "./undo-toast";
+import { showUndoToast } from "@/components/ui/toast-undo";
 
 interface SnoozePickerProps {
   threadId: string;
@@ -173,11 +173,12 @@ export function SnoozePicker({
     (until: Date, humanLabel: string) => {
       setOpen(false);
       snooze.mutate({ threadId, until });
-      enqueueUndoToast({
-        message: t(
+      showUndoToast({
+        title: t(
           "toast.snoozedTactic",
           "SYS :: SNOOZED UNTIL {time}"
         ).replace("{time}", humanLabel.toUpperCase()),
+        undoLabel: t("toast.undoTactic", "UNDO"),
         onUndo: () => unsnooze.mutate(threadId),
       });
     },

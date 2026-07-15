@@ -1,9 +1,13 @@
 /**
  * OPS Web - Image Upload Service
  *
- * Handles image uploads to Supabase Storage via /api/uploads/presign.
+ * Handles image uploads via the /api/uploads/presign direct-upload mode
+ * (S3-backed; STORAGE_BACKEND=supabase is the legacy rollback path).
+ * The route rejects anonymous calls, so every request rides authedFetch.
  * Includes client-side validation, compression, and multi-image support.
  */
+
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -33,7 +37,9 @@ export class ImageUploadError extends Error {
 
 // ─── Image Compression ──────────────────────────────────────────────────────
 
-async function compressImage(file: File, maxWidth = 1920): Promise<Blob> {
+// Exported for the presign-flow uploader (lead-photo-upload.ts) so both
+// upload paths share one canvas-JPEG recipe.
+export async function compressImage(file: File, maxWidth = 1920): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const canvas = document.createElement("canvas");
@@ -107,7 +113,7 @@ export async function uploadImage(
     );
     if (folder) formData.append("folder", folder);
 
-    const response = await fetch("/api/uploads/presign", {
+    const response = await authedFetch("/api/uploads/presign", {
       method: "POST",
       body: formData,
     });

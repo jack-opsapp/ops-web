@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState, memo, useMemo, type MouseEvent } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Minus, X, Flag, Check, Send, ArrowUpRight, Camera } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import {
   useExpenseBatchPopoverStore,

@@ -1,9 +1,18 @@
 "use client";
 
+/**
+ * Reject confirmation — the flag-driven return flow for an expense batch.
+ * Clean lines approve; flagged lines move to an amendment batch and go back
+ * to the crew member with per-line comments. Editing a comment or unflagging
+ * is still possible right here before committing.
+ */
+
 import { useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
 import {
   type ExpenseBatch,
   type ExpenseLineItem,
@@ -30,22 +39,6 @@ interface RejectConfirmationModalProps {
   isSubmitting: boolean;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
-}
-
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function RejectConfirmationModal({
@@ -53,8 +46,6 @@ export function RejectConfirmationModal({
   flaggedExpenses,
   flagComments,
   cleanCount,
-  cleanTotal,
-  flaggedTotal,
   reviewNotes,
   onReviewNotesChange,
   onFlagCommentChange,
@@ -63,12 +54,24 @@ export function RejectConfirmationModal({
   onCancel,
   isSubmitting,
 }: RejectConfirmationModalProps) {
-  // Escape key closes modal
+  const { t } = useDictionary("books");
+  const { locale } = useLocale();
+  const numLocale = getDateLocale(locale);
+
+  const fmtMoney = (value: number) =>
+    new Intl.NumberFormat(numLocale, { style: "currency", currency: "USD" }).format(value);
+
+  const fmtDate = (value: string) => {
+    const [y, m, d] = value.split("-").map(Number);
+    return new Intl.DateTimeFormat(numLocale, { month: "short", day: "numeric" }).format(
+      new Date(y, (m ?? 1) - 1, d ?? 1)
+    );
+  };
+
+  // Escape closes
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onCancel();
-      }
+      if (e.key === "Escape") onCancel();
     },
     [onCancel]
   );
@@ -79,8 +82,7 @@ export function RejectConfirmationModal({
   }, [handleKeyDown]);
 
   const displayName = getBatchDisplayName(batch);
-  const periodKey = periodKeyFromBatch(batch);
-  const periodDisplay = formatPeriodDisplay(periodKey);
+  const periodDisplay = formatPeriodDisplay(periodKeyFromBatch(batch));
   const flaggedCount = flaggedExpenses.length;
   const allUnflagged = flaggedCount === 0;
 
@@ -88,167 +90,169 @@ export function RejectConfirmationModal({
     <AnimatePresence>
       {/* Backdrop */}
       <motion.div
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
+        className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/60 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.15 }}
+        transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
         onClick={onCancel}
       >
         {/* Modal card */}
         <motion.div
-          className="w-full max-w-lg mx-4 bg-glass glass-surface border border-border rounded p-5 flex flex-col gap-4"
+          className="glass-dense mx-4 flex w-full max-w-lg flex-col gap-4 rounded-modal border border-glass-border p-5"
           initial={{ opacity: 0, scale: 0.96, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
-          transition={{ duration: 0.15 }}
+          transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* ── Header ──────────────────────────────────────────────────── */}
+          {/* Header */}
           <div className="flex flex-col gap-1">
-            <h2 className="font-mohave text-body text-text uppercase text-left">
-              {displayName}
-            </h2>
-            <span className="font-mono text-caption-sm text-text-3 text-left">
+            <h2 className="text-left font-mohave text-body text-text">{displayName}</h2>
+            <span className="text-left font-mono text-caption-sm text-text-3">
               {periodDisplay}
             </span>
             {flaggedCount > 0 && (
-              <span className="font-mono text-caption-sm text-[#C4A868] text-left">
-                {flaggedCount} item{flaggedCount !== 1 ? "s" : ""} flagged for
-                revision
+              <span className="text-left font-mono text-caption-sm text-tan">
+                {t(
+                  flaggedCount === 1
+                    ? "expenses.reject.flaggedCountOne"
+                    : "expenses.reject.flaggedCount",
+                  { n: flaggedCount }
+                )}
               </span>
             )}
           </div>
 
-          {/* ── Flagged items list ──────────────────────────────────────── */}
+          {/* Flagged lines */}
           {flaggedCount > 0 && (
-            <div className="max-h-[300px] overflow-y-auto flex flex-col gap-3 pr-1">
+            <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-1">
               {flaggedExpenses.map((expense) => (
                 <div key={expense.id} className="flex flex-col gap-1.5">
-                  {/* Row: date + merchant | amount */}
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-caption-sm text-text-2 text-left">
+                    <span className="text-left font-mono text-caption-sm text-text-2">
                       {expense.expenseDate
-                        ? formatDate(expense.expenseDate)
-                        : "No date"}
-                      {expense.merchantName
-                        ? ` \u2014 ${expense.merchantName}`
-                        : ""}
+                        ? fmtDate(expense.expenseDate)
+                        : t("expenses.reject.noDate")}
+                      {expense.merchantName ? ` — ${expense.merchantName}` : ""}
                     </span>
-                    <span className="font-mono text-data-sm text-text shrink-0 ml-3">
-                      {formatCurrency(expense.amount)}
+                    <span
+                      className="ml-3 shrink-0 font-mono text-data-sm text-text"
+                      style={{ fontFeatureSettings: '"tnum" 1, "zero" 1' }}
+                    >
+                      {fmtMoney(expense.amount)}
                     </span>
                   </div>
 
-                  {/* Comment textarea */}
                   <textarea
                     className={cn(
-                      "w-full bg-[rgba(255,255,255,0.04)] border border-border rounded p-2",
-                      "font-mono text-caption-sm text-text-2 text-left",
-                      "placeholder:text-text-3 resize-none",
-                      "focus:outline-none focus:border-[rgba(255,255,255,0.30)]"
+                      "w-full rounded border border-line bg-surface-input p-2",
+                      "text-left font-mono text-caption-sm text-text-2",
+                      "resize-none placeholder:text-text-3",
+                      "focus:border-border-medium focus:outline-none"
                     )}
                     rows={2}
-                    placeholder="Reason for flagging..."
+                    placeholder={t("expenses.reject.reasonPlaceholder")}
                     value={flagComments[expense.id] ?? ""}
-                    onChange={(e) =>
-                      onFlagCommentChange(expense.id, e.target.value)
-                    }
+                    onChange={(e) => onFlagCommentChange(expense.id, e.target.value)}
                   />
 
-                  {/* Unflag button */}
                   <button
                     type="button"
-                    className="font-mono text-micro text-text-3 hover:text-text-2 uppercase text-left self-start transition-colors duration-150"
+                    className="self-start text-left font-mono text-micro uppercase text-text-3 transition-colors duration-150 ease-smooth hover:text-text-2"
                     onClick={() => onUnflag(expense.id)}
                   >
-                    UNFLAG
+                    {t("expenses.line.unflag")}
                   </button>
                 </div>
               ))}
             </div>
           )}
 
-          {/* ── Review notes ────────────────────────────────────────────── */}
+          {/* Review notes */}
           <div className="flex flex-col gap-1.5">
-            <label className="font-mono text-caption-sm text-text-3 uppercase text-left">
-              REVIEW NOTES (OPTIONAL)
+            <label className="text-left font-mono text-caption-sm uppercase text-text-3">
+              {t("expenses.reject.notesLabel")}
             </label>
             <textarea
               className={cn(
-                "w-full bg-[rgba(255,255,255,0.04)] border border-border rounded p-2",
-                "font-mono text-caption-sm text-text-2 text-left",
-                "placeholder:text-text-3 resize-none",
-                "focus:outline-none focus:border-[rgba(255,255,255,0.30)]"
+                "w-full rounded border border-line bg-surface-input p-2",
+                "text-left font-mono text-caption-sm text-text-2",
+                "resize-none placeholder:text-text-3",
+                "focus:border-border-medium focus:outline-none"
               )}
               rows={2}
-              placeholder="Optional notes for the submitter..."
+              placeholder={t("expenses.reject.notesPlaceholder")}
               value={reviewNotes}
               onChange={(e) => onReviewNotesChange(e.target.value)}
             />
           </div>
 
-          {/* ── Context line ────────────────────────────────────────────── */}
-          <p className="font-mono text-caption-sm text-text-3 text-left">
-            {cleanCount} expense{cleanCount !== 1 ? "s" : ""} will be approved.{" "}
-            {flaggedCount} will be returned for revision.
+          {/* Context line */}
+          <p className="text-left font-mono text-caption-sm text-text-3">
+            {t(
+              cleanCount === 1 ? "expenses.reject.contextOneClean" : "expenses.reject.context",
+              { clean: cleanCount, flagged: flaggedCount }
+            )}
           </p>
 
-          {/* ── Footer buttons ──────────────────────────────────────────── */}
-          <div className="flex items-center gap-2 justify-end">
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2">
             <button
               type="button"
               className={cn(
-                "bg-transparent border border-border text-text-3 hover:text-text-2",
-                "font-mono text-caption-sm uppercase px-4 py-2 rounded",
-                "transition-colors duration-150"
+                "border border-line bg-transparent text-text-3 hover:text-text-2",
+                "rounded px-4 py-2 font-cakemono text-button-sm font-light uppercase",
+                "transition-colors duration-150 ease-smooth"
               )}
               onClick={onCancel}
               disabled={isSubmitting}
             >
-              CANCEL
+              {t("expenses.bulk.cancel")}
             </button>
 
             {allUnflagged ? (
               <button
                 type="button"
                 className={cn(
-                  "bg-[rgba(157,181,130,0.2)] text-[#9DB582]",
-                  "font-mono text-caption-sm uppercase px-4 py-2 rounded",
-                  "transition-colors duration-150",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                  "border border-olive-line bg-olive-soft text-olive hover:border-olive",
+                  "rounded px-4 py-2 font-cakemono text-button-sm font-light uppercase",
+                  "transition-colors duration-150 ease-smooth",
+                  "disabled:cursor-not-allowed disabled:opacity-50"
                 )}
                 onClick={onConfirm}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    APPROVING...
+                    <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                    {t("expenses.reject.approving")}
                   </span>
                 ) : (
-                  "APPROVE ALL"
+                  t("expenses.reject.approveAll")
                 )}
               </button>
             ) : (
               <button
                 type="button"
                 className={cn(
-                  "bg-[#93321A] hover:bg-[#a83d20] text-white",
-                  "font-mono text-caption-sm uppercase px-4 py-2 rounded",
-                  "transition-colors duration-150",
-                  "disabled:opacity-50 disabled:cursor-not-allowed"
+                  "border border-rose-line bg-rose-soft text-rose hover:border-rose",
+                  "rounded px-4 py-2 font-cakemono text-button-sm font-light uppercase",
+                  "transition-colors duration-150 ease-smooth",
+                  "disabled:cursor-not-allowed disabled:opacity-50"
                 )}
                 onClick={onConfirm}
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    SENDING...
+                    <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                    {t("expenses.reject.sending")}
                   </span>
                 ) : (
-                  `SEND ${flaggedCount} REVISION${flaggedCount !== 1 ? "S" : ""}`
+                  t(flaggedCount === 1 ? "expenses.reject.sendOne" : "expenses.reject.send", {
+                    n: flaggedCount,
+                  })
                 )}
               </button>
             )}

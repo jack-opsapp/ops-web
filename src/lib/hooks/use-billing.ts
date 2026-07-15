@@ -80,6 +80,49 @@ export function useCreateSetupIntent() {
   });
 }
 
+/**
+ * Promote a payment method to the company's Stripe default. Required for
+ * billing lockout recovery: /api/stripe/subscribe falls back to the customer
+ * default when no explicit paymentMethodId is supplied, so a card added via
+ * SetupIntent stays useless until it's set as default. Called automatically
+ * from AddCardForm when the customer has no default yet, and on demand from
+ * the explicit "Set as default" action on existing cards.
+ */
+export function useSetDefaultPaymentMethod() {
+  const { company } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (paymentMethodId: string) => {
+      if (!company?.id) throw new Error("No active company");
+      const res = await fetch("/api/stripe/payment-methods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: company.id,
+          paymentMethodId,
+          action: "set_default",
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to set default payment method");
+      }
+      return res.json() as Promise<{
+        success: true;
+        defaultPaymentMethodId: string;
+      }>;
+    },
+    onSuccess: () => {
+      if (company) {
+        queryClient.invalidateQueries({
+          queryKey: billingKeys.paymentMethods(company.id),
+        });
+      }
+    },
+  });
+}
+
 export function useRemovePaymentMethod() {
   const { company } = useAuthStore();
   const queryClient = useQueryClient();

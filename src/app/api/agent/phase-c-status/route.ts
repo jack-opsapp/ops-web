@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
         { proposed: 0, executed: 0, rejected: 0 }
       );
 
-    const projectStats = sumFor(["create_project", "create_task", "reassign_task", "archive_project"]);
+    const projectStats = sumFor(["create_project", "create_task", "reassign_task", "archive_project", "close_project"]);
     const invoiceStats = sumFor(["create_invoice", "send_invoice_email", "send_payment_reminder"]);
     const scheduleStats = sumFor(["optimize_schedule", "reschedule_tasks"]);
     const commsStats = sumFor([

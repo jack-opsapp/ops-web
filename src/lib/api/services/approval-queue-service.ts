@@ -23,6 +23,7 @@ import type {
   CreateInvoiceActionData,
   ReassignTaskActionData,
   ArchiveProjectActionData,
+  CloseProjectActionData,
   SendPaymentReminderActionData,
   ClientHealthAlertActionData,
   FinancialInsightActionData,
@@ -80,6 +81,7 @@ const EXPIRY_DAYS: Record<string, number> = {
   send_payment_reminder: 3,
   reassign_task: 7,
   archive_project: 14,
+  close_project: 14,
   client_health_alert: 14,
   financial_insight: 14,
   optimize_schedule: 3,
@@ -127,6 +129,8 @@ async function executeAction(
       return executeReassignTask(action);
     case "archive_project":
       return executeArchiveProject(action);
+    case "close_project":
+      return executeCloseProject(action);
     case "create_invoice":
       return executeCreateInvoice(action);
     case "send_invoice_email":
@@ -482,6 +486,10 @@ async function executeReassignTask(
 }
 
 // ─── Archive Project Executor ───────────────────────────────────────────────
+//
+// `archived` is an operator pause/cancel outcome — NOT a completion state. This
+// executor is reserved for that path. Completion success (complete + paid) goes
+// to `closed` via executeCloseProject below. Do not repoint this to 'closed'.
 
 async function executeArchiveProject(
   action: AgentAction
@@ -504,6 +512,38 @@ async function executeArchiveProject(
     projectId: data.project_id,
     projectTitle: data.project_title,
     archivedAt: new Date().toISOString(),
+  };
+}
+
+// ─── Close Project Executor ─────────────────────────────────────────────────
+//
+// Terminal SUCCESS: a project that is complete AND fully paid moves to `closed`
+// (Automation F). This mirrors executeArchiveProject but writes the correct
+// completion status. The paid-invoice DB cascade normally closes these projects
+// automatically; this executor is the operator-approved fallback for any that
+// linger in `completed`.
+
+async function executeCloseProject(
+  action: AgentAction
+): Promise<Record<string, unknown>> {
+  const supabase = requireSupabase();
+  const data = action.actionData as unknown as CloseProjectActionData;
+
+  const { error } = await supabase
+    .from("projects")
+    .update({ status: "closed" })
+    .eq("id", data.project_id)
+    .eq("company_id", action.companyId)
+    .is("deleted_at", null);
+
+  if (error) {
+    throw new Error(`Failed to close project: ${error.message}`);
+  }
+
+  return {
+    projectId: data.project_id,
+    projectTitle: data.project_title,
+    closedAt: new Date().toISOString(),
   };
 }
 

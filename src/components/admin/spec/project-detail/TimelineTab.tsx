@@ -46,15 +46,15 @@ const KIND_LABEL: Record<SpecTimelineEventKind, string> = {
 };
 
 const KIND_TONE: Record<SpecTimelineEventKind, string> = {
-  status_change: "text-[#8A8A8A]",
-  acceptance: "text-[#6F94B0]",
-  communication: "text-[#B5B5B5]",
-  payment: "text-[#C4A868]",
-  change_order: "text-[#C4A868]",
-  scope_document: "text-[#9DB582]",
-  satisfaction_rating: "text-[#9DB582]",
-  support_ticket: "text-[#B58289]",
-  system: "text-[#6A6A6A]",
+  status_change: "text-text-3",
+  acceptance: "text-olive",
+  communication: "text-text-2",
+  payment: "text-tan",
+  change_order: "text-tan",
+  scope_document: "text-olive",
+  satisfaction_rating: "text-olive",
+  support_ticket: "text-rose",
+  system: "text-text-mute",
 };
 
 const CHANNEL_LABEL: Record<SpecCommunicationChannel, string> = {
@@ -88,20 +88,20 @@ export function TimelineTab({ events }: TimelineTabProps) {
   return (
     <section
       aria-label="Project timeline"
-      className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+      className="glass-surface p-5"
     >
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             TIMELINE
           </h2>
-          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+            <span className="text-text-mute">[</span>
             {filtered.length} OF {events.length} EVENTS · NEWEST FIRST
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </p>
         </div>
 
@@ -115,10 +115,10 @@ export function TimelineTab({ events }: TimelineTabProps) {
                 onClick={() => setFilter(f.key)}
                 aria-pressed={isActive}
                 className={[
-                  "rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  "rounded-chip border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] transition-colors duration-150 ease-smooth",
                   isActive
-                    ? "border-[#6F94B0] bg-[#6F94B0] text-black"
-                    : "border-white/[0.10] text-[#8A8A8A] hover:text-[#EDEDED]",
+                    ? "border-text bg-text text-black"
+                    : "border-white/[0.10] text-text-3 hover:text-text",
                 ].join(" ")}
               >
                 {f.label}
@@ -132,14 +132,14 @@ export function TimelineTab({ events }: TimelineTabProps) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="// SEARCH"
-              className="w-44 rounded border border-white/[0.10] bg-black px-3 py-1 font-mono text-[11px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0] placeholder:text-[#6A6A6A]"
+              className="w-44 rounded border border-white/[0.10] bg-black px-3 py-1 font-mono text-[11px] text-text outline-none transition-colors duration-150 ease-smooth focus:border-ops-accent placeholder:text-text-mute"
             />
           </label>
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <p className="font-mono text-[12px] text-[#6A6A6A]">— nothing matches</p>
+        <p className="font-mono text-[12px] text-text-mute">— nothing matches</p>
       ) : (
         <ol className="space-y-0 divide-y divide-white/[0.06]">
           {filtered.map((event) => (
@@ -161,16 +161,16 @@ function EventRow({ event }: { event: SpecTimelineEvent }) {
 
   return (
     <li className="grid grid-cols-[100px,1fr] gap-4 py-3">
-      <div className="flex flex-col gap-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+      <div className="flex flex-col gap-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
         <span className={`tabular-nums ${KIND_TONE[event.kind]}`}>{KIND_LABEL[event.kind]}</span>
-        <span className="tabular-nums text-[#8A8A8A]">{formatDateTime(event.occurredAt)}</span>
-        <span className="tabular-nums text-[#6A6A6A]">{formatRelative(event.occurredAt)}</span>
+        <span className="tabular-nums text-text-3">{formatDateTime(event.occurredAt)}</span>
+        <span className="tabular-nums text-text-mute">{formatRelative(event.occurredAt)}</span>
       </div>
 
       <div className="min-w-0">
-        <p className="text-[13px] leading-snug text-[#EDEDED]">
+        <p className="text-[13px] leading-snug text-text">
           {event.actorLabel && (
-            <span className="mr-2 font-mono text-[11px] uppercase tracking-[0.14em] text-[#6A6A6A]">
+            <span className="mr-2 font-mono text-[11px] uppercase tracking-[0.14em] text-text-mute">
               {event.actorLabel} ·
             </span>
           )}
@@ -178,76 +178,76 @@ function EventRow({ event }: { event: SpecTimelineEvent }) {
         </p>
 
         {event.detail && (
-          <p className="mt-1 text-[12px] leading-relaxed text-[#B5B5B5]">{event.detail}</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-text-2">{event.detail}</p>
         )}
 
         {/* Per-kind meta pills */}
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em]">
           {pathBTag && (
-            <span className="rounded-[3px] border border-[#6F94B0]/40 px-1.5 py-px text-[#6F94B0]">
+            <span className="rounded-chip border border-tan/40 px-1.5 py-px text-tan">
               {pathBTag}
             </span>
           )}
           {event.meta?.signatureMethod && (
-            <span className="rounded-[3px] border border-white/[0.10] px-1.5 py-px text-[#8A8A8A]">
+            <span className="rounded-chip border border-white/[0.10] px-1.5 py-px text-text-3">
               SIG · {event.meta.signatureMethod.toUpperCase()}
             </span>
           )}
           {event.meta?.payloadHash && (
             <span
-              className="rounded-[3px] border border-white/[0.10] px-1.5 py-px text-[#6A6A6A]"
+              className="rounded-chip border border-white/[0.10] px-1.5 py-px text-text-mute"
               title={event.meta.payloadHash}
             >
               HASH · {truncateHash(event.meta.payloadHash, 8)}
             </span>
           )}
           {event.meta?.milestone && (
-            <span className="rounded-[3px] border border-[#C4A868]/30 px-1.5 py-px text-[#C4A868]">
+            <span className="rounded-chip border border-tan/30 px-1.5 py-px text-tan">
               {SPEC_MILESTONE_LABELS[event.meta.milestone]}
             </span>
           )}
           {event.meta?.paymentStatus && (
-            <span className="rounded-[3px] border border-white/[0.10] px-1.5 py-px text-[#8A8A8A]">
+            <span className="rounded-chip border border-white/[0.10] px-1.5 py-px text-text-3">
               {statusLabel(event.meta.paymentStatus)}
             </span>
           )}
           {event.meta?.amountCents != null && (
-            <span className="rounded-[3px] border border-white/[0.10] px-1.5 py-px tabular-nums text-[#EDEDED]">
+            <span className="rounded-chip border border-white/[0.10] px-1.5 py-px tabular-nums text-text">
               {formatCents(event.meta.amountCents)}
             </span>
           )}
           {event.meta?.channel && (
-            <span className="rounded-[3px] border border-white/[0.10] px-1.5 py-px text-[#8A8A8A]">
+            <span className="rounded-chip border border-white/[0.10] px-1.5 py-px text-text-3">
               {CHANNEL_LABEL[event.meta.channel]}
             </span>
           )}
           {event.meta?.direction && (
-            <span className="rounded-[3px] border border-white/[0.10] px-1.5 py-px text-[#6A6A6A]">
+            <span className="rounded-chip border border-white/[0.10] px-1.5 py-px text-text-mute">
               {event.meta.direction === "outbound" ? "OUT" : "IN"}
             </span>
           )}
           {event.meta?.changeOrderStatus && (
-            <span className="rounded-[3px] border border-white/[0.10] px-1.5 py-px text-[#8A8A8A]">
+            <span className="rounded-chip border border-white/[0.10] px-1.5 py-px text-text-3">
               CO · {statusLabel(event.meta.changeOrderStatus)}
             </span>
           )}
           {event.meta?.scopeDocVersion != null && (
-            <span className="rounded-[3px] border border-[#9DB582]/30 px-1.5 py-px text-[#9DB582]">
+            <span className="rounded-chip border border-olive/30 px-1.5 py-px text-olive">
               SCOPE V{event.meta.scopeDocVersion}
             </span>
           )}
           {event.meta?.rating != null && (
-            <span className="rounded-[3px] border border-white/[0.10] px-1.5 py-px tabular-nums text-[#EDEDED]">
+            <span className="rounded-chip border border-white/[0.10] px-1.5 py-px tabular-nums text-text">
               {event.meta.rating}/5
             </span>
           )}
           {event.meta?.ticketSeverity && (
-            <span className="rounded-[3px] border border-[#B58289]/30 px-1.5 py-px text-[#B58289]">
+            <span className="rounded-chip border border-rose/30 px-1.5 py-px text-rose">
               {statusLabel(event.meta.ticketSeverity)}
             </span>
           )}
           {event.meta?.ticketStatus && (
-            <span className="rounded-[3px] border border-white/[0.10] px-1.5 py-px text-[#8A8A8A]">
+            <span className="rounded-chip border border-white/[0.10] px-1.5 py-px text-text-3">
               {statusLabel(event.meta.ticketStatus)}
             </span>
           )}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Calendar, Save, AlertTriangle, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { DataSetupQueueRow } from "@/lib/admin/data-setup-queries";
 import { patchAndMerge } from "../actions";
 import { StatusPill } from "./status-pill";

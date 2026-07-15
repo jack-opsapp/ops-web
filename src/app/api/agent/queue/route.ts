@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
     const VALID_ACTION_TYPES = [
       "create_project", "create_task", "create_invoice",
       "send_email", "send_status_email", "send_invoice_email",
-      "send_payment_reminder", "reassign_task", "archive_project",
+      "send_payment_reminder", "reassign_task", "archive_project", "close_project",
       "client_health_alert", "financial_insight",
       "optimize_schedule", "reschedule_tasks",
       "send_appointment_confirmation", "send_day_before_reminder",

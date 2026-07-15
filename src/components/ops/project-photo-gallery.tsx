@@ -13,7 +13,7 @@
 import { useState, useEffect } from "react";
 import { Camera, ChevronDown, ChevronRight, Upload, Loader2, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useProjectPhotos, useCreateProjectPhoto, useDeleteProjectPhoto } from "@/lib/hooks/use-project-photos";
 import { ProjectPhotoService } from "@/lib/api/services/project-photo-service";
 import { uploadImage } from "@/lib/api/services";

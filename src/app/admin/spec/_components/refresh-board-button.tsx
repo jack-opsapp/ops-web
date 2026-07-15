@@ -46,22 +46,22 @@ export function RefreshBoardButton({ initialRefreshedAt }: RefreshBoardButtonPro
 
   return (
     <div className="flex items-center gap-3">
-      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">[</span>UPDATED {formatRefreshedAt(refreshedAt)}
-        <span className="text-[#3A3A3A]">]</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+        <span className="text-text-mute">[</span>UPDATED {formatRefreshedAt(refreshedAt)}
+        <span className="text-text-mute">]</span>
       </span>
       <button
         type="button"
         onClick={handleClick}
         disabled={pending}
-        className={`inline-flex items-center gap-2 rounded border border-[#6F94B0] bg-transparent px-3 py-[5px] font-mono text-[12px] uppercase tracking-[0.12em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-[#6F94B0] focus-visible:outline-offset-2 ${pending ? "opacity-50" : ""}`}
+        className={`inline-flex items-center gap-2 rounded border border-ops-accent bg-transparent px-3 py-[5px] font-mono text-[12px] uppercase tracking-[0.12em] text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-ops-accent focus-visible:outline-offset-2 ${pending ? "opacity-50" : ""}`}
       >
         {pending ? "REFRESHING…" : "REFRESH BOARD"}
       </button>
       {error && (
-        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#B58289]">
-          <span className="text-[#3A3A3A]">[</span>ERR · {error}
-          <span className="text-[#3A3A3A]">]</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-rose">
+          <span className="text-text-mute">[</span>ERR · {error}
+          <span className="text-text-mute">]</span>
         </span>
       )}
     </div>

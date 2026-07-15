@@ -548,6 +548,7 @@
   "toast.threadLinkCopyFailedTactic": "SYS :: COPY FAILED",
   "toast.threadRefreshedTactic": "SYS :: THREAD REFRESHED",
   "toast.undoTactic": "UNDO",
+  "toast.retryTactic": "RETRY",
 
   "mobile.listPane": "// LIST",
   "mobile.threadPane": "// THREAD",

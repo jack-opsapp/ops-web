@@ -10,11 +10,13 @@
  * 56dp touch targets, 8dp grid, no pure white, accent sparingly
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { cn } from "@/lib/utils/cn";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { INDUSTRIES } from "@/lib/data/industries";
+import { useDictionary } from "@/i18n/client";
 
 const COMPANY_SIZES = ["1", "2-3", "4-5", "6-10", "10-20", "20+"] as const;
 const COMPANY_AGES = ["<1", "1-2", "2-5", "5-10", "10+"] as const;
@@ -57,96 +59,17 @@ function IndustryDropdown({
   value: string[];
   onChange: (val: string[]) => void;
 }) {
+  const { t: tp } = useDictionary("picker");
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const [customValue, setCustomValue] = useState("");
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const listboxRef = useRef<HTMLDivElement>(null);
 
-  const filtered = INDUSTRIES.filter((ind) =>
-    ind.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Close on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch("");
-        setHighlightedIndex(-1);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Focus search on open
-  useEffect(() => {
-    if (open && searchInputRef.current) {
-      searchInputRef.current.focus();
-      setHighlightedIndex(-1);
-    }
-  }, [open]);
-
-  // Scroll highlighted option into view
-  useEffect(() => {
-    if (highlightedIndex >= 0 && listboxRef.current) {
-      const options = listboxRef.current.querySelectorAll('[role="option"]');
-      options[highlightedIndex]?.scrollIntoView({ block: "nearest" });
-    }
-  }, [highlightedIndex]);
-
-  const toggleOption = useCallback((ind: string) => {
-    if (ind === "Other") {
-      if (value.includes("Other")) {
-        onChange(value.filter((v) => v !== "Other"));
-      } else {
-        onChange([...value, "Other"]);
-      }
-    } else {
-      if (value.includes(ind)) {
-        onChange(value.filter((v) => v !== ind));
-      } else {
-        onChange([...value.filter((v) => v !== "Other"), ind]);
-      }
-    }
-  }, [onChange, value]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!open) return;
-
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev < filtered.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case "ArrowUp":
-        e.preventDefault();
-        setHighlightedIndex((prev) =>
-          prev > 0 ? prev - 1 : filtered.length - 1
-        );
-        break;
-      case "Enter":
-        e.preventDefault();
-        if (highlightedIndex >= 0 && highlightedIndex < filtered.length) {
-          toggleOption(filtered[highlightedIndex]);
-        }
-        break;
-      case "Escape":
-        e.preventDefault();
-        setOpen(false);
-        setSearch("");
-        setHighlightedIndex(-1);
-        break;
-    }
-  }, [open, filtered, highlightedIndex, toggleOption]);
+  // Remove a chip below the trigger. Mirrors the old toggleOption removal path
+  // (a plain filter — no "Other" bookkeeping needed on removal).
+  const removeIndustry = (ind: string) => {
+    onChange(value.filter((v) => v !== ind));
+  };
 
   const hasOther = value.includes("Other") || value.some((v) => !INDUSTRIES.includes(v as typeof INDUSTRIES[number]));
-  const listboxId = "industry-listbox";
 
   const displayText = value.length === 0
     ? ""
@@ -155,35 +78,59 @@ function IndustryDropdown({
       : `${value.slice(0, 2).join(", ")} +${value.length - 2}`;
 
   return (
-    <div ref={dropdownRef} className="relative" onKeyDown={handleKeyDown}>
+    <div className="relative">
       <label className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em] mb-1 block">
         INDUSTRY
       </label>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? listboxId : undefined}
-        className={cn(
-          "w-full flex items-center justify-between",
-          "bg-surface-input text-text font-mohave text-body",
-          "px-2 py-1.5 rounded-sm min-h-[36px]",
-          "border border-[rgba(255,255,255,0.08)]",
-          "transition-all duration-150",
-          "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
-          value.length === 0 && "text-text-mute"
-        )}
-      >
-        <span className="truncate">{displayText || "Select industries"}</span>
-        <ChevronDown
-          className={cn(
-            "w-5 h-5 text-text-3 transition-transform flex-shrink-0",
-            open && "rotate-180"
-          )}
-          aria-hidden="true"
-        />
-      </button>
+
+      <EntityPicker<string>
+        multiple
+        trigger={
+          <button
+            type="button"
+            className={cn(
+              "w-full flex items-center justify-between",
+              "bg-surface-input text-text font-mohave text-body",
+              "px-2 py-1.5 rounded-sm min-h-[36px]",
+              "border transition-all duration-150 ease-smooth",
+              open ? "border-line-hi" : "border-border",
+              "focus:border-line-hi focus:outline-none",
+              value.length === 0 && "text-text-mute"
+            )}
+          >
+            <span className="truncate">{displayText || "Select industries"}</span>
+            <ChevronDown
+              className={cn(
+                "w-5 h-5 text-text-3 transition-transform duration-150 ease-smooth flex-shrink-0",
+                open && "rotate-180"
+              )}
+              aria-hidden="true"
+            />
+          </button>
+        }
+        open={open}
+        onOpenChange={setOpen}
+        label="INDUSTRY"
+        items={INDUSTRIES}
+        value={value}
+        onChange={(nextIds) => {
+          const added = nextIds.find((id) => !value.includes(id));
+          // Selecting a real industry clears the "Other" escape hatch (mirrors
+          // the old toggleOption: presets and "Other" don't coexist once a
+          // preset is picked).
+          if (added && added !== "Other") {
+            onChange(nextIds.filter((v) => v !== "Other"));
+          } else {
+            onChange(nextIds);
+          }
+        }}
+        getId={(i) => i}
+        getLabel={(i) => i}
+        searchPlaceholder={tp("industry.search")}
+        emptyLabel={tp("industry.empty")}
+        clearLabel={tp("clear")}
+        contentClassName="z-modal"
+      />
 
       {/* Selected chips */}
       {value.length > 0 && (
@@ -191,12 +138,12 @@ function IndustryDropdown({
           {value.filter((v) => v !== "Other").map((ind) => (
             <span
               key={ind}
-              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-2 uppercase"
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-sm bg-surface-active border border-border font-mohave text-caption-sm text-text-2 uppercase"
             >
               {ind}
               <button
                 type="button"
-                onClick={() => toggleOption(ind)}
+                onClick={() => removeIndustry(ind)}
                 className="text-text-mute hover:text-text transition-colors ml-0.5"
                 aria-label={`Remove ${ind}`}
               >
@@ -204,73 +151,6 @@ function IndustryDropdown({
               </button>
             </span>
           ))}
-        </div>
-      )}
-
-      {open && (
-        <div className="absolute z-50 mt-1 w-full bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2] border border-[rgba(255,255,255,0.08)] rounded-sm overflow-hidden">
-          {/* Search */}
-          <div className="p-1.5 border-b border-[rgba(255,255,255,0.08)]">
-            <div className="relative">
-              <Search className="absolute left-1.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-3" aria-hidden="true" />
-              <input
-                ref={searchInputRef}
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setHighlightedIndex(-1);
-                }}
-                placeholder="[search]"
-                aria-label="Search industries"
-                aria-controls={listboxId}
-                aria-activedescendant={
-                  highlightedIndex >= 0 ? `industry-option-${highlightedIndex}` : undefined
-                }
-                className="w-full bg-surface-input text-text font-mohave text-body-sm pl-8 pr-1.5 py-1.5 rounded-sm border border-[rgba(255,255,255,0.08)] focus:border-[rgba(255,255,255,0.20)] focus:outline-none placeholder:text-text-mute placeholder:font-mono min-h-[36px]"
-              />
-            </div>
-          </div>
-
-          {/* Options */}
-          <div
-            ref={listboxRef}
-            id={listboxId}
-            role="listbox"
-            aria-label="Industries"
-            aria-multiselectable="true"
-            className="max-h-[240px] overflow-y-auto"
-          >
-            {filtered.map((ind, index) => {
-              const isSelected = value.includes(ind);
-              return (
-                <button
-                  key={ind}
-                  id={`industry-option-${index}`}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => toggleOption(ind)}
-                  className={cn(
-                    "w-full flex items-center justify-between px-2 py-1.5 text-left min-h-[36px]",
-                    "font-mohave text-body-sm transition-colors border-b border-[rgba(255,255,255,0.04)]",
-                    isSelected
-                      ? "bg-[rgba(255,255,255,0.08)] text-text"
-                      : highlightedIndex === index
-                        ? "bg-[rgba(255,255,255,0.05)] text-text"
-                        : "text-text-2 hover:bg-[rgba(255,255,255,0.04)] hover:text-text"
-                  )}
-                >
-                  <span>{ind}</span>
-                  {isSelected && <Check className="w-4 h-4 text-text" aria-hidden="true" />}
-                </button>
-              );
-            })}
-            {filtered.length === 0 && (
-              <p className="px-2 py-2 font-mono text-caption-sm text-text-mute" role="status">
-                [no industries match &quot;{search}&quot;]
-              </p>
-            )}
-          </div>
         </div>
       )}
 

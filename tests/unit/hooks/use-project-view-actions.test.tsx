@@ -13,6 +13,7 @@ import {
   useProjectView,
 } from "@/lib/hooks/projects-table/use-project-view";
 import { useTableZoom } from "@/lib/hooks/projects-table/use-table-zoom";
+import { ALL_PROJECTS_VIEW_ID } from "@/lib/utils/project-view-defaults";
 import type { ProjectTableViewDefinition } from "@/lib/types/project-table";
 
 const routerPush = vi.fn();
@@ -56,6 +57,24 @@ vi.mock("@/lib/store/auth-store", () => ({
 }));
 
 let canManageViews = true;
+let projectsDefaultViewId: string | null = null;
+
+vi.mock("@/stores/preferences-store", () => ({
+  usePreferencesStore: Object.assign(
+    (
+      selector: (state: {
+        projectsDefaultViewId: string | null;
+        setProjectsDefaultViewId: (viewId: string | null) => void;
+      }) => unknown,
+    ) => selector({ projectsDefaultViewId, setProjectsDefaultViewId: () => {} }),
+    {
+      getState: () => ({
+        projectsDefaultViewId,
+        setProjectsDefaultViewId: () => {},
+      }),
+    },
+  ),
+}));
 
 vi.mock("@/lib/store/permissions-store", () => ({
   usePermissionStore: Object.assign(
@@ -150,6 +169,50 @@ describe("useProjectView URL state", () => {
     pathname = "/projects";
     setSearch("");
     window.localStorage.clear();
+    projectsDefaultViewId = null;
+  });
+
+  it("resolves to ALL when there is no URL param, no storage, and no default preference", () => {
+    const { result } = renderHook(() => useProjectView(views));
+
+    expect(result.current.activeViewId).toBe(ALL_PROJECTS_VIEW_ID);
+    // ALL is the unfiltered baseline — empty filters fetch the whole company.
+    expect(result.current.activeView.filters).toEqual({});
+    expect(result.current.savedView).toBeNull();
+  });
+
+  it("treats ?view=all as an explicit ALL selection", () => {
+    setSearch("view=all");
+
+    const { result } = renderHook(() => useProjectView(views));
+
+    expect(result.current.activeViewId).toBe(ALL_PROJECTS_VIEW_ID);
+    expect(result.current.savedView).toBeNull();
+  });
+
+  it("treats the stored __all__ sentinel as ALL", () => {
+    window.localStorage.setItem(PROJECT_VIEW_STORAGE_KEY, ALL_PROJECTS_VIEW_ID);
+
+    const { result } = renderHook(() => useProjectView(views));
+
+    expect(result.current.activeViewId).toBe(ALL_PROJECTS_VIEW_ID);
+  });
+
+  it("lands on the user's default-view preference when set", () => {
+    projectsDefaultViewId = "view-team";
+
+    const { result } = renderHook(() => useProjectView(views));
+
+    expect(result.current.activeViewId).toBe("view-team");
+    expect(result.current.activeView.name).toBe("Team View");
+  });
+
+  it("falls back to ALL when the default-view preference no longer resolves", () => {
+    projectsDefaultViewId = "view-deleted";
+
+    const { result } = renderHook(() => useProjectView(views));
+
+    expect(result.current.activeViewId).toBe(ALL_PROJECTS_VIEW_ID);
   });
 
   it("lets the view query param win over localStorage", () => {
@@ -159,23 +222,49 @@ describe("useProjectView URL state", () => {
     const { result } = renderHook(() => useProjectView(views));
 
     expect(result.current.activeViewId).toBe("view-all");
-    expect(result.current.activeView?.name).toBe("All Active");
+    expect(result.current.activeView.name).toBe("All Active");
     expect(window.localStorage.getItem(PROJECT_VIEW_STORAGE_KEY)).toBe("view-all");
   });
 
-  it("falls back from an inaccessible URL view, clears it with replace, and exposes unavailable state", async () => {
+  it("falls back to ALL from an unresolvable URL view, repairs the URL to ?view=all, and mirrors the sentinel", async () => {
     window.localStorage.setItem(PROJECT_VIEW_STORAGE_KEY, "view-all");
     setSearch("view=missing-view&filter=open");
 
     const { result } = renderHook(() => useProjectView(views));
 
-    expect(result.current.activeViewId).toBe("view-active");
+    expect(result.current.activeViewId).toBe(ALL_PROJECTS_VIEW_ID);
     expect(result.current.unavailableView).toEqual({ viewId: "missing-view" });
     await waitFor(() => {
-      expect(routerReplace).toHaveBeenCalledWith("/projects?view=view-active&filter=open");
+      expect(routerReplace).toHaveBeenCalledWith("/projects?view=all&filter=open");
     });
     expect(routerPush).not.toHaveBeenCalled();
-    expect(window.localStorage.getItem(PROJECT_VIEW_STORAGE_KEY)).toBe("view-active");
+    expect(window.localStorage.getItem(PROJECT_VIEW_STORAGE_KEY)).toBe(ALL_PROJECTS_VIEW_ID);
+  });
+
+  it("falls back to the user default from an unresolvable URL view and repairs the URL", async () => {
+    projectsDefaultViewId = "view-team";
+    setSearch("view=missing-view&filter=open");
+
+    const { result } = renderHook(() => useProjectView(views));
+
+    expect(result.current.activeViewId).toBe("view-team");
+    expect(result.current.unavailableView).toEqual({ viewId: "missing-view" });
+    await waitFor(() => {
+      expect(routerReplace).toHaveBeenCalledWith("/projects?view=view-team&filter=open");
+    });
+  });
+
+  it("deselects to ALL — writes the sentinel and pushes ?view=all — preserving unrelated params", () => {
+    setSearch("filter=open&page=2");
+    const { result } = renderHook(() => useProjectView(views));
+
+    act(() => {
+      result.current.setActiveViewId(null);
+    });
+
+    expect(routerPush).toHaveBeenCalledWith("/projects?filter=open&page=2&view=all");
+    expect(window.localStorage.getItem(PROJECT_VIEW_STORAGE_KEY)).toBe(ALL_PROJECTS_VIEW_ID);
+    expect(result.current.activeViewId).toBe(ALL_PROJECTS_VIEW_ID);
   });
 
   it("updates URL and localStorage while preserving unrelated query params when switching views", () => {

@@ -81,6 +81,7 @@ function makeOpportunity(
     lastActivityAt: null,
     nextFollowUpAt: null,
     tags: [],
+    images: [],
     createdAt: NOW,
     updatedAt: NOW,
     deletedAt: null,

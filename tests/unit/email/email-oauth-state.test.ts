@@ -68,6 +68,7 @@ describe("email OAuth state", () => {
       source: "wizard",
       connection_id: null,
       expected_email: null,
+      return_to: null,
       expires_at: "2026-07-13T12:10:00.000Z",
     });
     expect(JSON.stringify(insert.mock.calls[0]?.[0])).not.toContain(
@@ -105,6 +106,7 @@ describe("email OAuth state", () => {
           source: "alert",
           connection_id: "connection-1",
           expected_email: "crew@example.com",
+          return_to: "/pipeline",
         },
       ],
       error: null,
@@ -119,6 +121,7 @@ describe("email OAuth state", () => {
       source: "alert",
       connectionId: "connection-1",
       expectedEmail: "crew@example.com",
+      returnTo: "/pipeline",
     });
     expect(rpc).toHaveBeenCalledWith("consume_email_oauth_state", {
       p_nonce_hash: "state-token-sha256",

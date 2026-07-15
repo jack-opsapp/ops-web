@@ -134,18 +134,6 @@ export function CatalogPage() {
     [updateParams],
   );
 
-  const drillBelowThreshold = useCallback(() => {
-    updateParams({ segment: "stock", drill: "threshold", view: null, filter: null });
-  }, [updateParams]);
-
-  const openCounts = useCallback(() => {
-    updateParams({ segment: "stock", view: "counts", drill: null });
-  }, [updateParams]);
-
-  const fixCosts = useCallback(() => {
-    updateParams({ segment: "products", filter: "nocost", drill: null, view: null });
-  }, [updateParams]);
-
   const filterParam = searchParams.get("filter");
   const viewParam = searchParams.get("view");
   const drillParam = searchParams.get("drill");
@@ -192,9 +180,6 @@ export function CatalogPage() {
       product={canProducts ? productAgg : null}
       showStock={canStock}
       showProducts={canProducts}
-      onDrillBelowThreshold={canStock ? drillBelowThreshold : undefined}
-      onOpenCounts={canStock ? openCounts : undefined}
-      onFixCosts={canProducts ? fixCosts : undefined}
     />
   );
 

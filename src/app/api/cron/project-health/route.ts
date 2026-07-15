@@ -1,7 +1,7 @@
 /**
  * POST /api/cron/project-health
  * Vercel cron: runs daily at 8am UTC.
- * Detects overdue tasks and archivable projects for all phase_c companies.
+ * Detects overdue tasks and closable (complete + paid) projects for all phase_c companies.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     type HealthResult = {
       companyId: string;
       overdueTasks: number;
-      archivableProjects: number;
+      closableProjects: number;
       error?: string;
     };
 
@@ -64,18 +64,18 @@ export async function GET(request: NextRequest) {
       const chunk = phaseCCompanyIds.slice(i, i + CHUNK_SIZE);
       const chunkResults = await Promise.allSettled(
         chunk.map(async (companyId): Promise<HealthResult> => {
-          const [overdueTasks, archivableProjects] = await Promise.all([
+          const [overdueTasks, closableProjects] = await Promise.all([
             ProjectLifecycleService.detectOverdueTasks(companyId),
-            ProjectLifecycleService.detectArchivableProjects(companyId),
+            ProjectLifecycleService.detectClosableProjects(companyId),
           ]);
-          return { companyId, overdueTasks, archivableProjects };
+          return { companyId, overdueTasks, closableProjects };
         })
       );
 
       for (let j = 0; j < chunkResults.length; j++) {
         const r = chunkResults[j];
         if (r.status === "fulfilled") {
-          if (r.value.overdueTasks > 0 || r.value.archivableProjects > 0) {
+          if (r.value.overdueTasks > 0 || r.value.closableProjects > 0) {
             results.push(r.value);
           }
         } else {
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
           results.push({
             companyId: chunk[j],
             overdueTasks: 0,
-            archivableProjects: 0,
+            closableProjects: 0,
             error: message,
           });
         }

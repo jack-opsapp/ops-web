@@ -71,6 +71,7 @@ function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
     lastActivityAt: null,
     nextFollowUpAt: null,
     tags: [],
+    images: [],
     createdAt: NOW,
     updatedAt: NOW,
     deletedAt: null,

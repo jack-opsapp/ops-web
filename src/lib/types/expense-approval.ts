@@ -17,6 +17,8 @@
 
 /** Expense batch lifecycle status */
 export enum ExpenseBatchStatus {
+  /** Current-period envelope still accruing expenses with the crew — never in the review queue */
+  Open = "open",
   PendingReview = "pending_review",
   Submitted = "submitted",
   Approved = "approved",
@@ -35,6 +37,7 @@ export enum AutoApproveRuleType {
 
 /** Uppercase display string for each batch status */
 export const BATCH_STATUS_DISPLAY: Record<ExpenseBatchStatus, string> = {
+  [ExpenseBatchStatus.Open]: "FILLING",
   [ExpenseBatchStatus.PendingReview]: "PENDING",
   [ExpenseBatchStatus.Submitted]: "SUBMITTED",
   [ExpenseBatchStatus.Approved]: "APPROVED",
@@ -43,8 +46,9 @@ export const BATCH_STATUS_DISPLAY: Record<ExpenseBatchStatus, string> = {
   [ExpenseBatchStatus.AutoApproved]: "AUTO-APPROVED",
 };
 
-/** Hex color for each batch status */
+/** Hex color for each batch status (legacy widget popovers; new surfaces use BATCH_STATUS_TONE) */
 export const BATCH_STATUS_COLOR: Record<ExpenseBatchStatus, string> = {
+  [ExpenseBatchStatus.Open]: "#8A8A8A",
   [ExpenseBatchStatus.PendingReview]: "#D99A3E",
   [ExpenseBatchStatus.Submitted]: "#D99A3E",
   [ExpenseBatchStatus.Approved]: "#9DB582",
@@ -52,6 +56,40 @@ export const BATCH_STATUS_COLOR: Record<ExpenseBatchStatus, string> = {
   [ExpenseBatchStatus.Rejected]: "#93321A",
   [ExpenseBatchStatus.AutoApproved]: "#9DB582",
 };
+
+/**
+ * Token-traceable tag classes per batch status — the design-system Tag recipe
+ * (text / soft fill / line border built from the earth-tone tokens). New
+ * surfaces consume these instead of hex so every value traces to a token.
+ */
+export const BATCH_STATUS_TONE: Record<ExpenseBatchStatus, string> = {
+  [ExpenseBatchStatus.Open]: "text-text-3 bg-surface-input border-line",
+  [ExpenseBatchStatus.PendingReview]: "text-tan bg-tan-soft border-tan-line",
+  [ExpenseBatchStatus.Submitted]: "text-tan bg-tan-soft border-tan-line",
+  [ExpenseBatchStatus.Approved]: "text-olive bg-olive-soft border-olive-line",
+  [ExpenseBatchStatus.PartiallyApproved]: "text-tan bg-tan-soft border-tan-line",
+  [ExpenseBatchStatus.Rejected]: "text-rose bg-rose-soft border-rose-line",
+  [ExpenseBatchStatus.AutoApproved]: "text-olive bg-olive-soft border-olive-line",
+};
+
+/** Neutral fallbacks so an unknown/new server status can never render a blank pill. */
+const BATCH_STATUS_DISPLAY_FALLBACK = "—";
+const BATCH_STATUS_TONE_FALLBACK = "text-text-3 bg-surface-input border-line";
+
+/** Display label for a batch status, guarded against unknown server values. */
+export function batchStatusDisplay(status: ExpenseBatchStatus | string): string {
+  return (
+    BATCH_STATUS_DISPLAY[status as ExpenseBatchStatus] ??
+    BATCH_STATUS_DISPLAY_FALLBACK
+  );
+}
+
+/** Tag classes for a batch status, guarded against unknown server values. */
+export function batchStatusTone(status: ExpenseBatchStatus | string): string {
+  return (
+    BATCH_STATUS_TONE[status as ExpenseBatchStatus] ?? BATCH_STATUS_TONE_FALLBACK
+  );
+}
 
 // ─── Entity Interfaces ────────────────────────────────────────────────────────
 
@@ -80,6 +118,10 @@ export interface ExpenseBatch {
   parentBatchId: string | null;
   amendmentNumber: number;
   reviewNotes: string | null;
+  /** When the operator recorded this envelope as paid out. NULL = approved money not yet settled. */
+  paidAt: string | null;
+  /** Who recorded the payout (expenses.approve holder). */
+  paidBy: string | null;
   createdAt: string;
   updatedAt?: string;
 
@@ -131,6 +173,8 @@ export interface ExpenseLineItem {
   categoryName?: string | null;
   // App-level join from expense_project_allocations.project_id (TEXT, not UUID)
   projectId?: string | null;
+  // App-level join from projects.title via the allocation's project_id
+  projectName?: string | null;
 }
 
 /** Auto-approve rule configuration */
@@ -189,6 +233,44 @@ export function isBatchApproved(status: ExpenseBatchStatus): boolean {
     status === ExpenseBatchStatus.AutoApproved ||
     status === ExpenseBatchStatus.PartiallyApproved
   );
+}
+
+/** Whether a batch is a current-period "filling" envelope (with the crew, not in any queue). */
+export function isBatchFilling(status: ExpenseBatchStatus): boolean {
+  return status === ExpenseBatchStatus.Open;
+}
+
+/** Approved money waiting to be settled up — the TO PAY working set. */
+export function isBatchAwaitingPayout(
+  batch: Pick<ExpenseBatch, "status" | "paidAt">
+): boolean {
+  return isBatchApproved(batch.status) && batch.paidAt == null;
+}
+
+/** Recorded as paid out to the submitter — terminal. */
+export function isBatchPaid(batch: Pick<ExpenseBatch, "paidAt">): boolean {
+  return batch.paidAt != null;
+}
+
+/**
+ * The amount actually owed for a batch.
+ *
+ * `approved_amount` is only authoritative for partial approvals (the reject-
+ * with-revisions flow sets it to the clean-line total). The atomic
+ * `approve_expense_batch` RPC approves every line but leaves approved_amount
+ * at its creation value (often 0), so for full approvals a zero/absent figure
+ * means "the whole envelope" — fall back to the recalculated total.
+ */
+export function batchOwedAmount(
+  batch: Pick<ExpenseBatch, "status" | "approvedAmount" | "totalAmount">
+): number {
+  if (batch.status === ExpenseBatchStatus.PartiallyApproved) {
+    return batch.approvedAmount ?? batch.totalAmount ?? 0;
+  }
+  if (batch.approvedAmount != null && batch.approvedAmount > 0) {
+    return batch.approvedAmount;
+  }
+  return batch.totalAmount ?? 0;
 }
 
 /**

@@ -10,7 +10,7 @@ import { useCompanySettings, useUpdateCompanySettings } from "@/lib/hooks";
 import { usePreferencesStore, type DashboardLayoutId, type SchedulingTypeId } from "@/stores/preferences-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { ALL_ACTIONS, DEFAULT_ACTION_IDS } from "@/lib/constants/fab-actions";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useLocale, useDictionary } from "@/i18n/client";
 import type { Locale } from "@/i18n/types";
 

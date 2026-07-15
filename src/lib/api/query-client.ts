@@ -55,6 +55,8 @@ export const queryKeys = {
       [...queryKeys.opportunities.all, "tableViews", companyId, userId] as const,
     conversionPreflight: (opportunityId: string) =>
       [...queryKeys.opportunities.all, "conversionPreflight", opportunityId] as const,
+    deckDesigns: (opportunityId: string) =>
+      [...queryKeys.opportunities.all, "deckDesigns", opportunityId] as const,
   },
 
   // Tasks

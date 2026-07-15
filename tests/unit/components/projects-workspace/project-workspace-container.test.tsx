@@ -83,6 +83,7 @@ vi.mock(
         tab: "identity" | "schedule";
         formId: string;
         onSaved?: (id: string) => void;
+        onInvalid?: (tab: "identity" | "schedule") => void;
         discardRef?: React.Ref<{ discard: () => void }>;
       },
       _ref,
@@ -110,6 +111,15 @@ vi.mock(
           }}
         >
           <button type="submit">native-submit</button>
+          {/* invalid-submit probe — the real body reports the tab that owns
+              the first validation error via onInvalid */}
+          <button
+            type="button"
+            data-testid="body-report-invalid-identity"
+            onClick={() => props.onInvalid?.("identity")}
+          >
+            report-invalid
+          </button>
         </form>
       );
     }),
@@ -584,6 +594,29 @@ describe("<ProjectWorkspaceContainer>", () => {
     expect(screen.getByTestId("edit-create-body-stub")).toHaveAttribute(
       "data-tab",
       "schedule",
+    );
+  });
+
+  it("flips to the tab reported by the body's onInvalid (silent dead-end guard)", async () => {
+    // Creating mode, operator on the schedule tab, trade never picked: the
+    // CREATE submit fails on a field whose error renders in the identity tab.
+    // The container must flip there so the failure is visible.
+    seedCreatingWindow();
+    render(<ProjectWorkspaceContainer windowId="project-workspace:new" />);
+    await userEvent.click(screen.getByTestId("tab-probe-schedule"));
+    expect(screen.getByTestId("window-stub")).toHaveAttribute(
+      "data-active-tab",
+      "schedule",
+    );
+
+    await userEvent.click(screen.getByTestId("body-report-invalid-identity"));
+    expect(screen.getByTestId("window-stub")).toHaveAttribute(
+      "data-active-tab",
+      "identity",
+    );
+    expect(screen.getByTestId("edit-create-body-stub")).toHaveAttribute(
+      "data-tab",
+      "identity",
     );
   });
 });

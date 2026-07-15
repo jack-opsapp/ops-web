@@ -20,7 +20,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ArrowUpRight, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Tag } from "@/components/ui/tag";

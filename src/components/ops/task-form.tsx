@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { X, Save, ChevronDown, Check } from "lucide-react";
+import { X, Save, ChevronDown } from "lucide-react";
 import { trackTaskCreated, trackFormAbandoned } from "@/lib/analytics/analytics";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import { UserAvatar } from "@/components/ops/user-avatar";
 import { CalendarScheduler } from "@/components/ops/calendar-scheduler";
 import { TaskScheduleConfirmStrip } from "@/components/agent/task-schedule-confirm-strip";
 import { useDictionary, useLocale } from "@/i18n/client";
@@ -19,7 +21,6 @@ import {
   TaskStatus,
   TASK_STATUS_COLORS,
   getUserFullName,
-  getInitials,
 } from "@/lib/types/models";
 import { type TaskTypeDependency } from "@/lib/types/scheduling";
 
@@ -103,87 +104,66 @@ function TaskTypeDropdown({
   error?: string;
 }) {
   const { t } = useDictionary("projects");
+  const { t: tp } = useDictionary("picker");
   const [open, setOpen] = useState(false);
   const selected = taskTypes.find((t) => t.id === value);
 
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        {t("taskForm.taskTypeLabel", "Task Type")}
+        {t("taskForm.field.taskType")}
       </label>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          onBlur={() => setTimeout(() => setOpen(false), 200)}
-          className={cn(
-            "flex items-center justify-between w-full",
-            "bg-surface-input border rounded-sm",
-            "px-1.5 py-1.5",
-            "font-mohave text-body transition-all duration-150",
-            open ? "border-[rgba(255,255,255,0.20)]" : error ? "border-status-error" : "border-border",
-            "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
-          )}
-        >
-          {selected ? (
-            <span className="flex items-center gap-[6px]">
-              <span
-                className="w-[10px] h-[10px] rounded-full shrink-0"
-                style={{ backgroundColor: selected.color }}
-              />
-              <span className="text-text">{selected.display}</span>
-            </span>
-          ) : (
-            <span className="text-text-3">{t("taskForm.typePlaceholder", "Select type")}</span>
-          )}
-          <ChevronDown
+      <EntityPicker<TaskType>
+        trigger={
+          <button
+            type="button"
             className={cn(
-              "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
-              open && "rotate-180"
+              "flex items-center justify-between w-full",
+              "bg-surface-input border rounded-sm",
+              "px-1.5 py-1.5",
+              "font-mohave text-body transition-all duration-150 ease-smooth",
+              open ? "border-line-hi" : error ? "border-status-error" : "border-border",
+              "focus:border-line-hi focus:outline-none"
             )}
-          />
-        </button>
-
-        {open && (
-          <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm max-h-[200px] overflow-y-auto">
-            {taskTypes.length === 0 ? (
-              <div className="px-1.5 py-1">
-                <p className="font-mohave text-body-sm text-text-3">
-                  {t("taskForm.noTaskTypes", "No task types available")}
-                </p>
-              </div>
+          >
+            {selected ? (
+              <span className="flex items-center gap-[6px]">
+                <span
+                  className="w-[10px] h-[10px] rounded-full shrink-0"
+                  style={{ backgroundColor: selected.color }}
+                />
+                <span className="text-text">{selected.display}</span>
+              </span>
             ) : (
-              taskTypes.map((tt) => (
-                <button
-                  key={tt.id}
-                  type="button"
-                  onMouseDown={() => {
-                    onChange(tt.id);
-                    setOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-[6px] px-1.5 py-1 text-left",
-                    "hover:bg-[rgba(255,255,255,0.05)] transition-colors",
-                    "font-mohave text-body-sm",
-                    value === tt.id
-                      ? "text-text"
-                      : "text-text-2"
-                  )}
-                >
-                  <span
-                    className="w-[10px] h-[10px] rounded-full shrink-0"
-                    style={{ backgroundColor: tt.color }}
-                  />
-                  {tt.display}
-                  {value === tt.id && (
-                    <Check className="w-[14px] h-[14px] text-text-2 ml-auto shrink-0" />
-                  )}
-                </button>
-              ))
+              <span className="text-text-3">{t("taskForm.field.taskTypePlaceholder")}</span>
             )}
-          </div>
+            <ChevronDown
+              className={cn(
+                "w-[16px] h-[16px] text-text-3 transition-transform duration-150 ease-smooth",
+                open && "rotate-180"
+              )}
+            />
+          </button>
+        }
+        open={open}
+        onOpenChange={setOpen}
+        label={t("taskForm.field.taskType")}
+        items={taskTypes}
+        value={value || null}
+        onChange={(id) => onChange(id ?? "")}
+        getId={(tt) => tt.id}
+        getLabel={(tt) => tt.display}
+        getLeading={(tt) => (
+          <span
+            className="h-[6px] w-[6px] shrink-0 rounded-full"
+            style={{ backgroundColor: tt.color }}
+          />
         )}
-      </div>
+        searchPlaceholder={t("taskForm.field.taskTypeSearch")}
+        emptyLabel={t("taskForm.field.taskTypeEmpty")}
+        clearLabel={tp("clear")}
+        contentClassName="z-modal"
+      />
       {error && (
         <p className="text-caption-sm text-status-error font-mohave">
           {error}
@@ -208,67 +188,55 @@ function StatusDropdown({
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        {t("taskForm.statusLabel", "Status")}
+        {t("taskForm.field.status")}
       </label>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          onBlur={() => setTimeout(() => setOpen(false), 200)}
-          className={cn(
-            "flex items-center justify-between w-full",
-            "bg-surface-input border border-border rounded-sm",
-            "px-1.5 py-1.5",
-            "font-mohave text-body transition-all duration-150",
-            open && "border-[rgba(255,255,255,0.20)]",
-            "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
-          )}
-        >
-          <span className="flex items-center gap-[6px]">
-            <span
-              className="w-[8px] h-[8px] rounded-full shrink-0"
-              style={{ backgroundColor: TASK_STATUS_COLORS[value] }}
-            />
-            <span className="text-text">{t(TASK_STATUS_LABEL_KEYS[value], value)}</span>
-          </span>
-          <ChevronDown
+      <EntityPicker<TaskStatus>
+        trigger={
+          <button
+            type="button"
             className={cn(
-              "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
-              open && "rotate-180"
+              "flex items-center justify-between w-full",
+              "bg-surface-input border border-border rounded-sm",
+              "px-1.5 py-1.5",
+              "font-mohave text-body transition-all duration-150 ease-smooth",
+              open && "border-line-hi",
+              "focus:border-line-hi focus:outline-none"
             )}
+          >
+            <span className="flex items-center gap-[6px]">
+              <span
+                className="w-[8px] h-[8px] rounded-full shrink-0"
+                style={{ backgroundColor: TASK_STATUS_COLORS[value] }}
+              />
+              <span className="text-text">{t(TASK_STATUS_LABEL_KEYS[value], value)}</span>
+            </span>
+            <ChevronDown
+              className={cn(
+                "w-[16px] h-[16px] text-text-3 transition-transform duration-150 ease-smooth",
+                open && "rotate-180"
+              )}
+            />
+          </button>
+        }
+        open={open}
+        onOpenChange={setOpen}
+        label={t("taskForm.field.status")}
+        items={Object.values(TaskStatus)}
+        value={value}
+        onChange={(id) => {
+          if (id) onChange(id as TaskStatus);
+        }}
+        getId={(s) => s}
+        getLabel={(s) => t(TASK_STATUS_LABEL_KEYS[s], s)}
+        getLeading={(s) => (
+          <span
+            className="h-[8px] w-[8px] shrink-0 rounded-full"
+            style={{ backgroundColor: TASK_STATUS_COLORS[s] }}
           />
-        </button>
-
-        {open && (
-          <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm max-h-[200px] overflow-y-auto">
-            {Object.values(TaskStatus).map((s) => (
-              <button
-                key={s}
-                type="button"
-                onMouseDown={() => {
-                  onChange(s);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "w-full flex items-center gap-[6px] px-1.5 py-1 text-left",
-                  "hover:bg-[rgba(255,255,255,0.05)] transition-colors",
-                  "font-mohave text-body-sm",
-                  value === s ? "text-text" : "text-text-2"
-                )}
-              >
-                <span
-                  className="w-[8px] h-[8px] rounded-full shrink-0"
-                  style={{ backgroundColor: TASK_STATUS_COLORS[s] }}
-                />
-                {t(TASK_STATUS_LABEL_KEYS[s], s)}
-                {value === s && (
-                  <Check className="w-[14px] h-[14px] text-text-2 ml-auto shrink-0" />
-                )}
-              </button>
-            ))}
-          </div>
         )}
-      </div>
+        searchable={false}
+        contentClassName="z-modal"
+      />
     </div>
   );
 }
@@ -285,126 +253,74 @@ function TeamMemberDropdown({
   members: User[];
 }) {
   const { t } = useDictionary("projects");
+  const { t: tp } = useDictionary("picker");
   const [open, setOpen] = useState(false);
 
-  function toggle(id: string) {
-    onChange(
-      selectedIds.includes(id)
-        ? selectedIds.filter((i) => i !== id)
-        : [...selectedIds, id]
-    );
-  }
-
   const count = selectedIds.length;
+  const selectedMembers = members.filter((m) => selectedIds.includes(m.id));
 
   return (
     <div className="flex flex-col gap-0.5">
       <label className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
-        {t("taskForm.teamLabel", "Team Members")}
+        {t("taskForm.field.teamMembers")}
       </label>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          onBlur={() => setTimeout(() => setOpen(false), 200)}
-          className={cn(
-            "flex items-center justify-between w-full",
-            "bg-surface-input border border-border rounded-sm",
-            "px-1.5 py-1.5",
-            "font-mohave text-body transition-all duration-150",
-            open && "border-[rgba(255,255,255,0.20)]",
-            "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
-            count > 0 ? "text-text" : "text-text-3"
-          )}
-        >
-          {count === 0 ? (
-            <span>{t("taskForm.teamPlaceholder", "Select team members")}</span>
-          ) : (
-            <span className="flex items-center gap-[6px]">
-              {/* Show first 3 avatars inline */}
-              <span className="flex -space-x-1">
-                {members
-                  .filter((m) => selectedIds.includes(m.id))
-                  .slice(0, 3)
-                  .map((m) => (
-                    <span
-                      key={m.id}
-                      className="w-[20px] h-[20px] rounded-full flex items-center justify-center text-micro font-mohave text-white border border-background-input"
-                      style={{
-                        backgroundColor: m.userColor ?? "#59779F",
-                      }}
-                    >
-                      {getInitials(getUserFullName(m))}
+      <EntityPicker<User>
+        multiple
+        trigger={
+          <button
+            type="button"
+            className={cn(
+              "flex items-center justify-between w-full",
+              "bg-surface-input border border-border rounded-sm",
+              "px-1.5 py-1.5",
+              "font-mohave text-body transition-all duration-150 ease-smooth",
+              open && "border-line-hi",
+              "focus:border-line-hi focus:outline-none",
+              count > 0 ? "text-text" : "text-text-3"
+            )}
+          >
+            {count === 0 ? (
+              <span>{t("taskForm.field.teamMembersPlaceholder")}</span>
+            ) : (
+              <span className="flex items-center gap-[6px]">
+                {/* Show first 3 avatars inline */}
+                <span className="flex -space-x-1">
+                  {selectedMembers.slice(0, 3).map((m) => (
+                    <span key={m.id} className="border border-background-input rounded-full">
+                      <UserAvatar
+                        name={getUserFullName(m)}
+                        imageUrl={m.profileImageURL}
+                        size="sm"
+                      />
                     </span>
                   ))}
+                </span>
+                <span>{t("taskForm.field.teamMembersCount", { count })}</span>
               </span>
-              <span>
-                {count}{" "}
-                {count === 1
-                  ? t("taskForm.member", "member")
-                  : t("taskForm.members", "members")}
-              </span>
-            </span>
-          )}
-          <ChevronDown
-            className={cn(
-              "w-[16px] h-[16px] text-text-3 transition-transform duration-150",
-              open && "rotate-180"
             )}
-          />
-        </button>
-
-        {open && (
-          <div className="absolute z-[60] left-0 right-0 top-full mt-[4px] bg-[rgba(13,13,13,0.9)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-sm max-h-[240px] overflow-y-auto">
-            {members.length === 0 ? (
-              <div className="px-1.5 py-1">
-                <p className="font-mohave text-body-sm text-text-3">
-                  {t("taskForm.noTeamMembers", "No team members available")}
-                </p>
-              </div>
-            ) : (
-              members.map((member) => {
-                const isSelected = selectedIds.includes(member.id);
-                const fullName = getUserFullName(member);
-                return (
-                  <button
-                    key={member.id}
-                    type="button"
-                    onMouseDown={() => toggle(member.id)}
-                    className={cn(
-                      "w-full flex items-center gap-1 px-1.5 py-1 text-left",
-                      "hover:bg-[rgba(255,255,255,0.05)] transition-colors"
-                    )}
-                  >
-                    {/* Avatar */}
-                    <span
-                      className="w-[24px] h-[24px] rounded-full flex items-center justify-center text-micro font-mohave text-white shrink-0"
-                      style={{
-                        backgroundColor: member.userColor ?? "#59779F",
-                      }}
-                    >
-                      {getInitials(fullName)}
-                    </span>
-                    {/* Name */}
-                    <span
-                      className={cn(
-                        "flex-1 font-mohave text-body-sm",
-                        isSelected ? "text-text" : "text-text-2"
-                      )}
-                    >
-                      {fullName}
-                    </span>
-                    {/* Checkmark */}
-                    {isSelected && (
-                      <Check className="w-[14px] h-[14px] text-text-2 shrink-0" />
-                    )}
-                  </button>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
+            <ChevronDown
+              className={cn(
+                "w-[16px] h-[16px] text-text-3 transition-transform duration-150 ease-smooth",
+                open && "rotate-180"
+              )}
+            />
+          </button>
+        }
+        open={open}
+        onOpenChange={setOpen}
+        label={t("taskForm.field.teamMembers")}
+        items={members}
+        value={selectedIds}
+        onChange={onChange}
+        getId={(m) => m.id}
+        getLabel={(m) => getUserFullName(m)}
+        getAvatar={(m) => ({ name: getUserFullName(m), imageUrl: m.profileImageURL })}
+        getKeywords={(m) => (m.email ? [m.email] : [])}
+        searchPlaceholder={t("taskForm.field.teamMembersSearch")}
+        emptyLabel={t("taskForm.field.teamMembersEmpty")}
+        clearLabel={tp("clear")}
+        contentClassName="z-modal"
+      />
     </div>
   );
 }
@@ -433,10 +349,7 @@ function DependencySection({
   }
 
   function resolveTaskTypeName(id: string): string {
-    return (
-      taskTypes.find((tt) => tt.id === id)?.display ??
-      t("taskForm.unknownType", "Unknown")
-    );
+    return taskTypes.find((tt) => tt.id === id)?.display ?? "Unknown";
   }
 
   return (
@@ -476,7 +389,7 @@ function DependencySection({
                     next[i] = { ...next[i], overlap_percentage: Number(e.target.value) };
                     onOverridesChange(next);
                   }}
-                  className="w-[50px] font-mono text-data-sm bg-glass glass-surface border border-border rounded-bar px-1.5 py-0.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)]"
+                  className="w-[50px] font-mono text-data-sm bg-glass glass-surface border border-border rounded-bar px-1.5 py-0.5 text-text outline-none focus:border-line-hi"
                 />
               ) : (
                 <span className="font-mohave text-body-sm text-text-3">

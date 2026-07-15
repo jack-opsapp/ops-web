@@ -93,6 +93,7 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
     lastActivityAt: daysBeforeNow(2),
     nextFollowUpAt: null,
     tags: [],
+    images: [],
     createdAt: daysBeforeNow(30),
     updatedAt: daysBeforeNow(1),
     deletedAt: null,

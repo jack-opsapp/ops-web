@@ -22,6 +22,7 @@ create table public.email_oauth_states (
   connection_id uuid
     references public.email_connections(id) on delete cascade,
   expected_email text,
+  return_to text,
   expires_at timestamptz not null,
   created_at timestamptz not null default now(),
   check (expires_at > created_at),
@@ -61,7 +62,8 @@ returns table (
   connection_type text,
   source text,
   connection_id uuid,
-  expected_email text
+  expected_email text,
+  return_to text
 )
 language plpgsql
 security definer
@@ -85,7 +87,8 @@ begin
     state.connection_type,
     state.source,
     state.connection_id,
-    state.expected_email;
+    state.expected_email,
+    state.return_to;
 end;
 $$;
 

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sanitizeReturnTo } from "@/lib/utils/oauth-return";
 
 export type EmailOAuthProvider = "gmail" | "microsoft365";
 export type EmailConnectionType = "company" | "individual";
@@ -12,6 +13,7 @@ interface EmailOAuthContextBase {
   companyId: string;
   userId: string;
   type: EmailConnectionType;
+  returnTo?: string | null;
 }
 
 export type EmailOAuthContext = EmailOAuthContextBase &
@@ -73,6 +75,7 @@ export async function createEmailOAuthState(
     context.source === "alert" ? context.connectionId.trim() : null;
   const expectedEmail =
     context.source === "alert" ? normalizeEmail(context.expectedEmail) : null;
+  const returnTo = sanitizeReturnTo(context.returnTo);
   if (
     context.source === "alert" &&
     (!connectionId ||
@@ -105,6 +108,7 @@ export async function createEmailOAuthState(
     source: context.source,
     connection_id: connectionId,
     expected_email: expectedEmail,
+    return_to: returnTo,
     expires_at: expiresAt,
   });
   if (error) {
@@ -165,6 +169,7 @@ export async function consumeEmailOAuthState(
       source: "alert",
       connectionId: row.connection_id,
       expectedEmail,
+      returnTo: sanitizeReturnTo(row.return_to),
     };
   }
 
@@ -177,6 +182,7 @@ export async function consumeEmailOAuthState(
     userId: row.user_id,
     type: row.connection_type,
     source: "wizard",
+    returnTo: sanitizeReturnTo(row.return_to),
   };
 }
 

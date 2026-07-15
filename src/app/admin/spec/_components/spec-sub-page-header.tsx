@@ -24,21 +24,21 @@ export function SpecSubPageHeader({
       <div>
         <Link
           href={backHref}
-          className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#EDEDED]"
+          className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute transition-colors duration-150 ease-smooth hover:text-text"
         >
-          <span className="text-[#3A3A3A]">←</span> SPEC OPERATIONS
+          <span className="text-text-mute">←</span> SPEC OPERATIONS
         </Link>
-        <h1 className="mt-1 font-cakemono text-2xl font-light uppercase leading-none text-[#EDEDED]">
-          <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+        <h1 className="mt-1 font-cakemono text-2xl font-light uppercase leading-none text-text">
+          <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
             {"//"}
           </span>
           {title}
         </h1>
         {rightMeta && (
-          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.18em] text-text-mute">
+            <span className="text-text-mute">[</span>
             {rightMeta}
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </p>
         )}
       </div>

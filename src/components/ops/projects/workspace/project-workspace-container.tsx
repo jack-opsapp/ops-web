@@ -315,6 +315,9 @@ export function ProjectWorkspaceContainer({
             tab={activeTab}
             formId={formId}
             onSaved={handleSaved}
+            // Invalid submit → flip to the tab that renders the erroring
+            // field, so the footer CTA never dead-ends invisibly.
+            onInvalid={setActiveTab}
             discardRef={composerRef}
           />
         )}

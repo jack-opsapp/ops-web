@@ -13,6 +13,7 @@ import {
 import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { sanitizeReturnTo } from "@/lib/utils/oauth-return";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -26,6 +27,9 @@ export async function GET(request: NextRequest) {
   const source = searchParams.get("source") === "alert" ? "alert" : "wizard";
   const connectionId = searchParams.get("connectionId");
   const expectedEmail = searchParams.get("expectedEmail");
+  // Optional app-internal path to land on after the callback (e.g.
+  // /pipeline). Only safe same-app paths are persisted with the opaque state.
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
 
   if (!companyId) {
     return NextResponse.json(
@@ -118,6 +122,7 @@ export async function GET(request: NextRequest) {
             source,
             connectionId: alertBinding!.connectionId,
             expectedEmail: alertBinding!.expectedEmail,
+            returnTo,
           }
         : {
             provider: "microsoft365",
@@ -125,6 +130,7 @@ export async function GET(request: NextRequest) {
             userId,
             type,
             source,
+            returnTo,
           }
     );
   } catch (error) {

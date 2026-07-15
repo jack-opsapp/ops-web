@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ProjectStatus } from "@/lib/types/models";
 
@@ -307,6 +307,75 @@ describe("<ProjectEditCreateBody>", () => {
     await waitFor(() => {
       expect(titleProbe.value).toBe("");
     });
+  });
+
+  // ── Invalid submit must never be silent ────────────────────────────────
+  //
+  // The footer's CREATE/SAVE button submits via form=..., possibly while the
+  // tab that renders the failing field's error is unmounted (e.g. trade is
+  // required for creating but its error lives in the identity tab). Without
+  // a report channel the click dead-ends with zero feedback — the create-lead
+  // ESTIMATED VALUE bug class (f4e85e75). The body reports the tab owning the
+  // first error via onInvalid so the container can flip to it.
+
+  it("creating: reports the identity tab on invalid submit while the schedule tab is active", async () => {
+    const onInvalid = vi.fn();
+    render(
+      <ProjectEditCreateBody
+        mode="creating"
+        projectId={null}
+        tab="schedule"
+        formId={FORM_ID}
+        onInvalid={onInvalid}
+      />,
+    );
+    // Trade untouched → required-field failure owned by the identity tab.
+    const form = screen.getByTestId("project-edit-create-form");
+    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+
+    await waitFor(() => expect(onInvalid).toHaveBeenCalledWith("identity"));
+    expect(createMutate).not.toHaveBeenCalled();
+  });
+
+  it("editing: reports the identity tab when a pasted title exceeds 200 chars", async () => {
+    const onInvalid = vi.fn();
+    render(
+      <ProjectEditCreateBody
+        mode="editing"
+        projectId={PROJECT_ID}
+        tab="schedule"
+        formId={FORM_ID}
+        onInvalid={onInvalid}
+      />,
+    );
+    const titleProbe = screen.getByTestId(
+      "project-edit-create-body-test-title",
+    ) as HTMLInputElement;
+    fireEvent.change(titleProbe, { target: { value: "x".repeat(201) } });
+
+    const form = screen.getByTestId("project-edit-create-form");
+    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+
+    await waitFor(() => expect(onInvalid).toHaveBeenCalledWith("identity"));
+    expect(saveMutate).not.toHaveBeenCalled();
+  });
+
+  it("does not fire onInvalid on a valid submit", async () => {
+    const onInvalid = vi.fn();
+    render(
+      <ProjectEditCreateBody
+        mode="editing"
+        projectId={PROJECT_ID}
+        tab="identity"
+        formId={FORM_ID}
+        onInvalid={onInvalid}
+      />,
+    );
+    const form = screen.getByTestId("project-edit-create-form");
+    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+
+    await waitFor(() => expect(saveMutate).toHaveBeenCalledTimes(1));
+    expect(onInvalid).not.toHaveBeenCalled();
   });
 
   it("accepts a blank title in creating mode and auto-names the project", async () => {

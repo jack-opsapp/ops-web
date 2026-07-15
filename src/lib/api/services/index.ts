@@ -65,6 +65,12 @@ export { AccountingService } from "./accounting-service";
 export { OpportunityService } from "./opportunity-service";
 export type { FetchOpportunitiesOptions } from "./opportunity-service";
 
+export { DeckDesignService } from "./deck-design-service";
+export type { OpportunityDeckDesign } from "./deck-design-service";
+
+export { uploadLeadPhotos } from "./lead-photo-upload";
+export type { LeadPhotoUploadResult } from "./lead-photo-upload";
+
 export { TaskTemplateService } from "./task-template-service";
 export type { ProposedTask } from "./task-template-service";
 

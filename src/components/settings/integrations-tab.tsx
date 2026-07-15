@@ -40,7 +40,7 @@ import {
   useTriggerGmailSync,
   useImportHistory,
 } from "@/lib/hooks";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import { useDictionary } from "@/i18n/client";

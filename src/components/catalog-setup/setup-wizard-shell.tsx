@@ -244,7 +244,7 @@ export function SetupWizardShell({
     <div
       data-testid="setup-wizard-shell"
       className={cn(
-        "flex h-full min-h-screen w-full flex-col bg-background",
+        "flex h-full min-h-0 w-full flex-col bg-background",
         className,
       )}
     >

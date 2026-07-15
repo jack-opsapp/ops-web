@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useNotificationPreferences, useUpdateNotificationPreferences } from "@/lib/hooks";
 import type { EventType, ChannelPreferences } from "@/lib/api/services/notification-preferences-service";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 
 // ─── Section header (// TITLE) ───────────────────────────────────────────────

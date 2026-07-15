@@ -1,57 +1,52 @@
 /**
  * OPS Web - Microsoft 365 OAuth Callback
  *
- * GET /api/integrations/microsoft365/callback?code=...&state=...
- * Exchanges auth code for tokens, stores in email_connections table.
+ * Exchanges an authorization code and persists the connection only after
+ * atomically consuming the short-lived, server-side OAuth state nonce.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { consumeEmailOAuthState } from "@/lib/email/email-oauth-state";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { persistEmailOAuthConnection } from "@/lib/email/email-oauth-connection";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { buildReturnRedirect } from "@/lib/utils/oauth-return";
+
+function errorRedirect(returnTo: string | null | undefined, message: string) {
+  if (returnTo) {
+    const url = buildReturnRedirect(getAppUrl(), returnTo, {
+      connect_error: "1",
+    });
+    if (url) return NextResponse.redirect(url);
+  }
+  return NextResponse.redirect(
+    `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(message)}`
+  );
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
-  const stateParam = searchParams.get("state");
-  const error = searchParams.get("error");
+  const rawState = searchParams.get("state");
+  const providerError = searchParams.get("error");
 
-  if (!stateParam) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_params`
-    );
-  }
-
-  if (
-    !process.env.MICROSOFT_CLIENT_ID ||
-    !process.env.MICROSOFT_CLIENT_SECRET
-  ) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=not_configured`
-    );
-  }
+  if (!rawState) return errorRedirect(null, "missing_params");
 
   const supabase = getServiceRoleClient();
   let state;
   try {
-    state = await consumeEmailOAuthState(supabase, "microsoft365", stateParam);
+    state = await consumeEmailOAuthState(supabase, "microsoft365", rawState);
   } catch (stateError) {
     console.error("[M365 OAuth] State consumption failed:", stateError);
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=invalid_state`
-    );
+    return errorRedirect(null, "invalid_state");
   }
   if (!state) {
     console.error("[M365 OAuth] Rejected expired, replayed, or invalid state");
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=invalid_state`
-    );
+    return errorRedirect(null, "invalid_state");
   }
 
-  // Provider state must return in the same authenticated OPS browser session
-  // that created it. This blocks relayed-consent mailbox attachment.
+  const returnTo = state.returnTo ?? null;
   const authError = await requireEmailCompanyAccess(
     request,
     state.companyId,
@@ -70,39 +65,34 @@ export async function GET(request: NextRequest) {
             connectionId: state.connectionId,
             expectedEmail: state.expectedEmail,
           }).toString()}`
-        : "/settings?tab=integrations";
+        : returnTo || "/settings?tab=integrations";
     return NextResponse.redirect(
       `${getAppUrl()}/login?redirect=${encodeURIComponent(retryPath)}`
     );
   }
 
-  if (error) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=${encodeURIComponent(error)}`
-    );
-  }
-  if (!code) {
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=missing_params`
-    );
+  // State is consumed even when the operator denied provider consent.
+  if (providerError) return errorRedirect(returnTo, providerError);
+  if (!code) return errorRedirect(returnTo, "missing_params");
+  if (
+    !process.env.MICROSOFT_CLIENT_ID ||
+    !process.env.MICROSOFT_CLIENT_SECRET
+  ) {
+    return errorRedirect(returnTo, "not_configured");
   }
 
   try {
-    // Exchange authorization code for tokens
     const tokenRes = await fetch(
       "https://login.microsoftonline.com/common/oauth2/v2.0/token",
       {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
-          client_id: process.env.MICROSOFT_CLIENT_ID!,
-          client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+          client_id: process.env.MICROSOFT_CLIENT_ID,
+          client_secret: process.env.MICROSOFT_CLIENT_SECRET,
           code,
           redirect_uri: `${getAppUrl()}/api/integrations/microsoft365/callback`,
           grant_type: "authorization_code",
-          // Full mail access — must match the scope requested in
-          // microsoft365/route.ts so the exchange succeeds without
-          // prompting the user for additional consent.
           scope: "User.Read Mail.Read Mail.ReadWrite Mail.Send offline_access",
         }),
       }
@@ -110,45 +100,33 @@ export async function GET(request: NextRequest) {
 
     if (!tokenRes.ok) {
       const errorData = await tokenRes.text();
-      console.error(
-        "[M365 OAuth] Token exchange failed:",
-        tokenRes.status,
-        errorData
-      );
-      return NextResponse.redirect(
-        `${getAppUrl()}/settings?tab=integrations&status=error&message=token_exchange_failed`
-      );
+      console.error("[M365 OAuth] Token exchange failed:", {
+        status: tokenRes.status,
+        response: errorData,
+      });
+      return errorRedirect(returnTo, "token_exchange_failed");
     }
 
     const tokens = await tokenRes.json();
-
-    // Mailbox identity is a hard invariant for direction, ownership, and the
-    // unique reconnect row. User.Read is requested explicitly above; never
-    // persist an empty connection if /me is unavailable or malformed.
     const profileRes = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     });
     if (!profileRes.ok) {
       console.error("[M365 OAuth] Profile lookup failed:", profileRes.status);
-      return NextResponse.redirect(
-        `${getAppUrl()}/settings?tab=integrations&status=error&message=mailbox_identity_failed`
-      );
+      return errorRedirect(returnTo, "mailbox_identity_failed");
     }
+
     const profile = await profileRes.json();
     const email = String(profile.mail || profile.userPrincipalName || "")
       .trim()
       .toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       console.error("[M365 OAuth] Profile returned no valid mailbox email");
-      return NextResponse.redirect(
-        `${getAppUrl()}/settings?tab=integrations&status=error&message=mailbox_identity_failed`
-      );
+      return errorRedirect(returnTo, "mailbox_identity_failed");
     }
     if (state.source === "alert" && email !== state.expectedEmail) {
       console.error("[M365 OAuth] Reconnect mailbox did not match alert state");
-      return NextResponse.redirect(
-        `${getAppUrl()}/settings?tab=integrations&status=error&message=mailbox_identity_mismatch`
-      );
+      return errorRedirect(returnTo, "mailbox_identity_mismatch");
     }
 
     try {
@@ -164,9 +142,7 @@ export async function GET(request: NextRequest) {
       });
     } catch (storageError) {
       console.error("[M365 OAuth] Failed to store tokens:", storageError);
-      return NextResponse.redirect(
-        `${getAppUrl()}/settings?tab=integrations&status=error&message=storage_failed`
-      );
+      return errorRedirect(returnTo, "storage_failed");
     }
 
     if (state.source === "alert") {
@@ -180,13 +156,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (returnTo) {
+      const url = buildReturnRedirect(getAppUrl(), returnTo, {
+        connected: "microsoft365",
+      });
+      if (url) return NextResponse.redirect(url);
+    }
+
     return NextResponse.redirect(
       `${getAppUrl()}/settings?tab=integrations&status=connected&provider=microsoft365&firstConnect=true`
     );
   } catch (err) {
     console.error("[M365 OAuth] Callback error:", err);
-    return NextResponse.redirect(
-      `${getAppUrl()}/settings?tab=integrations&status=error&message=unexpected_error`
-    );
+    return errorRedirect(returnTo, "unexpected_error");
   }
 }

@@ -469,6 +469,11 @@ export interface Opportunity {
   nextFollowUpAt: Date | null;
   tags: string[];
 
+  // Lead photos — full public S3 URLs, never storage keys. Written by iOS
+  // lead photos + the email-extract pipeline + the web photos tab, all via
+  // server-state read-modify-write (bible 03 § Images contract).
+  images: string[];
+
   // System
   createdAt: Date;
   updatedAt: Date;
@@ -1183,6 +1188,9 @@ export type CreateOpportunity = Omit<
   | "followUps"
   | "stageTransitions"
   | "sourceEmailId"
+  // Lead photos are never supplied at creation — producers append them
+  // post-create via the read-modify-write methods only.
+  | "images"
 > & {
   sourceEmailId?: string | null;
   /** Stable logical ingestion key written atomically with email opportunities. */

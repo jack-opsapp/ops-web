@@ -6,6 +6,13 @@ import {
 } from "../../_components/sortable-table-header";
 import type { KeywordPerformance } from "@/lib/analytics/google-ads-types";
 
+const CAD = new Intl.NumberFormat("en-CA", {
+  style: "currency",
+  currency: "CAD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const COLUMNS = [
   { key: "keyword", label: "Keyword" },
   { key: "matchType", label: "Match" },
@@ -18,12 +25,12 @@ const COLUMNS = [
 
 function QualityScore({ score }: { score: number | null }) {
   if (score == null) {
-    return <span className="text-[#6B6B6B]">&mdash;</span>;
+    return <span className="text-text-mute">&mdash;</span>;
   }
   const color =
-    score >= 7 ? "text-[#9DB582]" :
-    score >= 4 ? "text-[#C4A868]" :
-    "text-[#93321A]";
+    score >= 7 ? "text-olive" :
+    score >= 4 ? "text-tan" :
+    "text-rose";
   return <span className={color}>{score}/10</span>;
 }
 
@@ -37,14 +44,14 @@ export function KeywordTable({ keywords }: KeywordTableProps) {
   if (keywords.length === 0) {
     return (
       <div className="border-l-2 border-l-white/[0.08] py-3 px-3">
-        <p className="font-mohave text-[14px] text-[#6B6B6B]">No keyword data available</p>
+        <p className="font-mohave text-[14px] text-text-mute">No keyword data available</p>
       </div>
     );
   }
 
   return (
     <div>
-      <h2 className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] mb-4">
+      <h2 className="font-mono text-micro uppercase tracking-wider text-text-mute mb-4">
         Keyword Performance
       </h2>
       <div className="overflow-x-auto">
@@ -58,17 +65,17 @@ export function KeywordTable({ keywords }: KeywordTableProps) {
                 key={`${k.keyword}-${i}`}
                 className="border-b border-white/[0.08] hover:bg-white/[0.02] transition-colors duration-100"
               >
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED]">{k.keyword}</td>
+                <td className="py-3 pr-3 font-mohave text-[14px] text-text">{k.keyword}</td>
                 <td className="py-3 pr-3">
-                  <span className="font-mono text-micro text-[#6B6B6B] uppercase">
+                  <span className="font-mono text-micro text-text-mute uppercase">
                     [{k.matchType}]
                   </span>
                 </td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{k.impressions.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{k.clicks.toLocaleString()}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#EDEDED] tabular-nums">${k.cost.toFixed(2)}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] text-[#A0A0A0] tabular-nums">{k.conversions.toFixed(1)}</td>
-                <td className="py-3 pr-3 font-mohave text-[14px] tabular-nums">
+                <td className="py-3 pr-3 font-mono text-[14px] text-text-2 tabular-nums">{k.impressions.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-text-2 tabular-nums">{k.clicks.toLocaleString()}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-text tabular-nums">{CAD.format(k.cost)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] text-text-2 tabular-nums">{k.conversions.toFixed(1)}</td>
+                <td className="py-3 pr-3 font-mono text-[14px] tabular-nums">
                   <QualityScore score={k.qualityScore} />
                 </td>
               </tr>

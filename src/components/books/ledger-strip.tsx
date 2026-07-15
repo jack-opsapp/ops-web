@@ -49,8 +49,6 @@ function fmtMoney(
 export interface LedgerStripProps {
   period: BooksPeriod;
   onPeriodChange: (period: BooksPeriod) => void;
-  /** A/R cell drill → invoices segment filtered to past due. */
-  onDrillOverdue?: () => void;
   /** Resolves a client id to a display name (A/R top chase). */
   clientName?: (clientId: string) => string | undefined;
   /**
@@ -64,7 +62,7 @@ export interface LedgerStripProps {
   arExtra?: ReactNode;
 }
 
-export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName, arExtra }: LedgerStripProps) {
+export function LedgerStrip({ period, onPeriodChange, clientName, arExtra }: LedgerStripProps) {
   const { t } = useDictionary("books");
   const { locale } = useLocale();
   const numLocale = getDateLocale(locale);
@@ -82,6 +80,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
       format: (n) => fmtMoney(n, numLocale),
       tone: data.net < 0 ? "rose" : "default",
       viz: { type: "meter", pct: data.marginPct / 100, color: "var(--olive)" },
+      breakdown: `${fmtMoney(data.paymentsIn, numLocale)} in − ${fmtMoney(data.expensesOut, numLocale)} out`,
       sub: (
         <span className="flex gap-[14px]">
           <span className="text-olive">
@@ -101,6 +100,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
       value: hasWeeks ? data.avgPerWeek : "—",
       format: (n) => fmtMoney(n, numLocale, { signed: true }),
       viz: { type: "sparkline", data: data.weeklyNets.map((w) => w.net), color: "var(--text-2)" },
+      breakdown: hasWeeks ? `avg across ${data.weeklyNets.length} weeks` : undefined,
       sub: data.lowWeek ? (
         <>
           {t("ledger.lowWk")}{" "}
@@ -131,7 +131,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
           { value: b.b90p, color: "var(--rose)" },
         ],
       },
-      onClick: onDrillOverdue,
+      breakdown: `${fmtMoney(data.ar.overdueTotal, numLocale)} overdue ÷ ${fmtMoney(data.ar.total, numLocale)} open`,
       sub: (
         <>
           {t("ledger.overdue")}{" "}
@@ -160,6 +160,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
       value: data.jobs.profitable,
       tone: "olive",
       viz: { type: "meter", pct: data.jobs.avgMarginPct / 100, color: "var(--olive)" },
+      breakdown: `${data.jobs.profitable} profitable · ${data.jobs.losers} losing`,
       sub: (
         <>
           {t("ledger.avgMargin")}{" "}
@@ -173,7 +174,7 @@ export function LedgerStrip({ period, onPeriodChange, onDrillOverdue, clientName
     };
 
     return [netCell, cashCell, arCell, jobsCell];
-  }, [data, numLocale, onDrillOverdue, clientName, arExtra, t]);
+  }, [data, numLocale, clientName, arExtra, t]);
 
   // Error → a compact bordered row (matches the workbar/strip chrome height) with
   // the failure note, a retry, and the period pill held at the right.

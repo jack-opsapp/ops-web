@@ -75,6 +75,7 @@ function makeOpportunity(overrides: Partial<Opportunity>): Opportunity {
     lastActivityAt: null,
     nextFollowUpAt: null,
     tags: [],
+    images: [],
     createdAt: BASE_DATE,
     updatedAt: BASE_DATE,
     deletedAt: null,

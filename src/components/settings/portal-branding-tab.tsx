@@ -29,7 +29,7 @@ import type {
   PortalThemeMode,
 } from "@/lib/types/portal";
 import { PORTAL_TEMPLATES } from "@/lib/portal/templates";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { getAuth } from "firebase/auth";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";

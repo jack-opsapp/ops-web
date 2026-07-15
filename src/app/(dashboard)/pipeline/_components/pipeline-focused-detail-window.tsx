@@ -168,6 +168,10 @@ export function PipelineFocusedDetailWindow({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      // A nested full-screen modal (photo lightbox, deck viewer) owns this
+      // Escape — it closes itself; the window stays. Without this guard the
+      // capture-phase listener tears down the whole window underneath it.
+      if (document.querySelector("[data-pipeline-detail-modal]")) return;
       event.preventDefault();
       event.stopPropagation();
       handleClose();

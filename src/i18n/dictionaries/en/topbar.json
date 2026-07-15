@@ -8,6 +8,10 @@
   "sync.pendingTitle": "Changes pending sync",
   "sync.offlineTitle": "No internet connection",
 
+  "connectivity.online": "BACK ONLINE",
+  "connectivity.offline": "OFFLINE",
+  "connectivity.offlineDetail": "Changes sync when connection is restored.",
+
   "search.placeholder": "Search...",
   "search.shortcut": "⌘K",
   "search.ariaLabel": "Open search",

@@ -244,6 +244,27 @@ describe("<IdentityTab>", () => {
     );
   });
 
+  it("renders the title validation error under the name input on invalid submit", async () => {
+    // A pasted >200-char name is the only way the title can fail — without an
+    // inline error the SAVE click dead-ends silently (the field renders no
+    // error prop anywhere). The error row mirrors the Field atom's treatment.
+    const onSubmit = vi.fn();
+    render(
+      <Harness
+        mode="editing"
+        defaults={{ titleIsAuto: false, title: "x".repeat(201) }}
+        onSubmit={onSubmit}
+      />,
+    );
+    expect(screen.queryByTestId("identity-name-error")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId("harness-submit"));
+
+    const error = await screen.findByTestId("identity-name-error");
+    expect(error).toHaveAttribute("role", "alert");
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("creating: rename reveals the input and flips titleIsAuto off", async () => {
     const onValuesChange = vi.fn();
     render(

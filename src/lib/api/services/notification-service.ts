@@ -18,6 +18,7 @@ export type NotificationType =
   | "schedule_change"
   | "expense_submitted"
   | "expense_approved"
+  | "expense_paid"
   | "duplicates_found"
   | "duplicates_merged"
   | "data_review_resolved"

@@ -18,16 +18,16 @@ interface TicketsTabProps {
 }
 
 const SEVERITY_TONE: Record<SpecTicketSeverity, string> = {
-  critical: "text-[#B58289] border-[#93321A]/60",
-  high: "text-[#C4A868] border-[#C4A868]/40",
-  cosmetic_enhancement: "text-[#8A8A8A] border-white/[0.10]",
+  critical: "text-rose border-brick/60",
+  high: "text-tan border-tan/40",
+  cosmetic_enhancement: "text-text-3 border-white/[0.10]",
 };
 
 const STATUS_TONE: Record<SpecTicketStatus, string> = {
-  open: "text-[#C4A868] border-[#C4A868]/40",
-  in_progress: "text-[#6F94B0] border-[#6F94B0]/40",
-  resolved: "text-[#9DB582] border-[#9DB582]/40",
-  escalated_to_change_order: "text-[#6F94B0] border-[#6F94B0]/40",
+  open: "text-tan border-tan/40",
+  in_progress: "text-olive border-olive/40",
+  resolved: "text-olive border-olive/40",
+  escalated_to_change_order: "text-tan border-tan/40",
 };
 
 const PHASE_LABEL: Record<SpecTicketPhase, string> = {
@@ -56,11 +56,11 @@ export function TicketsTab({ data, projectId }: TicketsTabProps) {
     <div className="space-y-6">
       <section
         aria-label="Tickets summary"
-        className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+        className="glass-surface p-5"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-[#EDEDED]">
-            <span aria-hidden="true" className="mr-2 font-mono text-[#6A6A6A]">
+          <h2 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
+            <span aria-hidden="true" className="mr-2 font-mono text-text-mute">
               {"//"}
             </span>
             SUPPORT TICKETS
@@ -68,16 +68,16 @@ export function TicketsTab({ data, projectId }: TicketsTabProps) {
           <button
             type="button"
             onClick={() => setWizardOpen((v) => !v)}
-            className="rounded border border-[#6F94B0] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+            className="rounded border border-ops-accent px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black"
           >
             {wizardOpen ? "CLOSE" : "NEW TICKET"}
           </button>
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-          <Kpi label="OPEN" value={counts.open} tone={counts.open > 0 ? "text-[#C4A868]" : "text-[#EDEDED]"} />
+          <Kpi label="OPEN" value={counts.open} tone={counts.open > 0 ? "text-tan" : "text-text"} />
           <Kpi label="IN PROGRESS" value={counts.inProgress} />
-          <Kpi label="RESOLVED" value={counts.resolved} tone="text-[#9DB582]" />
+          <Kpi label="RESOLVED" value={counts.resolved} tone="text-olive" />
           <Kpi label="ESCALATED" value={counts.escalated} />
         </div>
 
@@ -94,10 +94,10 @@ export function TicketsTab({ data, projectId }: TicketsTabProps) {
         </div>
       )}
 
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">[</span>
+      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+        <span className="text-text-mute">[</span>
         CRITICAL / HIGH IN-SCOPE FREE · COSMETIC + ENHANCEMENT BILLABLE VIA CHANGE ORDER · CUSTOMER FILING UI SHIPS PHASE 2
-        <span className="text-[#3A3A3A]">]</span>
+        <span className="text-text-mute">]</span>
       </p>
     </div>
   );
@@ -110,41 +110,41 @@ function TicketCard({ ticket, projectId }: { ticket: SpecSupportTicketRow; proje
   return (
     <article
       aria-label={`Ticket: ${ticket.title}`}
-      className="rounded-panel border border-white/[0.10] bg-[rgba(18,18,20,0.58)] p-5 backdrop-blur-[28px]"
+      className="glass-surface p-5"
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="font-mohave text-[16px] text-[#EDEDED]">{ticket.title}</h3>
+          <h3 className="font-mohave text-[16px] text-text">{ticket.title}</h3>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Pill className={SEVERITY_TONE[ticket.severity]}>{SEVERITY_LABEL[ticket.severity]}</Pill>
             <Pill className={STATUS_TONE[ticket.status]}>{statusLabel(ticket.status)}</Pill>
-            <Pill className="text-[#8A8A8A] border-white/[0.10]">{PHASE_LABEL[ticket.phase]}</Pill>
+            <Pill className="text-text-3 border-white/[0.10]">{PHASE_LABEL[ticket.phase]}</Pill>
             {ticket.customerClassification && ticket.customerClassification !== ticket.severity && (
               <span
-                className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]"
+                className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute"
                 title="Original severity claimed by customer"
               >
-                <span className="text-[#3A3A3A]">[</span>
+                <span className="text-text-mute">[</span>
                 CUSTOMER FILED · {ticket.customerClassification.toUpperCase()}
-                <span className="text-[#3A3A3A]">]</span>
+                <span className="text-text-mute">]</span>
               </span>
             )}
           </div>
         </div>
         <div className="text-right">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">OPENED</p>
-          <p className="font-mono text-[11px] tabular-nums text-[#B5B5B5]">{formatDate(ticket.openedAt)}</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">OPENED</p>
+          <p className="font-mono text-[11px] tabular-nums text-text-2">{formatDate(ticket.openedAt)}</p>
           {ticket.resolvedAt && (
             <>
-              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">CLOSED</p>
-              <p className="font-mono text-[11px] tabular-nums text-[#9DB582]">{formatDate(ticket.resolvedAt)}</p>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">CLOSED</p>
+              <p className="font-mono text-[11px] tabular-nums text-olive">{formatDate(ticket.resolvedAt)}</p>
             </>
           )}
         </div>
       </header>
 
       {ticket.description && (
-        <p className="mt-4 whitespace-pre-wrap text-[13px] text-[#B5B5B5]">{ticket.description}</p>
+        <p className="mt-4 whitespace-pre-wrap text-[13px] text-text-2">{ticket.description}</p>
       )}
 
       {!isClosed && (
@@ -152,15 +152,15 @@ function TicketCard({ ticket, projectId }: { ticket: SpecSupportTicketRow; proje
           <button
             type="button"
             onClick={() => setActionOpen(actionOpen === "reclassify" ? null : "reclassify")}
-            className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#EDEDED]"
+            className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3 transition-colors duration-150 ease-smooth hover:text-text"
           >
             RECLASSIFY SEVERITY
           </button>
-          <span className="text-[#3A3A3A]">·</span>
+          <span className="text-text-mute">·</span>
           <button
             type="button"
             onClick={() => setActionOpen(actionOpen === "escalate" ? null : "escalate")}
-            className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-[#EDEDED]"
+            className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3 transition-colors duration-150 ease-smooth hover:text-text"
           >
             ESCALATE TO CHANGE ORDER
           </button>
@@ -185,10 +185,10 @@ function TicketCard({ ticket, projectId }: { ticket: SpecSupportTicketRow; proje
 
       {ticket.linkedChangeOrderId && (
         <div className="mt-4 border-t border-white/[0.06] pt-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
-            <span className="text-[#3A3A3A]">[</span>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
+            <span className="text-text-mute">[</span>
             LINKED CHANGE ORDER · {ticket.linkedChangeOrderId.slice(0, 8)}
-            <span className="text-[#3A3A3A]">]</span>
+            <span className="text-text-mute">]</span>
           </p>
         </div>
       )}
@@ -217,15 +217,15 @@ function ReclassifyForm({
       <input type="hidden" name="ticket_id" value={ticketId} />
       <input type="hidden" name="op" value="reclassify" />
       <label className="flex flex-col gap-1.5">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-          <span className="text-[#3A3A3A]">[</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+          <span className="text-text-mute">[</span>
           NEW SEVERITY
-          <span className="text-[#3A3A3A]">]</span>
+          <span className="text-text-mute">]</span>
         </span>
         <select
           name="new_severity"
           defaultValue={currentSeverity}
-          className="rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-smooth focus:border-ops-accent"
         >
           {options.map((s) => (
             <option key={s} value={s}>
@@ -236,14 +236,14 @@ function ReclassifyForm({
       </label>
       <button
         type="submit"
-        className="rounded border border-[#6F94B0] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+        className="rounded border border-ops-accent px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black"
       >
         RECLASSIFY
       </button>
       <button
         type="button"
         onClick={onCancel}
-        className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A] hover:text-[#EDEDED]"
+        className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3 hover:text-text"
       >
         CANCEL
       </button>
@@ -263,26 +263,26 @@ function EscalateForm({
   return (
     <form
       action={escalateTicket}
-      className="mt-4 flex flex-wrap items-center gap-3 rounded border border-[#C4A868]/30 bg-black/40 p-3"
+      className="mt-4 flex flex-wrap items-center gap-3 rounded border border-tan/30 bg-black/40 p-3"
     >
       <input type="hidden" name="project_id" value={projectId} />
       <input type="hidden" name="ticket_id" value={ticketId} />
       <input type="hidden" name="op" value="escalate_to_change_order" />
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#C4A868]">
-        <span className="text-[#3A3A3A]">[</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-tan">
+        <span className="text-text-mute">[</span>
         CONFIRM · CREATES PROPOSED CHANGE ORDER · CLOSES TICKET
-        <span className="text-[#3A3A3A]">]</span>
+        <span className="text-text-mute">]</span>
       </span>
       <button
         type="submit"
-        className="rounded border border-[#C4A868] px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#C4A868] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#C4A868] hover:text-black"
+        className="rounded border border-tan px-3 py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-tan transition-colors duration-150 ease-smooth hover:bg-tan hover:text-black"
       >
         ESCALATE
       </button>
       <button
         type="button"
         onClick={onCancel}
-        className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A] hover:text-[#EDEDED]"
+        className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3 hover:text-text"
       >
         CANCEL
       </button>
@@ -304,7 +304,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
             name="severity"
             defaultValue="high"
             required
-            className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-smooth focus:border-ops-accent"
           >
             <option value="critical">CRITICAL · blocks daily ops</option>
             <option value="high">HIGH · degrades workflow</option>
@@ -317,7 +317,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
             name="phase"
             defaultValue="support"
             required
-            className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+            className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text outline-none transition-colors duration-150 ease-smooth focus:border-ops-accent"
           >
             <option value="support">SUPPORT · in support window</option>
             <option value="retainer">RETAINER · subscribed</option>
@@ -333,7 +333,7 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
           required
           maxLength={200}
           placeholder="One-line summary"
-          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-smooth focus:border-ops-accent"
         />
       </FieldRow>
 
@@ -343,21 +343,21 @@ function NewTicketForm({ projectId, onCancel }: { projectId: string; onCancel: (
           required
           rows={4}
           placeholder="What happened, repro steps, expected vs actual"
-          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-[#EDEDED] outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] focus:border-[#6F94B0]"
+          className="w-full rounded border border-white/[0.10] bg-black px-3 py-2 font-mono text-[12px] text-text outline-none transition-colors duration-150 ease-smooth focus:border-ops-accent"
         />
       </FieldRow>
 
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
-          className="rounded border border-[#6F94B0] px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#6F94B0] transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-[#6F94B0] hover:text-black"
+          className="rounded border border-ops-accent px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-ops-accent transition-colors duration-150 ease-smooth hover:bg-ops-accent hover:text-black"
         >
           OPEN TICKET
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8A8A] hover:text-[#EDEDED]"
+          className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-3 hover:text-text"
         >
           CANCEL
         </button>
@@ -379,10 +379,10 @@ function Pill({ children, className }: { children: React.ReactNode; className?: 
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">
-        <span className="text-[#3A3A3A]">[</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">
+        <span className="text-text-mute">[</span>
         {label}
-        <span className="text-[#3A3A3A]">]</span>
+        <span className="text-text-mute">]</span>
       </span>
       {children}
     </label>
@@ -391,11 +391,11 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 function EmptyState() {
   return (
-    <div className="rounded-panel border border-white/[0.08] bg-[rgba(18,18,20,0.40)] p-8 text-center backdrop-blur-[28px]">
-      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8A8A]">
+    <div className="rounded-panel border border-white/[0.08] bg-fill-neutral-dim p-8 text-center backdrop-blur-[28px]">
+      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
         — no tickets filed
       </p>
-      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[#6A6A6A]">
+      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute">
         log on the customer&apos;s behalf with new ticket above.
       </p>
     </div>
@@ -405,8 +405,8 @@ function EmptyState() {
 function Kpi({ label, value, tone }: { label: string; value: number; tone?: string }) {
   return (
     <div>
-      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#6A6A6A]">{label}</p>
-      <p className={`mt-1 font-mono text-[16px] tabular-nums leading-none ${tone ?? "text-[#EDEDED]"}`}>
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-mute">{label}</p>
+      <p className={`mt-1 font-mono text-[16px] tabular-nums leading-none ${tone ?? "text-text"}`}>
         {value}
       </p>
     </div>

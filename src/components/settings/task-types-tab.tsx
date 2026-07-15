@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Trash2, GripVertical, Loader2, Save, X, Users, Clock, Wand2, Check, ChevronDown } from "lucide-react";
+import { Plus, Trash2, GripVertical, Loader2, Save, X, Clock, Wand2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tag } from "@/components/ui/tag";
 import { Card, CardContent } from "@/components/ui/card";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import { UserAvatar } from "@/components/ops/user-avatar";
 import { ACCENT_COLOR_VALUES } from "@/lib/data/curated-colors";
 import {
   useTaskTypes,
@@ -23,9 +25,9 @@ import {
 } from "@/lib/hooks/use-task-templates";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { getUserFullName } from "@/lib/types/models";
-import type { TaskType } from "@/lib/types/models";
+import type { TaskType, User } from "@/lib/types/models";
 import type { TaskTemplate } from "@/lib/types/pipeline";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { TaskTypesWizard } from "./task-types-wizard";
@@ -40,80 +42,68 @@ function CrewPicker({
   onChange: (ids: string[]) => void;
 }) {
   const { t } = useDictionary("settings");
+  const { t: tp } = useDictionary("picker");
   const { data: teamData } = useTeamMembers();
   const members = teamData?.users ?? [];
   const [open, setOpen] = useState(false);
 
-  function toggle(id: string) {
-    if (selectedIds.includes(id)) {
-      onChange(selectedIds.filter((i) => i !== id));
-    } else {
-      onChange([...selectedIds, id]);
-    }
-  }
-
-  const selectedNames = members
-    .filter((m) => selectedIds.includes(m.id))
-    .map(getUserFullName);
+  const count = selectedIds.length;
+  const selectedMembers = members.filter((m) => selectedIds.includes(m.id));
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        className="w-full flex h-7 items-center gap-[6px] px-1.5 py-1.5 bg-surface-input border border-[rgba(255,255,255,0.10)] rounded font-mohave text-body text-text text-left transition-colors duration-150 focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
-      >
-        <Users className="w-[14px] h-[14px] text-text-mute shrink-0" />
-        {selectedNames.length > 0 ? (
-          <span className="flex-1 truncate">{selectedNames.join(", ")}</span>
-        ) : (
-          <span className="flex-1 text-text-3">{t("taskTypes.crewPlaceholder")}</span>
-        )}
-        <ChevronDown
+    <EntityPicker<User>
+      multiple
+      trigger={
+        <button
+          type="button"
           className={cn(
-            "w-[16px] h-[16px] text-text-3 shrink-0 transition-transform duration-150",
-            open && "rotate-180",
+            "w-full flex h-7 items-center justify-between gap-[6px] px-1.5 py-1.5",
+            "bg-surface-input border rounded font-mohave text-body text-left transition-all duration-150 ease-smooth",
+            open ? "border-line-hi" : "border-border",
+            "focus:border-line-hi focus:outline-none",
+            count > 0 ? "text-text" : "text-text-3",
           )}
-        />
-      </button>
-      {open && (
-        <div className="absolute z-[1000] top-full mt-[4px] left-0 w-full max-h-[200px] overflow-y-auto glass-dense rounded p-0.5">
-          {members.map((member) => {
-            const name = getUserFullName(member);
-            const selected = selectedIds.includes(member.id);
-            return (
-              <button
-                key={member.id}
-                type="button"
-                onClick={() => toggle(member.id)}
-                className={cn(
-                  "w-full flex items-center gap-1 px-1.5 py-[8px] rounded-chip text-left font-mohave text-body-sm transition-colors duration-100",
-                  selected
-                    ? "bg-surface-active text-text"
-                    : "text-text hover:bg-surface-hover"
-                )}
-              >
-                <span
-                  className={cn(
-                    "w-[16px] h-[16px] rounded-chip border flex items-center justify-center shrink-0",
-                    selected ? "bg-text-2 border-[rgba(255,255,255,0.30)]" : "border-border"
-                  )}
-                >
-                  {selected && <Check className="w-[12px] h-[12px] text-background" strokeWidth={3} />}
-                </span>
-                {name}
-              </button>
-            );
-          })}
-          {members.length === 0 && (
-            <p className="px-1.5 py-[8px] font-mohave text-body-sm text-text-mute">
-              {t("taskTypes.noMembers")}
-            </p>
+        >
+          {count === 0 ? (
+            <span className="flex-1 truncate">{t("taskTypes.crewPlaceholder")}</span>
+          ) : (
+            <span className="flex min-w-0 flex-1 items-center gap-[6px]">
+              <span className="flex -space-x-1">
+                {selectedMembers.slice(0, 3).map((m) => (
+                  <span key={m.id} className="border border-background-input rounded-full">
+                    <UserAvatar
+                      name={getUserFullName(m)}
+                      imageUrl={m.profileImageURL}
+                      size="sm"
+                    />
+                  </span>
+                ))}
+              </span>
+              <span className="truncate tabular-nums">{count}</span>
+            </span>
           )}
-        </div>
-      )}
-    </div>
+          <ChevronDown
+            className={cn(
+              "w-[16px] h-[16px] text-text-3 shrink-0 transition-transform duration-150 ease-smooth",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+      }
+      open={open}
+      onOpenChange={setOpen}
+      label={t("taskTypes.defaultCrew")}
+      items={members}
+      value={selectedIds}
+      onChange={onChange}
+      getId={(m) => m.id}
+      getLabel={(m) => getUserFullName(m)}
+      getAvatar={(m) => ({ name: getUserFullName(m), imageUrl: m.profileImageURL })}
+      getKeywords={(m) => (m.email ? [m.email] : [])}
+      searchPlaceholder={t("taskTypes.crewSearch")}
+      emptyLabel={t("taskTypes.noMembers")}
+      clearLabel={tp("clear")}
+    />
   );
 }
 

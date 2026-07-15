@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Save, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

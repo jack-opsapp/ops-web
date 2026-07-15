@@ -4320,6 +4320,7 @@ export type Database = {
           deleted_at: string | null
           drawing_data: Json
           id: string
+          opportunity_id: string | null
           project_id: string | null
           thumbnail_url: string | null
           title: string
@@ -4333,6 +4334,7 @@ export type Database = {
           deleted_at?: string | null
           drawing_data?: Json
           id?: string
+          opportunity_id?: string | null
           project_id?: string | null
           thumbnail_url?: string | null
           title?: string
@@ -4346,6 +4348,7 @@ export type Database = {
           deleted_at?: string | null
           drawing_data?: Json
           id?: string
+          opportunity_id?: string | null
           project_id?: string | null
           thumbnail_url?: string | null
           title?: string
@@ -4365,6 +4368,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deck_designs_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
           {

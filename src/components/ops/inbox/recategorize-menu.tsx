@@ -26,8 +26,8 @@ import { useThreadActions } from "@/lib/hooks/use-inbox-threads";
 import { categoryLabel } from "./category-chip";
 import { SlashLabel } from "./voice/slash-label";
 import { KeyHint } from "@/components/ui/key-hint";
-import { enqueueUndoToast } from "./undo-toast";
-import { toast } from "sonner";
+import { showUndoToast } from "@/components/ui/toast-undo";
+import { toast } from "@/components/ui/toast";
 
 interface RecategorizeMenuProps {
   threadId: string;
@@ -95,15 +95,16 @@ export function RecategorizeMenu({
         { threadId, toCategory: next, note: noteToSend },
         {
           onSuccess: () => {
-            enqueueUndoToast({
-              message: t(
+            showUndoToast({
+              title: t(
                 "toast.recategorizedTactic",
                 "SYS :: MOVED TO {category}"
               ).replace("{category}", categoryLabel(next)),
-              detail: t(
+              description: t(
                 "toast.recategorizedDetail",
                 "[—] phase c will learn from this correction."
               ),
+              undoLabel: t("toast.undoTactic", "UNDO"),
               onUndo: () => {
                 recategorize.mutate({ threadId, toCategory: currentCategory });
               },

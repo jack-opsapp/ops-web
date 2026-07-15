@@ -12,8 +12,8 @@ vi.mock("@/lib/hooks/use-inbox-threads", () => ({
   }),
 }));
 
-vi.mock("../undo-toast", () => ({
-  enqueueUndoToast: (input: unknown) => enqueueMock(input),
+vi.mock("@/components/ui/toast-undo", () => ({
+  showUndoToast: (input: unknown) => enqueueMock(input),
 }));
 
 import { SnoozePicker } from "../snooze-picker";
