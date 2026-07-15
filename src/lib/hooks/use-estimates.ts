@@ -10,7 +10,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { EstimateService, type FetchEstimatesOptions } from "../api/services";
+import { EstimateService, type FetchEstimatesOptions } from "../api/services/estimate-service";
 import type { CreateEstimate, CreateLineItem } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 import { usePermissionStore } from "../store/permissions-store";

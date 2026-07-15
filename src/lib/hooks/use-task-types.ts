@@ -11,7 +11,7 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { TaskTypeService } from "../api/services";
+import { TaskTypeService } from "../api/services/task-type-service";
 import type { TaskType } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
 

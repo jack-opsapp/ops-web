@@ -46,35 +46,9 @@ import {
   type ConnectionRow,
   type FailureSignal,
 } from "@/lib/email/ingest-heartbeat-classify";
+import { buildReconnectDeepLink } from "@/lib/email/reconnect-deep-link";
 
 export const maxDuration = 60;
-
-/**
- * Build the deep-link the email button points to. Lands the operator on
- * /reconnect-inbox — the confirmation page that requires the named OPS
- * operator to authenticate before surfacing tenant identity or handing off to
- * Google / Microsoft. Its "Continue" button forwards to the provider route
- * with source=alert so the callback returns to the success page.
- */
-export function buildReconnectDeepLink(opts: {
-  appUrl: string;
-  provider: "gmail" | "microsoft365";
-  companyId: string;
-  userId: string;
-  type: "company" | "individual";
-  connectionId: string;
-  expectedEmail: string;
-}): string {
-  const params = new URLSearchParams({
-    companyId: opts.companyId,
-    userId: opts.userId,
-    type: opts.type,
-    provider: opts.provider,
-    connectionId: opts.connectionId,
-    expectedEmail: opts.expectedEmail,
-  });
-  return `${opts.appUrl}/reconnect-inbox?${params.toString()}`;
-}
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;

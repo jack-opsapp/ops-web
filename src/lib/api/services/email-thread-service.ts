@@ -59,6 +59,7 @@ import {
 } from "@/lib/utils/email-parsing";
 import { assertValidProviderEmailIds } from "@/lib/email/provider-email-ids";
 import type { NormalizedEmail } from "./email-provider";
+import { listEmailThreadSiblings } from "./email-thread-sibling-service";
 
 // ─── Sender-name resolution ──────────────────────────────────────────────────
 //
@@ -2328,25 +2329,12 @@ export const EmailThreadService = {
     excludingThreadId: string,
     limit = 5
   ): Promise<EmailThread[]> {
-    if (!companyId || !clientId) return [];
-    const supabase = requireSupabase();
-    // Exclude archived — "archive" is the user's explicit "I'm done" signal,
-    // and surfacing those in a context strip would drag old closed-out
-    // conversations back into a live triage surface. Snoozed is kept:
-    // snooze is deferral, not completion, and seeing "oh right, that
-    // quote is coming back Tuesday" is useful context when replying on a
-    // parallel thread.
-    const { data, error } = await supabase
-      .from("email_threads")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("client_id", clientId)
-      .neq("id", excludingThreadId)
-      .is("archived_at", null)
-      .order("last_message_at", { ascending: false })
-      .limit(limit);
-    if (error || !data) return [];
-    return data.map(mapEmailThreadFromDb);
+    return listEmailThreadSiblings(
+      companyId,
+      clientId,
+      excludingThreadId,
+      limit
+    );
   },
 };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReconnectDeepLink } from "@/app/api/cron/email-ingest-heartbeat/route";
+import { buildReconnectDeepLink } from "@/lib/email/reconnect-deep-link";
 
 describe("email ingest heartbeat reconnect link", () => {
   it("binds the alert URL to the failed connection and expected mailbox", () => {

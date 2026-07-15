@@ -94,12 +94,9 @@ import {
 import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import {
   assembleConversationState,
-  buildConversationState,
   type RawThreadMessage,
 } from "./conversation-state/conversation-state";
-import { decideAcceptStage } from "./conversation-state/accept-stage";
-import { persistRoutingDecision } from "./conversation-state/persist-routing";
-import { ingestAndInspectThreadAttachments } from "./conversation-state/attachment-ingest";
+import { evaluateOpportunityAcceptance } from "./conversation-state/acceptance-evaluation";
 import { fetchOperatorIdentity } from "./conversation-state/operator-identity";
 import type {
   OperatorIdentity,
@@ -1534,8 +1531,9 @@ async function maybeAutoAdvanceOnAccept(args: {
 
     const { data: opp, error: opportunityError } = await supabase
       .from("opportunities")
-      .select("stage, stage_manually_set, title, client_id")
+      .select("stage, stage_manually_set")
       .eq("id", opportunityId)
+      .eq("company_id", connection.companyId)
       .maybeSingle();
     if (opportunityError) {
       throw new Error(
@@ -1546,100 +1544,17 @@ async function maybeAutoAdvanceOnAccept(args: {
     if (opp.stage_manually_set) return;
     if (["won", "lost", "discarded"].includes(opp.stage as string)) return;
 
-    const { data: threadRow, error: threadError } = await supabase
-      .from("email_threads")
-      .select("id")
-      .eq("company_id", connection.companyId)
-      .eq("provider_thread_id", providerThreadId)
-      .maybeSingle();
-    if (threadError) {
-      throw new Error(`accept thread lookup failed: ${threadError.message}`);
-    }
-    const internalThreadId = (threadRow?.id as string | undefined) ?? null;
-    if (!internalThreadId) return;
-
-    // Phase 2 vision: inspect any new customer image/PDF attachments ONCE and
-    // cache the result BEFORE building state. buildConversationState reads that
-    // cache (no vision), so an inspected signed estimate makes the deterministic
-    // accept-detector fire HIGH here, and photos carry a summary for the drafter.
-    // Cost-once + fully non-fatal — awaited so the cache is warm for this build.
-    await ingestAndInspectThreadAttachments({
-      connection,
+    // Attachment copying and cost-once inspection run only in the durable
+    // attachment worker. That worker re-evaluates acceptance after persisting a
+    // cached signed-estimate result, so provider I/O can never pin this mailbox
+    // cursor while the immediate text-only acceptance path remains intact.
+    const evaluation = await evaluateOpportunityAcceptance({
+      supabase,
       providerThreadId,
-      companyId: connection.companyId,
+      opportunityId,
+      connection,
     });
-
-    const state = await buildConversationState(internalThreadId);
-    if (!state) return;
-
-    // Phase 3: persist the routing decision so the inbox can surface a held
-    // thread without rebuilding state. Non-fatal.
-    await persistRoutingDecision(internalThreadId, state);
-
-    const action = decideAcceptStage(state.accept, state.stage, state.routing);
-    if (action.kind === "none") return;
-
-    let clientName = "A client";
-    if (opp.client_id) {
-      const { data: client } = await supabase
-        .from("clients")
-        .select("name")
-        .eq("id", opp.client_id as string)
-        .maybeSingle();
-      if (client?.name) clientName = client.name as string;
-    }
-
-    if (action.kind === "auto_advance_won") {
-      const conversion =
-        await ProjectConversionService.convertOpportunityToProject({
-          opportunityId,
-          companyId: connection.companyId,
-          decidedBy: connection.userId ?? null,
-          sourcePath: "email_accept",
-          expectedStage: opp.stage as string,
-        });
-      if (!conversion.won) {
-        throw new Error(
-          "canonical email acceptance conversion did not win the opportunity"
-        );
-      }
-      if (conversion.won) result.stageChanges++;
-      console.log("[email-ingest] accept-auto-won", {
-        opportunityId,
-        reason: action.reason,
-      });
-      if (connection.userId) {
-        await supabase.from("notifications").insert({
-          user_id: connection.userId,
-          company_id: connection.companyId,
-          type: "role_needed",
-          title: "Deal won",
-          body: `${clientName} accepted — this lead was moved to Won.`,
-          is_read: false,
-          persistent: false,
-          action_url: "/pipeline",
-          action_label: "View",
-        });
-      }
-    } else if (action.kind === "surface_mark_won") {
-      console.log("[email-ingest] accept-surface-markwon", {
-        opportunityId,
-        reason: action.reason,
-      });
-      if (connection.userId) {
-        await supabase.from("notifications").insert({
-          user_id: connection.userId,
-          company_id: connection.companyId,
-          type: "role_needed",
-          title: "Possible deal won",
-          body: `${clientName} may have accepted. Review and confirm.`,
-          is_read: false,
-          persistent: true,
-          action_url: "/pipeline",
-          action_label: "Mark as Won",
-        });
-      }
-    }
+    if (evaluation.stageChanged) result.stageChanges++;
   } catch (err) {
     throw new LifecyclePersistenceError(
       `[sync-engine] accept-to-project conversion failed before cursor advancement: ${err instanceof Error ? err.message : "unknown error"}`

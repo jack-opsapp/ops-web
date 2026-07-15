@@ -69,7 +69,7 @@ import {
   getTaskDisplayTitle,
   getUserFullName,
 } from "@/lib/types/models";
-import { TaskTypeService } from "@/lib/api/services";
+import { TaskTypeService } from "@/lib/api/services/task-type-service";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 

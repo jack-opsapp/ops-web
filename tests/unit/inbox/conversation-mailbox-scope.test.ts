@@ -7,6 +7,7 @@ interface TestDatabase {
 }
 
 let database: TestDatabase;
+let inQueries: Array<{ table: string; column: string; values: unknown[] }>;
 
 const { fetchOperatorIdentityMock, fetchCommitmentsMock } = vi.hoisted(() => ({
   fetchOperatorIdentityMock: vi.fn(
@@ -35,12 +36,15 @@ vi.mock("@/lib/api/services/conversation-state/sent-ledger", async () => {
 vi.mock("@/lib/supabase/helpers", () => {
   function query(table: string) {
     const filters: Array<[string, unknown]> = [];
+    const inFilters: Array<[string, unknown[]]> = [];
     let orderBy: { column: string; ascending: boolean } | null = null;
     let rowLimit: number | null = null;
 
     const matchingRows = () => {
-      let rows = [...(database.tables[table] ?? [])].filter((row) =>
-        filters.every(([column, value]) => row[column] === value)
+      let rows = [...(database.tables[table] ?? [])].filter(
+        (row) =>
+          filters.every(([column, value]) => row[column] === value) &&
+          inFilters.every(([column, values]) => values.includes(row[column]))
       );
       if (orderBy) {
         const { column, ascending } = orderBy;
@@ -59,6 +63,16 @@ vi.mock("@/lib/supabase/helpers", () => {
     chain.select = () => chain;
     chain.eq = (column: string, value: unknown) => {
       filters.push([column, value]);
+      return chain;
+    };
+    chain.is = (column: string, value: unknown) => {
+      filters.push([column, value]);
+      return chain;
+    };
+    chain.in = (column: string, values: unknown[]) => {
+      const snapshot = [...values];
+      inFilters.push([column, snapshot]);
+      inQueries.push({ table, column, values: snapshot });
       return chain;
     };
     chain.order = (column: string, options: { ascending?: boolean } = {}) => {
@@ -95,13 +109,17 @@ import { buildConversationState } from "@/lib/api/services/conversation-state/co
 const SHARED_PROVIDER_THREAD_ID = "provider-thread-shared";
 const SHARED_PROVIDER_MESSAGE_ID = "provider-message-shared";
 
-function threadRow(id: string, connectionId: string): Row {
+function threadRow(
+  id: string,
+  connectionId: string,
+  opportunityId: string | null = null
+): Row {
   return {
     id,
     company_id: "company-1",
     connection_id: connectionId,
     provider_thread_id: SHARED_PROVIDER_THREAD_ID,
-    opportunity_id: null,
+    opportunity_id: opportunityId,
   };
 }
 
@@ -139,6 +157,7 @@ function activityRow(
 
 function attachmentRow(connectionId: string, filename: string): Row {
   return {
+    id: `${connectionId}-canonical-attachment`,
     company_id: "company-1",
     connection_id: connectionId,
     provider_thread_id: SHARED_PROVIDER_THREAD_ID,
@@ -146,11 +165,15 @@ function attachmentRow(connectionId: string, filename: string): Row {
     attachment_id: `${connectionId}-attachment`,
     filename,
     mime_type: "image/jpeg",
+    detected_mime_type: "image/jpeg",
     size_bytes: 100,
+    opportunity_id: null,
+    attribution_status: "pending",
   };
 }
 
 beforeEach(() => {
+  inQueries = [];
   database = {
     tables: {
       email_threads: [
@@ -232,5 +255,128 @@ describe("buildConversationState mailbox isolation", () => {
         (_, index) => `message-${String(index + 11).padStart(2, "0")}`
       )
     );
+  });
+
+  it("only loads attachments attributed to the thread's exact lead", async () => {
+    database.tables.email_threads = [
+      threadRow("thread-a", "connection-a", "lead-a"),
+    ];
+    database.tables.email_connections = [connectionRow("connection-a")];
+    database.tables.activities = [
+      activityRow(
+        "connection-a",
+        "customer-a@example.com",
+        "Here are the photos",
+        "2026-07-14T10:00:00.000Z"
+      ),
+    ];
+    database.tables.email_attachments = [
+      {
+        ...attachmentRow("connection-a", "correct-lead.jpg"),
+        opportunity_id: "lead-a",
+        attribution_status: "attributed",
+      },
+      {
+        ...attachmentRow("connection-a", "different-lead.jpg"),
+        attachment_id: "different-lead-attachment",
+        opportunity_id: "lead-b",
+        attribution_status: "attributed",
+      },
+      {
+        ...attachmentRow("connection-a", "needs-review.jpg"),
+        attachment_id: "needs-review-attachment",
+        opportunity_id: null,
+        attribution_status: "needs_review",
+      },
+    ];
+    database.tables.opportunities = [{ id: "lead-a", stage: "qualifying" }];
+
+    const state = await buildConversationState("thread-a");
+
+    expect(
+      state?.messages[0]?.attachments.map((item) => item.filename)
+    ).toEqual(["correct-lead.jpg"]);
+  });
+
+  it("loads inspections only for the thread's canonical attachment IDs in bounded chunks", async () => {
+    database.tables.email_threads = [threadRow("thread-a", "connection-a")];
+    database.tables.email_connections = [connectionRow("connection-a")];
+    database.tables.activities = [
+      activityRow(
+        "connection-a",
+        "customer-a@example.com",
+        "Here are the inspection files",
+        "2026-07-14T10:00:00.000Z"
+      ),
+    ];
+
+    const canonicalIds = Array.from(
+      { length: 81 },
+      (_, index) => `canonical-${String(index).padStart(3, "0")}`
+    );
+    database.tables.email_attachments = canonicalIds.map((id) => ({
+      ...attachmentRow("connection-a", `${id}.jpg`),
+      id,
+      attachment_id: `provider-${id}`,
+    }));
+    database.tables.attachment_inspections = [
+      ...canonicalIds.map((emailAttachmentId) => ({
+        company_id: "company-1",
+        connection_id: "connection-a",
+        email_attachment_id: emailAttachmentId,
+        summary: `Inspection for ${emailAttachmentId}`,
+        is_signed_estimate: false,
+        facts: {},
+        model: "gpt-5.4",
+      })),
+      {
+        company_id: "company-1",
+        connection_id: "connection-a",
+        email_attachment_id: "different-thread-canonical",
+        summary: "Must never be loaded",
+        is_signed_estimate: true,
+        facts: {},
+        model: "gpt-5.4",
+      },
+    ];
+
+    const state = await buildConversationState("thread-a");
+
+    const inspectionIdQueries = inQueries.filter(
+      (query) =>
+        query.table === "attachment_inspections" &&
+        query.column === "email_attachment_id"
+    );
+    expect(inspectionIdQueries.map((query) => query.values.length)).toEqual([
+      80, 1,
+    ]);
+    expect(inspectionIdQueries.flatMap((query) => query.values)).toEqual(
+      canonicalIds
+    );
+    expect(
+      state?.messages[0]?.attachments.filter(
+        (attachment) => attachment.inspection != null
+      )
+    ).toHaveLength(canonicalIds.length);
+  });
+
+  it("skips the inspection query for an empty canonical attachment ID set", async () => {
+    database.tables.email_threads = [threadRow("thread-a", "connection-a")];
+    database.tables.email_connections = [connectionRow("connection-a")];
+    database.tables.activities = [
+      activityRow(
+        "connection-a",
+        "customer-a@example.com",
+        "No files attached",
+        "2026-07-14T10:00:00.000Z"
+      ),
+    ];
+
+    const state = await buildConversationState("thread-a");
+
+    expect(state?.messages[0]?.attachments).toEqual([]);
+    expect(
+      inQueries.filter((query) => query.table === "attachment_inspections")
+    ).toEqual([]);
   });
 });

@@ -7,7 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/toast";
 import { queryKeys } from "../api/query-client";
-import { GmailService } from "../api/services";
+import { GmailService } from "../api/services/gmail-service";
 import { useAuthStore } from "../store/auth-store";
 import type { UpdateGmailConnection } from "../types/pipeline";
 import { authedFetch } from "../utils/authed-fetch";

@@ -6,7 +6,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "../store/auth-store";
-import { CompanyService } from "../api/services";
+import { CompanyService } from "../api/services/company-service";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

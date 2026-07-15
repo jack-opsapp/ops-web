@@ -10,6 +10,7 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 import { htmlToPlainText } from "@/lib/utils/email-parsing";
 import { matchesMicrosoft365ClientState } from "@/lib/email/microsoft365-webhook-security";
 import {
+  DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES,
   ProviderApiError,
   ProviderAuthError,
   ProviderScopeError,
@@ -26,11 +27,78 @@ import {
   type SyncResult,
   type WebhookSubscription,
 } from "../email-provider";
+import { readBoundedResponseBytes } from "./bounded-response";
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+const MAX_GRAPH_ATTACHMENT_METADATA_BYTES = 1024 * 1024;
+const MAX_GRAPH_ATTACHMENT_LIST_PAGES = 5;
+const MAX_GRAPH_ATTACHMENTS_PER_MESSAGE = 500;
+const MAX_GRAPH_REFERENCE_METADATA_REQUESTS = 20;
+const MAX_GRAPH_ATTACHMENT_ENUMERATION_MS = 15_000;
+const MAX_GRAPH_ATTACHMENT_DOWNLOAD_MS = 30_000;
 const SCOPES = ["User.Read", "Mail.Read", "Mail.ReadWrite", "Mail.Send"];
 const MICROSOFT365_CURSOR_V1_PREFIX = "m365:v1:";
 const MICROSOFT365_CURSOR_PREFIX = "m365:v2:";
+
+function validateAttachmentNextLink(
+  nextLink: string,
+  messageId: string
+): string {
+  let url: URL;
+  try {
+    url = new URL(nextLink);
+  } catch {
+    throw new ProviderApiError(
+      `M365 attachment list for message ${messageId} returned an invalid next page`,
+      502,
+      { nextLink }
+    );
+  }
+
+  const graph = new URL(GRAPH_BASE);
+  const expectedPath = new URL(
+    `${GRAPH_BASE}/me/messages/${encodeURIComponent(messageId)}/attachments`
+  ).pathname.replace(/\/$/, "");
+  if (
+    url.origin !== graph.origin ||
+    url.username ||
+    url.password ||
+    url.pathname.replace(/\/$/, "") !== expectedPath
+  ) {
+    throw new ProviderApiError(
+      `M365 attachment pagination escaped message ${messageId}`,
+      502,
+      { nextLink }
+    );
+  }
+  return url.toString();
+}
+
+function attachmentEnumerationSignal(deadline: number): AbortSignal {
+  return AbortSignal.timeout(Math.max(1, deadline - Date.now()));
+}
+
+function attachmentEnumerationBudgetMarker(input: {
+  messageId: string;
+  fromEmail: string;
+  date: Date;
+}): EmailAttachmentMeta {
+  return {
+    messageId: input.messageId,
+    attachmentId: "ops-enumeration-budget",
+    filename: "Additional email files require review",
+    mimeType: "application/octet-stream",
+    size: 0,
+    fromEmail: input.fromEmail.toLowerCase(),
+    date: input.date,
+    providerKind: "reference",
+    providerPartId: null,
+    contentId: null,
+    isInline: false,
+    downloadSupported: false,
+    sourceUrl: null,
+  };
+}
 
 /**
  * Graph message delta is folder-scoped; there is no mailbox-wide message
@@ -166,8 +234,8 @@ function throwForGraphError(
 
   if (
     status === 403 &&
+    !/attachment/i.test(context) &&
     (code === "Authorization_RequestDenied" ||
-      code === "ErrorAccessDenied" ||
       /scope|permission|consent/i.test(message))
   ) {
     throw new ProviderScopeError(
@@ -288,6 +356,15 @@ export class Microsoft365Provider implements EmailProviderInterface {
     options?: RequestInit,
     context?: string
   ): Promise<Record<string, unknown>> {
+    const res = await this.graphFetchResponse(path, options, context);
+    return res.json();
+  }
+
+  private async graphFetchResponse(
+    path: string,
+    options?: RequestInit,
+    context?: string
+  ): Promise<Response> {
     const token = await this.getToken();
     const url = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
     const res = await fetch(url, {
@@ -311,7 +388,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
       const body = await res.text().catch(() => "");
       throwForGraphError(res.status, body, context ?? path);
     }
-    return res.json();
+    return res;
   }
 
   async getInitialSyncToken(): Promise<string> {
@@ -1100,59 +1177,211 @@ export class Microsoft365Provider implements EmailProviderInterface {
   async getAttachmentsFromThread(
     threadId: string
   ): Promise<EmailAttachmentMeta[]> {
-    // Fetch the full thread once so we have both the message date and a
-    // way to skip messages that the provider already flagged as
-    // attachment-free (avoids a per-message attachment fetch on threads
-    // dominated by short replies).
+    // Graph's hasAttachments flag excludes inline-only files. Enumerate every
+    // exact message so CID photos cannot disappear from OPS.
     const messages = await this.fetchThread(threadId);
     const out: EmailAttachmentMeta[] = [];
 
     for (const msg of messages) {
-      if (!msg.hasAttachments) continue;
-
-      const data = await this.graphFetch(`/me/messages/${msg.id}/attachments`);
-      const attachments = (data.value as Array<Record<string, unknown>>) || [];
-
-      for (const att of attachments) {
-        const contentType = ((att.contentType as string) || "").toLowerCase();
-        const name = (att.name as string) || "";
-        const size = (att.size as number) || 0;
-        const attId = att.id as string;
-
-        if (!attId || !name) continue;
-
-        // Mirror the Gmail walker's signature-image guard: drop image parts
-        // <= 5KB (these are nearly always inline signature/decorations), let
-        // every other MIME type through regardless of size.
-        const isImage = contentType.startsWith("image/");
-        const passesSignatureGuard = !isImage || size > 5000;
-        if (!passesSignatureGuard) continue;
-
-        out.push({
-          messageId: msg.id,
-          attachmentId: attId,
-          filename: name,
-          mimeType: contentType,
-          size,
-          fromEmail: msg.from.toLowerCase(),
+      out.push(
+        ...(await this.getAttachmentsFromMessage(msg.id, {
+          fromEmail: msg.from,
           date: msg.date,
-        });
-      }
+        }))
+      );
     }
 
     return out;
   }
 
+  async getAttachmentsFromMessage(
+    messageId: string,
+    context?: { fromEmail?: string; date?: Date }
+  ): Promise<EmailAttachmentMeta[]> {
+    const deadline = Date.now() + MAX_GRAPH_ATTACHMENT_ENUMERATION_MS;
+    let fromEmail = context?.fromEmail ?? "";
+    let date = context?.date;
+    if (!date || !fromEmail) {
+      const message = await this.graphFetch(
+        `/me/messages/${encodeURIComponent(messageId)}?$select=id,from,receivedDateTime`,
+        { signal: attachmentEnumerationSignal(deadline) },
+        `message metadata for attachments (${messageId})`
+      );
+      if (message.id !== messageId) {
+        throw new ProviderApiError(
+          `M365 message metadata for attachments (${messageId}) returned a different message`,
+          502,
+          message
+        );
+      }
+      const from = message.from as
+        | { emailAddress?: { address?: string } }
+        | undefined;
+      fromEmail ||= from?.emailAddress?.address ?? "";
+      date ||= message.receivedDateTime
+        ? new Date(message.receivedDateTime as string)
+        : new Date();
+    }
+
+    const out: EmailAttachmentMeta[] = [];
+    let referenceMetadataRequests = 0;
+    let truncated = false;
+    let nextUrl: string | null =
+      `/me/messages/${encodeURIComponent(messageId)}/attachments?$select=id,name,contentType,size,isInline,contentId&$top=100`;
+    const visitedPages = new Set<string>();
+    for (
+      let page = 0;
+      page < MAX_GRAPH_ATTACHMENT_LIST_PAGES && nextUrl;
+      page++
+    ) {
+      if (Date.now() >= deadline) {
+        truncated = true;
+        break;
+      }
+      if (visitedPages.has(nextUrl)) {
+        throw new ProviderApiError(
+          `M365 attachment list for message ${messageId} repeated a page`,
+          500,
+          { nextUrl }
+        );
+      }
+      visitedPages.add(nextUrl);
+      const data = await this.graphFetch(
+        nextUrl,
+        { signal: attachmentEnumerationSignal(deadline) },
+        `attachments.list (${messageId})`
+      );
+      for (const attachment of (data.value as
+        | Array<Record<string, unknown>>
+        | undefined) ?? []) {
+        if (out.length >= MAX_GRAPH_ATTACHMENTS_PER_MESSAGE) {
+          truncated = true;
+          break;
+        }
+        const attachmentId = (attachment.id as string) || "";
+        if (!attachmentId) continue;
+        const odataType = (
+          (attachment["@odata.type"] as string) || ""
+        ).toLowerCase();
+        const providerKind = odataType.includes("referenceattachment")
+          ? "reference"
+          : odataType.includes("itemattachment")
+            ? "item"
+            : "file";
+        const contentId = ((attachment.contentId as string) || "")
+          .replace(/^<|>$/g, "")
+          .trim();
+        const isInline = attachment.isInline === true || Boolean(contentId);
+        const sourceUrl =
+          providerKind === "reference"
+            ? typeof attachment.sourceUrl === "string"
+              ? attachment.sourceUrl
+              : referenceMetadataRequests <
+                    MAX_GRAPH_REFERENCE_METADATA_REQUESTS &&
+                  Date.now() < deadline
+                ? await this.getReferenceAttachmentSourceUrl(
+                    messageId,
+                    attachmentId,
+                    attachmentEnumerationSignal(deadline)
+                  ).finally(() => {
+                    referenceMetadataRequests += 1;
+                  })
+                : null
+            : null;
+        out.push({
+          messageId,
+          attachmentId,
+          filename: (attachment.name as string) || `attachment-${attachmentId}`,
+          mimeType: (
+            (attachment.contentType as string) || "application/octet-stream"
+          ).toLowerCase(),
+          size: Number(attachment.size) || 0,
+          fromEmail: fromEmail.toLowerCase(),
+          date: date ?? new Date(),
+          providerKind:
+            providerKind === "file" && isInline ? "inline" : providerKind,
+          providerPartId: null,
+          contentId: contentId || null,
+          isInline,
+          downloadSupported: providerKind !== "reference",
+          sourceUrl,
+        });
+      }
+      if (truncated) break;
+      const nextLink = (data["@odata.nextLink"] as string | undefined) ?? null;
+      nextUrl = nextLink
+        ? validateAttachmentNextLink(nextLink, messageId)
+        : null;
+    }
+    if (nextUrl) {
+      truncated = true;
+    }
+    if (truncated) {
+      out.push(
+        attachmentEnumerationBudgetMarker({
+          messageId,
+          fromEmail,
+          date: date ?? new Date(),
+        })
+      );
+    }
+    return out;
+  }
+
+  private async getReferenceAttachmentSourceUrl(
+    messageId: string,
+    attachmentId: string,
+    signal?: AbortSignal
+  ): Promise<string | null> {
+    const response = await this.graphFetchResponse(
+      `/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
+      signal ? { signal } : undefined,
+      `reference attachment metadata (${messageId}:${attachmentId})`
+    );
+    const raw = await readBoundedResponseBytes(
+      response,
+      MAX_GRAPH_ATTACHMENT_METADATA_BYTES,
+      `M365 reference attachment metadata ${messageId}:${attachmentId}`
+    );
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(raw.toString("utf8")) as Record<string, unknown>;
+    } catch (error) {
+      throw new ProviderApiError(
+        `M365 reference attachment metadata (${messageId}:${attachmentId}) was not valid JSON`,
+        response.status,
+        { parseError: error instanceof Error ? error.message : String(error) }
+      );
+    }
+    const odataType = ((data["@odata.type"] as string) || "").toLowerCase();
+    if (
+      data.id !== attachmentId ||
+      !odataType.includes("referenceattachment")
+    ) {
+      throw new ProviderApiError(
+        `M365 reference attachment metadata changed identity (${messageId}:${attachmentId})`,
+        502,
+        data
+      );
+    }
+    return typeof data.sourceUrl === "string" ? data.sourceUrl : null;
+  }
+
   async fetchAttachment(
     messageId: string,
-    attachmentId: string
+    attachmentId: string,
+    maxBytes = DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES
   ): Promise<Buffer> {
-    const data = await this.graphFetch(
-      `/me/messages/${messageId}/attachments/${attachmentId}`
+    const response = await this.graphFetchResponse(
+      `/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}/$value`,
+      { signal: AbortSignal.timeout(MAX_GRAPH_ATTACHMENT_DOWNLOAD_MS) },
+      `attachments raw value (${messageId}:${attachmentId})`
     );
-    // M365 returns base64-encoded content in contentBytes
-    const base64Data = (data.contentBytes as string) || "";
-    return Buffer.from(base64Data, "base64");
+    return readBoundedResponseBytes(
+      response,
+      maxBytes,
+      `M365 attachment ${messageId}:${attachmentId}`
+    );
   }
 
   async getProfile(): Promise<{ email: string; name: string }> {

@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 const READABLE_PREFIX_LENGTH = 72;
 
 function normalizeEvidencePart(value: string): string {
@@ -11,12 +9,18 @@ function normalizeEvidencePart(value: string): string {
  * The readable prefix helps operators inspect receipts; the SHA-256 digest is
  * authoritative and keeps distinct long model outputs from collapsing.
  */
-export function outboundLearningEvidenceKey(
+export async function outboundLearningEvidenceKey(
   kind: "fact" | "edge" | "draft-correction",
   parts: string[]
-): string {
+): Promise<string> {
   const normalized = parts.map(normalizeEvidencePart).join("\u001f");
-  const digest = createHash("sha256").update(normalized).digest("hex");
+  const digestBytes = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(normalized)
+  );
+  const digest = Array.from(new Uint8Array(digestBytes), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
   const readable = normalized
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")

@@ -313,7 +313,6 @@ import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
 import type { SyncProfile } from "@/lib/types/email-connection";
 import { fetchOperatorIdentity } from "./operator-identity";
 import { fetchCommitments } from "./sent-ledger";
-import { attachmentInspectionKey } from "./attachment-inspector";
 
 const LEAD_STAGES: ReadonlySet<LeadStage> = new Set<LeadStage>([
   "new_lead",
@@ -368,16 +367,25 @@ async function loadThreadAttachments(
   supabase: ReturnType<typeof requireSupabase>,
   companyId: string,
   connectionId: string,
-  providerThreadId: string
+  providerThreadId: string,
+  opportunityId: string | null
 ): Promise<Map<string, RawAttachment[]>> {
   const byMessageId = new Map<string, RawAttachment[]>();
 
-  const { data: attRows, error: attErr } = await supabase
+  let attachmentQuery = supabase
     .from("email_attachments")
-    .select("message_id, attachment_id, filename, mime_type, size_bytes")
+    .select(
+      "id, message_id, attachment_id, filename, mime_type, detected_mime_type, size_bytes"
+    )
     .eq("company_id", companyId)
     .eq("connection_id", connectionId)
     .eq("provider_thread_id", providerThreadId);
+  attachmentQuery = opportunityId
+    ? attachmentQuery
+        .eq("opportunity_id", opportunityId)
+        .eq("attribution_status", "attributed")
+    : attachmentQuery.is("opportunity_id", null);
+  const { data: attRows, error: attErr } = await attachmentQuery;
   if (attErr) {
     console.error(
       "[conversation-state] email_attachments load failed:",
@@ -386,52 +394,67 @@ async function loadThreadAttachments(
     return byMessageId;
   }
   const rows = (attRows ?? []) as Array<{
+    id: string;
     message_id: string;
     attachment_id: string;
     filename: string | null;
     mime_type: string | null;
+    detected_mime_type: string | null;
     size_bytes: number | null;
   }>;
   if (rows.length === 0) return byMessageId;
 
-  // Cached inspections for the same thread, keyed by (message_id, attachment_id).
-  const { data: inspRows } = await supabase
-    .from("attachment_inspections")
-    .select(
-      "message_id, attachment_id, summary, is_signed_estimate, facts, model"
-    )
-    .eq("company_id", companyId)
-    .eq("provider_thread_id", providerThreadId);
-  const inspectionByKey = new Map<string, AttachmentInspection>();
-  for (const r of (inspRows ?? []) as Array<{
-    message_id: string;
-    attachment_id: string;
+  // Cached inspections are queried only for this thread's immutable canonical
+  // ids. Chunking stays below PostgREST URL limits while avoiding an unbounded
+  // mailbox-wide read that could omit this thread under a server row cap.
+  const inspRows: Array<{
+    email_attachment_id: string | null;
     summary: string | null;
     is_signed_estimate: boolean | null;
     facts: Record<string, unknown> | null;
     model: string | null;
-  }>) {
-    inspectionByKey.set(
-      attachmentInspectionKey(r.message_id, r.attachment_id),
-      {
-        summary: r.summary ?? "",
-        isSignedEstimate: r.is_signed_estimate === true,
-        facts: r.facts ?? {},
-        model: r.model ?? "",
-      }
-    );
+  }> = [];
+  const canonicalIds = rows.map((row) => row.id);
+  const inspectionChunkSize = 80;
+  for (
+    let start = 0;
+    start < canonicalIds.length;
+    start += inspectionChunkSize
+  ) {
+    const ids = canonicalIds.slice(start, start + inspectionChunkSize);
+    const { data, error } = await supabase
+      .from("attachment_inspections")
+      .select("email_attachment_id, summary, is_signed_estimate, facts, model")
+      .eq("company_id", companyId)
+      .eq("connection_id", connectionId)
+      .in("email_attachment_id", ids);
+    if (error) {
+      console.error(
+        "[conversation-state] attachment_inspections load failed:",
+        error.message
+      );
+      continue;
+    }
+    inspRows.push(...((data ?? []) as typeof inspRows));
+  }
+  const inspectionByKey = new Map<string, AttachmentInspection>();
+  for (const r of inspRows) {
+    if (!r.email_attachment_id) continue;
+    inspectionByKey.set(r.email_attachment_id, {
+      summary: r.summary ?? "",
+      isSignedEstimate: r.is_signed_estimate === true,
+      facts: r.facts ?? {},
+      model: r.model ?? "",
+    });
   }
 
   for (const row of rows) {
     const list = byMessageId.get(row.message_id) ?? [];
     list.push({
       filename: row.filename?.trim() || row.attachment_id,
-      mimeType: row.mime_type ?? "",
+      mimeType: row.detected_mime_type ?? row.mime_type ?? "",
       sizeBytes: typeof row.size_bytes === "number" ? row.size_bytes : 0,
-      inspection:
-        inspectionByKey.get(
-          attachmentInspectionKey(row.message_id, row.attachment_id)
-        ) ?? null,
+      inspection: inspectionByKey.get(row.id) ?? null,
     });
     byMessageId.set(row.message_id, list);
   }
@@ -541,7 +564,8 @@ export async function buildConversationState(
     supabase,
     t.company_id,
     t.connection_id,
-    t.provider_thread_id
+    t.provider_thread_id,
+    t.opportunity_id
   );
 
   // 5. Map to the pure core's RawThreadMessage shape.

@@ -10,7 +10,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { InvoiceService, type FetchInvoicesOptions } from "../api/services";
+import { InvoiceService, type FetchInvoicesOptions } from "../api/services/invoice-service";
 import type { CreateInvoice, CreateLineItem, CreatePayment } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 import { usePermissionStore } from "../store/permissions-store";

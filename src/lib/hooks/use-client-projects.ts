@@ -2,7 +2,7 @@
 
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { ProjectService } from "../api/services";
+import { ProjectService } from "../api/services/project-service";
 import type { Project } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
 

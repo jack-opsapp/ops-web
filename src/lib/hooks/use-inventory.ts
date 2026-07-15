@@ -11,7 +11,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { InventoryService } from "../api/services";
+import { InventoryService } from "../api/services/inventory-service";
 import { useAuthStore } from "../store/auth-store";
 import type {
   CreateInventoryItem,

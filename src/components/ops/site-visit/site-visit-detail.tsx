@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils/cn";
 import { useSiteVisit, useStartSiteVisit, useCompleteSiteVisit, useCancelSiteVisit } from "@/lib/hooks/use-site-visits";
 import { useTeamMembers } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { uploadImage } from "@/lib/api/services";
+import { uploadImage } from "@/lib/api/services/image-service";
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 

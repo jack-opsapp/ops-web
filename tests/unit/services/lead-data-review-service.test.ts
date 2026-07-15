@@ -32,6 +32,7 @@ interface TableSpec {
 
 function makeFake(tables: Record<string, TableSpec>) {
   const updates: Array<{ table: string; payload: Row; filters: Row }> = [];
+  const rpcCalls: Array<{ name: string; args: Row }> = [];
 
   function from(table: string) {
     const all = tables[table]?.rows ?? [];
@@ -43,7 +44,11 @@ function makeFake(tables: Record<string, TableSpec>) {
 
     const resolve = () => {
       if (pendingUpdate) {
-        updates.push({ table, payload: pendingUpdate, filters: { ...filters } });
+        updates.push({
+          table,
+          payload: pendingUpdate,
+          filters: { ...filters },
+        });
         // mutate the underlying rows so re-reads see the change (idempotency).
         for (const r of filtered) Object.assign(r, pendingUpdate);
         return { data: filtered, error: null, count: filtered.length };
@@ -81,7 +86,8 @@ function makeFake(tables: Record<string, TableSpec>) {
       like: (col: string, pattern: string) => {
         const prefix = pattern.replace(/%$/, "");
         filtered = filtered.filter(
-          (r) => typeof r[col] === "string" && (r[col] as string).startsWith(prefix)
+          (r) =>
+            typeof r[col] === "string" && (r[col] as string).startsWith(prefix)
         );
         return builder;
       },
@@ -95,13 +101,26 @@ function makeFake(tables: Record<string, TableSpec>) {
         const out = resolve();
         return { data: (out.data as Row[])?.[0] ?? null, error: out.error };
       },
-      then: (cb: (v: { data: unknown; error: null; count: number }) => unknown) =>
-        Promise.resolve(resolve()).then(cb),
+      then: (
+        cb: (v: { data: unknown; error: null; count: number }) => unknown
+      ) => Promise.resolve(resolve()).then(cb),
     });
     return builder;
   }
 
-  return { client: { from }, updates };
+  async function rpc(name: string, args: Row) {
+    rpcCalls.push({ name, args });
+    return {
+      data: {
+        provider_thread_id: args.p_provider_thread_id,
+        target_opportunity_id: args.p_target_opportunity_id,
+        activities_repointed: args.p_kind === "terminal_live" ? 0 : 1,
+      },
+      error: null,
+    };
+  }
+
+  return { client: { from, rpc }, updates, rpcCalls };
 }
 
 const C_TAN = "client-tan";
@@ -118,31 +137,101 @@ describe("getQueue — classification", () => {
       activities: {
         rows: [
           // split thread T-split: two live same-client owners
-          { id: "a1", type: "email", email_thread_id: "T-split", opportunity_id: OPP_LIVE, created_at: "2026-05-20T00:00:00Z", subject: "Deck quote" },
-          { id: "a2", type: "email", email_thread_id: "T-split", opportunity_id: OPP_SHELL, created_at: "2026-05-21T00:00:00Z", subject: "Deck quote" },
+          {
+            id: "a1",
+            type: "email",
+            email_thread_id: "T-split",
+            opportunity_id: OPP_LIVE,
+            created_at: "2026-05-20T00:00:00Z",
+            subject: "Deck quote",
+          },
+          {
+            id: "a2",
+            type: "email",
+            email_thread_id: "T-split",
+            opportunity_id: OPP_SHELL,
+            created_at: "2026-05-21T00:00:00Z",
+            subject: "Deck quote",
+          },
           // single-owner thread → NOT a split (excluded)
-          { id: "a3", type: "email", email_thread_id: "T-single", opportunity_id: OPP_LIVE, created_at: "2026-05-10T00:00:00Z", subject: "x" },
+          {
+            id: "a3",
+            type: "email",
+            email_thread_id: "T-single",
+            opportunity_id: OPP_LIVE,
+            created_at: "2026-05-10T00:00:00Z",
+            subject: "x",
+          },
           // already-quarantined legacy thread → excluded from actionable, counted in quarantined
-          { id: "a4", type: "email", email_thread_id: "legacy:dead", opportunity_id: OPP_LIVE, created_at: "2026-01-01T00:00:00Z", subject: "x" },
-          { id: "a5", type: "email", email_thread_id: "legacy:dead2", opportunity_id: null, created_at: "2026-01-01T00:00:00Z", subject: "x" },
+          {
+            id: "a4",
+            type: "email",
+            email_thread_id: "legacy:dead",
+            opportunity_id: OPP_LIVE,
+            created_at: "2026-01-01T00:00:00Z",
+            subject: "x",
+          },
+          {
+            id: "a5",
+            type: "email",
+            email_thread_id: "legacy:dead2",
+            opportunity_id: null,
+            created_at: "2026-01-01T00:00:00Z",
+            subject: "x",
+          },
         ],
       },
       opportunities: {
         rows: [
-          { id: OPP_LIVE, title: "Deck — Smith", stage: "quoting", archived_at: null, deleted_at: null, client_id: C_TAN, clients: { name: "Smith" } },
-          { id: OPP_SHELL, title: "Deck — Smith (dupe)", stage: "follow_up", archived_at: null, deleted_at: null, client_id: C_TAN, clients: { name: "Smith" } },
-          { id: OPP_TERMINAL, title: "Patio — Jones", stage: "won", archived_at: null, deleted_at: null, client_id: "client-jones", clients: { name: "Jones" } },
+          {
+            id: OPP_LIVE,
+            title: "Deck — Smith",
+            stage: "quoting",
+            archived_at: null,
+            deleted_at: null,
+            client_id: C_TAN,
+            clients: { name: "Smith" },
+          },
+          {
+            id: OPP_SHELL,
+            title: "Deck — Smith (dupe)",
+            stage: "follow_up",
+            archived_at: null,
+            deleted_at: null,
+            client_id: C_TAN,
+            clients: { name: "Smith" },
+          },
+          {
+            id: OPP_TERMINAL,
+            title: "Patio — Jones",
+            stage: "won",
+            archived_at: null,
+            deleted_at: null,
+            client_id: "client-jones",
+            clients: { name: "Jones" },
+          },
         ],
       },
       email_threads: {
         rows: [
           // NULL-canonical pointing at a terminal+live opp → terminal/live item
-          { id: "et-1", provider_thread_id: "T-term", connection_id: "conn-1", opportunity_id: null, subject: "Patio thread", created_at: "2026-05-01T00:00:00Z" },
+          {
+            id: "et-1",
+            provider_thread_id: "T-term",
+            connection_id: "conn-1",
+            opportunity_id: null,
+            subject: "Patio thread",
+            created_at: "2026-05-01T00:00:00Z",
+          },
         ],
       },
       opportunity_email_threads: {
         rows: [
-          { connection_id: "conn-1", thread_id: "T-term", opportunity_id: OPP_TERMINAL },
+          {
+            connection_id: "conn-1",
+            thread_id: "T-term",
+            opportunity_id: OPP_TERMINAL,
+          },
         ],
       },
     });
@@ -162,7 +251,9 @@ describe("getQueue — classification", () => {
 
     // Passive legacy activities counted, NEVER actionable.
     expect(queue.quarantinedCount).toBe(2);
-    const ids = [...queue.split, ...queue.terminalLive].map((i) => i.providerThreadId);
+    const ids = [...queue.split, ...queue.terminalLive].map(
+      (i) => i.providerThreadId
+    );
     expect(ids).not.toContain("legacy:dead");
     expect(ids).not.toContain("T-single");
   });
@@ -171,8 +262,26 @@ describe("getQueue — classification", () => {
 describe("linkThread — guarded re-point", () => {
   function actsTwoOwners() {
     return [
-      { id: "a1", type: "email", email_thread_id: "T-split", opportunity_id: OPP_LIVE, created_at: "2026-05-20T00:00:00Z", subject: "x" },
-      { id: "a2", type: "email", email_thread_id: "T-split", opportunity_id: OPP_SHELL, created_at: "2026-05-21T00:00:00Z", subject: "x" },
+      {
+        id: "a1",
+        company_id: "company-1",
+        email_connection_id: "conn-1",
+        type: "email",
+        email_thread_id: "T-split",
+        opportunity_id: OPP_LIVE,
+        created_at: "2026-05-20T00:00:00Z",
+        subject: "x",
+      },
+      {
+        id: "a2",
+        company_id: "company-1",
+        email_connection_id: "conn-1",
+        type: "email",
+        email_thread_id: "T-split",
+        opportunity_id: OPP_SHELL,
+        created_at: "2026-05-21T00:00:00Z",
+        subject: "x",
+      },
     ];
   }
 
@@ -181,20 +290,57 @@ describe("linkThread — guarded re-point", () => {
       activities: { rows: actsTwoOwners() },
       opportunities: {
         rows: [
-          { id: OPP_LIVE, title: "Live", stage: "quoting", archived_at: null, deleted_at: null, client_id: C_TAN, clients: { name: "Smith" } },
-          { id: OPP_SHELL, title: "Shell", stage: "follow_up", archived_at: null, deleted_at: null, client_id: C_TAN, clients: { name: "Smith" } },
+          {
+            id: OPP_LIVE,
+            company_id: "company-1",
+            title: "Live",
+            stage: "quoting",
+            archived_at: null,
+            deleted_at: null,
+            client_id: C_TAN,
+            clients: { name: "Smith" },
+          },
+          {
+            id: OPP_SHELL,
+            company_id: "company-1",
+            title: "Shell",
+            stage: "follow_up",
+            archived_at: null,
+            deleted_at: null,
+            client_id: C_TAN,
+            clients: { name: "Smith" },
+          },
         ],
       },
-      email_threads: { rows: [] },
+      email_threads: {
+        rows: [
+          {
+            id: "et-1",
+            company_id: "company-1",
+            connection_id: "conn-1",
+            provider_thread_id: "T-split",
+            opportunity_id: OPP_SHELL,
+          },
+        ],
+      },
     });
     requireSupabaseMock.mockReturnValue(fake.client);
 
     const res = await LeadDataReviewService.linkThread("T-split", OPP_LIVE);
     expect(res.activitiesRepointed).toBe(1); // only a2 (a1 already on target)
-    const actUpdate = fake.updates.find(
-      (u) => u.table === "activities" && u.payload.opportunity_id === OPP_LIVE
-    );
-    expect(actUpdate).toBeTruthy();
+    expect(fake.updates).toHaveLength(0);
+    expect(fake.rpcCalls).toEqual([
+      {
+        name: "reassign_opportunity_email_thread_guarded",
+        args: {
+          p_company_id: "company-1",
+          p_connection_id: "conn-1",
+          p_provider_thread_id: "T-split",
+          p_target_opportunity_id: OPP_LIVE,
+          p_kind: "split",
+        },
+      },
+    ]);
   });
 
   it("REFUSES a target that is not an owner of the thread", async () => {
@@ -202,8 +348,24 @@ describe("linkThread — guarded re-point", () => {
       activities: { rows: actsTwoOwners() },
       opportunities: {
         rows: [
-          { id: OPP_LIVE, title: "Live", stage: "quoting", archived_at: null, deleted_at: null, client_id: C_TAN, clients: { name: "Smith" } },
-          { id: OPP_SHELL, title: "Shell", stage: "follow_up", archived_at: null, deleted_at: null, client_id: C_TAN, clients: { name: "Smith" } },
+          {
+            id: OPP_LIVE,
+            title: "Live",
+            stage: "quoting",
+            archived_at: null,
+            deleted_at: null,
+            client_id: C_TAN,
+            clients: { name: "Smith" },
+          },
+          {
+            id: OPP_SHELL,
+            title: "Shell",
+            stage: "follow_up",
+            archived_at: null,
+            deleted_at: null,
+            client_id: C_TAN,
+            clients: { name: "Smith" },
+          },
         ],
       },
       email_threads: { rows: [] },
@@ -221,12 +383,29 @@ describe("linkThread — guarded re-point", () => {
       activities: { rows: [] },
       opportunities: {
         rows: [
-          { id: OPP_TERMINAL, title: "Patio — Jones", stage: "won", archived_at: null, deleted_at: null, client_id: "client-jones", clients: { name: "Jones" } },
+          {
+            id: OPP_TERMINAL,
+            company_id: "company-1",
+            title: "Patio — Jones",
+            stage: "won",
+            archived_at: null,
+            deleted_at: null,
+            client_id: "client-jones",
+            clients: { name: "Jones" },
+          },
         ],
       },
       email_threads: {
         rows: [
-          { id: "et-1", provider_thread_id: "T-term", connection_id: "conn-1", opportunity_id: null, subject: "Patio thread", created_at: "2026-05-01T00:00:00Z" },
+          {
+            id: "et-1",
+            company_id: "company-1",
+            provider_thread_id: "T-term",
+            connection_id: "conn-1",
+            opportunity_id: null,
+            subject: "Patio thread",
+            created_at: "2026-05-01T00:00:00Z",
+          },
         ],
       },
     });
@@ -239,10 +418,71 @@ describe("linkThread — guarded re-point", () => {
     );
     expect(res.activitiesRepointed).toBe(0);
     expect(res.targetTitle).toBe("Patio — Jones");
-    // The only write is to email_threads.opportunity_id — the cache align.
-    expect(fake.updates).toHaveLength(1);
-    expect(fake.updates[0].table).toBe("email_threads");
-    expect(fake.updates[0].payload.opportunity_id).toBe(OPP_TERMINAL);
+    expect(fake.updates).toHaveLength(0);
+    expect(fake.rpcCalls[0]).toEqual({
+      name: "reassign_opportunity_email_thread_guarded",
+      args: {
+        p_company_id: "company-1",
+        p_connection_id: "conn-1",
+        p_provider_thread_id: "T-term",
+        p_target_opportunity_id: OPP_TERMINAL,
+        p_kind: "terminal_live",
+      },
+    });
+  });
+
+  it("REFUSES a provider thread that is ambiguous across mailbox connections", async () => {
+    const fake = makeFake({
+      activities: { rows: actsTwoOwners() },
+      opportunities: {
+        rows: [
+          {
+            id: OPP_LIVE,
+            company_id: "company-1",
+            title: "Live",
+            stage: "quoting",
+            archived_at: null,
+            deleted_at: null,
+            client_id: C_TAN,
+            clients: { name: "Smith" },
+          },
+          {
+            id: OPP_SHELL,
+            company_id: "company-1",
+            title: "Shell",
+            stage: "follow_up",
+            archived_at: null,
+            deleted_at: null,
+            client_id: C_TAN,
+            clients: { name: "Smith" },
+          },
+        ],
+      },
+      email_threads: {
+        rows: [
+          {
+            id: "et-1",
+            company_id: "company-1",
+            connection_id: "conn-1",
+            provider_thread_id: "T-split",
+            opportunity_id: OPP_LIVE,
+          },
+          {
+            id: "et-2",
+            company_id: "company-1",
+            connection_id: "conn-2",
+            provider_thread_id: "T-split",
+            opportunity_id: OPP_SHELL,
+          },
+        ],
+      },
+    });
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await expect(
+      LeadDataReviewService.linkThread("T-split", OPP_LIVE)
+    ).rejects.toThrow(/more than one mailbox/i);
+    expect(fake.rpcCalls).toHaveLength(0);
   });
 
   it("terminal_live: REFUSES aligning the cache to an archived/deleted target", async () => {
@@ -250,12 +490,27 @@ describe("linkThread — guarded re-point", () => {
       activities: { rows: [] },
       opportunities: {
         rows: [
-          { id: OPP_TERMINAL, title: "Hidden", stage: "won", archived_at: "2026-01-01T00:00:00Z", deleted_at: null, client_id: "client-jones", clients: { name: "Jones" } },
+          {
+            id: OPP_TERMINAL,
+            title: "Hidden",
+            stage: "won",
+            archived_at: "2026-01-01T00:00:00Z",
+            deleted_at: null,
+            client_id: "client-jones",
+            clients: { name: "Jones" },
+          },
         ],
       },
       email_threads: {
         rows: [
-          { id: "et-1", provider_thread_id: "T-term", connection_id: "conn-1", opportunity_id: null, subject: "Patio", created_at: "2026-05-01T00:00:00Z" },
+          {
+            id: "et-1",
+            provider_thread_id: "T-term",
+            connection_id: "conn-1",
+            opportunity_id: null,
+            subject: "Patio",
+            created_at: "2026-05-01T00:00:00Z",
+          },
         ],
       },
     });
@@ -270,14 +525,44 @@ describe("linkThread — guarded re-point", () => {
     const fake = makeFake({
       activities: {
         rows: [
-          { id: "a1", type: "email", email_thread_id: "T-split", opportunity_id: OPP_LIVE, created_at: "2026-05-20T00:00:00Z", subject: "x" },
-          { id: "a2", type: "email", email_thread_id: "T-split", opportunity_id: OPP_OTHER_CLIENT, created_at: "2026-05-21T00:00:00Z", subject: "x" },
+          {
+            id: "a1",
+            type: "email",
+            email_thread_id: "T-split",
+            opportunity_id: OPP_LIVE,
+            created_at: "2026-05-20T00:00:00Z",
+            subject: "x",
+          },
+          {
+            id: "a2",
+            type: "email",
+            email_thread_id: "T-split",
+            opportunity_id: OPP_OTHER_CLIENT,
+            created_at: "2026-05-21T00:00:00Z",
+            subject: "x",
+          },
         ],
       },
       opportunities: {
         rows: [
-          { id: OPP_LIVE, title: "Live", stage: "quoting", archived_at: null, deleted_at: null, client_id: C_TAN, clients: { name: "Smith" } },
-          { id: OPP_OTHER_CLIENT, title: "Other", stage: "quoting", archived_at: null, deleted_at: null, client_id: "client-other", clients: { name: "Other" } },
+          {
+            id: OPP_LIVE,
+            title: "Live",
+            stage: "quoting",
+            archived_at: null,
+            deleted_at: null,
+            client_id: C_TAN,
+            clients: { name: "Smith" },
+          },
+          {
+            id: OPP_OTHER_CLIENT,
+            title: "Other",
+            stage: "quoting",
+            archived_at: null,
+            deleted_at: null,
+            client_id: "client-other",
+            clients: { name: "Other" },
+          },
         ],
       },
       email_threads: { rows: [] },
@@ -294,8 +579,22 @@ describe("quarantineThread", () => {
     const fake = makeFake({
       activities: {
         rows: [
-          { id: "a1", type: "email", email_thread_id: "T-split", opportunity_id: OPP_LIVE, created_at: "2026-05-20T00:00:00Z", subject: "Deck quote" },
-          { id: "a2", type: "email", email_thread_id: "T-split", opportunity_id: OPP_SHELL, created_at: "2026-05-21T00:00:00Z", subject: "Deck quote" },
+          {
+            id: "a1",
+            type: "email",
+            email_thread_id: "T-split",
+            opportunity_id: OPP_LIVE,
+            created_at: "2026-05-20T00:00:00Z",
+            subject: "Deck quote",
+          },
+          {
+            id: "a2",
+            type: "email",
+            email_thread_id: "T-split",
+            opportunity_id: OPP_SHELL,
+            created_at: "2026-05-21T00:00:00Z",
+            subject: "Deck quote",
+          },
         ],
       },
     });
@@ -311,14 +610,18 @@ describe("quarantineThread", () => {
   });
 
   it("REFUSES re-quarantining an already-legacy thread", async () => {
-    requireSupabaseMock.mockReturnValue(makeFake({ activities: { rows: [] } }).client);
+    requireSupabaseMock.mockReturnValue(
+      makeFake({ activities: { rows: [] } }).client
+    );
     await expect(
       LeadDataReviewService.quarantineThread("legacy:already")
     ).rejects.toThrow(/already quarantined/);
   });
 
   it("split: throws when there are no owning activities", async () => {
-    requireSupabaseMock.mockReturnValue(makeFake({ activities: { rows: [] } }).client);
+    requireSupabaseMock.mockReturnValue(
+      makeFake({ activities: { rows: [] } }).client
+    );
     await expect(
       LeadDataReviewService.quarantineThread("T-empty", "split")
     ).rejects.toThrow(/No activities found/);
@@ -338,11 +641,24 @@ describe("quarantineThread", () => {
 
 describe("write allow-list", () => {
   it("permits only the two allow-listed columns", () => {
-    expect(() => LeadDataReviewService._assertWriteAllowed("activities", "opportunity_id")).not.toThrow();
-    expect(() => LeadDataReviewService._assertWriteAllowed("activities", "email_thread_id")).not.toThrow();
-    expect(() => LeadDataReviewService._assertWriteAllowed("email_threads", "opportunity_id")).not.toThrow();
-    expect(() => LeadDataReviewService._assertWriteAllowed("opportunities", "stage")).toThrow(/allow-list/);
-    expect(() => LeadDataReviewService._assertWriteAllowed("activities", "company_id")).toThrow(/allow-list/);
+    expect(() =>
+      LeadDataReviewService._assertWriteAllowed("activities", "opportunity_id")
+    ).not.toThrow();
+    expect(() =>
+      LeadDataReviewService._assertWriteAllowed("activities", "email_thread_id")
+    ).not.toThrow();
+    expect(() =>
+      LeadDataReviewService._assertWriteAllowed(
+        "email_threads",
+        "opportunity_id"
+      )
+    ).not.toThrow();
+    expect(() =>
+      LeadDataReviewService._assertWriteAllowed("opportunities", "stage")
+    ).toThrow(/allow-list/);
+    expect(() =>
+      LeadDataReviewService._assertWriteAllowed("activities", "company_id")
+    ).toThrow(/allow-list/);
   });
 
   it("builds the legacy marker correctly", () => {

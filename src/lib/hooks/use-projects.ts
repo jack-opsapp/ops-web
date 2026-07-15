@@ -11,7 +11,7 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { ProjectService, type FetchProjectsOptions } from "../api/services";
+import { ProjectService, type FetchProjectsOptions } from "../api/services/project-service";
 import { dispatchProjectAssignment } from "../api/services/notification-dispatch";
 import type { Project, ProjectStatus } from "../types/models";
 import { useAuthStore } from "../store/auth-store";

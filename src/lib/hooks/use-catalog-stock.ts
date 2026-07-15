@@ -13,7 +13,7 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { queryKeys } from "../api/query-client";
-import { CatalogStockService } from "../api/services";
+import { CatalogStockService } from "../api/services/catalog-stock-service";
 import { useAuthStore } from "../store/auth-store";
 import type { CatalogStockRow } from "../types/catalog";
 

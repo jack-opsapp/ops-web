@@ -997,7 +997,7 @@ export const MemoryService = {
           const category = fact.category.trim().toLowerCase();
           const content = fact.content.trim();
           return {
-            evidenceKey: outboundLearningEvidenceKey("fact", [
+            evidenceKey: await outboundLearningEvidenceKey("fact", [
               category,
               content,
             ]),
@@ -1019,33 +1019,35 @@ export const MemoryService = {
     const uniqueFacts = Array.from(
       new Map(facts.map((fact) => [fact.evidenceKey, fact])).values()
     );
-    const edges = extraction.edges
-      .filter(
-        (edge) =>
-          edge.subjectType &&
-          edge.subjectId &&
-          edge.predicate &&
-          edge.objectType &&
-          edge.objectId
-      )
-      .map((edge) => {
-        const identity = [
-          edge.subjectType,
-          edge.subjectId,
-          edge.predicate,
-          edge.objectType,
-          edge.objectId,
-        ].map((part) => part.trim());
-        return {
-          evidenceKey: outboundLearningEvidenceKey("edge", identity),
-          subjectType: edge.subjectType.trim(),
-          subjectId: edge.subjectId.trim(),
-          predicate: edge.predicate.trim(),
-          objectType: edge.objectType.trim(),
-          objectId: edge.objectId.trim(),
-          properties: edge.properties ?? {},
-        };
-      });
+    const edges = await Promise.all(
+      extraction.edges
+        .filter(
+          (edge) =>
+            edge.subjectType &&
+            edge.subjectId &&
+            edge.predicate &&
+            edge.objectType &&
+            edge.objectId
+        )
+        .map(async (edge) => {
+          const identity = [
+            edge.subjectType,
+            edge.subjectId,
+            edge.predicate,
+            edge.objectType,
+            edge.objectId,
+          ].map((part) => part.trim());
+          return {
+            evidenceKey: await outboundLearningEvidenceKey("edge", identity),
+            subjectType: edge.subjectType.trim(),
+            subjectId: edge.subjectId.trim(),
+            predicate: edge.predicate.trim(),
+            objectType: edge.objectType.trim(),
+            objectId: edge.objectId.trim(),
+            properties: edge.properties ?? {},
+          };
+        })
+    );
 
     return {
       facts: uniqueFacts,

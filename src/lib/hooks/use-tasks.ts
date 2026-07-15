@@ -13,10 +13,10 @@ import {
 import { queryKeys } from "../api/query-client";
 import {
   TaskService,
-  InventoryDeductionService,
   type FetchTasksOptions,
   type CreateTaskWithEventData,
-} from "../api/services";
+} from "../api/services/task-service";
+import { InventoryDeductionService } from "../api/services/inventory-deduction-service";
 import {
   dispatchTaskAssignment,
   dispatchTaskCompleted,

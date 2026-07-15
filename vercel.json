@@ -19,10 +19,19 @@
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://opsapp.co https://www.opsapp.co" },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self' https://opsapp.co https://www.opsapp.co"
+        },
         { "key": "X-XSS-Protection", "value": "1; mode=block" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        }
       ]
     }
   ],
@@ -34,6 +43,10 @@
     {
       "path": "/api/cron/email-ingest-heartbeat",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/email-attachment-worker",
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/webhook-renewal",

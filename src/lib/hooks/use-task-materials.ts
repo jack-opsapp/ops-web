@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { TaskMaterialsService } from "../api/services";
+import { TaskMaterialsService } from "../api/services/task-materials-service";
 import type { CreateTaskMaterial } from "../types/product-materials";
 
 export function useTaskMaterials(taskId: string | undefined) {

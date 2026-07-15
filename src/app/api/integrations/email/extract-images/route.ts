@@ -1,64 +1,51 @@
 /**
- * OPS Web - Post-Import Image Extraction
+ * OPS Web - Legacy Attachment Extraction Compatibility Endpoint
  *
  * POST /api/integrations/email/extract-images
- * Body: {
- *   jobId: string,
- *   connectionId: string,
- *   companyId: string,
- *   oppThreadPayload: Array<{
- *     opportunityId: string,
- *     threadIds: string[],
- *     allowedSenders: string[],  // Only grab images from client + sub-contact emails
- *   }>,
- * }
  *
- * Runs in the background via after(); pulls image attachments from email
- * threads and uploads them to the OPS storage backend (S3 by default;
- * Supabase under STORAGE_BACKEND=supabase for rollback). Split from the
- * main import route because the attachment fetch+upload cycle can easily
- * exceed the import route's 300s maxDuration budget, leaving import jobs
- * stuck in 'importing' status indefinitely. This route has its own 800s
- * budget (Vercel Pro max) and writes back to gmail_scan_jobs.result.
- * imagesExtracted when finished.
- *
- * Phase 1 storage migration:
- *   - Default backend is `s3`. Keys are company-scoped:
- *     `email-imports/{companyId}/{opportunityId}/{ts}-{rand}.{ext}` —
- *     differs from the legacy Supabase path (which omitted companyId)
- *     so a future tenant audit can attribute every byte to a company.
- *   - Setting STORAGE_BACKEND=supabase falls back to the legacy
- *     Supabase Storage code path (same key shape it used before).
- *   - 94% of historical Supabase Storage bytes flowed through this
- *     route, so the cutover here is the largest single behavior change
- *     of the migration.
- *
- * Uses runWithSupabase (not setSupabaseOverride) so the service-role client
- * binding survives the entire async extraction chain without being clobbered
- * by concurrent request handlers.
+ * Older import workers may still call this endpoint with an opportunity and
+ * provider-thread payload. Attachment bytes now flow exclusively through the
+ * durable, exact-message queue. This compatibility route translates legacy
+ * payloads into missing scan rows without reading provider bytes, exposing
+ * files publicly, or replacing an opportunity's image list.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { after } from "next/server";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { runWithSupabase } from "@/lib/supabase/helpers";
-import { EmailService } from "@/lib/api/services/email-service";
-import {
-  getS3Client,
-  S3_BUCKET,
-  buildPublicS3Url,
-  getStorageBackend,
-} from "@/lib/s3/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
 
-export const maxDuration = 800; // Pro plan max
+import { EmailService } from "@/lib/api/services/email-service";
+import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
+import { runWithSupabase } from "@/lib/supabase/helpers";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
+
+export const maxDuration = 800;
 
 interface OppThreadEntry {
-  opportunityId: string;
-  threadIds: string[];
-  allowedSenders: string[];
+  opportunityId?: string;
+  threadIds?: string[];
+  // Retained in the request shape for callers from before the durable queue.
+  // Canonical attribution is resolved from the exact activity instead.
+  allowedSenders?: string[];
+}
+
+interface ExactActivityRow {
+  id: unknown;
+  company_id: unknown;
+  email_connection_id: unknown;
+  email_thread_id: unknown;
+  email_message_id: unknown;
+}
+
+interface AttachmentScanInsert {
+  company_id: string;
+  connection_id: string;
+  activity_id: string;
+  provider_thread_id: string;
+  message_id: string;
+  status: "pending";
+}
+
+function cleanString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 export async function POST(request: NextRequest) {
@@ -111,195 +98,92 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
-  // Fire-and-forget. The import route dispatches this route and returns;
-  // extraction runs in the background with its own 800s budget and writes
-  // imagesExtracted back to the existing gmail_scan_jobs row on completion.
-  after(async () => {
-    const bgSupabase = getServiceRoleClient();
-    await runWithSupabase(bgSupabase, async () => {
-      try {
-        await runExtraction(
-          jobId,
-          companyId,
-          connection,
-          oppThreadPayload,
-          bgSupabase
-        );
-      } catch (err) {
-        console.error("[extract-images] Extraction failed:", err);
-      }
-    });
-  });
-
-  return NextResponse.json({ ok: true });
-}
-
-// ─── Background extraction logic ────────────────────────────────────────────
-
-async function runExtraction(
-  jobId: string,
-  companyId: string,
-  connection: NonNullable<
-    Awaited<ReturnType<typeof EmailService.getConnection>>
-  >,
-  oppThreadPayload: OppThreadEntry[],
-  supabase: SupabaseClient
-) {
-  const provider = EmailService.getProvider(connection);
-
-  const MAX_IMAGES_PER_LEAD = 10;
-  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB (matches bucket / IAM cap)
-  const IMAGE_CONCURRENCY = 3;
-
-  const backend = getStorageBackend();
-  let totalExtracted = 0;
+  const scanByActivityId = new Map<string, AttachmentScanInsert>();
 
   for (const entry of oppThreadPayload) {
-    const { opportunityId, threadIds, allowedSenders } = entry;
-    const allowedSenderSet = new Set(
-      allowedSenders.map((s) => s.toLowerCase().trim())
+    const opportunityId = cleanString(entry?.opportunityId);
+    const providerThreadIds = Array.from(
+      new Set(
+        (Array.isArray(entry?.threadIds) ? entry.threadIds : [])
+          .map(cleanString)
+          .filter(Boolean)
+      )
     );
+    if (!opportunityId || providerThreadIds.length === 0) continue;
 
-    try {
-      // Collect image attachment metadata from all threads
-      const allImageMeta: Array<{
-        messageId: string;
-        attachmentId: string;
-        filename: string;
-        mimeType: string;
-        size: number;
-        fromEmail: string;
-      }> = [];
+    const { data: activities, error: activitiesError } = await supabase
+      .from("activities")
+      .select(
+        "id, company_id, email_connection_id, email_thread_id, email_message_id"
+      )
+      .eq("company_id", companyId)
+      .eq("email_connection_id", connectionId)
+      .eq("opportunity_id", opportunityId)
+      .eq("type", "email")
+      .in("email_thread_id", providerThreadIds);
 
-      for (const tid of threadIds) {
-        try {
-          const images = await provider.getImageAttachmentsFromThread(tid);
-          allImageMeta.push(...images);
-        } catch (err) {
-          console.warn(
-            `[extract-images] Failed to scan thread ${tid} for images:`,
-            err
-          );
-        }
-      }
-
-      // Only keep images sent BY the client or their sub-contacts — not our own outbound
-      const clientImages = allImageMeta.filter((img) =>
-        allowedSenderSet.has((img.fromEmail || "").toLowerCase().trim())
+    if (activitiesError) {
+      console.error(
+        "[extract-images] Failed to resolve exact email activities:",
+        activitiesError.message
       );
-
-      if (clientImages.length === 0) continue;
-
-      // Deduplicate by attachmentId and enforce per-lead cap + size limit
-      const seen = new Set<string>();
-      const uniqueImages = clientImages
-        .filter((img) => {
-          if (seen.has(img.attachmentId)) return false;
-          if (img.size > MAX_IMAGE_SIZE) return false;
-          seen.add(img.attachmentId);
-          return true;
-        })
-        .slice(0, MAX_IMAGES_PER_LEAD);
-
-      console.log(
-        `[extract-images] Opportunity ${opportunityId}: found ${uniqueImages.length} images across ${threadIds.length} threads`
+      return NextResponse.json(
+        { error: "Failed to queue attachment scans" },
+        { status: 500 }
       );
+    }
 
-      // Download + upload in batches
-      const imageUrls: string[] = [];
+    for (const rawActivity of activities ?? []) {
+      const activity = rawActivity as ExactActivityRow;
+      const activityId = cleanString(activity.id);
+      const providerThreadId = cleanString(activity.email_thread_id);
+      const messageId = cleanString(activity.email_message_id);
 
-      for (let i = 0; i < uniqueImages.length; i += IMAGE_CONCURRENCY) {
-        const batch = uniqueImages.slice(i, i + IMAGE_CONCURRENCY);
-        const results = await Promise.allSettled(
-          batch.map(async (img) => {
-            const buffer = await provider.fetchAttachment(
-              img.messageId,
-              img.attachmentId
-            );
-            const ext =
-              (img.filename.split(".").pop()?.toLowerCase() || "jpg")
-                .replace(/[^a-z0-9]/g, "")
-                .slice(0, 12) || "jpg";
-            const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-            if (backend === "s3") {
-              const key = `email-imports/${companyId}/${opportunityId}/${unique}.${ext}`;
-              await getS3Client().send(
-                new PutObjectCommand({
-                  Bucket: S3_BUCKET,
-                  Key: key,
-                  Body: buffer,
-                  ContentType: img.mimeType,
-                })
-              );
-              return buildPublicS3Url(key);
-            }
-
-            // Legacy Supabase path — preserved verbatim for STORAGE_BACKEND=supabase rollback.
-            const storagePath = `email-imports/${opportunityId}/${unique}.${ext}`;
-            const { error: uploadErr } = await supabase.storage
-              .from("images")
-              .upload(storagePath, buffer, {
-                contentType: img.mimeType,
-                upsert: false,
-              });
-            if (uploadErr)
-              throw new Error(`Upload failed: ${uploadErr.message}`);
-            const { data: urlData } = supabase.storage
-              .from("images")
-              .getPublicUrl(storagePath);
-            return urlData.publicUrl;
-          })
-        );
-
-        for (const r of results) {
-          if (r.status === "fulfilled") {
-            imageUrls.push(r.value);
-            totalExtracted++;
-          } else {
-            console.warn(`[extract-images] Image upload failed:`, r.reason);
-          }
-        }
+      // Query filters are repeated here as a fail-closed boundary in case a
+      // mocked or future data adapter returns rows outside the requested scope.
+      if (
+        !activityId ||
+        !messageId ||
+        !providerThreadIds.includes(providerThreadId) ||
+        activity.company_id !== companyId ||
+        activity.email_connection_id !== connectionId
+      ) {
+        continue;
       }
 
-      // Store image URLs on the opportunity
-      if (imageUrls.length > 0) {
-        await supabase
-          .from("opportunities")
-          .update({ images: imageUrls })
-          .eq("id", opportunityId);
-      }
-    } catch (err) {
-      console.warn(
-        `[extract-images] Image extraction failed for opportunity ${opportunityId}:`,
-        err
+      scanByActivityId.set(activityId, {
+        company_id: companyId,
+        connection_id: connectionId,
+        activity_id: activityId,
+        provider_thread_id: providerThreadId,
+        message_id: messageId,
+        status: "pending",
+      });
+    }
+  }
+
+  const scanCandidates = Array.from(scanByActivityId.values());
+  if (scanCandidates.length > 0) {
+    // Do not reset a completed or in-flight scan. The activity trigger already
+    // owns normal enqueueing; this insert only fills gaps from legacy callers.
+    const { error: scanError } = await supabase
+      .from("email_attachment_scans")
+      .upsert(scanCandidates, {
+        onConflict: "activity_id",
+        ignoreDuplicates: true,
+      });
+
+    if (scanError) {
+      console.error(
+        "[extract-images] Failed to enqueue attachment scans:",
+        scanError.message
+      );
+      return NextResponse.json(
+        { error: "Failed to queue attachment scans" },
+        { status: 500 }
       );
     }
   }
 
-  console.log(
-    `[extract-images] Complete: ${totalExtracted} images uploaded across ${oppThreadPayload.length} opportunities (backend=${backend})`
-  );
-
-  // Merge imagesExtracted into the existing gmail_scan_jobs.result payload.
-  // The import route already wrote import_complete earlier; this is an
-  // incremental update to surface the final photo count.
-  const { data: job } = await supabase
-    .from("gmail_scan_jobs")
-    .select("result")
-    .eq("id", jobId)
-    .single();
-
-  if (job?.result) {
-    const existingResult = job.result as Record<string, unknown>;
-    await supabase
-      .from("gmail_scan_jobs")
-      .update({
-        result: {
-          ...existingResult,
-          imagesExtracted: totalExtracted,
-        },
-      })
-      .eq("id", jobId);
-  }
+  return NextResponse.json({ ok: true, scanCandidates: scanCandidates.length });
 }

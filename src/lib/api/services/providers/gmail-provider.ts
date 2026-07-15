@@ -10,7 +10,9 @@ import type { EmailConnection } from "@/lib/types/email-connection";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { htmlToPlainText, stripQuotedHtml } from "@/lib/utils/email-parsing";
 import {
+  DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES,
   ProviderApiError,
+  ProviderAttachmentTooLargeError,
   ProviderAuthError,
   ProviderScopeError,
   SyncTokenExpiredError,
@@ -26,9 +28,22 @@ import {
   type SyncResult,
   type WebhookSubscription,
 } from "../email-provider";
+import { readBoundedResponseBytes } from "./bounded-response";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 const NON_DELIVERY_MESSAGE_LABELS = new Set(["DRAFT", "SPAM", "TRASH"]);
+const MAX_GMAIL_MESSAGE_JSON_BYTES = 80 * 1024 * 1024;
+const GMAIL_ATTACHMENT_JSON_OVERHEAD_BYTES = 64 * 1024;
+const MAX_GMAIL_ATTACHMENTS_PER_MESSAGE = 500;
+const MAX_GMAIL_ATTACHMENT_REQUEST_MS = 30_000;
+
+function attachmentRequestSignal(): AbortSignal {
+  return AbortSignal.timeout(MAX_GMAIL_ATTACHMENT_REQUEST_MS);
+}
+
+interface GmailAttachmentCollectionBudget {
+  truncated: boolean;
+}
 
 /**
  * Inspect a Gmail API error response and throw a typed error. Used by sync
@@ -91,6 +106,7 @@ function throwForGmailError(
 export class GmailProvider implements EmailProviderInterface {
   readonly providerType = "gmail" as const;
   private connection: EmailConnection;
+  private readonly inlinePartData = new Map<string, string>();
 
   constructor(connection: EmailConnection) {
     this.connection = connection;
@@ -736,87 +752,208 @@ export class GmailProvider implements EmailProviderInterface {
   }
 
   /**
-   * Scan a thread's messages for ALL attachments (images + PDFs + everything
-   * else). Inline image parts under 5KB are still suppressed — they are
-   * almost always signature/decoration artifacts and would clutter the FILES
-   * tab the same way they clutter the photo extractor.
+   * Scan a thread's messages for every attachment (images + PDFs + everything
+   * else), including small and filename-less inline parts. The durable path
+   * preserves source bytes first; downstream presentation can classify
+   * signature decoration without risking loss of a real customer photo.
    */
   async getAttachmentsFromThread(
     threadId: string
   ): Promise<EmailAttachmentMeta[]> {
-    const res = await this.gmailFetch(`/threads/${threadId}?format=full`);
-    const data = await res.json();
+    const res = await this.gmailFetch(`/threads/${threadId}?format=full`, {
+      signal: attachmentRequestSignal(),
+    });
+    const data = await this.readGmailJson<{
+      messages?: Array<Record<string, unknown>>;
+    }>(res, `threads.get attachments (${threadId})`);
     const out: EmailAttachmentMeta[] = [];
 
-    for (const msg of data.messages || []) {
-      const msgId = msg.id as string;
-      const headers = (msg.payload?.headers || []) as Array<{
-        name: string;
-        value: string;
-      }>;
-      const fromHeader =
-        headers.find((h: { name: string }) => h.name.toLowerCase() === "from")
-          ?.value || "";
-      const emailMatch = fromHeader.match(/<([^>]+)>/) || [null, fromHeader];
-      const fromEmail = (emailMatch[1] || fromHeader).toLowerCase().trim();
-
-      // Gmail returns internalDate as a string of ms-since-epoch on each
-      // message. Use it directly — the per-message Date header is less
-      // reliable (some senders ship it in the future / past).
-      const internalDateMs = Number(msg.internalDate);
-      const date = Number.isFinite(internalDateMs)
-        ? new Date(internalDateMs)
-        : new Date();
-
-      this.collectAttachmentParts(msg.payload, msgId, fromEmail, date, out);
+    for (const msg of data.messages ?? []) {
+      const labels = (msg.labelIds as string[] | undefined) ?? [];
+      if (
+        labels.some((label) =>
+          NON_DELIVERY_MESSAGE_LABELS.has(label.toUpperCase())
+        )
+      ) {
+        continue;
+      }
+      this.collectMessageAttachments(msg, out);
     }
 
     return out;
   }
 
+  async getAttachmentsFromMessage(
+    messageId: string
+  ): Promise<EmailAttachmentMeta[]> {
+    const res = await this.gmailFetch(
+      `/messages/${encodeURIComponent(messageId)}?format=full`,
+      { signal: attachmentRequestSignal() }
+    );
+    const message = await this.readGmailJsonBounded<Record<string, unknown>>(
+      res,
+      `messages.get attachments (${messageId})`,
+      MAX_GMAIL_MESSAGE_JSON_BYTES
+    );
+    if (message.id !== messageId) {
+      throw new ProviderApiError(
+        `Gmail messages.get attachments (${messageId}): response did not contain the requested message`,
+        res.status,
+        message
+      );
+    }
+    const out: EmailAttachmentMeta[] = [];
+    this.collectMessageAttachments(message, out, true);
+    return out;
+  }
+
+  private collectMessageAttachments(
+    msg: Record<string, unknown>,
+    out: EmailAttachmentMeta[],
+    cacheInlineData = false
+  ): void {
+    const msgId = msg.id as string;
+    const payload = msg.payload as Record<string, unknown> | undefined;
+    const headers = (payload?.headers || []) as Array<{
+      name: string;
+      value: string;
+    }>;
+    const fromHeader =
+      headers.find((h: { name: string }) => h.name.toLowerCase() === "from")
+        ?.value || "";
+    const emailMatch = fromHeader.match(/<([^>]+)>/) || [null, fromHeader];
+    const fromEmail = (emailMatch[1] || fromHeader).toLowerCase().trim();
+
+    // Gmail returns internalDate as a string of ms-since-epoch on each
+    // message. Use it directly — the per-message Date header is less
+    // reliable (some senders ship it in the future / past).
+    const internalDateMs = Number(msg.internalDate);
+    const date = Number.isFinite(internalDateMs)
+      ? new Date(internalDateMs)
+      : new Date();
+
+    const messageAttachments: EmailAttachmentMeta[] = [];
+    const budget: GmailAttachmentCollectionBudget = { truncated: false };
+    this.collectAttachmentParts(
+      payload,
+      msgId,
+      fromEmail,
+      date,
+      messageAttachments,
+      cacheInlineData,
+      budget
+    );
+    out.push(...messageAttachments);
+    if (budget.truncated) {
+      out.push({
+        messageId: msgId,
+        attachmentId: "ops-enumeration-budget",
+        filename: "Additional email files require review",
+        mimeType: "application/octet-stream",
+        size: 0,
+        fromEmail,
+        date,
+        providerKind: "reference",
+        providerPartId: null,
+        contentId: null,
+        isInline: false,
+        downloadSupported: false,
+        sourceUrl: null,
+      });
+    }
+  }
+
   /**
    * Recursively walk a Gmail message payload and collect every part that
-   * looks like a downloadable attachment. Inline images below 5KB are
-   * dropped — see `getAttachmentsFromThread` for rationale.
+   * is a real downloadable MIME part. Normal text/HTML body parts can also use
+   * attachmentId when Gmail stores a large body separately, so they require a
+   * filename, content id, or attachment disposition before being classified.
    */
   private collectAttachmentParts(
     payload: Record<string, unknown> | undefined,
     messageId: string,
     fromEmail: string,
     date: Date,
-    out: EmailAttachmentMeta[]
+    out: EmailAttachmentMeta[],
+    cacheInlineData = false,
+    budget: GmailAttachmentCollectionBudget = { truncated: false }
   ): void {
-    if (!payload) return;
+    if (!payload || budget.truncated) return;
 
     const mimeType = ((payload.mimeType as string) || "").toLowerCase();
     const filename = (payload.filename as string) || "";
     const body = payload.body as
-      | { attachmentId?: string; size?: number }
+      | { attachmentId?: string; data?: string; size?: number }
       | undefined;
+    const partId = (payload.partId as string) || null;
+    const headers = (payload.headers ?? []) as Array<{
+      name?: string;
+      value?: string;
+    }>;
+    const header = (name: string) =>
+      headers.find((item) => item.name?.toLowerCase() === name)?.value ?? "";
+    const disposition = header("content-disposition").toLowerCase();
+    const contentId = header("content-id").replace(/^<|>$/g, "").trim() || null;
+    const isTextBody = mimeType === "text/plain" || mimeType === "text/html";
+    const hasPartData = Boolean(body?.data && partId);
+    const hasAttachmentEvidence = Boolean(
+      filename || contentId || /\b(?:inline|attachment)\b/.test(disposition)
+    );
+    const isAttachmentPart = Boolean(
+      (body?.attachmentId || hasPartData) &&
+      (!isTextBody || hasAttachmentEvidence)
+    );
 
-    if (body?.attachmentId && filename) {
-      const size = body.size || 0;
-      const isImage = GmailProvider.IMAGE_MIMES.has(mimeType);
-      // Drop tiny inline images only — every other attachment (PDFs, CSVs,
-      // Word docs, etc.) passes through regardless of size.
-      const passesSignatureGuard = !isImage || size > 5000;
-      if (passesSignatureGuard) {
-        out.push({
-          messageId,
-          attachmentId: body.attachmentId,
-          filename,
-          mimeType,
-          size,
-          fromEmail,
-          date,
-        });
+    if (isAttachmentPart) {
+      if (out.length >= MAX_GMAIL_ATTACHMENTS_PER_MESSAGE) {
+        budget.truncated = true;
+        return;
+      }
+      const size = body?.size || 0;
+      const isInline =
+        /\binline\b/.test(disposition) ||
+        Boolean(contentId) ||
+        (hasPartData && !/\battachment\b/.test(disposition));
+      const fallbackExtension = this.extensionForMime(mimeType);
+      const resolvedFilename =
+        filename ||
+        `${isInline ? "inline-photo" : "attachment"}-${partId || "part"}${fallbackExtension ? `.${fallbackExtension}` : ""}`;
+      out.push({
+        messageId,
+        attachmentId: body?.attachmentId || `inline:${partId}`,
+        filename: resolvedFilename,
+        mimeType: mimeType || "application/octet-stream",
+        size,
+        fromEmail,
+        date,
+        providerKind: isInline ? "inline" : "file",
+        providerPartId: partId,
+        contentId,
+        isInline,
+        downloadSupported: true,
+        sourceUrl: null,
+      });
+      if (cacheInlineData && body?.data && partId) {
+        this.inlinePartData.set(
+          this.inlinePartKey(messageId, partId),
+          body.data
+        );
       }
     }
 
     const parts = payload.parts as Array<Record<string, unknown>> | undefined;
     if (parts) {
       for (const part of parts) {
-        this.collectAttachmentParts(part, messageId, fromEmail, date, out);
+        this.collectAttachmentParts(
+          part,
+          messageId,
+          fromEmail,
+          date,
+          out,
+          cacheInlineData,
+          budget
+        );
+        if (budget.truncated) break;
       }
     }
   }
@@ -827,15 +964,152 @@ export class GmailProvider implements EmailProviderInterface {
    */
   async fetchAttachment(
     messageId: string,
-    attachmentId: string
+    attachmentId: string,
+    maxBytes = DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES
   ): Promise<Buffer> {
+    if (attachmentId.startsWith("inline:")) {
+      const partId = attachmentId.slice("inline:".length);
+      if (!partId) {
+        throw new ProviderApiError(
+          "Gmail inline attachment is missing partId",
+          400
+        );
+      }
+      const cacheKey = this.inlinePartKey(messageId, partId);
+      const cached = this.inlinePartData.get(cacheKey);
+      if (cached) {
+        this.inlinePartData.delete(cacheKey);
+        return this.decodeAttachmentData(cached, maxBytes, cacheKey);
+      }
+      const res = await this.gmailFetch(
+        `/messages/${encodeURIComponent(messageId)}?format=full`,
+        { signal: attachmentRequestSignal() }
+      );
+      const message = await this.readGmailJsonBounded<Record<string, unknown>>(
+        res,
+        `messages.get inline attachment (${messageId}:${partId})`,
+        MAX_GMAIL_MESSAGE_JSON_BYTES
+      );
+      const data = this.findInlinePartData(
+        message.payload as Record<string, unknown> | undefined,
+        partId
+      );
+      if (!data) {
+        throw new ProviderApiError(
+          `Gmail inline attachment part ${partId} was not present on message ${messageId}`,
+          404
+        );
+      }
+      return this.decodeAttachmentData(data, maxBytes, cacheKey);
+    }
+
     const res = await this.gmailFetch(
-      `/messages/${messageId}/attachments/${attachmentId}`
+      `/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
+      { signal: attachmentRequestSignal() }
     );
-    const data = await res.json();
+    const data = await this.readGmailAttachmentJson(
+      res,
+      `attachments.get (${messageId}:${attachmentId})`,
+      maxBytes
+    );
     // Gmail returns base64url-encoded data
-    const base64Data = (data.data as string) || "";
-    return Buffer.from(base64Data, "base64url");
+    const base64Data = data.data || "";
+    if (!base64Data) {
+      throw new ProviderApiError(
+        `Gmail attachments.get (${messageId}:${attachmentId}) returned no bytes`,
+        502,
+        data
+      );
+    }
+    return this.decodeAttachmentData(
+      base64Data,
+      maxBytes,
+      `${messageId}:${attachmentId}`
+    );
+  }
+
+  private inlinePartKey(messageId: string, partId: string): string {
+    return `${messageId}\u0000${partId}`;
+  }
+
+  private decodeAttachmentData(
+    data: string,
+    maxBytes: number,
+    context: string
+  ): Buffer {
+    const estimatedSize = Math.floor((data.length * 3) / 4);
+    if (estimatedSize > maxBytes + 2) {
+      throw new ProviderAttachmentTooLargeError(
+        `Gmail attachment ${context} exceeds the ${maxBytes} byte limit`,
+        estimatedSize
+      );
+    }
+
+    const bytes = Buffer.from(data, "base64url");
+    if (bytes.byteLength > maxBytes) {
+      throw new ProviderAttachmentTooLargeError(
+        `Gmail attachment ${context} exceeds the ${maxBytes} byte limit`,
+        bytes.byteLength
+      );
+    }
+    return bytes;
+  }
+
+  private async readGmailAttachmentJson(
+    response: Response,
+    context: string,
+    maxBytes: number
+  ): Promise<{ data?: string }> {
+    if (!response.ok) {
+      return this.readGmailJson<{ data?: string }>(response, context);
+    }
+    const encodedLimit =
+      Math.ceil((maxBytes * 4) / 3) + GMAIL_ATTACHMENT_JSON_OVERHEAD_BYTES;
+    try {
+      return await this.readGmailJsonBounded<{ data?: string }>(
+        response,
+        context,
+        encodedLimit
+      );
+    } catch (error) {
+      if (error instanceof ProviderAttachmentTooLargeError) {
+        throw new ProviderAttachmentTooLargeError(
+          `Gmail attachment response exceeds the ${maxBytes} byte limit`
+        );
+      }
+      throw error;
+    }
+  }
+
+  private findInlinePartData(
+    payload: Record<string, unknown> | undefined,
+    partId: string
+  ): string | null {
+    if (!payload) return null;
+    const body = payload.body as { data?: string } | undefined;
+    if (payload.partId === partId && body?.data) return body.data;
+    for (const part of (payload.parts as
+      | Array<Record<string, unknown>>
+      | undefined) ?? []) {
+      const found = this.findInlinePartData(part, partId);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private extensionForMime(mimeType: string): string {
+    const extensions: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "image/heic": "heic",
+      "image/heif": "heif",
+      "image/bmp": "bmp",
+      "image/tiff": "tiff",
+      "application/pdf": "pdf",
+    };
+    return extensions[mimeType.toLowerCase()] ?? "";
   }
 
   async getProfile(): Promise<{ email: string; name: string }> {
@@ -976,6 +1250,32 @@ export class GmailProvider implements EmailProviderInterface {
     }
 
     return body as T;
+  }
+
+  private async readGmailJsonBounded<T>(
+    response: Response,
+    context: string,
+    maxResponseBytes: number,
+    requiredScope?: string
+  ): Promise<T> {
+    if (!response.ok) {
+      return this.readGmailJson<T>(response, context, requiredScope);
+    }
+
+    const raw = await readBoundedResponseBytes(
+      response,
+      maxResponseBytes,
+      `Gmail ${context} response`
+    );
+    try {
+      return JSON.parse(raw.toString("utf8")) as T;
+    } catch (error) {
+      throw new ProviderApiError(
+        `Gmail ${context}: response was not valid JSON`,
+        response.status,
+        { parseError: error instanceof Error ? error.message : String(error) }
+      );
+    }
   }
 
   private async fetchMessagesByIds(
@@ -1156,9 +1456,39 @@ export class GmailProvider implements EmailProviderInterface {
   private hasAttachments(
     payload: Record<string, unknown> | undefined
   ): boolean {
-    const parts = payload?.parts as Array<{ filename?: string }> | undefined;
-    if (!parts) return false;
-    return parts.some((p) => p.filename && p.filename.length > 0);
+    if (!payload) return false;
+    const mimeType = ((payload.mimeType as string) || "").toLowerCase();
+    const filename = ((payload.filename as string) || "").trim();
+    const partId = (payload.partId as string) || "";
+    const body = payload.body as
+      | { attachmentId?: string; data?: string }
+      | undefined;
+    const headers = (payload.headers ?? []) as Array<{
+      name?: string;
+      value?: string;
+    }>;
+    const hasAttachmentEvidence = Boolean(
+      filename ||
+      headers.some((item) => {
+        const name = item.name?.toLowerCase();
+        const value = item.value?.toLowerCase() ?? "";
+        return (
+          (name === "content-disposition" &&
+            /\b(?:inline|attachment)\b/.test(value)) ||
+          (name === "content-id" && Boolean(value))
+        );
+      })
+    );
+    const hasRetrievablePart = Boolean(
+      body?.attachmentId || (body?.data && partId)
+    );
+    const isTextBody = mimeType === "text/plain" || mimeType === "text/html";
+    if (hasRetrievablePart && (!isTextBody || hasAttachmentEvidence)) {
+      return true;
+    }
+    return (
+      (payload.parts as Array<Record<string, unknown>> | undefined) ?? []
+    ).some((part) => this.hasAttachments(part));
   }
 
   private buildRawEmail(

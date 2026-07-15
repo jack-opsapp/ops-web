@@ -2,20 +2,23 @@ import { describe, expect, it } from "vitest";
 import { outboundLearningEvidenceKey } from "@/lib/email/outbound-learning-evidence";
 
 describe("outboundLearningEvidenceKey", () => {
-  it("normalizes insignificant whitespace and casing", () => {
+  it("normalizes insignificant whitespace and casing", async () => {
     expect(
-      outboundLearningEvidenceKey("fact", ["Timeline", "Start Monday"])
+      await outboundLearningEvidenceKey("fact", ["Timeline", "Start Monday"])
     ).toBe(
-      outboundLearningEvidenceKey("fact", [" timeline ", "START   MONDAY"])
+      await outboundLearningEvidenceKey("fact", [
+        " timeline ",
+        "START   MONDAY",
+      ])
     );
   });
 
-  it("keeps long values index-safe without collapsing distinct suffixes", () => {
+  it("keeps long values index-safe without collapsing distinct suffixes", async () => {
     const shared = "cedar scope ".repeat(500);
-    const first = outboundLearningEvidenceKey("draft-correction", [
+    const first = await outboundLearningEvidenceKey("draft-correction", [
       `${shared}option a`,
     ]);
-    const second = outboundLearningEvidenceKey("draft-correction", [
+    const second = await outboundLearningEvidenceKey("draft-correction", [
       `${shared}option b`,
     ]);
 

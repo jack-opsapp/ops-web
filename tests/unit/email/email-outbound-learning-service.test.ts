@@ -494,12 +494,14 @@ describe("EmailOutboundLearningService", () => {
 
   it("prepares operator-approved drafts for durable edit learning without sampling the AI-authored body", async () => {
     const correctionEmbedding = [0.25, 0.75];
-    const cedarEvidenceKey = outboundLearningEvidenceKey("draft-correction", [
-      "Use cedar decking.",
-    ]);
-    const budgetEvidenceKey = outboundLearningEvidenceKey("draft-correction", [
-      "Budget is $12,000.",
-    ]);
+    const cedarEvidenceKey = await outboundLearningEvidenceKey(
+      "draft-correction",
+      ["Use cedar decking."]
+    );
+    const budgetEvidenceKey = await outboundLearningEvidenceKey(
+      "draft-correction",
+      ["Budget is $12,000."]
+    );
     const draftOutcome: OutboundDraftOutcome = {
       ...DRAFT_OUTCOME,
       edited: true,
@@ -736,7 +738,7 @@ describe("EmailOutboundLearningService", () => {
 
   it("preserves generation-one base extraction when draft provenance arrives later", async () => {
     const correction = "Use cedar decking.";
-    const correctionEvidenceKey = outboundLearningEvidenceKey(
+    const correctionEvidenceKey = await outboundLearningEvidenceKey(
       "draft-correction",
       [correction]
     );

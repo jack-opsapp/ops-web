@@ -67,6 +67,18 @@ vi.mock("@/lib/api/services/email-outbound-learning-service", () => ({
   },
 }));
 
+vi.mock("@/lib/email/email-signature-runtime", () => ({
+  resolveEmailSignatureForMessage: vi.fn(async () => ({
+    recordId: "signature-1",
+    source: "ops",
+    scope: "mailbox",
+    html: "<div>Jackson<br>Canpro</div>",
+    text: "Jackson\nCanpro",
+    hash: "a".repeat(64),
+    providerIdentity: null,
+  })),
+}));
+
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { POST } from "@/app/api/integrations/email/send/route";
 

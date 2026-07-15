@@ -1786,15 +1786,16 @@ function buildMessageAttachmentMap(
 ): Map<string, BubbleAttachment[]> {
   const map = new Map<string, BubbleAttachment[]>();
   for (const att of attachments) {
-    if (isImageAttachment(att)) continue;
+    if (isRenderableImageAttachment(att)) continue;
     const rows = map.get(att.messageId) ?? [];
     const row: BubbleAttachment = {
       id: att.id,
       filename: att.filename,
       size: formatAttachmentSize(att.size),
     };
-    if (att.url) {
-      row.onClick = () => onOpenAttachment(att.url);
+    const attachmentUrl = att.url;
+    if (attachmentUrl) {
+      row.onClick = () => onOpenAttachment(attachmentUrl);
     }
     rows.push(row);
     map.set(att.messageId, rows);
@@ -1806,9 +1807,9 @@ function buildInlinePhotoEntries(
   messages: InboxThreadMessage[],
   attachments: ThreadAttachmentDto[]
 ): InlinePhotoEntry[] {
-  const photosByMessageId = new Map<string, ThreadAttachmentDto[]>();
+  const photosByMessageId = new Map<string, RenderableImageAttachment[]>();
   for (const att of attachments) {
-    if (!isImageAttachment(att)) continue;
+    if (!isRenderableImageAttachment(att)) continue;
     const photos = photosByMessageId.get(att.messageId) ?? [];
     photos.push(att);
     photosByMessageId.set(att.messageId, photos);
@@ -1842,8 +1843,19 @@ function buildInlinePhotoEntries(
   });
 }
 
-function isImageAttachment(att: ThreadAttachmentDto): boolean {
-  return att.mimeType.toLowerCase().startsWith("image/");
+type RenderableImageAttachment = ThreadAttachmentDto & {
+  availability: "stored";
+  url: string;
+};
+
+function isRenderableImageAttachment(
+  att: ThreadAttachmentDto
+): att is RenderableImageAttachment {
+  return (
+    att.availability === "stored" &&
+    Boolean(att.url) &&
+    att.mimeType.toLowerCase().startsWith("image/")
+  );
 }
 
 function formatAttachmentSize(size: number): string {

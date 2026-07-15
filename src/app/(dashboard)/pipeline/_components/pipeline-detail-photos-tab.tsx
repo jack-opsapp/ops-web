@@ -28,7 +28,7 @@ import {
   useAddOpportunityImages,
   useRemoveOpportunityImage,
 } from "@/lib/hooks";
-import { uploadLeadPhotos } from "@/lib/api/services";
+import { uploadLeadPhotos } from "@/lib/api/services/lead-photo-upload";
 
 // ── Utilities ──
 

@@ -73,6 +73,23 @@ export class ProviderApiError extends Error {
   }
 }
 
+/**
+ * Provider metadata understated or omitted an attachment size and the raw
+ * response crossed the caller's hard byte ceiling. Providers must throw this
+ * while streaming, before the full object is buffered in worker memory.
+ */
+export class ProviderAttachmentTooLargeError extends Error {
+  readonly code = "provider_attachment_too_large" as const;
+
+  constructor(
+    message: string,
+    public readonly observedSizeBytes: number | null = null
+  ) {
+    super(message);
+    this.name = "ProviderAttachmentTooLargeError";
+  }
+}
+
 // ─── Normalized Types ────────────────────────────────────────────────────────
 
 export interface NormalizedEmail {
@@ -136,6 +153,8 @@ export interface ProviderEmailSignatureResult {
 
 // ─── Attachment Types ────────────────────────────────────────────────────────
 
+export const DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES = 25 * 1024 * 1024;
+
 export interface ImageAttachmentMeta {
   messageId: string;
   attachmentId: string;
@@ -160,6 +179,19 @@ export interface EmailAttachmentMeta {
   fromEmail: string;
   /** Send/receive time of the message that owns this attachment. */
   date: Date;
+  /** Provider-native attachment class. Reference attachments are links whose
+   * raw bytes are not available through Microsoft Graph. */
+  providerKind: "file" | "inline" | "item" | "reference";
+  /** Immutable MIME part identity when the provider exposes one (Gmail). */
+  providerPartId: string | null;
+  /** CID without surrounding angle brackets, for inline HTML references. */
+  contentId: string | null;
+  isInline: boolean;
+  /** False only when the provider cannot return raw bytes. */
+  downloadSupported: boolean;
+  /** Provider-owned external link for reference attachments. Never treated as
+   * an OPS storage URL. */
+  sourceUrl: string | null;
 }
 
 // ─── Draft Types ─────────────────────────────────────────────────────────────
@@ -262,17 +294,28 @@ export interface EmailProviderInterface {
     threadId: string
   ): Promise<ImageAttachmentMeta[]>;
   /**
-   * Like `getImageAttachmentsFromThread` but returns ALL attachments on the
-   * thread (images + PDFs + every other MIME type). Inline images below the
-   * 5KB heuristic (signature decorations) are still skipped — they are noise
-   * regardless of where they're displayed.
+   * Like `getImageAttachmentsFromThread` but returns every provider attachment
+   * on the thread (images + PDFs + every other MIME type). Durable ingestion
+   * must not discard small or filename-less inline parts because real customer
+   * photos can be represented that way; presentation can classify decoration
+   * later without losing the source bytes.
    *
    * Returned items carry the parent message's date so the inbox FILES tab
    * can sort newest-first and render the "MMM DD" stamp without a follow-up
    * thread fetch.
    */
   getAttachmentsFromThread(threadId: string): Promise<EmailAttachmentMeta[]>;
-  fetchAttachment(messageId: string, attachmentId: string): Promise<Buffer>;
+  /** Enumerate one exact provider message. This is the durable ingestion seam:
+   * queue jobs are keyed to a message/activity, never a thread alone. */
+  getAttachmentsFromMessage(
+    messageId: string,
+    context?: { fromEmail?: string; date?: Date }
+  ): Promise<EmailAttachmentMeta[]>;
+  fetchAttachment(
+    messageId: string,
+    attachmentId: string,
+    maxBytes?: number
+  ): Promise<Buffer>;
 
   // Labels/categories
   createLabel(name: string): Promise<string>;

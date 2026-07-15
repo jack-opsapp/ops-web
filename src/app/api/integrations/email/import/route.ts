@@ -35,14 +35,10 @@ import {
   OpportunityStage,
   OpportunitySource,
 } from "@/lib/types/pipeline";
-import { getAppUrl } from "@/lib/utils/app-url";
 import { extractEmailAddress } from "@/lib/utils/email-parsing";
 import type { ImportPayload, ImportResult } from "@/lib/types/email-import";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  emailPipelineAuthorizationHeaders,
-  requireEmailCompanyAccess,
-} from "@/lib/email/email-route-auth";
+import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 
 export const maxDuration = 300;
@@ -374,12 +370,6 @@ async function runImport(
 
   // Track merge groups: mergeWithLeadId → primary lead's clientId
   const mergeMap = new Map<string, string>();
-  // Track lead.id → opportunityId for post-import image extraction
-  const oppMap = new Map<string, string>();
-  // Track lead.id → normalized provider thread id. Import activities are
-  // synthetic, but thread/link/image extraction still require real thread ids.
-  const threadIdMap = new Map<string, string>();
-
   // Sort leads so merge targets (primary leads) appear before dependents.
   // Leads without mergeWithLeadId come first, followed by leads that merge into others.
   const sortedLeads = [...leads].sort((a, b) => {
@@ -452,7 +442,6 @@ async function runImport(
         providerThreadId,
         isMessageScopedForm,
       });
-      threadIdMap.set(lead.id, providerThreadId);
       const enrichmentFacts = leadEnrichmentFactsFromImport({
         contactName: lead.clientName,
         contactEmail: lead.clientEmail,
@@ -944,9 +933,6 @@ async function runImport(
         }
       }
 
-      // Track opportunity for post-import image extraction
-      if (opportunityId) oppMap.set(lead.id, opportunityId);
-
       // Preserve the logical ingestion identity independently of the raw
       // provider thread. Fill only so later correspondence cannot replace the
       // opportunity's original source key.
@@ -1228,6 +1214,31 @@ async function runImport(
             result.activitiesLogged++;
           }
 
+          // The database trigger owns normal attachment enqueueing. This
+          // conflict-safe insert also covers imports running during a rolling
+          // deploy without resetting a completed or in-flight scan.
+          const { error: attachmentScanError } = await supabase
+            .from("email_attachment_scans")
+            .upsert(
+              {
+                company_id: companyId,
+                connection_id: connectionId,
+                activity_id: activityId,
+                provider_thread_id: message.providerThreadId,
+                message_id: message.providerMessageId,
+                status: "pending",
+              },
+              {
+                onConflict: "activity_id",
+                ignoreDuplicates: true,
+              }
+            );
+          if (attachmentScanError) {
+            throw new Error(
+              `Failed to queue imported message attachments: ${attachmentScanError.message}`
+            );
+          }
+
           await OpportunityLifecycleService.recordCorrespondenceEvent({
             supabase,
             companyId,
@@ -1364,63 +1375,10 @@ async function runImport(
     `[email-import] Complete: ${result.clientsCreated} clients, ${result.leadsCreated} leads, ${result.activitiesLogged} activities, ${result.labelsApplied} labels`
   );
 
-  // ─── Serialize image-extraction payload ────────────────────────────────────
-  // Image extraction is moved to a separate route (/api/integrations/email/
-  // extract-images) because the fetch+upload cycle for many attachments can
-  // easily exceed this route's 300s maxDuration, leaving jobs stuck in
-  // 'importing' forever. We build the opportunity → {threadIds, allowedSenders}
-  // map here, serialize it, mark the job complete, then dispatch the
-  // extraction in a background after() callback.
-  const oppThreadMap = new Map<
-    string,
-    {
-      opportunityId: string;
-      threadIds: string[];
-      allowedSenders: Set<string>;
-    }
-  >();
-  for (const lead of leads) {
-    const oppId = oppMap.get(lead.id);
-    if (!oppId) continue;
-    const existing = oppThreadMap.get(oppId);
-    const threadIds = lead.mergeWithLeadId
-      ? lead.mergeWithLeadId.split(",").filter(Boolean)
-      : [threadIdMap.get(lead.id) ?? lead.threadId];
-
-    const senderEmails = new Set<string>();
-    if (lead.clientEmail)
-      senderEmails.add(lead.clientEmail.toLowerCase().trim());
-    if (lead.subContacts) {
-      for (const sc of lead.subContacts) {
-        if (sc.email) senderEmails.add(sc.email.toLowerCase().trim());
-      }
-    }
-
-    if (existing) {
-      for (const tid of threadIds) {
-        if (!existing.threadIds.includes(tid)) existing.threadIds.push(tid);
-      }
-      for (const email of senderEmails) existing.allowedSenders.add(email);
-    } else {
-      oppThreadMap.set(oppId, {
-        opportunityId: oppId,
-        threadIds: [...threadIds],
-        allowedSenders: senderEmails,
-      });
-    }
-  }
-
-  const oppThreadPayload = Array.from(oppThreadMap.values()).map((v) => ({
-    opportunityId: v.opportunityId,
-    threadIds: v.threadIds,
-    allowedSenders: Array.from(v.allowedSenders),
-  }));
-
-  // ─── Mark job complete BEFORE image extraction dispatches ──────────────────
+  // ─── Mark job complete ─────────────────────────────────────────────────────
   // The wizard polls analyze-status and advances past step 4 once status flips
-  // to import_complete. Writing the completion here (rather than after image
-  // extraction) ensures the wizard never stalls waiting for attachment work.
-  // imagesExtracted starts at 0 and grows as the background route finishes.
+  // to import_complete. Attachment scans were queued at each exact activity
+  // boundary and continue independently through the durable worker.
   await supabase
     .from("gmail_scan_jobs")
     .update({
@@ -1428,10 +1386,7 @@ async function runImport(
       progress: {
         stage: "import_complete",
         percent: 100,
-        message:
-          oppThreadPayload.length > 0
-            ? "Import complete! Extracting images in background..."
-            : "Import complete!",
+        message: "Import complete",
         totalLeads: leads.length,
         processedLeads: leads.length,
         clientsCreated: result.clientsCreated,
@@ -1486,41 +1441,5 @@ async function runImport(
             notifErr.message
           );
       });
-  }
-
-  // ─── Dispatch image extraction as a separate background route ─────────────
-  // This runs AFTER the job is marked import_complete so the wizard advances
-  // past step 4 regardless of how long extraction takes. The extract-images
-  // route has its own 800s budget (Pro plan max) for the fetch+upload cycle
-  // and writes imagesExtracted back to result on completion.
-  if (oppThreadPayload.length > 0) {
-    after(async () => {
-      try {
-        const res = await fetch(
-          `${getAppUrl()}/api/integrations/email/extract-images`,
-          {
-            method: "POST",
-            headers: emailPipelineAuthorizationHeaders(),
-            body: JSON.stringify({
-              jobId,
-              connectionId,
-              companyId,
-              oppThreadPayload,
-            }),
-          }
-        );
-        if (!res.ok) {
-          const errBody = await res.text().catch(() => "");
-          console.error(
-            `[email-import] extract-images dispatch failed (${res.status}): ${errBody}`
-          );
-        }
-      } catch (err) {
-        console.error(
-          "[email-import] Failed to dispatch image extraction:",
-          err
-        );
-      }
-    });
   }
 }

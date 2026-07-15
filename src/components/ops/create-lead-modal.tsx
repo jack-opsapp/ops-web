@@ -16,7 +16,7 @@ import {
   type AddressSelection,
 } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import { useCreateOpportunity, useClients, useCreateClient } from "@/lib/hooks";
-import { ClientService } from "@/lib/api/services";
+import { ClientService } from "@/lib/api/services/client-service";
 import { OpportunityStage, OpportunitySource, OpportunityPriority } from "@/lib/types/pipeline";
 import { buildLeadTitle } from "@/lib/utils/lead-title";
 import { resolveLeadClientId } from "@/lib/utils/lead-client-matcher";

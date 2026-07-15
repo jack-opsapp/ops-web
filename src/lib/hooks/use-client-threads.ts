@@ -4,8 +4,8 @@
  * useClientThreads — feeds <ThreadPicker> with the OTHER non-archived
  * email_threads tied to the same client as the thread currently open.
  *
- * Server-side guarantees from EmailThreadService.listSiblings (the underlying
- * service method we wrap):
+ * Query guarantees from listEmailThreadSiblings (the underlying service
+ * function we wrap):
  *   - filtered by company_id + client_id
  *   - excludes the current thread (excludingThreadId)
  *   - excludes archived (snoozed are kept on purpose — snooze is deferral,
@@ -19,7 +19,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import { listEmailThreadSiblings } from "@/lib/api/services/email-thread-sibling-service";
 import { useAuthStore, selectCompanyId } from "@/lib/store/auth-store";
 import type { EmailThread } from "@/lib/types/email-thread";
 
@@ -40,7 +40,7 @@ const PICKER_THREAD_LIMIT = 50;
  */
 export function useClientThreads(
   clientId: string | null | undefined,
-  opts: UseClientThreadsOpts,
+  opts: UseClientThreadsOpts
 ) {
   const companyId = useAuthStore(selectCompanyId);
   const excludeId = opts.excludeId;
@@ -57,11 +57,11 @@ export function useClientThreads(
       // but typed-narrowing for the service call below requires the explicit
       // null-check anyway.
       if (!clientId || !companyId || !excludeId) return [];
-      return EmailThreadService.listSiblings(
+      return listEmailThreadSiblings(
         companyId,
         clientId,
         excludeId,
-        PICKER_THREAD_LIMIT,
+        PICKER_THREAD_LIMIT
       );
     },
     enabled: !!clientId && !!companyId && !!excludeId,

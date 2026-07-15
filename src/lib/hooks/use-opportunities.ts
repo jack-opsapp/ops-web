@@ -12,7 +12,7 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { OpportunityService, type FetchOpportunitiesOptions } from "../api/services";
+import { OpportunityService, type FetchOpportunitiesOptions } from "../api/services/opportunity-service";
 // Type-only — erased at build time, so the server-only conversion service is
 // never pulled into the client bundle. The route returns this exact shape.
 import type { ConversionPreflight } from "../api/services/project-conversion-service";

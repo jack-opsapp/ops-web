@@ -19,7 +19,9 @@ import {
 const ISO_MAY_07 = "2026-05-07T12:00:00.000Z";
 const ISO_MAY_06 = "2026-05-06T09:30:00.000Z";
 
-function makeDto(overrides: Partial<ThreadAttachmentDto> = {}): ThreadAttachmentDto {
+function makeDto(
+  overrides: Partial<ThreadAttachmentDto> = {}
+): ThreadAttachmentDto {
   return {
     id: "msg-1:att-1",
     messageId: "msg-1",
@@ -29,6 +31,7 @@ function makeDto(overrides: Partial<ThreadAttachmentDto> = {}): ThreadAttachment
     size: 250_000,
     fromEmail: "client@example.com",
     date: ISO_MAY_07,
+    availability: "stored",
     url: "/api/integrations/email/attachment?companyId=co&messageId=msg-1&attachmentId=att-1&mimeType=image%2Fjpeg",
     ...overrides,
   };
@@ -36,13 +39,19 @@ function makeDto(overrides: Partial<ThreadAttachmentDto> = {}): ThreadAttachment
 
 describe("adaptImageAttachmentToPhoto", () => {
   it("maps the wire row onto the ProjectPhoto shape", () => {
-    const photo = adaptImageAttachmentToPhoto(makeDto(), "thread-uuid", "co-uuid");
+    const photo = adaptImageAttachmentToPhoto(
+      makeDto(),
+      "thread-uuid",
+      "co-uuid"
+    );
     expect(photo).toEqual({
       id: "thread-att:msg-1:att-1",
       projectId: "thread:thread-uuid",
       companyId: "co-uuid",
       url: expect.stringContaining("/api/integrations/email/attachment"),
-      thumbnailUrl: expect.stringContaining("/api/integrations/email/attachment"),
+      thumbnailUrl: expect.stringContaining(
+        "/api/integrations/email/attachment"
+      ),
       source: "other",
       siteVisitId: null,
       uploadedBy: "client@example.com",
@@ -73,21 +82,37 @@ describe("adaptNonImageAttachmentToDocument", () => {
         mimeType: "application/pdf",
         size: 1_400_000,
         date: ISO_MAY_06,
-      }),
+      })
     );
     expect(doc).toEqual({
       id: "email-att:msg-2:att-2",
       filename: "Site-Survey.pdf",
       sourceType: "email_attachment",
       sourceId: "msg-2:att-2",
-      status: null,
-      pdfStoragePath: expect.stringContaining("/api/integrations/email/attachment"),
+      status: "stored",
+      pdfStoragePath: expect.stringContaining(
+        "/api/integrations/email/attachment"
+      ),
       mimeType: "application/pdf",
       sizeBytes: 1_400_000,
       sourceLabel: "email",
       updatedAt: ISO_MAY_06,
       value: null,
     });
+  });
+
+  it("keeps unavailable files visible without inventing a download URL", () => {
+    const doc = adaptNonImageAttachmentToDocument(
+      makeDto({
+        availability: "oversized",
+        url: null,
+        filename: "full-site-scan.mov",
+        mimeType: "video/quicktime",
+      })
+    );
+
+    expect(doc.status).toBe("oversized");
+    expect(doc.pdfStoragePath).toBeNull();
   });
 });
 
@@ -117,7 +142,7 @@ describe("partitionThreadAttachments", () => {
         }),
       ],
       "thread-uuid",
-      "co-uuid",
+      "co-uuid"
     );
     expect(result.threadOnlyPhotos).toHaveLength(2);
     expect(result.documents).toHaveLength(2);
@@ -141,7 +166,7 @@ describe("partitionThreadAttachments", () => {
         makeDto({ id: "older", date: ISO_MAY_06, mimeType: "image/jpeg" }),
       ],
       "t",
-      "c",
+      "c"
     );
     expect(result.threadOnlyPhotos.map((p) => p.id)).toEqual([
       "thread-att:newest",
@@ -155,6 +180,30 @@ describe("partitionThreadAttachments", () => {
     expect(result.documents).toEqual([]);
   });
 
+  it("routes an unavailable image to FILES instead of rendering a broken photo", () => {
+    const result = partitionThreadAttachments(
+      [
+        makeDto({
+          id: "unavailable-image",
+          availability: "unavailable",
+          url: null,
+          mimeType: "image/jpeg",
+          filename: "jobsite.jpg",
+        }),
+      ],
+      "t",
+      "c"
+    );
+
+    expect(result.threadOnlyPhotos).toEqual([]);
+    expect(result.documents).toHaveLength(1);
+    expect(result.documents[0]).toMatchObject({
+      filename: "jobsite.jpg",
+      status: "unavailable",
+      pdfStoragePath: null,
+    });
+  });
+
   it("treats unknown MIME types as documents (defensive default)", () => {
     // Provider-side MIME normalization isn't guaranteed — Gmail returns
     // lowercased types, M365 sometimes ships back-quoted strings. Anything
@@ -165,7 +214,7 @@ describe("partitionThreadAttachments", () => {
         makeDto({ id: "uppercase", mimeType: "IMAGE/JPEG" }),
       ],
       "t",
-      "c",
+      "c"
     );
     expect(result.documents.map((d) => d.id)).toEqual([
       "email-att:weird",

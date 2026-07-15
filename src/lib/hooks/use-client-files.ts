@@ -24,23 +24,18 @@ import {
  *   2. estimates + invoices — `ProjectFileService.listClientDocuments` keyed
  *      off `client_id`. Surfaced under `documents` with `sourceType` of
  *      `"estimate"` or `"invoice"`.
- *   3. provider thread attachments — when `threadId` is passed, the new
- *      `/api/inbox/threads/{id}/attachments` route is consulted. Email
- *      attachments are NOT persisted to Postgres or OPS storage: the sync
- *      engine sets `activities.has_attachments=true` and `attachment_count`
- *      but never fills `attachments`/`attachment_ids` (verified empty on all
- *      46 flagged rows as of 2026-05-12). The provider exposes the live
- *      metadata via `getAttachmentsFromThread()`. Image attachments are
- *      adapted into `ProjectPhoto`-shaped rows and surfaced under
- *      `threadOnlyPhotos`; everything else (PDFs, CSVs, Word docs, etc.) is
- *      adapted into `ProjectDocument`-shaped rows with `sourceType:
- *      "email_attachment"` and merged into `documents`.
+ *   3. durable email thread attachments — when `threadId` is passed,
+ *      `/api/inbox/threads/{id}/attachments` returns canonical exact-message
+ *      metadata. Stored files use permission-checked private OPS copies;
+ *      references and copy failures stay visible with an explicit availability
+ *      state. Only renderable stored images become `ProjectPhoto` rows;
+ *      documents and exception rows become `ProjectDocument` rows.
  */
 export interface ClientFilesResult {
   photos: ProjectPhoto[];
   documents: ProjectDocument[];
   /**
-   * Raw provider attachment rows for the selected thread. The FILES rail
+   * Canonical attachment rows for the selected thread. The FILES rail
    * consumes the adapted photo/document buckets above; C5 uses this canonical
    * messageId-keyed shape to render inline message attachments in context.
    */
@@ -56,7 +51,7 @@ export interface ClientFilesResult {
 }
 
 async function fetchThreadAttachments(
-  threadId: string,
+  threadId: string
 ): Promise<ThreadAttachmentDto[]> {
   // Mirror the auth pattern used by every other inbox hook (Bearer header
   // pulled from the firebase id-token cache). Same-origin cookie auth on
@@ -80,7 +75,7 @@ async function fetchThreadAttachments(
 
 export function useClientFiles(
   clientId: string | null | undefined,
-  threadId?: string | null,
+  threadId?: string | null
 ) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
@@ -97,43 +92,48 @@ export function useClientFiles(
     queryFn: async () => {
       // Three independent fan-outs. None block on the others — even on
       // clients with many projects the photo batch dominates wall time.
-      const [photoBatches, clientDocuments, threadAttachments] = await Promise.all([
-        clientId && projectIds.length > 0
-          ? Promise.all(
-              projectIds.map((id) =>
-                ProjectPhotoService.fetchProjectPhotos(id, companyId).catch(
-                  () => [],
-                ),
-              ),
-            )
-          : Promise.resolve([] as ProjectPhoto[][]),
-        clientId
-          ? ProjectFileService.listClientDocuments(clientId, companyId).catch(
-              () => [] as ProjectDocument[],
-            )
-          : Promise.resolve([] as ProjectDocument[]),
-        threadId
-          ? fetchThreadAttachments(threadId).catch(
-              () => [] as ThreadAttachmentDto[],
-            )
-          : Promise.resolve([] as ThreadAttachmentDto[]),
-      ]);
+      const [photoBatches, clientDocuments, threadAttachments] =
+        await Promise.all([
+          clientId && projectIds.length > 0
+            ? Promise.all(
+                projectIds.map((id) =>
+                  ProjectPhotoService.fetchProjectPhotos(id, companyId).catch(
+                    () => []
+                  )
+                )
+              )
+            : Promise.resolve([] as ProjectPhoto[][]),
+          clientId
+            ? ProjectFileService.listClientDocuments(clientId, companyId).catch(
+                () => [] as ProjectDocument[]
+              )
+            : Promise.resolve([] as ProjectDocument[]),
+          threadId
+            ? fetchThreadAttachments(threadId).catch(
+                () => [] as ThreadAttachmentDto[]
+              )
+            : Promise.resolve([] as ThreadAttachmentDto[]),
+        ]);
 
       const photos = photoBatches.flat();
 
-      // Split thread attachments by MIME type. Anything image/* lights up
-      // the // THIS THREAD bucket in the PHOTOS sub-view; everything else
-      // (PDFs, CSVs, .docx, etc.) joins the documents list as
+      // Split thread attachments by MIME and availability. Stored image/*
+      // lights up the // THIS THREAD bucket in PHOTOS; documents and any file
+      // OPS could not copy join the FILES list with a clear status as
       // `sourceType: "email_attachment"` so FILES can render it alongside
       // any future non-financial project/client docs.
       const { threadOnlyPhotos, documents: threadDocuments } =
-        partitionThreadAttachments(threadAttachments, threadId ?? "", companyId);
+        partitionThreadAttachments(
+          threadAttachments,
+          threadId ?? "",
+          companyId
+        );
 
       // Email-attachment documents go on top of the existing client docs
       // and the merged list re-sorts newest-first so threads with fresh
       // attachments don't get buried under stale invoices.
       const documents = [...clientDocuments, ...threadDocuments].sort((a, b) =>
-        b.updatedAt.localeCompare(a.updatedAt),
+        b.updatedAt.localeCompare(a.updatedAt)
       );
 
       return {
@@ -149,8 +149,6 @@ export function useClientFiles(
     // id (needed for project photo lookups) and on the projects query
     // settling so we don't double-fetch right after the dashboard mounts.
     enabled:
-      !!companyId &&
-      !projectsQuery.isLoading &&
-      (!!clientId || !!threadId),
+      !!companyId && !projectsQuery.isLoading && (!!clientId || !!threadId),
   });
 }

@@ -207,7 +207,7 @@ function pushTask(
   updateMutation: ReturnType<typeof useUpdateTask>
 ) {
   // Fetch current task dates, compute new ones, then mutate.
-  import("@/lib/api/services").then(({ TaskService }) => {
+  import("@/lib/api/services/task-service").then(({ TaskService }) => {
     TaskService.fetchTask(taskId).then((task) => {
       if (!task?.startDate || !task?.endDate) return;
 

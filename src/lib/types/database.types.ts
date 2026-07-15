@@ -1739,6 +1739,66 @@ export type Database = {
           },
         ]
       }
+      attachment_inspections: {
+        Row: {
+          attachment_id: string
+          company_id: string
+          connection_id: string | null
+          email_attachment_id: string | null
+          facts: Json
+          id: string
+          inspected_at: string
+          is_signed_estimate: boolean
+          message_id: string
+          model: string | null
+          provider_thread_id: string | null
+          summary: string | null
+        }
+        Insert: {
+          attachment_id: string
+          company_id: string
+          connection_id?: string | null
+          email_attachment_id?: string | null
+          facts?: Json
+          id?: string
+          inspected_at?: string
+          is_signed_estimate?: boolean
+          message_id: string
+          model?: string | null
+          provider_thread_id?: string | null
+          summary?: string | null
+        }
+        Update: {
+          attachment_id?: string
+          company_id?: string
+          connection_id?: string | null
+          email_attachment_id?: string | null
+          facts?: Json
+          id?: string
+          inspected_at?: string
+          is_signed_estimate?: boolean
+          message_id?: string
+          model?: string | null
+          provider_thread_id?: string | null
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachment_inspections_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_inspections_email_attachment_id_fkey"
+            columns: ["email_attachment_id"]
+            isOneToOne: true
+            referencedRelation: "email_attachments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -4800,6 +4860,277 @@ export type Database = {
             columns: ["audience_template_id"]
             isOneToOne: false
             referencedRelation: "email_audience_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_attachment_inspection_jobs: {
+        Row: {
+          attempts: number
+          available_at: string
+          company_id: string
+          connection_id: string
+          created_at: string
+          email_attachment_id: string
+          generation: number
+          id: string
+          inspected_at: string | null
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          skip_reason: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          available_at?: string
+          company_id: string
+          connection_id: string
+          created_at?: string
+          email_attachment_id: string
+          generation?: number
+          id?: string
+          inspected_at?: string | null
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          skip_reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          available_at?: string
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          email_attachment_id?: string
+          generation?: number
+          id?: string
+          inspected_at?: string | null
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          skip_reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_attachment_inspection_jobs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_attachment_inspection_jobs_email_attachment_id_fkey"
+            columns: ["email_attachment_id"]
+            isOneToOne: true
+            referencedRelation: "email_attachments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_attachment_scans: {
+        Row: {
+          activity_id: string
+          attempts: number
+          available_at: string
+          company_id: string
+          connection_id: string
+          created_at: string
+          exception_notified_at: string | null
+          generation: number
+          id: string
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          message_id: string
+          provider_thread_id: string
+          scanned_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          attempts?: number
+          available_at?: string
+          company_id: string
+          connection_id: string
+          created_at?: string
+          exception_notified_at?: string | null
+          generation?: number
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          message_id: string
+          provider_thread_id: string
+          scanned_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          attempts?: number
+          available_at?: string
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          exception_notified_at?: string | null
+          generation?: number
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          message_id?: string
+          provider_thread_id?: string
+          scanned_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_attachment_scans_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: true
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_attachment_scans_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_attachments: {
+        Row: {
+          activity_id: string | null
+          attachment_id: string
+          attribution_status: string
+          company_id: string
+          connection_id: string
+          content_id: string | null
+          content_sha256: string | null
+          created_at: string
+          detected_mime_type: string | null
+          filename: string | null
+          from_email: string | null
+          id: string
+          ingest_attempts: number
+          ingest_status: string
+          is_inline: boolean
+          last_error: string | null
+          last_seen_at: string
+          message_id: string
+          mime_type: string | null
+          next_retry_at: string | null
+          occurred_at: string | null
+          opportunity_id: string | null
+          provider_kind: string
+          provider_part_id: string | null
+          provider_thread_id: string
+          size_bytes: number | null
+          source_url: string | null
+          storage_backend: string | null
+          storage_path: string | null
+          stored_at: string | null
+          updated_at: string
+          verified_size_bytes: number | null
+        }
+        Insert: {
+          activity_id?: string | null
+          attachment_id: string
+          attribution_status?: string
+          company_id: string
+          connection_id: string
+          content_id?: string | null
+          content_sha256?: string | null
+          created_at?: string
+          detected_mime_type?: string | null
+          filename?: string | null
+          from_email?: string | null
+          id?: string
+          ingest_attempts?: number
+          ingest_status?: string
+          is_inline?: boolean
+          last_error?: string | null
+          last_seen_at?: string
+          message_id: string
+          mime_type?: string | null
+          next_retry_at?: string | null
+          occurred_at?: string | null
+          opportunity_id?: string | null
+          provider_kind?: string
+          provider_part_id?: string | null
+          provider_thread_id: string
+          size_bytes?: number | null
+          source_url?: string | null
+          storage_backend?: string | null
+          storage_path?: string | null
+          stored_at?: string | null
+          updated_at?: string
+          verified_size_bytes?: number | null
+        }
+        Update: {
+          activity_id?: string | null
+          attachment_id?: string
+          attribution_status?: string
+          company_id?: string
+          connection_id?: string
+          content_id?: string | null
+          content_sha256?: string | null
+          created_at?: string
+          detected_mime_type?: string | null
+          filename?: string | null
+          from_email?: string | null
+          id?: string
+          ingest_attempts?: number
+          ingest_status?: string
+          is_inline?: boolean
+          last_error?: string | null
+          last_seen_at?: string
+          message_id?: string
+          mime_type?: string | null
+          next_retry_at?: string | null
+          occurred_at?: string | null
+          opportunity_id?: string | null
+          provider_kind?: string
+          provider_part_id?: string | null
+          provider_thread_id?: string
+          size_bytes?: number | null
+          source_url?: string | null
+          storage_backend?: string | null
+          storage_path?: string | null
+          stored_at?: string | null
+          updated_at?: string
+          verified_size_bytes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_attachments_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_attachments_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_attachments_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
@@ -16128,6 +16459,65 @@ export type Database = {
           user_exists: boolean
         }[]
       }
+      claim_email_attachment_scan: {
+        Args: {
+          p_activity_id: string
+          p_company_id: string
+          p_connection_id: string
+          p_lease_seconds?: number
+          p_message_id: string
+          p_worker_id: string
+        }
+        Returns: Database["public"]["Tables"]["email_attachment_scans"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "email_attachment_scans"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_email_attachment_scans: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: Database["public"]["Tables"]["email_attachment_scans"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "email_attachment_scans"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_email_attachment_inspection_job: {
+        Args: {
+          p_email_attachment_id: string
+          p_lease_seconds?: number
+          p_worker_id: string
+        }
+        Returns: Database["public"]["Tables"]["email_attachment_inspection_jobs"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "email_attachment_inspection_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      claim_email_attachment_inspection_jobs: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: Database["public"]["Tables"]["email_attachment_inspection_jobs"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "email_attachment_inspection_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_email_jobs: {
         Args: { p_limit?: number }
         Returns: {
@@ -16508,6 +16898,22 @@ export type Database = {
         }
         Returns: Json
       }
+      execute_opportunity_merge_guarded_internal: {
+        Args: {
+          p_company_id: string
+          p_confirmed_overrides?: Json
+          p_expected_loser_stage?: string
+          p_expected_winner_stage?: string
+          p_field_fill?: Json
+          p_loser_id: string
+          p_merge_key: string
+          p_resolved_by?: string
+          p_review_id?: string
+          p_run_id?: string
+          p_winner_id: string
+        }
+        Returns: Json
+      }
       expense_envelope_period: {
         Args: { p_expense_date: string; p_review_frequency: string }
         Returns: {
@@ -16782,6 +17188,10 @@ export type Database = {
           source: string
         }[]
       }
+      mark_email_attachment_connection_needs_reconnect: {
+        Args: { p_company_id: string; p_connection_id: string }
+        Returns: number
+      }
       mirror_deck_subscription: {
         Args: { p_row: Json }
         Returns: boolean
@@ -16850,6 +17260,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      notify_email_attachment_scan_exception: {
+        Args: {
+          p_action_label: string
+          p_action_url: string
+          p_body: string
+          p_company_id: string
+          p_scan_id: string
+          p_title: string
+          p_user_id: string
+        }
+        Returns: boolean
       }
       place_expense: { Args: { p_expense_id: string }; Returns: undefined }
       pmf_count_retained_saas: { Args: never; Returns: number }
@@ -16981,6 +17403,10 @@ export type Database = {
             }
             Returns: Json
           }
+      refresh_email_activity_attachments: {
+        Args: { p_activity_id: string }
+        Returns: undefined
+      }
       refresh_spec_board_snapshot: { Args: never; Returns: undefined }
       release_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string }
@@ -17058,6 +17484,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      reassign_opportunity_email_thread_guarded: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_kind?: string
+          p_provider_thread_id: string
+          p_target_opportunity_id: string
+        }
+        Returns: Json
       }
       reassign_phase_c_mailbox_draft: {
         Args: {

@@ -29,7 +29,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { toast } from "@/components/ui/toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { GmailService } from "@/lib/api/services";
+import { GmailService } from "@/lib/api/services/gmail-service";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useGmailConnections } from "@/lib/hooks/use-gmail-connections";
 import { EmailReviewPanel } from "@/components/ops/email-review-panel";

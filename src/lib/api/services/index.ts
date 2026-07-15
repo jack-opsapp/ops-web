@@ -6,7 +6,10 @@ export { ProjectService } from "./project-service";
 export type { FetchProjectsOptions } from "./project-service";
 
 export { TaskService } from "./task-service";
-export type { FetchTasksOptions, CreateTaskWithEventData } from "./task-service";
+export type {
+  FetchTasksOptions,
+  CreateTaskWithEventData,
+} from "./task-service";
 
 export { RecurrenceService } from "./recurrence-service";
 export type {
@@ -33,7 +36,10 @@ export type {
   CreateCatalogCategoryInput,
 } from "./catalog-category-service";
 
-export { CatalogUnitService, CATALOG_UNIT_DIMENSIONS } from "./catalog-unit-service";
+export {
+  CatalogUnitService,
+  CATALOG_UNIT_DIMENSIONS,
+} from "./catalog-unit-service";
 export type {
   CatalogUnit,
   CatalogUnitDimension,
@@ -49,7 +55,11 @@ export { CatalogMetaService } from "./catalog-meta-service";
 export { CatalogProductService } from "./catalog-product-service";
 export type { ProductConfigCount } from "./catalog-product-service";
 
-export { uploadImage, uploadMultipleImages, ImageUploadError } from "./image-service";
+export {
+  uploadImage,
+  uploadMultipleImages,
+  ImageUploadError,
+} from "./image-service";
 export type { ImageUploadErrorCode } from "./image-service";
 
 export { ProductService } from "./product-service";
@@ -84,10 +94,16 @@ export { ProjectPhotoService } from "./project-photo-service";
 export { CompanySettingsService } from "./company-settings-service";
 
 export { ExpenseSettingsService } from "./expense-settings-service";
-export type { ExpenseSettings, UpdateExpenseSettings } from "./expense-settings-service";
+export type {
+  ExpenseSettings,
+  UpdateExpenseSettings,
+} from "./expense-settings-service";
 
 export { NotificationPreferencesService } from "./notification-preferences-service";
-export type { NotificationPreferences, UpdateNotificationPreferences } from "./notification-preferences-service";
+export type {
+  NotificationPreferences,
+  UpdateNotificationPreferences,
+} from "./notification-preferences-service";
 
 export { GmailService } from "./gmail-service";
 
@@ -99,14 +115,6 @@ export { resolveCrewStatus } from "./crew-location-service";
 
 export { EmailFilterService } from "./email-filter-service";
 
-export { EmailService } from "./email-service";
-
-export { PatternDetectionService } from "./pattern-detection-service";
-export type { DetectedSource, PatternDetectionResult } from "./pattern-detection-service";
-
-export { EmailAIClassifier } from "./email-ai-classifier";
-export type { ClassificationInput, ClassificationResult, ThreadSummaryInput, ThreadClassificationResult, ThreadAnalysisInput, ThreadAnalysisResult } from "./email-ai-classifier";
-
 export { EmailMatchingServiceV2 } from "./email-matching-service-v2";
 export type { MatchResultV2 } from "./email-matching-service-v2";
 
@@ -116,23 +124,7 @@ export type { PlatformMatch } from "./known-platforms";
 export { StageEvaluator } from "./stage-evaluator";
 export type { ThreadState, StageEvaluation } from "./stage-evaluator";
 
-export { AdminFeatureOverrideService } from "./admin-feature-override-service";
-
-export { AISyncReviewer } from "./ai-sync-reviewer";
-export type { AIReviewResult } from "./ai-sync-reviewer";
-
-export { MemoryService } from "./memory-service";
-export type { MemoryFact } from "./memory-service";
-
-export { WritingProfileService } from "./writing-profile-service";
-
-export { DraftGenerator } from "./draft-generator";
-export type { DraftResult } from "./draft-generator";
-
 export { MetricsService } from "./metrics-service";
-
-export { ApprovalQueueService } from "./approval-queue-service";
-export type { ProposeActionParams, QueueFilters, QueueStats } from "@/lib/types/approval-queue";
 
 export { ProductMaterialsService } from "./product-materials-service";
 export { ProductOptionsService } from "./product-options-service";

@@ -875,22 +875,26 @@ export class EmailOutboundLearningService {
             }
             const seenCorrections = new Set<string>();
             const correctionCandidates = applyLearning
-              ? draftOutcome.contentCorrections
-                  .map((content) => content.trim().replace(/\s+/g, " "))
-                  .filter((content) => {
-                    const normalized = content.toLowerCase();
-                    if (!content || seenCorrections.has(normalized))
-                      return false;
-                    seenCorrections.add(normalized);
-                    return true;
-                  })
-                  .map((content) => ({
-                    evidenceKey: outboundLearningEvidenceKey(
-                      "draft-correction",
-                      [content]
-                    ),
-                    content,
-                  }))
+              ? (
+                  await Promise.all(
+                    draftOutcome.contentCorrections
+                      .map((content) => content.trim().replace(/\s+/g, " "))
+                      .filter((content) => {
+                        const normalized = content.toLowerCase();
+                        if (!content || seenCorrections.has(normalized))
+                          return false;
+                        seenCorrections.add(normalized);
+                        return true;
+                      })
+                      .map(async (content) => ({
+                        evidenceKey: await outboundLearningEvidenceKey(
+                          "draft-correction",
+                          [content]
+                        ),
+                        content,
+                      }))
+                  )
+                )
                   .filter(({ evidenceKey }) => {
                     if (!evidenceKey || seenEvidence.has(evidenceKey))
                       return false;
