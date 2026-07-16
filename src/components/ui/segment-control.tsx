@@ -15,6 +15,7 @@
  * spec v2; the P4 conformance sweep migrates its consumers here.
  */
 
+import { useId } from "react";
 import { cn } from "@/lib/utils/cn";
 
 export interface SegmentControlOption<T extends string = string> {
@@ -24,13 +25,7 @@ export interface SegmentControlOption<T extends string = string> {
   count?: number;
 }
 
-export function SegmentControl<T extends string = string>({
-  options,
-  value,
-  onChange,
-  className,
-  disabled = false,
-}: {
+type SegmentControlProps<T extends string> = {
   options: SegmentControlOption<T>[];
   value: T;
   onChange: (value: T) => void;
@@ -38,15 +33,86 @@ export function SegmentControl<T extends string = string>({
   /** Locks the control (e.g. while a mode mutation is in flight) — prevents
    *  rapid re-toggles that could race out-of-order server responses. */
   disabled?: boolean;
-}) {
+} & (
+  | { mode?: "tabs"; ariaLabel?: string }
+  | { mode: "choice"; ariaLabel: string }
+);
+
+export function SegmentControl<T extends string = string>(
+  props: SegmentControlProps<T>,
+) {
+  const {
+    options,
+    value,
+    onChange,
+    className,
+    disabled = false,
+    mode = "tabs",
+    ariaLabel,
+  } = props;
+  const generatedId = useId();
+  const radioName = `segment-control-${generatedId}`;
+  const rootClassName = cn(
+    "inline-flex h-[28px] items-center gap-[2px] rounded border border-border p-[2px]",
+    disabled && "pointer-events-none opacity-40",
+    className,
+  );
+
+  if (mode === "choice") {
+    return (
+      <div
+        className={rootClassName}
+        role="radiogroup"
+        aria-label={ariaLabel}
+        aria-disabled={disabled || undefined}
+      >
+        {options.map((opt, index) => {
+          const active = opt.value === value;
+          const optionId = `${radioName}-${index}`;
+          return (
+            <span key={opt.value} className="contents">
+              <input
+                id={optionId}
+                className="peer sr-only"
+                type="radio"
+                name={radioName}
+                value={opt.value}
+                checked={active}
+                disabled={disabled}
+                onChange={() => onChange(opt.value)}
+              />
+              <label
+                htmlFor={optionId}
+                className={cn(
+                  "inline-flex h-[22px] cursor-pointer items-center gap-1 rounded px-1.5",
+                  "font-mono text-micro font-medium uppercase tracking-[0.12em]",
+                  "border transition-colors duration-150 ease-smooth",
+                  active
+                    ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
+                    : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text-2",
+                  "peer-focus-visible:outline-none peer-focus-visible:ring-1 peer-focus-visible:ring-ops-accent",
+                  disabled && "cursor-not-allowed",
+                )}
+              >
+                {opt.label}
+                {typeof opt.count === "number" && (
+                  <span className="font-mono text-micro text-text-3 tabular-nums">
+                    {opt.count}
+                  </span>
+                )}
+              </label>
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div
-      className={cn(
-        "inline-flex h-[28px] items-center gap-[2px] rounded border border-border p-[2px]",
-        disabled && "pointer-events-none opacity-40",
-        className,
-      )}
+      className={rootClassName}
       role="tablist"
+      aria-label={ariaLabel}
       aria-disabled={disabled || undefined}
     >
       {options.map((opt) => {

@@ -1,4 +1,6 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PermissionModuleEditor } from "@/components/settings/permission-grid";
 import {
@@ -93,7 +95,8 @@ function editMap(
 const noScopeOptions: Array<{ value: PermissionScope; label: string }> = [];
 
 describe("PermissionModuleEditor", () => {
-  it("renders Pipeline as independent action controls and hides pipeline.manage", () => {
+  it("renders Pipeline as independent radio groups and hides pipeline.manage", async () => {
+    const user = userEvent.setup();
     const permissionModule = moduleById("pipeline");
     const onActionChange = vi.fn();
 
@@ -116,19 +119,19 @@ describe("PermissionModuleEditor", () => {
       screen.queryByRole("group", { name: "Manage opportunities" })
     ).not.toBeInTheDocument();
 
-    const view = screen.getByRole("group", { name: "View leads" });
-    expect(within(view).getByRole("tab", { name: "All" })).toBeInTheDocument();
+    const view = screen.getByRole("radiogroup", { name: "View leads" });
+    expect(within(view).getByRole("radio", { name: "All" })).toBeChecked();
     expect(
-      within(view).getByRole("tab", { name: "Assigned" })
+      within(view).getByRole("radio", { name: "Assigned" })
     ).toBeInTheDocument();
 
-    const create = screen.getByRole("group", { name: "Create leads" });
+    const create = screen.getByRole("radiogroup", { name: "Create leads" });
     expect(
-      within(create).queryByRole("tab", { name: "Assigned" })
+      within(create).queryByRole("radio", { name: "Assigned" })
     ).not.toBeInTheDocument();
 
-    const edit = screen.getByRole("group", { name: "Edit leads" });
-    fireEvent.click(within(edit).getByRole("tab", { name: "Assigned" }));
+    const edit = screen.getByRole("radiogroup", { name: "Edit leads" });
+    await user.click(within(edit).getByRole("radio", { name: "Assigned" }));
     expect(onActionChange).toHaveBeenCalledWith("pipeline.edit", "assigned");
   });
 
@@ -152,17 +155,96 @@ describe("PermissionModuleEditor", () => {
     expect(
       screen.queryByRole("group", { name: "View all company mail" })
     ).not.toBeInTheDocument();
-    const view = screen.getByRole("group", { name: "View inbox" });
-    expect(within(view).getByRole("tab", { name: "Own" })).toBeInTheDocument();
-    const send = screen.getByRole("group", {
+    const view = screen.getByRole("radiogroup", { name: "View inbox" });
+    expect(within(view).getByRole("radio", { name: "Own" })).toBeInTheDocument();
+    const send = screen.getByRole("radiogroup", {
       name: "Send and reply",
     });
     expect(
-      within(send).getByRole("tab", { name: "Assigned" })
+      within(send).getByRole("radio", { name: "Assigned" })
     ).toBeInTheDocument();
     expect(
-      within(send).queryByRole("tab", { name: "Own" })
+      within(send).queryByRole("radio", { name: "Own" })
     ).not.toBeInTheDocument();
+  });
+
+  it("uses one native radio group per action with arrow-key selection", async () => {
+    const user = userEvent.setup();
+    const permissionModule = moduleById("pipeline");
+
+    function Harness() {
+      const [edits, setEdits] = useState(() => editMap(permissionModule));
+
+      return (
+        <PermissionModuleEditor
+          module={permissionModule}
+          edits={edits}
+          tier="view"
+          isCustom={false}
+          scope="all"
+          scopeOptions={noScopeOptions}
+          onTierChange={vi.fn()}
+          onScopeChange={vi.fn()}
+          onActionChange={(permission, scope) => {
+            setEdits((current) => {
+              const existing = current.get(permission);
+              if (!existing) return current;
+              const next = new Map(current);
+              next.set(permission, {
+                ...existing,
+                enabled: scope !== null,
+                scope: scope ?? existing.scope,
+              });
+              return next;
+            });
+          }}
+        />
+      );
+    }
+
+    render(<Harness />);
+
+    const view = screen.getByRole("radiogroup", { name: "View leads" });
+    const all = within(view).getByRole("radio", { name: "All" });
+    const assigned = within(view).getByRole("radio", { name: "Assigned" });
+
+    expect(all).toHaveAttribute("name");
+    expect(assigned).toHaveAttribute("name", all.getAttribute("name"));
+    expect(all).toBeChecked();
+
+    all.focus();
+    await user.keyboard("{ArrowRight}");
+
+    expect(assigned).toHaveFocus();
+    expect(assigned).toBeChecked();
+  });
+
+  it("keeps choice radios inert while the editor is disabled", async () => {
+    const user = userEvent.setup();
+    const permissionModule = moduleById("pipeline");
+    const onActionChange = vi.fn();
+
+    render(
+      <PermissionModuleEditor
+        module={permissionModule}
+        edits={editMap(permissionModule)}
+        tier="view"
+        isCustom={false}
+        scope="all"
+        scopeOptions={noScopeOptions}
+        disabled
+        onTierChange={vi.fn()}
+        onScopeChange={vi.fn()}
+        onActionChange={onActionChange}
+      />
+    );
+
+    const view = screen.getByRole("radiogroup", { name: "View leads" });
+    const assigned = within(view).getByRole("radio", { name: "Assigned" });
+    expect(assigned).toBeDisabled();
+
+    await user.click(assigned);
+    expect(onActionChange).not.toHaveBeenCalled();
   });
 
   it("keeps every other module on the existing tier row", () => {

@@ -206,8 +206,6 @@ function ActionPermissionModule({
             return (
               <div
                 key={action.id}
-                role="group"
-                aria-label={actionLabel}
                 className="flex flex-wrap items-center justify-between gap-2 py-0.5"
               >
                 <span className="min-w-0 truncate font-mohave text-body-sm text-text-2">
@@ -216,6 +214,8 @@ function ActionPermissionModule({
                 <SegmentControl
                   options={options}
                   value={value}
+                  mode="choice"
+                  ariaLabel={actionLabel}
                   onChange={(next) =>
                     onActionChange(action.id, next === "none" ? null : next)
                   }
