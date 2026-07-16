@@ -12,6 +12,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ALL_PERMISSIONS,
+  PERMISSION_CATEGORIES,
   getActionsForTier,
   getPermissionScopes,
 } from "@/lib/types/permissions";
@@ -51,5 +52,47 @@ describe("permission registry", () => {
     expect(getPermissionScopes("deck_builder.view")).toEqual(["all", "assigned"]);
     expect(getPermissionScopes("profile.edit")).toEqual(["own"]);
     expect(getPermissionScopes("finances.view")).toEqual(["all"]);
+  });
+
+  it("registers independent lead actions with assigned or all scope", () => {
+    expect(getPermissionScopes("pipeline.create")).toEqual(["all"]);
+    for (const permission of [
+      "pipeline.view",
+      "pipeline.edit",
+      "pipeline.assign",
+      "pipeline.convert",
+    ]) {
+      expect(ALL_PERMISSIONS).toContain(permission);
+      expect(getPermissionScopes(permission)).toEqual(["all", "assigned"]);
+    }
+  });
+
+  it("registers scoped inbox access", () => {
+    expect(getPermissionScopes("inbox.view")).toEqual(["all", "assigned", "own"]);
+    expect(getPermissionScopes("inbox.send")).toEqual(["all", "assigned"]);
+  });
+
+  it("keeps legacy compatibility grants registered but hidden from new editing", () => {
+    const modules = PERMISSION_CATEGORIES.flatMap((category) => category.modules);
+    const pipeline = modules.find((module) => module.id === "pipeline");
+    const inbox = modules.find((module) => module.id === "inbox");
+
+    expect(ALL_PERMISSIONS).toContain("pipeline.manage");
+    expect(ALL_PERMISSIONS).toContain("inbox.view_company");
+    expect(pipeline?.actions.find((action) => action.id === "pipeline.manage"))
+      .toMatchObject({ hiddenFromEditor: true });
+    expect(inbox?.actions.find((action) => action.id === "inbox.view_company"))
+      .toMatchObject({ hiddenFromEditor: true });
+    expect(getActionsForTier("pipeline", "full")).not.toContain("pipeline.manage");
+    expect(getActionsForTier("inbox", "full")).not.toContain("inbox.view_company");
+  });
+
+  it("uses action-level editing only for Pipeline and Inbox", () => {
+    const actionLevelModules = PERMISSION_CATEGORIES.flatMap((category) => category.modules)
+      .filter((module) => module.editorMode === "action")
+      .map((module) => module.id)
+      .sort();
+
+    expect(actionLevelModules).toEqual(["inbox", "pipeline"]);
   });
 });

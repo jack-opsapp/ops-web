@@ -27,7 +27,7 @@ import { Tag } from "@/components/ui/register-table";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { AssignRoleModalSeatBanner } from "@/components/ops/assign-role-modal-seat-banner";
 import type { SegmentControlOption } from "@/components/ui/segment-control";
-import { SectionLabel, ModulePermissionRow, type ModuleTierValue, type ModuleExceptionKind } from "./permission-grid";
+import { SectionLabel, PermissionModuleEditor, type ModuleTierValue, type ModuleExceptionKind } from "./permission-grid";
 import {
   useTeamMembers,
   useCompany,
@@ -55,14 +55,20 @@ import {
   isAdminBypass,
   type MemberException,
 } from "@/lib/permissions/resolve";
+import {
+  buildEditablePermissionDesiredState,
+  normalizePipelinePermissionEdits,
+  type PermissionEditState,
+} from "@/lib/permissions/pipeline-dependencies";
 import { useDictionary } from "@/i18n/client";
 import { toast } from "@/components/ui/toast";
 
-interface PermissionEdit {
-  permission: string;
-  scope: PermissionScope;
-  enabled: boolean;
-}
+const HIDDEN_PERMISSION_IDS = new Set(
+  PERMISSION_CATEGORIES.flatMap((category) => category.modules)
+    .flatMap((module) => module.actions)
+    .filter((action) => action.hiddenFromEditor)
+    .map((action) => action.id),
+);
 
 /** Reduce a module's per-action exception kinds to one label for the tag. */
 function moduleExceptionKind(kinds: MemberException["kind"][]): ModuleExceptionKind | undefined {
@@ -122,7 +128,7 @@ export function MemberAccessView({
   const overrides = useMemo(() => access?.overrides ?? [], [access]);
 
   // ── Per-action edit map, seeded from the member's EFFECTIVE access ──────────
-  const [permissionEdits, setPermissionEdits] = useState<Map<string, PermissionEdit>>(new Map());
+  const [permissionEdits, setPermissionEdits] = useState<Map<string, PermissionEditState>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const seedKey = useRef<string>("");
 
@@ -139,7 +145,7 @@ export function MemberAccessView({
     seedKey.current = key;
 
     const effective = resolveEffectivePermissions(access.rolePermissions, access.overrides);
-    const map = new Map<string, PermissionEdit>();
+    const map = new Map<string, PermissionEditState>();
     for (const cat of PERMISSION_CATEGORIES) {
       for (const mod of cat.modules) {
         for (const action of mod.actions) {
@@ -152,11 +158,13 @@ export function MemberAccessView({
         }
       }
     }
-    setPermissionEdits(map);
+    setPermissionEdits(normalizePipelinePermissionEdits(map));
 
     // Expand categories that already carry an exception so the manager lands
     // on the member's real deviations, not a wall of collapsed sections.
-    const exc = classifyExceptions(access.rolePermissions, access.overrides);
+    const exc = classifyExceptions(access.rolePermissions, access.overrides).filter(
+      (entry) => !HIDDEN_PERMISSION_IDS.has(entry.permission),
+    );
     const excCats = new Set<string>();
     for (const e of exc) {
       const moduleId = getModuleForPermission(e.permission);
@@ -169,13 +177,10 @@ export function MemberAccessView({
   // ── Derived: desired state, role baseline, live diff, exceptions ────────────
   const roleMap = useMemo(() => roleGrantMap(rolePermissions), [rolePermissions]);
 
-  const desired = useMemo(() => {
-    const map = new Map<string, PermissionScope | null>();
-    for (const [id, edit] of permissionEdits) {
-      map.set(id, edit.enabled ? edit.scope : null);
-    }
-    return map;
-  }, [permissionEdits]);
+  const desired = useMemo(
+    () => buildEditablePermissionDesiredState(permissionEdits, HIDDEN_PERMISSION_IDS),
+    [permissionEdits],
+  );
 
   const diff = useMemo(() => diffAgainstRole(rolePermissions, desired), [rolePermissions, desired]);
 
@@ -223,6 +228,7 @@ export function MemberAccessView({
       setPermissionEdits((prev) => {
         const next = new Map(prev);
         for (const action of mod.actions) {
+          if (action.hiddenFromEditor) continue;
           const existing = next.get(action.id);
           if (!existing) continue;
           const enabled = actionIds.includes(action.id);
@@ -230,7 +236,7 @@ export function MemberAccessView({
           const scope = supported.includes(currentScope) ? currentScope : supported[0];
           next.set(action.id, { ...existing, enabled, scope });
         }
-        return next;
+        return normalizePipelinePermissionEdits(next);
       });
     },
     [permissionEdits],
@@ -242,14 +248,32 @@ export function MemberAccessView({
       const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find((m) => m.id === moduleId);
       if (!mod) return prev;
       for (const action of mod.actions) {
+        if (action.hiddenFromEditor) continue;
         const existing = next.get(action.id);
         if (existing?.enabled && action.scopes.includes(scope)) {
           next.set(action.id, { ...existing, scope });
         }
       }
-      return next;
+      return normalizePipelinePermissionEdits(next);
     });
   }, []);
+
+  const handleActionChange = useCallback(
+    (permission: string, scope: PermissionScope | null) => {
+      setPermissionEdits((prev) => {
+        const existing = prev.get(permission);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(permission, {
+          ...existing,
+          enabled: scope !== null,
+          scope: scope ?? existing.scope,
+        });
+        return normalizePipelinePermissionEdits(next);
+      });
+    },
+    [],
+  );
 
   // Return a module to its role default (clear its exceptions).
   const handleResetModule = useCallback(
@@ -259,6 +283,7 @@ export function MemberAccessView({
       setPermissionEdits((prev) => {
         const next = new Map(prev);
         for (const action of mod.actions) {
+          if (action.hiddenFromEditor) continue;
           const existing = next.get(action.id);
           if (!existing) continue;
           const roleScope = roleMap.get(action.id) ?? null;
@@ -268,7 +293,7 @@ export function MemberAccessView({
             scope: roleScope ?? existing.scope,
           });
         }
-        return next;
+        return normalizePipelinePermissionEdits(next);
       });
     },
     [roleMap],
@@ -278,10 +303,11 @@ export function MemberAccessView({
     setPermissionEdits((prev) => {
       const next = new Map(prev);
       for (const [id, edit] of prev) {
+        if (HIDDEN_PERMISSION_IDS.has(id)) continue;
         const roleScope = roleMap.get(id) ?? null;
         next.set(id, { ...edit, enabled: roleScope !== null, scope: roleScope ?? edit.scope });
       }
-      return next;
+      return normalizePipelinePermissionEdits(next);
     });
   }, [roleMap]);
 
@@ -553,10 +579,10 @@ export function MemberAccessView({
                       const exception = moduleExceptionKind(exceptionsByModule.get(mod.id) ?? []);
 
                       return (
-                        <ModulePermissionRow
+                        <PermissionModuleEditor
                           key={mod.id}
-                          moduleId={mod.id}
-                          label={mod.label}
+                          module={mod}
+                          edits={permissionEdits}
                           tier={tier}
                           isCustom={isCustom}
                           scope={currentScope}
@@ -565,6 +591,7 @@ export function MemberAccessView({
                           exception={exception}
                           onTierChange={handleTierChange}
                           onScopeChange={handleScopeChange}
+                          onActionChange={handleActionChange}
                           onReset={handleResetModule}
                         />
                       );

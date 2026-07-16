@@ -51,12 +51,16 @@ export interface PermissionAction {
   id: string;
   label: string;
   scopes: PermissionScope[];
+  /** Registered for compatibility/admin bypass, but never offered by new editors. */
+  hiddenFromEditor?: boolean;
 }
 
 export interface PermissionModule {
   id: string;
   label: string;
   actions: PermissionAction[];
+  /** Modules with independent action scopes cannot be represented by one tier row. */
+  editorMode?: "tier" | "action";
 }
 
 export interface PermissionCategory {
@@ -164,9 +168,19 @@ const invoicesModule: PermissionModule = {
 const pipelineModule: PermissionModule = {
   id: "pipeline",
   label: "Pipeline",
+  editorMode: "action",
   actions: [
-    { id: "pipeline.view", label: "View pipeline", scopes: ["all"] },
-    { id: "pipeline.manage", label: "Manage opportunities", scopes: ["all", "own"] },
+    { id: "pipeline.create", label: "Create leads", scopes: ["all"] },
+    { id: "pipeline.view", label: "View leads", scopes: ["all", "assigned"] },
+    { id: "pipeline.edit", label: "Edit leads", scopes: ["all", "assigned"] },
+    { id: "pipeline.assign", label: "Assign leads", scopes: ["all", "assigned"] },
+    { id: "pipeline.convert", label: "Convert leads", scopes: ["all", "assigned"] },
+    {
+      id: "pipeline.manage",
+      label: "Manage opportunities",
+      scopes: ["all", "own"],
+      hiddenFromEditor: true,
+    },
     { id: "pipeline.configure_stages", label: "Configure stages", scopes: ["all"] },
     { id: "pipeline.manage_views", label: "Manage shared pipeline views", scopes: ["all"] },
   ],
@@ -322,13 +336,19 @@ const emailModule: PermissionModule = {
 const inboxModule: PermissionModule = {
   id: "inbox",
   label: "Inbox",
+  editorMode: "action",
   actions: [
-    { id: "inbox.view", label: "View inbox", scopes: ["all"] },
-    { id: "inbox.view_company", label: "View all company mail", scopes: ["all"] },
+    { id: "inbox.view", label: "View inbox", scopes: ["all", "assigned", "own"] },
+    {
+      id: "inbox.view_company",
+      label: "View all company mail",
+      scopes: ["all"],
+      hiddenFromEditor: true,
+    },
     { id: "inbox.archive", label: "Archive / unarchive threads", scopes: ["all"] },
     { id: "inbox.snooze", label: "Snooze / unsnooze threads", scopes: ["all"] },
     { id: "inbox.categorize", label: "Recategorize threads", scopes: ["all"] },
-    { id: "inbox.send", label: "Send and reply from inbox", scopes: ["all"] },
+    { id: "inbox.send", label: "Send and reply from inbox", scopes: ["all", "assigned"] },
     { id: "inbox.configure_phase_c", label: "Configure Phase C autonomy", scopes: ["all"] },
   ],
 };
@@ -508,18 +528,19 @@ function _findModule(moduleId: string): PermissionModule | undefined {
 export function getActionsForTier(moduleId: string, tier: PermissionTier): string[] {
   const mod = _findModule(moduleId);
   if (!mod) return [];
+  const editableActions = mod.actions.filter((action) => !action.hiddenFromEditor);
 
   switch (tier) {
     case "view":
-      return mod.actions
+      return editableActions
         .filter((a) => a.id.endsWith(".view"))
         .map((a) => a.id);
     case "manage":
-      return mod.actions
+      return editableActions
         .filter((a) => !_isDestructive(a.id))
         .map((a) => a.id);
     case "full":
-      return mod.actions.map((a) => a.id);
+      return editableActions.map((a) => a.id);
   }
 }
 
@@ -534,7 +555,9 @@ export function detectModuleTier(
   const mod = _findModule(moduleId);
   if (!mod) return null;
 
-  const allActionIds = mod.actions.map((a) => a.id);
+  const allActionIds = mod.actions
+    .filter((action) => !action.hiddenFromEditor)
+    .map((action) => action.id);
   const enabled = allActionIds.filter((id) => enabledPermissions.includes(id));
 
   if (enabled.length === 0) return null;

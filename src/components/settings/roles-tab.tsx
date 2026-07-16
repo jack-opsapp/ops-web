@@ -51,7 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
-import { SectionLabel, ModulePermissionRow, type ModuleTierValue } from "./permission-grid";
+import { SectionLabel, PermissionModuleEditor, type ModuleTierValue } from "./permission-grid";
 import {
   useRoles,
   useRolePermissions,
@@ -76,19 +76,16 @@ import {
   detectModuleTier,
   getPermissionScopes,
 } from "@/lib/types/permissions";
+import {
+  normalizePipelinePermissionEdits,
+  type PermissionEditState,
+} from "@/lib/permissions/pipeline-dependencies";
 import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type View = "list" | "editor";
-
-/** A per-action edit row mirroring the persisted `role_permissions` shape. */
-interface PermissionEdit {
-  permission: string;
-  scope: PermissionScope;
-  enabled: boolean;
-}
 
 // ─── Assigned members sub-section ────────────────────────────────────────────
 
@@ -255,14 +252,14 @@ function RoleEditor({
   const [confirmBack, setConfirmBack] = useState(false);
 
   // Per-action edit map, seeded once permissions load.
-  const [permissionEdits, setPermissionEdits] = useState<Map<string, PermissionEdit>>(
+  const [permissionEdits, setPermissionEdits] = useState<Map<string, PermissionEditState>>(
     new Map(),
   );
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (permissions && !initialized) {
-      const map = new Map<string, PermissionEdit>();
+      const map = new Map<string, PermissionEditState>();
       for (const cat of PERMISSION_CATEGORIES) {
         for (const mod of cat.modules) {
           for (const action of mod.actions) {
@@ -275,7 +272,7 @@ function RoleEditor({
           }
         }
       }
-      setPermissionEdits(map);
+      setPermissionEdits(normalizePipelinePermissionEdits(map));
       setInitialized(true);
     }
   }, [permissions, initialized]);
@@ -313,6 +310,7 @@ function RoleEditor({
       setPermissionEdits((prev) => {
         const next = new Map(prev);
         for (const action of mod.actions) {
+          if (action.hiddenFromEditor) continue;
           const existing = next.get(action.id);
           if (!existing) continue;
           const enabled = actionIds.includes(action.id);
@@ -321,7 +319,7 @@ function RoleEditor({
           const scope = supported.includes(currentScope) ? currentScope : supported[0];
           next.set(action.id, { ...existing, enabled, scope });
         }
-        return next;
+        return normalizePipelinePermissionEdits(next);
       });
     },
     [permissionEdits],
@@ -334,6 +332,7 @@ function RoleEditor({
         for (const mod of cat.modules) {
           if (mod.id !== moduleId) continue;
           for (const action of mod.actions) {
+            if (action.hiddenFromEditor) continue;
             const existing = next.get(action.id);
             if (existing?.enabled && action.scopes.includes(scope)) {
               next.set(action.id, { ...existing, scope });
@@ -341,9 +340,26 @@ function RoleEditor({
           }
         }
       }
-      return next;
+      return normalizePipelinePermissionEdits(next);
     });
   }, []);
+
+  const handleActionChange = useCallback(
+    (permission: string, scope: PermissionScope | null) => {
+      setPermissionEdits((prev) => {
+        const existing = prev.get(permission);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(permission, {
+          ...existing,
+          enabled: scope !== null,
+          scope: scope ?? existing.scope,
+        });
+        return normalizePipelinePermissionEdits(next);
+      });
+    },
+    [],
+  );
 
   // ── Dirty tracking ───────────────────────────────────────────
   const isDirty = useMemo(() => {
@@ -518,10 +534,10 @@ function RoleEditor({
                     .find((e) => e?.enabled && e.scope)?.scope ?? "all";
 
                 return (
-                  <ModulePermissionRow
+                  <PermissionModuleEditor
                     key={mod.id}
-                    moduleId={mod.id}
-                    label={mod.label}
+                    module={mod}
+                    edits={permissionEdits}
                     tier={tier}
                     isCustom={isCustom}
                     scope={currentScope}
@@ -529,6 +545,7 @@ function RoleEditor({
                     disabled={isPreset}
                     onTierChange={handleTierChange}
                     onScopeChange={handleScopeChange}
+                    onActionChange={handleActionChange}
                   />
                 );
               })}
