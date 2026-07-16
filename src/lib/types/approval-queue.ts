@@ -77,6 +77,7 @@ export interface CreateProjectActionData {
   }>;
   source_thread_id: string | null;
   source_opportunity_id: string | null;
+  source_assignment_version: number | null;
 }
 
 // ─── Create Task Payload ─────────────────────────────────────────────────────

@@ -12,7 +12,10 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { OpportunityService, type FetchOpportunitiesOptions } from "../api/services/opportunity-service";
+import {
+  OpportunityService,
+  type FetchOpportunitiesOptions,
+} from "../api/services/opportunity-service";
 // Type-only — erased at build time, so the server-only conversion service is
 // never pulled into the client bundle. The route returns this exact shape.
 import type { ConversionPreflight } from "../api/services/project-conversion-service";
@@ -45,7 +48,10 @@ export function useOpportunities(
   const canView = usePermissionStore((s) => s.can("pipeline.view"));
 
   return useQuery({
-    queryKey: queryKeys.opportunities.list(companyId, options as Record<string, unknown>),
+    queryKey: queryKeys.opportunities.list(
+      companyId,
+      options as Record<string, unknown>
+    ),
     queryFn: () => OpportunityService.fetchOpportunities(companyId, options),
     enabled: !!companyId && canView,
     ...queryOptions,
@@ -325,10 +331,13 @@ export function useAttachClientToOpportunity() {
       });
 
       if (previousDetail) {
-        queryClient.setQueryData(queryKeys.opportunities.detail(opportunityId), {
-          ...previousDetail,
-          clientId,
-        });
+        queryClient.setQueryData(
+          queryKeys.opportunities.detail(opportunityId),
+          {
+            ...previousDetail,
+            clientId,
+          }
+        );
       }
 
       queryClient.setQueriesData<Opportunity[]>(
@@ -394,7 +403,9 @@ export function useMoveOpportunityStage() {
 
     onMutate: async ({ id, stage }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.opportunities.lists() });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.opportunities.lists(),
+      });
 
       // Snapshot all list queries
       const previousLists = queryClient.getQueriesData<Opportunity[]>({
@@ -435,7 +446,10 @@ export function useMoveOpportunityStage() {
         }
       }
       if (context?.previousDetail) {
-        queryClient.setQueryData(queryKeys.opportunities.detail(id), context.previousDetail);
+        queryClient.setQueryData(
+          queryKeys.opportunities.detail(id),
+          context.previousDetail
+        );
       }
     },
 
@@ -634,11 +648,11 @@ export function useCreateEstimateForOpportunity() {
   const { currentUser: user } = useAuthStore();
 
   return {
-    advanceToQuoting: (opportunityId: string, currentStage: OpportunityStage) => {
-      if (
-        currentStage === Stage.NewLead ||
-        currentStage === Stage.Qualifying
-      ) {
+    advanceToQuoting: (
+      opportunityId: string,
+      currentStage: OpportunityStage
+    ) => {
+      if (currentStage === Stage.NewLead || currentStage === Stage.Qualifying) {
         moveStage.mutate({
           id: opportunityId,
           stage: Stage.Quoting,
@@ -694,11 +708,11 @@ export function useLogInboundActivity() {
   const { currentUser: user } = useAuthStore();
 
   return {
-    advanceToNegotiation: (opportunityId: string, currentStage: OpportunityStage) => {
-      if (
-        currentStage === Stage.Quoted ||
-        currentStage === Stage.FollowUp
-      ) {
+    advanceToNegotiation: (
+      opportunityId: string,
+      currentStage: OpportunityStage
+    ) => {
+      if (currentStage === Stage.Quoted || currentStage === Stage.FollowUp) {
         moveStage.mutate({
           id: opportunityId,
           stage: Stage.Negotiation,
@@ -715,7 +729,7 @@ export interface ConvertOpportunityResponse {
   ok: boolean;
   converted: boolean;
   alreadyConverted: boolean;
-  projectId: string;
+  projectId: string | null;
   opportunityId: string;
   dispositionId?: string;
   relinkedEstimates?: number;
@@ -727,6 +741,10 @@ export interface ConvertOpportunityResponse {
   linkedExisting?: boolean;
   /** True when this call moved the opportunity to `won` (+ a stage transition). */
   won?: boolean;
+  assignedTo?: string | null;
+  assignmentVersion: number;
+  conversionEventId?: string;
+  projectAccessible: boolean;
 }
 
 /**
@@ -741,7 +759,9 @@ export function useConversionPreflight(
   opportunityId: string | undefined,
   queryOptions?: Partial<UseQueryOptions<ConversionPreflight>>
 ) {
-  const canManage = usePermissionStore((s) => s.can("pipeline.manage"));
+  const canConvert = usePermissionStore(
+    (s) => s.can("pipeline.convert") || s.can("pipeline.manage")
+  );
 
   return useQuery<ConversionPreflight>({
     queryKey: queryKeys.opportunities.conversionPreflight(opportunityId ?? ""),
@@ -750,21 +770,18 @@ export function useConversionPreflight(
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Not authenticated");
 
-      const res = await fetch(
-        `/api/opportunities/${opportunityId}/preflight`,
-        { headers: { Authorization: `Bearer ${idToken}` } }
-      );
+      const res = await fetch(`/api/opportunities/${opportunityId}/preflight`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
 
       if (!res.ok) {
-        const body = await res
-          .json()
-          .catch(() => ({ error: res.statusText }));
+        const body = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(body.error || `Preflight failed: ${res.status}`);
       }
 
       return res.json();
     },
-    enabled: !!opportunityId && canManage,
+    enabled: !!opportunityId && canConvert,
     // The dialog opens on a fresh deal — keep it briefly fresh, but don't
     // cache stale dedup state across separate win attempts.
     staleTime: 30_000,
@@ -790,10 +807,17 @@ export function useConvertOpportunityToProject() {
       id: string;
       actualValue?: number;
       expectedStage?: string;
+      expectedAssignmentVersion: number;
       titleOverride?: string | null;
     }
   >({
-    mutationFn: async ({ id, actualValue, expectedStage, titleOverride }) => {
+    mutationFn: async ({
+      id,
+      actualValue,
+      expectedStage,
+      expectedAssignmentVersion,
+      titleOverride,
+    }) => {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Not authenticated");
@@ -807,14 +831,13 @@ export function useConvertOpportunityToProject() {
         body: JSON.stringify({
           actualValue,
           expectedStage,
+          expectedAssignmentVersion,
           titleOverride,
         }),
       });
 
       if (!res.ok) {
-        const body = await res
-          .json()
-          .catch(() => ({ error: res.statusText }));
+        const body = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(body.error || `Conversion failed: ${res.status}`);
       }
 
@@ -841,9 +864,21 @@ export function useLinkOpportunityToExistingProject() {
   return useMutation<
     ConvertOpportunityResponse,
     Error,
-    { id: string; projectId: string; actualValue?: number; expectedStage?: string }
+    {
+      id: string;
+      projectId: string;
+      actualValue?: number;
+      expectedStage?: string;
+      expectedAssignmentVersion: number;
+    }
   >({
-    mutationFn: async ({ id, projectId, actualValue, expectedStage }) => {
+    mutationFn: async ({
+      id,
+      projectId,
+      actualValue,
+      expectedStage,
+      expectedAssignmentVersion,
+    }) => {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Not authenticated");
@@ -857,14 +892,13 @@ export function useLinkOpportunityToExistingProject() {
         body: JSON.stringify({
           actualValue,
           expectedStage,
+          expectedAssignmentVersion,
           linkToProjectId: projectId,
         }),
       });
 
       if (!res.ok) {
-        const body = await res
-          .json()
-          .catch(() => ({ error: res.statusText }));
+        const body = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(body.error || `Link failed: ${res.status}`);
       }
 

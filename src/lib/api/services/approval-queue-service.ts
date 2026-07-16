@@ -116,11 +116,12 @@ async function getAdminUserIds(companyId: string): Promise<string[]> {
 
 async function executeAction(
   action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
+  learningAuthority: OutboundLearningAuthority,
+  reviewerUserId: string
 ): Promise<Record<string, unknown>> {
   switch (action.actionType) {
     case "create_project":
-      return executeCreateProject(action);
+      return executeCreateProject(action, learningAuthority, reviewerUserId);
     case "create_task":
       return executeCreateTask(action);
     case "send_status_email":
@@ -162,13 +163,26 @@ async function executeAction(
 }
 
 async function executeCreateProject(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority,
+  reviewerUserId: string
 ): Promise<Record<string, unknown>> {
   const data = action.actionData as unknown as CreateProjectActionData;
 
   let projectId: string;
 
   if (data.source_opportunity_id) {
+    if (learningAuthority === "autonomous") {
+      throw new Error("Autonomous opportunity conversion is not authorized");
+    }
+    if (
+      !Number.isSafeInteger(data.source_assignment_version) ||
+      (data.source_assignment_version as number) < 0
+    ) {
+      throw new Error(
+        "Opportunity conversion proposal has no assignment snapshot"
+      );
+    }
     // P6: an AI-proposed project that originates from an opportunity is a
     // CONVERSION. Route it through the single canonical conversion service so
     // it writes the full four-column link contract (project_ref +
@@ -182,8 +196,13 @@ async function executeCreateProject(
     const result = await ProjectConversionService.convertOpportunityToProject({
       opportunityId: data.source_opportunity_id,
       companyId: action.companyId,
-      decidedBy: action.userId,
+      decidedBy: reviewerUserId,
       sourcePath: "approval_queue",
+      expectedAssignmentVersion: data.source_assignment_version as number,
+      evidence: {
+        agent_action_id: action.id,
+        approval_mode: "operator_approved",
+      },
       notesSeed: data.scope ?? null,
     });
     projectId = result.projectId;
@@ -1760,6 +1779,31 @@ export const ApprovalQueueService = {
     } = {}
   ): Promise<AgentAction> {
     const supabase = requireSupabase();
+    const learningAuthority =
+      executionContext.learningAuthority ?? "operator_approved";
+
+    const { data: pendingAction, error: pendingActionError } = await supabase
+      .from("agent_actions")
+      .select("action_type, action_data")
+      .eq("id", actionId)
+      .eq("company_id", companyId)
+      .eq("status", "pending")
+      .single();
+    if (pendingActionError || !pendingAction) {
+      throw new Error("Action not found or already handled");
+    }
+    const originalActionData =
+      (pendingAction.action_data as Record<string, unknown>) ?? {};
+    if (
+      learningAuthority === "autonomous" &&
+      pendingAction.action_type === "create_project" &&
+      originalActionData.source_opportunity_id != null
+    ) {
+      // Autonomous execution has no human reviewer to authorize conversion.
+      // Refuse before pending -> approved so the proposal stays in the human
+      // queue and never receives fabricated reviewer attribution.
+      throw new Error("Autonomous opportunity conversion is not authorized");
+    }
 
     // If the reviewer edited the action data (e.g. changed team member or dates),
     // apply the edits to action_data before approving
@@ -1769,7 +1813,14 @@ export const ApprovalQueueService = {
       reviewed_at: new Date().toISOString(),
     };
     if (editedActionData) {
-      updatePayload.action_data = editedActionData;
+      updatePayload.action_data = {
+        ...originalActionData,
+        ...editedActionData,
+        source_opportunity_id: originalActionData.source_opportunity_id ?? null,
+        source_assignment_version:
+          originalActionData.source_assignment_version ?? null,
+        source_thread_id: originalActionData.source_thread_id ?? null,
+      };
     }
 
     // Atomic: only update if still pending AND belongs to this company
@@ -1790,10 +1841,7 @@ export const ApprovalQueueService = {
 
     // Execute
     try {
-      const result = await executeAction(
-        action,
-        executionContext.learningAuthority ?? "operator_approved"
-      );
+      const result = await executeAction(action, learningAuthority, userId);
 
       const { data: final } = await supabase
         .from("agent_actions")

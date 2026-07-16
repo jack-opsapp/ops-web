@@ -367,6 +367,7 @@
   "transition.signalSameAddress": "same address",
   "transition.newProjectName": "New project",
   "transition.openProject": "Open project",
+  "transition.markWonAndOpen": "Mark won & open",
   "transition.linkAndWin": "Link & win",
   "transition.createNewAction": "Create new",
   "transition.cancel": "Cancel",

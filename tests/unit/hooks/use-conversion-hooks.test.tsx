@@ -15,10 +15,15 @@ import * as React from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-vi.mock("@/lib/firebase/auth", () => ({ getIdToken: async () => "test-token" }));
+vi.mock("@/lib/firebase/auth", () => ({
+  getIdToken: async () => "test-token",
+}));
 vi.mock("@/lib/api/services", () => ({ OpportunityService: {} }));
 vi.mock("@/lib/store/auth-store", () => ({
-  useAuthStore: () => ({ company: { id: "co-1" }, currentUser: { id: "user-1" } }),
+  useAuthStore: () => ({
+    company: { id: "co-1" },
+    currentUser: { id: "user-1" },
+  }),
 }));
 vi.mock("@/lib/store/permissions-store", () => ({
   usePermissionStore: (selector?: (s: { can: () => boolean }) => unknown) => {
@@ -71,6 +76,9 @@ describe("useConversionPreflight", () => {
       duplicateCandidates: [],
       otherClientProjects: [],
       suggestedName: "1240 W 6th Ave",
+      assignmentVersion: 12,
+      alreadyConverted: false,
+      projectAccessible: false,
     });
 
     const { result } = renderHook(() => useConversionPreflight("opp-1"), {
@@ -83,6 +91,7 @@ describe("useConversionPreflight", () => {
     expect(calls[0].url).toBe("/api/opportunities/opp-1/preflight");
     expect(calls[0].init?.headers?.Authorization).toBe("Bearer test-token");
     expect(result.current.data?.suggestedName).toBe("1240 W 6th Ave");
+    expect(result.current.data?.assignmentVersion).toBe(12);
   });
 
   it("is disabled (no fetch) when no opportunity id is provided", async () => {
@@ -117,6 +126,7 @@ describe("useConvertOpportunityToProject", () => {
         id: "opp-1",
         actualValue: 1000,
         expectedStage: "proposal",
+        expectedAssignmentVersion: 12,
         titleOverride: "Custom name",
       });
     });
@@ -128,6 +138,7 @@ describe("useConvertOpportunityToProject", () => {
     expect(body).toMatchObject({
       actualValue: 1000,
       expectedStage: "proposal",
+      expectedAssignmentVersion: 12,
       titleOverride: "Custom name",
     });
     expect(body.linkToProjectId).toBeUndefined();
@@ -146,10 +157,9 @@ describe("useLinkOpportunityToExistingProject", () => {
       linkedExisting: true,
     });
 
-    const { result } = renderHook(
-      () => useLinkOpportunityToExistingProject(),
-      { wrapper: makeWrapper() }
-    );
+    const { result } = renderHook(() => useLinkOpportunityToExistingProject(), {
+      wrapper: makeWrapper(),
+    });
 
     let response: ConvertOpportunityResponse | undefined;
     await act(async () => {
@@ -157,6 +167,7 @@ describe("useLinkOpportunityToExistingProject", () => {
         id: "opp-1",
         projectId: "existing-proj",
         actualValue: 500,
+        expectedAssignmentVersion: 12,
       });
     });
 
@@ -165,6 +176,7 @@ describe("useLinkOpportunityToExistingProject", () => {
     const body = JSON.parse(calls[0].init?.body ?? "{}");
     expect(body.linkToProjectId).toBe("existing-proj");
     expect(body.actualValue).toBe(500);
+    expect(body.expectedAssignmentVersion).toBe(12);
     expect(response?.linkedExisting).toBe(true);
   });
 });

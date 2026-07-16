@@ -93,7 +93,7 @@ export async function evaluateOpportunityAcceptance({
 }: AcceptanceEvaluationInput): Promise<{ stageChanged: boolean }> {
   const { data: opportunity, error: opportunityError } = await supabase
     .from("opportunities")
-    .select("stage, stage_manually_set, client_id")
+    .select("stage, stage_manually_set, client_id, assignment_version")
     .eq("id", opportunityId)
     .eq("company_id", connection.companyId)
     .maybeSingle();
@@ -110,7 +110,7 @@ export async function evaluateOpportunityAcceptance({
 
   const { data: thread, error: threadError } = await supabase
     .from("email_threads")
-    .select("id")
+    .select("id, provider_thread_id")
     .eq("company_id", connection.companyId)
     .eq("connection_id", connection.id)
     .eq("provider_thread_id", providerThreadId)
@@ -120,7 +120,11 @@ export async function evaluateOpportunityAcceptance({
     throw new Error(`accept thread lookup failed: ${threadError.message}`);
   }
   const internalThreadId = (thread?.id as string | undefined) ?? null;
-  if (!internalThreadId) return { stageChanged: false };
+  const durableProviderThreadId =
+    (thread?.provider_thread_id as string | undefined) ?? null;
+  if (!internalThreadId || !durableProviderThreadId) {
+    return { stageChanged: false };
+  }
 
   const state = await buildConversationState(internalThreadId);
   if (!state) return { stageChanged: false };
@@ -144,13 +148,27 @@ export async function evaluateOpportunityAcceptance({
   }
 
   if (action.kind === "auto_advance_won") {
+    const assignmentVersion = opportunity.assignment_version;
+    if (
+      !Number.isSafeInteger(assignmentVersion) ||
+      (assignmentVersion as number) < 0
+    ) {
+      throw new Error("email acceptance has no assignment snapshot");
+    }
     const conversion =
       await ProjectConversionService.convertOpportunityToProject({
         opportunityId,
         companyId: connection.companyId,
-        decidedBy: connection.userId ?? null,
+        decidedBy: null,
         sourcePath: "email_accept",
         expectedStage: opportunity.stage as string,
+        expectedAssignmentVersion: assignmentVersion as number,
+        evidence: {
+          connection_id: connection.id,
+          email_thread_id: internalThreadId,
+          provider_thread_id: durableProviderThreadId,
+          decision: "auto_advance_won",
+        },
       });
     if (!conversion.won) {
       throw new Error(

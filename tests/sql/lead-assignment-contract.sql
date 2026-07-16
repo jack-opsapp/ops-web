@@ -84,6 +84,30 @@ values
     )
   ),
   (
+    'actor_scoped_preflight_has_one_canonical_overload',
+    to_regprocedure(
+      'public.get_conversion_preflight(uuid,uuid,uuid)'
+    ) is not null
+    and to_regprocedure(
+      'public.get_conversion_preflight(uuid,uuid)'
+    ) is null
+    and has_function_privilege(
+      'authenticated',
+      'public.get_conversion_preflight(uuid,uuid,uuid)',
+      'execute'
+    )
+    and has_function_privilege(
+      'service_role',
+      'public.get_conversion_preflight(uuid,uuid,uuid)',
+      'execute'
+    )
+    and not has_function_privilege(
+      'anon',
+      'public.get_conversion_preflight(uuid,uuid,uuid)',
+      'execute'
+    )
+  ),
+  (
     'assignment_audit_tables_are_rls_protected',
     coalesce((
       select bool_and(c.relrowsecurity)
@@ -255,11 +279,15 @@ insert into public.role_permissions (role_id, permission, scope)
 values
   ('1ead5519-0000-4000-8000-000000000201', 'pipeline.create', 'all'),
   ('1ead5519-0000-4000-8000-000000000201', 'pipeline.view', 'assigned'),
+  ('1ead5519-0000-4000-8000-000000000201', 'pipeline.edit', 'assigned'),
   ('1ead5519-0000-4000-8000-000000000201', 'pipeline.assign', 'assigned'),
   ('1ead5519-0000-4000-8000-000000000201', 'pipeline.convert', 'assigned'),
   ('1ead5519-0000-4000-8000-000000000201', 'projects.create', 'all'),
+  ('1ead5519-0000-4000-8000-000000000201', 'projects.view', 'assigned'),
+  ('1ead5519-0000-4000-8000-000000000201', 'projects.edit', 'assigned'),
   ('1ead5519-0000-4000-8000-000000000202', 'pipeline.create', 'all'),
   ('1ead5519-0000-4000-8000-000000000202', 'pipeline.view', 'all'),
+  ('1ead5519-0000-4000-8000-000000000202', 'pipeline.edit', 'all'),
   ('1ead5519-0000-4000-8000-000000000202', 'pipeline.assign', 'all'),
   ('1ead5519-0000-4000-8000-000000000202', 'pipeline.convert', 'all'),
   ('1ead5519-0000-4000-8000-000000000202', 'pipeline.manage', 'all'),
@@ -812,7 +840,7 @@ begin
       p_opportunity_id => '1ead5519-0000-4000-8000-000000000501',
       p_expected_stage => 'qualifying',
       p_decided_by => '1ead5519-0000-4000-8000-000000000101',
-      p_source_path => 'lead_assignment_sql_contract_lost_access',
+      p_source_path => 'ios',
       p_evidence => '{"contract_case":"prior_assignee_conversion"}'::jsonb,
       p_expected_assignment_version => 2
     );
@@ -1550,7 +1578,7 @@ values (
     p_expected_stage => 'quoting',
     p_decided_by => '1ead5519-0000-4000-8000-000000000101',
     p_title_override => 'Lead Contract Converted Project',
-    p_source_path => 'lead_assignment_sql_contract',
+    p_source_path => 'ios',
     p_evidence => '{"contract_case":"stale_conversion"}'::jsonb,
     p_expected_assignment_version => 0
   )
@@ -1638,7 +1666,7 @@ values (
     p_expected_stage => 'quoting',
     p_decided_by => '1ead5519-0000-4000-8000-000000000101',
     p_title_override => 'Lead Contract Converted Project',
-    p_source_path => 'lead_assignment_sql_contract',
+    p_source_path => 'ios',
     p_evidence => '{"contract_case":"successful_conversion"}'::jsonb,
     p_expected_assignment_version => 1
   )
@@ -1809,7 +1837,7 @@ values (
     p_expected_stage => 'won',
     p_decided_by => '1ead5519-0000-4000-8000-000000000101',
     p_title_override => 'Lead Contract Converted Project',
-    p_source_path => 'lead_assignment_sql_contract_retry',
+    p_source_path => 'ios',
     p_evidence => '{"contract_case":"conversion_retry"}'::jsonb,
     p_expected_assignment_version => 1
   )
@@ -1872,6 +1900,744 @@ from lead_assignment_contract_values retry
 join lead_assignment_contract_values first_conversion
   on first_conversion.value_name = 'conversion_success'
 where retry.value_name = 'conversion_retry';
+
+-- Task 2B actor-aware project disclosure and actorless email provenance.
+insert into public.opportunities (
+  id, company_id, client_id, client_ref, title, address, stage,
+  assigned_to, assignment_version, estimated_value, images
+) values
+  (
+    '1ead5519-1000-4000-8000-000000000506',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Scoped Preflight Lead', '77 Contract Ave', 'quoting',
+    null, 0, 11000, array[]::text[]
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000507',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Email Accept Lead', '78 Contract Ave', 'quoting',
+    null, 0, 12000, array[]::text[]
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000508',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Likely Won Lead', '79 Contract Ave', 'quoting',
+    null, 0, 13000, array[]::text[]
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000509',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Denied Service Actor Lead', '80 Contract Ave', 'quoting',
+    null, 0, 14000, array[]::text[]
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000510',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Away And Back Lead', '81 Contract Ave', 'quoting',
+    null, 0, 15000, array[]::text[]
+  );
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object('role', 'service_role')::text,
+  true
+);
+select set_config('request.jwt.claim.role', 'service_role', true);
+set local role service_role;
+
+insert into lead_assignment_contract_values (value_name, value)
+values
+  (
+    'setup_scoped_preflight',
+    public.change_opportunity_assignment_as_system(
+      '1ead5519-1000-4000-8000-000000000506', 0, null,
+      '1ead5519-0000-4000-8000-000000000101', 'system_repair', null, null,
+      '{"contract_case":"scoped_preflight"}'::jsonb
+    )
+  ),
+  (
+    'setup_away_back_first',
+    public.change_opportunity_assignment_as_system(
+      '1ead5519-1000-4000-8000-000000000510', 0, null,
+      '1ead5519-0000-4000-8000-000000000101', 'system_repair', null, null,
+      '{"contract_case":"away_back_first"}'::jsonb
+    )
+  );
+
+insert into lead_assignment_contract_values (value_name, value)
+values (
+  'setup_away_back_away',
+  public.change_opportunity_assignment_as_system(
+    '1ead5519-1000-4000-8000-000000000510', 1,
+    '1ead5519-0000-4000-8000-000000000101',
+    '1ead5519-0000-4000-8000-000000000103', 'system_repair', null, null,
+    '{"contract_case":"away_back_away"}'::jsonb
+  )
+);
+
+insert into lead_assignment_contract_values (value_name, value)
+values (
+  'setup_away_back_return',
+  public.change_opportunity_assignment_as_system(
+    '1ead5519-1000-4000-8000-000000000510', 2,
+    '1ead5519-0000-4000-8000-000000000103',
+    '1ead5519-0000-4000-8000-000000000101', 'system_repair', null, null,
+    '{"contract_case":"away_back_return"}'::jsonb
+  )
+);
+
+reset role;
+
+insert into public.projects (
+  id, company_id, client_id, title, title_is_auto, address, status,
+  team_member_ids
+) values
+  (
+    '1ead5519-1000-4000-8000-000000000801',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Mention-only candidate', false, '77 Contract Ave', 'rfq',
+    array[]::text[]
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000802',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Task-assigned candidate', false, '77 Contract Ave', 'rfq',
+    array[]::text[]
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000803',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Hidden sibling-client project', false, '999 Hidden Ave', 'rfq',
+    array[]::text[]
+  );
+
+insert into public.project_notes (
+  id, project_id, company_id, author_id, content, mentioned_user_ids
+) values (
+  '1ead5519-1000-4000-8000-000000000811',
+  '1ead5519-1000-4000-8000-000000000801',
+  '1ead5519-0000-4000-8000-000000000001',
+  '1ead5519-0000-4000-8000-000000000102',
+  'Mention-only fixture',
+  array['1ead5519-0000-4000-8000-000000000101']::text[]
+);
+
+insert into public.project_tasks (
+  id, project_id, company_id, custom_title, status, team_member_ids
+) values (
+  '1ead5519-1000-4000-8000-000000000812',
+  '1ead5519-1000-4000-8000-000000000802',
+  '1ead5519-0000-4000-8000-000000000001',
+  'Task assignment fixture', 'active',
+  array['1ead5519-0000-4000-8000-000000000101']::text[]
+);
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object('role', 'service_role')::text,
+  true
+);
+select set_config('request.jwt.claim.role', 'service_role', true);
+set local role service_role;
+
+insert into lead_assignment_contract_values (value_name, value)
+values (
+  'scoped_preflight',
+  public.get_conversion_preflight(
+    '1ead5519-1000-4000-8000-000000000506',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000101'
+  )
+);
+
+reset role;
+
+insert into lead_assignment_contract_results (check_name, passed)
+select
+  'preflight_filters_each_project_by_project_domain_access',
+  (v.value ->> 'assignment_version')::bigint = 1
+  and not (v.value ->> 'already_converted')::boolean
+  and not (v.value ->> 'project_accessible')::boolean
+  and jsonb_array_length(v.value -> 'duplicate_candidates') = 1
+  and v.value -> 'duplicate_candidates' -> 0 ->> 'project_id' =
+    '1ead5519-1000-4000-8000-000000000802'
+  and not (v.value -> 'duplicate_candidates' @> jsonb_build_array(
+    jsonb_build_object(
+      'project_id', '1ead5519-1000-4000-8000-000000000801'
+    )
+  ))
+  and not (v.value -> 'other_client_projects' @> jsonb_build_array(
+    jsonb_build_object(
+      'project_id', '1ead5519-1000-4000-8000-000000000803'
+    )
+  ))
+from lead_assignment_contract_values v
+where v.value_name = 'scoped_preflight';
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object('role', 'service_role')::text,
+  true
+);
+select set_config('request.jwt.claim.role', 'service_role', true);
+set local role service_role;
+
+do $contract$
+begin
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000506',
+      p_expected_stage => 'quoting',
+      p_decided_by => '1ead5519-0000-4000-8000-000000000101',
+      p_link_to_project_id => '1ead5519-1000-4000-8000-000000000801',
+      p_source_path => 'won_dialog',
+      p_evidence => '{"surface":"web_won_dialog"}'::jsonb,
+      p_expected_assignment_version => 1
+    );
+    insert into lead_assignment_contract_results values (
+      'mention_only_project_link_denied', false,
+      'call unexpectedly succeeded'
+    );
+  exception when sqlstate 'P0002' then
+    insert into lead_assignment_contract_results values (
+      'mention_only_project_link_denied',
+      sqlerrm = 'project_link_unavailable', sqlerrm
+    );
+  end;
+end;
+$contract$;
+
+insert into lead_assignment_contract_values (value_name, value)
+values (
+  'authorized_task_assigned_project_link',
+  public.convert_opportunity_to_project(
+    p_company_id => '1ead5519-0000-4000-8000-000000000001',
+    p_opportunity_id => '1ead5519-1000-4000-8000-000000000506',
+    p_expected_stage => 'quoting',
+    p_decided_by => '1ead5519-0000-4000-8000-000000000101',
+    p_link_to_project_id => '1ead5519-1000-4000-8000-000000000802',
+    p_source_path => 'won_dialog',
+    p_evidence => '{"surface":"web_won_dialog"}'::jsonb,
+    p_expected_assignment_version => 1
+  )
+);
+
+reset role;
+
+insert into lead_assignment_contract_results (check_name, passed)
+select
+  'authorized_candidate_is_rechecked_and_linked_under_lock',
+  (v.value ->> 'converted')::boolean
+  and (v.value ->> 'linked_existing')::boolean
+  and (v.value ->> 'project_accessible')::boolean
+  and v.value ->> 'project_id' =
+    '1ead5519-1000-4000-8000-000000000802'
+  and exists (
+    select 1
+      from public.opportunities o
+     where o.id = '1ead5519-1000-4000-8000-000000000506'
+       and o.project_ref = '1ead5519-1000-4000-8000-000000000802'
+       and o.project_id = '1ead5519-1000-4000-8000-000000000802'
+       and o.stage = 'won'
+  )
+  and exists (
+    select 1
+      from public.opportunity_conversion_events event
+     where event.id = (v.value ->> 'conversion_event_id')::uuid
+       and event.actor_user_id =
+         '1ead5519-0000-4000-8000-000000000101'
+       and event.assignment_version = 1
+  )
+from lead_assignment_contract_values v
+where v.value_name = 'authorized_task_assigned_project_link';
+
+insert into public.email_connections (
+  id, company_id, type, user_id, email, access_token, refresh_token,
+  expires_at, sync_enabled, status
+) values
+  (
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-0000-4000-8000-000000000001',
+    'company', null, 'contract-mailbox@example.invalid',
+    'rollback-access-token', 'rollback-refresh-token',
+    now() + interval '1 day', true, 'active'
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000902',
+    '1ead5519-0000-4000-8000-000000000001',
+    'company', null, 'inactive-contract-mailbox@example.invalid',
+    'rollback-access-token', 'rollback-refresh-token',
+    now() + interval '1 day', false, 'inactive'
+  );
+
+insert into public.email_threads (
+  id, company_id, connection_id, provider_thread_id, subject,
+  first_message_at, last_message_at, opportunity_id, client_id
+) values
+  (
+    '1ead5519-1000-4000-8000-000000000911',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-email-accept', 'Acceptance fixture', now(), now(),
+    '1ead5519-1000-4000-8000-000000000507',
+    '1ead5519-0000-4000-8000-000000000401'
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000912',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000902',
+    'provider-thread-inactive', 'Inactive fixture', now(), now(),
+    '1ead5519-1000-4000-8000-000000000509',
+    '1ead5519-0000-4000-8000-000000000401'
+  );
+
+insert into public.opportunity_correspondence_events (
+  id, company_id, opportunity_id, connection_id, provider_thread_id,
+  provider_message_id, direction, party_role, is_meaningful, occurred_at,
+  source
+) values
+  (
+    '1ead5519-1000-4000-8000-000000000921',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000508',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-likely-won', 'provider-message-likely-won',
+    'inbound', 'customer', true, now(), 'lead_assignment_contract'
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000922',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000509',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-untrusted-evidence', 'provider-message-outbound',
+    'outbound', 'customer', true, now(), 'lead_assignment_contract'
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000923',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000509',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-untrusted-evidence', 'provider-message-non-customer',
+    'inbound', 'ops', true, now(), 'lead_assignment_contract'
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000924',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000509',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-untrusted-evidence', 'provider-message-not-meaningful',
+    'inbound', 'customer', false, now(), 'lead_assignment_contract'
+  );
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object('role', 'service_role')::text,
+  true
+);
+select set_config('request.jwt.claim.role', 'service_role', true);
+set local role service_role;
+
+do $contract$
+declare
+  v_case record;
+begin
+  for v_case in
+    select *
+      from (values
+        (
+          'service_no_view_actor_denied',
+          '1ead5519-0000-4000-8000-000000000104'
+        ),
+        (
+          'service_inactive_actor_denied',
+          '1ead5519-0000-4000-8000-000000000105'
+        ),
+        (
+          'service_cross_company_actor_denied',
+          '1ead5519-0000-4000-8000-000000000106'
+        ),
+        (
+          'service_actor_without_edit_or_convert_denied',
+          '1ead5519-0000-4000-8000-000000000103'
+        )
+      ) cases(check_name, actor_user_id)
+  loop
+    begin
+      perform public.convert_opportunity_to_project(
+        p_company_id => '1ead5519-0000-4000-8000-000000000001',
+        p_opportunity_id => '1ead5519-1000-4000-8000-000000000509',
+        p_expected_stage => 'quoting',
+        p_decided_by => v_case.actor_user_id::uuid,
+        p_source_path => 'won_dialog',
+        p_evidence => '{"surface":"web_won_dialog"}'::jsonb,
+        p_expected_assignment_version => 0
+      );
+      insert into lead_assignment_contract_results values (
+        v_case.check_name, false, 'call unexpectedly succeeded'
+      );
+    exception when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        v_case.check_name, sqlerrm = 'access_denied', sqlerrm
+      );
+    end;
+  end loop;
+
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000509',
+      p_expected_stage => 'quoting',
+      p_decided_by => '1ead5519-0000-4000-8000-000000000102',
+      p_source_path => 'won_dialog',
+      p_evidence => '{"surface":"web_won_dialog"}'::jsonb
+    );
+    insert into lead_assignment_contract_results values (
+      'service_human_without_assignment_snapshot_denied', false,
+      'call unexpectedly succeeded'
+    );
+  exception when sqlstate '22023' then
+    insert into lead_assignment_contract_results values (
+      'service_human_without_assignment_snapshot_denied',
+      sqlerrm = 'invalid_assignment_snapshot', sqlerrm
+    );
+  end;
+
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000509',
+      p_expected_stage => 'quoting',
+      p_decided_by => null,
+      p_source_path => 'approval_queue',
+      p_evidence => '{}'::jsonb,
+      p_expected_assignment_version => 0
+    );
+    insert into lead_assignment_contract_results values (
+      'actorless_approval_queue_denied', false,
+      'call unexpectedly succeeded'
+    );
+  exception when sqlstate '42501' then
+    insert into lead_assignment_contract_results values (
+      'actorless_approval_queue_denied',
+      sqlerrm = 'access_denied', sqlerrm
+    );
+  end;
+
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000509',
+      p_expected_stage => 'quoting',
+      p_decided_by => '1ead5519-0000-4000-8000-000000000102',
+      p_source_path => 'email_likely_won',
+      p_evidence => '{}'::jsonb,
+      p_expected_assignment_version => 0
+    );
+    insert into lead_assignment_contract_results values (
+      'actorful_email_source_denied', false,
+      'call unexpectedly succeeded'
+    );
+  exception when sqlstate '42501' then
+    insert into lead_assignment_contract_results values (
+      'actorful_email_source_denied',
+      sqlerrm = 'access_denied', sqlerrm
+    );
+  end;
+
+  for v_case in
+    select *
+      from (values
+        (
+          'outbound_likely_won_evidence_denied',
+          'provider-message-outbound'
+        ),
+        (
+          'non_customer_likely_won_evidence_denied',
+          'provider-message-non-customer'
+        ),
+        (
+          'non_meaningful_likely_won_evidence_denied',
+          'provider-message-not-meaningful'
+        )
+      ) cases(check_name, provider_message_id)
+  loop
+    begin
+      perform public.convert_opportunity_to_project(
+        p_company_id => '1ead5519-0000-4000-8000-000000000001',
+        p_opportunity_id => '1ead5519-1000-4000-8000-000000000509',
+        p_expected_stage => 'quoting',
+        p_decided_by => null,
+        p_source_path => 'email_likely_won',
+        p_evidence => jsonb_build_object(
+          'connection_id', '1ead5519-1000-4000-8000-000000000901',
+          'provider_thread_id', 'provider-thread-untrusted-evidence',
+          'provider_message_id', v_case.provider_message_id,
+          'decision', 'likely_won'
+        ),
+        p_expected_assignment_version => 0
+      );
+      insert into lead_assignment_contract_results values (
+        v_case.check_name, false, 'call unexpectedly succeeded'
+      );
+    exception when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        v_case.check_name, sqlerrm = 'access_denied', sqlerrm
+      );
+    end;
+  end loop;
+
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000509',
+      p_expected_stage => 'quoting',
+      p_decided_by => null,
+      p_source_path => 'email_accept',
+      p_evidence => '{"connection_id":"not-a-uuid"}'::jsonb,
+      p_expected_assignment_version => 0
+    );
+    insert into lead_assignment_contract_results values (
+      'malformed_actorless_evidence_denied', false,
+      'call unexpectedly succeeded'
+    );
+  exception when sqlstate '42501' then
+    insert into lead_assignment_contract_results values (
+      'malformed_actorless_evidence_denied',
+      sqlerrm = 'access_denied', sqlerrm
+    );
+  end;
+
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000509',
+      p_expected_stage => 'quoting',
+      p_decided_by => null,
+      p_source_path => 'email_accept',
+      p_evidence => jsonb_build_object(
+        'connection_id', '1ead5519-1000-4000-8000-000000000901',
+        'email_thread_id', '1ead5519-1000-4000-8000-000000000911',
+        'provider_thread_id', 'provider-thread-email-accept',
+        'decision', 'auto_advance_won'
+      ),
+      p_expected_assignment_version => 0
+    );
+    insert into lead_assignment_contract_results values (
+      'wrong_opportunity_email_thread_denied', false,
+      'call unexpectedly succeeded'
+    );
+  exception when sqlstate '42501' then
+    insert into lead_assignment_contract_results values (
+      'wrong_opportunity_email_thread_denied',
+      sqlerrm = 'access_denied', sqlerrm
+    );
+  end;
+
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000509',
+      p_expected_stage => 'quoting',
+      p_decided_by => null,
+      p_source_path => 'email_likely_won',
+      p_evidence => jsonb_build_object(
+        'connection_id', '1ead5519-1000-4000-8000-000000000901',
+        'provider_thread_id', 'provider-thread-likely-won',
+        'provider_message_id', 'provider-message-likely-won',
+        'decision', 'likely_won'
+      ),
+      p_expected_assignment_version => 0
+    );
+    insert into lead_assignment_contract_results values (
+      'wrong_opportunity_correspondence_event_denied', false,
+      'call unexpectedly succeeded'
+    );
+  exception when sqlstate '42501' then
+    insert into lead_assignment_contract_results values (
+      'wrong_opportunity_correspondence_event_denied',
+      sqlerrm = 'access_denied', sqlerrm
+    );
+  end;
+
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000509',
+      p_expected_stage => 'quoting',
+      p_decided_by => null,
+      p_source_path => 'email_accept',
+      p_evidence => jsonb_build_object(
+        'connection_id', '1ead5519-1000-4000-8000-000000000902',
+        'email_thread_id', '1ead5519-1000-4000-8000-000000000912',
+        'provider_thread_id', 'provider-thread-inactive',
+        'decision', 'auto_advance_won'
+      ),
+      p_expected_assignment_version => 0
+    );
+    insert into lead_assignment_contract_results values (
+      'inactive_connection_evidence_denied', false,
+      'call unexpectedly succeeded'
+    );
+  exception when sqlstate '42501' then
+    insert into lead_assignment_contract_results values (
+      'inactive_connection_evidence_denied',
+      sqlerrm = 'access_denied', sqlerrm
+    );
+  end;
+
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000507',
+      p_expected_stage => 'quoting',
+      p_decided_by => null,
+      p_link_to_project_id => '1ead5519-1000-4000-8000-000000000802',
+      p_source_path => 'email_accept',
+      p_evidence => jsonb_build_object(
+        'connection_id', '1ead5519-1000-4000-8000-000000000901',
+        'email_thread_id', '1ead5519-1000-4000-8000-000000000911',
+        'provider_thread_id', 'provider-thread-email-accept',
+        'decision', 'auto_advance_won'
+      ),
+      p_expected_assignment_version => 0
+    );
+    insert into lead_assignment_contract_results values (
+      'actorless_link_existing_denied', false,
+      'call unexpectedly succeeded'
+    );
+  exception when sqlstate 'P0002' then
+    insert into lead_assignment_contract_results values (
+      'actorless_link_existing_denied',
+      sqlerrm = 'project_link_unavailable', sqlerrm
+    );
+  end;
+end;
+$contract$;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'service_and_actorless_denials_leave_opportunity_unconverted',
+  exists (
+    select 1
+      from public.opportunities o
+     where o.id = '1ead5519-1000-4000-8000-000000000509'
+       and o.stage = 'quoting'
+       and o.project_ref is null
+       and o.project_id is null
+       and o.assignment_version = 0
+  )
+  and not exists (
+    select 1
+      from public.opportunity_conversion_events event
+     where event.opportunity_id =
+       '1ead5519-1000-4000-8000-000000000509'
+  )
+);
+
+insert into lead_assignment_contract_values (value_name, value)
+values
+  (
+    'valid_email_accept_conversion',
+    public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000507',
+      p_expected_stage => 'quoting',
+      p_decided_by => null,
+      p_source_path => 'email_accept',
+      p_evidence => jsonb_build_object(
+        'connection_id', '1ead5519-1000-4000-8000-000000000901',
+        'email_thread_id', '1ead5519-1000-4000-8000-000000000911',
+        'provider_thread_id', 'provider-thread-email-accept',
+        'decision', 'auto_advance_won'
+      ),
+      p_expected_assignment_version => 0
+    )
+  ),
+  (
+    'valid_email_likely_won_conversion',
+    public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000508',
+      p_expected_stage => 'quoting',
+      p_decided_by => null,
+      p_source_path => 'email_likely_won',
+      p_evidence => jsonb_build_object(
+        'connection_id', '1ead5519-1000-4000-8000-000000000901',
+        'provider_thread_id', 'provider-thread-likely-won',
+        'provider_message_id', 'provider-message-likely-won',
+        'decision', 'likely_won'
+      ),
+      p_expected_assignment_version => 0
+    )
+  ),
+  (
+    'away_back_stale_conversion',
+    public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000510',
+      p_expected_stage => 'quoting',
+      p_decided_by => '1ead5519-0000-4000-8000-000000000101',
+      p_source_path => 'won_dialog',
+      p_evidence => '{"surface":"web_won_dialog"}'::jsonb,
+      p_expected_assignment_version => 1
+    )
+  );
+
+reset role;
+
+insert into lead_assignment_contract_results (check_name, passed)
+select
+  'valid_actorless_email_conversions_emit_null_actor_events',
+  count(*) = 2
+  and bool_and((v.value ->> 'converted')::boolean)
+  and bool_and((v.value ->> 'assignment_version')::bigint = 0)
+  and bool_and(not (v.value ->> 'project_accessible')::boolean)
+  and bool_and(exists (
+    select 1
+      from public.opportunity_conversion_events event
+     where event.id = (v.value ->> 'conversion_event_id')::uuid
+       and event.actor_user_id is null
+       and event.assignment_version = 0
+  ))
+from lead_assignment_contract_values v
+where v.value_name in (
+  'valid_email_accept_conversion',
+  'valid_email_likely_won_conversion'
+);
+
+insert into lead_assignment_contract_results (check_name, passed)
+select
+  'away_then_back_assignment_snapshot_still_conflicts_without_writes',
+  not (v.value ->> 'converted')::boolean
+  and v.value ->> 'guard_reason' = 'assignment_snapshot_mismatch'
+  and (v.value ->> 'assignment_version')::bigint = 3
+  and (v.value ->> 'assigned_to')::uuid =
+    '1ead5519-0000-4000-8000-000000000101'
+  and not exists (
+    select 1 from public.opportunity_conversion_events event
+     where event.opportunity_id = '1ead5519-1000-4000-8000-000000000510'
+  )
+  and not exists (
+    select 1 from public.projects project
+     where project.opportunity_ref = '1ead5519-1000-4000-8000-000000000510'
+        or project.opportunity_id = '1ead5519-1000-4000-8000-000000000510'
+  )
+from lead_assignment_contract_values v
+where v.value_name = 'away_back_stale_conversion';
 
 -- Emit useful diagnostics, then make false checks fail the SQL runner.
 select check_name, passed, details

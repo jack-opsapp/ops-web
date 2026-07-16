@@ -1531,7 +1531,7 @@ async function maybeAutoAdvanceOnAccept(args: {
 
     const { data: opp, error: opportunityError } = await supabase
       .from("opportunities")
-      .select("stage, stage_manually_set")
+      .select("stage, stage_manually_set, assignment_version")
       .eq("id", opportunityId)
       .eq("company_id", connection.companyId)
       .maybeSingle();
@@ -1640,12 +1640,14 @@ async function maybeAutoConvertLikelyWon(
   },
   connection: EmailConnection,
   opportunityId: string,
+  candidateProviderMessageIds: ReadonlySet<string>,
   opportunity: {
     stage?: string | null;
     stage_manually_set?: boolean | null;
     actual_value?: unknown;
     detected_value?: unknown;
     estimated_value?: unknown;
+    assignment_version?: unknown;
   } | null
 ): Promise<boolean> {
   if (
@@ -1659,11 +1661,56 @@ async function maybeAutoConvertLikelyWon(
   }
 
   try {
+    if (
+      !Number.isSafeInteger(opportunity?.assignment_version) ||
+      (opportunity?.assignment_version as number) < 0
+    ) {
+      throw new Error("likely-won conversion has no assignment snapshot");
+    }
+    if (candidateProviderMessageIds.size === 0) {
+      return false;
+    }
+
+    // Bind conversion to the newest immutable, meaningful customer inbound
+    // among the exact provider messages evaluated in this cycle. Discovery
+    // buckets and map iteration order are not evidence; an unrelated outbound
+    // or historical message must never authorize actorless conversion.
+    const supabase = requireSupabase();
+    const { data: evidence, error: evidenceError } = await supabase
+      .from("opportunity_correspondence_events")
+      .select("id, provider_thread_id, provider_message_id")
+      .eq("company_id", connection.companyId)
+      .eq("opportunity_id", opportunityId)
+      .eq("connection_id", connection.id)
+      .eq("direction", "inbound")
+      .eq("party_role", "customer")
+      .eq("is_meaningful", true)
+      .in("provider_message_id", [...candidateProviderMessageIds])
+      .order("occurred_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (evidenceError) {
+      throw new Error(
+        `likely-won evidence lookup failed: ${evidenceError.message}`
+      );
+    }
+    if (!evidence?.provider_thread_id || !evidence.provider_message_id) {
+      return false;
+    }
+
     await ProjectConversionService.convertOpportunityToProject({
       opportunityId,
       companyId: connection.companyId,
-      decidedBy: connection.userId ?? null,
-      sourcePath: "won_dialog",
+      decidedBy: null,
+      sourcePath: "email_likely_won",
+      expectedAssignmentVersion: opportunity?.assignment_version as number,
+      evidence: {
+        connection_id: connection.id,
+        provider_thread_id: evidence.provider_thread_id,
+        provider_message_id: evidence.provider_message_id,
+        decision: "likely_won",
+      },
       actualValue:
         numericOpportunityValue(opportunity?.actual_value) ??
         numericOpportunityValue(opportunity?.detected_value) ??
@@ -4051,6 +4098,10 @@ export const SyncEngine = {
           string | { threadId: string; messages: NormalizedEmail[] }
         >();
         const opportunityByEvaluationKey = new Map<string, string>();
+        const providerMessageIdsByEvaluationKey = new Map<
+          string,
+          Set<string>
+        >();
         for (const email of [...inboxEmails, ...sentEmails]) {
           const activity = await findExistingProviderActivity(
             supabase,
@@ -4076,6 +4127,14 @@ export const SyncEngine = {
             );
           }
           opportunityByEvaluationKey.set(evaluationKey, opportunityId);
+          const candidateMessageIds =
+            providerMessageIdsByEvaluationKey.get(evaluationKey) ??
+            new Set<string>();
+          candidateMessageIds.add(email.id);
+          providerMessageIdsByEvaluationKey.set(
+            evaluationKey,
+            candidateMessageIds
+          );
           if (!activeLeadTargets.has(evaluationKey)) {
             activeLeadTargets.set(
               evaluationKey,
@@ -4109,7 +4168,7 @@ export const SyncEngine = {
               await supabase
                 .from("opportunities")
                 .select(
-                  "stage, stage_manually_set, actual_value, detected_value, estimated_value"
+                  "stage, stage_manually_set, actual_value, detected_value, estimated_value, assignment_version"
                 )
                 .eq("id", oppId)
                 .single();
@@ -4125,6 +4184,8 @@ export const SyncEngine = {
                 sr,
                 connection,
                 oppId,
+                providerMessageIdsByEvaluationKey.get(sr.threadId) ??
+                  new Set<string>(),
                 oppData
               );
 

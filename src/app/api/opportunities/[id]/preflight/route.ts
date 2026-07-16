@@ -8,17 +8,19 @@
  *
  * The browser Supabase client runs as the anon role and cannot call the
  * SECURITY DEFINER `get_conversion_preflight` RPC directly, so this service-role
- * route is the only path. Gated on the granular `pipeline.manage` permission
- * (never a role filter) — the same gate as the convert route.
+ * route supplies the subject-derived actor. The RPC independently authorizes
+ * the lead and every project it returns.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import { ProjectConversionService } from "@/lib/api/services/project-conversion-service";
+import {
+  ProjectConversionError,
+  ProjectConversionService,
+} from "@/lib/api/services/project-conversion-service";
 
 export async function GET(
   request: NextRequest,
@@ -31,18 +33,9 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = await findUserByAuth(auth.uid, auth.email);
+  const user = await findUserByAuth(auth.uid, undefined);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 401 });
-  }
-
-  // Granular permission — never filter by role. Same gate as the convert route.
-  const allowed = await checkPermissionById(
-    user.id as string,
-    "pipeline.manage"
-  );
-  if (!allowed) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const companyId = user.company_id as string;
@@ -56,10 +49,19 @@ export async function GET(
   try {
     const preflight = await ProjectConversionService.getConversionPreflight(
       opportunityId,
-      companyId
+      companyId,
+      user.id as string
     );
     return NextResponse.json(preflight);
   } catch (err) {
+    if (err instanceof ProjectConversionError) {
+      if (err.kind === "access_denied") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (err.kind === "not_found") {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+    }
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[OpportunityPreflight] Error:", message);
     return NextResponse.json({ error: message }, { status: 500 });

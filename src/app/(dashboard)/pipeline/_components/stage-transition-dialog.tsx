@@ -37,7 +37,7 @@ export interface StageTransitionConfirmData {
   titleOverride?: string | null;
   /** A dedup candidate the operator chose → link instead of create. */
   linkToProjectId?: string;
-  /** existing_linked → open the already-converted project (no write). */
+  /** Existing linked project to open after Mark Won; already-won opens directly. */
   openProjectId?: string;
 }
 
@@ -69,7 +69,7 @@ const INPUT_CLASS = cn(
   "w-full bg-surface-input text-text font-mono text-body",
   "px-1.5 py-1.5 rounded border border-border",
   "placeholder:text-text-3",
-  "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
+  "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
 );
 
 /** Section title in the tactical `// LABEL` treatment. */
@@ -104,14 +104,14 @@ function WonContent({
   const reduce = useReducedMotion();
 
   const [actualValue, setActualValue] = useState(
-    opportunity.estimatedValue?.toString() ?? "",
+    opportunity.estimatedValue?.toString() ?? ""
   );
   const [address, setAddress] = useState(opportunity.address ?? "");
   const [renameOpen, setRenameOpen] = useState(false);
   const [titleOverride, setTitleOverride] = useState("");
   // null = "create new" (the default); a project id = link that candidate.
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
-    null,
+    null
   );
   const [othersOpen, setOthersOpen] = useState(false);
 
@@ -169,12 +169,15 @@ function WonContent({
         : "win";
 
   const ctaLabel =
-    {
-      open: t("transition.openProject", "Open project"),
-      link: t("transition.linkAndWin", "Link & win"),
-      create: t("transition.createNewAction", "Create new"),
-      win: t("transition.markWon", "Mark won"),
-    }[ctaKind] + " →";
+    (ctaKind === "open"
+      ? opportunity.stage === "won"
+        ? t("transition.openProject", "Open project")
+        : t("transition.markWonAndOpen", "Mark won & open")
+      : {
+          link: t("transition.linkAndWin", "Link & win"),
+          create: t("transition.createNewAction", "Create new"),
+          win: t("transition.markWon", "Mark won"),
+        }[ctaKind]) + " →";
 
   const handleConfirm = () => {
     if (preflightLoading) return;
@@ -196,7 +199,7 @@ function WonContent({
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <Trophy className="w-[18px] h-[18px] text-status-success" />
+          <Trophy className="h-[18px] w-[18px] text-status-success" />
           {t("transition.wonTitle", "Deal won")}
         </DialogTitle>
         <DialogDescription>{opportunity.title}</DialogDescription>
@@ -215,7 +218,7 @@ function WonContent({
           <p className="mt-1 font-mohave text-body-sm text-text-2">
             {t(
               "transition.duplicateExistsBody",
-              "This deal already has a project. Open it instead of making a duplicate.",
+              "This deal already has a project. Open it instead of making a duplicate."
             )}
           </p>
           <p className="mt-1.5 font-mono text-micro text-text">
@@ -329,12 +332,15 @@ function WonContent({
               <p className="font-mohave text-body-sm text-text-3">
                 {t(
                   "transition.candidatesBody",
-                  "This job may already exist. Link it instead of creating a duplicate.",
+                  "This job may already exist. Link it instead of creating a duplicate."
                 )}
               </p>
               <div
                 role="radiogroup"
-                aria-label={t("transition.candidatesTitle", "Possible duplicates")}
+                aria-label={t(
+                  "transition.candidatesTitle",
+                  "Possible duplicates"
+                )}
                 className="space-y-1"
               >
                 {candidates.map((c) => {
@@ -351,7 +357,7 @@ function WonContent({
                         "w-full rounded border px-2.5 py-2 text-left transition-colors",
                         selected
                           ? "border-line-hi bg-surface-active"
-                          : "border-border bg-surface-input hover:bg-surface-hover",
+                          : "border-border bg-surface-input hover:bg-surface-hover"
                       )}
                     >
                       <div className="font-mohave text-body-sm text-text">
@@ -378,7 +384,7 @@ function WonContent({
                     "w-full rounded border px-2.5 py-2 text-left font-mohave text-body-sm transition-colors",
                     selectedCandidateId === null
                       ? "border-line-hi bg-surface-active text-text"
-                      : "border-border bg-surface-input text-text-2 hover:bg-surface-hover",
+                      : "border-border bg-surface-input text-text-2 hover:bg-surface-hover"
                   )}
                 >
                   {t("transition.createNewOption", "Create a new project")}
@@ -399,12 +405,17 @@ function WonContent({
                 <ChevronRight
                   className={cn(
                     "h-3 w-3 transition-transform",
-                    othersOpen && "rotate-90",
+                    othersOpen && "rotate-90"
                   )}
                   aria-hidden="true"
                 />
-                <span className="tabular-nums text-text-2">{others.length}</span>
-                {t("transition.clientHasOthers", "other projects for this client")}
+                <span className="tabular-nums text-text-2">
+                  {others.length}
+                </span>
+                {t(
+                  "transition.clientHasOthers",
+                  "other projects for this client"
+                )}
               </button>
               <AnimatePresence initial={false}>
                 {othersOpen && (
@@ -487,7 +498,7 @@ function LostContent({
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <XCircle className="w-[18px] h-[18px] text-ops-error" />
+          <XCircle className="h-[18px] w-[18px] text-ops-error" />
           {t("transition.lostTitle")}
         </DialogTitle>
         <DialogDescription>
@@ -505,11 +516,11 @@ function LostContent({
             value={lostReason}
             onChange={(e) => setLostReason(e.target.value)}
             className={cn(
-              "w-full bg-surface-input text-text font-mohave text-body",
-              "px-1.5 py-1.5 rounded border border-border",
+              "w-full bg-surface-input font-mohave text-body text-text",
+              "rounded border border-border px-1.5 py-1.5",
               "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
               "cursor-pointer",
-              !lostReason && "text-text-3",
+              !lostReason && "text-text-3"
             )}
           >
             <option value="">{t("transition.selectReason")}</option>
@@ -530,10 +541,10 @@ function LostContent({
             placeholder={t("transition.notesPlaceholder")}
             rows={3}
             className={cn(
-              "w-full bg-surface-input text-text font-mohave text-body-sm",
-              "px-1.5 py-1.5 rounded border border-border resize-none",
+              "w-full bg-surface-input font-mohave text-body-sm text-text",
+              "resize-none rounded border border-border px-1.5 py-1.5",
               "placeholder:text-text-3",
-              "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
+              "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
             )}
           />
         </div>

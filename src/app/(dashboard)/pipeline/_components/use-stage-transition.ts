@@ -151,7 +151,13 @@ export function useStageTransition({
   /** Handle stage move from drag-and-drop, advance button, menu, or table cell */
   const requestStageChange = useCallback(
     (id: string, newStage: OpportunityStage) => {
-      if (!can("pipeline.manage")) return;
+      const canConvert = can("pipeline.convert") || can("pipeline.manage");
+      if (
+        newStage === OpportunityStage.Won
+          ? !canConvert
+          : !can("pipeline.manage")
+      )
+        return;
       const opp = opportunities.find((o) => o.id === id);
       if (!opp) return;
 
@@ -220,8 +226,13 @@ export function useStageTransition({
   /** Confirm Won/Lost transition */
   const confirmTransition = useCallback(
     (data: StageTransitionConfirmData) => {
-      if (!can("pipeline.manage")) return;
       if (!pendingStageMove || !transitionOpportunity) return;
+      if (
+        pendingStageMove.stage === OpportunityStage.Won
+          ? !(can("pipeline.convert") || can("pipeline.manage"))
+          : !can("pipeline.manage")
+      )
+        return;
 
       const { id, stage } = pendingStageMove;
       // The stage captured at dialog-open — the snapshot guard for convert and
@@ -235,8 +246,13 @@ export function useStageTransition({
       const toStage = getStageDisplayName(stage);
       const oppTitle = transitionOpportunity.title;
 
-      // ── existing_linked: the deal already has a project — open it, no write ──
-      if (data.openProjectId) {
+      // A genuinely terminal linked lead needs no write; opening is the whole
+      // action. A linked lead in any non-won stage must continue through the
+      // idempotent conversion below so the stage change is real before open.
+      if (
+        data.openProjectId &&
+        transitionOpportunity.stage === OpportunityStage.Won
+      ) {
         router.push(`/dashboard?openProject=${data.openProjectId}&mode=view`);
         resetDialog();
         return;
@@ -244,18 +260,35 @@ export function useStageTransition({
 
       // ── Won: ONE atomic win+convert (or link-existing) ──
       if (stage === OpportunityStage.Won) {
+        const assignmentVersion = preflightQuery.data?.assignmentVersion;
+        if (
+          !Number.isSafeInteger(assignmentVersion) ||
+          (assignmentVersion as number) < 0
+        ) {
+          toast.error(t("toast.failedConvertProject"), {
+            description: oppTitle,
+          });
+          return;
+        }
+
         // The convert/link hooks have no onMutate, so flip the card to won
         // locally for instant feedback (mirrors useMoveOpportunityStage). The
         // hooks' onSettled reconciles against the server; a failed convert
         // additionally invalidates here to revert the flip.
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.lists() });
+        queryClient.cancelQueries({
+          queryKey: queryKeys.opportunities.lists(),
+        });
         queryClient.setQueriesData<Opportunity[]>(
           { queryKey: queryKeys.opportunities.lists() },
           (old) =>
             old
               ? old.map((o) =>
                   o.id === id
-                    ? { ...o, stage: OpportunityStage.Won, stageEnteredAt: new Date() }
+                    ? {
+                        ...o,
+                        stage: OpportunityStage.Won,
+                        stageEnteredAt: new Date(),
+                      }
                     : o
                 )
               : old
@@ -277,6 +310,7 @@ export function useStageTransition({
               projectId: data.linkToProjectId,
               actualValue: data.actualValue,
               expectedStage: previousStage,
+              expectedAssignmentVersion: assignmentVersion as number,
             },
             {
               onSuccess: () =>
@@ -296,13 +330,30 @@ export function useStageTransition({
               id,
               actualValue: data.actualValue,
               expectedStage: previousStage,
+              expectedAssignmentVersion: assignmentVersion as number,
               titleOverride: data.titleOverride,
             },
             {
-              onSuccess: () =>
+              onSuccess: (conversion) => {
+                const wasAlreadyLinked =
+                  conversion.alreadyConverted === true ||
+                  preflightQuery.data?.alreadyConverted === true;
+                if (wasAlreadyLinked) {
+                  if (conversion.projectAccessible && conversion.projectId) {
+                    router.push(
+                      `/dashboard?openProject=${conversion.projectId}&mode=view`
+                    );
+                  } else {
+                    toast.success(t("toast.dealMarkedWon"), {
+                      description: oppTitle,
+                    });
+                  }
+                  return;
+                }
                 toast.success(t("toast.dealWonProjectCreated"), {
                   description: oppTitle,
-                }),
+                });
+              },
               onError: onConvertError,
             }
           );
@@ -386,6 +437,7 @@ export function useStageTransition({
       t,
       clientNameMap,
       pushUndo,
+      preflightQuery.data,
     ]
   );
 

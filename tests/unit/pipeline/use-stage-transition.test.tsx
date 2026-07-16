@@ -7,7 +7,8 @@ import type { ConversionPreflight } from "@/lib/api/services/project-conversion-
 // win+convert. Confirming a win calls ONLY the unified convert RPC (which wins
 // + converts in one transaction) with the PRE-win stage as the snapshot guard;
 // the card flips to won optimistically; picking a dedup candidate links instead
-// of creates; an already-linked deal just deep-links open. Lost is untouched.
+// of creates; an already-linked-but-not-won deal still runs the idempotent
+// conversion before navigation. Lost is untouched.
 
 const routerPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -19,10 +20,9 @@ const getQueriesData = vi.fn(() => []);
 const invalidateQueries = vi.fn();
 const cancelQueries = vi.fn();
 vi.mock("@tanstack/react-query", async () => {
-  const actual =
-    await vi.importActual<typeof import("@tanstack/react-query")>(
-      "@tanstack/react-query",
-    );
+  const actual = await vi.importActual<typeof import("@tanstack/react-query")>(
+    "@tanstack/react-query"
+  );
   return {
     ...actual,
     useQueryClient: () => ({
@@ -35,16 +35,20 @@ vi.mock("@tanstack/react-query", async () => {
 });
 
 // Mutations — `mutate` invokes its onSuccess so the success branches run.
-const convertMutate = vi.fn((_vars, opts) => opts?.onSuccess?.());
+const convertMutate = vi.fn((_vars, opts) =>
+  opts?.onSuccess?.({ projectId: "proj-new", projectAccessible: true })
+);
 const linkMutate = vi.fn((_vars, opts) => opts?.onSuccess?.());
 const moveMutate = vi.fn((_vars, opts) => opts?.onSuccess?.());
 const moveMutateAsync = vi.fn(async () => {});
 const updateMutate = vi.fn();
 const preflightHook = vi.fn(
-  (id: string | undefined): { data?: ConversionPreflight; isLoading: boolean } => ({
+  (
+    id: string | undefined
+  ): { data?: ConversionPreflight; isLoading: boolean } => ({
     data: id ? PREFLIGHT : undefined,
     isLoading: false,
-  }),
+  })
 );
 
 vi.mock("@/lib/hooks", () => ({
@@ -69,7 +73,10 @@ vi.mock("@/i18n/client", () => ({
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 vi.mock("@/components/ui/toast", () => ({
-  toast: { success: (...a: unknown[]) => toastSuccess(...a), error: (...a: unknown[]) => toastError(...a) },
+  toast: {
+    success: (...a: unknown[]) => toastSuccess(...a),
+    error: (...a: unknown[]) => toastError(...a),
+  },
 }));
 
 vi.mock("@/lib/store/auth-store", () => ({
@@ -88,15 +95,17 @@ vi.mock("@/stores/undo-store", () => ({
 }));
 
 const PREFLIGHT: ConversionPreflight = {
+  assignmentVersion: 12,
+  alreadyConverted: false,
+  projectAccessible: false,
   existingLinkedProject: null,
   duplicateCandidates: [],
   otherClientProjects: [],
   suggestedName: "1240 W 6th Ave",
 };
 
-const { useStageTransition } = await import(
-  "@/app/(dashboard)/pipeline/_components/use-stage-transition"
-);
+const { useStageTransition } =
+  await import("@/app/(dashboard)/pipeline/_components/use-stage-transition");
 
 function makeOpp(overrides: Partial<Opportunity> = {}): Opportunity {
   return {
@@ -115,12 +124,22 @@ function makeOpp(overrides: Partial<Opportunity> = {}): Opportunity {
 describe("useStageTransition — Won (single atomic win+convert)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    convertMutate.mockReset();
+    convertMutate.mockImplementation((_vars, opts) =>
+      opts?.onSuccess?.({ projectId: "proj-new", projectAccessible: true })
+    );
+    linkMutate.mockReset();
+    linkMutate.mockImplementation((_vars, opts) => opts?.onSuccess?.());
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id ? PREFLIGHT : undefined,
+      isLoading: false,
+    }));
   });
 
   it("opening the Won dialog fetches the preflight for that opportunity", () => {
     const opp = makeOpp();
     const { result } = renderHook(() =>
-      useStageTransition({ opportunities: [opp] }),
+      useStageTransition({ opportunities: [opp] })
     );
 
     // Closed → preflight disabled (undefined id).
@@ -138,7 +157,7 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
   it("confirm (clean) calls convert ONCE with the pre-win stage; no separate moveStage", () => {
     const opp = makeOpp({ stage: OpportunityStage.Negotiation });
     const { result } = renderHook(() =>
-      useStageTransition({ opportunities: [opp] }),
+      useStageTransition({ opportunities: [opp] })
     );
 
     act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
@@ -150,6 +169,7 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
       id: opp.id,
       actualValue: 15000,
       expectedStage: OpportunityStage.Negotiation, // PRE-win stage, not 'won'
+      expectedAssignmentVersion: 12,
     });
     // Winning no longer routes through a separate stage move.
     expect(moveMutate).not.toHaveBeenCalled();
@@ -163,7 +183,7 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
   it("confirm with a chosen candidate links the existing project instead of creating", () => {
     const opp = makeOpp();
     const { result } = renderHook(() =>
-      useStageTransition({ opportunities: [opp] }),
+      useStageTransition({ opportunities: [opp] })
     );
 
     act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
@@ -171,7 +191,7 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
       result.current.confirmTransition({
         actualValue: 9000,
         linkToProjectId: "proj-existing",
-      }),
+      })
     );
 
     expect(linkMutate).toHaveBeenCalledTimes(1);
@@ -180,37 +200,81 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
       projectId: "proj-existing",
       actualValue: 9000,
       expectedStage: OpportunityStage.Negotiation,
+      expectedAssignmentVersion: 12,
     });
     expect(convertMutate).not.toHaveBeenCalled();
   });
 
-  it("confirm with openProjectId deep-links the existing project and writes nothing", () => {
+  it("linked-but-not-won accessible project is won atomically before navigation", () => {
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id
+        ? { ...PREFLIGHT, alreadyConverted: true, projectAccessible: true }
+        : undefined,
+      isLoading: false,
+    }));
     const opp = makeOpp();
     const { result } = renderHook(() =>
-      useStageTransition({ opportunities: [opp] }),
+      useStageTransition({ opportunities: [opp] })
+    );
+    convertMutate.mockImplementationOnce((_vars, opts) =>
+      opts?.onSuccess?.({
+        projectId: "proj-existing",
+        projectAccessible: true,
+      })
     );
 
     act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
     act(() =>
-      result.current.confirmTransition({ openProjectId: "proj-existing" }),
+      result.current.confirmTransition({ openProjectId: "proj-existing" })
     );
 
     expect(routerPush).toHaveBeenCalledWith(
-      "/dashboard?openProject=proj-existing&mode=view",
+      "/dashboard?openProject=proj-existing&mode=view"
     );
-    expect(convertMutate).not.toHaveBeenCalled();
+    expect(convertMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: opp.id,
+        expectedStage: OpportunityStage.Negotiation,
+        expectedAssignmentVersion: 12,
+      }),
+      expect.any(Object)
+    );
     expect(linkMutate).not.toHaveBeenCalled();
     expect(moveMutate).not.toHaveBeenCalled();
     expect(result.current.dialogType).toBeNull();
   });
 
+  it("already-won linked project opens without another conversion write", () => {
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id
+        ? { ...PREFLIGHT, alreadyConverted: true, projectAccessible: true }
+        : undefined,
+      isLoading: false,
+    }));
+    const opp = makeOpp({ stage: OpportunityStage.Won });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() => result.current.requestConvertAlreadyWon(opp.id));
+    act(() =>
+      result.current.confirmTransition({ openProjectId: "proj-existing" })
+    );
+
+    expect(routerPush).toHaveBeenCalledWith(
+      "/dashboard?openProject=proj-existing&mode=view"
+    );
+    expect(convertMutate).not.toHaveBeenCalled();
+    expect(linkMutate).not.toHaveBeenCalled();
+  });
+
   it("convert failure rolls back by invalidating opportunities", () => {
     convertMutate.mockImplementationOnce((_vars, opts) =>
-      opts?.onError?.(new Error("boom")),
+      opts?.onError?.(new Error("boom"))
     );
     const opp = makeOpp();
     const { result } = renderHook(() =>
-      useStageTransition({ opportunities: [opp] }),
+      useStageTransition({ opportunities: [opp] })
     );
 
     act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
@@ -223,7 +287,7 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
   it("requestConvertAlreadyWon opens the Won dialog for an already-won opp (bypasses the same-stage no-op)", () => {
     const opp = makeOpp({ stage: OpportunityStage.Won, projectId: null });
     const { result } = renderHook(() =>
-      useStageTransition({ opportunities: [opp] }),
+      useStageTransition({ opportunities: [opp] })
     );
 
     // requestStageChange no-ops on the same stage — the dialog never opens.
@@ -242,13 +306,68 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
     expect(convertMutate.mock.calls[0]![0]).toMatchObject({
       id: opp.id,
       expectedStage: OpportunityStage.Won,
+      expectedAssignmentVersion: 12,
+    });
+  });
+
+  it("refuses to mutate when preflight has no safe assignment snapshot", () => {
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id
+        ? ({ ...PREFLIGHT, assignmentVersion: -1 } as ConversionPreflight)
+        : undefined,
+      isLoading: false,
+    }));
+    const opp = makeOpp();
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
+    act(() => result.current.confirmTransition({ actualValue: 1000 }));
+
+    expect(convertMutate).not.toHaveBeenCalled();
+    expect(linkMutate).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenCalled();
+  });
+
+  it("linked-but-not-won inaccessible project is won atomically without navigation", () => {
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id
+        ? { ...PREFLIGHT, alreadyConverted: true, projectAccessible: false }
+        : undefined,
+      isLoading: false,
+    }));
+    const opp = makeOpp();
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+    convertMutate.mockImplementationOnce((_vars, opts) =>
+      opts?.onSuccess?.({ projectId: null, projectAccessible: false })
+    );
+
+    act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
+    act(() =>
+      result.current.confirmTransition({ openProjectId: "proj-hidden" })
+    );
+
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(convertMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: opp.id,
+        expectedStage: OpportunityStage.Negotiation,
+        expectedAssignmentVersion: 12,
+      }),
+      expect.any(Object)
+    );
+    expect(toastSuccess).toHaveBeenCalledWith("toast.dealMarkedWon", {
+      description: opp.title,
     });
   });
 
   it("onAddressChange persists the corrected address to the opportunity", () => {
     const opp = makeOpp();
     const { result } = renderHook(() =>
-      useStageTransition({ opportunities: [opp] }),
+      useStageTransition({ opportunities: [opp] })
     );
 
     act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
@@ -257,7 +376,7 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
         address: "500 Main St, Burnaby",
         latitude: 49.2,
         longitude: -123.0,
-      }),
+      })
     );
 
     expect(updateMutate).toHaveBeenCalledWith({
@@ -274,17 +393,21 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
 describe("useStageTransition — Lost (unchanged)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id ? PREFLIGHT : undefined,
+      isLoading: false,
+    }));
   });
 
   it("confirm marks lost via moveStage and records the reason; never converts", () => {
     const opp = makeOpp();
     const { result } = renderHook(() =>
-      useStageTransition({ opportunities: [opp] }),
+      useStageTransition({ opportunities: [opp] })
     );
 
     act(() => result.current.requestStageChange(opp.id, OpportunityStage.Lost));
     act(() =>
-      result.current.confirmTransition({ lostReason: "Price too high" }),
+      result.current.confirmTransition({ lostReason: "Price too high" })
     );
 
     expect(moveMutate).toHaveBeenCalledTimes(1);
@@ -303,7 +426,7 @@ describe("useStageTransition — Lost (unchanged)", () => {
   it("Lost does not fetch a conversion preflight", () => {
     const opp = makeOpp();
     const { result } = renderHook(() =>
-      useStageTransition({ opportunities: [opp] }),
+      useStageTransition({ opportunities: [opp] })
     );
     act(() => result.current.requestStageChange(opp.id, OpportunityStage.Lost));
     expect(preflightHook).toHaveBeenLastCalledWith(undefined);

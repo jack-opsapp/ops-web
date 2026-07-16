@@ -367,6 +367,7 @@
   "transition.signalSameAddress": "misma dirección",
   "transition.newProjectName": "New project",
   "transition.openProject": "Abrir proyecto",
+  "transition.markWonAndOpen": "Marcar ganado y abrir",
   "transition.linkAndWin": "Vincular y ganar",
   "transition.createNewAction": "Crear nuevo",
   "transition.cancel": "Cancelar",
