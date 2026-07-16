@@ -4,8 +4,8 @@
 -- production activation migration. Never point either session at a shared,
 -- staging, or production database.
 --
--- Run each scenario from a fresh pre-180000 database snapshot with migrations
--- through 20260715179000 applied and 20260715180000 unapplied.
+-- Run each scenario from a fresh pre-181000 database snapshot with migrations
+-- through 20260715180500 applied and 20260715181000 unapplied.
 -- Do not run this file as one session: copy only the labelled COMMON SETUP / SESSION / VERIFY
 -- blocks into the indicated migration-owner psql connections.
 --
@@ -430,7 +430,7 @@ commit;
 --
 -- Start Session A first. It stops at the bounded blocker barrier. Start Session
 -- B, which stops inside the real guarded assignment RPC. When Session A returns
--- from its barrier, execute the exact 180000 migration in that same connection.
+-- from its barrier, execute the exact 181000 migration in that same connection.
 
 -- SCENARIO 1 / SESSION A :: ACTIVATION
 select private.register_lead_assignment_activation_session('assignment', 'a');
@@ -441,7 +441,7 @@ set local statement_timeout = '45s';
 select private.lock_lead_assignment_company(
   '18000000-0000-4000-8000-000000000001'
 );
-select pg_catalog.pg_advisory_lock(180000, 1);
+select pg_catalog.pg_advisory_lock(181000, 1);
 select private.await_lead_assignment_activation_block(
   'assignment',
   'b',
@@ -450,16 +450,16 @@ select private.await_lead_assignment_activation_block(
 );
 
 -- STOP COPYING HERE. In this same open Session A, run exactly:
---   \ir ../../supabase/migrations/20260715180000_lead_assignment_operator_activation.sql
+--   \ir ../../supabase/migrations/20260715181000_lead_assignment_operator_activation.sql
 -- The migration's COMMIT releases the company lock. Then run this continuation:
-select pg_catalog.pg_advisory_unlock(180000, 1);
+select pg_catalog.pg_advisory_unlock(181000, 1);
 
 -- SCENARIO 1 / SESSION B :: GUARDED ASSIGNMENT
 select private.register_lead_assignment_activation_session('assignment', 'b');
 select private.await_lead_assignment_activation_signal(
   'assignment',
   'a',
-  180000,
+  181000,
   1,
   interval '30 seconds'
 );
@@ -522,7 +522,7 @@ begin
   if not exists (
     select 1
       from private.lead_assignment_operator_activation_audit audit
-     where audit.migration_key = '20260715180000'
+     where audit.migration_key = '20260715181000'
        and audit.operator_role_id =
            '00000000-0000-0000-0000-000000000004'::uuid
   ) then
@@ -534,7 +534,7 @@ $assignment_verify$;
 
 select true as assignment_concurrency_contract_passed;
 
--- Discard this isolated database. Restore a fresh pre-180000 snapshot and run
+-- Discard this isolated database. Restore a fresh pre-181000 snapshot and run
 -- COMMON SETUP again before Scenario 2.
 
 -- SCENARIO 2 :: LATE NEW-COMPANY MEMBERSHIP -------------------------------
@@ -576,7 +576,7 @@ select public.replace_user_role_as_system(
   '[]'::jsonb
 );
 
-select pg_catalog.pg_advisory_lock(180000, 2);
+select pg_catalog.pg_advisory_lock(181000, 2);
 select private.await_lead_assignment_activation_block(
   'late_membership',
   'a',
@@ -584,7 +584,7 @@ select private.await_lead_assignment_activation_block(
   interval '30 seconds'
 );
 commit;
-select pg_catalog.pg_advisory_unlock(180000, 2);
+select pg_catalog.pg_advisory_unlock(181000, 2);
 
 -- SCENARIO 2 / SESSION A :: ACTIVATION
 select private.register_lead_assignment_activation_session(
@@ -594,7 +594,7 @@ select private.register_lead_assignment_activation_session(
 select private.await_lead_assignment_activation_signal(
   'late_membership',
   'b',
-  180000,
+  181000,
   2,
   interval '30 seconds'
 );
@@ -602,7 +602,7 @@ select private.await_lead_assignment_activation_signal(
 -- STOP COPYING HERE. In this same Session A, enable verbose psql errors and run:
 --   \set VERBOSITY verbose
 --   \set ON_ERROR_STOP on
---   \ir ../../supabase/migrations/20260715180000_lead_assignment_operator_activation.sql
+--   \ir ../../supabase/migrations/20260715181000_lead_assignment_operator_activation.sql
 -- Expected: ERROR 40001, operator_membership_company_set_changed.
 -- Expected SQLSTATE 40001 proves the late company is retryable, not partial.
 -- Close the failed session, or issue ROLLBACK before verification.
@@ -662,7 +662,7 @@ $late_membership_verify$;
 
 select true as late_membership_retry_contract_passed;
 
--- Discard this isolated database. Restore a fresh pre-180000 snapshot and run
+-- Discard this isolated database. Restore a fresh pre-181000 snapshot and run
 -- COMMON SETUP again before Scenario 3.
 
 -- SCENARIO 3 :: LOCKED MEMBER-USER REVALIDATION ----------------------------
@@ -693,7 +693,7 @@ update public.users
        updated_at = clock_timestamp()
  where id = '18000000-0000-4000-8000-000000000101'::uuid;
 
-select pg_catalog.pg_advisory_lock(180000, 3);
+select pg_catalog.pg_advisory_lock(181000, 3);
 select private.await_lead_assignment_activation_block(
   'member_user_state',
   'a',
@@ -701,7 +701,7 @@ select private.await_lead_assignment_activation_block(
   interval '30 seconds'
 );
 commit;
-select pg_catalog.pg_advisory_unlock(180000, 3);
+select pg_catalog.pg_advisory_unlock(181000, 3);
 
 -- SCENARIO 3 / SESSION A :: ACTIVATION
 select private.register_lead_assignment_activation_session(
@@ -711,7 +711,7 @@ select private.register_lead_assignment_activation_session(
 select private.await_lead_assignment_activation_signal(
   'member_user_state',
   'b',
-  180000,
+  181000,
   3,
   interval '30 seconds'
 );
@@ -719,7 +719,7 @@ select private.await_lead_assignment_activation_signal(
 -- STOP COPYING HERE. In this same Session A, enable verbose psql errors and run:
 --   \set VERBOSITY verbose
 --   \set ON_ERROR_STOP on
---   \ir ../../supabase/migrations/20260715180000_lead_assignment_operator_activation.sql
+--   \ir ../../supabase/migrations/20260715181000_lead_assignment_operator_activation.sql
 -- Expected: ERROR 40001, operator_membership_user_state_changed.
 -- Expected SQLSTATE 40001 proves the post-user-lock check is retryable.
 -- Close the failed session, or issue ROLLBACK before verification.

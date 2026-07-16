@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = resolve(
   process.cwd(),
-  "supabase/migrations/20260715180000_lead_assignment_operator_activation.sql"
+  "supabase/migrations/20260715181000_lead_assignment_operator_activation.sql"
 );
 
 function sql(): string {
@@ -106,7 +106,7 @@ describe("lead assignment Operator activation migration", () => {
     );
   });
 
-  it("fails closed unless every assignment, realtime, delivery, and inbox prerequisite exists", () => {
+  it("fails closed unless every assignment, inbox, email, and notification prerequisite exists", () => {
     const source = sql();
 
     for (const prerequisite of [
@@ -121,6 +121,11 @@ describe("lead assignment Operator activation migration", () => {
       "private.current_user_can_view_email_thread_correction",
       "private.current_user_can_edit_email_thread_correction",
       "private.email_outbound_learning_guard",
+      "create_notification_if_new_with_status",
+      "sync_email_signature_notification_as_system",
+      "process_email_signature_notification_lifecycle",
+      "email_signature_notification_lifecycle_outbox",
+      "request_lockout_admin_notification",
     ]) {
       expect(source).toContain(prerequisite);
     }

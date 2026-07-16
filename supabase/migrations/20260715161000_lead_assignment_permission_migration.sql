@@ -4,7 +4,7 @@
 -- 161000 translates reviewed legacy lead permissions without activating the
 -- Operator preset, records a deterministic before/after report, and makes role,
 -- override, and user-role changes atomic with lead-responsibility resolution.
--- Operator lead access remains exclusively owned by 20260715180000.
+-- Operator lead access remains exclusively owned by 20260715181000.
 -- ============================================================================
 
 begin;
@@ -702,7 +702,7 @@ select
   before_item.item,
   after_item.item,
   'deferred_operator_activation',
-  'Operator inbox permission is retained byte-for-byte; lead activation belongs only to 180000.'
+  'Operator inbox permission is retained byte-for-byte; lead activation belongs only to 181000.'
 from private.lead_assignment_permission_migration_snapshots before_snapshot
 join private.lead_assignment_permission_migration_snapshots after_snapshot
   on after_snapshot.migration_key = before_snapshot.migration_key
@@ -2810,7 +2810,7 @@ $function$;
 
 -- Validate only the members whose effective lead permissions changed during
 -- this migration. Operator is intentionally absent: its preset is activated
--- separately by 20260715180000 after the full dependent email chain lands.
+-- separately by 20260715181000 after the full dependent email and notification chain lands.
 do $mapped_member_assertions$
 declare
   v_role_id uuid;

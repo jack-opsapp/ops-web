@@ -1,6 +1,6 @@
 -- Activate the reviewed Operator lead/inbox preset only after every assignment
 -- and email hardening seam is present. This is intentionally the final migration
--- in the coordinated 160000-180000 chain: a failure anywhere before this file
+-- in the coordinated 160000-181000 chain: a failure anywhere before this file
 -- leaves the legacy Operator preset unchanged and therefore cannot expose a
 -- partially hardened assigned-lead workflow.
 
@@ -50,9 +50,24 @@ begin
     or to_regprocedure(
       'private.email_outbound_learning_guard(uuid)'
     ) is null
+    or to_regprocedure(
+      'public.create_notification_if_new_with_status(text,text,text,text,text,boolean,text,text,text,text,text)'
+    ) is null
+    or to_regprocedure(
+      'public.sync_email_signature_notification_as_system(uuid,uuid)'
+    ) is null
+    or to_regprocedure(
+      'public.process_email_signature_notification_lifecycle(uuid,uuid)'
+    ) is null
+    or to_regprocedure(
+      'public.request_lockout_admin_notification()'
+    ) is null
     or to_regclass('public.opportunity_assignment_events') is null
     or to_regclass('public.opportunity_assignment_deliveries') is null
     or to_regclass('public.user_permission_change_deliveries') is null
+    or to_regclass(
+      'public.email_signature_notification_lifecycle_outbox'
+    ) is null
   then
     raise exception 'lead_assignment_operator_activation_prerequisite_missing'
       using errcode = '55000';
@@ -94,7 +109,7 @@ $prerequisites$;
 create table private.lead_assignment_operator_activation_audit (
   id uuid primary key default gen_random_uuid(),
   migration_key text not null
-    check (migration_key = '20260715180000'),
+    check (migration_key = '20260715181000'),
   operator_role_id uuid not null,
   before_permissions jsonb not null
     check (jsonb_typeof(before_permissions) = 'array'),
@@ -412,7 +427,7 @@ begin
     intentional_narrowing
   )
   values (
-    '20260715180000',
+    '20260715181000',
     v_operator_id,
     v_before_permissions,
     v_after_permissions,
@@ -429,7 +444,7 @@ begin
   if not exists (
     select 1
       from private.lead_assignment_operator_activation_audit audit
-     where audit.migration_key = '20260715180000'
+     where audit.migration_key = '20260715181000'
        and audit.operator_role_id = v_operator_id
        and audit.before_permissions = v_before_permissions
        and audit.after_permissions = v_after_permissions

@@ -24,12 +24,12 @@ function section(start: string, end?: string): string {
 }
 
 describe("lead assignment Operator activation two-session contract", () => {
-  it("is an explicit pre-180000 isolated-database artifact that runs the exact migration", () => {
+  it("is an explicit pre-181000 isolated-database artifact that runs the exact migration", () => {
     expect(existsSync(artifactPath)).toBe(true);
     expect(artifact).toContain("isolated database only");
-    expect(artifact).toContain("fresh pre-180000 database snapshot");
+    expect(artifact).toContain("fresh pre-181000 database snapshot");
     expect(artifact).toContain(
-      "20260715180000_lead_assignment_operator_activation.sql"
+      "20260715181000_lead_assignment_operator_activation.sql"
     );
     expect(artifact).toContain("do not run this file as one session");
   });
@@ -58,7 +58,7 @@ describe("lead assignment Operator activation two-session contract", () => {
     );
 
     expect(sessionA).toMatch(
-      /lock_lead_assignment_company[\s\S]*?pg_advisory_lock\(180000, 1\)[\s\S]*?await_lead_assignment_activation_block/
+      /lock_lead_assignment_company[\s\S]*?pg_advisory_lock\(181000, 1\)[\s\S]*?await_lead_assignment_activation_block/
     );
     expect(sessionB).toMatch(
       /await_lead_assignment_activation_signal[\s\S]*?change_opportunity_assignment_as_system/
@@ -86,7 +86,7 @@ describe("lead assignment Operator activation two-session contract", () => {
     );
 
     expect(sessionB).toMatch(
-      /replace_user_role_as_system[\s\S]*?'00000000-0000-0000-0000-000000000004'[\s\S]*?pg_advisory_lock\(180000, 2\)/
+      /replace_user_role_as_system[\s\S]*?'00000000-0000-0000-0000-000000000004'[\s\S]*?pg_advisory_lock\(181000, 2\)/
     );
     expect(sessionB).toContain("await_lead_assignment_activation_block");
     expect(sessionA).toContain("await_lead_assignment_activation_signal");
@@ -113,7 +113,7 @@ describe("lead assignment Operator activation two-session contract", () => {
       /update public\.users[\s\S]*?company_id\s*=\s*'18000000-0000-4000-8000-000000000002'[\s\S]*?deleted_at\s*=\s*clock_timestamp\(\)/
     );
     expect(sessionB).toMatch(
-      /pg_advisory_lock\(180000, 3\)[\s\S]*?await_lead_assignment_activation_block/
+      /pg_advisory_lock\(181000, 3\)[\s\S]*?await_lead_assignment_activation_block/
     );
     expect(sessionA).toContain("await_lead_assignment_activation_signal");
     expect(sessionA).toContain("operator_membership_user_state_changed");

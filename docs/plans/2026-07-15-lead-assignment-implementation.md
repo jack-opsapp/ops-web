@@ -79,8 +79,8 @@ Both facades return `ok`, `conflict`, current `assigned_to`, current `assignment
    - snapshots and deterministically maps existing preset/custom role grants and user overrides without activating Operator pipeline access
 5. `supabase/migrations/20260715161500_lead_assignment_realtime_fanout.sql` and `20260715161600_lead_assignment_delivery_worker.sql`
    - durable access-loss fanout and deduplicated assignment notifications
-6. The email-hardening chain (`20260715162000` through `20260715179000_email_outbound_learning_assignment_hardening.sql`) depends on the canonical assignment and inbox contracts above.
-7. `supabase/migrations/20260715180000_lead_assignment_operator_activation.sql`
+6. The email and notification hardening chain (`20260715162000` through `20260715180500_notification_creation_hardening.sql`) depends on the canonical assignment and inbox contracts above.
+7. `supabase/migrations/20260715181000_lead_assignment_operator_activation.sql`
    - final, separately controlled activation after web, iOS, notification, and the complete email chain pass compatibility proof
 
 ---
@@ -259,7 +259,7 @@ Both facades return `ok`, `conflict`, current `assigned_to`, current `assignment
 
 **Files:**
 
-- Create: `supabase/migrations/20260715180000_lead_assignment_operator_activation.sql`
+- Create: `supabase/migrations/20260715181000_lead_assignment_operator_activation.sql`
 - Update: relevant sections of `ops-software-bible/10_JOB_LIFECYCLE_AND_DATA_RELATIONSHIPS.md`, `ops-software-bible/13_EMAIL_SYSTEM.md`, permissions/data architecture documentation, and migration index
 - Regenerate: web and iOS database types from the reconciled development database
 - Update: this plan's verification ledger/artifacts under `docs/artifacts/`
