@@ -860,6 +860,33 @@ as $function$
   where rp.role_id = p_role_id;
 $function$;
 
+-- Every supported assignment/create path and every supported permission
+-- mutation takes this transaction-scoped company lock before any user or
+-- opportunity row lock. One canonical ordering prevents a permission change
+-- from racing an assignment against a statement snapshot that predates the
+-- permission commit.
+create or replace function private.lock_lead_assignment_company(
+  p_company_id uuid
+) returns void
+language plpgsql
+volatile security definer
+set search_path to 'pg_catalog', 'pg_temp'
+as $function$
+begin
+  if p_company_id is null then
+    raise exception 'lead_assignment_company_lock_required'
+      using errcode = '22023';
+  end if;
+
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'lead-assignment-company:' || p_company_id::text,
+      161000
+    )
+  );
+end;
+$function$;
+
 -- Deferred direct-write guards ------------------------------------------------
 
 create or replace function private.assert_direct_permission_user(
@@ -884,9 +911,7 @@ begin
     return;
   end if;
 
-  perform pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(v_company_id::text, 161000)
-  );
+  perform private.lock_lead_assignment_company(v_company_id);
 
   if exists (
     select 1
@@ -1094,6 +1119,215 @@ after insert or update or delete on public.user_roles
 deferrable initially deferred
 for each row execute function private.guard_user_roles_final_state();
 
+-- Company-serialized guarded assignment/create facades ----------------------
+--
+-- Move the reviewed 160000 implementations behind private, fully-revoked
+-- names, then restore their exact public signatures as small serialization
+-- facades. Supported callers now acquire the same company lock as permission
+-- mutation before any user/opportunity row lock. The original implementations
+-- retain every validation, event, delivery, and optimistic-version contract.
+
+alter function public.change_opportunity_assignment(
+  uuid, bigint, uuid, uuid, text, uuid, jsonb
+) set schema private;
+alter function private.change_opportunity_assignment(
+  uuid, bigint, uuid, uuid, text, uuid, jsonb
+) rename to change_assignment_company_serialized_internal;
+revoke all on function private.change_assignment_company_serialized_internal(
+  uuid, bigint, uuid, uuid, text, uuid, jsonb
+) from public, anon, authenticated, service_role;
+
+alter function public.change_opportunity_assignment_as_system(
+  uuid, bigint, uuid, uuid, text, uuid, uuid, jsonb
+) set schema private;
+alter function private.change_opportunity_assignment_as_system(
+  uuid, bigint, uuid, uuid, text, uuid, uuid, jsonb
+) rename to change_assignment_system_company_serialized_internal;
+revoke all on function private.change_assignment_system_company_serialized_internal(
+  uuid, bigint, uuid, uuid, text, uuid, uuid, jsonb
+) from public, anon, authenticated, service_role;
+
+alter function public.create_opportunity_guarded(jsonb, text, uuid, jsonb)
+  set schema private;
+alter function private.create_opportunity_guarded(jsonb, text, uuid, jsonb)
+  rename to create_opportunity_company_serialized_internal;
+revoke all on function private.create_opportunity_company_serialized_internal(
+  jsonb, text, uuid, jsonb
+) from public, anon, authenticated, service_role;
+
+create or replace function public.change_opportunity_assignment(
+  p_opportunity_id uuid,
+  p_expected_assignment_version bigint,
+  p_expected_assigned_to uuid,
+  p_new_assigned_to uuid,
+  p_source text,
+  p_suggestion_id uuid default null,
+  p_metadata jsonb default '{}'::jsonb
+) returns jsonb
+language plpgsql
+security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+declare
+  v_actor_user_id uuid := private.get_current_user_id();
+  v_actor_company_id uuid := private.get_user_company_id();
+begin
+  if v_actor_user_id is null or v_actor_company_id is null then
+    raise exception 'access_denied'
+      using errcode = '42501';
+  end if;
+
+  perform private.lock_lead_assignment_company(v_actor_company_id);
+
+  -- Freeze the actor's company/active state after the company boundary. The
+  -- internal implementation repeats the check and retains its error contract.
+  perform 1
+    from public.users u
+   where u.id = v_actor_user_id
+     and u.company_id = v_actor_company_id
+     and u.deleted_at is null
+     and coalesce(u.is_active, false)
+   for share;
+  if not found then
+    raise exception 'access_denied'
+      using errcode = '42501';
+  end if;
+
+  return private.change_assignment_company_serialized_internal(
+    p_opportunity_id => p_opportunity_id,
+    p_expected_assignment_version => p_expected_assignment_version,
+    p_expected_assigned_to => p_expected_assigned_to,
+    p_new_assigned_to => p_new_assigned_to,
+    p_source => p_source,
+    p_suggestion_id => p_suggestion_id,
+    p_metadata => p_metadata
+  );
+end;
+$function$;
+
+revoke all on function public.change_opportunity_assignment(
+  uuid, bigint, uuid, uuid, text, uuid, jsonb
+) from public, anon, authenticated, service_role;
+grant execute on function public.change_opportunity_assignment(
+  uuid, bigint, uuid, uuid, text, uuid, jsonb
+) to authenticated;
+
+create or replace function public.change_opportunity_assignment_as_system(
+  p_opportunity_id uuid,
+  p_expected_assignment_version bigint,
+  p_expected_assigned_to uuid,
+  p_new_assigned_to uuid,
+  p_system_source text,
+  p_actor_user_id uuid default null,
+  p_suggestion_id uuid default null,
+  p_metadata jsonb default '{}'::jsonb
+) returns jsonb
+language plpgsql
+security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+declare
+  v_company_id uuid;
+begin
+  if coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'access_denied'
+      using errcode = '42501';
+  end if;
+
+  select o.company_id
+    into v_company_id
+    from public.opportunities o
+   where o.id = p_opportunity_id
+     and o.deleted_at is null;
+  if not found then
+    raise exception 'opportunity_not_found'
+      using errcode = 'P0002';
+  end if;
+
+  perform private.lock_lead_assignment_company(v_company_id);
+
+  -- Freeze the company identity after taking its boundary. If a concurrent
+  -- company move won before the lock, fail closed and require a fresh call.
+  perform 1
+    from public.opportunities o
+   where o.id = p_opportunity_id
+     and o.company_id = v_company_id
+     and o.deleted_at is null
+   for key share;
+  if not found then
+    raise exception 'opportunity_company_changed'
+      using errcode = '40001';
+  end if;
+
+  return private.change_assignment_system_company_serialized_internal(
+    p_opportunity_id => p_opportunity_id,
+    p_expected_assignment_version => p_expected_assignment_version,
+    p_expected_assigned_to => p_expected_assigned_to,
+    p_new_assigned_to => p_new_assigned_to,
+    p_system_source => p_system_source,
+    p_actor_user_id => p_actor_user_id,
+    p_suggestion_id => p_suggestion_id,
+    p_metadata => p_metadata
+  );
+end;
+$function$;
+
+revoke all on function public.change_opportunity_assignment_as_system(
+  uuid, bigint, uuid, uuid, text, uuid, uuid, jsonb
+) from public, anon, authenticated, service_role;
+grant execute on function public.change_opportunity_assignment_as_system(
+  uuid, bigint, uuid, uuid, text, uuid, uuid, jsonb
+) to service_role;
+
+create or replace function public.create_opportunity_guarded(
+  p_opportunity jsonb,
+  p_assignment_mode text default 'self',
+  p_initial_assigned_to uuid default null,
+  p_metadata jsonb default '{}'::jsonb
+) returns jsonb
+language plpgsql
+security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+declare
+  v_actor_user_id uuid := private.get_current_user_id();
+  v_company_id uuid := private.get_user_company_id();
+begin
+  if v_actor_user_id is null or v_company_id is null then
+    raise exception 'access_denied'
+      using errcode = '42501';
+  end if;
+
+  perform private.lock_lead_assignment_company(v_company_id);
+
+  perform 1
+    from public.users u
+   where u.id = v_actor_user_id
+     and u.company_id = v_company_id
+     and u.deleted_at is null
+     and coalesce(u.is_active, false)
+   for share;
+  if not found then
+    raise exception 'access_denied'
+      using errcode = '42501';
+  end if;
+
+  return private.create_opportunity_company_serialized_internal(
+    p_opportunity => p_opportunity,
+    p_assignment_mode => p_assignment_mode,
+    p_initial_assigned_to => p_initial_assigned_to,
+    p_metadata => p_metadata
+  );
+end;
+$function$;
+
+revoke all on function public.create_opportunity_guarded(
+  jsonb, text, uuid, jsonb
+) from public, anon, authenticated, service_role;
+grant execute on function public.create_opportunity_guarded(
+  jsonb, text, uuid, jsonb
+) to authenticated;
+
 -- Public service-only RPCs ---------------------------------------------------
 
 create or replace function public.replace_role_permissions_as_system(
@@ -1131,9 +1365,7 @@ begin
       using errcode = '42501';
   end if;
 
-  perform pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(v_actor_company_id::text, 161000)
-  );
+  perform private.lock_lead_assignment_company(v_actor_company_id);
 
   perform 1
     from public.users u
@@ -1303,9 +1535,7 @@ begin
       using errcode = '42501';
   end if;
 
-  perform pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(v_actor_company_id::text, 161000)
-  );
+  perform private.lock_lead_assignment_company(v_actor_company_id);
 
   perform 1
     from public.users u
@@ -1500,9 +1730,7 @@ begin
       using errcode = '42501';
   end if;
 
-  perform pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended(v_actor_company_id::text, 161000)
-  );
+  perform private.lock_lead_assignment_company(v_actor_company_id);
 
   perform 1
     from public.users u
@@ -2190,6 +2418,34 @@ begin
 end;
 $function$;
 
+-- Target eligibility intentionally matches the guarded 160000 assignment and
+-- create facades exactly. Legacy pipeline.manage compatibility can authorize
+-- viewing/editing during the rollout, but it does not make an OPS identity an
+-- assignment target. An explicit granular revoke remains authoritative through
+-- the override-aware public.has_permission() engine.
+create or replace function private.user_is_guarded_assignment_target_eligible(
+  p_user_id uuid,
+  p_company_id uuid
+) returns boolean
+language sql
+stable security definer
+set search_path to 'pg_catalog', 'public', 'pg_temp'
+as $function$
+  select exists (
+    select 1
+      from public.users u
+     where u.id = p_user_id
+       and u.company_id = p_company_id
+       and u.deleted_at is null
+       and coalesce(u.is_active, false)
+       and public.has_permission(
+         p_user_id,
+         'pipeline.view',
+         'assigned'
+       )
+  );
+$function$;
+
 create or replace function private.stranded_permission_assignments(
   p_company_id uuid,
   p_user_ids uuid[]
@@ -2331,15 +2587,10 @@ begin
      where u.company_id = p_company_id
        and u.deleted_at is null
        and coalesce(u.is_active, false)
-       and private.raw_pipeline_scope_for_user(
-         u.id,
-         p_company_id,
-         'pipeline.view'
-       ) in ('all', 'assigned')
-       and private.pipeline_dependency_issues_for_user(
+       and private.user_is_guarded_assignment_target_eligible(
          u.id,
          p_company_id
-       ) = '[]'::jsonb;
+       );
   end if;
 
   if v_stranded_count > 0 and jsonb_array_length(v_resolutions) = 0 then
@@ -2501,22 +2752,9 @@ begin
     end if;
 
     if v_new_assigned_to is not null
-      and not exists (
-        select 1
-          from public.users target
-         where target.id = v_new_assigned_to
-           and target.company_id = p_company_id
-           and target.deleted_at is null
-           and coalesce(target.is_active, false)
-           and private.raw_pipeline_scope_for_user(
-             target.id,
-             p_company_id,
-             'pipeline.view'
-           ) in ('all', 'assigned')
-           and private.pipeline_dependency_issues_for_user(
-             target.id,
-             p_company_id
-           ) = '[]'::jsonb
+      and not private.user_is_guarded_assignment_target_eligible(
+        v_new_assigned_to,
+        p_company_id
       )
     then
       raise exception 'assignment_target_ineligible'
@@ -2656,6 +2894,8 @@ $mapped_member_assertions$;
 -- Private helpers are never application APIs.
 revoke all on function private.canonical_role_permission_snapshot(uuid)
   from public, anon, authenticated, service_role;
+revoke all on function private.lock_lead_assignment_company(uuid)
+  from public, anon, authenticated, service_role;
 revoke all on function private.canonical_user_override_snapshot(uuid)
   from public, anon, authenticated, service_role;
 revoke all on function private.assert_canonical_role_permission_payload(jsonb, boolean, boolean)
@@ -2681,6 +2921,8 @@ revoke all on function private.pipeline_dependency_issues_for_role(uuid)
 revoke all on function private.assert_permission_users_valid(uuid[])
   from public, anon, authenticated, service_role;
 revoke all on function private.assert_permission_role_valid(uuid)
+  from public, anon, authenticated, service_role;
+revoke all on function private.user_is_guarded_assignment_target_eligible(uuid, uuid)
   from public, anon, authenticated, service_role;
 revoke all on function private.stranded_permission_assignments(uuid, uuid[])
   from public, anon, authenticated, service_role;

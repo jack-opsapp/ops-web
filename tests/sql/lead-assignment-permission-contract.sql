@@ -191,6 +191,7 @@ insert into public.users (
   ('3b000000-0000-4000-8000-000000000116', '3b000000-0000-4000-8000-000000000001', '3b000000-0000-4000-8000-000000009116', '3b000000-0000-4000-8000-000000009116', 'Role', 'Delete Subject', 'permission-contract-role-delete@example.invalid', false, true, null),
   ('3b000000-0000-4000-8000-000000000117', '3b000000-0000-4000-8000-000000000001', '3b000000-0000-4000-8000-000000009117', '3b000000-0000-4000-8000-000000009117', 'Direct', 'Role Permission', 'permission-contract-direct-role@example.invalid', false, true, null),
   ('3b000000-0000-4000-8000-000000000118', '3b000000-0000-4000-8000-000000000001', '3b000000-0000-4000-8000-000000009118', '3b000000-0000-4000-8000-000000009118', 'Direct', 'User Role', 'permission-contract-direct-user-role@example.invalid', false, true, null),
+  ('3b000000-0000-4000-8000-000000000119', '3b000000-0000-4000-8000-000000000001', '3b000000-0000-4000-8000-000000009119', '3b000000-0000-4000-8000-000000009119', 'Legacy', 'Compatibility', 'permission-contract-legacy-compat@example.invalid', false, true, null),
   ('3b000000-0000-4000-8000-000000000201', '3b000000-0000-4000-8000-000000000002', '3b000000-0000-4000-8000-000000009201', '3b000000-0000-4000-8000-000000009201', 'Cross', 'Company', 'permission-contract-cross@example.invalid', false, true, null);
 
 insert into public.roles (
@@ -211,6 +212,7 @@ insert into public.roles (
   ('3b000000-0000-4000-8000-000000000315', 'Permission Contract Role Delete', 'Rollback-only role delete target.', false, '3b000000-0000-4000-8000-000000000001', 4),
   ('3b000000-0000-4000-8000-000000000316', 'Permission Contract Direct Role', 'Rollback-only direct role guard.', false, '3b000000-0000-4000-8000-000000000001', 4),
   ('3b000000-0000-4000-8000-000000000317', 'Permission Contract Direct User Role', 'Rollback-only direct user-role guard.', false, '3b000000-0000-4000-8000-000000000001', 4),
+  ('3b000000-0000-4000-8000-000000000318', 'Permission Contract Legacy Compatibility', 'Rollback-only legacy compatibility target.', false, '3b000000-0000-4000-8000-000000000001', 4),
   ('3b000000-0000-4000-8000-000000000390', 'Permission Contract Cross Company', 'Rollback-only foreign role.', false, '3b000000-0000-4000-8000-000000000002', 4);
 
 insert into public.role_permissions (role_id, permission, scope)
@@ -227,6 +229,7 @@ values
   ('3b000000-0000-4000-8000-000000000315', 'pipeline.view', 'assigned'),
   ('3b000000-0000-4000-8000-000000000316', 'pipeline.view', 'assigned'),
   ('3b000000-0000-4000-8000-000000000317', 'pipeline.view', 'assigned'),
+  ('3b000000-0000-4000-8000-000000000318', 'pipeline.manage', 'all'),
   ('3b000000-0000-4000-8000-000000000390', 'pipeline.view', 'assigned');
 
 insert into public.user_roles (id, user_id, role_id)
@@ -242,6 +245,7 @@ values
   ('3b000000-0000-4000-8000-000000000416', '3b000000-0000-4000-8000-000000000116', '3b000000-0000-4000-8000-000000000315'),
   ('3b000000-0000-4000-8000-000000000417', '3b000000-0000-4000-8000-000000000117', '3b000000-0000-4000-8000-000000000316'),
   ('3b000000-0000-4000-8000-000000000418', '3b000000-0000-4000-8000-000000000118', '3b000000-0000-4000-8000-000000000317'),
+  ('3b000000-0000-4000-8000-000000000419', '3b000000-0000-4000-8000-000000000119', '3b000000-0000-4000-8000-000000000318'),
   ('3b000000-0000-4000-8000-000000000490', '3b000000-0000-4000-8000-000000000201', '3b000000-0000-4000-8000-000000000390');
 
 -- The shared member's explicit revoke is inert while the role has no writes,
@@ -330,6 +334,31 @@ select set_config(
   true
 );
 select set_config('request.jwt.claim.role', 'service_role', true);
+
+-- Legacy pipeline.manage compatibility remains available to the scoped read
+-- layer, but target selection fails closed exactly like the guarded assignment
+-- facade. The explicit granular revoke on user 114 also remains authoritative.
+insert into lead_permission_contract_results (check_name, passed)
+values (
+  'legacy_compat_target_excluded',
+  private.effective_pipeline_scope_for_user(
+    '3b000000-0000-4000-8000-000000000119',
+    '3b000000-0000-4000-8000-000000000001',
+    'pipeline.view'
+  ) = 'all'
+  and not private.user_is_guarded_assignment_target_eligible(
+    '3b000000-0000-4000-8000-000000000119',
+    '3b000000-0000-4000-8000-000000000001'
+  )
+  and not private.user_is_guarded_assignment_target_eligible(
+    '3b000000-0000-4000-8000-000000000114',
+    '3b000000-0000-4000-8000-000000000001'
+  )
+  and private.user_is_guarded_assignment_target_eligible(
+    '3b000000-0000-4000-8000-000000000104',
+    '3b000000-0000-4000-8000-000000000001'
+  )
+);
 
 do $fixture_assignments$
 declare
@@ -1384,6 +1413,9 @@ begin
     )
     or not exists (
       select 1 from lead_permission_contract_results where check_name = 'assignment_aba_conflict'
+    )
+    or not exists (
+      select 1 from lead_permission_contract_results where check_name = 'legacy_compat_target_excluded'
     )
     or not exists (
       select 1 from lead_permission_contract_results where check_name = 'direct_write_cannot_strand'

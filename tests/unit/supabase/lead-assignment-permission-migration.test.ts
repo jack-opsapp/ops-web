@@ -162,10 +162,81 @@ describe("lead assignment permission migration", () => {
         /from public\.users[\s\S]*?company_id[\s\S]*?deleted_at is null[\s\S]*?is_active/i
       );
       expect(fn).toMatch(/team\.assign_roles[\s\S]*?'all'/i);
-      expect(fn).toMatch(/pg_advisory_xact_lock/i);
+      expect(fn).toMatch(
+        /private\.lock_lead_assignment_company\(v_actor_company_id\)/i
+      );
       expect(fn).not.toMatch(/p_company_id/i);
       expect(fn).not.toMatch(/email\s*=/i);
     }
+  });
+
+  it("serializes guarded assignment, guarded create, and permission changes at one company boundary", () => {
+    const lock = body("private.lock_lead_assignment_company");
+    expect(lock).toMatch(/pg_advisory_xact_lock/i);
+    expect(lock).toMatch(/hashtextextended/i);
+    expect(lock).toMatch(/p_company_id/i);
+
+    for (const name of [
+      "public.change_opportunity_assignment",
+      "public.change_opportunity_assignment_as_system",
+      "public.create_opportunity_guarded",
+      "public.replace_role_permissions_as_system",
+      "public.apply_user_permission_overrides_as_system",
+      "public.replace_user_role_as_system",
+    ]) {
+      const fn = body(name);
+      const lockPosition = fn.indexOf("lock_lead_assignment_company");
+      expect(
+        lockPosition,
+        `${name} does not take the company lock`
+      ).toBeGreaterThan(-1);
+
+      const delegatedCallPosition = fn.indexOf("_company_serialized_internal");
+      if (delegatedCallPosition >= 0) {
+        expect(
+          lockPosition,
+          `${name} delegates before taking the company lock`
+        ).toBeLessThan(delegatedCallPosition);
+      }
+    }
+
+    expect(body("private.assert_direct_permission_user")).toMatch(
+      /private\.lock_lead_assignment_company\(v_company_id\)/i
+    );
+
+    for (const internalName of [
+      "private.change_assignment_company_serialized_internal",
+      "private.change_assignment_system_company_serialized_internal",
+      "private.create_opportunity_company_serialized_internal",
+    ]) {
+      expect(source.toLowerCase()).toContain(internalName);
+      expect(source).toMatch(
+        new RegExp(
+          `revoke all on function ${internalName.replaceAll(".", "\\.")}`,
+          "i"
+        )
+      );
+    }
+  });
+
+  it("uses the guarded facade's revoke-safe target eligibility everywhere", () => {
+    const eligibility = body(
+      "private.user_is_guarded_assignment_target_eligible"
+    );
+    expect(eligibility).toMatch(
+      /public\.has_permission\([\s\S]*?'pipeline\.view'[\s\S]*?'assigned'/i
+    );
+    expect(eligibility).not.toMatch(
+      /raw_pipeline_scope_for_user|effective_pipeline_scope_for_user|should_use_pipeline_manage_compat/i
+    );
+
+    const resolutions = body(
+      "private.enforce_permission_assignment_resolutions"
+    );
+    expect(
+      resolutions.match(/private\.user_is_guarded_assignment_target_eligible/g)
+        ?.length ?? 0
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it("enforces canonical snapshots, payload shape, scopes, and dependencies", () => {
@@ -287,11 +358,25 @@ describe("lead assignment permission migration", () => {
       "duplicate_resolution_rejected",
       "assignment_aba_conflict",
       "cross_company_transfer_rejected",
+      "legacy_compat_target_excluded",
       "role_delete_cannot_strand",
       "direct_write_cannot_strand",
       "operator_not_activated",
     ]) {
       expect(contract).toContain(marker);
     }
+
+    const concurrencyPath = path.join(
+      process.cwd(),
+      "tests/sql/lead-assignment-permission-concurrency-contract.sql"
+    );
+    const concurrency = existsSync(concurrencyPath)
+      ? readFileSync(concurrencyPath, "utf8")
+      : "";
+    expect(concurrency).toContain("SESSION A :: PERMISSION REDUCTION");
+    expect(concurrency).toContain("SESSION B :: CONCURRENT ASSIGNMENT");
+    expect(concurrency).toContain("assignment_target_ineligible");
+    expect(concurrency).toMatch(/assigned_to\s+is\s+null/i);
+    expect(concurrency).toMatch(/assignment_version\s*=\s*0/i);
   });
 });
