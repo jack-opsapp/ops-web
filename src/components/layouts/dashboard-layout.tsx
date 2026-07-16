@@ -27,6 +27,7 @@ import { ProjectWorkspaceContainer } from "@/components/ops/projects/workspace/p
 import { ClientWorkspaceContainer } from "@/components/ops/clients/workspace/client-workspace-container";
 import type { ComposeEmailData } from "@/lib/types/email-template";
 import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
+import { useLeadAssignmentRealtime } from "@/lib/hooks/use-lead-assignment-realtime";
 import { InvoiceDetailPopover } from "@/components/ops/invoice-detail-popover";
 import { EstimateDetailPopover } from "@/components/ops/estimate-detail-popover";
 import { MemberExpensesPopover } from "@/components/ops/member-expenses-popover";
@@ -81,6 +82,11 @@ function ActionPromptsInitializer() {
 
 function DashboardPreferencesSync() {
   useDashboardPreferencesSync();
+  return null;
+}
+
+function LeadAssignmentRealtimeSync() {
+  useLeadAssignmentRealtime();
   return null;
 }
 
@@ -221,7 +227,8 @@ function FloatingWindows() {
 }
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { needsWebSetup, needsEmployeeOnboarding, onboardingRoute } = useSetupGate();
+  const { needsWebSetup, needsEmployeeOnboarding, onboardingRoute } =
+    useSetupGate();
   const router = useRouter();
   const pathname = usePathname();
   const needsOnboarding = needsEmployeeOnboarding || needsWebSetup;
@@ -320,6 +327,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <PreferencesApplier />
       <ActionPromptsInitializer />
       <DashboardPreferencesSync />
+      <LeadAssignmentRealtimeSync />
       <CommandPalette />
       <KeyboardShortcuts />
       <FloatingWindows />

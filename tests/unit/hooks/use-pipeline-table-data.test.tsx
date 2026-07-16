@@ -31,6 +31,8 @@ import { useClients } from "@/lib/hooks/use-clients";
 import { useTeamMembers } from "@/lib/hooks/use-users";
 import { usePipelineStageConfigs } from "@/lib/hooks/pipeline-table/use-pipeline-stage-configs";
 import { usePipelineTableData } from "@/lib/hooks/pipeline-table/use-pipeline-table-data";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 
 const BASE_DATE = new Date("2026-06-01T00:00:00Z");
 
@@ -47,6 +49,7 @@ function makeOpportunity(overrides: Partial<Opportunity>): Opportunity {
     stage: OpportunityStage.NewLead,
     source: OpportunitySource.Referral,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: null,
     estimatedValue: null,
     actualValue: null,
@@ -86,7 +89,7 @@ function makeOpportunity(overrides: Partial<Opportunity>): Opportunity {
 
 function setOpportunities(
   opportunities: Opportunity[],
-  flags?: { isLoading?: boolean; isError?: boolean },
+  flags?: { isLoading?: boolean; isError?: boolean }
 ) {
   vi.mocked(useOpportunities).mockReturnValue({
     data: opportunities,
@@ -96,8 +99,21 @@ function setOpportunities(
 }
 
 beforeEach(() => {
+  useAuthStore.setState({
+    company: { id: "company-1" } as never,
+    currentUser: { id: "actor-1" } as never,
+  });
+  usePermissionStore.setState({
+    permissions: new Map([["pipeline.view", "all"]]),
+    configuredPermissions: new Set(["pipeline.view"]),
+    initialized: true,
+  });
   vi.mocked(useClients).mockReturnValue({
-    data: { clients: [{ id: "client-1", name: "Acme Roofing" }], remaining: 0, count: 1 },
+    data: {
+      clients: [{ id: "client-1", name: "Acme Roofing" }],
+      remaining: 0,
+      count: 1,
+    },
     isLoading: false,
     isError: false,
   } as unknown as ReturnType<typeof useClients>);
@@ -119,6 +135,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  usePermissionStore.getState().clear();
+  useAuthStore.setState({ company: null, currentUser: null });
 });
 
 const NO_SORT: PipelineTableSort[] = [];
@@ -130,11 +148,21 @@ describe("usePipelineTableData", () => {
       makeOpportunity({ id: "won", stage: OpportunityStage.Won }),
       makeOpportunity({ id: "lost", stage: OpportunityStage.Lost }),
       makeOpportunity({ id: "discarded", stage: OpportunityStage.Discarded }),
-      makeOpportunity({ id: "deleted", stage: OpportunityStage.Quoting, deletedAt: BASE_DATE }),
-      makeOpportunity({ id: "archived", stage: OpportunityStage.Quoting, archivedAt: BASE_DATE }),
+      makeOpportunity({
+        id: "deleted",
+        stage: OpportunityStage.Quoting,
+        deletedAt: BASE_DATE,
+      }),
+      makeOpportunity({
+        id: "archived",
+        stage: OpportunityStage.Quoting,
+        archivedAt: BASE_DATE,
+      }),
     ]);
 
-    const { result } = renderHook(() => usePipelineTableData({ search: "", sorting: NO_SORT }));
+    const { result } = renderHook(() =>
+      usePipelineTableData({ search: "", sorting: NO_SORT })
+    );
 
     expect(result.current.rows.map((r) => r.id)).toEqual(["active"]);
     expect(result.current.totalCount).toBe(1);
@@ -143,23 +171,31 @@ describe("usePipelineTableData", () => {
   it("filters by case-insensitive search over title, client, and assignee", () => {
     setOpportunities([
       makeOpportunity({ id: "by-title", title: "Skylight install" }),
-      makeOpportunity({ id: "by-client", title: "Other", clientId: "client-1" }),
-      makeOpportunity({ id: "by-assignee", title: "Other", assignedTo: "user-1" }),
+      makeOpportunity({
+        id: "by-client",
+        title: "Other",
+        clientId: "client-1",
+      }),
+      makeOpportunity({
+        id: "by-assignee",
+        title: "Other",
+        assignedTo: "user-1",
+      }),
       makeOpportunity({ id: "no-match", title: "Gutter" }),
     ]);
 
     const { result } = renderHook(() =>
-      usePipelineTableData({ search: "SKY", sorting: NO_SORT }),
+      usePipelineTableData({ search: "SKY", sorting: NO_SORT })
     );
     expect(result.current.rows.map((r) => r.id)).toEqual(["by-title"]);
 
     const { result: byClient } = renderHook(() =>
-      usePipelineTableData({ search: "acme", sorting: NO_SORT }),
+      usePipelineTableData({ search: "acme", sorting: NO_SORT })
     );
     expect(byClient.current.rows.map((r) => r.id)).toEqual(["by-client"]);
 
     const { result: byAssignee } = renderHook(() =>
-      usePipelineTableData({ search: "silva", sorting: NO_SORT }),
+      usePipelineTableData({ search: "silva", sorting: NO_SORT })
     );
     expect(byAssignee.current.rows.map((r) => r.id)).toEqual(["by-assignee"]);
 
@@ -175,14 +211,28 @@ describe("usePipelineTableData", () => {
     ]);
 
     const asc = renderHook(() =>
-      usePipelineTableData({ search: "", sorting: [{ field: "value", direction: "asc" }] }),
+      usePipelineTableData({
+        search: "",
+        sorting: [{ field: "value", direction: "asc" }],
+      })
     );
-    expect(asc.result.current.rows.map((r) => r.id)).toEqual(["low", "high", "none"]);
+    expect(asc.result.current.rows.map((r) => r.id)).toEqual([
+      "low",
+      "high",
+      "none",
+    ]);
 
     const desc = renderHook(() =>
-      usePipelineTableData({ search: "", sorting: [{ field: "value", direction: "desc" }] }),
+      usePipelineTableData({
+        search: "",
+        sorting: [{ field: "value", direction: "desc" }],
+      })
     );
-    expect(desc.result.current.rows.map((r) => r.id)).toEqual(["high", "low", "none"]);
+    expect(desc.result.current.rows.map((r) => r.id)).toEqual([
+      "high",
+      "low",
+      "none",
+    ]);
   });
 
   it("sorts strings case-insensitively by deal title", () => {
@@ -193,7 +243,10 @@ describe("usePipelineTableData", () => {
     ]);
 
     const { result } = renderHook(() =>
-      usePipelineTableData({ search: "", sorting: [{ field: "deal", direction: "asc" }] }),
+      usePipelineTableData({
+        search: "",
+        sorting: [{ field: "deal", direction: "asc" }],
+      })
     );
     expect(result.current.rows.map((r) => r.id)).toEqual(["a", "b", "c"]);
   });
@@ -209,7 +262,9 @@ describe("usePipelineTableData", () => {
       }),
     ]);
 
-    const { result } = renderHook(() => usePipelineTableData({ search: "", sorting: NO_SORT }));
+    const { result } = renderHook(() =>
+      usePipelineTableData({ search: "", sorting: NO_SORT })
+    );
     const row = result.current.rows[0];
     expect(row.clientName).toBe("Acme Roofing");
     expect(row.assigneeName).toBe("Mara Silva");
@@ -218,11 +273,15 @@ describe("usePipelineTableData", () => {
 
   it("surfaces loading and error from the underlying queries", () => {
     setOpportunities([], { isLoading: true });
-    const loading = renderHook(() => usePipelineTableData({ search: "", sorting: NO_SORT }));
+    const loading = renderHook(() =>
+      usePipelineTableData({ search: "", sorting: NO_SORT })
+    );
     expect(loading.result.current.isLoading).toBe(true);
 
     setOpportunities([], { isError: true });
-    const errored = renderHook(() => usePipelineTableData({ search: "", sorting: NO_SORT }));
+    const errored = renderHook(() =>
+      usePipelineTableData({ search: "", sorting: NO_SORT })
+    );
     expect(errored.result.current.isError).toBe(true);
   });
 });

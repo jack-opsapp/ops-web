@@ -101,6 +101,14 @@ vi.mock(
   })
 );
 
+vi.mock("@/lib/hooks/use-opportunity-assigned-context", () => ({
+  useOpportunityAssignedContext: () => ({
+    data: null,
+    isError: false,
+    isFetching: false,
+  }),
+}));
+
 // The map-backed band + Overview tab are new always-/conditionally-mounted body
 // children that pull in query hooks (useUpdateOpportunity, useEstimates, …).
 // This suite covers the window chrome, not the band internals (which have their
@@ -131,6 +139,7 @@ function makeOpportunity(): Opportunity {
     stage: OpportunityStage.Quoted,
     source: null,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: null,
     estimatedValue: 12000,
     actualValue: null,
@@ -168,6 +177,13 @@ function makeOpportunity(): Opportunity {
 }
 
 function renderWindow(canManage = true) {
+  const leadAccess = {
+    canView: true,
+    canEdit: canManage,
+    canAssign: canManage,
+    canUnassign: canManage,
+    canConvert: canManage,
+  };
   return render(
     <>
       <button type="button" data-opportunity-card-id="opp-1">
@@ -176,7 +192,7 @@ function renderWindow(canManage = true) {
       <div data-testid="pipeline-focused-frame" />
       <PipelineFocusedDetailWindow
         opportunity={makeOpportunity()}
-        canManage={canManage}
+        leadAccess={leadAccess}
         originatingOpportunityId="opp-1"
         onAdvanceStage={vi.fn()}
         onMarkWon={vi.fn()}
@@ -216,9 +232,7 @@ describe("<PipelineFocusedDetailWindow>", () => {
     expect(windowShell).toHaveStyle({ boxShadow: "var(--shadow-window)" });
     expect(titleBar).toHaveClass("bg-[var(--glass-bg-dense)]");
     expect(titleBar).toHaveClass("backdrop-blur-[var(--glass-blur)]");
-    expect(titleBar).toHaveClass(
-      "backdrop-saturate-[var(--glass-saturate)]"
-    );
+    expect(titleBar).toHaveClass("backdrop-saturate-[var(--glass-saturate)]");
 
     const bodySurface = within(windowShell).getByTestId("workspace-body-slot");
     expect(bodySurface).toHaveClass("bg-[var(--glass-bg-dense)]");
@@ -285,10 +299,9 @@ describe("<PipelineFocusedDetailWindow>", () => {
     // which buildSubtitle joins with " · " — so match on a substring-tolerant
     // matcher rather than an exact-text node.
     expect(
-      within(windowShell).getAllByText(
-        (_content, element) =>
-          (element?.textContent ?? "").includes("42 Lonsdale Ave"),
-      ).length,
+      within(windowShell).getAllByText((_content, element) =>
+        (element?.textContent ?? "").includes("42 Lonsdale Ave")
+      ).length
     ).toBeGreaterThan(0);
   });
 
@@ -325,7 +338,13 @@ describe("<PipelineFocusedDetailWindow>", () => {
         />
         <PipelineFocusedDetailWindow
           opportunity={makeOpportunity()}
-          canManage
+          leadAccess={{
+            canView: true,
+            canEdit: true,
+            canAssign: true,
+            canUnassign: true,
+            canConvert: true,
+          }}
           originatingOpportunityId="opp-1"
           onAdvanceStage={vi.fn()}
           onMarkWon={vi.fn()}

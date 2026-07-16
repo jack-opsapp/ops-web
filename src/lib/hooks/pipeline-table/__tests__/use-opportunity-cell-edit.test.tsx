@@ -8,9 +8,11 @@ import type { PipelineTableRow } from "@/lib/types/pipeline-table";
 // useUpdateOpportunity calls OpportunityService.updateOpportunity (via the
 // "@/lib/api/services" barrel). Mock just that method; the rest of the barrel
 // is irrelevant to this hook.
-const { updateOpportunity } = vi.hoisted(() => ({ updateOpportunity: vi.fn() }));
+const { updateOpportunity } = vi.hoisted(() => ({
+  updateOpportunity: vi.fn(),
+}));
 
-vi.mock("@/lib/api/services", () => ({
+vi.mock("@/lib/api/services/opportunity-service", () => ({
   OpportunityService: { updateOpportunity },
 }));
 
@@ -35,6 +37,7 @@ const baseRow: PipelineTableRow = {
   nextFollowUpAt: "2026-06-10T00:00:00.000Z",
   expectedCloseDate: "2026-07-01T00:00:00.000Z",
   assignedTo: "user-9",
+  assignmentVersion: 3,
   assigneeName: "Sam",
   source: null,
   priority: null,
@@ -54,7 +57,9 @@ function makeWrapper() {
     },
   });
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
   };
 }
 
@@ -74,7 +79,9 @@ describe("mapEditToUpdate", () => {
   });
 
   it("coerces a numeric string value → estimatedValue number", () => {
-    expect(mapEditToUpdate("value", "12000")).toEqual({ estimatedValue: 12000 });
+    expect(mapEditToUpdate("value", "12000")).toEqual({
+      estimatedValue: 12000,
+    });
   });
 
   it("treats an empty/non-numeric value string as a clear", () => {
@@ -85,41 +92,41 @@ describe("mapEditToUpdate", () => {
   it("maps next_follow_up → nextFollowUpAt as a Date at the right instant", () => {
     const result = mapEditToUpdate("next_follow_up", "2026-06-15");
     expect(result.nextFollowUpAt).toBeInstanceOf(Date);
-    expect((result.nextFollowUpAt as Date).getTime()).toBe(new Date("2026-06-15").getTime());
+    expect((result.nextFollowUpAt as Date).getTime()).toBe(
+      new Date("2026-06-15").getTime()
+    );
   });
 
   it("maps next_follow_up → nextFollowUpAt null clears", () => {
-    expect(mapEditToUpdate("next_follow_up", null)).toEqual({ nextFollowUpAt: null });
+    expect(mapEditToUpdate("next_follow_up", null)).toEqual({
+      nextFollowUpAt: null,
+    });
   });
 
   it("maps expected_close → expectedCloseDate as a Date at the right instant", () => {
     const result = mapEditToUpdate("expected_close", "2026-07-01");
     expect(result.expectedCloseDate).toBeInstanceOf(Date);
-    expect((result.expectedCloseDate as Date).getTime()).toBe(new Date("2026-07-01").getTime());
+    expect((result.expectedCloseDate as Date).getTime()).toBe(
+      new Date("2026-07-01").getTime()
+    );
   });
 
   it("maps expected_close → expectedCloseDate null clears", () => {
-    expect(mapEditToUpdate("expected_close", null)).toEqual({ expectedCloseDate: null });
+    expect(mapEditToUpdate("expected_close", null)).toEqual({
+      expectedCloseDate: null,
+    });
   });
 
   it("treats an unparseable date string as a clear", () => {
-    expect(mapEditToUpdate("next_follow_up", "not-a-date")).toEqual({ nextFollowUpAt: null });
-  });
-
-  it("maps assignee → assignedTo (string)", () => {
-    expect(mapEditToUpdate("assignee", "user-123")).toEqual({ assignedTo: "user-123" });
-  });
-
-  it("maps assignee → assignedTo (null clears)", () => {
-    expect(mapEditToUpdate("assignee", null)).toEqual({ assignedTo: null });
-  });
-
-  it("treats an empty assignee string as a clear", () => {
-    expect(mapEditToUpdate("assignee", "")).toEqual({ assignedTo: null });
+    expect(mapEditToUpdate("next_follow_up", "not-a-date")).toEqual({
+      nextFollowUpAt: null,
+    });
   });
 
   it("maps client → clientId (string)", () => {
-    expect(mapEditToUpdate("client", "client-42")).toEqual({ clientId: "client-42" });
+    expect(mapEditToUpdate("client", "client-42")).toEqual({
+      clientId: "client-42",
+    });
   });
 
   it("maps client → clientId (null unlinks)", () => {
@@ -138,28 +145,32 @@ describe("getRowEditValue", () => {
     expect(getRowEditValue(baseRow, "value")).toBe(5000);
   });
 
-  it("reads assignedTo for assignee", () => {
-    expect(getRowEditValue(baseRow, "assignee")).toBe("user-9");
-  });
-
   it("reads clientId for client", () => {
-    expect(getRowEditValue({ ...baseRow, clientId: "client-7" }, "client")).toBe("client-7");
+    expect(
+      getRowEditValue({ ...baseRow, clientId: "client-7" }, "client")
+    ).toBe("client-7");
     expect(getRowEditValue(baseRow, "client")).toBeNull();
   });
 
   it("reads the ISO string for next_follow_up", () => {
-    expect(getRowEditValue(baseRow, "next_follow_up")).toBe("2026-06-10T00:00:00.000Z");
+    expect(getRowEditValue(baseRow, "next_follow_up")).toBe(
+      "2026-06-10T00:00:00.000Z"
+    );
   });
 
   it("reads the ISO string for expected_close", () => {
-    expect(getRowEditValue(baseRow, "expected_close")).toBe("2026-07-01T00:00:00.000Z");
+    expect(getRowEditValue(baseRow, "expected_close")).toBe(
+      "2026-07-01T00:00:00.000Z"
+    );
   });
 
   it("round-trips a date value back through mapEditToUpdate", () => {
     const iso = getRowEditValue(baseRow, "next_follow_up");
     const update = mapEditToUpdate("next_follow_up", iso);
     expect(update.nextFollowUpAt).toBeInstanceOf(Date);
-    expect((update.nextFollowUpAt as Date).toISOString()).toBe("2026-06-10T00:00:00.000Z");
+    expect((update.nextFollowUpAt as Date).toISOString()).toBe(
+      "2026-06-10T00:00:00.000Z"
+    );
   });
 });
 
@@ -172,12 +183,15 @@ describe("useOpportunityCellEdit — save states", () => {
       () =>
         new Promise((res) => {
           resolve = res;
-        }),
+        })
     );
 
-    const { result } = renderHook(() => useOpportunityCellEdit({ rows: [baseRow] }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useOpportunityCellEdit({ rows: [baseRow] }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     // idle: no entry
     expect(result.current.saveStates.get("opp-1:value")).toBeUndefined();
@@ -188,7 +202,9 @@ describe("useOpportunityCellEdit — save states", () => {
     });
 
     // saving while the mutation is in flight
-    await waitFor(() => expect(result.current.saveStates.get("opp-1:value")).toBe("saving"));
+    await waitFor(() =>
+      expect(result.current.saveStates.get("opp-1:value")).toBe("saving")
+    );
 
     await act(async () => {
       resolve({ id: "opp-1" });
@@ -197,15 +213,20 @@ describe("useOpportunityCellEdit — save states", () => {
 
     // saved on resolve
     expect(result.current.saveStates.get("opp-1:value")).toBe("saved");
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", { estimatedValue: 9000 });
+    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", {
+      estimatedValue: 9000,
+    });
   });
 
   it("transitions to error when the mutation rejects", async () => {
     updateOpportunity.mockRejectedValue(new Error("boom"));
 
-    const { result } = renderHook(() => useOpportunityCellEdit({ rows: [baseRow] }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useOpportunityCellEdit({ rows: [baseRow] }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     await act(async () => {
       await result.current.commitEdit("opp-1", "value", 9000);
@@ -215,9 +236,12 @@ describe("useOpportunityCellEdit — save states", () => {
   });
 
   it("no-ops (idle, no mutation) when the value is unchanged", async () => {
-    const { result } = renderHook(() => useOpportunityCellEdit({ rows: [baseRow] }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useOpportunityCellEdit({ rows: [baseRow] }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     await act(async () => {
       await result.current.commitEdit("opp-1", "value", 5000);
@@ -240,8 +264,9 @@ describe("useOpportunityCellEdit — undo", () => {
     // undoing — otherwise undo-to-old-value would (correctly) no-op against a
     // stale row that still shows the old value.
     const { result, rerender } = renderHook(
-      ({ rows }: { rows: PipelineTableRow[] }) => useOpportunityCellEdit({ rows }),
-      { wrapper: makeWrapper(), initialProps: { rows: [baseRow] } },
+      ({ rows }: { rows: PipelineTableRow[] }) =>
+        useOpportunityCellEdit({ rows }),
+      { wrapper: makeWrapper(), initialProps: { rows: [baseRow] } }
     );
 
     await act(async () => {
@@ -262,19 +287,24 @@ describe("useOpportunityCellEdit — undo", () => {
     });
 
     // undo re-commits the BEFORE value and pops the entry (does not push a new one)
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", { estimatedValue: 5000 });
+    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", {
+      estimatedValue: 5000,
+    });
     expect(result.current.undoStack).toHaveLength(0);
   });
 
   it("clearLatestUndo hides the visible-undo entry", async () => {
     updateOpportunity.mockResolvedValue({ id: "opp-1" });
 
-    const { result } = renderHook(() => useOpportunityCellEdit({ rows: [baseRow] }), {
-      wrapper: makeWrapper(),
-    });
+    const { result } = renderHook(
+      () => useOpportunityCellEdit({ rows: [baseRow] }),
+      {
+        wrapper: makeWrapper(),
+      }
+    );
 
     await act(async () => {
-      await result.current.commitEdit("opp-1", "assignee", "user-42");
+      await result.current.commitEdit("opp-1", "client", "client-42");
     });
 
     expect(result.current.latestUndo).not.toBeNull();

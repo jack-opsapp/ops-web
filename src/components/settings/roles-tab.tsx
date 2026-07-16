@@ -51,7 +51,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
-import { SectionLabel, ModulePermissionRow, type ModuleTierValue } from "./permission-grid";
+import {
+  SectionLabel,
+  PermissionModuleEditor,
+  type ModuleTierValue,
+} from "./permission-grid";
+import {
+  LeadResponsibilityResolutionDialog,
+  type LeadResponsibilityResolutionPrompt,
+} from "./lead-responsibility-resolution-dialog";
 import {
   useRoles,
   useRolePermissions,
@@ -70,24 +78,37 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { getUserFullName, getInitials } from "@/lib/types/models";
 import {
   PERMISSION_CATEGORIES,
+  PERMISSION_EDITOR_REGISTRY,
   type PermissionScope,
   type Role,
   getActionsForTier,
   detectModuleTier,
   getPermissionScopes,
 } from "@/lib/types/permissions";
+import {
+  normalizePipelinePermissionEdits,
+  type PermissionEditState,
+} from "@/lib/permissions/pipeline-dependencies";
 import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
+import {
+  RolePermissionUpdateError,
+  UserRoleUpdateError,
+  type EligibleRoleAssignmentTarget,
+  type ReplaceRolePermissionsInput,
+  type ReplaceUserRoleInput,
+  type RoleAssignmentResolution,
+  type StrandedRoleAssignment,
+} from "@/lib/api/services/roles-service";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type View = "list" | "editor";
 
-/** A per-action edit row mirroring the persisted `role_permissions` shape. */
-interface PermissionEdit {
-  permission: string;
-  scope: PermissionScope;
-  enabled: boolean;
+interface PendingAssignmentResolution {
+  input: ReplaceRolePermissionsInput;
+  stranded: StrandedRoleAssignment[];
+  eligibleAssignees: EligibleRoleAssignmentTarget[];
 }
 
 // ─── Assigned members sub-section ────────────────────────────────────────────
@@ -95,7 +116,9 @@ interface PermissionEdit {
 function MemberAvatar({ name }: { name: string }) {
   return (
     <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full border border-[rgba(255,255,255,0.18)]">
-      <span className="font-mohave text-micro text-text-2">{getInitials(name)}</span>
+      <span className="font-mohave text-micro text-text-2">
+        {getInitials(name)}
+      </span>
     </div>
   );
 }
@@ -110,6 +133,8 @@ function AssignedMembers({
   const { t } = useDictionary("settings");
   const currentUser = useAuthStore((s) => s.currentUser);
   const { data: roleMembers } = useRoleMembers(roleId);
+  const { data: allUserRoles, refetch: refetchAllUserRoles } =
+    useAllUserRoles();
   const { data: teamData } = useTeamMembers();
   const members = teamData?.users ?? [];
 
@@ -117,40 +142,155 @@ function AssignedMembers({
   const removeUserRole = useRemoveUserRole();
 
   const [pendingAdd, setPendingAdd] = useState<string>("");
+  const [pendingResolution, setPendingResolution] = useState<
+    | ({
+        userId: string;
+        input: ReplaceUserRoleInput;
+        operation: "assign" | "remove";
+      } & LeadResponsibilityResolutionPrompt)
+    | null
+  >(null);
 
   const assignedIds = useMemo(
     () => new Set(roleMembers?.map((m) => m.userId) ?? []),
-    [roleMembers],
+    [roleMembers]
   );
   const assignedMembers = members.filter((m) => assignedIds.has(m.id));
   const unassignedMembers = members.filter(
-    (m) => !assignedIds.has(m.id) && m.isActive !== false,
+    (m) => !assignedIds.has(m.id) && m.isActive !== false
   );
 
   function handleAssign(userId: string) {
     if (!currentUser || !userId) return;
+    const expectedRoleId =
+      allUserRoles?.find((assignment) => assignment.userId === userId)
+        ?.roleId ?? null;
+    const input: ReplaceUserRoleInput = {
+      expectedRoleId,
+      newRoleId: roleId,
+      assignmentResolutions: [],
+    };
     assignUserRole.mutate(
-      { userId, roleId, assignedBy: currentUser.id },
+      { userId, input },
       {
         onSuccess: () => {
           toast.success(t("roles.toast.memberAssigned"));
           setPendingAdd("");
         },
-        onError: (err) =>
-          toast.error(t("roles.toast.assignFailed"), { description: err.message }),
-      },
+        onError: (error) => {
+          if (
+            error instanceof UserRoleUpdateError &&
+            error.payload.code === "assignment_resolution_required" &&
+            error.payload.stranded?.length
+          ) {
+            setPendingResolution({
+              userId,
+              input,
+              operation: "assign",
+              stranded: error.payload.stranded,
+              eligibleAssignees: error.payload.eligibleAssignees ?? [],
+            });
+            return;
+          }
+          if (
+            error instanceof UserRoleUpdateError &&
+            (error.payload.code === "permission_snapshot_mismatch" ||
+              error.payload.code === "assignment_resolution_conflict")
+          ) {
+            void refetchAllUserRoles();
+          }
+          toast.error(t("roles.toast.assignFailed"), {
+            description: error.message,
+          });
+        },
+      }
     );
   }
 
   function handleRemove(userId: string) {
+    const input: ReplaceUserRoleInput = {
+      expectedRoleId: roleId,
+      newRoleId: null,
+      assignmentResolutions: [],
+    };
     removeUserRole.mutate(
-      { userId, roleId },
+      { userId, input },
       {
         onSuccess: () => toast.success(t("roles.toast.memberRemoved")),
-        onError: (err) =>
-          toast.error(t("roles.toast.removeFailed"), { description: err.message }),
-      },
+        onError: (error) => {
+          if (
+            error instanceof UserRoleUpdateError &&
+            error.payload.code === "assignment_resolution_required" &&
+            error.payload.stranded?.length
+          ) {
+            setPendingResolution({
+              userId,
+              input,
+              operation: "remove",
+              stranded: error.payload.stranded,
+              eligibleAssignees: error.payload.eligibleAssignees ?? [],
+            });
+            return;
+          }
+          if (
+            error instanceof UserRoleUpdateError &&
+            (error.payload.code === "permission_snapshot_mismatch" ||
+              error.payload.code === "assignment_resolution_conflict")
+          ) {
+            void refetchAllUserRoles();
+          }
+          toast.error(t("roles.toast.removeFailed"), {
+            description: error.message,
+          });
+        },
+      }
     );
+  }
+
+  function handleResolutionConfirm(
+    destinations: ReadonlyMap<string, string | null>
+  ) {
+    if (!pendingResolution) return;
+    const assignmentResolutions: RoleAssignmentResolution[] =
+      pendingResolution.stranded.map((lead) => ({
+        opportunity_id: lead.opportunity_id,
+        expected_assigned_to: lead.assigned_to,
+        expected_assignment_version: lead.assignment_version,
+        new_assigned_to: destinations.get(lead.opportunity_id) ?? null,
+      }));
+    const variables = {
+      userId: pendingResolution.userId,
+      input: { ...pendingResolution.input, assignmentResolutions },
+    };
+    const mutation =
+      pendingResolution.operation === "assign"
+        ? assignUserRole
+        : removeUserRole;
+    mutation.mutate(variables, {
+      onSuccess: () => {
+        const operation = pendingResolution.operation;
+        setPendingResolution(null);
+        setPendingAdd("");
+        toast.success(
+          operation === "assign"
+            ? t("roles.toast.memberAssigned")
+            : t("roles.toast.memberRemoved")
+        );
+      },
+      onError: (error) => {
+        const operation = pendingResolution.operation;
+        setPendingResolution(null);
+        if (error instanceof UserRoleUpdateError) {
+          void refetchAllUserRoles();
+        }
+        toast.error(
+          operation === "assign"
+            ? t("roles.toast.assignFailed")
+            : t("roles.toast.removeFailed"),
+          { description: error.message }
+        );
+      },
+    });
   }
 
   return (
@@ -188,19 +328,28 @@ function AssignedMembers({
       )}
 
       {assignedMembers.length === 0 ? (
-        <p className="font-mono text-micro text-text-3">{t("roles.noMembersAssigned")}</p>
+        <p className="font-mono text-micro text-text-3">
+          {t("roles.noMembersAssigned")}
+        </p>
       ) : (
         <div className="glass-surface divide-y divide-border-subtle rounded-panel">
           {assignedMembers.map((m) => {
             const fullName = getUserFullName(m);
             return (
-              <div key={m.id} className="flex items-center justify-between gap-1.5 px-2 py-1.5">
+              <div
+                key={m.id}
+                className="flex items-center justify-between gap-1.5 px-2 py-1.5"
+              >
                 <div className="flex min-w-0 items-center gap-1.5">
                   <MemberAvatar name={fullName} />
                   <div className="min-w-0">
-                    <p className="truncate font-mohave text-body-sm text-text">{fullName}</p>
+                    <p className="truncate font-mohave text-body-sm text-text">
+                      {fullName}
+                    </p>
                     {m.email && (
-                      <p className="truncate font-mono text-micro text-text-3">{m.email}</p>
+                      <p className="truncate font-mono text-micro text-text-3">
+                        {m.email}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -220,6 +369,13 @@ function AssignedMembers({
           })}
         </div>
       )}
+
+      <LeadResponsibilityResolutionDialog
+        pending={pendingResolution}
+        loading={assignUserRole.isPending || removeUserRole.isPending}
+        onCancel={() => setPendingResolution(null)}
+        onConfirm={handleResolutionConfirm}
+      />
     </section>
   );
 }
@@ -241,7 +397,11 @@ function RoleEditor({
 
   const { data: roles } = useRoles();
   const role = roles?.find((r) => r.id === roleId);
-  const { data: permissions, isLoading: permLoading } = useRolePermissions(roleId);
+  const {
+    data: permissions,
+    isLoading: permLoading,
+    refetch: refetchPermissions,
+  } = useRolePermissions(roleId);
 
   const updateRole = useUpdateRole();
   const updatePermissions = useUpdateRolePermissions();
@@ -253,20 +413,24 @@ function RoleEditor({
   const [name, setName] = useState(role?.name ?? "");
   const [description, setDescription] = useState(role?.description ?? "");
   const [confirmBack, setConfirmBack] = useState(false);
+  const [pendingResolution, setPendingResolution] =
+    useState<PendingAssignmentResolution | null>(null);
 
   // Per-action edit map, seeded once permissions load.
-  const [permissionEdits, setPermissionEdits] = useState<Map<string, PermissionEdit>>(
-    new Map(),
-  );
+  const [permissionEdits, setPermissionEdits] = useState<
+    Map<string, PermissionEditState>
+  >(new Map());
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (permissions && !initialized) {
-      const map = new Map<string, PermissionEdit>();
+      const map = new Map<string, PermissionEditState>();
       for (const cat of PERMISSION_CATEGORIES) {
         for (const mod of cat.modules) {
           for (const action of mod.actions) {
-            const existing = permissions.find((p) => p.permission === action.id);
+            const existing = permissions.find(
+              (p) => p.permission === action.id
+            );
             map.set(action.id, {
               permission: action.id,
               scope: existing?.scope ?? action.scopes[0],
@@ -275,7 +439,7 @@ function RoleEditor({
           }
         }
       }
-      setPermissionEdits(map);
+      setPermissionEdits(normalizePipelinePermissionEdits(map));
       setInitialized(true);
     }
   }, [permissions, initialized]);
@@ -286,7 +450,7 @@ function RoleEditor({
       Array.from(permissionEdits.entries())
         .filter(([, e]) => e.enabled)
         .map(([id]) => id),
-    [permissionEdits],
+    [permissionEdits]
   );
 
   // ── Handlers ─────────────────────────────────────────────────
@@ -298,7 +462,7 @@ function RoleEditor({
   const handleTierChange = useCallback(
     (moduleId: string, tier: ModuleTierValue) => {
       const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find(
-        (m) => m.id === moduleId,
+        (m) => m.id === moduleId
       );
       if (!mod) return;
 
@@ -308,42 +472,67 @@ function RoleEditor({
           .map((a) => permissionEdits.get(a.id))
           .find((e) => e?.enabled && e.scope)?.scope ?? "all";
 
-      const actionIds = tier === "none" ? [] : getActionsForTier(moduleId, tier);
+      const actionIds =
+        tier === "none" ? [] : getActionsForTier(moduleId, tier);
 
       setPermissionEdits((prev) => {
         const next = new Map(prev);
         for (const action of mod.actions) {
+          if (action.hiddenFromEditor) continue;
           const existing = next.get(action.id);
           if (!existing) continue;
           const enabled = actionIds.includes(action.id);
           // Clamp the module scope to what this action supports.
           const supported = getPermissionScopes(action.id);
-          const scope = supported.includes(currentScope) ? currentScope : supported[0];
+          const scope = supported.includes(currentScope)
+            ? currentScope
+            : supported[0];
           next.set(action.id, { ...existing, enabled, scope });
         }
-        return next;
+        return normalizePipelinePermissionEdits(next);
       });
     },
-    [permissionEdits],
+    [permissionEdits]
   );
 
-  const handleScopeChange = useCallback((moduleId: string, scope: PermissionScope) => {
-    setPermissionEdits((prev) => {
-      const next = new Map(prev);
-      for (const cat of PERMISSION_CATEGORIES) {
-        for (const mod of cat.modules) {
-          if (mod.id !== moduleId) continue;
-          for (const action of mod.actions) {
-            const existing = next.get(action.id);
-            if (existing?.enabled && action.scopes.includes(scope)) {
-              next.set(action.id, { ...existing, scope });
+  const handleScopeChange = useCallback(
+    (moduleId: string, scope: PermissionScope) => {
+      setPermissionEdits((prev) => {
+        const next = new Map(prev);
+        for (const cat of PERMISSION_CATEGORIES) {
+          for (const mod of cat.modules) {
+            if (mod.id !== moduleId) continue;
+            for (const action of mod.actions) {
+              if (action.hiddenFromEditor) continue;
+              const existing = next.get(action.id);
+              if (existing?.enabled && action.scopes.includes(scope)) {
+                next.set(action.id, { ...existing, scope });
+              }
             }
           }
         }
-      }
-      return next;
-    });
-  }, []);
+        return normalizePipelinePermissionEdits(next);
+      });
+    },
+    []
+  );
+
+  const handleActionChange = useCallback(
+    (permission: string, scope: PermissionScope | null) => {
+      setPermissionEdits((prev) => {
+        const existing = prev.get(permission);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(permission, {
+          ...existing,
+          enabled: scope !== null,
+          scope: scope ?? existing.scope,
+        });
+        return normalizePipelinePermissionEdits(next);
+      });
+    },
+    []
+  );
 
   // ── Dirty tracking ───────────────────────────────────────────
   const isDirty = useMemo(() => {
@@ -354,31 +543,115 @@ function RoleEditor({
       const existing = permissions.find((p) => p.permission === key);
       if (edit.enabled && !existing) return true;
       if (!edit.enabled && existing) return true;
-      if (edit.enabled && existing && edit.scope !== existing.scope) return true;
+      if (edit.enabled && existing && edit.scope !== existing.scope)
+        return true;
     }
     return false;
   }, [name, description, permissionEdits, permissions, role, initialized]);
 
-  async function handleSave() {
-    if (!role || isPreset) return;
-    try {
+  const buildPermissionInput = useCallback((): ReplaceRolePermissionsInput => {
+    const enabledPerms = Array.from(permissionEdits.values())
+      .filter((edit) => edit.enabled)
+      .map((edit) => [edit.permission, edit.scope] as const);
+    const enabledByPermission = new Map(enabledPerms);
+
+    return {
+      expectedPermissions: (permissions ?? [])
+        .map(({ permission, scope }) => ({ permission, scope }))
+        .sort((left, right) => left.permission.localeCompare(right.permission)),
+      newPermissions: PERMISSION_EDITOR_REGISTRY.map((action) => ({
+        permission: action.id,
+        scope: enabledByPermission.get(action.id) ?? null,
+      })),
+      assignmentResolutions: [],
+    };
+  }, [permissionEdits, permissions]);
+
+  const handleSaveError = useCallback(
+    (error: unknown, input: ReplaceRolePermissionsInput) => {
+      if (error instanceof RolePermissionUpdateError) {
+        if (error.payload.code === "assignment_resolution_required") {
+          const stranded = error.payload.stranded ?? [];
+          if (stranded.length > 0) {
+            setPendingResolution({
+              input,
+              stranded,
+              eligibleAssignees: error.payload.eligibleAssignees ?? [],
+            });
+            return;
+          }
+
+          toast.error(t("roles.assignmentResolutionBlocked"), {
+            description: t("roles.assignmentResolutionBlockedDescription"),
+          });
+          return;
+        }
+
+        if (
+          error.payload.code === "permission_snapshot_mismatch" ||
+          error.payload.code === "assignment_resolution_conflict"
+        ) {
+          setPendingResolution(null);
+          void refetchPermissions();
+          toast.error(t("roles.assignmentConflict"));
+          return;
+        }
+      }
+
+      toast.error(t("roles.toast.saveFailed"), {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    },
+    [refetchPermissions, t]
+  );
+
+  const commitChanges = useCallback(
+    async (input: ReplaceRolePermissionsInput) => {
+      if (!role || isPreset) return;
+
+      await updatePermissions.mutateAsync({
+        roleId: role.id,
+        input,
+      });
       if (name !== role.name || description !== (role.description ?? "")) {
         await updateRole.mutateAsync({
           roleId: role.id,
           data: { name: name.trim(), description: description.trim() || null },
         });
       }
-
-      const enabledPerms = Array.from(permissionEdits.values())
-        .filter((e) => e.enabled)
-        .map((e) => ({ permission: e.permission, scope: e.scope }));
-
-      await updatePermissions.mutateAsync({ roleId: role.id, permissions: enabledPerms });
+      setPendingResolution(null);
       toast.success(t("roles.toast.saved"));
+    },
+    [description, isPreset, name, role, t, updatePermissions, updateRole]
+  );
+
+  async function handleSave() {
+    const input = buildPermissionInput();
+    try {
+      await commitChanges(input);
     } catch (err) {
-      toast.error(t("roles.toast.saveFailed"), {
-        description: err instanceof Error ? err.message : undefined,
-      });
+      handleSaveError(err, input);
+    }
+  }
+
+  async function handleResolutionConfirm(
+    destinations: ReadonlyMap<string, string | null>
+  ) {
+    if (!pendingResolution) return;
+    const input: ReplaceRolePermissionsInput = {
+      ...pendingResolution.input,
+      assignmentResolutions: pendingResolution.stranded.map((lead) => ({
+        opportunity_id: lead.opportunity_id,
+        expected_assigned_to: lead.assigned_to,
+        expected_assignment_version: lead.assignment_version,
+        new_assigned_to: destinations.get(lead.opportunity_id) ?? null,
+      })),
+    };
+
+    try {
+      await commitChanges(input);
+    } catch (error) {
+      handleSaveError(error, input);
     }
   }
 
@@ -397,8 +670,10 @@ function RoleEditor({
           onBack();
         },
         onError: (err) =>
-          toast.error(t("roles.toast.duplicateFailed"), { description: err.message }),
-      },
+          toast.error(t("roles.toast.duplicateFailed"), {
+            description: err.message,
+          }),
+      }
     );
   }
 
@@ -410,7 +685,9 @@ function RoleEditor({
     );
   }
 
-  const headerLabel = isCreate ? t("roles.newRoleTitle") : t("roles.editRoleTitle");
+  const headerLabel = isCreate
+    ? t("roles.newRoleTitle")
+    : t("roles.editRoleTitle");
 
   return (
     <div className="space-y-3">
@@ -445,7 +722,9 @@ function RoleEditor({
               variant="primary"
               size="sm"
               onClick={handleSave}
-              disabled={!isDirty || updatePermissions.isPending || updateRole.isPending}
+              disabled={
+                !isDirty || updatePermissions.isPending || updateRole.isPending
+              }
               loading={updatePermissions.isPending || updateRole.isPending}
             >
               {t("roles.saveChanges")}
@@ -460,7 +739,9 @@ function RoleEditor({
       {isPreset && (
         <div className="glass-surface flex items-center gap-1.5 rounded-panel px-2 py-1.5">
           <Lock className="h-[14px] w-[14px] shrink-0 text-tan" />
-          <p className="font-mono text-micro text-tan">{t("roles.presetBanner")}</p>
+          <p className="font-mono text-micro text-tan">
+            {t("roles.presetBanner")}
+          </p>
         </div>
       )}
 
@@ -486,18 +767,24 @@ function RoleEditor({
       {/* Permissions, grouped by category */}
       <div className="space-y-3">
         {PERMISSION_CATEGORIES.map((category) => (
-          <section key={category.id} className="space-y-1.5" aria-label={category.label}>
+          <section
+            key={category.id}
+            className="space-y-1.5"
+            aria-label={category.label}
+          >
             <SectionLabel>{category.label}</SectionLabel>
             <div className="glass-surface rounded-panel px-2">
               {category.modules.map((mod) => {
                 const detected = detectModuleTier(mod.id, enabledIds);
-                const hasAny = mod.actions.some((a) => permissionEdits.get(a.id)?.enabled);
+                const hasAny = mod.actions.some(
+                  (a) => permissionEdits.get(a.id)?.enabled
+                );
                 const isCustom = detected === null && hasAny;
                 const tier: ModuleTierValue = detected ?? "none";
 
                 // Scope segments the module's actions actually offer.
                 const availableScopes = Array.from(
-                  new Set(mod.actions.flatMap((a) => a.scopes)),
+                  new Set(mod.actions.flatMap((a) => a.scopes))
                 ) as PermissionScope[];
                 const scopeOptions: SegmentControlOption<PermissionScope>[] =
                   availableScopes.length > 1
@@ -518,10 +805,10 @@ function RoleEditor({
                     .find((e) => e?.enabled && e.scope)?.scope ?? "all";
 
                 return (
-                  <ModulePermissionRow
+                  <PermissionModuleEditor
                     key={mod.id}
-                    moduleId={mod.id}
-                    label={mod.label}
+                    module={mod}
+                    edits={permissionEdits}
                     tier={tier}
                     isCustom={isCustom}
                     scope={currentScope}
@@ -529,6 +816,7 @@ function RoleEditor({
                     disabled={isPreset}
                     onTierChange={handleTierChange}
                     onScopeChange={handleScopeChange}
+                    onActionChange={handleActionChange}
                   />
                 );
               })}
@@ -541,6 +829,15 @@ function RoleEditor({
       <AssignedMembers roleId={roleId} disabled={isPreset} />
 
       {/* Discard confirmation */}
+      <LeadResponsibilityResolutionDialog
+        pending={pendingResolution}
+        loading={updatePermissions.isPending || updateRole.isPending}
+        onCancel={() => setPendingResolution(null)}
+        onConfirm={(destinations) => {
+          void handleResolutionConfirm(destinations);
+        }}
+      />
+
       <ConfirmDialog
         open={confirmBack}
         onOpenChange={setConfirmBack}
@@ -590,9 +887,13 @@ function RoleKebab({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {!role.isPreset && (
-          <DropdownMenuItem onSelect={onEdit}>{t("roles.edit")}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={onEdit}>
+            {t("roles.edit")}
+          </DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={onDuplicate}>{t("roles.duplicate")}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={onDuplicate}>
+          {t("roles.duplicate")}
+        </DropdownMenuItem>
         {!role.isPreset && (
           <>
             <DropdownMenuSeparator />
@@ -644,16 +945,16 @@ export function RolesTab() {
       isPreset: r.isPreset,
       memberCount: memberCounts.get(r.id) ?? 0,
     }),
-    [memberCounts],
+    [memberCounts]
   );
 
   const presetRows = useMemo(
     () => (roles ?? []).filter((r) => r.isPreset).map(toRow),
-    [roles, toRow],
+    [roles, toRow]
   );
   const customRows = useMemo(
     () => (roles ?? []).filter((r) => !r.isPreset).map(toRow),
-    [roles, toRow],
+    [roles, toRow]
   );
 
   function openEditor(roleId: string, create: boolean) {
@@ -682,8 +983,10 @@ export function RolesTab() {
           openEditor(role.id, true);
         },
         onError: (err) =>
-          toast.error(t("roles.toast.createFailed"), { description: err.message }),
-      },
+          toast.error(t("roles.toast.createFailed"), {
+            description: err.message,
+          }),
+      }
     );
   }
 
@@ -693,8 +996,10 @@ export function RolesTab() {
       {
         onSuccess: () => toast.success(t("roles.toast.duplicated")),
         onError: (err) =>
-          toast.error(t("roles.toast.duplicateFailed"), { description: err.message }),
-      },
+          toast.error(t("roles.toast.duplicateFailed"), {
+            description: err.message,
+          }),
+      }
     );
   }
 
@@ -705,14 +1010,20 @@ export function RolesTab() {
         setConfirmDelete(null);
       },
       onError: (err) =>
-        toast.error(t("roles.toast.deleteFailed"), { description: err.message }),
+        toast.error(t("roles.toast.deleteFailed"), {
+          description: err.message,
+        }),
     });
   }
 
   // ── Editor view ──────────────────────────────────────────────
   if (view === "editor" && selectedRoleId) {
     return (
-      <RoleEditor roleId={selectedRoleId} isCreate={editIsCreate} onBack={closeEditor} />
+      <RoleEditor
+        roleId={selectedRoleId}
+        isCreate={editIsCreate}
+        onBack={closeEditor}
+      />
     );
   }
 
@@ -816,7 +1127,10 @@ export function RolesTab() {
             </div>
             {customRows.length === 0 ? (
               <div className="glass-surface rounded-panel">
-                <RegisterEmpty noun={t("roles.customRoles")} hint={t("roles.noCustomRoles")} />
+                <RegisterEmpty
+                  noun={t("roles.customRoles")}
+                  hint={t("roles.noCustomRoles")}
+                />
               </div>
             ) : (
               <RegisterTable

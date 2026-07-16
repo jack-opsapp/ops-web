@@ -21,9 +21,20 @@ import { useOpportunities } from "@/lib/hooks";
 import { useOpportunityView } from "@/lib/hooks/pipeline-table/use-opportunity-view";
 import { useOpportunityViewActions } from "@/lib/hooks/pipeline-table/use-opportunity-view-actions";
 import { useOpportunityViewsList } from "@/lib/hooks/pipeline-table/use-opportunity-views-list";
-import { usePermissionStore } from "@/lib/store/permissions-store";
+import {
+  selectCanEditOpportunity,
+  usePermissionStore,
+} from "@/lib/store/permissions-store";
+import { useAuthStore } from "@/lib/store/auth-store";
+import {
+  effectivePipelineScope,
+  getLeadAccess,
+} from "@/lib/permissions/lead-access-policy";
 import type { ProjectTableDensity } from "@/lib/types/project-table";
-import type { OpportunityStage } from "@/lib/types/pipeline";
+import type {
+  OpportunityAssigneeFilter,
+  OpportunityStage,
+} from "@/lib/types/pipeline";
 import {
   PIPELINE_TABLE_COLUMN_IDS,
   PIPELINE_TABLE_COLUMNS,
@@ -65,7 +76,6 @@ const UNDO_COLUMN_LABEL_KEYS = {
   client: "table.column.client",
   next_follow_up: "table.column.next_follow_up",
   expected_close: "table.column.expected_close",
-  assignee: "table.column.assignee",
 } as const satisfies Record<PipelineTableEditableColumnId, string>;
 
 // ── Saved-view helpers ───────────────────────────────────────────────────────
@@ -187,7 +197,7 @@ export function PipelineTableShell({
   /** Shared stage filter (toolbar) — feeds both the board and this table. */
   stageFilter: OpportunityStage | "all";
   /** Shared assignee filter (toolbar) — feeds both the board and this table. */
-  assigneeFilter: string | "all";
+  assigneeFilter: OpportunityAssigneeFilter;
 }) {
   const { t } = useDictionary("pipeline");
 
@@ -301,7 +311,18 @@ export function PipelineTableShell({
   const openDetailPanel = usePipelineModeStore(
     (state) => state.openDetailPanel
   );
-  const canManage = usePermissionStore((s) => s.can("pipeline.manage"));
+  const permissionState = usePermissionStore();
+  const currentUserId = useAuthStore((state) => state.currentUser?.id ?? null);
+  const canManage = selectCanEditOpportunity(permissionState);
+  const hasCompanyWideLeadView =
+    effectivePipelineScope(permissionState, "pipeline.view") === "all";
+  const interactiveColumns = useMemo(
+    () =>
+      hasCompanyWideLeadView
+        ? PIPELINE_TABLE_COLUMNS
+        : PIPELINE_TABLE_COLUMNS.filter((column) => column.id !== "assignee"),
+    [hasCompanyWideLeadView]
+  );
 
   // Density persists back to the active view on change (mirrors the projects
   // shell): the segmented control writes the new preset's density + zoom into
@@ -495,6 +516,16 @@ export function PipelineTableShell({
     if (!opportunities) return [];
     return opportunities.filter((o) => !o.deletedAt && !o.archivedAt);
   }, [opportunities]);
+  const leadAccessById = useMemo(
+    () =>
+      new Map(
+        activeOpportunities.map((opportunity) => [
+          opportunity.id,
+          getLeadAccess(permissionState, currentUserId, opportunity),
+        ])
+      ),
+    [activeOpportunities, currentUserId, permissionState]
+  );
   const {
     requestStageChange,
     requestConvertAlreadyWon,
@@ -574,7 +605,7 @@ export function PipelineTableShell({
     handleCellKeyDown,
   } = usePipelineTableKeyboardNav({
     rows,
-    columns: PIPELINE_TABLE_COLUMNS,
+    columns: interactiveColumns,
     onUndo: handleUndoLatest,
     onFocusSearch: handleFocusSearch,
     onSelectAllVisible: () => selectionRef.current.selectAllVisible(),
@@ -583,9 +614,10 @@ export function PipelineTableShell({
 
   const handleBeginEdit = useCallback(
     (rowId: string, columnId: PipelineTableEditableColumnId) => {
+      if (!leadAccessById.get(rowId)?.canEdit) return;
       beginEdit(rowId, columnId);
     },
-    [beginEdit]
+    [beginEdit, leadAccessById]
   );
 
   const handleCancelEdit = useCallback(() => {
@@ -598,10 +630,11 @@ export function PipelineTableShell({
       columnId: PipelineTableEditableColumnId,
       value: PipelineTableEditValue
     ) => {
+      if (!leadAccessById.get(rowId)?.canEdit) return;
       void commitEdit(rowId, columnId, value);
       cancelEdit({ rowId, columnId });
     },
-    [cancelEdit, commitEdit]
+    [cancelEdit, commitEdit, leadAccessById]
   );
 
   // ── Row-order stabilization (no row-jump on commit) ────────────────────────
@@ -675,18 +708,22 @@ export function PipelineTableShell({
   //     never silently selected and never count toward the checkbox.
   const selectableRowIds = useMemo(
     () =>
-      buildFlattenedRows(displayRows, {
-        grouped,
-        collapsedStages: EMPTY_COLLAPSED_STAGES,
-      }).flatMap((item) => (item.kind === "data" ? [item.row.id] : [])),
-    [displayRows, grouped]
+      buildFlattenedRows(
+        displayRows.filter((row) => leadAccessById.get(row.id)?.canEdit),
+        {
+          grouped,
+          collapsedStages: EMPTY_COLLAPSED_STAGES,
+        }
+      ).flatMap((item) => (item.kind === "data" ? [item.row.id] : [])),
+    [displayRows, grouped, leadAccessById]
   );
   const renderedDataRowIds = useMemo(
     () =>
-      buildFlattenedRows(displayRows, { grouped, collapsedStages }).flatMap(
-        (item) => (item.kind === "data" ? [item.row.id] : [])
-      ),
-    [displayRows, grouped, collapsedStages]
+      buildFlattenedRows(
+        displayRows.filter((row) => leadAccessById.get(row.id)?.canEdit),
+        { grouped, collapsedStages }
+      ).flatMap((item) => (item.kind === "data" ? [item.row.id] : [])),
+    [displayRows, grouped, collapsedStages, leadAccessById]
   );
   // Unlike the projects shell, we deliberately omit `useTableSelection`'s `resetKey`:
   // pipeline views only re-sort the same in-memory opportunities (the row population
@@ -875,7 +912,9 @@ export function PipelineTableShell({
         saveStates={saveStates}
         activeCell={activeCell}
         editingCell={editingCell}
-        canManage={canManage}
+        canManage={canManage && renderedDataRowIds.length > 0}
+        leadAccessById={leadAccessById}
+        showAssigneeColumn={hasCompanyWideLeadView}
         setActiveCell={setActiveCell}
         onBeginEdit={handleBeginEdit}
         onCancelEdit={handleCancelEdit}
@@ -955,6 +994,7 @@ export function PipelineTableShell({
         <PipelineBulkBar
           selectedRows={displayRows}
           selectedIds={selectedIds}
+          leadAccessById={leadAccessById}
           renderedRowCount={renderedDataRowIds.length}
           allRenderedSelected={allRenderedSelected}
           onClearSelection={clearSelection}

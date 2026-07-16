@@ -23,9 +23,10 @@
  *     the operator picks a dedup candidate we `linkExisting` instead of create;
  *     if the deal is already linked, "Open project" just deep-links to it.
  *
- * The permission gate (`pipeline.manage`), the same-stage no-op, the
- * Won→dialog / Lost→dialog routing, and the undo `inverseFn` are preserved so
- * the board and table never drift.
+ * Won uses the canonical granular convert gate (with bounded legacy fallback);
+ * other stage mutations use the canonical granular edit gate. The same-stage no-op,
+ * Won→dialog / Lost→dialog routing, and undo `inverseFn` are shared so the
+ * board and table never drift.
  */
 
 import { useCallback, useMemo, useState } from "react";
@@ -34,7 +35,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useDictionary } from "@/i18n/client";
 import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { usePermissionStore } from "@/lib/store/permissions-store";
+import {
+  selectCanConvertOpportunity,
+  selectCanEditOpportunity,
+  usePermissionStore,
+} from "@/lib/store/permissions-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { queryKeys } from "@/lib/api/query-client";
 import {
@@ -66,9 +71,9 @@ export interface UseStageTransitionArgs {
 
 export interface UseStageTransitionResult {
   /**
-   * Request a stage change for `id` to `newStage`. Permission-gated on
-   * `pipeline.manage`; a no-op when the stage is unchanged. Won / Lost open the
-   * terminal-transition dialog; every other stage moves directly (toast + undo).
+   * Request a stage change for `id` to `newStage`. Won requires canonical
+   * convert access; other moves require granular edit access. A same-stage request
+   * is a no-op. Won / Lost open the terminal dialog; other stages move directly.
    */
   requestStageChange: (id: string, newStage: OpportunityStage) => void;
   /**
@@ -105,7 +110,8 @@ export function useStageTransition({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { currentUser } = useAuthStore();
-  const can = usePermissionStore((s) => s.can);
+  const canEdit = usePermissionStore(selectCanEditOpportunity);
+  const canConvert = usePermissionStore(selectCanConvertOpportunity);
   const pushUndo = useUndoStore((s) => s.pushUndo);
 
   const moveStage = useMoveOpportunityStage();
@@ -151,7 +157,7 @@ export function useStageTransition({
   /** Handle stage move from drag-and-drop, advance button, menu, or table cell */
   const requestStageChange = useCallback(
     (id: string, newStage: OpportunityStage) => {
-      if (!can("pipeline.manage")) return;
+      if (newStage === OpportunityStage.Won ? !canConvert : !canEdit) return;
       const opp = opportunities.find((o) => o.id === id);
       if (!opp) return;
 
@@ -214,14 +220,26 @@ export function useStageTransition({
         }
       );
     },
-    [opportunities, moveStage, currentUser, can, t, clientNameMap, pushUndo]
+    [
+      opportunities,
+      moveStage,
+      currentUser,
+      canEdit,
+      canConvert,
+      t,
+      clientNameMap,
+      pushUndo,
+    ]
   );
 
   /** Confirm Won/Lost transition */
   const confirmTransition = useCallback(
     (data: StageTransitionConfirmData) => {
-      if (!can("pipeline.manage")) return;
       if (!pendingStageMove || !transitionOpportunity) return;
+      if (
+        pendingStageMove.stage === OpportunityStage.Won ? !canConvert : !canEdit
+      )
+        return;
 
       const { id, stage } = pendingStageMove;
       // The stage captured at dialog-open — the snapshot guard for convert and
@@ -235,8 +253,15 @@ export function useStageTransition({
       const toStage = getStageDisplayName(stage);
       const oppTitle = transitionOpportunity.title;
 
-      // ── existing_linked: the deal already has a project — open it, no write ──
-      if (data.openProjectId) {
+      // A genuinely terminal linked lead needs no write; opening is the whole
+      // action. A linked lead in any non-won stage must continue through the
+      // idempotent conversion below so the stage change is real before open.
+      if (
+        data.openProjectId &&
+        transitionOpportunity.stage === OpportunityStage.Won &&
+        preflightQuery.data?.projectAccessible === true &&
+        preflightQuery.data.existingLinkedProject?.id === data.openProjectId
+      ) {
         router.push(`/dashboard?openProject=${data.openProjectId}&mode=view`);
         resetDialog();
         return;
@@ -244,18 +269,35 @@ export function useStageTransition({
 
       // ── Won: ONE atomic win+convert (or link-existing) ──
       if (stage === OpportunityStage.Won) {
+        const assignmentVersion = preflightQuery.data?.assignmentVersion;
+        if (
+          !Number.isSafeInteger(assignmentVersion) ||
+          (assignmentVersion as number) < 0
+        ) {
+          toast.error(t("toast.failedConvertProject"), {
+            description: oppTitle,
+          });
+          return;
+        }
+
         // The convert/link hooks have no onMutate, so flip the card to won
         // locally for instant feedback (mirrors useMoveOpportunityStage). The
         // hooks' onSettled reconciles against the server; a failed convert
         // additionally invalidates here to revert the flip.
-        queryClient.cancelQueries({ queryKey: queryKeys.opportunities.lists() });
+        queryClient.cancelQueries({
+          queryKey: queryKeys.opportunities.lists(),
+        });
         queryClient.setQueriesData<Opportunity[]>(
           { queryKey: queryKeys.opportunities.lists() },
           (old) =>
             old
               ? old.map((o) =>
                   o.id === id
-                    ? { ...o, stage: OpportunityStage.Won, stageEnteredAt: new Date() }
+                    ? {
+                        ...o,
+                        stage: OpportunityStage.Won,
+                        stageEnteredAt: new Date(),
+                      }
                     : o
                 )
               : old
@@ -277,6 +319,7 @@ export function useStageTransition({
               projectId: data.linkToProjectId,
               actualValue: data.actualValue,
               expectedStage: previousStage,
+              expectedAssignmentVersion: assignmentVersion as number,
             },
             {
               onSuccess: () =>
@@ -296,13 +339,30 @@ export function useStageTransition({
               id,
               actualValue: data.actualValue,
               expectedStage: previousStage,
+              expectedAssignmentVersion: assignmentVersion as number,
               titleOverride: data.titleOverride,
             },
             {
-              onSuccess: () =>
+              onSuccess: (conversion) => {
+                const wasAlreadyLinked =
+                  conversion.alreadyConverted === true ||
+                  preflightQuery.data?.alreadyConverted === true;
+                if (wasAlreadyLinked) {
+                  if (conversion.projectAccessible && conversion.projectId) {
+                    router.push(
+                      `/dashboard?openProject=${conversion.projectId}&mode=view`
+                    );
+                  } else {
+                    toast.success(t("toast.dealMarkedWon"), {
+                      description: oppTitle,
+                    });
+                  }
+                  return;
+                }
                 toast.success(t("toast.dealWonProjectCreated"), {
                   description: oppTitle,
-                }),
+                });
+              },
               onError: onConvertError,
             }
           );
@@ -382,10 +442,12 @@ export function useStageTransition({
       router,
       resetDialog,
       currentUser,
-      can,
+      canEdit,
+      canConvert,
       t,
       clientNameMap,
       pushUndo,
+      preflightQuery.data,
     ]
   );
 
@@ -418,14 +480,14 @@ export function useStageTransition({
    */
   const requestConvertAlreadyWon = useCallback(
     (id: string) => {
-      if (!can("pipeline.manage")) return;
+      if (!canConvert) return;
       const opp = opportunities.find((o) => o.id === id);
       if (!opp) return;
       setTransitionOpportunity(opp);
       setTransitionType("won");
       setPendingStageMove({ id, stage: OpportunityStage.Won });
     },
-    [opportunities, can]
+    [opportunities, canConvert]
   );
 
   /** Cancel Won/Lost transition */

@@ -43,6 +43,7 @@ function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
     stage,
     source: null,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: null,
     estimatedValue: null,
     actualValue: null,

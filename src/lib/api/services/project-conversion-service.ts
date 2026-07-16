@@ -41,33 +41,9 @@ import { NotificationService } from "./notification-service";
 const CONVERSION_RPC = "convert_opportunity_to_project";
 const PREFLIGHT_RPC = "get_conversion_preflight";
 
-export type ConversionSourcePath =
-  | "won_dialog"
-  | "approval_queue"
-  | "email_accept"
-  | "email_likely_won";
-
-type EmailConversionEvidence =
-  | {
-      connection_id: string;
-      email_thread_id: string;
-      provider_thread_id: string;
-      decision: "auto_advance_won";
-    }
-  | {
-      connection_id: string;
-      provider_thread_id: string;
-      provider_message_id: string;
-      decision: "likely_won";
-    };
-
-export interface ConvertOpportunityParams {
+interface ConversionCommonParams {
   opportunityId: string;
   companyId: string;
-  /** The operator confirming the conversion (decided_by + created_by). */
-  decidedBy?: string | null;
-  /** Which surface triggered the conversion (recorded in the disposition). */
-  sourcePath: ConversionSourcePath;
   /**
    * Final deal value from the Won dialog, if the operator entered one. The RPC
    * applies precedence p_actual_value ?? actual_value ?? estimated_value.
@@ -90,21 +66,105 @@ export interface ConvertOpportunityParams {
    * the naming trigger auto-names from the address.
    */
   titleOverride?: string | null;
-  /** Immutable source proof required by actorless email conversions. */
-  evidence?: EmailConversionEvidence;
-  /** Lead-assignment snapshot checked under the conversion row lock. */
-  expectedAssignmentVersion?: number;
 }
 
-export interface LinkOpportunityToProjectParams extends ConvertOpportunityParams {
+export type ConvertOpportunityParams =
+  | (ConversionCommonParams & {
+      sourcePath: "won_dialog";
+      decidedBy: string;
+      expectedAssignmentVersion: number;
+      evidence: { surface: "web_won_dialog" };
+    })
+  | (ConversionCommonParams & {
+      sourcePath: "approval_queue";
+      decidedBy: string;
+      expectedAssignmentVersion: number;
+      evidence: {
+        agent_action_id: string;
+        approval_mode: "operator_approved";
+      };
+    })
+  | (ConversionCommonParams & {
+      sourcePath: "email_accept";
+      decidedBy: null;
+      expectedAssignmentVersion: number;
+      evidence: {
+        connection_id: string;
+        email_thread_id: string;
+        provider_thread_id: string;
+        decision: "auto_advance_won";
+      };
+    })
+  | (ConversionCommonParams & {
+      sourcePath: "email_likely_won";
+      decidedBy: null;
+      expectedAssignmentVersion: number;
+      evidence: {
+        connection_id: string;
+        provider_thread_id: string;
+        provider_message_id: string;
+        decision: "likely_won";
+      };
+    });
+
+type HumanConversionParams = Extract<
+  ConvertOpportunityParams,
+  { decidedBy: string }
+>;
+
+export type LinkOpportunityToProjectParams = HumanConversionParams & {
   /** Existing project to adopt — no NEW project is created. */
   linkToProjectId: string;
+};
+
+export type ProjectConversionErrorKind =
+  | "conflict"
+  | "access_denied"
+  | "not_found"
+  | "unexpected";
+
+export class ProjectConversionError extends Error {
+  readonly name = "ProjectConversionError";
+
+  constructor(
+    public readonly kind: ProjectConversionErrorKind,
+    message: string,
+    public readonly options: {
+      guardReason?: string;
+      assignedTo?: string | null;
+      assignmentVersion?: number;
+      rpcCode?: string;
+      rpcMessage?: string;
+    } = {}
+  ) {
+    super(message);
+  }
+
+  get guardReason() {
+    return this.options.guardReason;
+  }
+
+  get assignedTo() {
+    return this.options.assignedTo;
+  }
+
+  get assignmentVersion() {
+    return this.options.assignmentVersion;
+  }
+
+  get rpcCode() {
+    return this.options.rpcCode;
+  }
+
+  get rpcMessage() {
+    return this.options.rpcMessage;
+  }
 }
 
 export interface ConvertOpportunityResult {
   /** True if THIS call performed the conversion (created or linked + won). */
   converted: boolean;
-  /** Always the linked project id (existing one when already converted). */
+  /** Internal linked project id; browser routes mask it when inaccessible. */
   projectId: string;
   opportunityId: string;
   /** True when the opportunity was already converted (idempotent no-op). */
@@ -121,6 +181,11 @@ export interface ConvertOpportunityResult {
   linkedExisting?: boolean;
   /** True when this call moved the opportunity to `won` (+ a stage transition). */
   won?: boolean;
+  guardReason?: string | null;
+  assignedTo: string | null;
+  assignmentVersion: number;
+  conversionEventId?: string;
+  projectAccessible: boolean;
 }
 
 // ─── Preflight (read-only dedup + auto-name preview) ──────────────────────────
@@ -142,6 +207,9 @@ export interface ConversionPreflightOtherProject {
 }
 
 export interface ConversionPreflight {
+  assignmentVersion: number;
+  alreadyConverted: boolean;
+  projectAccessible: boolean;
   /** Set when this opportunity has already been converted. */
   existingLinkedProject: { id: string; title: string } | null;
   /** Likely-the-same-job projects to offer "link instead of create". */
@@ -166,9 +234,16 @@ interface UnifiedConversionResult {
   linked_existing?: boolean;
   won?: boolean;
   guard_reason?: string;
+  assigned_to?: string | null;
+  assignment_version?: number;
+  conversion_event_id?: string;
+  project_accessible?: boolean;
 }
 
 interface RawPreflight {
+  assignment_version?: number;
+  already_converted?: boolean;
+  project_accessible?: boolean;
   existing_linked_project?: { id: string; title: string } | null;
   duplicate_candidates?: Array<{
     project_id: string;
@@ -186,6 +261,45 @@ interface RawPreflight {
   suggested_name?: string;
 }
 
+interface RpcFailure {
+  code?: string;
+  message: string;
+}
+
+type UntypedRpcClient = {
+  rpc: (
+    name: string,
+    args: Record<string, unknown>
+  ) => Promise<{ data: unknown; error: RpcFailure | null }>;
+};
+
+function classifyRpcError(
+  error: RpcFailure,
+  operation: string
+): ProjectConversionError {
+  const rpcMessage = error.message ?? "Unknown database error";
+  if (rpcMessage.includes("access_denied")) {
+    return new ProjectConversionError("access_denied", "Access denied", {
+      rpcCode: error.code,
+      rpcMessage,
+    });
+  }
+  if (
+    rpcMessage.includes("opportunity_not_found") ||
+    rpcMessage.includes("project_link_unavailable")
+  ) {
+    return new ProjectConversionError("not_found", "Resource unavailable", {
+      rpcCode: error.code,
+      rpcMessage,
+    });
+  }
+  return new ProjectConversionError(
+    "unexpected",
+    `${operation} failed: ${rpcMessage}`,
+    { rpcCode: error.code, rpcMessage }
+  );
+}
+
 /**
  * Run the unified convert RPC and normalize its result. `linkToProjectId` set
  * ⇒ link an existing project (no new one); null ⇒ create. Win is derived from
@@ -197,6 +311,17 @@ async function runConversion(
   params: ConvertOpportunityParams,
   linkToProjectId: string | null
 ): Promise<ConvertOpportunityResult> {
+  if (
+    !Number.isSafeInteger(params.expectedAssignmentVersion) ||
+    params.expectedAssignmentVersion < 0
+  ) {
+    throw new ProjectConversionError(
+      "unexpected",
+      "A valid assignment snapshot is required",
+      { rpcMessage: "invalid_assignment_snapshot" }
+    );
+  }
+
   const supabase = requireSupabase();
   const winOpportunity = params.sourcePath !== "approval_queue";
 
@@ -246,23 +371,26 @@ async function runConversion(
     }
   }
 
-  const { data, error } = await supabase.rpc(CONVERSION_RPC, {
-    p_company_id: params.companyId,
-    p_opportunity_id: params.opportunityId,
-    p_actual_value: params.actualValue ?? null,
-    p_expected_stage: params.expectedStage ?? null,
-    p_decided_by: params.decidedBy ?? null,
-    p_notes: params.notesSeed ?? null,
-    p_title_override: params.titleOverride ?? null,
-    p_link_to_project_id: linkToProjectId,
-    p_source_path: params.sourcePath,
-    p_win_opportunity: winOpportunity,
-    p_evidence: params.evidence ?? {},
-    p_expected_assignment_version: params.expectedAssignmentVersion ?? null,
-  });
+  const { data, error } = await (supabase as unknown as UntypedRpcClient).rpc(
+    CONVERSION_RPC,
+    {
+      p_company_id: params.companyId,
+      p_opportunity_id: params.opportunityId,
+      p_actual_value: params.actualValue ?? null,
+      p_expected_stage: params.expectedStage ?? null,
+      p_decided_by: params.decidedBy,
+      p_notes: params.notesSeed ?? null,
+      p_title_override: params.titleOverride ?? null,
+      p_link_to_project_id: linkToProjectId,
+      p_source_path: params.sourcePath,
+      p_win_opportunity: winOpportunity,
+      p_evidence: params.evidence,
+      p_expected_assignment_version: params.expectedAssignmentVersion,
+    }
+  );
 
   if (error) {
-    throw new Error(`Project conversion RPC failed: ${error.message}`);
+    throw classifyRpcError(error, "Project conversion RPC");
   }
 
   const result = (data ?? {}) as UnifiedConversionResult;
@@ -274,15 +402,23 @@ async function runConversion(
       result.guard_reason === "assignment_snapshot_mismatch" ||
       result.guard_reason === "manual_stage_override")
   ) {
-    throw new Error(
-      "Opportunity changed before conversion completed — please retry"
+    throw new ProjectConversionError(
+      "conflict",
+      "Opportunity changed before conversion completed",
+      {
+        guardReason: result.guard_reason,
+        assignedTo: result.assigned_to ?? null,
+        assignmentVersion: result.assignment_version,
+        rpcMessage: result.guard_reason,
+      }
     );
   }
 
   // Idempotent no-op — the opportunity is already linked to a project.
   if (!result.converted && result.already_converted) {
     if (!result.project_id) {
-      throw new Error(
+      throw new ProjectConversionError(
+        "unexpected",
         "Project conversion RPC returned an already-converted result without a project id"
       );
     }
@@ -292,11 +428,20 @@ async function runConversion(
       projectId: result.project_id,
       opportunityId: params.opportunityId,
       won: result.won,
+      guardReason: result.guard_reason,
+      assignedTo: result.assigned_to ?? null,
+      assignmentVersion:
+        result.assignment_version ?? params.expectedAssignmentVersion,
+      conversionEventId: result.conversion_event_id,
+      projectAccessible: result.project_accessible === true,
     };
   }
 
   if (!result.project_id) {
-    throw new Error("Project conversion RPC returned no project id");
+    throw new ProjectConversionError(
+      "unexpected",
+      "Project conversion RPC returned no project id"
+    );
   }
 
   return {
@@ -310,6 +455,12 @@ async function runConversion(
     attachedPhotos: result.attached_photos,
     linkedExisting: result.linked_existing,
     won: result.won,
+    guardReason: result.guard_reason,
+    assignedTo: result.assigned_to ?? null,
+    assignmentVersion:
+      result.assignment_version ?? params.expectedAssignmentVersion,
+    conversionEventId: result.conversion_event_id,
+    projectAccessible: result.project_accessible === true,
   };
 }
 
@@ -344,9 +495,11 @@ export const ProjectConversionService = {
         title: "Project created",
         body: `Created from ${oppTitle}`,
         persistent: false,
-        actionUrl: `/dashboard?openProject=${result.projectId}&mode=view`,
-        actionLabel: "View Project",
-        projectId: result.projectId,
+        actionUrl: result.projectAccessible
+          ? `/dashboard?openProject=${result.projectId}&mode=view`
+          : `/pipeline?opportunityId=${params.opportunityId}`,
+        actionLabel: result.projectAccessible ? "View Project" : "View lead",
+        ...(result.projectAccessible ? { projectId: result.projectId } : {}),
       });
     }
 
@@ -373,21 +526,29 @@ export const ProjectConversionService = {
    */
   async getConversionPreflight(
     opportunityId: string,
-    companyId?: string | null
+    companyId: string,
+    actorUserId: string
   ): Promise<ConversionPreflight> {
     const supabase = requireSupabase();
-    const { data, error } = await supabase.rpc(PREFLIGHT_RPC, {
-      p_opportunity_id: opportunityId,
-      p_company_id: companyId ?? null,
-    });
+    const { data, error } = await (supabase as unknown as UntypedRpcClient).rpc(
+      PREFLIGHT_RPC,
+      {
+        p_opportunity_id: opportunityId,
+        p_company_id: companyId,
+        p_actor_user_id: actorUserId,
+      }
+    );
 
     if (error) {
-      throw new Error(`Conversion preflight failed: ${error.message}`);
+      throw classifyRpcError(error, "Conversion preflight");
     }
 
     const raw = (data ?? {}) as RawPreflight;
 
     return {
+      assignmentVersion: raw.assignment_version ?? -1,
+      alreadyConverted: raw.already_converted === true,
+      projectAccessible: raw.project_accessible === true,
       existingLinkedProject: raw.existing_linked_project
         ? {
             id: raw.existing_linked_project.id,

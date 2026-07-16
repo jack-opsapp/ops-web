@@ -51,12 +51,16 @@ export interface PermissionAction {
   id: string;
   label: string;
   scopes: PermissionScope[];
+  /** Registered for compatibility/admin bypass, but never offered by new editors. */
+  hiddenFromEditor?: boolean;
 }
 
 export interface PermissionModule {
   id: string;
   label: string;
   actions: PermissionAction[];
+  /** Modules with independent action scopes cannot be represented by one tier row. */
+  editorMode?: "tier" | "action";
 }
 
 export interface PermissionCategory {
@@ -69,14 +73,34 @@ const projectsModule: PermissionModule = {
   id: "projects",
   label: "Projects",
   actions: [
-    { id: "projects.view", label: "View projects", scopes: ["all", "assigned"] },
+    {
+      id: "projects.view",
+      label: "View projects",
+      scopes: ["all", "assigned"],
+    },
     { id: "projects.create", label: "Create projects", scopes: ["all"] },
-    { id: "projects.edit", label: "Edit projects", scopes: ["all", "assigned"] },
+    {
+      id: "projects.edit",
+      label: "Edit projects",
+      scopes: ["all", "assigned"],
+    },
     { id: "projects.delete", label: "Delete projects", scopes: ["all"] },
     { id: "projects.archive", label: "Archive projects", scopes: ["all"] },
-    { id: "projects.assign_team", label: "Assign team members", scopes: ["all"] },
-    { id: "projects.manage_views", label: "Manage shared project views", scopes: ["all"] },
-    { id: "projects.view_financials", label: "View project financials", scopes: ["all"] },
+    {
+      id: "projects.assign_team",
+      label: "Assign team members",
+      scopes: ["all"],
+    },
+    {
+      id: "projects.manage_views",
+      label: "Manage shared project views",
+      scopes: ["all"],
+    },
+    {
+      id: "projects.view_financials",
+      label: "View project financials",
+      scopes: ["all"],
+    },
   ],
 };
 
@@ -89,7 +113,11 @@ const tasksModule: PermissionModule = {
     { id: "tasks.edit", label: "Edit tasks", scopes: ["all", "assigned"] },
     { id: "tasks.delete", label: "Delete tasks", scopes: ["all"] },
     { id: "tasks.assign", label: "Assign tasks", scopes: ["all"] },
-    { id: "tasks.change_status", label: "Change task status", scopes: ["all", "assigned"] },
+    {
+      id: "tasks.change_status",
+      label: "Change task status",
+      scopes: ["all", "assigned"],
+    },
   ],
 };
 
@@ -119,8 +147,16 @@ const jobBoardModule: PermissionModule = {
   id: "job_board",
   label: "Job Board",
   actions: [
-    { id: "job_board.view", label: "View job board", scopes: ["all", "assigned"] },
-    { id: "job_board.manage_sections", label: "Manage board sections", scopes: ["all"] },
+    {
+      id: "job_board.view",
+      label: "View job board",
+      scopes: ["all", "assigned"],
+    },
+    {
+      id: "job_board.manage_sections",
+      label: "Manage board sections",
+      scopes: ["all"],
+    },
   ],
 };
 
@@ -128,9 +164,21 @@ const deckBuilderModule: PermissionModule = {
   id: "deck_builder",
   label: "Deck Designer",
   actions: [
-    { id: "deck_builder.view", label: "View deck designs", scopes: ["all", "assigned"] },
-    { id: "deck_builder.create", label: "Create deck designs", scopes: ["all", "assigned"] },
-    { id: "deck_builder.edit", label: "Edit deck designs", scopes: ["all", "assigned"] },
+    {
+      id: "deck_builder.view",
+      label: "View deck designs",
+      scopes: ["all", "assigned"],
+    },
+    {
+      id: "deck_builder.create",
+      label: "Create deck designs",
+      scopes: ["all", "assigned"],
+    },
+    {
+      id: "deck_builder.edit",
+      label: "Edit deck designs",
+      scopes: ["all", "assigned"],
+    },
   ],
 };
 
@@ -138,7 +186,11 @@ const estimatesModule: PermissionModule = {
   id: "estimates",
   label: "Estimates",
   actions: [
-    { id: "estimates.view", label: "View estimates", scopes: ["all", "assigned"] },
+    {
+      id: "estimates.view",
+      label: "View estimates",
+      scopes: ["all", "assigned"],
+    },
     { id: "estimates.create", label: "Create estimates", scopes: ["all"] },
     { id: "estimates.edit", label: "Edit estimates", scopes: ["all", "own"] },
     { id: "estimates.delete", label: "Delete estimates", scopes: ["all"] },
@@ -151,12 +203,20 @@ const invoicesModule: PermissionModule = {
   id: "invoices",
   label: "Invoices",
   actions: [
-    { id: "invoices.view", label: "View invoices", scopes: ["all", "assigned"] },
+    {
+      id: "invoices.view",
+      label: "View invoices",
+      scopes: ["all", "assigned"],
+    },
     { id: "invoices.create", label: "Create invoices", scopes: ["all"] },
     { id: "invoices.edit", label: "Edit invoices", scopes: ["all"] },
     { id: "invoices.delete", label: "Delete invoices", scopes: ["all"] },
     { id: "invoices.send", label: "Send invoices", scopes: ["all"] },
-    { id: "invoices.record_payment", label: "Record payments", scopes: ["all"] },
+    {
+      id: "invoices.record_payment",
+      label: "Record payments",
+      scopes: ["all"],
+    },
     { id: "invoices.void", label: "Void invoices", scopes: ["all"] },
   ],
 };
@@ -164,11 +224,37 @@ const invoicesModule: PermissionModule = {
 const pipelineModule: PermissionModule = {
   id: "pipeline",
   label: "Pipeline",
+  editorMode: "action",
   actions: [
-    { id: "pipeline.view", label: "View pipeline", scopes: ["all"] },
-    { id: "pipeline.manage", label: "Manage opportunities", scopes: ["all", "own"] },
-    { id: "pipeline.configure_stages", label: "Configure stages", scopes: ["all"] },
-    { id: "pipeline.manage_views", label: "Manage shared pipeline views", scopes: ["all"] },
+    { id: "pipeline.create", label: "Create leads", scopes: ["all"] },
+    { id: "pipeline.view", label: "View leads", scopes: ["all", "assigned"] },
+    { id: "pipeline.edit", label: "Edit leads", scopes: ["all", "assigned"] },
+    {
+      id: "pipeline.assign",
+      label: "Assign leads",
+      scopes: ["all", "assigned"],
+    },
+    {
+      id: "pipeline.convert",
+      label: "Convert leads",
+      scopes: ["all", "assigned"],
+    },
+    {
+      id: "pipeline.manage",
+      label: "Manage opportunities",
+      scopes: ["all", "own"],
+      hiddenFromEditor: true,
+    },
+    {
+      id: "pipeline.configure_stages",
+      label: "Configure stages",
+      scopes: ["all"],
+    },
+    {
+      id: "pipeline.manage_views",
+      label: "Manage shared pipeline views",
+      scopes: ["all"],
+    },
   ],
 };
 
@@ -194,10 +280,26 @@ const catalogModule: PermissionModule = {
     { id: "catalog.manage", label: "Manage catalog", scopes: ["all"] },
     { id: "catalog.import", label: "Import catalog", scopes: ["all"] },
     { id: "catalog.stock.adjust", label: "Adjust stock", scopes: ["all"] },
-    { id: "catalog.products.view", label: "View catalog products", scopes: ["all"] },
-    { id: "catalog.products.manage", label: "Manage catalog products", scopes: ["all"] },
-    { id: "catalog.orders.view", label: "View purchase orders", scopes: ["all"] },
-    { id: "catalog.orders.manage", label: "Manage purchase orders", scopes: ["all"] },
+    {
+      id: "catalog.products.view",
+      label: "View catalog products",
+      scopes: ["all"],
+    },
+    {
+      id: "catalog.products.manage",
+      label: "Manage catalog products",
+      scopes: ["all"],
+    },
+    {
+      id: "catalog.orders.view",
+      label: "View purchase orders",
+      scopes: ["all"],
+    },
+    {
+      id: "catalog.orders.manage",
+      label: "Manage purchase orders",
+      scopes: ["all"],
+    },
     { id: "catalog.run_setup", label: "Run catalog setup", scopes: ["all"] },
     { id: "inventory.manage", label: "Manage inventory", scopes: ["all"] },
   ],
@@ -211,8 +313,16 @@ const expensesModule: PermissionModule = {
     { id: "expenses.create", label: "Create expenses", scopes: ["all"] },
     { id: "expenses.edit", label: "Edit expenses", scopes: ["all", "own"] },
     { id: "expenses.delete", label: "Delete expenses", scopes: ["all", "own"] },
-    { id: "expenses.approve", label: "Approve expenses", scopes: ["all", "assigned"] },
-    { id: "expenses.configure", label: "Configure expense settings", scopes: ["all"] },
+    {
+      id: "expenses.approve",
+      label: "Approve expenses",
+      scopes: ["all", "assigned"],
+    },
+    {
+      id: "expenses.configure",
+      label: "Configure expense settings",
+      scopes: ["all"],
+    },
   ],
 };
 
@@ -221,7 +331,11 @@ const accountingModule: PermissionModule = {
   label: "Accounting",
   actions: [
     { id: "accounting.view", label: "View accounting", scopes: ["all"] },
-    { id: "accounting.manage_connections", label: "Manage integrations", scopes: ["all"] },
+    {
+      id: "accounting.manage_connections",
+      label: "Manage integrations",
+      scopes: ["all"],
+    },
   ],
 };
 
@@ -249,7 +363,11 @@ const documentsModule: PermissionModule = {
   label: "Documents",
   actions: [
     { id: "documents.view", label: "View documents", scopes: ["all"] },
-    { id: "documents.manage_templates", label: "Manage templates", scopes: ["all"] },
+    {
+      id: "documents.manage_templates",
+      label: "Manage templates",
+      scopes: ["all"],
+    },
   ],
 };
 
@@ -267,16 +385,18 @@ const timeOffModule: PermissionModule = {
   id: "time_off",
   label: "Time Off",
   actions: [
-    { id: "time_off.approve", label: "Approve time off", scopes: ["all", "assigned"] },
+    {
+      id: "time_off.approve",
+      label: "Approve time off",
+      scopes: ["all", "assigned"],
+    },
   ],
 };
 
 const profileModule: PermissionModule = {
   id: "profile",
   label: "Profile",
-  actions: [
-    { id: "profile.edit", label: "Edit own profile", scopes: ["own"] },
-  ],
+  actions: [{ id: "profile.edit", label: "Edit own profile", scopes: ["own"] }],
 };
 
 const mapModule: PermissionModule = {
@@ -284,7 +404,11 @@ const mapModule: PermissionModule = {
   label: "Map",
   actions: [
     { id: "map.view", label: "View map", scopes: ["all"] },
-    { id: "map.view_crew_locations", label: "View crew locations", scopes: ["all"] },
+    {
+      id: "map.view_crew_locations",
+      label: "View crew locations",
+      scopes: ["all"],
+    },
   ],
 };
 
@@ -293,7 +417,11 @@ const notificationsModule: PermissionModule = {
   label: "Notifications",
   actions: [
     { id: "notifications.view", label: "View notifications", scopes: ["own"] },
-    { id: "notifications.manage_preferences", label: "Manage preferences", scopes: ["own"] },
+    {
+      id: "notifications.manage_preferences",
+      label: "Manage preferences",
+      scopes: ["own"],
+    },
   ],
 };
 
@@ -303,8 +431,16 @@ const settingsModule: PermissionModule = {
   actions: [
     { id: "settings.company", label: "Company settings", scopes: ["all"] },
     { id: "settings.billing", label: "Billing settings", scopes: ["all"] },
-    { id: "settings.integrations", label: "Integration settings", scopes: ["all"] },
-    { id: "settings.preferences", label: "Personal preferences", scopes: ["all"] },
+    {
+      id: "settings.integrations",
+      label: "Integration settings",
+      scopes: ["all"],
+    },
+    {
+      id: "settings.preferences",
+      label: "Personal preferences",
+      scopes: ["all"],
+    },
   ],
 };
 
@@ -315,21 +451,47 @@ const emailModule: PermissionModule = {
     { id: "email.connect", label: "Connect email accounts", scopes: ["all"] },
     { id: "email.view", label: "View email activity", scopes: ["all", "own"] },
     { id: "email.manage", label: "Manage email integration", scopes: ["all"] },
-    { id: "email.configure_ai", label: "Configure AI features", scopes: ["all"] },
+    {
+      id: "email.configure_ai",
+      label: "Configure AI features",
+      scopes: ["all"],
+    },
   ],
 };
 
 const inboxModule: PermissionModule = {
   id: "inbox",
   label: "Inbox",
+  editorMode: "action",
   actions: [
-    { id: "inbox.view", label: "View inbox", scopes: ["all"] },
-    { id: "inbox.view_company", label: "View all company mail", scopes: ["all"] },
-    { id: "inbox.archive", label: "Archive / unarchive threads", scopes: ["all"] },
+    {
+      id: "inbox.view",
+      label: "View inbox",
+      scopes: ["all", "assigned", "own"],
+    },
+    {
+      id: "inbox.view_company",
+      label: "View all company mail",
+      scopes: ["all"],
+      hiddenFromEditor: true,
+    },
+    {
+      id: "inbox.archive",
+      label: "Archive / unarchive threads",
+      scopes: ["all"],
+    },
     { id: "inbox.snooze", label: "Snooze / unsnooze threads", scopes: ["all"] },
     { id: "inbox.categorize", label: "Recategorize threads", scopes: ["all"] },
-    { id: "inbox.send", label: "Send and reply from inbox", scopes: ["all"] },
-    { id: "inbox.configure_phase_c", label: "Configure Phase C autonomy", scopes: ["all"] },
+    {
+      id: "inbox.send",
+      label: "Send and reply from inbox",
+      scopes: ["all", "assigned"],
+    },
+    {
+      id: "inbox.configure_phase_c",
+      label: "Configure Phase C autonomy",
+      scopes: ["all"],
+    },
   ],
 };
 
@@ -345,9 +507,7 @@ const portalModule: PermissionModule = {
 const reportsModule: PermissionModule = {
   id: "reports",
   label: "Reports",
-  actions: [
-    { id: "reports.view", label: "View reports", scopes: ["all"] },
-  ],
+  actions: [{ id: "reports.view", label: "View reports", scopes: ["all"] }],
 };
 
 // ─── Category Groupings ──────────────────────────────────────────────────────
@@ -356,12 +516,28 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "core",
     label: "Core Operations",
-    modules: [projectsModule, tasksModule, clientsModule, calendarModule, jobBoardModule, deckBuilderModule],
+    modules: [
+      projectsModule,
+      tasksModule,
+      clientsModule,
+      calendarModule,
+      jobBoardModule,
+      deckBuilderModule,
+    ],
   },
   {
     id: "financial",
     label: "Financial",
-    modules: [estimatesModule, invoicesModule, pipelineModule, productsModule, catalogModule, expensesModule, accountingModule, financesModule],
+    modules: [
+      estimatesModule,
+      invoicesModule,
+      pipelineModule,
+      productsModule,
+      catalogModule,
+      expensesModule,
+      accountingModule,
+      financesModule,
+    ],
   },
   {
     id: "resources",
@@ -371,12 +547,24 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
   {
     id: "people",
     label: "People & Location",
-    modules: [teamModule, timeOffModule, profileModule, mapModule, notificationsModule],
+    modules: [
+      teamModule,
+      timeOffModule,
+      profileModule,
+      mapModule,
+      notificationsModule,
+    ],
   },
   {
     id: "admin",
     label: "Admin",
-    modules: [settingsModule, emailModule, inboxModule, portalModule, reportsModule],
+    modules: [
+      settingsModule,
+      emailModule,
+      inboxModule,
+      portalModule,
+      reportsModule,
+    ],
   },
 ];
 
@@ -397,6 +585,17 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
 export const ALL_PERMISSIONS = PERMISSION_CATEGORIES.flatMap((cat) =>
   cat.modules.flatMap((mod) => mod.actions.map((a) => a.id))
 );
+
+/**
+ * Exact registry used by guarded role-permission replacement. Hidden legacy
+ * compatibility bits remain readable in the expected snapshot but are never
+ * rewritten by current editors.
+ */
+export const PERMISSION_EDITOR_REGISTRY = PERMISSION_CATEGORIES.flatMap((cat) =>
+  cat.modules.flatMap((mod) =>
+    mod.actions.filter((action) => !action.hiddenFromEditor)
+  )
+).sort((left, right) => left.id.localeCompare(right.id));
 
 // ─── Lookup Helpers ──────────────────────────────────────────────────────────
 
@@ -505,21 +704,27 @@ function _findModule(moduleId: string): PermissionModule | undefined {
  *  - "manage" → all actions EXCEPT destructive ones
  *  - "full"   → all actions
  */
-export function getActionsForTier(moduleId: string, tier: PermissionTier): string[] {
+export function getActionsForTier(
+  moduleId: string,
+  tier: PermissionTier
+): string[] {
   const mod = _findModule(moduleId);
   if (!mod) return [];
+  const editableActions = mod.actions.filter(
+    (action) => !action.hiddenFromEditor
+  );
 
   switch (tier) {
     case "view":
-      return mod.actions
+      return editableActions
         .filter((a) => a.id.endsWith(".view"))
         .map((a) => a.id);
     case "manage":
-      return mod.actions
+      return editableActions
         .filter((a) => !_isDestructive(a.id))
         .map((a) => a.id);
     case "full":
-      return mod.actions.map((a) => a.id);
+      return editableActions.map((a) => a.id);
   }
 }
 
@@ -534,7 +739,9 @@ export function detectModuleTier(
   const mod = _findModule(moduleId);
   if (!mod) return null;
 
-  const allActionIds = mod.actions.map((a) => a.id);
+  const allActionIds = mod.actions
+    .filter((action) => !action.hiddenFromEditor)
+    .map((action) => action.id);
   const enabled = allActionIds.filter((id) => enabledPermissions.includes(id));
 
   if (enabled.length === 0) return null;
@@ -549,7 +756,8 @@ export function detectModuleTier(
 
   // Check view: at least the view actions are present
   const viewActions = getActionsForTier(moduleId, "view");
-  if (viewActions.length > 0 && viewActions.every((id) => enabled.includes(id))) return "view";
+  if (viewActions.length > 0 && viewActions.every((id) => enabled.includes(id)))
+    return "view";
 
   // Enabled permissions don't map cleanly to a tier
   return null;

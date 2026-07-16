@@ -43,6 +43,7 @@ import {
   type SiteVisit,
 } from "@/lib/types/pipeline";
 import { SiteVisitStatus } from "@/lib/types/pipeline";
+import type { OpportunityAssignedContext } from "@/lib/api/services/opportunity-assigned-context-service";
 import type { Client } from "@/lib/types/models";
 
 // Echo-key dictionary so labels are deterministic; `t(key, fallback)` returns
@@ -72,7 +73,7 @@ vi.mock("@/lib/hooks/use-site-visits", () => ({
   useSiteVisits: (opts: unknown) => useSiteVisitsMock(opts),
 }));
 vi.mock("@/lib/hooks/use-clients", () => ({
-  useClient: (id: unknown) => useClientMock(id),
+  useClient: (id: unknown, options?: unknown) => useClientMock(id, options),
   useClients: (opts?: unknown) => useClientsMock(opts),
   useCreateSubClient: () => ({
     mutate: createSubClientMutate,
@@ -92,7 +93,7 @@ vi.mock("@/lib/hooks/use-opportunity-deck-designs", () => ({
   useOpportunityDeckDesigns: () => ({ data: [] }),
 }));
 
-// Owner/team hook is reached by no Overview field directly, but the reused
+// Assignee/team hook is reached by no Overview field directly, but the reused
 // TagsField/TextAreaField/AddressField don't load it — still, keep a safe stub
 // in case an editor lazily touches it.
 vi.mock("@/lib/hooks/use-users", () => ({
@@ -152,6 +153,7 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
     stage: OpportunityStage.Quoting,
     source: OpportunitySource.Referral,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: OpportunityPriority.High,
     estimatedValue: 14200,
     actualValue: null,
@@ -277,6 +279,44 @@ function makeClient(overrides: Partial<Client> = {}): Client {
   };
 }
 
+function makeAssignedContext(
+  overrides: Partial<OpportunityAssignedContext> = {}
+): OpportunityAssignedContext {
+  const now = new Date("2026-06-01T12:00:00.000Z");
+  return {
+    lead: {
+      id: "opp-1",
+      title: "Greenway re-roof",
+      description: null,
+      stage: OpportunityStage.Quoting,
+      priority: OpportunityPriority.High,
+      estimatedValue: 14200,
+      expectedCloseDate: new Date("2026-07-15T12:00:00.000Z"),
+      source: OpportunitySource.Referral,
+      tags: [],
+      address: "1180 Howe St, Vancouver, BC",
+      createdAt: now,
+      updatedAt: now,
+    },
+    contact: {
+      id: "client-1",
+      name: "Dana Scully",
+      email: "dana@example.com",
+      phone: "+1 604 555 0142",
+      address: "1180 Howe St, Vancouver, BC",
+      profileImageUrl: null,
+    },
+    estimateSummaries: [],
+    activities: [],
+    followUps: [],
+    siteVisits: [],
+    deckDesigns: [],
+    lifecycle: null,
+    correspondence: [],
+    ...overrides,
+  };
+}
+
 // Default every hook to an empty/quiet state; individual tests override.
 beforeEach(() => {
   vi.clearAllMocks();
@@ -380,6 +420,98 @@ describe("PipelineDetailOverviewTab — editors", () => {
 // ─── Linked: estimates ────────────────────────────────────────────────────────
 
 describe("PipelineDetailOverviewTab — Linked estimates", () => {
+  it("hides cached inline contact PII when the guarded context read failed", () => {
+    render(
+      <PipelineDetailOverviewTab
+        opportunity={makeOpportunity({
+          contactName: "Cached contact",
+          contactEmail: "cached@example.com",
+          contactPhone: "+1 604 555 0999",
+        })}
+        canManage
+        assignedContext={null}
+      />
+    );
+
+    expect(screen.queryByText("Cached contact")).not.toBeInTheDocument();
+    expect(screen.queryByText("cached@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByText("+1 604 555 0999")).not.toBeInTheDocument();
+  });
+
+  it("shows assigned contact, estimate, and visit projections without separate domain view permissions", () => {
+    canMock = (permission) =>
+      ![
+        "clients.view",
+        "clients.edit",
+        "estimates.view",
+        "estimates.create",
+      ].includes(permission);
+    useEstimatesMock.mockReturnValue({
+      data: [makeEstimate({ estimateNumber: "EST-RAW-HIDDEN" })],
+      isLoading: false,
+    });
+    useSiteVisitsMock.mockReturnValue({
+      data: [makeSiteVisit({ status: SiteVisitStatus.Completed })],
+      isLoading: false,
+    });
+    useClientMock.mockReturnValue({
+      data: makeClient({ email: "raw-secret@example.com" }),
+      isLoading: false,
+    });
+    const assignedContext = makeAssignedContext({
+      estimateSummaries: [
+        {
+          id: "assigned-estimate",
+          estimateNumber: "EST-ASSIGNED",
+          title: "Framing package",
+          status: EstimateStatus.Sent,
+          subtotal: 9000,
+          taxAmount: 0,
+          total: 9000,
+          issueDate: new Date("2026-06-01T00:00:00.000Z"),
+          expirationDate: null,
+          sentAt: new Date("2026-06-01T12:00:00.000Z"),
+          approvedAt: null,
+        },
+      ],
+      siteVisits: [
+        {
+          id: "assigned-visit",
+          scheduledAt: new Date("2026-06-10T17:00:00.000Z"),
+          durationMinutes: 60,
+          status: SiteVisitStatus.Scheduled,
+          notes: "Meet at the rear entrance.",
+          internalNotes: null,
+          measurements: "24 ft x 18 ft",
+          photos: [],
+          completedAt: null,
+        },
+      ],
+    });
+
+    render(
+      <PipelineDetailOverviewTab
+        opportunity={makeOpportunity({ clientId: "client-1" })}
+        canManage
+        assignedContext={assignedContext}
+      />
+    );
+
+    expect(screen.getByText("Dana Scully")).toBeInTheDocument();
+    expect(screen.getByText("dana@example.com")).toBeInTheDocument();
+    const estimateNumber = screen.getByText("EST-ASSIGNED");
+    expect(estimateNumber).toBeInTheDocument();
+    expect(estimateNumber.closest("a")).toBeNull();
+    expect(screen.getByText("Scheduled")).toBeInTheDocument();
+    expect(screen.queryByText("Open client")).not.toBeInTheDocument();
+    expect(screen.queryByText("New estimate")).not.toBeInTheDocument();
+    expect(screen.queryByText("EST-RAW-HIDDEN")).not.toBeInTheDocument();
+    expect(screen.queryByText("Completed")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("raw-secret@example.com")
+    ).not.toBeInTheDocument();
+  });
+
   it("lists estimates from useEstimates with number, status, and total", () => {
     useEstimatesMock.mockReturnValue({
       data: [makeEstimate({ estimateNumber: "EST-1042", total: 9000 })],
@@ -394,6 +526,20 @@ describe("PipelineDetailOverviewTab — Linked estimates", () => {
     expect(within(linked).getByText(formatCurrency(9000))).toBeInTheDocument();
     // Status label is present (Chip always carries its text).
     expect(within(linked).getByText(/sent/i)).toBeInTheDocument();
+  });
+
+  it("does not expose a converted-project link without projects.view", () => {
+    canMock = (permission) => permission !== "projects.view";
+
+    render(
+      <PipelineDetailOverviewTab
+        opportunity={makeOpportunity({ projectId: "project-inaccessible" })}
+        canManage
+        assignedContext={makeAssignedContext()}
+      />
+    );
+
+    expect(screen.queryByText("Open project")).not.toBeInTheDocument();
   });
 
   it("shows a quiet empty state for estimates when there are none (or estimates.view denied → undefined)", () => {

@@ -12,13 +12,16 @@ import {
   type UseQueryOptions,
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { OpportunityService, type FetchOpportunitiesOptions } from "../api/services/opportunity-service";
+import {
+  OpportunityService,
+  type FetchOpportunitiesOptions,
+} from "../api/services/opportunity-service";
 // Type-only — erased at build time, so the server-only conversion service is
 // never pulled into the client bundle. The route returns this exact shape.
 import type { ConversionPreflight } from "../api/services/project-conversion-service";
 import type {
   Opportunity,
-  CreateOpportunity,
+  ManualCreateOpportunity,
   UpdateOpportunity,
   Activity,
   CreateActivity,
@@ -29,7 +32,14 @@ import type {
 } from "../types/pipeline";
 import { OpportunityStage as Stage } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
-import { usePermissionStore } from "../store/permissions-store";
+import {
+  selectCanConvertOpportunity,
+  usePermissionStore,
+} from "../store/permissions-store";
+import {
+  effectivePipelineScope,
+  getLeadAccess,
+} from "../permissions/lead-access-policy";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -42,13 +52,33 @@ export function useOpportunities(
 ) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
-  const canView = usePermissionStore((s) => s.can("pipeline.view"));
+  const actorUserId = useAuthStore((state) => state.currentUser?.id ?? null);
+  const permissionState = usePermissionStore();
+  const viewScope = effectivePipelineScope(permissionState, "pipeline.view");
+  const callerEnabled = queryOptions?.enabled ?? true;
 
   return useQuery({
-    queryKey: queryKeys.opportunities.list(companyId, options as Record<string, unknown>),
-    queryFn: () => OpportunityService.fetchOpportunities(companyId, options),
-    enabled: !!companyId && canView,
     ...queryOptions,
+    queryKey: queryKeys.opportunities.list(companyId, {
+      ...(options ? (options as Record<string, unknown>) : {}),
+      access: { actorUserId, viewScope },
+    }),
+    queryFn: async () => {
+      const opportunities = await OpportunityService.fetchOpportunities(
+        companyId,
+        options
+      );
+      return opportunities.filter(
+        (opportunity) =>
+          getLeadAccess(permissionState, actorUserId, opportunity).canView
+      );
+    },
+    enabled:
+      callerEnabled &&
+      !!companyId &&
+      actorUserId !== null &&
+      viewScope !== null,
+    placeholderData: undefined,
   });
 }
 
@@ -59,11 +89,33 @@ export function useOpportunity(
   id: string | undefined,
   queryOptions?: Partial<UseQueryOptions<Opportunity>>
 ) {
+  const companyId = useAuthStore((state) => state.company?.id ?? "");
+  const actorUserId = useAuthStore((state) => state.currentUser?.id ?? null);
+  const permissionState = usePermissionStore();
+  const viewScope = effectivePipelineScope(permissionState, "pipeline.view");
+  const callerEnabled = queryOptions?.enabled ?? true;
+
   return useQuery({
-    queryKey: queryKeys.opportunities.detail(id ?? ""),
-    queryFn: () => OpportunityService.fetchOpportunity(id!),
-    enabled: !!id,
     ...queryOptions,
+    queryKey: queryKeys.opportunities.detail(id ?? "", {
+      companyId,
+      actorUserId,
+      viewScope,
+    }),
+    queryFn: async () => {
+      const opportunity = await OpportunityService.fetchOpportunity(id!);
+      if (!getLeadAccess(permissionState, actorUserId, opportunity).canView) {
+        throw new Error("Opportunity unavailable");
+      }
+      return opportunity;
+    },
+    enabled:
+      callerEnabled &&
+      !!id &&
+      !!companyId &&
+      actorUserId !== null &&
+      viewScope !== null,
+    placeholderData: undefined,
   });
 }
 
@@ -121,8 +173,8 @@ export function useCreateOpportunity() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateOpportunity) =>
-      OpportunityService.createOpportunity(data),
+    mutationFn: (data: ManualCreateOpportunity) =>
+      OpportunityService.createManualOpportunity(data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.opportunities.lists(),
@@ -156,20 +208,18 @@ export function useUpdateOpportunity() {
       });
 
       // Snapshot the previous value
-      const previousOpportunity = queryClient.getQueryData<Opportunity>(
-        queryKeys.opportunities.detail(id)
-      );
+      const previousDetails = queryClient.getQueriesData<Opportunity>({
+        queryKey: queryKeys.opportunities.detail(id),
+      });
       const previousLists = queryClient.getQueriesData<Opportunity[]>({
         queryKey: queryKeys.opportunities.lists(),
       });
 
       // Optimistically update the detail cache
-      if (previousOpportunity) {
-        queryClient.setQueryData(queryKeys.opportunities.detail(id), {
-          ...previousOpportunity,
-          ...data,
-        });
-      }
+      queryClient.setQueriesData<Opportunity>(
+        { queryKey: queryKeys.opportunities.detail(id) },
+        (old) => (old ? { ...old, ...data } : old)
+      );
 
       queryClient.setQueriesData<Opportunity[]>(
         { queryKey: queryKeys.opportunities.lists() },
@@ -181,16 +231,15 @@ export function useUpdateOpportunity() {
         }
       );
 
-      return { previousOpportunity, previousLists };
+      return { previousDetails, previousLists };
     },
 
     onError: (_err, { id }, context) => {
       // Roll back on error
-      if (context?.previousOpportunity) {
-        queryClient.setQueryData(
-          queryKeys.opportunities.detail(id),
-          context.previousOpportunity
-        );
+      if (context?.previousDetails) {
+        for (const [queryKey, data] of context.previousDetails) {
+          queryClient.setQueryData(queryKey, data);
+        }
       }
       if (context?.previousLists) {
         for (const [queryKey, data] of context.previousLists) {
@@ -222,8 +271,8 @@ function writeOpportunityThrough(
   id: string,
   server: Opportunity
 ) {
-  queryClient.setQueryData<Opportunity>(
-    queryKeys.opportunities.detail(id),
+  queryClient.setQueriesData<Opportunity>(
+    { queryKey: queryKeys.opportunities.detail(id) },
     (old) => (old ? { ...old, ...server } : server)
   );
   queryClient.setQueriesData<Opportunity[]>(
@@ -317,19 +366,17 @@ export function useAttachClientToOpportunity() {
         queryKey: queryKeys.opportunities.lists(),
       });
 
-      const previousDetail = queryClient.getQueryData<Opportunity>(
-        queryKeys.opportunities.detail(opportunityId)
-      );
+      const previousDetails = queryClient.getQueriesData<Opportunity>({
+        queryKey: queryKeys.opportunities.detail(opportunityId),
+      });
       const previousLists = queryClient.getQueriesData<Opportunity[]>({
         queryKey: queryKeys.opportunities.lists(),
       });
 
-      if (previousDetail) {
-        queryClient.setQueryData(queryKeys.opportunities.detail(opportunityId), {
-          ...previousDetail,
-          clientId,
-        });
-      }
+      queryClient.setQueriesData<Opportunity>(
+        { queryKey: queryKeys.opportunities.detail(opportunityId) },
+        (old) => (old ? { ...old, clientId } : old)
+      );
 
       queryClient.setQueriesData<Opportunity[]>(
         { queryKey: queryKeys.opportunities.lists() },
@@ -343,15 +390,14 @@ export function useAttachClientToOpportunity() {
         }
       );
 
-      return { previousDetail, previousLists };
+      return { previousDetails, previousLists };
     },
 
     onError: (_err, { opportunityId }, context) => {
-      if (context?.previousDetail) {
-        queryClient.setQueryData(
-          queryKeys.opportunities.detail(opportunityId),
-          context.previousDetail
-        );
+      if (context?.previousDetails) {
+        for (const [queryKey, data] of context.previousDetails) {
+          queryClient.setQueryData(queryKey, data);
+        }
       }
       if (context?.previousLists) {
         for (const [queryKey, data] of context.previousLists) {
@@ -394,7 +440,9 @@ export function useMoveOpportunityStage() {
 
     onMutate: async ({ id, stage }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.opportunities.lists() });
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.opportunities.lists(),
+      });
 
       // Snapshot all list queries
       const previousLists = queryClient.getQueriesData<Opportunity[]>({
@@ -413,18 +461,15 @@ export function useMoveOpportunityStage() {
       );
 
       // Also update detail cache if present
-      const previousDetail = queryClient.getQueryData<Opportunity>(
-        queryKeys.opportunities.detail(id)
+      const previousDetails = queryClient.getQueriesData<Opportunity>({
+        queryKey: queryKeys.opportunities.detail(id),
+      });
+      queryClient.setQueriesData<Opportunity>(
+        { queryKey: queryKeys.opportunities.detail(id) },
+        (old) => (old ? { ...old, stage, stageEnteredAt: new Date() } : old)
       );
-      if (previousDetail) {
-        queryClient.setQueryData(queryKeys.opportunities.detail(id), {
-          ...previousDetail,
-          stage,
-          stageEnteredAt: new Date(),
-        });
-      }
 
-      return { previousLists, previousDetail };
+      return { previousLists, previousDetails };
     },
 
     onError: (_err, { id }, context) => {
@@ -434,8 +479,10 @@ export function useMoveOpportunityStage() {
           queryClient.setQueryData(queryKey, data);
         }
       }
-      if (context?.previousDetail) {
-        queryClient.setQueryData(queryKeys.opportunities.detail(id), context.previousDetail);
+      if (context?.previousDetails) {
+        for (const [queryKey, data] of context.previousDetails) {
+          queryClient.setQueryData(queryKey, data);
+        }
       }
     },
 
@@ -634,11 +681,11 @@ export function useCreateEstimateForOpportunity() {
   const { currentUser: user } = useAuthStore();
 
   return {
-    advanceToQuoting: (opportunityId: string, currentStage: OpportunityStage) => {
-      if (
-        currentStage === Stage.NewLead ||
-        currentStage === Stage.Qualifying
-      ) {
+    advanceToQuoting: (
+      opportunityId: string,
+      currentStage: OpportunityStage
+    ) => {
+      if (currentStage === Stage.NewLead || currentStage === Stage.Qualifying) {
         moveStage.mutate({
           id: opportunityId,
           stage: Stage.Quoting,
@@ -694,11 +741,11 @@ export function useLogInboundActivity() {
   const { currentUser: user } = useAuthStore();
 
   return {
-    advanceToNegotiation: (opportunityId: string, currentStage: OpportunityStage) => {
-      if (
-        currentStage === Stage.Quoted ||
-        currentStage === Stage.FollowUp
-      ) {
+    advanceToNegotiation: (
+      opportunityId: string,
+      currentStage: OpportunityStage
+    ) => {
+      if (currentStage === Stage.Quoted || currentStage === Stage.FollowUp) {
         moveStage.mutate({
           id: opportunityId,
           stage: Stage.Negotiation,
@@ -715,7 +762,7 @@ export interface ConvertOpportunityResponse {
   ok: boolean;
   converted: boolean;
   alreadyConverted: boolean;
-  projectId: string;
+  projectId: string | null;
   opportunityId: string;
   dispositionId?: string;
   relinkedEstimates?: number;
@@ -727,21 +774,25 @@ export interface ConvertOpportunityResponse {
   linkedExisting?: boolean;
   /** True when this call moved the opportunity to `won` (+ a stage transition). */
   won?: boolean;
+  assignedTo?: string | null;
+  assignmentVersion: number;
+  conversionEventId?: string;
+  projectAccessible: boolean;
 }
 
 /**
  * Read-only conversion preflight for the Won dialog — surfaces an already-linked
  * project, likely-duplicate candidates, the client's other projects, and the
- * auto-name preview, so the operator can "link instead of create". Gated on
- * `pipeline.manage`; fetched via the service-role route (the browser client
- * runs as anon and can't call the RPC directly). Pass `undefined` to keep it
- * disabled until a deal is actually being won.
+ * auto-name preview, so the operator can "link instead of create". Gated by the
+ * canonical granular conversion selector; fetched via the service-role route
+ * (the browser client runs as anon and can't call the RPC directly). Pass
+ * `undefined` to keep it disabled until a deal is actually being won.
  */
 export function useConversionPreflight(
   opportunityId: string | undefined,
   queryOptions?: Partial<UseQueryOptions<ConversionPreflight>>
 ) {
-  const canManage = usePermissionStore((s) => s.can("pipeline.manage"));
+  const canConvert = usePermissionStore(selectCanConvertOpportunity);
 
   return useQuery<ConversionPreflight>({
     queryKey: queryKeys.opportunities.conversionPreflight(opportunityId ?? ""),
@@ -750,21 +801,18 @@ export function useConversionPreflight(
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Not authenticated");
 
-      const res = await fetch(
-        `/api/opportunities/${opportunityId}/preflight`,
-        { headers: { Authorization: `Bearer ${idToken}` } }
-      );
+      const res = await fetch(`/api/opportunities/${opportunityId}/preflight`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
 
       if (!res.ok) {
-        const body = await res
-          .json()
-          .catch(() => ({ error: res.statusText }));
+        const body = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(body.error || `Preflight failed: ${res.status}`);
       }
 
       return res.json();
     },
-    enabled: !!opportunityId && canManage,
+    enabled: !!opportunityId && canConvert,
     // The dialog opens on a fresh deal — keep it briefly fresh, but don't
     // cache stale dedup state across separate win attempts.
     staleTime: 30_000,
@@ -790,10 +838,17 @@ export function useConvertOpportunityToProject() {
       id: string;
       actualValue?: number;
       expectedStage?: string;
+      expectedAssignmentVersion: number;
       titleOverride?: string | null;
     }
   >({
-    mutationFn: async ({ id, actualValue, expectedStage, titleOverride }) => {
+    mutationFn: async ({
+      id,
+      actualValue,
+      expectedStage,
+      expectedAssignmentVersion,
+      titleOverride,
+    }) => {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Not authenticated");
@@ -807,14 +862,13 @@ export function useConvertOpportunityToProject() {
         body: JSON.stringify({
           actualValue,
           expectedStage,
+          expectedAssignmentVersion,
           titleOverride,
         }),
       });
 
       if (!res.ok) {
-        const body = await res
-          .json()
-          .catch(() => ({ error: res.statusText }));
+        const body = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(body.error || `Conversion failed: ${res.status}`);
       }
 
@@ -841,9 +895,21 @@ export function useLinkOpportunityToExistingProject() {
   return useMutation<
     ConvertOpportunityResponse,
     Error,
-    { id: string; projectId: string; actualValue?: number; expectedStage?: string }
+    {
+      id: string;
+      projectId: string;
+      actualValue?: number;
+      expectedStage?: string;
+      expectedAssignmentVersion: number;
+    }
   >({
-    mutationFn: async ({ id, projectId, actualValue, expectedStage }) => {
+    mutationFn: async ({
+      id,
+      projectId,
+      actualValue,
+      expectedStage,
+      expectedAssignmentVersion,
+    }) => {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
       if (!idToken) throw new Error("Not authenticated");
@@ -857,14 +923,13 @@ export function useLinkOpportunityToExistingProject() {
         body: JSON.stringify({
           actualValue,
           expectedStage,
+          expectedAssignmentVersion,
           linkToProjectId: projectId,
         }),
       });
 
       if (!res.ok) {
-        const body = await res
-          .json()
-          .catch(() => ({ error: res.statusText }));
+        const body = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(body.error || `Link failed: ${res.status}`);
       }
 

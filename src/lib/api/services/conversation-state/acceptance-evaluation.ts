@@ -29,9 +29,7 @@ export async function evaluateOpportunityAcceptance({
 }: AcceptanceEvaluationInput): Promise<{ stageChanged: boolean }> {
   const { data: opportunity, error: opportunityError } = await supabase
     .from("opportunities")
-    .select(
-      "stage, stage_manually_set, client_id, assigned_to, assignment_version"
-    )
+    .select("stage, stage_manually_set, client_id, assignment_version")
     .eq("id", opportunityId)
     .eq("company_id", connection.companyId)
     .maybeSingle();

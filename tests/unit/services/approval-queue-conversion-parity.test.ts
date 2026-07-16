@@ -19,9 +19,13 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(
+  path.join(process.cwd(), "src/lib/api/services/approval-queue-service.ts"),
+  "utf8"
+);
+const suggestionSource = readFileSync(
   path.join(
     process.cwd(),
-    "src/lib/api/services/approval-queue-service.ts"
+    "src/lib/api/services/project-suggestion-service.ts"
   ),
   "utf8"
 );
@@ -46,5 +50,47 @@ describe("approval-queue create_project — P6 conversion parity", () => {
   it("still creates a standalone project when there is no source opportunity", () => {
     // The non-conversion branch keeps the plain ProjectService.createProject.
     expect(source).toMatch(/else\s*\{[\s\S]*?ProjectService\.createProject\(/);
+  });
+
+  it("threads the executing reviewer and immutable proposal provenance", () => {
+    expect(source).toMatch(/executeAction\([\s\S]*?reviewerUserId/i);
+    expect(source).toMatch(/executeCreateProject\([\s\S]*?reviewerUserId/i);
+    expect(source).toMatch(/decidedBy:\s*reviewerUserId/i);
+    expect(source).toMatch(
+      /expectedAssignmentVersion:\s*data\.source_assignment_version/i
+    );
+    expect(source).toMatch(/agent_action_id:\s*action\.id/i);
+    expect(source).toMatch(/approval_mode:\s*"operator_approved"/i);
+  });
+
+  it("preserves source opportunity, assignment version, and thread across client edits", () => {
+    for (const key of [
+      "source_opportunity_id",
+      "source_assignment_version",
+      "source_thread_id",
+    ]) {
+      expect(source).toMatch(
+        new RegExp(`${key}:\\s*(?:originalActionData|action\\.actionData)`, "i")
+      );
+    }
+  });
+
+  it("fails autonomous opportunity conversion before calling the conversion service", () => {
+    expect(source).toMatch(
+      /learningAuthority\s*===\s*"autonomous"[\s\S]*?autonomous opportunity conversion/i
+    );
+  });
+
+  it("captures the exact opportunity assignment version when creating a proposal", () => {
+    expect(suggestionSource).toMatch(
+      /from\("opportunities"\)[\s\S]*?select\("assigned_to, assignment_version"\)[\s\S]*?eq\("id",\s*opportunityId\)/i
+    );
+    expect(suggestionSource).toContain("opportunity.assigned_to !== userId");
+    expect(suggestionSource).toContain(
+      "opportunity.assignment_version !== expectedAssignmentVersion"
+    );
+    expect(suggestionSource).toMatch(
+      /source_assignment_version:\s*expectedAssignmentVersion/i
+    );
   });
 });

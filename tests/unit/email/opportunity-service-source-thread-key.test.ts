@@ -31,7 +31,6 @@ function createPayload(
     contactPhone: null,
     stage: OpportunityStage.NewLead,
     source: OpportunitySource.Email,
-    assignedTo: null,
     priority: null,
     estimatedValue: null,
     actualValue: null,

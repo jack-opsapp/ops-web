@@ -17,6 +17,7 @@ import {
 import type {
   Opportunity,
   CreateOpportunity,
+  ManualCreateOpportunity,
   UpdateOpportunity,
   Activity,
   CreateActivity,
@@ -76,6 +77,7 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     stage: row.stage as OpportunityStage,
     source: (row.source as Opportunity["source"]) ?? null,
     assignedTo: (row.assigned_to as string) ?? null,
+    assignmentVersion: Number(row.assignment_version ?? 0),
     priority: (row.priority as Opportunity["priority"]) ?? null,
 
     // Financial
@@ -141,6 +143,22 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
 function mapOpportunityToDb(
   data: Partial<CreateOpportunity> & { nextFollowUpAt?: Date | string | null }
 ): Record<string, unknown> {
+  const guardedAssignmentFields = [
+    "assignedTo",
+    "assigned_to",
+    "assignmentVersion",
+    "assignment_version",
+  ];
+  if (
+    guardedAssignmentFields.some((field) =>
+      Object.prototype.hasOwnProperty.call(data, field)
+    )
+  ) {
+    throw new Error(
+      "Opportunity assignment must use the guarded assignment operation"
+    );
+  }
+
   const row: Record<string, unknown> = {};
 
   if (data.companyId !== undefined) row.company_id = data.companyId;
@@ -156,7 +174,6 @@ function mapOpportunityToDb(
   // Pipeline tracking
   if (data.stage !== undefined) row.stage = data.stage;
   if (data.source !== undefined) row.source = data.source;
-  if (data.assignedTo !== undefined) row.assigned_to = data.assignedTo;
   if (data.priority !== undefined) row.priority = data.priority;
 
   // Financial
@@ -442,6 +459,32 @@ export function mapStageConfigRow(
   };
 }
 
+function mapManualOpportunityToRpc(
+  data: ManualCreateOpportunity
+): Record<string, unknown> {
+  return {
+    client_id: data.clientId,
+    title: data.title,
+    description: data.description,
+    contact_name: data.contactName,
+    contact_email: data.contactEmail,
+    contact_phone: data.contactPhone,
+    stage: data.stage,
+    source: data.source,
+    priority: data.priority,
+    estimated_value: data.estimatedValue,
+    win_probability: data.winProbability,
+    expected_close_date: data.expectedCloseDate
+      ? data.expectedCloseDate.toISOString().slice(0, 10)
+      : null,
+    quote_delivery_method: data.quoteDeliveryMethod,
+    address: data.address,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    tags: data.tags,
+  };
+}
+
 // ─── Opportunity Service ──────────────────────────────────────────────────────
 
 export const OpportunityService = {
@@ -526,6 +569,46 @@ export const OpportunityService = {
     }
 
     return mapOpportunityFromDb(data as Record<string, unknown>);
+  },
+
+  /**
+   * Create a browser-authored lead through the actor-aware guarded RPC. The RPC
+   * derives company identity and, when eligible, self-assignment from the
+   * caller's JWT; neither can be supplied by this payload.
+   */
+  async createManualOpportunity(
+    data: ManualCreateOpportunity
+  ): Promise<Opportunity> {
+    const supabase = requireSupabase();
+    const { data: result, error } = await supabase.rpc(
+      "create_opportunity_guarded",
+      {
+        p_opportunity: mapManualOpportunityToRpc(data),
+        p_assignment_mode: "self",
+        p_initial_assigned_to: null,
+        p_metadata: { surface: "web_manual_create" },
+      }
+    );
+
+    if (error) {
+      const createError = new Error("Failed to create opportunity", {
+        cause: error,
+      }) as Error & { code?: string };
+      createError.code = (error as { code?: string }).code;
+      throw createError;
+    }
+
+    const guarded = result as {
+      ok?: boolean;
+      opportunity?: Record<string, unknown>;
+    } | null;
+    if (guarded?.ok !== true || !guarded.opportunity) {
+      throw new Error(
+        "Guarded opportunity creation returned an invalid result"
+      );
+    }
+
+    return mapOpportunityFromDb(guarded.opportunity);
   },
 
   /**

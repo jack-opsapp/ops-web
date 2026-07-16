@@ -17,7 +17,11 @@ import {
 } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import { useCreateOpportunity, useClients, useCreateClient } from "@/lib/hooks";
 import { ClientService } from "@/lib/api/services/client-service";
-import { OpportunityStage, OpportunitySource, OpportunityPriority } from "@/lib/types/pipeline";
+import {
+  OpportunityStage,
+  OpportunitySource,
+  OpportunityPriority,
+} from "@/lib/types/pipeline";
 import { buildLeadTitle } from "@/lib/utils/lead-title";
 import { resolveLeadClientId } from "@/lib/utils/lead-client-matcher";
 import type { Client } from "@/lib/types/models";
@@ -34,7 +38,10 @@ import { toast } from "@/components/ui/toast";
 // is the cleared state) and `onSubmit` normalizes "" → null on the way out.
 export function buildLeadFormSchema(t: (key: string) => string) {
   return z.object({
-    contactName: z.string().min(1, t("createLead.errors.contactRequired")).max(200),
+    contactName: z
+      .string()
+      .min(1, t("createLead.errors.contactRequired"))
+      .max(200),
     title: z.string().min(1, t("createLead.errors.titleRequired")).max(200),
     contactEmail: z
       .string()
@@ -98,7 +105,7 @@ function formatPhoneInput(value: string): string {
  * decorative → `text-mute`; the word carries the label color. */
 function SectionHeader({ children }: { children: string }) {
   return (
-    <span className="font-mono text-caption-sm text-text-2 uppercase tracking-widest">
+    <span className="font-mono text-caption-sm uppercase tracking-widest text-text-2">
       <span className="text-text-mute">{"// "}</span>
       {children}
     </span>
@@ -138,7 +145,7 @@ function ClientSelector({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]">
+      <label className="font-mohave text-caption-sm uppercase tracking-[0.08em] text-text-3">
         {t("createLead.client.label")}
       </label>
       <EntityPicker<Client>
@@ -146,19 +153,22 @@ function ClientSelector({
           <button
             type="button"
             className={cn(
-              "flex w-full min-h-[36px] items-center justify-between gap-2 px-2",
-              "font-mohave text-body text-left",
-              "bg-surface-input rounded border border-glass-border",
+              "flex min-h-[36px] w-full items-center justify-between gap-2 px-2",
+              "text-left font-mohave text-body",
+              "rounded border border-glass-border bg-surface-input",
               "transition-colors duration-150",
               "hover:border-glass-border-medium",
-              "focus:outline-none focus:border-glass-border-strong",
-              selectedName ? "text-text" : "text-text-3",
+              "focus:border-glass-border-strong focus:outline-none",
+              selectedName ? "text-text" : "text-text-3"
             )}
           >
             <span className="truncate">
               {selectedName ?? t("createLead.client.linkPlaceholder")}
             </span>
-            <Search className="w-[16px] h-[16px] shrink-0 text-text-3" strokeWidth={1.5} />
+            <Search
+              className="h-[16px] w-[16px] shrink-0 text-text-3"
+              strokeWidth={1.5}
+            />
           </button>
         }
         open={open}
@@ -171,8 +181,8 @@ function ClientSelector({
         getLabel={(c) => c.name}
         getDescription={(c) => c.email ?? undefined}
         getKeywords={(c) =>
-          [c.email, c.phoneNumber, c.address].filter(
-            (term): term is string => Boolean(term),
+          [c.email, c.phoneNumber, c.address].filter((term): term is string =>
+            Boolean(term)
           )
         }
         searchPlaceholder={t("table.cell.client.search")}
@@ -207,12 +217,15 @@ interface CreateLeadFormProps {
 
 export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
   const { t } = useDictionary("pipeline");
-  const { company, currentUser } = useAuthStore();
+  const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const can = usePermissionStore((s) => s.can);
 
   const { data: clientsData } = useClients();
-  const clients = useMemo(() => clientsData?.clients ?? [], [clientsData?.clients]);
+  const clients = useMemo(
+    () => clientsData?.clients ?? [],
+    [clientsData?.clients]
+  );
   const createOpportunity = useCreateOpportunity();
   const createClient = useCreateClient();
 
@@ -252,9 +265,14 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
   const sourceAutoSetRef = useRef(false);
   // Coordinates ride along only when the address came from a real geocode
   // selection (or a linked client's saved pin) — free-typed text carries none.
-  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [coords, setCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   // Resolves the just-created client's name before the list refetch lands.
-  const [justCreatedClient, setJustCreatedClient] = useState<Client | null>(null);
+  const [justCreatedClient, setJustCreatedClient] = useState<Client | null>(
+    null
+  );
 
   const resolveClient = (id: string | null): Client | null => {
     if (!id) return null;
@@ -281,7 +299,8 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
       next?.clientName !== undefined
         ? next.clientName
         : (resolveClient(getValues("clientId"))?.name ?? null);
-    const source = next?.source !== undefined ? next.source : getValues("source");
+    const source =
+      next?.source !== undefined ? next.source : getValues("source");
     const derived = buildLeadTitle({
       contactName,
       clientName,
@@ -343,14 +362,16 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
       setValue("contactEmail", client.email, { shouldDirty: true });
     }
     if (!getValues("contactPhone")?.trim() && client.phoneNumber) {
-      setValue("contactPhone", formatPhoneInput(client.phoneNumber), { shouldDirty: true });
+      setValue("contactPhone", formatPhoneInput(client.phoneNumber), {
+        shouldDirty: true,
+      });
     }
     if (!getValues("address")?.trim() && client.address) {
       setValue("address", client.address, { shouldDirty: true });
       setCoords(
         client.latitude != null && client.longitude != null
           ? { latitude: client.latitude, longitude: client.longitude }
-          : null,
+          : null
       );
     }
 
@@ -368,7 +389,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
     // Exact-name match links instead of creating — the same duplicate guard
     // the board card's create-and-link control applies.
     const exact = clients.find(
-      (c) => c.name.trim().toLowerCase() === name.toLowerCase(),
+      (c) => c.name.trim().toLowerCase() === name.toLowerCase()
     );
     if (exact) {
       applyClientLink(exact.id);
@@ -388,7 +409,8 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
       applyClientCascade(client);
     } catch (err) {
       toast.error(t("createLead.client.createFailed"), {
-        description: err instanceof Error ? err.message : t("toast.errorOccurred"),
+        description:
+          err instanceof Error ? err.message : t("toast.errorOccurred"),
       });
     }
   };
@@ -415,23 +437,29 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
   const sourceOptions = useMemo(
     () => [
       { value: NONE, label: "—" },
-      ...SOURCE_VALUES.map((s) => ({ value: s as string, label: t(`band.source.${s}`) })),
+      ...SOURCE_VALUES.map((s) => ({
+        value: s as string,
+        label: t(`band.source.${s}`),
+      })),
     ],
-    [t],
+    [t]
   );
 
   const priorityOptions = useMemo(
     () => [
       { value: NONE, label: "—" },
-      ...PRIORITY_VALUES.map((p) => ({ value: p as string, label: t(`band.priority.${p}`) })),
+      ...PRIORITY_VALUES.map((p) => ({
+        value: p as string,
+        label: t(`band.priority.${p}`),
+      })),
     ],
-    [t],
+    [t]
   );
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
   async function onSubmit(data: LeadFormData) {
-    if (!can("pipeline.manage")) return;
+    if (!can("pipeline.create")) return;
     if (!companyId) {
       toast.error(t("createLead.noCompany"));
       return;
@@ -465,7 +493,6 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
 
     createOpportunity.mutate(
       {
-        companyId,
         clientId,
         title: data.title,
         description: data.description || null,
@@ -474,16 +501,11 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
         contactPhone: data.contactPhone || null,
         stage: OpportunityStage.NewLead,
         source: data.source || null,
-        assignedTo: currentUser?.id ?? null,
         priority: data.priority || null,
-        estimatedValue: data.estimatedValue === "" ? null : (data.estimatedValue ?? null),
-        actualValue: null,
+        estimatedValue:
+          data.estimatedValue === "" ? null : (data.estimatedValue ?? null),
         winProbability: 10,
         expectedCloseDate: null,
-        actualCloseDate: null,
-        projectId: null,
-        lostReason: null,
-        lostNotes: null,
         quoteDeliveryMethod: null,
         address: data.address || null,
         latitude: data.address?.trim() ? (coords?.latitude ?? null) : null,
@@ -504,7 +526,8 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
         },
         onError: (err) => {
           toast.error(t("toast.failedCreateLead"), {
-            description: err instanceof Error ? err.message : t("toast.errorOccurred"),
+            description:
+              err instanceof Error ? err.message : t("toast.errorOccurred"),
           });
         },
       }
@@ -533,17 +556,17 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
         <Input
           label={`${t("createLead.contactName.label")} *`}
           placeholder={t("createLead.contactName.placeholder")}
-          prefixIcon={<User className="w-[16px] h-[16px]" />}
+          prefixIcon={<User className="h-[16px] w-[16px]" />}
           {...register("contactName")}
           onChange={handleContactNameChange}
           error={errors.contactName?.message}
         />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Input
             label={t("createLead.email.label")}
             type="email"
             placeholder={t("createLead.email.placeholder")}
-            prefixIcon={<Mail className="w-[16px] h-[16px]" />}
+            prefixIcon={<Mail className="h-[16px] w-[16px]" />}
             {...register("contactEmail")}
             error={errors.contactEmail?.message}
           />
@@ -551,7 +574,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
             label={t("createLead.phone.label")}
             type="tel"
             placeholder={t("createLead.phone.placeholder")}
-            prefixIcon={<Phone className="w-[16px] h-[16px]" />}
+            prefixIcon={<Phone className="h-[16px] w-[16px]" />}
             value={phoneValue || ""}
             onChange={handlePhoneChange}
           />
@@ -559,14 +582,14 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
       </div>
 
       {/* ── Deal — the facts, then the title they compose. */}
-      <div className="space-y-2 pt-1 border-t border-line">
+      <div className="space-y-2 border-t border-line pt-1">
         <SectionHeader>{t("createLead.section.deal")}</SectionHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div className="flex flex-col gap-0.5">
             <label
               id="create-lead-source-label"
-              className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]"
+              className="font-mohave text-caption-sm uppercase tracking-[0.08em] text-text-3"
             >
               {t("createLead.source.label")}
             </label>
@@ -582,7 +605,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
           <div className="flex flex-col gap-0.5">
             <label
               id="create-lead-priority-label"
-              className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]"
+              className="font-mohave text-caption-sm uppercase tracking-[0.08em] text-text-3"
             >
               {t("createLead.priority.label")}
             </label>
@@ -590,9 +613,13 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
               options={priorityOptions}
               value={watch("priority") || undefined}
               onChange={(v) =>
-                setValue("priority", (v === NONE ? "" : v) as LeadFormData["priority"], {
-                  shouldDirty: true,
-                })
+                setValue(
+                  "priority",
+                  (v === NONE ? "" : v) as LeadFormData["priority"],
+                  {
+                    shouldDirty: true,
+                  }
+                )
               }
               placeholder={t("createLead.priority.placeholder")}
               contentClassName="z-modal"
@@ -606,7 +633,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
           type="number"
           inputMode="decimal"
           placeholder={t("createLead.value.placeholder")}
-          prefixIcon={<DollarSign className="w-[16px] h-[16px]" />}
+          prefixIcon={<DollarSign className="h-[16px] w-[16px]" />}
           className="font-mono tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]"
           {...register("estimatedValue", {
             // NaN (half-typed "1e", cleared spinner) folds to null — an
@@ -622,7 +649,7 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
         <div className="flex flex-col gap-0.5">
           <label
             htmlFor="create-lead-address"
-            className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]"
+            className="font-mohave text-caption-sm uppercase tracking-[0.08em] text-text-3"
           >
             {t("createLead.address.label")}
           </label>
@@ -641,14 +668,15 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
           label={`${t("createLead.title.label")} *`}
           placeholder={t("createLead.title.placeholder")}
           {...register("title", {
-            onChange: (e) => setTitleManuallyEdited(e.target.value.trim().length > 0),
+            onChange: (e) =>
+              setTitleManuallyEdited(e.target.value.trim().length > 0),
           })}
           error={errors.title?.message}
         />
       </div>
 
       {/* ── Notes */}
-      <div className="space-y-2 pt-1 border-t border-line">
+      <div className="space-y-2 border-t border-line pt-1">
         <SectionHeader>{t("createLead.section.notes")}</SectionHeader>
         <Textarea
           aria-label={t("createLead.section.notes")}
@@ -661,12 +689,17 @@ export function CreateLeadForm({ onSuccess, onCancel }: CreateLeadFormProps) {
       {/* Actions */}
       <div className="flex items-center justify-end gap-1 pt-1">
         {onCancel && (
-          <Button type="button" variant="ghost" onClick={onCancel} disabled={isSaving}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={isSaving}
+          >
             {t("createLead.cancel")}
           </Button>
         )}
         <Button type="submit" loading={isSaving} className="gap-[6px]">
-          <Save className="w-[16px] h-[16px]" />
+          <Save className="h-[16px] w-[16px]" />
           {t("createLead.submit")}
         </Button>
       </div>

@@ -32,6 +32,7 @@ import { ProjectStatus, TaskStatus } from "@/lib/types/models";
 import { InvoiceStatus, DiscountType } from "@/lib/types/pipeline";
 import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
 import { ApprovedActionEmailTransportService } from "./approved-action-email-transport-service";
+import type { OutboundLearningAuthority } from "./email-outbound-learning-service";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -124,22 +125,33 @@ function isApprovalQueueEmailAction(action: AgentAction): boolean {
 
 function mergeApprovedActionEdits(
   actionType: AgentAction["actionType"],
-  original: Record<string, unknown>,
+  originalActionData: Record<string, unknown>,
   edited: Record<string, unknown>
 ): Record<string, unknown> {
-  if (!APPROVAL_QUEUE_EMAIL_ACTION_TYPES.has(actionType)) return edited;
+  if (!APPROVAL_QUEUE_EMAIL_ACTION_TYPES.has(actionType)) {
+    return {
+      ...originalActionData,
+      ...edited,
+      source_opportunity_id: originalActionData.source_opportunity_id ?? null,
+      source_assignment_version:
+        originalActionData.source_assignment_version ?? null,
+      source_thread_id: originalActionData.source_thread_id ?? null,
+    };
+  }
 
   // Reviewers may edit authored content and the offered reschedule choice.
   // Tenant, mailbox, recipient, thread, lead, client, project and invoice
   // identities always remain the server-created proposal values.
-  const merged = { ...original };
+  const merged = { ...originalActionData };
   if (typeof edited.subject === "string") merged.subject = edited.subject;
   if (actionType === "process_reschedule_request") {
     if (typeof edited.reply_draft_text === "string") {
       merged.reply_draft_text = edited.reply_draft_text;
     }
-    const alternatives = Array.isArray(original.suggested_alternatives)
-      ? original.suggested_alternatives
+    const alternatives = Array.isArray(
+      originalActionData.suggested_alternatives
+    )
+      ? originalActionData.suggested_alternatives
       : [];
     if (
       Number.isInteger(edited.selected_alternative_index) &&
@@ -163,11 +175,13 @@ async function executeApprovalQueueEmail(
 }
 
 async function executeAction(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority,
+  reviewerUserId: string
 ): Promise<Record<string, unknown>> {
   switch (action.actionType) {
     case "create_project":
-      return executeCreateProject(action);
+      return executeCreateProject(action, learningAuthority, reviewerUserId);
     case "create_task":
       return executeCreateTask(action);
     case "send_status_email":
@@ -209,13 +223,26 @@ async function executeAction(
 }
 
 async function executeCreateProject(
-  action: AgentAction
+  action: AgentAction,
+  learningAuthority: OutboundLearningAuthority,
+  reviewerUserId: string
 ): Promise<Record<string, unknown>> {
   const data = action.actionData as unknown as CreateProjectActionData;
 
   let projectId: string;
 
   if (data.source_opportunity_id) {
+    if (learningAuthority === "autonomous") {
+      throw new Error("Autonomous opportunity conversion is not authorized");
+    }
+    if (
+      !Number.isSafeInteger(data.source_assignment_version) ||
+      (data.source_assignment_version as number) < 0
+    ) {
+      throw new Error(
+        "Opportunity conversion proposal has no assignment snapshot"
+      );
+    }
     // P6: an AI-proposed project that originates from an opportunity is a
     // CONVERSION. Route it through the single canonical conversion service so
     // it writes the full four-column link contract (project_ref +
@@ -229,8 +256,13 @@ async function executeCreateProject(
     const result = await ProjectConversionService.convertOpportunityToProject({
       opportunityId: data.source_opportunity_id,
       companyId: action.companyId,
-      decidedBy: action.userId,
+      decidedBy: reviewerUserId,
       sourcePath: "approval_queue",
+      expectedAssignmentVersion: data.source_assignment_version as number,
+      evidence: {
+        agent_action_id: action.id,
+        approval_mode: "operator_approved",
+      },
       notesSeed: data.scope ?? null,
     });
     projectId = result.projectId;
@@ -1184,9 +1216,37 @@ export const ApprovalQueueService = {
     actionId: string,
     companyId: string,
     userId: string,
-    editedActionData?: Record<string, unknown>
+    editedActionData?: Record<string, unknown>,
+    executionContext: {
+      learningAuthority?: OutboundLearningAuthority;
+    } = {}
   ): Promise<AgentAction> {
     const supabase = requireSupabase();
+    const learningAuthority =
+      executionContext.learningAuthority ?? "operator_approved";
+
+    const { data: pendingAction, error: pendingActionError } = await supabase
+      .from("agent_actions")
+      .select("action_type, action_data")
+      .eq("id", actionId)
+      .eq("company_id", companyId)
+      .eq("status", "pending")
+      .single();
+    if (pendingActionError || !pendingAction) {
+      throw new Error("Action not found or already handled");
+    }
+    const originalActionData =
+      (pendingAction.action_data as Record<string, unknown>) ?? {};
+    if (
+      learningAuthority === "autonomous" &&
+      pendingAction.action_type === "create_project" &&
+      originalActionData.source_opportunity_id != null
+    ) {
+      // Autonomous execution has no human reviewer to authorize conversion.
+      // Refuse before pending -> approved so the proposal stays in the human
+      // queue and never receives fabricated reviewer attribution.
+      throw new Error("Autonomous opportunity conversion is not authorized");
+    }
 
     // If the reviewer edited the action data (e.g. changed team member or dates),
     // apply the edits to action_data before approving
@@ -1196,19 +1256,9 @@ export const ApprovalQueueService = {
       reviewed_at: new Date().toISOString(),
     };
     if (editedActionData) {
-      const { data: pendingAction, error: pendingActionError } = await supabase
-        .from("agent_actions")
-        .select("action_type, action_data")
-        .eq("id", actionId)
-        .eq("company_id", companyId)
-        .eq("status", "pending")
-        .single();
-      if (pendingActionError || !pendingAction) {
-        throw new Error("Action not found or already handled");
-      }
       updatePayload.action_data = mergeApprovedActionEdits(
         pendingAction.action_type as AgentAction["actionType"],
-        (pendingAction.action_data as Record<string, unknown>) ?? {},
+        originalActionData,
         editedActionData
       );
     }
@@ -1245,7 +1295,7 @@ export const ApprovalQueueService = {
         return mapFromDb(final);
       }
 
-      const result = await executeAction(action);
+      const result = await executeAction(action, learningAuthority, userId);
 
       const { data: final } = await supabase
         .from("agent_actions")

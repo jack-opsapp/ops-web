@@ -15,17 +15,46 @@ import * as React from "react";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-vi.mock("@/lib/firebase/auth", () => ({ getIdToken: async () => "test-token" }));
+vi.mock("@/lib/firebase/auth", () => ({
+  getIdToken: async () => "test-token",
+}));
 vi.mock("@/lib/api/services", () => ({ OpportunityService: {} }));
 vi.mock("@/lib/store/auth-store", () => ({
-  useAuthStore: () => ({ company: { id: "co-1" }, currentUser: { id: "user-1" } }),
+  useAuthStore: () => ({
+    company: { id: "co-1" },
+    currentUser: { id: "user-1" },
+  }),
 }));
-vi.mock("@/lib/store/permissions-store", () => ({
-  usePermissionStore: (selector?: (s: { can: () => boolean }) => unknown) => {
-    const state = { can: () => true };
-    return selector ? selector(state) : state;
-  },
+const permissionState = vi.hoisted(() => ({
+  permissions: new Map<string, "all" | "assigned" | "own">(),
+  configuredPermissions: new Set<string>(),
 }));
+
+vi.mock("@/lib/store/permissions-store", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/store/permissions-store")
+  >("@/lib/store/permissions-store");
+  const can = (permission: string, requiredScope?: string) => {
+    const granted = permissionState.permissions.get(permission);
+    if (!granted) return false;
+    if (!requiredScope || granted === "all") return true;
+    if (granted === "assigned") {
+      return requiredScope === "assigned" || requiredScope === "own";
+    }
+    return requiredScope === "own";
+  };
+  return {
+    ...actual,
+    usePermissionStore: (selector?: (state: unknown) => unknown) => {
+      const state = {
+        can,
+        permissions: permissionState.permissions,
+        configuredPermissions: permissionState.configuredPermissions,
+      };
+      return selector ? selector(state) : state;
+    },
+  };
+});
 
 import {
   useConversionPreflight,
@@ -38,8 +67,13 @@ function makeWrapper() {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: qc }, children);
+  return function QueryClientTestWrapper({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    return React.createElement(QueryClientProvider, { client: qc }, children);
+  };
 }
 
 interface FetchCall {
@@ -61,7 +95,11 @@ function stubFetch(jsonBody: unknown) {
   return calls;
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  permissionState.permissions = new Map([["pipeline.convert", "assigned"]]);
+  permissionState.configuredPermissions = new Set(["pipeline.convert"]);
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("useConversionPreflight", () => {
@@ -71,6 +109,9 @@ describe("useConversionPreflight", () => {
       duplicateCandidates: [],
       otherClientProjects: [],
       suggestedName: "1240 W 6th Ave",
+      assignmentVersion: 12,
+      alreadyConverted: false,
+      projectAccessible: false,
     });
 
     const { result } = renderHook(() => useConversionPreflight("opp-1"), {
@@ -83,6 +124,7 @@ describe("useConversionPreflight", () => {
     expect(calls[0].url).toBe("/api/opportunities/opp-1/preflight");
     expect(calls[0].init?.headers?.Authorization).toBe("Bearer test-token");
     expect(result.current.data?.suggestedName).toBe("1240 W 6th Ave");
+    expect(result.current.data?.assignmentVersion).toBe(12);
   });
 
   it("is disabled (no fetch) when no opportunity id is provided", async () => {
@@ -92,6 +134,19 @@ describe("useConversionPreflight", () => {
     });
     // give microtasks a tick; the disabled query must never fetch.
     await new Promise((r) => setTimeout(r, 10));
+    expect(calls).toHaveLength(0);
+  });
+
+  it("is disabled when granular convert is explicitly revoked despite legacy manage", async () => {
+    permissionState.permissions = new Map([["pipeline.manage", "all"]]);
+    permissionState.configuredPermissions = new Set(["pipeline.convert"]);
+    const calls = stubFetch({});
+
+    renderHook(() => useConversionPreflight("opp-1"), {
+      wrapper: makeWrapper(),
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
     expect(calls).toHaveLength(0);
   });
 });
@@ -117,6 +172,7 @@ describe("useConvertOpportunityToProject", () => {
         id: "opp-1",
         actualValue: 1000,
         expectedStage: "proposal",
+        expectedAssignmentVersion: 12,
         titleOverride: "Custom name",
       });
     });
@@ -128,6 +184,7 @@ describe("useConvertOpportunityToProject", () => {
     expect(body).toMatchObject({
       actualValue: 1000,
       expectedStage: "proposal",
+      expectedAssignmentVersion: 12,
       titleOverride: "Custom name",
     });
     expect(body.linkToProjectId).toBeUndefined();
@@ -146,10 +203,9 @@ describe("useLinkOpportunityToExistingProject", () => {
       linkedExisting: true,
     });
 
-    const { result } = renderHook(
-      () => useLinkOpportunityToExistingProject(),
-      { wrapper: makeWrapper() }
-    );
+    const { result } = renderHook(() => useLinkOpportunityToExistingProject(), {
+      wrapper: makeWrapper(),
+    });
 
     let response: ConvertOpportunityResponse | undefined;
     await act(async () => {
@@ -157,6 +213,7 @@ describe("useLinkOpportunityToExistingProject", () => {
         id: "opp-1",
         projectId: "existing-proj",
         actualValue: 500,
+        expectedAssignmentVersion: 12,
       });
     });
 
@@ -165,6 +222,7 @@ describe("useLinkOpportunityToExistingProject", () => {
     const body = JSON.parse(calls[0].init?.body ?? "{}");
     expect(body.linkToProjectId).toBe("existing-proj");
     expect(body.actualValue).toBe(500);
+    expect(body.expectedAssignmentVersion).toBe(12);
     expect(response?.linkedExisting).toBe(true);
   });
 });

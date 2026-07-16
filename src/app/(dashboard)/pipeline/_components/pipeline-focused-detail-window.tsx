@@ -20,10 +20,11 @@ import {
   PipelineDetailActionMenu,
   PipelineDetailBody,
 } from "./pipeline-detail-panel";
+import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 
 export interface PipelineFocusedDetailWindowProps extends DetailPanelActionHandlers {
   opportunity: Opportunity;
-  canManage: boolean;
+  leadAccess: LeadAccess;
   originatingOpportunityId: string | null;
 }
 
@@ -96,7 +97,7 @@ function stageTone(stage: OpportunityStage): ChipVariant {
 
 export function PipelineFocusedDetailWindow({
   opportunity,
-  canManage,
+  leadAccess,
   originatingOpportunityId,
   onAdvanceStage,
   onMarkWon,
@@ -224,9 +225,10 @@ export function PipelineFocusedDetailWindow({
       statusTone={stageTone(opportunity.stage)}
       mode="viewing"
       headerAction={
-        canManage ? (
+        leadAccess.canEdit || leadAccess.canConvert ? (
           <PipelineDetailActionMenu
             opportunity={opportunity}
+            leadAccess={leadAccess}
             onAdvanceStage={onAdvanceStage}
             onMarkWon={onMarkWon}
             onMarkLost={onMarkLost}
@@ -247,7 +249,7 @@ export function PipelineFocusedDetailWindow({
         <PipelineDetailBody
           opportunity={opportunity}
           activeTab={activeTab}
-          canManage={canManage}
+          leadAccess={leadAccess}
           withRegion
         />
       </div>

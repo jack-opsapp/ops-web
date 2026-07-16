@@ -25,6 +25,8 @@ interface PipelineCardActionsProps {
   opportunityId: string;
   stage: OpportunityStage;
   canManage: boolean;
+  canAssign?: boolean;
+  canConvert?: boolean;
   stageActions?: React.ReactNode;
   onLogCall: () => void;
   onLogText: () => void;
@@ -57,6 +59,8 @@ export function PipelineCardActions({
   opportunityId: _opportunityId,
   stage,
   canManage,
+  canAssign = canManage,
+  canConvert = canManage,
   stageActions,
   onLogCall,
   onLogText,
@@ -155,7 +159,10 @@ export function PipelineCardActions({
           <span aria-hidden="true" />
         )}
 
-        <div ref={menuContainerRef} className="relative flex shrink-0 justify-end">
+        <div
+          ref={menuContainerRef}
+          className="relative flex shrink-0 justify-end"
+        >
           <button
             type="button"
             onClick={(e) => {
@@ -218,44 +225,57 @@ export function PipelineCardActions({
                   onClick={(e) => handleMenuAction(e, onOpenDetail)}
                 />
 
-                {canManage && (
+                {(canManage || canAssign) && (
                   <>
                     <MenuDivider />
-                    <MenuItem
-                      icon={<Calendar size={14} />}
-                      label={t("actions.scheduleFollowUp", "Schedule follow-up")}
-                      onClick={(e) => handleMenuAction(e, onScheduleFollowUp)}
-                    />
-                    <MenuItem
-                      icon={<UserPlus size={14} />}
-                      label={t("actions.assignTo", "Assign to")}
-                      onClick={(e) => handleMenuAction(e, onAssign)}
-                    />
+                    {canManage ? (
+                      <MenuItem
+                        icon={<Calendar size={14} />}
+                        label={t(
+                          "actions.scheduleFollowUp",
+                          "Schedule follow-up"
+                        )}
+                        onClick={(e) => handleMenuAction(e, onScheduleFollowUp)}
+                      />
+                    ) : null}
+                    {canAssign ? (
+                      <MenuItem
+                        icon={<UserPlus size={14} />}
+                        label={t("actions.assignTo", "Assign to")}
+                        onClick={(e) => handleMenuAction(e, onAssign)}
+                      />
+                    ) : null}
                   </>
                 )}
 
-                {canManage && showActiveActions && (
+                {(canManage || canConvert) && showActiveActions && (
                   <>
                     <MenuDivider />
-                    <MenuItem
-                      icon={<Trophy size={14} />}
-                      label={t("actions.markWon", "Mark won")}
-                      onClick={(e) => handleMenuAction(e, onMarkWon)}
-                    />
-                    <MenuItem
-                      icon={<XCircle size={14} />}
-                      label={t("actions.markLost", "Mark lost")}
-                      onClick={(e) => handleMenuAction(e, onMarkLost)}
-                    />
-                    <MenuItem
-                      icon={<Ban size={14} />}
-                      label={t("actions.discard", "Discard")}
-                      onClick={(e) => handleMenuAction(e, onDiscard)}
-                    />
+                    {canConvert ? (
+                      <MenuItem
+                        icon={<Trophy size={14} />}
+                        label={t("actions.markWon", "Mark won")}
+                        onClick={(e) => handleMenuAction(e, onMarkWon)}
+                      />
+                    ) : null}
+                    {canManage ? (
+                      <>
+                        <MenuItem
+                          icon={<XCircle size={14} />}
+                          label={t("actions.markLost", "Mark lost")}
+                          onClick={(e) => handleMenuAction(e, onMarkLost)}
+                        />
+                        <MenuItem
+                          icon={<Ban size={14} />}
+                          label={t("actions.discard", "Discard")}
+                          onClick={(e) => handleMenuAction(e, onDiscard)}
+                        />
+                      </>
+                    ) : null}
                   </>
                 )}
 
-                {canManage && showConvert && (
+                {canConvert && showConvert && (
                   <>
                     <MenuDivider />
                     <MenuItem

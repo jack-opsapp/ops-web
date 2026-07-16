@@ -48,6 +48,8 @@ interface PipelineCardProps {
   /** Convert an already-won, unconverted deal — opens the Won dialog directly. */
   onConvert?: () => void;
   canManage: boolean;
+  canAssign?: boolean;
+  canConvert?: boolean;
   isDragging?: boolean;
   isOverlay?: boolean;
   stageConfig: PipelineStageDefault;
@@ -85,7 +87,9 @@ function daysOverdue(date: Date): number {
   const now = new Date();
   const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.floor((todayOnly.getTime() - dateOnly.getTime()) / (1000 * 60 * 60 * 24));
+  return Math.floor(
+    (todayOnly.getTime() - dateOnly.getTime()) / (1000 * 60 * 60 * 24)
+  );
 }
 
 /** Format a date as short weekday (e.g. "Thu") */
@@ -132,6 +136,8 @@ export function PipelineCard({
   onScheduleFollowUp,
   onConvert,
   canManage,
+  canAssign = canManage,
+  canConvert = canManage,
   isDragging = false,
   isOverlay = false,
   stageConfig,
@@ -149,8 +155,10 @@ export function PipelineCard({
   const followUpOverdue = isDateOverdue(followUpDate);
   const followUpToday = isDateToday(followUpDate);
 
-  const canAdvance = !terminal && nextOpportunityStage(opportunity.stage) !== null;
-  const canRetreat = !terminal && previousOpportunityStage(opportunity.stage) !== null;
+  const canAdvance =
+    !terminal && nextOpportunityStage(opportunity.stage) !== null;
+  const canRetreat =
+    !terminal && previousOpportunityStage(opportunity.stage) !== null;
 
   const nextStage = nextOpportunityStage(opportunity.stage);
   const prevStage = previousOpportunityStage(opportunity.stage);
@@ -193,7 +201,10 @@ export function PipelineCard({
   }, [followUpDate, followUpOverdue, followUpToday, t]);
 
   // --- Days in stage text ---
-  const daysText = t("card.daysInStage").replace("{count}", String(daysInStage));
+  const daysText = t("card.daysInStage").replace(
+    "{count}",
+    String(daysInStage)
+  );
 
   // --- Last activity text ---
   const lastActivityText = useMemo(() => {
@@ -228,11 +239,11 @@ export function PipelineCard({
       style={{ borderLeftColor: stageColor }}
       className={cn(
         // Surface
-        "bg-glass glass-surface backdrop-blur-xl",
-        "border border-border rounded-chip",
+        "glass-surface bg-glass backdrop-blur-xl",
+        "rounded-chip border border-border",
         "border-l-[3px]",
         // Interaction
-        "cursor-pointer group",
+        "group cursor-pointer",
         // Stacking: expanded cards must sit above siblings so dropdowns aren't clipped
         isExpanded ? "relative z-20" : "relative z-0",
         // Hover
@@ -249,13 +260,13 @@ export function PipelineCard({
       <div className="px-[10px] py-[8px]">
         {/* Line 1: Client name + value */}
         <div className="flex items-center justify-between gap-[8px]">
-          <div className="flex items-center gap-[6px] min-w-0 flex-1">
-            <span className="font-mohave text-body-sm font-medium text-text truncate">
+          <div className="flex min-w-0 flex-1 items-center gap-[6px]">
+            <span className="truncate font-mohave text-body-sm font-medium text-text">
               {clientName}
             </span>
           </div>
 
-          <span className="shrink-0 font-mono text-data-sm text-text-2 tabular-nums">
+          <span className="shrink-0 font-mono text-data-sm tabular-nums text-text-2">
             {opportunity.estimatedValue
               ? formatCurrency(opportunity.estimatedValue)
               : "—"}
@@ -263,25 +274,28 @@ export function PipelineCard({
         </div>
 
         {/* Line 2: Follow-up status + days in stage */}
-        <div className="flex items-center gap-0 mt-[2px]">
+        <div className="mt-[2px] flex items-center gap-0">
           {followUpStatus && (
             <>
-              <span className={cn("font-mono text-micro", followUpStatus.colorClass)}>
+              <span
+                className={cn(
+                  "font-mono text-micro",
+                  followUpStatus.colorClass
+                )}
+              >
                 {followUpStatus.text}
               </span>
-              <span className="font-mono text-micro text-text-mute mx-[6px]">
+              <span className="mx-[6px] font-mono text-micro text-text-mute">
                 ·
               </span>
             </>
           )}
-          <span className="font-mono text-micro text-text-3">
-            {daysText}
-          </span>
+          <span className="font-mono text-micro text-text-3">{daysText}</span>
         </div>
 
         {/* Line 3: Health bar + chevron buttons */}
-        <div className="flex items-center gap-[8px] mt-[6px]">
-          <div className="flex-1 min-w-0">
+        <div className="mt-[6px] flex items-center gap-[8px]">
+          <div className="min-w-0 flex-1">
             <PipelineHealthBar
               daysInStage={daysInStage}
               expectedDays={expectedDays}
@@ -289,7 +303,7 @@ export function PipelineCard({
           </div>
 
           {/* Chevron buttons */}
-          <div className="flex items-center gap-[2px] shrink-0">
+          <div className="flex shrink-0 items-center gap-[2px]">
             {/* Retreat chevron */}
             {canRetreat && canManage && (
               <button
@@ -304,7 +318,7 @@ export function PipelineCard({
                     : undefined
                 }
                 className={cn(
-                  "p-[3px] rounded-bar cursor-pointer",
+                  "cursor-pointer rounded-bar p-[3px]",
                   "text-text-mute hover:text-text",
                   "hover:bg-surface-active",
                   "transition-all duration-150",
@@ -312,7 +326,7 @@ export function PipelineCard({
                   "md:opacity-0 md:group-hover:opacity-100"
                 )}
               >
-                <ChevronLeft className="w-[14px] h-[14px]" />
+                <ChevronLeft className="h-[14px] w-[14px]" />
               </button>
             )}
 
@@ -330,7 +344,7 @@ export function PipelineCard({
                     : undefined
                 }
                 className={cn(
-                  "p-[3px] rounded-bar cursor-pointer",
+                  "cursor-pointer rounded-bar p-[3px]",
                   "text-text-mute hover:text-text",
                   "hover:bg-surface-active",
                   "transition-all duration-150",
@@ -338,7 +352,7 @@ export function PipelineCard({
                   "md:opacity-0 md:group-hover:opacity-100"
                 )}
               >
-                <ChevronRight className="w-[14px] h-[14px]" />
+                <ChevronRight className="h-[14px] w-[14px]" />
               </button>
             )}
           </div>
@@ -354,7 +368,7 @@ export function PipelineCard({
             exit="exit"
             className="border-t border-border-subtle"
           >
-            <div className="px-[10px] py-[8px] flex flex-col gap-[8px]">
+            <div className="flex flex-col gap-[8px] px-[10px] py-[8px]">
               {/* Contact info */}
               <motion.div
                 variants={contentVariants}
@@ -371,9 +385,9 @@ export function PipelineCard({
                     <a
                       href={`tel:${opportunity.contactPhone}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-mono text-micro text-text-2 hover:text-text transition-colors"
+                      className="flex items-center gap-[4px] font-mono text-micro text-text-2 transition-colors hover:text-text"
                     >
-                      <Phone className="w-[12px] h-[12px]" />
+                      <Phone className="h-[12px] w-[12px]" />
                       {opportunity.contactPhone}
                     </a>
                   )}
@@ -381,9 +395,9 @@ export function PipelineCard({
                     <a
                       href={`mailto:${opportunity.contactEmail}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-[4px] font-mono text-micro text-text-2 hover:text-text transition-colors"
+                      className="flex items-center gap-[4px] font-mono text-micro text-text-2 transition-colors hover:text-text"
                     >
-                      <Mail className="w-[12px] h-[12px]" />
+                      <Mail className="h-[12px] w-[12px]" />
                       {opportunity.contactEmail}
                     </a>
                   )}
@@ -398,25 +412,34 @@ export function PipelineCard({
                   className="flex items-center gap-[8px]"
                 >
                   <div className="flex items-center gap-[4px]">
-                    <Mail className="w-[11px] h-[11px] text-text-mute" />
+                    <Mail className="h-[11px] w-[11px] text-text-mute" />
                     <span className="font-mono text-micro text-text-3">
-                      {opportunity.correspondenceCount} email{opportunity.correspondenceCount !== 1 ? "s" : ""}
+                      {opportunity.correspondenceCount} email
+                      {opportunity.correspondenceCount !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  <span className="text-text-mute font-mono text-micro">·</span>
+                  <span className="font-mono text-micro text-text-mute">·</span>
                   <span className="font-mono text-micro text-text-mute">
-                    {opportunity.inboundCount} in / {opportunity.outboundCount} out
+                    {opportunity.inboundCount} in / {opportunity.outboundCount}{" "}
+                    out
                   </span>
-                  {(opportunity.lastInboundAt || opportunity.lastOutboundAt) && (
+                  {(opportunity.lastInboundAt ||
+                    opportunity.lastOutboundAt) && (
                     <>
-                      <span className="text-text-mute font-mono text-micro">·</span>
                       <span className="font-mono text-micro text-text-mute">
-                        last {formatTimeAgo(
-                          opportunity.lastInboundAt && opportunity.lastOutboundAt
-                            ? (opportunity.lastInboundAt > opportunity.lastOutboundAt
-                                ? opportunity.lastInboundAt
-                                : opportunity.lastOutboundAt)
-                            : opportunity.lastInboundAt || opportunity.lastOutboundAt!
+                        ·
+                      </span>
+                      <span className="font-mono text-micro text-text-mute">
+                        last{" "}
+                        {formatTimeAgo(
+                          opportunity.lastInboundAt &&
+                            opportunity.lastOutboundAt
+                            ? opportunity.lastInboundAt >
+                              opportunity.lastOutboundAt
+                              ? opportunity.lastInboundAt
+                              : opportunity.lastOutboundAt
+                            : opportunity.lastInboundAt ||
+                                opportunity.lastOutboundAt!
                         )}
                       </span>
                     </>
@@ -430,6 +453,8 @@ export function PipelineCard({
                   opportunityId={opportunity.id}
                   stage={opportunity.stage}
                   canManage={canManage}
+                  canAssign={canAssign}
+                  canConvert={canConvert}
                   onLogCall={onLogCall}
                   onLogText={onLogText}
                   onAddNote={onAddNote}
@@ -461,7 +486,7 @@ export function PipelineCard({
                     e.stopPropagation();
                     onOpenDetail();
                   }}
-                  className="font-mohave text-body-sm text-text-2 hover:text-text transition-colors cursor-pointer"
+                  className="cursor-pointer font-mohave text-body-sm text-text-2 transition-colors hover:text-text"
                 >
                   {t("card.viewDetails")}
                 </button>

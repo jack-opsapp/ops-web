@@ -42,7 +42,10 @@ export const queryKeys = {
     list: (companyId: string, filters?: Record<string, unknown>) =>
       [...queryKeys.opportunities.lists(), companyId, filters] as const,
     details: () => [...queryKeys.opportunities.all, "detail"] as const,
-    detail: (id: string) => [...queryKeys.opportunities.details(), id] as const,
+    detail: (id: string, access?: Record<string, unknown>) =>
+      access
+        ? ([...queryKeys.opportunities.details(), id, access] as const)
+        : ([...queryKeys.opportunities.details(), id] as const),
     activities: (opportunityId: string) =>
       [...queryKeys.opportunities.all, "activities", opportunityId] as const,
     followUps: (opportunityId: string) =>
@@ -66,6 +69,12 @@ export const queryKeys = {
       [
         ...queryKeys.opportunities.all,
         "conversionPreflight",
+        opportunityId,
+      ] as const,
+    assignmentCandidates: (opportunityId: string) =>
+      [
+        ...queryKeys.opportunities.all,
+        "assignmentCandidates",
         opportunityId,
       ] as const,
     deckDesigns: (opportunityId: string) =>
@@ -206,6 +215,16 @@ export const queryKeys = {
     all: ["metrics"] as const,
     tab: (tabId: string, companyId: string) =>
       [...queryKeys.metrics.all, tabId, companyId] as const,
+    pipeline: (
+      companyId: string,
+      actorUserId: string,
+      viewScope: "all" | "assigned" | null
+    ) =>
+      [
+        ...queryKeys.metrics.all,
+        "pipeline",
+        { companyId, actorUserId, viewScope },
+      ] as const,
   },
 
   // Books (ledger instrument strip)

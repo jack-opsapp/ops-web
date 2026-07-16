@@ -148,13 +148,13 @@ describe("pipeline-table column model", () => {
       expect(isPipelineTableEditableColumn("value")).toBe(true);
       expect(isPipelineTableEditableColumn("next_follow_up")).toBe(true);
       expect(isPipelineTableEditableColumn("expected_close")).toBe(true);
-      expect(isPipelineTableEditableColumn("assignee")).toBe(true);
     });
 
     it("returns false for non-editable columns", () => {
       expect(isPipelineTableEditableColumn("stage")).toBe(false);
       expect(isPipelineTableEditableColumn("deal")).toBe(false);
       expect(isPipelineTableEditableColumn("select")).toBe(false);
+      expect(isPipelineTableEditableColumn("assignee")).toBe(false);
     });
 
     it("agrees with PIPELINE_TABLE_EDITABLE_COLUMN_IDS for every column id", () => {

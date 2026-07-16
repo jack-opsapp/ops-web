@@ -18,6 +18,8 @@ export interface SendPushParams {
   body: string;
   data?: Record<string, unknown>;
   imageUrl?: string;
+  /** Stable RFC 9562 UUID reused across retries of one logical send. */
+  idempotencyKey?: string;
 }
 
 export type SendPushResult =
@@ -51,6 +53,10 @@ export async function sendOneSignalPush(
     include_aliases: { external_id: params.recipientUserIds },
     target_channel: "push",
   };
+
+  if (params.idempotencyKey) {
+    payload.idempotency_key = params.idempotencyKey;
+  }
 
   if (params.data) {
     payload.data = params.data;

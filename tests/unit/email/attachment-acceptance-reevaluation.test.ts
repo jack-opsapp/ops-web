@@ -36,11 +36,15 @@ function makeSupabase(input: {
   client?: Row | null;
 }) {
   const filters: Array<{ table: string; column: string; value: unknown }> = [];
+  const selects: Array<{ table: string; columns: string }> = [];
   const rpc = vi.fn(async () => ({ data: null, error: null }));
 
   const from = vi.fn((table: string) => {
     const query: Record<string, unknown> = {};
-    query.select = () => query;
+    query.select = (columns: string) => {
+      selects.push({ table, columns });
+      return query;
+    };
     query.eq = (column: string, value: unknown) => {
       filters.push({ table, column, value });
       return query;
@@ -59,7 +63,7 @@ function makeSupabase(input: {
     return query;
   });
 
-  return { client: { from, rpc }, filters, rpc };
+  return { client: { from, rpc }, filters, selects, rpc };
 }
 
 const connection = {
@@ -104,18 +108,14 @@ beforeEach(() => {
 
 describe("evaluateOpportunityAcceptance", () => {
   it("re-evaluates a signed attachment and converts the exact mailbox lead", async () => {
-    const { client, filters, rpc } = makeSupabase({
+    const { client, filters, selects, rpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: false,
         client_id: "client-1",
-        assigned_to: "user-1",
         assignment_version: 7,
       },
-      thread: {
-        id: "thread-1",
-        provider_thread_id: "provider-thread-1",
-      },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
       client: { name: "North Shore Rail" },
     });
 
@@ -131,6 +131,10 @@ describe("evaluateOpportunityAcceptance", () => {
       column: "connection_id",
       value: "connection-1",
     });
+    expect(selects).toContainEqual({
+      table: "opportunities",
+      columns: "stage, stage_manually_set, client_id, assignment_version",
+    });
     expect(mocks.buildConversationState).toHaveBeenCalledWith("thread-1");
     expect(mocks.persistRoutingDecision).toHaveBeenCalledWith(
       "thread-1",
@@ -141,8 +145,8 @@ describe("evaluateOpportunityAcceptance", () => {
         opportunityId: "opportunity-1",
         companyId: "company-1",
         sourcePath: "email_accept",
-        expectedStage: "quoted",
         decidedBy: null,
+        expectedStage: "quoted",
         expectedAssignmentVersion: 7,
         evidence: {
           connection_id: "connection-1",
@@ -171,13 +175,9 @@ describe("evaluateOpportunityAcceptance", () => {
         stage: "quoted",
         stage_manually_set: false,
         client_id: null,
-        assigned_to: null,
         assignment_version: 0,
       },
-      thread: {
-        id: "thread-1",
-        provider_thread_id: "provider-thread-1",
-      },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
     });
 
     await evaluateOpportunityAcceptance({

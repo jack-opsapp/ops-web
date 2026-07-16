@@ -42,11 +42,17 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { useReducedMotion } from "framer-motion";
 import { Check, Plus, X } from "lucide-react";
 
 import { useDictionary } from "@/i18n/client";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import { toast } from "@/components/ui/toast";
 import { useTeamMembers } from "@/lib/hooks/use-users";
+import {
+  useLeadAssignment,
+  useLeadAssignmentCandidates,
+} from "@/lib/hooks/use-lead-assignment";
+import { LeadAssignmentConflictError } from "@/lib/api/services/lead-assignment-service";
 import { getUserFullName } from "@/lib/types/models";
 import {
   OpportunityPriority,
@@ -56,7 +62,10 @@ import {
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 import { UserAvatar } from "@/components/ops/user-avatar";
-import { Chip, type ChipVariant } from "@/components/ops/projects/workspace/atoms/chip";
+import {
+  Chip,
+  type ChipVariant,
+} from "@/components/ops/projects/workspace/atoms/chip";
 import { TextArea } from "@/components/ops/projects/workspace/atoms/text-area";
 import { AddressAutocomplete } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import type {
@@ -74,7 +83,7 @@ const EMPTY = "—";
 interface BaseFieldProps {
   /** The shared optimistic edit instance, owned by the parent. */
   edit: UseOpportunityFieldEdit;
-  /** Gates every edit affordance on `pipeline.manage`. */
+  /** Gates every edit affordance on this lead's effective edit access. */
   canManage: boolean;
   className?: string;
 }
@@ -132,7 +141,7 @@ export function EditPopover({
     const rawLeft = align === "end" ? rect.right - width : rect.left;
     const left = Math.min(
       Math.max(gutter, rawLeft),
-      Math.max(gutter, viewportW - width - gutter),
+      Math.max(gutter, viewportW - width - gutter)
     );
     setPosition({
       // When opening upward the panel is bottom-anchored via translateY below.
@@ -162,7 +171,7 @@ export function EditPopover({
     const trigger = anchorRef.current;
     const timeout = window.setTimeout(() => {
       const focusable = panelRef.current?.querySelector<HTMLElement>(
-        'input, textarea, select, button, [tabindex]:not([tabindex="-1"])',
+        'input, textarea, select, button, [tabindex]:not([tabindex="-1"])'
       );
       focusable?.focus();
     }, 0);
@@ -171,10 +180,7 @@ export function EditPopover({
       window.clearTimeout(timeout);
       // Only restore if focus is still inside the closing panel (avoid stealing
       // focus when the operator clicked elsewhere entirely).
-      if (
-        document.activeElement &&
-        panel?.contains(document.activeElement)
-      ) {
+      if (document.activeElement && panel?.contains(document.activeElement)) {
         trigger?.focus();
       }
     };
@@ -209,7 +215,7 @@ export function EditPopover({
       ref={panelRef}
       role="dialog"
       aria-label={ariaLabel}
-      className="glass-dense fixed z-[1000] overflow-y-auto scrollbar-hide rounded-modal border border-glass-border p-1.5"
+      className="glass-dense scrollbar-hide fixed z-[1000] overflow-y-auto rounded-modal border border-glass-border p-1.5"
       style={{
         top: position.top,
         left: position.left,
@@ -220,7 +226,7 @@ export function EditPopover({
     >
       {children}
     </div>,
-    document.body,
+    document.body
   );
 }
 
@@ -228,8 +234,8 @@ export function EditPopover({
 
 /**
  * The quiet save affordance for a single field. `saving` → a muted "saving…"
- * micro-label; `saved` → a brief olive dot; `error` → a rose dot. Opacity-only
- * so it satisfies `prefers-reduced-motion` without special-casing.
+ * micro-label; `saved` → a brief olive dot; `error` → a rose dot. The state is
+ * intentionally instantaneous, so it is safe under reduced-motion settings.
  */
 function SaveDot({
   state,
@@ -239,15 +245,14 @@ function SaveDot({
   className?: string;
 }) {
   const { t } = useDictionary("pipeline");
-  const reduceMotion = useReducedMotion();
   if (state === "idle") return null;
 
   if (state === "saving") {
     return (
       <span
         className={cn(
-          "font-mono text-[10px] uppercase tracking-[0.16em] text-text-mute",
-          className,
+          "font-mono text-micro uppercase tracking-[0.16em] text-text-mute",
+          className
         )}
         aria-live="polite"
       >
@@ -256,7 +261,6 @@ function SaveDot({
     );
   }
 
-  const tone = state === "saved" ? "var(--olive)" : "var(--rose)";
   return (
     <span
       role="status"
@@ -265,11 +269,11 @@ function SaveDot({
           ? t("band.saved", "Saved")
           : t("band.saveError", "Save failed")
       }
-      className={cn("inline-block h-[5px] w-[5px] rounded-full", className)}
-      style={{
-        backgroundColor: tone,
-        transition: reduceMotion ? "none" : "opacity 150ms cubic-bezier(0.22,1,0.36,1)",
-      }}
+      className={cn(
+        "inline-block h-0.5 w-0.5 rounded-full",
+        state === "saved" ? "bg-olive" : "bg-rose",
+        className
+      )}
     />
   );
 }
@@ -279,13 +283,13 @@ function SaveDot({
 /**
  * The standard inline edit trigger: a left-aligned button that reveals its
  * editor on click, brightens on hover, and shows the OPS focus ring. Used by
- * the popover-backed fields (currency / source / priority / date / owner).
+ * the popover-backed fields (currency / source / priority / date / assignee).
  */
 const triggerClass = cn(
-  "group inline-flex max-w-full items-center gap-1.5 rounded-[5px] px-1 py-0.5 text-left",
+  "group inline-flex max-w-full items-center gap-1.5 rounded px-1 py-0.5 text-left",
   "outline-none transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
   "hover:bg-surface-hover focus-visible:bg-surface-hover",
-  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
 );
 
 /** A read-only display value with the `—` sentinel for empty. */
@@ -305,7 +309,7 @@ function ReadOnlyValue({
   );
 }
 
-// ─── Option list (shared by source / priority / owner) ───────────────────────────
+// ─── Option list (shared by source / priority / assignee) ────────────────────────
 
 interface OptionRowProps {
   selected: boolean;
@@ -321,7 +325,7 @@ function OptionRow({ selected, onSelect, children, clear }: OptionRowProps) {
       type="button"
       role="option"
       aria-selected={selected}
-      data-owner-clear={clear ? "true" : undefined}
+      data-assignee-clear={clear ? "true" : undefined}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -331,11 +335,13 @@ function OptionRow({ selected, onSelect, children, clear }: OptionRowProps) {
         "flex h-9 w-full min-w-0 items-center gap-2 rounded-[5px] px-2 text-left",
         "font-mohave text-[14px] transition-colors duration-100",
         "hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
-        selected ? "bg-surface-active text-text" : "text-text-2",
+        selected ? "bg-surface-active text-text" : "text-text-2"
       )}
     >
       <span className="flex w-3.5 shrink-0 items-center justify-center">
-        {selected ? <Check className="h-3.5 w-3.5 text-ops-accent" strokeWidth={1.5} /> : null}
+        {selected ? (
+          <Check className="h-3.5 w-3.5 text-ops-accent" strokeWidth={1.5} />
+        ) : null}
       </span>
       <span className="min-w-0 flex-1 truncate">{children}</span>
     </button>
@@ -365,7 +371,13 @@ export function CurrencyField({
 
   if (!canManage) {
     return (
-      <ReadOnlyValue empty={value == null} className={cn("font-mono tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]", className)}>
+      <ReadOnlyValue
+        empty={value == null}
+        className={cn(
+          "font-mono tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]",
+          className
+        )}
+      >
         {value == null ? null : formatCurrency(value)}
       </ReadOnlyValue>
     );
@@ -441,7 +453,7 @@ export function CurrencyField({
             "h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mono text-[14px] tabular-nums text-text [font-feature-settings:'tnum'_1,'zero'_1]",
             "outline-none transition-colors duration-150 placeholder:text-text-mute",
-            "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent",
+            "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent"
           )}
         />
       </EditPopover>
@@ -453,7 +465,7 @@ export function CurrencyField({
 
 function useEnumPicker<T extends string>(
   field: EditableOpportunityField,
-  edit: UseOpportunityFieldEdit,
+  edit: UseOpportunityFieldEdit
 ) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -462,7 +474,7 @@ function useEnumPicker<T extends string>(
       void edit.commit(field, next);
       setOpen(false);
     },
-    [edit, field],
+    [edit, field]
   );
   return { open, setOpen, triggerRef, select };
 }
@@ -488,17 +500,18 @@ export function SourceField({
   className,
 }: BaseFieldProps & { value: OpportunitySource | null }) {
   const { t } = useDictionary("pipeline");
-  const { open, setOpen, triggerRef, select } = useEnumPicker<OpportunitySource>(
-    "source",
-    edit,
-  );
+  const { open, setOpen, triggerRef, select } =
+    useEnumPicker<OpportunitySource>("source", edit);
 
   const label = (src: OpportunitySource) =>
     t(`band.source.${src}`, SOURCE_FALLBACK_LABELS[src]);
 
   if (!canManage) {
     return (
-      <ReadOnlyValue empty={value == null} className={cn("font-mohave text-[14px] text-text-2", className)}>
+      <ReadOnlyValue
+        empty={value == null}
+        className={cn("font-mohave text-[14px] text-text-2", className)}
+      >
         {value == null ? null : label(value)}
       </ReadOnlyValue>
     );
@@ -529,15 +542,17 @@ export function SourceField({
         width={220}
       >
         <div role="listbox" aria-label={t("band.sourceLabel", "Source")}>
-          {(Object.values(OpportunitySource) as OpportunitySource[]).map((src) => (
-            <OptionRow
-              key={src}
-              selected={value === src}
-              onSelect={() => select(src)}
-            >
-              {label(src)}
-            </OptionRow>
-          ))}
+          {(Object.values(OpportunitySource) as OpportunitySource[]).map(
+            (src) => (
+              <OptionRow
+                key={src}
+                selected={value === src}
+                onSelect={() => select(src)}
+              >
+                {label(src)}
+              </OptionRow>
+            )
+          )}
           <div className="my-1 h-px bg-glass-border" />
           <OptionRow selected={false} clear onSelect={() => select(null)}>
             <span className="text-text-3">{t("band.clear", "Clear")}</span>
@@ -570,10 +585,8 @@ export function PriorityField({
   className,
 }: BaseFieldProps & { value: OpportunityPriority | null }) {
   const { t } = useDictionary("pipeline");
-  const { open, setOpen, triggerRef, select } = useEnumPicker<OpportunityPriority>(
-    "priority",
-    edit,
-  );
+  const { open, setOpen, triggerRef, select } =
+    useEnumPicker<OpportunityPriority>("priority", edit);
 
   const label = (p: OpportunityPriority) =>
     t(`band.priority.${p}`, PRIORITY_FALLBACK_LABELS[p]);
@@ -588,7 +601,9 @@ export function PriorityField({
     );
 
   if (!canManage) {
-    return <span className={cn("inline-flex items-center", className)}>{chip}</span>;
+    return (
+      <span className={cn("inline-flex items-center", className)}>{chip}</span>
+    );
   }
 
   return (
@@ -621,7 +636,11 @@ export function PriorityField({
               OpportunityPriority.Low,
             ] as OpportunityPriority[]
           ).map((p) => (
-            <OptionRow key={p} selected={value === p} onSelect={() => select(p)}>
+            <OptionRow
+              key={p}
+              selected={value === p}
+              onSelect={() => select(p)}
+            >
               <Chip variant={PRIORITY_CHIP_VARIANT[p]}>{label(p)}</Chip>
             </OptionRow>
           ))}
@@ -660,7 +679,13 @@ export function DateField({
 
   if (!canManage) {
     return (
-      <ReadOnlyValue empty={value == null} className={cn("font-mono text-[13px] tabular-nums text-text-2 [font-feature-settings:'tnum'_1,'zero'_1]", className)}>
+      <ReadOnlyValue
+        empty={value == null}
+        className={cn(
+          "font-mono text-[13px] tabular-nums text-text-2 [font-feature-settings:'tnum'_1,'zero'_1]",
+          className
+        )}
+      >
         {value == null ? null : display}
       </ReadOnlyValue>
     );
@@ -689,7 +714,7 @@ export function DateField({
         onClick={() => setOpen((o) => !o)}
         className={triggerClass}
       >
-        <span className="truncate font-mono text-[13px] tabular-nums text-text-2 group-hover:text-text [font-feature-settings:'tnum'_1,'zero'_1]">
+        <span className="truncate font-mono text-[13px] tabular-nums text-text-2 [font-feature-settings:'tnum'_1,'zero'_1] group-hover:text-text">
           {display}
         </span>
       </button>
@@ -712,7 +737,7 @@ export function DateField({
             "font-mono text-[13px] tabular-nums text-text [font-feature-settings:'tnum'_1,'zero'_1]",
             "outline-none transition-colors duration-150",
             "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent",
-            "[color-scheme:dark]",
+            "[color-scheme:dark]"
           )}
         />
       </EditPopover>
@@ -720,112 +745,184 @@ export function DateField({
   );
 }
 
-// ─── OwnerField ──────────────────────────────────────────────────────────────────
+// ─── AssigneeField ───────────────────────────────────────────────────────────────
 
-export function OwnerField({
-  edit,
-  canManage,
+export function AssigneeField({
+  opportunityId,
+  assignmentVersion,
+  canAssign,
   value,
   className,
-}: BaseFieldProps & { value: string | null }) {
+}: {
+  opportunityId: string;
+  assignmentVersion: number;
+  canAssign: boolean;
+  value: string | null;
+  className?: string;
+}) {
   const { t } = useDictionary("pipeline");
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [saveState, setSaveState] = useState<FieldSaveState>("idle");
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const assignment = useLeadAssignment();
+  const candidatesQuery = useLeadAssignmentCandidates(
+    opportunityId,
+    open && canAssign
+  );
 
-  // Load members lazily — only while the picker is open (cheap closed state).
   const teamQuery = useTeamMembers(undefined, {
-    enabled: open || canManage,
+    // The ordinary team query is display-only. Picker rows always come from the
+    // guarded candidate RPC, which owns eligibility and scope enforcement.
+    enabled: value !== null,
     staleTime: 5 * 60 * 1000,
   });
 
   const members = useMemo(
     () =>
-      (teamQuery.data?.users ?? [])
-        .filter((user) => user.isActive !== false)
-        .map((user) => ({
-          id: user.id,
-          name: getUserFullName(user),
-          imageUrl: user.profileImageURL,
-        })),
-    [teamQuery.data?.users],
+      (teamQuery.data?.users ?? []).map((user) => ({
+        id: user.id,
+        name: getUserFullName(user),
+        imageUrl: user.profileImageURL,
+      })),
+    [teamQuery.data?.users]
   );
 
   const current = members.find((m) => m.id === value) ?? null;
   const unassignedLabel = t("band.unassigned", "Unassigned");
 
+  useEffect(
+    () => () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    },
+    []
+  );
+
+  const candidateName = useCallback(
+    (candidate: { firstName: string | null; lastName: string | null }) =>
+      [candidate.firstName, candidate.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || t("band.unknownAssignee", "Unknown"),
+    [t]
+  );
+
+  const changeAssignee = useCallback(
+    async (newAssignedTo: string | null) => {
+      if (newAssignedTo === value || assignment.isPending) return;
+
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+      setSaveState("saving");
+      try {
+        await assignment.mutateAsync({
+          opportunityId,
+          expectedAssignedTo: value,
+          expectedAssignmentVersion: assignmentVersion,
+          newAssignedTo,
+          source: "manual",
+        });
+        setSaveState("saved");
+        resetTimerRef.current = setTimeout(() => setSaveState("idle"), 1_500);
+      } catch (error) {
+        setSaveState("error");
+        if (error instanceof LeadAssignmentConflictError) {
+          toast.error(
+            t(
+              "band.assignmentConflict",
+              "Lead assignment changed. Review and try again."
+            )
+          );
+        } else {
+          toast.error(t("band.assignmentFailed", "Assignment not changed"));
+        }
+      }
+    },
+    [assignment, assignmentVersion, opportunityId, t, value]
+  );
+
   const display = (
     <span className="inline-flex min-w-0 items-center gap-1.5">
       {current ? (
         <>
-          <UserAvatar name={current.name} imageUrl={current.imageUrl} size="sm" />
-          <span className="truncate font-mohave text-[14px] text-text-2">
+          <UserAvatar
+            name={current.name}
+            imageUrl={current.imageUrl}
+            size="sm"
+          />
+          <span className="truncate font-mohave text-card-body text-text-2">
             {current.name}
           </span>
         </>
       ) : (
-        <span className="truncate font-mohave text-[14px] text-text-3">
-          {value == null ? unassignedLabel : t("band.unknownOwner", "Unknown")}
+        <span className="truncate font-mohave text-card-body text-text-3">
+          {value == null
+            ? unassignedLabel
+            : t("band.unknownAssignee", "Unknown")}
         </span>
       )}
     </span>
   );
 
-  if (!canManage) {
-    return <span className={cn("inline-flex min-w-0 items-center", className)}>{display}</span>;
+  if (!canAssign) {
+    return (
+      <span className={cn("inline-flex min-w-0 items-center", className)}>
+        {display}
+      </span>
+    );
   }
 
-  function select(userId: string | null) {
-    void edit.commit("assignedTo", userId);
-    setOpen(false);
-  }
+  const candidates = candidatesQuery.data?.candidates ?? [];
 
   return (
-    <span className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label={t("band.ownerLabel", "Owner")}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className={cn(triggerClass, "min-w-0")}
-      >
-        {display}
-      </button>
-      <SaveDot state={edit.saveState("assignedTo")} />
-
-      <EditPopover
-        open={open}
-        onClose={() => setOpen(false)}
-        anchorRef={triggerRef}
-        ariaLabel={t("band.ownerLabel", "Owner")}
-        width={240}
-      >
-        <div role="listbox" aria-label={t("band.ownerLabel", "Owner")}>
-          <OptionRow selected={value == null} clear onSelect={() => select(null)}>
-            <span className="text-text-3">{unassignedLabel}</span>
-          </OptionRow>
-          <div className="my-1 h-px bg-glass-border" />
-          {members.map((member) => (
-            <OptionRow
-              key={member.id}
-              selected={member.id === value}
-              onSelect={() => select(member.id)}
-            >
-              <span className="inline-flex min-w-0 items-center gap-2">
-                <UserAvatar name={member.name} imageUrl={member.imageUrl} size="sm" />
-                <span className="truncate">{member.name}</span>
-              </span>
-            </OptionRow>
-          ))}
-          {members.length === 0 ? (
-            <p className="px-2 py-2 font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
-              {t("band.noTeam", "No team members")}
-            </p>
-          ) : null}
-        </div>
-      </EditPopover>
-    </span>
+    <EntityPicker
+      trigger={
+        <button
+          type="button"
+          aria-label={t("band.changeAssignee", "Assign lead")}
+          disabled={assignment.isPending}
+          className={cn(
+            "inline-flex min-w-0 items-center gap-1.5 rounded px-1 py-0.5 text-left",
+            "transition-colors duration-150 hover:bg-surface-hover",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+            "disabled:cursor-wait disabled:opacity-60",
+            className
+          )}
+        >
+          {display}
+          <SaveDot state={saveState} />
+        </button>
+      }
+      items={candidates}
+      getId={(candidate) => candidate.id}
+      getLabel={candidateName}
+      getAvatar={(candidate) => ({
+        name: candidateName(candidate),
+        imageUrl: candidate.profileImageUrl,
+      })}
+      label={t("band.changeAssignee", "Assign lead")}
+      value={value}
+      onChange={(next) => {
+        void changeAssignee(next);
+      }}
+      noneOption={candidatesQuery.data?.canUnassign === true}
+      noneLabel={t("band.unassign", "Unassign")}
+      searchPlaceholder={t("band.assigneeSearch", "Search team")}
+      clearLabel={t("band.clear", "Clear")}
+      emptyLabel={
+        candidatesQuery.isLoading
+          ? t("band.loadingAssignees", "Loading team…")
+          : t("band.noEligibleAssignees", "No eligible team members")
+      }
+      error={
+        candidatesQuery.isError
+          ? t("band.assigneeLoadFailed", "Team unavailable")
+          : undefined
+      }
+      open={open}
+      onOpenChange={setOpen}
+      align="start"
+      size="md"
+      contentClassName="z-modal"
+    />
   );
 }
 
@@ -847,7 +944,9 @@ export function TagsField({
 
   if (!canManage) {
     return (
-      <span className={cn("inline-flex flex-wrap items-center gap-1", className)}>
+      <span
+        className={cn("inline-flex flex-wrap items-center gap-1", className)}
+      >
         {tags.length === 0 ? (
           <span className="text-text-3">{EMPTY}</span>
         ) : (
@@ -875,7 +974,7 @@ export function TagsField({
   function removeTag(tag: string) {
     void edit.commit(
       "tags",
-      tags.filter((existing) => existing !== tag),
+      tags.filter((existing) => existing !== tag)
     );
   }
 
@@ -907,7 +1006,7 @@ export function TagsField({
           "inline-flex h-[18px] items-center gap-1 rounded-chip border border-dashed border-glass-border px-1.5",
           "font-mono text-[10px] uppercase tracking-[0.12em] text-text-3",
           "transition-colors duration-150 hover:border-glass-border-medium hover:text-text-2",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
         )}
       >
         <Plus className="h-2.5 w-2.5" strokeWidth={2} />
@@ -933,7 +1032,7 @@ export function TagsField({
           className={cn(
             "h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mohave text-[14px] text-text outline-none transition-colors duration-150 placeholder:text-text-mute",
-            "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent",
+            "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent"
           )}
         />
         {tags.length > 0 ? (
@@ -988,7 +1087,7 @@ export function TextAreaField({
       <p
         className={cn(
           "whitespace-pre-wrap font-mohave text-[14px] leading-[1.55] text-text-2",
-          className,
+          className
         )}
       >
         {empty ? <span className="text-text-3">{EMPTY}</span> : value}
@@ -1043,7 +1142,13 @@ export function AddressField({
   canManage,
   value,
   className,
-}: BaseFieldProps & { value: { address: string | null; latitude: number | null; longitude: number | null } }) {
+}: BaseFieldProps & {
+  value: {
+    address: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  };
+}) {
   const { t } = useDictionary("pipeline");
 
   const proximity =
@@ -1055,7 +1160,10 @@ export function AddressField({
     const empty = (value.address ?? "").trim().length === 0;
     return (
       <p
-        className={cn("font-mohave text-[14px] leading-[1.5] text-text-2", className)}
+        className={cn(
+          "font-mohave text-[14px] leading-[1.5] text-text-2",
+          className
+        )}
       >
         {empty ? <span className="text-text-3">{EMPTY}</span> : value.address}
       </p>
@@ -1068,7 +1176,9 @@ export function AddressField({
         value={value.address ?? ""}
         proximity={proximity}
         portalListbox
-        onChange={(selection: AddressEditValue) => edit.commit("address", selection)}
+        onChange={(selection: AddressEditValue) =>
+          edit.commit("address", selection)
+        }
         ariaLabel={t("detail.addressLabel", "Address")}
       />
       <SaveDot

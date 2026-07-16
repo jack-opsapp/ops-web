@@ -50,6 +50,8 @@ function makeActionRow(overrides: Record<string, unknown> = {}) {
     action_type: "create_project",
     action_data: {
       source_opportunity_id: "opp-9",
+      source_assignment_version: 6,
+      source_thread_id: "thread-9",
       scope: "Tear-off + re-shingle",
       // A title is present in the proposal but is irrelevant on the conversion
       // path — the project is auto-named by the DB trigger.
@@ -76,40 +78,76 @@ function makeActionRow(overrides: Record<string, unknown> = {}) {
 }
 
 function makeFakeSupabase() {
+  const row = makeActionRow();
+  let pendingUpdate: Record<string, unknown> | null = null;
   const builder: Record<string, unknown> = {};
   Object.assign(builder, {
-    update: () => builder,
+    update: (payload: Record<string, unknown>) => {
+      pendingUpdate = payload;
+      return builder;
+    },
     eq: () => builder,
     select: () => builder,
-    single: async () => ({ data: makeActionRow(), error: null }),
+    single: async () => {
+      if (pendingUpdate) {
+        Object.assign(row, pendingUpdate);
+        pendingUpdate = null;
+      }
+      return { data: { ...row }, error: null };
+    },
   });
-  return { from: () => builder };
+  return { client: { from: () => builder }, row };
 }
+
+let fakeSupabase: ReturnType<typeof makeFakeSupabase>;
 
 beforeEach(() => {
   requireSupabaseMock.mockReset();
   convertMock.mockClear();
-  requireSupabaseMock.mockReturnValue(makeFakeSupabase());
+  fakeSupabase = makeFakeSupabase();
+  requireSupabaseMock.mockReturnValue(fakeSupabase.client);
 });
 
 describe("approval-queue create_project — no force-win", () => {
   it("routes an opportunity-sourced proposal through convert with sourcePath=approval_queue + scope seed", async () => {
-    await ApprovalQueueService.approveAction("act-1", "co-1", "user-1");
+    await ApprovalQueueService.approveAction("act-1", "co-1", "reviewer-1");
 
     expect(convertMock).toHaveBeenCalledTimes(1);
     const args = convertMock.mock.calls[0][0];
     expect(args.sourcePath).toBe("approval_queue");
     expect(args.opportunityId).toBe("opp-9");
     expect(args.notesSeed).toBe("Tear-off + re-shingle");
+    expect(args.decidedBy).toBe("reviewer-1");
+    expect(args.expectedAssignmentVersion).toBe(6);
+    expect(args.evidence).toEqual({
+      agent_action_id: "act-1",
+      approval_mode: "operator_approved",
+    });
   });
 
   it("passes NO winning override — the win/no-win decision is the service's (won_dialog only)", async () => {
-    await ApprovalQueueService.approveAction("act-1", "co-1", "user-1");
+    await ApprovalQueueService.approveAction("act-1", "co-1", "reviewer-1");
 
     const args = convertMock.mock.calls[0][0];
     // The approval queue must not smuggle in a win flag; win is derived from
     // sourcePath inside the service (approval_queue ⇒ false).
     expect(args.winOpportunity).toBeUndefined();
     expect(args.expectedStage).toBeUndefined();
+  });
+
+  it("fails closed for autonomous opportunity conversion instead of impersonating the proposer", async () => {
+    await expect(
+      ApprovalQueueService.approveAction(
+        "act-1",
+        "co-1",
+        "reviewer-1",
+        undefined,
+        { learningAuthority: "autonomous" }
+      )
+    ).rejects.toThrow(/autonomous opportunity conversion/i);
+    expect(convertMock).not.toHaveBeenCalled();
+    expect(fakeSupabase.row.status).toBe("pending");
+    expect(fakeSupabase.row.reviewed_by).toBeNull();
+    expect(fakeSupabase.row.reviewed_at).toBeNull();
   });
 });

@@ -65,6 +65,7 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
     stage: OpportunityStage.Quoting,
     source: OpportunitySource.Referral,
     assignedTo: "user-1",
+    assignmentVersion: 1,
     priority: OpportunityPriority.High,
     estimatedValue: 50000,
     actualValue: null,
@@ -107,7 +108,7 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
  * `defaultWinProbability` / `staleThresholdDays`.
  */
 function makeStageConfig(
-  overrides: Partial<PipelineStageConfig> & { slug: string },
+  overrides: Partial<PipelineStageConfig> & { slug: string }
 ): PipelineStageConfig {
   return {
     id: `cfg-${overrides.slug}`,
@@ -188,7 +189,7 @@ describe("resolveWinProbability", () => {
       winProbability: 0,
     });
     const fallback = PIPELINE_STAGES_DEFAULT.find(
-      (s) => s.slug === "quoting",
+      (s) => s.slug === "quoting"
     )!.winProbability;
 
     expect(resolveWinProbability(opp, undefined)).toEqual({
@@ -291,31 +292,31 @@ describe("isSevereRotting", () => {
 describe("isFollowUpOverdue", () => {
   it("is true for a past follow-up on an active stage", () => {
     expect(
-      isFollowUpOverdue(daysBeforeNow(1), OpportunityStage.Quoting, NOW),
+      isFollowUpOverdue(daysBeforeNow(1), OpportunityStage.Quoting, NOW)
     ).toBe(true);
   });
 
   it("is false for a future follow-up", () => {
     expect(
-      isFollowUpOverdue(daysAfterNow(1), OpportunityStage.Quoting, NOW),
+      isFollowUpOverdue(daysAfterNow(1), OpportunityStage.Quoting, NOW)
     ).toBe(false);
   });
 
   it("is false on a Won stage even when the date is past", () => {
-    expect(
-      isFollowUpOverdue(daysBeforeNow(5), OpportunityStage.Won, NOW),
-    ).toBe(false);
+    expect(isFollowUpOverdue(daysBeforeNow(5), OpportunityStage.Won, NOW)).toBe(
+      false
+    );
   });
 
   it("is false on a Lost stage even when the date is past", () => {
     expect(
-      isFollowUpOverdue(daysBeforeNow(5), OpportunityStage.Lost, NOW),
+      isFollowUpOverdue(daysBeforeNow(5), OpportunityStage.Lost, NOW)
     ).toBe(false);
   });
 
   it("is false on a Discarded stage even when the date is past", () => {
     expect(
-      isFollowUpOverdue(daysBeforeNow(5), OpportunityStage.Discarded, NOW),
+      isFollowUpOverdue(daysBeforeNow(5), OpportunityStage.Discarded, NOW)
     ).toBe(false);
   });
 
@@ -328,8 +329,8 @@ describe("isFollowUpOverdue", () => {
       isFollowUpOverdue(
         daysBeforeNow(2).toISOString(),
         OpportunityStage.Negotiation,
-        NOW,
-      ),
+        NOW
+      )
     ).toBe(true);
   });
 });
@@ -339,31 +340,31 @@ describe("isFollowUpOverdue", () => {
 describe("isCloseOverdue", () => {
   it("is true for a past expected-close on an active stage", () => {
     expect(
-      isCloseOverdue(daysBeforeNow(1), OpportunityStage.Quoting, NOW),
+      isCloseOverdue(daysBeforeNow(1), OpportunityStage.Quoting, NOW)
     ).toBe(true);
   });
 
   it("is false for a future expected-close", () => {
-    expect(
-      isCloseOverdue(daysAfterNow(3), OpportunityStage.Quoting, NOW),
-    ).toBe(false);
+    expect(isCloseOverdue(daysAfterNow(3), OpportunityStage.Quoting, NOW)).toBe(
+      false
+    );
   });
 
   it("is false on a Won stage even when the date is past", () => {
-    expect(
-      isCloseOverdue(daysBeforeNow(5), OpportunityStage.Won, NOW),
-    ).toBe(false);
+    expect(isCloseOverdue(daysBeforeNow(5), OpportunityStage.Won, NOW)).toBe(
+      false
+    );
   });
 
   it("is false on a Lost stage even when the date is past", () => {
-    expect(
-      isCloseOverdue(daysBeforeNow(5), OpportunityStage.Lost, NOW),
-    ).toBe(false);
+    expect(isCloseOverdue(daysBeforeNow(5), OpportunityStage.Lost, NOW)).toBe(
+      false
+    );
   });
 
   it("is false on a Discarded stage even when the date is past", () => {
     expect(
-      isCloseOverdue(daysBeforeNow(5), OpportunityStage.Discarded, NOW),
+      isCloseOverdue(daysBeforeNow(5), OpportunityStage.Discarded, NOW)
     ).toBe(false);
   });
 
@@ -403,9 +404,18 @@ describe("mapOpportunityToTableRow", () => {
     });
 
     const stageConfigBySlug = new Map<string, PipelineStageConfig>([
-      ["quoting", makeStageConfig({ slug: "quoting", defaultWinProbability: 35, staleThresholdDays: 5 })],
+      [
+        "quoting",
+        makeStageConfig({
+          slug: "quoting",
+          defaultWinProbability: 35,
+          staleThresholdDays: 5,
+        }),
+      ],
     ]);
-    const clientNameMap = new Map<string, string>([["client-7", "Maple Holdings"]]);
+    const clientNameMap = new Map<string, string>([
+      ["client-7", "Maple Holdings"],
+    ]);
     const assigneeNameMap = new Map<string, string>([["user-3", "Sam Okafor"]]);
 
     const row = mapOpportunityToTableRow(opp, {
@@ -460,7 +470,10 @@ describe("mapOpportunityToTableRow", () => {
       winProbability: 75,
     });
     const stageConfigBySlug = new Map<string, PipelineStageConfig>([
-      ["negotiation", makeStageConfig({ slug: "negotiation", defaultWinProbability: 50 })],
+      [
+        "negotiation",
+        makeStageConfig({ slug: "negotiation", defaultWinProbability: 50 }),
+      ],
     ]);
 
     const row = mapOpportunityToTableRow(opp, {
@@ -523,7 +536,7 @@ describe("mapOpportunityToTableRow", () => {
 describe("canConvertOpportunity", () => {
   it("is true for a won deal that has not been converted", () => {
     expect(
-      canConvertOpportunity({ stage: OpportunityStage.Won, projectId: null }),
+      canConvertOpportunity({ stage: OpportunityStage.Won, projectId: null })
     ).toBe(true);
   });
 
@@ -532,7 +545,7 @@ describe("canConvertOpportunity", () => {
       canConvertOpportunity({
         stage: OpportunityStage.Won,
         projectId: "project-123",
-      }),
+      })
     ).toBe(false);
   });
 
@@ -555,7 +568,7 @@ describe("canConvertOpportunity", () => {
   it("treats only a strictly-null projectId as not-yet-converted", () => {
     // An empty-string id still means a project exists — never offer convert.
     expect(
-      canConvertOpportunity({ stage: OpportunityStage.Won, projectId: "" }),
+      canConvertOpportunity({ stage: OpportunityStage.Won, projectId: "" })
     ).toBe(false);
   });
 });

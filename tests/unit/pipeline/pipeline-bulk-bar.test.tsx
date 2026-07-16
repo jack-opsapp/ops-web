@@ -1,33 +1,59 @@
 import React, { type ReactNode } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpportunityStage } from "@/lib/types/pipeline";
 import type { PipelineTableRow } from "@/lib/types/pipeline-table";
+import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 // The bulk bar fans out to OpportunityService.{updateOpportunity,
 // archiveOpportunity, unarchiveOpportunity} (via the hooks) and
-// UserService.fetchAllUsers (via useTeamMembers). Mock just those barrel methods.
+// guarded lead-assignment service. Mock just those barrel methods.
 const {
   updateOpportunity,
   archiveOpportunity,
   unarchiveOpportunity,
-  fetchAllUsers,
+  listCandidates,
+  changeAssignment,
 } = vi.hoisted(() => ({
   updateOpportunity: vi.fn(),
   archiveOpportunity: vi.fn(),
   unarchiveOpportunity: vi.fn(),
-  fetchAllUsers: vi.fn(),
+  listCandidates: vi.fn(),
+  changeAssignment: vi.fn(),
 }));
 
-vi.mock("@/lib/api/services", () => ({
+vi.mock("@/lib/firebase/auth", () => ({ getIdToken: vi.fn() }));
+
+vi.mock("@/lib/api/services/lead-assignment-service", () => {
+  class LeadAssignmentConflictError extends Error {
+    assignedTo: string | null;
+    assignmentVersion: number;
+    constructor(assignedTo: string | null, assignmentVersion: number) {
+      super("conflict");
+      this.assignedTo = assignedTo;
+      this.assignmentVersion = assignmentVersion;
+    }
+  }
+  return {
+    LeadAssignmentConflictError,
+    LeadAssignmentService: { changeAssignment, listCandidates },
+  };
+});
+
+vi.mock("@/lib/api/services/opportunity-service", () => ({
   OpportunityService: {
     updateOpportunity,
     archiveOpportunity,
     unarchiveOpportunity,
   },
-  UserService: { fetchAllUsers },
 }));
 
 const { toastSuccess, toastError } = vi.hoisted(() => ({
@@ -47,7 +73,8 @@ vi.mock("@/i18n/client", () => ({
       ({
         "table.bulk.selectedCount": "// {count} SELECTED",
         "table.bulk.selectAll": "Select all {count}",
-        "table.bulk.reassign": "Reassign owner",
+        "table.bulk.reassign": "Reassign assignee",
+        "table.bulk.selectAssignee": "Select assignee",
         "table.bulk.unassign": "— Unassigned —",
         "table.bulk.setFollowUp": "Set follow-up",
         "table.bulk.changePriority": "Set priority",
@@ -56,13 +83,14 @@ vi.mock("@/i18n/client", () => ({
         "table.bulk.priorityHigh": "High",
         "table.bulk.archive": "Archive",
         "table.bulk.clear": "Clear",
-        "table.bulk.reassignDone": "Owner set on {count} deals",
+        "table.bulk.reassignDone": "Assignee set on {count} deals",
         "table.bulk.setFollowUpDone": "Follow-up set on {count} deals",
         "table.bulk.priorityDone": "Priority set on {count} deals",
         "table.bulk.archiveDone": "{count} deals archived",
-        "table.bulk.partialFailure": "Updated {success} of {total}. {failed} failed.",
+        "table.bulk.partialFailure":
+          "Updated {success} of {total}. {failed} failed.",
         "table.bulk.failure": "Nothing updated. Try again.",
-        "table.bulk.undoReassign": "Owner restored on {count} deals",
+        "table.bulk.undoReassign": "Assignee restored on {count} deals",
         "table.bulk.undoFollowUp": "Follow-up restored on {count} deals",
         "table.bulk.undoPriority": "Priority restored on {count} deals",
         "table.bulk.undoArchive": "{count} deals restored",
@@ -76,7 +104,9 @@ import { PipelineBulkBar } from "@/app/(dashboard)/pipeline/_components/table/pi
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
-function makeRow(overrides: Partial<PipelineTableRow> & { id: string }): PipelineTableRow {
+function makeRow(
+  overrides: Partial<PipelineTableRow> & { id: string }
+): PipelineTableRow {
   return {
     companyId: "co-1",
     title: `Deal ${overrides.id}`,
@@ -91,6 +121,7 @@ function makeRow(overrides: Partial<PipelineTableRow> & { id: string }): Pipelin
     nextFollowUpAt: null,
     expectedCloseDate: null,
     assignedTo: null,
+    assignmentVersion: 0,
     assigneeName: null,
     source: null,
     priority: null,
@@ -105,10 +136,44 @@ function makeRow(overrides: Partial<PipelineTableRow> & { id: string }): Pipelin
 }
 
 const rows: PipelineTableRow[] = [
-  makeRow({ id: "opp-1", assignedTo: "old-owner-1", priority: "low", nextFollowUpAt: "2026-06-10T00:00:00.000Z" }),
-  makeRow({ id: "opp-2", assignedTo: "old-owner-2", priority: "medium", nextFollowUpAt: null }),
-  makeRow({ id: "opp-3", assignedTo: null, priority: "high", nextFollowUpAt: "2026-07-01T00:00:00.000Z" }),
+  makeRow({
+    id: "opp-1",
+    assignedTo: "old-assignee-1",
+    assignmentVersion: 4,
+    priority: "low",
+    nextFollowUpAt: "2026-06-10T00:00:00.000Z",
+  }),
+  makeRow({
+    id: "opp-2",
+    assignedTo: "old-assignee-2",
+    assignmentVersion: 8,
+    priority: "medium",
+    nextFollowUpAt: null,
+  }),
+  makeRow({
+    id: "opp-3",
+    assignedTo: null,
+    priority: "high",
+    nextFollowUpAt: "2026-07-01T00:00:00.000Z",
+  }),
 ];
+
+const FULL_ACCESS: LeadAccess = {
+  canView: true,
+  canEdit: true,
+  canAssign: true,
+  canUnassign: true,
+  canConvert: true,
+};
+
+function accessMap(overrides: Record<string, Partial<LeadAccess>> = {}) {
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      { ...FULL_ACCESS, ...overrides[row.id] } satisfies LeadAccess,
+    ])
+  );
+}
 
 function makeWrapper() {
   const queryClient = new QueryClient({
@@ -118,11 +183,15 @@ function makeWrapper() {
     },
   });
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
   };
 }
 
-function renderBar(props?: Partial<React.ComponentProps<typeof PipelineBulkBar>>) {
+function renderBar(
+  props?: Partial<React.ComponentProps<typeof PipelineBulkBar>>
+) {
   const onClearSelection = vi.fn();
   const onSelectAllRendered = vi.fn();
   const selectedIds = props?.selectedIds ?? new Set(rows.map((r) => r.id));
@@ -132,13 +201,14 @@ function renderBar(props?: Partial<React.ComponentProps<typeof PipelineBulkBar>>
       <PipelineBulkBar
         selectedRows={rows}
         selectedIds={selectedIds}
+        leadAccessById={accessMap()}
         renderedRowCount={rows.length}
         allRenderedSelected={true}
         onClearSelection={onClearSelection}
         onSelectAllRendered={onSelectAllRendered}
         {...props}
       />
-    </Wrapper>,
+    </Wrapper>
   );
   return { ...utils, onClearSelection, onSelectAllRendered };
 }
@@ -147,10 +217,32 @@ beforeEach(() => {
   updateOpportunity.mockReset().mockResolvedValue({});
   archiveOpportunity.mockReset().mockResolvedValue(undefined);
   unarchiveOpportunity.mockReset().mockResolvedValue(undefined);
-  fetchAllUsers.mockReset().mockResolvedValue([
-    { id: "user-a", firstName: "Ada", lastName: "Lovelace", isActive: true },
-    { id: "user-b", firstName: "Grace", lastName: "Hopper", isActive: true },
-  ]);
+  listCandidates.mockReset().mockResolvedValue({
+    canUnassign: true,
+    candidates: [
+      {
+        id: "user-a",
+        firstName: "Ada",
+        lastName: "Lovelace",
+        profileImageUrl: null,
+        userColor: null,
+      },
+      {
+        id: "user-b",
+        firstName: "Grace",
+        lastName: "Hopper",
+        profileImageUrl: null,
+        userColor: null,
+      },
+    ],
+  });
+  changeAssignment.mockReset().mockImplementation(async (input) => ({
+    ok: true,
+    conflict: false,
+    assignedTo: input.newAssignedTo,
+    assignmentVersion: input.expectedAssignmentVersion + 1,
+    eventId: "event-1",
+  }));
   toastSuccess.mockReset();
   toastError.mockReset();
   useUndoStore.setState({ stack: [], isUndoing: false });
@@ -194,44 +286,92 @@ describe("PipelineBulkBar", () => {
     expect(screen.queryByText(/Select all/)).not.toBeInTheDocument();
   });
 
-  it("reassigns owner across all selected rows, clears selection, and pushes an undo restoring prior owners", async () => {
+  it("reassigns each selected row with its exact snapshot and creates no unsafe undo", async () => {
     const { onClearSelection } = renderBar();
 
-    // Open the owner picker, wait for the team to load, pick a member, apply.
-    fireEvent.click(screen.getAllByText("Reassign owner")[0]);
-    await waitFor(() => expect(fetchAllUsers).toHaveBeenCalled());
+    // Open the guarded assignee picker, wait for candidates, pick a member, apply.
+    fireEvent.click(screen.getAllByText("Reassign assignee")[0]);
+    await waitFor(() => expect(listCandidates).toHaveBeenCalledWith("opp-1"));
     await screen.findByRole("option", { name: "Ada Lovelace" });
 
-    const select = screen.getByLabelText("Reassign owner") as HTMLSelectElement;
+    const select = screen.getByLabelText(
+      "Reassign assignee"
+    ) as HTMLSelectElement;
     fireEvent.change(select, { target: { value: "user-b" } });
-    fireEvent.click(screen.getAllByText("Reassign owner").at(-1)!);
+    fireEvent.click(screen.getAllByText("Reassign assignee").at(-1)!);
 
-    await waitFor(() => expect(updateOpportunity).toHaveBeenCalledTimes(3));
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", { assignedTo: "user-b" });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-2", { assignedTo: "user-b" });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-3", { assignedTo: "user-b" });
+    await waitFor(() => expect(changeAssignment).toHaveBeenCalledTimes(3));
+    expect(changeAssignment).toHaveBeenCalledWith({
+      opportunityId: "opp-1",
+      expectedAssignedTo: "old-assignee-1",
+      expectedAssignmentVersion: 4,
+      newAssignedTo: "user-b",
+    });
+    expect(changeAssignment).toHaveBeenCalledWith({
+      opportunityId: "opp-2",
+      expectedAssignedTo: "old-assignee-2",
+      expectedAssignmentVersion: 8,
+      newAssignedTo: "user-b",
+    });
+    expect(changeAssignment).toHaveBeenCalledWith({
+      opportunityId: "opp-3",
+      expectedAssignedTo: null,
+      expectedAssignmentVersion: 0,
+      newAssignedTo: "user-b",
+    });
+    expect(updateOpportunity).not.toHaveBeenCalled();
 
     // Selection clears after the batch.
     await waitFor(() => expect(onClearSelection).toHaveBeenCalled());
 
-    // A single undo entry was pushed; running it restores each prior owner.
-    const stack = useUndoStore.getState().stack;
-    expect(stack).toHaveLength(1);
-    expect(stack[0].label).toBe("Owner restored on 3 deals");
+    expect(useUndoStore.getState().stack).toHaveLength(0);
+  });
 
-    updateOpportunity.mockClear();
-    await act(async () => {
-      await stack[0].inverseFn();
+  it("hides reassignment unless every selected row has assign access", () => {
+    renderBar({
+      leadAccessById: accessMap({
+        "opp-2": { canAssign: false, canUnassign: false },
+      }),
     });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", { assignedTo: "old-owner-1" });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-2", { assignedTo: "old-owner-2" });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-3", { assignedTo: null });
+
+    expect(screen.queryByText("Reassign assignee")).not.toBeInTheDocument();
+    expect(listCandidates).not.toHaveBeenCalled();
+  });
+
+  it("does not expose unassign for assigned-scope selections", async () => {
+    listCandidates.mockResolvedValueOnce({
+      canUnassign: false,
+      candidates: [
+        {
+          id: "user-b",
+          firstName: "Grace",
+          lastName: "Hopper",
+          profileImageUrl: null,
+          userColor: null,
+        },
+      ],
+    });
+    renderBar({
+      leadAccessById: accessMap({
+        "opp-1": { canUnassign: false },
+        "opp-2": { canUnassign: false },
+        "opp-3": { canUnassign: false },
+      }),
+    });
+
+    fireEvent.click(screen.getAllByText("Reassign assignee")[0]);
+    await screen.findByRole("option", { name: "Grace Hopper" });
+    expect(
+      screen.queryByRole("option", { name: "— Unassigned —" })
+    ).not.toBeInTheDocument();
   });
 
   it("sets the follow-up date across all selected rows and pushes an undo restoring prior dates", async () => {
     const { onClearSelection } = renderBar();
 
-    const dateInput = screen.getByLabelText("Set follow-up") as HTMLInputElement;
+    const dateInput = screen.getByLabelText(
+      "Set follow-up"
+    ) as HTMLInputElement;
     fireEvent.change(dateInput, { target: { value: "2026-08-15" } });
     fireEvent.click(screen.getByText("Set follow-up"));
 
@@ -240,7 +380,7 @@ describe("PipelineBulkBar", () => {
       const call = updateOpportunity.mock.calls.find((c) => c[0] === id);
       expect(call?.[1].nextFollowUpAt).toBeInstanceOf(Date);
       expect((call?.[1].nextFollowUpAt as Date).getTime()).toBe(
-        new Date("2026-08-15").getTime(),
+        new Date("2026-08-15").getTime()
       );
     }
 
@@ -259,21 +399,29 @@ describe("PipelineBulkBar", () => {
     expect(opp2Undo?.[1]).toEqual({ nextFollowUpAt: null });
     const opp1Undo = updateOpportunity.mock.calls.find((c) => c[0] === "opp-1");
     expect((opp1Undo?.[1].nextFollowUpAt as Date).getTime()).toBe(
-      new Date("2026-06-10T00:00:00.000Z").getTime(),
+      new Date("2026-06-10T00:00:00.000Z").getTime()
     );
   });
 
   it("changes priority across all selected rows and pushes an undo restoring prior priorities", async () => {
     renderBar();
 
-    const prioritySelect = screen.getByLabelText("Set priority") as HTMLSelectElement;
+    const prioritySelect = screen.getByLabelText(
+      "Set priority"
+    ) as HTMLSelectElement;
     fireEvent.change(prioritySelect, { target: { value: "low" } });
     fireEvent.click(screen.getByText("Set priority"));
 
     await waitFor(() => expect(updateOpportunity).toHaveBeenCalledTimes(3));
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", { priority: "low" });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-2", { priority: "low" });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-3", { priority: "low" });
+    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", {
+      priority: "low",
+    });
+    expect(updateOpportunity).toHaveBeenCalledWith("opp-2", {
+      priority: "low",
+    });
+    expect(updateOpportunity).toHaveBeenCalledWith("opp-3", {
+      priority: "low",
+    });
 
     const stack = useUndoStore.getState().stack;
     expect(stack).toHaveLength(1);
@@ -282,9 +430,15 @@ describe("PipelineBulkBar", () => {
     await act(async () => {
       await stack[0].inverseFn();
     });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", { priority: "low" });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-2", { priority: "medium" });
-    expect(updateOpportunity).toHaveBeenCalledWith("opp-3", { priority: "high" });
+    expect(updateOpportunity).toHaveBeenCalledWith("opp-1", {
+      priority: "low",
+    });
+    expect(updateOpportunity).toHaveBeenCalledWith("opp-2", {
+      priority: "medium",
+    });
+    expect(updateOpportunity).toHaveBeenCalledWith("opp-3", {
+      priority: "high",
+    });
   });
 
   it("archives all selected rows, clears selection, and pushes an undo that unarchives", async () => {
@@ -327,13 +481,15 @@ describe("PipelineBulkBar", () => {
       .mockResolvedValueOnce({}); // opp-3 ok
 
     renderBar();
-    const prioritySelect = screen.getByLabelText("Set priority") as HTMLSelectElement;
+    const prioritySelect = screen.getByLabelText(
+      "Set priority"
+    ) as HTMLSelectElement;
     fireEvent.change(prioritySelect, { target: { value: "low" } });
     fireEvent.click(screen.getByText("Set priority"));
 
     await waitFor(() => expect(updateOpportunity).toHaveBeenCalledTimes(3));
     await waitFor(() =>
-      expect(toastError).toHaveBeenCalledWith("Updated 2 of 3. 1 failed."),
+      expect(toastError).toHaveBeenCalledWith("Updated 2 of 3. 1 failed.")
     );
 
     // Undo covers only the 2 successes.

@@ -9,7 +9,8 @@ import { OpportunityStage, type Opportunity } from "@/lib/types/pipeline";
 // (editable) site address, exposes a quiet `rename` escape hatch, and renders
 // the dedup states from `get_conversion_preflight`: existing-linked, duplicate
 // candidates (link vs create), and the client's other projects. The footer CTA
-// varies by state: MARK WON / OPEN PROJECT / LINK & WIN / CREATE NEW.
+// varies by state: MARK WON / MARK WON & OPEN / OPEN PROJECT / LINK & WIN /
+// CREATE NEW.
 
 // Deterministic dictionary — return the English fallback (the dialog always
 // passes one), or the key when none is supplied.
@@ -42,16 +43,19 @@ vi.mock(
         data-testid="won-address-input"
         value={value}
         onChange={(e) =>
-          onChange({ address: e.target.value, latitude: 49.1, longitude: -123.1 })
+          onChange({
+            address: e.target.value,
+            latitude: 49.1,
+            longitude: -123.1,
+          })
         }
       />
     ),
-  }),
+  })
 );
 
-const { StageTransitionDialog } = await import(
-  "@/app/(dashboard)/pipeline/_components/stage-transition-dialog"
-);
+const { StageTransitionDialog } =
+  await import("@/app/(dashboard)/pipeline/_components/stage-transition-dialog");
 
 function makeOpp(overrides: Partial<Opportunity> = {}): Opportunity {
   return {
@@ -103,6 +107,9 @@ function makeOpp(overrides: Partial<Opportunity> = {}): Opportunity {
 }
 
 const CLEAN_PREFLIGHT: ConversionPreflight = {
+  assignmentVersion: 0,
+  alreadyConverted: false,
+  projectAccessible: false,
   existingLinkedProject: null,
   duplicateCandidates: [],
   otherClientProjects: [],
@@ -123,12 +130,12 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         preflight={CLEAN_PREFLIGHT}
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getByTestId("won-value-input")).toBeInTheDocument();
     expect(screen.getByTestId("won-name-preview")).toHaveTextContent(
-      "1240 W 6th Ave",
+      "1240 W 6th Ave"
     );
     expect(screen.getByTestId("won-address-input")).toBeInTheDocument();
 
@@ -146,7 +153,7 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         preflight={CLEAN_PREFLIGHT}
         onConfirm={onConfirm}
         onCancel={vi.fn()}
-      />,
+      />
     );
 
     await userEvent.type(screen.getByTestId("won-value-input"), "15000");
@@ -171,7 +178,7 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
         onAddressChange={onAddressChange}
-      />,
+      />
     );
 
     const addr = screen.getByTestId("won-address-input");
@@ -179,7 +186,7 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
     await userEvent.type(addr, "500 Main St, Burnaby, BC");
 
     expect(screen.getByTestId("won-name-preview")).toHaveTextContent(
-      "500 Main St",
+      "500 Main St"
     );
     expect(onAddressChange).toHaveBeenCalled();
     const last = onAddressChange.mock.calls.at(-1)![0];
@@ -197,7 +204,7 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         preflight={CLEAN_PREFLIGHT}
         onConfirm={onConfirm}
         onCancel={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.queryByTestId("won-rename-input")).not.toBeInTheDocument();
@@ -207,12 +214,12 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
 
     await userEvent.click(screen.getByTestId("won-confirm-cta"));
     expect(onConfirm.mock.calls[0]![0].titleOverride).toBe(
-      "Heritage House reroof",
+      "Heritage House reroof"
     );
   });
 
   // ── existing_linked ──────────────────────────────────────────────────────
-  it("existing_linked: shows the linked-project notice and an OPEN PROJECT cta", async () => {
+  it("existing_linked non-won: shows a MARK WON & OPEN cta", async () => {
     const onConfirm = vi.fn();
     render(
       <StageTransitionDialog
@@ -220,23 +227,111 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         opportunity={makeOpp()}
         preflight={{
           ...CLEAN_PREFLIGHT,
-          existingLinkedProject: { id: "proj-existing", title: "1240 W 6th Ave" },
+          existingLinkedProject: {
+            id: "proj-existing",
+            title: "1240 W 6th Ave",
+          },
         }}
         onConfirm={onConfirm}
         onCancel={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getByTestId("won-existing-linked")).toHaveTextContent(
-      "1240 W 6th Ave",
+      "1240 W 6th Ave"
     );
     const cta = screen.getByTestId("won-confirm-cta");
-    expect(cta).toHaveTextContent(/open project/i);
+    expect(cta).toHaveTextContent(/mark won & open/i);
 
     await userEvent.click(cta);
     expect(onConfirm).toHaveBeenCalledWith(
-      expect.objectContaining({ openProjectId: "proj-existing" }),
+      expect.objectContaining({ openProjectId: "proj-existing" })
     );
+  });
+
+  it("existing_linked already won: shows a plain OPEN PROJECT cta", () => {
+    render(
+      <StageTransitionDialog
+        type="won"
+        opportunity={makeOpp({ stage: OpportunityStage.Won })}
+        preflight={{
+          ...CLEAN_PREFLIGHT,
+          alreadyConverted: true,
+          projectAccessible: true,
+          existingLinkedProject: {
+            id: "proj-existing",
+            title: "1240 W 6th Ave",
+          },
+        }}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("won-confirm-cta")).toHaveTextContent(
+      /open project/i
+    );
+    expect(screen.getByTestId("won-confirm-cta")).not.toHaveTextContent(
+      /mark won/i
+    );
+  });
+
+  it("inaccessible linked recovery exposes no project context and only marks won", async () => {
+    const onConfirm = vi.fn();
+    render(
+      <StageTransitionDialog
+        type="won"
+        opportunity={makeOpp()}
+        preflight={{
+          ...CLEAN_PREFLIGHT,
+          alreadyConverted: true,
+          projectAccessible: false,
+          existingLinkedProject: null,
+          duplicateCandidates: [
+            {
+              projectId: "proj-secret-duplicate",
+              title: "Secret duplicate project",
+              address: "88 Hidden Ave",
+              confidence: "high",
+              signals: ["same_client"],
+            },
+          ],
+          otherClientProjects: [
+            {
+              projectId: "proj-secret-sibling",
+              title: "Secret sibling project",
+              address: "99 Hidden Ave",
+              status: "active",
+            },
+          ],
+        }}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const cta = screen.getByTestId("won-confirm-cta");
+    expect(cta).toHaveTextContent(/mark won/i);
+    expect(cta).not.toHaveTextContent(/open|link|create/i);
+    expect(
+      screen.queryByText("Secret duplicate project")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Secret sibling project")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("won-existing-linked")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("won-name-preview")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("won-rename-toggle")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("won-other-projects-toggle")
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(cta);
+
+    expect(onConfirm).toHaveBeenCalledWith({ actualValue: 12000 });
+    expect(onConfirm.mock.calls[0]![0]).not.toHaveProperty("openProjectId");
+    expect(onConfirm.mock.calls[0]![0]).not.toHaveProperty("linkToProjectId");
+    expect(onConfirm.mock.calls[0]![0]).not.toHaveProperty("titleOverride");
   });
 
   // ── duplicate_candidates ─────────────────────────────────────────────────
@@ -260,7 +355,7 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         }}
         onConfirm={onConfirm}
         onCancel={vi.fn()}
-      />,
+      />
     );
 
     // Default selection = create new.
@@ -276,7 +371,7 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
     expect(cta).toHaveTextContent(/link & win/i);
     await userEvent.click(cta);
     expect(onConfirm).toHaveBeenCalledWith(
-      expect.objectContaining({ linkToProjectId: "proj-dup" }),
+      expect.objectContaining({ linkToProjectId: "proj-dup" })
     );
   });
 
@@ -300,7 +395,7 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         }}
         onConfirm={onConfirm}
         onCancel={vi.fn()}
-      />,
+      />
     );
 
     await userEvent.click(screen.getByTestId("won-candidate-proj-dup"));
@@ -331,16 +426,18 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         }}
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
-      />,
+      />
     );
 
     const toggle = screen.getByTestId("won-other-projects-toggle");
-    expect(screen.getByTestId("won-confirm-cta")).toHaveTextContent(/mark won/i);
+    expect(screen.getByTestId("won-confirm-cta")).toHaveTextContent(
+      /mark won/i
+    );
 
     // Collapsed by default — expand to reveal the project.
     await userEvent.click(toggle);
     expect(screen.getByTestId("won-other-projects-list")).toHaveTextContent(
-      "88 Elm St",
+      "88 Elm St"
     );
   });
 
@@ -353,7 +450,7 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         preflightLoading
         onConfirm={vi.fn()}
         onCancel={vi.fn()}
-      />,
+      />
     );
 
     expect(screen.getByTestId("won-preflight-loading")).toBeInTheDocument();
@@ -370,7 +467,7 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
         preflight={CLEAN_PREFLIGHT}
         onConfirm={vi.fn()}
         onCancel={onCancel}
-      />,
+      />
     );
     await userEvent.click(screen.getByTestId("won-cancel"));
     expect(onCancel).toHaveBeenCalledTimes(1);
@@ -386,7 +483,7 @@ describe("<StageTransitionDialog> — Lost (unchanged path)", () => {
         opportunity={makeOpp()}
         onConfirm={onConfirm}
         onCancel={vi.fn()}
-      />,
+      />
     );
 
     const select = screen.getByTestId("lost-reason-select");
@@ -395,7 +492,7 @@ describe("<StageTransitionDialog> — Lost (unchanged path)", () => {
       .find((o) => (o as HTMLOptionElement).value !== "");
     await userEvent.selectOptions(
       select,
-      (firstReal as HTMLOptionElement).value,
+      (firstReal as HTMLOptionElement).value
     );
     await userEvent.click(screen.getByTestId("lost-confirm-cta"));
 

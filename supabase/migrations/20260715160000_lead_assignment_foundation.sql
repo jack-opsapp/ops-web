@@ -615,7 +615,10 @@ begin
 
     if v_scope = 'assigned' then
       if v_opportunity.assigned_to is distinct from p_actor_user_id then
-        raise exception 'access_denied'
+        -- The actor had assigned-scope authority for the supplied snapshot but
+        -- no longer owns the locked row. This stable, state-free outcome lets
+        -- clients destroy a revoked cache without disclosing the new assignee.
+        raise exception 'assignment_access_lost'
           using errcode = '42501';
       end if;
     end if;

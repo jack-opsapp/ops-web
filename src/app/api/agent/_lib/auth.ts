@@ -22,7 +22,7 @@ export async function authenticateRequest(
 
   const user = await findUserByAuth(
     firebaseUser.uid,
-    firebaseUser.email,
+    undefined,
     "id, company_id, role"
   );
   if (!user) {
@@ -43,7 +43,9 @@ export function isErrorResponse(
 }
 
 /** Guard for financial actions — only admin/owner can approve invoices */
-export function requireAdminOrOwner(auth: AuthenticatedUser): NextResponse | null {
+export function requireAdminOrOwner(
+  auth: AuthenticatedUser
+): NextResponse | null {
   if (["admin", "owner"].includes(auth.role)) return null;
   return NextResponse.json(
     { error: "Admin or owner access required for this action" },

@@ -20,7 +20,7 @@
  * This component owns the single {@link useOpportunityFieldEdit} instance for the
  * tab and threads it (plus `canManage`) into the reused editors — `TextAreaField`
  * (scope), `TagsField` (tags), `AddressField` (location). One optimistic engine
- * per opportunity. All editing gates on `canManage` (`pipeline.manage`).
+ * per opportunity. All editing gates on the lead's effective edit access.
  *
  * ── Design tokens (traced to .interface-design/system.md) ────────────────────
  *  - Summary band → AGENT PROVENANCE palette (`--agent-bg` / `--agent-border` /
@@ -71,6 +71,12 @@ import {
 import { formatDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
 import type { Client } from "@/lib/types/models";
+import type {
+  OpportunityAssignedContext,
+  OpportunityAssignedContextContact,
+  OpportunityAssignedContextEstimate,
+  OpportunityAssignedContextSiteVisit,
+} from "@/lib/api/services/opportunity-assigned-context-service";
 
 import { Section } from "@/components/ops/projects/workspace/atoms/section";
 import { Stack } from "@/components/ops/projects/workspace/atoms/stack";
@@ -99,11 +105,14 @@ const NUM_CLASS =
 interface OverviewTabProps {
   opportunity: Opportunity;
   canManage: boolean;
+  /** `null` means the guarded RPC did not yield an authorized valid payload. */
+  assignedContext?: OpportunityAssignedContext | null;
 }
 
 export function PipelineDetailOverviewTab({
   opportunity,
   canManage,
+  assignedContext,
 }: OverviewTabProps) {
   const { t } = useDictionary("pipeline");
   // ONE optimistic edit engine for the whole tab; threaded into every editor.
@@ -117,7 +126,11 @@ export function PipelineDetailOverviewTab({
     <Stack gap={3}>
       <SummarySection opportunity={opportunity} />
 
-      <ContactSection opportunity={opportunity} canManage={canManage} />
+      <ContactSection
+        opportunity={opportunity}
+        canManage={canManage}
+        assignedContext={assignedContext}
+      />
 
       <Section title={t("overview.scope", "Scope")}>
         <TextAreaField
@@ -127,7 +140,10 @@ export function PipelineDetailOverviewTab({
         />
       </Section>
 
-      <HealthSection opportunity={opportunity} />
+      <HealthSection
+        opportunity={opportunity}
+        assignedContext={assignedContext}
+      />
 
       <Section title={t("overview.tags", "Tags")}>
         <TagsField edit={edit} canManage={canManage} value={opportunity.tags} />
@@ -142,7 +158,11 @@ export function PipelineDetailOverviewTab({
       {/* State-aware: renders nothing unless the lead carries a deck sketch. */}
       <PipelineDetailDeckSection opportunityId={opportunity.id} />
 
-      <LinkedSection opportunity={opportunity} canManage={canManage} />
+      <LinkedSection
+        opportunity={opportunity}
+        canManage={canManage}
+        assignedContext={assignedContext}
+      />
     </Stack>
   );
 }
@@ -209,10 +229,31 @@ function SummarySection({ opportunity }: { opportunity: Opportunity }) {
  * The deal's operational vital signs. A 2-column grid of label-over-value cells
  * with mono, tabular numbers.
  */
-function HealthSection({ opportunity }: { opportunity: Opportunity }) {
+function HealthSection({
+  opportunity,
+  assignedContext,
+}: {
+  opportunity: Opportunity;
+  assignedContext?: OpportunityAssignedContext | null;
+}) {
   const { t } = useDictionary("pipeline");
 
   const daysInStage = getDaysInStage(opportunity);
+  const newestActivity = assignedContext?.activities[0]?.createdAt ?? null;
+  const lastActivityAt =
+    assignedContext === undefined ? opportunity.lastActivityAt : newestActivity;
+  const inboundCount =
+    assignedContext === undefined
+      ? opportunity.inboundCount
+      : (assignedContext?.correspondence.filter(
+          (event) => event.direction === "inbound"
+        ).length ?? 0);
+  const outboundCount =
+    assignedContext === undefined
+      ? opportunity.outboundCount
+      : (assignedContext?.correspondence.filter(
+          (event) => event.direction === "outbound"
+        ).length ?? 0);
 
   return (
     <Section title={t("overview.health", "Health")}>
@@ -229,10 +270,8 @@ function HealthSection({ opportunity }: { opportunity: Opportunity }) {
         </HealthCell>
 
         <HealthCell label={t("overview.lastActivity", "Last activity")}>
-          {opportunity.lastActivityAt ? (
-            <span className={NUM_CLASS}>
-              {formatDate(opportunity.lastActivityAt)}
-            </span>
+          {lastActivityAt ? (
+            <span className={NUM_CLASS}>{formatDate(lastActivityAt)}</span>
           ) : (
             <span className="font-mono text-[13px] text-text-3">{EMPTY}</span>
           )}
@@ -243,10 +282,9 @@ function HealthSection({ opportunity }: { opportunity: Opportunity }) {
           className="col-span-2"
         >
           <span className={NUM_CLASS}>
-            {opportunity.inboundCount}
+            {inboundCount}
             <span className="text-text-3"> {t("overview.in", "in")} </span>
-            <span className="text-text-mute">/</span>{" "}
-            {opportunity.outboundCount}
+            <span className="text-text-mute">/</span> {outboundCount}
             <span className="text-text-3"> {t("overview.out", "out")}</span>
           </span>
         </HealthCell>
@@ -285,54 +323,105 @@ function HealthCell({
 function ContactSection({
   opportunity,
   canManage,
+  assignedContext,
 }: {
   opportunity: Opportunity;
   canManage: boolean;
+  assignedContext?: OpportunityAssignedContext | null;
 }) {
   const { t } = useDictionary("pipeline");
-  const clientQuery = useClient(opportunity.clientId ?? undefined);
-  const client = clientQuery.data;
+  const canViewClients = usePermissionStore((state) =>
+    state.can("clients.view")
+  );
+  const canEditClients = usePermissionStore((state) =>
+    state.can("clients.edit")
+  );
+  const guardedContextMode = assignedContext !== undefined;
+  const projectedContact = assignedContext?.contact ?? null;
+  const clientId = guardedContextMode
+    ? (projectedContact?.id ?? null)
+    : opportunity.clientId;
+  const canReadRawClient = guardedContextMode
+    ? Boolean(
+        projectedContact?.id && canManage && canViewClients && canEditClients
+      )
+    : Boolean(clientId);
+  const clientQuery = useClient(clientId ?? undefined, {
+    enabled: canReadRawClient,
+  });
+  // A disabled TanStack query may still expose cached data after a permission
+  // change. Discard it unless the current actor still holds the domain grant.
+  const client = canReadRawClient ? clientQuery.data : undefined;
+  const contact: OpportunityAssignedContextContact =
+    projectedContact ??
+    (guardedContextMode
+      ? {
+          id: null,
+          name: null,
+          email: null,
+          phone: null,
+          address: null,
+          profileImageUrl: null,
+        }
+      : client
+        ? {
+            id: client.id,
+            name: client.name,
+            email: client.email,
+            phone: client.phoneNumber,
+            address: client.address,
+            profileImageUrl: client.profileImageURL,
+          }
+        : {
+            id: null,
+            name: opportunity.contactName,
+            email: opportunity.contactEmail,
+            phone: opportunity.contactPhone,
+            address: opportunity.address,
+            profileImageUrl: null,
+          });
 
   return (
     <Section title={t("overview.contact", "Contact")}>
       <div data-testid="overview-contact">
-        {opportunity.clientId && client ? (
+        {contact.id ? (
           <Stack gap={1}>
             <Inline gap={1.5} justify="between">
               <Body size={14} color="text" className="min-w-0 truncate">
-                {client.name}
+                {contact.name ?? t("overview.noContact", "[ no contact ]")}
               </Body>
-              <Link
-                href={`/clients/${client.id}`}
-                className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-              >
-                {t("overview.openClient", "Open client")}
-                <ArrowUpRight className="h-2.5 w-2.5" strokeWidth={1.75} />
-              </Link>
+              {canViewClients ? (
+                <Link
+                  href={`/clients/${contact.id}`}
+                  className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                >
+                  {t("overview.openClient", "Open client")}
+                  <ArrowUpRight className="h-2.5 w-2.5" strokeWidth={1.75} />
+                </Link>
+              ) : null}
             </Inline>
-            <ContactLinks email={client.email} phone={client.phoneNumber} />
-            <DealContactRow
-              opportunity={opportunity}
-              client={client}
-              canManage={canManage}
-            />
+            <ContactLinks email={contact.email} phone={contact.phone} />
+            {client ? (
+              <DealContactRow
+                opportunity={opportunity}
+                client={client}
+                canManage={canManage && canEditClients}
+              />
+            ) : null}
           </Stack>
         ) : (
           <Stack gap={1}>
-            {opportunity.contactName ? (
+            {contact.name ? (
               <Body size={14} color="text" className="min-w-0 truncate">
-                {opportunity.contactName}
+                {contact.name}
               </Body>
             ) : (
               <Mono color="text-3" size={11}>
                 {t("overview.noContact", "[ no contact ]")}
               </Mono>
             )}
-            <ContactLinks
-              email={opportunity.contactEmail}
-              phone={opportunity.contactPhone}
-            />
-            {canManage ? (
+            <ContactLinks email={contact.email} phone={contact.phone} />
+            {canManage && canViewClients && assignedContext !== null ? (
               <AttachClientControl opportunityId={opportunity.id} />
             ) : null}
           </Stack>
@@ -759,9 +848,11 @@ function siteVisitChipVariant(status: SiteVisitStatus): ChipVariant {
 function LinkedSection({
   opportunity,
   canManage,
+  assignedContext,
 }: {
   opportunity: Opportunity;
   canManage: boolean;
+  assignedContext?: OpportunityAssignedContext | null;
 }) {
   const { t } = useDictionary("pipeline");
   // Creating an estimate is governed by `estimates.create` — independent of the
@@ -769,13 +860,24 @@ function LinkedSection({
   const canCreateEstimate = usePermissionStore((s) =>
     s.can("estimates.create")
   );
+  const canViewEstimates = usePermissionStore((s) => s.can("estimates.view"));
+  const canViewProjects = usePermissionStore((s) => s.can("projects.view"));
   const openWindow = useWindowStore((s) => s.openWindow);
   const estimatesQuery = useEstimates({ opportunityId: opportunity.id });
   const siteVisitsQuery = useSiteVisits({ opportunityId: opportunity.id });
   const [scheduling, setScheduling] = useState(false);
 
-  const estimates = estimatesQuery.data ?? [];
-  const siteVisits = sortVisits(siteVisitsQuery.data ?? []);
+  const guardedContextMode = assignedContext !== undefined;
+  const estimates: Array<Estimate | OpportunityAssignedContextEstimate> =
+    guardedContextMode
+      ? (assignedContext?.estimateSummaries ?? [])
+      : (estimatesQuery.data ?? []);
+  const siteVisits: Array<SiteVisit | OpportunityAssignedContextSiteVisit> =
+    sortVisits(
+      guardedContextMode
+        ? (assignedContext?.siteVisits ?? [])
+        : (siteVisitsQuery.data ?? [])
+    );
 
   return (
     <Section title={t("overview.linked", "Linked")}>
@@ -799,7 +901,8 @@ function LinkedSection({
                       type: "create-estimate",
                       metadata: {
                         opportunityId: opportunity.id,
-                        clientId: opportunity.clientId,
+                        clientId:
+                          assignedContext?.contact.id ?? opportunity.clientId,
                       },
                     })
                   }
@@ -819,14 +922,18 @@ function LinkedSection({
             ) : (
               <Stack gap={0.5}>
                 {estimates.map((estimate) => (
-                  <EstimateRow key={estimate.id} estimate={estimate} />
+                  <EstimateRow
+                    key={estimate.id}
+                    estimate={estimate}
+                    canOpen={canViewEstimates}
+                  />
                 ))}
               </Stack>
             )}
           </Stack>
 
           {/* ── Project (display + open only — no convert here) ────────── */}
-          {opportunity.projectId ? (
+          {opportunity.projectId && canViewProjects ? (
             <Stack gap={1}>
               <Mono color="text-3" size={11}>
                 {t("overview.project", "Project")}
@@ -873,7 +980,7 @@ function LinkedSection({
         {canManage ? (
           <CreateSiteVisitModal
             opportunityId={opportunity.id}
-            clientId={opportunity.clientId}
+            clientId={assignedContext?.contact.id ?? opportunity.clientId}
             currentStage={opportunity.stage}
             open={scheduling}
             onOpenChange={setScheduling}
@@ -885,7 +992,7 @@ function LinkedSection({
 }
 
 /** Upcoming (soonest first) ahead of past — same rhythm as the project dossier. */
-function sortVisits(visits: SiteVisit[]): SiteVisit[] {
+function sortVisits<T extends { scheduledAt: Date }>(visits: T[]): T[] {
   const now = Date.now();
   return [...visits].sort((a, b) => {
     const aFuture = a.scheduledAt.getTime() >= now;
@@ -897,7 +1004,13 @@ function sortVisits(visits: SiteVisit[]): SiteVisit[] {
   });
 }
 
-function EstimateRow({ estimate }: { estimate: Estimate }) {
+function EstimateRow({
+  estimate,
+  canOpen,
+}: {
+  estimate: Estimate | OpportunityAssignedContextEstimate;
+  canOpen: boolean;
+}) {
   const { t } = useDictionary("pipeline");
   const variant = estimateChipVariant(estimate.status);
   const label = t(
@@ -905,15 +1018,8 @@ function EstimateRow({ estimate }: { estimate: Estimate }) {
     ESTIMATE_STATUS_FALLBACK[estimate.status]
   );
 
-  return (
-    <Link
-      href={`/estimates?estimate=${estimate.id}`}
-      className={cn(
-        "group flex items-center gap-2 rounded-[5px] px-1.5 py-1",
-        "transition-colors duration-150 hover:bg-surface-hover",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-      )}
-    >
+  const content = (
+    <>
       <FileText className="h-3 w-3 shrink-0 text-text-3" strokeWidth={1.75} />
       <span className="min-w-0 truncate font-mono text-[11px] tabular-nums text-text-2 [font-feature-settings:'tnum'_1,'zero'_1] group-hover:text-text">
         {estimate.estimateNumber}
@@ -922,15 +1028,36 @@ function EstimateRow({ estimate }: { estimate: Estimate }) {
       <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-text-2 [font-feature-settings:'tnum'_1,'zero'_1]">
         {formatCurrency(estimate.total)}
       </span>
-      <ArrowUpRight
-        className="h-3 w-3 shrink-0 text-text-mute transition-colors group-hover:text-text-2"
-        strokeWidth={1.75}
-      />
+      {canOpen ? (
+        <ArrowUpRight
+          className="h-3 w-3 shrink-0 text-text-mute transition-colors group-hover:text-text-2"
+          strokeWidth={1.75}
+        />
+      ) : null}
+    </>
+  );
+
+  return canOpen ? (
+    <Link
+      href={`/estimates?estimate=${estimate.id}`}
+      className={cn(
+        "group flex items-center gap-2 rounded px-1.5 py-1",
+        "transition-colors duration-150 hover:bg-surface-hover",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+      )}
+    >
+      {content}
     </Link>
+  ) : (
+    <div className="flex items-center gap-2 rounded px-1.5 py-1">{content}</div>
   );
 }
 
-function SiteVisitRow({ visit }: { visit: SiteVisit }) {
+function SiteVisitRow({
+  visit,
+}: {
+  visit: SiteVisit | OpportunityAssignedContextSiteVisit;
+}) {
   const { t } = useDictionary("pipeline");
   const variant = siteVisitChipVariant(visit.status);
   const label = t(

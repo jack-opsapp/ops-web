@@ -49,6 +49,7 @@ function makeRow(overrides: Partial<PipelineTableRow> = {}): PipelineTableRow {
     nextFollowUpAt: null,
     expectedCloseDate: null,
     assignedTo: null,
+    assignmentVersion: 0,
     assigneeName: null,
     source: null,
     priority: null,
@@ -75,12 +76,37 @@ function makeRow(overrides: Partial<PipelineTableRow> = {}): PipelineTableRow {
  */
 function makeFixtureRows(): PipelineTableRow[] {
   return [
-    makeRow({ id: "q1", stage: OpportunityStage.Quoting, estimatedValue: 300, weightedValue: 180 }),
-    makeRow({ id: "n1", stage: OpportunityStage.NewLead, estimatedValue: 100, weightedValue: 10 }),
-    makeRow({ id: "ql1", stage: OpportunityStage.Qualifying, estimatedValue: 200, weightedValue: 40 }),
+    makeRow({
+      id: "q1",
+      stage: OpportunityStage.Quoting,
+      estimatedValue: 300,
+      weightedValue: 180,
+    }),
+    makeRow({
+      id: "n1",
+      stage: OpportunityStage.NewLead,
+      estimatedValue: 100,
+      weightedValue: 10,
+    }),
+    makeRow({
+      id: "ql1",
+      stage: OpportunityStage.Qualifying,
+      estimatedValue: 200,
+      weightedValue: 40,
+    }),
     // Null value/weighted row — must be treated as 0 in sums but still counted.
-    makeRow({ id: "n2", stage: OpportunityStage.NewLead, estimatedValue: null, weightedValue: null }),
-    makeRow({ id: "q2", stage: OpportunityStage.Quoting, estimatedValue: 50, weightedValue: 30 }),
+    makeRow({
+      id: "n2",
+      stage: OpportunityStage.NewLead,
+      estimatedValue: null,
+      weightedValue: null,
+    }),
+    makeRow({
+      id: "q2",
+      stage: OpportunityStage.Quoting,
+      estimatedValue: 50,
+      weightedValue: 30,
+    }),
   ];
 }
 
@@ -122,7 +148,7 @@ describe("stageRollups", () => {
         OpportunityStage.NewLead,
         OpportunityStage.Qualifying,
         OpportunityStage.Quoting,
-      ]),
+      ])
     );
     // Stages with no rows are absent.
     expect(stages).not.toContain(OpportunityStage.Won);
@@ -174,16 +200,21 @@ describe("buildFlattenedRows (ungrouped)", () => {
 
     expect(flat).toHaveLength(rows.length);
     expect(flat.every((item) => item.kind === "data")).toBe(true);
-    expect(flat.map((item) => (item as Extract<PipelineFlatItem, { kind: "data" }>).row.id)).toEqual(
-      rows.map((r) => r.id),
-    );
+    expect(
+      flat.map(
+        (item) => (item as Extract<PipelineFlatItem, { kind: "data" }>).row.id
+      )
+    ).toEqual(rows.map((r) => r.id));
   });
 
   it("ignores collapsedStages when ungrouped", () => {
     const rows = makeFixtureRows();
     const flat = buildFlattenedRows(rows, {
       grouped: false,
-      collapsedStages: new Set([OpportunityStage.NewLead, OpportunityStage.Quoting]),
+      collapsedStages: new Set([
+        OpportunityStage.NewLead,
+        OpportunityStage.Quoting,
+      ]),
     });
 
     // Collapse only applies to grouped mode — flat passthrough is unaffected.
@@ -192,7 +223,9 @@ describe("buildFlattenedRows (ungrouped)", () => {
   });
 
   it("returns [] for empty input", () => {
-    expect(buildFlattenedRows([], { grouped: false, collapsedStages: new Set() })).toEqual([]);
+    expect(
+      buildFlattenedRows([], { grouped: false, collapsedStages: new Set() })
+    ).toEqual([]);
   });
 });
 
@@ -224,7 +257,10 @@ describe("buildFlattenedRows (grouped, none collapsed)", () => {
     ]);
 
     const headerStages = flat
-      .filter((i): i is Extract<PipelineFlatItem, { kind: "group-header" }> => i.kind === "group-header")
+      .filter(
+        (i): i is Extract<PipelineFlatItem, { kind: "group-header" }> =>
+          i.kind === "group-header"
+      )
       .map((h) => h.stage);
     expect(headerStages).toEqual([
       OpportunityStage.NewLead,
@@ -240,7 +276,8 @@ describe("buildFlattenedRows (grouped, none collapsed)", () => {
     });
 
     const headers = flat.filter(
-      (i): i is Extract<PipelineFlatItem, { kind: "group-header" }> => i.kind === "group-header",
+      (i): i is Extract<PipelineFlatItem, { kind: "group-header" }> =>
+        i.kind === "group-header"
     );
     const byStage = new Map(headers.map((h) => [h.stage, h]));
 
@@ -273,19 +310,37 @@ describe("buildFlattenedRows (grouped, none collapsed)", () => {
   it("preserves the incoming relative order of rows within a stage", () => {
     // Two NewLead rows in a deliberate order; grouping must not reorder them.
     const rows = [
-      makeRow({ id: "first", stage: OpportunityStage.NewLead, estimatedValue: 1, weightedValue: 0 }),
-      makeRow({ id: "second", stage: OpportunityStage.NewLead, estimatedValue: 2, weightedValue: 0 }),
+      makeRow({
+        id: "first",
+        stage: OpportunityStage.NewLead,
+        estimatedValue: 1,
+        weightedValue: 0,
+      }),
+      makeRow({
+        id: "second",
+        stage: OpportunityStage.NewLead,
+        estimatedValue: 2,
+        weightedValue: 0,
+      }),
     ];
-    const flat = buildFlattenedRows(rows, { grouped: true, collapsedStages: new Set() });
+    const flat = buildFlattenedRows(rows, {
+      grouped: true,
+      collapsedStages: new Set(),
+    });
 
     const dataIds = flat
-      .filter((i): i is Extract<PipelineFlatItem, { kind: "data" }> => i.kind === "data")
+      .filter(
+        (i): i is Extract<PipelineFlatItem, { kind: "data" }> =>
+          i.kind === "data"
+      )
       .map((i) => i.row.id);
     expect(dataIds).toEqual(["first", "second"]);
   });
 
   it("returns [] for empty input", () => {
-    expect(buildFlattenedRows([], { grouped: true, collapsedStages: new Set() })).toEqual([]);
+    expect(
+      buildFlattenedRows([], { grouped: true, collapsedStages: new Set() })
+    ).toEqual([]);
   });
 });
 
@@ -303,7 +358,7 @@ describe("buildFlattenedRows (grouped, one stage collapsed)", () => {
 
     const newLeadHeader = flat.find(
       (i): i is Extract<PipelineFlatItem, { kind: "group-header" }> =>
-        i.kind === "group-header" && i.stage === OpportunityStage.NewLead,
+        i.kind === "group-header" && i.stage === OpportunityStage.NewLead
     );
     expect(newLeadHeader).toBeDefined();
     expect(newLeadHeader?.collapsed).toBe(true);
@@ -314,7 +369,7 @@ describe("buildFlattenedRows (grouped, one stage collapsed)", () => {
 
     // No NewLead data rows present in the stream.
     const newLeadDataRows = flat.filter(
-      (i) => i.kind === "data" && i.row.stage === OpportunityStage.NewLead,
+      (i) => i.kind === "data" && i.row.stage === OpportunityStage.NewLead
     );
     expect(newLeadDataRows).toHaveLength(0);
   });
@@ -328,20 +383,24 @@ describe("buildFlattenedRows (grouped, one stage collapsed)", () => {
     // Qualifying (1 row) and Quoting (2 rows) keep their headers + all rows.
     const qualifyingHeader = flat.find(
       (i): i is Extract<PipelineFlatItem, { kind: "group-header" }> =>
-        i.kind === "group-header" && i.stage === OpportunityStage.Qualifying,
+        i.kind === "group-header" && i.stage === OpportunityStage.Qualifying
     );
     const quotingHeader = flat.find(
       (i): i is Extract<PipelineFlatItem, { kind: "group-header" }> =>
-        i.kind === "group-header" && i.stage === OpportunityStage.Quoting,
+        i.kind === "group-header" && i.stage === OpportunityStage.Quoting
     );
     expect(qualifyingHeader?.collapsed).toBe(false);
     expect(quotingHeader?.collapsed).toBe(false);
 
     expect(
-      flat.filter((i) => i.kind === "data" && i.row.stage === OpportunityStage.Qualifying),
+      flat.filter(
+        (i) => i.kind === "data" && i.row.stage === OpportunityStage.Qualifying
+      )
     ).toHaveLength(1);
     expect(
-      flat.filter((i) => i.kind === "data" && i.row.stage === OpportunityStage.Quoting),
+      flat.filter(
+        (i) => i.kind === "data" && i.row.stage === OpportunityStage.Quoting
+      )
     ).toHaveLength(2);
   });
 
@@ -357,7 +416,9 @@ describe("buildFlattenedRows (grouped, one stage collapsed)", () => {
 
     expect(flat).toHaveLength(3);
     expect(flat.every((i) => i.kind === "group-header")).toBe(true);
-    expect(flat.every((i) => i.kind === "group-header" && i.collapsed)).toBe(true);
+    expect(flat.every((i) => i.kind === "group-header" && i.collapsed)).toBe(
+      true
+    );
   });
 });
 
@@ -371,7 +432,10 @@ describe("input is never mutated", () => {
 
     stageRollups(rows);
     grandTotal(rows);
-    buildFlattenedRows(rows, { grouped: true, collapsedStages: new Set([OpportunityStage.NewLead]) });
+    buildFlattenedRows(rows, {
+      grouped: true,
+      collapsedStages: new Set([OpportunityStage.NewLead]),
+    });
     buildFlattenedRows(rows, { grouped: false, collapsedStages: new Set() });
 
     expect(rows.map((r) => r.id)).toEqual(snapshotOrder);
@@ -390,7 +454,10 @@ describe("input is never mutated", () => {
 
   it("produces deterministic output across repeated calls", () => {
     const rows = makeFixtureRows();
-    const opts = { grouped: true, collapsedStages: new Set([OpportunityStage.Quoting]) };
+    const opts = {
+      grouped: true,
+      collapsedStages: new Set([OpportunityStage.Quoting]),
+    };
 
     const a = buildFlattenedRows(rows, opts);
     const b = buildFlattenedRows(rows, opts);

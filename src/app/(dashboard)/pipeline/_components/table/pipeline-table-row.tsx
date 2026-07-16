@@ -33,7 +33,6 @@ import { CellPriority } from "./cells/cell-priority";
 import { CellRelation } from "./cells/cell-relation";
 import { CellStageAction } from "./cells/cell-stage-action";
 import { CellText } from "./cells/cell-text";
-import { EditableCellAssignee } from "./cells/editable-cell-assignee";
 import { EditableCellClient } from "./cells/editable-cell-client";
 import { EditableCellCurrency } from "./cells/editable-cell-currency";
 import { EditableCellDate } from "./cells/editable-cell-date";
@@ -41,6 +40,7 @@ import type {
   PipelineTableColumnLayout,
   PipelineTableMetrics,
 } from "./pipeline-table";
+import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 
 /**
  * Map a column to its presentational cell. Inline-editable columns route through
@@ -55,7 +55,8 @@ function renderReadOnlyCell(
   column: PipelineTableColumnConfig,
   onRequestStageChange: (rowId: string, next: OpportunityStage) => void,
   onRequestConvertAlreadyWon: (rowId: string) => void,
-  canManage: boolean
+  canManage: boolean,
+  canConvert: boolean
 ): ReactNode {
   switch (column.id) {
     case "deal":
@@ -65,6 +66,7 @@ function renderReadOnlyCell(
         <CellStageAction
           stage={row.stage}
           canManage={canManage}
+          canConvert={canConvert}
           wonUnconverted={row.stage === OpportunityStage.Won && !row.projectId}
           onConvert={() => onRequestConvertAlreadyWon(row.id)}
           onSelectStage={(next) => onRequestStageChange(row.id, next)}
@@ -122,6 +124,7 @@ export function PipelineTableRow({
   activeCell,
   editingCell,
   canManage,
+  leadAccess,
   setActiveCell,
   onToggleRow,
   onOpenDeal,
@@ -144,6 +147,7 @@ export function PipelineTableRow({
   activeCell: PipelineTableActiveCell | null;
   editingCell: PipelineTableEditingCell | null;
   canManage: boolean;
+  leadAccess?: LeadAccess;
   setActiveCell: (cell: PipelineTableActiveCell) => void;
   onToggleRow: (rowId: string, mode: "single" | "toggle" | "range") => void;
   onOpenDeal: (rowId: string) => void;
@@ -163,6 +167,13 @@ export function PipelineTableRow({
   onRequestConvertAlreadyWon: (rowId: string) => void;
 }) {
   const { t } = useDictionary("pipeline");
+  const rowAccess = leadAccess ?? {
+    canView: true,
+    canEdit: false,
+    canAssign: false,
+    canUnassign: false,
+    canConvert: false,
+  };
 
   const handleSelect = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -265,18 +276,6 @@ export function PipelineTableRow({
             onCommit={(value) => onCommitCell(row.id, columnId, value)}
           />
         );
-      case "assignee":
-        return (
-          <EditableCellAssignee
-            assigneeId={row.assignedTo}
-            assigneeName={row.assigneeName}
-            saveState={saveState}
-            editing={isEditing}
-            onBeginEdit={beginEdit}
-            onCancelEdit={onCancelEdit}
-            onCommit={(userId) => onCommitCell(row.id, columnId, userId)}
-          />
-        );
     }
   };
 
@@ -303,7 +302,7 @@ export function PipelineTableRow({
           activeCell?.rowId === row.id && activeCell.columnId === column.id;
         // Editing is a manage-only state; a view-only operator can never enter it.
         const isEditingCell =
-          canManage &&
+          rowAccess.canEdit &&
           isPipelineTableEditableColumn(column.id) &&
           editingCell?.rowId === row.id &&
           editingCell.columnId === column.id;
@@ -339,7 +338,10 @@ export function PipelineTableRow({
               // opening the detail panel; everything else opens the deal. Gated
               // on canManage: a view-only operator renders the read-only cell for
               // these columns, so a click there opens the deal like any other.
-              if (canManage && isPipelineTableEditableColumn(column.id)) {
+              if (
+                rowAccess.canEdit &&
+                isPipelineTableEditableColumn(column.id)
+              ) {
                 onBeginEdit(row.id, column.id);
                 return;
               }
@@ -370,12 +372,12 @@ export function PipelineTableRow({
           >
             {column.id === "select" ? (
               // The select checkbox only feeds bulk mutations, which a view-only
-              // operator (pipeline.view, not pipeline.manage) can't perform — and
+              // operator without row-level pipeline.edit can't perform — and
               // would silently fail at RLS. Without manage there is no checkbox at
               // all (the header's select-all is hidden in lockstep), so the row's
               // frozen rail still holds its aging-signal border but offers no
               // selection affordance.
-              canManage ? (
+              rowAccess.canEdit ? (
                 <Checkbox
                   aria-label={t("table.column.select")}
                   checked={selected}
@@ -385,20 +387,21 @@ export function PipelineTableRow({
               ) : null
             ) : (
               <div className="min-w-0 flex-1">
-                {/* Inline editing is gated on pipeline.manage: a view-only operator
+                {/* Inline editing is gated on this row's pipeline.edit access: a view-only operator
                     gets the READ-ONLY cell for the editable columns (value / dates /
                     assignee) — exactly how `CellStageAction` falls back to the static
                     `CellStage` — so no edit affordance is shown that would only fail
                     at RLS. With manage, editable columns route through their inline
                     editors. */}
-                {canManage && isPipelineTableEditableColumn(column.id)
+                {rowAccess.canEdit && isPipelineTableEditableColumn(column.id)
                   ? renderEditableCell(column.id)
                   : renderReadOnlyCell(
                       row,
                       column,
                       onRequestStageChange,
                       onRequestConvertAlreadyWon,
-                      canManage
+                      rowAccess.canEdit,
+                      rowAccess.canConvert
                     )}
               </div>
             )}

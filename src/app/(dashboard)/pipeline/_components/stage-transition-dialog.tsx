@@ -37,7 +37,7 @@ export interface StageTransitionConfirmData {
   titleOverride?: string | null;
   /** A dedup candidate the operator chose → link instead of create. */
   linkToProjectId?: string;
-  /** existing_linked → open the already-converted project (no write). */
+  /** Existing linked project to open after Mark Won; already-won opens directly. */
   openProjectId?: string;
 }
 
@@ -69,7 +69,7 @@ const INPUT_CLASS = cn(
   "w-full bg-surface-input text-text font-mono text-body",
   "px-1.5 py-1.5 rounded border border-border",
   "placeholder:text-text-3",
-  "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
+  "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
 );
 
 /** Section title in the tactical `// LABEL` treatment. */
@@ -104,20 +104,29 @@ function WonContent({
   const reduce = useReducedMotion();
 
   const [actualValue, setActualValue] = useState(
-    opportunity.estimatedValue?.toString() ?? "",
+    opportunity.estimatedValue?.toString() ?? ""
   );
   const [address, setAddress] = useState(opportunity.address ?? "");
   const [renameOpen, setRenameOpen] = useState(false);
   const [titleOverride, setTitleOverride] = useState("");
   // null = "create new" (the default); a project id = link that candidate.
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
-    null,
+    null
   );
   const [othersOpen, setOthersOpen] = useState(false);
 
-  const existingLinked = preflight?.existingLinkedProject ?? null;
-  const candidates = preflight?.duplicateCandidates ?? [];
-  const others = preflight?.otherClientProjects ?? [];
+  const inaccessibleLinkedRecovery =
+    preflight?.alreadyConverted === true &&
+    preflight.projectAccessible === false;
+  const existingLinked = inaccessibleLinkedRecovery
+    ? null
+    : (preflight?.existingLinkedProject ?? null);
+  const candidates = inaccessibleLinkedRecovery
+    ? []
+    : (preflight?.duplicateCandidates ?? []);
+  const others = inaccessibleLinkedRecovery
+    ? []
+    : (preflight?.otherClientProjects ?? []);
   const hasCandidates = candidates.length > 0;
 
   const namePreview = deriveProjectNamePreview({
@@ -160,24 +169,33 @@ function WonContent({
       }) as Record<string, string>
     )[signal] ?? signal.replace(/_/g, " ");
 
-  const ctaKind: "open" | "link" | "create" | "win" = existingLinked
-    ? "open"
-    : selectedCandidateId
-      ? "link"
-      : hasCandidates
-        ? "create"
-        : "win";
+  const ctaKind: "open" | "link" | "create" | "win" = inaccessibleLinkedRecovery
+    ? "win"
+    : existingLinked
+      ? "open"
+      : selectedCandidateId
+        ? "link"
+        : hasCandidates
+          ? "create"
+          : "win";
 
   const ctaLabel =
-    {
-      open: t("transition.openProject", "Open project"),
-      link: t("transition.linkAndWin", "Link & win"),
-      create: t("transition.createNewAction", "Create new"),
-      win: t("transition.markWon", "Mark won"),
-    }[ctaKind] + " →";
+    (ctaKind === "open"
+      ? opportunity.stage === "won"
+        ? t("transition.openProject", "Open project")
+        : t("transition.markWonAndOpen", "Mark won & open")
+      : {
+          link: t("transition.linkAndWin", "Link & win"),
+          create: t("transition.createNewAction", "Create new"),
+          win: t("transition.markWon", "Mark won"),
+        }[ctaKind]) + " →";
 
   const handleConfirm = () => {
     if (preflightLoading) return;
+    if (inaccessibleLinkedRecovery) {
+      onConfirm({ actualValue: parsedValue() });
+      return;
+    }
     if (existingLinked) {
       onConfirm({ openProjectId: existingLinked.id });
       return;
@@ -196,7 +214,7 @@ function WonContent({
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <Trophy className="w-[18px] h-[18px] text-status-success" />
+          <Trophy className="h-[18px] w-[18px] text-status-success" />
           {t("transition.wonTitle", "Deal won")}
         </DialogTitle>
         <DialogDescription>{opportunity.title}</DialogDescription>
@@ -215,7 +233,7 @@ function WonContent({
           <p className="mt-1 font-mohave text-body-sm text-text-2">
             {t(
               "transition.duplicateExistsBody",
-              "This deal already has a project. Open it instead of making a duplicate.",
+              "This deal already has a project. Open it instead of making a duplicate."
             )}
           </p>
           <p className="mt-1.5 font-mono text-micro text-text">
@@ -251,141 +269,149 @@ function WonContent({
           </div>
 
           {/* NAME (auto) + rename escape hatch */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0 font-mono text-micro">
-                <span className="text-text-mute">{"// "}</span>
-                <span className="uppercase tracking-[0.16em] text-text-3">
-                  {t("transition.nameAuto", "Name")}
-                </span>
-                <span className="text-text-mute"> · </span>
-                {!renameOpen && (
-                  <span data-testid="won-name-preview" className="text-text">
-                    {namePreview}
+          {!inaccessibleLinkedRecovery && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 font-mono text-micro">
+                  <span className="text-text-mute">{"// "}</span>
+                  <span className="uppercase tracking-[0.16em] text-text-3">
+                    {t("transition.nameAuto", "Name")}
                   </span>
-                )}
-              </div>
-              <button
-                type="button"
-                data-testid="won-rename-toggle"
-                onClick={() => setRenameOpen((o) => !o)}
-                className="shrink-0 font-mono text-micro lowercase text-text-3 transition-colors hover:text-text-2"
-              >
-                {t("transition.rename", "rename")}
-              </button>
-            </div>
-            <AnimatePresence initial={false}>
-              {renameOpen && (
-                <motion.div key="rename" {...reveal}>
-                  <input
-                    data-testid="won-rename-input"
-                    type="text"
-                    aria-label={t("transition.nameAuto", "Name")}
-                    value={titleOverride}
-                    onChange={(e) => setTitleOverride(e.target.value)}
-                    placeholder={namePreview}
-                    className={cn(INPUT_CLASS, "font-mohave")}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* SITE ADDRESS — editable; drives the name preview live */}
-          <div className="space-y-0.5">
-            <label className={LABEL_CLASS}>
-              {t("transition.siteAddress", "Site address")}
-            </label>
-            <AddressAutocomplete
-              value={address}
-              onChange={handleAddress}
-              portalListbox
-              proximity={
-                opportunity.latitude != null && opportunity.longitude != null
-                  ? {
-                      latitude: opportunity.latitude,
-                      longitude: opportunity.longitude,
-                    }
-                  : undefined
-              }
-            />
-          </div>
-
-          {/* ── dedup: loading / duplicate candidates ── */}
-          {preflightLoading ? (
-            <motion.div
-              {...reveal}
-              data-testid="won-preflight-loading"
-              className="flex items-center gap-1.5 font-mono text-micro text-text-3"
-            >
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-              {`[ ${t("transition.checkingDuplicates", "Checking for duplicates")} ]`}
-            </motion.div>
-          ) : hasCandidates ? (
-            <motion.div {...reveal} className="space-y-1.5">
-              <SectionTitle>
-                {t("transition.candidatesTitle", "Possible duplicates")}
-              </SectionTitle>
-              <p className="font-mohave text-body-sm text-text-3">
-                {t(
-                  "transition.candidatesBody",
-                  "This job may already exist. Link it instead of creating a duplicate.",
-                )}
-              </p>
-              <div
-                role="radiogroup"
-                aria-label={t("transition.candidatesTitle", "Possible duplicates")}
-                className="space-y-1"
-              >
-                {candidates.map((c) => {
-                  const selected = selectedCandidateId === c.projectId;
-                  return (
-                    <button
-                      type="button"
-                      key={c.projectId}
-                      data-testid={`won-candidate-${c.projectId}`}
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => setSelectedCandidateId(c.projectId)}
-                      className={cn(
-                        "w-full rounded border px-2.5 py-2 text-left transition-colors",
-                        selected
-                          ? "border-line-hi bg-surface-active"
-                          : "border-border bg-surface-input hover:bg-surface-hover",
-                      )}
-                    >
-                      <div className="font-mohave text-body-sm text-text">
-                        {c.title}
-                      </div>
-                      {c.address && (
-                        <div className="font-mono text-micro text-text-3">
-                          {c.address}
-                        </div>
-                      )}
-                      <div className="mt-0.5 font-mono text-micro text-text-mute">
-                        {`[ ${c.signals.map(signalLabel).join(" · ")} ]`}
-                      </div>
-                    </button>
-                  );
-                })}
+                  <span className="text-text-mute"> · </span>
+                  {!renameOpen && (
+                    <span data-testid="won-name-preview" className="text-text">
+                      {namePreview}
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
-                  data-testid="won-create-new-option"
-                  role="radio"
-                  aria-checked={selectedCandidateId === null}
-                  onClick={() => setSelectedCandidateId(null)}
-                  className={cn(
-                    "w-full rounded border px-2.5 py-2 text-left font-mohave text-body-sm transition-colors",
-                    selectedCandidateId === null
-                      ? "border-line-hi bg-surface-active text-text"
-                      : "border-border bg-surface-input text-text-2 hover:bg-surface-hover",
-                  )}
+                  data-testid="won-rename-toggle"
+                  onClick={() => setRenameOpen((o) => !o)}
+                  className="shrink-0 font-mono text-micro lowercase text-text-3 transition-colors hover:text-text-2"
                 >
-                  {t("transition.createNewOption", "Create a new project")}
+                  {t("transition.rename", "rename")}
                 </button>
               </div>
-            </motion.div>
-          ) : null}
+              <AnimatePresence initial={false}>
+                {renameOpen && (
+                  <motion.div key="rename" {...reveal}>
+                    <input
+                      data-testid="won-rename-input"
+                      type="text"
+                      aria-label={t("transition.nameAuto", "Name")}
+                      value={titleOverride}
+                      onChange={(e) => setTitleOverride(e.target.value)}
+                      placeholder={namePreview}
+                      className={cn(INPUT_CLASS, "font-mohave")}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* SITE ADDRESS — editable; drives the name preview live */}
+          {!inaccessibleLinkedRecovery && (
+            <div className="space-y-0.5">
+              <label className={LABEL_CLASS}>
+                {t("transition.siteAddress", "Site address")}
+              </label>
+              <AddressAutocomplete
+                value={address}
+                onChange={handleAddress}
+                portalListbox
+                proximity={
+                  opportunity.latitude != null && opportunity.longitude != null
+                    ? {
+                        latitude: opportunity.latitude,
+                        longitude: opportunity.longitude,
+                      }
+                    : undefined
+                }
+              />
+            </div>
+          )}
+
+          {/* ── dedup: loading / duplicate candidates ── */}
+          {!inaccessibleLinkedRecovery &&
+            (preflightLoading ? (
+              <motion.div
+                {...reveal}
+                data-testid="won-preflight-loading"
+                className="flex items-center gap-1.5 font-mono text-micro text-text-3"
+              >
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                {`[ ${t("transition.checkingDuplicates", "Checking for duplicates")} ]`}
+              </motion.div>
+            ) : hasCandidates ? (
+              <motion.div {...reveal} className="space-y-1.5">
+                <SectionTitle>
+                  {t("transition.candidatesTitle", "Possible duplicates")}
+                </SectionTitle>
+                <p className="font-mohave text-body-sm text-text-3">
+                  {t(
+                    "transition.candidatesBody",
+                    "This job may already exist. Link it instead of creating a duplicate."
+                  )}
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-label={t(
+                    "transition.candidatesTitle",
+                    "Possible duplicates"
+                  )}
+                  className="space-y-1"
+                >
+                  {candidates.map((c) => {
+                    const selected = selectedCandidateId === c.projectId;
+                    return (
+                      <button
+                        type="button"
+                        key={c.projectId}
+                        data-testid={`won-candidate-${c.projectId}`}
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setSelectedCandidateId(c.projectId)}
+                        className={cn(
+                          "w-full rounded border px-2.5 py-2 text-left transition-colors",
+                          selected
+                            ? "border-line-hi bg-surface-active"
+                            : "border-border bg-surface-input hover:bg-surface-hover"
+                        )}
+                      >
+                        <div className="font-mohave text-body-sm text-text">
+                          {c.title}
+                        </div>
+                        {c.address && (
+                          <div className="font-mono text-micro text-text-3">
+                            {c.address}
+                          </div>
+                        )}
+                        <div className="mt-0.5 font-mono text-micro text-text-mute">
+                          {`[ ${c.signals.map(signalLabel).join(" · ")} ]`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    data-testid="won-create-new-option"
+                    role="radio"
+                    aria-checked={selectedCandidateId === null}
+                    onClick={() => setSelectedCandidateId(null)}
+                    className={cn(
+                      "w-full rounded border px-2.5 py-2 text-left font-mohave text-body-sm transition-colors",
+                      selectedCandidateId === null
+                        ? "border-line-hi bg-surface-active text-text"
+                        : "border-border bg-surface-input text-text-2 hover:bg-surface-hover"
+                    )}
+                  >
+                    {t("transition.createNewOption", "Create a new project")}
+                  </button>
+                </div>
+              </motion.div>
+            ) : null)}
 
           {/* ── other_client_projects (informational, collapsed) ── */}
           {!preflightLoading && others.length > 0 && (
@@ -399,12 +425,17 @@ function WonContent({
                 <ChevronRight
                   className={cn(
                     "h-3 w-3 transition-transform",
-                    othersOpen && "rotate-90",
+                    othersOpen && "rotate-90"
                   )}
                   aria-hidden="true"
                 />
-                <span className="tabular-nums text-text-2">{others.length}</span>
-                {t("transition.clientHasOthers", "other projects for this client")}
+                <span className="tabular-nums text-text-2">
+                  {others.length}
+                </span>
+                {t(
+                  "transition.clientHasOthers",
+                  "other projects for this client"
+                )}
               </button>
               <AnimatePresence initial={false}>
                 {othersOpen && (
@@ -429,7 +460,7 @@ function WonContent({
           )}
 
           {/* auto-convert note — only on the create path (not when linking) */}
-          {!selectedCandidateId && (
+          {!inaccessibleLinkedRecovery && !selectedCandidateId && (
             <p className="font-mono text-micro leading-snug text-text-mute">
               {`[ ${t("transition.autoConvertNote", "Created and linked automatically when you mark this won.")} ]`}
             </p>
@@ -487,7 +518,7 @@ function LostContent({
     <>
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
-          <XCircle className="w-[18px] h-[18px] text-ops-error" />
+          <XCircle className="h-[18px] w-[18px] text-ops-error" />
           {t("transition.lostTitle")}
         </DialogTitle>
         <DialogDescription>
@@ -505,11 +536,11 @@ function LostContent({
             value={lostReason}
             onChange={(e) => setLostReason(e.target.value)}
             className={cn(
-              "w-full bg-surface-input text-text font-mohave text-body",
-              "px-1.5 py-1.5 rounded border border-border",
+              "w-full bg-surface-input font-mohave text-body text-text",
+              "rounded border border-border px-1.5 py-1.5",
               "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
               "cursor-pointer",
-              !lostReason && "text-text-3",
+              !lostReason && "text-text-3"
             )}
           >
             <option value="">{t("transition.selectReason")}</option>
@@ -530,10 +561,10 @@ function LostContent({
             placeholder={t("transition.notesPlaceholder")}
             rows={3}
             className={cn(
-              "w-full bg-surface-input text-text font-mohave text-body-sm",
-              "px-1.5 py-1.5 rounded border border-border resize-none",
+              "w-full bg-surface-input font-mohave text-body-sm text-text",
+              "resize-none rounded border border-border px-1.5 py-1.5",
               "placeholder:text-text-3",
-              "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
+              "focus:border-[rgba(255,255,255,0.20)] focus:outline-none"
             )}
           />
         </div>

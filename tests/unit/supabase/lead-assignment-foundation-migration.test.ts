@@ -207,6 +207,12 @@ describe("guarded assignment operations", () => {
       /v_scope = 'assigned'[\s\S]*?v_opportunity\.assigned_to is distinct from p_actor_user_id/i
     );
     expect(core).toMatch(
+      /v_scope = 'assigned'[\s\S]*?v_opportunity\.assigned_to is distinct from p_actor_user_id[\s\S]*?assignment_access_lost/i
+    );
+    expect(core.indexOf("assignment_access_lost")).toBeLessThan(
+      core.indexOf("update public.opportunities")
+    );
+    expect(core).toMatch(
       /v_scope = 'assigned'[\s\S]*?p_new_assigned_to is null/i
     );
     expect(core).toMatch(

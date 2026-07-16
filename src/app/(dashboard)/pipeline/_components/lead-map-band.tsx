@@ -22,10 +22,10 @@
  *    a lead with no coordinates reveals the facts on the plain canvas — never a
  *    decorative grid), a bottom-weighted scrim, the estimated-value hero
  *    (CurrencyField), the priority chip, and the inline-editable facts row
- *    (client · source · owner · close).
+ *    (client · source · assignee · close).
  *
  * A lead with no coordinates still expands: the value / priority / source /
- * owner / close editors live NOWHERE else, so the strip stays their one-tap
+ * assignee / close editors live NOWHERE else, so the strip stays their one-tap
  * home — it just opens onto the plain dark canvas instead of a map, and the
  * strip drops the map glyph (there is nothing map-like to promise).
  *
@@ -63,7 +63,7 @@ import { ProjectMap } from "@/components/ops/projects/workspace/map/project-map"
 import {
   CurrencyField,
   DateField,
-  OwnerField,
+  AssigneeField,
   PriorityField,
   SourceField,
 } from "./lead-field-editors";
@@ -139,9 +139,11 @@ function FactLabel({ children }: { children: React.ReactNode }) {
 export function LeadMapBand({
   opportunity,
   canManage,
+  canAssign = canManage,
 }: {
   opportunity: Opportunity;
   canManage: boolean;
+  canAssign?: boolean;
 }) {
   const { t } = useDictionary("pipeline");
   const reduceMotion = useReducedMotion();
@@ -180,53 +182,67 @@ export function LeadMapBand({
       className="relative w-full overflow-hidden border-b border-border-subtle"
       style={{ background: "var(--map-canvas-bg)" }}
     >
-      {/* Address strip — the sole persistent chrome; the whole bar is the toggle. */}
-      <button
-        type="button"
-        data-testid="lead-map-strip"
-        aria-expanded={expanded}
-        aria-controls={revealId}
-        aria-label={toggleLabel}
-        onClick={() => setExpanded((prev) => !prev)}
-        className={cn(
-          "flex w-full items-center gap-2 px-[11px] text-left",
-          "transition-colors duration-150 ease-smooth",
-          "hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ops-accent",
-        )}
-        style={{ height: STRIP_HEIGHT }}
-      >
-        {hasCoords ? (
-          <MapPin
-            size={12}
-            strokeWidth={1.5}
-            className="shrink-0 text-text-3"
-            aria-hidden="true"
-          />
-        ) : null}
-
-        {address ? (
-          <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-text-2">
-            <span aria-hidden="true" className="text-text-mute">
-              ▸
-            </span>
-            <span className="truncate">{address}</span>
-          </span>
-        ) : (
-          <span className="font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-text-3">
-            {EMPTY}
-          </span>
-        )}
-
-        <ChevronDown
-          size={14}
-          strokeWidth={1.5}
-          aria-hidden="true"
+      {/* Persistent identity strip. Assignment stays visible and actionable at
+          the top of the lead; the address button independently reveals the
+          lower-frequency map and commercial facts. */}
+      <div className="flex items-stretch" style={{ minHeight: STRIP_HEIGHT }}>
+        <button
+          type="button"
+          data-testid="lead-map-strip"
+          aria-expanded={expanded}
+          aria-controls={revealId}
+          aria-label={toggleLabel}
+          onClick={() => setExpanded((prev) => !prev)}
           className={cn(
-            "ml-auto shrink-0 text-text-3 transition-transform duration-200 ease-smooth motion-reduce:transition-none",
-            expanded && "rotate-180",
+            "flex min-w-0 flex-1 items-center gap-2 px-[11px] text-left",
+            "transition-colors duration-150 ease-smooth",
+            "hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ops-accent"
           )}
-        />
-      </button>
+        >
+          {hasCoords ? (
+            <MapPin
+              size={12}
+              strokeWidth={1.5}
+              className="shrink-0 text-text-3"
+              aria-hidden="true"
+            />
+          ) : null}
+
+          {address ? (
+            <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-text-2">
+              <span aria-hidden="true" className="text-text-mute">
+                ▸
+              </span>
+              <span className="truncate">{address}</span>
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-text-3">
+              {EMPTY}
+            </span>
+          )}
+
+          <ChevronDown
+            size={14}
+            strokeWidth={1.5}
+            aria-hidden="true"
+            className={cn(
+              "ml-auto shrink-0 text-text-3 transition-transform duration-200 ease-smooth motion-reduce:transition-none",
+              expanded && "rotate-180"
+            )}
+          />
+        </button>
+
+        <div className="flex w-2/5 max-w-64 shrink-0 items-center gap-1.5 border-l border-border-subtle px-3">
+          <FactLabel>{t("band.assigneeLabel", "Assignee")}</FactLabel>
+          <AssigneeField
+            opportunityId={opportunity.id}
+            assignmentVersion={opportunity.assignmentVersion}
+            canAssign={canAssign}
+            value={opportunity.assignedTo}
+            className="max-w-40 text-text"
+          />
+        </div>
+      </div>
 
       {/* Reveal — the full deal band, opened on demand. */}
       <AnimatePresence initial={false}>
@@ -287,7 +303,7 @@ export function LeadMapBand({
                       "inline-flex shrink-0 items-center gap-1 rounded-[5px] border border-glass-border px-2 py-1",
                       "font-mono text-[9px] uppercase tracking-[0.16em] text-text-2",
                       "transition-colors duration-150 ease-smooth hover:text-text",
-                      "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                      "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                     )}
                     style={{
                       background: "var(--scrim-window-shadow)",
@@ -297,7 +313,11 @@ export function LeadMapBand({
                   >
                     <MapPin size={10} strokeWidth={1.5} aria-hidden="true" />
                     <span>{t("band.openInMaps", "Open in Maps")}</span>
-                    <ArrowUpRight size={10} strokeWidth={1.5} aria-hidden="true" />
+                    <ArrowUpRight
+                      size={10}
+                      strokeWidth={1.5}
+                      aria-hidden="true"
+                    />
                   </a>
                 </div>
               ) : null}
@@ -313,7 +333,9 @@ export function LeadMapBand({
                 {/* Value hero row — `// ESTIMATED VALUE` + the big editable currency. */}
                 <div className="flex items-end gap-3">
                   <div className="flex min-w-0 flex-col gap-1">
-                    <FactLabel>{t("band.estimatedValue", "Estimated value")}</FactLabel>
+                    <FactLabel>
+                      {t("band.estimatedValue", "Estimated value")}
+                    </FactLabel>
                     <CurrencyField
                       edit={edit}
                       canManage={canManage}
@@ -342,7 +364,9 @@ export function LeadMapBand({
                         {clientName}
                       </span>
                     ) : (
-                      <span className="font-mohave text-[13px] text-text-3">{EMPTY}</span>
+                      <span className="font-mohave text-[13px] text-text-3">
+                        {EMPTY}
+                      </span>
                     )}
                   </Fact>
 
@@ -351,15 +375,6 @@ export function LeadMapBand({
                       edit={edit}
                       canManage={canManage}
                       value={opportunity.source}
-                      className="text-text"
-                    />
-                  </Fact>
-
-                  <Fact label={t("band.ownerLabel", "Owner")}>
-                    <OwnerField
-                      edit={edit}
-                      canManage={canManage}
-                      value={opportunity.assignedTo}
                       className="text-text"
                     />
                   </Fact>

@@ -66,7 +66,7 @@ vi.mock("@/components/ops/projects/workspace/map/project-map", () => ({
   ),
 }));
 
-// OwnerField loads the team via this hook; give it two active members.
+// AssigneeField loads the team via this hook; give it two active members.
 vi.mock("@/lib/hooks/use-users", () => ({
   useTeamMembers: () => ({
     data: {
@@ -109,6 +109,21 @@ vi.mock("@/lib/hooks/use-opportunities", () => ({
   useUpdateOpportunity: () => ({ mutateAsync }),
 }));
 
+// Assignment behavior is covered by the focused AssigneeField tests. The map-band
+// suite only needs a stable candidate/read boundary so it can exercise layout
+// and permission presentation without constructing an app-wide QueryClient.
+vi.mock("@/lib/hooks/use-lead-assignment", () => ({
+  useLeadAssignment: () => ({
+    mutateAsync: vi.fn().mockResolvedValue(undefined),
+    isPending: false,
+  }),
+  useLeadAssignmentCandidates: () => ({
+    data: { candidates: [], canUnassign: false },
+    isLoading: false,
+  }),
+  LeadAssignmentConflictError: class LeadAssignmentConflictError extends Error {},
+}));
+
 import { LeadMapBand } from "@/app/(dashboard)/pipeline/_components/lead-map-band";
 
 // ─── Fixture ────────────────────────────────────────────────────────────────
@@ -127,6 +142,7 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
     stage: OpportunityStage.Quoting,
     source: OpportunitySource.Referral,
     assignedTo: "user-ada",
+    assignmentVersion: 1,
     priority: OpportunityPriority.High,
     estimatedValue: 14200,
     actualValue: null,
@@ -176,12 +192,13 @@ beforeEach(() => {
 // ─── Collapsed default (strip only) ───────────────────────────────────────────
 
 describe("LeadMapBand — collapsed default", () => {
-  it("shows only the address strip — the map, hero, facts, and Open-in-Maps are not rendered", () => {
+  it("keeps address and assignee visible while map and commercial facts stay collapsed", () => {
     render(<LeadMapBand opportunity={makeOpportunity()} canManage />);
 
     const band = screen.getByTestId("lead-map-band");
     // The address rides in the persistent strip.
     expect(within(band).getByText(/1180 Howe St/)).toBeInTheDocument();
+    expect(within(band).getByText("Ada Lovelace")).toBeInTheDocument();
     // Collapsed: none of the reveal content is mounted.
     expect(screen.queryByTestId("project-map-mock")).toBeNull();
     expect(screen.queryByRole("link", { name: /open in maps/i })).toBeNull();
@@ -194,7 +211,7 @@ describe("LeadMapBand — collapsed default", () => {
   it("advertises 'Show map' when the lead has coordinates", () => {
     render(<LeadMapBand opportunity={makeOpportunity()} canManage />);
     expect(
-      screen.getByRole("button", { name: /show map/i }),
+      screen.getByRole("button", { name: /show map/i })
     ).toBeInTheDocument();
   });
 
@@ -203,10 +220,10 @@ describe("LeadMapBand — collapsed default", () => {
       <LeadMapBand
         opportunity={makeOpportunity({ latitude: null, longitude: null })}
         canManage
-      />,
+      />
     );
     expect(
-      screen.getByRole("button", { name: /show details/i }),
+      screen.getByRole("button", { name: /show details/i })
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /show map/i })).toBeNull();
   });
@@ -220,7 +237,7 @@ describe("LeadMapBand — collapsed default", () => {
           address: null,
         })}
         canManage
-      />,
+      />
     );
     const band = screen.getByTestId("lead-map-band");
     expect(within(band).getByText("—")).toBeInTheDocument();
@@ -235,7 +252,7 @@ describe("LeadMapBand — no coordinates never paints a grid", () => {
       <LeadMapBand
         opportunity={makeOpportunity({ latitude: null, longitude: null })}
         canManage
-      />,
+      />
     );
     expect(screen.queryByTestId("project-map-mock")).toBeNull();
     // The retired tactical-grid fallback must never render again.
@@ -247,7 +264,7 @@ describe("LeadMapBand — no coordinates never paints a grid", () => {
       <LeadMapBand
         opportunity={makeOpportunity({ latitude: null, longitude: null })}
         canManage
-      />,
+      />
     );
     expandBand();
     expect(screen.queryByTestId("project-map-mock")).toBeNull();
@@ -272,16 +289,19 @@ describe("LeadMapBand — expand reveals the deal band", () => {
     );
     expect(screen.getByTestId("lead-map-strip")).toHaveAttribute(
       "aria-expanded",
-      "true",
+      "true"
     );
   });
 
   it("reveals the estimated-value hero without the retired win-probability metric", () => {
     render(
       <LeadMapBand
-        opportunity={makeOpportunity({ estimatedValue: 14200, winProbability: 40 })}
+        opportunity={makeOpportunity({
+          estimatedValue: 14200,
+          winProbability: 40,
+        })}
         canManage
-      />,
+      />
     );
     expandBand();
     expect(screen.getByText(formatCurrency(14200))).toBeInTheDocument();
@@ -290,7 +310,12 @@ describe("LeadMapBand — expand reveals the deal band", () => {
   });
 
   it("shows the em-dash sentinel for a null value once expanded", () => {
-    render(<LeadMapBand opportunity={makeOpportunity({ estimatedValue: null })} canManage />);
+    render(
+      <LeadMapBand
+        opportunity={makeOpportunity({ estimatedValue: null })}
+        canManage
+      />
+    );
     expandBand();
     expect(screen.getByText("—")).toBeInTheDocument();
   });
@@ -372,7 +397,7 @@ describe("LeadMapBand — read-only (!canManage)", () => {
     render(<LeadMapBand opportunity={makeOpportunity()} canManage={false} />);
     expandBand();
     expect(
-      screen.getByRole("link", { name: /open in maps/i }),
+      screen.getByRole("link", { name: /open in maps/i })
     ).toBeInTheDocument();
   });
 

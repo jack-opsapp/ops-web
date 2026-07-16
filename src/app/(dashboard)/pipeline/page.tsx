@@ -16,7 +16,16 @@ import { useUndoStore } from "@/stores/undo-store";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { usePermissionStore } from "@/lib/store/permissions-store";
+import {
+  selectCanCreateOpportunity,
+  selectCanEditOpportunity,
+  usePermissionStore,
+} from "@/lib/store/permissions-store";
+import {
+  effectivePipelineScope,
+  getLeadAccess,
+  NO_LEAD_ACCESS,
+} from "@/lib/permissions/lead-access-policy";
 import {
   useOpportunities,
   useClients,
@@ -45,6 +54,8 @@ import {
   isActiveStage,
   nextOpportunityStage,
   PIPELINE_STAGES_DEFAULT,
+  matchesOpportunityAssigneeFilter,
+  type OpportunityAssigneeFilter,
 } from "@/lib/types/pipeline";
 // motion variants removed — archive undo toast replaced by universal undo
 
@@ -197,6 +208,15 @@ export default function PipelinePage() {
   const previousModeRef = useRef(mode);
   const openedUrlOpportunityRef = useRef<string | null>(null);
   const pipelineScopeRef = useRef<HTMLDivElement>(null);
+  const { company, currentUser } = useAuthStore();
+  const permissionState = usePermissionStore();
+  const canCreateLead = selectCanCreateOpportunity(permissionState);
+  const canEditLeads = selectCanEditOpportunity(permissionState);
+  const pipelineViewScope = effectivePipelineScope(
+    permissionState,
+    "pipeline.view"
+  );
+  const hasCompanyWideLeadView = pipelineViewScope === "all";
   // Shared search input + toolbar portal slots for the persistent chrome (WEB
   // OVERHAUL P6-2 rework). The metrics bar + toolbar are ONE instance shared
   // across focused/table modes; the table surface portals its mode-specific
@@ -213,11 +233,12 @@ export default function PipelinePage() {
   const [stageFilter, setStageFilter] = useState<OpportunityStage | "all">(
     "all"
   );
-  const [assigneeFilter, setAssigneeFilter] = useState<string | "all">("all");
+  const [assigneeFilter, setAssigneeFilter] =
+    useState<OpportunityAssigneeFilter>("all");
   const filtersActive =
     searchQuery.trim().length > 0 ||
     stageFilter !== "all" ||
-    assigneeFilter !== "all";
+    (hasCompanyWideLeadView && assigneeFilter !== "all");
 
   const handleClearFilters = useCallback(() => {
     setSearchQuery("");
@@ -255,10 +276,10 @@ export default function PipelinePage() {
   // ── Handle ?action=new from FAB navigation ────────────────────────────
   const searchParams = useSearchParams();
   useEffect(() => {
-    if (searchParams.get("action") === "new") {
+    if (searchParams.get("action") === "new" && canCreateLead) {
       openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
     }
-  }, [searchParams, openWindow]);
+  }, [canCreateLead, searchParams, openWindow]);
 
   // ── Email OAuth round-trip toast (?connected=<provider> / ?connect_error=1)
   // The connect banner sends the user through the provider's OAuth dance with
@@ -294,21 +315,18 @@ export default function PipelinePage() {
     });
   }, [searchParams, router, pathname, t]);
 
-  // ── Auth ──────────────────────────────────────────────────────────────
-  const { company, currentUser } = useAuthStore();
-  const can = usePermissionStore((s) => s.can);
-
   // ── Setup gate ────────────────────────────────────────────────────────
   const { isComplete: setupComplete, missingSteps } = useSetupGate();
   const [showSetupModal, setShowSetupModal] = useState(false);
 
   const gatedOpenCreate = useCallback(() => {
+    if (!canCreateLead) return;
     if (!setupComplete) {
       setShowSetupModal(true);
       return;
     }
     openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
-  }, [setupComplete, openWindow]);
+  }, [canCreateLead, setupComplete, openWindow]);
 
   // ── Metrics header data ────────────────────────────────────────────
   const { data: pipelineMetrics = [], isLoading: pipelineMetricsLoading } =
@@ -323,7 +341,9 @@ export default function PipelinePage() {
     refetch: refetchOpportunities,
   } = useOpportunities();
   const { data: clientsData, isLoading: clientsLoading } = useClients();
-  const { data: teamData } = useTeamMembers();
+  const { data: teamData } = useTeamMembers(undefined, {
+    enabled: hasCompanyWideLeadView,
+  });
   const { data: gmailConnections = [] } = useGmailConnections();
 
   const { data: reviewCount = 0 } = useQuery({
@@ -377,8 +397,31 @@ export default function PipelinePage() {
   // ── Active (non-deleted, non-archived) opportunities ──────────────────
   const activeOpportunities = useMemo(() => {
     if (!opportunities) return [];
-    return opportunities.filter((o) => !o.deletedAt && !o.archivedAt);
-  }, [opportunities]);
+    return opportunities.filter(
+      (opportunity) =>
+        !opportunity.deletedAt &&
+        !opportunity.archivedAt &&
+        getLeadAccess(permissionState, currentUser?.id ?? null, opportunity)
+          .canView
+    );
+  }, [currentUser?.id, opportunities, permissionState]);
+
+  const leadAccessById = useMemo(
+    () =>
+      new Map(
+        activeOpportunities.map((opportunity) => [
+          opportunity.id,
+          getLeadAccess(permissionState, currentUser?.id ?? null, opportunity),
+        ])
+      ),
+    [activeOpportunities, currentUser?.id, permissionState]
+  );
+
+  useEffect(() => {
+    if (!hasCompanyWideLeadView && assigneeFilter !== "all") {
+      setAssigneeFilter("all");
+    }
+  }, [assigneeFilter, hasCompanyWideLeadView]);
 
   useEffect(() => {
     const opportunityId = searchParams.get("opportunityId");
@@ -421,8 +464,14 @@ export default function PipelinePage() {
     }
 
     // Assignee filter
-    if (assigneeFilter !== "all") {
-      result = result.filter((o) => o.assignedTo === assigneeFilter);
+    if (hasCompanyWideLeadView && assigneeFilter !== "all") {
+      result = result.filter((opportunity) =>
+        matchesOpportunityAssigneeFilter(
+          opportunity,
+          assigneeFilter,
+          currentUser?.id ?? null
+        )
+      );
     }
 
     // Search query — shared token-AND grammar (lib/utils/search): every
@@ -446,6 +495,8 @@ export default function PipelinePage() {
     activeOpportunities,
     stageFilter,
     assigneeFilter,
+    hasCompanyWideLeadView,
+    currentUser?.id,
     searchQuery,
     clientNameMap,
   ]);
@@ -503,6 +554,7 @@ export default function PipelinePage() {
   /** One-tap call logging */
   const handleLogCall = useCallback(
     (opportunityId: string) => {
+      if (!leadAccessById.get(opportunityId)?.canEdit) return;
       createActivity.mutate({
         companyId: company?.id ?? "",
         opportunityId,
@@ -519,12 +571,13 @@ export default function PipelinePage() {
       });
       toast.success(t("card.callLogged"));
     },
-    [createActivity, company?.id, currentUser?.id, t]
+    [createActivity, company?.id, currentUser?.id, leadAccessById, t]
   );
 
   /** One-tap text logging */
   const handleLogText = useCallback(
     (opportunityId: string) => {
+      if (!leadAccessById.get(opportunityId)?.canEdit) return;
       createActivity.mutate({
         companyId: company?.id ?? "",
         opportunityId,
@@ -541,12 +594,13 @@ export default function PipelinePage() {
       });
       toast.success(t("card.textLogged"));
     },
-    [createActivity, company?.id, currentUser?.id, t]
+    [createActivity, company?.id, currentUser?.id, leadAccessById, t]
   );
 
   /** Add note to an opportunity */
   const handleAddNote = useCallback(
     (opportunityId: string, note: string) => {
+      if (!leadAccessById.get(opportunityId)?.canEdit) return;
       createActivity.mutate({
         companyId: company?.id ?? "",
         opportunityId,
@@ -563,12 +617,13 @@ export default function PipelinePage() {
       });
       toast.success(t("card.noteAdded"));
     },
-    [createActivity, company?.id, currentUser?.id, t]
+    [createActivity, company?.id, currentUser?.id, leadAccessById, t]
   );
 
   /** Archive with undo */
   const handleArchive = useCallback(
     (opportunityId: string) => {
+      if (!leadAccessById.get(opportunityId)?.canEdit) return;
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
       const label = (opp?.contactName ?? opp?.title ?? "Deal") + " → Archived";
       archiveMutation.mutate(opportunityId);
@@ -579,7 +634,21 @@ export default function PipelinePage() {
         },
       });
     },
-    [archiveMutation, unarchiveMutation, activeOpportunities, pushUndo]
+    [
+      archiveMutation,
+      unarchiveMutation,
+      activeOpportunities,
+      leadAccessById,
+      pushUndo,
+    ]
+  );
+
+  const handleDelete = useCallback(
+    (opportunityId: string) => {
+      if (!leadAccessById.get(opportunityId)?.canEdit) return;
+      deleteMutation.mutate(opportunityId);
+    },
+    [deleteMutation, leadAccessById]
   );
 
   /**
@@ -588,7 +657,16 @@ export default function PipelinePage() {
    * permission gate, same-stage no-op, Won/Lost → dialog routing, toast, and
    * undo are identical across the focused and table surfaces.
    */
-  const handleMoveStage = requestStageChange;
+  const handleMoveStage = useCallback(
+    (opportunityId: string, stage: OpportunityStage) => {
+      const access = leadAccessById.get(opportunityId) ?? NO_LEAD_ACCESS;
+      const allowed =
+        stage === OpportunityStage.Won ? access.canConvert : access.canEdit;
+      if (!allowed) return;
+      requestStageChange(opportunityId, stage);
+    },
+    [leadAccessById, requestStageChange]
+  );
 
   /** Mark won — opens transition dialog */
   const handleMarkWon = useCallback(
@@ -609,9 +687,10 @@ export default function PipelinePage() {
   /** Convert an already-won, unconverted deal — opens the Won dialog directly */
   const handleConvertAlreadyWon = useCallback(
     (opportunity: Opportunity) => {
+      if (!leadAccessById.get(opportunity.id)?.canConvert) return;
       requestConvertAlreadyWon(opportunity.id);
     },
-    [requestConvertAlreadyWon]
+    [leadAccessById, requestConvertAlreadyWon]
   );
 
   /** Discard — direct stage move, no confirmation dialog needed */
@@ -631,11 +710,12 @@ export default function PipelinePage() {
   const handlePipelineDragStart = useCallback(
     (event: DragStartEvent) => {
       const id = String(event.active.id);
+      if (!leadAccessById.get(id)?.canEdit) return;
       setActiveDragId(id);
 
       setFocusedDragLiveMessage(t("focused.dragLive.started"));
     },
-    [setFocusedDragLiveMessage, t]
+    [leadAccessById, setFocusedDragLiveMessage, t]
   );
 
   const handlePipelineDragOver = useCallback(
@@ -748,7 +828,7 @@ export default function PipelinePage() {
 
   const handleTitleSave = useCallback(
     (opportunity: Opportunity, title: string) => {
-      if (!can("pipeline.manage")) return;
+      if (!leadAccessById.get(opportunity.id)?.canEdit) return;
       updateOpportunity.mutate(
         { id: opportunity.id, data: { title } },
         {
@@ -763,12 +843,12 @@ export default function PipelinePage() {
         }
       );
     },
-    [can, t, updateOpportunity]
+    [leadAccessById, t, updateOpportunity]
   );
 
   const handleValueSave = useCallback(
     (opportunity: Opportunity, value: number | null) => {
-      if (!can("pipeline.manage")) return;
+      if (!leadAccessById.get(opportunity.id)?.canEdit) return;
       updateOpportunity.mutate(
         { id: opportunity.id, data: { estimatedValue: value } },
         {
@@ -783,12 +863,12 @@ export default function PipelinePage() {
         }
       );
     },
-    [can, t, updateOpportunity]
+    [leadAccessById, t, updateOpportunity]
   );
 
   const handleLinkClient = useCallback(
     (opportunity: Opportunity, clientId: string) => {
-      if (!can("pipeline.manage")) return;
+      if (!leadAccessById.get(opportunity.id)?.canEdit) return;
       attachClient.mutate(
         { opportunityId: opportunity.id, clientId },
         {
@@ -803,12 +883,12 @@ export default function PipelinePage() {
         }
       );
     },
-    [attachClient, can, t]
+    [attachClient, leadAccessById, t]
   );
 
   const handleCreateAndLinkClient = useCallback(
     async (opportunity: Opportunity, clientName: string) => {
-      if (!can("pipeline.manage") || !company?.id) return;
+      if (!leadAccessById.get(opportunity.id)?.canEdit || !company?.id) return;
 
       try {
         const client = await createClientMutation.mutateAsync({
@@ -830,7 +910,7 @@ export default function PipelinePage() {
         });
       }
     },
-    [attachClient, can, company?.id, createClientMutation, t]
+    [attachClient, company?.id, createClientMutation, leadAccessById, t]
   );
 
   const handleAddressSave = useCallback(
@@ -838,7 +918,7 @@ export default function PipelinePage() {
       opportunity: Opportunity,
       selection: { address: string; latitude: number; longitude: number }
     ) => {
-      if (!can("pipeline.manage")) return;
+      if (!leadAccessById.get(opportunity.id)?.canEdit) return;
       updateOpportunity.mutate(
         {
           id: opportunity.id,
@@ -860,7 +940,7 @@ export default function PipelinePage() {
         }
       );
     },
-    [can, t, updateOpportunity]
+    [leadAccessById, t, updateOpportunity]
   );
 
   /** Handle quick advance: move to next stage */
@@ -879,7 +959,6 @@ export default function PipelinePage() {
       if (!company) return;
       createOpportunity.mutate(
         {
-          companyId: company.id,
           clientId: null,
           title: prefill.title,
           description: prefill.notes || null,
@@ -888,16 +967,10 @@ export default function PipelinePage() {
           contactPhone: null,
           stage: OpportunityStage.NewLead,
           source: OpportunitySource.Email,
-          assignedTo: currentUser?.id ?? null,
           priority: null,
           estimatedValue: null,
-          actualValue: null,
           winProbability: 10,
           expectedCloseDate: null,
-          actualCloseDate: null,
-          projectId: null,
-          lostReason: null,
-          lostNotes: null,
           quoteDeliveryMethod: null,
           address: null,
           latitude: null,
@@ -913,10 +986,10 @@ export default function PipelinePage() {
         }
       );
     },
-    [company, currentUser, createOpportunity, t]
+    [company, createOpportunity, t]
   );
 
-  /** Placeholder: assign (opens detail panel) */
+  /** Open the lead's persistent assignment control in the detail header. */
   const handleAssign = useCallback(
     (opportunityId: string) => {
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
@@ -939,7 +1012,7 @@ export default function PipelinePage() {
     return <PipelineSkeleton />;
   }
 
-  const canManage = can("pipeline.manage");
+  const canManage = canEditLeads;
 
   // ── Shared board/mobile props ─────────────────────────────────────────
   const sharedBoardProps = {
@@ -961,6 +1034,7 @@ export default function PipelinePage() {
     onScheduleFollowUp: handleScheduleFollowUp,
     onAddLead: gatedOpenCreate,
     canManage,
+    leadAccessById,
   } as const;
 
   const focusedActiveOpportunity =
@@ -1035,6 +1109,8 @@ export default function PipelinePage() {
                   assigneeFilter={assigneeFilter}
                   onAssigneeFilterChange={setAssigneeFilter}
                   teamMembers={teamMembers}
+                  currentUserId={currentUser?.id ?? null}
+                  showAssigneeFilter={hasCompanyWideLeadView}
                 />
               }
               tools={
@@ -1064,7 +1140,7 @@ export default function PipelinePage() {
                 </>
               }
               create={
-                canManage ? (
+                canCreateLead ? (
                   <WorkbarButton onClick={gatedOpenCreate}>
                     <Plus
                       className="h-[11px] w-[11px] shrink-0"
@@ -1088,7 +1164,7 @@ export default function PipelinePage() {
                 <div
                   className={cn(
                     "flex min-w-0 items-center gap-2",
-                    effectiveMode === "table" && "w-full",
+                    effectiveMode === "table" && "w-full"
                   )}
                 >
                   <PipelineModeSwitcher />
@@ -1148,6 +1224,8 @@ export default function PipelinePage() {
                             clients={clientsData?.clients ?? []}
                             clientNameMap={clientNameMap}
                             canManage={canManage}
+                            canCreateLead={canCreateLead}
+                            leadAccessById={leadAccessById}
                             filtersActive={filtersActive}
                             opportunitiesLoading={oppsLoading}
                             clientsLoading={clientsLoading}
@@ -1171,7 +1249,7 @@ export default function PipelinePage() {
                             onMoveStage={handleMoveStage}
                             onAssign={handleAssign}
                             onScheduleFollowUp={handleScheduleFollowUp}
-                            onDelete={(id) => deleteMutation.mutate(id)}
+                            onDelete={handleDelete}
                             onTitleSave={handleTitleSave}
                             onValueSave={handleValueSave}
                             onLinkClient={handleLinkClient}
@@ -1292,7 +1370,9 @@ export default function PipelinePage() {
       {!isMobile && effectiveMode === "table" && detailPanelOpportunity && (
         <PipelineFocusedDetailWindow
           opportunity={detailPanelOpportunity}
-          canManage={canManage}
+          leadAccess={
+            leadAccessById.get(detailPanelOpportunity.id) ?? NO_LEAD_ACCESS
+          }
           originatingOpportunityId={
             originatingOpportunityId ?? detailPanelOpportunityId
           }
@@ -1301,7 +1381,7 @@ export default function PipelinePage() {
           onMarkLost={handleMarkLost}
           onArchive={handleArchive}
           onDiscard={handleDiscard}
-          onDelete={(id) => deleteMutation.mutate(id)}
+          onDelete={handleDelete}
         />
       )}
 

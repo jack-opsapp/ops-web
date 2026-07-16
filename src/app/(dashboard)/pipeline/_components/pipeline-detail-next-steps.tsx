@@ -14,17 +14,16 @@ import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import {
   type Opportunity,
-  type FollowUp,
   FollowUpStatus,
   FollowUpType,
   isFollowUpOverdue,
   isFollowUpToday,
 } from "@/lib/types/pipeline";
-import {
-  useOpportunityFollowUps,
-  useCompleteFollowUp,
-  useSiteVisits,
-} from "@/lib/hooks";
+import { useCompleteFollowUp } from "@/lib/hooks";
+import type {
+  OpportunityAssignedContextFollowUp,
+  OpportunityAssignedContextSiteVisit,
+} from "@/lib/api/services/opportunity-assigned-context-service";
 
 // ── Signal evaluation ──
 
@@ -37,10 +36,14 @@ interface Signal {
 
 function getFollowUpIcon(type: FollowUpType) {
   switch (type) {
-    case FollowUpType.Call: return Phone;
-    case FollowUpType.Email: return Mail;
-    case FollowUpType.Meeting: return Calendar;
-    default: return Clock;
+    case FollowUpType.Call:
+      return Phone;
+    case FollowUpType.Email:
+      return Mail;
+    case FollowUpType.Meeting:
+      return Calendar;
+    default:
+      return Clock;
   }
 }
 
@@ -61,10 +64,10 @@ function formatDaysUntil(days: number): string {
 }
 
 function evaluateSignals(
-  pendingFollowUps: FollowUp[],
+  pendingFollowUps: OpportunityAssignedContextFollowUp[],
   opportunity: Opportunity,
   upcomingVisitDate: Date | null,
-  t: (key: string) => string,
+  t: (key: string) => string
 ): Signal[] {
   const signals: Signal[] = [];
   const now = new Date();
@@ -160,34 +163,43 @@ const COLOR_MAP = {
 } as const;
 
 interface PipelineDetailNextStepsProps {
-  opportunityId: string;
   opportunity: Opportunity;
+  followUps: OpportunityAssignedContextFollowUp[];
+  siteVisits: OpportunityAssignedContextSiteVisit[];
+  canManage: boolean;
 }
 
 export function PipelineDetailNextSteps({
-  opportunityId,
   opportunity,
+  followUps,
+  siteVisits,
+  canManage,
 }: PipelineDetailNextStepsProps) {
   const { t } = useDictionary("pipeline");
   const [expanded, setExpanded] = useState(false);
 
-  const { data: followUps } = useOpportunityFollowUps(opportunityId);
-  const { data: siteVisits } = useSiteVisits({ opportunityId });
   const completeFollowUp = useCompleteFollowUp();
 
   const pendingFollowUps = useMemo(
     () =>
-      (followUps ?? [])
+      followUps
         .filter((fu) => fu.status === FollowUpStatus.Pending)
-        .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()),
+        .sort(
+          (a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()
+        ),
     [followUps]
   );
 
   const upcomingVisitDate = useMemo(() => {
     const now = new Date();
-    const upcoming = (siteVisits ?? [])
-      .filter((sv) => sv.status === "scheduled" && new Date(sv.scheduledAt) > now)
-      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+    const upcoming = siteVisits
+      .filter(
+        (sv) => sv.status === "scheduled" && new Date(sv.scheduledAt) > now
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+      );
     return upcoming[0] ? new Date(upcoming[0].scheduledAt) : null;
   }, [siteVisits]);
 
@@ -198,9 +210,10 @@ export function PipelineDetailNextSteps({
 
   const handleComplete = useCallback(
     (followUpId: string) => {
+      if (!canManage) return;
       completeFollowUp.mutate({ id: followUpId });
     },
-    [completeFollowUp]
+    [canManage, completeFollowUp]
   );
 
   const primary = signals[0];
@@ -210,7 +223,7 @@ export function PipelineDetailNextSteps({
     <div className="shrink-0 border-b border-border-subtle px-3 py-1.5">
       {!primary ? (
         <div className="flex items-center gap-1.5">
-          <CheckCircle className="w-3 h-3 text-text-mute shrink-0" />
+          <CheckCircle className="h-3 w-3 shrink-0 text-text-mute" />
           <span className="font-mono text-[11px] text-text-mute">
             {t("detail.noPendingActions")}
           </span>
@@ -220,32 +233,32 @@ export function PipelineDetailNextSteps({
           {/* Primary signal */}
           <div className="flex items-center gap-1.5">
             <primary.icon
-              className={cn("w-3 h-3 shrink-0", COLOR_MAP[primary.color])}
+              className={cn("h-3 w-3 shrink-0", COLOR_MAP[primary.color])}
             />
             <span
               className={cn(
-                "font-mono text-[11px] flex-1 min-w-0 truncate",
+                "min-w-0 flex-1 truncate font-mono text-[11px]",
                 COLOR_MAP[primary.color]
               )}
             >
               {primary.text}
             </span>
 
-            <div className="flex items-center gap-1 shrink-0">
-              {primary.followUpId && (
+            <div className="flex shrink-0 items-center gap-1">
+              {primary.followUpId && canManage && (
                 <button
                   onClick={() => handleComplete(primary.followUpId!)}
                   disabled={completeFollowUp.isPending}
                   className="flex h-4 w-4 items-center justify-center rounded-bar text-text-mute transition-colors hover:bg-fill-neutral-dim hover:text-status-success"
                 >
-                  <Check className="w-2.5 h-2.5" />
+                  <Check className="h-2.5 w-2.5" />
                 </button>
               )}
 
               {remaining.length > 0 && (
                 <button
                   onClick={() => setExpanded((prev) => !prev)}
-                  className="font-mono text-micro text-text-mute hover:text-text-3 px-1 transition-colors"
+                  className="px-1 font-mono text-micro text-text-mute transition-colors hover:text-text-3"
                 >
                   +{remaining.length} {t("detail.moreFollowUps")}
                 </button>
@@ -257,25 +270,31 @@ export function PipelineDetailNextSteps({
           {expanded && remaining.length > 0 && (
             <div className="mt-1 space-y-0.5">
               {remaining.map((signal, idx) => (
-                <div key={signal.followUpId ?? idx} className="flex items-center gap-1.5">
+                <div
+                  key={signal.followUpId ?? idx}
+                  className="flex items-center gap-1.5"
+                >
                   <signal.icon
-                    className={cn("w-2.5 h-2.5 shrink-0", COLOR_MAP[signal.color])}
+                    className={cn(
+                      "h-2.5 w-2.5 shrink-0",
+                      COLOR_MAP[signal.color]
+                    )}
                   />
                   <span
                     className={cn(
-                      "font-mono text-micro flex-1 min-w-0 truncate",
+                      "min-w-0 flex-1 truncate font-mono text-micro",
                       COLOR_MAP[signal.color]
                     )}
                   >
                     {signal.text}
                   </span>
-                  {signal.followUpId && (
+                  {signal.followUpId && canManage && (
                     <button
                       onClick={() => handleComplete(signal.followUpId!)}
                       disabled={completeFollowUp.isPending}
                       className="flex h-4 w-4 items-center justify-center rounded-bar text-text-mute transition-colors hover:bg-fill-neutral-dim hover:text-status-success"
                     >
-                      <Check className="w-2.5 h-2.5" />
+                      <Check className="h-2.5 w-2.5" />
                     </button>
                   )}
                 </div>

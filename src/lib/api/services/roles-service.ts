@@ -9,30 +9,184 @@
 
 import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
 import { getIdToken } from "@/lib/firebase/auth";
-import type { Role, RolePermission, UserRole, PermissionScope } from "@/lib/types/permissions";
+import {
+  PERMISSION_EDITOR_REGISTRY,
+  type Role,
+  type RolePermission,
+  type UserRole,
+  type PermissionScope,
+} from "@/lib/types/permissions";
 import type { OverrideInput } from "@/lib/permissions/resolve";
 import type { User } from "@/lib/types/models";
 import { getUserFullName } from "@/lib/types/models";
+import type {
+  EligibleRoleAssignmentTarget,
+  RoleAssignmentResolution,
+  StrandedRoleAssignment,
+} from "./guarded-permission-types";
+export type {
+  EligibleRoleAssignmentTarget,
+  RoleAssignmentResolution,
+  StrandedRoleAssignment,
+} from "./guarded-permission-types";
 
-/** POST/PUT/PATCH/DELETE against a team API route with the body-idToken contract. */
-async function authedRouteCall(
-  method: "PATCH" | "PUT" | "DELETE",
-  url: string,
-  payload: Record<string, unknown>
-): Promise<Record<string, unknown>> {
+export interface RolePermissionSnapshotEntry {
+  permission: string;
+  scope: PermissionScope;
+}
+
+export interface RolePermissionReplacementEntry {
+  permission: string;
+  scope: PermissionScope | null;
+}
+
+export interface ReplaceRolePermissionsInput {
+  expectedPermissions: RolePermissionSnapshotEntry[];
+  newPermissions: RolePermissionReplacementEntry[];
+  assignmentResolutions: RoleAssignmentResolution[];
+}
+
+export interface ReplaceRolePermissionsResult {
+  ok: true;
+  roleId: string;
+  permissions: RolePermissionSnapshotEntry[];
+  resolvedAssignments: number;
+}
+
+export interface RolePermissionFailurePayload {
+  code: string;
+  currentPermissions?: RolePermissionSnapshotEntry[];
+  currentRoleId?: string | null;
+  strandedCount?: number;
+  stranded?: StrandedRoleAssignment[];
+  eligibleAssignees?: EligibleRoleAssignmentTarget[];
+  opportunity_id?: string;
+  assigned_to?: string | null;
+  assignment_version?: number | null;
+}
+
+export interface ReplaceUserRoleInput {
+  expectedRoleId: string | null;
+  newRoleId: string | null;
+  assignmentResolutions: RoleAssignmentResolution[];
+}
+
+export interface ReplaceUserRoleResult {
+  ok: true;
+  userId: string;
+  roleId: string | null;
+  legacyRole: string;
+  resolvedAssignments: number;
+}
+
+export class UserRoleUpdateError extends Error {
+  readonly payload: RolePermissionFailurePayload;
+  readonly status: number;
+
+  constructor(status: number, payload: RolePermissionFailurePayload) {
+    super(payload.code || `HTTP ${status}`);
+    this.name = "UserRoleUpdateError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+export class RolePermissionUpdateError extends Error {
+  readonly payload: RolePermissionFailurePayload;
+  readonly status: number;
+
+  constructor(status: number, payload: RolePermissionFailurePayload) {
+    super(payload.code || `HTTP ${status}`);
+    this.name = "RolePermissionUpdateError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
+async function replaceRolePermissionsRoute(
+  roleId: string,
+  input: ReplaceRolePermissionsInput
+): Promise<ReplaceRolePermissionsResult> {
   const idToken = await getIdToken();
   if (!idToken) throw new Error("Not authenticated");
 
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken, ...payload }),
-  });
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(err.error || `HTTP ${res.status}`);
+  const response = await fetch(
+    `/api/roles/${encodeURIComponent(roleId)}/permissions`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    }
+  );
+  const payload = (await response.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+  if (!response.ok) {
+    throw new RolePermissionUpdateError(response.status, {
+      ...(payload as unknown as RolePermissionFailurePayload),
+      code:
+        typeof payload.code === "string"
+          ? payload.code
+          : "permission_update_failed",
+    });
   }
-  return (await res.json()) as Record<string, unknown>;
+
+  if (
+    payload.ok !== true ||
+    payload.roleId !== roleId ||
+    !Array.isArray(payload.permissions) ||
+    typeof payload.resolvedAssignments !== "number"
+  ) {
+    throw new RolePermissionUpdateError(500, {
+      code: "permission_update_failed",
+    });
+  }
+  return payload as unknown as ReplaceRolePermissionsResult;
+}
+
+async function replaceUserRoleRoute(
+  userId: string,
+  input: ReplaceUserRoleInput
+): Promise<ReplaceUserRoleResult> {
+  const idToken = await getIdToken();
+  if (!idToken) throw new Error("Not authenticated");
+
+  const response = await fetch(
+    `/api/users/${encodeURIComponent(userId)}/role`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    }
+  );
+  const payload = (await response.json().catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+  if (!response.ok) {
+    throw new UserRoleUpdateError(response.status, {
+      ...(payload as unknown as RolePermissionFailurePayload),
+      code:
+        typeof payload.code === "string" ? payload.code : "role_update_failed",
+    });
+  }
+  if (
+    payload.ok !== true ||
+    payload.userId !== userId ||
+    !(payload.roleId === null || typeof payload.roleId === "string") ||
+    typeof payload.legacyRole !== "string" ||
+    typeof payload.resolvedAssignments !== "number"
+  ) {
+    throw new UserRoleUpdateError(500, { code: "role_update_failed" });
+  }
+  return payload as unknown as ReplaceUserRoleResult;
 }
 
 /** A member's full access picture: role + role grants + per-member overrides. */
@@ -120,7 +274,8 @@ export const RolesService = {
       .select("*")
       .eq("role_id", roleId);
 
-    if (error) throw new Error(`Failed to fetch role permissions: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch role permissions: ${error.message}`);
     return (data ?? []).map(mapPermissionFromDb);
   },
 
@@ -160,7 +315,9 @@ export const RolesService = {
   ): Promise<Role> {
     const supabase = requireSupabase();
 
-    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const row: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
     if (data.name !== undefined) row.name = data.name;
     if (data.description !== undefined) row.description = data.description;
     if (data.hierarchy !== undefined) row.hierarchy = data.hierarchy;
@@ -198,13 +355,9 @@ export const RolesService = {
    */
   async updateRolePermissions(
     roleId: string,
-    permissions: { permission: string; scope: PermissionScope }[]
-  ): Promise<void> {
-    await authedRouteCall(
-      "PUT",
-      `/api/roles/${encodeURIComponent(roleId)}/permissions`,
-      { permissions }
-    );
+    input: ReplaceRolePermissionsInput
+  ): Promise<ReplaceRolePermissionsResult> {
+    return replaceRolePermissionsRoute(roleId, input);
   },
 
   /**
@@ -219,7 +372,8 @@ export const RolesService = {
     const sourceRole = await RolesService.fetchRole(sourceRoleId);
 
     // 2. Fetch source permissions
-    const sourcePermissions = await RolesService.fetchRolePermissions(sourceRoleId);
+    const sourcePermissions =
+      await RolesService.fetchRolePermissions(sourceRoleId);
 
     // 3. Create new role
     const newRole = await RolesService.createRole({
@@ -233,36 +387,31 @@ export const RolesService = {
 
     // 4. Copy permissions
     if (sourcePermissions.length > 0) {
-      await RolesService.updateRolePermissions(
-        newRole.id,
-        sourcePermissions.map((p) => ({ permission: p.permission, scope: p.scope }))
+      const sourceByPermission = new Map(
+        sourcePermissions.map((permission) => [
+          permission.permission,
+          permission.scope,
+        ])
       );
+      await RolesService.updateRolePermissions(newRole.id, {
+        expectedPermissions: [],
+        newPermissions: PERMISSION_EDITOR_REGISTRY.map((action) => ({
+          permission: action.id,
+          scope: sourceByPermission.get(action.id) ?? null,
+        })),
+        assignmentResolutions: [],
+      });
     }
 
     return newRole;
   },
 
-  /**
-   * Assign a user to a role via PATCH /api/users/:id/role — the canonical
-   * path: upserts user_roles, syncs the legacy users.role column, and clears
-   * related role_needed rail notifications.
-   */
-  async assignUserRole(
+  /** Atomically replace a member's role and resolve any stranded leads. */
+  async replaceUserRole(
     userId: string,
-    roleId: string,
-    _assignedBy: string
-  ): Promise<void> {
-    await authedRouteCall("PATCH", `/api/users/${encodeURIComponent(userId)}/role`, {
-      roleId,
-    });
-  },
-
-  /**
-   * Remove a user's role assignment via the guarded route (also resets the
-   * legacy users.role column to 'unassigned').
-   */
-  async removeUserRole(userId: string): Promise<void> {
-    await authedRouteCall("DELETE", `/api/users/${encodeURIComponent(userId)}/role`, {});
+    input: ReplaceUserRoleInput
+  ): Promise<ReplaceUserRoleResult> {
+    return replaceUserRoleRoute(userId, input);
   },
 
   /**
@@ -276,7 +425,8 @@ export const RolesService = {
       .select("*")
       .eq("role_id", roleId);
 
-    if (error) throw new Error(`Failed to fetch role members: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch role members: ${error.message}`);
     return (data ?? []).map(mapUserRoleFromDb);
   },
 
@@ -293,7 +443,8 @@ export const RolesService = {
       .eq("company_id", companyId)
       .is("deleted_at", null);
 
-    if (usersError) throw new Error(`Failed to fetch company users: ${usersError.message}`);
+    if (usersError)
+      throw new Error(`Failed to fetch company users: ${usersError.message}`);
 
     const userIds = (companyUsers ?? []).map((u) => u.id);
     if (userIds.length === 0) return [];
@@ -319,7 +470,8 @@ export const RolesService = {
       .select("permission, scope, granted")
       .eq("user_id", userId);
 
-    if (error) throw new Error(`Failed to fetch permission overrides: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch permission overrides: ${error.message}`);
     return (data ?? []).map((row) => ({
       permission: row.permission as string,
       scope: (row.scope as PermissionScope | null) ?? null,
@@ -340,10 +492,14 @@ export const RolesService = {
       .eq("user_id", userId)
       .maybeSingle();
 
-    if (urError) throw new Error(`Failed to fetch member role: ${urError.message}`);
+    if (urError)
+      throw new Error(`Failed to fetch member role: ${urError.message}`);
 
     const roleId = (assignment?.role_id as string) ?? null;
-    const role = (assignment?.roles ?? null) as { id: string; name: string } | null;
+    const role = (assignment?.roles ?? null) as {
+      id: string;
+      name: string;
+    } | null;
 
     const [rolePermissions, overrides] = await Promise.all([
       roleId ? RolesService.fetchRolePermissions(roleId) : Promise.resolve([]),
@@ -371,7 +527,8 @@ export const RolesService = {
 
     const { data, error } = await supabase
       .from("user_roles")
-      .select(`
+      .select(
+        `
         role_id,
         roles:role_id (
           id,
@@ -381,7 +538,8 @@ export const RolesService = {
             scope
           )
         )
-      `)
+      `
+      )
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -396,14 +554,21 @@ export const RolesService = {
     }
 
     const permissions = new Map<string, PermissionScope>();
-    const role = (data?.roles ?? null) as unknown as Record<string, unknown> | null;
+    const role = (data?.roles ?? null) as unknown as Record<
+      string,
+      unknown
+    > | null;
     let roleId: string | null = null;
     let roleName: string | null = null;
 
     if (role) {
       roleId = (role.id as string) ?? null;
       roleName = (role.name as string) ?? null;
-      const rolePerms = (role.role_permissions as Array<{ permission: string; scope: PermissionScope }>) ?? [];
+      const rolePerms =
+        (role.role_permissions as Array<{
+          permission: string;
+          scope: PermissionScope;
+        }>) ?? [];
       for (const rp of rolePerms) {
         permissions.set(rp.permission, rp.scope);
       }

@@ -26,8 +26,17 @@ import { Button } from "@/components/ui/button";
 import { Tag } from "@/components/ui/register-table";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { AssignRoleModalSeatBanner } from "@/components/ops/assign-role-modal-seat-banner";
+import {
+  LeadResponsibilityResolutionDialog,
+  type LeadResponsibilityResolutionPrompt,
+} from "./lead-responsibility-resolution-dialog";
 import type { SegmentControlOption } from "@/components/ui/segment-control";
-import { SectionLabel, ModulePermissionRow, type ModuleTierValue, type ModuleExceptionKind } from "./permission-grid";
+import {
+  SectionLabel,
+  PermissionModuleEditor,
+  type ModuleTierValue,
+  type ModuleExceptionKind,
+} from "./permission-grid";
 import {
   useTeamMembers,
   useCompany,
@@ -35,8 +44,20 @@ import {
   useAllUserRoles,
   useAddSeatedEmployee,
 } from "@/lib/hooks";
-import { useMemberAccess, useSaveMemberAccess } from "@/lib/hooks/use-member-access";
+import {
+  useMemberAccess,
+  useSaveMemberAccess,
+} from "@/lib/hooks/use-member-access";
 import { useAssignMemberRole } from "@/lib/hooks/use-assign-member-role";
+import {
+  MemberAccessUpdateError,
+  type SaveOverridesInput,
+} from "@/lib/api/services/permission-overrides-service";
+import {
+  UserRoleUpdateError,
+  type ReplaceUserRoleInput,
+  type RoleAssignmentResolution,
+} from "@/lib/api/services/roles-service";
 import { getUserFullName } from "@/lib/types/models";
 import {
   PERMISSION_CATEGORIES,
@@ -55,17 +76,36 @@ import {
   isAdminBypass,
   type MemberException,
 } from "@/lib/permissions/resolve";
+import {
+  buildEditablePermissionDesiredState,
+  normalizePipelinePermissionEdits,
+  type PermissionEditState,
+} from "@/lib/permissions/pipeline-dependencies";
 import { useDictionary } from "@/i18n/client";
 import { toast } from "@/components/ui/toast";
 
-interface PermissionEdit {
-  permission: string;
-  scope: PermissionScope;
-  enabled: boolean;
-}
+const HIDDEN_PERMISSION_IDS = new Set(
+  PERMISSION_CATEGORIES.flatMap((category) => category.modules)
+    .flatMap((module) => module.actions)
+    .filter((action) => action.hiddenFromEditor)
+    .map((action) => action.id)
+);
+
+type PendingMemberResolution =
+  | ({
+      kind: "overrides";
+      input: SaveOverridesInput;
+    } & LeadResponsibilityResolutionPrompt)
+  | ({
+      kind: "role";
+      input: ReplaceUserRoleInput;
+      roleName: string;
+    } & LeadResponsibilityResolutionPrompt);
 
 /** Reduce a module's per-action exception kinds to one label for the tag. */
-function moduleExceptionKind(kinds: MemberException["kind"][]): ModuleExceptionKind | undefined {
+function moduleExceptionKind(
+  kinds: MemberException["kind"][]
+): ModuleExceptionKind | undefined {
   if (kinds.length === 0) return undefined;
   const unique = Array.from(new Set(kinds));
   return unique.length === 1 ? unique[0] : "mixed";
@@ -83,8 +123,13 @@ export function MemberAccessView({
   const { data: teamData } = useTeamMembers();
   const { data: company } = useCompany();
   const { data: roles } = useRoles();
-  const { data: allUserRoles } = useAllUserRoles();
-  const { data: access, isLoading } = useMemberAccess(memberId);
+  const { data: allUserRoles, refetch: refetchAllUserRoles } =
+    useAllUserRoles();
+  const {
+    data: access,
+    isLoading,
+    refetch: refetchMemberAccess,
+  } = useMemberAccess(memberId);
 
   const saveAccess = useSaveMemberAccess();
   const assignRole = useAssignMemberRole();
@@ -92,7 +137,7 @@ export function MemberAccessView({
 
   const member = useMemo(
     () => (teamData?.users ?? []).find((u) => u.id === memberId),
-    [teamData, memberId],
+    [teamData, memberId]
   );
 
   const memberIsAdmin = useMemo(
@@ -100,10 +145,13 @@ export function MemberAccessView({
       isAdminBypass(
         { id: memberId, isCompanyAdmin: member?.isCompanyAdmin },
         company
-          ? { accountHolderId: company.accountHolderId, adminIds: company.adminIds }
-          : null,
+          ? {
+              accountHolderId: company.accountHolderId,
+              adminIds: company.adminIds,
+            }
+          : null
       ),
-    [memberId, member, company],
+    [memberId, member, company]
   );
 
   const seatedIds = company?.seatedEmployeeIds ?? [];
@@ -114,16 +162,26 @@ export function MemberAccessView({
 
   // Current role_id from user_roles (authoritative — not legacy users.role).
   const currentRoleId = useMemo(
-    () => allUserRoles?.find((ur) => ur.userId === memberId)?.roleId ?? access?.roleId ?? null,
-    [allUserRoles, memberId, access],
+    () =>
+      allUserRoles?.find((ur) => ur.userId === memberId)?.roleId ??
+      access?.roleId ??
+      null,
+    [allUserRoles, memberId, access]
   );
 
-  const rolePermissions = useMemo(() => access?.rolePermissions ?? [], [access]);
+  const rolePermissions = useMemo(
+    () => access?.rolePermissions ?? [],
+    [access]
+  );
   const overrides = useMemo(() => access?.overrides ?? [], [access]);
 
   // ── Per-action edit map, seeded from the member's EFFECTIVE access ──────────
-  const [permissionEdits, setPermissionEdits] = useState<Map<string, PermissionEdit>>(new Map());
+  const [permissionEdits, setPermissionEdits] = useState<
+    Map<string, PermissionEditState>
+  >(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [pendingResolution, setPendingResolution] =
+    useState<PendingMemberResolution | null>(null);
   const seedKey = useRef<string>("");
 
   useEffect(() => {
@@ -132,14 +190,21 @@ export function MemberAccessView({
     // exceptions) — never mid-edit, since local edits don't touch server data.
     const key = JSON.stringify([
       access.roleId,
-      [...access.rolePermissions].map((p) => `${p.permission}:${p.scope}`).sort(),
-      [...access.overrides].map((o) => `${o.permission}:${o.scope}:${o.granted}`).sort(),
+      [...access.rolePermissions]
+        .map((p) => `${p.permission}:${p.scope}`)
+        .sort(),
+      [...access.overrides]
+        .map((o) => `${o.permission}:${o.scope}:${o.granted}`)
+        .sort(),
     ]);
     if (key === seedKey.current) return;
     seedKey.current = key;
 
-    const effective = resolveEffectivePermissions(access.rolePermissions, access.overrides);
-    const map = new Map<string, PermissionEdit>();
+    const effective = resolveEffectivePermissions(
+      access.rolePermissions,
+      access.overrides
+    );
+    const map = new Map<string, PermissionEditState>();
     for (const cat of PERMISSION_CATEGORIES) {
       for (const mod of cat.modules) {
         for (const action of mod.actions) {
@@ -152,36 +217,48 @@ export function MemberAccessView({
         }
       }
     }
-    setPermissionEdits(map);
+    setPermissionEdits(normalizePipelinePermissionEdits(map));
 
     // Expand categories that already carry an exception so the manager lands
     // on the member's real deviations, not a wall of collapsed sections.
-    const exc = classifyExceptions(access.rolePermissions, access.overrides);
+    const exc = classifyExceptions(
+      access.rolePermissions,
+      access.overrides
+    ).filter((entry) => !HIDDEN_PERMISSION_IDS.has(entry.permission));
     const excCats = new Set<string>();
     for (const e of exc) {
       const moduleId = getModuleForPermission(e.permission);
-      const cat = PERMISSION_CATEGORIES.find((c) => c.modules.some((m) => m.id === moduleId));
+      const cat = PERMISSION_CATEGORIES.find((c) =>
+        c.modules.some((m) => m.id === moduleId)
+      );
       if (cat) excCats.add(cat.id);
     }
     setExpanded(excCats);
   }, [access]);
 
   // ── Derived: desired state, role baseline, live diff, exceptions ────────────
-  const roleMap = useMemo(() => roleGrantMap(rolePermissions), [rolePermissions]);
+  const roleMap = useMemo(
+    () => roleGrantMap(rolePermissions),
+    [rolePermissions]
+  );
 
-  const desired = useMemo(() => {
-    const map = new Map<string, PermissionScope | null>();
-    for (const [id, edit] of permissionEdits) {
-      map.set(id, edit.enabled ? edit.scope : null);
-    }
-    return map;
-  }, [permissionEdits]);
+  const desired = useMemo(
+    () =>
+      buildEditablePermissionDesiredState(
+        permissionEdits,
+        HIDDEN_PERMISSION_IDS
+      ),
+    [permissionEdits]
+  );
 
-  const diff = useMemo(() => diffAgainstRole(rolePermissions, desired), [rolePermissions, desired]);
+  const diff = useMemo(
+    () => diffAgainstRole(rolePermissions, desired),
+    [rolePermissions, desired]
+  );
 
   const mutation = useMemo(
     () => computeOverrideMutation(overrides, diff),
-    [overrides, diff],
+    [overrides, diff]
   );
   const isDirty = mutation.hasChanges;
 
@@ -189,7 +266,11 @@ export function MemberAccessView({
   const exceptionsByModule = useMemo(() => {
     const pending = classifyExceptions(
       rolePermissions,
-      diff.set.map((s) => ({ permission: s.permission, scope: s.scope, granted: s.granted })),
+      diff.set.map((s) => ({
+        permission: s.permission,
+        scope: s.scope,
+        granted: s.granted,
+      }))
     );
     const byModule = new Map<string, MemberException["kind"][]>();
     for (const e of pending) {
@@ -203,62 +284,100 @@ export function MemberAccessView({
   }, [rolePermissions, diff.set]);
 
   const totalExceptions = useMemo(
-    () => Array.from(exceptionsByModule.values()).reduce((n, k) => n + k.length, 0),
-    [exceptionsByModule],
+    () =>
+      Array.from(exceptionsByModule.values()).reduce((n, k) => n + k.length, 0),
+    [exceptionsByModule]
   );
 
   const enabledIds = useMemo(
-    () => Array.from(permissionEdits.values()).filter((e) => e.enabled).map((e) => e.permission),
-    [permissionEdits],
+    () =>
+      Array.from(permissionEdits.values())
+        .filter((e) => e.enabled)
+        .map((e) => e.permission),
+    [permissionEdits]
   );
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const handleTierChange = useCallback(
     (moduleId: string, tier: ModuleTierValue) => {
-      const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find((m) => m.id === moduleId);
+      const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find(
+        (m) => m.id === moduleId
+      );
       if (!mod) return;
       const currentScope =
-        mod.actions.map((a) => permissionEdits.get(a.id)).find((e) => e?.enabled && e.scope)?.scope ?? "all";
-      const actionIds = tier === "none" ? [] : getActionsForTier(moduleId, tier);
+        mod.actions
+          .map((a) => permissionEdits.get(a.id))
+          .find((e) => e?.enabled && e.scope)?.scope ?? "all";
+      const actionIds =
+        tier === "none" ? [] : getActionsForTier(moduleId, tier);
       setPermissionEdits((prev) => {
         const next = new Map(prev);
         for (const action of mod.actions) {
+          if (action.hiddenFromEditor) continue;
           const existing = next.get(action.id);
           if (!existing) continue;
           const enabled = actionIds.includes(action.id);
           const supported = getPermissionScopes(action.id);
-          const scope = supported.includes(currentScope) ? currentScope : supported[0];
+          const scope = supported.includes(currentScope)
+            ? currentScope
+            : supported[0];
           next.set(action.id, { ...existing, enabled, scope });
         }
-        return next;
+        return normalizePipelinePermissionEdits(next);
       });
     },
-    [permissionEdits],
+    [permissionEdits]
   );
 
-  const handleScopeChange = useCallback((moduleId: string, scope: PermissionScope) => {
-    setPermissionEdits((prev) => {
-      const next = new Map(prev);
-      const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find((m) => m.id === moduleId);
-      if (!mod) return prev;
-      for (const action of mod.actions) {
-        const existing = next.get(action.id);
-        if (existing?.enabled && action.scopes.includes(scope)) {
-          next.set(action.id, { ...existing, scope });
+  const handleScopeChange = useCallback(
+    (moduleId: string, scope: PermissionScope) => {
+      setPermissionEdits((prev) => {
+        const next = new Map(prev);
+        const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find(
+          (m) => m.id === moduleId
+        );
+        if (!mod) return prev;
+        for (const action of mod.actions) {
+          if (action.hiddenFromEditor) continue;
+          const existing = next.get(action.id);
+          if (existing?.enabled && action.scopes.includes(scope)) {
+            next.set(action.id, { ...existing, scope });
+          }
         }
-      }
-      return next;
-    });
-  }, []);
+        return normalizePipelinePermissionEdits(next);
+      });
+    },
+    []
+  );
+
+  const handleActionChange = useCallback(
+    (permission: string, scope: PermissionScope | null) => {
+      setPermissionEdits((prev) => {
+        const existing = prev.get(permission);
+        if (!existing) return prev;
+        const next = new Map(prev);
+        next.set(permission, {
+          ...existing,
+          enabled: scope !== null,
+          scope: scope ?? existing.scope,
+        });
+        return normalizePipelinePermissionEdits(next);
+      });
+    },
+    []
+  );
 
   // Return a module to its role default (clear its exceptions).
   const handleResetModule = useCallback(
     (moduleId: string) => {
-      const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find((m) => m.id === moduleId);
+      const mod = PERMISSION_CATEGORIES.flatMap((c) => c.modules).find(
+        (m) => m.id === moduleId
+      );
       if (!mod) return;
       setPermissionEdits((prev) => {
         const next = new Map(prev);
         for (const action of mod.actions) {
+          if (action.hiddenFromEditor) continue;
           const existing = next.get(action.id);
           if (!existing) continue;
           const roleScope = roleMap.get(action.id) ?? null;
@@ -268,54 +387,192 @@ export function MemberAccessView({
             scope: roleScope ?? existing.scope,
           });
         }
-        return next;
+        return normalizePipelinePermissionEdits(next);
       });
     },
-    [roleMap],
+    [roleMap]
   );
 
   const handleResetAll = useCallback(() => {
     setPermissionEdits((prev) => {
       const next = new Map(prev);
       for (const [id, edit] of prev) {
+        if (HIDDEN_PERMISSION_IDS.has(id)) continue;
         const roleScope = roleMap.get(id) ?? null;
-        next.set(id, { ...edit, enabled: roleScope !== null, scope: roleScope ?? edit.scope });
+        next.set(id, {
+          ...edit,
+          enabled: roleScope !== null,
+          scope: roleScope ?? edit.scope,
+        });
       }
-      return next;
+      return normalizePipelinePermissionEdits(next);
     });
   }, [roleMap]);
 
   function handleRoleChange(roleId: string) {
     if (isDirty || roleId === currentRoleId) return;
+    const nextRoleName = roles?.find((role) => role.id === roleId)?.name ?? "";
+    const input: ReplaceUserRoleInput = {
+      expectedRoleId: currentRoleId,
+      newRoleId: roleId,
+      assignmentResolutions: [],
+    };
     assignRole.mutate(
-      { userId: memberId, roleId },
+      { userId: memberId, input },
       {
-        onSuccess: (result) => toast.success(`${t("team.access.roleSet")} ${result.roleName}`),
-        onError: (err) => toast.error(t("team.access.roleSetFailed"), { description: err.message }),
-      },
+        onSuccess: () =>
+          toast.success(`${t("team.access.roleSet")} ${nextRoleName}`),
+        onError: (error) => {
+          if (
+            error instanceof UserRoleUpdateError &&
+            error.payload.code === "assignment_resolution_required" &&
+            error.payload.stranded?.length
+          ) {
+            setPendingResolution({
+              kind: "role",
+              input,
+              roleName: nextRoleName,
+              stranded: error.payload.stranded,
+              eligibleAssignees: error.payload.eligibleAssignees ?? [],
+            });
+            return;
+          }
+          if (
+            error instanceof UserRoleUpdateError &&
+            (error.payload.code === "permission_snapshot_mismatch" ||
+              error.payload.code === "assignment_resolution_conflict")
+          ) {
+            void Promise.all([refetchMemberAccess(), refetchAllUserRoles()]);
+          }
+          toast.error(t("team.access.roleSetFailed"), {
+            description: error.message,
+          });
+        },
+      }
     );
   }
 
   function handleSeat() {
     addSeat.mutate(memberId, {
       onSuccess: () => toast.success(t("team.toast.seatAssigned")),
-      onError: (err) => toast.error(t("team.toast.seatAssignFailed"), { description: err.message }),
+      onError: (err) =>
+        toast.error(t("team.toast.seatAssignFailed"), {
+          description: err.message,
+        }),
     });
   }
 
   function handleSave() {
+    const input: SaveOverridesInput = {
+      expectedOverrides: [...overrides].sort((a, b) =>
+        a.permission.localeCompare(b.permission)
+      ),
+      set: [...mutation.set].sort((a, b) =>
+        a.permission.localeCompare(b.permission)
+      ),
+      clear: [...mutation.clear].sort((a, b) => a.localeCompare(b)),
+      assignmentResolutions: [],
+    };
     saveAccess.mutate(
-      { userId: memberId, diff: { set: mutation.set, clear: mutation.clear } },
+      { userId: memberId, input },
       {
         onSuccess: () => toast.success(t("team.access.saved")),
-        onError: (err) => toast.error(t("team.access.saveFailed"), { description: err.message }),
+        onError: (error) => {
+          if (
+            error instanceof MemberAccessUpdateError &&
+            error.payload.code === "assignment_resolution_required" &&
+            error.payload.stranded?.length
+          ) {
+            setPendingResolution({
+              kind: "overrides",
+              input,
+              stranded: error.payload.stranded,
+              eligibleAssignees: error.payload.eligibleAssignees ?? [],
+            });
+            return;
+          }
+          if (
+            error instanceof MemberAccessUpdateError &&
+            (error.payload.code === "permission_snapshot_mismatch" ||
+              error.payload.code === "assignment_resolution_conflict")
+          ) {
+            void refetchMemberAccess();
+          }
+          toast.error(t("team.access.saveFailed"), {
+            description: error.message,
+          });
+        },
+      }
+    );
+  }
+
+  function handleResolutionConfirm(
+    destinations: ReadonlyMap<string, string | null>
+  ) {
+    if (!pendingResolution) return;
+    const assignmentResolutions: RoleAssignmentResolution[] =
+      pendingResolution.stranded.map((lead) => ({
+        opportunity_id: lead.opportunity_id,
+        expected_assigned_to: lead.assigned_to,
+        expected_assignment_version: lead.assignment_version,
+        new_assigned_to: destinations.get(lead.opportunity_id) ?? null,
+      }));
+
+    if (pendingResolution.kind === "overrides") {
+      saveAccess.mutate(
+        {
+          userId: memberId,
+          input: { ...pendingResolution.input, assignmentResolutions },
+        },
+        {
+          onSuccess: () => {
+            setPendingResolution(null);
+            toast.success(t("team.access.saved"));
+          },
+          onError: (error) => {
+            setPendingResolution(null);
+            if (error instanceof MemberAccessUpdateError) {
+              void refetchMemberAccess();
+            }
+            toast.error(t("team.access.saveFailed"), {
+              description: error.message,
+            });
+          },
+        }
+      );
+      return;
+    }
+
+    const roleName = pendingResolution.roleName;
+    assignRole.mutate(
+      {
+        userId: memberId,
+        input: { ...pendingResolution.input, assignmentResolutions },
       },
+      {
+        onSuccess: () => {
+          setPendingResolution(null);
+          toast.success(`${t("team.access.roleSet")} ${roleName}`);
+        },
+        onError: (error) => {
+          setPendingResolution(null);
+          if (error instanceof UserRoleUpdateError) {
+            void Promise.all([refetchMemberAccess(), refetchAllUserRoles()]);
+          }
+          toast.error(t("team.access.roleSetFailed"), {
+            description: error.message,
+          });
+        },
+      }
     );
   }
 
   // ── Header (shared by every state) ──────────────────────────────────────────
   const fullName = member ? getUserFullName(member) : "";
-  const roleName = roles?.find((r) => r.id === currentRoleId)?.name ?? access?.roleName ?? null;
+  const roleName =
+    roles?.find((r) => r.id === currentRoleId)?.name ??
+    access?.roleName ??
+    null;
 
   const header = (
     <div className="flex items-center justify-between gap-2">
@@ -352,22 +609,34 @@ export function MemberAccessView({
     <div className="glass-surface flex items-center gap-2 rounded-panel p-2">
       <UserAvatar name={fullName} imageUrl={member.profileImageURL} size="lg" />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-mohave text-body-lg text-text">{fullName}</p>
+        <p className="truncate font-mohave text-body-lg text-text">
+          {fullName}
+        </p>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           {member.email && (
-            <a href={`mailto:${member.email}`} className="truncate font-mono text-micro text-text-3 transition-colors hover:text-text">
+            <a
+              href={`mailto:${member.email}`}
+              className="truncate font-mono text-micro text-text-3 transition-colors hover:text-text"
+            >
               {member.email}
             </a>
           )}
           {member.phone && (
-            <a href={`tel:${member.phone}`} className="font-mono text-micro text-text-3 transition-colors hover:text-text">
+            <a
+              href={`tel:${member.phone}`}
+              className="font-mono text-micro text-text-3 transition-colors hover:text-text"
+            >
               {member.phone}
             </a>
           )}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
-        {isSeated ? <Tag variant="olive">{t("team.seated")}</Tag> : <Tag variant="dim">{t("team.unseated")}</Tag>}
+        {isSeated ? (
+          <Tag variant="olive">{t("team.seated")}</Tag>
+        ) : (
+          <Tag variant="dim">{t("team.unseated")}</Tag>
+        )}
         {memberIsAdmin ? (
           <Tag variant="neutral">
             <ShieldCheck className="h-[11px] w-[11px]" />
@@ -436,7 +705,9 @@ export function MemberAccessView({
         <div className="flex items-center gap-1.5">
           <SectionLabel>{t("team.access.roleTitle")}</SectionLabel>
           {roleChangeLocked && (
-            <span className="font-mono text-micro text-text-mute">[{t("team.access.roleLocked")}]</span>
+            <span className="font-mono text-micro text-text-mute">
+              [{t("team.access.roleLocked")}]
+            </span>
           )}
         </div>
         <div className="glass-surface rounded-panel p-2">
@@ -446,37 +717,45 @@ export function MemberAccessView({
               // never a company-assignable role.
               .filter((role) => role.hierarchy >= 1)
               .map((role) => {
-              const active = role.id === currentRoleId;
-              return (
-                <button
-                  key={role.id}
-                  type="button"
-                  onClick={() => handleRoleChange(role.id)}
-                  disabled={roleChangeLocked || assignRole.isPending}
-                  className={cn(
-                    "rounded border px-1.5 py-[6px] font-mohave text-body-sm transition-colors duration-150",
-                    active
-                      ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
-                      : "border-border bg-surface-input text-text-3 hover:text-text-2",
-                    (roleChangeLocked || assignRole.isPending) && !active && "pointer-events-none opacity-40",
-                  )}
-                >
-                  {role.name}
-                </button>
-              );
-            })}
+                const active = role.id === currentRoleId;
+                return (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => handleRoleChange(role.id)}
+                    disabled={roleChangeLocked || assignRole.isPending}
+                    className={cn(
+                      "rounded border px-1.5 py-[6px] font-mohave text-body-sm transition-colors duration-150",
+                      active
+                        ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
+                        : "border-border bg-surface-input text-text-3 hover:text-text-2",
+                      (roleChangeLocked || assignRole.isPending) &&
+                        !active &&
+                        "pointer-events-none opacity-40"
+                    )}
+                  >
+                    {role.name}
+                  </button>
+                );
+              })}
           </div>
         </div>
       </section>
 
       {/* ── // ACCESS ────────────────────────────────────────────────────────── */}
-      <section aria-label={t("team.access.accessTitle")} className="space-y-1.5">
+      <section
+        aria-label={t("team.access.accessTitle")}
+        className="space-y-1.5"
+      >
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             <SectionLabel>{t("team.access.accessTitle")}</SectionLabel>
             {totalExceptions > 0 && (
               <Tag variant="tan">
-                {totalExceptions} {totalExceptions === 1 ? t("team.access.exceptionOne") : t("team.access.exceptionMany")}
+                {totalExceptions}{" "}
+                {totalExceptions === 1
+                  ? t("team.access.exceptionOne")
+                  : t("team.access.exceptionMany")}
               </Tag>
             )}
           </div>
@@ -493,7 +772,9 @@ export function MemberAccessView({
 
         {totalExceptions === 0 && (
           <p className="font-mono text-micro text-text-3">
-            {roleName ? `${t("team.access.matchesRolePrefix")} ${roleName}.` : t("team.access.noRole")}
+            {roleName
+              ? `${t("team.access.matchesRolePrefix")} ${roleName}.`
+              : t("team.access.noRole")}
           </p>
         )}
 
@@ -501,7 +782,7 @@ export function MemberAccessView({
           {PERMISSION_CATEGORIES.map((category) => {
             const catExceptions = category.modules.reduce(
               (n, m) => n + (exceptionsByModule.get(m.id)?.length ?? 0),
-              0,
+              0
             );
             const isOpen = expanded.has(category.id);
             return (
@@ -521,8 +802,12 @@ export function MemberAccessView({
                 >
                   <SectionLabel>{category.label}</SectionLabel>
                   <div className="flex items-center gap-1.5">
-                    {catExceptions > 0 && <Tag variant="tan">{catExceptions}</Tag>}
-                    <span className="font-mono text-micro text-text-mute">{isOpen ? "−" : "+"}</span>
+                    {catExceptions > 0 && (
+                      <Tag variant="tan">{catExceptions}</Tag>
+                    )}
+                    <span className="font-mono text-micro text-text-mute">
+                      {isOpen ? "−" : "+"}
+                    </span>
                   </div>
                 </button>
 
@@ -530,11 +815,15 @@ export function MemberAccessView({
                   <div className="border-t border-border-subtle px-2 pb-1">
                     {category.modules.map((mod) => {
                       const detected = detectModuleTier(mod.id, enabledIds);
-                      const hasAny = mod.actions.some((a) => permissionEdits.get(a.id)?.enabled);
+                      const hasAny = mod.actions.some(
+                        (a) => permissionEdits.get(a.id)?.enabled
+                      );
                       const isCustom = detected === null && hasAny;
                       const tier: ModuleTierValue = detected ?? "none";
 
-                      const availableScopes = Array.from(new Set(mod.actions.flatMap((a) => a.scopes))) as PermissionScope[];
+                      const availableScopes = Array.from(
+                        new Set(mod.actions.flatMap((a) => a.scopes))
+                      ) as PermissionScope[];
                       const scopeOptions: SegmentControlOption<PermissionScope>[] =
                         availableScopes.length > 1
                           ? availableScopes.map((s) => ({
@@ -548,15 +837,19 @@ export function MemberAccessView({
                             }))
                           : [];
                       const currentScope =
-                        mod.actions.map((a) => permissionEdits.get(a.id)).find((e) => e?.enabled && e.scope)?.scope ?? "all";
+                        mod.actions
+                          .map((a) => permissionEdits.get(a.id))
+                          .find((e) => e?.enabled && e.scope)?.scope ?? "all";
 
-                      const exception = moduleExceptionKind(exceptionsByModule.get(mod.id) ?? []);
+                      const exception = moduleExceptionKind(
+                        exceptionsByModule.get(mod.id) ?? []
+                      );
 
                       return (
-                        <ModulePermissionRow
+                        <PermissionModuleEditor
                           key={mod.id}
-                          moduleId={mod.id}
-                          label={mod.label}
+                          module={mod}
+                          edits={permissionEdits}
                           tier={tier}
                           isCustom={isCustom}
                           scope={currentScope}
@@ -565,6 +858,7 @@ export function MemberAccessView({
                           exception={exception}
                           onTierChange={handleTierChange}
                           onScopeChange={handleScopeChange}
+                          onActionChange={handleActionChange}
                           onReset={handleResetModule}
                         />
                       );
@@ -576,6 +870,13 @@ export function MemberAccessView({
           })}
         </div>
       </section>
+
+      <LeadResponsibilityResolutionDialog
+        pending={pendingResolution}
+        loading={saveAccess.isPending || assignRole.isPending}
+        onCancel={() => setPendingResolution(null)}
+        onConfirm={handleResolutionConfirm}
+      />
     </div>
   );
 }

@@ -422,6 +422,8 @@ export interface Opportunity {
   stage: OpportunityStage;
   source: OpportunitySource | null;
   assignedTo: string | null;
+  /** Monotonic snapshot guard for every assignment and conversion write. */
+  assignmentVersion: number;
   priority: OpportunityPriority | null;
 
   // Financial
@@ -487,6 +489,33 @@ export interface Opportunity {
   activities?: Activity[];
   followUps?: FollowUp[];
   stageTransitions?: StageTransition[];
+}
+
+export type OpportunityAssigneeFilter =
+  | "all"
+  | "mine"
+  | "unassigned"
+  | `user:${string}`;
+
+export function matchesOpportunityAssigneeFilter(
+  opportunity: Pick<Opportunity, "assignedTo">,
+  filter: OpportunityAssigneeFilter,
+  currentUserId: string | null
+): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "mine":
+      return currentUserId !== null && opportunity.assignedTo === currentUserId;
+    case "unassigned":
+      return opportunity.assignedTo === null;
+    default:
+      return (
+        filter.startsWith("user:") &&
+        filter.length > "user:".length &&
+        opportunity.assignedTo === filter.slice("user:".length)
+      );
+  }
 }
 
 /** Immutable stage change record */
@@ -1165,6 +1194,8 @@ export type CreateOpportunity = Omit<
   Opportunity,
   | "id"
   | "stageEnteredAt"
+  | "assignedTo"
+  | "assignmentVersion"
   | "lastActivityAt"
   | "nextFollowUpAt"
   | "aiSummary"
@@ -1202,6 +1233,31 @@ export type CreateOpportunity = Omit<
   lastOutboundAt?: Date | null;
   lastMessageDirection?: "in" | "out" | null;
 };
+
+/**
+ * Browser-created lead payload. Company and assignment authority are excluded
+ * by construction: the guarded RPC derives both from the verified caller.
+ */
+export type ManualCreateOpportunity = Pick<
+  CreateOpportunity,
+  | "clientId"
+  | "title"
+  | "description"
+  | "contactName"
+  | "contactEmail"
+  | "contactPhone"
+  | "stage"
+  | "source"
+  | "priority"
+  | "estimatedValue"
+  | "winProbability"
+  | "expectedCloseDate"
+  | "quoteDeliveryMethod"
+  | "address"
+  | "latitude"
+  | "longitude"
+  | "tags"
+>;
 
 export type CreateEstimate = Omit<
   Estimate,

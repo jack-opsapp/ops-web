@@ -30,7 +30,10 @@ vi.mock("@/lib/api/services/notification-service", () => ({
   },
 }));
 
-import { ProjectConversionService } from "@/lib/api/services/project-conversion-service";
+import {
+  ProjectConversionError,
+  ProjectConversionService,
+} from "@/lib/api/services/project-conversion-service";
 
 type Row = Record<string, unknown>;
 
@@ -80,6 +83,10 @@ function makeFakeSupabase(opts: FakeOpts = {}) {
             attached_photos: 1,
             linked_existing: args.p_link_to_project_id != null,
             won: args.p_win_opportunity === true,
+            assigned_to: OPERATOR,
+            assignment_version: args.p_expected_assignment_version,
+            conversion_event_id: "event-1",
+            project_accessible: true,
           },
           error: null,
         };
@@ -93,6 +100,11 @@ function makeFakeSupabase(opts: FakeOpts = {}) {
 const COMPANY = "co-1";
 const OPP = "opp-1";
 const OPERATOR = "user-1";
+const HUMAN_SNAPSHOT = {
+  decidedBy: OPERATOR,
+  expectedAssignmentVersion: 7,
+  evidence: { surface: "web_won_dialog" as const },
+};
 
 beforeEach(() => {
   requireSupabaseMock.mockReset();
@@ -107,7 +119,7 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
     const result = await ProjectConversionService.convertOpportunityToProject({
       opportunityId: OPP,
       companyId: COMPANY,
-      decidedBy: OPERATOR,
+      ...HUMAN_SNAPSHOT,
       sourcePath: "won_dialog",
       expectedStage: "proposal",
       actualValue: 1234,
@@ -132,6 +144,8 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
       p_decided_by: OPERATOR,
       p_source_path: "won_dialog",
       p_win_opportunity: true,
+      p_expected_assignment_version: 7,
+      p_evidence: { surface: "web_won_dialog" },
       p_title_override: null,
       p_link_to_project_id: null,
     });
@@ -144,6 +158,10 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
     expect(result.attachedPhotos).toBe(1);
     expect(result.won).toBe(true);
     expect(result.linkedExisting).toBe(false);
+    expect(result.assignedTo).toBe(OPERATOR);
+    expect(result.assignmentVersion).toBe(7);
+    expect(result.conversionEventId).toBe("event-1");
+    expect(result.projectAccessible).toBe(true);
     // success → rail notification fired once.
     expect(notifyMock).toHaveBeenCalledTimes(1);
   });
@@ -157,6 +175,11 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
       companyId: COMPANY,
       decidedBy: OPERATOR,
       sourcePath: "approval_queue",
+      expectedAssignmentVersion: 8,
+      evidence: {
+        agent_action_id: "action-1",
+        approval_mode: "operator_approved",
+      },
       notesSeed: "AI scope text",
     });
 
@@ -176,7 +199,7 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
       decidedBy: null,
       sourcePath: "email_accept",
       expectedStage: "quoted",
-      expectedAssignmentVersion: 4,
+      expectedAssignmentVersion: 9,
       evidence: {
         connection_id: "connection-1",
         email_thread_id: "thread-1",
@@ -190,7 +213,7 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
       p_source_path: "email_accept",
       p_win_opportunity: true,
       p_expected_stage: "quoted",
-      p_expected_assignment_version: 4,
+      p_expected_assignment_version: 9,
       p_evidence: {
         connection_id: "connection-1",
         email_thread_id: "thread-1",
@@ -243,7 +266,9 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
         decidedBy: null,
         sourcePath: "email_likely_won",
         expectedAssignmentVersion: 9,
-      })
+      } as unknown as Parameters<
+        typeof ProjectConversionService.convertOpportunityToProject
+      >[0])
     ).rejects.toThrow(/exact evidence/i);
     expect(fake.rpcCalls).toHaveLength(0);
   });
@@ -265,7 +290,9 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
           provider_thread_id: "provider-thread-1",
           decision: "auto_advance_won",
         },
-      })
+      } as unknown as Parameters<
+        typeof ProjectConversionService.convertOpportunityToProject
+      >[0])
     ).rejects.toThrow(/actorless email conversion/i);
     expect(fake.rpcCalls).toHaveLength(0);
   });
@@ -277,15 +304,85 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
     await ProjectConversionService.convertOpportunityToProject({
       opportunityId: OPP,
       companyId: COMPANY,
+      ...HUMAN_SNAPSHOT,
       sourcePath: "won_dialog",
       titleOverride: "Custom name",
     });
 
     expect(fake.rpcCalls[0].args.p_title_override).toBe("Custom name");
   });
+
+  it("targets the lead when the converter cannot view the resulting project", async () => {
+    const fake = makeFakeSupabase({
+      rpc: {
+        convert_opportunity_to_project: {
+          data: {
+            converted: true,
+            already_converted: false,
+            project_id: "proj-hidden",
+            opportunity_id: OPP,
+            assigned_to: OPERATOR,
+            assignment_version: 7,
+            conversion_event_id: "event-hidden",
+            project_accessible: false,
+          },
+          error: null,
+        },
+      },
+    });
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    const result = await ProjectConversionService.convertOpportunityToProject({
+      opportunityId: OPP,
+      companyId: COMPANY,
+      ...HUMAN_SNAPSHOT,
+      sourcePath: "won_dialog",
+    });
+
+    expect(result.projectId).toBe("proj-hidden");
+    expect(result.projectAccessible).toBe(false);
+    expect(notifyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionUrl: `/pipeline?opportunityId=${OPP}`,
+        actionLabel: "View lead",
+      })
+    );
+  });
 });
 
 describe("convertOpportunityToProject — idempotency + guards", () => {
+  it("throws a typed assignment conflict carrying authoritative assignment state", async () => {
+    const fake = makeFakeSupabase({
+      rpc: {
+        convert_opportunity_to_project: {
+          data: {
+            converted: false,
+            already_converted: false,
+            guard_reason: "assignment_snapshot_mismatch",
+            assigned_to: "user-2",
+            assignment_version: 8,
+          },
+          error: null,
+        },
+      },
+    });
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await expect(
+      ProjectConversionService.convertOpportunityToProject({
+        opportunityId: OPP,
+        companyId: COMPANY,
+        ...HUMAN_SNAPSHOT,
+        sourcePath: "won_dialog",
+      })
+    ).rejects.toMatchObject({
+      kind: "conflict",
+      guardReason: "assignment_snapshot_mismatch",
+      assignedTo: "user-2",
+      assignmentVersion: 8,
+    });
+  });
+
   it("returns alreadyConverted (no notification) when the RPC reports already_converted", async () => {
     const fake = makeFakeSupabase({
       rpc: {
@@ -306,7 +403,7 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
     const result = await ProjectConversionService.convertOpportunityToProject({
       opportunityId: OPP,
       companyId: COMPANY,
-      decidedBy: OPERATOR,
+      ...HUMAN_SNAPSHOT,
       sourcePath: "won_dialog",
     });
 
@@ -336,10 +433,53 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
       ProjectConversionService.convertOpportunityToProject({
         opportunityId: OPP,
         companyId: COMPANY,
+        ...HUMAN_SNAPSHOT,
         sourcePath: "won_dialog",
         expectedStage: "proposal",
       })
-    ).rejects.toThrow(/changed before conversion/i);
+    ).rejects.toMatchObject({
+      kind: "conflict",
+      guardReason: "snapshot_mismatch",
+    });
+    expect(notifyMock).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a locked actorless manual-stage guard as a typed conflict", async () => {
+    const fake = makeFakeSupabase({
+      rpc: {
+        convert_opportunity_to_project: {
+          data: {
+            converted: false,
+            already_converted: false,
+            guard_reason: "manual_stage_override",
+            assigned_to: null,
+            assignment_version: 4,
+          },
+          error: null,
+        },
+      },
+    });
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await expect(
+      ProjectConversionService.convertOpportunityToProject({
+        opportunityId: OPP,
+        companyId: COMPANY,
+        decidedBy: null,
+        sourcePath: "email_likely_won",
+        expectedAssignmentVersion: 4,
+        evidence: {
+          connection_id: "connection-1",
+          provider_thread_id: "thread-1",
+          provider_message_id: "message-1",
+          decision: "likely_won",
+        },
+      })
+    ).rejects.toMatchObject({
+      kind: "conflict",
+      guardReason: "manual_stage_override",
+      assignmentVersion: 4,
+    });
     expect(notifyMock).not.toHaveBeenCalled();
   });
 
@@ -358,9 +498,36 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
       ProjectConversionService.convertOpportunityToProject({
         opportunityId: OPP,
         companyId: COMPANY,
+        ...HUMAN_SNAPSHOT,
         sourcePath: "won_dialog",
       })
-    ).rejects.toThrow(/conversion RPC failed/i);
+    ).rejects.toBeInstanceOf(ProjectConversionError);
+  });
+
+  it("maps SQL access and missing-target errors without disclosing internals", async () => {
+    for (const [message, kind] of [
+      ["access_denied", "access_denied"],
+      ["opportunity_not_found", "not_found"],
+      ["project_link_unavailable", "not_found"],
+    ] as const) {
+      const fake = makeFakeSupabase({
+        rpc: {
+          convert_opportunity_to_project: {
+            data: null,
+            error: { code: "42501", message },
+          },
+        },
+      });
+      requireSupabaseMock.mockReturnValue(fake.client);
+      await expect(
+        ProjectConversionService.convertOpportunityToProject({
+          opportunityId: OPP,
+          companyId: COMPANY,
+          ...HUMAN_SNAPSHOT,
+          sourcePath: "won_dialog",
+        })
+      ).rejects.toMatchObject({ kind });
+    }
   });
 });
 
@@ -373,7 +540,7 @@ describe("linkOpportunityToExistingProject", () => {
       await ProjectConversionService.linkOpportunityToExistingProject({
         opportunityId: OPP,
         companyId: COMPANY,
-        decidedBy: OPERATOR,
+        ...HUMAN_SNAPSHOT,
         sourcePath: "won_dialog",
         linkToProjectId: "existing-proj",
         actualValue: 500,
@@ -394,6 +561,9 @@ describe("getConversionPreflight", () => {
       rpc: {
         get_conversion_preflight: {
           data: {
+            assignment_version: 12,
+            already_converted: false,
+            project_accessible: true,
             existing_linked_project: { id: "p-ex", title: "Linked job" },
             duplicate_candidates: [
               {
@@ -422,13 +592,15 @@ describe("getConversionPreflight", () => {
 
     const preflight = await ProjectConversionService.getConversionPreflight(
       OPP,
-      COMPANY
+      COMPANY,
+      OPERATOR
     );
 
     expect(fake.rpcCalls[0].name).toBe("get_conversion_preflight");
     expect(fake.rpcCalls[0].args).toMatchObject({
       p_opportunity_id: OPP,
       p_company_id: COMPANY,
+      p_actor_user_id: OPERATOR,
     });
 
     expect(preflight.existingLinkedProject).toEqual({
@@ -453,6 +625,9 @@ describe("getConversionPreflight", () => {
       },
     ]);
     expect(preflight.suggestedName).toBe("1240 W 6th Ave");
+    expect(preflight.assignmentVersion).toBe(12);
+    expect(preflight.alreadyConverted).toBe(false);
+    expect(preflight.projectAccessible).toBe(true);
   });
 
   it("normalizes an empty preflight (no hits) to empty arrays + null", async () => {
@@ -464,6 +639,9 @@ describe("getConversionPreflight", () => {
             duplicate_candidates: [],
             other_client_projects: [],
             suggested_name: "New project",
+            assignment_version: 0,
+            already_converted: false,
+            project_accessible: false,
           },
           error: null,
         },
@@ -473,12 +651,44 @@ describe("getConversionPreflight", () => {
 
     const preflight = await ProjectConversionService.getConversionPreflight(
       OPP,
-      COMPANY
+      COMPANY,
+      OPERATOR
     );
 
     expect(preflight.existingLinkedProject).toBeNull();
     expect(preflight.duplicateCandidates).toEqual([]);
     expect(preflight.otherClientProjects).toEqual([]);
     expect(preflight.suggestedName).toBe("New project");
+    expect(preflight.assignmentVersion).toBe(0);
+    expect(preflight.alreadyConverted).toBe(false);
+    expect(preflight.projectAccessible).toBe(false);
+  });
+
+  it("sends actor/company/opportunity to the service-only preflight RPC", async () => {
+    const fake = makeFakeSupabase({
+      rpc: {
+        get_conversion_preflight: {
+          data: {
+            assignment_version: 3,
+            already_converted: false,
+            project_accessible: false,
+          },
+          error: null,
+        },
+      },
+    });
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await ProjectConversionService.getConversionPreflight(
+      OPP,
+      COMPANY,
+      OPERATOR
+    );
+
+    expect(fake.rpcCalls[0].args).toEqual({
+      p_opportunity_id: OPP,
+      p_company_id: COMPANY,
+      p_actor_user_id: OPERATOR,
+    });
   });
 });

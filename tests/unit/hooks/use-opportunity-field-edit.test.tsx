@@ -45,15 +45,6 @@ describe("buildOpportunityFieldUpdate", () => {
     });
   });
 
-  it("maps assignedTo, trimming blank to null", () => {
-    expect(buildOpportunityFieldUpdate("assignedTo", "user-1")).toEqual({
-      assignedTo: "user-1",
-    });
-    expect(buildOpportunityFieldUpdate("assignedTo", "   ")).toEqual({
-      assignedTo: null,
-    });
-  });
-
   it("maps expectedCloseDate from ISO string, Date, and null", () => {
     const iso = "2026-06-18T00:00:00.000Z";
     const fromIso = buildOpportunityFieldUpdate("expectedCloseDate", iso);
@@ -68,9 +59,11 @@ describe("buildOpportunityFieldUpdate", () => {
   });
 
   it("maps description, trimming blank to null", () => {
-    expect(buildOpportunityFieldUpdate("description", "Re-roof, 24sq")).toEqual({
-      description: "Re-roof, 24sq",
-    });
+    expect(buildOpportunityFieldUpdate("description", "Re-roof, 24sq")).toEqual(
+      {
+        description: "Re-roof, 24sq",
+      }
+    );
     expect(buildOpportunityFieldUpdate("description", "")).toEqual({
       description: null,
     });

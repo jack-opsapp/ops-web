@@ -53,6 +53,7 @@ function makeOpportunity(
     stage: OpportunityStage.NewLead,
     source: null,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: null,
     estimatedValue: null,
     actualValue: null,
@@ -93,12 +94,28 @@ function makeOpportunity(
 function renderColumn(
   overrides: Partial<ComponentProps<typeof PipelineFocusedColumn>> = {}
 ) {
+  const opportunities = overrides.opportunities ?? [];
+  const leadAccessById = new Map(
+    opportunities.map((opportunity) => [
+      opportunity.id,
+      {
+        canView: true,
+        canEdit: true,
+        canAssign: true,
+        canUnassign: true,
+        canConvert: true,
+      },
+    ])
+  );
   return render(
     <PipelineFocusedColumn
+      {...overrides}
       stage={OpportunityStage.NewLead}
-      opportunities={[]}
+      opportunities={opportunities}
       clientNameMap={new Map()}
       canManage={true}
+      canCreateLead={overrides.canCreateLead ?? true}
+      leadAccessById={leadAccessById}
       filtersActive={false}
       focusedTabId="pipeline-focused-tab-new_lead"
       focusedPanelId="pipeline-focused-panel"
@@ -114,7 +131,6 @@ function renderColumn(
       onMoveStage={vi.fn()}
       onAssign={vi.fn()}
       onScheduleFollowUp={vi.fn()}
-      {...overrides}
     />
   );
 }
@@ -178,9 +194,9 @@ describe("<PipelineFocusedColumn>", () => {
       expect(screen.getByRole("tabpanel").className).toContain(
         "scroll-pb-[360px]"
       );
-      expect(screen.getByTestId("pipeline-focused-list-summary")).toHaveTextContent(
-        "2 CARDS IN NEW LEAD STAGE, OLDEST 4D"
-      );
+      expect(
+        screen.getByTestId("pipeline-focused-list-summary")
+      ).toHaveTextContent("2 CARDS IN NEW LEAD STAGE, OLDEST 4D");
     } finally {
       vi.useRealTimers();
     }

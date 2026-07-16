@@ -27,16 +27,20 @@ import {
   type PipelineCardActionHandlers,
   type PipelineCardEditHandlers,
 } from "./pipeline-card-content";
+import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 
 interface PipelineFocusedCardProps
-  extends Omit<PipelineCardActionHandlers, "onOpenDetail">,
+  extends
+    Omit<PipelineCardActionHandlers, "onOpenDetail">,
     Partial<PipelineCardEditHandlers> {
   opportunity: Opportunity;
   clientName: string;
   clients?: Client[];
   stageColor: string;
   stalenessOpacity: number;
-  canManage: boolean;
+  /** @deprecated Product callers must provide row-specific `leadAccess`. */
+  canManage?: boolean;
+  leadAccess: LeadAccess;
   onMoveStage: (opportunity: Opportunity, stage: OpportunityStage) => void;
 }
 
@@ -46,7 +50,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   clients = [],
   stageColor,
   stalenessOpacity,
-  canManage,
+  leadAccess,
   onLogCall,
   onLogText,
   onAddNote,
@@ -65,17 +69,12 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   onAddressSave,
 }: PipelineFocusedCardProps) {
   const { t } = useDictionary("pipeline");
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    isDragging,
-  } = useDraggable({
-    id: opportunity.id,
-    data: { opportunity, mode: "focused" },
-    disabled: !canManage,
-  });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } =
+    useDraggable({
+      id: opportunity.id,
+      data: { opportunity, mode: "focused" },
+      disabled: !leadAccess.canEdit,
+    });
 
   const openDetailPanel = useCallback(() => {
     usePipelineModeStore.getState().openDetailPanel(opportunity.id);
@@ -91,10 +90,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
       data-pipeline-transition-card
       data-opportunity-id={opportunity.id}
       data-focused-dragging={isDragging ? "true" : undefined}
-      className={cn(
-        "relative w-full select-none",
-        isDragging && "opacity-35"
-      )}
+      className={cn("relative w-full select-none", isDragging && "opacity-35")}
     >
       <div className="min-w-0">
         <PipelineCardContent
@@ -105,7 +101,9 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
           stalenessOpacity={stalenessOpacity}
           density="comfortable"
           surfaceVariant="focused"
-          canManage={canManage}
+          canManage={leadAccess.canEdit}
+          canAssign={leadAccess.canAssign}
+          canConvert={leadAccess.canConvert}
           isHovered={isDragging}
           openDetailLabel={openDetailLabel}
           onLogCall={onLogCall}
@@ -127,7 +125,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
           quickStageActions={
             <FocusedQuickStageActions
               currentStage={opportunity.stage}
-              canManage={canManage}
+              canManage={leadAccess.canEdit}
               previousStage={previousStage}
               nextStage={nextStage}
               onMoveStage={(stage) => {
@@ -143,10 +141,10 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
                 "focused.dragHandle.label",
                 "Drag card to another stage"
               )}
-              disabled={!canManage}
+              disabled={!leadAccess.canEdit}
               className="group flex h-full w-full cursor-grab touch-none appearance-none items-center justify-center rounded-sm bg-transparent text-line transition-colors duration-150 hover:text-text-3 focus-visible:text-text-2 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ops-accent active:cursor-grabbing disabled:cursor-not-allowed disabled:text-line"
-              {...(canManage ? attributes : {})}
-              {...(canManage ? listeners : {})}
+              {...(leadAccess.canEdit ? attributes : {})}
+              {...(leadAccess.canEdit ? listeners : {})}
             >
               <span
                 aria-hidden="true"
@@ -278,7 +276,7 @@ function QuickStageButton({
         } as CSSProperties
       }
       className={cn(
-        "group inline-flex h-[28px] max-w-[132px] min-w-0 items-center gap-[5px] rounded border px-[7px] font-cakemono text-cake-badge font-light uppercase leading-none",
+        "group inline-flex h-[28px] min-w-0 max-w-[132px] items-center gap-[5px] rounded border px-[7px] font-cakemono text-cake-badge font-light uppercase leading-none",
         "border-line bg-transparent text-text-3 transition-[background-color,border-color,color,opacity] duration-150",
         "hover:border-[var(--target-stage)] hover:bg-[var(--target-stage-hover)] hover:text-text",
         "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",

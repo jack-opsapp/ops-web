@@ -1592,7 +1592,7 @@ async function maybeAutoAdvanceOnAccept(args: {
 
     const { data: opp, error: opportunityError } = await supabase
       .from("opportunities")
-      .select("stage, stage_manually_set")
+      .select("stage, stage_manually_set, assignment_version")
       .eq("id", opportunityId)
       .eq("company_id", connection.companyId)
       .maybeSingle();
@@ -1686,15 +1686,24 @@ async function maybeAutoConvertLikelyWon(
   }
 
   try {
-    const assignmentVersion = opportunity?.assignment_version;
+    const assignmentSnapshot = {
+      expectedAssignmentVersion: opportunity?.assignment_version,
+    } as const;
+    const assignmentVersion = assignmentSnapshot.expectedAssignmentVersion;
     if (
       !Number.isSafeInteger(assignmentVersion) ||
       (assignmentVersion as number) < 0
     ) {
       throw new Error("likely-won conversion has no assignment snapshot");
     }
-    if (candidateProviderMessageIds.size === 0) return false;
+    if (candidateProviderMessageIds.size === 0) {
+      return false;
+    }
 
+    // Bind conversion to the newest immutable, meaningful customer inbound
+    // among the exact provider messages evaluated in this cycle. Discovery
+    // buckets and map iteration order are not evidence; an unrelated outbound
+    // or historical message must never authorize actorless conversion.
     const supabase = requireSupabase();
     const { data: evidence, error: evidenceError } = await supabase
       .from("opportunity_correspondence_events")

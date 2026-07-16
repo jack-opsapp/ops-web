@@ -20,11 +20,15 @@ import { ChevronDown } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { EntityPicker } from "@/components/ui/entity-picker";
-import { FilterChips, type FilterChipOption } from "@/components/ui/filter-chip";
+import {
+  FilterChips,
+  type FilterChipOption,
+} from "@/components/ui/filter-chip";
 import {
   OpportunityStage,
   getActiveStages,
   getStageDisplayName,
+  type OpportunityAssigneeFilter,
 } from "@/lib/types/pipeline";
 
 interface TeamMember {
@@ -36,9 +40,11 @@ interface TeamMember {
 interface PipelineFilterChipsProps {
   stageFilter: OpportunityStage | "all";
   onStageFilterChange: (stage: OpportunityStage | "all") => void;
-  assigneeFilter: string | "all";
-  onAssigneeFilterChange: (userId: string | "all") => void;
+  assigneeFilter: OpportunityAssigneeFilter;
+  onAssigneeFilterChange: (filter: OpportunityAssigneeFilter) => void;
   teamMembers: TeamMember[];
+  currentUserId: string | null;
+  showAssigneeFilter: boolean;
 }
 
 export function PipelineFilterChips({
@@ -47,6 +53,8 @@ export function PipelineFilterChips({
   assigneeFilter,
   onAssigneeFilterChange,
   teamMembers,
+  currentUserId,
+  showAssigneeFilter,
 }: PipelineFilterChipsProps) {
   const { t } = useDictionary("pipeline");
   const { t: tp } = useDictionary("picker");
@@ -66,15 +74,20 @@ export function PipelineFilterChips({
         value={stageFilter}
         onChange={onStageFilterChange}
       />
-      <AssigneeFilterChip
-        value={assigneeFilter}
-        onChange={onAssigneeFilterChange}
-        teamMembers={teamMembers}
-        everyoneLabel={t("filter.everyone")}
-        searchPlaceholder={t("table.cell.assignee.search")}
-        emptyLabel={t("table.cell.assignee.empty")}
-        clearLabel={tp("clear")}
-      />
+      {showAssigneeFilter ? (
+        <AssigneeFilterChip
+          value={assigneeFilter}
+          onChange={onAssigneeFilterChange}
+          teamMembers={teamMembers}
+          currentUserId={currentUserId}
+          everyoneLabel={t("filter.everyone")}
+          mineLabel={t("filter.mine")}
+          unassignedLabel={t("filter.unassigned")}
+          searchPlaceholder={t("table.cell.assignee.search")}
+          emptyLabel={t("table.cell.assignee.empty")}
+          clearLabel={tp("clear")}
+        />
+      ) : null}
     </>
   );
 }
@@ -91,47 +104,61 @@ function AssigneeFilterChip({
   value,
   onChange,
   teamMembers,
+  currentUserId,
   everyoneLabel,
+  mineLabel,
+  unassignedLabel,
   searchPlaceholder,
   emptyLabel,
   clearLabel,
 }: {
-  value: string | "all";
-  onChange: (userId: string | "all") => void;
+  value: OpportunityAssigneeFilter;
+  onChange: (filter: OpportunityAssigneeFilter) => void;
   teamMembers: TeamMember[];
+  currentUserId: string | null;
   everyoneLabel: string;
+  mineLabel: string;
+  unassignedLabel: string;
   searchPlaceholder: string;
   emptyLabel: string;
   clearLabel: string;
 }) {
   const [open, setOpen] = useState(false);
-  const activeMember = value !== "all" ? teamMembers.find((m) => m.id === value) : undefined;
+  const options: Array<{ id: OpportunityAssigneeFilter; label: string }> = [
+    ...(currentUserId ? [{ id: "mine" as const, label: mineLabel }] : []),
+    { id: "unassigned", label: unassignedLabel },
+    ...teamMembers
+      .filter((member) => member.id !== currentUserId)
+      .map((member) => ({
+        id: `user:${member.id}` as const,
+        label: `${member.firstName} ${member.lastName}`.trim(),
+      })),
+  ];
+  const activeOption = options.find((option) => option.id === value);
   const filtered = value !== "all";
-  const labelText = activeMember
-    ? `${activeMember.firstName} ${activeMember.lastName}`
-    : everyoneLabel;
+  const labelText = activeOption?.label ?? everyoneLabel;
 
   return (
     <div className="inline-flex" data-keyboard-scope="modal-or-menu">
-      <EntityPicker<TeamMember>
+      <EntityPicker<(typeof options)[number]>
         trigger={
           <button
             type="button"
             className={cn(
-              "inline-flex h-3 items-center gap-[5px] rounded-chip border px-1",
+              "inline-flex h-3 items-center gap-0.5 rounded-chip border px-1",
               "font-mono text-micro font-medium uppercase tracking-[0.12em]",
               "transition-colors duration-150 ease-smooth",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
               open || filtered
                 ? "border-line-hi bg-surface-active text-text"
-                : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2",
+                : "border-border text-text-3 hover:bg-surface-hover hover:text-text-2"
             )}
           >
             <span className="whitespace-nowrap">{labelText}</span>
             <ChevronDown
               className={cn(
-                "h-[10px] w-[10px] shrink-0 transition-transform duration-150",
-                open && "rotate-180",
+                "h-2 w-2 shrink-0 transition-transform duration-150",
+                open && "rotate-180"
               )}
               strokeWidth={1.5}
             />
@@ -140,11 +167,11 @@ function AssigneeFilterChip({
         open={open}
         onOpenChange={setOpen}
         label={everyoneLabel}
-        items={teamMembers}
+        items={options}
         value={value === "all" ? null : value}
-        onChange={(id) => onChange(id ?? "all")}
-        getId={(member) => member.id}
-        getLabel={(member) => `${member.firstName} ${member.lastName}`}
+        onChange={(id) => onChange((id ?? "all") as OpportunityAssigneeFilter)}
+        getId={(option) => option.id}
+        getLabel={(option) => option.label}
         searchPlaceholder={searchPlaceholder}
         emptyLabel={emptyLabel}
         clearLabel={clearLabel}

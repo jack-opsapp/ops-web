@@ -1,44 +1,41 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- Pipeline attachments use arbitrary signed/provider URLs outside the Next image allowlist. */
-
-import { useState, useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Mail, Paperclip } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
+
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
-import { type Activity, ActivityType } from "@/lib/types/pipeline";
-import { useOpportunityActivities } from "@/lib/hooks";
+import type {
+  OpportunityAssignedContextActivity,
+  OpportunityAssignedContextCorrespondence,
+} from "@/lib/api/services/opportunity-assigned-context-service";
+import { ActivityType } from "@/lib/types/pipeline";
+import { cn } from "@/lib/utils/cn";
 
-// ── Utilities ──
-
-const IMG_RE = /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?|$)/i;
-
-function isImage(url: string): boolean {
-  return IMG_RE.test(url);
+interface CorrespondenceMessage {
+  id: string;
+  subject: string | null;
+  content: string | null;
+  direction: "inbound" | "outbound";
+  partyRole: OpportunityAssignedContextCorrespondence["partyRole"] | null;
+  hasAttachments: boolean | null;
+  occurredAt: Date;
 }
 
-function senderName(raw: string | null): string {
-  if (!raw) return "Unknown";
-  const m = raw.match(/^(.+?)\s*<.+>$/);
-  if (m) return m[1].trim();
-  return raw.split("@")[0];
-}
-
-function formatMessageTime(d: Date, locale: Locale): string {
-  return d.toLocaleTimeString(getDateLocale(locale), {
+function formatMessageTime(date: Date, locale: Locale): string {
+  return date.toLocaleTimeString(getDateLocale(locale), {
     hour: "numeric",
     minute: "2-digit",
   });
 }
 
-function dateSeparatorLabel(d: Date, locale: Locale): string {
+function dateSeparatorLabel(date: Date, locale: Locale): string {
   const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+  const diff = Math.floor((now.getTime() - date.getTime()) / 86_400_000);
   if (diff === 0) return "Today";
   if (diff === 1) return "Yesterday";
-  return d.toLocaleDateString(getDateLocale(locale), {
+  return date.toLocaleDateString(getDateLocale(locale), {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -53,225 +50,149 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-// ── Thread grouping ──
+function buildMessages(
+  activities: OpportunityAssignedContextActivity[],
+  correspondence: OpportunityAssignedContextCorrespondence[]
+): CorrespondenceMessage[] {
+  const messages: CorrespondenceMessage[] = [];
+  const renderedActivityIds = new Set<string>();
 
-interface Thread {
-  id: string;
-  subject: string;
-  messages: Activity[];
-  latest: Date;
-}
-
-function buildThreads(emails: Activity[]): Thread[] {
-  const map = new Map<string, Activity[]>();
-
-  for (const e of emails) {
-    const key = e.emailThreadId ?? e.id;
-    const arr = map.get(key);
-    if (arr) arr.push(e);
-    else map.set(key, [e]);
-  }
-
-  const threads: Thread[] = [];
-  for (const [id, msgs] of map) {
-    // Sort within thread: newest first
-    msgs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    threads.push({
-      id,
-      subject: msgs[msgs.length - 1].subject || "No subject",
-      messages: msgs,
-      latest: new Date(msgs[0].createdAt),
+  for (const activity of activities) {
+    if (activity.type !== ActivityType.Email || !activity.direction) continue;
+    renderedActivityIds.add(activity.id);
+    messages.push({
+      id: activity.id,
+      subject: activity.subject,
+      content: activity.bodyText ?? activity.content,
+      direction: activity.direction,
+      partyRole: null,
+      hasAttachments: activity.hasAttachments,
+      occurredAt: activity.createdAt,
     });
   }
 
-  threads.sort((a, b) => b.latest.getTime() - a.latest.getTime());
-  return threads;
-}
+  for (const event of correspondence) {
+    if (event.activityId && renderedActivityIds.has(event.activityId)) continue;
+    messages.push({
+      id: event.id,
+      subject: event.subject,
+      content: null,
+      direction: event.direction,
+      partyRole: event.partyRole,
+      hasAttachments: null,
+      occurredAt: event.occurredAt,
+    });
+  }
 
-// ── Lightbox ──
-
-function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-[3000] flex cursor-pointer items-center justify-center bg-background/80"
-      onClick={onClose}
-    >
-      <img
-        src={src}
-        alt=""
-        className="max-w-[80vw] max-h-[80vh] object-contain rounded-chip"
-      />
-    </div>
+  return messages.sort(
+    (a, b) => b.occurredAt.getTime() - a.occurredAt.getTime()
   );
 }
 
-// ── Single message bubble ──
+function senderLabel(
+  message: CorrespondenceMessage,
+  contactName: string | null,
+  t: (key: string) => string
+): string {
+  if (message.direction === "outbound") return t("detail.you");
+  if (!message.partyRole || message.partyRole === "customer") {
+    return contactName ?? "Unknown";
+  }
+  return message.partyRole.replace(/_/g, " ");
+}
 
 function MessageBubble({
-  msg,
+  message,
+  contactName,
   locale,
   t,
-  onImageClick,
 }: {
-  msg: Activity;
+  message: CorrespondenceMessage;
+  contactName: string | null;
   locale: Locale;
   t: (key: string) => string;
-  onImageClick: (url: string) => void;
 }) {
-  const isOut = msg.direction === "outbound";
-  const images = msg.attachments.filter(isImage);
-  const files = msg.attachments.filter((u) => !isImage(u));
-  const ts = new Date(msg.createdAt);
+  const isOut = message.direction === "outbound";
 
   return (
     <div
+      data-testid="correspondence-message"
       className={cn(
-        "flex flex-col max-w-[85%]",
-        isOut ? "self-end items-end" : "self-start items-start"
+        "flex max-w-[85%] flex-col",
+        isOut ? "items-end self-end" : "items-start self-start"
       )}
     >
       <div
         className={cn(
-          "rounded-chip px-2.5 py-2",
+          "rounded-chip px-1.5 py-1",
           isOut
             ? "border border-border bg-surface-input"
             : "border border-border-subtle bg-fill-neutral-dim"
         )}
       >
-        {/* Sender + time */}
-        <div className="flex items-center gap-1.5 mb-0.5">
+        <div className="mb-0.5 flex items-center gap-1.5">
           <div
             className={cn(
-              "w-[3px] h-3 rounded-full shrink-0",
+              "h-3 w-0.5 shrink-0 rounded-full",
               isOut ? "bg-text-3" : "bg-text-mute"
             )}
           />
-          <Mail className="w-2.5 h-2.5 text-text-mute shrink-0" />
+          <Mail className="h-2.5 w-2.5 shrink-0 text-text-mute" />
           <span
             className={cn(
-              "font-mohave text-[12px] font-medium truncate",
+              "truncate font-mohave text-caption-sm font-medium",
               isOut ? "text-text-2" : "text-text"
             )}
           >
-            {isOut ? t("detail.you") : senderName(msg.fromEmail)}
+            {senderLabel(message, contactName, t)}
           </span>
-          <span className="font-mono text-micro text-text-mute ml-auto shrink-0">
-            {formatMessageTime(ts, locale)}
+          <span className="ml-auto shrink-0 font-mono text-micro text-text-mute">
+            {formatMessageTime(message.occurredAt, locale)}
           </span>
         </div>
 
-        {/* Content */}
-        {msg.content ? (
-          <p className="font-mono text-[11px] text-text-2 leading-[1.6] whitespace-pre-wrap break-words">
-            {msg.content}
+        {message.content ? (
+          <p className="whitespace-pre-wrap break-words font-mono text-micro leading-relaxed text-text-2">
+            {message.content}
           </p>
-        ) : msg.subject ? (
-          <p className="font-mono text-[11px] text-text-mute italic">
-            {msg.subject}
+        ) : message.subject ? (
+          <p className="font-mono text-micro italic text-text-mute">
+            {message.subject}
           </p>
         ) : null}
 
-        {/* Image attachments */}
-        {images.length > 0 && (
-          <div className="flex gap-1.5 mt-2 flex-wrap">
-            {images.slice(0, 4).map((url) => (
-              <button
-                key={url}
-                onClick={(e) => { e.stopPropagation(); onImageClick(url); }}
-                className="h-10 w-10 shrink-0 overflow-hidden rounded-panel border border-border transition-colors hover:border-border-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-              >
-                <img
-                  src={url}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </button>
-            ))}
-            {images.length > 4 && (
-              <span className="font-mono text-micro text-text-mute self-center ml-0.5">
-                +{images.length - 4}
-              </span>
-            )}
+        {message.hasAttachments ? (
+          <div className="mt-1.5 flex items-center gap-1">
+            <Paperclip className="h-3 w-3 text-text-mute" />
           </div>
-        )}
-
-        {/* Non-image attachments */}
-        {files.length > 0 && (
-          <div className="flex items-center gap-1 mt-1.5">
-            <Paperclip className="w-3 h-3 text-text-mute" />
-            <span className="font-mono text-micro text-text-mute">
-              {files.length} file{files.length > 1 ? "s" : ""}
-            </span>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
 }
 
-// ── Thread picker ──
-
-function ThreadPicker({
-  threads,
-  activeId,
-  onSelect,
-}: {
-  threads: Thread[];
-  activeId: string;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <div className="flex gap-1 pb-2 mb-1 overflow-x-auto scrollbar-hide">
-      {threads.map((thread) => (
-        <button
-          key={thread.id}
-          onClick={() => onSelect(thread.id)}
-          className={cn(
-            "shrink-0 px-2 py-1 rounded-panel font-mohave text-[11px] transition-colors max-w-[180px] truncate",
-            thread.id === activeId
-              ? "bg-surface-active text-text"
-              : "text-text-mute hover:bg-surface-hover-subtle hover:text-text-3"
-          )}
-        >
-          {thread.subject}
-          <span className="font-mono text-micro text-text-mute ml-1">
-            {thread.messages.length}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ── Exported tab ──
-
 interface PipelineDetailCorrespondenceTabProps {
-  opportunityId: string;
+  activities: OpportunityAssignedContextActivity[];
+  correspondence: OpportunityAssignedContextCorrespondence[];
+  contactName: string | null;
 }
 
 export function PipelineDetailCorrespondenceTab({
-  opportunityId,
+  activities,
+  correspondence,
+  contactName,
 }: PipelineDetailCorrespondenceTabProps) {
   const { t } = useDictionary("pipeline");
   const { locale } = useLocale();
-  const { data: activities } = useOpportunityActivities(opportunityId);
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-
-  const emails = useMemo(
-    () => (activities ?? []).filter((a) => a.type === ActivityType.Email),
-    [activities]
+  const messages = useMemo(
+    () => buildMessages(activities, correspondence),
+    [activities, correspondence]
   );
-  const threads = useMemo(() => buildThreads(emails), [emails]);
 
-  const resolvedId = activeThreadId ?? threads[0]?.id ?? null;
-  const activeThread = threads.find((th) => th.id === resolvedId);
-
-  if (threads.length === 0) {
+  if (messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
-        <Mail className="w-5 h-5 text-text-mute mb-2" />
+        <Mail className="mb-2 h-5 w-5 text-text-mute" />
         <span className="font-mono text-[11px] text-text-mute">
           {t("detail.noEmailsYet")}
         </span>
@@ -279,58 +200,34 @@ export function PipelineDetailCorrespondenceTab({
     );
   }
 
-  // Build message list with date separators (newest first)
-  const elements: React.ReactNode[] = [];
-  if (activeThread) {
-    let lastDate: Date | null = null;
-
-    for (const msg of activeThread.messages) {
-      const d = new Date(msg.createdAt);
-      if (!lastDate || !isSameDay(lastDate, d)) {
-        elements.push(
-          <div
-            key={`sep-${d.toISOString()}`}
-            className="flex items-center gap-2 py-2"
-          >
-            <div className="flex-1 border-t border-border-subtle" />
-            <span className="font-mono text-micro text-text-mute uppercase shrink-0">
-              {dateSeparatorLabel(d, locale)}
-            </span>
-            <div className="flex-1 border-t border-border-subtle" />
-          </div>
-        );
-      }
-      lastDate = d;
-
+  const elements: ReactNode[] = [];
+  let lastDate: Date | null = null;
+  for (const message of messages) {
+    if (!lastDate || !isSameDay(lastDate, message.occurredAt)) {
       elements.push(
-        <MessageBubble
-          key={msg.id}
-          msg={msg}
-          locale={locale}
-          t={t}
-          onImageClick={setLightboxSrc}
-        />
+        <div
+          key={`sep-${message.occurredAt.toISOString()}`}
+          className="flex items-center gap-2 py-2"
+        >
+          <div className="flex-1 border-t border-border-subtle" />
+          <span className="shrink-0 font-mono text-micro uppercase text-text-mute">
+            {dateSeparatorLabel(message.occurredAt, locale)}
+          </span>
+          <div className="flex-1 border-t border-border-subtle" />
+        </div>
       );
     }
+    lastDate = message.occurredAt;
+    elements.push(
+      <MessageBubble
+        key={message.id}
+        message={message}
+        contactName={contactName}
+        locale={locale}
+        t={t}
+      />
+    );
   }
 
-  return (
-    <div className="flex flex-col h-full">
-      {threads.length > 1 && (
-        <ThreadPicker
-          threads={threads}
-          activeId={resolvedId!}
-          onSelect={setActiveThreadId}
-        />
-      )}
-
-      <div className="flex flex-col gap-1.5">
-        {elements}
-      </div>
-
-      {lightboxSrc && (
-        <Lightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
-      )}
-    </div>
-  );
+  return <div className="flex h-full flex-col gap-1.5">{elements}</div>;
 }

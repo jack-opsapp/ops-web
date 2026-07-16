@@ -32,9 +32,8 @@ vi.mock("@dnd-kit/core", () => ({
 }));
 
 vi.mock("framer-motion", async () => {
-  const actual = await vi.importActual<typeof import("framer-motion")>(
-    "framer-motion"
-  );
+  const actual =
+    await vi.importActual<typeof import("framer-motion")>("framer-motion");
 
   return {
     ...actual,
@@ -110,6 +109,7 @@ function makeOpportunity(): Opportunity {
     stage: OpportunityStage.Quoted,
     source: null,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: null,
     estimatedValue: 12500,
     actualValue: null,
@@ -193,22 +193,30 @@ function renderFocusedCard({
   onLinkClient = vi.fn(),
   onCreateAndLinkClient = vi.fn(),
   onAddressSave = vi.fn(),
+  leadAccess,
 }: {
   canManage?: boolean;
   opportunity?: Opportunity;
   clientName?: string;
   clients?: Client[];
-  onMoveStage?: (
-    opportunity: Opportunity,
-    stage: OpportunityStage
-  ) => void;
+  onMoveStage?: (opportunity: Opportunity, stage: OpportunityStage) => void;
   onTitleSave?: (opportunity: Opportunity, title: string) => void;
   onLinkClient?: (opportunity: Opportunity, clientId: string) => void;
-  onCreateAndLinkClient?: (opportunity: Opportunity, clientName: string) => void;
+  onCreateAndLinkClient?: (
+    opportunity: Opportunity,
+    clientName: string
+  ) => void;
   onAddressSave?: (
     opportunity: Opportunity,
     selection: { address: string; latitude: number; longitude: number }
   ) => void;
+  leadAccess?: {
+    canView: boolean;
+    canEdit: boolean;
+    canAssign: boolean;
+    canUnassign: boolean;
+    canConvert: boolean;
+  };
 } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -223,6 +231,15 @@ function renderFocusedCard({
         stageColor="#8F9AA3"
         stalenessOpacity={1}
         canManage={canManage}
+        leadAccess={
+          leadAccess ?? {
+            canView: true,
+            canEdit: canManage,
+            canAssign: canManage,
+            canUnassign: canManage,
+            canConvert: canManage,
+          }
+        }
         onLogCall={vi.fn()}
         onLogText={vi.fn()}
         onAddNote={vi.fn()}
@@ -271,6 +288,26 @@ describe("<PipelineFocusedCard>", () => {
     // the grab surface spans the card edge (rail width lives on the wrapper).
     expect(dragActivator).toHaveClass("h-full", "w-full", "cursor-grab");
     expect(dndMocks.setActivatorNodeRef).toHaveBeenCalled();
+  });
+
+  it("keeps a company-wide visible row read-only when edit scope is assigned", () => {
+    renderFocusedCard({
+      canManage: true,
+      leadAccess: {
+        canView: true,
+        canEdit: false,
+        canAssign: false,
+        canUnassign: false,
+        canConvert: false,
+      },
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Drag card to another stage" })
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Edit deal title: Deck rebuild" })
+    ).toBeNull();
   });
 
   it("does not open detail when the card body title is clicked", () => {
@@ -495,8 +532,9 @@ describe("<PipelineFocusedCard>", () => {
     await act(async () => {
       await vi.waitFor(() => {
         expect(screen.getByRole("listbox")).toHaveClass("fixed");
-        expect(screen.getByRole("option", { name: /1234 industrial way/i }))
-          .toBeInTheDocument();
+        expect(
+          screen.getByRole("option", { name: /1234 industrial way/i })
+        ).toBeInTheDocument();
       });
     });
   });
