@@ -75,8 +75,8 @@ Both facades return `ok`, `conflict`, current `assigned_to`, current `assignment
    - opportunity and child-record RLS, opportunity-scoped context functions, preflight/conversion authorization, realtime publication
 3. `supabase/migrations/20260715161000_lead_assignment_permission_migration.sql`
    - snapshots and deterministically maps existing preset/custom role grants and user overrides without activating Operator pipeline access
-4. Email hardening migrations `20260715162000_email_send_intents.sql`, `20260715163000_phase_c_auto_send_queue.sql`, and `20260715164000_personal_mailbox_disable_lifecycle.sql` may depend on the foundation contract.
-5. `supabase/migrations/20260715171000_lead_assignment_operator_activation.sql`
+4. The email-hardening chain (`20260715162000` through the currently-held `20260715171000_approved_action_email_transport.sql`) may depend on the foundation and scoped-authorization contracts.
+5. `supabase/migrations/20260715172000_lead_assignment_operator_activation.sql`
    - final, separately controlled activation after web and iOS compatibility proof
 
 ---
@@ -255,7 +255,7 @@ Both facades return `ok`, `conflict`, current `assigned_to`, current `assignment
 
 **Files:**
 
-- Create: `supabase/migrations/20260715171000_lead_assignment_operator_activation.sql`
+- Create: `supabase/migrations/20260715172000_lead_assignment_operator_activation.sql`
 - Update: relevant sections of `ops-software-bible/10_JOB_LIFECYCLE_AND_DATA_RELATIONSHIPS.md`, `ops-software-bible/13_EMAIL_SYSTEM.md`, permissions/data architecture documentation, and migration index
 - Regenerate: web and iOS database types from the reconciled development database
 - Update: this plan's verification ledger/artifacts under `docs/artifacts/`
