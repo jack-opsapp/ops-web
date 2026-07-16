@@ -25,12 +25,36 @@ vi.mock("@/lib/store/auth-store", () => ({
     currentUser: { id: "user-1" },
   }),
 }));
-vi.mock("@/lib/store/permissions-store", () => ({
-  usePermissionStore: (selector?: (s: { can: () => boolean }) => unknown) => {
-    const state = { can: () => true };
-    return selector ? selector(state) : state;
-  },
+const permissionState = vi.hoisted(() => ({
+  permissions: new Map<string, "all" | "assigned" | "own">(),
+  configuredPermissions: new Set<string>(),
 }));
+
+vi.mock("@/lib/store/permissions-store", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/store/permissions-store")
+  >("@/lib/store/permissions-store");
+  const can = (permission: string, requiredScope?: string) => {
+    const granted = permissionState.permissions.get(permission);
+    if (!granted) return false;
+    if (!requiredScope || granted === "all") return true;
+    if (granted === "assigned") {
+      return requiredScope === "assigned" || requiredScope === "own";
+    }
+    return requiredScope === "own";
+  };
+  return {
+    ...actual,
+    usePermissionStore: (selector?: (state: unknown) => unknown) => {
+      const state = {
+        can,
+        permissions: permissionState.permissions,
+        configuredPermissions: permissionState.configuredPermissions,
+      };
+      return selector ? selector(state) : state;
+    },
+  };
+});
 
 import {
   useConversionPreflight,
@@ -43,8 +67,13 @@ function makeWrapper() {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(QueryClientProvider, { client: qc }, children);
+  return function QueryClientTestWrapper({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) {
+    return React.createElement(QueryClientProvider, { client: qc }, children);
+  };
 }
 
 interface FetchCall {
@@ -66,7 +95,11 @@ function stubFetch(jsonBody: unknown) {
   return calls;
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  permissionState.permissions = new Map([["pipeline.convert", "assigned"]]);
+  permissionState.configuredPermissions = new Set(["pipeline.convert"]);
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("useConversionPreflight", () => {
@@ -101,6 +134,19 @@ describe("useConversionPreflight", () => {
     });
     // give microtasks a tick; the disabled query must never fetch.
     await new Promise((r) => setTimeout(r, 10));
+    expect(calls).toHaveLength(0);
+  });
+
+  it("is disabled when granular convert is explicitly revoked despite legacy manage", async () => {
+    permissionState.permissions = new Map([["pipeline.manage", "all"]]);
+    permissionState.configuredPermissions = new Set(["pipeline.convert"]);
+    const calls = stubFetch({});
+
+    renderHook(() => useConversionPreflight("opp-1"), {
+      wrapper: makeWrapper(),
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 10));
     expect(calls).toHaveLength(0);
   });
 });

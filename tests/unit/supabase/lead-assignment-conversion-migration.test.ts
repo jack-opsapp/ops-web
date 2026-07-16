@@ -22,6 +22,17 @@ function body(name: string): string {
 }
 
 describe("lead conversion authorization migration", () => {
+  it("blocks legacy manage fallback for every same-company granular override row", () => {
+    const compatibility = body("private.should_use_pipeline_manage_compat");
+    expect(compatibility).toMatch(/public\.user_permission_overrides/i);
+    expect(compatibility).toMatch(/upo\.user_id = p_actor_user_id/i);
+    expect(compatibility).toMatch(/upo\.company_id = p_actor_company_id/i);
+    expect(compatibility).toMatch(/upo\.permission = p_permission/i);
+    expect(compatibility).not.toMatch(
+      /not upo\.granted or upo\.scope is not null/i
+    );
+  });
+
   it("adds private actor-aware project helpers with fixed definer paths and no runtime grants", () => {
     for (const action of ["view", "edit", "link_opportunity_to"]) {
       const name = `private.user_can_${action}_project`;
@@ -105,6 +116,23 @@ describe("lead conversion authorization migration", () => {
     expect(conversion).toMatch(/assignment_version/i);
   });
 
+  it("rechecks actorless manual-stage protection after the opportunity lock", () => {
+    const conversion = body("public.convert_opportunity_to_project");
+    const lock = conversion.search(
+      /from public\.opportunities[\s\S]*?for update/i
+    );
+    const manualGuard = conversion.search(
+      /v_actor_user_id is null[\s\S]*?stage_manually_set[\s\S]*?'manual_stage_override'/i
+    );
+    const core = conversion.search(
+      /private\.execute_opportunity_conversion_core/i
+    );
+
+    expect(lock).toBeGreaterThanOrEqual(0);
+    expect(manualGuard).toBeGreaterThan(lock);
+    expect(core).toBeGreaterThan(manualGuard);
+  });
+
   it("replaces the old preflight overload with actor-scoped, project-authorized output", () => {
     expect(source).toMatch(
       /drop function if exists public\.get_conversion_preflight\(uuid, uuid\)/i
@@ -126,6 +154,19 @@ describe("lead conversion authorization migration", () => {
     expect(source).toMatch(
       /revoke all on function public\.get_conversion_preflight\(uuid, uuid, uuid\)[\s\S]*?grant execute[\s\S]*?to authenticated, service_role/i
     );
+  });
+
+  it("short-circuits inaccessible linked-project preflight before sibling discovery", () => {
+    const preflight = body("public.get_conversion_preflight");
+    const recovery = preflight.search(
+      /if v_project_id is not null\s+and not v_project_accessible\s+then[\s\S]*?'existing_linked_project', null[\s\S]*?'duplicate_candidates', '\[\]'::jsonb[\s\S]*?'other_client_projects', '\[\]'::jsonb[\s\S]*?return/i
+    );
+    const siblingDiscovery = preflight.search(
+      /select coalesce\(jsonb_agg\(candidate\.payload/i
+    );
+
+    expect(recovery).toBeGreaterThanOrEqual(0);
+    expect(siblingDiscovery).toBeGreaterThan(recovery);
   });
 
   it("does not staff projects or generated tasks", () => {

@@ -353,7 +353,8 @@ async function runConversion(
   if (
     !result.converted &&
     (result.guard_reason === "snapshot_mismatch" ||
-      result.guard_reason === "assignment_snapshot_mismatch")
+      result.guard_reason === "assignment_snapshot_mismatch" ||
+      result.guard_reason === "manual_stage_override")
   ) {
     throw new ProjectConversionError(
       "conflict",

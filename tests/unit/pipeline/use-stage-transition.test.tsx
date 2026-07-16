@@ -83,10 +83,35 @@ vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: () => ({ currentUser: { id: "user-1" } }),
 }));
 
-vi.mock("@/lib/store/permissions-store", () => ({
-  usePermissionStore: (selector: (s: { can: () => boolean }) => unknown) =>
-    selector({ can: () => true }),
+const permissionState = vi.hoisted(() => ({
+  permissions: new Map<string, "all" | "assigned" | "own">(),
+  configuredPermissions: new Set<string>(),
 }));
+
+vi.mock("@/lib/store/permissions-store", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/store/permissions-store")
+  >("@/lib/store/permissions-store");
+  const can = (permission: string, requiredScope?: string) => {
+    const granted = permissionState.permissions.get(permission);
+    if (!granted) return false;
+    if (!requiredScope) return true;
+    if (granted === "all") return true;
+    if (granted === "assigned") {
+      return requiredScope === "assigned" || requiredScope === "own";
+    }
+    return requiredScope === "own";
+  };
+  return {
+    ...actual,
+    usePermissionStore: (selector: (state: unknown) => unknown) =>
+      selector({
+        can,
+        permissions: permissionState.permissions,
+        configuredPermissions: permissionState.configuredPermissions,
+      }),
+  };
+});
 
 const pushUndo = vi.fn();
 vi.mock("@/stores/undo-store", () => ({
@@ -124,6 +149,11 @@ function makeOpp(overrides: Partial<Opportunity> = {}): Opportunity {
 describe("useStageTransition — Won (single atomic win+convert)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    permissionState.permissions = new Map([
+      ["pipeline.convert", "assigned"],
+      ["pipeline.manage", "all"],
+    ]);
+    permissionState.configuredPermissions = new Set(["pipeline.convert"]);
     convertMutate.mockReset();
     convertMutate.mockImplementation((_vars, opts) =>
       opts?.onSuccess?.({ projectId: "proj-new", projectAccessible: true })
@@ -208,7 +238,15 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
   it("linked-but-not-won accessible project is won atomically before navigation", () => {
     preflightHook.mockImplementation((id: string | undefined) => ({
       data: id
-        ? { ...PREFLIGHT, alreadyConverted: true, projectAccessible: true }
+        ? {
+            ...PREFLIGHT,
+            alreadyConverted: true,
+            projectAccessible: true,
+            existingLinkedProject: {
+              id: "proj-existing",
+              title: "Existing project",
+            },
+          }
         : undefined,
       isLoading: false,
     }));
@@ -247,7 +285,15 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
   it("already-won linked project opens without another conversion write", () => {
     preflightHook.mockImplementation((id: string | undefined) => ({
       data: id
-        ? { ...PREFLIGHT, alreadyConverted: true, projectAccessible: true }
+        ? {
+            ...PREFLIGHT,
+            alreadyConverted: true,
+            projectAccessible: true,
+            existingLinkedProject: {
+              id: "proj-existing",
+              title: "Existing project",
+            },
+          }
         : undefined,
       isLoading: false,
     }));
@@ -310,6 +356,45 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
     });
   });
 
+  it("allows already-won recovery with explicit assigned convert access and no legacy manage grant", () => {
+    permissionState.permissions = new Map([["pipeline.convert", "assigned"]]);
+    permissionState.configuredPermissions = new Set(["pipeline.convert"]);
+    const opp = makeOpp({ stage: OpportunityStage.Won, projectId: null });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() => result.current.requestConvertAlreadyWon(opp.id));
+
+    expect(result.current.dialogType).toBe("won");
+  });
+
+  it("denies already-won recovery when granular convert is explicitly revoked even if legacy manage remains", () => {
+    permissionState.permissions = new Map([["pipeline.manage", "all"]]);
+    permissionState.configuredPermissions = new Set(["pipeline.convert"]);
+    const opp = makeOpp({ stage: OpportunityStage.Won, projectId: null });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() => result.current.requestConvertAlreadyWon(opp.id));
+
+    expect(result.current.dialogType).toBeNull();
+  });
+
+  it("allows bounded legacy recovery only when granular convert is genuinely absent", () => {
+    permissionState.permissions = new Map([["pipeline.manage", "all"]]);
+    permissionState.configuredPermissions = new Set();
+    const opp = makeOpp({ stage: OpportunityStage.Won, projectId: null });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() => result.current.requestConvertAlreadyWon(opp.id));
+
+    expect(result.current.dialogType).toBe("won");
+  });
+
   it("refuses to mutate when preflight has no safe assignment snapshot", () => {
     preflightHook.mockImplementation((id: string | undefined) => ({
       data: id
@@ -330,7 +415,7 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
     expect(toastError).toHaveBeenCalled();
   });
 
-  it("linked-but-not-won inaccessible project is won atomically without navigation", () => {
+  it("linked-but-inaccessible project is recovered without a link target or navigation", () => {
     preflightHook.mockImplementation((id: string | undefined) => ({
       data: id
         ? { ...PREFLIGHT, alreadyConverted: true, projectAccessible: false }
@@ -346,22 +431,57 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
     );
 
     act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
-    act(() =>
-      result.current.confirmTransition({ openProjectId: "proj-hidden" })
-    );
+    act(() => result.current.confirmTransition({ actualValue: 12500 }));
 
     expect(routerPush).not.toHaveBeenCalled();
+    expect(linkMutate).not.toHaveBeenCalled();
     expect(convertMutate).toHaveBeenCalledWith(
       expect.objectContaining({
         id: opp.id,
+        actualValue: 12500,
         expectedStage: OpportunityStage.Negotiation,
         expectedAssignmentVersion: 12,
       }),
       expect.any(Object)
     );
+    expect(convertMutate.mock.calls[0]![0]).not.toHaveProperty(
+      "linkToProjectId"
+    );
     expect(toastSuccess).toHaveBeenCalledWith("toast.dealMarkedWon", {
       description: opp.title,
     });
+  });
+
+  it("ignores a forged open-project id during inaccessible already-won recovery", () => {
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id
+        ? { ...PREFLIGHT, alreadyConverted: true, projectAccessible: false }
+        : undefined,
+      isLoading: false,
+    }));
+    const opp = makeOpp({ stage: OpportunityStage.Won });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+    convertMutate.mockImplementationOnce((_vars, opts) =>
+      opts?.onSuccess?.({ projectId: null, projectAccessible: false })
+    );
+
+    act(() => result.current.requestConvertAlreadyWon(opp.id));
+    act(() =>
+      result.current.confirmTransition({ openProjectId: "proj-hidden" })
+    );
+
+    expect(routerPush).not.toHaveBeenCalled();
+    expect(linkMutate).not.toHaveBeenCalled();
+    expect(convertMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: opp.id,
+        expectedStage: OpportunityStage.Won,
+        expectedAssignmentVersion: 12,
+      }),
+      expect.any(Object)
+    );
   });
 
   it("onAddressChange persists the corrected address to the opportunity", () => {
@@ -430,5 +550,84 @@ describe("useStageTransition — Lost (unchanged)", () => {
     );
     act(() => result.current.requestStageChange(opp.id, OpportunityStage.Lost));
     expect(preflightHook).toHaveBeenLastCalledWith(undefined);
+  });
+});
+
+describe("useStageTransition — granular edit gate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    permissionState.permissions = new Map([["pipeline.edit", "assigned"]]);
+    permissionState.configuredPermissions = new Set(["pipeline.edit"]);
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id ? PREFLIGHT : undefined,
+      isLoading: false,
+    }));
+  });
+
+  it("allows assigned edit access to move an assigned lead between active stages", () => {
+    const opp = makeOpp({ stage: OpportunityStage.Negotiation });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() =>
+      result.current.requestStageChange(opp.id, OpportunityStage.Quoting)
+    );
+
+    expect(moveMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: opp.id, stage: OpportunityStage.Quoting }),
+      expect.any(Object)
+    );
+  });
+
+  it("uses assigned edit access in both Lost request and confirm gates", () => {
+    const opp = makeOpp();
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() => result.current.requestStageChange(opp.id, OpportunityStage.Lost));
+    expect(result.current.dialogType).toBe("lost");
+    act(() =>
+      result.current.confirmTransition({ lostReason: "Not proceeding" })
+    );
+
+    expect(moveMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: opp.id, stage: OpportunityStage.Lost }),
+      expect.any(Object)
+    );
+  });
+
+  it("blocks active moves when granular edit is revoked despite legacy manage", () => {
+    permissionState.permissions = new Map([["pipeline.manage", "all"]]);
+    permissionState.configuredPermissions = new Set(["pipeline.edit"]);
+    const opp = makeOpp();
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() =>
+      result.current.requestStageChange(opp.id, OpportunityStage.Quoting)
+    );
+
+    expect(moveMutate).not.toHaveBeenCalled();
+  });
+
+  it("keeps legacy-only active moves when granular edit is genuinely absent", () => {
+    permissionState.permissions = new Map([["pipeline.manage", "all"]]);
+    permissionState.configuredPermissions = new Set();
+    const opp = makeOpp();
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() =>
+      result.current.requestStageChange(opp.id, OpportunityStage.Quoting)
+    );
+
+    expect(moveMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: opp.id, stage: OpportunityStage.Quoting }),
+      expect.any(Object)
+    );
   });
 });

@@ -276,6 +276,64 @@ describe("<StageTransitionDialog> — Won (preflight-driven)", () => {
     );
   });
 
+  it("inaccessible linked recovery exposes no project context and only marks won", async () => {
+    const onConfirm = vi.fn();
+    render(
+      <StageTransitionDialog
+        type="won"
+        opportunity={makeOpp()}
+        preflight={{
+          ...CLEAN_PREFLIGHT,
+          alreadyConverted: true,
+          projectAccessible: false,
+          existingLinkedProject: null,
+          duplicateCandidates: [
+            {
+              projectId: "proj-secret-duplicate",
+              title: "Secret duplicate project",
+              address: "88 Hidden Ave",
+              confidence: "high",
+              signals: ["same_client"],
+            },
+          ],
+          otherClientProjects: [
+            {
+              projectId: "proj-secret-sibling",
+              title: "Secret sibling project",
+              address: "99 Hidden Ave",
+              status: "active",
+            },
+          ],
+        }}
+        onConfirm={onConfirm}
+        onCancel={vi.fn()}
+      />
+    );
+
+    const cta = screen.getByTestId("won-confirm-cta");
+    expect(cta).toHaveTextContent(/mark won/i);
+    expect(cta).not.toHaveTextContent(/open|link|create/i);
+    expect(
+      screen.queryByText("Secret duplicate project")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Secret sibling project")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("won-existing-linked")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("won-name-preview")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("won-rename-toggle")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("won-other-projects-toggle")
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(cta);
+
+    expect(onConfirm).toHaveBeenCalledWith({ actualValue: 12000 });
+    expect(onConfirm.mock.calls[0]![0]).not.toHaveProperty("openProjectId");
+    expect(onConfirm.mock.calls[0]![0]).not.toHaveProperty("linkToProjectId");
+    expect(onConfirm.mock.calls[0]![0]).not.toHaveProperty("titleOverride");
+  });
+
   // ── duplicate_candidates ─────────────────────────────────────────────────
   it("candidates: default cta is CREATE NEW; selecting a row switches to LINK & WIN", async () => {
     const onConfirm = vi.fn();

@@ -232,6 +232,15 @@ insert into public.users (
     'Cross Company', 'Target',
     'lead-contract-cross-company@example.invalid',
     false, true, null
+  ),
+  (
+    '1ead5519-0000-4000-8000-000000000107',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000907',
+    '1ead5519-0000-4000-8000-000000000907',
+    'Legacy', 'Compatibility',
+    'lead-contract-legacy@example.invalid',
+    false, true, null
   );
 
 insert into public.roles (
@@ -273,6 +282,14 @@ insert into public.roles (
     false,
     '1ead5519-0000-4000-8000-000000000002',
     4
+  ),
+  (
+    '1ead5519-0000-4000-8000-000000000205',
+    'Lead Contract Legacy Compatibility',
+    'Rollback-only legacy manage compatibility role.',
+    false,
+    '1ead5519-0000-4000-8000-000000000001',
+    4
   );
 
 insert into public.role_permissions (role_id, permission, scope)
@@ -293,7 +310,8 @@ values
   ('1ead5519-0000-4000-8000-000000000202', 'pipeline.manage', 'all'),
   ('1ead5519-0000-4000-8000-000000000203', 'pipeline.view', 'assigned'),
   ('1ead5519-0000-4000-8000-000000000203', 'pipeline.assign', 'assigned'),
-  ('1ead5519-0000-4000-8000-000000000204', 'pipeline.view', 'assigned');
+  ('1ead5519-0000-4000-8000-000000000204', 'pipeline.view', 'assigned'),
+  ('1ead5519-0000-4000-8000-000000000205', 'pipeline.manage', 'all');
 
 insert into public.user_roles (id, user_id, role_id)
 values
@@ -321,7 +339,37 @@ values
     '1ead5519-0000-4000-8000-000000000305',
     '1ead5519-0000-4000-8000-000000000106',
     '1ead5519-0000-4000-8000-000000000204'
+  ),
+  (
+    '1ead5519-0000-4000-8000-000000000306',
+    '1ead5519-0000-4000-8000-000000000107',
+    '1ead5519-0000-4000-8000-000000000205'
   );
+
+insert into public.user_permission_overrides (
+  user_id, company_id, permission, scope, granted
+) values (
+  '1ead5519-0000-4000-8000-000000000107',
+  '1ead5519-0000-4000-8000-000000000001',
+  'pipeline.edit',
+  null,
+  true
+);
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'inert_granular_override_blocks_only_its_legacy_compatibility_fallback',
+  not private.should_use_pipeline_manage_compat(
+    '1ead5519-0000-4000-8000-000000000107',
+    '1ead5519-0000-4000-8000-000000000001',
+    'pipeline.edit'
+  )
+  and private.should_use_pipeline_manage_compat(
+    '1ead5519-0000-4000-8000-000000000107',
+    '1ead5519-0000-4000-8000-000000000001',
+    'pipeline.convert'
+  )
+);
 
 insert into public.clients (id, company_id, name, email)
 values (
@@ -1945,6 +1993,22 @@ insert into public.opportunities (
     '1ead5519-0000-4000-8000-000000000401',
     'Away And Back Lead', '81 Contract Ave', 'quoting',
     null, 0, 15000, array[]::text[]
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000511',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Hidden Linked Recovery Lead', '77 Contract Ave', 'quoting',
+    null, 0, 16000, array[]::text[]
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000512',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000401',
+    '1ead5519-0000-4000-8000-000000000401',
+    'Manual Stage Race Lead', '82 Contract Ave', 'quoting',
+    null, 0, 17000, array[]::text[]
   );
 
 select set_config(
@@ -1971,6 +2035,14 @@ values
       '1ead5519-1000-4000-8000-000000000510', 0, null,
       '1ead5519-0000-4000-8000-000000000101', 'system_repair', null, null,
       '{"contract_case":"away_back_first"}'::jsonb
+    )
+  ),
+  (
+    'setup_hidden_linked_recovery',
+    public.change_opportunity_assignment_as_system(
+      '1ead5519-1000-4000-8000-000000000511', 0, null,
+      '1ead5519-0000-4000-8000-000000000101', 'system_repair', null, null,
+      '{"contract_case":"hidden_linked_recovery"}'::jsonb
     )
   );
 
@@ -2054,10 +2126,33 @@ select set_config('request.jwt.claim.role', 'service_role', true);
 set local role service_role;
 
 insert into lead_assignment_contract_values (value_name, value)
+values
+  (
+    'hidden_linked_conversion',
+    public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000511',
+      p_expected_stage => 'quoting',
+      p_decided_by => '1ead5519-0000-4000-8000-000000000102',
+      p_source_path => 'won_dialog',
+      p_expected_assignment_version => 1
+    )
+  ),
+  (
+    'scoped_preflight',
+    public.get_conversion_preflight(
+      '1ead5519-1000-4000-8000-000000000506',
+      '1ead5519-0000-4000-8000-000000000001',
+      '1ead5519-0000-4000-8000-000000000101'
+    )
+  )
+;
+
+insert into lead_assignment_contract_values (value_name, value)
 values (
-  'scoped_preflight',
+  'hidden_linked_preflight',
   public.get_conversion_preflight(
-    '1ead5519-1000-4000-8000-000000000506',
+    '1ead5519-1000-4000-8000-000000000511',
     '1ead5519-0000-4000-8000-000000000001',
     '1ead5519-0000-4000-8000-000000000101'
   )
@@ -2086,6 +2181,22 @@ select
   ))
 from lead_assignment_contract_values v
 where v.value_name = 'scoped_preflight';
+
+insert into lead_assignment_contract_results (check_name, passed, details)
+select
+  'inaccessible_linked_preflight_is_recovery_only_without_project_disclosure',
+  (v.value ->> 'assignment_version')::bigint = 1
+  and (v.value ->> 'already_converted')::boolean
+  and not (v.value ->> 'project_accessible')::boolean
+  and v.value -> 'existing_linked_project' = 'null'::jsonb
+  and v.value -> 'duplicate_candidates' = '[]'::jsonb
+  and v.value -> 'other_client_projects' = '[]'::jsonb
+  and v.value::text not like '%Hidden Linked Recovery Lead%'
+  and v.value::text not like '%Task-assigned candidate%'
+  and v.value::text not like '%Mention-only candidate%',
+  v.value::text
+from lead_assignment_contract_values v
+where v.value_name = 'hidden_linked_preflight';
 
 select set_config(
   'request.jwt.claims',
@@ -2241,6 +2352,14 @@ insert into public.opportunity_correspondence_events (
     '1ead5519-1000-4000-8000-000000000901',
     'provider-thread-untrusted-evidence', 'provider-message-not-meaningful',
     'inbound', 'customer', false, now(), 'lead_assignment_contract'
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000925',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000512',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-manual-stage-race', 'provider-message-manual-stage-race',
+    'inbound', 'customer', true, now(), 'lead_assignment_contract'
   );
 
 select set_config(
@@ -2548,8 +2667,31 @@ values (
   )
 );
 
+-- Simulate the race: evaluation observed an automatic stage, then a human
+-- pinned it before the actorless conversion acquired the opportunity lock.
+update public.opportunities
+   set stage_manually_set = true
+ where id = '1ead5519-1000-4000-8000-000000000512';
+
 insert into lead_assignment_contract_values (value_name, value)
 values
+  (
+    'manual_stage_override_conversion',
+    public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-1000-4000-8000-000000000512',
+      p_expected_stage => 'quoting',
+      p_decided_by => null,
+      p_source_path => 'email_likely_won',
+      p_evidence => jsonb_build_object(
+        'connection_id', '1ead5519-1000-4000-8000-000000000901',
+        'provider_thread_id', 'provider-thread-manual-stage-race',
+        'provider_message_id', 'provider-message-manual-stage-race',
+        'decision', 'likely_won'
+      ),
+      p_expected_assignment_version => 0
+    )
+  ),
   (
     'valid_email_accept_conversion',
     public.convert_opportunity_to_project(
@@ -2598,6 +2740,51 @@ values
   );
 
 reset role;
+
+insert into lead_assignment_contract_results (check_name, passed, details)
+select
+  'actorless_manual_stage_race_is_no_write_under_lock',
+  not (v.value ->> 'converted')::boolean
+  and v.value ->> 'guard_reason' = 'manual_stage_override'
+  and (v.value ->> 'assignment_version')::bigint = 0
+  and exists (
+    select 1
+      from public.opportunities o
+     where o.id = '1ead5519-1000-4000-8000-000000000512'
+       and o.stage = 'quoting'
+       and o.stage_manually_set is true
+       and o.project_ref is null
+       and o.project_id is null
+       and o.assigned_to is null
+       and o.assignment_version = 0
+  )
+  and not exists (
+    select 1 from public.projects p
+     where p.opportunity_ref = '1ead5519-1000-4000-8000-000000000512'
+        or p.opportunity_id = '1ead5519-1000-4000-8000-000000000512'
+  )
+  and not exists (
+    select 1
+      from public.project_tasks task
+      join public.projects project on project.id = task.project_id
+     where project.opportunity_ref = '1ead5519-1000-4000-8000-000000000512'
+        or project.opportunity_id = '1ead5519-1000-4000-8000-000000000512'
+  )
+  and not exists (
+    select 1 from public.stage_transitions st
+     where st.opportunity_id = '1ead5519-1000-4000-8000-000000000512'
+  )
+  and not exists (
+    select 1 from public.opportunity_conversion_events event
+     where event.opportunity_id = '1ead5519-1000-4000-8000-000000000512'
+  )
+  and not exists (
+    select 1 from public.opportunity_assignment_events event
+     where event.opportunity_id = '1ead5519-1000-4000-8000-000000000512'
+  ),
+  v.value::text
+from lead_assignment_contract_values v
+where v.value_name = 'manual_stage_override_conversion';
 
 insert into lead_assignment_contract_results (check_name, passed)
 select

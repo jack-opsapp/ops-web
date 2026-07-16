@@ -23,9 +23,10 @@
  *     the operator picks a dedup candidate we `linkExisting` instead of create;
  *     if the deal is already linked, "Open project" just deep-links to it.
  *
- * The permission gate (`pipeline.manage`), the same-stage no-op, the
- * Won→dialog / Lost→dialog routing, and the undo `inverseFn` are preserved so
- * the board and table never drift.
+ * Won uses the canonical granular convert gate (with bounded legacy fallback);
+ * other stage mutations retain `pipeline.manage`. The same-stage no-op,
+ * Won→dialog / Lost→dialog routing, and undo `inverseFn` are shared so the
+ * board and table never drift.
  */
 
 import { useCallback, useMemo, useState } from "react";
@@ -34,7 +35,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useDictionary } from "@/i18n/client";
 import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { usePermissionStore } from "@/lib/store/permissions-store";
+import {
+  selectCanConvertOpportunity,
+  selectCanEditOpportunity,
+  usePermissionStore,
+} from "@/lib/store/permissions-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { queryKeys } from "@/lib/api/query-client";
 import {
@@ -66,9 +71,9 @@ export interface UseStageTransitionArgs {
 
 export interface UseStageTransitionResult {
   /**
-   * Request a stage change for `id` to `newStage`. Permission-gated on
-   * `pipeline.manage`; a no-op when the stage is unchanged. Won / Lost open the
-   * terminal-transition dialog; every other stage moves directly (toast + undo).
+   * Request a stage change for `id` to `newStage`. Won requires canonical
+   * convert access; other moves require `pipeline.manage`. A same-stage request
+   * is a no-op. Won / Lost open the terminal dialog; other stages move directly.
    */
   requestStageChange: (id: string, newStage: OpportunityStage) => void;
   /**
@@ -105,7 +110,8 @@ export function useStageTransition({
   const router = useRouter();
   const queryClient = useQueryClient();
   const { currentUser } = useAuthStore();
-  const can = usePermissionStore((s) => s.can);
+  const canEdit = usePermissionStore(selectCanEditOpportunity);
+  const canConvert = usePermissionStore(selectCanConvertOpportunity);
   const pushUndo = useUndoStore((s) => s.pushUndo);
 
   const moveStage = useMoveOpportunityStage();
@@ -151,13 +157,7 @@ export function useStageTransition({
   /** Handle stage move from drag-and-drop, advance button, menu, or table cell */
   const requestStageChange = useCallback(
     (id: string, newStage: OpportunityStage) => {
-      const canConvert = can("pipeline.convert") || can("pipeline.manage");
-      if (
-        newStage === OpportunityStage.Won
-          ? !canConvert
-          : !can("pipeline.manage")
-      )
-        return;
+      if (newStage === OpportunityStage.Won ? !canConvert : !canEdit) return;
       const opp = opportunities.find((o) => o.id === id);
       if (!opp) return;
 
@@ -220,7 +220,16 @@ export function useStageTransition({
         }
       );
     },
-    [opportunities, moveStage, currentUser, can, t, clientNameMap, pushUndo]
+    [
+      opportunities,
+      moveStage,
+      currentUser,
+      canEdit,
+      canConvert,
+      t,
+      clientNameMap,
+      pushUndo,
+    ]
   );
 
   /** Confirm Won/Lost transition */
@@ -228,9 +237,7 @@ export function useStageTransition({
     (data: StageTransitionConfirmData) => {
       if (!pendingStageMove || !transitionOpportunity) return;
       if (
-        pendingStageMove.stage === OpportunityStage.Won
-          ? !(can("pipeline.convert") || can("pipeline.manage"))
-          : !can("pipeline.manage")
+        pendingStageMove.stage === OpportunityStage.Won ? !canConvert : !canEdit
       )
         return;
 
@@ -251,7 +258,9 @@ export function useStageTransition({
       // idempotent conversion below so the stage change is real before open.
       if (
         data.openProjectId &&
-        transitionOpportunity.stage === OpportunityStage.Won
+        transitionOpportunity.stage === OpportunityStage.Won &&
+        preflightQuery.data?.projectAccessible === true &&
+        preflightQuery.data.existingLinkedProject?.id === data.openProjectId
       ) {
         router.push(`/dashboard?openProject=${data.openProjectId}&mode=view`);
         resetDialog();
@@ -433,7 +442,8 @@ export function useStageTransition({
       router,
       resetDialog,
       currentUser,
-      can,
+      canEdit,
+      canConvert,
       t,
       clientNameMap,
       pushUndo,
@@ -470,14 +480,14 @@ export function useStageTransition({
    */
   const requestConvertAlreadyWon = useCallback(
     (id: string) => {
-      if (!can("pipeline.manage")) return;
+      if (!canConvert) return;
       const opp = opportunities.find((o) => o.id === id);
       if (!opp) return;
       setTransitionOpportunity(opp);
       setTransitionType("won");
       setPendingStageMove({ id, stage: OpportunityStage.Won });
     },
-    [opportunities, can]
+    [opportunities, canConvert]
   );
 
   /** Cancel Won/Lost transition */

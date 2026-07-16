@@ -371,6 +371,45 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
     expect(notifyMock).not.toHaveBeenCalled();
   });
 
+  it("surfaces a locked actorless manual-stage guard as a typed conflict", async () => {
+    const fake = makeFakeSupabase({
+      rpc: {
+        convert_opportunity_to_project: {
+          data: {
+            converted: false,
+            already_converted: false,
+            guard_reason: "manual_stage_override",
+            assigned_to: null,
+            assignment_version: 4,
+          },
+          error: null,
+        },
+      },
+    });
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await expect(
+      ProjectConversionService.convertOpportunityToProject({
+        opportunityId: OPP,
+        companyId: COMPANY,
+        decidedBy: null,
+        sourcePath: "email_likely_won",
+        expectedAssignmentVersion: 4,
+        evidence: {
+          connection_id: "connection-1",
+          provider_thread_id: "thread-1",
+          provider_message_id: "message-1",
+          decision: "likely_won",
+        },
+      })
+    ).rejects.toMatchObject({
+      kind: "conflict",
+      guardReason: "manual_stage_override",
+      assignmentVersion: 4,
+    });
+    expect(notifyMock).not.toHaveBeenCalled();
+  });
+
   it("throws on a hard RPC error", async () => {
     const fake = makeFakeSupabase({
       rpc: {

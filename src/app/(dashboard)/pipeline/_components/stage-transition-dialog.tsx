@@ -115,9 +115,18 @@ function WonContent({
   );
   const [othersOpen, setOthersOpen] = useState(false);
 
-  const existingLinked = preflight?.existingLinkedProject ?? null;
-  const candidates = preflight?.duplicateCandidates ?? [];
-  const others = preflight?.otherClientProjects ?? [];
+  const inaccessibleLinkedRecovery =
+    preflight?.alreadyConverted === true &&
+    preflight.projectAccessible === false;
+  const existingLinked = inaccessibleLinkedRecovery
+    ? null
+    : (preflight?.existingLinkedProject ?? null);
+  const candidates = inaccessibleLinkedRecovery
+    ? []
+    : (preflight?.duplicateCandidates ?? []);
+  const others = inaccessibleLinkedRecovery
+    ? []
+    : (preflight?.otherClientProjects ?? []);
   const hasCandidates = candidates.length > 0;
 
   const namePreview = deriveProjectNamePreview({
@@ -160,13 +169,15 @@ function WonContent({
       }) as Record<string, string>
     )[signal] ?? signal.replace(/_/g, " ");
 
-  const ctaKind: "open" | "link" | "create" | "win" = existingLinked
-    ? "open"
-    : selectedCandidateId
-      ? "link"
-      : hasCandidates
-        ? "create"
-        : "win";
+  const ctaKind: "open" | "link" | "create" | "win" = inaccessibleLinkedRecovery
+    ? "win"
+    : existingLinked
+      ? "open"
+      : selectedCandidateId
+        ? "link"
+        : hasCandidates
+          ? "create"
+          : "win";
 
   const ctaLabel =
     (ctaKind === "open"
@@ -181,6 +192,10 @@ function WonContent({
 
   const handleConfirm = () => {
     if (preflightLoading) return;
+    if (inaccessibleLinkedRecovery) {
+      onConfirm({ actualValue: parsedValue() });
+      return;
+    }
     if (existingLinked) {
       onConfirm({ openProjectId: existingLinked.id });
       return;
@@ -254,144 +269,149 @@ function WonContent({
           </div>
 
           {/* NAME (auto) + rename escape hatch */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0 font-mono text-micro">
-                <span className="text-text-mute">{"// "}</span>
-                <span className="uppercase tracking-[0.16em] text-text-3">
-                  {t("transition.nameAuto", "Name")}
-                </span>
-                <span className="text-text-mute"> · </span>
-                {!renameOpen && (
-                  <span data-testid="won-name-preview" className="text-text">
-                    {namePreview}
+          {!inaccessibleLinkedRecovery && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 font-mono text-micro">
+                  <span className="text-text-mute">{"// "}</span>
+                  <span className="uppercase tracking-[0.16em] text-text-3">
+                    {t("transition.nameAuto", "Name")}
                   </span>
-                )}
-              </div>
-              <button
-                type="button"
-                data-testid="won-rename-toggle"
-                onClick={() => setRenameOpen((o) => !o)}
-                className="shrink-0 font-mono text-micro lowercase text-text-3 transition-colors hover:text-text-2"
-              >
-                {t("transition.rename", "rename")}
-              </button>
-            </div>
-            <AnimatePresence initial={false}>
-              {renameOpen && (
-                <motion.div key="rename" {...reveal}>
-                  <input
-                    data-testid="won-rename-input"
-                    type="text"
-                    aria-label={t("transition.nameAuto", "Name")}
-                    value={titleOverride}
-                    onChange={(e) => setTitleOverride(e.target.value)}
-                    placeholder={namePreview}
-                    className={cn(INPUT_CLASS, "font-mohave")}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* SITE ADDRESS — editable; drives the name preview live */}
-          <div className="space-y-0.5">
-            <label className={LABEL_CLASS}>
-              {t("transition.siteAddress", "Site address")}
-            </label>
-            <AddressAutocomplete
-              value={address}
-              onChange={handleAddress}
-              portalListbox
-              proximity={
-                opportunity.latitude != null && opportunity.longitude != null
-                  ? {
-                      latitude: opportunity.latitude,
-                      longitude: opportunity.longitude,
-                    }
-                  : undefined
-              }
-            />
-          </div>
-
-          {/* ── dedup: loading / duplicate candidates ── */}
-          {preflightLoading ? (
-            <motion.div
-              {...reveal}
-              data-testid="won-preflight-loading"
-              className="flex items-center gap-1.5 font-mono text-micro text-text-3"
-            >
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-              {`[ ${t("transition.checkingDuplicates", "Checking for duplicates")} ]`}
-            </motion.div>
-          ) : hasCandidates ? (
-            <motion.div {...reveal} className="space-y-1.5">
-              <SectionTitle>
-                {t("transition.candidatesTitle", "Possible duplicates")}
-              </SectionTitle>
-              <p className="font-mohave text-body-sm text-text-3">
-                {t(
-                  "transition.candidatesBody",
-                  "This job may already exist. Link it instead of creating a duplicate."
-                )}
-              </p>
-              <div
-                role="radiogroup"
-                aria-label={t(
-                  "transition.candidatesTitle",
-                  "Possible duplicates"
-                )}
-                className="space-y-1"
-              >
-                {candidates.map((c) => {
-                  const selected = selectedCandidateId === c.projectId;
-                  return (
-                    <button
-                      type="button"
-                      key={c.projectId}
-                      data-testid={`won-candidate-${c.projectId}`}
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => setSelectedCandidateId(c.projectId)}
-                      className={cn(
-                        "w-full rounded border px-2.5 py-2 text-left transition-colors",
-                        selected
-                          ? "border-line-hi bg-surface-active"
-                          : "border-border bg-surface-input hover:bg-surface-hover"
-                      )}
-                    >
-                      <div className="font-mohave text-body-sm text-text">
-                        {c.title}
-                      </div>
-                      {c.address && (
-                        <div className="font-mono text-micro text-text-3">
-                          {c.address}
-                        </div>
-                      )}
-                      <div className="mt-0.5 font-mono text-micro text-text-mute">
-                        {`[ ${c.signals.map(signalLabel).join(" · ")} ]`}
-                      </div>
-                    </button>
-                  );
-                })}
+                  <span className="text-text-mute"> · </span>
+                  {!renameOpen && (
+                    <span data-testid="won-name-preview" className="text-text">
+                      {namePreview}
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
-                  data-testid="won-create-new-option"
-                  role="radio"
-                  aria-checked={selectedCandidateId === null}
-                  onClick={() => setSelectedCandidateId(null)}
-                  className={cn(
-                    "w-full rounded border px-2.5 py-2 text-left font-mohave text-body-sm transition-colors",
-                    selectedCandidateId === null
-                      ? "border-line-hi bg-surface-active text-text"
-                      : "border-border bg-surface-input text-text-2 hover:bg-surface-hover"
-                  )}
+                  data-testid="won-rename-toggle"
+                  onClick={() => setRenameOpen((o) => !o)}
+                  className="shrink-0 font-mono text-micro lowercase text-text-3 transition-colors hover:text-text-2"
                 >
-                  {t("transition.createNewOption", "Create a new project")}
+                  {t("transition.rename", "rename")}
                 </button>
               </div>
-            </motion.div>
-          ) : null}
+              <AnimatePresence initial={false}>
+                {renameOpen && (
+                  <motion.div key="rename" {...reveal}>
+                    <input
+                      data-testid="won-rename-input"
+                      type="text"
+                      aria-label={t("transition.nameAuto", "Name")}
+                      value={titleOverride}
+                      onChange={(e) => setTitleOverride(e.target.value)}
+                      placeholder={namePreview}
+                      className={cn(INPUT_CLASS, "font-mohave")}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* SITE ADDRESS — editable; drives the name preview live */}
+          {!inaccessibleLinkedRecovery && (
+            <div className="space-y-0.5">
+              <label className={LABEL_CLASS}>
+                {t("transition.siteAddress", "Site address")}
+              </label>
+              <AddressAutocomplete
+                value={address}
+                onChange={handleAddress}
+                portalListbox
+                proximity={
+                  opportunity.latitude != null && opportunity.longitude != null
+                    ? {
+                        latitude: opportunity.latitude,
+                        longitude: opportunity.longitude,
+                      }
+                    : undefined
+                }
+              />
+            </div>
+          )}
+
+          {/* ── dedup: loading / duplicate candidates ── */}
+          {!inaccessibleLinkedRecovery &&
+            (preflightLoading ? (
+              <motion.div
+                {...reveal}
+                data-testid="won-preflight-loading"
+                className="flex items-center gap-1.5 font-mono text-micro text-text-3"
+              >
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                {`[ ${t("transition.checkingDuplicates", "Checking for duplicates")} ]`}
+              </motion.div>
+            ) : hasCandidates ? (
+              <motion.div {...reveal} className="space-y-1.5">
+                <SectionTitle>
+                  {t("transition.candidatesTitle", "Possible duplicates")}
+                </SectionTitle>
+                <p className="font-mohave text-body-sm text-text-3">
+                  {t(
+                    "transition.candidatesBody",
+                    "This job may already exist. Link it instead of creating a duplicate."
+                  )}
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-label={t(
+                    "transition.candidatesTitle",
+                    "Possible duplicates"
+                  )}
+                  className="space-y-1"
+                >
+                  {candidates.map((c) => {
+                    const selected = selectedCandidateId === c.projectId;
+                    return (
+                      <button
+                        type="button"
+                        key={c.projectId}
+                        data-testid={`won-candidate-${c.projectId}`}
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setSelectedCandidateId(c.projectId)}
+                        className={cn(
+                          "w-full rounded border px-2.5 py-2 text-left transition-colors",
+                          selected
+                            ? "border-line-hi bg-surface-active"
+                            : "border-border bg-surface-input hover:bg-surface-hover"
+                        )}
+                      >
+                        <div className="font-mohave text-body-sm text-text">
+                          {c.title}
+                        </div>
+                        {c.address && (
+                          <div className="font-mono text-micro text-text-3">
+                            {c.address}
+                          </div>
+                        )}
+                        <div className="mt-0.5 font-mono text-micro text-text-mute">
+                          {`[ ${c.signals.map(signalLabel).join(" · ")} ]`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    data-testid="won-create-new-option"
+                    role="radio"
+                    aria-checked={selectedCandidateId === null}
+                    onClick={() => setSelectedCandidateId(null)}
+                    className={cn(
+                      "w-full rounded border px-2.5 py-2 text-left font-mohave text-body-sm transition-colors",
+                      selectedCandidateId === null
+                        ? "border-line-hi bg-surface-active text-text"
+                        : "border-border bg-surface-input text-text-2 hover:bg-surface-hover"
+                    )}
+                  >
+                    {t("transition.createNewOption", "Create a new project")}
+                  </button>
+                </div>
+              </motion.div>
+            ) : null)}
 
           {/* ── other_client_projects (informational, collapsed) ── */}
           {!preflightLoading && others.length > 0 && (
@@ -440,7 +460,7 @@ function WonContent({
           )}
 
           {/* auto-convert note — only on the create path (not when linking) */}
-          {!selectedCandidateId && (
+          {!inaccessibleLinkedRecovery && !selectedCandidateId && (
             <p className="font-mono text-micro leading-snug text-text-mute">
               {`[ ${t("transition.autoConvertNote", "Created and linked automatically when you mark this won.")} ]`}
             </p>

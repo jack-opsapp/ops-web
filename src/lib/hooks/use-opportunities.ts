@@ -32,7 +32,10 @@ import type {
 } from "../types/pipeline";
 import { OpportunityStage as Stage } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
-import { usePermissionStore } from "../store/permissions-store";
+import {
+  selectCanConvertOpportunity,
+  usePermissionStore,
+} from "../store/permissions-store";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -750,18 +753,16 @@ export interface ConvertOpportunityResponse {
 /**
  * Read-only conversion preflight for the Won dialog — surfaces an already-linked
  * project, likely-duplicate candidates, the client's other projects, and the
- * auto-name preview, so the operator can "link instead of create". Gated on
- * `pipeline.manage`; fetched via the service-role route (the browser client
- * runs as anon and can't call the RPC directly). Pass `undefined` to keep it
- * disabled until a deal is actually being won.
+ * auto-name preview, so the operator can "link instead of create". Gated by the
+ * canonical granular conversion selector; fetched via the service-role route
+ * (the browser client runs as anon and can't call the RPC directly). Pass
+ * `undefined` to keep it disabled until a deal is actually being won.
  */
 export function useConversionPreflight(
   opportunityId: string | undefined,
   queryOptions?: Partial<UseQueryOptions<ConversionPreflight>>
 ) {
-  const canConvert = usePermissionStore(
-    (s) => s.can("pipeline.convert") || s.can("pipeline.manage")
-  );
+  const canConvert = usePermissionStore(selectCanConvertOpportunity);
 
   return useQuery<ConversionPreflight>({
     queryKey: queryKeys.opportunities.conversionPreflight(opportunityId ?? ""),

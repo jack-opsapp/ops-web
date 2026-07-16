@@ -9,6 +9,47 @@
 
 begin;
 
+-- The foundation's compatibility helper treated a granted NULL-scope
+-- override as inert and therefore absent. Compatibility provenance is stricter:
+-- any explicit row for the granular action means legacy manage must not widen
+-- it, even when the permission engine itself falls through to the role.
+create or replace function private.should_use_pipeline_manage_compat(
+  p_actor_user_id uuid,
+  p_actor_company_id uuid,
+  p_permission text
+) returns boolean
+language sql
+stable security definer
+set search_path to 'pg_catalog', 'public', 'pg_temp'
+as $function$
+  select p_actor_user_id is not null
+    and p_actor_company_id is not null
+    and p_permission is not null
+    and not exists (
+      select 1
+        from public.user_permission_overrides upo
+       where upo.user_id = p_actor_user_id
+         and upo.company_id = p_actor_company_id
+         and upo.permission = p_permission
+    )
+    and not exists (
+      select 1
+        from public.user_roles ur
+        join public.role_permissions rp on rp.role_id = ur.role_id
+       where ur.user_id = p_actor_user_id::text
+         and rp.permission = p_permission
+    )
+    and public.has_permission(
+      p_actor_user_id,
+      'pipeline.manage',
+      'all'
+    );
+$function$;
+
+revoke all on function private.should_use_pipeline_manage_compat(
+  uuid, uuid, text
+) from public, anon, authenticated, service_role;
+
 -- Return the narrower of two valid pipeline scopes. Any missing or malformed
 -- scope fails closed. This helper is private and callable only by its owner.
 create or replace function private.least_permissive_pipeline_scope(
@@ -1014,6 +1055,23 @@ begin
     end if;
   end if;
 
+  -- Email evaluation happens before this RPC acquires the opportunity lock.
+  -- A human may pin the stage during that gap; actorless automation must honor
+  -- the locked row and stop before the private conversion core can write.
+  if v_actor_user_id is null
+    and coalesce(v_opp.stage_manually_set, false)
+  then
+    return jsonb_build_object(
+      'converted', false,
+      'already_converted', false,
+      'guard_reason', 'manual_stage_override',
+      'opportunity_id', p_opportunity_id,
+      'assigned_to', v_opp.assigned_to,
+      'assignment_version', v_opp.assignment_version,
+      'project_accessible', false
+    );
+  end if;
+
   if p_expected_assignment_version is not null
     and v_opp.assignment_version is distinct from p_expected_assignment_version
   then
@@ -1196,6 +1254,24 @@ begin
          and p.company_id = v_company_id
          and p.deleted_at is null;
     end if;
+  end if;
+
+  -- A linked project outside the actor's project scope is only a recovery
+  -- signal. Do not disclose its identity or scan sibling projects: the only
+  -- valid follow-up is an idempotent conversion call with no link target.
+  if v_project_id is not null
+    and not v_project_accessible
+  then
+    return jsonb_build_object(
+      'opportunity_id', p_opportunity_id,
+      'assignment_version', v_opp.assignment_version,
+      'already_converted', true,
+      'project_accessible', false,
+      'existing_linked_project', null,
+      'duplicate_candidates', '[]'::jsonb,
+      'other_client_projects', '[]'::jsonb,
+      'suggested_name', private.derive_project_name(v_opp.address, v_client_name)
+    );
   end if;
 
   select coalesce(jsonb_agg(candidate.payload order by candidate.title, candidate.id), '[]'::jsonb)
