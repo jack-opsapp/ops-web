@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import {
+  useQueryClient,
+  type QueryClient,
+  type QueryKey,
+} from "@tanstack/react-query";
 
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { queryKeys } from "@/lib/api/query-client";
@@ -54,20 +58,11 @@ const LEAD_SENSITIVE_QUERY_ROOTS = [
   queryKeys.intel.all,
 ] as const;
 
-function clearLeadSensitiveNamespaces(queryClient: QueryClient): void {
-  for (const queryKey of LEAD_SENSITIVE_QUERY_ROOTS) {
-    void queryClient.cancelQueries({ queryKey });
-    queryClient.removeQueries({ queryKey });
-  }
-}
-
-const ACCESS_SENSITIVE_QUERY_ROOTS = [
-  queryKeys.opportunities.all,
-  ...LEAD_SENSITIVE_QUERY_ROOTS,
-] as const;
-
-function redactAccessSensitiveQueries(queryClient: QueryClient): void {
-  for (const queryKey of ACCESS_SENSITIVE_QUERY_ROOTS) {
+function redactQueryRoots(
+  queryClient: QueryClient,
+  queryRoots: readonly QueryKey[]
+): void {
+  for (const queryKey of queryRoots) {
     const matchingQueries = queryClient.getQueryCache().findAll({ queryKey });
 
     // Removing a cached query does not update a mounted QueryObserver: it can
@@ -79,14 +74,33 @@ function redactAccessSensitiveQueries(queryClient: QueryClient): void {
   }
 }
 
+async function refreshQueryRoots(
+  queryClient: QueryClient,
+  queryRoots: readonly QueryKey[]
+): Promise<void> {
+  await Promise.all(
+    queryRoots.map((queryKey) => queryClient.invalidateQueries({ queryKey }))
+  );
+}
+
+function clearLeadSensitiveNamespaces(queryClient: QueryClient): void {
+  redactQueryRoots(queryClient, LEAD_SENSITIVE_QUERY_ROOTS);
+  void refreshQueryRoots(queryClient, LEAD_SENSITIVE_QUERY_ROOTS);
+}
+
+const ACCESS_SENSITIVE_QUERY_ROOTS = [
+  queryKeys.opportunities.all,
+  ...LEAD_SENSITIVE_QUERY_ROOTS,
+] as const;
+
+function redactAccessSensitiveQueries(queryClient: QueryClient): void {
+  redactQueryRoots(queryClient, ACCESS_SENSITIVE_QUERY_ROOTS);
+}
+
 async function refreshAccessSensitiveQueries(
   queryClient: QueryClient
 ): Promise<void> {
-  await Promise.all(
-    ACCESS_SENSITIVE_QUERY_ROOTS.map((queryKey) =>
-      queryClient.invalidateQueries({ queryKey })
-    )
-  );
+  await refreshQueryRoots(queryClient, ACCESS_SENSITIVE_QUERY_ROOTS);
 }
 
 function invalidateLeadDependents(

@@ -16,7 +16,10 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 import { queryKeys } from "@/lib/api/query-client";
-import { useLeadAssignmentRealtime } from "@/lib/hooks/use-lead-assignment-realtime";
+import {
+  reconcileLeadAssignmentDelivery,
+  useLeadAssignmentRealtime,
+} from "@/lib/hooks/use-lead-assignment-realtime";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 
@@ -192,5 +195,48 @@ describe("lead permission realtime delivery", () => {
 
     await waitFor(() => expect(result.current.data).toEqual(refreshed));
     expect(fetchThread).toHaveBeenCalledTimes(2);
+  });
+
+  it("redacts a mounted sensitive query while a revoked assignment refetches under RLS", async () => {
+    let releaseRefetch!: (value: { bodyText: string }) => void;
+    const refetchPending = new Promise<{ bodyText: string }>((resolve) => {
+      releaseRefetch = resolve;
+    });
+    const secret = { bodyText: "private email body" };
+    const refreshed = { bodyText: "remaining authorized thread" };
+    const fetchThread = vi
+      .fn()
+      .mockResolvedValueOnce(secret)
+      .mockReturnValueOnce(refetchPending);
+    const { queryClient, wrapper } = harness();
+    const inboxKey = queryKeys.inbox.threadDetail("thread-1");
+    const { result } = renderHook(
+      () =>
+        useQuery({
+          queryKey: inboxKey,
+          queryFn: fetchThread,
+          staleTime: Infinity,
+        }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.data).toEqual(secret));
+
+    act(() => {
+      reconcileLeadAssignmentDelivery(queryClient, {
+        opportunityId: "lead-1",
+        accessAfter: false,
+      });
+    });
+
+    await waitFor(() => expect(result.current.data).toBeUndefined());
+    expect(fetchThread).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      releaseRefetch(refreshed);
+      await refetchPending;
+    });
+
+    await waitFor(() => expect(result.current.data).toEqual(refreshed));
   });
 });
