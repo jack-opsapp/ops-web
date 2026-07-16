@@ -246,6 +246,49 @@ $function$;
 revoke all on function private.user_assignment_snapshot(uuid)
   from public, anon, authenticated, service_role;
 
+-- Compatibility with the legacy pipeline.manage permission is allowed only
+-- when the granular permission is genuinely absent for this user. An explicit
+-- override (including a revoke) or role grant is authoritative and must never
+-- be replaced by the legacy all-scope capability.
+create or replace function private.should_use_pipeline_manage_compat(
+  p_actor_user_id uuid,
+  p_actor_company_id uuid,
+  p_permission text
+) returns boolean
+language sql
+stable
+security definer
+set search_path to 'pg_catalog', 'public', 'pg_temp'
+as $function$
+  select p_actor_user_id is not null
+    and p_actor_company_id is not null
+    and p_permission is not null
+    and not exists (
+      select 1
+        from public.user_permission_overrides upo
+       where upo.user_id = p_actor_user_id
+         and upo.company_id = p_actor_company_id
+         and upo.permission = p_permission
+         and (not upo.granted or upo.scope is not null)
+    )
+    and not exists (
+      select 1
+        from public.user_roles ur
+        join public.role_permissions rp on rp.role_id = ur.role_id
+       where ur.user_id = p_actor_user_id::text
+         and rp.permission = p_permission
+    )
+    and public.has_permission(
+      p_actor_user_id,
+      'pipeline.manage',
+      'all'
+    );
+$function$;
+
+revoke all on function private.should_use_pipeline_manage_compat(
+  uuid, uuid, text
+) from public, anon, authenticated, service_role;
+
 create or replace function private.can_view_opportunity_assignment_context(
   p_opportunity_id uuid,
   p_company_id uuid
@@ -277,7 +320,11 @@ begin
 
   v_scope := private.current_user_scope_for('pipeline.view');
   if v_scope is null
-    and public.has_permission(v_actor_user_id, 'pipeline.manage', 'all')
+    and private.should_use_pipeline_manage_compat(
+      v_actor_user_id,
+      v_actor_company_id,
+      'pipeline.view'
+    )
   then
     v_scope := 'all';
   end if;
@@ -372,9 +419,7 @@ revoke all on table public.opportunity_assignment_deliveries
   from public, anon, authenticated, service_role;
 grant select on table public.opportunity_assignment_deliveries
   to authenticated, service_role;
-grant insert, update on table public.opportunity_assignment_deliveries
-  to service_role;
-revoke insert, update, delete on table public.opportunity_assignment_deliveries from anon, authenticated;
+revoke insert, update, delete on table public.opportunity_assignment_deliveries from anon, authenticated, service_role;
 
 revoke all on table public.opportunity_conversion_events
   from public, anon, authenticated, service_role;
@@ -480,6 +525,7 @@ declare
   v_event_id uuid;
   v_new_version bigint;
   v_new_notify boolean;
+  v_previous_access_after boolean;
 begin
   if p_opportunity_id is null
     or p_expected_assignment_version is null
@@ -553,7 +599,11 @@ begin
 
     v_scope := private.current_user_scope_for('pipeline.assign');
     if v_scope is null
-      and public.has_permission(p_actor_user_id, 'pipeline.manage', 'all')
+      and private.should_use_pipeline_manage_compat(
+        p_actor_user_id,
+        p_actor_company_id,
+        'pipeline.assign'
+      )
     then
       v_scope := 'all';
     end if;
@@ -720,6 +770,27 @@ begin
   if v_opportunity.assigned_to is not null
     and v_opportunity.assigned_to is distinct from p_new_assigned_to
   then
+    v_previous_access_after := exists (
+      select 1
+        from public.users prior_user
+       where prior_user.id = v_opportunity.assigned_to
+         and prior_user.company_id = v_opportunity.company_id
+         and prior_user.deleted_at is null
+         and coalesce(prior_user.is_active, false)
+         and (
+           public.has_permission(
+             v_opportunity.assigned_to,
+             'pipeline.view',
+             'all'
+           )
+           or private.should_use_pipeline_manage_compat(
+             v_opportunity.assigned_to,
+             v_opportunity.company_id,
+             'pipeline.view'
+           )
+         )
+    );
+
     insert into public.opportunity_assignment_deliveries (
       assignment_event_id,
       company_id,
@@ -734,7 +805,7 @@ begin
       p_opportunity_id,
       v_new_version,
       v_opportunity.assigned_to,
-      false,
+      v_previous_access_after,
       false
     )
     on conflict (assignment_event_id, recipient_user_id) do nothing;
@@ -1012,7 +1083,11 @@ begin
 
   v_create_scope := private.current_user_scope_for('pipeline.create');
   if v_create_scope is null
-    and public.has_permission(v_actor_user_id, 'pipeline.manage', 'all')
+    and private.should_use_pipeline_manage_compat(
+      v_actor_user_id,
+      v_company_id,
+      'pipeline.create'
+    )
   then
     v_create_scope := 'all';
   end if;
@@ -1023,7 +1098,11 @@ begin
 
   v_assign_scope := private.current_user_scope_for('pipeline.assign');
   if v_assign_scope is null
-    and public.has_permission(v_actor_user_id, 'pipeline.manage', 'all')
+    and private.should_use_pipeline_manage_compat(
+      v_actor_user_id,
+      v_company_id,
+      'pipeline.assign'
+    )
   then
     v_assign_scope := 'all';
   end if;
