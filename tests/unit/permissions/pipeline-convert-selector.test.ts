@@ -2,15 +2,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchUserPermissions = vi.hoisted(() => vi.fn());
 const fetchUserOverrides = vi.hoisted(() => vi.fn());
+const fetchUser = vi.hoisted(() => vi.fn());
+const fetchCompany = vi.hoisted(() => vi.fn());
 const authState = vi.hoisted(() => ({
   currentUser: null as {
     id: string;
+    companyId?: string | null;
     isCompanyAdmin?: boolean;
+    role?: string;
   } | null,
   company: null as {
+    id?: string;
     accountHolderId?: string | null;
     adminIds?: string[];
   } | null,
+  role: "unassigned",
 }));
 
 vi.mock("@/lib/api/services/roles-service", () => ({
@@ -20,9 +26,19 @@ vi.mock("@/lib/api/services/roles-service", () => ({
   },
 }));
 
+vi.mock("@/lib/api/services/user-service", () => ({
+  UserService: { fetchUser },
+}));
+
+vi.mock("@/lib/api/services/company-service", () => ({
+  CompanyService: { fetchCompany },
+}));
+
 vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: {
     getState: () => authState,
+    setState: (next: Partial<typeof authState>) =>
+      Object.assign(authState, next),
   },
 }));
 
@@ -54,8 +70,19 @@ describe("selectCanConvertOpportunity", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     usePermissionStore.getState().clear();
-    authState.currentUser = { id: "user-1", isCompanyAdmin: false };
-    authState.company = { accountHolderId: "owner-1", adminIds: [] };
+    authState.currentUser = {
+      id: "user-1",
+      companyId: "company-1",
+      isCompanyAdmin: false,
+      role: "operator",
+    };
+    authState.company = {
+      id: "company-1",
+      accountHolderId: "owner-1",
+      adminIds: [],
+    };
+    fetchUser.mockImplementation(async () => ({ ...authState.currentUser }));
+    fetchCompany.mockImplementation(async () => ({ ...authState.company }));
   });
 
   it("allows an explicit assigned convert role grant", async () => {
@@ -126,7 +153,12 @@ describe("selectCanConvertOpportunity", () => {
   });
 
   it("keeps the admin bypass explicitly granular", async () => {
-    authState.currentUser = { id: "user-1", isCompanyAdmin: true };
+    authState.currentUser = {
+      id: "user-1",
+      companyId: "company-1",
+      isCompanyAdmin: true,
+      role: "admin",
+    };
     const state = await load([]);
 
     expect(state.configuredPermissions).toContain("pipeline.convert");

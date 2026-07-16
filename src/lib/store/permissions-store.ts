@@ -9,7 +9,6 @@
  */
 
 import { create } from "zustand";
-import { RolesService } from "@/lib/api/services/roles-service";
 import type { PermissionScope } from "@/lib/types/permissions";
 import { ALL_PERMISSIONS, PRESET_ROLE_IDS } from "@/lib/types/permissions";
 import {
@@ -69,6 +68,8 @@ function scopeSatisfies(
   return false;
 }
 
+let permissionRefreshGeneration = 0;
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const usePermissionStore = create<PermissionState>()((set, get) => ({
@@ -88,26 +89,76 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
   },
 
   fetchPermissions: async (userId: string) => {
-    set({ loading: true });
+    const refreshGeneration = ++permissionRefreshGeneration;
+    // Permission refreshes are triggered by remote revocation deliveries. Drop
+    // every prior grant synchronously so a stale admin session cannot act while
+    // canonical authority is still in flight.
+    set({
+      permissions: new Map(),
+      configuredPermissions: new Set(),
+      roleId: null,
+      roleName: null,
+      loading: true,
+    });
 
     try {
+      const [{ RolesService }, { UserService }, { CompanyService }] =
+        await Promise.all([
+          import("@/lib/api/services/roles-service"),
+          import("@/lib/api/services/user-service"),
+          import("@/lib/api/services/company-service"),
+        ]);
+
+      const authState = useAuthStore.getState();
+      if (authState.currentUser?.id !== userId) {
+        throw new Error(
+          "Permission refresh user does not match active session"
+        );
+      }
+
+      // Never decide the master bypass from persisted AuthStore authority.
+      // Re-read the canonical self row first, then the company referenced by
+      // that row. A failure at either boundary is handled by the fail-closed
+      // catch below before role grants are considered.
+      const canonicalUser = await UserService.fetchUser(userId);
+      if (canonicalUser.id !== userId) {
+        throw new Error("Canonical permission user mismatch");
+      }
+
+      const canonicalCompany = canonicalUser.companyId
+        ? await CompanyService.fetchCompany(canonicalUser.companyId)
+        : null;
+      if (canonicalCompany && canonicalCompany.id !== canonicalUser.companyId) {
+        throw new Error("Canonical permission company mismatch");
+      }
+
+      // The user may have signed out or switched sessions while the authority
+      // reads were pending. Never write the old actor into the new session.
+      if (useAuthStore.getState().currentUser?.id !== userId) {
+        throw new Error("Active session changed during permission refresh");
+      }
+
+      if (refreshGeneration !== permissionRefreshGeneration) return;
+
+      useAuthStore.setState({
+        currentUser: canonicalUser,
+        company: canonicalCompany,
+        role: canonicalUser.role,
+      });
+
       // Master bypass — account holder ∪ admin_ids ∪ is_company_admin flag.
       // Single definition shared with the DB functions and the Team access
-      // editor (isAdminBypass); the flag was previously missing here, which
-      // desynced the client from private.current_user_is_admin().
-      const authState = useAuthStore.getState();
+      // editor (isAdminBypass). Only the just-refreshed canonical rows may
+      // reach this decision.
       const bypass = isAdminBypass(
         {
           id: userId,
-          isCompanyAdmin:
-            authState.currentUser?.id === userId
-              ? authState.currentUser?.isCompanyAdmin
-              : false,
+          isCompanyAdmin: canonicalUser.isCompanyAdmin,
         },
-        authState.company
+        canonicalCompany
           ? {
-              accountHolderId: authState.company.accountHolderId,
-              adminIds: authState.company.adminIds,
+              accountHolderId: canonicalCompany.accountHolderId,
+              adminIds: canonicalCompany.adminIds,
             }
           : null
       );
@@ -136,6 +187,8 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
         RolesService.fetchUserPermissions(userId),
         RolesService.fetchUserOverrides(userId),
       ]);
+      if (refreshGeneration !== permissionRefreshGeneration) return;
+
       const rolePerms = Array.from(result.permissions.entries()).map(
         ([permission, scope]) => ({ permission, scope })
       );
@@ -152,6 +205,8 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
         initialized: true,
       });
     } catch (error) {
+      if (refreshGeneration !== permissionRefreshGeneration) return;
+
       console.error("[PermissionStore] Failed to fetch permissions:", error);
       set({
         permissions: new Map(),
@@ -165,6 +220,7 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
   },
 
   clear: () => {
+    permissionRefreshGeneration += 1;
     set({
       permissions: new Map(),
       configuredPermissions: new Set(),

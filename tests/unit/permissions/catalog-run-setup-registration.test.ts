@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import {
   ALL_PERMISSIONS,
   getPermissionLabel,
@@ -8,6 +8,23 @@ import {
 } from "@/lib/types/permissions";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+
+const fetchUser = vi.hoisted(() => vi.fn());
+const fetchCompany = vi.hoisted(() => vi.fn());
+const fetchUserPermissions = vi.hoisted(() => vi.fn());
+const fetchUserOverrides = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/api/services/user-service", () => ({
+  UserService: { fetchUser },
+}));
+
+vi.mock("@/lib/api/services/company-service", () => ({
+  CompanyService: { fetchCompany },
+}));
+
+vi.mock("@/lib/api/services/roles-service", () => ({
+  RolesService: { fetchUserPermissions, fetchUserOverrides },
+}));
 
 const LIVE_CATALOG_PERMISSIONS = [
   "catalog.view",
@@ -22,6 +39,7 @@ const LIVE_CATALOG_PERMISSIONS = [
 ] as const;
 
 beforeEach(() => {
+  vi.clearAllMocks();
   usePermissionStore.getState().clear();
   useAuthStore.setState({
     company: null,
@@ -96,7 +114,22 @@ describe("catalog.run_setup permission registration", () => {
 
     for (const testCase of cases) {
       usePermissionStore.getState().clear();
-      useAuthStore.setState({ company: testCase.company as never });
+      const canonicalUser = {
+        id: testCase.userId,
+        companyId: "company-1",
+        isCompanyAdmin: false,
+        role: "unassigned",
+      };
+      const canonicalCompany = {
+        id: "company-1",
+        ...testCase.company,
+      };
+      useAuthStore.setState({
+        currentUser: canonicalUser as never,
+        company: canonicalCompany as never,
+      });
+      fetchUser.mockResolvedValue(canonicalUser);
+      fetchCompany.mockResolvedValue(canonicalCompany);
 
       await usePermissionStore.getState().fetchPermissions(testCase.userId);
 
