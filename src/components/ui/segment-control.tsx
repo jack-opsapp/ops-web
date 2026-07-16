@@ -39,7 +39,7 @@ type SegmentControlProps<T extends string> = {
 );
 
 export function SegmentControl<T extends string = string>(
-  props: SegmentControlProps<T>,
+  props: SegmentControlProps<T>
 ) {
   const {
     options,
@@ -55,7 +55,7 @@ export function SegmentControl<T extends string = string>(
   const rootClassName = cn(
     "inline-flex h-[28px] items-center gap-[2px] rounded border border-border p-[2px]",
     disabled && "pointer-events-none opacity-40",
-    className,
+    className
   );
 
   if (mode === "choice") {
@@ -91,12 +91,12 @@ export function SegmentControl<T extends string = string>(
                     ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
                     : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text-2",
                   "peer-focus-visible:outline-none peer-focus-visible:ring-1 peer-focus-visible:ring-ops-accent",
-                  disabled && "cursor-not-allowed",
+                  disabled && "cursor-not-allowed"
                 )}
               >
                 {opt.label}
                 {typeof opt.count === "number" && (
-                  <span className="font-mono text-micro text-text-3 tabular-nums">
+                  <span className="font-mono text-micro tabular-nums text-text-3">
                     {opt.count}
                   </span>
                 )}
@@ -134,12 +134,14 @@ export function SegmentControl<T extends string = string>(
               active
                 ? "border-[rgba(255,255,255,0.18)] bg-surface-active text-text"
                 : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text-2",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
             )}
           >
             {opt.label}
             {typeof opt.count === "number" && (
-              <span className="font-mono text-micro text-text-3 tabular-nums">{opt.count}</span>
+              <span className="font-mono text-micro tabular-nums text-text-3">
+                {opt.count}
+              </span>
             )}
           </button>
         );

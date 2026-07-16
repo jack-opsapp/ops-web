@@ -156,7 +156,9 @@ describe("PermissionModuleEditor", () => {
       screen.queryByRole("group", { name: "View all company mail" })
     ).not.toBeInTheDocument();
     const view = screen.getByRole("radiogroup", { name: "View inbox" });
-    expect(within(view).getByRole("radio", { name: "Own" })).toBeInTheDocument();
+    expect(
+      within(view).getByRole("radio", { name: "Own" })
+    ).toBeInTheDocument();
     const send = screen.getByRole("radiogroup", {
       name: "Send and reply",
     });

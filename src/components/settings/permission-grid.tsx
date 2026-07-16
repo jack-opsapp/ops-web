@@ -15,7 +15,10 @@
 import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tag } from "@/components/ui/register-table";
-import { SegmentControl, type SegmentControlOption } from "@/components/ui/segment-control";
+import {
+  SegmentControl,
+  type SegmentControlOption,
+} from "@/components/ui/segment-control";
 import type {
   PermissionModule,
   PermissionScope,
@@ -28,7 +31,12 @@ import { useDictionary } from "@/i18n/client";
 export type ModuleTierValue = PermissionTier | "none";
 
 /** How a member's module deviates from their role — drives the exception tag. */
-export type ModuleExceptionKind = "added" | "widened" | "narrowed" | "revoked" | "mixed";
+export type ModuleExceptionKind =
+  | "added"
+  | "widened"
+  | "narrowed"
+  | "revoked"
+  | "mixed";
 
 // ─── Section header (// TITLE) ───────────────────────────────────────────────
 
@@ -87,7 +95,9 @@ export function ModulePermissionRow({
   return (
     <div className="flex items-center gap-1.5 border-b border-border-subtle py-1.5 last:border-b-0">
       <div className="flex min-w-0 flex-1 items-center gap-1">
-        <span className="truncate font-mohave text-body-sm text-text">{label}</span>
+        <span className="truncate font-mohave text-body-sm text-text">
+          {label}
+        </span>
         {isCustom && <Tag variant="tan">{t("roles.customPermissions")}</Tag>}
         {exception && (
           <Tag variant="tan">{t(`team.access.exception.${exception}`)}</Tag>
@@ -154,7 +164,9 @@ function ActionPermissionModule({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1">
-            <span className="font-mohave text-body-sm text-text">{moduleLabel}</span>
+            <span className="font-mohave text-body-sm text-text">
+              {moduleLabel}
+            </span>
             {exception && (
               <Tag variant="tan">{t(`team.access.exception.${exception}`)}</Tag>
             )}
@@ -188,7 +200,7 @@ function ActionPermissionModule({
               : "none";
             const actionLabel = t(
               `roles.permissionAction.${action.id}`,
-              action.label,
+              action.label
             );
             const options: SegmentControlOption<PermissionScope | "none">[] = [
               { value: "none", label: t("roles.tierNone") },
