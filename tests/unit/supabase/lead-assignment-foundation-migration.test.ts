@@ -90,7 +90,10 @@ describe("lead-assignment foundation migration", () => {
       /create policy opportunity_assignment_deliveries_recipient_select[\s\S]*?using\s*\([^;]*?opportunities/i
     );
     expect(source).toMatch(
-      /revoke insert, update, delete on table public\.opportunity_assignment_deliveries from anon, authenticated/i
+      /revoke insert, update, delete on table public\.opportunity_assignment_deliveries from anon, authenticated, service_role/i
+    );
+    expect(source).not.toMatch(
+      /grant insert, update(?:, delete)? on table public\.opportunity_assignment_deliveries[\s\S]*?to service_role/i
     );
   });
 
@@ -193,7 +196,7 @@ describe("guarded assignment operations", () => {
 
     expect(core).toMatch(/private\.current_user_scope_for\('pipeline\.assign'\)/i);
     expect(core).toMatch(
-      /public\.has_permission\(p_actor_user_id, 'pipeline\.manage', 'all'\)/i
+      /private\.should_use_pipeline_manage_compat\([\s\S]*?p_actor_user_id[\s\S]*?'pipeline\.assign'/i
     );
     expect(core).toMatch(
       /v_scope = 'assigned'[\s\S]*?v_opportunity\.assigned_to is distinct from p_actor_user_id/i
@@ -206,6 +209,41 @@ describe("guarded assignment operations", () => {
     );
     expect(core).toMatch(
       /from public\.users[\s\S]*?company_id = v_opportunity\.company_id[\s\S]*?deleted_at is null[\s\S]*?coalesce\((?:[a-z]+\.)?is_active, false\)[\s\S]*?public\.has_permission\(\s*p_new_assigned_to,\s*'pipeline\.view',\s*'assigned'/i
+    );
+  });
+
+  it("never lets manage compatibility override an explicit granular revoke", () => {
+    const source = sql();
+    const compatibility = functionBody(
+      source,
+      "private.should_use_pipeline_manage_compat"
+    );
+    const core = functionBody(
+      source,
+      "private.change_opportunity_assignment_core"
+    );
+    const create = functionBody(source, "public.create_opportunity_guarded");
+
+    expect(compatibility).toMatch(
+      /not exists \([\s\S]*?public\.user_permission_overrides[\s\S]*?user_id = p_actor_user_id[\s\S]*?company_id = p_actor_company_id[\s\S]*?permission = p_permission/i
+    );
+    expect(compatibility).toMatch(
+      /not upo\.granted\s+or\s+upo\.scope is not null/i
+    );
+    expect(compatibility).toMatch(
+      /not exists \([\s\S]*?public\.user_roles[\s\S]*?public\.role_permissions[\s\S]*?permission = p_permission/i
+    );
+    expect(compatibility).toMatch(
+      /public\.has_permission\(\s*p_actor_user_id,\s*'pipeline\.manage',\s*'all'/i
+    );
+    expect(core).toMatch(
+      /private\.should_use_pipeline_manage_compat\([\s\S]*?'pipeline\.assign'/i
+    );
+    expect(create).toMatch(
+      /private\.should_use_pipeline_manage_compat\([\s\S]*?'pipeline\.create'/i
+    );
+    expect(create).toMatch(
+      /private\.should_use_pipeline_manage_compat\([\s\S]*?'pipeline\.assign'/i
     );
   });
 
@@ -240,6 +278,12 @@ describe("guarded assignment operations", () => {
     );
     expect(core).toMatch(
       /insert into public\.opportunity_assignment_deliveries[\s\S]*?access_after[\s\S]*?notify/i
+    );
+    expect(core).toMatch(
+      /v_previous_access_after\s*:=\s*exists \([\s\S]*?from public\.users[\s\S]*?company_id = v_opportunity\.company_id[\s\S]*?deleted_at is null[\s\S]*?coalesce\([a-z_]+\.is_active, false\)[\s\S]*?public\.has_permission\([\s\S]*?'pipeline\.view'[\s\S]*?'all'[\s\S]*?or private\.should_use_pipeline_manage_compat/i
+    );
+    expect(core).toMatch(
+      /v_opportunity\.assigned_to,\s*v_previous_access_after,\s*false/i
     );
     expect(core).toMatch(
       /v_new_notify\s*:=\s*not \([\s\S]*?not p_is_system[\s\S]*?p_new_assigned_to = p_actor_user_id/i
