@@ -30,6 +30,8 @@ import { PipelineDetailTabBar } from "./pipeline-detail-tab-bar";
 import { PipelineDetailTimelineTab } from "./pipeline-detail-timeline-tab";
 import { LeadMapBand } from "./lead-map-band";
 import { PipelineDetailOverviewTab } from "./pipeline-detail-overview-tab";
+import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
+import { useOpportunityAssignedContext } from "@/lib/hooks/use-opportunity-assigned-context";
 
 export type DetailPanelActionHandlers = {
   onAdvanceStage: (opportunity: Opportunity) => void;
@@ -43,15 +45,22 @@ export type DetailPanelActionHandlers = {
 export function PipelineDetailBody({
   opportunity,
   activeTab,
-  canManage,
+  leadAccess,
   withRegion = false,
 }: {
   opportunity: Opportunity;
   activeTab: DetailTabId;
-  canManage: boolean;
+  leadAccess: LeadAccess;
   withRegion?: boolean;
 }) {
   const { t } = useDictionary("pipeline");
+  const assignedContextQuery = useOpportunityAssignedContext(opportunity.id);
+  // TanStack retains prior data after a background refetch error. Never render
+  // that stale snapshot while authorization is being rechecked or has failed.
+  const assignedContext =
+    assignedContextQuery.isError || assignedContextQuery.isFetching
+      ? null
+      : (assignedContextQuery.data ?? null);
 
   return (
     <div
@@ -65,10 +74,16 @@ export function PipelineDetailBody({
       tabIndex={withRegion ? -1 : undefined}
       className="flex h-full min-h-0 flex-col"
     >
-      <LeadMapBand opportunity={opportunity} canManage={canManage} />
-      <PipelineDetailNextSteps
-        opportunityId={opportunity.id}
+      <LeadMapBand
         opportunity={opportunity}
+        canManage={leadAccess.canEdit}
+        canAssign={leadAccess.canAssign}
+      />
+      <PipelineDetailNextSteps
+        opportunity={opportunity}
+        followUps={assignedContext?.followUps ?? []}
+        siteVisits={assignedContext?.siteVisits ?? []}
+        canManage={leadAccess.canEdit}
       />
       <PipelineDetailTabBar />
 
@@ -76,19 +91,26 @@ export function PipelineDetailBody({
         {activeTab === "overview" && (
           <PipelineDetailOverviewTab
             opportunity={opportunity}
-            canManage={canManage}
+            canManage={leadAccess.canEdit}
+            assignedContext={assignedContext}
           />
         )}
         {activeTab === "correspondence" && (
-          <PipelineDetailCorrespondenceTab opportunityId={opportunity.id} />
+          <PipelineDetailCorrespondenceTab
+            activities={assignedContext?.activities ?? []}
+            correspondence={assignedContext?.correspondence ?? []}
+            contactName={assignedContext?.contact.name ?? null}
+          />
         )}
         {activeTab === "timeline" && (
-          <PipelineDetailTimelineTab opportunityId={opportunity.id} />
+          <PipelineDetailTimelineTab
+            activities={assignedContext?.activities ?? []}
+          />
         )}
         {activeTab === "photos" && (
           <PipelineDetailPhotosTab
             opportunity={opportunity}
-            canManage={canManage}
+            canManage={leadAccess.canEdit}
           />
         )}
       </div>
@@ -98,6 +120,7 @@ export function PipelineDetailBody({
 
 export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
   opportunity,
+  leadAccess,
   onAdvanceStage,
   onMarkWon,
   onMarkLost,
@@ -106,6 +129,7 @@ export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
   onDelete,
 }: {
   opportunity: Opportunity;
+  leadAccess: LeadAccess;
 } & DetailPanelActionHandlers) {
   const { t } = useDictionary("pipeline");
   const [showActions, setShowActions] = useState(false);
@@ -146,40 +170,46 @@ export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
           data-keyboard-scope="modal-or-menu"
           className="glass-dense absolute right-0 top-full z-10 mt-1 min-w-[168px] rounded-modal border border-border p-1"
         >
-          {active && (
+          {active && leadAccess.canEdit && (
             <ActionItem
               icon={ChevronRight}
               label={t("detail.advance")}
               onClick={() => runAction(() => onAdvanceStage(opportunity))}
             />
           )}
-          <ActionItem
-            icon={Trophy}
-            label={t("detail.won")}
-            onClick={() => runAction(() => onMarkWon(opportunity))}
-          />
-          <ActionItem
-            icon={XCircle}
-            label={t("detail.lost")}
-            onClick={() => runAction(() => onMarkLost(opportunity))}
-          />
-          <ActionItem
-            icon={XCircle}
-            label={t("actions.discard")}
-            onClick={() => runAction(() => onDiscard(opportunity.id))}
-          />
-          <div className="my-0.5 border-t border-border-subtle" />
-          <ActionItem
-            icon={Archive}
-            label={t("actions.archive")}
-            onClick={() => runAction(() => onArchive(opportunity.id))}
-          />
-          <ActionItem
-            icon={Trash2}
-            label={t("actions.delete")}
-            destructive
-            onClick={() => runAction(() => onDelete(opportunity.id))}
-          />
+          {leadAccess.canConvert ? (
+            <ActionItem
+              icon={Trophy}
+              label={t("detail.won")}
+              onClick={() => runAction(() => onMarkWon(opportunity))}
+            />
+          ) : null}
+          {leadAccess.canEdit ? (
+            <>
+              <ActionItem
+                icon={XCircle}
+                label={t("detail.lost")}
+                onClick={() => runAction(() => onMarkLost(opportunity))}
+              />
+              <ActionItem
+                icon={XCircle}
+                label={t("actions.discard")}
+                onClick={() => runAction(() => onDiscard(opportunity.id))}
+              />
+              <div className="my-0.5 border-t border-border-subtle" />
+              <ActionItem
+                icon={Archive}
+                label={t("actions.archive")}
+                onClick={() => runAction(() => onArchive(opportunity.id))}
+              />
+              <ActionItem
+                icon={Trash2}
+                label={t("actions.delete")}
+                destructive
+                onClick={() => runAction(() => onDelete(opportunity.id))}
+              />
+            </>
+          ) : null}
         </div>
       )}
     </div>

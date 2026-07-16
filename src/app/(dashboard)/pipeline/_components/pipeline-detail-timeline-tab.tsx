@@ -19,17 +19,8 @@ import {
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
-import {
-  type Activity,
-  type StageTransition,
-  ActivityType,
-  ACTIVITY_TYPE_COLORS,
-  getStageDisplayName,
-} from "@/lib/types/pipeline";
-import {
-  useOpportunityActivities,
-  useStageTransitions,
-} from "@/lib/hooks";
+import { ActivityType, ACTIVITY_TYPE_COLORS } from "@/lib/types/pipeline";
+import type { OpportunityAssignedContextActivity } from "@/lib/api/services/opportunity-assigned-context-service";
 
 // ── Utilities ──
 
@@ -67,23 +58,40 @@ function isSystemEvent(type: ActivityType): boolean {
 
 function getActivityIcon(type: ActivityType) {
   switch (type) {
-    case ActivityType.Email: return Mail;
-    case ActivityType.Call: return Phone;
-    case ActivityType.TextMessage: return MessageSquare;
-    case ActivityType.Note: return MessageSquare;
-    case ActivityType.Meeting: return Calendar;
-    case ActivityType.EstimateSent: return FileText;
-    case ActivityType.EstimateAccepted: return Trophy;
-    case ActivityType.EstimateDeclined: return XCircle;
-    case ActivityType.InvoiceSent: return Receipt;
-    case ActivityType.PaymentReceived: return DollarSign;
-    case ActivityType.SiteVisitScheduled: return MapPin;
-    case ActivityType.SiteVisit: return MapPin;
-    case ActivityType.StageChange: return ChevronRight;
-    case ActivityType.Created: return FileText;
-    case ActivityType.Won: return Trophy;
-    case ActivityType.Lost: return XCircle;
-    default: return MessageSquare;
+    case ActivityType.Email:
+      return Mail;
+    case ActivityType.Call:
+      return Phone;
+    case ActivityType.TextMessage:
+      return MessageSquare;
+    case ActivityType.Note:
+      return MessageSquare;
+    case ActivityType.Meeting:
+      return Calendar;
+    case ActivityType.EstimateSent:
+      return FileText;
+    case ActivityType.EstimateAccepted:
+      return Trophy;
+    case ActivityType.EstimateDeclined:
+      return XCircle;
+    case ActivityType.InvoiceSent:
+      return Receipt;
+    case ActivityType.PaymentReceived:
+      return DollarSign;
+    case ActivityType.SiteVisitScheduled:
+      return MapPin;
+    case ActivityType.SiteVisit:
+      return MapPin;
+    case ActivityType.StageChange:
+      return ChevronRight;
+    case ActivityType.Created:
+      return FileText;
+    case ActivityType.Won:
+      return Trophy;
+    case ActivityType.Lost:
+      return XCircle;
+    default:
+      return MessageSquare;
   }
 }
 
@@ -92,7 +100,7 @@ function getActivityIcon(type: ActivityType) {
 interface TimelineNode {
   id: string;
   date: Date;
-  type: ActivityType | "stage_transition";
+  type: ActivityType;
   label: string;
   color: string;
   isSystem: boolean;
@@ -100,13 +108,12 @@ interface TimelineNode {
   content?: string | null;
   durationMinutes?: number | null;
   outcome?: string | null;
-  attachmentCount?: number;
+  hasAttachments: boolean;
 }
 
 function buildTimelineNodes(
-  activities: Activity[],
-  transitions: StageTransition[],
-  locale: Locale,
+  activities: OpportunityAssignedContextActivity[],
+  locale: Locale
 ): TimelineNode[] {
   const nodes: TimelineNode[] = [];
 
@@ -137,33 +144,7 @@ function buildTimelineNodes(
       content: a.content,
       durationMinutes: a.durationMinutes,
       outcome: a.outcome,
-      attachmentCount: a.attachments.length,
-    });
-  }
-
-  // Merge stage transitions — dedup against StageChange activities by timestamp proximity
-  const activityStageTimestamps = new Set(
-    activities
-      .filter((a) => a.type === ActivityType.StageChange)
-      .map((a) => Math.floor(new Date(a.createdAt).getTime() / 1000))
-  );
-
-  for (const st of transitions) {
-    const tsKey = Math.floor(new Date(st.transitionedAt).getTime() / 1000);
-    // Skip if there's already an activity within 1 second of this transition
-    if (activityStageTimestamps.has(tsKey)) continue;
-
-    const fromName = st.fromStage ? getStageDisplayName(st.fromStage) : "—";
-    const toName = getStageDisplayName(st.toStage);
-    const relTime = formatRelativeTime(st.transitionedAt, locale);
-
-    nodes.push({
-      id: st.id,
-      date: new Date(st.transitionedAt),
-      type: "stage_transition",
-      label: `Stage ${fromName} → ${toName} — ${relTime}`,
-      color: ACTIVITY_TYPE_COLORS[ActivityType.StageChange],
-      isSystem: true,
+      hasAttachments: a.hasAttachments,
     });
   }
 
@@ -177,31 +158,26 @@ function DetailCard({ node }: { node: TimelineNode }) {
   return (
     <div className="pointer-events-none absolute left-full top-0 z-10 ml-2 w-[200px] rounded-chip border border-border bg-[var(--surface-glass-dense)] p-2.5 backdrop-blur-xl">
       {node.subject && (
-        <p className="font-mohave text-[12px] text-text mb-1 truncate">
+        <p className="mb-1 truncate font-mohave text-[12px] text-text">
           {node.subject}
         </p>
       )}
       {node.content && (
-        <p className="font-mono text-[11px] text-text-3 leading-relaxed line-clamp-3">
+        <p className="line-clamp-3 font-mono text-[11px] leading-relaxed text-text-3">
           {node.content}
         </p>
       )}
       {node.durationMinutes != null && node.durationMinutes > 0 && (
-        <span className="font-mono text-micro text-text-mute mt-1 block">
+        <span className="mt-1 block font-mono text-micro text-text-mute">
           {node.durationMinutes}min
         </span>
       )}
       {node.outcome && (
-        <p className="font-mono text-micro text-text-3 mt-1">
-          {node.outcome}
-        </p>
+        <p className="mt-1 font-mono text-micro text-text-3">{node.outcome}</p>
       )}
-      {node.attachmentCount != null && node.attachmentCount > 0 && (
-        <div className="flex items-center gap-1 mt-1">
-          <Paperclip className="w-2.5 h-2.5 text-text-mute" />
-          <span className="font-mono text-micro text-text-mute">
-            {node.attachmentCount}
-          </span>
+      {node.hasAttachments && (
+        <div className="mt-1 flex items-center gap-1">
+          <Paperclip className="h-2.5 w-2.5 text-text-mute" />
         </div>
       )}
     </div>
@@ -211,27 +187,25 @@ function DetailCard({ node }: { node: TimelineNode }) {
 // ── Exported tab ──
 
 interface PipelineDetailTimelineTabProps {
-  opportunityId: string;
+  activities: OpportunityAssignedContextActivity[];
 }
 
 export function PipelineDetailTimelineTab({
-  opportunityId,
+  activities,
 }: PipelineDetailTimelineTabProps) {
   const { t } = useDictionary("pipeline");
   const { locale } = useLocale();
-  const { data: activities } = useOpportunityActivities(opportunityId);
-  const { data: transitions } = useStageTransitions(opportunityId);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const nodes = useMemo(
-    () => buildTimelineNodes(activities ?? [], transitions ?? [], locale),
-    [activities, transitions, locale]
+    () => buildTimelineNodes(activities, locale),
+    [activities, locale]
   );
 
   if (nodes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
-        <Clock className="w-5 h-5 text-text-mute mb-2" />
+        <Clock className="mb-2 h-5 w-5 text-text-mute" />
         <span className="font-mono text-[11px] text-text-mute">
           {t("detail.noActivityYet")}
         </span>
@@ -252,13 +226,13 @@ export function PipelineDetailTimelineTab({
                 key={node.id}
                 className="relative flex items-center gap-2.5 py-1.5"
               >
-                <div className="relative z-10 w-[18px] h-[18px] flex items-center justify-center shrink-0">
+                <div className="relative z-10 flex h-[18px] w-[18px] shrink-0 items-center justify-center">
                   <div
-                    className="w-[7px] h-[7px] rounded-full"
+                    className="h-[7px] w-[7px] rounded-full"
                     style={{ backgroundColor: node.color }}
                   />
                 </div>
-                <span className="font-mono text-micro text-text-mute truncate">
+                <span className="truncate font-mono text-micro text-text-mute">
                   {node.label}
                 </span>
               </div>
@@ -276,16 +250,19 @@ export function PipelineDetailTimelineTab({
               onMouseLeave={() => setHoveredId(null)}
             >
               <div
-                className="relative z-10 w-[18px] h-[18px] rounded-full flex items-center justify-center shrink-0"
+                className="relative z-10 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full"
                 style={{
                   backgroundColor: `${node.color}15`,
                   border: `1px solid ${node.color}25`,
                 }}
               >
-                <Icon className="w-[9px] h-[9px]" style={{ color: node.color }} />
+                <Icon
+                  className="h-[9px] w-[9px]"
+                  style={{ color: node.color }}
+                />
               </div>
 
-              <span className="font-mohave text-[12px] text-text truncate">
+              <span className="truncate font-mohave text-[12px] text-text">
                 {node.label}
               </span>
 
