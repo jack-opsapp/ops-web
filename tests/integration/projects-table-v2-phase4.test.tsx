@@ -1275,6 +1275,13 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
     const { container } = renderProjectsTable();
 
     await user.type(screen.getByPlaceholderText("Search projects..."), "Deck");
+    await waitFor(() => {
+      expect(
+        container.querySelector(
+          '[data-project-table-row-id="p-2"][data-project-table-column-id="select"]',
+        ),
+      ).not.toBeInTheDocument();
+    });
     const selectCell = getTableCell(container, "p-1", "select");
     act(() => {
       selectCell.focus();
