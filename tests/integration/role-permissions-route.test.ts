@@ -1,65 +1,16 @@
-/**
- * Integration tests for PUT /api/roles/[id]/permissions
- *
- * The write path for the Roles editor (previously a dead direct-table write
- * that bounced off RLS as anon). Verifies:
- *   - 400 malformed body / unregistered permission / unsupported scope
- *   - 401 invalid token
- *   - 404 role not found
- *   - 403 preset role (immutable) and cross-company custom role
- *   - 403 caller lacks team.assign_roles and admin_ids membership
- *   - 200 happy path: transactional replace (delete then insert), restore
- *     attempted if the insert fails.
- */
-
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextRequest } from "next/server";
 
-interface RecordedCall {
-  table: string;
-  method: string;
-  args: unknown[];
-}
-const recordedCalls: RecordedCall[] = [];
+import { PERMISSION_EDITOR_REGISTRY } from "@/lib/types/permissions";
 
-type DbResult = { data: unknown; error: { message: string } | null };
-let resultQueue: DbResult[] = [];
-function nextResult(data: unknown, error: DbResult["error"] = null): void {
-  resultQueue.push({ data, error });
-}
-
-function makeMockClient() {
-  return {
-    from(table: string) {
-      const record = (method: string, ...args: unknown[]) =>
-        recordedCalls.push({ table, method, args });
-      const consume = (): DbResult =>
-        resultQueue.length > 0 ? resultQueue.shift()! : { data: null, error: null };
-      const b = {
-        select: (cols?: string) => { record("select", cols); return b; },
-        insert: (rows: unknown) => { record("insert", rows); return b; },
-        delete: () => { record("delete"); return b; },
-        eq: (col: string, val: unknown) => { record("eq", col, val); return b; },
-        is: (col: string, val: unknown) => { record("is", col, val); return b; },
-        maybeSingle: async () => { record("maybeSingle"); return consume(); },
-        then: (onFulfilled: (v: DbResult) => unknown) => {
-          record("await");
-          return Promise.resolve(consume()).then(onFulfilled);
-        },
-      };
-      return b;
-    },
-  };
-}
-
-const { verifyAuthMock, findUserMock, checkPermMock } = vi.hoisted(() => ({
+const { verifyAuthMock, findUserMock, rpcMock } = vi.hoisted(() => ({
   verifyAuthMock: vi.fn(),
   findUserMock: vi.fn(),
-  checkPermMock: vi.fn(),
+  rpcMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({
-  getServiceRoleClient: () => makeMockClient(),
+  getServiceRoleClient: () => ({ rpc: rpcMock }),
 }));
 vi.mock("@/lib/firebase/admin-verify", () => ({
   verifyAuthToken: (token: string) => verifyAuthMock(token),
@@ -67,158 +18,243 @@ vi.mock("@/lib/firebase/admin-verify", () => ({
 vi.mock("@/lib/supabase/find-user-by-auth", () => ({
   findUserByAuth: (...args: unknown[]) => findUserMock(...args),
 }));
-vi.mock("@/lib/supabase/check-permission", () => ({
-  checkPermission: (...args: unknown[]) => checkPermMock(...args),
-}));
 
 import { PUT } from "@/app/api/roles/[id]/permissions/route";
 
 const ROLE_ID = "44444444-4444-4444-8444-444444444444";
 const CALLER_ID = "22222222-2222-4222-8222-222222222222";
-const COMPANY_ID = "33333333-3333-4333-8333-333333333333";
 
-function makeReq(body: unknown): NextRequest {
-  return { json: async () => body } as unknown as NextRequest;
-}
-const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
-
-function seedCaller() {
-  verifyAuthMock.mockResolvedValue({ uid: "fb-uid-caller", email: "boss@ops.co" });
-  findUserMock.mockResolvedValue({ id: CALLER_ID, company_id: COMPANY_ID });
+function makeReq(body: unknown, token: string | null = "token-1"): NextRequest {
+  return {
+    json: async () => body,
+    headers: new Headers(token ? { authorization: `Bearer ${token}` } : {}),
+  } as unknown as NextRequest;
 }
 
-function seedRole(overrides: Record<string, unknown> = {}) {
-  nextResult({ id: ROLE_ID, is_preset: false, company_id: COMPANY_ID, ...overrides });
-}
+const ctx = { params: Promise.resolve({ id: ROLE_ID }) };
 
-const VALID_BODY = {
-  idToken: "token-1",
-  permissions: [
-    { permission: "projects.view", scope: "all" },
-    { permission: "tasks.view", scope: "assigned" },
+const newPermissions = PERMISSION_EDITOR_REGISTRY.map((action) => ({
+  permission: action.id,
+  scope:
+    action.id === "pipeline.view"
+      ? ("assigned" as const)
+      : action.id === "pipeline.edit"
+        ? ("assigned" as const)
+        : null,
+}));
+
+const validBody = {
+  expectedPermissions: [
+    { permission: "pipeline.edit", scope: "all" },
+    { permission: "pipeline.manage", scope: "all" },
+    { permission: "pipeline.view", scope: "all" },
   ],
+  newPermissions,
+  assignmentResolutions: [],
 };
 
 beforeEach(() => {
-  recordedCalls.length = 0;
-  resultQueue = [];
   verifyAuthMock.mockReset();
   findUserMock.mockReset();
-  checkPermMock.mockReset();
+  rpcMock.mockReset();
+  verifyAuthMock.mockResolvedValue({ uid: "firebase-1", email: "boss@ops.co" });
+  findUserMock.mockResolvedValue({ id: CALLER_ID });
+  rpcMock.mockResolvedValue({
+    data: {
+      ok: true,
+      role_id: ROLE_ID,
+      permissions: validBody.expectedPermissions,
+      resolved_assignments: 0,
+    },
+    error: null,
+  });
 });
 
 describe("PUT /api/roles/[id]/permissions", () => {
-  it("400 when idToken or permissions are missing", async () => {
-    const res = await PUT(makeReq({ permissions: [] }), ctx(ROLE_ID));
-    expect(res.status).toBe(400);
-  });
-
-  it("400 on an unregistered permission", async () => {
+  it("requires a Firebase bearer token and never accepts a body token", async () => {
     const res = await PUT(
-      makeReq({ idToken: "t", permissions: [{ permission: "spec.admin", scope: "all" }] }),
-      ctx(ROLE_ID),
+      makeReq({ ...validBody, idToken: "body-token" }, null),
+      ctx
     );
-    expect(res.status).toBe(400);
-  });
-
-  it("400 on a scope the permission does not support", async () => {
-    const res = await PUT(
-      makeReq({ idToken: "t", permissions: [{ permission: "projects.create", scope: "own" }] }),
-      ctx(ROLE_ID),
-    );
-    expect(res.status).toBe(400);
-  });
-
-  it("401 on an invalid token", async () => {
-    verifyAuthMock.mockRejectedValue(new Error("Token expired"));
-    const res = await PUT(makeReq(VALID_BODY), ctx(ROLE_ID));
     expect(res.status).toBe(401);
+    expect(verifyAuthMock).not.toHaveBeenCalled();
   });
 
-  it("404 when the role does not exist", async () => {
-    seedCaller();
-    nextResult(null);
-    const res = await PUT(makeReq(VALID_BODY), ctx(ROLE_ID));
-    expect(res.status).toBe(404);
-  });
+  it("requires exactly the three guarded body fields", async () => {
+    const { assignmentResolutions: _omitted, ...missing } = validBody;
+    const missingResponse = await PUT(makeReq(missing), ctx);
+    expect(missingResponse.status).toBe(400);
 
-  it("403 for a preset role", async () => {
-    seedCaller();
-    seedRole({ is_preset: true, company_id: null });
-    const res = await PUT(makeReq(VALID_BODY), ctx(ROLE_ID));
-    expect(res.status).toBe(403);
-  });
-
-  it("403 for another company's custom role", async () => {
-    seedCaller();
-    seedRole({ company_id: "other-company" });
-    const res = await PUT(makeReq(VALID_BODY), ctx(ROLE_ID));
-    expect(res.status).toBe(403);
-  });
-
-  it("403 when the caller lacks team.assign_roles and admin_ids membership", async () => {
-    seedCaller();
-    seedRole();
-    checkPermMock.mockResolvedValue(false);
-    nextResult({ admin_ids: ["someone-else"] }); // company fallback lookup
-    const res = await PUT(makeReq(VALID_BODY), ctx(ROLE_ID));
-    expect(res.status).toBe(403);
-  });
-
-  it("replaces the role's permission set (snapshot, delete, insert)", async () => {
-    seedCaller();
-    seedRole();
-    checkPermMock.mockResolvedValue(true);
-    nextResult([{ role_id: ROLE_ID, permission: "clients.view", scope: "all" }]); // snapshot
-    nextResult(null); // delete
-    nextResult(null); // insert
-
-    const res = await PUT(makeReq(VALID_BODY), ctx(ROLE_ID));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body).toMatchObject({ success: true, count: 2 });
-
-    const insert = recordedCalls.find(
-      (c) => c.table === "role_permissions" && c.method === "insert",
+    const extraResponse = await PUT(
+      makeReq({ ...validBody, permissions: [] }),
+      ctx
     );
-    const rows = insert!.args[0] as Array<Record<string, unknown>>;
-    expect(rows).toEqual([
-      { role_id: ROLE_ID, permission: "projects.view", scope: "all" },
-      { role_id: ROLE_ID, permission: "tasks.view", scope: "assigned" },
-    ]);
+    expect(extraResponse.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
-  it("attempts restore when the insert fails", async () => {
-    seedCaller();
-    seedRole();
-    checkPermMock.mockResolvedValue(true);
-    nextResult([{ role_id: ROLE_ID, permission: "clients.view", scope: "all" }]); // snapshot
-    nextResult(null); // delete ok
-    nextResult(null, { message: "insert exploded" }); // insert fails
-    nextResult(null); // restore insert
-
-    const res = await PUT(makeReq(VALID_BODY), ctx(ROLE_ID));
-    expect(res.status).toBe(500);
-
-    const inserts = recordedCalls.filter(
-      (c) => c.table === "role_permissions" && c.method === "insert",
+  it("rejects a non-canonical expected snapshot", async () => {
+    const res = await PUT(
+      makeReq({
+        ...validBody,
+        expectedPermissions: [...validBody.expectedPermissions].reverse(),
+      }),
+      ctx
     );
-    expect(inserts).toHaveLength(2);
-    expect(inserts[1].args[0]).toEqual([
-      { role_id: ROLE_ID, permission: "clients.view", scope: "all" },
-    ]);
+    expect(res.status).toBe(400);
   });
 
-  it("allows clearing all permissions with an empty list", async () => {
-    seedCaller();
-    seedRole();
-    checkPermMock.mockResolvedValue(true);
-    nextResult([]); // snapshot
-    nextResult(null); // delete
+  it("rejects sparse, reordered, hidden, or unsupported new permission payloads", async () => {
+    const sparse = await PUT(
+      makeReq({ ...validBody, newPermissions: newPermissions.slice(1) }),
+      ctx
+    );
+    expect(sparse.status).toBe(400);
 
-    const res = await PUT(makeReq({ idToken: "t", permissions: [] }), ctx(ROLE_ID));
+    const reordered = await PUT(
+      makeReq({ ...validBody, newPermissions: [...newPermissions].reverse() }),
+      ctx
+    );
+    expect(reordered.status).toBe(400);
+
+    const unsupported = newPermissions.map((entry) =>
+      entry.permission === "pipeline.create"
+        ? { ...entry, scope: "assigned" }
+        : entry
+    );
+    const unsupportedResponse = await PUT(
+      makeReq({ ...validBody, newPermissions: unsupported }),
+      ctx
+    );
+    expect(unsupportedResponse.status).toBe(400);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it("validates exact snake-case assignment snapshots", async () => {
+    const res = await PUT(
+      makeReq({
+        ...validBody,
+        assignmentResolutions: [
+          {
+            opportunityId: ROLE_ID,
+            expectedAssignedTo: CALLER_ID,
+            expectedAssignmentVersion: 1,
+            newAssignedTo: null,
+          },
+        ],
+      }),
+      ctx
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("calls the service-only guarded RPC with the authenticated OPS actor", async () => {
+    const resolution = {
+      opportunity_id: "55555555-5555-4555-8555-555555555555",
+      expected_assigned_to: "66666666-6666-4666-8666-666666666666",
+      expected_assignment_version: 7,
+      new_assigned_to: null,
+    };
+
+    const res = await PUT(
+      makeReq({ ...validBody, assignmentResolutions: [resolution] }),
+      ctx
+    );
+
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.count).toBe(0);
+    expect(verifyAuthMock).toHaveBeenCalledWith("token-1");
+    expect(findUserMock).toHaveBeenCalledWith(
+      "firebase-1",
+      "boss@ops.co",
+      "id"
+    );
+    expect(rpcMock).toHaveBeenCalledWith("replace_role_permissions_as_system", {
+      p_actor_user_id: CALLER_ID,
+      p_role_id: ROLE_ID,
+      p_expected_permissions: validBody.expectedPermissions,
+      p_new_permissions: newPermissions,
+      p_assignment_resolutions: [resolution],
+    });
+    await expect(res.json()).resolves.toEqual({
+      ok: true,
+      roleId: ROLE_ID,
+      permissions: validBody.expectedPermissions,
+      resolvedAssignments: 0,
+    });
+  });
+
+  it("returns the authoritative assignment-resolution payload as a 409", async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        code: "40001",
+        message: "assignment_resolution_required",
+        details: JSON.stringify({
+          code: "assignment_resolution_required",
+          stranded_count: 1,
+          stranded: [
+            {
+              opportunity_id: "55555555-5555-4555-8555-555555555555",
+              title: "Framing inquiry",
+              assigned_to: "66666666-6666-4666-8666-666666666666",
+              assignment_version: 7,
+            },
+          ],
+          eligible_assignees: [],
+        }),
+      },
+    });
+
+    const res = await PUT(makeReq(validBody), ctx);
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      code: "assignment_resolution_required",
+      strandedCount: 1,
+      eligibleAssignees: [],
+    });
+  });
+
+  it("returns the current permission snapshot on optimistic conflict", async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        code: "40001",
+        message: "permission_snapshot_mismatch",
+        details: JSON.stringify({
+          current_permissions: [
+            { permission: "pipeline.view", scope: "assigned" },
+          ],
+        }),
+      },
+    });
+
+    const res = await PUT(makeReq(validBody), ctx);
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toEqual({
+      code: "permission_snapshot_mismatch",
+      currentPermissions: [{ permission: "pipeline.view", scope: "assigned" }],
+    });
+  });
+
+  it.each([
+    ["42501", "access_denied", 403],
+    ["P0002", "role_not_found", 404],
+    ["22023", "invalid_permission_payload", 400],
+  ])("maps SQL %s %s to HTTP %i", async (code, message, status) => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { code, message, details: null },
+    });
+    const res = await PUT(makeReq(validBody), ctx);
+    expect(res.status).toBe(status);
+  });
+
+  it("fails closed when the token is invalid or has no canonical OPS user", async () => {
+    verifyAuthMock.mockRejectedValueOnce(new Error("Token expired"));
+    expect((await PUT(makeReq(validBody), ctx)).status).toBe(401);
+
+    verifyAuthMock.mockResolvedValueOnce({ uid: "firebase-1", email: null });
+    findUserMock.mockResolvedValueOnce(null);
+    expect((await PUT(makeReq(validBody), ctx)).status).toBe(403);
   });
 });

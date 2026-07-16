@@ -7,9 +7,12 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
-import { RolesService } from "../api/services/roles-service";
+import {
+  RolesService,
+  type ReplaceRolePermissionsInput,
+  type ReplaceUserRoleInput,
+} from "../api/services/roles-service";
 import { useAuthStore } from "../store/auth-store";
-import type { PermissionScope } from "../types/permissions";
 
 // ─── Query Hooks ─────────────────────────────────────────────────────────────
 
@@ -88,7 +91,9 @@ export function useUpdateRole() {
     }) => RolesService.updateRole(roleId, data),
     onSuccess: (_result, { roleId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.detail(roleId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.roles.detail(roleId),
+      });
     },
   });
 }
@@ -112,13 +117,15 @@ export function useUpdateRolePermissions() {
   return useMutation({
     mutationFn: ({
       roleId,
-      permissions,
+      input,
     }: {
       roleId: string;
-      permissions: { permission: string; scope: PermissionScope }[];
-    }) => RolesService.updateRolePermissions(roleId, permissions),
+      input: ReplaceRolePermissionsInput;
+    }) => RolesService.updateRolePermissions(roleId, input),
     onSuccess: (_result, { roleId }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.permissions(roleId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.roles.permissions(roleId),
+      });
       // Also invalidate user permissions since they depend on role permissions
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.all });
     },
@@ -152,15 +159,25 @@ export function useAssignUserRole() {
   return useMutation({
     mutationFn: ({
       userId,
-      roleId,
-      assignedBy,
+      input,
     }: {
       userId: string;
-      roleId: string;
-      assignedBy: string;
-    }) => RolesService.assignUserRole(userId, roleId, assignedBy),
-    onSuccess: (_result, { roleId }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.members(roleId) });
+      input: ReplaceUserRoleInput;
+    }) => RolesService.replaceUserRole(userId, input),
+    onSuccess: (_result, { userId, input }) => {
+      if (input.expectedRoleId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.roles.members(input.expectedRoleId),
+        });
+      }
+      if (input.newRoleId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.roles.members(input.newRoleId),
+        });
+      }
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.roles.memberAccess(userId),
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.all });
     },
   });
@@ -171,10 +188,22 @@ export function useRemoveUserRole() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ userId, roleId }: { userId: string; roleId: string }) =>
-      RolesService.removeUserRole(userId),
-    onSuccess: (_result, { roleId }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.roles.members(roleId) });
+    mutationFn: ({
+      userId,
+      input,
+    }: {
+      userId: string;
+      input: ReplaceUserRoleInput;
+    }) => RolesService.replaceUserRole(userId, input),
+    onSuccess: (_result, { userId, input }) => {
+      if (input.expectedRoleId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.roles.members(input.expectedRoleId),
+        });
+      }
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.roles.memberAccess(userId),
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.roles.all });
     },
   });

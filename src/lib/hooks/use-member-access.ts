@@ -13,9 +13,9 @@ import { queryKeys } from "@/lib/api/query-client";
 import { RolesService } from "@/lib/api/services/roles-service";
 import {
   PermissionOverridesService,
+  type SaveOverridesInput,
   type SaveOverridesResult,
 } from "@/lib/api/services/permission-overrides-service";
-import type { OverrideDiff } from "@/lib/permissions/resolve";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 
@@ -37,17 +37,21 @@ export function useSaveMemberAccess() {
   return useMutation({
     mutationFn: async ({
       userId,
-      diff,
+      input,
     }: {
       userId: string;
-      diff: OverrideDiff;
+      input: SaveOverridesInput;
     }): Promise<SaveOverridesResult> =>
-      PermissionOverridesService.saveMemberOverrides(userId, diff),
+      PermissionOverridesService.saveMemberOverrides(userId, input),
     onSuccess: async (_result, { userId }) => {
       qc.invalidateQueries({ queryKey: queryKeys.roles.memberAccess(userId) });
-      qc.invalidateQueries({ queryKey: queryKeys.roles.userPermissions(userId) });
+      qc.invalidateQueries({
+        queryKey: queryKeys.roles.userPermissions(userId),
+      });
       if (company?.id) {
-        qc.invalidateQueries({ queryKey: queryKeys.roles.userRoles(company.id) });
+        qc.invalidateQueries({
+          queryKey: queryKeys.roles.userRoles(company.id),
+        });
       }
       // Editing your own exceptions (possible for non-bypass managers via
       // team.assign_roles) must refresh the live permission set.

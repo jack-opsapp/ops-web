@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { PERMISSION_EDITOR_REGISTRY } from "@/lib/types/permissions";
 
 const migrationPath = path.join(
   process.cwd(),
@@ -111,6 +112,23 @@ describe("lead assignment permission migration", () => {
     expect(registry).not.toContain("'pipeline.manage'");
     expect(registry).not.toContain("'inbox.view_company'");
     expect(registry).not.toContain("'spec.admin'");
+
+    const sqlRegistry = Array.from(
+      registry?.matchAll(/\('([^']+)',\s*array\[([^\]]+)\]\)/g) ?? [],
+      (match) => ({
+        id: match[1],
+        scopes: Array.from(
+          match[2].matchAll(/'([^']+)'/g),
+          (scope) => scope[1]
+        ),
+      })
+    ).sort((left, right) => left.id.localeCompare(right.id));
+    expect(sqlRegistry).toEqual(
+      PERMISSION_EDITOR_REGISTRY.map((action) => ({
+        id: action.id,
+        scopes: action.scopes,
+      }))
+    );
   });
 
   it("defines the three exact service-only atomic RPC contracts", () => {
