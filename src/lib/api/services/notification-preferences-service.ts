@@ -24,6 +24,7 @@ export type EventType =
   | "task_completed"
   | "schedule_changes"
   | "project_updates"
+  | "lead_assignments"
   | "expense_submitted"
   | "expense_approved"
   | "invoice_sent"
@@ -39,6 +40,7 @@ export const DEFAULT_CHANNEL_PREFERENCES: ChannelPreferences = {
   task_completed: { push: true, email: false },
   schedule_changes: { push: true, email: false },
   project_updates: { push: true, email: true },
+  lead_assignments: { push: true, email: false },
   expense_submitted: { push: true, email: true },
   expense_approved: { push: true, email: true },
   invoice_sent: { push: true, email: false },

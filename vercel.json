@@ -49,6 +49,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/lead-assignment-deliveries",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/webhook-renewal",
       "schedule": "0 6 * * *"
     },

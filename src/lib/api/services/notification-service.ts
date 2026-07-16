@@ -10,6 +10,7 @@ export type NotificationType =
   | "intel_available"
   | "setup_prompt"
   | "leads_waiting"
+  | "lead_assigned"
   | "system"
   | "project_assigned"
   | "lead_converted"
