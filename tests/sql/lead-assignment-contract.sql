@@ -2283,7 +2283,8 @@ insert into public.email_connections (
   (
     '1ead5519-1000-4000-8000-000000000901',
     '1ead5519-0000-4000-8000-000000000001',
-    'company', null, 'contract-mailbox@example.invalid',
+    'company', '1ead5519-0000-4000-8000-000000000101',
+    'contract-mailbox@example.invalid',
     'rollback-access-token', 'rollback-refresh-token',
     now() + interval '1 day', true, 'active'
   ),
@@ -2873,6 +2874,14 @@ values
          and p.policyname = 'assigned_lead_scope_select'
          and p.permissive = 'RESTRICTIVE'
     )
+    and exists (
+      select 1
+        from pg_catalog.pg_policies p
+       where p.schemaname = 'public'
+         and p.tablename = 'activity_comments'
+         and p.policyname = 'assigned_parent_scope_select'
+         and p.permissive = 'RESTRICTIVE'
+    )
     and (
       select count(*) = 3
         from pg_catalog.pg_policies p
@@ -2890,14 +2899,15 @@ values
   (
     'email_surfaces_have_restrictive_lead_inbox_intersection',
     (
-      select count(*) = 4
+      select count(*) = 5
         from pg_catalog.pg_policies p
        where p.schemaname = 'public'
          and p.tablename in (
            'opportunity_correspondence_events',
            'opportunity_follow_up_drafts',
            'email_threads',
-           'opportunity_email_threads'
+           'opportunity_email_threads',
+           'email_thread_category_corrections'
          )
          and p.policyname = 'lead_inbox_scope_select'
     )
@@ -2914,6 +2924,13 @@ values
     )
     and not has_table_privilege(
       'authenticated', 'public.opportunity_email_threads', 'update'
+    )
+    and not exists (
+      select 1
+        from pg_catalog.pg_policies p
+       where p.schemaname = 'public'
+         and p.tablename = 'email_thread_category_corrections'
+         and p.policyname = 'corrections_company_scope'
     )
   ),
   (
@@ -2962,6 +2979,16 @@ values
   (
     '1ead5519-0000-4000-8000-000000000201',
     'deck_builder.view',
+    'assigned'
+  ),
+  (
+    '1ead5519-0000-4000-8000-000000000201',
+    'deck_builder.create',
+    'assigned'
+  ),
+  (
+    '1ead5519-0000-4000-8000-000000000201',
+    'deck_builder.edit',
     'assigned'
   ),
   (
@@ -3057,9 +3084,41 @@ insert into public.activities (
   (
     '1ead5519-2000-4000-8000-000000000605',
     '1ead5519-0000-4000-8000-000000000001',
-    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000506',
     '1ead5519-1000-4000-8000-000000000802',
     'note', 'Project path note', 'project-path', null, null
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000608',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000802',
+    'note', 'Legacy mismatched activity', 'must remain immutable', null, null
+  );
+
+insert into public.activity_comments (
+  id, company_id, activity_id, user_id, content
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000701',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-2000-4000-8000-000000000601',
+    '1ead5519-0000-4000-8000-000000000101',
+    'Assigned activity comment'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000702',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-2000-4000-8000-000000000602',
+    '1ead5519-0000-4000-8000-000000000103',
+    'Sibling activity comment'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000703',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-2000-4000-8000-000000000605',
+    '1ead5519-0000-4000-8000-000000000101',
+    'Project path activity comment'
   );
 
 insert into public.follow_ups (
@@ -3115,10 +3174,19 @@ insert into public.site_visits (
   (
     '1ead5519-2000-4000-8000-000000000633',
     '1ead5519-0000-4000-8000-000000000001',
-    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000506',
     '1ead5519-1000-4000-8000-000000000802',
     '1ead5519-1000-4000-8000-000000000802',
     now() + interval '3 days',
+    '1ead5519-0000-4000-8000-000000000101'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000636',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000802',
+    '1ead5519-1000-4000-8000-000000000802',
+    now() + interval '6 days',
     '1ead5519-0000-4000-8000-000000000101'
   );
 
@@ -3140,9 +3208,16 @@ insert into public.deck_designs (
   (
     '1ead5519-2000-4000-8000-000000000643',
     '1ead5519-0000-4000-8000-000000000001',
-    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000506',
     '1ead5519-1000-4000-8000-000000000802',
     'Project path deck', '{}'::jsonb
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000646',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000802',
+    'Legacy mismatched deck', '{}'::jsonb
   );
 
 insert into public.email_threads (
@@ -3171,6 +3246,50 @@ insert into public.email_threads (
     '1ead5519-1000-4000-8000-000000000903',
     'provider-thread-child-scope-personal',
     'Own personal mailbox thread', now(), now(), null, null
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000654',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-child-scope-company-unlinked',
+    'Unlinked company mailbox thread', now(), now(), null, null
+  );
+
+insert into public.email_thread_category_corrections (
+  id, company_id, thread_id, user_id, from_category, to_category,
+  sender_email, sender_domain, participants_hash, subject_keywords, note
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000711',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-2000-4000-8000-000000000651',
+    '1ead5519-0000-4000-8000-000000000101',
+    'OTHER', 'LEAD', 'assigned@example.invalid', 'example.invalid',
+    'assigned-participants', array['assigned']::text[], 'Assigned correction'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000712',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-2000-4000-8000-000000000652',
+    '1ead5519-0000-4000-8000-000000000103',
+    'OTHER', 'LEAD', 'sibling@example.invalid', 'example.invalid',
+    'sibling-participants', array['sibling']::text[], 'Sibling correction'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000713',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-2000-4000-8000-000000000653',
+    '1ead5519-0000-4000-8000-000000000101',
+    'OTHER', 'LEAD', 'personal@example.invalid', 'example.invalid',
+    'personal-participants', array['personal']::text[], 'Personal correction'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000714',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-2000-4000-8000-000000000654',
+    '1ead5519-0000-4000-8000-000000000101',
+    'OTHER', 'LEAD', 'company@example.invalid', 'example.invalid',
+    'company-participants', array['company']::text[], 'Company correction'
   );
 
 insert into public.opportunity_email_threads (
@@ -3242,6 +3361,21 @@ select set_config(
 select set_config('request.jwt.claim.role', 'service_role', true);
 set local role service_role;
 
+insert into lead_assignment_contract_values (value_name, value)
+values (
+  'project_path_lead_reassigned',
+  public.change_opportunity_assignment_as_system(
+    '1ead5519-1000-4000-8000-000000000506',
+    1,
+    '1ead5519-0000-4000-8000-000000000101',
+    '1ead5519-0000-4000-8000-000000000103',
+    'system_repair',
+    null,
+    null,
+    '{"contract_case":"project_path_only"}'::jsonb
+  )
+);
+
 do $contract$
 begin
   begin
@@ -3276,6 +3410,28 @@ values (
   )
 );
 
+insert into lead_assignment_contract_results (check_name, passed, details)
+select
+  'project_path_lead_is_reassigned_away_before_child_scope_checks',
+  (v.value ->> 'ok')::boolean
+  and not (v.value ->> 'conflict')::boolean
+  and (v.value ->> 'assigned_to')::uuid =
+    '1ead5519-0000-4000-8000-000000000103'
+  and exists (
+    select 1
+      from public.opportunities o
+      join public.projects p on p.id = coalesce(o.project_ref, o.project_id)
+     where o.id = '1ead5519-1000-4000-8000-000000000506'
+       and p.id = '1ead5519-1000-4000-8000-000000000802'
+       and (
+         p.opportunity_ref = o.id
+         or private.try_parse_uuid(p.opportunity_id) = o.id
+       )
+  ),
+  v.value::text
+from lead_assignment_contract_values v
+where v.value_name = 'project_path_lead_reassigned';
+
 select set_config(
   'request.jwt.claims',
   jsonb_build_object(
@@ -3292,6 +3448,443 @@ select set_config(
 );
 select set_config('request.jwt.claim.role', 'authenticated', true);
 set local role authenticated;
+
+do $contract$
+declare
+  v_rows integer;
+begin
+  begin
+    insert into public.activities (
+      id, company_id, opportunity_id, project_id, type, subject, content
+    ) values (
+      '1ead5519-2000-4000-8000-000000000606',
+      '1ead5519-0000-4000-8000-000000000001',
+      '1ead5519-0000-4000-8000-000000000501',
+      '1ead5519-1000-4000-8000-000000000802',
+      'note', 'Mismatched project activity', 'must not persist'
+    );
+    raise exception 'mismatched activity insert unexpectedly succeeded'
+      using errcode = 'P0001';
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_activity_dual_parent_insert_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_activity_dual_parent_insert_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'mismatched_activity_dual_parent_insert_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    insert into public.site_visits (
+      id, company_id, opportunity_id, project_id, project_ref, scheduled_at,
+      created_by
+    ) values (
+      '1ead5519-2000-4000-8000-000000000634',
+      '1ead5519-0000-4000-8000-000000000001',
+      '1ead5519-0000-4000-8000-000000000501',
+      '1ead5519-1000-4000-8000-000000000802',
+      '1ead5519-1000-4000-8000-000000000802',
+      now() + interval '4 days',
+      '1ead5519-0000-4000-8000-000000000101'
+    );
+    raise exception 'mismatched site visit insert unexpectedly succeeded'
+      using errcode = 'P0001';
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_site_visit_dual_parent_insert_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_site_visit_dual_parent_insert_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'mismatched_site_visit_dual_parent_insert_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    insert into public.deck_designs (
+      id, company_id, opportunity_id, project_id, title, drawing_data
+    ) values (
+      '1ead5519-2000-4000-8000-000000000644',
+      '1ead5519-0000-4000-8000-000000000001',
+      '1ead5519-0000-4000-8000-000000000501',
+      '1ead5519-1000-4000-8000-000000000802',
+      'Mismatched project deck', '{}'::jsonb
+    );
+    raise exception 'mismatched deck insert unexpectedly succeeded'
+      using errcode = 'P0001';
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_deck_dual_parent_insert_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_deck_dual_parent_insert_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'mismatched_deck_dual_parent_insert_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    update public.activities
+       set content = 'Must not update mismatched activity'
+     where id = '1ead5519-2000-4000-8000-000000000608';
+    get diagnostics v_rows = row_count;
+    if v_rows <> 0 then
+      raise exception 'mismatched activity update unexpectedly succeeded'
+        using errcode = 'P0001';
+    end if;
+    insert into lead_assignment_contract_results values (
+      'mismatched_activity_dual_parent_update_rejected', true, null
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_activity_dual_parent_update_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_activity_dual_parent_update_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'mismatched_activity_dual_parent_update_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    update public.site_visits
+       set notes = 'Must not update mismatched site visit'
+     where id = '1ead5519-2000-4000-8000-000000000636';
+    get diagnostics v_rows = row_count;
+    if v_rows <> 0 then
+      raise exception 'mismatched site visit update unexpectedly succeeded'
+        using errcode = 'P0001';
+    end if;
+    insert into lead_assignment_contract_results values (
+      'mismatched_site_visit_dual_parent_update_rejected', true, null
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_site_visit_dual_parent_update_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_site_visit_dual_parent_update_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'mismatched_site_visit_dual_parent_update_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    update public.deck_designs
+       set title = 'Must not update mismatched deck'
+     where id = '1ead5519-2000-4000-8000-000000000646';
+    get diagnostics v_rows = row_count;
+    if v_rows <> 0 then
+      raise exception 'mismatched deck update unexpectedly succeeded'
+        using errcode = 'P0001';
+    end if;
+    insert into lead_assignment_contract_results values (
+      'mismatched_deck_dual_parent_update_rejected', true, null
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_deck_dual_parent_update_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'mismatched_deck_dual_parent_update_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'mismatched_deck_dual_parent_update_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    insert into public.activity_comments (
+      id, company_id, activity_id, user_id, content
+    ) values (
+      '1ead5519-2000-4000-8000-000000000704',
+      '1ead5519-0000-4000-8000-000000000001',
+      '1ead5519-2000-4000-8000-000000000602',
+      '1ead5519-0000-4000-8000-000000000101',
+      'Must not reach sibling activity'
+    );
+    raise exception 'sibling activity comment insert unexpectedly succeeded'
+      using errcode = 'P0001';
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'sibling_activity_comment_insert_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'sibling_activity_comment_insert_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'sibling_activity_comment_insert_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    update public.activity_comments
+       set content = 'Must not update sibling activity comment'
+     where id = '1ead5519-2000-4000-8000-000000000702';
+    get diagnostics v_rows = row_count;
+    if v_rows <> 0 then
+      raise exception 'sibling activity comment update unexpectedly succeeded'
+        using errcode = 'P0001';
+    end if;
+    insert into lead_assignment_contract_results values (
+      'sibling_activity_comment_update_rejected', true, null
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'sibling_activity_comment_update_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'sibling_activity_comment_update_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'sibling_activity_comment_update_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    delete from public.activity_comments
+     where id = '1ead5519-2000-4000-8000-000000000702';
+    get diagnostics v_rows = row_count;
+    if v_rows <> 0 then
+      raise exception 'sibling activity comment delete unexpectedly succeeded'
+        using errcode = 'P0001';
+    end if;
+    insert into lead_assignment_contract_results values (
+      'sibling_activity_comment_delete_rejected', true, null
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'sibling_activity_comment_delete_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'sibling_activity_comment_delete_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'sibling_activity_comment_delete_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    insert into public.email_thread_category_corrections (
+      id, company_id, thread_id, user_id, from_category, to_category
+    ) values (
+      '1ead5519-2000-4000-8000-000000000715',
+      '1ead5519-0000-4000-8000-000000000001',
+      '1ead5519-2000-4000-8000-000000000652',
+      '1ead5519-0000-4000-8000-000000000101',
+      'OTHER', 'LEAD'
+    );
+    raise exception 'sibling correction insert unexpectedly succeeded'
+      using errcode = 'P0001';
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'sibling_thread_correction_insert_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'sibling_thread_correction_insert_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'sibling_thread_correction_insert_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    insert into public.email_thread_category_corrections (
+      id, company_id, thread_id, user_id, from_category, to_category
+    ) values (
+      '1ead5519-2000-4000-8000-000000000716',
+      '1ead5519-0000-4000-8000-000000000001',
+      '1ead5519-2000-4000-8000-000000000651',
+      '1ead5519-0000-4000-8000-000000000102',
+      'OTHER', 'LEAD'
+    );
+    raise exception 'correction author spoof unexpectedly succeeded'
+      using errcode = 'P0001';
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'thread_correction_author_spoof_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'thread_correction_author_spoof_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'thread_correction_author_spoof_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    update public.email_thread_category_corrections
+       set note = 'Must not update sibling correction'
+     where id = '1ead5519-2000-4000-8000-000000000712';
+    get diagnostics v_rows = row_count;
+    if v_rows <> 0 then
+      raise exception 'sibling correction update unexpectedly succeeded'
+        using errcode = 'P0001';
+    end if;
+    insert into lead_assignment_contract_results values (
+      'sibling_thread_correction_update_rejected', true, null
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'sibling_thread_correction_update_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'sibling_thread_correction_update_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'sibling_thread_correction_update_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    delete from public.email_thread_category_corrections
+     where id = '1ead5519-2000-4000-8000-000000000712';
+    get diagnostics v_rows = row_count;
+    if v_rows <> 0 then
+      raise exception 'sibling correction delete unexpectedly succeeded'
+        using errcode = 'P0001';
+    end if;
+    insert into lead_assignment_contract_results values (
+      'sibling_thread_correction_delete_rejected', true, null
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'sibling_thread_correction_delete_rejected', true, sqlerrm
+      );
+    when sqlstate 'P0001' then
+      insert into lead_assignment_contract_results values (
+        'sibling_thread_correction_delete_rejected', false, sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'sibling_thread_correction_delete_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+end;
+$contract$;
+
+insert into public.activities (
+  id, company_id, opportunity_id, project_id, type, subject, content
+) values (
+  '1ead5519-2000-4000-8000-000000000607',
+  '1ead5519-0000-4000-8000-000000000001',
+  '1ead5519-1000-4000-8000-000000000506',
+  '1ead5519-1000-4000-8000-000000000802',
+  'note', 'Authorized project path activity', 'relationship-valid'
+);
+
+insert into public.site_visits (
+  id, company_id, opportunity_id, project_id, project_ref, scheduled_at,
+  created_by
+) values (
+  '1ead5519-2000-4000-8000-000000000635',
+  '1ead5519-0000-4000-8000-000000000001',
+  '1ead5519-1000-4000-8000-000000000506',
+  '1ead5519-1000-4000-8000-000000000802',
+  '1ead5519-1000-4000-8000-000000000802',
+  now() + interval '5 days',
+  '1ead5519-0000-4000-8000-000000000101'
+);
+
+insert into public.deck_designs (
+  id, company_id, opportunity_id, project_id, title, drawing_data
+) values (
+  '1ead5519-2000-4000-8000-000000000645',
+  '1ead5519-0000-4000-8000-000000000001',
+  '1ead5519-1000-4000-8000-000000000506',
+  '1ead5519-1000-4000-8000-000000000802',
+  'Authorized project path deck', '{}'::jsonb
+);
+
+insert into public.activity_comments (
+  id, company_id, activity_id, user_id, content
+) values (
+  '1ead5519-2000-4000-8000-000000000705',
+  '1ead5519-0000-4000-8000-000000000001',
+  '1ead5519-2000-4000-8000-000000000601',
+  '1ead5519-0000-4000-8000-000000000101',
+  'Authorized assigned activity comment'
+);
+
+insert into public.email_thread_category_corrections (
+  id, company_id, thread_id, user_id, from_category, to_category, note
+) values (
+  '1ead5519-2000-4000-8000-000000000717',
+  '1ead5519-0000-4000-8000-000000000001',
+  '1ead5519-2000-4000-8000-000000000651',
+  '1ead5519-0000-4000-8000-000000000101',
+  'OTHER', 'LEAD', 'Authorized correction'
+);
 
 insert into lead_assignment_contract_values (value_name, value)
 values
@@ -3357,6 +3950,48 @@ values
          '1ead5519-2000-4000-8000-000000000643'
        )
     )
+    and not exists (
+      select 1
+        from public.opportunities o
+       where o.id = '1ead5519-1000-4000-8000-000000000506'
+    )
+    and exists (
+      select 1
+        from public.projects p
+       where p.id = '1ead5519-1000-4000-8000-000000000802'
+    )
+    and exists (
+      select 1
+        from public.activities a
+       where a.id = '1ead5519-2000-4000-8000-000000000607'
+    )
+    and exists (
+      select 1
+        from public.site_visits sv
+       where sv.id = '1ead5519-2000-4000-8000-000000000635'
+    )
+    and exists (
+      select 1
+        from public.deck_designs dd
+       where dd.id = '1ead5519-2000-4000-8000-000000000645'
+    )
+  ),
+  (
+    'activity_comments_follow_parent_view_and_allow_authorized_write',
+    (
+      select count(*) = 2
+        from public.activity_comments ac
+       where ac.id in (
+         '1ead5519-2000-4000-8000-000000000701',
+         '1ead5519-2000-4000-8000-000000000702',
+         '1ead5519-2000-4000-8000-000000000703'
+       )
+    )
+    and exists (
+      select 1
+        from public.activity_comments ac
+       where ac.id = '1ead5519-2000-4000-8000-000000000705'
+    )
   ),
   (
     'assigned_actor_email_reads_require_lead_and_inbox_scope_and_keep_own_mailbox',
@@ -3366,13 +4001,29 @@ values
        where et.id in (
          '1ead5519-2000-4000-8000-000000000651',
          '1ead5519-2000-4000-8000-000000000652',
-         '1ead5519-2000-4000-8000-000000000653'
+         '1ead5519-2000-4000-8000-000000000653',
+         '1ead5519-2000-4000-8000-000000000654'
        )
     )
     and exists (
       select 1
         from public.email_threads et
+       where et.id = '1ead5519-2000-4000-8000-000000000651'
+    )
+    and exists (
+      select 1
+        from public.email_threads et
        where et.id = '1ead5519-2000-4000-8000-000000000653'
+    )
+    and not exists (
+      select 1
+        from public.email_threads et
+       where et.id = '1ead5519-2000-4000-8000-000000000652'
+    )
+    and not exists (
+      select 1
+        from public.email_threads et
+       where et.id = '1ead5519-2000-4000-8000-000000000654'
     )
     and (
       select count(*) = 1
@@ -3396,6 +4047,25 @@ values
        where d.id in (
          '1ead5519-2000-4000-8000-000000000681',
          '1ead5519-2000-4000-8000-000000000682'
+       )
+    )
+    and (
+      select count(*) = 3
+        from public.email_thread_category_corrections c
+       where c.id in (
+         '1ead5519-2000-4000-8000-000000000711',
+         '1ead5519-2000-4000-8000-000000000712',
+         '1ead5519-2000-4000-8000-000000000713',
+         '1ead5519-2000-4000-8000-000000000714',
+         '1ead5519-2000-4000-8000-000000000717'
+       )
+    )
+    and not exists (
+      select 1
+        from public.email_thread_category_corrections c
+       where c.id in (
+         '1ead5519-2000-4000-8000-000000000712',
+         '1ead5519-2000-4000-8000-000000000714'
        )
     )
   ),
@@ -3499,6 +4169,11 @@ values (
       from public.activities a
      where a.id = '1ead5519-2000-4000-8000-000000000602'
   )
+  and exists (
+    select 1
+      from public.activity_comments ac
+     where ac.id = '1ead5519-2000-4000-8000-000000000702'
+  )
   and not exists (
     select 1
       from public.activities a
@@ -3513,6 +4188,11 @@ values (
     select 1
       from public.opportunity_correspondence_events ce
      where ce.id = '1ead5519-2000-4000-8000-000000000672'
+  )
+  and not exists (
+    select 1
+      from public.email_thread_category_corrections c
+     where c.id = '1ead5519-2000-4000-8000-000000000712'
   )
 );
 

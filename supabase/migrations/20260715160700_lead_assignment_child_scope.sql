@@ -151,6 +151,7 @@ begin
         from public.email_connections ec
        where ec.id = p_connection_id
          and private.try_parse_uuid(ec.company_id) = p_company_id
+         and ec.type::text = 'individual'
          and nullif(btrim(ec.user_id), '') = p_actor_user_id::text
     ) or (
       p_opportunity_id is not null
@@ -170,6 +171,7 @@ begin
         from public.email_connections ec
        where ec.id = p_connection_id
          and private.try_parse_uuid(ec.company_id) = p_company_id
+         and ec.type::text = 'individual'
          and nullif(btrim(ec.user_id), '') = p_actor_user_id::text
     );
   end if;
@@ -406,6 +408,50 @@ revoke all on function private.current_user_can_edit_project_reference(text, uui
 grant execute on function private.current_user_can_edit_project_reference(text, uuid)
   to anon, authenticated;
 
+-- A polymorphic child may remain project-authorized after conversion, but a
+-- caller must never combine an unrelated accessible project with an
+-- inaccessible opportunity. Accept either legacy one-sided link while
+-- rejecting contradictory mirrors and deleted/cross-company parents.
+create or replace function private.opportunity_project_relationship_is_valid(
+  p_company_id uuid,
+  p_opportunity_id uuid,
+  p_project_id uuid
+) returns boolean
+language sql
+stable security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+  select p_company_id is not null
+    and p_opportunity_id is not null
+    and p_project_id is not null
+    and exists (
+      select 1
+        from public.opportunities o
+        join public.projects p on p.id = p_project_id
+       where o.id = p_opportunity_id
+         and o.company_id = p_company_id
+         and o.deleted_at is null
+         and p.company_id = p_company_id
+         and p.deleted_at is null
+         and (
+           o.project_ref = p.id
+           or o.project_id = p.id
+           or p.opportunity_ref = o.id
+           or private.try_parse_uuid(p.opportunity_id) = o.id
+         )
+         and (o.project_ref is null or o.project_ref = p.id)
+         and (o.project_id is null or o.project_id = p.id)
+         and (p.opportunity_ref is null or p.opportunity_ref = o.id)
+         and (
+           nullif(btrim(p.opportunity_id), '') is null
+           or private.try_parse_uuid(p.opportunity_id) = o.id
+         )
+    );
+$function$;
+
+revoke all on function private.opportunity_project_relationship_is_valid(uuid, uuid, uuid)
+  from public, anon, authenticated, service_role;
+
 create or replace function private.user_can_view_client(
   p_actor_user_id uuid,
   p_client_id uuid
@@ -626,6 +672,19 @@ begin
   then
     return false;
   end if;
+  if p_opportunity_id is not null
+    and p_project_id is not null
+    and (
+      v_project_id is null
+      or not private.opportunity_project_relationship_is_valid(
+        p_company_id,
+        p_opportunity_id,
+        v_project_id
+      )
+    )
+  then
+    return false;
+  end if;
   if p_activity_type = 'email'
     or p_email_connection_id is not null
     or nullif(btrim(p_email_thread_id), '') is not null
@@ -666,6 +725,62 @@ $function$;
 revoke all on function private.current_user_can_edit_activity(uuid, uuid, text, uuid, text, text)
   from public, anon, authenticated, service_role;
 grant execute on function private.current_user_can_edit_activity(uuid, uuid, text, uuid, text, text)
+  to anon, authenticated;
+
+create or replace function private.current_user_can_view_activity_comment(
+  p_company_id text,
+  p_activity_id uuid
+) returns boolean
+language sql
+stable security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+  select coalesce((
+    select private.current_user_can_view_activity(
+      a.company_id,
+      a.opportunity_id,
+      a.project_id,
+      a.email_connection_id,
+      a.email_thread_id,
+      a.type
+    )
+      from public.activities a
+     where a.id = p_activity_id
+       and a.company_id = private.try_parse_uuid(p_company_id)
+  ), false);
+$function$;
+
+revoke all on function private.current_user_can_view_activity_comment(text, uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function private.current_user_can_view_activity_comment(text, uuid)
+  to anon, authenticated;
+
+create or replace function private.current_user_can_edit_activity_comment(
+  p_company_id text,
+  p_activity_id uuid
+) returns boolean
+language sql
+stable security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+  select coalesce((
+    select private.current_user_can_edit_activity(
+      a.company_id,
+      a.opportunity_id,
+      a.project_id,
+      a.email_connection_id,
+      a.email_thread_id,
+      a.type
+    )
+      from public.activities a
+     where a.id = p_activity_id
+       and a.company_id = private.try_parse_uuid(p_company_id)
+  ), false);
+$function$;
+
+revoke all on function private.current_user_can_edit_activity_comment(text, uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function private.current_user_can_edit_activity_comment(text, uuid)
   to anon, authenticated;
 
 create or replace function private.current_user_can_view_site_visit(
@@ -717,6 +832,24 @@ declare
   v_project_id uuid := coalesce(p_project_ref, private.try_parse_uuid(p_project_id));
 begin
   if private.try_parse_uuid(p_company_id) is distinct from private.get_user_company_id() then
+    return false;
+  end if;
+  if p_opportunity_id is not null
+    and (p_project_id is not null or p_project_ref is not null)
+    and (
+      v_project_id is null
+      or (
+        p_project_id is not null
+        and p_project_ref is not null
+        and private.try_parse_uuid(p_project_id) is distinct from p_project_ref
+      )
+      or not private.opportunity_project_relationship_is_valid(
+        private.try_parse_uuid(p_company_id),
+        p_opportunity_id,
+        v_project_id
+      )
+    )
+  then
     return false;
   end if;
   if p_opportunity_id is null and v_project_id is null then
@@ -794,6 +927,16 @@ declare
 begin
   if p_permission not in ('deck_builder.create', 'deck_builder.edit')
     or private.get_user_company_id() is distinct from p_company_id
+  then
+    return false;
+  end if;
+  if p_opportunity_id is not null
+    and p_project_id is not null
+    and not private.opportunity_project_relationship_is_valid(
+      p_company_id,
+      p_opportunity_id,
+      p_project_id
+    )
   then
     return false;
   end if;
@@ -1504,6 +1647,65 @@ revoke all on function private.current_user_can_view_email_thread(uuid, uuid, uu
 grant execute on function private.current_user_can_view_email_thread(uuid, uuid, uuid)
   to anon, authenticated;
 
+create or replace function private.current_user_can_view_email_thread_correction(
+  p_company_id uuid,
+  p_thread_id uuid
+) returns boolean
+language sql
+stable security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+  select coalesce((
+    select private.current_user_can_view_email_thread(
+      et.company_id,
+      et.opportunity_id,
+      et.connection_id
+    )
+      from public.email_threads et
+     where et.id = p_thread_id
+       and et.company_id = p_company_id
+  ), false);
+$function$;
+
+revoke all on function private.current_user_can_view_email_thread_correction(uuid, uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function private.current_user_can_view_email_thread_correction(uuid, uuid)
+  to anon, authenticated;
+
+create or replace function private.current_user_can_edit_email_thread_correction(
+  p_company_id uuid,
+  p_thread_id uuid
+) returns boolean
+language sql
+stable security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+  select coalesce((
+    select case
+      when et.opportunity_id is null then
+        private.user_can_send_inbox_connection(
+          private.get_current_user_id(),
+          et.company_id,
+          et.connection_id,
+          null
+        )
+      else private.user_can_send_opportunity_inbox(
+        private.get_current_user_id(),
+        et.opportunity_id,
+        et.connection_id
+      )
+    end
+      from public.email_threads et
+     where et.id = p_thread_id
+       and et.company_id = p_company_id
+  ), false);
+$function$;
+
+revoke all on function private.current_user_can_edit_email_thread_correction(uuid, uuid)
+  from public, anon, authenticated, service_role;
+grant execute on function private.current_user_can_edit_email_thread_correction(uuid, uuid)
+  to anon, authenticated;
+
 -- --------------------------------------------------------------------------
 -- Parent and child RLS. Existing company-isolation policies remain the
 -- permissive tenant gate; these restrictive policies add the entity gate.
@@ -1662,6 +1864,46 @@ create policy assigned_lead_scope_delete
       email_thread_id,
       type
     )
+  );
+
+drop policy if exists assigned_parent_scope_select on public.activity_comments;
+drop policy if exists assigned_parent_scope_insert on public.activity_comments;
+drop policy if exists assigned_parent_scope_update on public.activity_comments;
+drop policy if exists assigned_parent_scope_delete on public.activity_comments;
+create policy assigned_parent_scope_select
+  on public.activity_comments
+  as restrictive
+  for select
+  to public
+  using (
+    private.current_user_can_view_activity_comment(company_id, activity_id)
+  );
+create policy assigned_parent_scope_insert
+  on public.activity_comments
+  as restrictive
+  for insert
+  to public
+  with check (
+    private.current_user_can_edit_activity_comment(company_id, activity_id)
+  );
+create policy assigned_parent_scope_update
+  on public.activity_comments
+  as restrictive
+  for update
+  to public
+  using (
+    private.current_user_can_edit_activity_comment(company_id, activity_id)
+  )
+  with check (
+    private.current_user_can_edit_activity_comment(company_id, activity_id)
+  );
+create policy assigned_parent_scope_delete
+  on public.activity_comments
+  as restrictive
+  for delete
+  to public
+  using (
+    private.current_user_can_edit_activity_comment(company_id, activity_id)
   );
 
 drop policy if exists assigned_lead_scope_select on public.follow_ups;
@@ -2059,6 +2301,52 @@ create policy lead_inbox_scope_select
       opportunity_id,
       connection_id
     )
+  );
+
+drop policy if exists corrections_company_scope
+  on public.email_thread_category_corrections;
+drop policy if exists lead_inbox_scope_select
+  on public.email_thread_category_corrections;
+drop policy if exists lead_inbox_scope_insert
+  on public.email_thread_category_corrections;
+drop policy if exists lead_inbox_scope_update
+  on public.email_thread_category_corrections;
+drop policy if exists lead_inbox_scope_delete
+  on public.email_thread_category_corrections;
+create policy lead_inbox_scope_select
+  on public.email_thread_category_corrections
+  for select
+  to public
+  using (
+    private.current_user_can_view_email_thread_correction(company_id, thread_id)
+  );
+create policy lead_inbox_scope_insert
+  on public.email_thread_category_corrections
+  for insert
+  to public
+  with check (
+    private.current_user_can_edit_email_thread_correction(company_id, thread_id)
+    and user_id = private.get_current_user_id()
+  );
+create policy lead_inbox_scope_update
+  on public.email_thread_category_corrections
+  for update
+  to public
+  using (
+    private.current_user_can_edit_email_thread_correction(company_id, thread_id)
+    and user_id = private.get_current_user_id()
+  )
+  with check (
+    private.current_user_can_edit_email_thread_correction(company_id, thread_id)
+    and user_id = private.get_current_user_id()
+  );
+create policy lead_inbox_scope_delete
+  on public.email_thread_category_corrections
+  for delete
+  to public
+  using (
+    private.current_user_can_edit_email_thread_correction(company_id, thread_id)
+    and user_id = private.get_current_user_id()
   );
 
 revoke insert, update, delete on table public.email_threads

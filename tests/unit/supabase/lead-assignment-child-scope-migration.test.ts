@@ -55,12 +55,17 @@ describe("lead-assignment child-scope migration", () => {
       "private.effective_inbox_scope_for_user",
       "private.user_can_view_opportunity_inbox",
       "private.user_can_send_opportunity_inbox",
+      "private.opportunity_project_relationship_is_valid",
       "private.current_user_can_view_activity",
       "private.current_user_can_edit_activity",
+      "private.current_user_can_view_activity_comment",
+      "private.current_user_can_edit_activity_comment",
       "private.current_user_can_view_site_visit",
       "private.current_user_can_edit_site_visit",
       "private.current_user_can_view_deck_design",
       "private.current_user_can_edit_deck_design",
+      "private.current_user_can_view_email_thread_correction",
+      "private.current_user_can_edit_email_thread_correction",
       "private.current_user_can_view_duplicate_review",
     ];
 
@@ -82,7 +87,9 @@ describe("lead-assignment child-scope migration", () => {
       source,
       "private.effective_inbox_scope_for_user"
     );
-    expect(inbox).toMatch(/p_permission not in \('inbox\.view', 'inbox\.send'\)/i);
+    expect(inbox).toMatch(
+      /p_permission not in \('inbox\.view', 'inbox\.send'\)/i
+    );
     expect(inbox).toMatch(/public\.has_permission\([\s\S]*?'all'/i);
     expect(inbox).toMatch(/public\.has_permission\([\s\S]*?'assigned'/i);
     expect(inbox).toMatch(/p_permission = 'inbox\.view'[\s\S]*?'own'/i);
@@ -103,7 +110,10 @@ describe("lead-assignment child-scope migration", () => {
       "private.user_can_view_inbox_connection"
     );
     expect(connectionView).toMatch(
-      /v_scope = 'assigned'[\s\S]*?ec\.user_id[\s\S]*?p_actor_user_id::text[\s\S]*?or[\s\S]*?o\.assigned_to = p_actor_user_id/i
+      /v_scope = 'assigned'[\s\S]*?ec\.type::text\s*=\s*'individual'[\s\S]*?ec\.user_id[\s\S]*?p_actor_user_id::text[\s\S]*?or[\s\S]*?o\.assigned_to = p_actor_user_id/i
+    );
+    expect(connectionView).toMatch(
+      /v_scope = 'own'[\s\S]*?ec\.type::text\s*=\s*'individual'[\s\S]*?ec\.user_id[\s\S]*?p_actor_user_id::text/i
     );
 
     const connectionSend = functionBody(
@@ -125,7 +135,9 @@ describe("lead-assignment child-scope migration", () => {
     ]) {
       const policy = tablePolicy(source, table, "authorized_lead_select");
       expect(policy).toMatch(/for select\s+to public/i);
-      expect(policy).toMatch(/current_user_can_view_opportunity\(opportunity_id\)/i);
+      expect(policy).toMatch(
+        /current_user_can_view_opportunity\(opportunity_id\)/i
+      );
     }
 
     const delivery = tablePolicy(
@@ -133,19 +145,37 @@ describe("lead-assignment child-scope migration", () => {
       "opportunity_assignment_deliveries",
       "recipient_select"
     );
-    expect(delivery).toMatch(/recipient_user_id\s*=\s*private\.get_current_user_id\(\)/i);
+    expect(delivery).toMatch(
+      /recipient_user_id\s*=\s*private\.get_current_user_id\(\)/i
+    );
     expect(delivery).not.toMatch(/current_user_can_view_opportunity/i);
   });
 
   it("makes stage history parent-scoped and append-only for ordinary callers", () => {
     const source = sql();
-    const select = tablePolicy(source, "stage_transitions", "assigned_lead_scope_select");
-    const insert = tablePolicy(source, "stage_transitions", "assigned_lead_scope_insert");
+    const select = tablePolicy(
+      source,
+      "stage_transitions",
+      "assigned_lead_scope_select"
+    );
+    const insert = tablePolicy(
+      source,
+      "stage_transitions",
+      "assigned_lead_scope_insert"
+    );
 
-    expect(select).toMatch(/as restrictive[\s\S]*?for select[\s\S]*?to public/i);
-    expect(select).toMatch(/current_user_can_view_opportunity\(opportunity_id\)/i);
-    expect(insert).toMatch(/as restrictive[\s\S]*?for insert[\s\S]*?to public/i);
-    expect(insert).toMatch(/current_user_can_edit_opportunity\(opportunity_id\)/i);
+    expect(select).toMatch(
+      /as restrictive[\s\S]*?for select[\s\S]*?to public/i
+    );
+    expect(select).toMatch(
+      /current_user_can_view_opportunity\(opportunity_id\)/i
+    );
+    expect(insert).toMatch(
+      /as restrictive[\s\S]*?for insert[\s\S]*?to public/i
+    );
+    expect(insert).toMatch(
+      /current_user_can_edit_opportunity\(opportunity_id\)/i
+    );
     expect(source).toMatch(
       /revoke update, delete on table public\.stage_transitions\s+from anon, authenticated, service_role/i
     );
@@ -157,7 +187,12 @@ describe("lead-assignment child-scope migration", () => {
   it("scopes conditional children without treating a shared client as authorization", () => {
     const source = sql();
 
-    for (const table of ["activities", "follow_ups", "site_visits", "deck_designs"]) {
+    for (const table of [
+      "activities",
+      "follow_ups",
+      "site_visits",
+      "deck_designs",
+    ]) {
       expect(source).toMatch(
         new RegExp(
           `create\\s+policy\\s+assigned_lead_scope_select\\s+on\\s+public\\.${table}[\\s\\S]*?as restrictive[\\s\\S]*?for select[\\s\\S]*?to public`,
@@ -166,19 +201,28 @@ describe("lead-assignment child-scope migration", () => {
       );
     }
 
-    const activityView = functionBody(source, "private.current_user_can_view_activity");
+    const activityView = functionBody(
+      source,
+      "private.current_user_can_view_activity"
+    );
     expect(activityView).toMatch(/user_can_view_opportunity/i);
     expect(activityView).toMatch(/user_can_view_project/i);
     expect(activityView).toMatch(/user_can_view_inbox_connection/i);
     expect(activityView).not.toMatch(/client_id/i);
 
-    const visitView = functionBody(source, "private.current_user_can_view_site_visit");
+    const visitView = functionBody(
+      source,
+      "private.current_user_can_view_site_visit"
+    );
     expect(visitView).toMatch(/user_can_view_opportunity/i);
     expect(visitView).toMatch(/user_can_view_project/i);
     expect(visitView).toMatch(/\bor\b/i);
     expect(visitView).not.toMatch(/client_id/i);
 
-    const deckEdit = functionBody(source, "private.current_user_can_edit_deck_design");
+    const deckEdit = functionBody(
+      source,
+      "private.current_user_can_edit_deck_design"
+    );
     expect(deckEdit).toMatch(/deck_builder\.edit/i);
     expect(deckEdit).toMatch(/user_can_edit_opportunity/i);
     expect(deckEdit).toMatch(/user_can_edit_project/i);
@@ -187,11 +231,124 @@ describe("lead-assignment child-scope migration", () => {
     );
     expect(deckEdit).toMatch(/has_permission[\s\S]*?'assigned'/i);
 
-    const deckView = functionBody(source, "private.current_user_can_view_deck_design");
+    const deckView = functionBody(
+      source,
+      "private.current_user_can_view_deck_design"
+    );
     expect(deckView).toMatch(
       /p_opportunity_id is null and p_project_id is null[\s\S]*?deck_builder\.view[\s\S]*?'all'/i
     );
     expect(deckView).toMatch(/deck_builder\.view[\s\S]*?'assigned'/i);
+  });
+
+  it("rejects mismatched dual-parent writes while preserving either authorized parent path", () => {
+    const source = sql();
+    const relationship = functionBody(
+      source,
+      "private.opportunity_project_relationship_is_valid"
+    );
+
+    expect(relationship).toMatch(
+      /from public\.opportunities o[\s\S]*?join public\.projects p/i
+    );
+    expect(relationship).toMatch(
+      /o\.project_ref\s*=\s*p\.id[\s\S]*?o\.project_id\s*=\s*p\.id/i
+    );
+    expect(relationship).toMatch(
+      /p\.opportunity_ref\s*=\s*o\.id[\s\S]*?try_parse_uuid\(p\.opportunity_id\)\s*=\s*o\.id/i
+    );
+
+    for (const helper of [
+      "private.current_user_can_edit_activity",
+      "private.current_user_can_edit_site_visit",
+      "private.current_user_can_edit_deck_design",
+    ]) {
+      const body = functionBody(source, helper);
+      expect(body, helper).toMatch(
+        /p_opportunity_id is not null[\s\S]*?p_project_id is not null[\s\S]*?opportunity_project_relationship_is_valid[\s\S]*?return false/i
+      );
+      expect(body, helper).toMatch(/user_can_edit_opportunity/i);
+      expect(body, helper).toMatch(/user_can_edit_project/i);
+    }
+  });
+
+  it("scopes activity comments through the parent activity for every CRUD operation", () => {
+    const source = sql();
+    const view = functionBody(
+      source,
+      "private.current_user_can_view_activity_comment"
+    );
+    const edit = functionBody(
+      source,
+      "private.current_user_can_edit_activity_comment"
+    );
+
+    expect(view).toMatch(/from public\.activities a/i);
+    expect(view).toMatch(/current_user_can_view_activity/i);
+    expect(edit).toMatch(/from public\.activities a/i);
+    expect(edit).toMatch(/current_user_can_edit_activity/i);
+
+    for (const operation of ["select", "insert", "update", "delete"] as const) {
+      const policy = tablePolicy(
+        source,
+        "activity_comments",
+        `assigned_parent_scope_${operation}`
+      );
+      expect(policy).toMatch(/as restrictive/i);
+      expect(policy).toMatch(
+        operation === "select"
+          ? /current_user_can_view_activity_comment\(company_id, activity_id\)/i
+          : /current_user_can_edit_activity_comment\(company_id, activity_id\)/i
+      );
+      if (operation === "update") {
+        expect(policy).toMatch(/using[\s\S]*?with check/i);
+      }
+    }
+  });
+
+  it("scopes category corrections through their thread and requires actor-owned authorized writes", () => {
+    const source = sql();
+    const view = functionBody(
+      source,
+      "private.current_user_can_view_email_thread_correction"
+    );
+    const edit = functionBody(
+      source,
+      "private.current_user_can_edit_email_thread_correction"
+    );
+
+    expect(view).toMatch(/from public\.email_threads et/i);
+    expect(view).toMatch(/current_user_can_view_email_thread/i);
+    expect(edit).toMatch(/from public\.email_threads et/i);
+    expect(edit).toMatch(/user_can_send_opportunity_inbox/i);
+    expect(edit).toMatch(/user_can_send_inbox_connection/i);
+    expect(source).toMatch(
+      /drop policy if exists corrections_company_scope\s+on public\.email_thread_category_corrections/i
+    );
+
+    const select = tablePolicy(
+      source,
+      "email_thread_category_corrections",
+      "lead_inbox_scope_select"
+    );
+    expect(select).toMatch(
+      /current_user_can_view_email_thread_correction\(company_id, thread_id\)/i
+    );
+
+    for (const operation of ["insert", "update", "delete"] as const) {
+      const policy = tablePolicy(
+        source,
+        "email_thread_category_corrections",
+        `lead_inbox_scope_${operation}`
+      );
+      expect(policy).toMatch(
+        /current_user_can_edit_email_thread_correction\(company_id, thread_id\)/i
+      );
+      expect(policy).toMatch(/user_id\s*=\s*private\.get_current_user_id\(\)/i);
+      if (operation === "update") {
+        expect(policy).toMatch(/using[\s\S]*?with check/i);
+      }
+    }
   });
 
   it("scopes provenance, lifecycle, dispositions, merges, and duplicate reviews without sibling references", () => {
@@ -215,7 +372,9 @@ describe("lead-assignment child-scope migration", () => {
       "opportunity_dispositions",
       "authorized_lead_select"
     );
-    expect(dispositions).toMatch(/current_user_can_view_opportunity\(opportunity_id\)/i);
+    expect(dispositions).toMatch(
+      /current_user_can_view_opportunity\(opportunity_id\)/i
+    );
     expect(dispositions).toMatch(
       /merged_into_opportunity_id is null[\s\S]*?current_user_can_view_opportunity\(merged_into_opportunity_id\)/i
     );
@@ -223,8 +382,13 @@ describe("lead-assignment child-scope migration", () => {
       /converted_project_ref is null[\s\S]*?current_user_can_view_project_reference/i
     );
 
-    const mergeView = functionBody(source, "private.current_user_can_view_opportunity_merge");
-    expect(mergeView).toMatch(/effective_pipeline_scope_for_user[\s\S]*?'pipeline\.view'[\s\S]*?= 'all'/i);
+    const mergeView = functionBody(
+      source,
+      "private.current_user_can_view_opportunity_merge"
+    );
+    expect(mergeView).toMatch(
+      /effective_pipeline_scope_for_user[\s\S]*?'pipeline\.view'[\s\S]*?= 'all'/i
+    );
     expect(mergeView).toMatch(/user_can_view_opportunity[\s\S]*?p_winner_id/i);
     expect(mergeView).toMatch(/user_can_view_opportunity[\s\S]*?p_loser_id/i);
 
@@ -287,13 +451,20 @@ describe("lead-assignment child-scope migration", () => {
 
   it("guards child reparenting with consumed database tokens and only the reviewed merge/review seams", () => {
     const source = sql();
-    const guard = functionBody(source, "private.guard_opportunity_child_reparent");
+    const guard = functionBody(
+      source,
+      "private.guard_opportunity_child_reparent"
+    );
 
-    expect(source).toMatch(/create table private\.opportunity_child_reparent_tokens/i);
+    expect(source).toMatch(
+      /create table private\.opportunity_child_reparent_tokens/i
+    );
     expect(source).toMatch(
       /revoke all on table private\.opportunity_child_reparent_tokens\s+from public, anon, authenticated, service_role/i
     );
-    expect(guard).toMatch(/delete from private\.opportunity_child_reparent_tokens/i);
+    expect(guard).toMatch(
+      /delete from private\.opportunity_child_reparent_tokens/i
+    );
     expect(guard).toMatch(/child_reparent_forbidden/i);
     expect(guard).not.toMatch(/current_setting\(/i);
 
@@ -318,16 +489,27 @@ describe("lead-assignment child-scope migration", () => {
       );
     }
 
-    expect(source).toMatch(/execute_opportunity_merge_guarded_child_scope_internal/i);
-    expect(source).toMatch(/reassign_opportunity_email_thread_guarded_child_scope_internal/i);
-    expect(source).toMatch(/insert into private\.opportunity_child_reparent_tokens/i);
+    expect(source).toMatch(
+      /execute_opportunity_merge_guarded_child_scope_internal/i
+    );
+    expect(source).toMatch(
+      /reassign_opportunity_email_thread_guarded_child_scope_internal/i
+    );
+    expect(source).toMatch(
+      /insert into private\.opportunity_child_reparent_tokens/i
+    );
   });
 
   it("exposes only whitelisted lead context instead of widening raw domain tables", () => {
     const source = sql();
-    const context = functionBody(source, "public.get_opportunity_assigned_context");
+    const context = functionBody(
+      source,
+      "public.get_opportunity_assigned_context"
+    );
 
-    expect(context).toMatch(/current_user_can_view_opportunity\(p_opportunity_id\)/i);
+    expect(context).toMatch(
+      /current_user_can_view_opportunity\(p_opportunity_id\)/i
+    );
     expect(context).toMatch(/from public\.clients/i);
     expect(context).toMatch(/from public\.estimates/i);
     expect(context).toMatch(/e\.opportunity_id = p_opportunity_id/i);
@@ -338,10 +520,16 @@ describe("lead-assignment child-scope migration", () => {
     expect(context).toMatch(/'site_visits'/i);
     expect(context).toMatch(/'deck_designs'/i);
     expect(context).toMatch(/'correspondence'/i);
-    expect(context).not.toMatch(/to_jsonb\(c\)|to_jsonb\(e\)|c\.notes|e\.internal_notes|e\.qb_id|e\.sage_id/i);
+    expect(context).not.toMatch(
+      /to_jsonb\(c\)|to_jsonb\(e\)|c\.notes|e\.internal_notes|e\.qb_id|e\.sage_id/i
+    );
 
-    expect(source).not.toMatch(/create\s+policy[\s\S]*?on\s+public\.(?:clients|estimates|invoices|projects|qbo_estimate_opportunity_links)/i);
-    expect(source).not.toMatch(/(?:grant|revoke)[^;]*on table public\.(?:clients|estimates|invoices|projects|qbo_estimate_opportunity_links)/i);
+    expect(source).not.toMatch(
+      /create\s+policy[\s\S]*?on\s+public\.(?:clients|estimates|invoices|projects|qbo_estimate_opportunity_links)/i
+    );
+    expect(source).not.toMatch(
+      /(?:grant|revoke)[^;]*on table public\.(?:clients|estimates|invoices|projects|qbo_estimate_opportunity_links)/i
+    );
   });
 
   it("returns minimal assignment candidates and exposes unassign only to all scope", () => {
@@ -354,18 +542,34 @@ describe("lead-assignment child-scope migration", () => {
     expect(source).toMatch(
       /create or replace function public\.list_opportunity_assignment_candidates\(\s*p_opportunity_id uuid\s*\) returns jsonb/i
     );
-    expect(candidates).toMatch(/current_user_can_assign_opportunity\(p_opportunity_id\)/i);
-    expect(candidates).toMatch(/effective_pipeline_scope_for_user[\s\S]*?'pipeline\.assign'/i);
+    expect(candidates).toMatch(
+      /current_user_can_assign_opportunity\(p_opportunity_id\)/i
+    );
+    expect(candidates).toMatch(
+      /effective_pipeline_scope_for_user[\s\S]*?'pipeline\.assign'/i
+    );
     expect(candidates).toMatch(/v_scope = 'all'[\s\S]*?'can_unassign'/i);
-    expect(candidates).toMatch(/v_scope = 'assigned'[\s\S]*?archived_at[\s\S]*?stage in \('won', 'lost', 'discarded'\)/i);
+    expect(candidates).toMatch(
+      /v_scope = 'assigned'[\s\S]*?archived_at[\s\S]*?stage in \('won', 'lost', 'discarded'\)/i
+    );
     expect(candidates).toMatch(/u\.company_id = v_opportunity\.company_id/i);
     expect(candidates).toMatch(/u\.deleted_at is null/i);
     expect(candidates).toMatch(/coalesce\(u\.is_active, false\)/i);
-    expect(candidates).toMatch(/public\.has_permission\([\s\S]*?'pipeline\.view'[\s\S]*?'assigned'/i);
-    for (const field of ["id", "first_name", "last_name", "profile_image_url", "user_color"]) {
+    expect(candidates).toMatch(
+      /public\.has_permission\([\s\S]*?'pipeline\.view'[\s\S]*?'assigned'/i
+    );
+    for (const field of [
+      "id",
+      "first_name",
+      "last_name",
+      "profile_image_url",
+      "user_color",
+    ]) {
       expect(candidates).toMatch(new RegExp(`'${field}'`, "i"));
     }
-    expect(candidates).not.toMatch(/u\.email|mailbox|team_member_ids|project_tasks/i);
+    expect(candidates).not.toMatch(
+      /u\.email|mailbox|team_member_ids|project_tasks/i
+    );
     expect(source).toMatch(
       /revoke all on function public\.list_opportunity_assignment_candidates\(uuid\)\s+from public, anon, authenticated, service_role[\s\S]*?grant execute on function public\.list_opportunity_assignment_candidates\(uuid\)\s+to anon, authenticated/i
     );
