@@ -747,6 +747,135 @@ values (
   )
 );
 
+-- The prior assignee retains assigned-scope capabilities but loses row access
+-- immediately after handoff. Neither the assignment nor conversion facade may
+-- authorize against the stale responsibility snapshot.
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object(
+    'role', 'authenticated',
+    'sub', '1ead5519-0000-4000-8000-000000000901',
+    'email', 'lead-contract-assigned@example.invalid'
+  )::text,
+  true
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '1ead5519-0000-4000-8000-000000000901',
+  true
+);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'prior_assignee_retains_capability_but_not_lead_access',
+  private.current_user_scope_for('pipeline.assign') = 'assigned'
+  and private.current_user_scope_for('pipeline.convert') = 'assigned'
+);
+
+do $contract$
+begin
+  begin
+    perform public.change_opportunity_assignment(
+      '1ead5519-0000-4000-8000-000000000501',
+      2,
+      '1ead5519-0000-4000-8000-000000000103',
+      '1ead5519-0000-4000-8000-000000000101',
+      'manual',
+      null,
+      '{"contract_case":"prior_assignee_reassignment"}'::jsonb
+    );
+    insert into lead_assignment_contract_results values (
+      'prior_assignee_guarded_reassignment_denied',
+      false,
+      'call unexpectedly succeeded'
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'prior_assignee_guarded_reassignment_denied',
+        sqlerrm = 'access_denied',
+        sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'prior_assignee_guarded_reassignment_denied',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    perform public.convert_opportunity_to_project(
+      p_company_id => '1ead5519-0000-4000-8000-000000000001',
+      p_opportunity_id => '1ead5519-0000-4000-8000-000000000501',
+      p_expected_stage => 'qualifying',
+      p_decided_by => '1ead5519-0000-4000-8000-000000000101',
+      p_source_path => 'lead_assignment_sql_contract_lost_access',
+      p_evidence => '{"contract_case":"prior_assignee_conversion"}'::jsonb,
+      p_expected_assignment_version => 2
+    );
+    insert into lead_assignment_contract_results values (
+      'prior_assignee_conversion_denied',
+      false,
+      'call unexpectedly succeeded'
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'prior_assignee_conversion_denied',
+        sqlerrm = 'access_denied',
+        sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'prior_assignee_conversion_denied',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+end;
+$contract$;
+
+reset role;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'prior_assignee_denials_leave_lead_and_history_unchanged',
+  exists (
+    select 1
+    from public.opportunities o
+    where o.id = '1ead5519-0000-4000-8000-000000000501'
+      and o.assigned_to = '1ead5519-0000-4000-8000-000000000103'
+      and o.assignment_version = 2
+      and o.stage = 'qualifying'
+      and o.project_ref is null
+      and o.project_id is null
+  )
+  and (
+    select count(*) = 2
+    from public.opportunity_assignment_events e
+    where e.opportunity_id = '1ead5519-0000-4000-8000-000000000501'
+  )
+  and (
+    select count(*) = 3
+    from public.opportunity_assignment_deliveries d
+    where d.opportunity_id = '1ead5519-0000-4000-8000-000000000501'
+  )
+  and not exists (
+    select 1
+    from public.opportunity_conversion_events e
+    where e.opportunity_id = '1ead5519-0000-4000-8000-000000000501'
+  )
+  and not exists (
+    select 1
+    from public.projects p
+    where p.opportunity_ref = '1ead5519-0000-4000-8000-000000000501'
+       or p.opportunity_id = '1ead5519-0000-4000-8000-000000000501'
+  )
+);
+
 -- All-scope callers may correct terminal responsibility and unassign. Their
 -- ordinary table writes still cannot bypass the guarded assignment core.
 select set_config(
@@ -806,6 +935,30 @@ begin
         sqlstate || ': ' || sqlerrm
       );
   end;
+
+  begin
+    update public.opportunities
+       set assigned_to = '1ead5519-0000-4000-8000-000000000101'
+     where id = '1ead5519-0000-4000-8000-000000000501';
+    insert into lead_assignment_contract_results values (
+      'raw_authenticated_assigned_to_only_write_rejected',
+      false,
+      'update unexpectedly succeeded'
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'raw_authenticated_assigned_to_only_write_rejected',
+        sqlerrm = 'assignment_write_forbidden',
+        sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'raw_authenticated_assigned_to_only_write_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
 end;
 $contract$;
 
@@ -859,6 +1012,30 @@ begin
     when others then
       insert into lead_assignment_contract_results values (
         'raw_service_role_assignment_version_write_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
+    update public.opportunities
+       set assigned_to = '1ead5519-0000-4000-8000-000000000101'
+     where id = '1ead5519-0000-4000-8000-000000000501';
+    insert into lead_assignment_contract_results values (
+      'raw_service_role_assigned_to_only_write_rejected',
+      false,
+      'update unexpectedly succeeded'
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'raw_service_role_assigned_to_only_write_rejected',
+        sqlerrm = 'assignment_write_forbidden',
+        sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'raw_service_role_assigned_to_only_write_rejected',
         false,
         sqlstate || ': ' || sqlerrm
       );
