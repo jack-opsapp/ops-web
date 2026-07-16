@@ -790,7 +790,6 @@ async function runImport(
             contactEmail: lead.clientEmail,
             contactPhone: lead.clientPhone,
             description: lead.description,
-            assignedTo: null,
             priority: null,
             estimatedValue: lead.estimatedValue,
             actualValue:

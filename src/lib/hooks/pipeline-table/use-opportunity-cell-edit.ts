@@ -23,7 +23,7 @@
  *
  * Editable columns are SAFE fields only: `value` (estimatedValue), `client`
  * (clientId), `next_follow_up` (nextFollowUpAt), `expected_close`
- * (expectedCloseDate), `assignee` (assignedTo). Stage is NOT edited here —
+ * (expectedCloseDate). Assignment uses the guarded assignment mutation. Stage is NOT edited here —
  * stage changes route through the Won/Lost dialogs (a later phase).
  */
 
@@ -53,7 +53,10 @@ const SAVED_RESET_MS = 1_500;
 
 let undoEntryCounter = 0;
 
-function cellStateKey(rowId: string, columnId: PipelineTableEditableColumnId): string {
+function cellStateKey(
+  rowId: string,
+  columnId: PipelineTableEditableColumnId
+): string {
   return `${rowId}:${columnId}`;
 }
 
@@ -88,7 +91,7 @@ function toEstimatedValue(value: PipelineTableEditValue): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-/** Coerce an edit value into a nullable entity id (client / assignee). Empty string clears. */
+/** Coerce an edit value into a nullable entity id. Empty string clears. */
 function toNullableId(value: PipelineTableEditValue): string | null {
   if (value == null) return null;
   const text = String(value).trim();
@@ -103,11 +106,10 @@ function toNullableId(value: PipelineTableEditValue): string | null {
  *   client         → clientId (string | null)
  *   next_follow_up → nextFollowUpAt (Date | null, parsed from ISO)
  *   expected_close → expectedCloseDate (Date | null, parsed from ISO)
- *   assignee       → assignedTo (string | null)
  */
 export function mapEditToUpdate(
   columnId: PipelineTableEditableColumnId,
-  value: PipelineTableEditValue,
+  value: PipelineTableEditValue
 ): Partial<UpdateOpportunity> {
   switch (columnId) {
     case "value":
@@ -118,8 +120,6 @@ export function mapEditToUpdate(
       return { nextFollowUpAt: isoToDate(value) };
     case "expected_close":
       return { expectedCloseDate: isoToDate(value) };
-    case "assignee":
-      return { assignedTo: toNullableId(value) };
   }
 }
 
@@ -130,7 +130,7 @@ export function mapEditToUpdate(
  */
 export function getRowEditValue(
   row: PipelineTableRow,
-  columnId: PipelineTableEditableColumnId,
+  columnId: PipelineTableEditableColumnId
 ): PipelineTableEditValue {
   switch (columnId) {
     case "value":
@@ -141,19 +141,20 @@ export function getRowEditValue(
       return row.nextFollowUpAt;
     case "expected_close":
       return row.expectedCloseDate;
-    case "assignee":
-      return row.assignedTo;
   }
 }
 
 /** Diff two edit values. Dates compare as ISO strings, the rest by identity. */
-function valuesEqual(left: PipelineTableEditValue, right: PipelineTableEditValue): boolean {
+function valuesEqual(
+  left: PipelineTableEditValue,
+  right: PipelineTableEditValue
+): boolean {
   return left === right;
 }
 
 function pushUndoEntry(
   entries: OpportunityCellUndoEntry[],
-  entry: OpportunityCellUndoEntry,
+  entry: OpportunityCellUndoEntry
 ): OpportunityCellUndoEntry[] {
   return [...entries, entry].slice(-UNDO_STACK_LIMIT);
 }
@@ -162,9 +163,9 @@ export function useOpportunityCellEdit({ rows }: { rows: PipelineTableRow[] }) {
   const updateOpportunity = useUpdateOpportunity();
   const { mutateAsync } = updateOpportunity;
 
-  const [saveStates, setSaveStates] = useState<Map<string, OpportunityCellSaveState>>(
-    () => new Map(),
-  );
+  const [saveStates, setSaveStates] = useState<
+    Map<string, OpportunityCellSaveState>
+  >(() => new Map());
   const [undoStack, setUndoStack] = useState<OpportunityCellUndoEntry[]>([]);
   const [visibleUndoId, setVisibleUndoId] = useState<string | null>(null);
 
@@ -176,7 +177,9 @@ export function useOpportunityCellEdit({ rows }: { rows: PipelineTableRow[] }) {
   }, [rows]);
 
   // Per-cell "saved → idle" reset timers, cleared on unmount.
-  const savedTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const savedTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
   useEffect(() => {
     const timers = savedTimersRef.current;
     return () => {
@@ -186,7 +189,11 @@ export function useOpportunityCellEdit({ rows }: { rows: PipelineTableRow[] }) {
   }, []);
 
   const setCellSaveState = useCallback(
-    (rowId: string, columnId: PipelineTableEditableColumnId, state: OpportunityCellSaveState) => {
+    (
+      rowId: string,
+      columnId: PipelineTableEditableColumnId,
+      state: OpportunityCellSaveState
+    ) => {
       const key = cellStateKey(rowId, columnId);
 
       // Any new state supersedes a pending "saved → idle" timer.
@@ -219,13 +226,13 @@ export function useOpportunityCellEdit({ rows }: { rows: PipelineTableRow[] }) {
         savedTimersRef.current.set(key, timer);
       }
     },
-    [],
+    []
   );
 
   const findRow = useCallback(
     (rowId: string): PipelineTableRow | null =>
       rowsRef.current.find((row) => row.id === rowId) ?? null,
-    [],
+    []
   );
 
   const runSave = useCallback(
@@ -255,7 +262,9 @@ export function useOpportunityCellEdit({ rows }: { rows: PipelineTableRow[] }) {
       if (valuesEqual(previousValue, value)) {
         setCellSaveState(rowId, columnId, "idle");
         if (consumeUndoEntryId) {
-          setUndoStack((current) => current.filter((entry) => entry.id !== consumeUndoEntryId));
+          setUndoStack((current) =>
+            current.filter((entry) => entry.id !== consumeUndoEntryId)
+          );
         }
         return;
       }
@@ -264,7 +273,10 @@ export function useOpportunityCellEdit({ rows }: { rows: PipelineTableRow[] }) {
 
       try {
         // useUpdateOpportunity owns the optimistic cache patch + rollback.
-        await mutateAsync({ id: rowId, data: mapEditToUpdate(columnId, value) });
+        await mutateAsync({
+          id: rowId,
+          data: mapEditToUpdate(columnId, value),
+        });
 
         setCellSaveState(rowId, columnId, "saved");
 
@@ -282,23 +294,25 @@ export function useOpportunityCellEdit({ rows }: { rows: PipelineTableRow[] }) {
         }
 
         if (consumeUndoEntryId) {
-          setUndoStack((current) => current.filter((entry) => entry.id !== consumeUndoEntryId));
+          setUndoStack((current) =>
+            current.filter((entry) => entry.id !== consumeUndoEntryId)
+          );
         }
       } catch {
         // Cache rollback already happened inside useUpdateOpportunity's onError.
         setCellSaveState(rowId, columnId, "error");
       }
     },
-    [findRow, mutateAsync, setCellSaveState],
+    [findRow, mutateAsync, setCellSaveState]
   );
 
   const commitEdit = useCallback(
     (
       rowId: string,
       columnId: PipelineTableEditableColumnId,
-      value: PipelineTableEditValue,
+      value: PipelineTableEditValue
     ): Promise<void> => runSave({ rowId, columnId, value, recordUndo: true }),
-    [runSave],
+    [runSave]
   );
 
   const undoLatest = useCallback(async (): Promise<void> => {
@@ -320,7 +334,7 @@ export function useOpportunityCellEdit({ rows }: { rows: PipelineTableRow[] }) {
   }, []);
 
   const latestUndo = visibleUndoId
-    ? undoStack.find((entry) => entry.id === visibleUndoId) ?? null
+    ? (undoStack.find((entry) => entry.id === visibleUndoId) ?? null)
     : null;
 
   return {

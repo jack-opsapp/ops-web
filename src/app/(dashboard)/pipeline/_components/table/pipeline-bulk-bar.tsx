@@ -7,10 +7,10 @@ import {
   bulkResultToast,
   usePipelineBulkActions,
 } from "@/lib/hooks/pipeline-table/use-pipeline-bulk-actions";
-import { useTeamMembers } from "@/lib/hooks/use-users";
-import { getUserFullName } from "@/lib/types/models";
+import { useLeadAssignmentCandidates } from "@/lib/hooks/use-lead-assignment";
 import { OpportunityPriority } from "@/lib/types/pipeline";
 import type { PipelineTableRow } from "@/lib/types/pipeline-table";
+import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -20,15 +20,14 @@ import { cn } from "@/lib/utils/cn";
  * a clear-selection control), but offers PIPELINE-appropriate, side-effect-free
  * batch operations:
  *
- *   - Reassign owner   → bulk `assignedTo`
+ *   - Reassign assignee → guarded bulk assignment
  *   - Set follow-up    → bulk `nextFollowUpAt`
  *   - Change priority  → bulk `priority`
  *   - Archive          → bulk archive
  *
- * Each action is optimistic (the underlying per-row mutation patches the cache),
- * clears the selection on completion, and pushes a SINGLE undo entry to the
- * global undo store (surfacing in the top-bar Undo affordance + ⌘Z) that
- * restores every affected row's prior value.
+ * Field/archive actions are optimistic and undoable. Reassignment is the
+ * deliberate exception: every row uses an exact guarded snapshot, reconciles
+ * the server result, and has no unsafe inverse write.
  *
  * STAGE CHANGES ARE DELIBERATELY ABSENT.
  * Marking deals Won/Lost is terminal and must capture per-deal details
@@ -43,10 +42,14 @@ import { cn } from "@/lib/utils/cn";
  * adds. Both are intentional, documented scope decisions, not stubs.
  */
 
-function formatText(template: string, replacements: Record<string, string | number>) {
+function formatText(
+  template: string,
+  replacements: Record<string, string | number>
+) {
   return Object.entries(replacements).reduce(
-    (value, [key, replacement]) => value.replaceAll(`{${key}}`, String(replacement)),
-    template,
+    (value, [key, replacement]) =>
+      value.replaceAll(`{${key}}`, String(replacement)),
+    template
   );
 }
 
@@ -71,7 +74,7 @@ function BulkButton({
         "font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors",
         "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         "disabled:pointer-events-none disabled:opacity-40",
-        className,
+        className
       )}
     >
       {children}
@@ -85,9 +88,12 @@ const PRIORITY_OPTIONS = [
   { value: OpportunityPriority.High, labelKey: "table.bulk.priorityHigh" },
 ] as const;
 
+const UNASSIGN_VALUE = "__unassigned__";
+
 export function PipelineBulkBar({
   selectedRows,
   selectedIds,
+  leadAccessById,
   renderedRowCount,
   allRenderedSelected,
   onClearSelection,
@@ -97,6 +103,8 @@ export function PipelineBulkBar({
   selectedRows: PipelineTableRow[];
   /** The live selection set (owned by the shell's `useTableSelection`). */
   selectedIds: Set<string>;
+  /** Row-specific access; assignment is shown only when every target allows it. */
+  leadAccessById: ReadonlyMap<string, LeadAccess>;
   /** How many data rows are currently rendered (collapse-aware) — the "select all N" count. */
   renderedRowCount: number;
   /** True when every rendered data row is already selected (hides the select-all affordance). */
@@ -108,19 +116,25 @@ export function PipelineBulkBar({
 }) {
   const { t } = useDictionary("pipeline");
 
-  const [priority, setPriority] = useState<OpportunityPriority>(OpportunityPriority.High);
+  const [priority, setPriority] = useState<OpportunityPriority>(
+    OpportunityPriority.High
+  );
   const [followUpDate, setFollowUpDate] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignUserId, setAssignUserId] = useState("");
 
   const undoLabels = useMemo(
     () => ({
-      reassign: (count: number) => formatText(t("table.bulk.undoReassign"), { count }),
-      followUp: (count: number) => formatText(t("table.bulk.undoFollowUp"), { count }),
-      priority: (count: number) => formatText(t("table.bulk.undoPriority"), { count }),
-      archive: (count: number) => formatText(t("table.bulk.undoArchive"), { count }),
+      reassign: (count: number) =>
+        formatText(t("table.bulk.undoReassign"), { count }),
+      followUp: (count: number) =>
+        formatText(t("table.bulk.undoFollowUp"), { count }),
+      priority: (count: number) =>
+        formatText(t("table.bulk.undoPriority"), { count }),
+      archive: (count: number) =>
+        formatText(t("table.bulk.undoArchive"), { count }),
     }),
-    [t],
+    [t]
   );
 
   const bulkActions = usePipelineBulkActions({
@@ -133,29 +147,42 @@ export function PipelineBulkBar({
   const targetRows = bulkActions.targetRows;
   const selectedCount = targetRows.length;
   const disabled = bulkActions.isRunning || selectedCount === 0;
+  const canBulkAssign =
+    selectedCount > 0 &&
+    targetRows.every((row) => leadAccessById.get(row.id)?.canAssign === true);
+  const canBulkUnassign =
+    canBulkAssign &&
+    targetRows.every((row) => leadAccessById.get(row.id)?.canUnassign === true);
 
   const selectedCountLabel = useMemo(
     () => formatText(t("table.bulk.selectedCount"), { count: selectedCount }),
-    [selectedCount, t],
+    [selectedCount, t]
   );
 
   const selectAllLabel = useMemo(
     () => formatText(t("table.bulk.selectAll"), { count: renderedRowCount }),
-    [renderedRowCount, t],
+    [renderedRowCount, t]
   );
 
-  // The owner picker only fetches the team once it's opened.
-  const teamMembersQuery = useTeamMembers(undefined, { enabled: assignOpen });
-  const teamMembers = useMemo(() => {
-    const users = teamMembersQuery.data?.users ?? [];
-    return users
-      .filter((user) => user.isActive !== false)
-      .map((user) => ({ id: user.id, name: getUserFullName(user) }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [teamMembersQuery.data]);
+  // Candidate eligibility comes from the guarded server contract. All selected
+  // rows belong to the same company, so the eligible-user set is identical;
+  // every row is still independently authorized by the assignment mutation.
+  const candidatesQuery = useLeadAssignmentCandidates(
+    targetRows[0]?.id ?? "",
+    assignOpen && canBulkAssign
+  );
+  const assignmentCandidates = candidatesQuery.data?.candidates ?? [];
+  const canOfferUnassign =
+    canBulkUnassign && candidatesQuery.data?.canUnassign === true;
+  const canApplyAssignment =
+    !bulkActions.isRunning &&
+    assignUserId !== "" &&
+    (assignUserId !== UNASSIGN_VALUE || canOfferUnassign);
 
   const handleReassign = useCallback(() => {
-    void bulkActions.reassignOwner(assignUserId).then((result) => {
+    if (!canApplyAssignment) return;
+    const nextAssignee = assignUserId === UNASSIGN_VALUE ? "" : assignUserId;
+    void bulkActions.reassignAssignee(nextAssignee).then((result) => {
       bulkResultToast({
         result,
         successMessage: (count) =>
@@ -171,7 +198,7 @@ export function PipelineBulkBar({
     });
     setAssignOpen(false);
     setAssignUserId("");
-  }, [assignUserId, bulkActions, t]);
+  }, [assignUserId, bulkActions, canApplyAssignment, t]);
 
   const handleSetFollowUp = useCallback(() => {
     void bulkActions.setFollowUpDate(followUpDate).then((result) => {
@@ -212,7 +239,8 @@ export function PipelineBulkBar({
     void bulkActions.archive().then((result) => {
       bulkResultToast({
         result,
-        successMessage: (count) => formatText(t("table.bulk.archiveDone"), { count }),
+        successMessage: (count) =>
+          formatText(t("table.bulk.archiveDone"), { count }),
         partialMessage: (success, total) =>
           formatText(t("table.bulk.partialFailure"), {
             success,
@@ -248,12 +276,19 @@ export function PipelineBulkBar({
         ) : null}
 
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-          <BulkButton disabled={disabled} onClick={() => setAssignOpen((open) => !open)}>
-            <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
-            {t("table.bulk.reassign")}
-          </BulkButton>
+          {canBulkAssign ? (
+            <>
+              <BulkButton
+                disabled={disabled}
+                onClick={() => setAssignOpen((open) => !open)}
+              >
+                <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
+                {t("table.bulk.reassign")}
+              </BulkButton>
 
-          <div className="h-6 w-px shrink-0 bg-border" />
+              <div className="h-6 w-px shrink-0 bg-border" />
+            </>
+          ) : null}
 
           <input
             type="date"
@@ -274,7 +309,9 @@ export function PipelineBulkBar({
             aria-label={t("table.bulk.changePriority")}
             value={priority}
             disabled={disabled}
-            onChange={(event) => setPriority(event.target.value as OpportunityPriority)}
+            onChange={(event) =>
+              setPriority(event.target.value as OpportunityPriority)
+            }
             className="h-[32px] shrink-0 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           >
             {PRIORITY_OPTIONS.map((option) => (
@@ -306,24 +343,31 @@ export function PipelineBulkBar({
         </BulkButton>
       </div>
 
-      {assignOpen ? (
+      {assignOpen && canBulkAssign ? (
         <div className="glass-dense absolute bottom-[calc(100%+8px)] left-3 z-[1500] flex min-w-[320px] max-w-[calc(100%-24px)] items-center gap-2 rounded-modal p-2">
           <select
             aria-label={t("table.bulk.reassign")}
             value={assignUserId}
-            disabled={teamMembersQuery.isLoading || bulkActions.isRunning}
+            disabled={candidatesQuery.isLoading || bulkActions.isRunning}
             onChange={(event) => setAssignUserId(event.target.value)}
             className="h-[32px] min-w-[200px] flex-1 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
           >
-            <option value="">{t("table.bulk.unassign")}</option>
-            {teamMembers.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.name}
+            <option value="" disabled>
+              {t("table.bulk.selectAssignee")}
+            </option>
+            {canOfferUnassign ? (
+              <option value={UNASSIGN_VALUE}>{t("table.bulk.unassign")}</option>
+            ) : null}
+            {assignmentCandidates.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {[candidate.firstName, candidate.lastName]
+                  .filter(Boolean)
+                  .join(" ") || t("band.unknownAssignee")}
               </option>
             ))}
           </select>
 
-          <BulkButton disabled={bulkActions.isRunning} onClick={handleReassign}>
+          <BulkButton disabled={!canApplyAssignment} onClick={handleReassign}>
             <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
             {t("table.bulk.reassign")}
           </BulkButton>

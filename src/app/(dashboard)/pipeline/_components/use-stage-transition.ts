@@ -24,7 +24,7 @@
  *     if the deal is already linked, "Open project" just deep-links to it.
  *
  * Won uses the canonical granular convert gate (with bounded legacy fallback);
- * other stage mutations retain `pipeline.manage`. The same-stage no-op,
+ * other stage mutations use the canonical granular edit gate. The same-stage no-op,
  * Won→dialog / Lost→dialog routing, and undo `inverseFn` are shared so the
  * board and table never drift.
  */
@@ -72,7 +72,7 @@ export interface UseStageTransitionArgs {
 export interface UseStageTransitionResult {
   /**
    * Request a stage change for `id` to `newStage`. Won requires canonical
-   * convert access; other moves require `pipeline.manage`. A same-stage request
+   * convert access; other moves require granular edit access. A same-stage request
    * is a no-op. Won / Lost open the terminal dialog; other stages move directly.
    */
   requestStageChange: (id: string, newStage: OpportunityStage) => void;

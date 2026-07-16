@@ -49,7 +49,7 @@ function toIso(value: Date | string | null): string | null {
  */
 export function weightedValue(
   estimatedValue: number | null,
-  winProbabilityPercent: number | null,
+  winProbabilityPercent: number | null
 ): number | null {
   if (estimatedValue === null) return null;
   return (estimatedValue * (winProbabilityPercent ?? 0)) / 100;
@@ -61,7 +61,7 @@ export function weightedValue(
  */
 export function ageInStageDays(
   stageEnteredAt: Date | string | null,
-  now: Date,
+  now: Date
 ): number | null {
   const entered = toDate(stageEnteredAt);
   if (entered === null) return null;
@@ -86,7 +86,7 @@ export function ageInStageDays(
  */
 export function resolveWinProbability(
   opp: Pick<Opportunity, "stage" | "winProbability">,
-  stageConfig: PipelineStageConfig | undefined,
+  stageConfig: PipelineStageConfig | undefined
 ): { value: number; isFallback: boolean } {
   if (typeof opp.winProbability === "number" && opp.winProbability > 0) {
     return { value: opp.winProbability, isFallback: false };
@@ -98,7 +98,7 @@ export function resolveWinProbability(
   }
 
   const constantDefault = PIPELINE_STAGES_DEFAULT.find(
-    (s) => s.slug === opp.stage,
+    (s) => s.slug === opp.stage
   )?.winProbability;
 
   return { value: constantDefault ?? 0, isFallback: true };
@@ -110,7 +110,7 @@ export function resolveWinProbability(
  */
 export function isRotting(
   ageInStageDaysValue: number | null,
-  staleThresholdDays: number | null,
+  staleThresholdDays: number | null
 ): boolean {
   if (ageInStageDaysValue === null || staleThresholdDays === null) return false;
   return ageInStageDaysValue >= staleThresholdDays;
@@ -122,7 +122,7 @@ export function isRotting(
  */
 export function isSevereRotting(
   ageInStageDaysValue: number | null,
-  staleThresholdDays: number | null,
+  staleThresholdDays: number | null
 ): boolean {
   if (ageInStageDaysValue === null || staleThresholdDays === null) return false;
   return ageInStageDaysValue >= 2 * staleThresholdDays;
@@ -136,7 +136,7 @@ export function isSevereRotting(
 export function isFollowUpOverdue(
   nextFollowUpAt: Date | string | null,
   stage: OpportunityStage,
-  now: Date,
+  now: Date
 ): boolean {
   const due = toDate(nextFollowUpAt);
   if (due === null) return false;
@@ -151,7 +151,7 @@ export function isFollowUpOverdue(
 export function isCloseOverdue(
   expectedCloseDate: Date | string | null,
   stage: OpportunityStage,
-  now: Date,
+  now: Date
 ): boolean {
   const close = toDate(expectedCloseDate);
   if (close === null) return false;
@@ -174,7 +174,7 @@ export function isCloseOverdue(
  * only.
  */
 export function canConvertOpportunity(
-  row: Pick<PipelineTableRow, "stage" | "projectId">,
+  row: Pick<PipelineTableRow, "stage" | "projectId">
 ): boolean {
   return row.stage === OpportunityStage.Won && row.projectId === null;
 }
@@ -197,14 +197,14 @@ export interface MapOpportunityToTableRowArgs {
  */
 export function mapOpportunityToTableRow(
   opp: Opportunity,
-  args: MapOpportunityToTableRowArgs,
+  args: MapOpportunityToTableRowArgs
 ): PipelineTableRow {
   const { clientNameMap, assigneeNameMap, stageConfigBySlug, now } = args;
 
   const stageConfig = stageConfigBySlug.get(opp.stage);
   const { value: winProbabilityResolved, isFallback } = resolveWinProbability(
     opp,
-    stageConfig,
+    stageConfig
   );
 
   return {
@@ -214,7 +214,7 @@ export function mapOpportunityToTableRow(
     stage: opp.stage,
     clientId: opp.clientId,
     clientName:
-      opp.clientId !== null ? clientNameMap.get(opp.clientId) ?? null : null,
+      opp.clientId !== null ? (clientNameMap.get(opp.clientId) ?? null) : null,
     estimatedValue: opp.estimatedValue,
     winProbability: winProbabilityResolved,
     weightedValue: weightedValue(opp.estimatedValue, winProbabilityResolved),
@@ -223,9 +223,10 @@ export function mapOpportunityToTableRow(
     nextFollowUpAt: toIso(opp.nextFollowUpAt),
     expectedCloseDate: toIso(opp.expectedCloseDate),
     assignedTo: opp.assignedTo,
+    assignmentVersion: opp.assignmentVersion,
     assigneeName:
       opp.assignedTo !== null
-        ? assigneeNameMap.get(opp.assignedTo) ?? null
+        ? (assigneeNameMap.get(opp.assignedTo) ?? null)
         : null,
     source: opp.source ?? null,
     priority: opp.priority ?? null,

@@ -183,6 +183,7 @@ function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
     stage,
     source: null,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: null,
     estimatedValue: null,
     actualValue: null,
@@ -220,11 +221,25 @@ function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
 }
 
 function renderFocusedShell(opportunities: Opportunity[]) {
+  const leadAccessById = new Map(
+    opportunities.map((opportunity) => [
+      opportunity.id,
+      {
+        canView: true,
+        canEdit: true,
+        canAssign: true,
+        canUnassign: true,
+        canConvert: true,
+      },
+    ])
+  );
   return render(
     <PipelineFocusedShell
       opportunities={opportunities}
       clientNameMap={new Map()}
       canManage={true}
+      canCreateLead
+      leadAccessById={leadAccessById}
       filtersActive={false}
       dragAnnouncement=""
       onAddLead={vi.fn()}
@@ -819,6 +834,21 @@ describe("<PipelineFocusedShell>", () => {
         opportunities={[makeOpportunity("opp-1", OpportunityStage.NewLead)]}
         clientNameMap={new Map()}
         canManage={true}
+        canCreateLead
+        leadAccessById={
+          new Map([
+            [
+              "opp-1",
+              {
+                canView: true,
+                canEdit: true,
+                canAssign: true,
+                canUnassign: true,
+                canConvert: true,
+              },
+            ],
+          ])
+        }
         filtersActive={false}
         dragAnnouncement="Drag: Quoted stage. Press Space to drop."
         onAddLead={vi.fn()}

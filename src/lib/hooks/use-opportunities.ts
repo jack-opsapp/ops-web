@@ -21,7 +21,7 @@ import {
 import type { ConversionPreflight } from "../api/services/project-conversion-service";
 import type {
   Opportunity,
-  CreateOpportunity,
+  ManualCreateOpportunity,
   UpdateOpportunity,
   Activity,
   CreateActivity,
@@ -36,6 +36,10 @@ import {
   selectCanConvertOpportunity,
   usePermissionStore,
 } from "../store/permissions-store";
+import {
+  effectivePipelineScope,
+  getLeadAccess,
+} from "../permissions/lead-access-policy";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -48,16 +52,33 @@ export function useOpportunities(
 ) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
-  const canView = usePermissionStore((s) => s.can("pipeline.view"));
+  const actorUserId = useAuthStore((state) => state.currentUser?.id ?? null);
+  const permissionState = usePermissionStore();
+  const viewScope = effectivePipelineScope(permissionState, "pipeline.view");
+  const callerEnabled = queryOptions?.enabled ?? true;
 
   return useQuery({
-    queryKey: queryKeys.opportunities.list(
-      companyId,
-      options as Record<string, unknown>
-    ),
-    queryFn: () => OpportunityService.fetchOpportunities(companyId, options),
-    enabled: !!companyId && canView,
     ...queryOptions,
+    queryKey: queryKeys.opportunities.list(companyId, {
+      ...(options ? (options as Record<string, unknown>) : {}),
+      access: { actorUserId, viewScope },
+    }),
+    queryFn: async () => {
+      const opportunities = await OpportunityService.fetchOpportunities(
+        companyId,
+        options
+      );
+      return opportunities.filter(
+        (opportunity) =>
+          getLeadAccess(permissionState, actorUserId, opportunity).canView
+      );
+    },
+    enabled:
+      callerEnabled &&
+      !!companyId &&
+      actorUserId !== null &&
+      viewScope !== null,
+    placeholderData: undefined,
   });
 }
 
@@ -68,11 +89,33 @@ export function useOpportunity(
   id: string | undefined,
   queryOptions?: Partial<UseQueryOptions<Opportunity>>
 ) {
+  const companyId = useAuthStore((state) => state.company?.id ?? "");
+  const actorUserId = useAuthStore((state) => state.currentUser?.id ?? null);
+  const permissionState = usePermissionStore();
+  const viewScope = effectivePipelineScope(permissionState, "pipeline.view");
+  const callerEnabled = queryOptions?.enabled ?? true;
+
   return useQuery({
-    queryKey: queryKeys.opportunities.detail(id ?? ""),
-    queryFn: () => OpportunityService.fetchOpportunity(id!),
-    enabled: !!id,
     ...queryOptions,
+    queryKey: queryKeys.opportunities.detail(id ?? "", {
+      companyId,
+      actorUserId,
+      viewScope,
+    }),
+    queryFn: async () => {
+      const opportunity = await OpportunityService.fetchOpportunity(id!);
+      if (!getLeadAccess(permissionState, actorUserId, opportunity).canView) {
+        throw new Error("Opportunity unavailable");
+      }
+      return opportunity;
+    },
+    enabled:
+      callerEnabled &&
+      !!id &&
+      !!companyId &&
+      actorUserId !== null &&
+      viewScope !== null,
+    placeholderData: undefined,
   });
 }
 
@@ -130,8 +173,8 @@ export function useCreateOpportunity() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: CreateOpportunity) =>
-      OpportunityService.createOpportunity(data),
+    mutationFn: (data: ManualCreateOpportunity) =>
+      OpportunityService.createManualOpportunity(data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.opportunities.lists(),
@@ -165,20 +208,18 @@ export function useUpdateOpportunity() {
       });
 
       // Snapshot the previous value
-      const previousOpportunity = queryClient.getQueryData<Opportunity>(
-        queryKeys.opportunities.detail(id)
-      );
+      const previousDetails = queryClient.getQueriesData<Opportunity>({
+        queryKey: queryKeys.opportunities.detail(id),
+      });
       const previousLists = queryClient.getQueriesData<Opportunity[]>({
         queryKey: queryKeys.opportunities.lists(),
       });
 
       // Optimistically update the detail cache
-      if (previousOpportunity) {
-        queryClient.setQueryData(queryKeys.opportunities.detail(id), {
-          ...previousOpportunity,
-          ...data,
-        });
-      }
+      queryClient.setQueriesData<Opportunity>(
+        { queryKey: queryKeys.opportunities.detail(id) },
+        (old) => (old ? { ...old, ...data } : old)
+      );
 
       queryClient.setQueriesData<Opportunity[]>(
         { queryKey: queryKeys.opportunities.lists() },
@@ -190,16 +231,15 @@ export function useUpdateOpportunity() {
         }
       );
 
-      return { previousOpportunity, previousLists };
+      return { previousDetails, previousLists };
     },
 
     onError: (_err, { id }, context) => {
       // Roll back on error
-      if (context?.previousOpportunity) {
-        queryClient.setQueryData(
-          queryKeys.opportunities.detail(id),
-          context.previousOpportunity
-        );
+      if (context?.previousDetails) {
+        for (const [queryKey, data] of context.previousDetails) {
+          queryClient.setQueryData(queryKey, data);
+        }
       }
       if (context?.previousLists) {
         for (const [queryKey, data] of context.previousLists) {
@@ -231,8 +271,8 @@ function writeOpportunityThrough(
   id: string,
   server: Opportunity
 ) {
-  queryClient.setQueryData<Opportunity>(
-    queryKeys.opportunities.detail(id),
+  queryClient.setQueriesData<Opportunity>(
+    { queryKey: queryKeys.opportunities.detail(id) },
     (old) => (old ? { ...old, ...server } : server)
   );
   queryClient.setQueriesData<Opportunity[]>(
@@ -326,22 +366,17 @@ export function useAttachClientToOpportunity() {
         queryKey: queryKeys.opportunities.lists(),
       });
 
-      const previousDetail = queryClient.getQueryData<Opportunity>(
-        queryKeys.opportunities.detail(opportunityId)
-      );
+      const previousDetails = queryClient.getQueriesData<Opportunity>({
+        queryKey: queryKeys.opportunities.detail(opportunityId),
+      });
       const previousLists = queryClient.getQueriesData<Opportunity[]>({
         queryKey: queryKeys.opportunities.lists(),
       });
 
-      if (previousDetail) {
-        queryClient.setQueryData(
-          queryKeys.opportunities.detail(opportunityId),
-          {
-            ...previousDetail,
-            clientId,
-          }
-        );
-      }
+      queryClient.setQueriesData<Opportunity>(
+        { queryKey: queryKeys.opportunities.detail(opportunityId) },
+        (old) => (old ? { ...old, clientId } : old)
+      );
 
       queryClient.setQueriesData<Opportunity[]>(
         { queryKey: queryKeys.opportunities.lists() },
@@ -355,15 +390,14 @@ export function useAttachClientToOpportunity() {
         }
       );
 
-      return { previousDetail, previousLists };
+      return { previousDetails, previousLists };
     },
 
     onError: (_err, { opportunityId }, context) => {
-      if (context?.previousDetail) {
-        queryClient.setQueryData(
-          queryKeys.opportunities.detail(opportunityId),
-          context.previousDetail
-        );
+      if (context?.previousDetails) {
+        for (const [queryKey, data] of context.previousDetails) {
+          queryClient.setQueryData(queryKey, data);
+        }
       }
       if (context?.previousLists) {
         for (const [queryKey, data] of context.previousLists) {
@@ -427,18 +461,15 @@ export function useMoveOpportunityStage() {
       );
 
       // Also update detail cache if present
-      const previousDetail = queryClient.getQueryData<Opportunity>(
-        queryKeys.opportunities.detail(id)
+      const previousDetails = queryClient.getQueriesData<Opportunity>({
+        queryKey: queryKeys.opportunities.detail(id),
+      });
+      queryClient.setQueriesData<Opportunity>(
+        { queryKey: queryKeys.opportunities.detail(id) },
+        (old) => (old ? { ...old, stage, stageEnteredAt: new Date() } : old)
       );
-      if (previousDetail) {
-        queryClient.setQueryData(queryKeys.opportunities.detail(id), {
-          ...previousDetail,
-          stage,
-          stageEnteredAt: new Date(),
-        });
-      }
 
-      return { previousLists, previousDetail };
+      return { previousLists, previousDetails };
     },
 
     onError: (_err, { id }, context) => {
@@ -448,11 +479,10 @@ export function useMoveOpportunityStage() {
           queryClient.setQueryData(queryKey, data);
         }
       }
-      if (context?.previousDetail) {
-        queryClient.setQueryData(
-          queryKeys.opportunities.detail(id),
-          context.previousDetail
-        );
+      if (context?.previousDetails) {
+        for (const [queryKey, data] of context.previousDetails) {
+          queryClient.setQueryData(queryKey, data);
+        }
       }
     },
 

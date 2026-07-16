@@ -686,6 +686,61 @@ values (
   )
 );
 
+-- The former assigned-only owner receives a state-free access-lost outcome.
+-- The denied stale write must not expose the replacement or append history.
+set local role authenticated;
+do $contract$
+begin
+  begin
+    perform public.change_opportunity_assignment(
+      '1ead5519-0000-4000-8000-000000000501',
+      1,
+      '1ead5519-0000-4000-8000-000000000101',
+      '1ead5519-0000-4000-8000-000000000101',
+      'manual',
+      null,
+      '{}'::jsonb
+    );
+    insert into lead_assignment_contract_results values (
+      'former_assignee_gets_state_free_access_lost',
+      false,
+      'call unexpectedly succeeded'
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'former_assignee_gets_state_free_access_lost',
+        sqlerrm = 'assignment_access_lost',
+        sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'former_assignee_gets_state_free_access_lost',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+end;
+$contract$;
+reset role;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'access_lost_attempt_writes_nothing',
+  exists (
+    select 1
+      from public.opportunities o
+     where o.id = '1ead5519-0000-4000-8000-000000000501'
+       and o.assigned_to = '1ead5519-0000-4000-8000-000000000103'
+       and o.assignment_version = 2
+  )
+  and (
+    select count(*) = 2
+      from public.opportunity_assignment_events e
+     where e.opportunity_id = '1ead5519-0000-4000-8000-000000000501'
+  )
+);
+
 -- The new recipient now owns the active lead and may perform a same-target
 -- no-op. A stale assignee/version snapshot returns authoritative state without
 -- adding history or deliveries.

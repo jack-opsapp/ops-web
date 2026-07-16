@@ -33,12 +33,20 @@ import {
   mapOpportunityToTableRow,
 } from "@/lib/utils/pipeline-table-adapter";
 import { matchesAllTokens } from "@/lib/utils/search";
-import { isActiveStage, type OpportunityStage } from "@/lib/types/pipeline";
+import {
+  isActiveStage,
+  matchesOpportunityAssigneeFilter,
+  type OpportunityAssigneeFilter,
+  type OpportunityStage,
+} from "@/lib/types/pipeline";
 import type {
   PipelineTableColumnId,
   PipelineTableRow,
   PipelineTableSort,
 } from "@/lib/types/pipeline-table";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
+import { getLeadAccess } from "@/lib/permissions/lead-access-policy";
 
 /** Spec §3.4 scale ceiling — beyond this the client-side table needs windowed fetching. */
 const PIPELINE_TABLE_SCALE_CEILING = 1500;
@@ -64,7 +72,7 @@ export interface UsePipelineTableDataArgs {
    * Restrict to a single assignee (user id), or `"all"` (default). Shared with
    * the focused board; also part of the base scope (feeds `totalCount`).
    */
-  assigneeFilter?: string | "all";
+  assigneeFilter?: OpportunityAssigneeFilter;
 }
 
 export interface UsePipelineTableDataResult {
@@ -209,6 +217,8 @@ export function usePipelineTableData({
     isLoading: configsLoading,
     isError: configsError,
   } = usePipelineStageConfigs();
+  const currentUserId = useAuthStore((state) => state.currentUser?.id ?? null);
+  const permissionState = usePermissionStore();
 
   const scaleWarnedRef = useRef(false);
 
@@ -249,13 +259,14 @@ export function usePipelineTableData({
     if (!opportunities) return [];
     const rows: PipelineTableRow[] = [];
     for (const opp of opportunities) {
+      if (!getLeadAccess(permissionState, currentUserId, opp).canView) continue;
       if (opp.deletedAt || opp.archivedAt) continue;
       if (!closedDeals && !isActiveStage(opp.stage)) continue;
       // Shared toolbar filters (stage + assignee) narrow the base scope, exactly
       // as the focused board's `filteredOpportunities` does, so both surfaces stay
       // in lockstep and the count reflects the active filter.
       if (stageFilter !== "all" && opp.stage !== stageFilter) continue;
-      if (assigneeFilter !== "all" && opp.assignedTo !== assigneeFilter)
+      if (!matchesOpportunityAssigneeFilter(opp, assigneeFilter, currentUserId))
         continue;
       rows.push(
         mapOpportunityToTableRow(opp, {
@@ -269,6 +280,8 @@ export function usePipelineTableData({
     return rows;
   }, [
     opportunities,
+    currentUserId,
+    permissionState,
     closedDeals,
     stageFilter,
     assigneeFilter,

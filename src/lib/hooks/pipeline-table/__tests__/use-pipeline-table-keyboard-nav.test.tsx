@@ -26,6 +26,7 @@ function makeRow(id: string, title: string): PipelineTableRow {
     nextFollowUpAt: null,
     expectedCloseDate: null,
     assignedTo: null,
+    assignmentVersion: 0,
     assigneeName: null,
     source: null,
     priority: null,
@@ -38,11 +39,16 @@ function makeRow(id: string, title: string): PipelineTableRow {
   };
 }
 
-const rows: PipelineTableRow[] = [makeRow("opp-1", "Deck rebuild"), makeRow("opp-2", "Shop bay")];
+const rows: PipelineTableRow[] = [
+  makeRow("opp-1", "Deck rebuild"),
+  makeRow("opp-2", "Shop bay"),
+];
 
 function columns(ids: PipelineTableColumnId[]): PipelineTableColumnConfig[] {
   return ids.map((id) => {
-    const column = PIPELINE_TABLE_COLUMNS.find((candidate) => candidate.id === id);
+    const column = PIPELINE_TABLE_COLUMNS.find(
+      (candidate) => candidate.id === id
+    );
     if (!column) throw new Error(`Missing test column ${id}`);
     return column;
   });
@@ -50,7 +56,9 @@ function columns(ids: PipelineTableColumnId[]): PipelineTableColumnConfig[] {
 
 function keyEvent(
   key: string,
-  options: Partial<Pick<KeyboardEvent<HTMLElement>, "ctrlKey" | "metaKey" | "shiftKey">> = {},
+  options: Partial<
+    Pick<KeyboardEvent<HTMLElement>, "ctrlKey" | "metaKey" | "shiftKey">
+  > = {}
 ) {
   return {
     key,
@@ -59,7 +67,9 @@ function keyEvent(
     shiftKey: false,
     preventDefault: vi.fn(),
     ...options,
-  } as unknown as KeyboardEvent<HTMLElement> & { preventDefault: ReturnType<typeof vi.fn> };
+  } as unknown as KeyboardEvent<HTMLElement> & {
+    preventDefault: ReturnType<typeof vi.fn>;
+  };
 }
 
 function renderNav(args?: {
@@ -72,19 +82,24 @@ function renderNav(args?: {
   return renderHook(() =>
     usePipelineTableKeyboardNav({
       rows,
-      columns: args?.columns ?? columns(["select", "deal", "stage", "value", "assignee"]),
+      columns:
+        args?.columns ??
+        columns(["select", "deal", "stage", "value", "assignee"]),
       onUndo: args?.onUndo ?? vi.fn(),
       onFocusSearch: args?.onFocusSearch ?? vi.fn(),
       onSelectAllVisible: args?.onSelectAllVisible,
       onClearSelection: args?.onClearSelection,
-    }),
+    })
   );
 }
 
 describe("usePipelineTableKeyboardNav", () => {
   it("seeds the active cell to the first cell once rows + columns exist", () => {
     const { result } = renderNav();
-    expect(result.current.activeCell).toEqual({ rowId: "opp-1", columnId: "select" });
+    expect(result.current.activeCell).toEqual({
+      rowId: "opp-1",
+      columnId: "select",
+    });
   });
 
   it("moves the active cell with arrow keys inside visible bounds", () => {
@@ -98,25 +113,37 @@ describe("usePipelineTableKeyboardNav", () => {
     act(() => {
       result.current.handleCellKeyDown("opp-1", "deal", right);
     });
-    expect(result.current.activeCell).toEqual({ rowId: "opp-1", columnId: "stage" });
+    expect(result.current.activeCell).toEqual({
+      rowId: "opp-1",
+      columnId: "stage",
+    });
     expect(right.preventDefault).toHaveBeenCalledTimes(1);
 
     const down = keyEvent("ArrowDown");
     act(() => {
       result.current.handleCellKeyDown("opp-1", "stage", down);
     });
-    expect(result.current.activeCell).toEqual({ rowId: "opp-2", columnId: "stage" });
+    expect(result.current.activeCell).toEqual({
+      rowId: "opp-2",
+      columnId: "stage",
+    });
 
     // Clamps at the bottom edge (no wrap).
     act(() => {
       result.current.handleCellKeyDown("opp-2", "stage", keyEvent("ArrowDown"));
     });
-    expect(result.current.activeCell).toEqual({ rowId: "opp-2", columnId: "stage" });
+    expect(result.current.activeCell).toEqual({
+      rowId: "opp-2",
+      columnId: "stage",
+    });
 
     act(() => {
       result.current.handleCellKeyDown("opp-2", "stage", keyEvent("ArrowLeft"));
     });
-    expect(result.current.activeCell).toEqual({ rowId: "opp-2", columnId: "deal" });
+    expect(result.current.activeCell).toEqual({
+      rowId: "opp-2",
+      columnId: "deal",
+    });
   });
 
   it("moves forward and backward with tab and shift-tab", () => {
@@ -130,14 +157,20 @@ describe("usePipelineTableKeyboardNav", () => {
     act(() => {
       result.current.handleCellKeyDown("opp-1", "stage", tab);
     });
-    expect(result.current.activeCell).toEqual({ rowId: "opp-1", columnId: "value" });
+    expect(result.current.activeCell).toEqual({
+      rowId: "opp-1",
+      columnId: "value",
+    });
     expect(tab.preventDefault).toHaveBeenCalledTimes(1);
 
     const shiftTab = keyEvent("Tab", { shiftKey: true });
     act(() => {
       result.current.handleCellKeyDown("opp-1", "value", shiftTab);
     });
-    expect(result.current.activeCell).toEqual({ rowId: "opp-1", columnId: "stage" });
+    expect(result.current.activeCell).toEqual({
+      rowId: "opp-1",
+      columnId: "stage",
+    });
     expect(shiftTab.preventDefault).toHaveBeenCalledTimes(1);
   });
 
@@ -154,7 +187,10 @@ describe("usePipelineTableKeyboardNav", () => {
       result.current.handleCellKeyDown("opp-2", "assignee", forwardEdge);
     });
     expect(forwardEdge.preventDefault).not.toHaveBeenCalled();
-    expect(result.current.activeCell).toEqual({ rowId: "opp-2", columnId: "assignee" });
+    expect(result.current.activeCell).toEqual({
+      rowId: "opp-2",
+      columnId: "assignee",
+    });
 
     // First cell of the first row: backward Shift+Tab must NOT preventDefault.
     act(() => {
@@ -165,7 +201,10 @@ describe("usePipelineTableKeyboardNav", () => {
       result.current.handleCellKeyDown("opp-1", "select", backwardEdge);
     });
     expect(backwardEdge.preventDefault).not.toHaveBeenCalled();
-    expect(result.current.activeCell).toEqual({ rowId: "opp-1", columnId: "select" });
+    expect(result.current.activeCell).toEqual({
+      rowId: "opp-1",
+      columnId: "select",
+    });
   });
 
   it("begins edit on Enter only when the active column is editable", () => {
@@ -178,7 +217,10 @@ describe("usePipelineTableKeyboardNav", () => {
     act(() => {
       result.current.handleCellKeyDown("opp-1", "value", editableEnter);
     });
-    expect(result.current.editingCell).toEqual({ rowId: "opp-1", columnId: "value" });
+    expect(result.current.editingCell).toEqual({
+      rowId: "opp-1",
+      columnId: "value",
+    });
     expect(editableEnter.preventDefault).toHaveBeenCalledTimes(1);
 
     // Stage is NOT inline-editable (routes through the click-driven menu): Enter
@@ -205,18 +247,27 @@ describe("usePipelineTableKeyboardNav", () => {
     act(() => {
       result.current.handleCellKeyDown("opp-1", "value", f2);
     });
-    expect(result.current.editingCell).toEqual({ rowId: "opp-1", columnId: "value" });
+    expect(result.current.editingCell).toEqual({
+      rowId: "opp-1",
+      columnId: "value",
+    });
     expect(f2.preventDefault).toHaveBeenCalledTimes(1);
   });
 
   it("Escape cancels an active edit, then a second Escape clears selection", () => {
     const onClearSelection = vi.fn();
-    const { result } = renderNav({ columns: columns(["value"]), onClearSelection });
+    const { result } = renderNav({
+      columns: columns(["value"]),
+      onClearSelection,
+    });
 
     act(() => {
       result.current.beginEdit("opp-1", "value");
     });
-    expect(result.current.editingCell).toEqual({ rowId: "opp-1", columnId: "value" });
+    expect(result.current.editingCell).toEqual({
+      rowId: "opp-1",
+      columnId: "value",
+    });
 
     const firstEscape = keyEvent("Escape");
     act(() => {
@@ -245,7 +296,11 @@ describe("usePipelineTableKeyboardNav", () => {
     expect(metaZ.preventDefault).toHaveBeenCalledTimes(1);
 
     act(() => {
-      result.current.handleCellKeyDown("opp-1", "deal", keyEvent("Z", { ctrlKey: true }));
+      result.current.handleCellKeyDown(
+        "opp-1",
+        "deal",
+        keyEvent("Z", { ctrlKey: true })
+      );
     });
     expect(onUndo).toHaveBeenCalledTimes(2);
   });

@@ -43,8 +43,11 @@ vi.mock("@/lib/store/auth-store", () => ({
 }));
 
 const {
+  selectCanAssignOpportunity,
+  selectCanCreateOpportunity,
   selectCanConvertOpportunity,
   selectCanEditOpportunity,
+  selectCanViewOpportunity,
   usePermissionStore,
 } = await import("@/lib/store/permissions-store");
 
@@ -129,6 +132,41 @@ describe("selectCanConvertOpportunity", () => {
 
     expect(state.configuredPermissions).toContain("pipeline.edit");
     expect(selectCanEditOpportunity(state)).toBe(true);
+  });
+
+  it("enables assigned lead reads and assignment without requiring legacy manage", async () => {
+    const state = await load([
+      ["pipeline.view", "assigned"],
+      ["pipeline.assign", "assigned"],
+    ]);
+
+    expect(selectCanViewOpportunity(state)).toBe(true);
+    expect(selectCanAssignOpportunity(state)).toBe(true);
+  });
+
+  it("requires all scope for lead creation", async () => {
+    const assigned = await load([["pipeline.create", "assigned"]]);
+    expect(selectCanCreateOpportunity(assigned)).toBe(false);
+
+    const all = await load([["pipeline.create", "all"]]);
+    expect(selectCanCreateOpportunity(all)).toBe(true);
+  });
+
+  it("does not widen explicit view or assign revokes through legacy manage", async () => {
+    const state = await load(
+      [
+        ["pipeline.manage", "all"],
+        ["pipeline.view", "assigned"],
+        ["pipeline.assign", "assigned"],
+      ],
+      [
+        { permission: "pipeline.view", scope: null, granted: false },
+        { permission: "pipeline.assign", scope: null, granted: false },
+      ]
+    );
+
+    expect(selectCanViewOpportunity(state)).toBe(false);
+    expect(selectCanAssignOpportunity(state)).toBe(false);
   });
 
   it("does not let legacy manage widen an explicit granular edit revoke", async () => {

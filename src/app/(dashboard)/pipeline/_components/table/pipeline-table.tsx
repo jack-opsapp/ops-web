@@ -33,6 +33,7 @@ import {
   GROUP_HEADER_HEIGHT,
   PipelineStageGroupHeader,
 } from "./pipeline-stage-group-header";
+import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 
 /**
  * The single cell currently in inline-edit mode (or `null`). Owned by the
@@ -94,6 +95,8 @@ export function PipelineTable({
   activeCell,
   editingCell,
   canManage,
+  leadAccessById,
+  showAssigneeColumn = true,
   setActiveCell,
   onBeginEdit,
   onCancelEdit,
@@ -130,6 +133,8 @@ export function PipelineTable({
   activeCell: PipelineTableActiveCell | null;
   editingCell: PipelineEditingCell | null;
   canManage: boolean;
+  leadAccessById?: ReadonlyMap<string, LeadAccess>;
+  showAssigneeColumn?: boolean;
   setActiveCell: (cell: PipelineTableActiveCell) => void;
   onBeginEdit: (rowId: string, columnId: PipelineTableEditableColumnId) => void;
   onCancelEdit: () => void;
@@ -160,7 +165,13 @@ export function PipelineTable({
 
   // Every registered column is visible in this phase; the column-picker view
   // system arrives later. The select rail leads, in registry order.
-  const visibleColumns = useMemo(() => PIPELINE_TABLE_COLUMNS, []);
+  const visibleColumns = useMemo(
+    () =>
+      showAssigneeColumn
+        ? PIPELINE_TABLE_COLUMNS
+        : PIPELINE_TABLE_COLUMNS.filter((column) => column.id !== "assignee"),
+    [showAssigneeColumn]
+  );
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -376,6 +387,7 @@ export function PipelineTable({
                 activeCell={activeCell}
                 editingCell={editingCell}
                 canManage={canManage}
+                leadAccess={leadAccessById?.get(row.id)}
                 setActiveCell={setActiveCell}
                 onToggleRow={onToggleRow}
                 onOpenDeal={onOpenDeal}

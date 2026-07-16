@@ -41,24 +41,118 @@ export interface FABAction {
 }
 
 /** Type guard: true when action.target is a valid FloatingWindowType */
-export function isWindowAction(action: FABAction): action is FABAction & { target: FloatingWindowType } {
+export function isWindowAction(
+  action: FABAction
+): action is FABAction & { target: FloatingWindowType } {
   return action.handler === "window";
 }
 
 export const ALL_ACTIONS: FABAction[] = [
-  { id: "expense",        labelKey: "action.expense",   hintCode: "EXP", hotkey: "X", icon: Receipt,       triggerAction: "expenses",   handler: "route",  target: "/books?segment=expenses",  requiredPermission: "expenses.create" },
-  { id: "lead",           labelKey: "action.lead",      hintCode: "LED", hotkey: "L", icon: TrendingUp,    triggerAction: "leads",      handler: "window", target: "create-lead",              requiredPermission: "pipeline.manage" },
-  { id: "estimate",       labelKey: "action.estimate",  hintCode: "EST", hotkey: "E", icon: Calculator,    triggerAction: "estimates",  handler: "window", target: "create-estimate",          requiredPermission: "estimates.create" },
-  { id: "invoice",        labelKey: "action.invoice",   hintCode: "INV", hotkey: "I", icon: FileText,      triggerAction: "invoices",   handler: "route",  target: "/books?segment=invoices&action=new", requiredPermission: "invoices.create" },
+  {
+    id: "expense",
+    labelKey: "action.expense",
+    hintCode: "EXP",
+    hotkey: "X",
+    icon: Receipt,
+    triggerAction: "expenses",
+    handler: "route",
+    target: "/books?segment=expenses",
+    requiredPermission: "expenses.create",
+  },
+  {
+    id: "lead",
+    labelKey: "action.lead",
+    hintCode: "LED",
+    hotkey: "L",
+    icon: TrendingUp,
+    triggerAction: "leads",
+    handler: "window",
+    target: "create-lead",
+    requiredPermission: "pipeline.create",
+  },
+  {
+    id: "estimate",
+    labelKey: "action.estimate",
+    hintCode: "EST",
+    hotkey: "E",
+    icon: Calculator,
+    triggerAction: "estimates",
+    handler: "window",
+    target: "create-estimate",
+    requiredPermission: "estimates.create",
+  },
+  {
+    id: "invoice",
+    labelKey: "action.invoice",
+    hintCode: "INV",
+    hotkey: "I",
+    icon: FileText,
+    triggerAction: "invoices",
+    handler: "route",
+    target: "/books?segment=invoices&action=new",
+    requiredPermission: "invoices.create",
+  },
   // Phase P3.3 — "New Client" routes through the unified client workspace
   // window in creating mode instead of the legacy create-client modal.
-  { id: "client",         labelKey: "action.client",    hintCode: "CLI", hotkey: "C", icon: Users,         triggerAction: "clients",    handler: "window", target: "client-workspace",          requiredPermission: "clients.create", meta: { initialMode: "creating" } },
+  {
+    id: "client",
+    labelKey: "action.client",
+    hintCode: "CLI",
+    hotkey: "C",
+    icon: Users,
+    triggerAction: "clients",
+    handler: "window",
+    target: "client-workspace",
+    requiredPermission: "clients.create",
+    meta: { initialMode: "creating" },
+  },
   // Phase 9.1 — "New Project" routes through the unified workspace
   // window in creating mode instead of the legacy create-project modal.
-  { id: "project",        labelKey: "action.project",   hintCode: "PRJ", hotkey: "P", icon: FolderKanban,  triggerAction: "projects",   handler: "window", target: "project-workspace",        requiredPermission: "projects.create", meta: { initialMode: "creating" } },
-  { id: "task",           labelKey: "action.task",      hintCode: "TSK", hotkey: "T", icon: ClipboardList, triggerAction: "tasks",      handler: "window", target: "create-task",              requiredPermission: "tasks.create" },
-  { id: "task-type",      labelKey: "action.taskType", hintCode: "TTY", hotkey: "Y", icon: Tag,           triggerAction: "task-types", handler: "route",  target: "/settings?tab=company",    requiredPermission: "settings.company" },
-  { id: "inventory-item", labelKey: "action.inventoryItem",      hintCode: "ITM", hotkey: "N", icon: Boxes,         triggerAction: "inventory",  handler: "route",  target: "/catalog?segment=stock&action=new", requiredPermission: "catalog.manage" },
+  {
+    id: "project",
+    labelKey: "action.project",
+    hintCode: "PRJ",
+    hotkey: "P",
+    icon: FolderKanban,
+    triggerAction: "projects",
+    handler: "window",
+    target: "project-workspace",
+    requiredPermission: "projects.create",
+    meta: { initialMode: "creating" },
+  },
+  {
+    id: "task",
+    labelKey: "action.task",
+    hintCode: "TSK",
+    hotkey: "T",
+    icon: ClipboardList,
+    triggerAction: "tasks",
+    handler: "window",
+    target: "create-task",
+    requiredPermission: "tasks.create",
+  },
+  {
+    id: "task-type",
+    labelKey: "action.taskType",
+    hintCode: "TTY",
+    hotkey: "Y",
+    icon: Tag,
+    triggerAction: "task-types",
+    handler: "route",
+    target: "/settings?tab=company",
+    requiredPermission: "settings.company",
+  },
+  {
+    id: "inventory-item",
+    labelKey: "action.inventoryItem",
+    hintCode: "ITM",
+    hotkey: "N",
+    icon: Boxes,
+    triggerAction: "inventory",
+    handler: "route",
+    target: "/catalog?segment=stock&action=new",
+    requiredPermission: "catalog.manage",
+  },
 ];
 
 export const DEFAULT_ACTION_IDS = ALL_ACTIONS.map((a) => a.id);

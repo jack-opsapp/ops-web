@@ -5,10 +5,13 @@
  * Each hook fetches metrics for a specific tab's MetricsHeader.
  */
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { MetricsService } from "../api/services/metrics-service";
+import { effectivePipelineScope } from "../permissions/lead-access-policy";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 
 function useCompanyId() {
   const { company } = useAuthStore();
@@ -36,11 +39,37 @@ export function useProjectMetrics() {
 }
 
 export function usePipelineMetrics() {
-  const companyId = useCompanyId();
+  const queryClient = useQueryClient();
+  const companyId = useAuthStore((state) => state.company?.id ?? "");
+  const actorUserId = useAuthStore((state) => state.currentUser?.id ?? "");
+  const permissionState = usePermissionStore();
+  const viewScope = effectivePipelineScope(permissionState, "pipeline.view");
+  const pipelineMetricsKey = queryKeys.metrics.pipeline(
+    companyId,
+    actorUserId,
+    viewScope
+  );
+
+  useEffect(() => {
+    queryClient.removeQueries({
+      queryKey: [...queryKeys.metrics.all, "pipeline"],
+      type: "inactive",
+    });
+    return () => {
+      queryClient.removeQueries({
+        queryKey: pipelineMetricsKey,
+        exact: true,
+      });
+    };
+    // The primitive access fingerprint intentionally controls cache lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actorUserId, companyId, queryClient, viewScope]);
+
   return useQuery({
-    queryKey: queryKeys.metrics.tab("pipeline", companyId),
+    queryKey: pipelineMetricsKey,
     queryFn: () => MetricsService.fetchPipelineMetrics(companyId),
-    enabled: !!companyId,
+    enabled: Boolean(companyId && actorUserId && viewScope),
+    placeholderData: undefined,
     staleTime: 5 * 60 * 1000,
   });
 }

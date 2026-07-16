@@ -520,6 +520,7 @@ describe("lead-assignment child-scope migration", () => {
     expect(context).toMatch(/'site_visits'/i);
     expect(context).toMatch(/'deck_designs'/i);
     expect(context).toMatch(/'correspondence'/i);
+    expect(context).toMatch(/'activity_id'\s*,\s*ce\.activity_id/i);
     expect(context).not.toMatch(
       /to_jsonb\(c\)|to_jsonb\(e\)|c\.notes|e\.internal_notes|e\.qb_id|e\.sage_id/i
     );

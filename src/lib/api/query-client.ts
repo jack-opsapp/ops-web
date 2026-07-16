@@ -42,19 +42,41 @@ export const queryKeys = {
     list: (companyId: string, filters?: Record<string, unknown>) =>
       [...queryKeys.opportunities.lists(), companyId, filters] as const,
     details: () => [...queryKeys.opportunities.all, "detail"] as const,
-    detail: (id: string) => [...queryKeys.opportunities.details(), id] as const,
+    detail: (id: string, access?: Record<string, unknown>) =>
+      access
+        ? ([...queryKeys.opportunities.details(), id, access] as const)
+        : ([...queryKeys.opportunities.details(), id] as const),
     activities: (opportunityId: string) =>
       [...queryKeys.opportunities.all, "activities", opportunityId] as const,
     followUps: (opportunityId: string) =>
       [...queryKeys.opportunities.all, "followUps", opportunityId] as const,
     stageTransitions: (opportunityId: string) =>
-      [...queryKeys.opportunities.all, "stageTransitions", opportunityId] as const,
+      [
+        ...queryKeys.opportunities.all,
+        "stageTransitions",
+        opportunityId,
+      ] as const,
     stageConfigs: (companyId: string) =>
       [...queryKeys.opportunities.all, "stageConfigs", companyId] as const,
     tableViews: (companyId: string, userId: string) =>
-      [...queryKeys.opportunities.all, "tableViews", companyId, userId] as const,
+      [
+        ...queryKeys.opportunities.all,
+        "tableViews",
+        companyId,
+        userId,
+      ] as const,
     conversionPreflight: (opportunityId: string) =>
-      [...queryKeys.opportunities.all, "conversionPreflight", opportunityId] as const,
+      [
+        ...queryKeys.opportunities.all,
+        "conversionPreflight",
+        opportunityId,
+      ] as const,
+    assignmentCandidates: (opportunityId: string) =>
+      [
+        ...queryKeys.opportunities.all,
+        "assignmentCandidates",
+        opportunityId,
+      ] as const,
     deckDesigns: (opportunityId: string) =>
       [...queryKeys.opportunities.all, "deckDesigns", opportunityId] as const,
   },
@@ -106,15 +128,31 @@ export const queryKeys = {
   calendar: {
     all: ["calendar"] as const,
     lists: () => [...queryKeys.calendar.all, "list"] as const,
-    scheduled: (companyId: string, start: string, end: string, scopedUserId = "") =>
-      [...queryKeys.calendar.lists(), "scheduled", companyId, start, end, scopedUserId] as const,
+    scheduled: (
+      companyId: string,
+      start: string,
+      end: string,
+      scopedUserId = ""
+    ) =>
+      [
+        ...queryKeys.calendar.lists(),
+        "scheduled",
+        companyId,
+        start,
+        end,
+        scopedUserId,
+      ] as const,
     // Phase 3 — recurring task templates and exceptions
     recurrences: (companyId: string) =>
       [...queryKeys.calendar.all, "recurrences", companyId] as const,
     recurrence: (id: string) =>
       [...queryKeys.calendar.all, "recurrence", id] as const,
     recurrenceExceptions: (recurrenceId: string) =>
-      [...queryKeys.calendar.all, "recurrence-exceptions", recurrenceId] as const,
+      [
+        ...queryKeys.calendar.all,
+        "recurrence-exceptions",
+        recurrenceId,
+      ] as const,
     // Batch adverse-weather forecast for the visible schedule window. `projectKey`
     // is a stable, sorted join of the in-window project ids (bug 9dc7c38d).
     weather: (companyId: string, projectKey: string) =>
@@ -126,8 +164,7 @@ export const queryKeys = {
     all: ["taskTypes"] as const,
     list: (companyId: string) =>
       [...queryKeys.taskTypes.all, companyId] as const,
-    detail: (id: string) =>
-      [...queryKeys.taskTypes.all, "detail", id] as const,
+    detail: (id: string) => [...queryKeys.taskTypes.all, "detail", id] as const,
   },
 
   // Products
@@ -162,7 +199,8 @@ export const queryKeys = {
       [...queryKeys.invoices.lists(), "project", projectId] as const,
     details: () => [...queryKeys.invoices.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.invoices.details(), id] as const,
-    lineItems: (companyId: string) => [...queryKeys.invoices.all, "lineItems", companyId] as const,
+    lineItems: (companyId: string) =>
+      [...queryKeys.invoices.all, "lineItems", companyId] as const,
   },
 
   // Payments
@@ -177,6 +215,16 @@ export const queryKeys = {
     all: ["metrics"] as const,
     tab: (tabId: string, companyId: string) =>
       [...queryKeys.metrics.all, tabId, companyId] as const,
+    pipeline: (
+      companyId: string,
+      actorUserId: string,
+      viewScope: "all" | "assigned" | null
+    ) =>
+      [
+        ...queryKeys.metrics.all,
+        "pipeline",
+        { companyId, actorUserId, viewScope },
+      ] as const,
   },
 
   // Books (ledger instrument strip)
@@ -248,7 +296,12 @@ export const queryKeys = {
   projectWorkspace: {
     all: ["projectWorkspace"] as const,
     activity: (projectId: string | null, limit: number) =>
-      [...queryKeys.projectWorkspace.all, "activity", projectId, limit] as const,
+      [
+        ...queryKeys.projectWorkspace.all,
+        "activity",
+        projectId,
+        limit,
+      ] as const,
     pipeline: (projectId: string | null) =>
       [...queryKeys.projectWorkspace.all, "pipeline", projectId] as const,
     ledger: (projectId: string | null) =>
@@ -501,8 +554,10 @@ export const queryKeys = {
   // Intel (Galaxy Visualization)
   intel: {
     all: ["intel"] as const,
-    graph: (companyId: string) => [...queryKeys.intel.all, "graph", companyId] as const,
-    entity: (entityId: string) => [...queryKeys.intel.all, "entity", entityId] as const,
+    graph: (companyId: string) =>
+      [...queryKeys.intel.all, "graph", companyId] as const,
+    entity: (entityId: string) =>
+      [...queryKeys.intel.all, "entity", entityId] as const,
   },
 
   // Email Templates
@@ -512,7 +567,8 @@ export const queryKeys = {
     list: (companyId: string) =>
       [...queryKeys.emailTemplates.lists(), companyId] as const,
     details: () => [...queryKeys.emailTemplates.all, "detail"] as const,
-    detail: (id: string) => [...queryKeys.emailTemplates.details(), id] as const,
+    detail: (id: string) =>
+      [...queryKeys.emailTemplates.details(), id] as const,
   },
 
   // AI Drafting
@@ -523,7 +579,12 @@ export const queryKeys = {
     pendingSends: (companyId: string) =>
       [...queryKeys.aiDrafting.all, "pendingSends", companyId] as const,
     autoSendSettings: (companyId: string, connectionId: string) =>
-      [...queryKeys.aiDrafting.all, "autoSendSettings", companyId, connectionId] as const,
+      [
+        ...queryKeys.aiDrafting.all,
+        "autoSendSettings",
+        companyId,
+        connectionId,
+      ] as const,
   },
 
   // Inbox (Email + Portal — unified)
@@ -623,12 +684,10 @@ function createQueryClient(): QueryClient {
             error instanceof Error &&
             "status" in error &&
             (error as { status: number }).status === 401
-          ) return false;
+          )
+            return false;
           // Don't retry 4xx errors (except 429)
-          if (
-            error instanceof Error &&
-            "status" in error
-          ) {
+          if (error instanceof Error && "status" in error) {
             const status = (error as { status: number }).status;
             if (status >= 400 && status < 500 && status !== 429) return false;
           }
@@ -636,8 +695,7 @@ function createQueryClient(): QueryClient {
         },
 
         // Exponential backoff for retries
-        retryDelay: (attemptIndex) =>
-          Math.min(1000 * 2 ** attemptIndex, 10000),
+        retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
 
         // Re-fetch when window regains focus
         refetchOnWindowFocus: true,

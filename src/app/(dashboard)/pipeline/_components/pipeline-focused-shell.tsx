@@ -35,6 +35,10 @@ import { PipelineFocusedDetailWindow } from "./pipeline-focused-detail-window";
 import { PipelineSpineColumn } from "./pipeline-spine-column";
 import { PipelineTerminalStack } from "./pipeline-terminal-stack";
 import type { PipelineCardEditHandlers } from "./pipeline-card-content";
+import {
+  NO_LEAD_ACCESS,
+  type LeadAccess,
+} from "@/lib/permissions/lead-access-policy";
 
 type FocusedShellActionHandlers = {
   onLogCall: (id: string) => void;
@@ -57,6 +61,8 @@ export interface PipelineFocusedShellProps extends FocusedShellActionHandlers {
   clients?: Client[];
   clientNameMap: Map<string, string>;
   canManage: boolean;
+  canCreateLead: boolean;
+  leadAccessById: ReadonlyMap<string, LeadAccess>;
   filtersActive: boolean;
   opportunitiesLoading?: boolean;
   clientsLoading?: boolean;
@@ -191,6 +197,8 @@ export function PipelineFocusedShell({
   clients = [],
   clientNameMap,
   canManage,
+  canCreateLead,
+  leadAccessById,
   filtersActive,
   opportunitiesLoading = false,
   isOpportunitiesError = false,
@@ -592,6 +600,8 @@ export function PipelineFocusedShell({
             clients={clients}
             clientNameMap={clientNameMap}
             canManage={canManage}
+            canCreateLead={canCreateLead}
+            leadAccessById={leadAccessById}
             filtersActive={filtersActive}
             focusedTabId={selectedFocusedTabId}
             focusedPanelId={focusedPanelId}
@@ -623,7 +633,9 @@ export function PipelineFocusedShell({
       {detailOpportunity && detailOpenInFocusedStage && (
         <PipelineFocusedDetailWindow
           opportunity={detailOpportunity}
-          canManage={canManage}
+          leadAccess={
+            leadAccessById.get(detailOpportunity.id) ?? NO_LEAD_ACCESS
+          }
           originatingOpportunityId={detailPanelOpportunityId}
           onAdvanceStage={onAdvanceStage}
           onMarkWon={onMarkWon}
@@ -759,7 +771,7 @@ function FocusedActionDropTarget({
         >
           {icon}
         </span>
-        <span className="font-cakemono text-micro font-light uppercase tracking-[0.16em] leading-none">
+        <span className="font-cakemono text-micro font-light uppercase leading-none tracking-[0.16em]">
           {label}
         </span>
         <div
@@ -772,7 +784,9 @@ function FocusedActionDropTarget({
                 key={index}
                 className="h-1.5 flex-1 rounded-bar"
                 style={{
-                  backgroundColor: destructive ? "var(--brick)" : "var(--text-3)",
+                  backgroundColor: destructive
+                    ? "var(--brick)"
+                    : "var(--text-3)",
                   opacity: isOver ? 0.72 : 0.18,
                 }}
               />

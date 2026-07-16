@@ -27,6 +27,7 @@ import {
 } from "@/lib/utils/motion";
 import { PipelineStageTabBar } from "./pipeline-stage-tab-bar";
 import { PipelineCard } from "./pipeline-card";
+import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,6 +52,7 @@ interface PipelineMobileProps {
   onScheduleFollowUp: (opportunityId: string) => void;
   onAddLead: () => void;
   canManage: boolean;
+  leadAccessById?: ReadonlyMap<string, LeadAccess>;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,6 +96,8 @@ interface SwipeableCardProps {
   onAssign: () => void;
   onScheduleFollowUp: () => void;
   canManage: boolean;
+  canAssign: boolean;
+  canConvert: boolean;
   stageConfig: PipelineStageDefault;
   reducedMotion: boolean;
   t: (key: string) => string;
@@ -118,6 +122,8 @@ function SwipeableCard({
   onAssign,
   onScheduleFollowUp,
   canManage,
+  canAssign,
+  canConvert,
   stageConfig,
   reducedMotion,
   t,
@@ -178,7 +184,7 @@ function SwipeableCard({
       {/* Advance hint strip (behind card, right swipe) */}
       {swipeEnabled && next && (
         <motion.div
-          className="absolute inset-0 flex items-center justify-end px-[12px] rounded-chip bg-olive-soft border border-olive-line"
+          className="absolute inset-0 flex items-center justify-end rounded-chip border border-olive-line bg-olive-soft px-[12px]"
           style={{ opacity: advanceOpacity }}
         >
           <span className="font-mono text-micro text-olive">
@@ -193,7 +199,7 @@ function SwipeableCard({
       {/* Retreat hint strip (behind card, left swipe) */}
       {swipeEnabled && prev && (
         <motion.div
-          className="absolute inset-0 flex items-center justify-start px-[12px] rounded-chip bg-rose-soft border border-rose-line"
+          className="absolute inset-0 flex items-center justify-start rounded-chip border border-rose-line bg-rose-soft px-[12px]"
           style={{ opacity: retreatOpacity }}
         >
           <span className="font-mono text-micro text-rose">
@@ -234,6 +240,8 @@ function SwipeableCard({
           onAssign={onAssign}
           onScheduleFollowUp={onScheduleFollowUp}
           canManage={canManage}
+          canAssign={canAssign}
+          canConvert={canConvert}
           stageConfig={stageConfig}
         />
       </motion.div>
@@ -264,6 +272,7 @@ export function PipelineMobile({
   onScheduleFollowUp,
   onAddLead: _onAddLead,
   canManage,
+  leadAccessById,
 }: PipelineMobileProps) {
   const { t } = useDictionary("pipeline");
   const prefersReducedMotion = useReducedMotion();
@@ -296,7 +305,9 @@ export function PipelineMobile({
   const resolveClientName = useCallback(
     (opp: Opportunity): string => {
       if (opp.clientId) {
-        return clients.get(opp.clientId) ?? opp.contactName ?? t("card.unknown");
+        return (
+          clients.get(opp.clientId) ?? opp.contactName ?? t("card.unknown")
+        );
       }
       return opp.contactName ?? t("newLead");
     },
@@ -326,7 +337,7 @@ export function PipelineMobile({
     : pipelineTabVariants;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Tab bar */}
       <div className="shrink-0 border-b border-border-subtle">
         <PipelineStageTabBar
@@ -338,7 +349,7 @@ export function PipelineMobile({
       </div>
 
       {/* Card list */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="scrollbar-hide flex-1 overflow-y-auto">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeStage}
@@ -346,11 +357,11 @@ export function PipelineMobile({
             initial="enter"
             animate="center"
             exit="exit"
-            className="p-[8px] flex flex-col gap-[6px]"
+            className="flex flex-col gap-[6px] p-[8px]"
           >
             {stageOpportunities.length === 0 ? (
               /* ── Empty state ───────────────────────────────────── */
-              <div className="flex flex-col items-center justify-center py-[64px] gap-[8px]">
+              <div className="flex flex-col items-center justify-center gap-[8px] py-[64px]">
                 <span className="font-mohave text-body text-text-mute">
                   {t("empty.noDeals")}
                 </span>
@@ -362,6 +373,13 @@ export function PipelineMobile({
               /* ── Card list ────────────────────────────────────── */
               stageOpportunities.map((opp) => {
                 const stageConfig = findStageConfig(opp.stage);
+                const access = leadAccessById?.get(opp.id) ?? {
+                  canView: true,
+                  canEdit: false,
+                  canAssign: false,
+                  canUnassign: false,
+                  canConvert: false,
+                };
 
                 return (
                   <SwipeableCard
@@ -387,7 +405,9 @@ export function PipelineMobile({
                     onOpenDetail={() => onOpenDetail(opp)}
                     onAssign={() => onAssign(opp.id)}
                     onScheduleFollowUp={() => onScheduleFollowUp(opp.id)}
-                    canManage={canManage}
+                    canManage={access.canEdit}
+                    canAssign={access.canAssign}
+                    canConvert={access.canConvert}
                     stageConfig={stageConfig}
                     reducedMotion={!!prefersReducedMotion}
                     t={t}

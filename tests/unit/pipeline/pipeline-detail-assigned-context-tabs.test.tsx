@@ -57,6 +57,7 @@ const emailActivity: OpportunityAssignedContextActivity = {
 
 const correspondence: OpportunityAssignedContextCorrespondence = {
   id: "99999999-9999-4999-8999-999999999999",
+  activityId: null,
   direction: "outbound",
   partyRole: "ops",
   isMeaningful: true,
@@ -144,6 +145,34 @@ describe("assigned lead detail projections", () => {
 
     expect(screen.getByText(emailActivity.subject)).toBeInTheDocument();
     expect(screen.getAllByTestId("correspondence-message")).toHaveLength(2);
+  });
+
+  it("renders a linked email activity once while preserving unrelated same-subject correspondence", () => {
+    const linkedEvent = {
+      ...correspondence,
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      direction: "inbound" as const,
+      subject: emailActivity.subject,
+      activityId: emailActivity.id,
+    };
+    const unrelatedSameSubjectEvent = {
+      ...correspondence,
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      direction: "inbound" as const,
+      subject: emailActivity.subject,
+      activityId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    };
+
+    render(
+      <PipelineDetailCorrespondenceTab
+        activities={[emailActivity]}
+        correspondence={[linkedEvent, unrelatedSameSubjectEvent]}
+        contactName="Dana Scully"
+      />
+    );
+
+    expect(screen.getAllByTestId("correspondence-message")).toHaveLength(2);
+    expect(screen.getAllByText(emailActivity.subject)).toHaveLength(1);
   });
 
   it("shows projected next steps but gates completion on lead edit access", () => {

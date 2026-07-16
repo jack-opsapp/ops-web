@@ -56,8 +56,9 @@ vi.mock("@/lib/store/permissions-store", () => {
   const can = (permission: string) => grantedPermissions.has(permission);
   const state = { can };
   const usePermissionStore = Object.assign(
-    (selector: (s: { can: (permission: string) => boolean }) => unknown) => selector(state),
-    { getState: () => state },
+    (selector: (s: { can: (permission: string) => boolean }) => unknown) =>
+      selector(state),
+    { getState: () => state }
   );
   return { usePermissionStore };
 });
@@ -91,9 +92,15 @@ const TEST_COLUMN_IDS: PipelineTableColumnId[] = [
 
 function columnLayouts(): PipelineTableColumnLayout[] {
   return TEST_COLUMN_IDS.map((id) => {
-    const column = PIPELINE_TABLE_COLUMNS.find((candidate) => candidate.id === id);
+    const column = PIPELINE_TABLE_COLUMNS.find(
+      (candidate) => candidate.id === id
+    );
     if (!column) throw new Error(`Missing test column ${id}`);
-    return { column, width: column.width, stickyLeft: column.frozen ? 0 : null };
+    return {
+      column,
+      width: column.width,
+      stickyLeft: column.frozen ? 0 : null,
+    };
   });
 }
 
@@ -113,6 +120,7 @@ function makeRow(id: string): PipelineTableRowModel {
     nextFollowUpAt: null,
     expectedCloseDate: null,
     assignedTo: null,
+    assignmentVersion: 0,
     assigneeName: "Ada Lovelace",
     source: null,
     priority: null,
@@ -131,9 +139,11 @@ const NOOP = () => {};
 
 function renderRow(
   canManage: boolean,
-  props?: Partial<React.ComponentProps<typeof PipelineTableRow>>,
+  props?: Partial<React.ComponentProps<typeof PipelineTableRow>>
 ) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
     <QueryClientProvider client={queryClient}>
       <div role="grid">
@@ -149,6 +159,17 @@ function renderRow(
           activeCell={null}
           editingCell={null}
           canManage={canManage}
+          leadAccess={
+            canManage
+              ? {
+                  canView: true,
+                  canEdit: true,
+                  canAssign: true,
+                  canUnassign: true,
+                  canConvert: true,
+                }
+              : undefined
+          }
           setActiveCell={NOOP}
           onToggleRow={NOOP}
           onOpenDeal={NOOP}
@@ -161,13 +182,13 @@ function renderRow(
           {...props}
         />
       </div>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
 }
 
 function renderHeader(
   canManage: boolean,
-  props?: Partial<React.ComponentProps<typeof PipelineTableHeader>>,
+  props?: Partial<React.ComponentProps<typeof PipelineTableHeader>>
 ) {
   return render(
     <PipelineTableHeader
@@ -179,7 +200,7 @@ function renderHeader(
       onSortChange={NOOP}
       onToggleSelectAllVisible={NOOP}
       {...props}
-    />,
+    />
   );
 }
 
@@ -203,7 +224,9 @@ describe("pipeline.manage gate — view-only context resolves canManage=false", 
 describe("PipelineTableRow — view-only (no pipeline.manage)", () => {
   it("renders NO per-row select checkbox", () => {
     renderRow(false);
-    expect(screen.queryByRole("checkbox", { name: "table.column.select" })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", { name: "table.column.select" })
+    ).toBeNull();
   });
 
   it("renders READ-ONLY editable columns — no inline-edit triggers", () => {
@@ -212,8 +235,12 @@ describe("PipelineTableRow — view-only (no pipeline.manage)", () => {
     // in manage mode (a popover/listbox trigger or an edit button). View-only
     // renders the plain read-only cells (spans), so no listbox triggers exist
     // and the assignee trigger button is absent.
-    expect(screen.queryByRole("button", { name: "table.cell.assignee.triggerLabel" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "table.column.next_follow_up" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "table.cell.assignee.triggerLabel" })
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "table.column.next_follow_up" })
+    ).toBeNull();
     // No inline inputs are mounted anywhere in the row.
     expect(document.querySelector("input")).toBeNull();
     // The read-only assignee text still renders (the column is legible, just not editable).
@@ -222,14 +249,18 @@ describe("PipelineTableRow — view-only (no pipeline.manage)", () => {
 
   it("renders the stage cell as a STATIC chip — no stage menu trigger", () => {
     renderRow(false);
-    expect(screen.queryByRole("button", { name: "table.cell.stage.triggerLabel" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "table.cell.stage.triggerLabel" })
+    ).toBeNull();
   });
 
   it("KEEPS the read path — a click on a read-only cell opens the deal detail", () => {
     const onOpenDeal = vi.fn();
     renderRow(false, { onOpenDeal });
     fireEvent.click(
-      document.querySelector('[data-pipeline-table-column-id="client"]') as HTMLElement,
+      document.querySelector(
+        '[data-pipeline-table-column-id="client"]'
+      ) as HTMLElement
     );
     expect(onOpenDeal).toHaveBeenCalledWith("opp-1");
   });
@@ -239,7 +270,9 @@ describe("PipelineTableRow — view-only (no pipeline.manage)", () => {
     const onOpenDeal = vi.fn();
     renderRow(false, { onBeginEdit, onOpenDeal });
     fireEvent.click(
-      document.querySelector('[data-pipeline-table-column-id="value"]') as HTMLElement,
+      document.querySelector(
+        '[data-pipeline-table-column-id="value"]'
+      ) as HTMLElement
     );
     expect(onBeginEdit).not.toHaveBeenCalled();
     expect(onOpenDeal).toHaveBeenCalledWith("opp-1");
@@ -247,18 +280,39 @@ describe("PipelineTableRow — view-only (no pipeline.manage)", () => {
 });
 
 describe("PipelineTableRow — manage (has pipeline.manage)", () => {
-  it("renders the per-row select checkbox", () => {
-    renderRow(true);
-    expect(screen.getByRole("checkbox", { name: "table.column.select" })).toBeInTheDocument();
+  it("keeps a non-assigned row read-only under view-all/edit-assigned", () => {
+    renderRow(true, {
+      leadAccess: {
+        canView: true,
+        canEdit: false,
+        canAssign: false,
+        canUnassign: false,
+        canConvert: false,
+      },
+    });
+
+    expect(
+      screen.queryByRole("checkbox", { name: "table.column.select" })
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "table.cell.stage.triggerLabel" })
+    ).toBeNull();
   });
 
-  it("renders inline-edit affordances: the assignee trigger + the stage menu trigger", () => {
+  it("renders the per-row select checkbox", () => {
     renderRow(true);
     expect(
-      screen.getByRole("button", { name: "table.cell.assignee.triggerLabel" }),
+      screen.getByRole("checkbox", { name: "table.column.select" })
     ).toBeInTheDocument();
+  });
+
+  it("keeps assignment read-only in the scan row and exposes the stage editor", () => {
+    renderRow(true);
     expect(
-      screen.getByRole("button", { name: "table.cell.stage.triggerLabel" }),
+      screen.queryByRole("button", { name: "table.cell.assignee.triggerLabel" })
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "table.cell.stage.triggerLabel" })
     ).toBeInTheDocument();
   });
 
@@ -266,7 +320,9 @@ describe("PipelineTableRow — manage (has pipeline.manage)", () => {
     const onBeginEdit = vi.fn();
     renderRow(true, { onBeginEdit });
     fireEvent.click(
-      document.querySelector('[data-pipeline-table-column-id="value"]') as HTMLElement,
+      document.querySelector(
+        '[data-pipeline-table-column-id="value"]'
+      ) as HTMLElement
     );
     expect(onBeginEdit).toHaveBeenCalledWith("opp-1", "value");
   });
@@ -275,12 +331,16 @@ describe("PipelineTableRow — manage (has pipeline.manage)", () => {
 describe("PipelineTableHeader — select-all is manage-gated, sorting is not", () => {
   it("hides the select-all checkbox for a view-only operator", () => {
     renderHeader(false);
-    expect(screen.queryByRole("checkbox", { name: "table.column.select" })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", { name: "table.column.select" })
+    ).toBeNull();
   });
 
   it("renders the select-all checkbox for a manage operator", () => {
     renderHeader(true);
-    expect(screen.getByRole("checkbox", { name: "table.column.select" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "table.column.select" })
+    ).toBeInTheDocument();
   });
 
   it("KEEPS sorting available for a view-only operator (sort header buttons fire)", () => {

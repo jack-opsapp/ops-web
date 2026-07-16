@@ -41,7 +41,13 @@ const METRICS: PipelineTableMetrics = {
   columnScale: 1,
 };
 
-const TEST_COLUMN_IDS: PipelineTableColumnId[] = ["select", "deal", "stage", "value", "assignee"];
+const TEST_COLUMN_IDS: PipelineTableColumnId[] = [
+  "select",
+  "deal",
+  "stage",
+  "value",
+  "assignee",
+];
 
 function makeRow(id: string, title: string): PipelineTableRowModel {
   return {
@@ -59,6 +65,7 @@ function makeRow(id: string, title: string): PipelineTableRowModel {
     nextFollowUpAt: null,
     expectedCloseDate: null,
     assignedTo: null,
+    assignmentVersion: 0,
     assigneeName: null,
     source: null,
     priority: null,
@@ -71,7 +78,10 @@ function makeRow(id: string, title: string): PipelineTableRowModel {
   };
 }
 
-const ROWS: PipelineTableRowModel[] = [makeRow("opp-1", "Deck rebuild"), makeRow("opp-2", "Shop bay")];
+const ROWS: PipelineTableRowModel[] = [
+  makeRow("opp-1", "Deck rebuild"),
+  makeRow("opp-2", "Shop bay"),
+];
 
 // Fixed clock for the aging/overdue cues. The test rows carry no follow-up /
 // close dates and a null stale threshold, so no signal fires under any `now`;
@@ -80,9 +90,15 @@ const NOW = new Date("2026-05-31T12:00:00.000Z");
 
 function columnLayouts(): PipelineTableColumnLayout[] {
   return TEST_COLUMN_IDS.map((id) => {
-    const column = PIPELINE_TABLE_COLUMNS.find((candidate) => candidate.id === id);
+    const column = PIPELINE_TABLE_COLUMNS.find(
+      (candidate) => candidate.id === id
+    );
     if (!column) throw new Error(`Missing test column ${id}`);
-    return { column, width: column.width, stickyLeft: column.frozen ? 0 : null };
+    return {
+      column,
+      width: column.width,
+      stickyLeft: column.frozen ? 0 : null,
+    };
   });
 }
 
@@ -100,7 +116,7 @@ function Harness({
   onCommitCell?: (
     rowId: string,
     columnId: PipelineTableEditableColumnId,
-    value: PipelineTableEditValue,
+    value: PipelineTableEditValue
   ) => void;
   onUndo?: () => void;
   onFocusSearch?: () => void;
@@ -139,6 +155,13 @@ function Harness({
             activeCell={activeCell}
             editingCell={editingCell}
             canManage
+            leadAccess={{
+              canView: true,
+              canEdit: true,
+              canAssign: true,
+              canUnassign: true,
+              canConvert: true,
+            }}
             setActiveCell={setActiveCell}
             onToggleRow={vi.fn()}
             onOpenDeal={vi.fn()}
@@ -162,13 +185,13 @@ function renderHarness(props?: Parameters<typeof Harness>[0]) {
   return render(
     <QueryClientProvider client={queryClient}>
       <Harness {...props} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
 }
 
 function cell(rowId: string, columnId: PipelineTableColumnId): HTMLElement {
   const el = document.querySelector<HTMLElement>(
-    `[data-pipeline-table-row-id="${rowId}"][data-pipeline-table-column-id="${columnId}"]`,
+    `[data-pipeline-table-row-id="${rowId}"][data-pipeline-table-column-id="${columnId}"]`
   );
   if (!el) throw new Error(`Cell not found: ${rowId}/${columnId}`);
   return el;
@@ -183,7 +206,7 @@ describe("pipeline table keyboard navigation (DOM wiring)", () => {
     renderHarness();
     // The hook seeds the active cell to the first cell (opp-1/select).
     const tabbable = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-pipeline-table-row-id]"),
+      document.querySelectorAll<HTMLElement>("[data-pipeline-table-row-id]")
     ).filter((el) => el.getAttribute("tabindex") === "0");
     expect(tabbable).toHaveLength(1);
     expect(tabbable[0]).toBe(cell("opp-1", "select"));

@@ -96,7 +96,9 @@ describe("catalog.run_setup permission registration", () => {
   it("is a non-destructive action included in the catalog module's 'manage' and 'full' tiers", () => {
     // run_setup must NOT be treated as destructive (it would drop out of the
     // 'manage' tier and the roles editor would mis-render the catalog module).
-    expect(getActionsForTier("catalog", "manage")).toContain("catalog.run_setup");
+    expect(getActionsForTier("catalog", "manage")).toContain(
+      "catalog.run_setup"
+    );
     expect(getActionsForTier("catalog", "full")).toContain("catalog.run_setup");
   });
 
@@ -107,7 +109,10 @@ describe("catalog.run_setup permission registration", () => {
         userId: "user-account-holder",
       },
       {
-        company: { accountHolderId: "other-user", adminIds: ["user-company-admin"] },
+        company: {
+          accountHolderId: "other-user",
+          adminIds: ["user-company-admin"],
+        },
         userId: "user-company-admin",
       },
     ];

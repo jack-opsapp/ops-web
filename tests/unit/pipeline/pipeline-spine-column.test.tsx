@@ -1,10 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import {
-  type Opportunity,
-  OpportunityStage,
-} from "@/lib/types/pipeline";
+import { type Opportunity, OpportunityStage } from "@/lib/types/pipeline";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { PipelineSpineColumn } from "@/app/(dashboard)/pipeline/_components/pipeline-spine-column";
 
@@ -47,6 +44,7 @@ function makeOpportunity(id: string): Opportunity {
     stage: OpportunityStage.Quoted,
     source: null,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: null,
     estimatedValue: null,
     actualValue: null,
@@ -122,7 +120,9 @@ describe("<PipelineSpineColumn>", () => {
     expect(
       container.querySelectorAll("[data-testid='pipeline-spine-silhouette']")
     ).toHaveLength(5);
-    expect(screen.queryByTestId("pipeline-spine-overflow")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("pipeline-spine-overflow")
+    ).not.toBeInTheDocument();
   });
 
   it("caps individual silhouettes at 30 and renders a single 30+ block", () => {

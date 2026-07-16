@@ -81,15 +81,13 @@ export type PipelineTableEditableColumnId =
   | "value"
   | "client"
   | "next_follow_up"
-  | "expected_close"
-  | "assignee";
+  | "expected_close";
 
 export const PIPELINE_TABLE_EDITABLE_COLUMN_IDS = [
   "value",
   "client",
   "next_follow_up",
   "expected_close",
-  "assignee",
 ] as const satisfies readonly PipelineTableEditableColumnId[];
 
 /** Narrow a column id to the inline-editable subset. */
@@ -99,7 +97,7 @@ export function isPipelineTableEditableColumn(
   return (PIPELINE_TABLE_EDITABLE_COLUMN_IDS as readonly string[]).includes(id);
 }
 
-/** Union of inline-editable cell value shapes: value=number|null, dates=string|null, client/assignee=string|null (ids). */
+/** Union of inline-editable cell value shapes: value=number|null, dates=string|null, client=string|null (id). */
 export type PipelineTableEditValue = string | number | null;
 
 // ─── Column Config & Registry ─────────────────────────────────────────────────
@@ -212,7 +210,6 @@ export const PIPELINE_TABLE_COLUMNS: PipelineTableColumnConfig[] = [
     labelKey: "table.column.assignee",
     kind: "assignee",
     sortable: true,
-    editable: true,
     minWidth: 120,
     width: 150,
     maxWidth: 240,
@@ -269,6 +266,7 @@ export interface PipelineTableRow {
   nextFollowUpAt: string | null;
   expectedCloseDate: string | null;
   assignedTo: string | null;
+  assignmentVersion: number;
   assigneeName: string | null;
   source: string | null;
   priority: string | null;

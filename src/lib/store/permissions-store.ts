@@ -16,6 +16,7 @@ import {
   resolveEffectivePermissions,
 } from "@/lib/permissions/resolve";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { effectivePipelineScope } from "@/lib/permissions/lead-access-policy";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,14 @@ function scopeSatisfies(
   return false;
 }
 
+const PIPELINE_SCOPED_COMPAT_PERMISSIONS = new Set([
+  "pipeline.create",
+  "pipeline.view",
+  "pipeline.edit",
+  "pipeline.assign",
+  "pipeline.convert",
+]);
+
 let permissionRefreshGeneration = 0;
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -81,8 +90,23 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
   initialized: false,
 
   can: (permission: string, requiredScope?: PermissionScope): boolean => {
-    const { permissions } = get();
-    const granted = permissions.get(permission);
+    const { permissions, configuredPermissions } = get();
+    let granted = permissions.get(permission);
+
+    // Transitional pipeline compatibility is centralized here so navigation,
+    // queries, and action gates cannot drift. Any explicit granular decision
+    // (including a revoke or inert scope) wins. Only a genuinely absent key may
+    // inherit legacy pipeline.manage:all.
+    if (PIPELINE_SCOPED_COMPAT_PERMISSIONS.has(permission)) {
+      if (configuredPermissions.has(permission)) {
+        if (granted !== "all" && granted !== "assigned") return false;
+        if (permission === "pipeline.create" && granted !== "all") return false;
+      } else {
+        granted =
+          permissions.get("pipeline.manage") === "all" ? "all" : undefined;
+      }
+    }
+
     if (!granted) return false;
     if (!requiredScope) return true;
     return scopeSatisfies(granted, requiredScope);
@@ -247,31 +271,19 @@ export const selectScope =
   (permission: string): PermissionScope | null =>
     state.permissions.get(permission) ?? null;
 
-type MutablePipelinePermission = "pipeline.edit" | "pipeline.convert";
+export const selectCanViewOpportunity = (state: PermissionState): boolean =>
+  effectivePipelineScope(state, "pipeline.view") !== null;
 
-/**
- * Canonical client gate for a mutable lead action.
- *
- * A configured granular decision is authoritative, including an explicit
- * revoke or inert override. Legacy `pipeline.manage:all` is considered only
- * when that exact granular action is genuinely absent, matching the database
- * compatibility boundary. Row assignment remains server-enforced.
- */
-function canMutateOpportunity(
-  state: PermissionState,
-  permission: MutablePipelinePermission
-): boolean {
-  if (state.configuredPermissions.has(permission)) {
-    const scope = state.permissions.get(permission);
-    return scope === "all" || scope === "assigned";
-  }
-  return state.can("pipeline.manage", "all");
-}
+export const selectCanCreateOpportunity = (state: PermissionState): boolean =>
+  effectivePipelineScope(state, "pipeline.create") === "all";
+
+export const selectCanAssignOpportunity = (state: PermissionState): boolean =>
+  effectivePipelineScope(state, "pipeline.assign") !== null;
 
 export const selectCanEditOpportunity = (state: PermissionState): boolean =>
-  canMutateOpportunity(state, "pipeline.edit");
+  effectivePipelineScope(state, "pipeline.edit") !== null;
 
 export const selectCanConvertOpportunity = (state: PermissionState): boolean =>
-  canMutateOpportunity(state, "pipeline.convert");
+  effectivePipelineScope(state, "pipeline.convert") !== null;
 
 export default usePermissionStore;

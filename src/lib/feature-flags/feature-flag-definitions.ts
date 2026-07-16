@@ -35,7 +35,15 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
 
 /** RBAC permissions gated by each feature flag slug. */
 export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
-  pipeline: ["pipeline.view", "pipeline.manage", "pipeline.configure_stages"],
+  pipeline: [
+    "pipeline.create",
+    "pipeline.view",
+    "pipeline.edit",
+    "pipeline.assign",
+    "pipeline.convert",
+    "pipeline.manage",
+    "pipeline.configure_stages",
+  ],
   accounting: [
     "accounting.view",
     "accounting.manage_connections",
@@ -65,7 +73,11 @@ export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
   portal: ["portal.view", "portal.manage_branding"],
   // ai_email_review removed — all AI gating now on phase_c.
   phase_c: ["email.configure_ai"],
-  deck_builder: ["deck_builder.view", "deck_builder.create", "deck_builder.edit"],
+  deck_builder: [
+    "deck_builder.view",
+    "deck_builder.create",
+    "deck_builder.edit",
+  ],
   projects_table_v2: [],
   pipeline_table_view: [],
   // inbox_ui: per-company dark-launch (no RBAC permissions beyond nav visibility)

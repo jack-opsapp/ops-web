@@ -114,6 +114,7 @@ function validContextResponse() {
     correspondence: [
       {
         id: "99999999-9999-4999-8999-999999999999",
+        activity_id: "44444444-4444-4444-8444-444444444444",
         direction: "inbound",
         party_role: "customer",
         is_meaningful: true,
@@ -168,6 +169,7 @@ describe("OpportunityAssignedContextService", () => {
       photos: ["https://files.example.com/site.jpg"],
     });
     expect(context.correspondence[0]).toMatchObject({
+      activityId: "44444444-4444-4444-8444-444444444444",
       partyRole: "customer",
       isMeaningful: true,
     });

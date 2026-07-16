@@ -32,6 +32,7 @@ import {
   useUnarchiveOpportunity,
   useUpdateOpportunity,
 } from "@/lib/hooks/use-opportunities";
+import { useLeadAssignment } from "@/lib/hooks/use-lead-assignment";
 import { OpportunityPriority } from "@/lib/types/pipeline";
 import type { PipelineTableRow } from "@/lib/types/pipeline-table";
 import { useUndoStore } from "@/stores/undo-store";
@@ -70,8 +71,8 @@ export interface PipelineBulkActionsApi {
   targetRows: PipelineTableRow[];
   /** True while any bulk operation is mid-flight (disables the bar's controls). */
   isRunning: boolean;
-  /** Reassign every target's owner (`assignedTo`). Empty string clears it. */
-  reassignOwner: (userId: string) => Promise<BulkRunResult>;
+  /** Reassign every target's assignee (`assignedTo`). Empty string clears it. */
+  reassignAssignee: (userId: string) => Promise<BulkRunResult>;
   /** Set every target's next follow-up date (`yyyy-mm-dd`, empty clears). */
   setFollowUpDate: (value: string) => Promise<BulkRunResult>;
   /** Set every target's priority. */
@@ -98,11 +99,13 @@ export function usePipelineBulkActions({
   };
 }): PipelineBulkActionsApi {
   const updateOpportunity = useUpdateOpportunity();
+  const assignOpportunity = useLeadAssignment();
   const archiveOpportunity = useArchiveOpportunity();
   const unarchiveOpportunity = useUnarchiveOpportunity();
   const pushUndo = useUndoStore((s) => s.pushUndo);
 
   const { mutateAsync: updateAsync } = updateOpportunity;
+  const { mutateAsync: assignAsync } = assignOpportunity;
   const { mutateAsync: archiveAsync } = archiveOpportunity;
   const { mutateAsync: unarchiveAsync } = unarchiveOpportunity;
 
@@ -110,7 +113,7 @@ export function usePipelineBulkActions({
 
   const targetRows = useMemo(
     () => selectedRows.filter((row) => selectedIds.has(row.id)),
-    [selectedIds, selectedRows],
+    [selectedIds, selectedRows]
   );
 
   /**
@@ -128,8 +131,12 @@ export function usePipelineBulkActions({
       undoLabel,
     }: {
       rows: PipelineTableRow[];
-      buildData: (row: PipelineTableRow) => Parameters<typeof updateAsync>[0]["data"];
-      buildUndoData: (row: PipelineTableRow) => Parameters<typeof updateAsync>[0]["data"];
+      buildData: (
+        row: PipelineTableRow
+      ) => Parameters<typeof updateAsync>[0]["data"];
+      buildUndoData: (
+        row: PipelineTableRow
+      ) => Parameters<typeof updateAsync>[0]["data"];
       undoLabel: (count: number) => string;
     }): Promise<BulkRunResult> => {
       if (rows.length === 0) return { successCount: 0, failedCount: 0 };
@@ -137,11 +144,11 @@ export function usePipelineBulkActions({
       setIsRunning(true);
       try {
         const settled = await Promise.allSettled(
-          rows.map((row) => updateAsync({ id: row.id, data: buildData(row) })),
+          rows.map((row) => updateAsync({ id: row.id, data: buildData(row) }))
         );
 
         const succeededRows = rows.filter(
-          (_row, index) => settled[index]?.status === "fulfilled",
+          (_row, index) => settled[index]?.status === "fulfilled"
         );
         const failedCount = settled.length - succeededRows.length;
 
@@ -151,8 +158,8 @@ export function usePipelineBulkActions({
             inverseFn: async () => {
               await Promise.allSettled(
                 succeededRows.map((row) =>
-                  updateAsync({ id: row.id, data: buildUndoData(row) }),
-                ),
+                  updateAsync({ id: row.id, data: buildUndoData(row) })
+                )
               );
             },
           });
@@ -164,20 +171,40 @@ export function usePipelineBulkActions({
         onClearSelection();
       }
     },
-    [onClearSelection, pushUndo, updateAsync],
+    [onClearSelection, pushUndo, updateAsync]
   );
 
-  const reassignOwner = useCallback(
-    (userId: string) => {
+  const reassignAssignee = useCallback(
+    async (userId: string): Promise<BulkRunResult> => {
+      const rows = targetRows;
+      if (rows.length === 0) return { successCount: 0, failedCount: 0 };
+
       const assignedTo = userId.trim().length === 0 ? null : userId;
-      return runUpdate({
-        rows: targetRows,
-        buildData: () => ({ assignedTo }),
-        buildUndoData: (row) => ({ assignedTo: row.assignedTo }),
-        undoLabel: undoLabels.reassign,
-      });
+      setIsRunning(true);
+      try {
+        // Assignment is snapshot-guarded per row. It is intentionally not
+        // undoable: a stale inverse write could overwrite a newer human
+        // assignment, while each failed row remains an explicit partial result.
+        const settled = await Promise.allSettled(
+          rows.map((row) =>
+            assignAsync({
+              opportunityId: row.id,
+              expectedAssignedTo: row.assignedTo,
+              expectedAssignmentVersion: row.assignmentVersion,
+              newAssignedTo: assignedTo,
+            })
+          )
+        );
+        const successCount = settled.filter(
+          (result) => result.status === "fulfilled"
+        ).length;
+        return { successCount, failedCount: settled.length - successCount };
+      } finally {
+        setIsRunning(false);
+        onClearSelection();
+      }
     },
-    [runUpdate, targetRows, undoLabels.reassign],
+    [assignAsync, onClearSelection, targetRows]
   );
 
   const setFollowUpDate = useCallback(
@@ -186,11 +213,13 @@ export function usePipelineBulkActions({
       return runUpdate({
         rows: targetRows,
         buildData: () => ({ nextFollowUpAt }),
-        buildUndoData: (row) => ({ nextFollowUpAt: isoToDate(row.nextFollowUpAt) }),
+        buildUndoData: (row) => ({
+          nextFollowUpAt: isoToDate(row.nextFollowUpAt),
+        }),
         undoLabel: undoLabels.followUp,
       });
     },
-    [runUpdate, targetRows, undoLabels.followUp],
+    [runUpdate, targetRows, undoLabels.followUp]
   );
 
   const changePriority = useCallback(
@@ -203,7 +232,7 @@ export function usePipelineBulkActions({
         }),
         undoLabel: undoLabels.priority,
       }),
-    [runUpdate, targetRows, undoLabels.priority],
+    [runUpdate, targetRows, undoLabels.priority]
   );
 
   const archive = useCallback(async (): Promise<BulkRunResult> => {
@@ -212,9 +241,11 @@ export function usePipelineBulkActions({
 
     setIsRunning(true);
     try {
-      const settled = await Promise.allSettled(rows.map((row) => archiveAsync(row.id)));
+      const settled = await Promise.allSettled(
+        rows.map((row) => archiveAsync(row.id))
+      );
       const succeededRows = rows.filter(
-        (_row, index) => settled[index]?.status === "fulfilled",
+        (_row, index) => settled[index]?.status === "fulfilled"
       );
       const failedCount = settled.length - succeededRows.length;
 
@@ -223,7 +254,7 @@ export function usePipelineBulkActions({
           label: undoLabels.archive(succeededRows.length),
           inverseFn: async () => {
             await Promise.allSettled(
-              succeededRows.map((row) => unarchiveAsync(row.id)),
+              succeededRows.map((row) => unarchiveAsync(row.id))
             );
           },
         });
@@ -236,12 +267,19 @@ export function usePipelineBulkActions({
     }
     // `undoLabels` is memoized by the caller (keyed on the dictionary `t`), so
     // it's stable; depend on the whole object per exhaustive-deps.
-  }, [archiveAsync, onClearSelection, pushUndo, targetRows, unarchiveAsync, undoLabels]);
+  }, [
+    archiveAsync,
+    onClearSelection,
+    pushUndo,
+    targetRows,
+    unarchiveAsync,
+    undoLabels,
+  ]);
 
   return {
     targetRows,
     isRunning,
-    reassignOwner,
+    reassignAssignee,
     setFollowUpDate,
     changePriority,
     archive,

@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  memo,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
 import { CalendarClock, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -51,7 +44,10 @@ export type PipelineCardActionHandlers = {
 };
 
 export type PipelineCardEditHandlers = {
-  onTitleSave: (opportunity: Opportunity, title: string) => void | Promise<void>;
+  onTitleSave: (
+    opportunity: Opportunity,
+    title: string
+  ) => void | Promise<void>;
   onLinkClient: (
     opportunity: Opportunity,
     clientId: string
@@ -72,7 +68,8 @@ export type PipelineCardEditHandlers = {
 };
 
 export interface PipelineCardContentProps
-  extends Partial<PipelineCardActionHandlers>,
+  extends
+    Partial<PipelineCardActionHandlers>,
     Partial<PipelineCardEditHandlers> {
   opportunity: Opportunity;
   clientName: string;
@@ -82,6 +79,8 @@ export interface PipelineCardContentProps
   density: PipelineCardDensity;
   surfaceVariant?: "default" | "focused";
   canManage?: boolean;
+  canAssign?: boolean;
+  canConvert?: boolean;
   isSelected?: boolean;
   isHovered?: boolean;
   isExpanded?: boolean;
@@ -108,6 +107,8 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   density,
   surfaceVariant = "default",
   canManage = false,
+  canAssign = canManage,
+  canConvert = canManage,
   isSelected = false,
   isHovered = false,
   isExpanded = false,
@@ -160,10 +161,10 @@ export const PipelineCardContent = memo(function PipelineCardContent({
         }}
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="font-mohave text-body-sm font-medium text-text truncate">
+          <span className="truncate font-mohave text-body-sm font-medium text-text">
             {clientName}
           </span>
-          <span className="font-mono text-data-sm text-text-2 tabular-nums whitespace-nowrap">
+          <span className="whitespace-nowrap font-mono text-data-sm tabular-nums text-text-2">
             {opportunity.estimatedValue != null
               ? formatCurrency(opportunity.estimatedValue)
               : "—"}
@@ -368,6 +369,8 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                 opportunityId={opportunity.id}
                 stage={opportunity.stage}
                 canManage={canManage}
+                canAssign={canAssign}
+                canConvert={canConvert}
                 stageActions={quickStageActions}
                 onLogCall={onLogCall}
                 onLogText={onLogText}
@@ -405,6 +408,8 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                   opportunityId={opportunity.id}
                   stage={opportunity.stage}
                   canManage={canManage}
+                  canAssign={canAssign}
+                  canConvert={canConvert}
                   stageActions={quickStageActions}
                   onLogCall={onLogCall}
                   onLogText={onLogText}
@@ -656,7 +661,9 @@ function InlineValueEditor({
   }
 
   if (!canManage || !onValueSave) {
-    return <span className={cn("shrink-0 text-text", numClass)}>{display}</span>;
+    return (
+      <span className={cn("shrink-0 text-text", numClass)}>{display}</span>
+    );
   }
 
   return (
@@ -790,7 +797,10 @@ function ClientLinkControl({
             (term): term is string => Boolean(term)
           )
         }
-        searchPlaceholder={t("card.clientSearchPlaceholder", "Search clients...")}
+        searchPlaceholder={t(
+          "card.clientSearchPlaceholder",
+          "Search clients..."
+        )}
         clearLabel={tp("clear")}
         emptyLabel={t("card.clientNoMatches", "No client match")}
         createAction={
@@ -947,10 +957,7 @@ function SignalLine({
       )}
       {hasFollowUpSignal && (
         <span
-          className={cn(
-            "inline-flex min-w-0 items-center gap-1",
-            followUpTone
-          )}
+          className={cn("inline-flex min-w-0 items-center gap-1", followUpTone)}
         >
           <CalendarClock
             aria-hidden="true"

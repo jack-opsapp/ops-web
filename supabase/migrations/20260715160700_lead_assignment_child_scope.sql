@@ -2560,6 +2560,7 @@ begin
   select coalesce(jsonb_agg(
       jsonb_build_object(
         'id', ce.id,
+        'activity_id', ce.activity_id,
         'direction', ce.direction,
         'party_role', ce.party_role,
         'is_meaningful', ce.is_meaningful,

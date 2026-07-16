@@ -26,6 +26,8 @@ import type {
   PipelineTableRow,
   PipelineTableSort,
 } from "@/lib/types/pipeline-table";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 
 // ── Mocks for the four fanned-out data hooks ──────────────────────────────────
 // The data hook composes useOpportunities / useClients / useTeamMembers /
@@ -39,7 +41,11 @@ vi.mock("@/lib/hooks/use-opportunities", () => ({ useOpportunities }));
 vi.mock("@/lib/hooks/use-clients", () => ({ useClients }));
 vi.mock("@/lib/hooks/use-users", () => ({ useTeamMembers }));
 vi.mock("@/lib/hooks/pipeline-table/use-pipeline-stage-configs", () => ({
-  usePipelineStageConfigs: () => ({ data: [], isLoading: false, isError: false }),
+  usePipelineStageConfigs: () => ({
+    data: [],
+    isLoading: false,
+    isError: false,
+  }),
   // The hook indexes configs by slug; an empty map makes the adapter fall back
   // to PIPELINE_STAGES_DEFAULT, which is all this sort test needs.
   stageConfigBySlug: () => new Map(),
@@ -65,7 +71,9 @@ function daysAfterNow(days: number): Date {
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 /** Minimal-but-complete `PipelineTableRow` for the pure comparator tests. */
-function makeRow(overrides: Partial<PipelineTableRow> & { id: string }): PipelineTableRow {
+function makeRow(
+  overrides: Partial<PipelineTableRow> & { id: string }
+): PipelineTableRow {
   return {
     companyId: "co-1",
     title: overrides.id,
@@ -80,6 +88,7 @@ function makeRow(overrides: Partial<PipelineTableRow> & { id: string }): Pipelin
     nextFollowUpAt: null,
     expectedCloseDate: null,
     assignedTo: null,
+    assignmentVersion: 0,
     assigneeName: null,
     source: null,
     priority: null,
@@ -94,7 +103,9 @@ function makeRow(overrides: Partial<PipelineTableRow> & { id: string }): Pipelin
 }
 
 /** Full `Opportunity` fixture (mirrors the adapter test's factory). */
-function makeOpportunity(overrides: Partial<Opportunity> & { id: string }): Opportunity {
+function makeOpportunity(
+  overrides: Partial<Opportunity> & { id: string }
+): Opportunity {
   return {
     companyId: "co-1",
     clientId: null,
@@ -106,6 +117,7 @@ function makeOpportunity(overrides: Partial<Opportunity> & { id: string }): Oppo
     stage: OpportunityStage.Quoting,
     source: OpportunitySource.Referral,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: OpportunityPriority.Medium,
     estimatedValue: 10000,
     actualValue: null,
@@ -148,9 +160,28 @@ function makeWrapper() {
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return function Wrapper({ children }: { children: ReactNode }) {
-    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
   };
 }
+
+beforeEach(() => {
+  useAuthStore.setState({
+    company: { id: "co-1" } as never,
+    currentUser: { id: "actor-1" } as never,
+  });
+  usePermissionStore.setState({
+    permissions: new Map([["pipeline.view", "all"]]),
+    configuredPermissions: new Set(["pipeline.view"]),
+    initialized: true,
+  });
+});
+
+afterEach(() => {
+  usePermissionStore.getState().clear();
+  useAuthStore.setState({ company: null, currentUser: null });
+});
 
 // ─── compareByAging (pure) ──────────────────────────────────────────────────────
 
@@ -158,15 +189,24 @@ describe("compareByAging", () => {
   const cmp = compareByAging(NOW);
 
   it("sorts an overdue follow-up above a deal with no follow-up", () => {
-    const overdue = makeRow({ id: "overdue", nextFollowUpAt: daysBeforeNow(1).toISOString() });
+    const overdue = makeRow({
+      id: "overdue",
+      nextFollowUpAt: daysBeforeNow(1).toISOString(),
+    });
     const fresh = makeRow({ id: "fresh", nextFollowUpAt: null });
     expect(cmp(overdue, fresh)).toBeLessThan(0);
     expect(cmp(fresh, overdue)).toBeGreaterThan(0);
   });
 
   it("sorts an overdue follow-up above one with a FUTURE follow-up", () => {
-    const overdue = makeRow({ id: "overdue", nextFollowUpAt: daysBeforeNow(2).toISOString() });
-    const future = makeRow({ id: "future", nextFollowUpAt: daysAfterNow(3).toISOString() });
+    const overdue = makeRow({
+      id: "overdue",
+      nextFollowUpAt: daysBeforeNow(2).toISOString(),
+    });
+    const future = makeRow({
+      id: "future",
+      nextFollowUpAt: daysAfterNow(3).toISOString(),
+    });
     expect(cmp(overdue, future)).toBeLessThan(0);
   });
 
@@ -203,7 +243,10 @@ describe("compareByAging", () => {
   });
 
   it("sorts a never-contacted (null lastActivityAt) deal last within a group", () => {
-    const contacted = makeRow({ id: "contacted", lastActivityAt: daysBeforeNow(20).toISOString() });
+    const contacted = makeRow({
+      id: "contacted",
+      lastActivityAt: daysBeforeNow(20).toISOString(),
+    });
     const never = makeRow({ id: "never", lastActivityAt: null });
     expect(cmp(contacted, never)).toBeLessThan(0);
     expect(cmp(never, contacted)).toBeGreaterThan(0);
@@ -211,7 +254,10 @@ describe("compareByAging", () => {
 
   it("produces the full expected order when applied to a mixed set", () => {
     const rows = [
-      makeRow({ id: "fresh-recent", lastActivityAt: daysBeforeNow(1).toISOString() }),
+      makeRow({
+        id: "fresh-recent",
+        lastActivityAt: daysBeforeNow(1).toISOString(),
+      }),
       makeRow({
         id: "overdue-old",
         nextFollowUpAt: daysBeforeNow(3).toISOString(),
@@ -222,7 +268,10 @@ describe("compareByAging", () => {
         nextFollowUpAt: daysBeforeNow(1).toISOString(),
         lastActivityAt: daysBeforeNow(2).toISOString(),
       }),
-      makeRow({ id: "fresh-old", lastActivityAt: daysBeforeNow(40).toISOString() }),
+      makeRow({
+        id: "fresh-old",
+        lastActivityAt: daysBeforeNow(40).toISOString(),
+      }),
     ];
     const ordered = [...rows].sort(cmp).map((r) => r.id);
     expect(ordered).toEqual([
@@ -247,7 +296,9 @@ describe("usePipelineTableData sort branching", () => {
       isLoading: false,
       isError: false,
     });
-    useTeamMembers.mockReturnValue({ data: { users: [], remaining: 0, count: 0 } });
+    useTeamMembers.mockReturnValue({
+      data: { users: [], remaining: 0, count: 0 },
+    });
   });
 
   afterEach(() => {
@@ -274,8 +325,12 @@ describe("usePipelineTableData sort branching", () => {
     });
 
     const { result } = renderHook(
-      () => usePipelineTableData({ search: "", sorting: [] as PipelineTableSort[] }),
-      { wrapper: makeWrapper() },
+      () =>
+        usePipelineTableData({
+          search: "",
+          sorting: [] as PipelineTableSort[],
+        }),
+      { wrapper: makeWrapper() }
     );
 
     // The mocked data hooks resolve synchronously, so rows are computed on the
@@ -314,11 +369,14 @@ describe("usePipelineTableData sort branching", () => {
           search: "",
           sorting: [{ field: "deal", direction: "asc" }] as PipelineTableSort[],
         }),
-      { wrapper: makeWrapper() },
+      { wrapper: makeWrapper() }
     );
 
     expect(result.current.rows).toHaveLength(2);
-    expect(result.current.rows.map((r) => r.title)).toEqual(["Alpha job", "Zeta job"]);
+    expect(result.current.rows.map((r) => r.title)).toEqual([
+      "Alpha job",
+      "Zeta job",
+    ]);
   });
 });
 
@@ -334,7 +392,9 @@ describe("usePipelineTableData closedDeals option", () => {
       isLoading: false,
       isError: false,
     });
-    useTeamMembers.mockReturnValue({ data: { users: [], remaining: 0, count: 0 } });
+    useTeamMembers.mockReturnValue({
+      data: { users: [], remaining: 0, count: 0 },
+    });
 
     // One active deal plus all three terminal stages.
     useOpportunities.mockReturnValue({
@@ -356,8 +416,12 @@ describe("usePipelineTableData closedDeals option", () => {
 
   it("excludes terminal-stage deals by default (closedDeals omitted)", () => {
     const { result } = renderHook(
-      () => usePipelineTableData({ search: "", sorting: [] as PipelineTableSort[] }),
-      { wrapper: makeWrapper() },
+      () =>
+        usePipelineTableData({
+          search: "",
+          sorting: [] as PipelineTableSort[],
+        }),
+      { wrapper: makeWrapper() }
     );
 
     expect(result.current.rows.map((r) => r.id)).toEqual(["active"]);
@@ -367,8 +431,12 @@ describe("usePipelineTableData closedDeals option", () => {
   it("excludes terminal-stage deals when closedDeals is false", () => {
     const { result } = renderHook(
       () =>
-        usePipelineTableData({ search: "", sorting: [] as PipelineTableSort[], closedDeals: false }),
-      { wrapper: makeWrapper() },
+        usePipelineTableData({
+          search: "",
+          sorting: [] as PipelineTableSort[],
+          closedDeals: false,
+        }),
+      { wrapper: makeWrapper() }
     );
 
     expect(result.current.rows.map((r) => r.id)).toEqual(["active"]);
@@ -377,8 +445,12 @@ describe("usePipelineTableData closedDeals option", () => {
   it("includes Won / Lost / Discarded deals when closedDeals is true", () => {
     const { result } = renderHook(
       () =>
-        usePipelineTableData({ search: "", sorting: [] as PipelineTableSort[], closedDeals: true }),
-      { wrapper: makeWrapper() },
+        usePipelineTableData({
+          search: "",
+          sorting: [] as PipelineTableSort[],
+          closedDeals: true,
+        }),
+      { wrapper: makeWrapper() }
     );
 
     const ids = result.current.rows.map((r) => r.id).sort();
@@ -391,8 +463,16 @@ describe("usePipelineTableData closedDeals option", () => {
       data: [
         makeOpportunity({ id: "active", stage: OpportunityStage.Quoting }),
         makeOpportunity({ id: "won", stage: OpportunityStage.Won }),
-        makeOpportunity({ id: "won-deleted", stage: OpportunityStage.Won, deletedAt: daysBeforeNow(1) }),
-        makeOpportunity({ id: "won-archived", stage: OpportunityStage.Won, archivedAt: daysBeforeNow(1) }),
+        makeOpportunity({
+          id: "won-deleted",
+          stage: OpportunityStage.Won,
+          deletedAt: daysBeforeNow(1),
+        }),
+        makeOpportunity({
+          id: "won-archived",
+          stage: OpportunityStage.Won,
+          archivedAt: daysBeforeNow(1),
+        }),
       ],
       isLoading: false,
       isError: false,
@@ -400,8 +480,12 @@ describe("usePipelineTableData closedDeals option", () => {
 
     const { result } = renderHook(
       () =>
-        usePipelineTableData({ search: "", sorting: [] as PipelineTableSort[], closedDeals: true }),
-      { wrapper: makeWrapper() },
+        usePipelineTableData({
+          search: "",
+          sorting: [] as PipelineTableSort[],
+          closedDeals: true,
+        }),
+      { wrapper: makeWrapper() }
     );
 
     const ids = result.current.rows.map((r) => r.id).sort();

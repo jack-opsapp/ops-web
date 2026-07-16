@@ -79,7 +79,10 @@ describe("notification-meta", () => {
     for (const type of ALL_TYPES) {
       const iconName = NOTIF_TYPE_META[type].icon;
       const Icon = lucideIconFromName(iconName);
-      expect(typeof Icon, `${iconName} should resolve to a Lucide component`).toBe("object");
+      expect(
+        typeof Icon,
+        `${iconName} should resolve to a Lucide component`
+      ).toBe("object");
     }
   });
 

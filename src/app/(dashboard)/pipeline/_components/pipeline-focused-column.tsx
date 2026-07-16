@@ -13,6 +13,10 @@ import type { Client } from "@/lib/types/models";
 import { calculateBatchStaleness } from "./pipeline-staleness";
 import { PipelineFocusedCard } from "./pipeline-focused-card";
 import type { PipelineCardEditHandlers } from "./pipeline-card-content";
+import {
+  NO_LEAD_ACCESS,
+  type LeadAccess,
+} from "@/lib/permissions/lead-access-policy";
 
 type FocusedColumnActionHandlers = {
   onLogCall: (id: string) => void;
@@ -34,6 +38,8 @@ export interface PipelineFocusedColumnProps extends FocusedColumnActionHandlers 
   clients?: Client[];
   clientNameMap: Map<string, string>;
   canManage: boolean;
+  canCreateLead: boolean;
+  leadAccessById: ReadonlyMap<string, LeadAccess>;
   filtersActive: boolean;
   focusedTabId: string;
   focusedPanelId: string;
@@ -52,6 +58,8 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   clients = [],
   clientNameMap,
   canManage,
+  canCreateLead,
+  leadAccessById,
   filtersActive,
   focusedTabId,
   focusedPanelId,
@@ -96,7 +104,9 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
     : t("focused.empty.title", "// NO LEADS");
   const emptyAction = filtersActive
     ? t("focused.filteredEmpty.action", "[CLEAR FILTERS]")
-    : t("focused.empty.action", "[+ ADD LEAD]");
+    : canCreateLead
+      ? t("focused.empty.action", "[+ ADD LEAD]")
+      : null;
   const emptyActionHandler = filtersActive ? onClearFilters : onAddLead;
   const cardLabel = t(
     opportunities.length === 1
@@ -126,7 +136,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
       role="tabpanel"
       aria-labelledby={focusedTabId}
       aria-busy={isLoading ? true : undefined}
-      className="scrollbar-hide h-full min-h-0 overflow-y-auto scroll-pb-[360px] pt-[68px]"
+      className="scrollbar-hide h-full min-h-0 scroll-pb-[360px] overflow-y-auto pt-[68px]"
     >
       {isError ? (
         <div
@@ -176,6 +186,9 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
                 stageColor={cardStageColor}
                 stalenessOpacity={stalenessMap.get(opportunity.id) ?? 1}
                 canManage={canManage}
+                leadAccess={
+                  leadAccessById.get(opportunity.id) ?? NO_LEAD_ACCESS
+                }
                 onLogCall={() => onLogCall(opportunity.id)}
                 onLogText={() => onLogText(opportunity.id)}
                 onAddNote={(note) => onAddNote(opportunity.id, note)}
@@ -211,13 +224,15 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
           <p className="font-mono text-caption-sm uppercase tracking-[0.16em] text-text">
             {emptyTitle}
           </p>
-          <button
-            type="button"
-            className="rounded-chip border border-line px-3 py-2 font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-            onClick={emptyActionHandler}
-          >
-            {emptyAction}
-          </button>
+          {emptyAction ? (
+            <button
+              type="button"
+              className="rounded-chip border border-line px-3 py-2 font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+              onClick={emptyActionHandler}
+            >
+              {emptyAction}
+            </button>
+          ) : null}
           <FocusedListSummary summary={listSummary} stageColor={stageColor} />
         </div>
       )}
@@ -235,7 +250,7 @@ function FocusedListSummary({
   return (
     <div
       data-testid="pipeline-focused-list-summary"
-      className="mt-3 flex w-full items-center gap-2 border-t border-border-subtle pt-3 font-mono text-micro uppercase tracking-[0.16em] tabular-nums text-text-mute"
+      className="mt-3 flex w-full items-center gap-2 border-t border-border-subtle pt-3 font-mono text-micro uppercase tabular-nums tracking-[0.16em] text-text-mute"
     >
       <span
         aria-hidden="true"

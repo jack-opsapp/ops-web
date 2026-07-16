@@ -37,6 +37,45 @@ import {
 } from "@/lib/types/pipeline";
 import type { UseOpportunityFieldEdit } from "@/lib/hooks/use-opportunity-field-edit";
 
+const leadAssignmentMocks = vi.hoisted(() => ({
+  assign: vi.fn(),
+  useCandidates: vi.fn(),
+  candidateResult: {
+    data: {
+      canUnassign: true,
+      candidates: [
+        {
+          id: "user-ada",
+          firstName: "Ada",
+          lastName: "Lovelace",
+          profileImageUrl: null,
+          userColor: null,
+        },
+        {
+          id: "user-grace",
+          firstName: "Grace",
+          lastName: "Hopper",
+          profileImageUrl: null,
+          userColor: null,
+        },
+      ],
+    },
+    isLoading: false,
+    isError: false,
+  },
+}));
+
+vi.mock("@/lib/hooks/use-lead-assignment", () => ({
+  useLeadAssignment: () => ({
+    mutateAsync: leadAssignmentMocks.assign,
+    isPending: false,
+  }),
+  useLeadAssignmentCandidates: (...args: unknown[]) => {
+    leadAssignmentMocks.useCandidates(...args);
+    return leadAssignmentMocks.candidateResult;
+  },
+}));
+
 // Echo-key dictionary so labels are deterministic; the `t(key, fallback)`
 // contract returns the English fallback when present, so we forward it.
 vi.mock("@/i18n/client", () => ({
@@ -47,7 +86,7 @@ vi.mock("@/i18n/client", () => ({
   }),
 }));
 
-// Team members for the OwnerField picker — two named, active users.
+// Team members for the AssigneeField picker — two named, active users.
 vi.mock("@/lib/hooks/use-users", () => ({
   useTeamMembers: () => ({
     data: {
@@ -101,14 +140,14 @@ vi.mock(
         }
       />
     ),
-  }),
+  })
 );
 
 import {
   AddressField,
   CurrencyField,
   DateField,
-  OwnerField,
+  AssigneeField,
   PriorityField,
   SourceField,
   TagsField,
@@ -116,7 +155,9 @@ import {
 } from "@/app/(dashboard)/pipeline/_components/lead-field-editors";
 
 /** Build a fake shared edit instance with a spy `commit`. */
-function makeEdit(): UseOpportunityFieldEdit & { commit: ReturnType<typeof vi.fn> } {
+function makeEdit(): UseOpportunityFieldEdit & {
+  commit: ReturnType<typeof vi.fn>;
+} {
   const commit = vi.fn().mockResolvedValue(undefined);
   return {
     saveState: () => "idle",
@@ -126,6 +167,14 @@ function makeEdit(): UseOpportunityFieldEdit & { commit: ReturnType<typeof vi.fn
 
 beforeEach(() => {
   vi.clearAllMocks();
+  leadAssignmentMocks.assign.mockResolvedValue({
+    ok: true,
+    conflict: false,
+    assignedTo: "user-grace",
+    assignmentVersion: 8,
+    eventId: "assignment-event",
+  });
+  leadAssignmentMocks.candidateResult.data.canUnassign = true;
 });
 
 // ─── CurrencyField ────────────────────────────────────────────────────────────
@@ -209,12 +258,17 @@ describe("SourceField", () => {
     const listbox = screen.getByRole("listbox");
     fireEvent.click(within(listbox).getByText("Referral"));
 
-    expect(edit.commit).toHaveBeenCalledWith("source", OpportunitySource.Referral);
+    expect(edit.commit).toHaveBeenCalledWith(
+      "source",
+      OpportunitySource.Referral
+    );
   });
 
   it("commits null when Clear is chosen", () => {
     const edit = makeEdit();
-    render(<SourceField edit={edit} canManage value={OpportunitySource.Website} />);
+    render(
+      <SourceField edit={edit} canManage value={OpportunitySource.Website} />
+    );
 
     fireEvent.click(screen.getByRole("button"));
     const listbox = screen.getByRole("listbox");
@@ -225,7 +279,13 @@ describe("SourceField", () => {
 
   it("renders read-only when !canManage", () => {
     const edit = makeEdit();
-    render(<SourceField edit={edit} canManage={false} value={OpportunitySource.Referral} />);
+    render(
+      <SourceField
+        edit={edit}
+        canManage={false}
+        value={OpportunitySource.Referral}
+      />
+    );
     expect(screen.queryByRole("button")).toBeNull();
     expect(edit.commit).not.toHaveBeenCalled();
   });
@@ -236,7 +296,9 @@ describe("SourceField", () => {
 describe("PriorityField", () => {
   it("renders the priority chip with its text label (never colour-only)", () => {
     const edit = makeEdit();
-    render(<PriorityField edit={edit} canManage value={OpportunityPriority.High} />);
+    render(
+      <PriorityField edit={edit} canManage value={OpportunityPriority.High} />
+    );
     // The chip text label must be present, not just a colour swatch.
     expect(screen.getByText("High")).toBeInTheDocument();
   });
@@ -255,7 +317,10 @@ describe("PriorityField", () => {
     const listbox = screen.getByRole("listbox");
     fireEvent.click(within(listbox).getByText("Medium"));
 
-    expect(edit.commit).toHaveBeenCalledWith("priority", OpportunityPriority.Medium);
+    expect(edit.commit).toHaveBeenCalledWith(
+      "priority",
+      OpportunityPriority.Medium
+    );
   });
 });
 
@@ -273,7 +338,9 @@ describe("DateField", () => {
     render(<DateField edit={edit} canManage value={null} />);
 
     fireEvent.click(screen.getByRole("button"));
-    const input = document.querySelector('input[type="date"]') as HTMLInputElement;
+    const input = document.querySelector(
+      'input[type="date"]'
+    ) as HTMLInputElement;
     expect(input).not.toBeNull();
     fireEvent.change(input, { target: { value: "2026-07-15" } });
 
@@ -292,54 +359,112 @@ describe("DateField", () => {
   });
 });
 
-// ─── OwnerField ────────────────────────────────────────────────────────────────
+// ─── AssigneeField ─────────────────────────────────────────────────────────────
 
-describe("OwnerField", () => {
+describe("AssigneeField", () => {
   it("shows the assigned member name", () => {
-    const edit = makeEdit();
-    render(<OwnerField edit={edit} canManage value="user-ada" />);
+    render(
+      <AssigneeField
+        opportunityId="lead-1"
+        assignmentVersion={7}
+        canAssign
+        value="user-ada"
+      />
+    );
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
   });
 
   it("shows the unassigned placeholder when value is null", () => {
-    const edit = makeEdit();
-    render(<OwnerField edit={edit} canManage value={null} />);
+    render(
+      <AssigneeField
+        opportunityId="lead-1"
+        assignmentVersion={7}
+        canAssign
+        value={null}
+      />
+    );
     expect(screen.getByText("Unassigned")).toBeInTheDocument();
   });
 
-  it("commits the selected member id", () => {
-    const edit = makeEdit();
-    render(<OwnerField edit={edit} canManage value={null} />);
+  it("uses the guarded assignment snapshot when a member is selected", async () => {
+    render(
+      <AssigneeField
+        opportunityId="lead-1"
+        assignmentVersion={7}
+        canAssign
+        value={null}
+      />
+    );
 
     fireEvent.click(screen.getByRole("button"));
     const listbox = screen.getByRole("listbox");
     fireEvent.click(within(listbox).getByText("Grace Hopper"));
 
-    expect(edit.commit).toHaveBeenCalledWith("assignedTo", "user-grace");
+    expect(leadAssignmentMocks.assign).toHaveBeenCalledWith({
+      opportunityId: "lead-1",
+      expectedAssignedTo: null,
+      expectedAssignmentVersion: 7,
+      newAssignedTo: "user-grace",
+      source: "manual",
+    });
+    await screen.findByRole("status", { name: "Saved" });
   });
 
-  it("commits null when Unassign is chosen", () => {
-    const edit = makeEdit();
-    render(<OwnerField edit={edit} canManage value="user-ada" />);
+  it("uses the guarded assignment snapshot when Unassign is chosen", async () => {
+    render(
+      <AssigneeField
+        opportunityId="lead-1"
+        assignmentVersion={7}
+        canAssign
+        value="user-ada"
+      />
+    );
 
     fireEvent.click(screen.getByRole("button"));
     const listbox = screen.getByRole("listbox");
-    // The clear option lives inside the listbox; pick it by its option role.
-    const unassign = within(listbox)
-      .getAllByRole("option")
-      .find((el) => el.getAttribute("data-owner-clear") === "true");
-    expect(unassign).toBeDefined();
-    fireEvent.click(unassign as HTMLElement);
+    fireEvent.click(within(listbox).getByText("Unassign"));
 
-    expect(edit.commit).toHaveBeenCalledWith("assignedTo", null);
+    expect(leadAssignmentMocks.assign).toHaveBeenCalledWith({
+      opportunityId: "lead-1",
+      expectedAssignedTo: "user-ada",
+      expectedAssignmentVersion: 7,
+      newAssignedTo: null,
+      source: "manual",
+    });
+    await screen.findByRole("status", { name: "Saved" });
   });
 
-  it("renders read-only when !canManage", () => {
-    const edit = makeEdit();
-    render(<OwnerField edit={edit} canManage={false} value="user-ada" />);
+  it("does not offer Unassign when the server denies that operation", () => {
+    leadAssignmentMocks.candidateResult.data.canUnassign = false;
+    render(
+      <AssigneeField
+        opportunityId="lead-1"
+        assignmentVersion={7}
+        canAssign
+        value="user-ada"
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button"));
+    expect(screen.queryByText("Unassign")).toBeNull();
+  });
+
+  it("renders read-only when assignment is not permitted", () => {
+    render(
+      <AssigneeField
+        opportunityId="lead-1"
+        assignmentVersion={7}
+        canAssign={false}
+        value="user-ada"
+      />
+    );
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
-    expect(edit.commit).not.toHaveBeenCalled();
+    expect(leadAssignmentMocks.assign).not.toHaveBeenCalled();
+    expect(leadAssignmentMocks.useCandidates).toHaveBeenCalledWith(
+      "lead-1",
+      false
+    );
   });
 });
 
@@ -460,7 +585,7 @@ describe("AddressField", () => {
         edit={edit}
         canManage
         value={{ address: "123 Main", latitude: 1, longitude: 2 }}
-      />,
+      />
     );
 
     const input = screen.getByLabelText("address-autocomplete-stub");
@@ -480,7 +605,7 @@ describe("AddressField", () => {
         edit={edit}
         canManage={false}
         value={{ address: "123 Main St", latitude: 1, longitude: 2 }}
-      />,
+      />
     );
     expect(screen.queryByLabelText("address-autocomplete-stub")).toBeNull();
     expect(screen.getByText("123 Main St")).toBeInTheDocument();
@@ -493,7 +618,7 @@ describe("AddressField", () => {
         edit={edit}
         canManage={false}
         value={{ address: null, latitude: null, longitude: null }}
-      />,
+      />
     );
     expect(screen.getByText("—")).toBeInTheDocument();
   });

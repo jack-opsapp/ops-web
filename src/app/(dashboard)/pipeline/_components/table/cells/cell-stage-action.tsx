@@ -39,7 +39,7 @@ const STAGE_MENU_ORDER: OpportunityStageType[] = [
  * write — the shell routes it through the shared transition hook, so active
  * stages move directly (toast + undo) and Won / Lost open the terminal dialog.
  *
- * Without `pipeline.manage` the cell is the plain read-only chip — no button,
+ * Without row-level edit access the cell is the plain read-only chip — no button,
  * no menu. Idiom mirrors `projects` table-v2 `EditableCellStatus`: a trigger
  * button with `aria-haspopup="listbox"`, a `role="listbox"` popover of
  * `role="option"` rows, click-outside (`mousedown`) + Escape to close, and
@@ -50,12 +50,14 @@ export function CellStageAction({
   stage,
   onSelectStage,
   canManage,
+  canConvert = canManage,
   wonUnconverted = false,
   onConvert,
 }: {
   stage: OpportunityStageType;
   onSelectStage: (next: OpportunityStageType) => void;
   canManage: boolean;
+  canConvert?: boolean;
   /** This row is `won` but has no linked project yet — offer `// CONVERT`. */
   wonUnconverted?: boolean;
   /** Opens the Won dialog to convert the already-won row (no re-win). */
@@ -77,7 +79,7 @@ export function CellStageAction({
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, [open]);
 
-  // Read-only: lacking pipeline.manage renders the static chip, no affordance.
+  // Read-only: lacking row edit access renders the static chip, no affordance.
   if (!canManage) {
     return <CellStage stage={stage} />;
   }
@@ -92,7 +94,7 @@ export function CellStageAction({
 
   function handleSelect(
     event: ReactMouseEvent<HTMLButtonElement>,
-    next: OpportunityStageType,
+    next: OpportunityStageType
   ) {
     event.stopPropagation();
     setOpen(false);
@@ -132,8 +134,7 @@ export function CellStageAction({
         >
           {STAGE_MENU_ORDER.map((option) => {
             const selected = option === stage;
-            const color =
-              OPPORTUNITY_STAGE_COLORS[option] ?? "var(--text-3)";
+            const color = OPPORTUNITY_STAGE_COLORS[option] ?? "var(--text-3)";
             return (
               <button
                 key={option}
@@ -143,7 +144,7 @@ export function CellStageAction({
                 onClick={(event) => handleSelect(event, option)}
                 className={cn(
                   "flex w-full min-w-0 items-center gap-[6px] rounded-chip px-2 py-1.5 text-left font-mono text-micro uppercase tracking-[0.16em] transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
-                  selected ? "bg-surface-active text-text" : "text-text-2",
+                  selected ? "bg-surface-active text-text" : "text-text-2"
                 )}
               >
                 <span
@@ -156,7 +157,7 @@ export function CellStageAction({
             );
           })}
 
-          {wonUnconverted && onConvert ? (
+          {canConvert && wonUnconverted && onConvert ? (
             <>
               <div className="my-1 border-t border-border" />
               <button

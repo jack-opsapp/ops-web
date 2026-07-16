@@ -44,12 +44,19 @@ describe("permission registry", () => {
   });
 
   it("keeps financial visibility out of the projects Manage tier", () => {
-    expect(getActionsForTier("projects", "manage")).not.toContain("projects.view_financials");
-    expect(getActionsForTier("projects", "full")).toContain("projects.view_financials");
+    expect(getActionsForTier("projects", "manage")).not.toContain(
+      "projects.view_financials"
+    );
+    expect(getActionsForTier("projects", "full")).toContain(
+      "projects.view_financials"
+    );
   });
 
   it("scopes match the live DB shape", () => {
-    expect(getPermissionScopes("deck_builder.view")).toEqual(["all", "assigned"]);
+    expect(getPermissionScopes("deck_builder.view")).toEqual([
+      "all",
+      "assigned",
+    ]);
     expect(getPermissionScopes("profile.edit")).toEqual(["own"]);
     expect(getPermissionScopes("finances.view")).toEqual(["all"]);
   });
@@ -68,27 +75,41 @@ describe("permission registry", () => {
   });
 
   it("registers scoped inbox access", () => {
-    expect(getPermissionScopes("inbox.view")).toEqual(["all", "assigned", "own"]);
+    expect(getPermissionScopes("inbox.view")).toEqual([
+      "all",
+      "assigned",
+      "own",
+    ]);
     expect(getPermissionScopes("inbox.send")).toEqual(["all", "assigned"]);
   });
 
   it("keeps legacy compatibility grants registered but hidden from new editing", () => {
-    const modules = PERMISSION_CATEGORIES.flatMap((category) => category.modules);
+    const modules = PERMISSION_CATEGORIES.flatMap(
+      (category) => category.modules
+    );
     const pipeline = modules.find((module) => module.id === "pipeline");
     const inbox = modules.find((module) => module.id === "inbox");
 
     expect(ALL_PERMISSIONS).toContain("pipeline.manage");
     expect(ALL_PERMISSIONS).toContain("inbox.view_company");
-    expect(pipeline?.actions.find((action) => action.id === "pipeline.manage"))
-      .toMatchObject({ hiddenFromEditor: true });
-    expect(inbox?.actions.find((action) => action.id === "inbox.view_company"))
-      .toMatchObject({ hiddenFromEditor: true });
-    expect(getActionsForTier("pipeline", "full")).not.toContain("pipeline.manage");
-    expect(getActionsForTier("inbox", "full")).not.toContain("inbox.view_company");
+    expect(
+      pipeline?.actions.find((action) => action.id === "pipeline.manage")
+    ).toMatchObject({ hiddenFromEditor: true });
+    expect(
+      inbox?.actions.find((action) => action.id === "inbox.view_company")
+    ).toMatchObject({ hiddenFromEditor: true });
+    expect(getActionsForTier("pipeline", "full")).not.toContain(
+      "pipeline.manage"
+    );
+    expect(getActionsForTier("inbox", "full")).not.toContain(
+      "inbox.view_company"
+    );
   });
 
   it("uses action-level editing only for Pipeline and Inbox", () => {
-    const actionLevelModules = PERMISSION_CATEGORIES.flatMap((category) => category.modules)
+    const actionLevelModules = PERMISSION_CATEGORIES.flatMap(
+      (category) => category.modules
+    )
       .filter((module) => module.editorMode === "action")
       .map((module) => module.id)
       .sort();

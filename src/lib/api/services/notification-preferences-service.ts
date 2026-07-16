@@ -111,8 +111,14 @@ function parseChannelPreferences(raw: unknown): ChannelPreferences {
       if (val && typeof val === "object") {
         const toggle = val as Record<string, unknown>;
         result[eventKey] = {
-          push: typeof toggle.push === "boolean" ? toggle.push : DEFAULT_CHANNEL_PREFERENCES[eventKey].push,
-          email: typeof toggle.email === "boolean" ? toggle.email : DEFAULT_CHANNEL_PREFERENCES[eventKey].email,
+          push:
+            typeof toggle.push === "boolean"
+              ? toggle.push
+              : DEFAULT_CHANNEL_PREFERENCES[eventKey].push,
+          email:
+            typeof toggle.email === "boolean"
+              ? toggle.email
+              : DEFAULT_CHANNEL_PREFERENCES[eventKey].email,
         };
       }
     }
@@ -137,16 +143,27 @@ function mapFromDb(row: Record<string, unknown>): NotificationPreferences {
     updatedAt: parseDateRequired(row.updated_at),
 
     // Legacy fields — derive from channelPreferences for backward compat
-    taskAssigned: channelPrefs.task_assigned.push || channelPrefs.task_assigned.email,
-    taskCompleted: channelPrefs.task_completed.push || channelPrefs.task_completed.email,
-    scheduleChanges: channelPrefs.schedule_changes.push || channelPrefs.schedule_changes.email,
-    projectUpdates: channelPrefs.project_updates.push || channelPrefs.project_updates.email,
-    expenseSubmitted: channelPrefs.expense_submitted.push || channelPrefs.expense_submitted.email,
-    expenseApproved: channelPrefs.expense_approved.push || channelPrefs.expense_approved.email,
-    invoiceSent: channelPrefs.invoice_sent.push || channelPrefs.invoice_sent.email,
-    paymentReceived: channelPrefs.payment_received.push || channelPrefs.payment_received.email,
-    teamMentions: channelPrefs.team_mentions.push || channelPrefs.team_mentions.email,
-    dailyDigest: channelPrefs.daily_digest.push || channelPrefs.daily_digest.email,
+    taskAssigned:
+      channelPrefs.task_assigned.push || channelPrefs.task_assigned.email,
+    taskCompleted:
+      channelPrefs.task_completed.push || channelPrefs.task_completed.email,
+    scheduleChanges:
+      channelPrefs.schedule_changes.push || channelPrefs.schedule_changes.email,
+    projectUpdates:
+      channelPrefs.project_updates.push || channelPrefs.project_updates.email,
+    expenseSubmitted:
+      channelPrefs.expense_submitted.push ||
+      channelPrefs.expense_submitted.email,
+    expenseApproved:
+      channelPrefs.expense_approved.push || channelPrefs.expense_approved.email,
+    invoiceSent:
+      channelPrefs.invoice_sent.push || channelPrefs.invoice_sent.email,
+    paymentReceived:
+      channelPrefs.payment_received.push || channelPrefs.payment_received.email,
+    teamMentions:
+      channelPrefs.team_mentions.push || channelPrefs.team_mentions.email,
+    dailyDigest:
+      channelPrefs.daily_digest.push || channelPrefs.daily_digest.email,
   };
 }
 
@@ -156,7 +173,10 @@ export const NotificationPreferencesService = {
   /**
    * Get notification preferences for a user+company. Creates defaults if missing.
    */
-  async getPreferences(userId: string, companyId: string): Promise<NotificationPreferences> {
+  async getPreferences(
+    userId: string,
+    companyId: string
+  ): Promise<NotificationPreferences> {
     const supabase = requireSupabase();
 
     const { data, error } = await supabase
@@ -176,7 +196,10 @@ export const NotificationPreferencesService = {
         .eq("company_id", companyId)
         .single();
 
-      if (fetchError) throw new Error(`Failed to get notification preferences: ${fetchError.message}`);
+      if (fetchError)
+        throw new Error(
+          `Failed to get notification preferences: ${fetchError.message}`
+        );
       return mapFromDb(fetched);
     }
 
@@ -193,12 +216,16 @@ export const NotificationPreferencesService = {
     const row: Record<string, unknown> = {};
 
     // Global kill switches
-    if (updates.pushEnabled !== undefined) row.push_enabled = updates.pushEnabled;
-    if (updates.emailEnabled !== undefined) row.email_enabled = updates.emailEnabled;
+    if (updates.pushEnabled !== undefined)
+      row.push_enabled = updates.pushEnabled;
+    if (updates.emailEnabled !== undefined)
+      row.email_enabled = updates.emailEnabled;
 
     // Quiet hours
-    if (updates.quietHoursStart !== undefined) row.quiet_hours_start = updates.quietHoursStart;
-    if (updates.quietHoursEnd !== undefined) row.quiet_hours_end = updates.quietHoursEnd;
+    if (updates.quietHoursStart !== undefined)
+      row.quiet_hours_start = updates.quietHoursStart;
+    if (updates.quietHoursEnd !== undefined)
+      row.quiet_hours_end = updates.quietHoursEnd;
 
     // Per-channel preferences — merge partial update into existing JSONB
     if (updates.channelPreferences) {
@@ -213,12 +240,15 @@ export const NotificationPreferencesService = {
       const existing = parseChannelPreferences(current?.channel_preferences);
       const merged = { ...existing };
 
-      for (const [eventType, toggle] of Object.entries(updates.channelPreferences)) {
+      for (const [eventType, toggle] of Object.entries(
+        updates.channelPreferences
+      )) {
         const key = eventType as EventType;
         if (toggle) {
           merged[key] = {
             push: toggle.push !== undefined ? toggle.push : merged[key].push,
-            email: toggle.email !== undefined ? toggle.email : merged[key].email,
+            email:
+              toggle.email !== undefined ? toggle.email : merged[key].email,
           };
         }
       }
@@ -233,7 +263,10 @@ export const NotificationPreferencesService = {
     }
 
     // Legacy field updates (for any code still using the old API)
-    const legacyKeys: Array<{ ts: keyof UpdateNotificationPreferences; db: string }> = [
+    const legacyKeys: Array<{
+      ts: keyof UpdateNotificationPreferences;
+      db: string;
+    }> = [
       { ts: "taskAssigned", db: "task_assigned" },
       { ts: "taskCompleted", db: "task_completed" },
       { ts: "scheduleChanges", db: "schedule_changes" },
@@ -259,7 +292,10 @@ export const NotificationPreferencesService = {
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to update notification preferences: ${error.message}`);
+    if (error)
+      throw new Error(
+        `Failed to update notification preferences: ${error.message}`
+      );
     return mapFromDb(data);
   },
 };

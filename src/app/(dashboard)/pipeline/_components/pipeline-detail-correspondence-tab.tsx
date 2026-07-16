@@ -55,9 +55,11 @@ function buildMessages(
   correspondence: OpportunityAssignedContextCorrespondence[]
 ): CorrespondenceMessage[] {
   const messages: CorrespondenceMessage[] = [];
+  const renderedActivityIds = new Set<string>();
 
   for (const activity of activities) {
     if (activity.type !== ActivityType.Email || !activity.direction) continue;
+    renderedActivityIds.add(activity.id);
     messages.push({
       id: activity.id,
       subject: activity.subject,
@@ -70,6 +72,7 @@ function buildMessages(
   }
 
   for (const event of correspondence) {
+    if (event.activityId && renderedActivityIds.has(event.activityId)) continue;
     messages.push({
       id: event.id,
       subject: event.subject,

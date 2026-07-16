@@ -226,6 +226,7 @@ const lifecycleSchema = z
 const correspondenceSchema = z
   .object({
     id: uuidSchema,
+    activity_id: uuidSchema.nullable(),
     direction: z.enum(["inbound", "outbound"]),
     party_role: z.enum([
       "customer",
@@ -244,6 +245,7 @@ const correspondenceSchema = z
   .strict()
   .transform((value) => ({
     id: value.id,
+    activityId: value.activity_id,
     direction: value.direction,
     partyRole: value.party_role,
     isMeaningful: value.is_meaningful,

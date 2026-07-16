@@ -8,7 +8,11 @@ import {
 import userEvent from "@testing-library/user-event";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type Opportunity, OpportunityStage } from "@/lib/types/pipeline";
+import {
+  type Opportunity,
+  type OpportunityAssigneeFilter,
+  OpportunityStage,
+} from "@/lib/types/pipeline";
 import { PipelineFilterChips } from "@/app/(dashboard)/pipeline/_components/pipeline-filter-chips";
 import { PipelineFocusedShell } from "@/app/(dashboard)/pipeline/_components/pipeline-focused-shell";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
@@ -108,6 +112,7 @@ function makeOpportunity(
     stage,
     source: null,
     assignedTo: null,
+    assignmentVersion: 0,
     priority: null,
     estimatedValue: 1000,
     actualValue: null,
@@ -153,9 +158,8 @@ function PipelineFocusedModeHarness() {
   const [stageFilter, setStageFilter] = React.useState<
     OpportunityStage | "all"
   >("all");
-  const [assigneeFilter, setAssigneeFilter] = React.useState<string | "all">(
-    "all"
-  );
+  const [assigneeFilter, setAssigneeFilter] =
+    React.useState<OpportunityAssigneeFilter>("all");
   const [transitionStage, setTransitionStage] =
     React.useState<OpportunityStage | null>(null);
   const [moveStageCall, setMoveStageCall] = React.useState<string | null>(null);
@@ -238,12 +242,29 @@ function PipelineFocusedModeHarness() {
         assigneeFilter={assigneeFilter}
         onAssigneeFilterChange={setAssigneeFilter}
         teamMembers={[]}
+        currentUserId="user-1"
+        showAssigneeFilter
       />
       {mode === "focused" ? (
         <PipelineFocusedShell
           opportunities={filteredOpportunities}
           clientNameMap={new Map()}
           canManage={true}
+          canCreateLead
+          leadAccessById={
+            new Map(
+              filteredOpportunities.map((opportunity) => [
+                opportunity.id,
+                {
+                  canView: true,
+                  canEdit: true,
+                  canAssign: true,
+                  canUnassign: true,
+                  canConvert: true,
+                },
+              ])
+            )
+          }
           filtersActive={filtersActive}
           dragAnnouncement=""
           onAddLead={vi.fn()}

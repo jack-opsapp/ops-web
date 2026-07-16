@@ -29,7 +29,6 @@ import type {
 export type EditableOpportunityField =
   | "estimatedValue"
   | "source"
-  | "assignedTo"
   | "expectedCloseDate"
   | "priority"
   | "description"
@@ -67,7 +66,8 @@ function toNullableString(value: unknown): string | null {
 
 function toNullableDate(value: unknown): Date | null {
   if (value == null) return null;
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (value instanceof Date)
+    return Number.isNaN(value.getTime()) ? null : value;
   const parsed = new Date(value as string | number);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
@@ -92,8 +92,6 @@ export function buildOpportunityFieldUpdate(
       return { estimatedValue: toNullableNumber(value) };
     case "source":
       return { source: (value ?? null) as OpportunitySource | null };
-    case "assignedTo":
-      return { assignedTo: toNullableString(value) };
     case "expectedCloseDate":
       return { expectedCloseDate: toNullableDate(value) };
     case "priority":

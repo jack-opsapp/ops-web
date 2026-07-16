@@ -72,12 +72,16 @@ Both facades return `ok`, `conflict`, current `assigned_to`, current `assignment
    - adds canonical helpers, both guarded facades, guarded manual creation, and direct-write enforcement
    - does **not** grant Operator access
 2. `supabase/migrations/20260715160500_lead_assignment_scoped_rls.sql`
-   - opportunity and child-record RLS, opportunity-scoped context functions, preflight/conversion authorization, realtime publication
-3. `supabase/migrations/20260715161000_lead_assignment_permission_migration.sql`
+   - canonical opportunity scope, preflight/conversion authorization, and revoke-safe legacy compatibility
+3. `supabase/migrations/20260715160700_lead_assignment_child_scope.sql`
+   - child-record RLS and canonical actor-aware lead/inbox authorization, including the personal-vs-company mailbox identity boundary
+4. `supabase/migrations/20260715161000_lead_assignment_permission_migration.sql`
    - snapshots and deterministically maps existing preset/custom role grants and user overrides without activating Operator pipeline access
-4. The email-hardening chain (`20260715162000` through the currently-held `20260715171000_approved_action_email_transport.sql`) may depend on the foundation and scoped-authorization contracts.
-5. `supabase/migrations/20260715172000_lead_assignment_operator_activation.sql`
-   - final, separately controlled activation after web and iOS compatibility proof
+5. `supabase/migrations/20260715161500_lead_assignment_realtime_fanout.sql` and `20260715161600_lead_assignment_delivery_worker.sql`
+   - durable access-loss fanout and deduplicated assignment notifications
+6. The email-hardening chain (`20260715162000` through `20260715179000_email_outbound_learning_assignment_hardening.sql`) depends on the canonical assignment and inbox contracts above.
+7. `supabase/migrations/20260715180000_lead_assignment_operator_activation.sql`
+   - final, separately controlled activation after web, iOS, notification, and the complete email chain pass compatibility proof
 
 ---
 
@@ -255,7 +259,7 @@ Both facades return `ok`, `conflict`, current `assigned_to`, current `assignment
 
 **Files:**
 
-- Create: `supabase/migrations/20260715172000_lead_assignment_operator_activation.sql`
+- Create: `supabase/migrations/20260715180000_lead_assignment_operator_activation.sql`
 - Update: relevant sections of `ops-software-bible/10_JOB_LIFECYCLE_AND_DATA_RELATIONSHIPS.md`, `ops-software-bible/13_EMAIL_SYSTEM.md`, permissions/data architecture documentation, and migration index
 - Regenerate: web and iOS database types from the reconciled development database
 - Update: this plan's verification ledger/artifacts under `docs/artifacts/`
