@@ -865,6 +865,46 @@ begin
   end;
 
   begin
+    insert into public.opportunities (
+      id,
+      company_id,
+      client_id,
+      client_ref,
+      title,
+      stage,
+      assigned_to,
+      assignment_version
+    ) values (
+      '1ead5519-0000-4000-8000-000000000506',
+      '1ead5519-0000-4000-8000-000000000001',
+      '1ead5519-0000-4000-8000-000000000401',
+      '1ead5519-0000-4000-8000-000000000401',
+      'Forbidden Raw Initial Assignment',
+      'new_lead',
+      '1ead5519-0000-4000-8000-000000000101',
+      1
+    );
+    insert into lead_assignment_contract_results values (
+      'raw_service_role_initial_assignment_insert_rejected',
+      false,
+      'insert unexpectedly succeeded'
+    );
+  exception
+    when sqlstate '42501' then
+      insert into lead_assignment_contract_results values (
+        'raw_service_role_initial_assignment_insert_rejected',
+        sqlerrm = 'assignment_write_forbidden',
+        sqlerrm
+      );
+    when others then
+      insert into lead_assignment_contract_results values (
+        'raw_service_role_initial_assignment_insert_rejected',
+        false,
+        sqlstate || ': ' || sqlerrm
+      );
+  end;
+
+  begin
     update public.opportunity_assignment_events
        set metadata = metadata || '{"tampered":true}'::jsonb
      where id = (
@@ -908,6 +948,16 @@ values (
     select count(*) = 2
     from public.opportunity_assignment_events e
     where e.opportunity_id = '1ead5519-0000-4000-8000-000000000501'
+  )
+  and not exists (
+    select 1
+    from public.opportunities o
+    where o.id = '1ead5519-0000-4000-8000-000000000506'
+  )
+  and not exists (
+    select 1
+    from public.opportunity_assignment_events e
+    where e.opportunity_id = '1ead5519-0000-4000-8000-000000000506'
   )
   and not exists (
     select 1
