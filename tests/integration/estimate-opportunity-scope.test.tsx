@@ -21,7 +21,7 @@ const { fetchEstimates, createEstimate } = vi.hoisted(() => ({
   createEstimate: vi.fn(),
 }));
 
-vi.mock("@/lib/api/services", () => ({
+vi.mock("@/lib/api/services/estimate-service", () => ({
   EstimateService: { fetchEstimates, createEstimate },
 }));
 
@@ -31,8 +31,9 @@ vi.mock("@/lib/store/auth-store", () => ({
 
 // estimates.view is required by useEstimates — grant it.
 vi.mock("@/lib/store/permissions-store", () => ({
-  usePermissionStore: (selector: (s: { can: (p: string) => boolean }) => unknown) =>
-    selector({ can: () => true }),
+  usePermissionStore: (
+    selector: (s: { can: (p: string) => boolean }) => unknown
+  ) => selector({ can: () => true }),
 }));
 
 import { useEstimates, useCreateEstimate } from "@/lib/hooks/use-estimates";
@@ -45,14 +46,20 @@ beforeEach(() => {
 describe("estimate ↔ opportunity scoping (cache contract)", () => {
   it("surfaces a newly created deal-scoped estimate in useEstimates({ opportunityId }) via invalidation → refetch", async () => {
     // Server-side store the mocked service reads from; createEstimate writes it.
-    let store: Array<{ id: string; opportunityId: string; estimateNumber: string }> = [];
+    let store: Array<{
+      id: string;
+      opportunityId: string;
+      estimateNumber: string;
+    }> = [];
     fetchEstimates.mockImplementation(
       (_companyId: string, options: { opportunityId?: string } = {}) =>
         Promise.resolve(
           store.filter(
-            (e) => !options.opportunityId || e.opportunityId === options.opportunityId,
-          ),
-        ),
+            (e) =>
+              !options.opportunityId ||
+              e.opportunityId === options.opportunityId
+          )
+        )
     );
     const created = {
       id: "est-new",
@@ -78,7 +85,7 @@ describe("estimate ↔ opportunity scoping (cache contract)", () => {
         list: useEstimates({ opportunityId: "opp-1" }),
         create: useCreateEstimate(),
       }),
-      { wrapper },
+      { wrapper }
     );
 
     // Initial scoped fetch resolves empty.
@@ -88,7 +95,11 @@ describe("estimate ↔ opportunity scoping (cache contract)", () => {
     // Create an estimate linked to opp-1.
     await act(async () => {
       await result.current.create.mutateAsync({
-        data: { companyId: "co-1", clientId: "client-1", opportunityId: "opp-1" },
+        data: {
+          companyId: "co-1",
+          clientId: "client-1",
+          opportunityId: "opp-1",
+        },
         lineItems: [],
       });
     });
@@ -96,7 +107,7 @@ describe("estimate ↔ opportunity scoping (cache contract)", () => {
     // The service received the deal's opportunityId…
     expect(createEstimate).toHaveBeenCalledWith(
       expect.objectContaining({ opportunityId: "opp-1" }),
-      [],
+      []
     );
     // …and the invalidation refetched the opportunity-scoped list, which now
     // includes the new estimate.

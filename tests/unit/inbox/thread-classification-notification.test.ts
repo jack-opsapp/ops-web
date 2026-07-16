@@ -1,16 +1,14 @@
 /**
- * Lead/opportunity notification deep-link hardening — email-thread builder.
+ * Lead/opportunity notification delivery — email-thread classification seam.
  *
- * fireThreadNotifications (the "new lead landed" page) is the one builder in the
- * deep-link hardening that joins the opportunity id onto a query string that
- * ALREADY carries `?thread=` — so it must use `&opportunityId=`, not a second
- * `?`. It also stamps deep_link_type `inbox` (it routes to the inbox thread
- * surface, where an opportunity may not yet exist). This is the most
- * error-prone joiner in the change and previously had no payload assertion.
+ * fireThreadNotifications must delegate the exact previous/current thread
+ * snapshots to the canonical assignment-aware helper. That helper and its SQL
+ * migration own recipient derivation, assignment fencing, dedupe, and inbox
+ * deep-link construction; this service must never recreate those rules or
+ * notify a mailbox connector directly.
  *
  * These tests drive classifyAndUpdate down the deterministic CUSTOMER branch
- * (the path that fires the notification) and assert the exact NotificationService
- * .create payload — action_url joiner AND deepLinkType.
+ * (the path that fires the notification) and assert the exact helper boundary.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -42,13 +40,17 @@ vi.mock("@/lib/api/services/deterministic-customer-rule", () => ({
   tryDeterministicCustomer: () => detState.customer,
 }));
 vi.mock("@/lib/api/services/deterministic-customer-reads", () => ({
-  loadOpportunityForCustomerRule: async () => ({ stage: "quoting", archivedAt: null }),
+  loadOpportunityForCustomerRule: async () => ({
+    stage: "quoting",
+    archivedAt: null,
+  }),
 }));
 
-// notification-service is dynamically imported by fireThreadNotifications.
-const notifyCreate = vi.fn(async (_params: Record<string, unknown>) => {});
-vi.mock("@/lib/api/services/notification-service", () => ({
-  NotificationService: { create: notifyCreate },
+// The assignment-aware notification helper is dynamically imported by
+// fireThreadNotifications. Its own focused tests cover the guarded RPC.
+const createClassifiedEmailThreadNotifications = vi.fn(async () => 0);
+vi.mock("@/lib/email/email-opportunity-notification", () => ({
+  createClassifiedEmailThreadNotifications,
 }));
 
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
@@ -105,12 +107,7 @@ function makeDouble(opts: { nextOpportunityId: string | null }) {
         }
         return { data: [], error: null };
       };
-      builder.maybeSingle = async () => {
-        // fireThreadNotifications resolves the recipient from user_id.
-        if (table === "email_connections")
-          return { data: { email: "owner@ops.com", user_id: "owner-1" }, error: null };
-        return { data: null, error: null };
-      };
+      builder.maybeSingle = async () => ({ data: null, error: null });
       builder.single = async () => {
         if (table === "email_threads") return { data: updatedRow, error: null };
         return { data: null, error: null };
@@ -154,39 +151,50 @@ beforeEach(() => {
     summary: "Customer thread",
     classifierVersion: "det-customer-1",
   };
-  notifyCreate.mockClear();
+  createClassifiedEmailThreadNotifications.mockClear();
 });
 
 afterEach(() => {
   setSupabaseOverride(null);
 });
 
-describe("email-thread classification notification — deep-link contract", () => {
-  it("joins the opportunity id with & (not a second ?) and stamps deep_link_type inbox", async () => {
+describe("email-thread classification notification — guarded helper boundary", () => {
+  it("delegates linked thread snapshots to the assignment-aware helper", async () => {
     setSupabaseOverride(makeDouble({ nextOpportunityId: "opp-1" }) as never);
 
     await EmailThreadService.classifyAndUpdate(inputThread());
     await new Promise((r) => setTimeout(r, 20)); // fire-and-forget hook
 
-    expect(notifyCreate).toHaveBeenCalledTimes(1);
-    const payload = notifyCreate.mock.calls[0][0] as Record<string, unknown>;
-    expect(payload.type).toBe("leads_waiting");
-    expect(payload.deepLinkType).toBe("inbox");
-    expect(payload.actionUrl).toBe("/inbox?thread=thr-1&opportunityId=opp-1");
-    // Guard the exact regression: never a malformed double "?".
-    expect(payload.actionUrl).not.toContain("?opportunityId=");
+    expect(createClassifiedEmailThreadNotifications).toHaveBeenCalledTimes(1);
+    expect(createClassifiedEmailThreadNotifications).toHaveBeenCalledWith({
+      previous: expect.objectContaining({
+        id: "thr-1",
+        opportunityId: "opp-1",
+        primaryCategory: "OTHER",
+      }),
+      next: expect.objectContaining({
+        id: "thr-1",
+        companyId: "co-1",
+        connectionId: "conn-1",
+        providerThreadId: "pt-1",
+        opportunityId: "opp-1",
+        primaryCategory: "CUSTOMER",
+      }),
+      supabase: expect.anything(),
+    });
   });
 
-  it("omits opportunityId from the action_url when the thread is not linked, still stamping inbox", async () => {
+  it("delegates an unlinked snapshot without inventing a connector recipient", async () => {
     setSupabaseOverride(makeDouble({ nextOpportunityId: null }) as never);
 
     await EmailThreadService.classifyAndUpdate(inputThread());
     await new Promise((r) => setTimeout(r, 20));
 
-    expect(notifyCreate).toHaveBeenCalledTimes(1);
-    const payload = notifyCreate.mock.calls[0][0] as Record<string, unknown>;
-    expect(payload.deepLinkType).toBe("inbox");
-    expect(payload.actionUrl).toBe("/inbox?thread=thr-1");
-    expect(payload.actionUrl).not.toContain("opportunityId");
+    expect(createClassifiedEmailThreadNotifications).toHaveBeenCalledTimes(1);
+    expect(createClassifiedEmailThreadNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({
+        next: expect.objectContaining({ opportunityId: null }),
+      })
+    );
   });
 });
