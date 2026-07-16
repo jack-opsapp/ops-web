@@ -5,8 +5,7 @@
  *   - useProjectNotes is enabled only when both projectId and companyId
  *     are present
  *   - useCreateProjectNote calls ProjectNoteService.createNote and, when
- *     mentionedUserIds is non-empty, fans out NotificationService rail
- *     entries + dispatchMentionPush. Title lookup is best-effort.
+ *     mentionedUserIds is non-empty, dispatches only the persisted note id.
  *   - mention dispatch failure is swallowed (note write must still
  *     succeed)
  *   - useUpdateProjectNote / useDeleteProjectNote each delegate to the
@@ -22,9 +21,7 @@ const fetchNotes = vi.fn();
 const createNote = vi.fn();
 const updateNote = vi.fn();
 const deleteNote = vi.fn();
-const createMentions = vi.fn();
 const dispatchPush = vi.fn();
-const supabaseSelect = vi.fn();
 
 vi.mock("@/lib/api/services/project-note-service", () => ({
   ProjectNoteService: {
@@ -35,26 +32,8 @@ vi.mock("@/lib/api/services/project-note-service", () => ({
   },
 }));
 
-vi.mock("@/lib/api/services/notification-service", () => ({
-  NotificationService: {
-    createMentionNotifications: (...args: unknown[]) => createMentions(...args),
-  },
-}));
-
 vi.mock("@/lib/api/services/notification-dispatch", () => ({
   dispatchMentionPush: (...args: unknown[]) => dispatchPush(...args),
-}));
-
-vi.mock("@/lib/supabase/helpers", () => ({
-  requireSupabase: () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: () => supabaseSelect(),
-        }),
-      }),
-    }),
-  }),
 }));
 
 vi.mock("@/lib/store/auth-store", () => ({
@@ -84,16 +63,12 @@ beforeEach(() => {
   createNote.mockReset();
   updateNote.mockReset();
   deleteNote.mockReset();
-  createMentions.mockReset();
   dispatchPush.mockReset();
-  supabaseSelect.mockReset();
 
   fetchNotes.mockResolvedValue([]);
   createNote.mockResolvedValue({ id: "note-1" });
   updateNote.mockResolvedValue({ id: "note-1" });
   deleteNote.mockResolvedValue(undefined);
-  createMentions.mockResolvedValue(undefined);
-  supabaseSelect.mockResolvedValue({ data: { title: "Acme HQ" }, error: null });
 });
 
 describe("useProjectNotes (read)", () => {
@@ -104,7 +79,9 @@ describe("useProjectNotes (read)", () => {
 
   it("calls ProjectNoteService.fetchNotes with the project + company id", async () => {
     renderHook(() => useProjectNotes("proj-1"), { wrapper: makeWrapper() });
-    await waitFor(() => expect(fetchNotes).toHaveBeenCalledWith("proj-1", "co-1"));
+    await waitFor(() =>
+      expect(fetchNotes).toHaveBeenCalledWith("proj-1", "co-1")
+    );
   });
 });
 
@@ -124,11 +101,10 @@ describe("useCreateProjectNote", () => {
     });
 
     expect(createNote).toHaveBeenCalledTimes(1);
-    expect(createMentions).not.toHaveBeenCalled();
     expect(dispatchPush).not.toHaveBeenCalled();
   });
 
-  it("fans out NotificationService.createMentionNotifications + dispatchMentionPush when mentionedUserIds is non-empty", async () => {
+  it("dispatches only the persisted note id when mentionedUserIds is non-empty", async () => {
     const { result } = renderHook(() => useCreateProjectNote(), {
       wrapper: makeWrapper(),
     });
@@ -143,31 +119,12 @@ describe("useCreateProjectNote", () => {
       });
     });
 
-    expect(createMentions).toHaveBeenCalledTimes(1);
-    expect(createMentions).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mentionedUserIds: ["u-alice"],
-        authorName: "Jack Sweet",
-        projectId: "proj-1",
-        projectTitle: "Acme HQ",
-        noteId: "note-1",
-        companyId: "co-1",
-      }),
-    );
     expect(dispatchPush).toHaveBeenCalledTimes(1);
-    expect(dispatchPush).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mentionedUserIds: ["u-alice"],
-        notePreview: "@alice can you confirm?",
-      }),
-    );
+    expect(dispatchPush).toHaveBeenCalledWith({ noteId: "note-1" });
   });
 
   it("swallows mention-dispatch errors so the note still succeeds", async () => {
-    // Make NotificationService.createMentionNotifications throw — the
-    // hook wraps the whole mention fan-out in a try/catch so the note
-    // write itself must still resolve.
-    createMentions.mockImplementationOnce(() => {
+    dispatchPush.mockImplementationOnce(() => {
       throw new Error("rail insert failed");
     });
     const { result } = renderHook(() => useCreateProjectNote(), {

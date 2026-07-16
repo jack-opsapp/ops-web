@@ -64,6 +64,7 @@ describe("email pipeline route authorization", () => {
     findUserByAuthMock.mockResolvedValue({
       id: "user-1",
       company_id: "company-2",
+      is_active: true,
     });
 
     const response = await requireEmailCompanyAccess(
@@ -84,6 +85,7 @@ describe("email pipeline route authorization", () => {
     findUserByAuthMock.mockResolvedValue({
       id: "user-1",
       company_id: "company-1",
+      is_active: true,
     });
     checkPermissionByIdMock.mockResolvedValue(false);
 
@@ -108,6 +110,7 @@ describe("email pipeline route authorization", () => {
     findUserByAuthMock.mockResolvedValue({
       id: "user-1",
       company_id: "company-1",
+      is_active: true,
     });
 
     await expect(
@@ -128,6 +131,7 @@ describe("email pipeline route authorization", () => {
     findUserByAuthMock.mockResolvedValue({
       id: "user-1",
       company_id: "company-1",
+      is_active: true,
     });
 
     await expect(
@@ -152,6 +156,7 @@ describe("email pipeline route authorization", () => {
     findUserByAuthMock.mockResolvedValue({
       id: "user-1",
       company_id: "company-1",
+      is_active: true,
     });
 
     const response = await requireEmailCompanyAccess(
@@ -164,6 +169,30 @@ describe("email pipeline route authorization", () => {
     expect(response?.status).toBe(403);
     expect(checkPermissionByIdMock).not.toHaveBeenCalled();
   });
+
+  it.each([false, null])(
+    "rejects a cryptographically resolved user whose active state is %s",
+    async (isActive) => {
+      verifyAdminAuthMock.mockResolvedValue({
+        uid: "firebase-user",
+        email: "operator@example.com",
+        claims: {},
+      });
+      findUserByAuthMock.mockResolvedValue({
+        id: "user-1",
+        company_id: "company-1",
+        is_active: isActive,
+      });
+
+      const response = await requireEmailCompanyAccess(
+        request("Bearer firebase-token"),
+        "company-1"
+      );
+
+      expect(response?.status).toBe(403);
+      expect(checkPermissionByIdMock).not.toHaveBeenCalled();
+    }
+  );
 
   it("fails closed when the server-to-server secret is absent", () => {
     delete process.env.CRON_SECRET;

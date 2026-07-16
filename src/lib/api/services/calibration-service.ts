@@ -14,7 +14,18 @@
  */
 
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import {
+  buildEmailThreadListAuthorizationFilter,
+  type AllowedEmailInboxListAccess,
+} from "@/lib/email/email-opportunity-access";
 import { WritingProfileService } from "./writing-profile-service";
+import { getActorAutonomyMilestones } from "./autonomy-milestone-service";
+import {
+  aggregateCalibrationConnectionConfig,
+  mergeCalibrationMilestones,
+  selectActorCalibrationConnections,
+  type CalibrationConnectionRow,
+} from "@/lib/email/calibration-mailbox-scope";
 import type {
   DeckState,
   FirstRunState,
@@ -30,7 +41,13 @@ export const CalibrationService = {
    * Fetch the complete deck state for a company. Single entry point;
    * TanStack Query hook caches this with a 20-30s staleness window.
    */
-  async getDeckState(companyId: string): Promise<DeckState> {
+  async getDeckState(
+    companyId: string,
+    userId: string,
+    access: AllowedEmailInboxListAccess
+  ): Promise<DeckState> {
+    const visibleCompanyConnectionIds =
+      await resolveCalibrationCompanyConnectionScope(companyId, access);
     const [
       inputsState,
       corpusState,
@@ -38,11 +55,11 @@ export const CalibrationService = {
       activityState,
       milestonesState,
     ] = await Promise.all([
-      this.getInputsState(companyId),
-      this.getCorpusState(companyId),
-      this.getConfigState(companyId),
-      this.getActivityState(companyId),
-      this.getMilestonesState(companyId),
+      this.getInputsState(companyId, userId),
+      this.getCorpusState(companyId, userId),
+      this.getConfigState(companyId, userId, visibleCompanyConnectionIds),
+      this.getActivityState(companyId, userId),
+      this.getMilestonesState(companyId, userId, visibleCompanyConnectionIds),
     ]);
 
     return {
@@ -69,18 +86,21 @@ export const CalibrationService = {
           .from("agent_memories")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
+          .eq("user_id", userId)
           .eq("source", "intake_interview")
           .limit(1),
         supabase
           .from("agent_memories")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
+          .eq("user_id", userId)
           .eq("source", "database")
           .limit(1),
         supabase
           .from("gmail_scan_jobs")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
+          .eq("requested_by_user_id", userId)
           .eq("status", "complete")
           .limit(1),
         supabase
@@ -126,7 +146,10 @@ export const CalibrationService = {
     const prefs = (user?.preferences ?? {}) as Record<string, unknown>;
     prefs.calibrationFirstRunDismissed = true;
 
-    await supabase.from("users").update({ preferences: prefs }).eq("id", userId);
+    await supabase
+      .from("users")
+      .update({ preferences: prefs })
+      .eq("id", userId);
   },
 
   /**
@@ -135,6 +158,7 @@ export const CalibrationService = {
    */
   async getRecentEvents(
     companyId: string,
+    userId: string,
     limit = 5
   ): Promise<RecentEvent[]> {
     const supabase = getServiceRoleClient();
@@ -144,12 +168,14 @@ export const CalibrationService = {
         .from("agent_memories")
         .select("id, source, category, content, created_at")
         .eq("company_id", companyId)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(limit),
       supabase
         .from("gmail_scan_jobs")
         .select("id, status, created_at, updated_at")
         .eq("company_id", companyId)
+        .eq("requested_by_user_id", userId)
         .in("status", ["complete", "error", "running"])
         .order("updated_at", { ascending: false })
         .limit(limit),
@@ -157,6 +183,7 @@ export const CalibrationService = {
         .from("agent_actions")
         .select("id, action_type, status, created_at")
         .eq("company_id", companyId)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(limit),
     ]);
@@ -222,6 +249,7 @@ export const CalibrationService = {
    */
   async getActivityLog(
     companyId: string,
+    userId: string,
     filters: ActivityFilters,
     cursor?: string,
     limit = 50
@@ -247,6 +275,7 @@ export const CalibrationService = {
       .from("agent_memories")
       .select("id, source, content, created_at")
       .eq("company_id", companyId)
+      .eq("user_id", userId)
       .gte("created_at", since.toISOString())
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -256,6 +285,7 @@ export const CalibrationService = {
       .from("gmail_scan_jobs")
       .select("id, status, created_at, updated_at")
       .eq("company_id", companyId)
+      .eq("requested_by_user_id", userId)
       .in("status", ["complete", "error", "running"])
       .gte("updated_at", since.toISOString())
       .order("updated_at", { ascending: false })
@@ -266,6 +296,7 @@ export const CalibrationService = {
       .from("agent_actions")
       .select("id, action_type, status, created_at")
       .eq("company_id", companyId)
+      .eq("user_id", userId)
       .gte("created_at", since.toISOString())
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -344,7 +375,10 @@ export const CalibrationService = {
 
   // ─── Per-tile queries ─────────────────────────────────────────────────────
 
-  async getInputsState(companyId: string): Promise<DeckState["inputs"]> {
+  async getInputsState(
+    companyId: string,
+    userId: string
+  ): Promise<DeckState["inputs"]> {
     const supabase = getServiceRoleClient();
 
     const [interviewCount, miningCount, scanJob, lastMemoryAt] =
@@ -353,16 +387,19 @@ export const CalibrationService = {
           .from("agent_memories")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
+          .eq("user_id", userId)
           .eq("source", "intake_interview"),
         supabase
           .from("agent_memories")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
+          .eq("user_id", userId)
           .eq("source", "database"),
         supabase
           .from("gmail_scan_jobs")
           .select("id, status, created_at, updated_at, result")
           .eq("company_id", companyId)
+          .eq("requested_by_user_id", userId)
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -370,6 +407,7 @@ export const CalibrationService = {
           .from("agent_memories")
           .select("created_at")
           .eq("company_id", companyId)
+          .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -401,7 +439,10 @@ export const CalibrationService = {
     };
   },
 
-  async getCorpusState(companyId: string): Promise<DeckState["corpus"]> {
+  async getCorpusState(
+    companyId: string,
+    userId: string
+  ): Promise<DeckState["corpus"]> {
     const supabase = getServiceRoleClient();
 
     const [
@@ -414,21 +455,26 @@ export const CalibrationService = {
       supabase
         .from("agent_memories")
         .select("id", { count: "exact", head: true })
-        .eq("company_id", companyId),
+        .eq("company_id", companyId)
+        .eq("user_id", userId),
       supabase
-        .from("graph_entities")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", companyId),
+        .from("agent_memories")
+        .select("entity_id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .not("entity_id", "is", null),
       supabase
         .from("agent_memories")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
+        .eq("user_id", userId)
         .gte("created_at", startOfToday().toISOString()),
       supabase
         .from("agent_writing_profiles")
         .select("emails_analyzed")
-        .eq("company_id", companyId),
-      getFactSparkline(companyId),
+        .eq("company_id", companyId)
+        .eq("user_id", userId),
+      getFactSparkline(companyId, userId),
     ]);
 
     const maxEmailsAnalyzed = (writingProfiles.data ?? []).reduce(
@@ -447,48 +493,44 @@ export const CalibrationService = {
     };
   },
 
-  async getConfigState(companyId: string): Promise<DeckState["config"]> {
+  async getConfigState(
+    companyId: string,
+    userId: string,
+    visibleCompanyConnectionIds: "all" | ReadonlySet<string>
+  ): Promise<DeckState["config"]> {
     const supabase = getServiceRoleClient();
 
-    const { data: emailConn } = await supabase
+    const { data: emailConnections, error } = await supabase
       .from("email_connections")
-      .select("auto_send_settings, sync_filters")
+      .select("id, type, user_id, status, auto_send_settings, sync_filters")
       .eq("company_id", companyId)
-      .eq("type", "company")
-      .maybeSingle();
+      .in("type", ["company", "individual"]);
+    if (error) throw new Error(error.message);
 
-    const settings = (emailConn?.auto_send_settings ?? {}) as Record<
-      string,
-      unknown
-    >;
-    const categoryAutonomy = (settings.categoryAutonomy ?? {}) as Record<
-      string,
-      string
-    >;
+    const connections = selectActorCalibrationConnections(
+      (emailConnections ?? []) as CalibrationConnectionRow[],
+      userId,
+      visibleCompanyConnectionIds
+    );
+    const config = aggregateCalibrationConnectionConfig(connections);
 
     const counts = { off: 0, draft: 0, auto_draft: 0, auto_send: 0 };
-    for (const level of Object.values(categoryAutonomy)) {
+    for (const level of config.categoryLevels) {
       if (level in counts) counts[level as keyof typeof counts]++;
     }
 
-    // Filter rules live inside email_connections.sync_filters.rules (JSONB array)
-    const syncFilters = (emailConn?.sync_filters ?? {}) as Record<
-      string,
-      unknown
-    >;
-    const rulesArray = Array.isArray(syncFilters.rules)
-      ? (syncFilters.rules as unknown[])
-      : [];
-
     return {
       emailTypeCounts: counts,
-      rulesCount: rulesArray.length,
+      rulesCount: config.rulesCount,
       // 13 email thread categories — fixed enum in the codebase
       categoriesCount: 13,
     };
   },
 
-  async getActivityState(companyId: string): Promise<DeckState["activity"]> {
+  async getActivityState(
+    companyId: string,
+    userId: string
+  ): Promise<DeckState["activity"]> {
     const supabase = getServiceRoleClient();
 
     const [runningJob, queuedActions, completedTodayActions] =
@@ -497,6 +539,7 @@ export const CalibrationService = {
           .from("gmail_scan_jobs")
           .select("id, status, created_at, result")
           .eq("company_id", companyId)
+          .eq("requested_by_user_id", userId)
           .eq("status", "running")
           .order("created_at", { ascending: false })
           .limit(1)
@@ -505,11 +548,13 @@ export const CalibrationService = {
           .from("agent_actions")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
+          .eq("user_id", userId)
           .eq("status", "proposed"),
         supabase
           .from("agent_actions")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
+          .eq("user_id", userId)
           .eq("status", "executed")
           .gte("updated_at", startOfToday().toISOString()),
       ]);
@@ -538,14 +583,16 @@ export const CalibrationService = {
   },
 
   async getMilestonesState(
-    companyId: string
+    companyId: string,
+    userId: string,
+    visibleCompanyConnectionIds: "all" | ReadonlySet<string>
   ): Promise<DeckState["milestones"]> {
     const supabase = getServiceRoleClient();
 
     const [
       phaseCOverride,
       scanJob,
-      connection,
+      connections,
       writingProfiles,
       apptConfirms,
       autoSendEnabled,
@@ -560,23 +607,25 @@ export const CalibrationService = {
         .from("gmail_scan_jobs")
         .select("id")
         .eq("company_id", companyId)
+        .eq("requested_by_user_id", userId)
         .eq("status", "complete")
         .limit(1)
         .maybeSingle(),
       supabase
         .from("email_connections")
-        .select("auto_send_settings")
+        .select("id, type, user_id, status, auto_send_settings")
         .eq("company_id", companyId)
-        .eq("type", "company")
-        .maybeSingle(),
+        .in("type", ["company", "individual"]),
       supabase
         .from("agent_writing_profiles")
         .select("emails_analyzed")
-        .eq("company_id", companyId),
+        .eq("company_id", companyId)
+        .eq("user_id", userId),
       supabase
         .from("agent_actions")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
+        .eq("user_id", userId)
         .eq("action_type", "send_appointment_confirmation")
         .eq("status", "executed"),
       supabase
@@ -587,23 +636,35 @@ export const CalibrationService = {
         .maybeSingle(),
     ]);
 
-    const settings = (connection.data?.auto_send_settings ?? {}) as Record<
-      string,
-      unknown
-    >;
-    const milestones = (settings.milestones ?? {}) as Record<string, boolean>;
+    if (connections.error) {
+      throw new Error(connections.error.message);
+    }
+
+    const actorConnections = selectActorCalibrationConnections(
+      (connections.data ?? []) as CalibrationConnectionRow[],
+      userId,
+      visibleCompanyConnectionIds
+    );
+    const milestones = mergeCalibrationMilestones(
+      await Promise.all(
+        actorConnections.map((connection) =>
+          getActorAutonomyMilestones({
+            companyId,
+            connectionId: connection.id,
+            userId,
+            supabase,
+          })
+        )
+      )
+    );
+    const { categoryAutonomy } =
+      aggregateCalibrationConnectionConfig(actorConnections);
     const maxEmailsAnalyzed = (writingProfiles.data ?? []).reduce(
       (max, p) => Math.max(max, (p.emails_analyzed as number | null) ?? 0),
       0
     );
-    const confidence =
-      WritingProfileService.getConfidence(maxEmailsAnalyzed);
+    const confidence = WritingProfileService.getConfidence(maxEmailsAnalyzed);
     const apptCount = apptConfirms.count ?? 0;
-    const categoryAutonomy = (settings.categoryAutonomy ?? {}) as Record<
-      string,
-      unknown
-    >;
-
     const ladder: LadderPosition[] = [
       {
         position: 1,
@@ -635,8 +696,7 @@ export const CalibrationService = {
       },
       {
         position: 5,
-        status:
-          Object.keys(categoryAutonomy).length > 0 ? "complete" : "gated",
+        status: Object.keys(categoryAutonomy).length > 0 ? "complete" : "gated",
         persistent: false,
       },
       {
@@ -680,9 +740,9 @@ export const CalibrationService = {
 
     const domains = {
       email: deriveDomainStatus(confidence),
-      projects: await deriveProjectsStatus(companyId),
-      invoice: await deriveInvoiceStatus(companyId),
-      schedule: await deriveScheduleStatus(companyId),
+      projects: await deriveProjectsStatus(companyId, userId),
+      invoice: await deriveInvoiceStatus(companyId, userId),
+      schedule: await deriveScheduleStatus(companyId, userId),
       comms: deriveCommsStatus(categoryAutonomy),
     };
 
@@ -747,7 +807,10 @@ function mapScanJobToInputState(
   };
 }
 
-async function getFactSparkline(companyId: string): Promise<number[]> {
+async function getFactSparkline(
+  companyId: string,
+  userId: string
+): Promise<number[]> {
   const supabase = getServiceRoleClient();
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
@@ -757,6 +820,7 @@ async function getFactSparkline(companyId: string): Promise<number[]> {
     .from("agent_memories")
     .select("created_at")
     .eq("company_id", companyId)
+    .eq("user_id", userId)
     .gte("created_at", sevenDaysAgo.toISOString());
 
   const buckets = Array(7).fill(0);
@@ -781,12 +845,16 @@ function deriveDomainStatus(confidence: number): DomainStatus {
   return { status: "unavailable", confidence: null, metric: null };
 }
 
-async function deriveProjectsStatus(companyId: string): Promise<DomainStatus> {
+async function deriveProjectsStatus(
+  companyId: string,
+  userId: string
+): Promise<DomainStatus> {
   const supabase = getServiceRoleClient();
   const { count } = await supabase
     .from("agent_actions")
     .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
+    .eq("user_id", userId)
     .eq("action_type", "create_task");
 
   if ((count ?? 0) > 5)
@@ -796,12 +864,16 @@ async function deriveProjectsStatus(companyId: string): Promise<DomainStatus> {
   return { status: "gated", confidence: null, metric: null };
 }
 
-async function deriveInvoiceStatus(companyId: string): Promise<DomainStatus> {
+async function deriveInvoiceStatus(
+  companyId: string,
+  userId: string
+): Promise<DomainStatus> {
   const supabase = getServiceRoleClient();
   const { count } = await supabase
     .from("agent_actions")
     .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
+    .eq("user_id", userId)
     .in("action_type", [
       "create_invoice",
       "send_invoice_email",
@@ -815,12 +887,16 @@ async function deriveInvoiceStatus(companyId: string): Promise<DomainStatus> {
   return { status: "gated", confidence: null, metric: null };
 }
 
-async function deriveScheduleStatus(companyId: string): Promise<DomainStatus> {
+async function deriveScheduleStatus(
+  companyId: string,
+  userId: string
+): Promise<DomainStatus> {
   const supabase = getServiceRoleClient();
   const { count } = await supabase
     .from("agent_actions")
     .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
+    .eq("user_id", userId)
     .in("action_type", ["send_appointment_confirmation", "optimize_schedule"]);
 
   if ((count ?? 0) > 10)
@@ -856,4 +932,35 @@ function deriveCommsStatus(
   if (count > 0)
     return { status: "learning", confidence: null, metric: `${count}` };
   return { status: "gated", confidence: null, metric: null };
+}
+
+async function resolveCalibrationCompanyConnectionScope(
+  companyId: string,
+  access: AllowedEmailInboxListAccess
+): Promise<"all" | ReadonlySet<string>> {
+  if (access.inboxScope === "all") return "all";
+
+  const authorizationFilter = buildEmailThreadListAuthorizationFilter(access);
+  if (authorizationFilter.empty) return new Set<string>();
+
+  const supabase = getServiceRoleClient();
+  let query = supabase
+    .from("email_threads")
+    .select("connection_id")
+    .eq("company_id", companyId);
+  if (authorizationFilter.connectionIds) {
+    query = query.in("connection_id", authorizationFilter.connectionIds);
+  }
+  if (authorizationFilter.unlinkedOnly) {
+    query = query.is("opportunity_id", null);
+  }
+  if (authorizationFilter.or) {
+    query = query.or(authorizationFilter.or);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return new Set(
+    (data ?? []).map((row) => String(row.connection_id)).filter(Boolean)
+  );
 }

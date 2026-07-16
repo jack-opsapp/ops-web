@@ -1,43 +1,44 @@
 /**
- * OPS Web - All Mail Inbox API
+ * Legacy provider-thread detail endpoint.
  *
- * GET /api/integrations/email/inbox?companyId=...&pageToken=...&q=...
- *   Lists inbox messages from the connected email provider (Gmail/M365).
- *
- * GET /api/integrations/email/inbox?companyId=...&threadId=...
- *   Fetches full thread messages from the provider.
- *
- * Auth: Firebase/Supabase JWT required. User must belong to the company.
+ * `threadId` is the canonical OPS email_threads.id. Provider-wide list/search
+ * mode is intentionally closed; callers must use /api/inbox/threads so the
+ * assigned opportunity/inbox filter is applied before pagination.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { EmailService } from "@/lib/api/services/email-service";
-import type { EmailConnection } from "@/lib/types/email-connection";
-import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+import { EmailService } from "@/lib/api/services/email-service";
+import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import type { NormalizedEmail } from "@/lib/api/services/email-provider";
+import type { EmailConnection } from "@/lib/types/email-connection";
 
 function mapFromDb(row: Record<string, unknown>): EmailConnection {
+  const type = row.type as EmailConnection["type"];
   return {
     id: row.id as string,
     companyId: row.company_id as string,
     provider: row.provider as EmailConnection["provider"],
-    type: row.type as EmailConnection["type"],
-    userId: (row.user_id as string) ?? null,
+    type,
+    userId: type === "individual" ? ((row.user_id as string) ?? null) : null,
     email: row.email as string,
     accessToken: row.access_token as string,
     refreshToken: row.refresh_token as string,
     expiresAt: new Date(row.expires_at as string),
     historyId: (row.history_id as string) ?? null,
     syncEnabled: (row.sync_enabled as boolean) ?? true,
-    lastSyncedAt: row.last_synced_at ? new Date(row.last_synced_at as string) : null,
+    lastSyncedAt: row.last_synced_at
+      ? new Date(row.last_synced_at as string)
+      : null,
     syncIntervalMinutes: (row.sync_interval_minutes as number) ?? 60,
     syncFilters: (row.sync_filters as EmailConnection["syncFilters"]) ?? {},
-    webhookSubscriptionId: (row.webhook_subscription_id as string) ?? null,
-    webhookExpiresAt: row.webhook_expires_at ? new Date(row.webhook_expires_at as string) : null,
+    webhookSubscriptionId:
+      (row.webhook_subscription_id as string) ?? null,
+    webhookExpiresAt: row.webhook_expires_at
+      ? new Date(row.webhook_expires_at as string)
+      : null,
     opsLabelId: (row.ops_label_id as string) ?? null,
     aiReviewEnabled: (row.ai_review_enabled as boolean) ?? false,
     aiMemoryEnabled: (row.ai_memory_enabled as boolean) ?? false,
@@ -63,106 +64,89 @@ function normalizeToResponse(email: NormalizedEmail) {
   };
 }
 
-// ─── GET Handler ──────────────────────────────────────────────────────────────
-
 export async function GET(request: NextRequest) {
   try {
-    // 1. Auth
-    const authUser = await verifyAdminAuth(request);
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get("companyId");
     const threadId = searchParams.get("threadId");
-    const query = searchParams.get("q") || "";
-    const maxResults = parseInt(searchParams.get("maxResults") || "50", 10);
 
     if (!companyId) {
-      return NextResponse.json({ error: "companyId is required" }, { status: 400 });
-    }
-
-    // 2. Verify user belongs to company
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-    if (!user || (user.company_id as string) !== companyId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    // 3. Find active email connection for this company
-    const supabase = getServiceRoleClient();
-    const { data: connRows, error: connError } = await supabase
-      .from("email_connections")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("status", "active")
-      .eq("sync_enabled", true)
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (connError || !connRows || connRows.length === 0) {
       return NextResponse.json(
-        { error: "no_connection", messages: [], nextPageToken: null, hasMore: false },
-        { status: 200 }
+        { error: "companyId is required" },
+        { status: 400 }
       );
     }
 
-    const connection = mapFromDb(connRows[0]);
-    const provider = EmailService.getProvider(connection);
-
-    // 4a. Thread detail mode
-    if (threadId) {
-      const [messages, imageAttachments] = await Promise.all([
-        provider.fetchThread(threadId),
-        provider.getImageAttachmentsFromThread(threadId).catch(() => []),
-      ]);
-
-      // Group attachments by messageId for easy lookup
-      const attachmentsByMsg = new Map<string, (typeof imageAttachments)[number][]>();
-      for (const att of imageAttachments) {
-        if (!attachmentsByMsg.has(att.messageId)) attachmentsByMsg.set(att.messageId, []);
-        attachmentsByMsg.get(att.messageId)!.push(att);
-      }
-
-      return NextResponse.json({
-        messages: messages.map((m) => ({
-          ...normalizeToResponse(m),
-          bodyText: m.bodyText,
-          attachments: (attachmentsByMsg.get(m.id) || []).map((a) => ({
-            attachmentId: a.attachmentId,
-            filename: a.filename,
-            mimeType: a.mimeType,
-            size: a.size,
-          })),
-        })),
-      });
-    }
-
-    // 4b. Inbox listing mode
-    // Use searchEmails with "in:inbox" query (Gmail-native, M365 provider translates)
-    const searchQuery = query
-      ? `in:inbox ${query}`
-      : "in:inbox";
-
-    const emails = await provider.searchEmails(searchQuery, {
-      maxResults: maxResults + 1, // Fetch one extra to check hasMore
+    const actorResolution = await resolveEmailRouteActor(request, {
+      claimedCompanyId: companyId,
     });
+    if (!actorResolution.ok) return actorResolution.response;
 
-    const hasMore = emails.length > maxResults;
-    const page = hasMore ? emails.slice(0, maxResults) : emails;
-
-    // Deduplicate by threadId — show only the latest message per thread
-    const seen = new Set<string>();
-    const deduped: NormalizedEmail[] = [];
-    for (const email of page) {
-      if (!seen.has(email.threadId)) {
-        seen.add(email.threadId);
-        deduped.push(email);
-      }
+    // A raw provider list/search has no internal thread anchor and cannot
+    // satisfy the opportunity/inbox intersection.
+    if (!threadId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // Persist refreshed tokens if they changed
-    if (connection.accessToken !== connRows[0].access_token) {
+    const supabase = getServiceRoleClient();
+    const access = await resolveEmailOpportunityAccess({
+      actor: actorResolution.actor,
+      operation: "read",
+      threadId,
+      supabase,
+    });
+    if (!access.allowed || !access.providerThreadId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const { data: connectionRow, error: connectionError } = await supabase
+      .from("email_connections")
+      .select("*")
+      .eq("id", access.connectionId)
+      .eq("company_id", actorResolution.actor.companyId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (connectionError) {
+      throw new Error(`Connection lookup failed: ${connectionError.message}`);
+    }
+    if (!connectionRow) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const connection = mapFromDb(connectionRow as Record<string, unknown>);
+    const connectionOwnerId =
+      connection.type === "individual" ? connection.userId : null;
+    if (
+      connection.type !== access.connectionType ||
+      connectionOwnerId !== access.connectionOwnerId
+    ) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    const provider = EmailService.getProvider(connection);
+    const providerThreadId = access.providerThreadId;
+    const [messages, imageAttachments] = await Promise.all([
+      provider.fetchThread(providerThreadId),
+      provider
+        .getImageAttachmentsFromThread(providerThreadId)
+        .catch(() => []),
+    ]);
+
+    const attachmentsByMessage = new Map<
+      string,
+      (typeof imageAttachments)[number][]
+    >();
+    for (const attachment of imageAttachments) {
+      if (!attachmentsByMessage.has(attachment.messageId)) {
+        attachmentsByMessage.set(attachment.messageId, []);
+      }
+      attachmentsByMessage.get(attachment.messageId)!.push(attachment);
+    }
+
+    // Provider adapters may refresh access tokens while reading. Persist only
+    // the exact canonical connection selected above.
+    if (connection.accessToken !== connectionRow.access_token) {
       await supabase
         .from("email_connections")
         .update({
@@ -173,14 +157,25 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      messages: deduped.map(normalizeToResponse),
-      nextPageToken: null, // Gmail search doesn't return pageTokens easily; pagination via maxResults
-      hasMore,
+      messages: messages.map((message) => ({
+        ...normalizeToResponse(message),
+        bodyText: message.bodyText,
+        attachments: (attachmentsByMessage.get(message.id) ?? []).map(
+          (attachment) => ({
+            attachmentId: attachment.attachmentId,
+            filename: attachment.filename,
+            mimeType: attachment.mimeType,
+            size: attachment.size,
+          })
+        ),
+      })),
     });
-  } catch (err) {
-    console.error("All Mail inbox error:", err);
+  } catch (error) {
+    console.error("All Mail inbox error:", error);
     return NextResponse.json(
-      { error: `Failed to fetch inbox: ${(err as Error).message}` },
+      {
+        error: `Failed to fetch inbox: ${(error as Error).message}`,
+      },
       { status: 500 }
     );
   }

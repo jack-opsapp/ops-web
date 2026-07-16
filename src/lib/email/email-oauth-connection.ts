@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { defaultAutoSendSettings } from "@/lib/api/services/mailbox-draft-helpers";
+import { PersonalEmailConnectionLifecycleService } from "@/lib/api/services/personal-email-connection-lifecycle-service";
 import type {
   ConsumedEmailOAuthContext,
   EmailOAuthProvider,
@@ -64,6 +65,9 @@ export async function persistEmailOAuthConnection(
     const { data: updatedRow, error: updateError } = await supabase
       .from("email_connections")
       .update({
+        // Company connectors have no OPS-user owner. Reconnecting a legacy
+        // row is also an opportunity to remove its obsolete connector value.
+        user_id: input.state.type === "individual" ? input.state.userId : null,
         access_token: input.accessToken,
         refresh_token: input.refreshToken || existingRow.refresh_token || "",
         expires_at: input.expiresAt,
@@ -88,6 +92,12 @@ export async function persistEmailOAuthConnection(
     if (!updatedRow) {
       throw new Error("Bound email connection changed during OAuth callback");
     }
+    if (input.state.type === "individual") {
+      await PersonalEmailConnectionLifecycleService.reconcile(
+        input.state.connectionId,
+        supabase
+      );
+    }
     return;
   }
 
@@ -102,7 +112,7 @@ export async function persistEmailOAuthConnection(
 
   const upsertPayload: Record<string, unknown> = {
     company_id: input.state.companyId,
-    user_id: input.state.userId,
+    user_id: input.state.type === "individual" ? input.state.userId : null,
     type: input.state.type,
     provider: input.provider,
     status: "setup_incomplete",

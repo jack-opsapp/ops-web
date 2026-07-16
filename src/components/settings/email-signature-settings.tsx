@@ -8,12 +8,12 @@ import {
   Pencil,
   RotateCcw,
 } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Tag } from "@/components/ui/register-table";
 import { Surface } from "@/components/ui/surface";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import {
   useEmailSignature,
@@ -91,6 +91,12 @@ export function EmailSignatureSettings({
     try {
       const updated = await importProvider.mutateAsync(scope);
       setIsEditing(updated.missing);
+      if (updated.providerImportStatus === "not_configured") {
+        toast.error(
+          t("integrations.signature.notConfigured", "No Gmail signature found")
+        );
+        return;
+      }
       toast.success(
         t("integrations.signature.imported", "Gmail signature imported")
       );

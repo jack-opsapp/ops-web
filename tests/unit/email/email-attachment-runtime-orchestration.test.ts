@@ -208,7 +208,7 @@ describe("Supabase attachment runtime orchestration", () => {
     });
   });
 
-  it("atomically notifies the mailbox owner when one or more files cannot be copied", async () => {
+  it("requests a server-derived attachment recipient when files cannot be copied", async () => {
     const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
     const query: Record<string, unknown> = {};
     Object.assign(query, {
@@ -224,41 +224,27 @@ describe("Supabase attachment runtime orchestration", () => {
       rpc,
     } as never;
 
-    await notifyAttachmentCopyExceptions(
-      supabase,
-      {
-        id: "connection-1",
-        companyId: "company-1",
-        userId: "user-1",
-      } as never,
-      { id: "scan-1", providerThreadId: "provider-thread-1" },
-      {
-        activityId: "activity-1",
-        discovered: 3,
-        stored: 1,
-        externalReferences: 1,
-        oversized: 1,
-        unavailable: 0,
-        failed: 1,
-        retryPending: 0,
-        requiresRetry: false,
-        canonicalUrls: [],
-      }
-    );
-
-    expect(rpc).toHaveBeenCalledWith("notify_email_attachment_scan_exception", {
-      p_scan_id: "scan-1",
-      p_company_id: "company-1",
-      p_user_id: "user-1",
-      p_title: "Email files need review",
-      p_body:
-        "OPS couldn't copy 3 files from this email. Open the thread to review them.",
-      p_action_url: "/inbox/thread-row-1",
-      p_action_label: "Review thread",
+    await notifyAttachmentCopyExceptions(supabase, "scan-1", {
+      activityId: "activity-1",
+      discovered: 3,
+      stored: 1,
+      externalReferences: 1,
+      oversized: 1,
+      unavailable: 0,
+      failed: 1,
+      retryPending: 0,
+      requiresRetry: false,
+      canonicalUrls: [],
     });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "notify_email_attachment_scan_exception_as_system",
+      { p_scan_id: "scan-1" }
+    );
   });
 
   it("atomically parks and notifies a mailbox when attachment-only auth fails", async () => {
+    const connectionId = "00000000-0000-4000-8000-000000000001";
     getProviderMock.mockReturnValue({
       getAttachmentsFromMessage: vi
         .fn()
@@ -273,7 +259,7 @@ describe("Supabase attachment runtime orchestration", () => {
         data: {
           id: "activity-1",
           company_id: "company-1",
-          email_connection_id: "connection-1",
+          email_connection_id: connectionId,
           email_message_id: "message-1",
           email_thread_id: "thread-1",
           opportunity_id: null,
@@ -292,7 +278,7 @@ describe("Supabase attachment runtime orchestration", () => {
       update: vi.fn(() => connectionUpdate),
       eq: vi.fn(() => connectionUpdate),
       select: vi.fn(async () => ({
-        data: [{ id: "connection-1" }],
+        data: [{ id: connectionId }],
         error: null,
       })),
     });
@@ -309,7 +295,7 @@ describe("Supabase attachment runtime orchestration", () => {
       ingestExactActivityAttachments(
         supabase,
         {
-          id: "connection-1",
+          id: connectionId,
           companyId: "company-1",
           userId: null,
           email: "ops@example.com",
@@ -319,18 +305,15 @@ describe("Supabase attachment runtime orchestration", () => {
         {
           activityId: "activity-1",
           companyId: "company-1",
-          connectionId: "connection-1",
+          connectionId,
           messageId: "message-1",
         }
       )
     ).rejects.toThrow(ProviderAuthError);
 
     expect(rpc).toHaveBeenCalledWith(
-      "mark_email_attachment_connection_needs_reconnect",
-      {
-        p_connection_id: "connection-1",
-        p_company_id: "company-1",
-      }
+      "mark_email_connection_needs_reconnect_as_system",
+      { p_connection_id: connectionId }
     );
   });
 });

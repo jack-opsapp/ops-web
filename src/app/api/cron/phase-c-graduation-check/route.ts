@@ -1,8 +1,8 @@
 /**
  * GET /api/cron/phase-c-graduation-check (daily)
  *
- * Walks every active company × every email connection × every primary
- * category. For each (company, user, category) tuple where:
+ * Walks every proof-backed OPS actor × mailbox × primary category. For each
+ * (company, user, category) tuple where:
  *   - the mapped profile_type has >= 20 finalized drafts
  *   - AND approval rate >= 0.95
  *   - AND the current autonomy level is still `auto_draft` (not yet graduated)
@@ -28,7 +28,7 @@ import { categoryLabel } from "@/components/ops/inbox/category-chip";
 
 export const maxDuration = 300;
 
-const MAX_CONNECTIONS_PER_RUN = 200;
+const MAX_ACTOR_SCOPES_PER_RUN = 200;
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -46,28 +46,27 @@ export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
 
   try {
-    const { data: connections } = await supabase
-      .from("email_connections")
-      .select("id, company_id, user_id")
-      .eq("status", "active")
-      .limit(MAX_CONNECTIONS_PER_RUN);
+    const { data: actorScopes, error: actorScopesError } = await supabase.rpc(
+      "list_phase_c_graduation_actor_scopes_as_system",
+      { p_limit: MAX_ACTOR_SCOPES_PER_RUN }
+    );
+    if (actorScopesError) throw new Error(actorScopesError.message);
 
     const rows =
-      (connections as Array<{
-        id: string;
+      (actorScopes as Array<{
         company_id: string;
-        user_id: string | null;
+        connection_id: string;
+        actor_user_id: string;
       }> | null) ?? [];
 
     let checked = 0;
     let notified = 0;
     let failed = 0;
 
-    for (const conn of rows) {
-      if (!conn.user_id) continue;
+    for (const scope of rows) {
       try {
         await runWithSupabase(supabase, async () => {
-          const levels = await PhaseCCategoryAutonomy.get(conn.id);
+          const levels = await PhaseCCategoryAutonomy.get(scope.connection_id);
 
           for (const category of EMAIL_THREAD_CATEGORIES as readonly EmailThreadCategory[]) {
             checked += 1;
@@ -78,16 +77,16 @@ export async function GET(request: NextRequest) {
             if (levels[category] !== "auto_draft") continue;
 
             const status = await PhaseCCategoryAutonomy.isGraduated(
-              conn.company_id,
-              conn.user_id!,
+              scope.company_id,
+              scope.actor_user_id,
               category
             );
             if (!status.ready) continue;
 
             const label = categoryLabel(category);
             await NotificationService.create({
-              userId: conn.user_id!,
-              companyId: conn.company_id,
+              userId: scope.actor_user_id,
+              companyId: scope.company_id,
               type: "ai_milestone",
               title: `Phase C is ready to auto-respond to ${label}`,
               body: `${Math.round(status.approvalRate * 100)}% approval over ${status.sampleSize} drafts. Open Settings to graduate.`,
@@ -102,19 +101,15 @@ export async function GET(request: NextRequest) {
         failed += 1;
         console.error(
           "[cron/phase-c-graduation-check] failed for",
-          conn.id,
+          `${scope.connection_id}:${scope.actor_user_id}`,
           err instanceof Error ? err.message : err
         );
       }
     }
 
-    console.log(
-      `[cron/phase-c-graduation-check] connections=${rows.length} checked=${checked} notified=${notified} failed=${failed}`
-    );
-
     return NextResponse.json({
       ok: true,
-      connections: rows.length,
+      actorScopes: rows.length,
       checked,
       notified,
       failed,

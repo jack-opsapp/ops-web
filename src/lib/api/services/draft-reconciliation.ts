@@ -87,6 +87,66 @@ export interface ReconcileParams {
   supabase: ReturnType<typeof requireSupabase>;
 }
 
+interface ResolvedMailboxLearningActor {
+  actorUserId: string;
+  opportunityId: string | null;
+  assignmentVersion: number | null;
+  assignmentEventId: string | null;
+  proofType: "native_mailbox_draft" | "personal_mailbox_owner";
+}
+
+async function resolveMailboxLearningActor(input: {
+  supabase: ReconcileParams["supabase"];
+  companyId: string;
+  connectionId: string;
+  draftHistoryId: string;
+  providerMessageId: string;
+  providerThreadId: string;
+  outcome: "used" | "from_scratch";
+}): Promise<ResolvedMailboxLearningActor | null> {
+  const { data, error } = await input.supabase.rpc(
+    "resolve_email_outbound_learning_mailbox_actor_as_system",
+    {
+      p_company_id: input.companyId,
+      p_connection_id: input.connectionId,
+      p_draft_history_id: input.draftHistoryId,
+      p_provider_message_id: input.providerMessageId,
+      p_provider_thread_id: input.providerThreadId,
+      p_outcome: input.outcome,
+    }
+  );
+  if (error) {
+    console.warn(
+      "[draft-reconciliation] mailbox actor proof unavailable; learning disabled",
+      error
+    );
+    return null;
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+
+  const row = data as Record<string, unknown>;
+  if (
+    typeof row.actorUserId !== "string" ||
+    !row.actorUserId ||
+    !["native_mailbox_draft", "personal_mailbox_owner"].includes(
+      String(row.proofType ?? "")
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    actorUserId: row.actorUserId,
+    opportunityId:
+      typeof row.opportunityId === "string" ? row.opportunityId : null,
+    assignmentVersion:
+      typeof row.assignmentVersion === "number" ? row.assignmentVersion : null,
+    assignmentEventId:
+      typeof row.assignmentEventId === "string" ? row.assignmentEventId : null,
+    proofType: row.proofType as ResolvedMailboxLearningActor["proofType"],
+  };
+}
+
 async function authoredBodyWithoutKnownSignature(input: {
   companyId: string;
   connection: EmailConnection;
@@ -161,7 +221,7 @@ export async function reconcilePendingMailboxDrafts({
   const { data: pendingRows, error: queryErr } = await supabase
     .from("ai_draft_history")
     .select(
-      "id, company_id, user_id, mailbox_draft_id, created_at, profile_type"
+      "id, company_id, user_id, mailbox_draft_id, created_at, profile_type, opportunity_id"
     )
     .eq("company_id", connection.companyId)
     .eq("connection_id", connection.id)
@@ -309,6 +369,19 @@ export async function reconcilePendingMailboxDrafts({
           if (!providerMessageId || !rawBody.trim()) break;
           const subject = (latestOutbound?.subject as string | null) ?? "";
 
+          const resolvedActor = await resolveMailboxLearningActor({
+            supabase,
+            companyId: row.company_id as string,
+            connectionId: connection.id,
+            draftHistoryId: row.id as string,
+            providerMessageId,
+            providerThreadId,
+            outcome: "used",
+          });
+          const bookkeepingUserId = row.user_id as string;
+          const attributedUserId =
+            resolvedActor?.actorUserId ?? bookkeepingUserId;
+
           // Native mailbox sends round-trip the provider-rendered signature in
           // body_text. Remove only the exact effective signature before edit
           // comparison/profile learning. If the provider reformatted it beyond
@@ -317,7 +390,7 @@ export async function reconcilePendingMailboxDrafts({
           const preparedBody = await authoredBodyWithoutKnownSignature({
             companyId: row.company_id as string,
             connection,
-            userId: row.user_id as string,
+            userId: attributedUserId,
             rawBody,
             subject,
           });
@@ -343,7 +416,10 @@ export async function reconcilePendingMailboxDrafts({
             connectionId: connection.id,
             providerMessageId,
             providerThreadId,
-            userId: row.user_id as string,
+            // A stale draft owner is retained only so the queue can close the
+            // immutable draft receipt. The database downgrades that path to
+            // autonomous bookkeeping; it cannot train or graduate the user.
+            userId: attributedUserId,
             fromEmail:
               (latestOutbound?.from_email as string | null) ?? connection.email,
             toEmails: Array.isArray(latestOutbound?.to_emails)
@@ -359,12 +435,14 @@ export async function reconcilePendingMailboxDrafts({
             draftDeliveryChannel: "mailbox",
             followUpDraftId:
               (linkedFollowUps?.[0]?.id as string | undefined) ?? null,
-            opportunityId:
-              (latestOutbound?.opportunity_id as string | null) ?? null,
+            opportunityId: resolvedActor
+              ? resolvedActor.opportunityId
+              : ((row.opportunity_id as string | null) ?? null),
             profileType: (row.profile_type as string | null) ?? "general",
-            learningAuthority: preparedBody.signatureRemoved
-              ? "operator_approved"
-              : "autonomous",
+            learningAuthority:
+              resolvedActor && preparedBody.signatureRemoved
+                ? "operator_approved"
+                : "autonomous",
           });
           break;
         }
@@ -380,40 +458,52 @@ export async function reconcilePendingMailboxDrafts({
           const rawBody = (latestOutbound?.body_text as string) ?? "";
           if (providerMessageId && rawBody.trim()) {
             const subject = (latestOutbound?.subject as string | null) ?? "";
-            const preparedBody = await authoredBodyWithoutKnownSignature({
-              companyId: row.company_id as string,
-              connection,
-              userId: row.user_id as string,
-              rawBody,
-              subject,
-            });
-            const authoredBody = preparedBody.authoredBody;
-            const cleanBody = cleanMessageBody(authoredBody, { subject });
-            await new EmailOutboundLearningService(supabase).enqueueIfEnabled({
+            const resolvedActor = await resolveMailboxLearningActor({
+              supabase,
               companyId: row.company_id as string,
               connectionId: connection.id,
+              draftHistoryId: row.id as string,
               providerMessageId,
               providerThreadId,
-              userId: row.user_id as string,
-              fromEmail:
-                (latestOutbound?.from_email as string | null) ??
-                connection.email,
-              toEmails: Array.isArray(latestOutbound?.to_emails)
-                ? (latestOutbound.to_emails as string[])
-                : [],
-              subject,
-              bodyText: rawBody,
-              authoredBody,
-              cleanBody,
-              occurredAt: latestOutbound?.created_at as string,
-              labelIds: ["SENT"],
-              opportunityId:
-                (latestOutbound?.opportunity_id as string | null) ?? null,
-              profileType: (row.profile_type as string | null) ?? "general",
-              learningAuthority: preparedBody.signatureRemoved
-                ? "operator_authored"
-                : "autonomous",
+              outcome: "from_scratch",
             });
+            if (resolvedActor) {
+              const preparedBody = await authoredBodyWithoutKnownSignature({
+                companyId: row.company_id as string,
+                connection,
+                userId: resolvedActor.actorUserId,
+                rawBody,
+                subject,
+              });
+              const authoredBody = preparedBody.authoredBody;
+              const cleanBody = cleanMessageBody(authoredBody, { subject });
+              await new EmailOutboundLearningService(supabase).enqueueIfEnabled(
+                {
+                  companyId: row.company_id as string,
+                  connectionId: connection.id,
+                  providerMessageId,
+                  providerThreadId,
+                  userId: resolvedActor.actorUserId,
+                  fromEmail:
+                    (latestOutbound?.from_email as string | null) ??
+                    connection.email,
+                  toEmails: Array.isArray(latestOutbound?.to_emails)
+                    ? (latestOutbound.to_emails as string[])
+                    : [],
+                  subject,
+                  bodyText: rawBody,
+                  authoredBody,
+                  cleanBody,
+                  occurredAt: latestOutbound?.created_at as string,
+                  labelIds: ["SENT"],
+                  opportunityId: resolvedActor.opportunityId,
+                  profileType: (row.profile_type as string | null) ?? "general",
+                  learningAuthority: preparedBody.signatureRemoved
+                    ? "operator_authored"
+                    : "autonomous",
+                }
+              );
+            }
           }
           await supabase
             .from("ai_draft_history")

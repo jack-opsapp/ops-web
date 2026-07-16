@@ -8,12 +8,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { safeAttachmentFilename } from "@/lib/api/services/email-attachments/attachment-policy";
-import { EmailThreadService } from "@/lib/api/services/email-thread-service";
-import { canAccessEmailMailbox } from "@/lib/email/server-mailbox-access";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { runWithSupabase } from "@/lib/supabase/helpers";
+import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export interface ThreadAttachmentDto {
@@ -87,58 +83,30 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(
-    authUser.uid,
-    authUser.email,
-    "id, company_id"
-  );
-  if (!user?.id || !user.company_id) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-
-  const [canView, canViewCompany] = await Promise.all([
-    checkPermissionById(user.id as string, "inbox.view"),
-    checkPermissionById(user.id as string, "inbox.view_company"),
-  ]);
-  if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const { id } = await params;
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
   const supabase = getServiceRoleClient();
+  const access = await resolveEmailOpportunityAccess({
+    actor,
+    operation: "read",
+    threadId: id,
+    supabase,
+  });
+  if (!access.allowed) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   try {
-    const thread = await runWithSupabase(supabase, () =>
-      EmailThreadService.getThread(id, user.company_id as string)
-    );
-    if (!thread) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
-    const canAccessMailbox = await canAccessEmailMailbox({
-      supabase,
-      companyId: user.company_id as string,
-      userId: user.id as string,
-      connectionId: thread.connectionId,
-      canViewCompany,
-    });
-    if (!canAccessMailbox) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
-
     const { data, error } = await supabase
       .from("email_attachments")
       .select(
         "id, message_id, attachment_id, filename, mime_type, detected_mime_type, size_bytes, verified_size_bytes, from_email, occurred_at, created_at, storage_backend, storage_path, source_url, ingest_status"
       )
-      .eq("company_id", thread.companyId)
-      .eq("connection_id", thread.connectionId)
-      .eq("provider_thread_id", thread.providerThreadId)
+      .eq("company_id", actor.companyId)
+      .eq("connection_id", access.connectionId)
+      .eq("provider_thread_id", access.providerThreadId)
       .in("ingest_status", REVIEWABLE_ATTACHMENT_STATUSES)
       .order("occurred_at", { ascending: false });
 

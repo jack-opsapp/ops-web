@@ -52,10 +52,12 @@ import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import type { TriageInput } from "@/lib/api/services/email-ai-classifier";
 import { getAppUrl } from "@/lib/utils/app-url";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { emailPipelineAuthorizationHeaders } from "@/lib/email/email-route-auth";
 import {
-  emailPipelineAuthorizationHeaders,
-  requireEmailCompanyAccess,
-} from "@/lib/email/email-route-auth";
+  emailConnectionOwnerId,
+  resolveEmailConnectionOperationAccess,
+} from "@/lib/email/email-connection-operation-access";
+import { authorizeEmailAnalysisJobContinuation } from "@/lib/email/email-analysis-job-access";
 
 // Uses OPENAI_API_KEY_IMPORT — initial inbox scan.
 function getOpenAI() {
@@ -101,12 +103,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const authError = await requireEmailCompanyAccess(request, companyId);
-  if (authError) return authError;
-
   // Use service-role client for the initial connection lookup. The ALS
   // binding survives across awaits without colliding with concurrent requests.
   const supabase = getServiceRoleClient();
+  const access = await resolveEmailConnectionOperationAccess({
+    request,
+    claimedCompanyId: companyId,
+    connectionId,
+    requireUsable: true,
+    supabase,
+  });
+  if (!access.allowed) {
+    return NextResponse.json(
+      {
+        error: access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+      },
+      { status: access.status }
+    );
+  }
+  const connectionAccess = access.connections[0];
+  const connectionOwnerUserId = emailConnectionOwnerId(connectionAccess);
   const connection = await runWithSupabase(supabase, () =>
     EmailService.getConnection(connectionId)
   );
@@ -124,7 +140,9 @@ export async function POST(request: NextRequest) {
   const STALE_THRESHOLD_MS = 5 * 60 * 1000;
   const { data: existingJobs } = await supabase
     .from("gmail_scan_jobs")
-    .select("id, status, created_at")
+    .select(
+      "id, status, created_at, requested_by_user_id, connection_owner_user_id"
+    )
     .eq("connection_id", connectionId)
     .in("status", [
       "pending",
@@ -140,8 +158,16 @@ export async function POST(request: NextRequest) {
   if (existingJobs && existingJobs.length > 0) {
     const jobAge = Date.now() - new Date(existingJobs[0].created_at).getTime();
     if (jobAge < STALE_THRESHOLD_MS) {
-      // Job is still fresh — reconnect to it
-      return NextResponse.json({ jobId: existingJobs[0].id });
+      if (
+        existingJobs[0].requested_by_user_id === access.actor.userId &&
+        existingJobs[0].connection_owner_user_id === connectionOwnerUserId
+      ) {
+        return NextResponse.json({ jobId: existingJobs[0].id });
+      }
+      return NextResponse.json(
+        { error: "Analysis is already running for this mailbox" },
+        { status: 409 }
+      );
     }
     // Job is stale — mark it as error and create a new one
     console.log(
@@ -162,6 +188,8 @@ export async function POST(request: NextRequest) {
     .insert({
       connection_id: connectionId,
       company_id: companyId,
+      requested_by_user_id: access.actor.userId,
+      connection_owner_user_id: connectionOwnerUserId,
       status: "pending",
       progress: {
         stage: "pending",
@@ -204,6 +232,22 @@ export async function POST(request: NextRequest) {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
       try {
+        const continuationAccess = await authorizeEmailAnalysisJobContinuation({
+          supabase: bgSupabase,
+          jobId: job.id,
+          claimedConnectionId: connectionId,
+          claimedCompanyId: companyId,
+        });
+        if (!continuationAccess.allowed) {
+          await bgSupabase
+            .from("gmail_scan_jobs")
+            .update({
+              status: "error",
+              error_message: `Analysis authorization expired: ${continuationAccess.reason}`,
+            })
+            .eq("id", job.id);
+          return;
+        }
         await runPhaseA(
           job.id,
           connection,

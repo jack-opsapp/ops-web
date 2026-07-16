@@ -1,14 +1,17 @@
 /**
  * GET /api/cron/email-attachment-worker
  *
- * Claims and processes the durable exact-message attachment queue. Provider
- * reads are bounded inside the worker; this route only authenticates Vercel,
- * installs the service-role Supabase context, and reports the batch outcome.
+ * Runs bounded durable email maintenance: exact-message attachment ingestion,
+ * converted-project photo projection, and assignment-triggered review drafts
+ * for contact-form leads. This route only authenticates Vercel, installs the
+ * service-role Supabase context, and reports the combined batch outcome.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { runSupabaseEmailAttachmentWorker } from "@/lib/api/services/email-attachments/attachment-runtime";
+import { runSupabaseEmailAssignmentContactFormDraftWorker } from "@/lib/api/services/email-assignment-contact-form-draft-runtime";
+import { runSupabaseEmailConversionPhotoWorker } from "@/lib/api/services/email-conversion-photo-runtime";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
@@ -35,12 +38,51 @@ export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
 
   try {
-    const result = await runWithSupabase(supabase, () =>
-      runSupabaseEmailAttachmentWorker(supabase, { leaseSeconds: 360 })
-    );
-    const ok = result.failed === 0;
+    const {
+      attachmentIngestion,
+      conversionPhotos,
+      assignmentContactFormDrafts,
+    } = await runWithSupabase(supabase, async () => {
+      const attachmentIngestion = await runSupabaseEmailAttachmentWorker(
+        supabase,
+        {
+          leaseSeconds: 360,
+        }
+      );
+      const conversionPhotos = await runSupabaseEmailConversionPhotoWorker(
+        supabase,
+        {
+          leaseSeconds: 360,
+        }
+      );
+      const assignmentContactFormDrafts =
+        await runSupabaseEmailAssignmentContactFormDraftWorker(supabase, {
+          leaseSeconds: 360,
+          limit: 3,
+        });
+      return {
+        attachmentIngestion,
+        conversionPhotos,
+        assignmentContactFormDrafts,
+      };
+    });
+    const ok =
+      attachmentIngestion.failed === 0 &&
+      attachmentIngestion.errors.length === 0 &&
+      conversionPhotos.failed === 0 &&
+      conversionPhotos.errors.length === 0 &&
+      assignmentContactFormDrafts.failed === 0 &&
+      assignmentContactFormDrafts.errors.length === 0;
 
-    return NextResponse.json({ ok, ...result }, { status: ok ? 200 : 503 });
+    return NextResponse.json(
+      {
+        ok,
+        ...attachmentIngestion,
+        conversionPhotos,
+        assignmentContactFormDrafts,
+      },
+      { status: ok ? 200 : 503 }
+    );
   } catch (error) {
     const message =
       error instanceof Error

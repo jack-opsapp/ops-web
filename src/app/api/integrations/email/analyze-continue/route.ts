@@ -44,6 +44,8 @@ import {
   requireEmailPipelineSecret,
 } from "@/lib/email/email-route-auth";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { authorizeEmailAnalysisJobContinuation } from "@/lib/email/email-analysis-job-access";
+import { createTrustedNotifications } from "@/lib/notifications/server-notification-service";
 
 export const maxDuration = 800; // Pro plan max
 
@@ -224,6 +226,23 @@ export async function POST(request: NextRequest) {
 
   // Validate that the job exists and has Phase A data
   const supabase = getServiceRoleClient();
+  const continuationAccess = await authorizeEmailAnalysisJobContinuation({
+    supabase,
+    jobId,
+    claimedConnectionId: connectionId,
+    claimedCompanyId: companyId,
+  });
+  if (!continuationAccess.allowed) {
+    return NextResponse.json(
+      {
+        error:
+          continuationAccess.reason === "job_not_found"
+            ? "Job not found"
+            : "Forbidden",
+      },
+      { status: continuationAccess.reason === "job_not_found" ? 404 : 403 }
+    );
+  }
   const { data: job, error: jobError } = await supabase
     .from("gmail_scan_jobs")
     .select("id, result, status, connection_id, company_id")
@@ -263,6 +282,22 @@ export async function POST(request: NextRequest) {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
       try {
+        const backgroundAccess = await authorizeEmailAnalysisJobContinuation({
+          supabase: bgSupabase,
+          jobId,
+          claimedConnectionId: connectionId,
+          claimedCompanyId: companyId,
+        });
+        if (!backgroundAccess.allowed) {
+          await bgSupabase
+            .from("gmail_scan_jobs")
+            .update({
+              status: "error",
+              error_message: `Phase B authorization expired: ${backgroundAccess.reason}`,
+            })
+            .eq("id", jobId);
+          return;
+        }
         await runPhaseB(jobId, connectionId, companyId, bgSupabase);
       } catch (err) {
         console.error("[email-analyze-continue] Phase B failed:", err);
@@ -289,6 +324,23 @@ async function runPhaseB(
   supabase: SupabaseClient
 ) {
   console.log(`[email-analyze-continue] Phase B starting for job ${jobId}`);
+
+  const requireCurrentAnalysisAccess = async (seam: string) => {
+    const access = await authorizeEmailAnalysisJobContinuation({
+      supabase,
+      jobId,
+      claimedConnectionId: connectionId,
+      claimedCompanyId: companyId,
+    });
+    if (!access.allowed) {
+      throw new Error(
+        `Phase B authorization expired at ${seam}: ${access.reason}`
+      );
+    }
+    return access;
+  };
+
+  await requireCurrentAnalysisAccess("phase_b_start");
 
   // ─── 1. Read intermediate data from job ────────────────────────────────────
   const { data: job } = await supabase
@@ -333,6 +385,7 @@ async function runPhaseB(
     message: string,
     percent: number
   ) => {
+    await requireCurrentAnalysisAccess("progress_update");
     await supabase
       .from("gmail_scan_jobs")
       .update({
@@ -425,6 +478,7 @@ async function runPhaseB(
   const FETCH_CONCURRENCY = 5;
 
   for (let i = 0; i < leads.length; i += FETCH_CONCURRENCY) {
+    await requireCurrentAnalysisAccess("provider_batch");
     const batch = leads.slice(i, i + FETCH_CONCURRENCY);
 
     const results = await Promise.allSettled(
@@ -1095,113 +1149,119 @@ async function runPhaseB(
   );
 
   // ─── 9. Save final results ─────────────────────────────────────────────────
-  await supabase
-    .from("gmail_scan_jobs")
-    .update({
-      status: "complete",
-      progress: {
-        stage: "complete",
-        message: "Analysis complete!",
-        percent: 100,
-        discoveredLeadNames: discoveredLeadNames.slice(-12),
-      },
-      result: {
-        estimatePattern: detectionData.estimatePattern,
-        estimatePatternConfidence: detectionData.estimatePatternConfidence,
-        estimateThreadCount: detectionData.estimateThreadCount,
-        detectedSources: detectionData.detectedSources,
-        companyDomains: detectionData.companyDomains,
-        teamForwarders: detectionData.teamForwarders,
-        leads: deduplicatedLeads,
-        totalScanned: detectionData.totalEmailsScanned,
-        // Debug: extraction diagnostics for review
-        _extractionDebug: {
-          totalLeadsFromPhaseA: leads.length,
-          threadsFetched: fetchedCount,
-          threadsFetchSkipped: skippedCount,
-          extractionInputCount: extractionInputs.length,
-          extractionResultCount: extractions.length,
-          extractionStats,
-          // Sample of extractions for debugging (first 10)
-          sampleExtractions: extractions.slice(0, 10).map((e) => ({
-            tid: e.threadId,
-            name: e.client.name,
-            email: e.client.email,
-            stage: e.stage,
-            stageC: e.stageConfidence,
-            isLead: e.isLead,
-            reason: e.reason,
-            companyName: e.companyName,
-            subContactCount: e.subContacts.length,
-          })),
-          // All not-lead rejections with reasons
-          notLeadReasons: extractions
-            .filter((e) => !e.isLead)
-            .map((e) => ({
-              tid: e.threadId,
-              name: e.client.name,
-              email: e.client.email,
-              reason: e.reason,
-            })),
-          // All review-flagged items
-          reviewItems: extractions
-            .filter((e) => e.needsReview)
-            .map((e) => ({
-              tid: e.threadId,
-              name: e.client.name,
-              email: e.client.email,
-              reviewReason: e.reviewReason,
-              desc: e.client.description,
-            })),
-        },
-      },
-    })
-    .eq("id", jobId);
+  const finalProgress = {
+    stage: "complete",
+    message: "Analysis complete!",
+    percent: 100,
+    discoveredLeadNames: discoveredLeadNames.slice(-12),
+  };
+  const finalResult = {
+    estimatePattern: detectionData.estimatePattern,
+    estimatePatternConfidence: detectionData.estimatePatternConfidence,
+    estimateThreadCount: detectionData.estimateThreadCount,
+    detectedSources: detectionData.detectedSources,
+    companyDomains: detectionData.companyDomains,
+    teamForwarders: detectionData.teamForwarders,
+    leads: deduplicatedLeads,
+    totalScanned: detectionData.totalEmailsScanned,
+    // Debug: extraction diagnostics for review
+    _extractionDebug: {
+      totalLeadsFromPhaseA: leads.length,
+      threadsFetched: fetchedCount,
+      threadsFetchSkipped: skippedCount,
+      extractionInputCount: extractionInputs.length,
+      extractionResultCount: extractions.length,
+      extractionStats,
+      // Sample of extractions for debugging (first 10)
+      sampleExtractions: extractions.slice(0, 10).map((e) => ({
+        tid: e.threadId,
+        name: e.client.name,
+        email: e.client.email,
+        stage: e.stage,
+        stageC: e.stageConfidence,
+        isLead: e.isLead,
+        reason: e.reason,
+        companyName: e.companyName,
+        subContactCount: e.subContacts.length,
+      })),
+      // All not-lead rejections with reasons
+      notLeadReasons: extractions
+        .filter((e) => !e.isLead)
+        .map((e) => ({
+          tid: e.threadId,
+          name: e.client.name,
+          email: e.client.email,
+          reason: e.reason,
+        })),
+      // All review-flagged items
+      reviewItems: extractions
+        .filter((e) => e.needsReview)
+        .map((e) => ({
+          tid: e.threadId,
+          name: e.client.name,
+          email: e.client.email,
+          reviewReason: e.reviewReason,
+          desc: e.client.description,
+        })),
+    },
+  };
 
-  // ─── 10. Update connection wizard state on completion ─────────────────────
-  const { data: currentConn } = await supabase
-    .from("email_connections")
-    .select("sync_filters, user_id, company_id")
-    .eq("id", connectionId)
-    .single();
+  const finalAccess = await requireCurrentAnalysisAccess("completion_publish");
+  const { error: completionError } = await supabase.rpc(
+    "complete_email_analysis_job_as_system",
+    {
+      p_job_id: jobId,
+      p_actor_user_id: finalAccess.actorUserId,
+      p_result: finalResult,
+      p_progress: finalProgress,
+    }
+  );
+  if (completionError) {
+    throw new Error(
+      `Phase B completion publication failed: ${completionError.message}`
+    );
+  }
 
-  const existingFilters =
-    (currentConn?.sync_filters as Record<string, unknown>) || {};
-
-  await supabase
-    .from("email_connections")
-    .update({
-      sync_filters: {
-        ...existingFilters,
-        wizardStep: 3,
-        lastScanJobId: jobId,
-        lastScanComplete: true,
-      },
-    })
-    .eq("id", connectionId);
+  // Re-authorize after the atomic completion boundary. A long-running scan must never
+  // notify a legacy company connector or an actor whose mailbox authority was
+  // revoked while the scan was in flight.
+  const completionAccess = await authorizeEmailAnalysisJobContinuation({
+    supabase,
+    jobId,
+    claimedConnectionId: connectionId,
+    claimedCompanyId: companyId,
+  });
+  if (!completionAccess.allowed) {
+    console.warn(
+      `[email-analyze-continue] Completion follow-up denied: ${completionAccess.reason}`
+    );
+    return;
+  }
 
   // ─── 10b. Create notification for background completion ─────────────────
-  if (currentConn?.user_id) {
-    await supabase
-      .from("notifications")
-      .insert({
-        user_id: currentConn.user_id,
-        company_id: currentConn.company_id || companyId,
-        type: "pipeline_complete",
-        title: "Pipeline analysis complete",
-        body: `Found ${deduplicatedLeads.length} lead${deduplicatedLeads.length !== 1 ? "s" : ""} from ${detectionData.totalEmailsScanned} emails`,
-        is_read: false,
-        persistent: true,
-        action_url: "/settings?tab=integrations",
-        action_label: "Review Results",
-      })
-      .then(({ error: notifErr }) => {
-        if (notifErr)
-          console.error(
-            "[email-analyze-continue] Failed to create notification:",
-            notifErr.message
-          );
-      });
+  const completionNotification = await createTrustedNotifications(
+    {
+      recipientUserIds: [completionAccess.actorUserId],
+      companyId: completionAccess.companyId,
+      type: "pipeline_complete",
+      title: "Pipeline analysis complete",
+      body: `Found ${deduplicatedLeads.length} lead${deduplicatedLeads.length !== 1 ? "s" : ""} from ${detectionData.totalEmailsScanned} emails`,
+      persistent: true,
+      actionUrl:
+        completionAccess.connectionType === "company"
+          ? "/settings?tab=integrations"
+          : null,
+      actionLabel:
+        completionAccess.connectionType === "company" ? "Review Results" : null,
+      deepLinkType: "pipeline",
+      dedupeKey: `pipeline-analysis-complete:${jobId}`,
+    },
+    supabase
+  );
+  if (completionNotification.errors > 0) {
+    console.error(
+      "[email-analyze-continue] Failed to create completion notification"
+    );
   }
 
   console.log(

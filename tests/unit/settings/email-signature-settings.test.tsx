@@ -4,9 +4,14 @@ import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const signatureQuery = vi.fn();
-const saveMutate = vi.fn();
-const importMutate = vi.fn();
+const { importMutate, saveMutate, signatureQuery, toastError, toastSuccess } =
+  vi.hoisted(() => ({
+    signatureQuery: vi.fn(),
+    saveMutate: vi.fn(),
+    importMutate: vi.fn(),
+    toastError: vi.fn(),
+    toastSuccess: vi.fn(),
+  }));
 
 vi.mock("@/lib/hooks/use-email-signature", () => ({
   useEmailSignature: (...args: unknown[]) => signatureQuery(...args),
@@ -26,8 +31,8 @@ vi.mock("@/i18n/client", () => ({
   }),
 }));
 
-vi.mock("sonner", () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+vi.mock("@/components/ui/toast", () => ({
+  toast: { success: toastSuccess, error: toastError },
 }));
 
 import { EmailSignatureSettings } from "@/components/settings/email-signature-settings";
@@ -85,6 +90,8 @@ beforeEach(() => {
   signatureQuery.mockReset();
   saveMutate.mockReset().mockResolvedValue({ missing: false });
   importMutate.mockReset().mockResolvedValue({ missing: false });
+  toastError.mockReset();
+  toastSuccess.mockReset();
 });
 
 describe("EmailSignatureSettings", () => {
@@ -140,6 +147,22 @@ describe("EmailSignatureSettings", () => {
       userId: props.userId,
       connectionId: props.connectionId,
     });
+  });
+
+  it("reports a completed Gmail check with no configured signature", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    importMutate.mockResolvedValue({
+      missing: true,
+      providerImportStatus: "not_configured",
+    });
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "EDIT SIGNATURE" }));
+    await user.click(screen.getByRole("button", { name: "IMPORT FROM GMAIL" }));
+
+    expect(toastError).toHaveBeenCalledWith("No Gmail signature found");
+    expect(toastSuccess).not.toHaveBeenCalled();
   });
 
   it("tells Microsoft 365 users to paste their signature and offers no import", () => {

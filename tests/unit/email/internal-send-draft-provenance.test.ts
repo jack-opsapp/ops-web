@@ -21,6 +21,12 @@ function functionBlock(
 const approvalQueueSource = source(
   "src/lib/api/services/approval-queue-service.ts"
 );
+const approvedActionTransportSource = source(
+  "src/lib/api/services/approved-action-email-transport-service.ts"
+);
+const approvedActionReconciliationSource = source(
+  "src/lib/api/services/approved-action-email-reconciliation-service.ts"
+);
 const approvalTypesSource = source("src/lib/types/approval-queue.ts");
 const paymentReminderSource = source(
   "src/lib/api/services/payment-reminder-service.ts"
@@ -28,43 +34,35 @@ const paymentReminderSource = source(
 const schedulingCommsSource = source(
   "src/lib/api/services/client-scheduling-comms-service.ts"
 );
+const connectionSelectionSource = source(
+  "src/lib/email/email-connection-selection.ts"
+);
 const inboxHookSource = source("src/lib/hooks/use-inbox-threads.ts");
 const inboxRouteSource = source("src/components/ops/inbox/inbox-route.tsx");
 
 describe("internal email send draft provenance", () => {
+  it("selects only the actor's personal mailbox or a company mailbox for a new conversation", () => {
+    expect(connectionSelectionSource).toContain('.eq("type", input.type)');
+    expect(connectionSelectionSource).toContain('type: "individual"');
+    expect(connectionSelectionSource).toContain(
+      '.eq("user_id", input.actorUserId)'
+    );
+    expect(connectionSelectionSource).toContain('type: "company"');
+    expect(connectionSelectionSource).toMatch(
+      /\.eq\("status",\s*"active"\)/
+    );
+    expect(connectionSelectionSource).not.toContain("deleted_at");
+    expect(connectionSelectionSource).not.toContain("is_active");
+    expect(schedulingCommsSource).toContain(
+      "resolveNewEmailConversationConnectionId"
+    );
+  });
+
   it("hands every approval-queue send to the durable draft-outcome owner", () => {
-    const sendBlocks = [
-      functionBlock(
-        approvalQueueSource,
-        "async function executeSendStatusEmail(",
-        "async function executeReassignTask("
-      ),
-      functionBlock(
-        approvalQueueSource,
-        "async function executeSendInvoiceEmail(",
-        "async function executeSendPaymentReminder("
-      ),
-      functionBlock(
-        approvalQueueSource,
-        "async function executeSendPaymentReminder(",
-        "async function executeClientHealthAlert("
-      ),
-      functionBlock(
-        approvalQueueSource,
-        "async function sendClientCommsEmail(",
-        "async function executeSendAppointmentConfirmation("
-      ),
-    ];
-
-    for (const block of sendBlocks) {
-      const ensureIndex = block.indexOf("ensureApprovalDraftHistory(");
-      const sendIndex = block.indexOf("/api/integrations/email/send");
-
-      expect(ensureIndex).toBeGreaterThan(-1);
-      expect(sendIndex).toBeGreaterThan(ensureIndex);
-      expect(block).toContain("draftHistoryId:");
-    }
-
+    expect(approvalQueueSource).toContain(
+      "ApprovedActionEmailTransportService.executeManual"
+    );
+    expect(approvalQueueSource).not.toContain("/api/integrations/email/send");
     expect(approvalQueueSource).not.toContain(
       "AIDraftService.recordDraftOutcome("
     );
@@ -80,18 +78,12 @@ describe("internal email send draft provenance", () => {
     ).toHaveLength(8);
   });
 
-  it("lets the canonical send route own threaded activity persistence", () => {
-    const clientCommsSend = functionBlock(
-      approvalQueueSource,
-      "async function sendClientCommsEmail(",
-      "async function executeSendAppointmentConfirmation("
+  it("lets durable approved-action reconciliation own activity persistence", () => {
+    expect(approvedActionTransportSource).toContain(
+      "reconcileApprovedActionEmail"
     );
-
-    expect(clientCommsSend).toContain("threadId: params.threadId ?? null");
-    expect(clientCommsSend).toContain(
-      "opportunityId: params.opportunityId ?? null"
-    );
-    expect(clientCommsSend).not.toContain('.from("activities")');
+    expect(approvedActionReconciliationSource).toContain('.from("activities")');
+    expect(approvalQueueSource).not.toContain('.from("activities")');
   });
 
   it("passes inbox AI and lifecycle identities through the shared reply hook", () => {

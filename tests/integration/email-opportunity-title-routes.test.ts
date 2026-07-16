@@ -14,6 +14,12 @@ const {
   upsertEmailThreadMock,
   classifyEmailThreadMock,
   relationshipMatchMock,
+  resolveEmailRouteActorMock,
+  loadEmailImportSourceForActorMock,
+  createOrResumeEmailImportJobMock,
+  loadAuthorizedEmailImportJobMock,
+  completeEmailImportJobMock,
+  approvedImportPayloads,
 } = vi.hoisted(() => ({
   afterCallbacks: [] as Array<() => unknown | Promise<unknown>>,
   getServiceRoleClientMock: vi.fn(),
@@ -28,6 +34,12 @@ const {
   upsertEmailThreadMock: vi.fn(),
   classifyEmailThreadMock: vi.fn(),
   relationshipMatchMock: vi.fn(),
+  resolveEmailRouteActorMock: vi.fn(),
+  loadEmailImportSourceForActorMock: vi.fn(),
+  createOrResumeEmailImportJobMock: vi.fn(),
+  loadAuthorizedEmailImportJobMock: vi.fn(),
+  completeEmailImportJobMock: vi.fn(),
+  approvedImportPayloads: new Map<string, Record<string, unknown>>(),
 }));
 
 vi.mock("next/server", async () => {
@@ -51,7 +63,18 @@ vi.mock("@/lib/supabase/helpers", () => ({
 
 vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: {
-    getConnection: getConnectionMock,
+    getConnection: async (...args: unknown[]) => {
+      const connection = await getConnectionMock(...args);
+      return connection
+        ? {
+            type: "company",
+            userId: null,
+            syncEnabled: true,
+            status: "active",
+            ...connection,
+          }
+        : connection;
+    },
     getProvider: getProviderMock,
   },
 }));
@@ -84,10 +107,25 @@ vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
 
 vi.mock("@/lib/email/email-route-auth", () => ({
   requireEmailCompanyAccess: vi.fn(async () => null),
+  resolveEmailRouteActor: resolveEmailRouteActorMock,
   emailPipelineAuthorizationHeaders: vi.fn(() => ({
     "Content-Type": "application/json",
     Authorization: "Bearer test-pipeline-secret",
   })),
+}));
+
+vi.mock("@/lib/email/email-import-approval", () => ({
+  EmailImportApprovalError: class EmailImportApprovalError extends Error {},
+  approveEmailImportPayload: ({ submitted }: { submitted: unknown }) => submitted,
+  fingerprintEmailImportPayload: () => "a".repeat(64),
+}));
+
+vi.mock("@/lib/email/email-import-job-access", () => ({
+  EmailImportJobAccessError: class EmailImportJobAccessError extends Error {},
+  loadEmailImportSourceForActor: loadEmailImportSourceForActorMock,
+  createOrResumeEmailImportJob: createOrResumeEmailImportJobMock,
+  loadAuthorizedEmailImportJob: loadAuthorizedEmailImportJobMock,
+  completeEmailImportJob: completeEmailImportJobMock,
 }));
 
 import { POST as importPOST } from "@/app/api/integrations/email/import/route";
@@ -321,6 +359,12 @@ function makeImportSupabaseDouble(state: ImportState) {
       return new Query(table);
     },
     async rpc(name: string, args: Record<string, unknown>) {
+      if (name === "authorize_opportunity_action_as_system") {
+        return { data: true, error: null };
+      }
+      if (name === "enqueue_email_import_provider_operation_as_system") {
+        return { data: true, error: null };
+      }
       if (name === "apply_opportunity_correspondence_event") {
         state.correspondenceProjectionCalls ??= [];
         state.correspondenceProjectionCalls.push(args);
@@ -373,6 +417,46 @@ describe("email opportunity title route writes", () => {
     });
     classifyEmailThreadMock.mockReset();
     relationshipMatchMock.mockReset();
+    resolveEmailRouteActorMock.mockReset();
+    loadEmailImportSourceForActorMock.mockReset();
+    createOrResumeEmailImportJobMock.mockReset();
+    loadAuthorizedEmailImportJobMock.mockReset();
+    completeEmailImportJobMock.mockReset();
+    approvedImportPayloads.clear();
+    resolveEmailRouteActorMock.mockResolvedValue({
+      ok: true,
+      actor: { userId: "user-1", companyId: "company-1" },
+    });
+    loadEmailImportSourceForActorMock.mockResolvedValue({
+      sourceScanJobId: "scan-1",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      connectionEmail: "jackson@canprodeckandrail.com",
+      connectionOwnerUserId: null,
+      connectionType: "company",
+      result: { leads: [] },
+    });
+    createOrResumeEmailImportJobMock.mockImplementation(
+      async ({ approvedPayload }: { approvedPayload: Record<string, unknown> }) => {
+        const jobId = `job-${approvedImportPayloads.size + 1}`;
+        approvedImportPayloads.set(jobId, approvedPayload);
+        return { jobId, shouldDispatch: true, resumed: false };
+      }
+    );
+    loadAuthorizedEmailImportJobMock.mockImplementation(
+      async ({ jobId }: { jobId: string }) => ({
+        jobId,
+        sourceScanJobId: "scan-1",
+        actorUserId: "user-1",
+        companyId: "company-1",
+        connectionId: "connection-1",
+        connectionOwnerUserId: null,
+        connectionType: "company",
+        approvalFingerprint: "a".repeat(64),
+        approvedPayload: approvedImportPayloads.get(jobId),
+      })
+    );
+    completeEmailImportJobMock.mockResolvedValue(undefined);
     relationshipMatchMock.mockResolvedValue({
       action: "create_new",
       reason: "No deterministic relationship signal met the P3 bar",
@@ -1879,7 +1963,7 @@ describe("email opportunity title route writes", () => {
 
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toEqual({
-        error: "One or more selected clients are unavailable",
+        error: "One or more selected customers are unavailable",
       });
       expect(afterCallbacks).toHaveLength(0);
       expect(getProviderMock).not.toHaveBeenCalled();

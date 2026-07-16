@@ -8,8 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
 
 export const maxDuration = 15;
 
@@ -18,27 +17,31 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    const authUser = await verifyAdminAuth(request);
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get("companyId");
+    const connectionId = searchParams.get("connectionId");
 
-    if (!companyId) {
+    if (!companyId || !connectionId) {
       return NextResponse.json(
-        { error: "companyId is required" },
+        { error: "companyId and connectionId are required" },
         { status: 400 }
       );
     }
 
-    if (companyId !== user.company_id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const access = await resolveEmailConnectionOperationAccess({
+      request,
+      claimedCompanyId: companyId,
+      connectionId,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
     }
 
     // Count sent drafts grouped by profile_type
@@ -46,7 +49,8 @@ export async function GET(request: NextRequest) {
       .from("ai_draft_history")
       .select("profile_type")
       .eq("company_id", companyId)
-      .eq("user_id", user.id)
+      .eq("connection_id", connectionId)
+      .eq("user_id", access.actor.userId)
       .eq("status", "sent");
 
     if (error) {

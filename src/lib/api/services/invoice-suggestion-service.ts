@@ -19,6 +19,7 @@ import { ApprovalQueueService } from "./approval-queue-service";
 import { BusinessContextService } from "./business-context-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getCompanyManagerUserIds } from "./company-managers";
+import { resolveNewEmailConversationConnectionId } from "@/lib/email/email-connection-selection";
 import type {
   CreateInvoiceActionData,
   InvoiceWarning,
@@ -438,17 +439,12 @@ export const InvoiceSuggestionService = {
 
     // Find a user email connection for the cover email
     if (coverEmail) {
-      const { data: connection } = await supabase
-        .from("email_connections")
-        .select("id")
-        .eq("company_id", companyId)
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .limit(1);
-
-      if (connection && connection.length > 0) {
-        coverEmail.connection_id = connection[0].id as string;
-      }
+      coverEmail.connection_id =
+        await resolveNewEmailConversationConnectionId({
+          supabase,
+          companyId,
+          actorUserId: userId,
+        });
     }
 
     const estimateNumber =
@@ -651,17 +647,12 @@ export const InvoiceSuggestionService = {
         : null;
 
     if (coverEmail) {
-      const { data: connection } = await supabase
-        .from("email_connections")
-        .select("id")
-        .eq("company_id", companyId)
-        .eq("user_id", userId)
-        .eq("is_active", true)
-        .limit(1);
-
-      if (connection && connection.length > 0) {
-        coverEmail.connection_id = connection[0].id as string;
-      }
+      coverEmail.connection_id =
+        await resolveNewEmailConversationConnectionId({
+          supabase,
+          companyId,
+          actorUserId: userId,
+        });
     }
 
     const actionData: CreateInvoiceActionData = {

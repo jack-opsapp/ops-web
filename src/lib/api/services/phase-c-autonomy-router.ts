@@ -37,6 +37,11 @@ import {
   renderMailboxDraftWithSignature,
   resolveEmailSignatureForMessage,
 } from "@/lib/email/email-signature-runtime";
+import {
+  resolvePhaseCEmailActor,
+  type PhaseCEmailActorContext,
+} from "@/lib/email/phase-c-email-actor";
+import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
 import type {
   EmailThread,
   EmailThreadAutonomyLevel,
@@ -60,6 +65,7 @@ export type RouterOutcome =
   | "noop_not_inbound"
   | "noop_archived"
   | "noop_global_gate"
+  | "noop_actor_unavailable"
   | "auto_drafted"
   | "auto_sent_scheduled"
   | "auto_archived"
@@ -89,18 +95,6 @@ export interface RouterResult {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function resolveConnectionOwner(
-  connectionId: string
-): Promise<{ userId: string | null }> {
-  const supabase = requireSupabase();
-  const { data } = await supabase
-    .from("email_connections")
-    .select("user_id")
-    .eq("id", connectionId)
-    .maybeSingle();
-  return { userId: (data?.user_id as string | null) ?? null };
-}
-
 function isThreadActionable(thread: EmailThread): boolean {
   return thread.archivedAt === null && thread.snoozedUntil === null;
 }
@@ -125,7 +119,8 @@ function isThreadActionable(thread: EmailThread): boolean {
  * key, and mailbox draft idempotency still guards provider placement.
  */
 async function latestInboundNeedsDraft(
-  thread: EmailThread
+  thread: EmailThread,
+  userId: string
 ): Promise<{ needsDraft: boolean; sourceMessageId: string | null }> {
   const supabase = requireSupabase();
 
@@ -160,6 +155,7 @@ async function latestInboundNeedsDraft(
     .eq("company_id", thread.companyId)
     .eq("connection_id", thread.connectionId)
     .eq("thread_id", thread.providerThreadId)
+    .eq("user_id", userId)
     .eq("origin", "phase_c")
     .eq("source_message_id", sourceMessageId)
     .limit(1)
@@ -167,6 +163,29 @@ async function latestInboundNeedsDraft(
 
   // A matching draft already covers this inbound message → no new LLM.
   return { needsDraft: !matching, sourceMessageId };
+}
+
+class PhaseCThreadAuthorizationError extends Error {
+  constructor(readonly reason: string) {
+    super(`Phase C thread authorization revoked: ${reason}`);
+    this.name = "PhaseCThreadAuthorizationError";
+  }
+}
+
+async function authorizeCurrentPhaseCThread(
+  thread: EmailThread,
+  userId: string,
+  operation: "send" | "mutate"
+) {
+  return resolveEmailOpportunityAccess({
+    actor: { userId, companyId: thread.companyId },
+    operation,
+    threadId: thread.id,
+    connectionId: thread.connectionId,
+    providerThreadId: thread.providerThreadId,
+    opportunityId: thread.opportunityId ?? undefined,
+    supabase: requireSupabase(),
+  });
 }
 
 async function placePhaseCMailboxDraft(
@@ -209,6 +228,7 @@ async function placePhaseCMailboxDraft(
     .from("ai_draft_history")
     .select("id, mailbox_draft_id, status")
     .eq("company_id", thread.companyId)
+    .eq("user_id", userId)
     .eq("connection_id", thread.connectionId)
     .eq("thread_id", thread.providerThreadId)
     .eq("origin", "phase_c");
@@ -216,6 +236,18 @@ async function placePhaseCMailboxDraft(
   const existing = pickExistingMailboxDraft(
     (priorRows ?? []) as MailboxDraftRow[]
   );
+
+  // The draft LLM and signature resolution can take long enough for a lead
+  // handoff to occur. Re-check the exact thread/lead/mailbox intersection at
+  // the provider-write boundary so the prior assignee cannot mutate Drafts.
+  const currentAccess = await authorizeCurrentPhaseCThread(
+    thread,
+    userId,
+    "send"
+  );
+  if (!currentAccess.allowed) {
+    throw new PhaseCThreadAuthorizationError(currentAccess.reason);
+  }
 
   let mailboxDraftId: string;
   if (existing?.mailbox_draft_id) {
@@ -276,20 +308,45 @@ export const PhaseCAutonomyRouter = {
       const autonomyMap = await PhaseCCategoryAutonomy.get(thread.connectionId);
       const declared = autonomyMap[category] ?? "off";
 
-      const { userId } = await resolveConnectionOwner(thread.connectionId);
-      if (!userId) {
-        return {
-          outcome: "error",
-          category,
-          effectiveLevel: declared,
-          detail: "connection has no owner user_id",
-        };
+      let userId: string | null = null;
+      let actorContext: PhaseCEmailActorContext | null = null;
+      const needsActor =
+        declared === "auto_draft" ||
+        declared === "auto_send" ||
+        declared === "auto_archive" ||
+        declared === "auto_follow_up";
+      if (needsActor) {
+        const actorResolution = await resolvePhaseCEmailActor({
+          companyId: thread.companyId,
+          connectionId: thread.connectionId,
+          opportunityId: thread.opportunityId,
+          internalThreadId: thread.id,
+          providerThreadId: thread.providerThreadId,
+        });
+        if (actorResolution.kind === "no_work") {
+          return {
+            outcome: "noop_actor_unavailable",
+            category,
+            effectiveLevel: declared,
+            detail: actorResolution.reason,
+          };
+        }
+        actorContext = actorResolution.context;
+        userId = actorContext.actorUserId;
       }
 
       // Global AUTO_SEND gate — cap any send-capable level to auto_draft
       // until the user has crossed the global milestone.
       let effective = declared;
       if (declared === "auto_send" || declared === "auto_follow_up") {
+        if (!userId) {
+          return {
+            outcome: "noop_actor_unavailable",
+            category,
+            effectiveLevel: declared,
+            detail: "actor_identity_invalid",
+          };
+        }
         const globalState = await AutonomyMilestoneService.getAutonomyLevel(
           thread.companyId,
           userId,
@@ -312,16 +369,52 @@ export const PhaseCAutonomyRouter = {
           };
 
         case "auto_draft":
+          if (!userId) {
+            return {
+              outcome: "noop_actor_unavailable",
+              category,
+              effectiveLevel: effective,
+              detail: "actor_identity_invalid",
+            };
+          }
           return await this.doAutoDraft(thread, userId, effective);
 
         case "auto_send":
-          return await this.doAutoSend(thread, userId, effective);
+          if (!actorContext) {
+            return {
+              outcome: "noop_actor_unavailable",
+              category,
+              effectiveLevel: effective,
+              detail: "actor_identity_invalid",
+            };
+          }
+          return await this.doAutoSend(thread, actorContext, effective);
 
         case "auto_archive":
-          return await this.doAutoArchive(thread, effective);
+          if (!actorContext) {
+            return {
+              outcome: "noop_actor_unavailable",
+              category,
+              effectiveLevel: effective,
+              detail: "actor_identity_invalid",
+            };
+          }
+          return await this.doAutoArchive(
+            thread,
+            actorContext.actorUserId,
+            effective
+          );
 
         case "auto_follow_up":
-          return await this.doAutoFollowUp(thread, userId, effective);
+          if (!actorContext) {
+            return {
+              outcome: "noop_actor_unavailable",
+              category,
+              effectiveLevel: effective,
+              detail: "actor_identity_invalid",
+            };
+          }
+          return await this.doAutoFollowUp(thread, actorContext, effective);
       }
     } catch (err) {
       console.error(
@@ -366,10 +459,24 @@ export const PhaseCAutonomyRouter = {
       };
     }
 
+    const accessBeforeDraft = await authorizeCurrentPhaseCThread(
+      thread,
+      userId,
+      "send"
+    );
+    if (!accessBeforeDraft.allowed) {
+      return {
+        outcome: "noop_actor_unavailable",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: accessBeforeDraft.reason,
+      };
+    }
+
     // P4-A cost guard: short-circuit BEFORE the draft LLM if we already
     // auto-drafted for this exact inbound message. Prevents one-draft-per-resync
     // from re-invoking the model on a thread whose latest message is unchanged.
-    const { needsDraft } = await latestInboundNeedsDraft(thread);
+    const { needsDraft } = await latestInboundNeedsDraft(thread, userId);
     if (!needsDraft) {
       return {
         outcome: "auto_drafted",
@@ -445,6 +552,14 @@ export const PhaseCAutonomyRouter = {
         detail: placed.mailboxDraftId,
       };
     } catch (err) {
+      if (err instanceof PhaseCThreadAuthorizationError) {
+        return {
+          outcome: "noop_actor_unavailable",
+          category: thread.primaryCategory,
+          effectiveLevel: effective,
+          detail: err.reason,
+        };
+      }
       console.error(
         "[phase-c-router] mailbox draft placement failed (non-fatal):",
         thread.id,
@@ -470,7 +585,7 @@ export const PhaseCAutonomyRouter = {
    */
   async doAutoSend(
     thread: EmailThread,
-    userId: string,
+    actorContext: PhaseCEmailActorContext,
     effective: EmailThreadAutonomyLevel
   ): Promise<RouterResult> {
     if (thread.latestDirection !== "inbound") {
@@ -487,7 +602,11 @@ export const PhaseCAutonomyRouter = {
     );
     if (!enabled || !settings) {
       // Feature or setting is off — fall back to auto_draft behavior.
-      return await this.doAutoDraft(thread, userId, "auto_draft");
+      return await this.doAutoDraft(
+        thread,
+        actorContext.actorUserId,
+        "auto_draft"
+      );
     }
 
     // Resolve reply recipients from the latest inbound message.
@@ -505,7 +624,7 @@ export const PhaseCAutonomyRouter = {
 
     const scheduled = await AutoSendService.scheduleAutoSend({
       companyId: thread.companyId,
-      userId,
+      actorContext,
       connectionId: thread.connectionId,
       opportunityId: thread.opportunityId ?? undefined,
       threadId: thread.providerThreadId,
@@ -539,6 +658,7 @@ export const PhaseCAutonomyRouter = {
    */
   async doAutoArchive(
     thread: EmailThread,
+    userId: string,
     effective: EmailThreadAutonomyLevel
   ): Promise<RouterResult> {
     // P4-E hard refuse: CUSTOMER threads must NEVER auto-archive. auto_archive
@@ -558,14 +678,39 @@ export const PhaseCAutonomyRouter = {
       };
     }
 
+    const access = await authorizeCurrentPhaseCThread(thread, userId, "mutate");
+    if (!access.allowed) {
+      return {
+        outcome: "noop_actor_unavailable",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: access.reason,
+      };
+    }
+
     const result = await EmailThreadService.archive({ threadId: thread.id });
     if ("needsPreference" in result) {
       // Preference unresolved — fall through to OPS-only archive.
+      const accessBeforeOpsArchive = await authorizeCurrentPhaseCThread(
+        thread,
+        userId,
+        "mutate"
+      );
+      if (!accessBeforeOpsArchive.allowed) {
+        return {
+          outcome: "noop_actor_unavailable",
+          category: thread.primaryCategory,
+          effectiveLevel: effective,
+          detail: accessBeforeOpsArchive.reason,
+        };
+      }
       const supabase = requireSupabase();
       await supabase
         .from("email_threads")
         .update({ archived_at: new Date().toISOString() })
-        .eq("id", thread.id);
+        .eq("id", thread.id)
+        .eq("company_id", thread.companyId)
+        .eq("opportunity_id", thread.opportunityId);
     }
     return {
       outcome: "auto_archived",
@@ -582,7 +727,7 @@ export const PhaseCAutonomyRouter = {
    */
   async doAutoFollowUp(
     thread: EmailThread,
-    userId: string,
+    actorContext: PhaseCEmailActorContext,
     effective: EmailThreadAutonomyLevel
   ): Promise<RouterResult> {
     const lastOutbound = thread.latestDirection === "outbound";
@@ -602,7 +747,11 @@ export const PhaseCAutonomyRouter = {
       thread.connectionId
     );
     if (!enabled || !settings) {
-      return await this.doAutoDraft(thread, userId, "auto_draft");
+      return await this.doAutoDraft(
+        thread,
+        actorContext.actorUserId,
+        "auto_draft"
+      );
     }
 
     const toEmails = thread.participants.filter(
@@ -616,7 +765,7 @@ export const PhaseCAutonomyRouter = {
 
     const scheduled = await AutoSendService.scheduleAutoSend({
       companyId: thread.companyId,
-      userId,
+      actorContext,
       connectionId: thread.connectionId,
       opportunityId: thread.opportunityId ?? undefined,
       threadId: thread.providerThreadId,

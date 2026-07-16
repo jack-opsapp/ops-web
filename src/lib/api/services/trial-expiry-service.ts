@@ -255,7 +255,10 @@ export const TrialExpiryService = {
    * Process trial expiry notifications for every trialing company.
    * Idempotent — safe to rerun the same day.
    */
-  async processAll(supabase: SupabaseClient, now = new Date()): Promise<ProcessResult> {
+  async processAll(
+    supabase: SupabaseClient,
+    now = new Date()
+  ): Promise<ProcessResult> {
     const result: ProcessResult = {
       scanned: 0,
       sent: [],
@@ -273,9 +276,7 @@ export const TrialExpiryService = {
       .is("deleted_at", null);
 
     if (error) {
-      throw new Error(
-        `Failed to load trial companies: ${error.message}`
-      );
+      throw new Error(`Failed to load trial companies: ${error.message}`);
     }
 
     const rows = (companies ?? []) as TrialCompanyRow[];
@@ -340,9 +341,7 @@ export const TrialExpiryService = {
       .maybeSingle();
 
     if (existingError) {
-      throw new Error(
-        `Failed to check dedup table: ${existingError.message}`
-      );
+      throw new Error(`Failed to check dedup table: ${existingError.message}`);
     }
 
     if (existing) {
@@ -417,7 +416,6 @@ export const TrialExpiryService = {
         type,
         daysRemaining: remaining,
         promoCode50: promoCodes.code50,
-        subscribeUrl,
       });
     }
 
@@ -434,9 +432,7 @@ export const TrialExpiryService = {
     if (insertError) {
       // 23505 = unique_violation (another cron run beat us). Not an error.
       if (insertError.code !== "23505") {
-        throw new Error(
-          `Failed to record dedup row: ${insertError.message}`
-        );
+        throw new Error(`Failed to record dedup row: ${insertError.message}`);
       }
     }
 
@@ -521,7 +517,6 @@ export const TrialExpiryService = {
     type: TrialNotificationType;
     daysRemaining: number;
     promoCode50: string;
-    subscribeUrl: string;
   }): Promise<void> {
     const copy = buildInAppCopy(params.type, params.daysRemaining);
     const rows = params.adminIds.map((userId) => ({
@@ -534,7 +529,7 @@ export const TrialExpiryService = {
       persistent: false,
       deep_link_type: "trial_expiry",
       batch_id: params.promoCode50,
-      action_url: params.subscribeUrl,
+      action_url: "/settings?tab=subscription",
       action_label: "Subscribe",
     }));
 

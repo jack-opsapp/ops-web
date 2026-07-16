@@ -13,8 +13,9 @@ import { EmailService } from "@/lib/api/services/email-service";
 import { getAppUrl } from "@/lib/utils/app-url";
 import { hashMicrosoft365ClientState } from "@/lib/email/microsoft365-webhook-security";
 import type { ActivationPayload } from "@/lib/types/email-import";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
 import { resolveEmailSignatureForMessage } from "@/lib/email/email-signature-runtime";
+import { PersonalEmailConnectionLifecycleService } from "@/lib/api/services/personal-email-connection-lifecycle-service";
 
 export const maxDuration = 300;
 
@@ -33,6 +34,22 @@ export async function POST(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
+    const access = await resolveEmailConnectionOperationAccess({
+      request,
+      claimedCompanyId: companyId,
+      connectionId,
+      requireUsable: true,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
+    }
     const connection = await EmailService.getConnection(connectionId);
     if (!connection) {
       return NextResponse.json(
@@ -46,9 +63,6 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-    const authError = await requireEmailCompanyAccess(request, companyId);
-    if (authError) return authError;
-
     const provider = EmailService.getProvider(connection);
 
     // Collect per-step warnings so the wizard can surface partial-success
@@ -120,24 +134,32 @@ export async function POST(request: NextRequest) {
       status: "active",
     });
 
+    // The status update enqueues lifecycle reconciliation transactionally.
+    // Resolve the persistent warning now; the hourly drain remains the retry
+    // path if notification persistence is temporarily unavailable.
+    if (connection.type === "individual") {
+      await PersonalEmailConnectionLifecycleService.reconcile(
+        connectionId,
+        supabase
+      );
+    }
+
     // Read the provider signature (Gmail only) and reconcile the persistent
     // setup prompt as soon as the inbox becomes active. This is deliberately
     // non-fatal: signature setup can be completed from Settings, while
     // autonomous draft placement remains blocked until a signature exists.
-    if (connection.userId) {
-      try {
-        await resolveEmailSignatureForMessage({
-          supabase,
-          connection,
-          userId: connection.userId,
-          refreshProviderIfMissing: true,
-        });
-      } catch (error) {
-        warnings.push({
-          step: "signature",
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
+    try {
+      await resolveEmailSignatureForMessage({
+        supabase,
+        connection,
+        userId: access.actor.userId,
+        refreshProviderIfMissing: true,
+      });
+    } catch (error) {
+      warnings.push({
+        step: "signature",
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
 
     return NextResponse.json({

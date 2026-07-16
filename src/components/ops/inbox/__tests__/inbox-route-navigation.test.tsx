@@ -443,6 +443,9 @@ function makeThreadDetail(id: string): InboxThreadDetail {
   return {
     thread: {
       id,
+      connectionId: `connection-${id}`,
+      providerThreadId: `provider-${id}`,
+      pipelineScope: "all",
       primaryCategory: "CUSTOMER",
       categoryConfidence: 0.93,
       categoryManuallySet: false,
@@ -483,6 +486,8 @@ function makeThreadDetail(id: string): InboxThreadDetail {
     ],
     siblingThreads: [],
     commitments: [],
+    linkedOpportunity: null,
+    clientContext: null,
   };
 }
 

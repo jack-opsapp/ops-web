@@ -77,6 +77,7 @@ export interface CreateProjectActionData {
   }>;
   source_thread_id: string | null;
   source_opportunity_id: string | null;
+  source_assignment_version: number | null;
 }
 
 // ─── Create Task Payload ─────────────────────────────────────────────────────
@@ -700,6 +701,8 @@ export interface ProcessRescheduleRequestActionData {
   activity_id: string;
   thread_id: string | null;
   opportunity_id: string | null;
+  /** Assignment snapshot that must still match before any provider delivery. */
+  source_assignment_version: number;
   client_id: string;
   client_email: string;
   client_name: string;

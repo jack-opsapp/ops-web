@@ -10,6 +10,13 @@ const sendSource = readFileSync(
   resolve(process.cwd(), "src/app/api/integrations/email/send/route.ts"),
   "utf8"
 );
+const sendReconciliationSource = readFileSync(
+  resolve(
+    process.cwd(),
+    "src/lib/api/services/email-send-reconciliation-service.ts"
+  ),
+  "utf8"
+);
 const cronSource = readFileSync(
   resolve(process.cwd(), "src/app/api/cron/email-sync/route.ts"),
   "utf8"
@@ -82,14 +89,19 @@ describe("outbound learning producer and worker wiring", () => {
     expect(syncSource).not.toContain("WritingProfileService.updateFromEmail(");
   });
 
-  it("keeps manual provider delivery successful when enqueue fails and runs no inline learning effects", () => {
-    expect(sendSource).toContain(
+  it("makes the durable sent reconciliation own learning-queue persistence", () => {
+    expect(sendReconciliationSource).toContain(
+      "await new EmailOutboundLearningService(supabase).enqueueIfEnabled"
+    );
+    expect(sendReconciliationSource).not.toContain("waitForEnqueue");
+    expect(sendReconciliationSource).not.toContain(
       "outbound learning enqueue failed after delivery"
     );
-    expect(sendSource).toContain("enqueueIfEnabled");
-    expect(sendSource).toContain("draftHistoryId");
-    expect(sendSource).toContain("followUpDraftId");
-    expect(sendSource).toContain("opportunityId: effectiveOpportunityId");
+    expect(sendReconciliationSource).toContain("draftHistoryId");
+    expect(sendReconciliationSource).toContain("followUpDraftId");
+    expect(sendReconciliationSource).toContain(
+      "opportunityId: intent.opportunityId"
+    );
     expect(sendSource).not.toContain("AIDraftService.recordDraftOutcome(");
     expect(sendSource).not.toContain("recordLifecycleDraftOutcome(");
     expect(sendSource).not.toContain("MemoryService.processOutboundEmail(");

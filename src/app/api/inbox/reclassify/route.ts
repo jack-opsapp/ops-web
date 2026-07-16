@@ -34,11 +34,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { mapEmailThreadFromDb } from "@/lib/types/email-thread";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
 
 // ─── Tuning ─────────────────────────────────────────────────────────────────
 const LIMIT_PER_RUN = 200;
@@ -107,7 +106,9 @@ export async function POST(request: NextRequest) {
   const isCronAuth = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
 
   let companyId: string;
+  let connectionIds: string[] | null = null;
   const { searchParams } = new URL(request.url);
+  const supabase = getServiceRoleClient();
 
   if (isCronAuth) {
     const qp = searchParams.get("companyId");
@@ -119,29 +120,29 @@ export async function POST(request: NextRequest) {
     }
     companyId = qp;
   } else {
-    const authUser = await verifyAdminAuth(request);
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const user = await findUserByAuth(
-      authUser.uid,
-      authUser.email,
-      "id, company_id"
-    );
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-    const userId = user.id as string;
-    companyId = user.company_id as string;
-    if (!companyId) {
+    const access = await resolveEmailConnectionOperationAccess({
+      request,
+      supabase,
+    });
+    if (!access.allowed) {
       return NextResponse.json(
-        { error: "No company associated with user" },
-        { status: 400 }
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
       );
     }
+    const userId = access.actor.userId;
+    companyId = access.actor.companyId;
+    connectionIds = access.connectionIds;
     // Same permission as the manual recategorize action — anyone who can
     // fix a single thread's category can kick off the batch reclassifier.
-    const canCategorize = await checkPermissionById(userId, "inbox.categorize");
+    const canCategorize = await checkPermissionById(
+      userId,
+      "inbox.categorize",
+      "all"
+    );
     if (!canCategorize) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -156,19 +157,21 @@ export async function POST(request: NextRequest) {
     LIMIT_PER_RUN
   );
 
-  const supabase = getServiceRoleClient();
-
   // ── Pull a page of unclassified threads ───────────────────────────────────
   // Company-scoped — a user can only reclassify their own company's threads.
   // Manual categories remain eligible because classifyAndUpdate preserves the
   // human category while refreshing the rest of the classification payload.
-  const { data: rows, error } = await supabase
+  let rowsQuery = supabase
     .from("email_threads")
     .select("*")
     .eq("company_id", companyId)
     .is("category_classified_at", null)
     .order("last_message_at", { ascending: false })
     .limit(limit);
+  if (connectionIds) {
+    rowsQuery = rowsQuery.in("connection_id", connectionIds);
+  }
+  const { data: rows, error } = await rowsQuery;
 
   if (error) {
     return NextResponse.json(
@@ -227,11 +230,15 @@ export async function POST(request: NextRequest) {
   // ── Remaining count (cheap head() query) ──────────────────────────────────
   // Tells the caller whether to fire another invocation. Cron/UI consumers
   // loop until remaining hits 0.
-  const { count } = await supabase
+  let remainingQuery = supabase
     .from("email_threads")
     .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
     .is("category_classified_at", null);
+  if (connectionIds) {
+    remainingQuery = remainingQuery.in("connection_id", connectionIds);
+  }
+  const { count } = await remainingQuery;
 
   result.remaining = count ?? null;
 

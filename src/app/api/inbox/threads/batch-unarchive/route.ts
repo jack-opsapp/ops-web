@@ -13,14 +13,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 
 export async function POST(request: NextRequest) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
 
   const body = (await request.json()) as {
     threadIds?: string[];
@@ -34,20 +35,56 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  const threadIds = [
+    ...new Set(
+      body.threadIds.filter(
+        (threadId): threadId is string =>
+          typeof threadId === "string" && threadId.trim().length > 0
+      )
+    ),
+  ];
+  if (threadIds.length === 0) {
+    return NextResponse.json(
+      { error: "threadIds must contain valid thread ids" },
+      { status: 400 }
+    );
+  }
 
-  const allowed = await checkPermissionById(user.id as string, "inbox.archive");
+  const allowed = await checkPermissionById(actor.userId, "inbox.archive");
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const supabase = getServiceRoleClient();
+  const accessDecisions = await Promise.all(
+    threadIds.map((threadId) =>
+      resolveEmailOpportunityAccess({
+        actor,
+        operation: "mutate",
+        threadId,
+        supabase,
+      })
+    )
+  );
+  if (accessDecisions.some((decision) => !decision.allowed)) {
+    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+  }
+
+  const unarchiveOpportunityId = body.unarchiveOpportunityId ?? null;
+  if (
+    unarchiveOpportunityId &&
+    accessDecisions.some(
+      (decision) =>
+        !decision.allowed || decision.opportunityId !== unarchiveOpportunityId
+    )
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const result = await runWithSupabase(supabase, () =>
       EmailThreadService.unarchiveBatch({
-        companyId: user.company_id as string,
-        threadIds: body.threadIds!,
-        unarchiveOpportunityId: body.unarchiveOpportunityId ?? null,
+        companyId: actor.companyId,
+        threadIds,
+        unarchiveOpportunityId,
       })
     );
     return NextResponse.json({

@@ -519,6 +519,7 @@
   "integrations.signature.saved": "Firma guardada",
   "integrations.signature.saveFailed": "No se guardó la firma",
   "integrations.signature.imported": "Firma de Gmail importada",
+  "integrations.signature.notConfigured": "No se encontró una firma de Gmail",
   "integrations.signature.importFailed": "No se importó la firma",
   "integrations.signature.loadFailed": "Estado de la firma no disponible",
   "integrations.signature.retry": "Reintentar",

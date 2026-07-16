@@ -1,95 +1,139 @@
-/**
- * P4-E — applyCorrectionToSimilar fan-out cap.
- *
- * A single recategorization correction could previously trigger up to
- * SIMILAR_CAP (50) reclassifications, each an LLM classify + Phase C router
- * fire. P4-E hard-caps the actual fan-out at MAX_RECLASSIFY_PER_CORRECTION
- * (10). This test seeds many exact-sender matches and asserts no more than 10
- * classifyAndUpdate calls happen.
- */
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+const { authorizeMock, classifyMock, insertMock, updateMock } = vi.hoisted(
+  () => ({
+    authorizeMock: vi.fn(),
+    classifyMock: vi.fn(),
+    insertMock: vi.fn(),
+    updateMock: vi.fn(),
+  })
+);
 
-const { classifyMock, hashMock } = vi.hoisted(() => ({
-  classifyMock: vi.fn(async () => ({})),
-  hashMock: vi.fn(() => "hash-xyz"),
+vi.mock("@/lib/email/email-opportunity-access", () => ({
+  resolveEmailOpportunityAccess: authorizeMock,
 }));
 
 vi.mock("@/lib/api/services/email-thread-service", () => ({
   EmailThreadService: { classifyAndUpdate: classifyMock },
-  hashParticipants: hashMock,
+  hashParticipants: vi.fn(),
 }));
 
 vi.mock("@/lib/types/email-thread", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/types/email-thread")>(
-    "@/lib/types/email-thread"
-  );
+  const actual = await vi.importActual<
+    typeof import("@/lib/types/email-thread")
+  >("@/lib/types/email-thread");
   return {
     ...actual,
     mapCategoryCorrectionFromDb: (row: Record<string, unknown>) => ({
       id: row.id,
-      companyId: "co-1",
-      threadId: "src-thread",
+      companyId: "company-1",
+      threadId: "thread-1",
+      userId: "actor-1",
+      fromCategory: "OTHER",
       toCategory: "VENDOR",
       senderEmail: "bulk@vendor.com",
       senderDomain: "vendor.com",
       participantsHash: null,
-      userId: "u-1",
-    }),
-    mapEmailThreadFromDb: (row: Record<string, unknown>) => ({
-      id: row.id,
-      participants: [],
+      subjectKeywords: [],
+      note: null,
+      appliedToSimilar: false,
+      similarCount: 0,
+      createdAt: new Date("2026-07-15T12:00:00.000Z"),
     }),
   };
 });
 
-// Supabase double: correction lookup + 25 exact-sender candidate rows.
-let candidateRows: Array<{ id: string }>;
-vi.mock("@/lib/supabase/helpers", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/supabase/helpers")>(
-    "@/lib/supabase/helpers"
-  );
-  function builder(table: string) {
-    let op: "select" | "update" = "select";
-    const chain: Record<string, unknown> = {};
-    const ret = () => chain;
-    chain.select = ret;
-    chain.eq = ret;
-    chain.lt = ret;
-    chain.ilike = ret;
-    chain.update = () => { op = "update"; return chain; };
-    chain.single = async () => {
-      if (table === "email_thread_category_corrections") {
-        return { data: { id: "corr-1" }, error: null };
-      }
-      return { data: null, error: null };
-    };
-    chain.limit = async () => {
-      if (table === "email_threads") return { data: candidateRows, error: null };
-      return { data: [], error: null };
-    };
-    chain.then = (resolve: (v: { data: unknown; error: null }) => void) => {
-      void op;
-      resolve({ data: null, error: null });
-    };
-    return chain;
-  }
-  return { ...actual, requireSupabase: () => ({ from: (t: string) => builder(t) }) };
-});
+function makeClient() {
+  const tables: string[] = [];
+  const client = {
+    from(table: string) {
+      tables.push(table);
+      const builder: Record<string, unknown> = {};
+      const chain = () => builder;
+      builder.select = chain;
+      builder.eq = chain;
+      builder.update = (value: unknown) => {
+        updateMock(value);
+        return builder;
+      };
+      builder.insert = (value: unknown) => {
+        insertMock(value);
+        return Promise.resolve({ data: null, error: null });
+      };
+      builder.single = async () => ({
+        data: { id: "correction-1" },
+        error: null,
+      });
+      builder.then = (
+        resolve: (value: { data: null; error: null }) => unknown
+      ) => Promise.resolve({ data: null, error: null }).then(resolve);
+      return builder;
+    },
+  };
+  return { client, tables };
+}
+
+const fake = makeClient();
+
+vi.mock("@/lib/supabase/helpers", () => ({
+  requireSupabase: () => fake.client,
+}));
 
 import { PhaseCLearningService } from "@/lib/api/services/phase-c-learning-service";
 
 beforeEach(() => {
-  classifyMock.mockClear();
-  candidateRows = Array.from({ length: 25 }, (_, i) => ({ id: `thr-${i}` }));
+  vi.clearAllMocks();
+  fake.tables.length = 0;
+  authorizeMock.mockResolvedValue({ allowed: true });
 });
 
-afterEach(() => vi.clearAllMocks());
+describe("Phase C correction isolation", () => {
+  it("defers similar-thread reclassification instead of scanning the company inbox", async () => {
+    const result = await PhaseCLearningService.applyCorrectionToSimilar({
+      correctionId: "correction-1",
+      actorUserId: "actor-1",
+    });
 
-describe("P4-E — fan-out cap", () => {
-  it("caps reclassifications at 10 even with 25 candidates", async () => {
-    const result = await PhaseCLearningService.applyCorrectionToSimilar("corr-1");
-    expect(classifyMock.mock.calls.length).toBeLessThanOrEqual(10);
-    expect(result.reclassified).toBeLessThanOrEqual(10);
-  }, 20000);
+    expect(authorizeMock).toHaveBeenCalledWith({
+      actor: { userId: "actor-1", companyId: "company-1" },
+      operation: "edit",
+      threadId: "thread-1",
+      supabase: fake.client,
+    });
+    expect(fake.tables).not.toContain("email_threads");
+    expect(classifyMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ reclassified: 0 });
+    expect(updateMock).toHaveBeenCalledWith({
+      applied_to_similar: true,
+      similar_count: 0,
+    });
+  });
+
+  it("fails closed when the correction actor no longer has canonical lead/inbox access", async () => {
+    authorizeMock.mockResolvedValue({
+      allowed: false,
+      reason: "opportunity_other_assignee",
+    });
+
+    const result = await PhaseCLearningService.applyCorrectionToSimilar({
+      correctionId: "correction-1",
+      actorUserId: "actor-1",
+    });
+
+    expect(result).toEqual({ reclassified: 0 });
+    expect(updateMock).not.toHaveBeenCalled();
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(classifyMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a caller that does not match the persisted correction actor", async () => {
+    const result = await PhaseCLearningService.applyCorrectionToSimilar({
+      correctionId: "correction-1",
+      actorUserId: "actor-2",
+    });
+
+    expect(result).toEqual({ reclassified: 0 });
+    expect(authorizeMock).not.toHaveBeenCalled();
+    expect(updateMock).not.toHaveBeenCalled();
+  });
 });

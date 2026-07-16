@@ -28,7 +28,7 @@
 import { getServiceRoleClient } from "./server-client";
 import { findUserByAuth } from "./find-user-by-auth";
 
-type PermissionScope = "all" | "assigned" | "own";
+export type PermissionScope = "all" | "assigned" | "own";
 
 function logRpcFailure(
   context: "checkPermission" | "checkPermissionById",
@@ -69,7 +69,13 @@ export async function checkPermission(
   });
 
   if (error) {
-    logRpcFailure("checkPermission", user.id as string, permission, requiredScope, error);
+    logRpcFailure(
+      "checkPermission",
+      user.id as string,
+      permission,
+      requiredScope,
+      error
+    );
     return false;
   }
 
@@ -94,9 +100,37 @@ export async function checkPermissionById(
   });
 
   if (error) {
-    logRpcFailure("checkPermissionById", userId, permission, requiredScope, error);
+    logRpcFailure(
+      "checkPermissionById",
+      userId,
+      permission,
+      requiredScope,
+      error
+    );
     return false;
   }
 
   return data === true;
+}
+
+/**
+ * Resolve the caller's widest effective scope for one permission.
+ *
+ * `has_permission` already owns admin bypasses, per-user overrides, role
+ * grants, and the all > assigned > own hierarchy. Asking it from widest to
+ * narrowest keeps this server helper in lockstep with that canonical engine
+ * without recreating permission joins in service-role routes.
+ */
+export async function resolvePermissionScopeById(
+  userId: string,
+  permission: string
+): Promise<PermissionScope | null> {
+  if (!userId.trim() || !permission.trim()) return null;
+
+  if (await checkPermissionById(userId, permission, "all")) return "all";
+  if (await checkPermissionById(userId, permission, "assigned")) {
+    return "assigned";
+  }
+  if (await checkPermissionById(userId, permission, "own")) return "own";
+  return null;
 }

@@ -6,16 +6,19 @@
  * Returns the last 14 days of classification activity for the caller's
  * scope. Used by the empty-status-view's velocity section.
  *
- * Auth: Firebase/Supabase JWT. Permissions mirror /api/inbox/threads:
- *   - inbox.view          : required
- *   - inbox.view_company  : additionally required for scope=company
+ * Auth and row visibility use the same inbox/pipeline scope intersection as
+ * the canonical thread list. The authorization filter is applied to the root
+ * email_threads query before any aggregation.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import {
+  buildEmailThreadListAuthorizationFilter,
+  resolveEmailInboxListAccess,
+  type EmailThreadListAuthorizationFilter,
+} from "@/lib/email/email-opportunity-access";
 import {
   padVelocityDays,
   computeWeekDelta,
@@ -27,55 +30,63 @@ function parseScope(raw: string | null): InboxScope {
   return raw === "company" ? "company" : "own";
 }
 
+function applyAuthorizationFilter<
+  T extends {
+    in(column: string, values: string[]): T;
+    is(column: string, value: null): T;
+    or(filter: string): T;
+  },
+>(query: T, filter: EmailThreadListAuthorizationFilter): T {
+  let authorized = query;
+  if (filter.connectionIds) {
+    authorized = authorized.in("connection_id", filter.connectionIds);
+  }
+  if (filter.unlinkedOnly) {
+    authorized = authorized.is("opportunity_id", null);
+  }
+  if (filter.or) authorized = authorized.or(filter.or);
+  return authorized;
+}
+
+function emptyVelocity() {
+  return {
+    daily: new Array<number>(14).fill(0),
+    weekTotal: 0,
+    priorWeekTotal: 0,
+    weekDelta: 0,
+  };
+}
+
 export async function GET(request: NextRequest) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
-
-  if (!companyId) {
-    return NextResponse.json(
-      { error: "No company associated with user" },
-      { status: 400 }
-    );
-  }
-
-  const canView = await checkPermissionById(userId, "inbox.view");
-  if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
+  const { userId, companyId } = actor;
 
   const { searchParams } = new URL(request.url);
   const scope = parseScope(searchParams.get("scope"));
-
-  if (scope === "company") {
-    const canViewCompany = await checkPermissionById(userId, "inbox.view_company");
-    if (!canViewCompany) {
-      return NextResponse.json(
-        { error: "Forbidden (company scope)" },
-        { status: 403 }
-      );
-    }
-  }
-
   const supabase = getServiceRoleClient();
+  const listAccess = await resolveEmailInboxListAccess({ actor, supabase });
+  if (!listAccess.allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const authorizationFilter =
+    buildEmailThreadListAuthorizationFilter(listAccess);
+  if (authorizationFilter.empty) {
+    return NextResponse.json(emptyVelocity());
+  }
+  const effectiveScope: InboxScope =
+    listAccess.inboxScope === "assigned" ? "company" : scope;
 
   // Resolve this user's connection ids for scope=own (same pattern as
   // /api/inbox/threads). scope=company looks across all connections.
   let ownConnectionIds: string[] = [];
-  if (scope === "own") {
+  if (effectiveScope === "own") {
     const { data: connRows } = await supabase
       .from("email_connections")
       .select("id")
       .eq("company_id", companyId)
-      .or(`user_id.eq.${userId},user_id.is.null`);
+      .or(`type.eq.company,and(type.eq.individual,user_id.eq.${userId})`);
     ownConnectionIds = (connRows ?? []).map((r) => r.id as string);
   }
 
@@ -86,19 +97,15 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("email_threads")
-      .select("category_classified_at, connection_id")
+      .select("category_classified_at, connection_id, opportunity_id")
       .eq("company_id", companyId)
       .gte("category_classified_at", fourteenDaysAgoIso)
       .not("category_classified_at", "is", null);
+    query = applyAuthorizationFilter(query, authorizationFilter);
 
-    if (scope === "own") {
+    if (effectiveScope === "own") {
       if (ownConnectionIds.length === 0) {
-        return NextResponse.json({
-          daily: new Array(14).fill(0),
-          weekTotal: 0,
-          priorWeekTotal: 0,
-          weekDelta: 0,
-        });
+        return NextResponse.json(emptyVelocity());
       }
       query = query.in("connection_id", ownConnectionIds);
     }

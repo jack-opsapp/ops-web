@@ -14,7 +14,10 @@ import {
 } from "../api/services/notification-dispatch";
 import { useAuthStore } from "../store/auth-store";
 import { usePermissionStore } from "../store/permissions-store";
-import type { ExpenseBatch, CreateAutoApproveRule } from "../types/expense-approval";
+import type {
+  ExpenseBatch,
+  CreateAutoApproveRule,
+} from "../types/expense-approval";
 
 // ─── All Expenses (dashboard widgets) ─────────────────────────────────────────
 
@@ -122,15 +125,7 @@ export function useApproveBatch() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });
 
-      // Notify the submitter that their batch was approved
-      if (variables.submittedBy && variables.companyId) {
-        dispatchExpenseApproved({
-          expenseDescription: `Batch ${variables.batchNumber ?? variables.batchId}`,
-          submitterId: variables.submittedBy,
-          companyId: variables.companyId,
-          actionUrl: "/expenses",
-        });
-      }
+      dispatchExpenseApproved({ batchId: variables.batchId });
     },
   });
 }
@@ -173,13 +168,7 @@ export function useMarkBatchPaid() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });
 
-      if (variables.submittedBy && variables.companyId) {
-        dispatchExpensePaid({
-          batchLabel: variables.batchNumber ?? variables.batchId,
-          submitterId: variables.submittedBy,
-          companyId: variables.companyId,
-        });
-      }
+      dispatchExpensePaid({ batchId: variables.batchId });
     },
   });
 }
@@ -251,7 +240,8 @@ export function useQuickRejectBatch() {
       batchId: string;
       reviewedBy: string;
       reviewNotes: string;
-    }) => ExpenseApprovalService.quickRejectBatch(batchId, reviewedBy, reviewNotes),
+    }) =>
+      ExpenseApprovalService.quickRejectBatch(batchId, reviewedBy, reviewNotes),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.expenseBatches.all });
     },

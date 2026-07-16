@@ -20,26 +20,31 @@
  *   - LIMIT_PER_RUN caps threads per HTTP call (default 10).
  *   - CONCURRENCY = 2 mirrors the OpenAI tier-1 budget used elsewhere.
  *   - MAX_CALLS is a hard ceiling so a stuck client can't rack up cost.
- *   - Returns `remaining` so the caller (UI button or cron) can loop
- *     until the backlog is empty.
+ *   - Returns `remaining` so the authenticated caller can repeat the run
+ *     until their visible backlog is empty.
  *
  * Idempotent: the WHERE clause skips threads that already have at least
  * one commitment memory, which means re-running the endpoint after a
  * partial success picks up only the still-unprocessed tail.
  *
- * Auth: Firebase JWT + `inbox.configure_phase_c` permission. A cron
- * path is accepted via `CRON_SECRET` bearer + `companyId` query param
- * so this can be scheduled.
+ * Auth: canonical Firebase-backed OPS actor + `inbox.configure_phase_c`.
+ * Backfill is deliberately actor-bound: an actorless cron cannot safely
+ * choose whose learning profile should receive shared-mailbox evidence.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailService } from "@/lib/api/services/email-service";
 import { MemoryService } from "@/lib/api/services/memory-service";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import {
+  buildEmailThreadListAuthorizationFilter,
+  resolveEmailInboxListAccess,
+  resolveEmailOpportunityAccess,
+  type EmailThreadListAuthorizationFilter,
+} from "@/lib/email/email-opportunity-access";
 import type { ClassifiedThread } from "@/lib/api/services/memory-service";
 import type { EmailThreadCategory } from "@/lib/types/email-thread";
 import type { EmailConnection } from "@/lib/types/email-connection";
@@ -64,9 +69,8 @@ interface BackfillResult {
   factsAdded: number;
   /** Aggregate edges added across this run. */
   edgesAdded: number;
-  /** Threads still awaiting backfill after this run — null on cron-auth path
-   *  (we skip the count query to shave a round-trip). */
-  remaining: number | null;
+  /** Threads still awaiting backfill after this actor-scoped run. */
+  remaining: number;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -101,23 +105,28 @@ function mapCategoryToClassification(
  * re-export.
  */
 function mapConnectionFromDb(row: Record<string, unknown>): EmailConnection {
+  const type = row.type as EmailConnection["type"];
   return {
     id: row.id as string,
     companyId: row.company_id as string,
     provider: row.provider as EmailConnection["provider"],
-    type: row.type as EmailConnection["type"],
-    userId: (row.user_id as string) ?? null,
+    type,
+    userId: type === "individual" ? ((row.user_id as string) ?? null) : null,
     email: row.email as string,
     accessToken: row.access_token as string,
     refreshToken: row.refresh_token as string,
     expiresAt: new Date(row.expires_at as string),
     historyId: (row.history_id as string) ?? null,
     syncEnabled: (row.sync_enabled as boolean) ?? true,
-    lastSyncedAt: row.last_synced_at ? new Date(row.last_synced_at as string) : null,
+    lastSyncedAt: row.last_synced_at
+      ? new Date(row.last_synced_at as string)
+      : null,
     syncIntervalMinutes: (row.sync_interval_minutes as number) ?? 60,
     syncFilters: (row.sync_filters as EmailConnection["syncFilters"]) ?? {},
     webhookSubscriptionId: (row.webhook_subscription_id as string) ?? null,
-    webhookExpiresAt: row.webhook_expires_at ? new Date(row.webhook_expires_at as string) : null,
+    webhookExpiresAt: row.webhook_expires_at
+      ? new Date(row.webhook_expires_at as string)
+      : null,
     opsLabelId: (row.ops_label_id as string) ?? null,
     aiReviewEnabled: (row.ai_review_enabled as boolean) ?? false,
     aiMemoryEnabled: (row.ai_memory_enabled as boolean) ?? false,
@@ -127,67 +136,100 @@ function mapConnectionFromDb(row: Record<string, unknown>): EmailConnection {
   };
 }
 
+function applyAuthorizationFilter<
+  T extends {
+    in(column: string, values: string[]): T;
+    is(column: string, value: null): T;
+    or(filter: string): T;
+  },
+>(query: T, filter: EmailThreadListAuthorizationFilter): T {
+  let authorizedQuery = query;
+  if (filter.connectionIds) {
+    authorizedQuery = authorizedQuery.in("connection_id", filter.connectionIds);
+  }
+  if (filter.unlinkedOnly) {
+    authorizedQuery = authorizedQuery.is("opportunity_id", null);
+  }
+  if (filter.or) {
+    authorizedQuery = authorizedQuery.or(filter.or);
+  }
+  return authorizedQuery;
+}
+
 // ─── Route ──────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
-  // Dual auth — Firebase JWT for admin-triggered runs, CRON_SECRET bearer
-  // for scheduled invocations. Matches /api/inbox/reclassify conventions.
-  const authHeader = request.headers.get("authorization") ?? "";
-  const cronSecret = process.env.CRON_SECRET;
-  const isCronAuth = !!cronSecret && authHeader === `Bearer ${cronSecret}`;
-
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
   const { searchParams } = new URL(request.url);
-  let companyId: string;
-  let resolvedUserId: string;
-
-  if (isCronAuth) {
-    const qp = searchParams.get("companyId");
-    const userQp = searchParams.get("userId");
-    if (!qp) {
-      return NextResponse.json(
-        { error: "companyId query param required for cron auth" },
-        { status: 400 }
-      );
-    }
-    companyId = qp;
-    resolvedUserId = userQp ?? ""; // memory rows need a user; owner fills in
-  } else {
-    const authUser = await verifyAdminAuth(request);
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-    resolvedUserId = user.id as string;
-    companyId = user.company_id as string;
-    if (!companyId) {
-      return NextResponse.json(
-        { error: "No company associated with user" },
-        { status: 400 }
-      );
-    }
-    // Permission matches the admin "configure Phase C" gate — extracting
-    // facts across the whole corpus is an owner/admin action, not a per-user
-    // triage action.
-    const canConfigure = await checkPermissionById(
-      resolvedUserId,
-      "inbox.configure_phase_c"
-    );
-    if (!canConfigure) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  const canConfigure = await checkPermissionById(
+    actor.userId,
+    "inbox.configure_phase_c"
+  );
+  if (!canConfigure) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // ── Limit parsing ─────────────────────────────────────────────────────────
   const limitRaw = searchParams.get("limit");
   const limit = Math.min(
-    Math.max(limitRaw ? parseInt(limitRaw, 10) || LIMIT_PER_RUN : LIMIT_PER_RUN, 1),
+    Math.max(
+      limitRaw ? parseInt(limitRaw, 10) || LIMIT_PER_RUN : LIMIT_PER_RUN,
+      1
+    ),
     LIMIT_HARD_MAX
   );
 
   const supabase = getServiceRoleClient();
+  const listAccess = await resolveEmailInboxListAccess({ actor, supabase });
+  if (!listAccess.allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const authorizationFilter =
+    buildEmailThreadListAuthorizationFilter(listAccess);
+  if (authorizationFilter.empty) {
+    return NextResponse.json<BackfillResult>({
+      scanned: 0,
+      processed: 0,
+      errors: 0,
+      factsAdded: 0,
+      edgesAdded: 0,
+      remaining: 0,
+    });
+  }
+
+  // Shared company mailboxes plus the actor's own personal mailbox are valid
+  // learning inputs. Even an all-scope actor must never absorb another OPS
+  // user's personal-mailbox correspondence into their profile.
+  const { data: learningConnectionRows, error: learningConnectionError } =
+    await supabase
+      .from("email_connections")
+      .select("id")
+      .eq("company_id", actor.companyId)
+      .eq("status", "active")
+      .eq("sync_enabled", true)
+      .or(`type.eq.company,and(type.eq.individual,user_id.eq.${actor.userId})`);
+  if (learningConnectionError) {
+    return NextResponse.json(
+      { error: `Mailbox query failed: ${learningConnectionError.message}` },
+      { status: 500 }
+    );
+  }
+  const learningConnectionIds = (learningConnectionRows ?? []).map((row) =>
+    String(row.id)
+  );
+  if (learningConnectionIds.length === 0) {
+    return NextResponse.json<BackfillResult>({
+      scanned: 0,
+      processed: 0,
+      errors: 0,
+      factsAdded: 0,
+      edgesAdded: 0,
+      remaining: 0,
+    });
+  }
 
   // ── Target thread selection ───────────────────────────────────────────────
   //
@@ -211,14 +253,17 @@ export async function POST(request: NextRequest) {
   // migration 078 backfill. The over-fetch window is removed because the
   // index already narrows the candidate set — every returned row is
   // unprocessed, so we can request exactly `limit` threads.
-  const { data: threadRows, error: threadError } = await supabase
+  let threadQuery = supabase
     .from("email_threads")
     .select("*")
-    .eq("company_id", companyId)
+    .eq("company_id", actor.companyId)
+    .in("connection_id", learningConnectionIds)
     .in("primary_category", TARGET_CATEGORIES as unknown as string[])
     .gt("last_message_at", sinceIso)
     .is("archived_at", null)
-    .is("phase_c_extracted_at", null)
+    .is("phase_c_extracted_at", null);
+  threadQuery = applyAuthorizationFilter(threadQuery, authorizationFilter);
+  const { data: threadRows, error: threadError } = await threadQuery
     .order("last_message_at", { ascending: false })
     .limit(limit);
 
@@ -251,7 +296,11 @@ export async function POST(request: NextRequest) {
   const { data: connRows } = await supabase
     .from("email_connections")
     .select("*")
-    .in("id", connectionIds);
+    .eq("company_id", actor.companyId)
+    .eq("status", "active")
+    .eq("sync_enabled", true)
+    .in("id", connectionIds)
+    .in("id", learningConnectionIds);
 
   const connectionsById = new Map<string, EmailConnection>();
   for (const row of connRows ?? []) {
@@ -266,7 +315,7 @@ export async function POST(request: NextRequest) {
     errors: 0,
     factsAdded: 0,
     edgesAdded: 0,
-    remaining: null,
+    remaining: 0,
   };
 
   let calls = 0;
@@ -289,18 +338,27 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Memory rows need a user_id; prefer the row-owning user (connection
-      // type=user) and fall back to whoever triggered the run. Company
-      // connections leave user_id null, so the caller's id is the correct
-      // attribution target.
-      const memoryUserId = connection.userId ?? resolvedUserId;
-      if (!memoryUserId) {
-        result.errors++;
-        result.scanned++;
-        continue;
-      }
+      const memoryUserId = actor.userId;
 
       try {
+        const accessBeforeFetch = await resolveEmailOpportunityAccess({
+          actor,
+          operation: "read",
+          threadId,
+          connectionId: row.connection_id as string,
+          providerThreadId: row.provider_thread_id as string,
+          opportunityId:
+            typeof row.opportunity_id === "string"
+              ? row.opportunity_id
+              : undefined,
+          supabase,
+        });
+        if (!accessBeforeFetch.allowed) {
+          result.errors++;
+          result.scanned++;
+          continue;
+        }
+
         const provider = EmailService.getProvider(connection);
         const providerMessages = await provider.fetchThread(
           row.provider_thread_id as string
@@ -328,15 +386,36 @@ export async function POST(request: NextRequest) {
             // direction is derived from connection email in memory-service's
             // prompts; we pass a best-effort inbound/outbound tag using the
             // same comparison rule the thread-detail route uses.
-            direction:
-              m.from?.toLowerCase().includes(connection.email.toLowerCase())
-                ? "outbound"
-                : "inbound",
+            direction: m.from
+              ?.toLowerCase()
+              .includes(connection.email.toLowerCase())
+              ? "outbound"
+              : "inbound",
           })),
         };
 
+        // Assignment can change while the provider request is in flight.
+        // Re-authorize immediately before persisting actor-specific memory.
+        const accessBeforeLearning = await resolveEmailOpportunityAccess({
+          actor,
+          operation: "read",
+          threadId,
+          connectionId: row.connection_id as string,
+          providerThreadId: row.provider_thread_id as string,
+          opportunityId:
+            typeof row.opportunity_id === "string"
+              ? row.opportunity_id
+              : undefined,
+          supabase,
+        });
+        if (!accessBeforeLearning.allowed) {
+          result.errors++;
+          result.scanned++;
+          continue;
+        }
+
         const stats = await runWithSupabase(supabase, () =>
-          MemoryService.extractFromThread(companyId, memoryUserId, thread)
+          MemoryService.extractFromThread(actor.companyId, memoryUserId, thread)
         );
 
         result.factsAdded += stats.factsAdded;
@@ -351,7 +430,8 @@ export async function POST(request: NextRequest) {
         await supabase
           .from("email_threads")
           .update({ phase_c_extracted_at: new Date().toISOString() })
-          .eq("id", threadId);
+          .eq("id", threadId)
+          .eq("company_id", actor.companyId);
       } catch (err) {
         console.error(
           "[/api/inbox/phase-c-backfill] extraction failed for thread",
@@ -368,20 +448,29 @@ export async function POST(request: NextRequest) {
 
   // ── Remaining count ───────────────────────────────────────────────────────
   //
-  // Skipped on the cron path because cron doesn't need it (it'll invoke
-  // again on its own cadence). For the UI path it drives "Processed X of Y
-  // — click again to continue" messaging.
-  if (!isCronAuth) {
-    const { count } = await supabase
-      .from("email_threads")
-      .select("id", { count: "exact", head: true })
-      .eq("company_id", companyId)
-      .in("primary_category", TARGET_CATEGORIES as unknown as string[])
-      .gt("last_message_at", sinceIso)
-      .is("archived_at", null)
-      .is("phase_c_extracted_at", null);
-    result.remaining = count ?? 0;
+  // The same root authorization must drive both work selection and the UI's
+  // remaining counter; otherwise the count leaks inaccessible thread volume.
+  let remainingQuery = supabase
+    .from("email_threads")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", actor.companyId)
+    .in("connection_id", learningConnectionIds)
+    .in("primary_category", TARGET_CATEGORIES as unknown as string[])
+    .gt("last_message_at", sinceIso)
+    .is("archived_at", null)
+    .is("phase_c_extracted_at", null);
+  remainingQuery = applyAuthorizationFilter(
+    remainingQuery,
+    authorizationFilter
+  );
+  const { count, error: remainingError } = await remainingQuery;
+  if (remainingError) {
+    console.error(
+      "[/api/inbox/phase-c-backfill] remaining count failed",
+      remainingError.message
+    );
   }
+  result.remaining = count ?? 0;
 
   return NextResponse.json<BackfillResult>(result);
 }

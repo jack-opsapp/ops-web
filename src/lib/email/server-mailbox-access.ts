@@ -6,6 +6,34 @@ interface MailboxConnectionScopeRow {
   id: string;
   type: "company" | "individual";
   user_id: string | null;
+  status?: string | null;
+}
+
+export interface EmailMailboxTransportIdentity {
+  id: string;
+  type: "company" | "individual";
+  user_id: string | null;
+  status?: string | null;
+}
+
+/**
+ * Transport authorization for sending through one canonical connection.
+ * This deliberately says nothing about lead/thread data authorization: every
+ * lead-bound send must independently pass the opportunity + inbox intersection.
+ */
+export function canUseEmailMailboxForSend(
+  connection: EmailMailboxTransportIdentity,
+  userId: string
+): boolean {
+  if (
+    !connection.id.trim() ||
+    !userId.trim() ||
+    connection.status !== "active"
+  ) {
+    return false;
+  }
+  if (connection.type === "company") return true;
+  return connection.type === "individual" && connection.user_id === userId;
 }
 
 interface CanAccessEmailMailboxInput {
@@ -34,7 +62,7 @@ export async function canAccessEmailMailbox({
 
   const { data, error } = await supabase
     .from("email_connections")
-    .select("id, type, user_id")
+    .select("id, type, user_id, status")
     .eq("id", connectionId)
     .eq("company_id", companyId)
     .maybeSingle();

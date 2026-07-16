@@ -26,8 +26,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailService } from "@/lib/api/services/email-service";
 import {
@@ -39,6 +37,18 @@ import {
 import type { NormalizedDraft } from "@/lib/api/services/email-provider";
 import type { InboxDraftRow, InboxScope } from "@/lib/types/email-thread";
 import { DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT } from "@/lib/email/opportunity-lifecycle-evaluator";
+import {
+  buildEmailThreadListAuthorizationFilter,
+  resolveEmailInboxListAccess,
+  resolveEmailOpportunityAccess,
+  type AllowedEmailInboxListAccess,
+} from "@/lib/email/email-opportunity-access";
+import {
+  resolveEmailRouteActor,
+  type EmailRouteActor,
+} from "@/lib/email/email-route-auth";
+import { canUseEmailMailboxForSend } from "@/lib/email/server-mailbox-access";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -59,48 +69,179 @@ function threadMapKey(
   return `${connectionId ?? ""}:${providerThreadId ?? ""}`;
 }
 
+async function findInternalThreadId({
+  supabase,
+  companyId,
+  connectionId,
+  providerThreadId,
+}: {
+  supabase: SupabaseClient;
+  companyId: string;
+  connectionId: string;
+  providerThreadId: string;
+}): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("email_threads")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("connection_id", connectionId)
+    .eq("provider_thread_id", providerThreadId)
+    .maybeSingle();
+  if (error) return null;
+  return nonEmptyText(data?.id);
+}
+
+async function canReadDraftContext({
+  actor,
+  listAccess,
+  supabase,
+  connectionId,
+  providerThreadId,
+  opportunityId,
+}: {
+  actor: EmailRouteActor;
+  listAccess: AllowedEmailInboxListAccess;
+  supabase: SupabaseClient;
+  connectionId: string | null;
+  providerThreadId: string | null;
+  opportunityId: string | null;
+}): Promise<boolean> {
+  if (!connectionId) return false;
+
+  if (providerThreadId) {
+    const internalThreadId = await findInternalThreadId({
+      supabase,
+      companyId: actor.companyId,
+      connectionId,
+      providerThreadId,
+    });
+    if (internalThreadId) {
+      const access = await resolveEmailOpportunityAccess({
+        actor,
+        operation: "read",
+        threadId: internalThreadId,
+        connectionId,
+        providerThreadId,
+        ...(opportunityId ? { opportunityId } : {}),
+        supabase,
+      });
+      return access.allowed;
+    }
+  }
+
+  if (opportunityId) {
+    const access = await resolveEmailOpportunityAccess({
+      actor,
+      operation: "read",
+      connectionId,
+      opportunityId,
+      supabase,
+    });
+    return access.allowed;
+  }
+
+  return (
+    listAccess.inboxScope === "all" ||
+    listAccess.ownPersonalConnectionIds.includes(connectionId)
+  );
+}
+
+async function canMutateDraftContext({
+  actor,
+  supabase,
+  connectionId,
+  providerThreadId,
+  opportunityId,
+  requireCanonicalProviderThread = false,
+}: {
+  actor: EmailRouteActor;
+  supabase: SupabaseClient;
+  connectionId: string;
+  providerThreadId?: string | null;
+  opportunityId?: string | null;
+  requireCanonicalProviderThread?: boolean;
+}): Promise<boolean> {
+  if (providerThreadId) {
+    const internalThreadId = await findInternalThreadId({
+      supabase,
+      companyId: actor.companyId,
+      connectionId,
+      providerThreadId,
+    });
+    if (internalThreadId) {
+      const access = await resolveEmailOpportunityAccess({
+        actor,
+        operation: "send",
+        threadId: internalThreadId,
+        connectionId,
+        providerThreadId,
+        ...(opportunityId ? { opportunityId } : {}),
+        supabase,
+      });
+      return access.allowed;
+    }
+    if (requireCanonicalProviderThread) return false;
+  }
+
+  if (opportunityId) {
+    const access = await resolveEmailOpportunityAccess({
+      actor,
+      operation: "send",
+      connectionId,
+      opportunityId,
+      supabase,
+    });
+    return access.allowed;
+  }
+
+  const canSendUnlinked = await checkPermissionById(
+    actor.userId,
+    "inbox.send",
+    "all"
+  );
+  if (!canSendUnlinked) return false;
+  const { data: connection, error } = await supabase
+    .from("email_connections")
+    .select("id, type, user_id, status")
+    .eq("id", connectionId)
+    .eq("company_id", actor.companyId)
+    .maybeSingle();
+  return Boolean(
+    !error &&
+    connection &&
+    canUseEmailMailboxForSend(
+      connection as {
+        id: string;
+        type: "company" | "individual";
+        user_id: string | null;
+        status: string | null;
+      },
+      actor.userId
+    )
+  );
+}
+
 // ─── GET — list merged drafts ───────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(
-    authUser.uid,
-    authUser.email,
-    "id, company_id"
-  );
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
-
-  if (!companyId) {
-    return NextResponse.json(
-      { error: "No company associated with user" },
-      { status: 400 }
-    );
-  }
-
-  const canView = await checkPermissionById(userId, "inbox.view");
-  if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
+  const { userId, companyId } = actor;
 
   const { searchParams } = new URL(request.url);
   const scope = parseScope(searchParams.get("scope"));
 
-  if (scope === "company") {
-    const canCompany = await checkPermissionById(userId, "inbox.view_company");
-    if (!canCompany) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-  }
-
   const supabase = getServiceRoleClient();
+  const listAccess = await resolveEmailInboxListAccess({ actor, supabase });
+  if (!listAccess.allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const draftAuthorizationFilter =
+    buildEmailThreadListAuthorizationFilter(listAccess);
+  if (draftAuthorizationFilter.empty) {
+    return NextResponse.json({ drafts: [] });
+  }
 
   // ── Collect the in-scope email connections ───────────────────────────────
   // scope=own filters to connections owned by the caller plus company-type
@@ -108,10 +249,19 @@ export async function GET(request: NextRequest) {
   const allConnections = await runWithSupabase(supabase, () =>
     EmailService.getConnections(companyId)
   );
+  const connectionById = new Map(
+    allConnections.map((connection) => [connection.id, connection])
+  );
   const connections = allConnections.filter((c) => {
     if (c.status !== "active") return false; // skip revoked / needs-reconnect
-    if (scope === "company") return true;
-    return c.type === "company" || c.userId === userId;
+    if (listAccess.inboxScope === "all") {
+      if (scope === "company") return true;
+      return c.type === "company" || c.userId === userId;
+    }
+    if (listAccess.inboxScope === "assigned") {
+      return c.type === "company" || c.userId === userId;
+    }
+    return c.type === "individual" && c.userId === userId;
   });
 
   // ── Fetch provider drafts in parallel, per connection ────────────────────
@@ -156,7 +306,24 @@ export async function GET(request: NextRequest) {
       }
     })
   );
-  const providerDrafts = providerBatches.flat();
+  const providerDraftCandidates = providerBatches.flat();
+  const providerDrafts = (
+    await Promise.all(
+      providerDraftCandidates.map(async (draft) => ({
+        draft,
+        allowed: await canReadDraftContext({
+          actor,
+          listAccess,
+          supabase,
+          connectionId: draft.connectionId,
+          providerThreadId: draft.threadId,
+          opportunityId: null,
+        }),
+      }))
+    )
+  )
+    .filter((entry) => entry.allowed)
+    .map((entry) => entry.draft);
 
   // ── Fetch OPS AI drafts (status='drafted') ──────────────────────────────
   // Scope=own → only this user's drafts; scope=company → every user in the
@@ -178,7 +345,20 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(200);
 
-  if (scope === "own") {
+  if (draftAuthorizationFilter.connectionIds) {
+    aiQuery = aiQuery.in(
+      "connection_id",
+      draftAuthorizationFilter.connectionIds
+    );
+  }
+  if (draftAuthorizationFilter.unlinkedOnly) {
+    aiQuery = aiQuery.is("opportunity_id", null);
+  }
+  if (draftAuthorizationFilter.or) {
+    aiQuery = aiQuery.or(draftAuthorizationFilter.or);
+  }
+
+  if (scope === "own" && listAccess.inboxScope !== "assigned") {
     aiQuery = aiQuery.eq("user_id", userId);
   }
 
@@ -190,9 +370,26 @@ export async function GET(request: NextRequest) {
   // Recipient fields still come from thread context. Subject is durable draft
   // provenance and must round-trip so edits can be compared against the exact
   // suggestion the operator saw.
-  const aiDrafts: InboxDraftRow[] = (aiRows ?? []).map((r) => {
-    const conn =
-      connections.find((c) => c.id === (r.connection_id as string)) ?? null;
+  const authorizedAiRows = (
+    await Promise.all(
+      (aiRows ?? []).map(async (row) => ({
+        row,
+        allowed: await canReadDraftContext({
+          actor,
+          listAccess,
+          supabase,
+          connectionId: nonEmptyText(row.connection_id),
+          providerThreadId: nonEmptyText(row.thread_id),
+          opportunityId: nonEmptyText(row.opportunity_id),
+        }),
+      }))
+    )
+  )
+    .filter((entry) => entry.allowed)
+    .map((entry) => entry.row);
+
+  const aiDrafts: InboxDraftRow[] = authorizedAiRows.map((r) => {
+    const conn = connectionById.get(r.connection_id as string) ?? null;
     return {
       source: "ai",
       id: r.id as string,
@@ -217,7 +414,7 @@ export async function GET(request: NextRequest) {
   // P4-C: surface phase_c auto-drafts alongside template_follow_up drafts.
   // Both are local lifecycle drafts the operator reviews in the inbox; phase_c
   // rows carry an ai_draft_history_id bridge to their generated provenance.
-  const lifecycleQuery = supabase
+  let lifecycleQuery = supabase
     .from("opportunity_follow_up_drafts")
     .select(
       "id, opportunity_id, connection_id, provider_thread_id, subject, original_body, current_body, edited_at, updated_at, created_at"
@@ -228,6 +425,19 @@ export async function GET(request: NextRequest) {
     .order("updated_at", { ascending: false })
     .limit(200);
 
+  if (draftAuthorizationFilter.connectionIds) {
+    lifecycleQuery = lifecycleQuery.in(
+      "connection_id",
+      draftAuthorizationFilter.connectionIds
+    );
+  }
+  if (draftAuthorizationFilter.unlinkedOnly) {
+    lifecycleQuery = lifecycleQuery.is("opportunity_id", null);
+  }
+  if (draftAuthorizationFilter.or) {
+    lifecycleQuery = lifecycleQuery.or(draftAuthorizationFilter.or);
+  }
+
   const { data: lifecycleRows, error: lifecycleErr } = await lifecycleQuery;
   if (lifecycleErr) {
     console.error(
@@ -236,11 +446,23 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const connectionById = new Map(connections.map((conn) => [conn.id, conn]));
-  const scopedLifecycleRows = (lifecycleRows ?? []).filter((row) => {
-    const rowConnectionId = nonEmptyText(row.connection_id);
-    return !rowConnectionId || connectionById.has(rowConnectionId);
-  });
+  const scopedLifecycleRows = (
+    await Promise.all(
+      (lifecycleRows ?? []).map(async (row) => ({
+        row,
+        allowed: await canReadDraftContext({
+          actor,
+          listAccess,
+          supabase,
+          connectionId: nonEmptyText(row.connection_id),
+          providerThreadId: nonEmptyText(row.provider_thread_id),
+          opportunityId: nonEmptyText(row.opportunity_id),
+        }),
+      }))
+    )
+  )
+    .filter((entry) => entry.allowed)
+    .map((entry) => entry.row);
   const providerThreadIds = Array.from(
     new Set(
       scopedLifecycleRows
@@ -385,26 +607,10 @@ interface SaveDraftBody {
 }
 
 export async function POST(request: NextRequest) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(
-    authUser.uid,
-    authUser.email,
-    "id, company_id"
-  );
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
-
-  const canView = await checkPermissionById(userId, "inbox.view");
-  if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
+  const { userId, companyId } = actor;
 
   const payload = (await request
     .json()
@@ -436,13 +642,26 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceRoleClient();
     const { data: existing, error: existingErr } = await supabase
       .from("opportunity_follow_up_drafts")
-      .select("id")
+      .select("id, opportunity_id, connection_id, provider_thread_id")
       .eq("id", draftId)
       .eq("company_id", companyId)
       .in("origin", LIFECYCLE_ORIGINS)
       .eq("status", "drafted")
       .single();
     if (existingErr || !existing) {
+      return NextResponse.json({ error: "Draft not found" }, { status: 404 });
+    }
+    const lifecycleConnectionId = nonEmptyText(existing.connection_id);
+    if (
+      !lifecycleConnectionId ||
+      !(await canMutateDraftContext({
+        actor,
+        supabase,
+        connectionId: lifecycleConnectionId,
+        providerThreadId: nonEmptyText(existing.provider_thread_id),
+        opportunityId: nonEmptyText(existing.opportunity_id),
+      }))
+    ) {
       return NextResponse.json({ error: "Draft not found" }, { status: 404 });
     }
 
@@ -502,6 +721,16 @@ export async function POST(request: NextRequest) {
   }
   if (conn.companyId !== companyId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const canMutate = await canMutateDraftContext({
+    actor,
+    supabase,
+    connectionId,
+    providerThreadId,
+    requireCanonicalProviderThread: Boolean(providerThreadId),
+  });
+  if (!canMutate) {
+    return NextResponse.json({ error: "Draft not found" }, { status: 404 });
   }
 
   try {
@@ -567,26 +796,10 @@ export async function POST(request: NextRequest) {
 // ─── DELETE — discard a draft ────────────────────────────────────────────────
 
 export async function DELETE(request: NextRequest) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(
-    authUser.uid,
-    authUser.email,
-    "id, company_id"
-  );
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
-
-  const canView = await checkPermissionById(userId, "inbox.view");
-  if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
+  const { userId, companyId } = actor;
 
   const { searchParams } = new URL(request.url);
   const source = searchParams.get("source");
@@ -611,7 +824,9 @@ export async function DELETE(request: NextRequest) {
     const LIFECYCLE_ORIGINS = ["template_follow_up", "phase_c"];
     const { data: row, error } = await supabase
       .from("opportunity_follow_up_drafts")
-      .select("id, company_id")
+      .select(
+        "id, company_id, opportunity_id, connection_id, provider_thread_id"
+      )
       .eq("id", id)
       .in("origin", LIFECYCLE_ORIGINS)
       .eq("status", "drafted")
@@ -621,6 +836,19 @@ export async function DELETE(request: NextRequest) {
     }
     if (row.company_id !== companyId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const lifecycleConnectionId = nonEmptyText(row.connection_id);
+    if (
+      !lifecycleConnectionId ||
+      !(await canMutateDraftContext({
+        actor,
+        supabase,
+        connectionId: lifecycleConnectionId,
+        providerThreadId: nonEmptyText(row.provider_thread_id),
+        opportunityId: nonEmptyText(row.opportunity_id),
+      }))
+    ) {
+      return NextResponse.json({ error: "Draft not found" }, { status: 404 });
     }
 
     const now = new Date().toISOString();
@@ -648,7 +876,7 @@ export async function DELETE(request: NextRequest) {
     // Scope check — the row must belong to the caller's company.
     const { data: row, error } = await supabase
       .from("ai_draft_history")
-      .select("id, company_id")
+      .select("id, company_id, opportunity_id, connection_id, thread_id")
       .eq("id", id)
       .single();
     if (error || !row) {
@@ -656,6 +884,19 @@ export async function DELETE(request: NextRequest) {
     }
     if (row.company_id !== companyId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const aiConnectionId = nonEmptyText(row.connection_id);
+    if (
+      !aiConnectionId ||
+      !(await canMutateDraftContext({
+        actor,
+        supabase,
+        connectionId: aiConnectionId,
+        providerThreadId: nonEmptyText(row.thread_id),
+        opportunityId: nonEmptyText(row.opportunity_id),
+      }))
+    ) {
+      return NextResponse.json({ error: "Draft not found" }, { status: 404 });
     }
 
     // P4-B: stamp discarded_at now that the column exists. (`updated_at`
@@ -691,6 +932,15 @@ export async function DELETE(request: NextRequest) {
   }
   if (conn.companyId !== companyId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (
+    !(await canMutateDraftContext({
+      actor,
+      supabase,
+      connectionId,
+    }))
+  ) {
+    return NextResponse.json({ error: "Draft not found" }, { status: 404 });
   }
 
   try {

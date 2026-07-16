@@ -47,8 +47,58 @@ import {
   type FailureSignal,
 } from "@/lib/email/ingest-heartbeat-classify";
 import { buildReconnectDeepLink } from "@/lib/email/reconnect-deep-link";
+import { PersonalEmailConnectionLifecycleService } from "@/lib/api/services/personal-email-connection-lifecycle-service";
+import { runEmailImportProviderOperations } from "@/lib/api/services/email-import-provider-operation-service";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const maxDuration = 60;
+
+interface HeartbeatRecipient {
+  id: string;
+  email: string;
+  company_id: string;
+}
+
+async function resolveHeartbeatRecipient(
+  supabase: SupabaseClient,
+  candidates: HeartbeatRecipient[],
+  failure: FailureSignal
+): Promise<HeartbeatRecipient | null> {
+  const companyCandidates = candidates
+    .filter((candidate) => candidate.company_id === failure.companyId)
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  if (failure.type === "individual") {
+    if (!failure.connectionOwnerUserId) return null;
+    return (
+      companyCandidates.find(
+        (candidate) => candidate.id === failure.connectionOwnerUserId
+      ) ?? null
+    );
+  }
+
+  // A shared mailbox's historical connector user is metadata only. Resolve a
+  // current, active OPS integration manager through the canonical permission
+  // engine so the reconnect action is both visible and authorized.
+  for (const candidate of companyCandidates) {
+    const { data, error } = await supabase.rpc("has_permission", {
+      p_user_id: candidate.id,
+      p_permission: "settings.integrations",
+      p_required_scope: "all",
+    });
+    if (error) {
+      console.error("[email-heartbeat] manager permission lookup failed", {
+        companyId: failure.companyId,
+        userId: candidate.id,
+        error: error.message,
+      });
+      continue;
+    }
+    if (data === true) return candidate;
+  }
+
+  return null;
+}
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -65,6 +115,42 @@ export async function GET(request: NextRequest) {
 
   const supabase = getServiceRoleClient();
   const now = Date.now();
+
+  // Retry durable personal-mailbox warning projections before provider health
+  // checks. This only reads/writes OPS state; it never contacts or sends
+  // through Gmail/Microsoft. Disconnect/reconnect routes process immediately,
+  // while this hourly pass resolves events created by lead/thread changes.
+  try {
+    await PersonalEmailConnectionLifecycleService.drainPending(100, supabase);
+  } catch (error) {
+    console.error("[email-heartbeat] mailbox lifecycle drain failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  // Retry the durable historical-import label ledger through the existing
+  // heartbeat rather than adding another cron. The processor has a deliberately
+  // label-only provider capability (list/create/apply); it cannot send email.
+  try {
+    const providerOperations = await runEmailImportProviderOperations(
+      supabase,
+      { limit: 5, leaseSeconds: 300 }
+    );
+    if (
+      providerOperations.failed > 0 ||
+      providerOperations.staleCompletions > 0 ||
+      providerOperations.staleFailures > 0
+    ) {
+      console.error("[email-heartbeat] import label operations incomplete", {
+        ...providerOperations,
+        errors: providerOperations.errors.slice(0, 5),
+      });
+    }
+  } catch (error) {
+    console.error("[email-heartbeat] import label operation drain failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   // 1. Pull every connection — we need the full row to classify.
   const { data: connections, error: connErr } = await supabase
@@ -132,10 +218,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // 4. Resolve company name + admin recipient.
+  // 4. Resolve company names and active canonical OPS recipients.
   const { data: companies, error: companiesError } = await supabase
     .from("companies")
-    .select("id, name, admin_ids")
+    .select("id, name")
     .in("id", toAlertIds);
   if (companiesError) {
     return NextResponse.json(
@@ -144,18 +230,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const adminIds = (companies ?? []).flatMap(
-    (c) => (c.admin_ids as string[]) ?? []
-  );
-  const { data: admins, error: adminsError } =
-    adminIds.length > 0
-      ? await supabase
-          .from("users")
-          .select("id, email, company_id")
-          .in("id", adminIds)
-      : { data: [], error: null };
-  if (adminsError) {
-    return NextResponse.json({ error: adminsError.message }, { status: 500 });
+  const { data: recipientCandidates, error: recipientCandidatesError } =
+    await supabase
+      .from("users")
+      .select("id, email, company_id")
+      .in("company_id", toAlertIds)
+      .eq("is_active", true)
+      .is("deleted_at", null);
+  if (recipientCandidatesError) {
+    return NextResponse.json(
+      { error: recipientCandidatesError.message },
+      { status: 500 }
+    );
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
@@ -172,21 +258,30 @@ export async function GET(request: NextRequest) {
     if (!failures || failures.length === 0) continue;
     const worst = pickWorstFailure(failures);
 
-    const recipient = (admins ?? []).find((a) => a.company_id === companyId);
-    const recipientEmail = recipient?.email as string | undefined;
-    const recipientUserId = recipient?.id as string | undefined;
+    const recipient = await resolveHeartbeatRecipient(
+      supabase,
+      (recipientCandidates ?? []) as HeartbeatRecipient[],
+      worst
+    );
+    if (!recipient) {
+      console.error("[email-heartbeat] no authorized reconnect recipient", {
+        companyId,
+        connectionId: worst.connectionId,
+        connectionType: worst.type,
+      });
+      deliveryFailureCount += 1;
+      continue;
+    }
+    const recipientEmail = recipient.email;
+    const recipientUserId = recipient.id;
 
     // Email button → authenticated reconnect confirmation. Logged-out users
     // sign in and return to the same confirmation before provider consent.
-    // Falls back to the connection's original user_id when the recipient
-    // admin isn't resolvable (rare; the
-    // reconnect state remains bound to the exact failed mailbox row).
-    const deepLinkUserId = recipientUserId ?? worst.connectionUserId;
     const reconnectUrl = buildReconnectDeepLink({
       appUrl,
       provider: worst.provider,
       companyId,
-      userId: deepLinkUserId,
+      userId: recipientUserId,
       type: worst.type,
       connectionId: worst.connectionId,
       expectedEmail: worst.email,
@@ -198,7 +293,7 @@ export async function GET(request: NextRequest) {
     const { error: notificationError } = await supabase
       .from("notifications")
       .insert({
-        user_id: recipientUserId ?? null,
+        user_id: recipientUserId,
         company_id: companyId,
         type: "system_alert",
         title: "Your inbox stopped sending leads to OPS",

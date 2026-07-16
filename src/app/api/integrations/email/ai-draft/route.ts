@@ -10,7 +10,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AIDraftService } from "@/lib/api/services/ai-draft-service";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
 
 export const maxDuration = 120;
 
@@ -26,8 +27,6 @@ export async function POST(request: NextRequest) {
       connectionId,
       opportunityId,
       threadId,
-      recipientEmail,
-      recipientName,
       userInstruction,
       subject,
       configuredSubject,
@@ -39,52 +38,19 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const authError = await requireEmailCompanyAccess(
-      request,
-      companyId,
-      "inbox.send",
-      userId
-    );
-    if (authError) return authError;
+    const actorResolution = await resolveEmailRouteActor(request, {
+      claimedCompanyId: companyId,
+      claimedUserId: userId,
+    });
+    if (!actorResolution.ok) return actorResolution.response;
+    const { actor } = actorResolution;
 
-    const { data: ownedConnection, error: connectionError } = await supabase
-      .from("email_connections")
-      .select("id")
-      .eq("id", connectionId)
-      .eq("company_id", companyId)
-      .maybeSingle();
-    if (connectionError) {
-      throw new Error(
-        `Failed to validate email connection: ${connectionError.message}`
-      );
-    }
-    if (!ownedConnection) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    if (opportunityId) {
-      const { data: ownedOpportunity, error: opportunityError } = await supabase
-        .from("opportunities")
-        .select("id")
-        .eq("id", opportunityId)
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .maybeSingle();
-      if (opportunityError) {
-        throw new Error(
-          `Failed to validate opportunity: ${opportunityError.message}`
-        );
-      }
-      if (!ownedOpportunity) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    }
-
+    let internalThreadId: string | null = null;
     if (threadId) {
       const { data: ownedThread, error: threadError } = await supabase
         .from("email_threads")
-        .select("id, opportunity_id")
-        .eq("company_id", companyId)
+        .select("id")
+        .eq("company_id", actor.companyId)
         .eq("connection_id", connectionId)
         .eq("provider_thread_id", threadId)
         .maybeSingle();
@@ -93,22 +59,35 @@ export async function POST(request: NextRequest) {
           `Failed to validate email thread: ${threadError.message}`
         );
       }
-      if (
-        !ownedThread ||
-        (opportunityId && ownedThread.opportunity_id !== opportunityId)
-      ) {
+      if (!ownedThread?.id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
+      internalThreadId = ownedThread.id as string;
+    }
+
+    const access = await resolveEmailOpportunityAccess({
+      actor,
+      operation: "send",
+      ...(internalThreadId ? { threadId: internalThreadId } : {}),
+      connectionId,
+      ...(threadId ? { providerThreadId: threadId } : {}),
+      ...(opportunityId ? { opportunityId } : {}),
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const result = await AIDraftService.generateDraft({
-      companyId,
-      userId,
-      connectionId,
-      opportunityId,
-      threadId,
-      recipientEmail,
-      recipientName,
+      // From this point forward the authorization projection is the only
+      // identity source. Request-body ids above were compatibility assertions
+      // for the resolver and must never steer prompt retrieval.
+      companyId: access.actor.companyId,
+      userId: access.actor.userId,
+      connectionId: access.connectionId,
+      opportunityId: access.opportunityId ?? undefined,
+      threadId: access.providerThreadId ?? undefined,
+      emailAccess: access,
       userInstruction,
       subject,
       configuredSubject,

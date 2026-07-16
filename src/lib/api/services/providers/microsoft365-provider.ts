@@ -765,13 +765,52 @@ export class Microsoft365Provider implements EmailProviderInterface {
     return data.id as string;
   }
 
+  private async resolveCategoryDisplayName(
+    categoryIdOrName: string
+  ): Promise<string> {
+    const identifier = categoryIdOrName.trim();
+    if (!identifier) {
+      throw new ProviderApiError("M365 category identifier is missing", 409, {
+        categoryIdOrName,
+      });
+    }
+
+    // Message.categories accepts master-category display names, not the
+    // master-category GUID returned by Graph's create/list endpoints. Resolve
+    // both legacy persisted GUIDs and display-name values through this exact
+    // mailbox's current master list before touching a conversation.
+    const categories = await this.listLabels();
+    const category = categories.find(
+      (candidate) =>
+        candidate.id === identifier || candidate.name === identifier
+    );
+    const displayName = category?.name.trim();
+    if (!displayName) {
+      throw new ProviderApiError(
+        "M365 category is no longer available in the connected mailbox",
+        409,
+        { categoryIdOrName: identifier }
+      );
+    }
+    return displayName;
+  }
+
   async applyLabel(threadId: string, labelId: string): Promise<void> {
-    // Get all messages in thread and apply category to each
+    const categoryDisplayName = await this.resolveCategoryDisplayName(labelId);
+
+    // Get all messages in the exact conversation and add the OPS category
+    // without deleting any categories the mailbox user already applied.
     const messages = await this.fetchThread(threadId);
     for (const msg of messages) {
+      const existingCategories = msg.labelIds.filter(
+        (category) => typeof category === "string" && category.trim()
+      );
+      if (existingCategories.includes(categoryDisplayName)) continue;
       await this.graphFetch(`/me/messages/${msg.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ categories: [labelId] }),
+        body: JSON.stringify({
+          categories: [...existingCategories, categoryDisplayName],
+        }),
       });
     }
   }

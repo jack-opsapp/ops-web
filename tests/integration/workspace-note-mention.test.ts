@@ -6,9 +6,8 @@
  * the author tagged team members, the hook must fan out:
  *   1. project_notes row inserted with event_kind=null (plain note) and
  *      mentioned_user_ids carrying the tagged user ids.
- *   2. NotificationService.createMentionNotifications called once — this
- *      inserts one in-app notification row per mentioned user.
- *   3. dispatchMentionPush called once with the array of mentioned users.
+ *   2. dispatchMentionPush called once with only the persisted note id. The
+ *      server derives recipients, copy, navigation, and push payload.
  *
  * Strategy: mock the underlying note service, the notification service,
  * the dispatch helper, and supabase (used by the hook to look up the
@@ -49,42 +48,17 @@ const createNoteMock = vi.fn<
     createdAt: new Date(),
     updatedAt: null,
     deletedAt: null,
-  }),
+  })
 );
 
-interface MentionNotifCall {
-  mentionedUserIds: string[];
-  authorName: string;
-  projectId: string;
-  projectTitle: string;
-  noteId: string;
-  companyId: string;
-}
-const mentionNotifs: MentionNotifCall[] = [];
-
 interface MentionPushCall {
-  mentionedUserIds: string[];
-  authorName: string;
-  notePreview: string;
-  projectId: string;
-  projectTitle: string;
   noteId: string;
-  companyId: string;
 }
 const mentionPushes: MentionPushCall[] = [];
 
 vi.mock("@/lib/api/services/project-note-service", () => ({
   ProjectNoteService: {
     createNote: (input: unknown) => createNoteMock(input),
-  },
-}));
-
-vi.mock("@/lib/api/services/notification-service", () => ({
-  NotificationService: {
-    createMentionNotifications: (params: MentionNotifCall) => {
-      mentionNotifs.push(params);
-      return Promise.resolve();
-    },
   },
 }));
 
@@ -101,35 +75,10 @@ vi.mock("@/lib/store/auth-store", () => ({
   }),
 }));
 
-// supabase lookup for project title — return the canonical row.
-vi.mock("@/lib/supabase/helpers", () => ({
-  requireSupabase: () => ({
-    from: (table: string) => {
-      if (table === "projects") {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: () =>
-                Promise.resolve({
-                  data: { title: "Roof Replacement" },
-                  error: null,
-                }),
-            }),
-          }),
-        };
-      }
-      throw new Error(`unexpected table in test: ${table}`);
-    },
-  }),
-  parseDate: (v: string | null) => (v ? new Date(v) : null),
-  parseDateRequired: (v: string) => new Date(v),
-}));
-
 import { useCreateProjectNote } from "@/lib/hooks/use-project-notes";
 
 beforeEach(() => {
   createNoteMock.mockClear();
-  mentionNotifs.length = 0;
   mentionPushes.length = 0;
 });
 
@@ -141,9 +90,12 @@ function makeWrapper(qc: QueryClient) {
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
 describe("useCreateProjectNote — @mention notifications", () => {
-  it("inserts the note, creates per-user mention notifications, and pushes once", async () => {
+  it("inserts the note and dispatches its persisted id once", async () => {
     const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     });
     const { result } = renderHook(() => useCreateProjectNote(), {
       wrapper: makeWrapper(qc),
@@ -162,28 +114,23 @@ describe("useCreateProjectNote — @mention notifications", () => {
 
     // (a) note row inserted with mentioned_user_ids
     expect(createNoteMock).toHaveBeenCalledOnce();
-    const noteArgs = createNoteMock.mock.calls[0]![0] as Record<string, unknown>;
+    const noteArgs = createNoteMock.mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >;
     expect(noteArgs.mentionedUserIds).toEqual(["u-alice", "u-bob"]);
 
-    // (b) one in-app notification row per mentioned user — modeled as a
-    // single createMentionNotifications call carrying both ids.
-    expect(mentionNotifs).toHaveLength(1);
-    expect(mentionNotifs[0].mentionedUserIds).toEqual(["u-alice", "u-bob"]);
-    expect(mentionNotifs[0].authorName).toBe("Alex Operator");
-    expect(mentionNotifs[0].projectTitle).toBe("Roof Replacement");
-    expect(mentionNotifs[0].noteId).toBe("note-1");
-
-    // (c) push dispatch fired once with the full mention list
+    // (b) notification dispatch receives no body-trusted recipient or copy.
     expect(mentionPushes).toHaveLength(1);
-    expect(mentionPushes[0].mentionedUserIds).toEqual(["u-alice", "u-bob"]);
-    expect(mentionPushes[0].notePreview).toBe(
-      "Hey @alice and @bob, take a look",
-    );
+    expect(mentionPushes[0]).toEqual({ noteId: "note-1" });
   });
 
   it("skips both mention paths when no users are tagged", async () => {
     const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     });
     const { result } = renderHook(() => useCreateProjectNote(), {
       wrapper: makeWrapper(qc),
@@ -201,7 +148,6 @@ describe("useCreateProjectNote — @mention notifications", () => {
     });
 
     expect(createNoteMock).toHaveBeenCalledOnce();
-    expect(mentionNotifs).toHaveLength(0);
     expect(mentionPushes).toHaveLength(0);
   });
 });

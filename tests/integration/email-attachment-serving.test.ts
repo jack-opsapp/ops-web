@@ -32,6 +32,14 @@ type ConnectionRow = {
   user_id: string | null;
 };
 
+type ThreadRow = {
+  id: string;
+  company_id: string;
+  connection_id: string;
+  provider_thread_id: string;
+  opportunity_id: string | null;
+};
+
 const state = vi.hoisted(() => ({
   authUser: { uid: "firebase-user", email: "operator@example.com" } as {
     uid: string;
@@ -44,8 +52,10 @@ const state = vi.hoisted(() => ({
   canViewInbox: true,
   canViewCompany: false,
   canViewPipeline: false,
+  accessAllowed: true,
   attachmentRows: [] as AttachmentRow[],
   connectionRows: [] as ConnectionRow[],
+  threadRows: [] as ThreadRow[],
   thread: null as null | {
     id: string;
     companyId: string;
@@ -80,26 +90,71 @@ vi.mock("@/lib/supabase/check-permission", () => ({
   ),
 }));
 
+vi.mock("@/lib/email/email-route-auth", () => ({
+  resolveEmailRouteActor: vi.fn(async () => ({
+    ok: true,
+    actor: {
+      userId: state.user?.id ?? "",
+      companyId: state.user?.company_id ?? "",
+    },
+  })),
+}));
+
+vi.mock("@/lib/email/email-opportunity-access", () => ({
+  resolveEmailOpportunityAccess: vi.fn(
+    async ({ threadId }: { threadId?: string }) => {
+      if (!state.accessAllowed) {
+        return { allowed: false, reason: "inbox_scope_denied" };
+      }
+      const configuredThread = state.thread;
+      const thread =
+        configuredThread && configuredThread.id === threadId
+          ? {
+              id: configuredThread.id,
+              company_id: configuredThread.companyId,
+              connection_id: configuredThread.connectionId,
+              provider_thread_id: configuredThread.providerThreadId,
+              opportunity_id: OPPORTUNITY_ID,
+            }
+          : state.threadRows.find((candidate) => candidate.id === threadId);
+      if (!thread || thread.company_id !== state.user?.company_id) {
+        return { allowed: false, reason: "thread_not_found" };
+      }
+      return {
+        allowed: true,
+        connectionId: thread.connection_id,
+        providerThreadId: thread.provider_thread_id,
+        opportunityId: thread.opportunity_id,
+      };
+    }
+  ),
+}));
+
 function matchingRows(
   table: string,
   filters: Record<string, unknown>
-): Array<AttachmentRow | ConnectionRow> {
+): Array<AttachmentRow | ConnectionRow | ThreadRow> {
   state.queryFilters.push({ table, filters: { ...filters } });
   const rows =
     table === "email_attachments"
       ? state.attachmentRows
       : table === "email_connections"
         ? state.connectionRows
-        : [];
+        : table === "email_threads"
+          ? state.threadRows
+          : [];
   return rows.filter((row) =>
     Object.entries(filters).every(([column, value]) => {
       if (column.startsWith("__in:")) {
         const actualColumn = column.slice("__in:".length);
         return (value as unknown[]).includes(
-          row[actualColumn as keyof (AttachmentRow | ConnectionRow)]
+          row[actualColumn as keyof (AttachmentRow | ConnectionRow | ThreadRow)]
         );
       }
-      return row[column as keyof (AttachmentRow | ConnectionRow)] === value;
+      return (
+        row[column as keyof (AttachmentRow | ConnectionRow | ThreadRow)] ===
+        value
+      );
     })
   );
 }
@@ -127,7 +182,7 @@ vi.mock("@/lib/supabase/server-client", () => ({
         }),
         then: (
           resolve: (value: {
-            data: Array<AttachmentRow | ConnectionRow>;
+            data: Array<AttachmentRow | ConnectionRow | ThreadRow>;
             error: null;
           }) => unknown
         ) =>
@@ -211,6 +266,7 @@ beforeEach(() => {
   state.canViewInbox = true;
   state.canViewCompany = false;
   state.canViewPipeline = false;
+  state.accessAllowed = true;
   state.attachmentRows = [];
   state.connectionRows = [
     {
@@ -218,6 +274,15 @@ beforeEach(() => {
       company_id: COMPANY_ID,
       type: "individual",
       user_id: "user-1",
+    },
+  ];
+  state.threadRows = [
+    {
+      id: "thread-row-1",
+      company_id: COMPANY_ID,
+      connection_id: CONNECTION_ID,
+      provider_thread_id: "thread-1",
+      opportunity_id: OPPORTUNITY_ID,
     },
   ];
   state.thread = null;
@@ -261,6 +326,7 @@ describe("GET /api/integrations/email/attachment", () => {
   });
 
   it("hides another user's individual mailbox attachment from an inbox viewer", async () => {
+    state.accessAllowed = false;
     state.connectionRows = [
       {
         id: CONNECTION_ID,
@@ -336,9 +402,10 @@ describe("GET /api/integrations/email/attachment", () => {
     expect(response.status).toBe(200);
   });
 
-  it("allows a pipeline viewer who has no inbox permission", async () => {
+  it("denies a pipeline viewer who has no inbox permission", async () => {
     state.canViewInbox = false;
     state.canViewPipeline = true;
+    state.accessAllowed = false;
     state.connectionRows = [
       {
         id: CONNECTION_ID,
@@ -361,12 +428,13 @@ describe("GET /api/integrations/email/attachment", () => {
       )
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(404);
   });
 
   it("does not treat an attributed flag without a lead as pipeline access", async () => {
     state.canViewInbox = false;
     state.canViewPipeline = true;
+    state.accessAllowed = false;
     state.attachmentRows = [storedAttachment({ opportunity_id: null })];
 
     const { GET } =
@@ -384,6 +452,7 @@ describe("GET /api/integrations/email/attachment", () => {
   it("does not expose an unattributed attachment through pipeline permission alone", async () => {
     state.canViewInbox = false;
     state.canViewPipeline = true;
+    state.accessAllowed = false;
     state.attachmentRows = [
       storedAttachment({ attribution_status: "needs_review" }),
     ];
@@ -403,6 +472,7 @@ describe("GET /api/integrations/email/attachment", () => {
   it("fails closed when the user has neither attachment-view permission", async () => {
     state.canViewInbox = false;
     state.canViewPipeline = false;
+    state.accessAllowed = false;
     state.attachmentRows = [storedAttachment()];
 
     const { GET } =
@@ -413,7 +483,7 @@ describe("GET /api/integrations/email/attachment", () => {
       )
     );
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     expect(state.storageDownload).not.toHaveBeenCalled();
   });
 
@@ -421,6 +491,7 @@ describe("GET /api/integrations/email/attachment", () => {
     state.canViewInbox = false;
     state.canViewCompany = true;
     state.canViewPipeline = false;
+    state.accessAllowed = false;
     state.attachmentRows = [storedAttachment()];
 
     const { GET } =
@@ -431,7 +502,7 @@ describe("GET /api/integrations/email/attachment", () => {
       )
     );
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     expect(state.storageDownload).not.toHaveBeenCalled();
   });
 
@@ -719,6 +790,7 @@ describe("GET /api/inbox/threads/[id]/attachments", () => {
   });
 
   it("hides another user's individual mailbox thread attachments", async () => {
+    state.accessAllowed = false;
     state.connectionRows = [
       {
         id: CONNECTION_ID,
@@ -804,6 +876,7 @@ describe("GET /api/inbox/threads/[id]/attachments", () => {
   it("does not grant thread access through pipeline permission alone", async () => {
     state.canViewInbox = false;
     state.canViewPipeline = true;
+    state.accessAllowed = false;
     state.thread = {
       id: "thread-row-1",
       companyId: COMPANY_ID,
@@ -818,7 +891,7 @@ describe("GET /api/inbox/threads/[id]/attachments", () => {
       { params: Promise.resolve({ id: "thread-row-1" }) }
     );
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     expect(state.providerAttachmentWalk).not.toHaveBeenCalled();
   });
 });

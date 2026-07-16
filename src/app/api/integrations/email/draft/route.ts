@@ -8,7 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AIDraftService } from "@/lib/api/services/ai-draft-service";
@@ -31,6 +32,12 @@ import {
 
 export const maxDuration = 300;
 
+interface ReplyThreadRow {
+  id: string;
+  connection_id: string;
+  provider_thread_id: string;
+}
+
 export async function POST(request: NextRequest) {
   const supabase = getServiceRoleClient();
   setSupabaseOverride(supabase);
@@ -45,52 +52,202 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const authError = await requireEmailCompanyAccess(
-      request,
-      companyId,
-      "inbox.send",
-      userId
-    );
-    if (authError) return authError;
-
-    const { data: ownedOpportunity, error: opportunityError } = await supabase
-      .from("opportunities")
-      .select("id")
-      .eq("id", opportunityId)
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (opportunityError) {
-      throw new Error(
-        `Failed to validate opportunity ownership: ${opportunityError.message}`
-      );
-    }
-    if (!ownedOpportunity) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const actorResolution = await resolveEmailRouteActor(request, {
+      claimedCompanyId: companyId,
+      claimedUserId: userId,
+    });
+    if (!actorResolution.ok) return actorResolution.response;
+    const { actor } = actorResolution;
 
     // ── Resolve email connection for this company/user ───────────────────
     // We need this for both the availability check and draft generation.
-    const connections = await EmailService.getConnections(companyId);
-    // Prefer a user-specific active connection; fall back to company-level one.
-    const connection =
-      connections.find((c) => c.userId === userId && c.status === "active") ??
-      connections.find((c) => c.status === "active") ??
+    const connections = await EmailService.getConnections(actor.companyId);
+    // Prefer the actor's own active personal connection, then an active shared
+    // company connection. Never fall through to another user's mailbox.
+    let connection =
+      connections.find(
+        (c) =>
+          c.type === "individual" &&
+          c.userId === actor.userId &&
+          c.status === "active"
+      ) ??
+      connections.find((c) => c.type === "company" && c.status === "active") ??
       null;
+
+    if (!connection) {
+      return NextResponse.json({
+        available: false,
+        confidence: 0,
+        draft: "",
+        sources: [],
+        reason: "No mailbox connected",
+        mailboxSaved: false,
+      });
+    }
+
+    const access = await resolveEmailOpportunityAccess({
+      actor,
+      operation: "send",
+      connectionId: connection.id,
+      opportunityId,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (!access.opportunityId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    let draftAccess = access;
+    const canonicalOpportunityId = access.opportunityId;
+
+    // Load the canonical reply context only after the lead + tentative sender
+    // have passed authorization. Activities store provider thread ids (plus a
+    // connection id on modern rows), so never treat email_thread_id as the
+    // internal email_threads UUID without resolving it first.
+    const [{ data: opp }, { data: lastActivity }] = await Promise.all([
+      supabase
+        .from("opportunities")
+        .select("title, clients!inner(email, name)")
+        .eq("id", canonicalOpportunityId)
+        .eq("company_id", actor.companyId)
+        .single(),
+      supabase
+        .from("activities")
+        .select("subject, email_thread_id, email_connection_id, body_text")
+        .eq("opportunity_id", canonicalOpportunityId)
+        .eq("type", "email")
+        .eq("direction", "inbound")
+        .order("created_at", { ascending: false })
+        .limit(1),
+    ]);
+    const latestInbound = lastActivity?.[0] ?? null;
+    const contactFormSubmitter = extractContactFormSubmission(
+      (latestInbound?.subject as string) ?? "",
+      (latestInbound?.body_text as string) ?? ""
+    );
+
+    let replyThread: ReplyThreadRow | null = null;
+    const activityThreadId = latestInbound?.email_thread_id as
+      | string
+      | null
+      | undefined;
+    const activityConnectionId = latestInbound?.email_connection_id as
+      | string
+      | null
+      | undefined;
+
+    if (activityThreadId && !contactFormSubmitter) {
+      if (activityConnectionId) {
+        const { data: exactThread, error: exactThreadError } = await supabase
+          .from("email_threads")
+          .select("id, connection_id, provider_thread_id")
+          .eq("company_id", actor.companyId)
+          .eq("connection_id", activityConnectionId)
+          .eq("provider_thread_id", activityThreadId)
+          .maybeSingle();
+        if (exactThreadError) {
+          throw new Error(
+            `Failed to resolve reply thread: ${exactThreadError.message}`
+          );
+        }
+        replyThread = exactThread as ReplyThreadRow | null;
+      }
+
+      // Legacy activities may predate email_connection_id. Resolve their
+      // immutable provider-thread owner through the opportunity junction.
+      if (!replyThread && !activityConnectionId) {
+        const { data: linkRows, error: linkError } = await supabase
+          .from("opportunity_email_threads")
+          .select("connection_id")
+          .eq("opportunity_id", canonicalOpportunityId)
+          .eq("thread_id", activityThreadId)
+          .limit(2);
+        if (linkError) {
+          throw new Error(
+            `Failed to resolve reply thread owner: ${linkError.message}`
+          );
+        }
+        const links = Array.isArray(linkRows) ? linkRows : [];
+        if (links.length === 1 && links[0]?.connection_id) {
+          const { data: linkedThread, error: linkedThreadError } =
+            await supabase
+              .from("email_threads")
+              .select("id, connection_id, provider_thread_id")
+              .eq("company_id", actor.companyId)
+              .eq("connection_id", links[0].connection_id as string)
+              .eq("provider_thread_id", activityThreadId)
+              .maybeSingle();
+          if (linkedThreadError) {
+            throw new Error(
+              `Failed to resolve linked reply thread: ${linkedThreadError.message}`
+            );
+          }
+          replyThread = linkedThread as ReplyThreadRow | null;
+        }
+      }
+
+      // Compatibility for the brief period when activities stored the
+      // internal thread UUID instead of the provider thread id.
+      if (!replyThread) {
+        const { data: legacyThread, error: legacyThreadError } = await supabase
+          .from("email_threads")
+          .select("id, connection_id, provider_thread_id")
+          .eq("id", activityThreadId)
+          .eq("company_id", actor.companyId)
+          .maybeSingle();
+        if (legacyThreadError) {
+          throw new Error(
+            `Failed to resolve legacy reply thread: ${legacyThreadError.message}`
+          );
+        }
+        replyThread = legacyThread as ReplyThreadRow | null;
+      }
+    }
+
+    if (replyThread) {
+      const pinnedConnection = connections.find(
+        (candidate) =>
+          candidate.id === replyThread?.connection_id &&
+          candidate.status === "active"
+      );
+      if (!pinnedConnection) {
+        return NextResponse.json(
+          {
+            available: false,
+            confidence: 0,
+            draft: "",
+            sources: [],
+            reason:
+              "Reconnect the mailbox for this conversation before drafting a reply.",
+            code: "EMAIL_CONNECTION_UNAVAILABLE",
+            mailboxSaved: false,
+          },
+          { status: 409 }
+        );
+      }
+      const threadAccess = await resolveEmailOpportunityAccess({
+        actor,
+        operation: "send",
+        threadId: replyThread.id,
+        connectionId: replyThread.connection_id,
+        providerThreadId: replyThread.provider_thread_id,
+        opportunityId: canonicalOpportunityId,
+        supabase,
+      });
+      if (!threadAccess.allowed) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      draftAccess = threadAccess;
+      connection = pinnedConnection;
+    }
 
     // ── Quick availability check — no AI calls ───────────────────────────
     if (checkOnly) {
-      if (!connection) {
-        return NextResponse.json({
-          available: false,
-          confidence: 0,
-          draft: "",
-          sources: [],
-          reason: "No mailbox connected",
-        });
-      }
-
-      const profile = await WritingProfileService.getProfile(companyId, userId);
+      const profile = await WritingProfileService.getProfile(
+        actor.companyId,
+        actor.userId
+      );
       const emailsAnalyzed = (profile?.emails_analyzed as number) || 0;
       const confidence = WritingProfileService.getConfidence(emailsAnalyzed);
       const meetsThreshold = emailsAnalyzed >= 5;
@@ -111,13 +268,13 @@ export async function POST(request: NextRequest) {
     // AIDraftService creates an ai_draft_history row and returns a draftHistoryId.
     // It uses phase_c context when available but does NOT require phase_c to be
     // enabled — any user with ≥5 emails analyzed can get a draft.
-    const connectionId = connection?.id ?? "";
-
     const draftResult = await AIDraftService.generateDraft({
-      companyId,
-      userId,
-      connectionId,
-      opportunityId,
+      companyId: draftAccess.actor.companyId,
+      userId: draftAccess.actor.userId,
+      connectionId: draftAccess.connectionId,
+      opportunityId: draftAccess.opportunityId ?? undefined,
+      threadId: draftAccess.providerThreadId ?? undefined,
+      emailAccess: draftAccess,
     });
 
     if (!draftResult.available || !draftResult.draft) {
@@ -133,18 +290,6 @@ export async function POST(request: NextRequest) {
 
     // ── Push to mailbox Drafts folder ────────────────────────────────────
     // If no active connection, return the draft without mailbox placement.
-    if (!connection) {
-      return NextResponse.json({
-        draft: draftResult.draft,
-        confidence: draftResult.confidence,
-        sources: draftResult.sources,
-        available: true,
-        draftHistoryId: draftResult.draftHistoryId,
-        mailboxSaved: false,
-        reason: "No mailbox connected",
-      });
-    }
-
     let mailboxDraftId: string | null = null;
     let mailboxSaved = false;
 
@@ -153,7 +298,7 @@ export async function POST(request: NextRequest) {
       const signature = await resolveEmailSignatureForMessage({
         supabase,
         connection,
-        userId,
+        userId: actor.userId,
         refreshProviderIfMissing: true,
       });
       if (!signature) {
@@ -163,24 +308,6 @@ export async function POST(request: NextRequest) {
         draftResult.draft,
         signature
       );
-
-      // Fetch the opportunity's thread context for subject + recipient
-      const { data: opp } = await supabase
-        .from("opportunities")
-        .select("title, clients!inner(email, name)")
-        .eq("id", opportunityId)
-        .single();
-
-      // Get the last inbound activity to build a reply subject (body_text lets
-      // us detect a forwarded contact-form submission).
-      const { data: lastActivity } = await supabase
-        .from("activities")
-        .select("subject, email_thread_id, body_text")
-        .eq("opportunity_id", opportunityId)
-        .eq("type", "email")
-        .eq("direction", "inbound")
-        .order("created_at", { ascending: false })
-        .limit(1);
 
       const clientRecord = opp?.clients as unknown as
         | { email: string; name: string }
@@ -197,10 +324,6 @@ export async function POST(request: NextRequest) {
       // the latest inbound activity body; if matched, ignore the forwarder
       // thread entirely and place a clean new-thread outreach (shared helper
       // also links the thread + tracks thread_id for reconciliation).
-      const contactFormSubmitter = extractContactFormSubmission(
-        (lastActivity?.[0]?.subject as string) ?? "",
-        (lastActivity?.[0]?.body_text as string) ?? ""
-      );
       if (contactFormSubmitter && draftResult.draftHistoryId) {
         const to = contactFormSubmitter.email || clientEmail;
         if (!to) {
@@ -217,7 +340,7 @@ export async function POST(request: NextRequest) {
         const placed = await placeNewThreadDraft({
           provider,
           connectionId: connection.id,
-          opportunityId,
+          opportunityId: canonicalOpportunityId,
           draftHistoryId: draftResult.draftHistoryId,
           to,
           subject: draftResult.subject || CONTACT_FORM_OUTREACH_SUBJECT,
@@ -237,24 +360,11 @@ export async function POST(request: NextRequest) {
       }
 
       const rawSubject =
-        (lastActivity?.[0]?.subject as string) ||
+        (latestInbound?.subject as string) ||
         (opp?.title as string) ||
         "Your inquiry";
       const replySubject = normalizeReplySubject(rawSubject);
-      const providerThreadId: string | undefined =
-        (lastActivity?.[0]?.email_thread_id as string) ?? undefined;
-
-      // Resolve the provider thread id from email_threads if we have it
-      let mailboxThreadId: string | undefined;
-      if (providerThreadId) {
-        const { data: threadRow } = await supabase
-          .from("email_threads")
-          .select("provider_thread_id")
-          .eq("id", providerThreadId)
-          .single();
-        mailboxThreadId =
-          (threadRow?.provider_thread_id as string) ?? undefined;
-      }
+      const mailboxThreadId = replyThread?.provider_thread_id;
 
       if (!clientEmail) {
         // No recipient — can't push. Return draft without mailbox placement.

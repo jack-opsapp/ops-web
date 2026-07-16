@@ -7,14 +7,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import {
   canRenderAttachmentInline,
   safeAttachmentFilename,
 } from "@/lib/api/services/email-attachments/attachment-policy";
-import { canAccessEmailMailbox } from "@/lib/email/server-mailbox-access";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 const ATTACHMENT_BUCKET = "email-attachments";
@@ -25,6 +23,7 @@ interface StoredAttachmentRow {
   id: string;
   company_id: string;
   connection_id: string;
+  provider_thread_id: string;
   opportunity_id: string | null;
   filename: string | null;
   mime_type: string | null;
@@ -40,10 +39,9 @@ function unavailable(): NextResponse {
 }
 
 export async function GET(request: NextRequest) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
 
   const attachmentId =
     new URL(request.url).searchParams.get("id")?.trim() ?? "";
@@ -54,32 +52,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const user = await findUserByAuth(
-    authUser.uid,
-    authUser.email,
-    "id, company_id"
-  );
-  if (!user?.id || !user.company_id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const [canViewInbox, canViewCompany, canViewPipeline] = await Promise.all([
-    checkPermissionById(user.id as string, "inbox.view"),
-    checkPermissionById(user.id as string, "inbox.view_company"),
-    checkPermissionById(user.id as string, "pipeline.view"),
-  ]);
-  if (!canViewInbox && !canViewPipeline) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const supabase = getServiceRoleClient();
   const { data, error } = await supabase
     .from("email_attachments")
     .select(
-      "id, company_id, connection_id, opportunity_id, filename, mime_type, detected_mime_type, storage_backend, storage_path, ingest_status, attribution_status"
+      "id, company_id, connection_id, provider_thread_id, opportunity_id, filename, mime_type, detected_mime_type, storage_backend, storage_path, ingest_status, attribution_status"
     )
     .eq("id", attachmentId)
-    .eq("company_id", user.company_id as string)
+    .eq("company_id", actor.companyId)
     .maybeSingle();
 
   if (error) {
@@ -103,36 +83,36 @@ export async function GET(request: NextRequest) {
     return unavailable();
   }
 
-  const canViewAttributedLeadFile =
-    canViewPipeline &&
-    attachment.attribution_status === "attributed" &&
-    Boolean(attachment.opportunity_id);
-  if (!canViewAttributedLeadFile) {
-    if (!canViewInbox) {
-      return unavailable();
-    }
+  const { data: threadRow, error: threadError } = await supabase
+    .from("email_threads")
+    .select("id")
+    .eq("company_id", actor.companyId)
+    .eq("connection_id", attachment.connection_id)
+    .eq("provider_thread_id", attachment.provider_thread_id)
+    .maybeSingle();
+  if (threadError) {
+    console.error("[email-attachment] canonical thread lookup failed", {
+      attachmentId,
+      error: threadError.message,
+    });
+    return NextResponse.json(
+      { error: "Failed to load attachment" },
+      { status: 500 }
+    );
+  }
+  if (!threadRow?.id) return unavailable();
 
-    try {
-      const canAccessMailbox = await canAccessEmailMailbox({
-        supabase,
-        companyId: user.company_id as string,
-        userId: user.id as string,
-        connectionId: attachment.connection_id,
-        canViewCompany,
-      });
-      if (!canAccessMailbox) {
-        return unavailable();
-      }
-    } catch (mailboxError) {
-      console.error("[email-attachment] mailbox authorization failed", {
-        attachmentId,
-        error: (mailboxError as Error).message,
-      });
-      return NextResponse.json(
-        { error: "Failed to load attachment" },
-        { status: 500 }
-      );
-    }
+  const access = await resolveEmailOpportunityAccess({
+    actor,
+    operation: "read",
+    threadId: threadRow.id as string,
+    connectionId: attachment.connection_id,
+    providerThreadId: attachment.provider_thread_id,
+    opportunityId: attachment.opportunity_id ?? undefined,
+    supabase,
+  });
+  if (!access.allowed) {
+    return unavailable();
   }
 
   const { data: storedFile, error: downloadError } = await supabase.storage

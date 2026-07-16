@@ -18,6 +18,7 @@ import {
   planAttachmentInspections,
 } from "@/lib/api/services/conversation-state/attachment-inspector";
 import { fetchOperatorIdentity } from "@/lib/api/services/conversation-state/operator-identity";
+import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-health";
 import type {
   EmailConnection,
   SyncProfile,
@@ -912,18 +913,10 @@ async function markConnectionNeedsReconnect(
   supabase: SupabaseClient,
   connection: EmailConnection
 ): Promise<void> {
-  const { error } = await supabase.rpc(
-    "mark_email_attachment_connection_needs_reconnect",
-    {
-      p_connection_id: connection.id,
-      p_company_id: connection.companyId,
-    }
-  );
-  if (error) {
-    throw new Error(
-      `Attachment mailbox reconnect transition failed: ${error.message}`
-    );
-  }
+  await markEmailConnectionNeedsReconnect({
+    connectionId: connection.id,
+    supabase,
+  });
 }
 
 export async function ingestExactActivityAttachments(
@@ -986,15 +979,7 @@ export async function ingestExactActivityAttachments(
           availableAt: new Date(Date.now() + 60_000),
         });
       } else {
-        await notifyAttachmentCopyExceptions(
-          supabase,
-          connection,
-          {
-            id: inlineScan.id,
-            providerThreadId: inlineScan.providerThreadId,
-          },
-          result
-        );
+        await notifyAttachmentCopyExceptions(supabase, inlineScan.id, result);
         await scanStore.markComplete(inlineScan, inlineWorkerId);
       }
     }
@@ -1039,8 +1024,7 @@ export async function ingestExactActivityAttachments(
 
 export async function notifyAttachmentCopyExceptions(
   supabase: SupabaseClient,
-  connection: EmailConnection,
-  scan: { id: string; providerThreadId: string },
+  scanId: string,
   result: AttachmentIngestionResult
 ): Promise<void> {
   const exceptionCount =
@@ -1050,33 +1034,10 @@ export async function notifyAttachmentCopyExceptions(
     result.failed;
   if (exceptionCount === 0) return;
 
-  const { data: thread, error: threadError } = await supabase
-    .from("email_threads")
-    .select("id")
-    .eq("company_id", connection.companyId)
-    .eq("connection_id", connection.id)
-    .eq("provider_thread_id", scan.providerThreadId)
-    .maybeSingle();
-  if (threadError) {
-    throw new Error(
-      `Attachment notification thread lookup failed: ${threadError.message}`
-    );
-  }
-  const threadId = (thread?.id as string | undefined) ?? null;
-  const actionUrl = threadId
-    ? `/inbox/${encodeURIComponent(threadId)}`
-    : "/inbox";
-  const fileLabel = exceptionCount === 1 ? "file" : "files";
   const { error } = await supabase.rpc(
-    "notify_email_attachment_scan_exception",
+    "notify_email_attachment_scan_exception_as_system",
     {
-      p_scan_id: scan.id,
-      p_company_id: connection.companyId,
-      p_user_id: connection.userId,
-      p_title: "Email files need review",
-      p_body: `OPS couldn't copy ${exceptionCount} ${fileLabel} from this email. Open the thread to review ${exceptionCount === 1 ? "it" : "them"}.`,
-      p_action_url: actionUrl,
-      p_action_label: "Review thread",
+      p_scan_id: scanId,
     }
   );
   if (error) {
@@ -1167,12 +1128,7 @@ export async function runSupabaseEmailAttachmentWorker(
             messageId: scan.messageId,
           }
         );
-        await notifyAttachmentCopyExceptions(
-          supabase,
-          connection,
-          { id: scan.id, providerThreadId: scan.providerThreadId },
-          result
-        );
+        await notifyAttachmentCopyExceptions(supabase, scan.id, result);
         return result;
       },
     },

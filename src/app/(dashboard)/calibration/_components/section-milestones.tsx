@@ -3,8 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
-import { useAuthStore } from "@/lib/store/auth-store";
-import { getSupabaseClient } from "@/lib/supabase/client";
 import { useCalibrationDeck } from "./hooks/use-calibration-deck";
 import { SectionBreadcrumb } from "./section-breadcrumb";
 import { CAL_EASE } from "@/lib/utils/calibration-motion";
@@ -49,67 +47,38 @@ const LADDER_STATUS_KEY: Record<LadderPosition["status"], string> = {
 export function SectionMilestones() {
   const { t } = useDictionary("calibration");
   const { data: deck } = useCalibrationDeck();
-  const company = useAuthStore((s) => s.company);
-  const companyId = company?.id ?? "";
   const [pulsePosition, setPulsePosition] = useState<number | null>(null);
-  const lastMilestonesRef = useRef<Record<string, boolean>>({});
+  const lastLadderRef = useRef<Partial<
+    Record<LadderPosition["position"], LadderPosition["status"]>
+  > | null>(null);
 
-  // Supabase realtime — pulse the ladder row when its milestone flips true.
+  // The deck hook polls the authenticated server route. Compare successive
+  // actor-scoped projections so this browser never subscribes to the
+  // credential-bearing connection table or a different user's milestone row.
   useEffect(() => {
-    if (!companyId) return;
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
+    if (!deck) return;
 
-    const channel = supabase
-      .channel(`calibration-milestones-${companyId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "email_connections",
-          filter: `company_id=eq.${companyId}`,
-        },
-        (payload) => {
-          const row = payload.new as Record<string, unknown>;
-          const settings = (row.auto_send_settings ?? {}) as Record<
-            string,
-            unknown
-          >;
-          const milestones = (settings.milestones ?? {}) as Record<
-            string,
-            boolean
-          >;
+    const current = Object.fromEntries(
+      deck.milestones.ladder.map((row) => [row.position, row.status])
+    ) as Partial<Record<LadderPosition["position"], LadderPosition["status"]>>;
+    const previous = lastLadderRef.current;
+    lastLadderRef.current = current;
+    if (!previous) return;
 
-          const prev = lastMilestonesRef.current;
-          if (
-            !prev.draft_available_shown &&
-            milestones.draft_available_shown
-          ) {
-            setPulsePosition(3);
-          } else if (
-            !prev.auto_draft_suggested &&
-            milestones.auto_draft_suggested
-          ) {
-            setPulsePosition(4);
-          } else if (
-            !prev.auto_send_suggested &&
-            milestones.auto_send_suggested
-          ) {
-            setPulsePosition(8);
-          }
-          lastMilestonesRef.current = milestones;
+    const completed = deck.milestones.ladder.find(
+      (row) =>
+        row.persistent &&
+        row.status === "complete" &&
+        previous[row.position] !== "complete"
+    );
+    if (completed) setPulsePosition(completed.position);
+  }, [deck]);
 
-          // Clear pulse after the one-beat animation completes.
-          setTimeout(() => setPulsePosition(null), 900);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [companyId]);
+  useEffect(() => {
+    if (pulsePosition === null) return;
+    const timeout = setTimeout(() => setPulsePosition(null), 900);
+    return () => clearTimeout(timeout);
+  }, [pulsePosition]);
 
   if (!deck) return null;
 

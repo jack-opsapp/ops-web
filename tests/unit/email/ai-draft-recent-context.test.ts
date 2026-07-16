@@ -13,12 +13,35 @@ interface TestDatabase {
 
 let database: TestDatabase;
 
-const { openAICreateMock, buildConversationStateMock, getProfileMock } =
-  vi.hoisted(() => ({
-    openAICreateMock: vi.fn(),
-    buildConversationStateMock: vi.fn(),
-    getProfileMock: vi.fn(),
-  }));
+const {
+  openAICreateMock,
+  buildConversationStateMock,
+  getProfileMock,
+  phaseCEnabledMock,
+  getMemoryContextMock,
+  getCompanyContextMock,
+  getClientContextMock,
+  getPricingContextMock,
+  getProjectContextMock,
+  getPricingOptimizationMock,
+  getSeasonalPatternsMock,
+  getCashFlowProjectionMock,
+  checkPermissionByIdMock,
+} = vi.hoisted(() => ({
+  openAICreateMock: vi.fn(),
+  buildConversationStateMock: vi.fn(),
+  getProfileMock: vi.fn(),
+  phaseCEnabledMock: vi.fn(),
+  getMemoryContextMock: vi.fn(),
+  getCompanyContextMock: vi.fn(),
+  getClientContextMock: vi.fn(),
+  getPricingContextMock: vi.fn(),
+  getProjectContextMock: vi.fn(),
+  getPricingOptimizationMock: vi.fn(),
+  getSeasonalPatternsMock: vi.fn(),
+  getCashFlowProjectionMock: vi.fn(),
+  checkPermissionByIdMock: vi.fn(),
+}));
 
 vi.mock("@/lib/api/services/openai-clients", () => ({
   getDraftingOpenAI: () => ({
@@ -35,8 +58,33 @@ vi.mock("@/lib/api/services/writing-profile-service", () => ({
 
 vi.mock("@/lib/api/services/admin-feature-override-service", () => ({
   AdminFeatureOverrideService: {
-    isAIFeatureEnabled: vi.fn(async () => false),
+    isAIFeatureEnabled: phaseCEnabledMock,
   },
+}));
+
+vi.mock("@/lib/api/services/memory-service", () => ({
+  MemoryService: { getContextForDraft: getMemoryContextMock },
+}));
+
+vi.mock("@/lib/api/services/business-context-service", () => ({
+  BusinessContextService: {
+    getCompanyContext: getCompanyContextMock,
+    getClientContext: getClientContextMock,
+    getPricingContext: getPricingContextMock,
+    getProjectContext: getProjectContextMock,
+  },
+}));
+
+vi.mock("@/lib/api/services/financial-intelligence-service", () => ({
+  FinancialIntelligenceService: {
+    getPricingOptimization: getPricingOptimizationMock,
+    getSeasonalPatterns: getSeasonalPatternsMock,
+    getCashFlowProjection: getCashFlowProjectionMock,
+  },
+}));
+
+vi.mock("@/lib/supabase/check-permission", () => ({
+  checkPermissionById: checkPermissionByIdMock,
 }));
 
 vi.mock("@/lib/api/services/conversation-state/conversation-state", () => ({
@@ -183,6 +231,16 @@ function latestUserPrompt(): string {
   );
 }
 
+function latestSystemPrompt(): string {
+  const request = openAICreateMock.mock.calls.at(-1)?.[0] as
+    | { messages?: Array<{ role: string; content: string }> }
+    | undefined;
+  return (
+    request?.messages?.find((message) => message.role === "system")?.content ??
+    ""
+  );
+}
+
 beforeEach(() => {
   database = {
     tables: {
@@ -212,6 +270,27 @@ beforeEach(() => {
     vocabulary_preferences: {},
     subject_preferences: {},
   });
+  phaseCEnabledMock.mockResolvedValue(false);
+  checkPermissionByIdMock.mockResolvedValue(false);
+  getMemoryContextMock.mockResolvedValue({
+    relevantFacts: [],
+    clientHistory: [],
+    currentPromotions: [],
+    pricingReferences: [],
+  });
+  getCompanyContextMock.mockResolvedValue({
+    companyName: "Unknown",
+    summary: "",
+  });
+  getClientContextMock.mockResolvedValue({ found: false, summary: "" });
+  getPricingContextMock.mockResolvedValue({ services: [], summary: "" });
+  getProjectContextMock.mockResolvedValue({ found: false, summary: "" });
+  getPricingOptimizationMock.mockResolvedValue({ serviceAnalysis: [] });
+  getSeasonalPatternsMock.mockResolvedValue({
+    peakMonths: [],
+    slowMonths: [],
+  });
+  getCashFlowProjectionMock.mockResolvedValue({ outstanding: 0, overdue: 0 });
 });
 
 describe("AIDraftService recent mailbox context", () => {
@@ -335,6 +414,7 @@ describe("AIDraftService recent mailbox context", () => {
     database.tables.opportunities = [
       {
         id: "opportunity-1",
+        company_id: "company-1",
         title: "Warehouse deck replacement",
         ai_summary: null,
         stage: "new",
@@ -470,5 +550,188 @@ describe("AIDraftService recent mailbox context", () => {
         (_, index) => `CONTENT_${String(index + 11).padStart(2, "0")}_END`
       )
     );
+  });
+
+  it("uses canonical lead identity and withholds unrelated business corpora from an assigned actor", async () => {
+    phaseCEnabledMock.mockResolvedValue(true);
+    database.tables.companies = [
+      {
+        id: "company-1",
+        name: "Canpro",
+        description: "Deck and renovation specialists",
+        address: "1515 Douglas Street",
+        phone: "250-555-0100",
+        email: "office@canpro.example",
+        website: "https://canpro.example",
+        internal_financial_secret: "UNRELATED_COMPANY_FINANCIAL_SECRET",
+      },
+    ];
+    database.tables.opportunities = [
+      {
+        id: "opportunity-canonical",
+        company_id: "company-foreign",
+        title: "FOREIGN_COMPANY_LEAD",
+        ai_summary: "FOREIGN_COMPANY_SUMMARY",
+        stage: "quoting",
+        address: "999 Foreign Road",
+        contact_name: "Foreign Client",
+        contact_email: "foreign@example.com",
+        clients: { name: "Foreign Company", email: "foreign@example.com" },
+      },
+      {
+        id: "opportunity-canonical",
+        company_id: "company-1",
+        title: "Exact assigned inquiry",
+        ai_summary: "Replace the exact lead's cedar stairs",
+        stage: "quoting",
+        address: "18 Cedar Road",
+        contact_name: "Jordan Lee",
+        contact_email: "jordan@example.com",
+        clients: { name: "North Shore", email: "office@northshore.example" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        company_id: "company-1",
+        email_connection_id: "connection-canonical",
+        email_thread_id: "provider-thread-canonical",
+        type: "email",
+        direction: "inbound",
+        from_email: "jordan@example.com",
+        subject: "Cedar stair quote",
+        body_text: "EXACT_LEAD_MESSAGE Please price the cedar stairs.",
+        created_at: "2026-07-15T10:00:00.000Z",
+        email_message_id: "message-canonical",
+      },
+    ];
+    database.tables.email_threads = [
+      {
+        id: "thread-canonical",
+        company_id: "company-1",
+        connection_id: "connection-canonical",
+        provider_thread_id: "provider-thread-canonical",
+      },
+    ];
+    getMemoryContextMock.mockResolvedValue({
+      relevantFacts: [
+        {
+          id: "memory-exact",
+          type: "fact",
+          category: "limitation",
+          content: "EXACT_ACTOR_MEMORY",
+          confidence: 1,
+          source: "email",
+        },
+      ],
+      clientHistory: [],
+      currentPromotions: [],
+      pricingReferences: [],
+    });
+    getCompanyContextMock.mockResolvedValue({
+      companyName: "Canpro",
+      summary: "UNRELATED_COMPANY_TEAM_AND_PROJECT_STATS",
+    });
+    getClientContextMock.mockResolvedValue({
+      found: true,
+      summary: "UNRELATED_CLIENT_FINANCIAL_HISTORY",
+      invoices: { overdue: 3, overdueAmount: 42000 },
+    });
+    getPricingContextMock.mockResolvedValue({
+      services: [{ serviceName: "Private rate" }],
+      summary: "UNRELATED_COMPANY_PRICING_CORPUS",
+    });
+    getProjectContextMock.mockResolvedValue({
+      found: true,
+      summary: "UNRELATED_PROJECT_FINANCIALS",
+    });
+    getPricingOptimizationMock.mockResolvedValue({
+      serviceAnalysis: [
+        {
+          service: "Private service",
+          winRate: 90,
+          avgWinPrice: 50000,
+        },
+      ],
+    });
+    getCashFlowProjectionMock.mockResolvedValue({
+      outstanding: 750000,
+      overdue: 250000,
+    });
+
+    const emailAccess = {
+      allowed: true as const,
+      actor: { userId: "user-1", companyId: "company-1" },
+      operation: "send" as const,
+      threadId: "thread-canonical",
+      connectionId: "connection-canonical",
+      providerThreadId: "provider-thread-canonical",
+      opportunityId: "opportunity-canonical",
+      connectionType: "company" as const,
+      connectionOwnerId: null,
+      pipelineScope: "assigned" as const,
+      inboxScope: "assigned" as const,
+      usedLegacyPipelineManage: false,
+      usedLegacyInboxViewCompany: false,
+    };
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-spoofed",
+      userId: "user-spoofed",
+      connectionId: "connection-spoofed",
+      opportunityId: "opportunity-spoofed",
+      threadId: "provider-thread-spoofed",
+      recipientEmail: "unrelated-client@example.com",
+      recipientName: "Unrelated Client",
+      userInstruction: "Reply about the assigned quote",
+      emailAccess,
+    });
+
+    expect(result.available).toBe(true);
+    const prompt = `${latestSystemPrompt()}\n${latestUserPrompt()}`;
+    expect(prompt).toContain("EXACT_LEAD_MESSAGE");
+    expect(prompt).toContain("Exact assigned inquiry");
+    expect(prompt).toContain("EXACT_ACTOR_MEMORY");
+    expect(prompt).toContain("Company: Canpro");
+    expect(prompt).toContain("Location: 1515 Douglas Street");
+    expect(prompt).not.toContain("unrelated-client@example.com");
+    expect(prompt).not.toContain("FOREIGN_COMPANY_LEAD");
+    expect(prompt).not.toContain("UNRELATED_CLIENT_FINANCIAL_HISTORY");
+    expect(prompt).not.toContain("UNRELATED_COMPANY_PRICING_CORPUS");
+    expect(prompt).not.toContain("UNRELATED_PROJECT_FINANCIALS");
+    expect(prompt).not.toContain("750000");
+    expect(prompt).not.toContain("UNRELATED_COMPANY_FINANCIAL_SECRET");
+    expect(getMemoryContextMock).toHaveBeenCalledWith(
+      "company-1",
+      "jordan@example.com",
+      expect.stringContaining("Exact assigned inquiry"),
+      {
+        actorUserId: "user-1",
+        exactSourceIds: ["provider-thread-canonical", "message-canonical"],
+        includeClientHistory: false,
+      }
+    );
+    expect(getClientContextMock).not.toHaveBeenCalled();
+    expect(getPricingContextMock).not.toHaveBeenCalled();
+    expect(getProjectContextMock).not.toHaveBeenCalled();
+    expect(getPricingOptimizationMock).not.toHaveBeenCalled();
+    expect(getSeasonalPatternsMock).not.toHaveBeenCalled();
+    expect(getCashFlowProjectionMock).not.toHaveBeenCalled();
+    expect(checkPermissionByIdMock).toHaveBeenCalledWith(
+      "user-1",
+      "projects.view_financials",
+      "all"
+    );
+    expect(checkPermissionByIdMock).not.toHaveBeenCalledWith(
+      "user-spoofed",
+      expect.any(String),
+      expect.any(String)
+    );
+    expect(database.inserts.at(-1)?.payload).toMatchObject({
+      company_id: "company-1",
+      user_id: "user-1",
+      connection_id: "connection-canonical",
+      opportunity_id: "opportunity-canonical",
+      thread_id: "provider-thread-canonical",
+    });
   });
 });

@@ -21,7 +21,6 @@ import { ImportProgress } from "./wizard-steps/import-progress";
 import { ActivateStep } from "./wizard-steps/activate-step";
 import { StepperRail } from "./wizard-steps/stepper-rail";
 import { buildConsolidationGroups } from "./wizard-steps/consolidation-utils";
-import { useCreateNotification } from "@/lib/hooks/use-notifications";
 import { useDashboardCustomizeStore } from "@/stores/dashboard-customize-store";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
@@ -277,11 +276,6 @@ export function ImportPipelineWizard({
   const bgNameIndexRef = useRef(0);
   const bgPollRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ─── Notification system ───────────────────────────────────────────────────
-  const notify = useCreateNotification();
-  const notifyRef = useRef(notify);
-  notifyRef.current = notify;
-
   // ─── Cycle discovered names on minimized card ──────────────────────────────
   useEffect(() => {
     if (!minimized || bgDiscoveredNames.length === 0) return;
@@ -349,7 +343,7 @@ export function ImportPipelineWizard({
 
     const checkWizardState = async () => {
       try {
-        const res = await fetch(
+        const res = await authedFetch(
           `/api/integrations/email/connection?id=${initialConnectionId}`
         );
         if (!res.ok) return;
@@ -507,16 +501,6 @@ export function ImportPipelineWizard({
           const jobData = await jobRes.json();
 
           if (jobData.status === "complete" && jobData.result) {
-            notifyRef.current({
-              type: "pipeline_complete",
-              title: t("wizard.notify.analysisAwayTitle"),
-              body: t("wizard.notify.foundLeads", {
-                leads: jobData.result.leads?.length ?? 0,
-                emails: jobData.result.totalScanned ?? 0,
-              }),
-              actionUrl: "/settings?tab=integrations",
-              actionLabel: t("wizard.notify.reviewLeads"),
-            });
             setAnalysisResult(jobData.result);
             setConfirmedSources(jobData.result.detectedSources);
             setConfirmedLeads(jobData.result.leads);
@@ -776,16 +760,6 @@ export function ImportPipelineWizard({
           setBgProgress({ percent: 100, message: t("analyze.stage.complete") });
           invalidateConnections();
 
-          notifyRef.current({
-            type: "pipeline_complete",
-            title: t("wizard.notify.analysisCompleteTitle"),
-            body: t("wizard.notify.foundLeads", {
-              leads: data.result.leads?.length ?? 0,
-              emails: data.result.totalScanned ?? 0,
-            }),
-            actionUrl: "/settings?tab=integrations",
-            actionLabel: t("wizard.notify.reviewLeads"),
-          });
           // Auto-reopen wizard to review step
           setMinimized(false);
           setDirection(1);
@@ -810,16 +784,6 @@ export function ImportPipelineWizard({
           });
           invalidateConnections();
 
-          notifyRef.current({
-            type: "pipeline_complete",
-            title: t("wizard.notify.importCompleteTitle"),
-            body: t("wizard.notify.importCompleteBody", {
-              clients: data.result.clientsCreated,
-              leads: data.result.leadsCreated,
-            }),
-            actionUrl: "/settings?tab=integrations",
-            actionLabel: t("wizard.notify.activateSync"),
-          });
           // Auto-reopen wizard to activation step
           setMinimized(false);
           setDirection(1);

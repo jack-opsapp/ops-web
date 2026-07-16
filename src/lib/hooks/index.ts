@@ -306,9 +306,6 @@ export {
 // Gmail Import
 export { useGmailImport, useImportHistory } from "./use-gmail-import";
 
-// Gmail Sync Notifications
-export { useGmailSyncNotifications } from "./use-gmail-sync-notifications";
-
 // Roles & Permissions
 export {
   useRoles,

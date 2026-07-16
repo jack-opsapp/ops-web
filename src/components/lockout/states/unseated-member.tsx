@@ -18,11 +18,6 @@ export function UnseatedMemberState({ variant }: UnseatedMemberStateProps) {
   const currentUser = useAuthStore((s) => s.currentUser);
   const admins = useAdminNames(company?.adminIds);
 
-  const userName = currentUser
-    ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") ||
-      "A team member"
-    : "A team member";
-
   const noAdmins = (company?.adminIds?.length ?? 0) === 0;
 
   return (
@@ -36,7 +31,7 @@ export function UnseatedMemberState({ variant }: UnseatedMemberStateProps) {
     >
       {noAdmins ? (
         <>
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-3">
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             <span className="text-text-mute">SYS :: </span>
             {t("lockout.shared.noAdmins").toUpperCase()}
           </p>
@@ -45,7 +40,7 @@ export function UnseatedMemberState({ variant }: UnseatedMemberStateProps) {
               {t("lockout.shared.noAdminsCta")}
             </Button>
           </a>
-          <p className="font-mohave text-[13px] text-text-3 mt-3">
+          <p className="mt-3 font-mohave text-[13px] text-text-3">
             {t("lockout.shared.noAdminsBody")}
           </p>
         </>
@@ -55,12 +50,10 @@ export function UnseatedMemberState({ variant }: UnseatedMemberStateProps) {
           <RequestButton
             reason="unseated"
             userId={currentUser?.id ?? ""}
-            companyId={company?.id ?? ""}
-            userName={userName}
             adminIds={company?.adminIds ?? []}
             ctaKey="lockout.unseatedMember.cta"
           />
-          <p className="font-mohave text-[13px] text-text-3 mt-3">
+          <p className="mt-3 font-mohave text-[13px] text-text-3">
             {t("lockout.unseatedMember.explainer")}
           </p>
         </>

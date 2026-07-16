@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, GET, POST } from "@/app/api/inbox/drafts/route";
 
 const {
+  buildEmailThreadListAuthorizationFilterMock,
   checkPermissionByIdMock,
   findUserByAuthMock,
   getConnectionMock,
@@ -10,10 +11,14 @@ const {
   getProviderMock,
   getServiceRoleClientMock,
   loadKnownEmailSignaturesForMessageMock,
+  resolveEmailInboxListAccessMock,
+  resolveEmailOpportunityAccessMock,
+  resolveEmailRouteActorMock,
   resolveEmailSignatureForMessageMock,
   runWithSupabaseMock,
   verifyAdminAuthMock,
 } = vi.hoisted(() => ({
+  buildEmailThreadListAuthorizationFilterMock: vi.fn(),
   checkPermissionByIdMock: vi.fn(),
   findUserByAuthMock: vi.fn(),
   getConnectionMock: vi.fn(),
@@ -21,9 +26,23 @@ const {
   getProviderMock: vi.fn(),
   getServiceRoleClientMock: vi.fn(),
   loadKnownEmailSignaturesForMessageMock: vi.fn(),
+  resolveEmailInboxListAccessMock: vi.fn(),
+  resolveEmailOpportunityAccessMock: vi.fn(),
+  resolveEmailRouteActorMock: vi.fn(),
   resolveEmailSignatureForMessageMock: vi.fn(),
   runWithSupabaseMock: vi.fn(async (_supabase, fn) => fn()),
   verifyAdminAuthMock: vi.fn(),
+}));
+
+vi.mock("@/lib/email/email-route-auth", () => ({
+  resolveEmailRouteActor: resolveEmailRouteActorMock,
+}));
+
+vi.mock("@/lib/email/email-opportunity-access", () => ({
+  buildEmailThreadListAuthorizationFilter:
+    buildEmailThreadListAuthorizationFilterMock,
+  resolveEmailInboxListAccess: resolveEmailInboxListAccessMock,
+  resolveEmailOpportunityAccess: resolveEmailOpportunityAccessMock,
 }));
 
 vi.mock("@/lib/email/email-signature-runtime", async () => {
@@ -217,6 +236,24 @@ function makeDraftRows(count: number) {
 
 describe("/api/inbox/drafts lifecycle drafts", () => {
   beforeEach(() => {
+    buildEmailThreadListAuthorizationFilterMock.mockReturnValue({
+      empty: false,
+    });
+    resolveEmailRouteActorMock.mockResolvedValue({
+      ok: true,
+      actor: { userId: "user-1", companyId: "company-1" },
+    });
+    resolveEmailInboxListAccessMock.mockResolvedValue({
+      allowed: true,
+      actor: { userId: "user-1", companyId: "company-1" },
+      inboxScope: "all",
+      pipelineScope: "all",
+      ownPersonalConnectionIds: [],
+      assignedOpportunityIds: [],
+      usedLegacyPipelineManage: false,
+      usedLegacyInboxViewCompany: false,
+    });
+    resolveEmailOpportunityAccessMock.mockResolvedValue({ allowed: true });
     verifyAdminAuthMock.mockResolvedValue({
       uid: "auth-1",
       email: "operator@example.com",
@@ -261,7 +298,14 @@ describe("/api/inbox/drafts lifecycle drafts", () => {
   it("keeps provider-rendered signatures out of composer state and appends once on autosave", async () => {
     const state: DraftRouteState = {
       ai_draft_history: [],
-      email_threads: [],
+      email_threads: [
+        {
+          id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+        },
+      ],
       opportunity_follow_up_drafts: [],
     };
     const provider = {

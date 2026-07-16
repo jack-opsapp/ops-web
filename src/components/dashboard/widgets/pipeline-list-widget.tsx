@@ -283,6 +283,9 @@ function PipelineInlineActions({
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeText, setComposeText] = useState("");
   const [sending, setSending] = useState(false);
+  const sendAttemptRef = useRef<{ key: string; fingerprint: string } | null>(
+    null
+  );
 
   const activeConnection = connections?.find((c) => c.status === "active");
   const followUpTemplate = templates?.find(
@@ -319,12 +322,26 @@ function PipelineInlineActions({
       if (!activeConnection || !opportunity.contactEmail || !company) return;
       setSending(true);
       try {
+        const attemptFingerprint = JSON.stringify({
+          connectionId: activeConnection.id,
+          opportunityId: opportunity.id,
+          to: opportunity.contactEmail,
+          subject,
+          body,
+        });
+        const idempotencyKey =
+          sendAttemptRef.current?.fingerprint === attemptFingerprint
+            ? sendAttemptRef.current.key
+            : globalThis.crypto.randomUUID();
+        sendAttemptRef.current = {
+          key: idempotencyKey,
+          fingerprint: attemptFingerprint,
+        };
         const res = await authedFetch("/api/integrations/email/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: user?.id,
-            companyId: company.id,
+            idempotencyKey,
             connectionId: activeConnection.id,
             to: [opportunity.contactEmail],
             subject,
@@ -333,7 +350,19 @@ function PipelineInlineActions({
             opportunityId: opportunity.id,
           }),
         });
-        if (!res.ok) throw new Error("Send failed");
+        const result = await res.json().catch(() => ({}));
+        if (
+          !res.ok ||
+          (result as { deliveryUnknown?: boolean }).deliveryUnknown ||
+          (result as { delivered?: boolean }).delivered === false
+        ) {
+          throw new Error(
+            (result as { message?: string }).message ??
+              (result as { error?: string }).error ??
+              "Send failed"
+          );
+        }
+        sendAttemptRef.current = null;
 
         const recipientName =
           opportunity.contactName ??
@@ -362,8 +391,12 @@ function PipelineInlineActions({
             });
           },
         });
-      } catch {
-        toast.error(t("pipelineList.sendFailed") ?? "Failed to send follow-up");
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : (t("pipelineList.sendFailed") ?? "Failed to send follow-up")
+        );
       } finally {
         setSending(false);
         setComposeOpen(false);

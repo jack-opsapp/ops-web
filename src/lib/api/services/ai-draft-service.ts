@@ -15,6 +15,7 @@ import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { BusinessContextService } from "./business-context-service";
 import { FinancialIntelligenceService } from "./financial-intelligence-service";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
+import { getHumanDraftAccuracy } from "./phase-c-draft-accuracy-service";
 import { getDraftingOpenAI } from "./openai-clients";
 import { buildConversationState } from "./conversation-state/conversation-state";
 import {
@@ -32,6 +33,8 @@ import {
   normalizeReplySubject,
   type NewThreadSubjectSource,
 } from "@/lib/email/email-subject-policy";
+import type { AllowedEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
 
 function getOpenAI() {
   return getDraftingOpenAI();
@@ -180,6 +183,12 @@ export interface AIDraftRequest {
    * 'phase_c'; the compose path passes 'operator'. Omitted → NULL (legacy).
    */
   origin?: "operator" | "template_follow_up" | "phase_c" | "system_handoff";
+  /**
+   * Canonical server-side projection returned by resolveEmailOpportunityAccess.
+   * When present, every mailbox/thread/lead/actor identity below is treated as
+   * untrusted compatibility input and this projection wins.
+   */
+  emailAccess?: AllowedEmailOpportunityAccess;
 }
 
 export interface AIDraftResult {
@@ -248,6 +257,80 @@ export interface EscalationResult {
   question?: string;
   options?: Array<{ id: string; label: string }>;
   reason?: string;
+}
+
+interface AIDraftPromptContextPermissions {
+  clientHistory: boolean;
+  pricingCorpus: boolean;
+  financialCorpus: boolean;
+  projectCorpus: boolean;
+}
+
+const NO_BROAD_PROMPT_CONTEXT: AIDraftPromptContextPermissions = {
+  clientHistory: false,
+  pricingCorpus: false,
+  financialCorpus: false,
+  projectCorpus: false,
+};
+
+async function resolveAIDraftPromptContextPermissions(
+  actorUserId: string
+): Promise<AIDraftPromptContextPermissions> {
+  try {
+    const [
+      clientsAll,
+      projectsAll,
+      projectFinancials,
+      estimatesAll,
+      invoicesAll,
+    ] = await Promise.all([
+      checkPermissionById(actorUserId, "clients.view", "all"),
+      checkPermissionById(actorUserId, "projects.view", "all"),
+      checkPermissionById(actorUserId, "projects.view_financials", "all"),
+      checkPermissionById(actorUserId, "estimates.view", "all"),
+      checkPermissionById(actorUserId, "invoices.view", "all"),
+    ]);
+
+    return {
+      clientHistory:
+        clientsAll &&
+        projectsAll &&
+        projectFinancials &&
+        estimatesAll &&
+        invoicesAll,
+      pricingCorpus: projectFinancials && estimatesAll,
+      financialCorpus: projectFinancials && estimatesAll && invoicesAll,
+      projectCorpus:
+        projectsAll && projectFinancials && estimatesAll && invoicesAll,
+    };
+  } catch (error) {
+    console.error("[ai-draft] prompt context permission lookup failed", error);
+    return NO_BROAD_PROMPT_CONTEXT;
+  }
+}
+
+/** Safe company identity excludes team, project, pricing, and finance data. */
+async function loadSafeCompanyIdentityContext(
+  companyId: string
+): Promise<string> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from("companies")
+    .select("name, description, address, phone, email, website")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (error || !data) return "";
+
+  return [
+    data.name ? `Company: ${String(data.name)}` : "",
+    data.description ? `About: ${String(data.description).slice(0, 200)}` : "",
+    data.address ? `Location: ${String(data.address)}` : "",
+    data.phone ? `Phone: ${String(data.phone)}` : "",
+    data.email ? `Email: ${String(data.email)}` : "",
+    data.website ? `Website: ${String(data.website)}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -734,16 +817,17 @@ export const AIDraftService = {
    */
   async generateDraft(req: AIDraftRequest): Promise<AIDraftResult> {
     const supabase = requireSupabase();
-    const {
-      companyId,
-      userId,
-      connectionId,
-      opportunityId,
-      threadId,
-      recipientEmail,
-      recipientName,
-      userInstruction,
-    } = req;
+    const emailAccess = req.emailAccess;
+    const companyId = emailAccess?.actor.companyId ?? req.companyId;
+    const userId = emailAccess?.actor.userId ?? req.userId;
+    const connectionId = emailAccess?.connectionId ?? req.connectionId;
+    const opportunityId = emailAccess?.opportunityId ?? req.opportunityId;
+    const threadId = emailAccess?.providerThreadId ?? req.threadId;
+    // A recipient supplied before authorization is never identity evidence.
+    // Canonical paths derive it from the linked opportunity/conversation.
+    const recipientEmail = emailAccess ? undefined : req.recipientEmail;
+    const recipientName = emailAccess ? undefined : req.recipientName;
+    const { userInstruction } = req;
 
     // ── Fetch thread messages for context ───────────────────────────────
     let threadMessages: Array<{
@@ -790,6 +874,7 @@ export const AIDraftService = {
           "title, ai_summary, stage, address, contact_name, contact_email, clients!inner(name, email)"
         )
         .eq("id", opportunityId)
+        .eq("company_id", companyId)
         .single();
 
       if (opp) {
@@ -831,14 +916,17 @@ export const AIDraftService = {
     let convRoutingReasons: string[] = [];
     if (threadId) {
       try {
-        const { data: threadRow } = await supabase
-          .from("email_threads")
-          .select("id")
-          .eq("company_id", companyId)
-          .eq("connection_id", connectionId)
-          .eq("provider_thread_id", threadId)
-          .maybeSingle();
-        const internalThreadId = (threadRow?.id as string | undefined) ?? null;
+        let internalThreadId = emailAccess?.threadId ?? null;
+        if (!internalThreadId) {
+          const { data: threadRow } = await supabase
+            .from("email_threads")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("connection_id", connectionId)
+            .eq("provider_thread_id", threadId)
+            .maybeSingle();
+          internalThreadId = (threadRow?.id as string | undefined) ?? null;
+        }
         if (internalThreadId) {
           const convState = await buildConversationState(internalThreadId);
           if (convState) {
@@ -923,6 +1011,14 @@ export const AIDraftService = {
     let projectContextBlock = "";
     let financialContextBlock = "";
     const sources: string[] = ["writing_profile"];
+    const broadContextPermissions = emailAccess
+      ? await resolveAIDraftPromptContextPermissions(userId)
+      : {
+          clientHistory: true,
+          pricingCorpus: true,
+          financialCorpus: true,
+          projectCorpus: true,
+        };
 
     try {
       const phaseCEnabled =
@@ -933,11 +1029,30 @@ export const AIDraftService = {
       if (phaseCEnabled) {
         // ── Semantic memory context ──────────────────────────────────────
         if (clientEmail) {
-          const mem = await MemoryService.getContextForDraft(
-            companyId,
-            clientEmail,
-            opportunityContext
+          const exactSourceIds = Array.from(
+            new Set(
+              [
+                emailAccess?.providerThreadId,
+                ...threadMessages.map((message) => message.email_message_id),
+              ].filter((value): value is string => Boolean(value))
+            )
           );
+          const mem = emailAccess
+            ? await MemoryService.getContextForDraft(
+                companyId,
+                clientEmail,
+                opportunityContext,
+                {
+                  actorUserId: userId,
+                  exactSourceIds,
+                  includeClientHistory: broadContextPermissions.clientHistory,
+                }
+              )
+            : await MemoryService.getContextForDraft(
+                companyId,
+                clientEmail,
+                opportunityContext
+              );
           if (mem.pricingReferences.length > 0) {
             memoryContext += `\nPricing references: ${mem.pricingReferences.slice(0, 5).join("; ")}`;
             sources.push("pricing");
@@ -962,18 +1077,23 @@ export const AIDraftService = {
         // ── Live business data context (Layer 3) ────────────────────────
         // Company context — always included (lightweight)
         try {
-          const companyCx =
-            await BusinessContextService.getCompanyContext(companyId);
-          if (companyCx.companyName !== "Unknown") {
-            companyContextBlock = companyCx.summary;
-            sources.push("company_data");
+          if (emailAccess) {
+            companyContextBlock =
+              await loadSafeCompanyIdentityContext(companyId);
+          } else {
+            const companyCx =
+              await BusinessContextService.getCompanyContext(companyId);
+            if (companyCx.companyName !== "Unknown") {
+              companyContextBlock = companyCx.summary;
+            }
           }
+          if (companyContextBlock) sources.push("company_data");
         } catch {
           // Non-fatal — company context is supplementary
         }
 
         // Client context — if we have a client email
-        if (clientEmail) {
+        if (clientEmail && broadContextPermissions.clientHistory) {
           try {
             const clientCx = await BusinessContextService.getClientContext(
               companyId,
@@ -1008,11 +1128,12 @@ export const AIDraftService = {
           threadText.includes(signal)
         );
         if (
-          mentionsPricing ||
-          (userInstruction &&
-            pricingSignals.some((s) =>
-              userInstruction.toLowerCase().includes(s)
-            ))
+          broadContextPermissions.pricingCorpus &&
+          (mentionsPricing ||
+            (userInstruction &&
+              pricingSignals.some((s) =>
+                userInstruction.toLowerCase().includes(s)
+              )))
         ) {
           try {
             const pricingCx =
@@ -1039,7 +1160,10 @@ export const AIDraftService = {
         const mentionsPayment = paymentSignals.some((s) =>
           threadText.includes(s)
         );
-        if (mentionsPricing || mentionsPayment) {
+        if (
+          broadContextPermissions.financialCorpus &&
+          (mentionsPricing || mentionsPayment)
+        ) {
           try {
             const financialParts: string[] = [];
 
@@ -1103,7 +1227,7 @@ export const AIDraftService = {
               }
 
               // Include client-specific payment history if we have their email
-              if (clientEmail) {
+              if (clientEmail && broadContextPermissions.clientHistory) {
                 const clientCx = await BusinessContextService.getClientContext(
                   companyId,
                   clientEmail
@@ -1126,7 +1250,7 @@ export const AIDraftService = {
         }
 
         // Project context — if thread references a specific project via opportunity
-        if (opportunityId) {
+        if (opportunityId && broadContextPermissions.projectCorpus) {
           try {
             // Look up project linked to this opportunity
             const { data: oppProject } = await supabase
@@ -2029,22 +2153,28 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
   }> {
     const supabase = requireSupabase();
 
-    // Get last 20 sent drafts for rolling approval rate
+    // Human-confirmed accuracy comes from the durable outcome ledger. This
+    // keeps autonomous sends from validating the agent's own output.
+    const accuracy = await getHumanDraftAccuracy({
+      companyId,
+      userId,
+      limit: 50,
+    });
+
+    // Keep recent change taxonomy for calibration detail.
     const { data: recentSent } = await supabase
       .from("ai_draft_history")
-      .select("sent_without_changes, changes_made, edit_distance")
+      .select("changes_made")
       .eq("company_id", companyId)
       .eq("user_id", userId)
       .eq("status", "sent")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(50);
 
     const drafts = recentSent || [];
-    const totalSent = drafts.length;
-    const sentWithoutChanges = drafts.filter(
-      (d) => d.sent_without_changes === true
-    ).length;
-    const approvalRate = totalSent > 0 ? sentWithoutChanges / totalSent : 0;
+    const totalSent = accuracy.sampleSize;
+    const sentWithoutChanges = accuracy.approvedWithoutChanges;
+    const approvalRate = accuracy.approvalRate;
 
     // Aggregate common changes
     const changeCounts = new Map<

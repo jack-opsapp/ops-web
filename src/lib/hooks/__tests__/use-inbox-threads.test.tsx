@@ -77,6 +77,9 @@ function makeThreadDetail(
   return {
     thread: {
       id: "thread-a",
+      connectionId: "conn-1",
+      providerThreadId: "provider-thread-a",
+      pipelineScope: "all",
       primaryCategory: "CUSTOMER",
       categoryConfidence: 0.9,
       categoryManuallySet: false,
@@ -119,6 +122,8 @@ function makeThreadDetail(
     siblingThreads: [],
     commitments: [],
     ...detailOverrides,
+    linkedOpportunity: detailOverrides.linkedOpportunity ?? null,
+    clientContext: detailOverrides.clientContext ?? null,
   };
 }
 
@@ -439,14 +444,12 @@ describe("useSendReply", () => {
 
     await act(async () => {
       await result.current.mutateAsync({
-        userId: "user-1",
-        companyId: "company-1",
         payload: {
+          idempotencyKey: "attempt-1",
           threadId: "thread-a",
           to: ["client@example.com"],
           subject: "Re: Quote follow-up",
           body: "I sent the revised number.",
-          providerThreadId: "provider-thread-a",
         },
       });
     });
@@ -480,5 +483,46 @@ describe("useSendReply", () => {
         new Date("2026-05-14T16:00:01Z").getTime(),
       ),
     ).toBe("WAITING");
+  });
+
+  it("surfaces the signature setup instruction when delivery is blocked", async () => {
+    const qc = makeQueryClient();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: "EMAIL_SIGNATURE_REQUIRED",
+          message: "Add your email signature in Settings before sending.",
+        }),
+        {
+          status: 409,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+
+    const { result } = renderHook(() => useSendReply(), {
+      wrapper: wrapperFor(qc),
+    });
+    let rejection: unknown;
+
+    await act(async () => {
+      try {
+        await result.current.mutateAsync({
+          payload: {
+            idempotencyKey: "attempt-signature",
+            threadId: "thread-a",
+            to: ["client@example.com"],
+            subject: "Re: Quote",
+            body: "Here is the update.",
+          },
+        });
+      } catch (error) {
+        rejection = error;
+      }
+    });
+
+    expect(rejection).toEqual(
+      new Error("Add your email signature in Settings before sending.")
+    );
   });
 });

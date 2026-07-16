@@ -9,9 +9,8 @@
  * is still about new lead inflow — the underlying email category was just
  * unified post-migration.
  *
- * Data source: Supabase `email_threads` (unread CUSTOMER threads in the
- * current company) + `activities` (for response-time computation — each
- * CUSTOMER thread's first outbound after the first inbound).
+ * Data source: the authenticated Inbox metrics endpoint, which applies the
+ * same opportunity + inbox authorization intersection as the Inbox itself.
  *
  * Responsive:
  *   - XS: big number + "LEADS"
@@ -31,7 +30,6 @@ import { WidgetTitle } from "./shared/widget-title";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { requireSupabase } from "@/lib/supabase/helpers";
 import { isCompact, WT } from "@/lib/widget-tokens";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 
@@ -51,99 +49,18 @@ interface InboxLeadsData {
   dailyCounts: number[]; // length 7, oldest → newest
 }
 
-async function fetchInboxLeadsData(
-  companyId: string
-): Promise<InboxLeadsData> {
-  const supabase = requireSupabase();
-  const now = new Date();
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 86_400_000);
+async function fetchInboxLeadsData(): Promise<InboxLeadsData> {
+  const { getIdToken } = await import("@/lib/firebase/auth");
+  const token = await getIdToken();
+  if (!token) throw new Error("Not authenticated");
 
-  // 1. Unread CUSTOMER threads — current count.
-  const { data: unreadRows } = await supabase
-    .from("email_threads")
-    .select("id, first_message_at, last_message_at, unread_count")
-    .eq("company_id", companyId)
-    .eq("primary_category", "CUSTOMER")
-    .is("archived_at", null)
-    .gt("unread_count", 0);
-
-  const unreadCount = unreadRows?.length ?? 0;
-
-  // 2. All CUSTOMER threads from the last 7 days — for sparkline + response time.
-  const { data: weekRows } = await supabase
-    .from("email_threads")
-    .select("id, first_message_at, provider_thread_id")
-    .eq("company_id", companyId)
-    .eq("primary_category", "CUSTOMER")
-    .gte("first_message_at", sevenDaysAgo.toISOString())
-    .order("first_message_at", { ascending: true });
-
-  const totalLastWeek = weekRows?.length ?? 0;
-
-  // Build daily counts (length 7) by day bucket.
-  const dailyCounts = new Array<number>(7).fill(0);
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  for (const row of weekRows ?? []) {
-    const t = new Date(row.first_message_at as string).getTime();
-    const diffDays = Math.floor((dayStart - t) / 86_400_000);
-    if (diffDays >= 0 && diffDays < 7) {
-      // Index 6 is today, index 0 is 6 days ago.
-      dailyCounts[6 - diffDays] += 1;
-    }
+  const response = await fetch("/api/inbox/widgets/leads", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error(`Inbox metrics fetch failed: ${response.status}`);
   }
-
-  // 3. Response time — median (seconds) from first inbound to first outbound,
-  // computed across the week's threads via activities joins.
-  let medianResponseSeconds: number | null = null;
-  if (weekRows && weekRows.length > 0) {
-    const providerThreadIds = weekRows
-      .map((r) => r.provider_thread_id as string)
-      .filter(Boolean);
-
-    if (providerThreadIds.length > 0) {
-      const { data: acts } = await supabase
-        .from("activities")
-        .select("email_thread_id, direction, created_at")
-        .eq("company_id", companyId)
-        .eq("type", "email")
-        .in("email_thread_id", providerThreadIds)
-        .order("created_at", { ascending: true });
-
-      const firstInbound = new Map<string, number>();
-      const firstOutbound = new Map<string, number>();
-      for (const a of (acts ?? []) as Array<{
-        email_thread_id: string;
-        direction: string;
-        created_at: string;
-      }>) {
-        const id = a.email_thread_id;
-        const ts = new Date(a.created_at).getTime();
-        if (a.direction === "inbound" && !firstInbound.has(id)) {
-          firstInbound.set(id, ts);
-        } else if (a.direction === "outbound" && !firstOutbound.has(id)) {
-          firstOutbound.set(id, ts);
-        }
-      }
-
-      const diffs: number[] = [];
-      for (const [id, inboundTs] of firstInbound) {
-        const outboundTs = firstOutbound.get(id);
-        if (outboundTs && outboundTs > inboundTs) {
-          diffs.push((outboundTs - inboundTs) / 1000);
-        }
-      }
-      if (diffs.length > 0) {
-        diffs.sort((a, b) => a - b);
-        const mid = Math.floor(diffs.length / 2);
-        medianResponseSeconds =
-          diffs.length % 2 === 0
-            ? (diffs[mid - 1] + diffs[mid]) / 2
-            : diffs[mid];
-      }
-    }
-  }
-
-  return { unreadCount, totalLastWeek, medianResponseSeconds, dailyCounts };
+  return response.json();
 }
 
 // ─── Sparkline ───────────────────────────────────────────────────────────────
@@ -179,8 +96,19 @@ function Sparkline({ values, width, height, color }: SparklineProps) {
   });
   const d = `M ${points.join(" L ")}`;
   return (
-    <svg width={width} height={height} aria-hidden style={{ overflow: "visible" }}>
-      <path d={d} stroke={color} strokeWidth={1.2} fill="none" strokeLinejoin="round" />
+    <svg
+      width={width}
+      height={height}
+      aria-hidden
+      style={{ overflow: "visible" }}
+    >
+      <path
+        d={d}
+        stroke={color}
+        strokeWidth={1.2}
+        fill="none"
+        strokeLinejoin="round"
+      />
       {values.map((v, i) => {
         const x = i * stepX;
         const y = height - (v / max) * (height - 2) - 1;
@@ -214,7 +142,10 @@ function formatDuration(seconds: number | null): string {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProps) {
+export function InboxLeadsWidget({
+  size,
+  config: _config,
+}: InboxLeadsWidgetProps) {
   const { t } = useDictionary("dashboard");
   const router = useRouter();
   const { company } = useAuthStore();
@@ -222,52 +153,66 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
   const isVisible = useWidgetIntersection(ref);
   const _reducedMotion = useReducedMotion();
   // When inbox_ui is off for this company, CTA points to /pipeline instead.
-  const inboxEnabled = useFeatureFlagsStore((s) => s.canAccessFeature("inbox_ui"));
+  const inboxEnabled = useFeatureFlagsStore((s) =>
+    s.canAccessFeature("inbox_ui")
+  );
 
   const { data, isLoading } = useQuery({
     queryKey: ["inbox-leads-widget", company?.id ?? ""],
-    queryFn: () => fetchInboxLeadsData(company!.id),
+    queryFn: fetchInboxLeadsData,
     enabled: !!company?.id && isVisible,
     refetchInterval: 60_000,
   });
 
   const navigate = useCallback(() => {
-    router.push(inboxEnabled ? "/inbox?category=LEAD&filter=needs_reply" : "/pipeline");
+    router.push(
+      inboxEnabled ? "/inbox?category=LEAD&filter=needs_reply" : "/pipeline"
+    );
   }, [router, inboxEnabled]);
 
   const unread = data?.unreadCount ?? 0;
   const weekly = data?.totalLastWeek ?? 0;
   const median = data?.medianResponseSeconds ?? null;
-  const daily = useMemo(() => data?.dailyCounts ?? new Array(7).fill(0), [data]);
+  const daily = useMemo(
+    () => data?.dailyCounts ?? new Array(7).fill(0),
+    [data]
+  );
 
   // ── Compact rendering (XS/SM) ────────────────────────────────────────────
   if (isCompact(size)) {
     return (
       <Card
-        className="h-full p-0 cursor-pointer group"
+        className="group h-full cursor-pointer p-0"
         ref={ref}
         onClick={navigate}
       >
-        <div className="h-full flex flex-col p-3">
+        <div className="flex h-full flex-col p-3">
           <div className="flex items-start justify-between">
             <div>
-              <span className="font-mono text-display font-bold text-text leading-none tabular-nums">
+              <span className="font-mono text-display font-bold tabular-nums leading-none text-text">
                 {isLoading ? "—" : unread}
               </span>
-              <span className="font-cakemono font-light uppercase text-[11px] tracking-[0.18em] text-text-3 mt-1 block">
+              <span className="mt-1 block font-cakemono text-[11px] font-light uppercase tracking-[0.18em] text-text-3">
                 New leads
               </span>
             </div>
-            <ArrowUpRight className="w-[14px] h-[14px] text-text-mute group-hover:text-text-2 transition-colors" />
+            <ArrowUpRight className="h-[14px] w-[14px] text-text-mute transition-colors group-hover:text-text-2" />
           </div>
           {size === "sm" && (
             <div className="mt-auto pt-2">
-              <Sparkline values={daily} width={120} height={22} color={WT.accent} />
+              <Sparkline
+                values={daily}
+                width={120}
+                height={22}
+                color={WT.accent}
+              />
             </div>
           )}
           <WidgetTrendContext
             variant="snapshot"
-            label={weekly > 0 ? `${weekly} / 7d` : t("trend.unread") ?? "Unread"}
+            label={
+              weekly > 0 ? `${weekly} / 7d` : (t("trend.unread") ?? "Unread")
+            }
           />
         </div>
       </Card>
@@ -277,27 +222,27 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
   // ── Expanded rendering (MD/LG) ───────────────────────────────────────────
   return (
     <Card className="h-full p-0" ref={ref}>
-      <div className="h-full flex flex-col p-3">
+      <div className="flex h-full flex-col p-3">
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="mb-2 flex items-center justify-between">
           <WidgetTitle>New leads</WidgetTitle>
           <button
             type="button"
             onClick={navigate}
-            className="font-mono text-micro uppercase tracking-[0.16em] text-text-mute hover:text-text-2 transition-colors inline-flex items-center gap-1"
+            className="inline-flex items-center gap-1 font-mono text-micro uppercase tracking-[0.16em] text-text-mute transition-colors hover:text-text-2"
           >
             Open inbox
-            <ArrowUpRight className="w-[11px] h-[11px]" />
+            <ArrowUpRight className="h-[11px] w-[11px]" />
           </button>
         </div>
 
         {/* Hero row */}
         <div className="flex items-end gap-4">
           <div className="flex flex-col">
-            <span className="font-mono text-display font-bold text-text leading-none tabular-nums">
+            <span className="font-mono text-display font-bold tabular-nums leading-none text-text">
               {isLoading ? "—" : unread}
             </span>
-            <span className="font-mono text-micro uppercase tracking-[0.18em] text-text-mute mt-1">
+            <span className="mt-1 font-mono text-micro uppercase tracking-[0.18em] text-text-mute">
               Unread in inbox
             </span>
           </div>
@@ -305,20 +250,25 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
           <div className="flex-1" />
 
           <div className="flex flex-col items-end">
-            <Sparkline values={daily} width={180} height={28} color={WT.accent} />
-            <span className="font-mono text-micro uppercase tracking-[0.18em] text-text-mute mt-1">
+            <Sparkline
+              values={daily}
+              width={180}
+              height={28}
+              color={WT.accent}
+            />
+            <span className="mt-1 font-mono text-micro uppercase tracking-[0.18em] text-text-mute">
               Last 7 days · {weekly}
             </span>
           </div>
         </div>
 
         {/* Metric row */}
-        <div className="mt-4 pt-3 border-t border-border-subtle flex items-center gap-6">
+        <div className="mt-4 flex items-center gap-6 border-t border-border-subtle pt-3">
           <div>
             <p className="font-mono text-micro uppercase tracking-[0.18em] text-text-mute">
               Median response
             </p>
-            <p className="font-mono text-data-sm text-text mt-0.5 tabular-nums">
+            <p className="mt-0.5 font-mono text-data-sm tabular-nums text-text">
               {formatDuration(median)}
             </p>
           </div>
@@ -326,12 +276,12 @@ export function InboxLeadsWidget({ size, config: _config }: InboxLeadsWidgetProp
             <p className="font-mono text-micro uppercase tracking-[0.18em] text-text-mute">
               New leads (7d)
             </p>
-            <p className="font-mono text-data-sm text-text mt-0.5 tabular-nums">
+            <p className="mt-0.5 font-mono text-data-sm tabular-nums text-text">
               {weekly}
             </p>
           </div>
           <div className="flex-1 text-right">
-            <Inbox className="w-[14px] h-[14px] text-text-mute inline-block" />
+            <Inbox className="inline-block h-[14px] w-[14px] text-text-mute" />
           </div>
         </div>
       </div>

@@ -55,14 +55,26 @@ describe("API services barrel client safety", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("keeps client email-connection hooks off the provider factory", () => {
+  it("keeps client email-connection hooks behind the authenticated browser service", () => {
     const hook = readFileSync(
       resolve(SOURCE_ROOT, "lib/hooks/use-email-connections.ts"),
       "utf8"
     );
+    const legacyHook = readFileSync(
+      resolve(SOURCE_ROOT, "lib/hooks/use-gmail-connections.ts"),
+      "utf8"
+    );
+    const persistence = readFileSync(
+      resolve(SOURCE_ROOT, "lib/api/services/email-connection-service.ts"),
+      "utf8"
+    );
 
     expect(hook).not.toMatch(/services\/email-service/);
-    expect(hook).toMatch(/services\/email-connection-service/);
+    expect(hook).not.toMatch(/services\/email-connection-service["']/);
+    expect(hook).toMatch(/services\/email-connection-browser-service/);
+    expect(legacyHook).not.toMatch(/services\/gmail-service["']/);
+    expect(legacyHook).toMatch(/services\/email-connection-browser-service/);
+    expect(persistence).toMatch(/import\s+["']server-only["']/);
   });
 
   it("keeps the client sibling-thread hook off the server orchestration service", () => {
@@ -72,5 +84,20 @@ describe("API services barrel client safety", () => {
     );
 
     expect(hook).not.toMatch(/email-thread-service/);
+  });
+
+  it("keeps the communications wizard on the canonical sanitized connection API", () => {
+    const wizard = readFileSync(
+      resolve(
+        SOURCE_ROOT,
+        "components/agent/comms-config-wizard/comms-config-wizard.tsx"
+      ),
+      "utf8"
+    );
+
+    expect(wizard).toMatch(/EmailConnectionBrowserService\.getConnections/);
+    expect(wizard).not.toMatch(/api\/integrations\/email\/connections/);
+    expect(wizard).not.toMatch(/\.user_id\b/);
+    expect(wizard).not.toMatch(/status\s*===\s*["']connected["']/);
   });
 });

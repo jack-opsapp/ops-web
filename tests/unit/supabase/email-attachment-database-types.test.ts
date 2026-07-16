@@ -42,7 +42,10 @@ function fields(
   for (const line of sectionBlock.split("\n").slice(1, -1)) {
     const match = line.match(/^\s+([a-z][a-z0-9_]*)(\?)?:\s+(.+)$/);
     if (!match) continue;
-    result[match[1]] = { optional: match[2] === "?", type: match[3].trim() };
+    result[match[1]] = {
+      optional: match[2] === "?",
+      type: match[3].trim().replace(/;$/, ""),
+    };
   }
 
   return result;
@@ -300,6 +303,15 @@ describe("canonical email attachment database types", () => {
       expect(notifyException).toContain(fragment);
     }
 
+    const notifyExceptionAsSystem = extractBlock(
+      databaseTypes,
+      "      notify_email_attachment_scan_exception_as_system: {"
+    );
+    expect(notifyExceptionAsSystem).toContain(
+      "Args: { p_scan_id: string }"
+    );
+    expect(notifyExceptionAsSystem).toContain("Returns: boolean");
+
     const markReconnect = extractBlock(
       databaseTypes,
       "      mark_email_attachment_connection_needs_reconnect: {"
@@ -307,6 +319,15 @@ describe("canonical email attachment database types", () => {
     expect(markReconnect).toContain("p_company_id: string");
     expect(markReconnect).toContain("p_connection_id: string");
     expect(markReconnect).toContain("Returns: number");
+
+    const markReconnectAsSystem = extractBlock(
+      databaseTypes,
+      "      mark_email_connection_needs_reconnect_as_system: {"
+    );
+    expect(markReconnectAsSystem).toContain(
+      "Args: { p_connection_id: string }"
+    );
+    expect(markReconnectAsSystem).toContain("Returns: number");
 
     const reassign = extractBlock(
       databaseTypes,

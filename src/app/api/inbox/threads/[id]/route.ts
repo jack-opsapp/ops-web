@@ -16,8 +16,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { EmailService } from "@/lib/api/services/email-service";
@@ -33,6 +31,11 @@ import {
   type EmailThreadCategory,
 } from "@/lib/types/email-thread";
 import { after } from "next/server";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import {
+  resolveEmailInboxListAccess,
+  resolveEmailOpportunityAccess,
+} from "@/lib/email/email-opportunity-access";
 
 const CATEGORY_SET = new Set<string>(EMAIL_THREAD_CATEGORIES);
 
@@ -42,29 +45,46 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  const canView = await checkPermissionById(user.id as string, "inbox.view");
-  if (!canView) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
   const supabase = getServiceRoleClient();
+  const access = await resolveEmailOpportunityAccess({
+    actor,
+    operation: "read",
+    threadId: id,
+    supabase,
+  });
+  if (!access.allowed) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const listAccess = await resolveEmailInboxListAccess({ actor, supabase });
+  if (!listAccess.allowed) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
 
   try {
     const thread = await runWithSupabase(supabase, () =>
-      EmailThreadService.getThread(id, user.company_id as string)
+      EmailThreadService.getThread(id, actor.companyId)
     );
-    if (!thread) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!thread)
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (
+      thread.id !== access.threadId ||
+      thread.connectionId !== access.connectionId ||
+      thread.providerThreadId !== access.providerThreadId ||
+      thread.opportunityId !== access.opportunityId
+    ) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
     // Fetch messages from provider for the full body. Fall back to activities.
     const { data: connRow } = await supabase
       .from("email_connections")
       .select("*")
-      .eq("id", thread.connectionId)
+      .eq("id", access.connectionId)
+      .eq("company_id", actor.companyId)
       .single();
 
     // Owning mailbox address. We use this (not the stored per-row `direction`
@@ -76,7 +96,9 @@ export async function GET(
       ? extractEmailAddress((connRow.email as string) ?? "").toLowerCase()
       : "";
 
-    const deriveDirection = (fromField: string | null | undefined): "inbound" | "outbound" => {
+    const deriveDirection = (
+      fromField: string | null | undefined
+    ): "inbound" | "outbound" => {
       if (!connectionEmail || !fromField) return "inbound";
       return extractEmailAddress(fromField).toLowerCase() === connectionEmail
         ? "outbound"
@@ -91,18 +113,26 @@ export async function GET(
           companyId: connRow.company_id as string,
           provider: connRow.provider,
           type: connRow.type,
-          userId: (connRow.user_id as string) ?? null,
+          userId:
+            connRow.type === "individual"
+              ? ((connRow.user_id as string) ?? null)
+              : null,
           email: connRow.email as string,
           accessToken: connRow.access_token as string,
           refreshToken: connRow.refresh_token as string,
           expiresAt: new Date(connRow.expires_at as string),
           historyId: (connRow.history_id as string) ?? null,
           syncEnabled: (connRow.sync_enabled as boolean) ?? true,
-          lastSyncedAt: connRow.last_synced_at ? new Date(connRow.last_synced_at as string) : null,
+          lastSyncedAt: connRow.last_synced_at
+            ? new Date(connRow.last_synced_at as string)
+            : null,
           syncIntervalMinutes: (connRow.sync_interval_minutes as number) ?? 60,
           syncFilters: connRow.sync_filters ?? {},
-          webhookSubscriptionId: (connRow.webhook_subscription_id as string) ?? null,
-          webhookExpiresAt: connRow.webhook_expires_at ? new Date(connRow.webhook_expires_at as string) : null,
+          webhookSubscriptionId:
+            (connRow.webhook_subscription_id as string) ?? null,
+          webhookExpiresAt: connRow.webhook_expires_at
+            ? new Date(connRow.webhook_expires_at as string)
+            : null,
           opsLabelId: (connRow.ops_label_id as string) ?? null,
           aiReviewEnabled: (connRow.ai_review_enabled as boolean) ?? false,
           aiMemoryEnabled: (connRow.ai_memory_enabled as boolean) ?? false,
@@ -112,7 +142,9 @@ export async function GET(
         } as Parameters<typeof EmailService.getProvider>[0];
 
         const provider = EmailService.getProvider(connection);
-        const providerMsgs = await provider.fetchThread(thread.providerThreadId);
+        const providerMsgs = await provider.fetchThread(
+          thread.providerThreadId
+        );
         messages = providerMsgs.map((m) => {
           const rawBody = m.bodyText ?? "";
           // 3-layer clean-body cascade (see email-parsing.ts header):
@@ -131,6 +163,7 @@ export async function GET(
               : stripQuotedContent(rawBody, m.subject));
           return {
             id: m.id,
+            providerMessageId: m.id,
             from: m.from,
             fromName: m.fromName,
             to: m.to,
@@ -146,7 +179,10 @@ export async function GET(
           };
         });
       } catch (err) {
-        console.error("[/api/inbox/threads/:id] provider.fetchThread failed:", err);
+        console.error(
+          "[/api/inbox/threads/:id] provider.fetchThread failed:",
+          err
+        );
         // Fall through to activities fallback
       }
     }
@@ -154,21 +190,27 @@ export async function GET(
     if (messages.length === 0) {
       const { data: activityRows } = await supabase
         .from("activities")
-        .select("id, from_email, to_emails, cc_emails, subject, content, body_text, direction, is_read, has_attachments, created_at")
+        .select(
+          "id, email_message_id, from_email, to_emails, cc_emails, subject, content, body_text, direction, is_read, has_attachments, created_at"
+        )
         .eq("company_id", thread.companyId)
+        .eq("email_connection_id", thread.connectionId)
         .eq("type", "email")
         .eq("email_thread_id", thread.providerThreadId)
         .order("created_at", { ascending: true });
 
       messages = (activityRows ?? []).map((r) => {
-        const rawBody =
-          ((r.body_text as string) ?? (r.content as string) ?? "");
+        const rawBody = (r.body_text as string) ?? (r.content as string) ?? "";
         // Activities fallback has no provider-clean body stored — regex layer
         // only. Cross-message pass still runs below to catch cases where the
         // regex missed.
-        const cleanBody = stripQuotedContent(rawBody, (r.subject as string) ?? "");
+        const cleanBody = stripQuotedContent(
+          rawBody,
+          (r.subject as string) ?? ""
+        );
         return {
           id: r.id,
+          providerMessageId: (r.email_message_id as string | null) ?? null,
           from: r.from_email,
           fromName: null,
           to: r.to_emails ?? [],
@@ -178,7 +220,7 @@ export async function GET(
           bodyText: rawBody,
           cleanBodyText: cleanBody,
           direction: deriveDirection(r.from_email as string | null),
-          date: (r.created_at as string),
+          date: r.created_at as string,
           isRead: r.is_read,
           hasAttachments: r.has_attachments,
         };
@@ -205,6 +247,61 @@ export async function GET(
       }
     }
 
+    // The linked lead is loaded by the canonical relationship resolved above,
+    // never by a client-supplied opportunity/client id. Assigned-scope users
+    // receive this one lead; client-wide rail queries remain reserved for
+    // pipeline.view:all.
+    let linkedOpportunity: {
+      id: string;
+      title: string;
+      description: string | null;
+      stage: string;
+      estimatedValue: number | null;
+      priority: string | null;
+      source: string | null;
+      contactName: string | null;
+      contactEmail: string | null;
+      contactPhone: string | null;
+      address: string | null;
+    } | null = null;
+    let canonicalClientId: string | null = null;
+    if (access.opportunityId) {
+      const { data: opportunityRow, error: opportunityError } = await supabase
+        .from("opportunities")
+        .select(
+          "id, client_id, title, description, stage, estimated_value, priority, source, contact_name, contact_email, contact_phone, address"
+        )
+        .eq("id", access.opportunityId)
+        .eq("company_id", actor.companyId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (opportunityError) {
+        throw new Error(
+          `Linked opportunity lookup failed: ${opportunityError.message}`
+        );
+      }
+      if (!opportunityRow) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      canonicalClientId = (opportunityRow.client_id as string | null) ?? null;
+      linkedOpportunity = {
+        id: opportunityRow.id as string,
+        title: (opportunityRow.title as string) ?? "",
+        description: (opportunityRow.description as string | null) ?? null,
+        stage: (opportunityRow.stage as string) ?? "new_lead",
+        estimatedValue:
+          opportunityRow.estimated_value == null
+            ? null
+            : Number(opportunityRow.estimated_value),
+        priority: (opportunityRow.priority as string | null) ?? null,
+        source: (opportunityRow.source as string | null) ?? null,
+        contactName: (opportunityRow.contact_name as string | null) ?? null,
+        contactEmail: (opportunityRow.contact_email as string | null) ?? null,
+        contactPhone: (opportunityRow.contact_phone as string | null) ?? null,
+        address: (opportunityRow.address as string | null) ?? null,
+      };
+    }
+
     // ─── Client name + siblings ──────────────────────────────────────────
     //
     // Resolve client name once (the detail view's header uses it in the
@@ -215,7 +312,22 @@ export async function GET(
     // Siblings are served here rather than via a separate endpoint because
     // they're coupled to the detail view's render cycle — one round-trip
     // keeps the strip flash-free (appears with the rest of the header).
-    let clientName: string | null = null;
+    const contactName = linkedOpportunity?.contactName?.trim() ?? "";
+    const clientName = contactName.length > 0 ? contactName : null;
+    let clientContext: {
+      name: string;
+      email: string | null;
+      phone: string | null;
+      address: string | null;
+    } | null = null;
+    if (linkedOpportunity && clientName) {
+      clientContext = {
+        name: clientName,
+        email: linkedOpportunity.contactEmail,
+        phone: linkedOpportunity.contactPhone,
+        address: linkedOpportunity.address,
+      };
+    }
     let siblingThreads: Array<{
       id: string;
       connectionId: string;
@@ -232,41 +344,45 @@ export async function GET(
       snoozedUntil: string | null;
     }> = [];
 
-    if (thread.clientId) {
-      const [clientRes, siblings] = await Promise.all([
-        supabase
-          .from("clients")
-          .select("name")
-          .eq("id", thread.clientId)
-          .maybeSingle(),
-        runWithSupabase(supabase, () =>
-          EmailThreadService.listSiblings(
-            thread.companyId,
-            thread.clientId as string,
-            thread.id,
-            5
-          )
-        ),
-      ]);
+    if (canonicalClientId) {
+      const siblings = await runWithSupabase(supabase, () =>
+        EmailThreadService.listSiblings(
+          thread.companyId,
+          canonicalClientId,
+          thread.id,
+          listAccess,
+          5
+        )
+      );
 
-      const resolvedName = (clientRes.data?.name as string | null)?.trim() ?? null;
-      clientName = resolvedName && resolvedName.length > 0 ? resolvedName : null;
-
-      siblingThreads = siblings.map((s) => ({
-        id: s.id,
-        connectionId: s.connectionId,
-        providerThreadId: s.providerThreadId,
-        subject: s.subject,
-        primaryCategory: s.primaryCategory,
-        lastMessageAt: s.lastMessageAt.toISOString(),
-        messageCount: s.messageCount,
-        unreadCount: s.unreadCount,
-        latestSenderName: s.latestSenderName,
-        latestSenderEmail: s.latestSenderEmail,
-        latestSnippet: s.latestSnippet,
-        archivedAt: s.archivedAt?.toISOString() ?? null,
-        snoozedUntil: s.snoozedUntil?.toISOString() ?? null,
-      }));
+      const authorizedSiblings = await Promise.all(
+        siblings.map(async (s) => ({
+          sibling: s,
+          access: await resolveEmailOpportunityAccess({
+            actor,
+            operation: "read",
+            threadId: s.id,
+            supabase,
+          }),
+        }))
+      );
+      siblingThreads = authorizedSiblings
+        .filter((entry) => entry.access.allowed)
+        .map(({ sibling: s }) => ({
+          id: s.id,
+          connectionId: s.connectionId,
+          providerThreadId: s.providerThreadId,
+          subject: s.subject,
+          primaryCategory: s.primaryCategory,
+          lastMessageAt: s.lastMessageAt.toISOString(),
+          messageCount: s.messageCount,
+          unreadCount: s.unreadCount,
+          latestSenderName: s.latestSenderName,
+          latestSenderEmail: s.latestSenderEmail,
+          latestSnippet: s.latestSnippet,
+          archivedAt: s.archivedAt?.toISOString() ?? null,
+          snoozedUntil: s.snoozedUntil?.toISOString() ?? null,
+        }));
     }
 
     // ─── Commitments (unresolved, for this thread) ──────────────────────
@@ -294,6 +410,9 @@ export async function GET(
     return NextResponse.json({
       thread: {
         id: thread.id,
+        connectionId: access.connectionId,
+        providerThreadId: access.providerThreadId ?? thread.providerThreadId,
+        pipelineScope: access.pipelineScope,
         primaryCategory: thread.primaryCategory,
         categoryConfidence: thread.categoryConfidence,
         categoryManuallySet: thread.categoryManuallySet,
@@ -305,8 +424,8 @@ export async function GET(
         participants: thread.participants,
         messageCount: thread.messageCount,
         unreadCount: thread.unreadCount,
-        opportunityId: thread.opportunityId,
-        clientId: thread.clientId,
+        opportunityId: access.opportunityId,
+        clientId: canonicalClientId,
         clientName,
         latestDirection: thread.latestDirection,
         phaseC: thread.phaseC,
@@ -315,6 +434,8 @@ export async function GET(
         routingReasons: thread.routingReasons,
         routerConfidence: thread.routerConfidence,
       },
+      linkedOpportunity,
+      clientContext,
       messages,
       siblingThreads,
       commitments,
@@ -359,9 +480,6 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
   const body = (await request.json()) as ThreadAction;
 
@@ -369,21 +487,35 @@ export async function PATCH(
     return NextResponse.json({ error: "Missing action" }, { status: 400 });
   }
 
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
+  const userId = actor.userId;
+  const companyId = actor.companyId;
 
   const requiredPerm = ACTION_PERMISSIONS[body.action];
   if (!requiredPerm) {
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
   }
+  const supabase = getServiceRoleClient();
+  const accessOperation =
+    body.action === "archive" || body.action === "unarchive"
+      ? "mutate"
+      : "read";
+  const access = await resolveEmailOpportunityAccess({
+    actor,
+    operation: accessOperation,
+    threadId: id,
+    supabase,
+  });
+  if (!access.allowed) {
+    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
+  }
+
   const allowed = await checkPermissionById(userId, requiredPerm);
   if (!allowed) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-
-  const supabase = getServiceRoleClient();
 
   // Verify thread belongs to the user's company
   const thread = await runWithSupabase(supabase, () =>
@@ -442,9 +574,7 @@ export async function PATCH(
       }
 
       case "unsnooze": {
-        await runWithSupabase(supabase, () =>
-          EmailThreadService.unsnooze(id)
-        );
+        await runWithSupabase(supabase, () => EmailThreadService.unsnooze(id));
         return NextResponse.json({ ok: true });
       }
 
@@ -469,7 +599,10 @@ export async function PATCH(
         after(async () => {
           try {
             await runWithSupabase(supabase, () =>
-              PhaseCLearningService.applyCorrectionToSimilar(correctionId)
+              PhaseCLearningService.applyCorrectionToSimilar({
+                correctionId,
+                actorUserId: userId,
+              })
             );
           } catch (err) {
             console.error(

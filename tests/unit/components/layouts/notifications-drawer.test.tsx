@@ -6,11 +6,12 @@ import { NotificationsDrawer } from "@/components/layouts/notifications-drawer";
 import { useEdgeTabStore } from "@/stores/edge-tab-store";
 import type { AppNotification } from "@/lib/api/services/notification-service";
 
-const { dismissMutationMock, dismissAllMutationMock, routerPushMock } = vi.hoisted(() => ({
-  dismissMutationMock: vi.fn(),
-  dismissAllMutationMock: vi.fn(),
-  routerPushMock: vi.fn(),
-}));
+const { dismissMutationMock, dismissAllMutationMock, routerPushMock } =
+  vi.hoisted(() => ({
+    dismissMutationMock: vi.fn(),
+    dismissAllMutationMock: vi.fn(),
+    routerPushMock: vi.fn(),
+  }));
 
 vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({ t: (k: string) => k }),
@@ -70,13 +71,20 @@ const mockNotifs: AppNotification[] = [
 
 vi.mock("@/lib/hooks/use-notifications", () => ({
   useNotifications: () => ({ data: mockNotifs }),
-  useDismissNotification: () => ({ mutate: dismissMutationMock, isPending: false }),
-  useDismissAllNotifications: () => ({ mutate: dismissAllMutationMock, isPending: false }),
+  useDismissNotification: () => ({
+    mutate: dismissMutationMock,
+    isPending: false,
+  }),
+  useDismissAllNotifications: () => ({
+    mutate: dismissAllMutationMock,
+    isPending: false,
+  }),
 }));
 
 vi.mock("@/stores/duplicate-review-store", () => ({
-  useDuplicateReviewStore: (selector: (s: { openSheet: () => void }) => unknown) =>
-    selector({ openSheet: vi.fn() }),
+  useDuplicateReviewStore: (
+    selector: (s: { openSheet: () => void }) => unknown
+  ) => selector({ openSheet: vi.fn() }),
 }));
 
 const wrap = (ui: React.ReactNode) => {
@@ -86,6 +94,7 @@ const wrap = (ui: React.ReactNode) => {
 
 describe("<NotificationsDrawer>", () => {
   beforeEach(() => {
+    mockNotifs[0].actionUrl = "/dashboard?openProject=00247&mode=view";
     useEdgeTabStore.setState({ activeTab: null });
     dismissMutationMock.mockClear();
     dismissAllMutationMock.mockClear();
@@ -112,9 +121,15 @@ describe("<NotificationsDrawer>", () => {
   it("shows filter chips with per-bucket counts", () => {
     useEdgeTabStore.setState({ activeTab: "notifications" });
     wrap(<NotificationsDrawer />);
-    expect(screen.getByRole("tab", { name: /filters\.critical/i })).toHaveTextContent("1");
-    expect(screen.getByRole("tab", { name: /filters\.attn/i })).toHaveTextContent("1");
-    expect(screen.getByRole("tab", { name: /filters\.ambient/i })).toHaveTextContent("1");
+    expect(
+      screen.getByRole("tab", { name: /filters\.critical/i })
+    ).toHaveTextContent("1");
+    expect(
+      screen.getByRole("tab", { name: /filters\.attn/i })
+    ).toHaveTextContent("1");
+    expect(
+      screen.getByRole("tab", { name: /filters\.ambient/i })
+    ).toHaveTextContent("1");
   });
 
   it("filters rows when a chip is clicked", async () => {
@@ -175,6 +190,25 @@ describe("<NotificationsDrawer>", () => {
     // Persistent notifications stay until resolved programmatically — the
     // action click must not clear them.
     expect(dismissMutationMock).not.toHaveBeenCalled();
-    expect(routerPushMock).toHaveBeenCalledWith("/dashboard?openProject=00247&mode=view");
+    expect(routerPushMock).toHaveBeenCalledWith(
+      "/dashboard?openProject=00247&mode=view"
+    );
+  });
+
+  it.each([
+    "javascript:alert(1)",
+    "https://attacker.example/phish",
+    "//attacker.example/phish",
+  ])("refuses an unsafe legacy action URL: %s", async (actionUrl) => {
+    mockNotifs[0].actionUrl = actionUrl;
+    useEdgeTabStore.setState({ activeTab: "notifications" });
+    const user = userEvent.setup();
+    wrap(<NotificationsDrawer />);
+
+    await user.click(screen.getByText("Role needed"));
+    await user.click(screen.getByRole("button", { name: /ASSIGN/i }));
+
+    expect(routerPushMock).not.toHaveBeenCalled();
+    expect(dismissMutationMock).not.toHaveBeenCalled();
   });
 });

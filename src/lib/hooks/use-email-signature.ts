@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { queryKeys } from "@/lib/api/query-client";
 import type {
+  EmailSignatureActorScope,
+  EmailSignatureConnectionDescriptor,
+  EmailSignatureConnectionsResponse,
   EmailSignatureScope,
   EmailSignatureSettingsResponse,
   SaveEmailSignatureInput,
@@ -32,6 +35,23 @@ async function fetchEmailSignature(
     );
   }
   return response.json();
+}
+
+async function fetchEmailSignatureConnections(
+  scope: EmailSignatureActorScope
+): Promise<EmailSignatureConnectionDescriptor[]> {
+  const params = new URLSearchParams({
+    companyId: scope.companyId,
+    userId: scope.userId,
+  });
+  const response = await authedFetch(`${SIGNATURE_ROUTE}?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(
+      await readError(response, "Failed to load email signature inboxes")
+    );
+  }
+  const data = (await response.json()) as EmailSignatureConnectionsResponse;
+  return data.connections ?? [];
 }
 
 async function saveEmailSignature(
@@ -78,6 +98,17 @@ export function useEmailSignature(scope: EmailSignatureScope) {
       scope.connectionId
     ),
     queryFn: () => fetchEmailSignature(scope),
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useEmailSignatureConnections(scope: EmailSignatureActorScope) {
+  const enabled = Boolean(scope.companyId && scope.userId);
+
+  return useQuery({
+    queryKey: queryKeys.emailSignatures.list(scope.companyId, scope.userId),
+    queryFn: () => fetchEmailSignatureConnections(scope),
     enabled,
     staleTime: 5 * 60 * 1000,
   });

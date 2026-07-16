@@ -1,86 +1,36 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useAuthStore } from "@/lib/store/auth-store";
-import {
-  usePermissionStore,
-  selectPermissionsReady,
-} from "@/lib/store/permissions-store";
-import { useTeamMembers } from "@/lib/hooks/use-users";
-import { useGmailConnections } from "@/lib/hooks/use-gmail-connections";
-import { useCreateNotification } from "@/lib/hooks/use-notifications";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+
+import { queryKeys } from "@/lib/api/query-client";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 
 /**
- * Evaluates conditions and creates setup-prompt notifications in the rail.
- * Deduplication is handled by NotificationService.create (same type+title = skip).
- * Mount once in the dashboard layout via a wrapper component.
- *
- * IMPORTANT: This effect fires exactly once after data loads. The `hasRun` ref
- * prevents re-execution even if dependencies change identity, which previously
- * caused an infinite loop (tens of thousands of Supabase calls).
+ * Reconciles the current operator's setup prompts at a narrow authenticated
+ * server boundary. The browser supplies no identity, company, recipient, copy,
+ * navigation, permissions, or setup-state fields.
  */
 export function useActionPrompts() {
-  // Connecting Gmail is an integration-management capability — gate on the
-  // granular permission, not a role name. Wait for permissions to hydrate
-  // before the one-shot evaluation (the store is fetched async, not persisted).
-  const canManageIntegrations = usePermissionStore((s) =>
-    s.can("settings.integrations")
-  );
-  const permsReady = usePermissionStore(selectPermissionsReady);
-  const company = useAuthStore((s) => s.company);
-  const notify = useCreateNotification();
-  const hasRun = useRef(false);
-
-  const { data: gmailData, isLoading: gmailLoading } = useGmailConnections();
-  const { data: teamData, isLoading: teamLoading } = useTeamMembers();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Wait for data to load
-    if (gmailLoading || teamLoading || !permsReady) return;
-    // Only evaluate once per mount — server-side dedup is a safety net,
-    // not the primary guard against repeated calls.
-    if (hasRun.current) return;
-    hasRun.current = true;
+    let active = true;
 
-    // ── Connect Gmail ──────────────────────────────────────────────────
-    if (
-      canManageIntegrations &&
-      gmailData !== undefined &&
-      Array.isArray(gmailData) &&
-      gmailData.length === 0
-    ) {
-      notify({
-        type: "setup_prompt",
-        title: "Connect Gmail",
-        body: "Automate your pipeline by connecting your inbox.",
-        actionUrl: "/settings?tab=integrations",
-        actionLabel: "Set up",
+    void (async () => {
+      const response = await authedFetch("/api/notifications/setup-prompts", {
+        method: "POST",
       });
-    }
 
-    // ── Invite Team ────────────────────────────────────────────────────
-    const size = company?.companySize;
-    const hasTeamSize =
-      size !== null && size !== undefined && size !== "" && size !== "just-me";
-    const fewMembers = !teamData || teamData.users.length <= 1;
+      if (active && response.ok) {
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.notifications.all,
+        });
+      }
+    })().catch(() => undefined);
 
-    if (hasTeamSize && fewMembers) {
-      notify({
-        type: "setup_prompt",
-        title: "Invite your team",
-        body: "Get your crew on OPS so everyone stays in sync.",
-        actionUrl: "/settings?tab=team&action=invite",
-        actionLabel: "Invite",
-      });
-    }
-  }, [
-    canManageIntegrations,
-    permsReady,
-    company?.companySize,
-    gmailData,
-    gmailLoading,
-    teamData,
-    teamLoading,
-    notify,
-  ]);
+    return () => {
+      active = false;
+    };
+  }, [queryClient]);
 }

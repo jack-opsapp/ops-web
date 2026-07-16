@@ -6,16 +6,16 @@
  * Sent outcomes are deliberately owned by the confirmed-delivery learning
  * queue. Accepting a client-reported "sent" event here would allow an
  * unconfirmed preview/edit to train the writing profile.
- * Authenticated: requires Firebase auth + company_id validation.
+ * The draft's live thread/lead/sender intersection is rechecked and all
+ * attribution comes from the canonical OPS actor, never request identity.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { AIDraftService } from "@/lib/api/services/ai-draft-service";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import { resolveEmailDraftAccess } from "@/lib/email/email-draft-access";
 
 export const maxDuration = 30;
 
@@ -24,69 +24,24 @@ export async function POST(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    // ── Auth ──────────────────────────────────────────────────────────────
-    const authUser = await verifyAdminAuth(request);
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const user = await findUserByAuth(
-      authUser.uid,
-      authUser.email,
-      "id, company_id"
-    );
-    if (!user) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    // Recording draft feedback writes to writing-profile training data, so it
-    // is gated on the granular `inbox.send` permission (the same capability
-    // that lets a user send the draft whose outcome this records) — never on
-    // a coarse role check. Admins/account-holders bypass inside has_permission.
-    const canRecord = await checkPermissionById(
-      user.id as string,
-      "inbox.send"
-    );
-    if (!canRecord) {
-      return NextResponse.json(
-        { error: "You don't have permission to record draft feedback" },
-        { status: 403 }
-      );
-    }
+    const actorResolution = await resolveEmailRouteActor(request);
+    if (!actorResolution.ok) return actorResolution.response;
+    const actor = actorResolution.actor;
 
     const body = await request.json();
-    const { draftHistoryId, companyId, userId, outcome } = body;
+    const { draftHistoryId, outcome } = body;
 
-    if (!draftHistoryId || !companyId || !userId || !outcome) {
+    if (
+      typeof draftHistoryId !== "string" ||
+      !draftHistoryId.trim() ||
+      !outcome
+    ) {
       return NextResponse.json(
         {
-          error: "draftHistoryId, companyId, userId, and outcome are required",
+          error: "draftHistoryId and outcome are required",
         },
         { status: 400 }
       );
-    }
-
-    // Validate company ownership
-    if (companyId !== user.company_id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    if (userId !== user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const { data: ownedDraft, error: draftError } = await supabase
-      .from("ai_draft_history")
-      .select("id")
-      .eq("id", draftHistoryId)
-      .eq("company_id", companyId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (draftError) {
-      throw new Error(
-        `Failed to validate draft feedback ownership: ${draftError.message}`
-      );
-    }
-    if (!ownedDraft) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     if (outcome !== "discarded") {
@@ -96,10 +51,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const access = await resolveEmailDraftAccess({
+      actor,
+      draftHistoryId,
+      operation: "send",
+      supabase,
+    });
+    if (
+      !access.allowed ||
+      !["drafted", "auto_drafted"].includes(access.draft.status)
+    ) {
+      return NextResponse.json({ error: "Draft not found" }, { status: 404 });
+    }
+
     await AIDraftService.recordDraftOutcome(
       draftHistoryId,
-      companyId,
-      userId,
+      actor.companyId,
+      actor.userId,
       "discarded"
     );
 

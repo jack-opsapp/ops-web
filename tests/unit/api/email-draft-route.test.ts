@@ -21,7 +21,8 @@ const {
   getProfileMock,
   getConfidenceMock,
   placeNewThreadDraftMock,
-  requireEmailCompanyAccessMock,
+  resolveEmailOpportunityAccessMock,
+  resolveEmailRouteActorMock,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -30,11 +31,16 @@ const {
   getProfileMock: vi.fn(),
   getConfidenceMock: vi.fn(),
   placeNewThreadDraftMock: vi.fn(),
-  requireEmailCompanyAccessMock: vi.fn(),
+  resolveEmailOpportunityAccessMock: vi.fn(),
+  resolveEmailRouteActorMock: vi.fn(),
 }));
 
 vi.mock("@/lib/email/email-route-auth", () => ({
-  requireEmailCompanyAccess: requireEmailCompanyAccessMock,
+  resolveEmailRouteActor: resolveEmailRouteActorMock,
+}));
+
+vi.mock("@/lib/email/email-opportunity-access", () => ({
+  resolveEmailOpportunityAccess: resolveEmailOpportunityAccessMock,
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -186,12 +192,31 @@ function makeRequest() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  requireEmailCompanyAccessMock.mockResolvedValue(null);
+  resolveEmailRouteActorMock.mockResolvedValue({
+    ok: true,
+    actor: { userId: "user-1", companyId: "company-1" },
+  });
+  resolveEmailOpportunityAccessMock.mockResolvedValue({
+    allowed: true,
+    actor: { userId: "user-1", companyId: "company-1" },
+    operation: "send",
+    threadId: null,
+    connectionId: "conn-1",
+    providerThreadId: null,
+    opportunityId: "opp-1",
+    connectionType: "company",
+    connectionOwnerId: null,
+    pipelineScope: "assigned",
+    inboxScope: "assigned",
+    usedLegacyPipelineManage: false,
+    usedLegacyInboxViewCompany: false,
+  });
   getConnectionsMock.mockResolvedValue([
     {
       id: "conn-1",
       companyId: "company-1",
       userId: "user-1",
+      type: "company",
       status: "active",
       provider: "gmail",
       email: "ops@example.com",
@@ -281,6 +306,52 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       createDraft,
       updateDraft: vi.fn(),
     });
+    getConnectionsMock.mockResolvedValue([
+      {
+        id: "conn-personal",
+        companyId: "company-1",
+        userId: "user-1",
+        type: "individual",
+        status: "active",
+        provider: "gmail",
+        email: "operator@example.com",
+      },
+      {
+        id: "conn-company",
+        companyId: "company-1",
+        userId: null,
+        type: "company",
+        status: "active",
+        provider: "gmail",
+        email: "office@example.com",
+      },
+    ]);
+    const initialAccess = {
+      allowed: true as const,
+      actor: { userId: "user-1", companyId: "company-1" },
+      operation: "send" as const,
+      threadId: null,
+      connectionId: "conn-personal",
+      providerThreadId: null,
+      opportunityId: "opp-1",
+      connectionType: "individual" as const,
+      connectionOwnerId: "user-1",
+      pipelineScope: "assigned" as const,
+      inboxScope: "assigned" as const,
+      usedLegacyPipelineManage: false,
+      usedLegacyInboxViewCompany: false,
+    };
+    const threadAccess = {
+      ...initialAccess,
+      threadId: "thread-internal-1",
+      connectionId: "conn-company",
+      providerThreadId: "gmail-thread-x",
+      connectionType: "company" as const,
+      connectionOwnerId: null,
+    };
+    resolveEmailOpportunityAccessMock
+      .mockResolvedValueOnce(initialAccess)
+      .mockResolvedValueOnce(threadAccess);
 
     const state: DbState = {
       opportunities: [
@@ -298,13 +369,20 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
           type: "email",
           direction: "inbound",
           subject: "Question about the deck timeline",
-          email_thread_id: "thread-internal-1",
+          email_thread_id: "gmail-thread-x",
+          email_connection_id: "conn-company",
           body_text: "Hey, just checking when you can start the deck?",
           created_at: "2026-06-01T10:00:00Z",
         },
       ],
       email_threads: [
-        { id: "thread-internal-1", provider_thread_id: "gmail-thread-x" },
+        {
+          id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "conn-company",
+          provider_thread_id: "gmail-thread-x",
+          opportunity_id: "opp-1",
+        },
       ],
       ai_draft_history: [
         {
@@ -315,12 +393,35 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
           mailbox_draft_id: null,
         },
       ],
+      email_signatures: [
+        { ...makeSignatureRow(), connection_id: "conn-company" },
+      ],
     };
     getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
 
     await POST(makeRequest());
 
     expect(placeNewThreadDraftMock).not.toHaveBeenCalled();
+    expect(getProviderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "conn-company" })
+    );
+    expect(resolveEmailOpportunityAccessMock).toHaveBeenCalledWith({
+      actor: { userId: "user-1", companyId: "company-1" },
+      operation: "send",
+      threadId: "thread-internal-1",
+      connectionId: "conn-company",
+      providerThreadId: "gmail-thread-x",
+      opportunityId: "opp-1",
+      supabase: expect.anything(),
+    });
+    expect(generateDraftMock).toHaveBeenCalledWith({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "conn-company",
+      opportunityId: "opp-1",
+      threadId: "gmail-thread-x",
+      emailAccess: threadAccess,
+    });
     expect(createDraft).toHaveBeenCalledWith(
       "bob@acme.com",
       "Re: Question about the deck timeline",

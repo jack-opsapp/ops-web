@@ -7,15 +7,17 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import { authorizeEmailAnalysisJobContinuation } from "@/lib/email/email-analysis-job-access";
+import {
+  authorizeEmailConnectionOperationForActor,
+  emailConnectionOwnerId,
+} from "@/lib/email/email-connection-operation-access";
 
 export async function GET(request: NextRequest) {
   // ─── Auth: verify the caller owns the company this job belongs to ──────
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
 
   const jobId = request.nextUrl.searchParams.get("jobId");
   if (!jobId) {
@@ -23,19 +25,59 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getServiceRoleClient();
+  const access = await authorizeEmailAnalysisJobContinuation({
+    supabase,
+    jobId,
+  });
+  if (access.allowed && access.actorUserId !== actorResolution.actor.userId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!access.allowed && access.reason === "requester_snapshot_missing") {
+    const { data: legacyJob, error: legacyJobError } = await supabase
+      .from("gmail_scan_jobs")
+      .select("company_id, connection_id, connection_owner_user_id")
+      .eq("id", jobId)
+      .maybeSingle();
+    if (legacyJobError || !legacyJob) {
+      return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+    const connectionAccess = await authorizeEmailConnectionOperationForActor({
+      actor: actorResolution.actor,
+      connectionId: String(legacyJob.connection_id),
+      requireUsable: true,
+      supabase,
+    });
+    const currentConnection = connectionAccess.allowed
+      ? connectionAccess.connections[0]
+      : undefined;
+    const currentOwner = currentConnection
+      ? emailConnectionOwnerId(currentConnection)
+      : undefined;
+    const ownerSnapshot = legacyJob.connection_owner_user_id
+      ? String(legacyJob.connection_owner_user_id)
+      : null;
+    if (
+      !connectionAccess.allowed ||
+      String(legacyJob.company_id) !== actorResolution.actor.companyId ||
+      currentOwner !== ownerSnapshot
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  } else if (!access.allowed) {
+    return NextResponse.json(
+      {
+        error:
+          access.reason === "job_not_found" ? "Job not found" : "Forbidden",
+      },
+      { status: access.reason === "job_not_found" ? 404 : 403 }
+    );
+  }
+
   const { data: job } = await supabase
     .from("gmail_scan_jobs")
     .select("*")
     .eq("id", jobId)
     .single();
-
-  if (job) {
-    // Verify the authenticated user belongs to the same company as the job
-    const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-    if (!user || (user.company_id as string) !== job.company_id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-  }
 
   if (!job) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });

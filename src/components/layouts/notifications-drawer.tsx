@@ -39,6 +39,7 @@ import {
 } from "@/lib/utils/motion";
 import { useDictionary } from "@/i18n/client";
 import type { AppNotification } from "@/lib/api/services/notification-service";
+import { isSafeInternalNotificationActionUrl } from "@/lib/notifications/notification-action-url";
 import {
   EDGE_DRAWER_PADDING,
   EDGE_RAIL_BOTTOM,
@@ -86,7 +87,7 @@ export function NotificationsDrawer() {
     const focused = document.activeElement as HTMLElement | null;
     if (!focused || focused.getAttribute("role") !== "listitem") return;
     const rows = Array.from(
-      listRef.current?.querySelectorAll('[role="listitem"]') ?? [],
+      listRef.current?.querySelectorAll('[role="listitem"]') ?? []
     ) as HTMLElement[];
     const idx = rows.indexOf(focused);
     if (idx === -1) return;
@@ -123,14 +124,14 @@ export function NotificationsDrawer() {
 
   const hasDismissible = useMemo(
     () => notifs.some((n) => !n.persistent),
-    [notifs],
+    [notifs]
   );
 
   const syncTime = useMemo(() => {
     if (!dataUpdatedAt) return "—:—";
     const d = new Date(dataUpdatedAt);
     return `${String(d.getHours()).padStart(2, "0")}:${String(
-      d.getMinutes(),
+      d.getMinutes()
     ).padStart(2, "0")}`;
   }, [dataUpdatedAt]);
 
@@ -145,7 +146,7 @@ export function NotificationsDrawer() {
       close(EDGE_TAB_ID);
       return;
     }
-    if (n.actionUrl) {
+    if (n.actionUrl && isSafeInternalNotificationActionUrl(n.actionUrl)) {
       if (!n.persistent) dismissMutation.mutate(n.id);
       router.push(n.actionUrl);
       close(EDGE_TAB_ID);
@@ -209,7 +210,7 @@ export function NotificationsDrawer() {
         count: counts.ambient,
       },
     ],
-    [t, notifs.length, counts],
+    [t, notifs.length, counts]
   );
 
   return (
@@ -288,237 +289,234 @@ export function NotificationsDrawer() {
                 pointerEvents: "auto",
               }}
             >
-
-            {/* Header */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: EDGE_DRAWER_PADDING.header,
-                position: "relative",
-              }}
-            >
-              {/* Kit widget header: `// TITLE` — one JetBrains Mono 11px
+              {/* Header */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: EDGE_DRAWER_PADDING.header,
+                  position: "relative",
+                }}
+              >
+                {/* Kit widget header: `// TITLE` — one JetBrains Mono 11px
                   uppercase run, slash in --text-mute (Widget.jsx anatomy). */}
-              <span
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: "var(--text-3)",
-                }}
-              >
-                <span aria-hidden style={{ color: "var(--text-mute)" }}>
-                  {"// "}
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    color: "var(--text-3)",
+                  }}
+                >
+                  <span aria-hidden style={{ color: "var(--text-mute)" }}>
+                    {"// "}
+                  </span>
+                  {t("drawer.title")}
                 </span>
-                {t("drawer.title")}
-              </span>
-              <span
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--text-2)",
+                    marginLeft: 8,
+                    fontFeatureSettings: '"tnum" 1, "zero" 1',
+                  }}
+                >
+                  {notifs.length}
+                </span>
+              </div>
+
+              {/* Filter chips */}
+              <div
+                role="tablist"
+                aria-label={t("filters.ariaLabel")}
                 style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  color: "var(--text-2)",
-                  marginLeft: 8,
-                  fontFeatureSettings: '"tnum" 1, "zero" 1',
+                  display: "flex",
+                  gap: 4,
+                  padding: EDGE_DRAWER_PADDING.row,
+                  flexWrap: "nowrap",
+                  overflowX: "hidden",
                 }}
               >
-                {notifs.length}
-              </span>
-            </div>
-
-            {/* Filter chips */}
-            <div
-              role="tablist"
-              aria-label={t("filters.ariaLabel")}
-              style={{
-                display: "flex",
-                gap: 4,
-                padding: EDGE_DRAWER_PADDING.row,
-                flexWrap: "nowrap",
-                overflowX: "hidden",
-              }}
-            >
-              {CHIPS.map((c) => {
-                const active = filter === c.key;
-                return (
-                  <motion.button
-                    key={c.key}
-                    role="tab"
-                    aria-selected={active}
-                    aria-controls="notifications-drawer-list"
-                    onClick={() => handleFilterChange(c.key)}
-                    variants={reducedMotion ? undefined : chipVariants}
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      letterSpacing: "0.12em",
-                      padding: "4px 8px",
-                      borderRadius: 4,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      whiteSpace: "nowrap",
-                      background: active ? c.soft : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${
-                        active ? c.line : "var(--line)"
-                      }`,
-                      color: active ? c.color : "var(--text-3)",
-                      transition: reducedMotion
-                        ? "none"
-                        : "background var(--d-hover) var(--ease-smooth), border-color var(--d-hover) var(--ease-smooth), color var(--d-hover) var(--ease-smooth)",
-                    }}
-                  >
-                    {c.key !== "all" && (
-                      <span
-                        aria-hidden
-                        style={{
-                          width: 5,
-                          height: 5,
-                          borderRadius: 1,
-                          background: c.color,
-                          opacity: active ? 1 : 0.55,
-                          transition: reducedMotion
-                            ? "none"
-                            : "opacity var(--d-hover) var(--ease-smooth)",
-                        }}
-                      />
-                    )}
-                    {c.label}
-                    <span
+                {CHIPS.map((c) => {
+                  const active = filter === c.key;
+                  return (
+                    <motion.button
+                      key={c.key}
+                      role="tab"
+                      aria-selected={active}
+                      aria-controls="notifications-drawer-list"
+                      onClick={() => handleFilterChange(c.key)}
+                      variants={reducedMotion ? undefined : chipVariants}
                       style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        letterSpacing: "0.12em",
+                        padding: "4px 8px",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        whiteSpace: "nowrap",
+                        background: active ? c.soft : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${active ? c.line : "var(--line)"}`,
                         color: active ? c.color : "var(--text-3)",
-                        opacity: active ? 0.85 : 1,
-                        fontFeatureSettings: '"tnum" 1, "zero" 1',
                         transition: reducedMotion
                           ? "none"
-                          : "color var(--d-hover) var(--ease-smooth), opacity var(--d-hover) var(--ease-smooth)",
+                          : "background var(--d-hover) var(--ease-smooth), border-color var(--d-hover) var(--ease-smooth), color var(--d-hover) var(--ease-smooth)",
                       }}
                     >
-                      {c.count}
+                      {c.key !== "all" && (
+                        <span
+                          aria-hidden
+                          style={{
+                            width: 5,
+                            height: 5,
+                            borderRadius: 1,
+                            background: c.color,
+                            opacity: active ? 1 : 0.55,
+                            transition: reducedMotion
+                              ? "none"
+                              : "opacity var(--d-hover) var(--ease-smooth)",
+                          }}
+                        />
+                      )}
+                      {c.label}
+                      <span
+                        style={{
+                          color: active ? c.color : "var(--text-3)",
+                          opacity: active ? 0.85 : 1,
+                          fontFeatureSettings: '"tnum" 1, "zero" 1',
+                          transition: reducedMotion
+                            ? "none"
+                            : "color var(--d-hover) var(--ease-smooth), opacity var(--d-hover) var(--ease-smooth)",
+                        }}
+                      >
+                        {c.count}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+
+              {/* Scrollable list */}
+              <div
+                id="notifications-drawer-list"
+                ref={listRef}
+                role="list"
+                onKeyDown={handleListKeyDown}
+                className="hide-scrollbar"
+                style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
+              >
+                {visible.length === 0 && (
+                  <div style={{ padding: 24 }}>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        color: "var(--text-3)",
+                        letterSpacing: "0.16em",
+                      }}
+                    >
+                      {filter === "all"
+                        ? t("empty.allClear")
+                        : t("empty.noneInBucket").replace(
+                            "{bucket}",
+                            CHIPS.find((c) => c.key === filter)?.label ?? ""
+                          )}
                     </span>
-                  </motion.button>
-                );
-              })}
-            </div>
+                  </div>
+                )}
+                {visible.map((n) => {
+                  const meta = NOTIF_TYPE_META[n.type] ?? {
+                    label: n.type.toUpperCase(),
+                    icon: "circle",
+                    tone: "accent" as NotificationTone,
+                  };
+                  const tone = bucketTone(n);
+                  return (
+                    <NotificationRow
+                      key={n.id}
+                      notification={n}
+                      meta={meta}
+                      tone={tone}
+                      expanded={expandedId === n.id}
+                      onRowClick={() => handleRowClick(n)}
+                      onAction={() => handleAction(n)}
+                      onDismiss={handleDismiss}
+                    />
+                  );
+                })}
+                {visible.length > 0 && (
+                  <div style={{ padding: EDGE_DRAWER_PADDING.row }}>
+                    <span
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11,
+                        color: "var(--text-3)",
+                        letterSpacing: "0.18em",
+                      }}
+                    >
+                      {t("list.eofMarker")}
+                    </span>
+                  </div>
+                )}
+              </div>
 
-            {/* Scrollable list */}
-            <div
-              id="notifications-drawer-list"
-              ref={listRef}
-              role="list"
-              onKeyDown={handleListKeyDown}
-              className="hide-scrollbar"
-              style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}
-            >
-              {visible.length === 0 && (
-                <div style={{ padding: 24 }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      color: "var(--text-3)",
-                      letterSpacing: "0.16em",
-                    }}
-                  >
-                    {filter === "all"
-                      ? t("empty.allClear")
-                      : t("empty.noneInBucket").replace(
-                          "{bucket}",
-                          CHIPS.find((c) => c.key === filter)?.label ?? "",
-                        )}
-                  </span>
-                </div>
-              )}
-              {visible.map((n) => {
-                const meta = NOTIF_TYPE_META[n.type] ?? {
-                  label: n.type.toUpperCase(),
-                  icon: "circle",
-                  tone: "accent" as NotificationTone,
-                };
-                const tone = bucketTone(n);
-                return (
-                  <NotificationRow
-                    key={n.id}
-                    notification={n}
-                    meta={meta}
-                    tone={tone}
-                    expanded={expandedId === n.id}
-                    onRowClick={() => handleRowClick(n)}
-                    onAction={() => handleAction(n)}
-                    onDismiss={handleDismiss}
-                  />
-                );
-              })}
-              {visible.length > 0 && (
-                <div style={{ padding: EDGE_DRAWER_PADDING.row }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-mono)",
-                      fontSize: 11,
-                      color: "var(--text-3)",
-                      letterSpacing: "0.18em",
-                    }}
-                  >
-                    {t("list.eofMarker")}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Footer — SYS :: SYNC stamp + CLEAR ALL */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: EDGE_DRAWER_PADDING.footer,
-                marginTop: 4,
-              }}
-            >
-              <span
+              {/* Footer — SYS :: SYNC stamp + CLEAR ALL */}
+              <div
                 style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  color: "var(--text-3)",
-                  letterSpacing: "0.14em",
-                  fontFeatureSettings: '"tnum" 1, "zero" 1',
+                  display: "flex",
+                  alignItems: "center",
+                  padding: EDGE_DRAWER_PADDING.footer,
+                  marginTop: 4,
                 }}
               >
-                {t("footer.lastSync").replace("{time}", syncTime)}
-              </span>
-              <div style={{ flex: 1 }} />
-              <button
-                type="button"
-                aria-label={t("drawer.clearAllAriaLabel")}
-                disabled={!hasDismissible || dismissAllMutation.isPending}
-                onClick={() => dismissAllMutation.mutate()}
-                style={{
-                  fontFamily: "var(--font-mono)",
-                  fontSize: 11,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "var(--text-3)",
-                  background: "transparent",
-                  border: "none",
-                  padding: 0,
-                  opacity: !hasDismissible ? 0.4 : 1,
-                  cursor: !hasDismissible ? "default" : "pointer",
-                  transition: reducedMotion
-                    ? "none"
-                    : "color 150ms var(--ease-smooth)",
-                }}
-                onMouseEnter={(e) => {
-                  if (hasDismissible)
-                    e.currentTarget.style.color = "var(--text)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "var(--text-3)";
-                }}
-              >
-                {t("footer.clearAll")}
-              </button>
-            </div>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--text-3)",
+                    letterSpacing: "0.14em",
+                    fontFeatureSettings: '"tnum" 1, "zero" 1',
+                  }}
+                >
+                  {t("footer.lastSync").replace("{time}", syncTime)}
+                </span>
+                <div style={{ flex: 1 }} />
+                <button
+                  type="button"
+                  aria-label={t("drawer.clearAllAriaLabel")}
+                  disabled={!hasDismissible || dismissAllMutation.isPending}
+                  onClick={() => dismissAllMutation.mutate()}
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "var(--text-3)",
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    opacity: !hasDismissible ? 0.4 : 1,
+                    cursor: !hasDismissible ? "default" : "pointer",
+                    transition: reducedMotion
+                      ? "none"
+                      : "color 150ms var(--ease-smooth)",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (hasDismissible)
+                      e.currentTarget.style.color = "var(--text)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "var(--text-3)";
+                  }}
+                >
+                  {t("footer.clearAll")}
+                </button>
+              </div>
             </div>
           </motion.aside>
         </div>

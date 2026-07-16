@@ -79,6 +79,31 @@ describe("classifyFailure — genuine provider failures still fire", () => {
     });
     expect(classifyFailure(conn, NOW)?.reason).toBe("webhook_setup_failed");
   });
+
+  it("never exposes a company mailbox connector as an OPS owner", () => {
+    const result = classifyFailure(
+      baseConn({
+        user_id: "legacy-company-connector",
+        webhook_expires_at: new Date(NOW - H).toISOString(),
+      }),
+      NOW
+    );
+
+    expect(result?.connectionOwnerUserId).toBeNull();
+  });
+
+  it("retains the exact owner only for an individual mailbox", () => {
+    const result = classifyFailure(
+      baseConn({
+        type: "individual",
+        user_id: "personal-owner",
+        webhook_expires_at: new Date(NOW - H).toISOString(),
+      }),
+      NOW
+    );
+
+    expect(result?.connectionOwnerUserId).toBe("personal-owner");
+  });
 });
 
 describe("classifyFailure — never alerts on non-actionable rows", () => {
@@ -118,7 +143,7 @@ describe("pickWorstFailure", () => {
       companyId: "co",
       email: "a@x.com",
       provider: "gmail",
-      connectionUserId: "u",
+      connectionOwnerUserId: null,
       type: "company",
       reason: "sync_stale",
       hoursSilent: 20,

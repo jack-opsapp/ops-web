@@ -30,11 +30,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailService } from "@/lib/api/services/email-service";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
 
 export const maxDuration = 300; // 5 min — the Vercel ceiling.
 
@@ -77,23 +75,6 @@ interface BackfillResult {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
-
-  const canView = await checkPermissionById(userId, "inbox.view");
-  if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   let body: BackfillRequestBody;
   try {
     body = (await request.json()) as BackfillRequestBody;
@@ -123,6 +104,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const supabase = getServiceRoleClient();
+  const access = await resolveEmailConnectionOperationAccess({
+    request,
+    connectionId,
+    requireUsable: true,
+    supabase,
+  });
+  if (!access.allowed) {
+    return NextResponse.json(
+      {
+        error: access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+      },
+      { status: access.status }
+    );
+  }
+  const companyId = access.actor.companyId;
 
   // Verify connection belongs to this user's company before we ever hit the
   // provider. A malicious or buggy client can't use this endpoint to pull
@@ -149,7 +145,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     companyId: connRow.company_id as string,
     provider: connRow.provider,
     type: connRow.type,
-    userId: (connRow.user_id as string) ?? null,
+    userId:
+      connRow.type === "individual"
+        ? ((connRow.user_id as string) ?? null)
+        : null,
     email: connRow.email as string,
     accessToken: connRow.access_token as string,
     refreshToken: connRow.refresh_token as string,

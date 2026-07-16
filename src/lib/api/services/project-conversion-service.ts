@@ -44,7 +44,22 @@ const PREFLIGHT_RPC = "get_conversion_preflight";
 export type ConversionSourcePath =
   | "won_dialog"
   | "approval_queue"
-  | "email_accept";
+  | "email_accept"
+  | "email_likely_won";
+
+type EmailConversionEvidence =
+  | {
+      connection_id: string;
+      email_thread_id: string;
+      provider_thread_id: string;
+      decision: "auto_advance_won";
+    }
+  | {
+      connection_id: string;
+      provider_thread_id: string;
+      provider_message_id: string;
+      decision: "likely_won";
+    };
 
 export interface ConvertOpportunityParams {
   opportunityId: string;
@@ -75,6 +90,10 @@ export interface ConvertOpportunityParams {
    * the naming trigger auto-names from the address.
    */
   titleOverride?: string | null;
+  /** Immutable source proof required by actorless email conversions. */
+  evidence?: EmailConversionEvidence;
+  /** Lead-assignment snapshot checked under the conversion row lock. */
+  expectedAssignmentVersion?: number;
 }
 
 export interface LinkOpportunityToProjectParams extends ConvertOpportunityParams {
@@ -181,6 +200,52 @@ async function runConversion(
   const supabase = requireSupabase();
   const winOpportunity = params.sourcePath !== "approval_queue";
 
+  if (
+    params.sourcePath === "email_accept" ||
+    params.sourcePath === "email_likely_won"
+  ) {
+    if (
+      params.decidedBy !== null ||
+      !Number.isSafeInteger(params.expectedAssignmentVersion) ||
+      (params.expectedAssignmentVersion as number) < 0 ||
+      !params.evidence
+    ) {
+      throw new Error(
+        "Actorless email conversion requires exact evidence and an assignment snapshot"
+      );
+    }
+    const keys = Object.keys(params.evidence).sort();
+    const expectedKeys =
+      params.sourcePath === "email_accept"
+        ? ["connection_id", "decision", "email_thread_id", "provider_thread_id"]
+        : [
+            "connection_id",
+            "decision",
+            "provider_message_id",
+            "provider_thread_id",
+          ];
+    if (
+      keys.length !== expectedKeys.length ||
+      keys.some((key, index) => key !== expectedKeys[index])
+    ) {
+      throw new Error("Actorless email conversion evidence is invalid");
+    }
+    const stringEvidence = params.evidence as Record<string, unknown>;
+    if (
+      Object.entries(stringEvidence).some(
+        ([key, value]) =>
+          key !== "decision" &&
+          (typeof value !== "string" || value.trim().length === 0)
+      ) ||
+      (params.sourcePath === "email_accept" &&
+        params.evidence.decision !== "auto_advance_won") ||
+      (params.sourcePath === "email_likely_won" &&
+        params.evidence.decision !== "likely_won")
+    ) {
+      throw new Error("Actorless email conversion evidence is invalid");
+    }
+  }
+
   const { data, error } = await supabase.rpc(CONVERSION_RPC, {
     p_company_id: params.companyId,
     p_opportunity_id: params.opportunityId,
@@ -192,6 +257,8 @@ async function runConversion(
     p_link_to_project_id: linkToProjectId,
     p_source_path: params.sourcePath,
     p_win_opportunity: winOpportunity,
+    p_evidence: params.evidence ?? {},
+    p_expected_assignment_version: params.expectedAssignmentVersion ?? null,
   });
 
   if (error) {
@@ -201,7 +268,12 @@ async function runConversion(
   const result = (data ?? {}) as UnifiedConversionResult;
 
   // Snapshot guard — the opportunity changed underneath the operator.
-  if (!result.converted && result.guard_reason === "snapshot_mismatch") {
+  if (
+    !result.converted &&
+    (result.guard_reason === "snapshot_mismatch" ||
+      result.guard_reason === "assignment_snapshot_mismatch" ||
+      result.guard_reason === "manual_stage_override")
+  ) {
     throw new Error(
       "Opportunity changed before conversion completed — please retry"
     );

@@ -54,11 +54,10 @@ export async function resolveEmailSignatureForMessage(input: {
 
   try {
     const { error } = await input.supabase.rpc(
-      "sync_email_signature_notification",
+      "sync_email_signature_notification_as_system",
       {
-        p_company_id: input.connection.companyId,
+        p_actor_user_id: input.userId,
         p_connection_id: input.connection.id,
-        p_scope_user_id: input.userId,
       }
     );
     if (error) throw error;

@@ -17,29 +17,18 @@ import {
   EmailSignatureService,
   stripRenderedEmailSignature,
 } from "./email-signature-service";
-import { WritingProfileService } from "./writing-profile-service";
 import { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
-import { AutoSendService } from "./auto-send-service";
-import { AIDraftService } from "./ai-draft-service";
-import {
-  pickExistingMailboxDraft,
-  type MailboxDraftRow,
-} from "./mailbox-draft-helpers";
-import {
-  CONTACT_FORM_OUTREACH_SUBJECT,
-  buildContactFormDraftInstruction,
-  placeNewThreadDraft,
-} from "./mailbox-draft-push";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { reconcilePendingMailboxDrafts } from "./draft-reconciliation";
 import { maybeSuggestProject } from "./project-suggestion-service";
 import { EmailThreadService } from "./email-thread-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
-import { normalizeReplySubject } from "@/lib/email/email-subject-policy";
-import {
-  renderMailboxDraftWithSignature,
-  resolveEmailSignatureForMessage,
-} from "@/lib/email/email-signature-runtime";
+import { resolveOutboundLearningActorId } from "@/lib/email/outbound-learning-actor";
+import { assignPersonalMailboxLead } from "@/lib/email/personal-mailbox-lead-assignment";
+import { resolveSyncEngineEmailActor } from "@/lib/email/sync-engine-email-actor";
+import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
+import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-complete-notification";
+import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-health";
 import { ProjectConversionService } from "./project-conversion-service";
 import {
   buildEmailOpportunityTitle,
@@ -321,6 +310,11 @@ interface CreateOpportunityTitleOptions {
   enrichmentFacts?: LeadEnrichmentFacts;
   /** CRM dedupe identity. Contact-form submissions use a message-scoped key. */
   sourceKey?: string | null;
+  mailboxAssignment?: {
+    connectionType: "company" | "individual";
+    connectionId: string;
+    connectionOwnerId: string | null;
+  };
 }
 
 interface OpportunityResolution {
@@ -328,6 +322,15 @@ interface OpportunityResolution {
   /** The client attached to the persisted winner, including a source-key race. */
   clientId: string;
   created: boolean;
+}
+
+function mailboxAssignmentContext(connection: EmailConnection) {
+  return {
+    connectionType: connection.type,
+    connectionId: connection.id,
+    connectionOwnerId:
+      connection.type === "individual" ? connection.userId : null,
+  };
 }
 
 function syncTitleUnsafeIdentity(
@@ -852,6 +855,45 @@ async function getClientOpportunityTitleCandidate(
   };
 }
 
+async function applyPersonalMailboxAssignment(params: {
+  opportunityId: string;
+  assignmentVersion: number;
+  assignedTo: string | null;
+  providerThreadId: string | null;
+  mailboxAssignment: NonNullable<
+    CreateOpportunityTitleOptions["mailboxAssignment"]
+  >;
+}): Promise<void> {
+  try {
+    const result = await assignPersonalMailboxLead(
+      {
+        connectionType: params.mailboxAssignment.connectionType,
+        connectionId: params.mailboxAssignment.connectionId,
+        connectionOwnerId: params.mailboxAssignment.connectionOwnerId,
+        opportunityId: params.opportunityId,
+        expectedAssignmentVersion: params.assignmentVersion,
+        expectedAssignedTo: params.assignedTo,
+        providerThreadId: params.providerThreadId,
+      },
+      requireSupabase()
+    );
+
+    if (!result.assigned && result.reason !== "company_mailbox") {
+      console.warn("[email-ingest] personal-mailbox lead left unassigned", {
+        opportunityId: params.opportunityId,
+        connectionId: params.mailboxAssignment.connectionId,
+        reason: result.reason,
+      });
+    }
+  } catch (error) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] personal mailbox assignment failed: ${
+        error instanceof Error ? error.message : "unknown error"
+      }`
+    );
+  }
+}
+
 async function createOpportunity(
   email: NormalizedEmail,
   clientId: string,
@@ -898,7 +940,7 @@ async function createOpportunity(
       // allowed to project counters, including after a create race or replay.
       tags: ["email-import"],
     })
-    .select("id, client_id")
+    .select("id, client_id, assigned_to, assignment_version")
     .single();
 
   // P0-A: a concurrent sync may have created this thread's opportunity first.
@@ -908,11 +950,20 @@ async function createOpportunity(
     if ((error as { code?: string }).code === "23505" && sourceKey) {
       const { data: existing } = await supabase
         .from("opportunities")
-        .select("id, client_id")
+        .select("id, client_id, assigned_to, assignment_version")
         .eq("company_id", companyId)
         .eq("source_thread_key", sourceKey)
         .maybeSingle();
       if (existing?.id && existing.client_id) {
+        if (titleOptions.mailboxAssignment) {
+          await applyPersonalMailboxAssignment({
+            opportunityId: existing.id as string,
+            assignmentVersion: Number(existing.assignment_version ?? 0),
+            assignedTo: (existing.assigned_to as string | null) ?? null,
+            providerThreadId: email.threadId ?? null,
+            mailboxAssignment: titleOptions.mailboxAssignment,
+          });
+        }
         console.log("[email-ingest] lead-dedupe-hit", {
           threadKey: sourceKey,
           companyId,
@@ -938,6 +989,16 @@ async function createOpportunity(
   }
   const opportunityId = data.id as string;
   const authoritativeClientId = data.client_id as string;
+
+  if (titleOptions.mailboxAssignment) {
+    await applyPersonalMailboxAssignment({
+      opportunityId,
+      assignmentVersion: Number(data.assignment_version ?? 0),
+      assignedTo: (data.assigned_to as string | null) ?? null,
+      providerThreadId: email.threadId ?? null,
+      mailboxAssignment: titleOptions.mailboxAssignment,
+    });
+  }
 
   // Record provenance for the customer facts this insert established, so new
   // leads (the majority) carry a dossier/audit trail — not only the
@@ -1565,66 +1626,30 @@ async function maybeAutoAdvanceOnAccept(args: {
 async function createTerminalFlagNotification(
   stageResult: { threadId: string; terminalFlag: string | null },
   connection: EmailConnection,
-  opportunityId: string
+  opportunityId: string,
+  providerThreadId: string,
+  expectedAssignmentVersion: unknown
 ): Promise<void> {
-  if (!stageResult.terminalFlag || !connection.userId) return;
-
-  const supabase = requireSupabase();
-
-  const { data: opp, error: opportunityError } = await supabase
-    .from("opportunities")
-    .select("title, client_id")
-    .eq("id", opportunityId)
-    .eq("company_id", connection.companyId)
-    .single();
-  if (opportunityError || !opp) {
-    throw new Error(
-      `terminal notification opportunity lookup failed for ${opportunityId}: ${opportunityError?.message ?? "row not found"}`
-    );
+  if (
+    (stageResult.terminalFlag !== "likely_won" &&
+      stageResult.terminalFlag !== "likely_lost") ||
+    !Number.isSafeInteger(expectedAssignmentVersion) ||
+    (expectedAssignmentVersion as number) < 0
+  ) {
+    return;
   }
 
-  let clientName = "A client";
-  if (opp?.client_id) {
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .select("name")
-      .eq("id", opp.client_id as string)
-      .single();
-    if (clientError) {
-      throw new Error(
-        `terminal notification client lookup failed: ${clientError.message}`
-      );
-    }
-    if (client?.name) clientName = client.name as string;
-  }
-
-  const action =
-    stageResult.terminalFlag === "likely_won"
-      ? "accepted your estimate"
-      : "declined";
-
-  const { error: notificationError } = await supabase
-    .from("notifications")
-    .insert({
-      user_id: connection.userId,
-      company_id: connection.companyId,
-      type: "role_needed",
-      title:
-        stageResult.terminalFlag === "likely_won"
-          ? "Possible deal won"
-          : "Possible deal lost",
-      body: `${clientName} may have ${action}. Review and confirm.`,
-      is_read: false,
-      persistent: true,
-      action_url: "/pipeline",
-      action_label:
-        stageResult.terminalFlag === "likely_won" ? "Mark as Won" : "Review",
-    });
-  if (notificationError) {
-    throw new Error(
-      `terminal notification persistence failed: ${notificationError.message}`
-    );
-  }
+  await createEmailOpportunityNotification({
+    opportunityId,
+    connectionId: connection.id,
+    providerThreadId,
+    expectedAssignmentVersion: expectedAssignmentVersion as number,
+    eventType:
+      stageResult.terminalFlag === "likely_won"
+        ? "terminal_likely_won"
+        : "terminal_likely_lost",
+    supabase: requireSupabase(),
+  });
 }
 
 function numericOpportunityValue(value: unknown): number | null {
@@ -1640,12 +1665,14 @@ async function maybeAutoConvertLikelyWon(
   },
   connection: EmailConnection,
   opportunityId: string,
+  candidateProviderMessageIds: ReadonlySet<string>,
   opportunity: {
     stage?: string | null;
     stage_manually_set?: boolean | null;
     actual_value?: unknown;
     detected_value?: unknown;
     estimated_value?: unknown;
+    assignment_version?: unknown;
   } | null
 ): Promise<boolean> {
   if (
@@ -1659,11 +1686,51 @@ async function maybeAutoConvertLikelyWon(
   }
 
   try {
+    const assignmentVersion = opportunity?.assignment_version;
+    if (
+      !Number.isSafeInteger(assignmentVersion) ||
+      (assignmentVersion as number) < 0
+    ) {
+      throw new Error("likely-won conversion has no assignment snapshot");
+    }
+    if (candidateProviderMessageIds.size === 0) return false;
+
+    const supabase = requireSupabase();
+    const { data: evidence, error: evidenceError } = await supabase
+      .from("opportunity_correspondence_events")
+      .select("id, provider_thread_id, provider_message_id")
+      .eq("company_id", connection.companyId)
+      .eq("opportunity_id", opportunityId)
+      .eq("connection_id", connection.id)
+      .eq("direction", "inbound")
+      .eq("party_role", "customer")
+      .eq("is_meaningful", true)
+      .in("provider_message_id", [...candidateProviderMessageIds])
+      .order("occurred_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (evidenceError) {
+      throw new Error(
+        `likely-won evidence lookup failed: ${evidenceError.message}`
+      );
+    }
+    if (!evidence?.provider_thread_id || !evidence.provider_message_id) {
+      return false;
+    }
+
     await ProjectConversionService.convertOpportunityToProject({
       opportunityId,
       companyId: connection.companyId,
-      decidedBy: connection.userId ?? null,
-      sourcePath: "won_dialog",
+      decidedBy: null,
+      sourcePath: "email_likely_won",
+      expectedAssignmentVersion: assignmentVersion as number,
+      evidence: {
+        connection_id: connection.id,
+        provider_thread_id: evidence.provider_thread_id,
+        provider_message_id: evidence.provider_message_id,
+        decision: "likely_won",
+      },
       actualValue:
         numericOpportunityValue(opportunity?.actual_value) ??
         numericOpportunityValue(opportunity?.detected_value) ??
@@ -1683,89 +1750,49 @@ async function createSyncNotification(
   connection: EmailConnection,
   result: SyncCycleResult
 ): Promise<void> {
-  const userId = connection.userId;
-  if (!userId) return;
+  await createEmailSyncCompleteNotification({
+    connectionId: connection.id,
+    connectionType: connection.type,
+    expectedOwnerUserId:
+      connection.type === "individual" ? connection.userId : null,
+    newLeads: result.newLeads,
+    matched: result.matched,
+    needsReview: result.needsReview,
+    supabase: requireSupabase(),
+  });
+}
 
-  // Bug bb63c37e — the prior body ("3 new leads · 5 matched") was abstract:
-  // the user couldn't tell what to do or what was actually waiting for them.
-  // Build a sender-flavored detail line so the notification names the
-  // highest-signal item (the most recent unmatched email or the freshest new
-  // lead) and points the action button at the right destination.
-  const parts: string[] = [];
-  if (result.newLeads > 0)
-    parts.push(`${result.newLeads} new lead${result.newLeads > 1 ? "s" : ""}`);
-  if (result.matched > 0)
-    parts.push(
-      `${result.matched} email${result.matched > 1 ? "s" : ""} matched`
-    );
-  if (result.needsReview > 0)
-    parts.push(
-      `${result.needsReview} need${result.needsReview > 1 ? "" : "s"} review`
-    );
-
-  if (parts.length === 0) return;
-
-  const summary = parts.join(" · ");
-
-  // Pull the most recent inbound activity for this connection so we can name
-  // a real sender / subject in the body. Best-effort: if the read fails or
-  // there's nothing fresh, fall back to the count summary alone.
+async function maybeSuggestProjectForAssignedActor(params: {
+  email: NormalizedEmail;
+  connection: EmailConnection;
+  clientId: string;
+  opportunityId: string;
+}): Promise<void> {
   const supabase = requireSupabase();
-  let recentDetail: string | null = null;
-  try {
-    const { data: latest } = await supabase
-      .from("activities")
-      .select("from_email, subject")
-      .eq("company_id", connection.companyId)
-      .eq("email_connection_id", connection.id)
-      .eq("direction", "inbound")
-      .not("email_message_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  const actor = await resolveSyncEngineEmailActor({
+    companyId: params.connection.companyId,
+    connectionId: params.connection.id,
+    opportunityId: params.opportunityId,
+    providerThreadId: params.email.threadId,
+    operation: "read",
+    opportunityAction: "convert",
+    supabase,
+  });
+  if (actor.kind !== "resolved") return;
 
-    if (latest) {
-      const sender = (latest.from_email as string | null) || null;
-      const subject = latest.subject as string | null;
-      if (sender && subject) {
-        const trimmedSubject =
-          subject.length > 60 ? subject.slice(0, 57) + "…" : subject;
-        recentDetail = `Latest: ${sender} — ${trimmedSubject}`;
-      } else if (sender) {
-        recentDetail = `Latest sender: ${sender}`;
-      }
-    }
-  } catch (err) {
-    console.warn("[sync-engine] recent-detail lookup failed:", err);
-  }
-
-  // Prefer a clear count-led title with the connection's mailbox so the user
-  // knows which inbox the result came from (multi-mailbox accounts).
-  const mailbox = connection.email || "Inbox";
-  const body = recentDetail ? `${summary}. ${recentDetail}` : summary;
-
-  // When the in-app inbox is hidden for this company, the "Review Inbox" CTA
-  // is a dead end. Repoint to /pipeline (the right destination when the sync
-  // surfaces new leads) and relabel accordingly.
-  const inboxEnabled = await AdminFeatureOverrideService.isFeatureEnabled(
-    connection.companyId,
-    "inbox_ui"
+  const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
+    params.connection.companyId,
+    "phase_c"
   );
+  if (!phaseCEnabled) return;
 
-  // `email_sync_complete` is the canonical type — both web (drawer registry
-  // via NOTIF_TYPE_META) and iOS (NotificationListView icon table + deep
-  // link) recognize it. Action lands on /pipeline since iOS has no inbox.
-  await supabase.from("notifications").insert({
-    user_id: userId,
-    company_id: connection.companyId,
-    type: "email_sync_complete",
-    title: `Email sync · ${mailbox}`,
-    body,
-    is_read: false,
-    persistent: false,
-    deep_link_type: "inbox",
-    action_url: inboxEnabled ? "/inbox" : "/pipeline",
-    action_label: inboxEnabled ? "Review Inbox" : "View pipeline",
+  await maybeSuggestProject({
+    email: params.email,
+    companyId: params.connection.companyId,
+    userId: actor.context.actorUserId,
+    clientId: params.clientId,
+    opportunityId: params.opportunityId,
+    expectedAssignmentVersion: actor.context.assignmentVersion,
   });
 }
 
@@ -1773,48 +1800,22 @@ async function createSyncNotification(
  * Mark a connection as needing reconnect. Used when the provider throws
  * ProviderAuthError (refresh token revoked) or ProviderScopeError (grant
  * lacks required permissions). The cron filters on status='active' so this
- * effectively parks the connection until the user re-authorizes. Also fires
- * a persistent notification so the user sees the call-to-action.
+ * effectively parks the connection until a user re-authorizes. Recipient
+ * derivation is performed atomically in the database; connector metadata is
+ * never treated as an OPS actor.
  */
 async function markConnectionNeedsReconnect(
   connectionId: string,
-  reason: string
+  _reason: string
 ): Promise<void> {
   try {
-    await EmailService.updateConnection(connectionId, {
-      status: "needs_reconnect",
+    await markEmailConnectionNeedsReconnect({
+      connectionId,
+      supabase: requireSupabase(),
     });
   } catch (err) {
     console.error(
       `[sync-engine] Failed to mark ${connectionId} needs_reconnect:`,
-      err
-    );
-  }
-
-  try {
-    const supabase = requireSupabase();
-    const { data: connRow } = await supabase
-      .from("email_connections")
-      .select("company_id, user_id, email")
-      .eq("id", connectionId)
-      .maybeSingle();
-
-    if (connRow?.user_id) {
-      await supabase.from("notifications").insert({
-        user_id: connRow.user_id as string,
-        company_id: connRow.company_id as string,
-        type: "role_needed",
-        title: "Email connection needs attention",
-        body: `${connRow.email as string}: ${reason}. Please reconnect in Settings.`,
-        is_read: false,
-        persistent: true,
-        action_url: "/settings?tab=integrations",
-        action_label: "Reconnect",
-      });
-    }
-  } catch (err) {
-    console.error(
-      `[sync-engine] Failed to notify on needs_reconnect for ${connectionId}:`,
       err
     );
   }
@@ -2171,17 +2172,6 @@ async function processInboundEmail(
       result,
     });
 
-    // ── E5: Auto-draft / auto-send trigger (fire-and-forget) ───────────
-    // Never awaited — AI inference must not block the sync loop.
-    maybeAutoGenerateDraft(
-      effectiveEmail,
-      connection,
-      threadOpportunity.opportunityId,
-      contactFormSubmitter
-    ).catch((err) =>
-      console.error("[sync-engine] Auto-draft error (non-fatal):", err)
-    );
-
     // ── S2.3: Reschedule request detection (fire-and-forget) ───────────
     // Looks up the just-created activity row and runs the reschedule
     // classifier (phase_c gated + heuristic + GPT). Never blocks sync.
@@ -2306,14 +2296,6 @@ async function processInboundEmail(
         result,
       });
 
-      maybeAutoGenerateDraft(
-        effectiveEmail,
-        connection,
-        oppId,
-        contactFormSubmitter
-      ).catch((err) =>
-        console.error("[sync-engine] Auto-draft error (non-fatal):", err)
-      );
       return null;
     }
 
@@ -2334,6 +2316,7 @@ async function processInboundEmail(
           unsafe: syncTitleUnsafeIdentity(connection, profile),
           enrichmentFacts: inboundEnrichmentFacts,
           sourceKey: routingIdentity.sourceKey,
+          mailboxAssignment: mailboxAssignmentContext(connection),
         }
       );
       const oppId = opportunity.id;
@@ -2360,47 +2343,20 @@ async function processInboundEmail(
       result.newLeads++;
       result.activitiesCreated++;
 
-      // ── Forwarded contact-form NEW lead: draft a fresh first reply on a new
-      // thread to the client. Scoped to contact-form submissions so ordinary new
-      // leads are unchanged — this create_new branch does not otherwise
-      // auto-draft. Gating (phase_c + autonomy + confidence) lives inside.
-      if (contactFormSubmitter) {
-        maybeAutoGenerateDraft(
-          effectiveEmail,
-          connection,
-          oppId,
-          contactFormSubmitter
-        ).catch((err) =>
-          console.error("[sync-engine] Auto-draft error (non-fatal):", err)
-        );
-      }
-
       // ── P1: Suggest project creation for new leads (fire-and-forget) ──
-      // Gated behind phase_c — only enabled companies get suggestions.
-      if (connection.userId) {
-        AdminFeatureOverrideService.isAIFeatureEnabled(
-          connection.companyId,
-          "phase_c"
+      // The lead's current assignee — never the mailbox connector — owns the
+      // proposal. Unassigned/inaccessible leads produce no user action.
+      maybeSuggestProjectForAssignedActor({
+        email: effectiveEmail,
+        connection,
+        clientId,
+        opportunityId: oppId,
+      }).catch((err) =>
+        console.error(
+          "[sync-engine] Project suggestion error (non-fatal):",
+          err
         )
-          .then((enabled) => {
-            if (!enabled) return;
-            maybeSuggestProject({
-              email: effectiveEmail,
-              companyId: connection.companyId,
-              userId: connection.userId!,
-              clientId,
-              opportunityId: oppId,
-            }).catch((err) =>
-              console.error(
-                "[sync-engine] Project suggestion error (non-fatal):",
-                err
-              )
-            );
-          })
-          .catch((err) =>
-            console.error("[sync-engine] Phase C check error (non-fatal):", err)
-          );
-      }
+      );
     } else if (
       matchResult.action === "link" ||
       matchResult.action === "create_subclient"
@@ -2411,6 +2367,7 @@ async function processInboundEmail(
         unsafe: syncTitleUnsafeIdentity(connection, profile),
         enrichmentFacts: inboundEnrichmentFacts,
         sourceKey: routingIdentity.sourceKey,
+        mailboxAssignment: mailboxAssignmentContext(connection),
       };
       const opportunity = relationshipDecisionRequiresNewOpportunity
         ? await createOpportunity(
@@ -2477,8 +2434,9 @@ async function processInboundEmail(
       }
       result.activitiesCreated++;
 
-      // ── Phase 2 + E5: accept→stage, then auto-draft — only when reusing an
-      //    existing opportunity (a brand-new lead has nothing to accept yet). ──
+      // ── Phase 2: accept→stage — only when reusing an existing opportunity
+      //    (a brand-new lead has nothing to accept yet). Phase C draft/send
+      //    routing is owned by the canonical email-thread classification hook. ──
       if (!relationshipDecisionRequiresNewOpportunity) {
         await maybeAutoAdvanceOnAccept({
           providerThreadId: email.threadId,
@@ -2486,9 +2444,6 @@ async function processInboundEmail(
           connection,
           result,
         });
-        maybeAutoGenerateDraft(effectiveEmail, connection, oppId).catch((err) =>
-          console.error("[sync-engine] Auto-draft error (non-fatal):", err)
-        );
       }
     } else if (matchResult.action === "review") {
       const activityCreated = await createActivity(
@@ -2753,6 +2708,7 @@ async function processSentEmail(
             unsafe: syncTitleUnsafeIdentity(connection, profile),
             enrichmentFacts: outboundEnrichmentFacts,
             sourceKey: routingIdentity.sourceKey,
+            mailboxAssignment: mailboxAssignmentContext(connection),
           }
         );
         const oppId = opportunity.id;
@@ -2787,6 +2743,7 @@ async function processSentEmail(
             unsafe: syncTitleUnsafeIdentity(connection, profile),
             enrichmentFacts: outboundEnrichmentFacts,
             sourceKey: routingIdentity.sourceKey,
+            mailboxAssignment: mailboxAssignmentContext(connection),
           }
         );
         const oppId = opportunity.id;
@@ -2841,15 +2798,14 @@ async function learnFromOutboundEmail(
 ): Promise<void> {
   try {
     const supabase = requireSupabase();
-    const userId = await resolveOutboundLearningUserId(
-      supabase,
-      email,
-      connection,
-      existingActivity
-    );
-    // Shared-mailbox provider messages do not identify the human sender. If no
-    // in-app activity or exact active-user email proves authorship, skip the
-    // personal profile update instead of poisoning another operator's voice.
+    const userId = resolveOutboundLearningActorId({
+      activityCreatedBy: existingActivity?.created_by,
+      connectionType: connection.type,
+      connectionOwnerId: connection.userId,
+    });
+    // Shared-mailbox provider messages do not identify the human sender. Only
+    // the OPS actor recorded by an authenticated send proves authorship; a
+    // mailbox/login email match never does.
     if (!userId) return;
     // The send route stores the exact source body before provider rendering.
     // When that canonical activity carries draft provenance, use it for the
@@ -2949,449 +2905,6 @@ async function learnFromOutboundEmail(
   }
 }
 
-async function resolveOutboundLearningUserId(
-  supabase: SupabaseClient,
-  email: NormalizedEmail,
-  connection: EmailConnection,
-  existingActivity: ExistingProviderActivity | null
-): Promise<string | null> {
-  if (existingActivity?.created_by) return existingActivity.created_by;
-
-  // An individual mailbox has one authoritative owner, including messages sent
-  // through a provider-side alias. Company/shared mailboxes need stronger proof.
-  if (connection.type === "individual") return connection.userId;
-
-  const senderEmail = extractSenderEmail(email.from);
-  if (!senderEmail) return null;
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, email")
-    .eq("company_id", connection.companyId)
-    .eq("is_active", true)
-    .is("deleted_at", null);
-  if (error) {
-    throw new Error(
-      `outbound learning actor lookup failed: ${error.message ?? "unknown error"}`
-    );
-  }
-  const matches = (data ?? []).filter(
-    (row) =>
-      typeof row.email === "string" &&
-      row.email.trim().toLowerCase() === senderEmail
-  );
-  return matches.length === 1 ? String(matches[0].id) : null;
-}
-
-/** True when no ai_draft_history row for this connection has yet carried a
- *  mailbox_draft_id — i.e. this is the first time OPS places a draft in the
- *  user's real mailbox. Drives the one-time discovery explainer. Callers must
- *  check this BEFORE the current placement's mailbox_draft_id is persisted, so
- *  the current draft isn't counted as a prior one. */
-async function isFirstMailboxDraftEver(
-  supabase: ReturnType<typeof requireSupabase>,
-  connectionId: string
-): Promise<boolean> {
-  const { data } = await supabase
-    .from("ai_draft_history")
-    .select("id")
-    .eq("connection_id", connectionId)
-    .not("mailbox_draft_id", "is", null)
-    .limit(1);
-  return !data || (data as unknown[]).length === 0;
-}
-
-/** One-time "OPS now drafts your replies" notification, fired the first time a
- *  mailbox draft is placed for a connection while the in-app inbox is hidden.
- *  Self-contained + non-fatal: a failure here never surfaces to the caller. */
-async function fireFirstMailboxDraftExplainer(
-  supabase: ReturnType<typeof requireSupabase>,
-  connection: EmailConnection
-): Promise<void> {
-  if (!connection.userId) return;
-  try {
-    const mailboxName = connection.provider === "gmail" ? "Gmail" : "Outlook";
-    await supabase.from("notifications").insert({
-      user_id: connection.userId,
-      company_id: connection.companyId,
-      type: "ai_milestone" as const,
-      title: "Replies, drafted",
-      body: `OPS now writes your replies and drops them in your ${mailboxName} drafts. Review and send.`,
-      is_read: false,
-      persistent: false,
-      action_url: "/settings?tab=integrations",
-      action_label: "Email settings",
-    });
-  } catch (explainerErr) {
-    console.warn(
-      "[sync-engine] draft-explainer notification failed (non-fatal):",
-      explainerErr
-    );
-  }
-}
-
-/**
- * Sprint E5: Auto-draft generation for inbound emails on linked threads.
- * Checks auto_draft_enabled + category autonomy + writing profile confidence.
- * Fire-and-forget — errors logged, not thrown.
- *
- * `submitter` (forwarded contact-form identity, when present) flips the draft
- * from a thread reply to a fresh NEW-THREAD outreach addressed to the actual
- * client — see the contact-form branch below.
- */
-export async function maybeAutoGenerateDraft(
-  email: NormalizedEmail,
-  connection: EmailConnection,
-  opportunityId: string,
-  submitter?: ContactFormSubmissionIdentity | null
-): Promise<void> {
-  if (!connection.userId) return;
-
-  try {
-    const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-      connection.companyId,
-      "phase_c"
-    );
-    if (!phaseCEnabled) return;
-
-    const supabase = requireSupabase();
-
-    // Fetch connection settings
-    const { data: conn } = await supabase
-      .from("email_connections")
-      .select("auto_send_settings")
-      .eq("id", connection.id)
-      .eq("company_id", connection.companyId)
-      .single();
-
-    if (!conn?.auto_send_settings) return;
-
-    const settings = conn.auto_send_settings as Record<string, unknown>;
-    const categoryAutonomy =
-      (settings.category_autonomy as Record<string, string>) || {};
-    const primaryCustomerLevel = categoryAutonomy["primary:CUSTOMER"];
-    const primaryCustomerDraftEnabled =
-      primaryCustomerLevel === "auto_draft" ||
-      primaryCustomerLevel === "auto_send" ||
-      primaryCustomerLevel === "auto_follow_up";
-    const autoDraftEnabled =
-      settings.auto_draft_enabled === true || primaryCustomerDraftEnabled;
-    if (!autoDraftEnabled) return;
-
-    // Determine profile type from subject heuristics for category lookup.
-    // Contact-form submissions are general new-client inquiries — gate them on
-    // "general" and skip the heuristic, because the forwarder's junk subject
-    // ("New submission", "Got a new submission") misclassifies (e.g.
-    // "submission" matches "sub" → subtrade_coordination → draft_on_request),
-    // which would silently suppress the draft.
-    const lowerSubject = email.subject.toLowerCase();
-    let profileType = "general";
-    if (!submitter) {
-      if (lowerSubject.includes("warranty") || lowerSubject.includes("defect"))
-        profileType = "warranty_claim";
-      else if (
-        lowerSubject.includes("quote") ||
-        lowerSubject.includes("estimate") ||
-        lowerSubject.includes("pricing")
-      )
-        profileType = "client_quoting";
-      else if (
-        lowerSubject.includes("order") ||
-        lowerSubject.includes("supply") ||
-        lowerSubject.includes("material")
-      )
-        profileType = "vendor_ordering";
-      else if (
-        lowerSubject.includes("sub") ||
-        lowerSubject.includes("coordinate")
-      )
-        profileType = "subtrade_coordination";
-      else if (
-        lowerSubject.includes("follow") ||
-        lowerSubject.includes("checking in")
-      )
-        profileType = "client_followup";
-    }
-
-    let categoryLevel = categoryAutonomy[profileType];
-    if (
-      !categoryLevel &&
-      ["general", "client_quoting", "client_followup"].includes(profileType)
-    ) {
-      categoryLevel = primaryCustomerLevel;
-    }
-    categoryLevel ||= "draft_on_request";
-
-    // "off" or "draft_on_request" → don't auto-draft
-    if (categoryLevel === "off" || categoryLevel === "draft_on_request") return;
-
-    // Check writing profile confidence > 0.75
-    const profile = await WritingProfileService.getProfile(
-      connection.companyId,
-      connection.userId
-    );
-    const emailsAnalyzed = (profile?.emails_analyzed as number) || 0;
-    const confidence = WritingProfileService.getConfidence(emailsAnalyzed);
-    if (confidence <= 0.75) return;
-
-    // ── Forwarded / contact-form submission → fresh NEW-THREAD outreach ─────
-    // The inbound lives on the forwarder's (or platform's) thread; a reply glued
-    // there with "Re: <form subject>" is wrong. Draft a clean new thread to the
-    // actual client instead, capture the provider-minted thread id (so
-    // reconciliation can track the reply), and link it to the opportunity.
-    // Never auto-sends — a cold first contact is always review-only, regardless
-    // of the category autonomy level.
-    if (submitter && submitter.email) {
-      const draftResult = await AIDraftService.generateDraft({
-        companyId: connection.companyId,
-        userId: connection.userId,
-        connectionId: connection.id,
-        opportunityId,
-        recipientEmail: submitter.email,
-        recipientName: submitter.name ?? undefined,
-        userInstruction: buildContactFormDraftInstruction(submitter),
-        origin: "phase_c",
-      });
-      if (
-        !draftResult.available ||
-        !draftResult.draft ||
-        !draftResult.draftHistoryId
-      ) {
-        return;
-      }
-
-      const inboxUiEnabled = await AdminFeatureOverrideService.isFeatureEnabled(
-        connection.companyId,
-        "inbox_ui"
-      );
-      try {
-        const provider = EmailService.getProvider(connection);
-        const signature = await resolveEmailSignatureForMessage({
-          supabase,
-          connection,
-          userId: connection.userId,
-          refreshProviderIfMissing: true,
-        });
-        if (!signature) throw new Error("EMAIL_SIGNATURE_REQUIRED");
-        const renderedDraft = renderMailboxDraftWithSignature(
-          draftResult.draft,
-          signature
-        );
-        // Compute BEFORE the push so this placement isn't counted as prior.
-        const wasFirstMailboxDraft =
-          !inboxUiEnabled &&
-          (await isFirstMailboxDraftEver(supabase, connection.id));
-        await placeNewThreadDraft({
-          provider,
-          connectionId: connection.id,
-          opportunityId,
-          draftHistoryId: draftResult.draftHistoryId,
-          to: submitter.email,
-          subject: draftResult.subject || CONTACT_FORM_OUTREACH_SUBJECT,
-          body: renderedDraft.body,
-          contentType: renderedDraft.contentType,
-        });
-        if (wasFirstMailboxDraft) {
-          await fireFirstMailboxDraftExplainer(supabase, connection);
-        }
-      } catch (err) {
-        console.error(
-          "[sync-engine] contact-form new-thread draft push failed (non-fatal):",
-          err
-        );
-        // Status-only fallback so the UI still surfaces the AI draft.
-        await supabase
-          .from("ai_draft_history")
-          .update({ status: "auto_drafted" })
-          .eq("id", draftResult.draftHistoryId);
-      }
-
-      if (inboxUiEnabled) {
-        await supabase.from("notifications").insert({
-          user_id: connection.userId,
-          company_id: connection.companyId,
-          type: "ai_milestone" as const,
-          title: "Draft ready",
-          body: `AI drafted a first reply to ${submitter.name ?? submitter.email}`,
-          is_read: false,
-          persistent: false,
-          action_url: "/inbox",
-          action_label: "Review",
-        });
-      }
-      return;
-    }
-
-    // All checks passed — generate auto-draft. `autonomous` arms the Phase 3
-    // routing gate: a thread held for review (require_human_review) is suppressed.
-    const draftResult = await AIDraftService.generateDraft({
-      companyId: connection.companyId,
-      userId: connection.userId,
-      connectionId: connection.id,
-      opportunityId,
-      threadId: email.threadId,
-      autonomous: true,
-      origin: "phase_c",
-    });
-
-    if (!draftResult.available || !draftResult.draft) return;
-
-    // Determine once whether the in-app inbox is visible for this company.
-    // Used below to gate per-draft notifications and the one-time explainer.
-    const inboxUiEnabled = await AdminFeatureOverrideService.isFeatureEnabled(
-      connection.companyId,
-      "inbox_ui"
-    );
-
-    // Push the draft into the user's real mailbox Drafts folder (idempotent).
-    // Fire-and-forget context already; keep failures non-fatal.
-    if (draftResult.draftHistoryId) {
-      try {
-        const provider = EmailService.getProvider(connection);
-        const signature = await resolveEmailSignatureForMessage({
-          supabase,
-          connection,
-          userId: connection.userId,
-          refreshProviderIfMissing: true,
-        });
-        if (!signature) throw new Error("EMAIL_SIGNATURE_REQUIRED");
-        const renderedDraft = renderMailboxDraftWithSignature(
-          draftResult.draft,
-          signature
-        );
-        const replySubject = normalizeReplySubject(email.subject);
-        const to = extractSenderEmail(email.from);
-
-        const { data: priorRows } = await supabase
-          .from("ai_draft_history")
-          .select("id, mailbox_draft_id, status")
-          .eq("connection_id", connection.id)
-          .eq("thread_id", email.threadId);
-        const existing = pickExistingMailboxDraft(
-          (priorRows ?? []) as MailboxDraftRow[]
-        );
-
-        let mailboxDraftId: string;
-        if (existing?.mailbox_draft_id) {
-          // Reuse the existing provider draft — update in-place rather than
-          // creating a duplicate in the user's Drafts folder. updateDraft
-          // returns void; keep the id from the prior row.
-          await provider.updateDraft(
-            existing.mailbox_draft_id,
-            to,
-            replySubject,
-            renderedDraft.body,
-            email.threadId,
-            renderedDraft.contentType
-          );
-          mailboxDraftId = existing.mailbox_draft_id;
-        } else {
-          mailboxDraftId = await provider.createDraft(
-            to,
-            replySubject,
-            renderedDraft.body,
-            email.threadId,
-            renderedDraft.contentType
-          );
-
-          // One-time discovery explainer: fired the first time OPS successfully
-          // places a mailbox draft for this connection AND the in-app inbox is
-          // hidden. Dedup: only if no prior ai_draft_history row for this
-          // connection carries a mailbox_draft_id (i.e., this is the first
-          // successful mailbox placement ever). Wrapped so a failure never
-          // surfaces to the caller.
-          // One-time discovery explainer — first mailbox placement for this
-          // connection while the in-app inbox is hidden. Checked here (after
-          // createDraft, before the row's mailbox_draft_id is persisted below)
-          // so the current draft isn't counted as a prior placement.
-          if (
-            !inboxUiEnabled &&
-            connection.userId &&
-            (await isFirstMailboxDraftEver(supabase, connection.id))
-          ) {
-            await fireFirstMailboxDraftExplainer(supabase, connection);
-          }
-        }
-
-        await supabase
-          .from("ai_draft_history")
-          .update({ status: "auto_drafted", mailbox_draft_id: mailboxDraftId })
-          .eq("id", draftResult.draftHistoryId);
-      } catch (err) {
-        console.error(
-          "[sync-engine] mailbox draft push failed (non-fatal):",
-          err
-        );
-        // Status-only fallback — still mark the row so the UI surfaces the
-        // AI draft even if mailbox placement failed.
-        await supabase
-          .from("ai_draft_history")
-          .update({ status: "auto_drafted" })
-          .eq("id", draftResult.draftHistoryId);
-      }
-    }
-
-    // If category is "auto_send", schedule auto-send with delay.
-    // The user gets a window to cancel before the cron sends it.
-    if (categoryLevel === "auto_send") {
-      const { enabled: autoSendEnabled, settings: autoSendSettings } =
-        await AutoSendService.isEnabled(connection.companyId, connection.id);
-
-      if (autoSendEnabled && autoSendSettings) {
-        const pending = await AutoSendService.scheduleAutoSend({
-          companyId: connection.companyId,
-          userId: connection.userId,
-          connectionId: connection.id,
-          opportunityId,
-          threadId: email.threadId,
-          inReplyTo: email.id,
-          toEmails: [extractSenderEmail(email.from)],
-          subject: normalizeReplySubject(email.subject),
-          settings: autoSendSettings,
-        });
-
-        // Notify with cancel link — user has delay window to intervene
-        const delayMin = autoSendSettings.delayMinMinutes || 30;
-        await supabase.from("notifications").insert({
-          user_id: connection.userId,
-          company_id: connection.companyId,
-          type: "ai_milestone" as const,
-          title: "Auto-sending reply",
-          body: `Sending in ~${delayMin} min: ${email.subject.slice(0, 50)}`,
-          is_read: false,
-          persistent: true,
-          action_url: pending
-            ? `/inbox?cancelAutoSend=${pending.id}`
-            : "/inbox",
-          action_label: "Cancel",
-        });
-        return; // auto-send path done — don't also send "Draft ready"
-      }
-    }
-
-    // Fire notification for auto-draft only (no auto-send) — but only when the
-    // in-app inbox is visible. When hidden, the draft lands silently in Gmail/
-    // Outlook and the one-time explainer (above) already told the user once.
-    if (inboxUiEnabled) {
-      await supabase.from("notifications").insert({
-        user_id: connection.userId,
-        company_id: connection.companyId,
-        type: "ai_milestone" as const,
-        title: "Draft ready",
-        body: `AI draft generated for: ${email.subject.slice(0, 60)}`,
-        is_read: false,
-        persistent: false,
-        action_url: "/inbox",
-        action_label: "Review",
-      });
-    }
-  } catch (err) {
-    console.error(
-      "[sync-engine] Auto-draft generation failed (non-fatal):",
-      err
-    );
-  }
-}
-
 /**
  * S2.3: Detect inbound reschedule requests on opportunity-linked threads.
  *
@@ -3406,8 +2919,6 @@ async function maybeDetectRescheduleRequest(
   connection: EmailConnection,
   opportunityId: string
 ): Promise<void> {
-  if (!connection.userId) return;
-
   try {
     const supabase = requireSupabase();
 
@@ -3453,22 +2964,33 @@ async function maybeDetectRescheduleRequest(
     // Look up the just-created activity row by email_message_id
     const { data: activityRow } = await supabase
       .from("activities")
-      .select("id")
+      .select("id, email_connection_id, email_thread_id, opportunity_id")
       .eq("email_message_id", email.id)
       .eq("company_id", connection.companyId)
       .eq("email_connection_id", connection.id)
+      .eq("email_thread_id", email.threadId)
+      .eq("opportunity_id", opportunityId)
       .limit(1)
       .maybeSingle();
 
-    if (!activityRow?.id) return;
+    if (
+      !activityRow?.id ||
+      activityRow.email_connection_id !== connection.id ||
+      activityRow.email_thread_id !== email.threadId ||
+      activityRow.opportunity_id !== opportunityId
+    ) {
+      return;
+    }
 
     const { ClientSchedulingCommsService } =
       await import("./client-scheduling-comms-service");
-    await ClientSchedulingCommsService.detectRescheduleRequest(
-      connection.companyId,
-      connection.userId,
-      activityRow.id as string
-    );
+    await ClientSchedulingCommsService.detectRescheduleRequest({
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      providerThreadId: email.threadId,
+      opportunityId,
+      activityId: activityRow.id as string,
+    });
   } catch (err) {
     console.error(
       "[sync-engine] maybeDetectRescheduleRequest failed (non-fatal):",
@@ -3868,7 +3390,6 @@ export const SyncEngine = {
                 routingIdentity,
                 contactFormSubmitter,
                 enrichmentFacts: deterministicFacts,
-                resolvedContact,
               } = context;
 
               const matchResult = await EmailMatchingServiceV2.match(
@@ -3958,6 +3479,7 @@ export const SyncEngine = {
                     unsafe: syncTitleUnsafeIdentity(connection, profile),
                     enrichmentFacts: deterministicFacts,
                     sourceKey: routingIdentity.sourceKey,
+                    mailboxAssignment: mailboxAssignmentContext(connection),
                   }
                 );
                 oppId = opportunity.id;
@@ -4051,6 +3573,10 @@ export const SyncEngine = {
           string | { threadId: string; messages: NormalizedEmail[] }
         >();
         const opportunityByEvaluationKey = new Map<string, string>();
+        const providerMessageIdsByEvaluationKey = new Map<
+          string,
+          Set<string>
+        >();
         for (const email of [...inboxEmails, ...sentEmails]) {
           const activity = await findExistingProviderActivity(
             supabase,
@@ -4076,6 +3602,14 @@ export const SyncEngine = {
             );
           }
           opportunityByEvaluationKey.set(evaluationKey, opportunityId);
+          const candidateMessageIds =
+            providerMessageIdsByEvaluationKey.get(evaluationKey) ??
+            new Set<string>();
+          candidateMessageIds.add(email.id);
+          providerMessageIdsByEvaluationKey.set(
+            evaluationKey,
+            candidateMessageIds
+          );
           if (!activeLeadTargets.has(evaluationKey)) {
             activeLeadTargets.set(
               evaluationKey,
@@ -4109,7 +3643,7 @@ export const SyncEngine = {
               await supabase
                 .from("opportunities")
                 .select(
-                  "stage, stage_manually_set, actual_value, detected_value, estimated_value"
+                  "stage, stage_manually_set, actual_value, detected_value, estimated_value, assignment_version"
                 )
                 .eq("id", oppId)
                 .single();
@@ -4120,18 +3654,31 @@ export const SyncEngine = {
             }
 
             let autoConvertedLikelyWon = false;
+            const evaluationTarget = activeLeadTargets.get(sr.threadId);
+            const providerThreadId =
+              typeof evaluationTarget === "string"
+                ? evaluationTarget
+                : (evaluationTarget?.messages.at(-1)?.threadId ?? null);
             if (sr.terminalFlag) {
               autoConvertedLikelyWon = await maybeAutoConvertLikelyWon(
                 sr,
                 connection,
                 oppId,
+                providerMessageIdsByEvaluationKey.get(sr.threadId) ??
+                  new Set<string>(),
                 oppData
               );
 
-              if (!autoConvertedLikelyWon) {
+              if (!autoConvertedLikelyWon && providerThreadId) {
                 // Manual stages, likely_lost, already-terminal opportunities,
                 // or conversion failures still surface for operator review.
-                await createTerminalFlagNotification(sr, connection, oppId);
+                await createTerminalFlagNotification(
+                  sr,
+                  connection,
+                  oppId,
+                  providerThreadId,
+                  oppData.assignment_version
+                );
               }
             }
 
@@ -4217,7 +3764,14 @@ export const SyncEngine = {
       }
 
       // Step 11b: Check autonomy milestones (E5)
-      if (connection.userId && result.activitiesCreated > 0) {
+      // A shared mailbox's connector/creator is not the human who authored or
+      // reviewed this sync's messages. Shared-mailbox milestones are evaluated
+      // later from the actor-attributed outbound learning ledger.
+      if (
+        connection.type === "individual" &&
+        connection.userId &&
+        result.activitiesCreated > 0
+      ) {
         AutonomyMilestoneService.checkMilestonesAfterSync(
           connection.companyId,
           connection.userId,

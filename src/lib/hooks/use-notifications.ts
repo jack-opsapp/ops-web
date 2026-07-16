@@ -1,11 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef } from "react";
 import { queryKeys } from "../api/query-client";
 import {
   NotificationService,
   type AppNotification,
-  type NotificationType,
-  type CreateNotificationParams,
 } from "../api/services/notification-service";
 import { useAuthStore } from "../store/auth-store";
 
@@ -29,44 +26,6 @@ export function useNotifications() {
 }
 
 /**
- * Create a notification and invalidate the cache so it appears in the rail immediately.
- * Returns a stable `notify` function that can be called from effects and callbacks.
- */
-export function useCreateNotification() {
-  const { currentUser, company } = useAuthStore();
-  const userId = currentUser?.id ?? "";
-  const companyId = company?.id ?? "";
-  const queryClient = useQueryClient();
-  const queryKey = queryKeys.notifications.unread(userId, companyId);
-
-  const mutation = useMutation({
-    mutationFn: (params: Omit<CreateNotificationParams, "userId" | "companyId">) =>
-      NotificationService.create({ ...params, userId, companyId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
-    },
-    retry: 0,
-  });
-
-  // Use a ref so `notify` is referentially stable across renders.
-  // Without this, mutation state changes (idle→pending→success) create a new
-  // mutation object, which recreates `notify`, which re-triggers any useEffect
-  // that lists `notify` as a dependency — causing an infinite loop.
-  const mutateRef = useRef(mutation.mutate);
-  mutateRef.current = mutation.mutate;
-
-  const notify = useCallback(
-    (params: Omit<CreateNotificationParams, "userId" | "companyId">) => {
-      if (!userId || !companyId) return;
-      mutateRef.current(params);
-    },
-    [userId, companyId]
-  );
-
-  return notify;
-}
-
-/**
  * Dismiss (mark as read) a single notification with optimistic update.
  */
 export function useDismissNotification() {
@@ -82,8 +41,9 @@ export function useDismissNotification() {
     onMutate: async (notificationId) => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<AppNotification[]>(queryKey);
-      queryClient.setQueryData<AppNotification[]>(queryKey, (old) =>
-        old?.filter((n) => n.id !== notificationId) ?? []
+      queryClient.setQueryData<AppNotification[]>(
+        queryKey,
+        (old) => old?.filter((n) => n.id !== notificationId) ?? []
       );
       return { previous };
     },
@@ -114,8 +74,9 @@ export function useDismissAllNotifications() {
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<AppNotification[]>(queryKey);
-      queryClient.setQueryData<AppNotification[]>(queryKey, (old) =>
-        old?.filter((n) => n.persistent) ?? []
+      queryClient.setQueryData<AppNotification[]>(
+        queryKey,
+        (old) => old?.filter((n) => n.persistent) ?? []
       );
       return { previous };
     },

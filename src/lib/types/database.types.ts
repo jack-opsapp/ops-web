@@ -5450,6 +5450,10 @@ export type Database = {
           applied_at: string | null
           apply_full_body_learning: boolean | null
           apply_learning: boolean | null
+          actor_proof_type: string | null
+          approved_action_email_intent_id: string | null
+          assignment_event_id_snapshot: string | null
+          assignment_version_snapshot: number | null
           attempts: number
           authored_body: string
           clean_body: string
@@ -5462,6 +5466,7 @@ export type Database = {
           draft_delivery_channel: string | null
           draft_history_id: string | null
           draft_outcome: Json | null
+          email_send_intent_id: string | null
           follow_up_draft_id: string | null
           from_email: string | null
           id: string
@@ -5495,6 +5500,10 @@ export type Database = {
           applied_at?: string | null
           apply_full_body_learning?: boolean | null
           apply_learning?: boolean | null
+          actor_proof_type?: string | null
+          approved_action_email_intent_id?: string | null
+          assignment_event_id_snapshot?: string | null
+          assignment_version_snapshot?: number | null
           attempts?: number
           authored_body: string
           clean_body: string
@@ -5507,6 +5516,7 @@ export type Database = {
           draft_delivery_channel?: string | null
           draft_history_id?: string | null
           draft_outcome?: Json | null
+          email_send_intent_id?: string | null
           follow_up_draft_id?: string | null
           from_email?: string | null
           id?: string
@@ -5540,6 +5550,10 @@ export type Database = {
           applied_at?: string | null
           apply_full_body_learning?: boolean | null
           apply_learning?: boolean | null
+          actor_proof_type?: string | null
+          approved_action_email_intent_id?: string | null
+          assignment_event_id_snapshot?: string | null
+          assignment_version_snapshot?: number | null
           attempts?: number
           authored_body?: string
           clean_body?: string
@@ -5552,6 +5566,7 @@ export type Database = {
           draft_delivery_channel?: string | null
           draft_history_id?: string | null
           draft_outcome?: Json | null
+          email_send_intent_id?: string | null
           follow_up_draft_id?: string | null
           from_email?: string | null
           id?: string
@@ -5583,6 +5598,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "email_outbound_learning_queue_approved_action_email_intent_id_fkey"
+            columns: ["approved_action_email_intent_id"]
+            isOneToOne: false
+            referencedRelation: "approved_action_email_intents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_learning_queue_assignment_event_id_snapshot_fkey"
+            columns: ["assignment_event_id_snapshot"]
+            isOneToOne: false
+            referencedRelation: "opportunity_assignment_events"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "email_outbound_learning_queue_connection_id_fkey"
             columns: ["connection_id"]
             isOneToOne: false
@@ -5594,6 +5623,13 @@ export type Database = {
             columns: ["draft_history_id"]
             isOneToOne: false
             referencedRelation: "ai_draft_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbound_learning_queue_email_send_intent_id_fkey"
+            columns: ["email_send_intent_id"]
+            isOneToOne: false
+            referencedRelation: "email_send_intents"
             referencedColumns: ["id"]
           },
           {
@@ -5753,6 +5789,67 @@ export type Database = {
             columns: ["queue_id"]
             isOneToOne: true
             referencedRelation: "email_outbound_learning_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_signature_notification_lifecycle_outbox: {
+        Row: {
+          actor_user_id: string
+          attempt_count: number
+          available_at: string
+          company_id: string
+          connection_id: string
+          created_at: string
+          last_error: string | null
+          processed_at: string | null
+          reason: string
+          requested_at: string
+        }
+        Insert: {
+          actor_user_id: string
+          attempt_count?: number
+          available_at?: string
+          company_id: string
+          connection_id: string
+          created_at?: string
+          last_error?: string | null
+          processed_at?: string | null
+          reason: string
+          requested_at?: string
+        }
+        Update: {
+          actor_user_id?: string
+          attempt_count?: number
+          available_at?: string
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          last_error?: string | null
+          processed_at?: string | null
+          reason?: string
+          requested_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_signature_notification_lifecycle_outbox_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_signature_notification_lifecycle_outbox_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_signature_notification_lifecycle_outbox_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
             referencedColumns: ["id"]
           },
         ]
@@ -7358,6 +7455,7 @@ export type Database = {
       gmail_scan_jobs: {
         Row: {
           company_id: string
+          connection_owner_user_id: string | null
           connection_id: string
           created_at: string | null
           error_message: string | null
@@ -7365,12 +7463,14 @@ export type Database = {
           phase_c_lock_expires_at: string | null
           phase_c_lock_holder_id: string | null
           progress: Json | null
+          requested_by_user_id: string | null
           result: Json | null
           status: string
           updated_at: string | null
         }
         Insert: {
           company_id: string
+          connection_owner_user_id?: string | null
           connection_id: string
           created_at?: string | null
           error_message?: string | null
@@ -7378,12 +7478,14 @@ export type Database = {
           phase_c_lock_expires_at?: string | null
           phase_c_lock_holder_id?: string | null
           progress?: Json | null
+          requested_by_user_id?: string | null
           result?: Json | null
           status?: string
           updated_at?: string | null
         }
         Update: {
           company_id?: string
+          connection_owner_user_id?: string | null
           connection_id?: string
           created_at?: string | null
           error_message?: string | null
@@ -7391,11 +7493,27 @@ export type Database = {
           phase_c_lock_expires_at?: string | null
           phase_c_lock_holder_id?: string | null
           progress?: Json | null
+          requested_by_user_id?: string | null
           result?: Json | null
           status?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "gmail_scan_jobs_connection_owner_user_id_fkey"
+            columns: ["connection_owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gmail_scan_jobs_requested_by_user_id_fkey"
+            columns: ["requested_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       graph_entities: {
         Row: {
@@ -16404,6 +16522,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      authorize_email_inbox_action_as_system: {
+        Args: {
+          p_action: string
+          p_actor_user_id: string
+          p_connection_id: string
+          p_opportunity_id: string | null
+        }
+        Returns: boolean
+      }
       assign_project_team_member: {
         Args: {
           p_expected_updated_at: string
@@ -16539,6 +16666,15 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      complete_email_analysis_job_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_job_id: string
+          p_progress: Json
+          p_result: Json
+        }
+        Returns: Json
+      }
       complete_project_task: {
         Args: {
           p_idempotency_key: string
@@ -16621,6 +16757,22 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      create_notification_if_new_with_status: {
+        Args: {
+          p_action_label?: string
+          p_action_url?: string
+          p_body: string
+          p_company_id: string
+          p_dedupe_key?: string
+          p_deep_link_type?: string
+          p_persistent?: boolean
+          p_project_id?: string
+          p_title: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: boolean
       }
       create_opportunity_table_view: {
         Args: { p_definition: Json; p_name: string; p_source_view_id: string }
@@ -16790,6 +16942,24 @@ export type Database = {
           domain: string
         }[]
       }
+      enqueue_email_signature_notification_lifecycle: {
+        Args: {
+          p_actor_user_id: string
+          p_connection_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      fail_email_signature_notification_lifecycle: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_connection_id: string
+          p_error: string
+          p_expected_requested_at: string
+        }
+        Returns: boolean
+      }
       enqueue_email_outbound_learning: {
         Args: {
           p_authored_body?: string
@@ -16817,6 +16987,37 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      get_human_draft_accuracy_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_limit?: number
+          p_profile_types?: string[] | null
+        }
+        Returns: {
+          draft_outcome: Json | null
+          profile_type: string
+        }[]
+      }
+      list_phase_c_graduation_actor_scopes_as_system: {
+        Args: { p_limit?: number }
+        Returns: {
+          actor_user_id: string
+          company_id: string
+          connection_id: string
+        }[]
+      }
+      resolve_email_outbound_learning_mailbox_actor_as_system: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_draft_history_id: string
+          p_outcome: string
+          p_provider_message_id: string
+          p_provider_thread_id: string
+        }
+        Returns: Json
       }
       enqueue_email_outbound_learning_legacy_internal: {
         Args: {
@@ -17192,6 +17393,10 @@ export type Database = {
         Args: { p_company_id: string; p_connection_id: string }
         Returns: number
       }
+      mark_email_connection_needs_reconnect_as_system: {
+        Args: { p_connection_id: string }
+        Returns: number
+      }
       mirror_deck_subscription: {
         Args: { p_row: Json }
         Returns: boolean
@@ -17273,6 +17478,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      notify_email_attachment_scan_exception_as_system: {
+        Args: { p_scan_id: string }
+        Returns: boolean
+      }
       place_expense: { Args: { p_expense_id: string }; Returns: undefined }
       pmf_count_retained_saas: { Args: never; Returns: number }
       pmf_count_tier_a_paid_delivered: { Args: never; Returns: number }
@@ -17316,6 +17525,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      process_email_signature_notification_lifecycle: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_connection_id: string
+        }
+        Returns: boolean
       }
       products_import_apply: {
         Args: { p_company_id: string; p_payload: Json }
@@ -17539,6 +17756,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      replace_email_signature_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_confirmed_at: string | null
+          p_connection_id: string
+          p_content_hash: string
+          p_content_html: string | null
+          p_content_text: string | null
+          p_fetched_at: string | null
+          p_provider_identity: string | null
+          p_source: string
+        }
+        Returns: Database["public"]["Tables"]["email_signatures"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "email_signatures"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      deactivate_email_signature_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_connection_id: string
+          p_signature_id?: string | null
+          p_source?: string | null
+        }
+        Returns: number
+      }
       reset_opportunity_table_view: {
         Args: { p_view_id: string }
         Returns: {
@@ -17598,6 +17844,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      request_lockout_admin_notification: {
+        Args: never
+        Returns: number
       }
       resolve_product_price: {
         Args: { p_client_id: string; p_product_id: string }
@@ -17707,6 +17957,19 @@ export type Database = {
           p_company_id: string
           p_connection_id: string
           p_scope_user_id: string
+        }
+        Returns: Database["public"]["Tables"]["notifications"]["Row"]
+        SetofOptions: {
+          from: "*"
+          to: "notifications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      sync_email_signature_notification_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_connection_id: string
         }
         Returns: Database["public"]["Tables"]["notifications"]["Row"]
         SetofOptions: {

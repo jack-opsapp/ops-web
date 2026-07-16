@@ -135,34 +135,6 @@ export const NotificationService = {
     }
   },
 
-  async createMentionNotifications(params: {
-    mentionedUserIds: string[];
-    authorName: string;
-    projectId: string;
-    projectTitle: string;
-    noteId: string;
-    companyId: string;
-  }): Promise<void> {
-    if (params.mentionedUserIds.length === 0) return;
-
-    const supabase = requireSupabase();
-    const rows = params.mentionedUserIds.map((userId) => ({
-      user_id: userId,
-      company_id: params.companyId,
-      type: "mention" as const,
-      title: `${params.authorName} mentioned you`,
-      body: `You were mentioned in a note on ${params.projectTitle}`,
-      project_id: params.projectId,
-      note_id: params.noteId,
-      is_read: false,
-    }));
-
-    const { error } = await supabase.from("notifications").insert(rows);
-    if (error) {
-      console.error("Failed to create mention notifications:", error);
-    }
-  },
-
   async fetchUnread(
     userId: string,
     companyId: string

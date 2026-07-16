@@ -1,16 +1,38 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { heartbeatState, sendInboxConnectionDownMock } = vi.hoisted(() => ({
+const {
+  drainPersonalMailboxLifecycleMock,
+  processImportProviderOperationsMock,
+  heartbeatState,
+  sendInboxConnectionDownMock,
+} = vi.hoisted(() => ({
+  drainPersonalMailboxLifecycleMock: vi.fn(),
+  processImportProviderOperationsMock: vi.fn(),
   heartbeatState: {
     notificationInsertError: null as { message: string } | null,
     heartbeatLogInserts: [] as Array<Record<string, unknown>>,
+    notificationInserts: [] as Array<Record<string, unknown>>,
+    integrationPermissionAllowed: true,
   },
   sendInboxConnectionDownMock: vi.fn(),
 }));
 
 vi.mock("@/lib/email/sendgrid", () => ({
   sendInboxConnectionDown: sendInboxConnectionDownMock,
+}));
+
+vi.mock(
+  "@/lib/api/services/personal-email-connection-lifecycle-service",
+  () => ({
+    PersonalEmailConnectionLifecycleService: {
+      drainPending: drainPersonalMailboxLifecycleMock,
+    },
+  })
+);
+
+vi.mock("@/lib/api/services/email-import-provider-operation-service", () => ({
+  runEmailImportProviderOperations: processImportProviderOperationsMock,
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -72,31 +94,65 @@ vi.mock("@/lib/supabase/server-client", () => ({
       }
 
       if (table === "users") {
+        const users = [
+          {
+            id: "admin-1",
+            email: "admin@example.com",
+            company_id: "company-1",
+            is_active: true,
+            deleted_at: null,
+          },
+        ];
+        let filtered = [...users];
+        const query = {
+          select: () => query,
+          in: (column: string, values: unknown[]) => {
+            filtered = filtered.filter((row) => values.includes(row[column as keyof typeof row]));
+            return query;
+          },
+          eq: (column: string, value: unknown) => {
+            filtered = filtered.filter((row) => row[column as keyof typeof row] === value);
+            return query;
+          },
+          is: (column: string, value: unknown) => {
+            filtered = filtered.filter((row) => row[column as keyof typeof row] === value);
+            return query;
+          },
+          then: (
+            resolve: (value: { data: typeof users; error: null }) => unknown
+          ) => Promise.resolve({ data: filtered, error: null }).then(resolve),
+        };
         return {
-          select: () => ({
-            in: async () => ({
-              data: [
-                {
-                  id: "admin-1",
-                  email: "admin@example.com",
-                  company_id: "company-1",
-                },
-              ],
-              error: null,
-            }),
-          }),
+          select: query.select,
         };
       }
 
       if (table === "notifications") {
         return {
-          insert: async () => ({
+          insert: async (payload: Record<string, unknown>) => {
+            heartbeatState.notificationInserts.push(payload);
+            return {
             error: heartbeatState.notificationInsertError,
-          }),
+            };
+          },
         };
       }
 
       throw new Error(`Unexpected Supabase table in heartbeat test: ${table}`);
+    },
+    rpc: async (
+      name: string,
+      params: { p_user_id: string; p_permission: string; p_required_scope: string }
+    ) => {
+      if (name !== "has_permission") throw new Error(`Unexpected RPC: ${name}`);
+      return {
+        data:
+          heartbeatState.integrationPermissionAllowed &&
+          params.p_user_id === "admin-1" &&
+          params.p_permission === "settings.integrations" &&
+          params.p_required_scope === "all",
+        error: null,
+      };
     },
   }),
 }));
@@ -115,7 +171,22 @@ describe("email ingest heartbeat delivery semantics", () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://ops.test";
     heartbeatState.notificationInsertError = null;
     heartbeatState.heartbeatLogInserts.length = 0;
+    heartbeatState.notificationInserts.length = 0;
+    heartbeatState.integrationPermissionAllowed = true;
     sendInboxConnectionDownMock.mockReset();
+    drainPersonalMailboxLifecycleMock.mockResolvedValue({
+      selected: 0,
+      processed: 0,
+      failed: 0,
+    });
+    processImportProviderOperationsMock.mockResolvedValue({
+      claimed: 0,
+      applied: 0,
+      failed: 0,
+      staleCompletions: 0,
+      staleFailures: 0,
+      errors: [],
+    });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -222,4 +293,70 @@ describe("email ingest heartbeat delivery semantics", () => {
       });
     }
   );
+
+  it("drains durable personal-mailbox lifecycle events without invoking a mailbox provider", async () => {
+    sendInboxConnectionDownMock.mockResolvedValue({
+      status: "suppression_skipped",
+      reason: "suppressed",
+    });
+
+    await GET(request());
+
+    expect(drainPersonalMailboxLifecycleMock).toHaveBeenCalledWith(
+      100,
+      expect.anything()
+    );
+  });
+
+  it("processes a bounded provider-label batch through the existing hourly heartbeat", async () => {
+    sendInboxConnectionDownMock.mockResolvedValue({
+      status: "suppression_skipped",
+      reason: "suppressed",
+    });
+
+    await GET(request());
+
+    expect(processImportProviderOperationsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      { limit: 5, leaseSeconds: 300 }
+    );
+  });
+
+  it("targets a current integration manager instead of the legacy company connector", async () => {
+    sendInboxConnectionDownMock.mockResolvedValue({
+      status: "sent",
+      messageId: "sg-message-1",
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(heartbeatState.notificationInserts).toContainEqual(
+      expect.objectContaining({
+        user_id: "admin-1",
+        company_id: "company-1",
+      })
+    );
+    expect(sendInboxConnectionDownMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "admin@example.com",
+        reconnectUrl: expect.stringContaining("userId=admin-1"),
+      })
+    );
+    expect(
+      JSON.stringify(heartbeatState.notificationInserts) +
+        JSON.stringify(sendInboxConnectionDownMock.mock.calls)
+    ).not.toContain("userId=user-1");
+  });
+
+  it("fails closed when a company mailbox has no current integration manager", async () => {
+    heartbeatState.integrationPermissionAllowed = false;
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(heartbeatState.notificationInserts).toEqual([]);
+    expect(sendInboxConnectionDownMock).not.toHaveBeenCalled();
+    expect(heartbeatState.heartbeatLogInserts).toEqual([]);
+  });
 });

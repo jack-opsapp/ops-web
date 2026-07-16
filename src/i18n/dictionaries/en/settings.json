@@ -519,6 +519,7 @@
   "integrations.signature.saved": "Signature saved",
   "integrations.signature.saveFailed": "Signature not saved",
   "integrations.signature.imported": "Gmail signature imported",
+  "integrations.signature.notConfigured": "No Gmail signature found",
   "integrations.signature.importFailed": "Signature not imported",
   "integrations.signature.loadFailed": "Signature status unavailable",
   "integrations.signature.retry": "Retry",

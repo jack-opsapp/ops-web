@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, isErrorResponse } from "../_lib/auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { getHumanDraftAccuracy } from "@/lib/api/services/phase-c-draft-accuracy-service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,31 +29,32 @@ export async function GET(request: NextRequest) {
     const [
       draftsSent,
       draftsTotal,
-      draftsUnchanged,
       writingProfileRes,
+      humanAccuracy,
     ] = await Promise.all([
       supabase
         .from("ai_draft_history")
         .select("id", { count: "exact", head: true })
         .eq("company_id", auth.companyId)
+        .eq("user_id", auth.id)
         .eq("status", "sent")
         .gte("created_at", thirtyDaysAgoIso),
       supabase
         .from("ai_draft_history")
         .select("id", { count: "exact", head: true })
         .eq("company_id", auth.companyId)
-        .gte("created_at", thirtyDaysAgoIso),
-      supabase
-        .from("ai_draft_history")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", auth.companyId)
-        .eq("status", "sent")
-        .eq("sent_without_changes", true)
+        .eq("user_id", auth.id)
         .gte("created_at", thirtyDaysAgoIso),
       supabase
         .from("agent_writing_profiles")
         .select("emails_analyzed, profile_type")
-        .eq("company_id", auth.companyId),
+        .eq("company_id", auth.companyId)
+        .eq("user_id", auth.id),
+      getHumanDraftAccuracy({
+        companyId: auth.companyId,
+        userId: auth.id,
+        supabase,
+      }),
     ]);
 
     const writingProfiles = writingProfileRes.data ?? [];
@@ -112,18 +114,17 @@ export async function GET(request: NextRequest) {
 
     const totalDrafts = draftsTotal.count ?? 0;
     const sentDrafts = draftsSent.count ?? 0;
-    const unchangedDrafts = draftsUnchanged.count ?? 0;
-    const approvalRate =
-      totalDrafts > 0 ? Math.round((sentDrafts / totalDrafts) * 100) : 0;
-    const unchangedRate =
-      sentDrafts > 0 ? Math.round((unchangedDrafts / sentDrafts) * 100) : 0;
+    const approvalRate = Math.round(humanAccuracy.approvalRate * 100);
+    const unchangedRate = approvalRate;
+    const errorRate = Math.round(humanAccuracy.errorRate * 100);
 
     // ── Autonomy milestones ────────────────────────────────────────────
     const milestones = {
       draftingAvailable: maxEmailsAnalyzed >= 25 && confidence > 0.2,
       drafting: maxEmailsAnalyzed >= 100 && confidence > 0.5,
       autoDraft: maxEmailsAnalyzed >= 250 && confidence > 0.75,
-      autoSend: unchangedRate >= 95 && sentDrafts >= 20,
+      autoSend:
+        humanAccuracy.approvalRate >= 0.95 && humanAccuracy.sampleSize >= 20,
     };
 
     return NextResponse.json({
@@ -132,6 +133,8 @@ export async function GET(request: NextRequest) {
         draftsSent: sentDrafts,
         approvalRate,
         unchangedRate,
+        errorRate,
+        calibratedDrafts: humanAccuracy.sampleSize,
         writingProfileConfidence: Math.round(confidence * 100),
         emailsAnalyzed: maxEmailsAnalyzed,
       },

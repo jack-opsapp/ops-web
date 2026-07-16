@@ -6,11 +6,15 @@ import { NextRequest } from "next/server";
 
 const {
   getServiceRoleClientMock,
+  runSupabaseEmailAssignmentContactFormDraftWorkerMock,
+  runSupabaseEmailConversionPhotoWorkerMock,
   runSupabaseEmailAttachmentWorkerMock,
   runWithSupabaseMock,
   serviceRoleClient,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
+  runSupabaseEmailAssignmentContactFormDraftWorkerMock: vi.fn(),
+  runSupabaseEmailConversionPhotoWorkerMock: vi.fn(),
   runSupabaseEmailAttachmentWorkerMock: vi.fn(),
   runWithSupabaseMock: vi.fn(),
   serviceRoleClient: { kind: "service-role-client" },
@@ -28,6 +32,19 @@ vi.mock("@/lib/api/services/email-attachments/attachment-runtime", () => ({
   runSupabaseEmailAttachmentWorker: runSupabaseEmailAttachmentWorkerMock,
 }));
 
+vi.mock("@/lib/api/services/email-conversion-photo-runtime", () => ({
+  runSupabaseEmailConversionPhotoWorker:
+    runSupabaseEmailConversionPhotoWorkerMock,
+}));
+
+vi.mock(
+  "@/lib/api/services/email-assignment-contact-form-draft-runtime",
+  () => ({
+    runSupabaseEmailAssignmentContactFormDraftWorker:
+      runSupabaseEmailAssignmentContactFormDraftWorkerMock,
+  })
+);
+
 import { GET } from "@/app/api/cron/email-attachment-worker/route";
 
 const emptyResult = {
@@ -37,6 +54,31 @@ const emptyResult = {
   paused: 0,
   staleCompletions: 0,
   failed: 0,
+  errors: [],
+};
+
+const emptyPhotoResult = {
+  claimed: 0,
+  completed: 0,
+  retrying: 0,
+  skipped: 0,
+  failed: 0,
+  staleCompletions: 0,
+  cleanupClaimed: 0,
+  cleanupCompleted: 0,
+  cleanupRetrying: 0,
+  errors: [],
+};
+
+const emptyAssignmentDraftResult = {
+  claimed: 0,
+  drafted: 0,
+  skipped: 0,
+  retrying: 0,
+  failed: 0,
+  stale: 0,
+  reconciliationRequired: 0,
+  staleCompletions: 0,
   errors: [],
 };
 
@@ -53,6 +95,14 @@ describe("email attachment worker cron", () => {
     getServiceRoleClientMock.mockReturnValue(serviceRoleClient);
     runSupabaseEmailAttachmentWorkerMock.mockReset();
     runSupabaseEmailAttachmentWorkerMock.mockResolvedValue(emptyResult);
+    runSupabaseEmailConversionPhotoWorkerMock.mockReset();
+    runSupabaseEmailConversionPhotoWorkerMock.mockResolvedValue(
+      emptyPhotoResult
+    );
+    runSupabaseEmailAssignmentContactFormDraftWorkerMock.mockReset();
+    runSupabaseEmailAssignmentContactFormDraftWorkerMock.mockResolvedValue(
+      emptyAssignmentDraftResult
+    );
     runWithSupabaseMock.mockReset();
     runWithSupabaseMock.mockImplementation(
       async (_client: unknown, work: () => Promise<unknown>) => work()
@@ -77,6 +127,10 @@ describe("email attachment worker cron", () => {
     });
     expect(getServiceRoleClientMock).not.toHaveBeenCalled();
     expect(runSupabaseEmailAttachmentWorkerMock).not.toHaveBeenCalled();
+    expect(runSupabaseEmailConversionPhotoWorkerMock).not.toHaveBeenCalled();
+    expect(
+      runSupabaseEmailAssignmentContactFormDraftWorkerMock
+    ).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid bearer token before creating a service client", async () => {
@@ -89,6 +143,10 @@ describe("email attachment worker cron", () => {
     });
     expect(getServiceRoleClientMock).not.toHaveBeenCalled();
     expect(runSupabaseEmailAttachmentWorkerMock).not.toHaveBeenCalled();
+    expect(runSupabaseEmailConversionPhotoWorkerMock).not.toHaveBeenCalled();
+    expect(
+      runSupabaseEmailAssignmentContactFormDraftWorkerMock
+    ).not.toHaveBeenCalled();
   });
 
   it("runs the worker inside the service-role Supabase context", async () => {
@@ -98,7 +156,12 @@ describe("email attachment worker cron", () => {
     const response = await GET(request());
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, ...result });
+    expect(await response.json()).toEqual({
+      ok: true,
+      ...result,
+      conversionPhotos: emptyPhotoResult,
+      assignmentContactFormDrafts: emptyAssignmentDraftResult,
+    });
     expect(runWithSupabaseMock).toHaveBeenCalledWith(
       serviceRoleClient,
       expect.any(Function)
@@ -107,6 +170,16 @@ describe("email attachment worker cron", () => {
       serviceRoleClient,
       { leaseSeconds: 360 }
     );
+    expect(runSupabaseEmailConversionPhotoWorkerMock).toHaveBeenCalledWith(
+      serviceRoleClient,
+      { leaseSeconds: 360 }
+    );
+    expect(
+      runSupabaseEmailAssignmentContactFormDraftWorkerMock
+    ).toHaveBeenCalledWith(serviceRoleClient, {
+      leaseSeconds: 360,
+      limit: 3,
+    });
   });
 
   it("returns 503 when the worker reports one or more failures", async () => {
@@ -121,7 +194,78 @@ describe("email attachment worker cron", () => {
     const response = await GET(request());
 
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ ok: false, ...result });
+    expect(await response.json()).toEqual({
+      ok: false,
+      ...result,
+      conversionPhotos: emptyPhotoResult,
+      assignmentContactFormDrafts: emptyAssignmentDraftResult,
+    });
+  });
+
+  it("returns 503 when converted-project photo materialization fails", async () => {
+    const photoResult = {
+      ...emptyPhotoResult,
+      claimed: 1,
+      failed: 1,
+      errors: [{ jobId: "photo-job-1", error: "storage unavailable" }],
+    };
+    runSupabaseEmailConversionPhotoWorkerMock.mockResolvedValue(photoResult);
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      ok: false,
+      ...emptyResult,
+      conversionPhotos: photoResult,
+      assignmentContactFormDrafts: emptyAssignmentDraftResult,
+    });
+  });
+
+  it("returns 503 when photo reconciliation reports an unrecorded queue error", async () => {
+    const photoResult = {
+      ...emptyPhotoResult,
+      claimed: 1,
+      errors: [
+        {
+          objectId: "photo-object-1",
+          error: "cleanup queue update unavailable",
+        },
+      ],
+    };
+    runSupabaseEmailConversionPhotoWorkerMock.mockResolvedValue(photoResult);
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      ok: false,
+      ...emptyResult,
+      conversionPhotos: photoResult,
+      assignmentContactFormDrafts: emptyAssignmentDraftResult,
+    });
+  });
+
+  it("returns 503 when assignment-triggered contact-form draft processing fails", async () => {
+    const draftResult = {
+      ...emptyAssignmentDraftResult,
+      claimed: 1,
+      failed: 1,
+      errors: [{ queueId: "draft-job-1", error: "provider unavailable" }],
+    };
+    runSupabaseEmailAssignmentContactFormDraftWorkerMock.mockResolvedValue(
+      draftResult
+    );
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      ok: false,
+      ...emptyResult,
+      conversionPhotos: emptyPhotoResult,
+      assignmentContactFormDrafts: draftResult,
+    });
   });
 
   it("returns a retryable failure response when the worker throws", async () => {

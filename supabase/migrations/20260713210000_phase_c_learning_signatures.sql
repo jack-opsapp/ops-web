@@ -1957,15 +1957,15 @@ begin
     from public.users u
     where u.id = p_scope_user_id
       and u.company_id = p_company_id
-      and coalesce(u.is_active, true)
+      and coalesce(u.is_active, false)
       and u.deleted_at is null
   ) then
     raise exception 'signature notification user is not active in company';
   end if;
 
   if v_connection.type = 'individual'
-    and nullif(btrim(v_connection.user_id), '') is not null
-    and v_connection.user_id <> p_scope_user_id::text
+    and nullif(btrim(v_connection.user_id), '')
+      is distinct from p_scope_user_id::text
   then
     raise exception 'signature notification user does not own connection';
   end if;
@@ -2060,7 +2060,7 @@ begin
         body = 'Add a signature so OPS includes it in drafts from this inbox.',
         is_read = false,
         persistent = true,
-        action_url = '/settings?section=email&connection=' || p_connection_id::text,
+        action_url = '/settings?section=profile&connection=' || p_connection_id::text,
         action_label = 'ADD SIGNATURE',
         deep_link_type = 'email_signature',
         resolved_at = null,
@@ -2090,7 +2090,7 @@ begin
       'Add a signature so OPS includes it in drafts from this inbox.',
       false,
       true,
-      '/settings?section=email&connection=' || p_connection_id::text,
+      '/settings?section=profile&connection=' || p_connection_id::text,
       'ADD SIGNATURE',
       'email_signature',
       v_dedupe_key

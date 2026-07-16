@@ -6,7 +6,8 @@
  * were created by the various auto-send autonomy levels (appointment
  * confirmations at auto_send_on_confirm/full_auto, appointment reminders at
  * auto_send, etc.) with a cancellable delay. If the user doesn't reject the
- * action before auto_execute_at, this cron approves and executes it.
+ * action before auto_execute_at, this cron executes it through the dedicated
+ * autonomous source-record transport. It never records a human reviewer.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest) {
     // Find pending actions whose auto_execute_at has passed
     const { data: dueActions, error } = await supabase
       .from("agent_actions")
-      .select("id, company_id, user_id, action_type")
+      .select("id")
       .eq("status", "pending")
       .not("auto_execute_at", "is", null)
       .lte("auto_execute_at", now)
@@ -55,17 +56,8 @@ export async function GET(request: NextRequest) {
 
     for (const row of dueActions ?? []) {
       const actionId = row.id as string;
-      const companyId = row.company_id as string;
-      const userId = row.user_id as string;
-
       try {
-        await ApprovalQueueService.approveAction(
-          actionId,
-          companyId,
-          userId,
-          undefined,
-          { learningAuthority: "autonomous" }
-        );
+        await ApprovalQueueService.executeAutonomousAction(actionId);
         results.push({ actionId, success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
@@ -79,12 +71,14 @@ export async function GET(request: NextRequest) {
 
     const succeeded = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;
+    const recovery = await ApprovalQueueService.recoverApprovedActionEmails(50);
 
     return NextResponse.json({
       ok: true,
       dueCount: dueActions?.length ?? 0,
       succeeded,
       failed,
+      recovery,
       results,
     });
   } catch (err) {

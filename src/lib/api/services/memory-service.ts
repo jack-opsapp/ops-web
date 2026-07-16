@@ -152,6 +152,15 @@ export interface MemoryFact {
   source: string;
 }
 
+export interface DraftMemoryContextScope {
+  /** Canonical OPS users.id. Never a mailbox/login email. */
+  actorUserId: string;
+  /** Provider thread/message ids belonging to the authorized lead context. */
+  exactSourceIds: string[];
+  /** Company graph history is broader than one lead and requires a separate gate. */
+  includeClientHistory: boolean;
+}
+
 // ─── Phase C Constants ──────────────────────────────────────────────────────
 
 export const PROFILE_CLUSTER_MAP: Record<string, string> = {
@@ -1611,7 +1620,8 @@ export const MemoryService = {
   async getContextForDraft(
     companyId: string,
     clientEmail: string,
-    projectDescription: string
+    projectDescription: string,
+    scope?: DraftMemoryContextScope
   ): Promise<{
     relevantFacts: MemoryFact[];
     clientHistory: Record<string, unknown>[];
@@ -1619,6 +1629,21 @@ export const MemoryService = {
     pricingReferences: string[];
   }> {
     const supabase = requireSupabase();
+    const exactSourceIds = scope
+      ? Array.from(
+          new Set(
+            scope.exactSourceIds.map((value) => value.trim()).filter(Boolean)
+          )
+        )
+      : [];
+    if (scope && (!scope.actorUserId.trim() || exactSourceIds.length === 0)) {
+      return {
+        relevantFacts: [],
+        clientHistory: [],
+        currentPromotions: [],
+        pricingReferences: [],
+      };
+    }
 
     // ── Vector similarity search (semantic relevance) ────────────────────────
     // Build a context string from client + project info for embedding query
@@ -1644,16 +1669,36 @@ export const MemoryService = {
         });
 
         if (vectorResults) {
-          vectorFacts = (vectorResults as Record<string, unknown>[]).map(
-            (f) => ({
-              id: f.id as string,
-              type: f.memory_type as string,
-              category: f.category as string,
-              content: f.content as string,
-              confidence: f.confidence as number,
-              source: f.source as string,
-            })
-          );
+          let authorizedVectorRows = vectorResults as Record<string, unknown>[];
+          if (scope) {
+            const resultIds = authorizedVectorRows
+              .map((row) => row.id)
+              .filter((id): id is string => typeof id === "string");
+            if (resultIds.length > 0) {
+              const { data: scopedRows } = await supabase
+                .from("agent_memories")
+                .select(
+                  "id, memory_type, category, content, confidence, source"
+                )
+                .eq("company_id", companyId)
+                .eq("user_id", scope.actorUserId)
+                .in("source_id", exactSourceIds)
+                .in("id", resultIds);
+              authorizedVectorRows =
+                (scopedRows as Record<string, unknown>[] | null) ?? [];
+            } else {
+              authorizedVectorRows = [];
+            }
+          }
+
+          vectorFacts = authorizedVectorRows.map((f) => ({
+            id: f.id as string,
+            type: f.memory_type as string,
+            category: f.category as string,
+            content: f.content as string,
+            confidence: f.confidence as number,
+            source: f.source as string,
+          }));
 
           // Touch access timestamps + increment count for retrieved memories (fire-and-forget)
           const ids = vectorFacts.map((f) => f.id);
@@ -1673,6 +1718,42 @@ export const MemoryService = {
 
     // ── Category-based retrieval (structured essentials) ─────────────────────
     // Always fetch pricing, promotions, and limitations regardless of vector match
+    const pricingQuery = supabase
+      .from("agent_memories")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("category", "pricing")
+      .gt("decay_score", 0.1)
+      .order("confidence", { ascending: false })
+      .limit(10);
+    const promotionsQuery = supabase
+      .from("agent_memories")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("category", "promotion")
+      .gt("confidence", 0.5)
+      .gt("decay_score", 0.1)
+      .limit(5);
+    const limitationsQuery = supabase
+      .from("agent_memories")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("category", "limitation")
+      .gt("decay_score", 0.1)
+      .limit(10);
+    if (scope) {
+      pricingQuery
+        .eq("user_id", scope.actorUserId)
+        .in("source_id", exactSourceIds);
+      promotionsQuery
+        .eq("user_id", scope.actorUserId)
+        .in("source_id", exactSourceIds);
+      limitationsQuery
+        .eq("user_id", scope.actorUserId)
+        .in("source_id", exactSourceIds);
+    }
+    const includeClientHistory = !scope || scope.includeClientHistory;
+
     const [
       pricingResult,
       promotionsResult,
@@ -1680,38 +1761,20 @@ export const MemoryService = {
       clientEdgesResult,
       entityEdgesResult,
     ] = await Promise.all([
-      supabase
-        .from("agent_memories")
-        .select("*")
-        .eq("company_id", companyId)
-        .eq("category", "pricing")
-        .gt("decay_score", 0.1)
-        .order("confidence", { ascending: false })
-        .limit(10),
-      supabase
-        .from("agent_memories")
-        .select("*")
-        .eq("company_id", companyId)
-        .eq("category", "promotion")
-        .gt("confidence", 0.5)
-        .gt("decay_score", 0.1)
-        .limit(5),
-      supabase
-        .from("agent_memories")
-        .select("*")
-        .eq("company_id", companyId)
-        .eq("category", "limitation")
-        .gt("decay_score", 0.1)
-        .limit(10),
+      pricingQuery,
+      promotionsQuery,
+      limitationsQuery,
       // Legacy text-based client edges
-      supabase
-        .from("agent_knowledge_graph")
-        .select("*")
-        .eq("company_id", companyId)
-        .eq("subject_id", clientEmail)
-        .is("valid_to", null),
+      includeClientHistory
+        ? supabase
+            .from("agent_knowledge_graph")
+            .select("*")
+            .eq("company_id", companyId)
+            .eq("subject_id", clientEmail)
+            .is("valid_to", null)
+        : Promise.resolve({ data: null }),
       // Entity-linked client edges (Phase C graph)
-      clientEmail
+      clientEmail && includeClientHistory
         ? supabase
             .from("graph_entities")
             .select("id")

@@ -30,7 +30,6 @@ import {
   TableMono,
 } from "@/components/ui/register-table";
 import { ImportPipelineWizard } from "./import-pipeline-wizard";
-import { EmailSignatureSettings } from "./email-signature-settings";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -45,7 +44,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
-import { useCreateNotification } from "@/lib/hooks/use-notifications";
 import { AutoSendSettings } from "./auto-send-settings";
 import { AutonomyStatusPanel } from "./autonomy-status-panel";
 import { useRouter } from "next/navigation";
@@ -103,13 +101,9 @@ function AnalysisProgressBanner({
   const [totalScanned, setTotalScanned] = useState<number | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const completeFiredRef = useRef(false);
-  const notify = useCreateNotification();
-
   // Use refs for callbacks to avoid re-triggering the poll effect
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
-  const notifyRef = useRef(notify);
-  notifyRef.current = notify;
 
   useEffect(() => {
     // Don't poll when the wizard is open — the wizard handles its own polling
@@ -143,24 +137,6 @@ function AnalysisProgressBanner({
           completeFiredRef.current = true;
           setLeadCount(data.result.leads?.length ?? 0);
           setTotalScanned(data.result.totalScanned ?? 0);
-
-          // Create DB notification — appears in the header rail
-          notifyRef.current({
-            type: "pipeline_complete",
-            title: "Pipeline analysis complete",
-            body: `Found ${data.result.leads?.length ?? 0} leads from ${data.result.totalScanned ?? 0} emails`,
-            actionUrl: "/settings?tab=integrations",
-            actionLabel: "Review Leads",
-          });
-
-          // Phase C background indexing notification
-          notifyRef.current({
-            type: "intel_available",
-            title: "New intel available",
-            body: "Your business data is being indexed.",
-            actionUrl: "/intel",
-            actionLabel: "View Intel",
-          });
 
           onCompleteRef.current();
           return;
@@ -270,7 +246,7 @@ export function IntegrationsTab() {
   const can = usePermissionStore((s) => s.can);
   const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
   const phaseCEnabled = canAccessFeature("phase_c");
-  const { company, currentUser } = useAuthStore();
+  const { company } = useAuthStore();
   const companyId = company?.id ?? "";
   const { data: connections = [], isLoading: connectionsLoading } =
     useGmailConnections();
@@ -280,8 +256,6 @@ export function IntegrationsTab() {
   const { data: importHistory = [] } = useImportHistory(companyId || undefined);
 
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [signatureTargetConnectionId, setSignatureTargetConnectionId] =
-    useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -300,62 +274,8 @@ export function IntegrationsTab() {
   }, []);
 
   const companyConnections = connections.filter((c) => c.type === "company");
-  const signatureConnections = connections.filter(
-    (c) =>
-      c.status === "active" &&
-      (c.type === "company" || c.userId === currentUser?.id)
-  );
   const hasAnyConnection = connections.length > 0;
 
-  useEffect(() => {
-    setSignatureTargetConnectionId(
-      new URLSearchParams(window.location.search).get("connection")
-    );
-  }, []);
-
-  useEffect(() => {
-    if (!signatureTargetConnectionId || connectionsLoading) return;
-    const target = document.getElementById(
-      `email-signature-${signatureTargetConnectionId}`
-    );
-    if (!target) return;
-    target.scrollIntoView({ block: "center" });
-  }, [
-    connectionsLoading,
-    signatureConnections.length,
-    signatureTargetConnectionId,
-  ]);
-
-  // ─── Abandoned wizard notification ───────────────────────────────────────
-  // If the wizard was started but not completed, create a notification in the rail.
-  const notify = useCreateNotification();
-  const abandonedPromptFiredRef = useRef(false);
-  useEffect(() => {
-    if (abandonedPromptFiredRef.current || !hasAnyConnection) return;
-    const conn = companyConnections[0];
-    if (!conn) return;
-    const filters = conn.syncFilters as unknown as
-      | Record<string, unknown>
-      | undefined;
-    if (!filters) return;
-    // Only notify if analysis is done but wizard was never completed
-    if (filters.lastScanComplete === true && filters.wizardCompleted !== true) {
-      abandonedPromptFiredRef.current = true;
-      notify({
-        type: "leads_waiting",
-        title: "You have leads waiting",
-        body: "Your inbox analysis found leads. Finish the import to add them to your pipeline.",
-        persistent: true,
-        // Pre-import onboarding CTA — no opportunity entity exists yet, so this
-        // routes to the inbox/import surface (web follows action_url to the
-        // integrations settings; iOS routes on `inbox`) instead of landing in
-        // the legacy NULL-deep_link_type fallback. See bible §14.3.5.
-        deepLinkType: "inbox",
-        actionUrl: "/settings?tab=integrations",
-        actionLabel: "Continue Import",
-      });
-    }
-  }, [hasAnyConnection, companyConnections]); // eslint-disable-line react-hooks/exhaustive-deps
   // wizardDone must accept EITHER signal. After activation, the activate route
   // flips `status` to 'active' but there's a refetch race where `syncFilters`
   // can still read the stale pre-activation flag. Treating `status === 'active'`
@@ -389,7 +309,7 @@ export function IntegrationsTab() {
   function handleToggleSync(id: string, currentEnabled: boolean) {
     if (!can("settings.integrations")) return;
     updateConnection.mutate(
-      { id, data: { id, syncEnabled: !currentEnabled } },
+      { id, data: { syncEnabled: !currentEnabled } },
       {
         onSuccess: () =>
           toast.success(
@@ -419,7 +339,7 @@ export function IntegrationsTab() {
   function handleUpdateSyncInterval(id: string, minutes: number) {
     if (!can("settings.integrations")) return;
     updateConnection.mutate(
-      { id, data: { id, syncIntervalMinutes: minutes } },
+      { id, data: { syncIntervalMinutes: minutes } },
       {
         onSuccess: () => toast.success(t("integrations.frequencyUpdated")),
         onError: (err) =>
@@ -828,38 +748,6 @@ export function IntegrationsTab() {
             )}
         </CardContent>
       </Card>
-
-      {currentUser?.id && signatureConnections.length > 0 && (
-        <Card>
-          <CardHeader>
-            <span className="font-mono text-micro uppercase tracking-wider text-text-3">
-              <span className="text-text-mute">{"// "}</span>
-              {t("integrations.signature.sectionTitle", "EMAIL SIGNATURES")}
-            </span>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
-            <p className="font-mohave text-body-sm text-text-2">
-              {t(
-                "integrations.signature.sectionDescription",
-                "OPS uses the effective signature for each connected inbox."
-              )}
-            </p>
-            <div className="space-y-1">
-              {signatureConnections.map((conn) => (
-                <div key={conn.id} id={`email-signature-${conn.id}`}>
-                  <EmailSignatureSettings
-                    companyId={companyId}
-                    userId={currentUser.id}
-                    connectionId={conn.id}
-                    mailbox={conn.email}
-                    canManage={can("settings.integrations")}
-                  />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* AI Setup Card — Phase C only */}
       {phaseCEnabled && <AiSetupCard />}

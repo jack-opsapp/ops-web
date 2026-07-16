@@ -8,9 +8,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/toast";
 import { queryKeys } from "../api/query-client";
-import { EmailConnectionService } from "../api/services/email-connection-service";
+import { EmailConnectionBrowserService } from "../api/services/email-connection-browser-service";
 import { useAuthStore } from "../store/auth-store";
-import type { UpdateEmailConnection } from "../types/email-connection";
+import type { BrowserUpdateEmailConnection } from "../types/email-connection";
 import { authedFetch } from "../utils/authed-fetch";
 
 /**
@@ -22,7 +22,7 @@ export function useEmailConnections() {
 
   return useQuery({
     queryKey: queryKeys.emailConnections.list(companyId),
-    queryFn: () => EmailConnectionService.getConnections(companyId),
+    queryFn: () => EmailConnectionBrowserService.getConnections(),
     enabled: !!companyId,
     staleTime: 5 * 60 * 1000, // 5 min
   });
@@ -35,8 +35,13 @@ export function useUpdateEmailConnection() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateEmailConnection }) =>
-      EmailConnectionService.updateConnection(id, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: BrowserUpdateEmailConnection;
+    }) => EmailConnectionBrowserService.updateConnection(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.emailConnections.all,
@@ -56,7 +61,8 @@ export function useDeleteEmailConnection() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => EmailConnectionService.deleteConnection(id),
+    mutationFn: (id: string) =>
+      EmailConnectionBrowserService.deleteConnection(id),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.emailConnections.all,

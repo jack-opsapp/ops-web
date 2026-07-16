@@ -25,6 +25,7 @@ import {
   MemoryService,
   SKIP_CLASSIFICATION_KEYWORDS,
   type ClassifiedThread,
+  type PhaseCPipelineState,
   type ProfileType,
 } from "@/lib/api/services/memory-service";
 import {
@@ -38,6 +39,7 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
+import { authorizeEmailAnalysisJobContinuation } from "@/lib/email/email-analysis-job-access";
 
 export const maxDuration = 800;
 
@@ -165,27 +167,21 @@ export async function POST(request: NextRequest) {
 
   // Feature gate check
   const supabase = getServiceRoleClient();
-  const { data: scopedJob, error: scopedJobError } = await supabase
-    .from("gmail_scan_jobs")
-    .select("id, connection_id, company_id")
-    .eq("id", jobId)
-    .single();
-  if (
-    scopedJobError ||
-    !scopedJob ||
-    scopedJob.connection_id !== connectionId ||
-    scopedJob.company_id !== companyId
-  ) {
-    return NextResponse.json({ error: "Job not found" }, { status: 404 });
-  }
-
-  const scopedConnection = await runWithSupabase(supabase, () =>
-    EmailService.getConnection(connectionId)
-  );
-  if (!scopedConnection || scopedConnection.companyId !== companyId) {
+  const continuationAccess = await authorizeEmailAnalysisJobContinuation({
+    supabase,
+    jobId,
+    claimedConnectionId: connectionId,
+    claimedCompanyId: companyId,
+  });
+  if (!continuationAccess.allowed) {
     return NextResponse.json(
-      { error: "Connection not found" },
-      { status: 404 }
+      {
+        error:
+          continuationAccess.reason === "job_not_found"
+            ? "Job not found"
+            : "Forbidden",
+      },
+      { status: continuationAccess.reason === "job_not_found" ? 404 : 403 }
     );
   }
 
@@ -206,6 +202,23 @@ export async function POST(request: NextRequest) {
   after(async () => {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
+      const backgroundAccess = await authorizeEmailAnalysisJobContinuation({
+        supabase: bgSupabase,
+        jobId,
+        claimedConnectionId: connectionId,
+        claimedCompanyId: companyId,
+      });
+      if (!backgroundAccess.allowed) {
+        await writePhaseCError(
+          bgSupabase,
+          jobId,
+          new Error(
+            `Phase C authorization expired: ${backgroundAccess.reason}`
+          ),
+          "entry"
+        );
+        return;
+      }
       // Row-level execution lock. A duplicate dispatch (webhook retry, a
       // user double-click on a retry button, two entry routes overlapping)
       // would otherwise race through the same thread range and corrupt
@@ -223,6 +236,7 @@ export async function POST(request: NextRequest) {
           jobId,
           connectionId,
           companyId,
+          backgroundAccess.actorUserId,
           bgSupabase,
           holderId
         );
@@ -255,6 +269,7 @@ async function runPhaseCEntry(
   jobId: string,
   connectionId: string,
   companyId: string,
+  actorUserId: string,
   supabase: SupabaseClient,
   holderId: string
 ) {
@@ -289,6 +304,12 @@ async function runPhaseCEntry(
   }
 
   if (priorResult.phaseCPipeline) {
+    const persistedState = priorResult.phaseCPipeline as PhaseCPipelineState;
+    if (persistedState.userId !== actorUserId) {
+      throw new Error(
+        "Phase C requester snapshot does not match pipeline state"
+      );
+    }
     console.log(
       `[analyze-memory] Phase C pipeline state found — resuming via continuation`
     );
@@ -313,7 +334,7 @@ async function runPhaseCEntry(
     `[analyze-memory] Found ${leads.length} leads, ${notLeadReasons.length} skip threads`
   );
 
-  // ─── 2. Get connection for userId + ownerEmail ───────────────────────────
+  // ─── 2. Get connection for mailbox direction + ownerEmail ───────────────
   const connection = await EmailService.getConnection(connectionId);
 
   if (!connection || connection.companyId !== companyId) {
@@ -321,30 +342,8 @@ async function runPhaseCEntry(
     return;
   }
 
-  const userId = connection.userId;
+  const userId = actorUserId;
   const ownerEmail = connection.email.toLowerCase();
-
-  if (!userId) {
-    console.error(
-      `[analyze-memory] Connection ${connectionId} has no userId — Phase C skipped`
-    );
-
-    // Surface the failure so it doesn't rot silently. New OAuth inits carry
-    // a userId after the 2026-04-17 fix, so this should be very rare — but if
-    // it fires, we want ops to see it and the user to be prompted to reconnect.
-    await supabase.from("notifications").insert({
-      user_id: null,
-      company_id: companyId,
-      type: "role_needed",
-      title: "AI knowledge extraction skipped — reconnect required",
-      body: "The email connection is missing an owner. Reconnect your inbox in Settings → Integrations to enable AI draft assistance.",
-      is_read: false,
-      persistent: true,
-      action_url: "/settings?tab=integrations",
-      action_label: "Reconnect",
-    });
-    return;
-  }
 
   // ─── 3. Get company users for employee email set ─────────────────────────
   const { data: companyUsers } = await supabase

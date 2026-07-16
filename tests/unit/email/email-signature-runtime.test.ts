@@ -93,11 +93,33 @@ describe("resolveEmailSignatureForMessage", () => {
       })
     );
     expect(supabase.rpc).toHaveBeenCalledWith(
-      "sync_email_signature_notification",
+      "sync_email_signature_notification_as_system",
       {
-        p_company_id: "company-1",
+        p_actor_user_id: "user-1",
         p_connection_id: "connection-1",
-        p_scope_user_id: "user-1",
+      }
+    );
+  });
+
+  it("reconciles a saved signature even when the connection is sync-disabled", async () => {
+    const disabledConnection = connection("company");
+    disabledConnection.syncEnabled = false;
+    resolveEffectiveMock.mockReset();
+    resolveEffectiveMock.mockResolvedValue({ recordId: "signature-1" });
+    const supabase = { rpc: vi.fn().mockResolvedValue({ error: null }) };
+
+    await resolveEmailSignatureForMessage({
+      supabase: supabase as never,
+      connection: disabledConnection,
+      userId: "user-1",
+    });
+
+    expect(refreshProviderMock).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "sync_email_signature_notification_as_system",
+      {
+        p_actor_user_id: "user-1",
+        p_connection_id: "connection-1",
       }
     );
   });

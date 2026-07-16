@@ -202,6 +202,7 @@ describe("reconcilePendingMailboxDrafts", () => {
         mailbox_draft_id: "provider-draft-1",
         created_at: "2026-07-10T09:00:00.000Z",
         profile_type: "client_new_inquiry",
+        opportunity_id: "opportunity-1",
       },
     ];
     const outboundRows = [
@@ -254,6 +255,16 @@ describe("reconcilePendingMailboxDrafts", () => {
 
     const supabase = {
       from: vi.fn((table: string) => queryFor(table)),
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          actorUserId: "user-1",
+          opportunityId: "opportunity-1",
+          assignmentVersion: 3,
+          assignmentEventId: "assignment-event-3",
+          proofType: "native_mailbox_draft",
+        },
+        error: null,
+      }),
     };
     const connection = {
       id: "connection-1",
@@ -270,6 +281,17 @@ describe("reconcilePendingMailboxDrafts", () => {
 
     expect(getDraftMock).toHaveBeenCalledOnce();
     expect(getDraftMock).toHaveBeenCalledWith("provider-draft-1");
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "resolve_email_outbound_learning_mailbox_actor_as_system",
+      expect.objectContaining({
+        p_company_id: "company-1",
+        p_connection_id: "connection-1",
+        p_draft_history_id: "draft-history-1",
+        p_provider_message_id: "provider-message-1",
+        p_provider_thread_id: "provider-thread-1",
+        p_outcome: "used",
+      })
+    );
     expect(enqueueIfEnabledMock).toHaveBeenCalledTimes(1);
     expect(enqueueIfEnabledMock).toHaveBeenCalledWith({
       companyId: "company-1",

@@ -22,10 +22,36 @@ export async function maybeSuggestProject(params: {
   userId: string;
   clientId: string;
   opportunityId: string;
+  expectedAssignmentVersion: number;
 }): Promise<void> {
-  const { email, companyId, userId, clientId, opportunityId } = params;
+  const {
+    email,
+    companyId,
+    userId,
+    clientId,
+    opportunityId,
+    expectedAssignmentVersion,
+  } = params;
 
   const supabase = requireSupabase();
+
+  const { data: opportunity, error: opportunityError } = await supabase
+    .from("opportunities")
+    .select("assigned_to, assignment_version")
+    .eq("id", opportunityId)
+    .eq("company_id", companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (
+    opportunityError ||
+    !opportunity ||
+    opportunity.assigned_to !== userId ||
+    opportunity.assignment_version !== expectedAssignmentVersion ||
+    !Number.isSafeInteger(expectedAssignmentVersion) ||
+    expectedAssignmentVersion < 0
+  ) {
+    return;
+  }
 
   // Check if a project already exists for this client (prevent duplicate suggestions)
   const { data: existingProjects } = await supabase
@@ -75,6 +101,7 @@ export async function maybeSuggestProject(params: {
     suggested_tasks: suggestedTasks,
     source_thread_id: email.threadId,
     source_opportunity_id: opportunityId,
+    source_assignment_version: expectedAssignmentVersion,
   };
 
   // Calculate confidence based on available context
@@ -105,10 +132,7 @@ export async function maybeSuggestProject(params: {
  * Extract service type hints from email subject and body snippet.
  * Returns a short description or null if nothing detected.
  */
-function extractServiceHints(
-  subject: string,
-  snippet: string
-): string | null {
+function extractServiceHints(subject: string, snippet: string): string | null {
   const text = `${subject} ${snippet}`.toLowerCase();
 
   // Common trade service keywords

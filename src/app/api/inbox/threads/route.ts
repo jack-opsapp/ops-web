@@ -4,9 +4,9 @@
  * GET /api/inbox/threads?scope=own|company&filter=...&category=...&search=...&cursor=...&limit=...
  *
  * Auth: Firebase/Supabase JWT required.
- * Permissions:
- *   - inbox.view                 : required for any access
- *   - inbox.view_company         : additionally required for scope=company
+ * Permissions: canonical pipeline.view ∩ inbox.view authorization. Assigned
+ * scope sees the actor's personal-mailbox threads plus threads linked to leads
+ * currently assigned to that OPS user.
  *
  * Returns cursor-paginated list of email_threads rows, denormalized to the
  * inbox UI's consumer shape. scope=own filters to the calling user's email
@@ -16,10 +16,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import { resolveEmailInboxListAccess } from "@/lib/email/email-opportunity-access";
 import {
   EMAIL_THREAD_CATEGORIES,
   type EmailThreadCategory,
@@ -48,27 +47,10 @@ function parseScope(raw: string | null): InboxScope {
 }
 
 export async function GET(request: NextRequest) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
-
-  if (!companyId) {
-    return NextResponse.json({ error: "No company associated with user" }, { status: 400 });
-  }
-
-  // Base permission
-  const canView = await checkPermissionById(userId, "inbox.view");
-  if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
+  const { userId, companyId } = actor;
 
   const { searchParams } = new URL(request.url);
   const scope = parseScope(searchParams.get("scope"));
@@ -79,38 +61,48 @@ export async function GET(request: NextRequest) {
   const limitRaw = searchParams.get("limit");
   const limit = limitRaw ? parseInt(limitRaw, 10) : undefined;
 
-  // Scope=company requires additional permission
-  if (scope === "company") {
-    const canViewCompany = await checkPermissionById(userId, "inbox.view_company");
-    if (!canViewCompany) {
-      return NextResponse.json({ error: "Forbidden (company scope)" }, { status: 403 });
-    }
+  const supabase = getServiceRoleClient();
+  const listAccess = await resolveEmailInboxListAccess({ actor, supabase });
+  if (!listAccess.allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const supabase = getServiceRoleClient();
+  // Assigned inbox scope is an opportunity union, not a mailbox subset. The
+  // shared authorization filter still limits the query to assigned leads plus
+  // unlinked actor-owned personal threads; applying the legacy `scope=own`
+  // connection filter here would incorrectly hide linked history from another
+  // mailbox.
+  const effectiveScope: InboxScope =
+    listAccess.inboxScope === "assigned" ? "company" : scope;
 
-  // Resolve user's own connection IDs for scope=own. A user may have multiple
-  // (personal + company). scope=company ignores this list and sees all.
+  // Resolve scope=own to every company mailbox plus only the actor's personal
+  // mailboxes. A legacy connector user on a company row is metadata and must
+  // not affect visibility in either direction.
   let userConnectionIds: string[] = [];
-  if (scope === "own") {
+  if (effectiveScope === "own") {
     const { data: connRows } = await supabase
       .from("email_connections")
       .select("id")
       .eq("company_id", companyId)
-      .or(`user_id.eq.${userId},user_id.is.null`);
+      .or(`type.eq.company,and(type.eq.individual,user_id.eq.${userId})`);
     userConnectionIds = (connRows ?? []).map((r) => r.id as string);
   }
 
   try {
     const result = await runWithSupabase(supabase, () =>
-      EmailThreadService.list(companyId, userConnectionIds, {
-        scope,
-        filter,
-        category,
-        search,
-        cursor: cursor ?? null,
-        limit,
-      })
+      EmailThreadService.list(
+        companyId,
+        userConnectionIds,
+        {
+          scope: effectiveScope,
+          filter,
+          category,
+          search,
+          cursor: cursor ?? null,
+          limit,
+        },
+        listAccess
+      )
     );
 
     // Resolve client names for every linked thread in one IN-list query.
@@ -118,9 +110,7 @@ export async function GET(request: NextRequest) {
     // over the raw sender name when both are present (see conversation-list).
     const clientIds = Array.from(
       new Set(
-        result.threads
-          .map((t) => t.clientId)
-          .filter((v): v is string => !!v)
+        result.threads.map((t) => t.clientId).filter((v): v is string => !!v)
       )
     );
     const clientNameById = new Map<string, string>();
@@ -160,7 +150,9 @@ export async function GET(request: NextRequest) {
         latestSnippet: t.latestSnippet,
         opportunityId: t.opportunityId,
         clientId: t.clientId,
-        clientName: t.clientId ? clientNameById.get(t.clientId) ?? null : null,
+        clientName: t.clientId
+          ? (clientNameById.get(t.clientId) ?? null)
+          : null,
         nextCommitmentDueAt: t.nextCommitmentDueAt?.toISOString() ?? null,
         hasUnresolvedCommitments: t.hasUnresolvedCommitments,
         nextCommitmentId: t.nextCommitmentId,

@@ -10,7 +10,8 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AutoSendService } from "@/lib/api/services/auto-send-service";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
+import { validateAutoSendSettingsTransition } from "@/lib/email/email-auto-send-settings-guard";
 
 export const maxDuration = 15;
 
@@ -29,12 +30,21 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
-    const authError = await requireEmailCompanyAccess(
+    const access = await resolveEmailConnectionOperationAccess({
       request,
-      companyId,
-      "email.configure_ai"
-    );
-    if (authError) return authError;
+      claimedCompanyId: companyId,
+      connectionId,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
+    }
 
     // Check feature gate
     const featureEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
@@ -112,16 +122,33 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
-    const authError = await requireEmailCompanyAccess(
+    if (
+      typeof settings !== "object" ||
+      settings === null ||
+      Array.isArray(settings)
+    ) {
+      return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
+    }
+
+    const access = await resolveEmailConnectionOperationAccess({
       request,
-      companyId,
-      "email.configure_ai"
-    );
-    if (authError) return authError;
+      claimedCompanyId: companyId,
+      connectionId,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
+    }
 
     const { data: ownedConnection, error: connectionError } = await supabase
       .from("email_connections")
-      .select("id")
+      .select("id, auto_send_settings")
       .eq("id", connectionId)
       .eq("company_id", companyId)
       .maybeSingle();
@@ -145,6 +172,31 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         { error: "AI features are not enabled for this company" },
         { status: 403 }
+      );
+    }
+
+    const currentSettings =
+      (ownedConnection.auto_send_settings as Record<string, unknown> | null) ??
+      {};
+    const graduation = await validateAutoSendSettingsTransition({
+      companyId,
+      actorUserId: access.actor.userId,
+      currentSettings,
+      requestedSettings: settings as Record<string, unknown>,
+    });
+    if (!graduation.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            "Keep reviewing drafts. Auto-send unlocks at 20 drafts and 95% sent unchanged.",
+          reason: graduation.reason,
+          categoryKey: graduation.categoryKey,
+          sampleSize: graduation.sampleSize,
+          approvalRate: graduation.approvalRate,
+          requiredSampleSize: 20,
+          requiredApprovalRate: 0.95,
+        },
+        { status: 409 }
       );
     }
 

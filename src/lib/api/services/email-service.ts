@@ -1,8 +1,8 @@
 /**
  * Server email service.
  *
- * Connection persistence lives in the provider-agnostic client-safe module.
- * This server boundary adds only the provider factory used by sync/routes.
+ * Credential-bearing connection persistence and provider construction are
+ * server-only. Browser code uses email-connection-browser-service instead.
  */
 
 import type { EmailProviderInterface } from "./email-provider";

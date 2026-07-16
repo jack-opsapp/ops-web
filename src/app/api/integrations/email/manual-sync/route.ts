@@ -18,10 +18,8 @@ import {
   SubscriptionStatus,
   type Company,
 } from "@/lib/types/models";
-import {
-  requireEmailCompanyAccess,
-  requireEmailPipelineSecret,
-} from "@/lib/email/email-route-auth";
+import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
 
 export const maxDuration = 300;
 
@@ -58,6 +56,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { connectionId, companyId, source } = body;
+    const isInternalCaller = source === "webhook" || source === "system";
+
+    if (isInternalCaller) {
+      const authError = requireEmailPipelineSecret(request);
+      if (authError) return authError;
+    }
 
     if (!connectionId && !companyId) {
       return NextResponse.json(
@@ -94,16 +98,27 @@ export async function POST(request: NextRequest) {
     // Webhook callers (source="webhook") pass CRON_SECRET in the body to
     // bypass this check (the cron already gates on subscription).
     // All other callers must have an active subscription.
-    const isInternalCaller = source === "webhook" || source === "system";
-    if (isInternalCaller) {
-      const authError = requireEmailPipelineSecret(request);
-      if (authError) return authError;
-    } else {
-      const authError = await requireEmailCompanyAccess(
+    let browserConnectionIds: string[] | null = null;
+    if (!isInternalCaller) {
+      const access = await resolveEmailConnectionOperationAccess({
         request,
-        resolvedCompanyId as string
-      );
-      if (authError) return authError;
+        claimedCompanyId: resolvedCompanyId,
+        connectionId:
+          typeof connectionId === "string" ? connectionId : undefined,
+        requireUsable: true,
+        supabase,
+      });
+      if (!access.allowed) {
+        return NextResponse.json(
+          {
+            error:
+              access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+          },
+          { status: access.status }
+        );
+      }
+      resolvedCompanyId = access.actor.companyId;
+      browserConnectionIds = access.connectionIds;
     }
 
     if (!isInternalCaller && resolvedCompanyId) {
@@ -140,7 +155,9 @@ export async function POST(request: NextRequest) {
     // ── Resolve connections to sync ──────────────────────────────────────
     let connectionIds: string[] = [];
 
-    if (connectionId) {
+    if (browserConnectionIds) {
+      connectionIds = browserConnectionIds;
+    } else if (connectionId) {
       connectionIds = [connectionId];
     } else {
       const { data: connections } = await supabase

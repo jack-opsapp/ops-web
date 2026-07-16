@@ -30,7 +30,8 @@ const {
   getConfidenceMock,
   setSupabaseOverrideMock,
   requireSupabaseMock,
-  requireEmailCompanyAccessMock,
+  resolveEmailOpportunityAccessMock,
+  resolveEmailRouteActorMock,
 } = vi.hoisted(() => ({
   generateDraftMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -39,11 +40,16 @@ const {
   getConfidenceMock: vi.fn(),
   setSupabaseOverrideMock: vi.fn(),
   requireSupabaseMock: vi.fn(),
-  requireEmailCompanyAccessMock: vi.fn(),
+  resolveEmailOpportunityAccessMock: vi.fn(),
+  resolveEmailRouteActorMock: vi.fn(),
 }));
 
 vi.mock("@/lib/email/email-route-auth", () => ({
-  requireEmailCompanyAccess: requireEmailCompanyAccessMock,
+  resolveEmailRouteActor: resolveEmailRouteActorMock,
+}));
+
+vi.mock("@/lib/email/email-opportunity-access", () => ({
+  resolveEmailOpportunityAccess: resolveEmailOpportunityAccessMock,
 }));
 
 vi.mock("@/lib/api/services/ai-draft-service", () => ({
@@ -188,8 +194,13 @@ function makeSupabaseDouble(state: DbState) {
       }
 
       if (this._table === "email_threads") {
-        const id = this._filters.get("id");
-        const row = state.emailThreads.find((r) => r.id === id) ?? null;
+        const row =
+          state.emailThreads.find((candidate) => {
+            for (const [column, value] of this._filters) {
+              if (candidate[column] !== value) return false;
+            }
+            return true;
+          }) ?? null;
         return { data: row, error: null };
       }
 
@@ -320,7 +331,34 @@ vi.mocked(setSupabaseOverrideMock).mockImplementation((client) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  requireEmailCompanyAccessMock.mockResolvedValue(null);
+  resolveEmailRouteActorMock.mockResolvedValue({
+    ok: true,
+    actor: { userId: "user-1", companyId: "company-1" },
+  });
+  resolveEmailOpportunityAccessMock.mockImplementation(
+    async (input: {
+      actor: { userId: string; companyId: string };
+      operation: "send";
+      threadId?: string;
+      connectionId: string;
+      providerThreadId?: string;
+      opportunityId: string;
+    }) => ({
+      allowed: true,
+      actor: input.actor,
+      operation: input.operation,
+      threadId: input.threadId ?? null,
+      connectionId: input.connectionId,
+      providerThreadId: input.providerThreadId ?? null,
+      opportunityId: input.opportunityId,
+      connectionType: "company",
+      connectionOwnerId: null,
+      pipelineScope: "assigned",
+      inboxScope: "assigned",
+      usedLegacyPipelineManage: false,
+      usedLegacyInboxViewCompany: false,
+    })
+  );
   requireSupabaseMock.mockImplementation(() => capturedSupabaseDouble);
 
   // Default: writing profile with sufficient emails
@@ -378,13 +416,17 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
           type: "email",
           direction: "inbound",
           subject: "Need a quote",
-          email_thread_id: "thread-internal-1",
+          email_thread_id: "thread-provider-1",
+          email_connection_id: "conn-1",
         },
       ],
       emailThreads: [
         {
           id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "conn-1",
           provider_thread_id: "thread-provider-1",
+          opportunity_id: "opp-1",
         },
       ],
     };
@@ -471,13 +513,17 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
           type: "email",
           direction: "inbound",
           subject: "Re: Need a quote",
-          email_thread_id: "thread-internal-1",
+          email_thread_id: "thread-provider-1",
+          email_connection_id: "conn-1",
         },
       ],
       emailThreads: [
         {
           id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "conn-1",
           provider_thread_id: "thread-provider-1",
+          opportunity_id: "opp-1",
         },
       ],
     };

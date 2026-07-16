@@ -1,17 +1,38 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Camera, Save, Loader2, Lock, ShieldCheck, Eye, EyeOff, Mail } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import {
+  Camera,
+  Save,
+  Loader2,
+  Lock,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Mail,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useCurrentUser, useUpdateUser, useImageUpload } from "@/lib/hooks";
+import { useEmailSignatureConnections } from "@/lib/hooks/use-email-signature";
 import { getUserFullName } from "@/lib/types/models";
-import { isEmailPasswordUser, getAuthProvider, changePassword } from "@/lib/firebase/auth";
+import {
+  isEmailPasswordUser,
+  getAuthProvider,
+  changePassword,
+} from "@/lib/firebase/auth";
 import { useResetPassword } from "@/lib/hooks/use-users";
 import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
+import { EmailSignatureSettings } from "./email-signature-settings";
 
 // ---------------------------------------------------------------------------
 // Section header (// TITLE) — canonical settings/register grammar
@@ -59,9 +80,13 @@ function PasswordInput({
           type="button"
           tabIndex={-1}
           onClick={() => setVisible((v) => !v)}
-          className="text-text-mute hover:text-text-3 transition-colors cursor-pointer"
+          className="cursor-pointer text-text-mute transition-colors hover:text-text-3"
         >
-          {visible ? <EyeOff className="w-[14px] h-[14px]" /> : <Eye className="w-[14px] h-[14px]" />}
+          {visible ? (
+            <EyeOff className="h-[14px] w-[14px]" />
+          ) : (
+            <Eye className="h-[14px] w-[14px]" />
+          )}
         </button>
       }
     />
@@ -98,9 +123,12 @@ function ChangePasswordSection() {
       <Card>
         <CardContent className="p-2">
           <div className="flex items-center gap-1.5">
-            <ShieldCheck className="w-[18px] h-[18px] text-text-mute shrink-0" />
+            <ShieldCheck className="h-[18px] w-[18px] shrink-0 text-text-mute" />
             <p className="font-mohave text-body-sm text-text-3">
-              {t("password.ssoNotice").replace("{provider}", providerName ?? "SSO")}
+              {t("password.ssoNotice").replace(
+                "{provider}",
+                providerName ?? "SSO"
+              )}
             </p>
           </div>
         </CardContent>
@@ -129,7 +157,10 @@ function ChangePasswordSection() {
       setConfirmPassword("");
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code;
-      if (code === "auth/wrong-password" || code === "auth/invalid-credential") {
+      if (
+        code === "auth/wrong-password" ||
+        code === "auth/invalid-credential"
+      ) {
         toast.error(t("password.toast.wrongCurrent"));
       } else if (code === "auth/too-many-requests") {
         toast.error(t("password.toast.tooManyAttempts"));
@@ -147,7 +178,7 @@ function ChangePasswordSection() {
     <Card>
       <div className="flex flex-col gap-0.5 pb-2">
         <div className="flex items-center gap-[6px]">
-          <Lock className="w-[16px] h-[16px] text-text-2" />
+          <Lock className="h-[16px] w-[16px] text-text-2" />
           <SectionTitle>{t("password.title")}</SectionTitle>
         </div>
         <CardDescription>{t("password.description")}</CardDescription>
@@ -160,7 +191,7 @@ function ChangePasswordSection() {
           placeholder={t("password.currentPasswordPlaceholder")}
           disabled={isUpdating}
         />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
           <PasswordInput
             label={t("password.newPassword")}
             value={newPassword}
@@ -183,7 +214,7 @@ function ChangePasswordSection() {
             disabled={!currentPassword || !newPassword || !confirmPassword}
             className="gap-[6px]"
           >
-            {!isUpdating && <Lock className="w-[16px] h-[16px]" />}
+            {!isUpdating && <Lock className="h-[16px] w-[16px]" />}
             {t("password.update")}
           </Button>
         </div>
@@ -192,9 +223,89 @@ function ChangePasswordSection() {
   );
 }
 
+function EmailSignaturesSection({
+  companyId,
+  userId,
+}: {
+  companyId: string;
+  userId: string;
+}) {
+  const { t } = useDictionary("settings");
+  const searchParams = useSearchParams();
+  const signatureConnectionsQuery = useEmailSignatureConnections({
+    companyId,
+    userId,
+  });
+  const signatureConnections = signatureConnectionsQuery.data ?? [];
+  const targetConnectionId = searchParams.get("connection");
+
+  useEffect(() => {
+    if (!targetConnectionId || signatureConnections.length === 0) return;
+    document
+      .getElementById(`email-signature-${targetConnectionId}`)
+      ?.scrollIntoView({ block: "center" });
+  }, [signatureConnections.length, targetConnectionId]);
+
+  if (signatureConnectionsQuery.isLoading) return null;
+  if (signatureConnections.length === 0 && !signatureConnectionsQuery.isError) {
+    return null;
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <SectionTitle>
+          {t("integrations.signature.sectionTitle", "EMAIL SIGNATURES")}
+        </SectionTitle>
+      </CardHeader>
+      <CardContent className="space-y-1.5">
+        {signatureConnectionsQuery.isError ? (
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-mohave text-body-sm text-rose">
+              {t(
+                "integrations.signature.loadFailed",
+                "Signature status unavailable"
+              )}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => signatureConnectionsQuery.refetch()}
+            >
+              {t("integrations.signature.retry", "RETRY")}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <p className="font-mohave text-body-sm text-text-2">
+              {t(
+                "integrations.signature.sectionDescription",
+                "OPS uses the effective signature for each connected inbox."
+              )}
+            </p>
+            <div className="space-y-1">
+              {signatureConnections.map((conn) => (
+                <div key={conn.id} id={`email-signature-${conn.id}`}>
+                  <EmailSignatureSettings
+                    companyId={companyId}
+                    userId={userId}
+                    connectionId={conn.id}
+                    mailbox={conn.mailbox}
+                  />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export function ProfileTab() {
   const { t } = useDictionary("settings");
-  const { currentUser } = useAuthStore();
+  const { currentUser, company } = useAuthStore();
   const { data: freshUser, isLoading: isUserLoading } = useCurrentUser();
   const updateUser = useUpdateUser();
 
@@ -248,7 +359,10 @@ export function ProfileTab() {
         },
         onError: (error) => {
           toast.error(t("profile.toast.updateFailed"), {
-            description: error instanceof Error ? error.message : t("profile.toast.tryAgain"),
+            description:
+              error instanceof Error
+                ? error.message
+                : t("profile.toast.tryAgain"),
           });
         },
       }
@@ -258,25 +372,25 @@ export function ProfileTab() {
   if (isUserLoading && !user) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="w-[24px] h-[24px] text-text-2 animate-spin" />
+        <Loader2 className="h-[24px] w-[24px] animate-spin text-text-2" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 max-w-3xl">
+    <div className="max-w-3xl space-y-3">
       <Card>
         <CardContent className="space-y-2 p-2">
           {/* Avatar + Name row */}
-          <div className="flex items-center gap-2 pb-1 border-b border-[rgba(255,255,255,0.04)]">
+          <div className="flex items-center gap-2 border-b border-[rgba(255,255,255,0.04)] pb-1">
             <div className="relative">
-              <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center overflow-hidden border-2 border-[rgba(255,255,255,0.18)]">
+              <div className="flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full border-2 border-[rgba(255,255,255,0.18)]">
                 {user?.profileImageURL ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={user.profileImageURL}
                     alt=""
-                    className="w-full h-full object-cover"
+                    className="h-full w-full object-cover"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
@@ -287,9 +401,9 @@ export function ProfileTab() {
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-[24px] h-[24px] rounded bg-[rgba(255,255,255,0.18)] flex items-center justify-center hover:bg-[rgba(255,255,255,0.25)] transition-colors"
+                className="absolute bottom-0 right-0 flex h-[24px] w-[24px] items-center justify-center rounded bg-[rgba(255,255,255,0.18)] transition-colors hover:bg-[rgba(255,255,255,0.25)]"
               >
-                <Camera className="w-[14px] h-[14px] text-text" />
+                <Camera className="h-[14px] w-[14px] text-text" />
               </button>
               <input
                 ref={fileInputRef}
@@ -303,13 +417,15 @@ export function ProfileTab() {
               />
             </div>
             <div>
-              <h3 className="font-mohave text-card-title text-text">{name || t("profile.defaultName")}</h3>
+              <h3 className="font-mohave text-card-title text-text">
+                {name || t("profile.defaultName")}
+              </h3>
               <p className="font-mono text-data-sm text-text-3">{email}</p>
             </div>
           </div>
 
           {/* Form fields */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
             <Input
               label={t("profile.fullName")}
               value={name}
@@ -337,13 +453,21 @@ export function ProfileTab() {
             />
           </div>
           <div className="pt-1">
-            <Button onClick={handleSave} loading={updateUser.isPending} className="gap-[6px]">
-              <Save className="w-[16px] h-[16px]" />
+            <Button
+              onClick={handleSave}
+              loading={updateUser.isPending}
+              className="gap-[6px]"
+            >
+              <Save className="h-[16px] w-[16px]" />
               {t("profile.save")}
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {company?.id && user?.id ? (
+        <EmailSignaturesSection companyId={company.id} userId={user.id} />
+      ) : null}
 
       {/* Change Password — only for email/password users */}
       <ChangePasswordSection />
@@ -386,11 +510,11 @@ function ResetPasswordSection({ userEmail }: { userEmail: string | null }) {
     <Card>
       <CardContent className="p-2">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-mohave text-body-sm text-text-2">
               {t("password.reset.title")}
             </p>
-            <p className="font-mohave text-body-sm text-text-mute mt-0.5">
+            <p className="mt-0.5 font-mohave text-body-sm text-text-mute">
               {t("password.reset.description")}
             </p>
           </div>
@@ -400,9 +524,9 @@ function ResetPasswordSection({ userEmail }: { userEmail: string | null }) {
             onClick={handleReset}
             loading={resetPassword.isPending}
             disabled={sent}
-            className="gap-[6px] shrink-0"
+            className="shrink-0 gap-[6px]"
           >
-            {!resetPassword.isPending && <Mail className="w-[14px] h-[14px]" />}
+            {!resetPassword.isPending && <Mail className="h-[14px] w-[14px]" />}
             {sent ? t("password.reset.sentButton") : t("password.reset.send")}
           </Button>
         </div>

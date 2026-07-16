@@ -135,6 +135,8 @@ export interface InboxThreadRow {
 
 export interface InboxThreadMessage {
   id: string;
+  /** Provider message identity used for reply provenance; null on legacy rows. */
+  providerMessageId?: string | null;
   from: string;
   fromName: string | null;
   to: string[];
@@ -206,6 +208,12 @@ export interface InboxThreadCommitment {
 export interface InboxThreadDetail {
   thread: {
     id: string;
+    /** Canonical mailbox identity resolved by the authorized detail endpoint. */
+    connectionId: string;
+    /** Canonical provider thread identity scoped to connectionId. */
+    providerThreadId: string;
+    /** Effective lead-read scope used for this authorized detail response. */
+    pipelineScope: "all" | "assigned" | null;
     primaryCategory: EmailThreadCategory;
     categoryConfidence: number;
     categoryManuallySet: boolean;
@@ -233,6 +241,27 @@ export interface InboxThreadDetail {
     routingReasons: string[] | null;
     routerConfidence: number | null;
   };
+  /** The one lead canonically linked to this thread, already access-checked. */
+  linkedOpportunity: {
+    id: string;
+    title: string;
+    description: string | null;
+    stage: string;
+    estimatedValue: number | null;
+    priority: string | null;
+    source: string | null;
+    contactName: string | null;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    address: string | null;
+  } | null;
+  /** Contact snapshot belonging to the one authorized lead. */
+  clientContext: {
+    name: string;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+  } | null;
   messages: InboxThreadMessage[];
   /**
    * Up to 5 other threads tied to the same client as `thread.clientId`,
@@ -1215,15 +1244,19 @@ export function useAnswerAgentQuestion() {
 // invalidation keeps the UI responsive.
 
 export interface SendReplyArgs {
+  /** Stable per-compose-attempt key. Reuse after transport uncertainty. */
+  idempotencyKey: string;
   threadId: string;
+  /** Explicit selected sender. Omit to stay pinned to the thread mailbox. */
+  connectionId?: string | null;
+  /** Switching sender starts a new provider thread on the same lead. */
+  senderSwitched?: boolean;
   to: string[];
   cc?: string[];
   subject: string;
   body: string;
   /** Provider message-id of the message being replied to (RFC 2822 In-Reply-To). */
   inReplyTo?: string | null;
-  /** Provider thread-id (Gmail thread, M365 conversation). */
-  providerThreadId?: string | null;
   /** Linked opportunity for correspondence-count bump. */
   opportunityId?: string | null;
   /** ai_draft_history identity when this reply started from an OPS AI draft. */
@@ -1236,8 +1269,12 @@ export interface SendReplyArgs {
 
 export interface SendReplyResponse {
   ok?: true;
-  messageId: string;
-  threadId: string;
+  delivered?: boolean;
+  reconciliationPending?: boolean;
+  deliveryUnknown?: boolean;
+  intentId?: string;
+  messageId: string | null;
+  threadId: string | null;
   from?: string;
   sentAt?: string;
   labels?: EmailThreadLabel[];
@@ -1248,8 +1285,6 @@ export function useSendReply() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: {
-      userId: string;
-      companyId: string;
       payload: SendReplyArgs;
     }): Promise<SendReplyResponse> => {
       const headers = {
@@ -1260,8 +1295,10 @@ export function useSendReply() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          userId: args.userId,
-          companyId: args.companyId,
+          idempotencyKey: args.payload.idempotencyKey,
+          emailThreadId: args.payload.threadId,
+          connectionId: args.payload.connectionId ?? null,
+          senderSwitched: args.payload.senderSwitched ?? false,
           to: args.payload.to,
           cc: args.payload.cc ?? [],
           subject: args.payload.subject,
@@ -1269,16 +1306,22 @@ export function useSendReply() {
           format: args.payload.format ?? "markdown",
           opportunityId: args.payload.opportunityId ?? null,
           inReplyTo: args.payload.inReplyTo ?? null,
-          threadId: args.payload.providerThreadId ?? null,
           draftHistoryId: args.payload.draftHistoryId ?? null,
           followUpDraftId: args.payload.followUpDraftId ?? null,
         }),
       });
       if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.error || `send failed (${res.status})`);
+        const e = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+        };
+        throw new Error(e.message || e.error || `send failed (${res.status})`);
       }
-      return res.json() as Promise<SendReplyResponse>;
+      const response = (await res.json()) as SendReplyResponse;
+      if (response.deliveryUnknown || response.delivered === false) {
+        throw new Error("EMAIL_SEND_DELIVERY_UNKNOWN");
+      }
+      return response;
     },
     onSuccess: (res, args) => {
       if ((res.latestDirection ?? "outbound") !== "outbound") {

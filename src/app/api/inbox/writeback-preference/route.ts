@@ -7,16 +7,18 @@
  * Sets email_connections.archive_writeback_preference. Called by the UI after
  * the user picks a choice in the first-archive modal.
  *
- * Auth: Firebase/Supabase JWT. Permission: inbox.archive.
+ * Auth: canonical OPS actor. Requires inbox.archive plus settings.integrations
+ * for company mailboxes; personal mailboxes are active-owner only.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import {
+  EmailArchivePreferenceAccessError,
+  EmailArchivePreferenceService,
+} from "@/lib/api/services/email-archive-preference-service";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
-import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import type { ArchiveWritebackPreference } from "@/lib/types/email-thread";
 
 const VALID_PREFERENCES: ArchiveWritebackPreference[] = [
@@ -27,8 +29,9 @@ const VALID_PREFERENCES: ArchiveWritebackPreference[] = [
 ];
 
 export async function POST(request: NextRequest) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { actor } = actorResolution;
 
   const body = (await request.json()) as {
     connectionId?: string;
@@ -51,31 +54,24 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  const allowed = await checkPermissionById(user.id as string, "inbox.archive");
-  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
   const supabase = getServiceRoleClient();
-
-  // Verify connection belongs to user's company
-  const { data: connRow } = await supabase
-    .from("email_connections")
-    .select("id, company_id")
-    .eq("id", body.connectionId)
-    .maybeSingle();
-
-  if (!connRow || (connRow.company_id as string) !== (user.company_id as string)) {
-    return NextResponse.json({ error: "Connection not found" }, { status: 404 });
-  }
 
   try {
     await runWithSupabase(supabase, () =>
-      EmailThreadService.setWritebackPreference(body.connectionId!, body.preference!)
+      EmailArchivePreferenceService.setWritebackPreference({
+        supabase,
+        actor,
+        connectionId: body.connectionId!,
+        preference: body.preference!,
+      })
     );
     return NextResponse.json({ ok: true });
   } catch (err) {
+    if (err instanceof EmailArchivePreferenceAccessError) {
+      return err.code === "not_found"
+        ? NextResponse.json({ error: "Connection not found" }, { status: 404 })
+        : NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     console.error("[/api/inbox/writeback-preference] failed:", err);
     return NextResponse.json(
       { error: `Failed to set preference: ${(err as Error).message}` },

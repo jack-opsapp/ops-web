@@ -16,16 +16,13 @@
  * when resolved_at changes, which means the COMMITMENTS rail drops or
  * re-adds the parent thread automatically on this write.
  *
- * Auth: Firebase JWT + `inbox.view` permission. Resolve is a
- * per-user triage action, not an admin operation, so we keep the
- * permission gate the same as reading the inbox.
+ * Auth: canonical OPS actor + current `pipeline.edit` ∩ `inbox.view`
+ * authority for the lead linked to the commitment's source thread.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 
 interface ResolveBody {
   resolvedAt: string | null;
@@ -42,23 +39,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { id } = await params;
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
-
-  const canView = await checkPermissionById(userId, "inbox.view");
-  if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
 
   const body = (await request.json().catch(() => null)) as ResolveBody | null;
   if (!body || !("resolvedAt" in body) || !isValidIsoOrNull(body.resolvedAt)) {
@@ -69,38 +52,26 @@ export async function PATCH(
   }
 
   const supabase = getServiceRoleClient();
-
-  // Verify ownership: the memory must belong to the caller's company AND be
-  // a commitment. Non-commitment rows shouldn't flow through this route.
-  const { data: memory, error: fetchError } = await supabase
-    .from("agent_memories")
-    .select("id, category")
-    .eq("id", id)
-    .eq("company_id", companyId)
-    .maybeSingle();
-
-  if (fetchError || !memory) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  if (memory.category !== "commitment") {
-    return NextResponse.json(
-      { error: "Only commitment memories can be resolved via this endpoint" },
-      { status: 400 }
-    );
-  }
-
-  const { error: updateError } = await supabase
-    .from("agent_memories")
-    .update({ resolved_at: body.resolvedAt })
-    .eq("id", id)
-    .eq("company_id", companyId);
-
+  const { data: resolved, error: updateError } = await supabase.rpc(
+    "resolve_email_commitment_as_system",
+    {
+      p_actor_user_id: actorResolution.actor.userId,
+      p_memory_id: id,
+      p_resolved_at: body.resolvedAt,
+    }
+  );
   if (updateError) {
-    console.error("[/api/inbox/commitments/:id] update failed:", updateError.message);
+    console.error(
+      "[/api/inbox/commitments/:id] update failed:",
+      updateError.message
+    );
     return NextResponse.json(
       { error: `Update failed: ${updateError.message}` },
       { status: 500 }
     );
+  }
+  if (resolved !== true) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });

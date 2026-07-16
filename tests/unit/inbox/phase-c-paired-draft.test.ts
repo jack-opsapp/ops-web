@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // exercises Phase C routing and provider draft placement.
 const {
   generateDraftMock,
+  accessResolverMock,
   createDraftMock,
   updateDraftMock,
   getConnectionMock,
@@ -23,6 +24,7 @@ const {
   renderMailboxDraftWithSignatureMock,
 } = vi.hoisted(() => ({
   generateDraftMock: vi.fn(),
+  accessResolverMock: vi.fn(),
   createDraftMock: vi.fn(),
   updateDraftMock: vi.fn(),
   getConnectionMock: vi.fn(),
@@ -34,6 +36,9 @@ const {
 }));
 vi.mock("@/lib/api/services/ai-draft-service", () => ({
   AIDraftService: { generateDraft: generateDraftMock },
+}));
+vi.mock("@/lib/email/email-opportunity-access", () => ({
+  resolveEmailOpportunityAccess: accessResolverMock,
 }));
 vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: {
@@ -210,6 +215,7 @@ beforeEach(() => {
     rpcCalls: [],
   };
   generateDraftMock.mockReset();
+  accessResolverMock.mockReset().mockResolvedValue({ allowed: true });
   createDraftMock.mockReset();
   updateDraftMock.mockReset();
   getConnectionMock.mockReset();
@@ -313,6 +319,36 @@ describe("P4-C — phase_c provider mailbox draft", () => {
     ).not.toContain("subject_source");
   });
 
+  it("keeps the OPS review draft when provider draft placement fails", async () => {
+    createDraftMock.mockRejectedValueOnce(new Error("OAuth token expired"));
+    generateDraftMock.mockResolvedValue({
+      available: true,
+      draft: "Generated body",
+      subject: "Re: Quote",
+      draftHistoryId: "adh-provider-failed",
+    });
+
+    const result = await PhaseCAutonomyRouter.doAutoDraft(
+      thread(),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(result).toEqual({
+      outcome: "auto_drafted",
+      category: "CUSTOMER",
+      effectiveLevel: "auto_draft",
+      detail: "adh-provider-failed",
+    });
+    expect(createDraftMock).toHaveBeenCalledTimes(1);
+    expect(db.rpcCalls).toHaveLength(0);
+    expect(db.updates).toContainEqual({
+      table: "ai_draft_history",
+      payload: { status: "auto_drafted" },
+      filters: { id: "adh-provider-failed" },
+    });
+  });
+
   it("updates an existing unresolved provider draft instead of creating a duplicate", async () => {
     db.priorMailboxDraftRows = [
       {
@@ -407,6 +443,37 @@ describe("P4-C — phase_c provider mailbox draft", () => {
     expect(updateDraftMock).not.toHaveBeenCalled();
     expect(renderMailboxDraftWithSignatureMock).not.toHaveBeenCalled();
   });
+
+  it("does not write a provider draft after the lead is reassigned during generation", async () => {
+    accessResolverMock
+      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValueOnce({
+        allowed: false,
+        reason: "opportunity_other_assignee",
+      });
+    generateDraftMock.mockResolvedValue({
+      available: true,
+      draft: "Generated body",
+      subject: "Re: Quote",
+      draftHistoryId: "adh-reassigned",
+    });
+
+    const result = await PhaseCAutonomyRouter.doAutoDraft(
+      thread(),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(result).toEqual({
+      outcome: "noop_actor_unavailable",
+      category: "CUSTOMER",
+      effectiveLevel: "auto_draft",
+      detail: "opportunity_other_assignee",
+    });
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+    expect(db.rpcCalls).toHaveLength(0);
+  });
 });
 
 describe("P4-A — pre-LLM cost guard (no re-draft per re-sync)", () => {
@@ -477,6 +544,7 @@ describe("P4-E — auto_archive CUSTOMER hard-refuse", () => {
   it("doAutoArchive refuses a CUSTOMER thread and returns error", async () => {
     const res = await PhaseCAutonomyRouter.doAutoArchive(
       thread({ primaryCategory: "CUSTOMER" }),
+      "owner-1",
       "auto_archive"
     );
     expect(res.outcome).toBe("error");
@@ -486,6 +554,7 @@ describe("P4-E — auto_archive CUSTOMER hard-refuse", () => {
   it("doAutoArchive proceeds for a non-CUSTOMER thread", async () => {
     const res = await PhaseCAutonomyRouter.doAutoArchive(
       thread({ primaryCategory: "MARKETING" }),
+      "owner-1",
       "auto_archive"
     );
     expect(res.outcome).toBe("auto_archived");

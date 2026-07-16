@@ -18,28 +18,20 @@ import type {
   QueueStats,
   CreateProjectActionData,
   CreateTaskActionData,
-  SendStatusEmailActionData,
   SendInvoiceEmailActionData,
   CreateInvoiceActionData,
   ReassignTaskActionData,
   ArchiveProjectActionData,
   CloseProjectActionData,
-  SendPaymentReminderActionData,
   ClientHealthAlertActionData,
   FinancialInsightActionData,
   OptimizeScheduleActionData,
   RescheduleTasksActionData,
-  SendAppointmentConfirmationActionData,
-  SendDayBeforeReminderActionData,
-  SendScheduleChangedActionData,
-  SendSubcontractorCoordinationActionData,
-  ProcessRescheduleRequestActionData,
 } from "@/lib/types/approval-queue";
 import { ProjectStatus, TaskStatus } from "@/lib/types/models";
 import { InvoiceStatus, DiscountType } from "@/lib/types/pipeline";
-import { getAppUrl } from "@/lib/utils/app-url";
 import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
-import type { OutboundLearningAuthority } from "./email-outbound-learning-service";
+import { ApprovedActionEmailTransportService } from "./approved-action-email-transport-service";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -114,9 +106,64 @@ async function getAdminUserIds(companyId: string): Promise<string[]> {
 
 // ─── Action Executors ─────────────────────────────────────────────────────────
 
+const APPROVAL_QUEUE_EMAIL_ACTION_TYPES = new Set<AgentAction["actionType"]>([
+  "send_status_email",
+  "send_invoice_email",
+  "send_payment_reminder",
+  "send_appointment_confirmation",
+  "send_day_before_reminder",
+  "send_appointment_reminder",
+  "send_schedule_changed",
+  "send_subcontractor_coordination",
+  "process_reschedule_request",
+]);
+
+function isApprovalQueueEmailAction(action: AgentAction): boolean {
+  return APPROVAL_QUEUE_EMAIL_ACTION_TYPES.has(action.actionType);
+}
+
+function mergeApprovedActionEdits(
+  actionType: AgentAction["actionType"],
+  original: Record<string, unknown>,
+  edited: Record<string, unknown>
+): Record<string, unknown> {
+  if (!APPROVAL_QUEUE_EMAIL_ACTION_TYPES.has(actionType)) return edited;
+
+  // Reviewers may edit authored content and the offered reschedule choice.
+  // Tenant, mailbox, recipient, thread, lead, client, project and invoice
+  // identities always remain the server-created proposal values.
+  const merged = { ...original };
+  if (typeof edited.subject === "string") merged.subject = edited.subject;
+  if (actionType === "process_reschedule_request") {
+    if (typeof edited.reply_draft_text === "string") {
+      merged.reply_draft_text = edited.reply_draft_text;
+    }
+    const alternatives = Array.isArray(original.suggested_alternatives)
+      ? original.suggested_alternatives
+      : [];
+    if (
+      Number.isInteger(edited.selected_alternative_index) &&
+      (edited.selected_alternative_index as number) >= 0 &&
+      (edited.selected_alternative_index as number) < alternatives.length
+    ) {
+      merged.selected_alternative_index = edited.selected_alternative_index;
+    }
+  } else if (typeof edited.draft_text === "string") {
+    merged.draft_text = edited.draft_text;
+  }
+  return merged;
+}
+
+async function executeApprovalQueueEmail(
+  action: AgentAction
+): Promise<Record<string, unknown>> {
+  return (await ApprovedActionEmailTransportService.executeManual(
+    action.id
+  )) as unknown as Record<string, unknown>;
+}
+
 async function executeAction(
-  action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
+  action: AgentAction
 ): Promise<Record<string, unknown>> {
   switch (action.actionType) {
     case "create_project":
@@ -124,7 +171,7 @@ async function executeAction(
     case "create_task":
       return executeCreateTask(action);
     case "send_status_email":
-      return executeSendStatusEmail(action, learningAuthority);
+      return executeApprovalQueueEmail(action);
     case "reassign_task":
       return executeReassignTask(action);
     case "archive_project":
@@ -134,9 +181,9 @@ async function executeAction(
     case "create_invoice":
       return executeCreateInvoice(action);
     case "send_invoice_email":
-      return executeSendInvoiceEmail(action, learningAuthority);
+      return executeApprovalQueueEmail(action);
     case "send_payment_reminder":
-      return executeSendPaymentReminder(action, learningAuthority);
+      return executeApprovalQueueEmail(action);
     case "client_health_alert":
       return executeClientHealthAlert(action);
     case "financial_insight":
@@ -146,16 +193,16 @@ async function executeAction(
     case "reschedule_tasks":
       return executeRescheduleTasks(action);
     case "send_appointment_confirmation":
-      return executeSendAppointmentConfirmation(action, learningAuthority);
+      return executeApprovalQueueEmail(action);
     case "send_day_before_reminder":
     case "send_appointment_reminder":
-      return executeSendDayBeforeReminder(action, learningAuthority);
+      return executeApprovalQueueEmail(action);
     case "send_schedule_changed":
-      return executeSendScheduleChanged(action, learningAuthority);
+      return executeApprovalQueueEmail(action);
     case "send_subcontractor_coordination":
-      return executeSendSubcontractorCoordination(action, learningAuthority);
+      return executeApprovalQueueEmail(action);
     case "process_reschedule_request":
-      return executeProcessRescheduleRequest(action, learningAuthority);
+      return executeApprovalQueueEmail(action);
     default:
       throw new Error(`Unsupported action type: ${action.actionType}`);
   }
@@ -329,61 +376,6 @@ async function executeCreateTask(
     projectId: data.project_id,
     teamMemberId: data.suggested_team_member_id,
     scheduled: !!data.suggested_start_date,
-  };
-}
-
-// ─── Send Status Email Executor ──────────────────────────────────────────────
-
-async function executeSendStatusEmail(
-  action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
-): Promise<Record<string, unknown>> {
-  const data = action.actionData as unknown as SendStatusEmailActionData;
-
-  const draftHistoryId = await ensureApprovalDraftHistory({
-    draftHistoryId: data.draft_history_id,
-    companyId: action.companyId,
-    userId: action.userId,
-    connectionId: data.connection_id,
-    originalDraft: data.draft_text,
-    subject: data.subject,
-    profileType: "client_active_project",
-  });
-
-  // Send via the internal email send endpoint (same pattern as auto-send)
-  const appUrl = getAppUrl();
-  const cronSecret = process.env.CRON_SECRET;
-
-  const sendResponse = await fetch(`${appUrl}/api/integrations/email/send`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}),
-    },
-    body: JSON.stringify({
-      connectionId: data.connection_id,
-      companyId: action.companyId,
-      userId: action.userId,
-      to: [data.client_email],
-      subject: data.subject,
-      body: data.draft_text,
-      contentType: "text",
-      draftHistoryId,
-      learningAuthority,
-    }),
-  });
-
-  if (!sendResponse.ok) {
-    const errBody = await sendResponse.text();
-    throw new Error(`Failed to send status email: ${errBody}`);
-  }
-
-  const result = await sendResponse.json();
-
-  return {
-    messageId: result.messageId ?? null,
-    clientEmail: data.client_email,
-    projectId: data.project_id,
   };
 }
 
@@ -748,178 +740,6 @@ async function executeCreateInvoice(
   };
 }
 
-// ─── Send Invoice Email Executor ────────────────────────────────────────────
-
-async function executeSendInvoiceEmail(
-  action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
-): Promise<Record<string, unknown>> {
-  const data = action.actionData as unknown as SendInvoiceEmailActionData;
-
-  const draftHistoryId = await ensureApprovalDraftHistory({
-    draftHistoryId: data.draft_history_id,
-    companyId: action.companyId,
-    userId: action.userId,
-    connectionId: data.connection_id,
-    originalDraft: data.draft_text,
-    subject: data.subject,
-    profileType: "client_active_project",
-  });
-
-  // Send via the internal email send endpoint (same pattern as status emails)
-  const appUrl = getAppUrl();
-  const cronSecret = process.env.CRON_SECRET;
-
-  const sendResponse = await fetch(`${appUrl}/api/integrations/email/send`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}),
-    },
-    body: JSON.stringify({
-      connectionId: data.connection_id,
-      companyId: action.companyId,
-      userId: action.userId,
-      to: [data.to_email],
-      subject: data.subject,
-      body: data.draft_text,
-      contentType: "text",
-      draftHistoryId,
-      learningAuthority,
-    }),
-  });
-
-  if (!sendResponse.ok) {
-    const errBody = await sendResponse.text();
-    throw new Error(`Failed to send invoice email: ${errBody}`);
-  }
-
-  const result = await sendResponse.json();
-
-  // Update invoice status to "sent" if still in draft
-  try {
-    const { InvoiceService } = await import("./invoice-service");
-    await InvoiceService.sendInvoice(data.invoice_id);
-  } catch {
-    // Non-critical — invoice may already be in a later status
-  }
-
-  return {
-    messageId: result.messageId ?? null,
-    invoiceId: data.invoice_id,
-    invoiceNumber: data.invoice_number,
-    toEmail: data.to_email,
-  };
-}
-
-// ─── Send Payment Reminder Executor ─────────────────────────────────────────
-
-async function executeSendPaymentReminder(
-  action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
-): Promise<Record<string, unknown>> {
-  const supabase = requireSupabase();
-  const data = action.actionData as unknown as SendPaymentReminderActionData;
-
-  // 1. Send the email via the internal email send endpoint
-  if (!data.connection_id) {
-    throw new Error(
-      "No email connection configured — cannot send payment reminder"
-    );
-  }
-
-  const draftHistoryId = await ensureApprovalDraftHistory({
-    draftHistoryId: data.draft_history_id,
-    companyId: action.companyId,
-    userId: action.userId,
-    connectionId: data.connection_id,
-    originalDraft: data.original_draft_text,
-    subject: data.subject,
-    profileType: "client_followup",
-  });
-
-  const appUrl = getAppUrl();
-  const cronSecret = process.env.CRON_SECRET;
-
-  const sendResponse = await fetch(`${appUrl}/api/integrations/email/send`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}),
-    },
-    body: JSON.stringify({
-      connectionId: data.connection_id,
-      companyId: action.companyId,
-      userId: action.userId,
-      to: [data.client_email],
-      subject: data.subject,
-      body: data.draft_text,
-      contentType: "text",
-      draftHistoryId,
-      learningAuthority,
-    }),
-  });
-
-  if (!sendResponse.ok) {
-    const errBody = await sendResponse.text();
-    throw new Error(`Failed to send payment reminder: ${errBody}`);
-  }
-
-  // 2. Update invoice status to 'past_due' if currently sent or awaiting_payment
-  try {
-    await supabase
-      .from("invoices")
-      .update({ status: "past_due" })
-      .eq("id", data.invoice_id)
-      .eq("company_id", action.companyId)
-      .in("status", ["sent", "awaiting_payment"]);
-  } catch {
-    // Non-critical — invoice may already be past_due or partially_paid
-  }
-
-  // 3. Fire a notification to the user
-  try {
-    const { renderForCompany } = await import("@/i18n/server-render");
-    const [title, body] = await Promise.all([
-      renderForCompany(
-        action.companyId,
-        "server-emails",
-        "paymentReminder.notification.title"
-      ),
-      renderForCompany(
-        action.companyId,
-        "server-emails",
-        "paymentReminder.notification.body",
-        {
-          clientName: data.client_name,
-          invoiceNumber: data.invoice_number,
-        }
-      ),
-    ]);
-
-    await NotificationService.create({
-      userId: action.userId,
-      companyId: action.companyId,
-      type: "mention",
-      title,
-      body,
-      persistent: false,
-      actionUrl: `/pipeline?invoice=${data.invoice_id}`,
-      actionLabel: "View Invoice",
-    });
-  } catch {
-    // Non-critical
-  }
-
-  return {
-    invoiceId: data.invoice_id,
-    invoiceNumber: data.invoice_number,
-    clientEmail: data.client_email,
-    reminderLevel: data.reminder_level,
-    reminderTone: data.reminder_tone,
-  };
-}
-
 // ─── Client Health Alert Executor ───────────────────────────────────────────
 
 async function executeClientHealthAlert(
@@ -1205,396 +1025,6 @@ async function executeRescheduleTasks(
   return { resolutionType: data.resolution_type };
 }
 
-// ─── Client Scheduling Comms Helpers ─────────────────────────────────────────
-
-/**
- * Shared send path for appointment-confirmation / day-before-reminder /
- * subcontractor-coordination / reschedule-request-reply. Sends the email
- * via the internal send endpoint and hands the pre-delivery draft identity to
- * the durable outbound queue for one idempotent writing-profile outcome.
- */
-async function sendClientCommsEmail(params: {
-  companyId: string;
-  userId: string;
-  connectionId: string;
-  toEmail: string;
-  subject: string;
-  finalDraft: string;
-  originalDraft: string;
-  profileType: string;
-  draftHistoryId?: string | null;
-  threadId?: string | null;
-  opportunityId?: string | null;
-  learningAuthority: OutboundLearningAuthority;
-}): Promise<{ messageId: string | null }> {
-  const appUrl = getAppUrl();
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!params.connectionId) {
-    throw new Error("No email connection configured — cannot send");
-  }
-
-  const draftHistoryId = await ensureApprovalDraftHistory({
-    draftHistoryId: params.draftHistoryId,
-    companyId: params.companyId,
-    userId: params.userId,
-    connectionId: params.connectionId,
-    originalDraft: params.originalDraft,
-    subject: params.subject,
-    profileType: params.profileType,
-  });
-
-  const sendResponse = await fetch(`${appUrl}/api/integrations/email/send`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}),
-    },
-    body: JSON.stringify({
-      connectionId: params.connectionId,
-      companyId: params.companyId,
-      userId: params.userId,
-      to: [params.toEmail],
-      subject: params.subject,
-      body: params.finalDraft,
-      contentType: "text",
-      draftHistoryId,
-      threadId: params.threadId ?? null,
-      opportunityId: params.opportunityId ?? null,
-      learningAuthority: params.learningAuthority,
-    }),
-  });
-
-  if (!sendResponse.ok) {
-    const errBody = await sendResponse.text();
-    throw new Error(`Failed to send client comms email: ${errBody}`);
-  }
-
-  const result = await sendResponse.json();
-
-  return { messageId: (result.messageId as string) ?? null };
-}
-
-// ─── Send Appointment Confirmation Executor ──────────────────────────────────
-
-async function executeSendAppointmentConfirmation(
-  action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
-): Promise<Record<string, unknown>> {
-  const data =
-    action.actionData as unknown as SendAppointmentConfirmationActionData;
-
-  const { messageId } = await sendClientCommsEmail({
-    companyId: action.companyId,
-    userId: action.userId,
-    connectionId: data.connection_id,
-    toEmail: data.client_email,
-    subject: data.subject,
-    finalDraft: data.draft_text,
-    originalDraft: data.original_draft_text ?? data.draft_text,
-    profileType: "client_active_project",
-    draftHistoryId: data.draft_history_id,
-    learningAuthority,
-  });
-
-  // Notify the user that the confirmation went out
-  try {
-    await NotificationService.create({
-      userId: action.userId,
-      companyId: action.companyId,
-      type: "mention",
-      title: "Appointment confirmation sent",
-      body: `Confirmation sent to ${data.client_name} for ${data.project_title}`,
-      persistent: false,
-      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
-      actionLabel: "View Project",
-    });
-  } catch {
-    // Non-critical
-  }
-
-  return {
-    messageId,
-    taskId: data.task_id,
-    projectId: data.project_id,
-    clientEmail: data.client_email,
-  };
-}
-
-// ─── Send Day-Before Reminder Executor ───────────────────────────────────────
-
-async function executeSendDayBeforeReminder(
-  action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
-): Promise<Record<string, unknown>> {
-  const data = action.actionData as unknown as SendDayBeforeReminderActionData;
-
-  const { messageId } = await sendClientCommsEmail({
-    companyId: action.companyId,
-    userId: action.userId,
-    connectionId: data.connection_id,
-    toEmail: data.client_email,
-    subject: data.subject,
-    finalDraft: data.draft_text,
-    originalDraft: data.original_draft_text ?? data.draft_text,
-    profileType: "client_active_project",
-    draftHistoryId: data.draft_history_id,
-    learningAuthority,
-  });
-
-  try {
-    await NotificationService.create({
-      userId: action.userId,
-      companyId: action.companyId,
-      type: "mention",
-      title: "Day-before reminder sent",
-      body: `Reminder sent to ${data.client_name} for ${data.project_title}`,
-      persistent: false,
-      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
-      actionLabel: "View Project",
-    });
-  } catch {
-    // Non-critical
-  }
-
-  return {
-    messageId,
-    taskId: data.task_id,
-    projectId: data.project_id,
-  };
-}
-
-// ─── Send Schedule Changed Executor (S2 Amendment) ──────────────────────────
-
-async function executeSendScheduleChanged(
-  action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
-): Promise<Record<string, unknown>> {
-  const data = action.actionData as unknown as SendScheduleChangedActionData;
-
-  const { messageId } = await sendClientCommsEmail({
-    companyId: action.companyId,
-    userId: action.userId,
-    connectionId: data.connection_id,
-    toEmail: data.client_email,
-    subject: data.subject,
-    finalDraft: data.draft_text,
-    originalDraft: data.original_draft_text ?? data.draft_text,
-    profileType: "client_active_project",
-    draftHistoryId: data.draft_history_id,
-    learningAuthority,
-  });
-
-  try {
-    await NotificationService.create({
-      userId: action.userId,
-      companyId: action.companyId,
-      type: "mention",
-      title: "Schedule change notification sent",
-      body: `Notified ${data.client_name} about the new date for ${data.project_title}`,
-      persistent: false,
-      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
-      actionLabel: "View Project",
-    });
-  } catch {
-    // Non-critical
-  }
-
-  return {
-    messageId,
-    taskId: data.task_id,
-    projectId: data.project_id,
-  };
-}
-
-// ─── Send Subcontractor Coordination Executor ────────────────────────────────
-
-async function executeSendSubcontractorCoordination(
-  action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
-): Promise<Record<string, unknown>> {
-  const data =
-    action.actionData as unknown as SendSubcontractorCoordinationActionData;
-
-  const { messageId } = await sendClientCommsEmail({
-    companyId: action.companyId,
-    userId: action.userId,
-    connectionId: data.connection_id,
-    toEmail: data.subcontractor_email,
-    subject: data.subject,
-    finalDraft: data.draft_text,
-    originalDraft: data.original_draft_text ?? data.draft_text,
-    profileType: "subtrade_coordination",
-    draftHistoryId: data.draft_history_id,
-    learningAuthority,
-  });
-
-  try {
-    await NotificationService.create({
-      userId: action.userId,
-      companyId: action.companyId,
-      type: "mention",
-      title: "Subcontractor coordination sent",
-      body: `Coordination sent to ${data.subcontractor_name} for ${data.project_title}`,
-      persistent: false,
-      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
-      actionLabel: "View Project",
-    });
-  } catch {
-    // Non-critical
-  }
-
-  return {
-    messageId,
-    projectId: data.project_id,
-    subcontractorEmail: data.subcontractor_email,
-  };
-}
-
-// ─── Process Reschedule Request Executor ─────────────────────────────────────
-
-async function executeProcessRescheduleRequest(
-  action: AgentAction,
-  learningAuthority: OutboundLearningAuthority
-): Promise<Record<string, unknown>> {
-  const supabase = requireSupabase();
-  const data =
-    action.actionData as unknown as ProcessRescheduleRequestActionData;
-
-  // 1. Send the reply
-  const { messageId } = await sendClientCommsEmail({
-    companyId: action.companyId,
-    userId: action.userId,
-    connectionId: data.connection_id,
-    toEmail: data.client_email,
-    subject: data.subject,
-    finalDraft: data.reply_draft_text,
-    originalDraft: data.original_reply_draft_text ?? data.reply_draft_text,
-    profileType: "client_active_project",
-    draftHistoryId: data.draft_history_id,
-    threadId: data.thread_id,
-    opportunityId: data.opportunity_id,
-    learningAuthority,
-  });
-
-  // 2. Resolve the confirmed new date — honor the user's edits.
-  //    If the user selected an alternative via selected_alternative_index
-  //    (potentially overridden via editedActionData in approveAction),
-  //    use that. Otherwise fall back to index 0.
-  const alternatives = data.suggested_alternatives ?? [];
-  const selectedIndex =
-    typeof data.selected_alternative_index === "number" &&
-    data.selected_alternative_index >= 0 &&
-    data.selected_alternative_index < alternatives.length
-      ? data.selected_alternative_index
-      : 0;
-  const confirmed = alternatives[selectedIndex];
-
-  let taskUpdated = false;
-  if (confirmed && data.affected_task_id) {
-    // Keep duration: compute new end_date by preserving the original span
-    const originalStart = data.original_start_date
-      ? new Date(data.original_start_date)
-      : null;
-    const originalEnd = data.original_end_date
-      ? new Date(data.original_end_date)
-      : null;
-    const spanMs =
-      originalStart && originalEnd
-        ? originalEnd.getTime() - originalStart.getTime()
-        : 0;
-
-    const newStart = new Date(confirmed.date);
-    const newEnd = spanMs > 0 ? new Date(newStart.getTime() + spanMs) : null;
-
-    const updatePayload: Record<string, unknown> = {
-      start_date: newStart.toISOString(),
-    };
-    if (newEnd) updatePayload.end_date = newEnd.toISOString();
-    if (confirmed.team_member_id) {
-      updatePayload.team_member_ids = [confirmed.team_member_id];
-    }
-
-    const { error: taskErr } = await supabase
-      .from("project_tasks")
-      .update(updatePayload)
-      .eq("id", data.affected_task_id)
-      .eq("company_id", action.companyId);
-
-    if (taskErr) {
-      console.error(
-        "[approval-queue] reschedule task update failed:",
-        taskErr.message
-      );
-    } else {
-      taskUpdated = true;
-
-      // Sync the calendar event if one exists
-      const { data: taskRow } = await supabase
-        .from("project_tasks")
-        .select("calendar_event_id")
-        .eq("id", data.affected_task_id)
-        .maybeSingle();
-
-      const calendarEventId = taskRow?.calendar_event_id as string | null;
-      if (calendarEventId) {
-        const cePayload: Record<string, unknown> = {
-          start_date: newStart.toISOString(),
-        };
-        if (newEnd) cePayload.end_date = newEnd.toISOString();
-        if (confirmed.team_member_id) {
-          cePayload.team_member_ids = [confirmed.team_member_id];
-        }
-        await supabase
-          .from("calendar_events")
-          .update(cePayload)
-          .eq("id", calendarEventId);
-      }
-    }
-  }
-
-  // 3. Fire-and-forget cascade detection
-  if (taskUpdated && data.affected_task_id) {
-    const affectedTaskId = data.affected_task_id;
-    import("./schedule-optimization-service")
-      .then(({ ScheduleOptimizationService }) =>
-        ScheduleOptimizationService.handleRescheduleCascade(
-          action.companyId,
-          action.userId,
-          affectedTaskId,
-          "reschedule_request"
-        )
-      )
-      .catch((err) =>
-        console.error("[approval-queue] Cascade after reschedule request:", err)
-      );
-  }
-
-  // 4. Notify the user
-  try {
-    await NotificationService.create({
-      userId: action.userId,
-      companyId: action.companyId,
-      type: "mention",
-      title: "Reschedule handled",
-      body: `Replied to ${data.client_name} and ${taskUpdated ? "updated the task" : "acknowledged the request"}`,
-      persistent: false,
-      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
-      actionLabel: "View Project",
-    });
-  } catch {
-    // Non-critical
-  }
-
-  return {
-    messageId,
-    taskId: data.affected_task_id,
-    projectId: data.project_id,
-    taskUpdated,
-    confirmedDate: confirmed?.date ?? null,
-  };
-}
-
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 export const ApprovalQueueService = {
@@ -1754,10 +1184,7 @@ export const ApprovalQueueService = {
     actionId: string,
     companyId: string,
     userId: string,
-    editedActionData?: Record<string, unknown>,
-    executionContext: {
-      learningAuthority?: OutboundLearningAuthority;
-    } = {}
+    editedActionData?: Record<string, unknown>
   ): Promise<AgentAction> {
     const supabase = requireSupabase();
 
@@ -1769,7 +1196,21 @@ export const ApprovalQueueService = {
       reviewed_at: new Date().toISOString(),
     };
     if (editedActionData) {
-      updatePayload.action_data = editedActionData;
+      const { data: pendingAction, error: pendingActionError } = await supabase
+        .from("agent_actions")
+        .select("action_type, action_data")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .eq("status", "pending")
+        .single();
+      if (pendingActionError || !pendingAction) {
+        throw new Error("Action not found or already handled");
+      }
+      updatePayload.action_data = mergeApprovedActionEdits(
+        pendingAction.action_type as AgentAction["actionType"],
+        (pendingAction.action_data as Record<string, unknown>) ?? {},
+        editedActionData
+      );
     }
 
     // Atomic: only update if still pending AND belongs to this company
@@ -1790,10 +1231,21 @@ export const ApprovalQueueService = {
 
     // Execute
     try {
-      const result = await executeAction(
-        action,
-        executionContext.learningAuthority ?? "operator_approved"
-      );
+      if (isApprovalQueueEmailAction(action)) {
+        await ApprovedActionEmailTransportService.executeManual(action.id);
+        const { data: final, error: finalError } = await supabase
+          .from("agent_actions")
+          .select("*")
+          .eq("id", actionId)
+          .eq("company_id", companyId)
+          .single();
+        if (finalError || !final) {
+          throw new Error("Action not found after email execution");
+        }
+        return mapFromDb(final);
+      }
+
+      const result = await executeAction(action);
 
       const { data: final } = await supabase
         .from("agent_actions")
@@ -1823,6 +1275,41 @@ export const ApprovalQueueService = {
 
       throw new Error(`Action execution failed: ${message}`);
     }
+  },
+
+  /**
+   * Execute a due timed action without manufacturing a human review. The
+   * transport derives its automation owner from persisted `agent_actions.user_id`
+   * and the database keeps `reviewed_by` NULL while re-checking the complete
+   * autonomous-send gate under the provider claim.
+   */
+  async executeAutonomousAction(actionId: string): Promise<AgentAction> {
+    const supabase = requireSupabase();
+    try {
+      await ApprovedActionEmailTransportService.executeAutonomous(actionId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      await supabase
+        .from("agent_actions")
+        .update({ status: "failed", error: message })
+        .eq("id", actionId)
+        .is("reviewed_by", null)
+        .in("status", ["pending", "approved"]);
+      throw error;
+    }
+    const { data, error } = await supabase
+      .from("agent_actions")
+      .select("*")
+      .eq("id", actionId)
+      .single();
+    if (error || !data) {
+      throw new Error("Action not found after autonomous execution");
+    }
+    return mapFromDb(data);
+  },
+
+  recoverApprovedActionEmails(limit = 50) {
+    return ApprovedActionEmailTransportService.recover(limit);
   },
 
   /**

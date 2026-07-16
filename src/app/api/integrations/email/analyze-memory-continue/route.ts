@@ -18,7 +18,6 @@ import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
-import { EmailService } from "@/lib/api/services/email-service";
 import {
   MemoryService,
   type PhaseCPipelineState,
@@ -33,6 +32,7 @@ import {
 } from "@/lib/api/services/phase-c-pipeline-helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
+import { authorizeEmailAnalysisJobContinuation } from "@/lib/email/email-analysis-job-access";
 
 export const maxDuration = 800;
 
@@ -67,27 +67,21 @@ export async function POST(request: NextRequest) {
   // Feature gate check — defensive; caller is always the entry route or a
   // prior continuation, but skip cleanly if phase_c was disabled mid-run.
   const supabase = getServiceRoleClient();
-  const { data: scopedJob, error: scopedJobError } = await supabase
-    .from("gmail_scan_jobs")
-    .select("id, connection_id, company_id")
-    .eq("id", jobId)
-    .single();
-  if (
-    scopedJobError ||
-    !scopedJob ||
-    scopedJob.connection_id !== connectionId ||
-    scopedJob.company_id !== companyId
-  ) {
-    return NextResponse.json({ error: "Job not found" }, { status: 404 });
-  }
-
-  const scopedConnection = await runWithSupabase(supabase, () =>
-    EmailService.getConnection(connectionId)
-  );
-  if (!scopedConnection || scopedConnection.companyId !== companyId) {
+  const continuationAccess = await authorizeEmailAnalysisJobContinuation({
+    supabase,
+    jobId,
+    claimedConnectionId: connectionId,
+    claimedCompanyId: companyId,
+  });
+  if (!continuationAccess.allowed) {
     return NextResponse.json(
-      { error: "Connection not found" },
-      { status: 404 }
+      {
+        error:
+          continuationAccess.reason === "job_not_found"
+            ? "Job not found"
+            : "Forbidden",
+      },
+      { status: continuationAccess.reason === "job_not_found" ? 404 : 403 }
     );
   }
 
@@ -105,6 +99,23 @@ export async function POST(request: NextRequest) {
   after(async () => {
     const bgSupabase = getServiceRoleClient();
     await runWithSupabase(bgSupabase, async () => {
+      const backgroundAccess = await authorizeEmailAnalysisJobContinuation({
+        supabase: bgSupabase,
+        jobId,
+        claimedConnectionId: connectionId,
+        claimedCompanyId: companyId,
+      });
+      if (!backgroundAccess.allowed) {
+        await writePhaseCError(
+          bgSupabase,
+          jobId,
+          new Error(
+            `Phase C authorization expired: ${backgroundAccess.reason}`
+          ),
+          "continuation"
+        );
+        return;
+      }
       // Row-level execution lock. Continuations are the hot path for
       // double-dispatch races — a webhook retry or a sluggish Vercel that
       // re-fires the same fetch can put two runners on the same thread
@@ -125,6 +136,7 @@ export async function POST(request: NextRequest) {
           jobId,
           connectionId,
           companyId,
+          backgroundAccess.actorUserId,
           bgSupabase,
           holderId
         );
@@ -159,6 +171,7 @@ async function runPhaseCContinuation(
   jobId: string,
   connectionId: string,
   companyId: string,
+  actorUserId: string,
   supabase: SupabaseClient,
   holderId: string
 ) {
@@ -195,6 +208,9 @@ async function runPhaseCContinuation(
       `[analyze-memory-continue] Job ${jobId} has no phaseCPipeline state — continuation aborted. Entry route may have failed during bootstrap.`
     );
     return;
+  }
+  if (state.userId !== actorUserId) {
+    throw new Error("Phase C requester snapshot does not match pipeline state");
   }
 
   console.log(

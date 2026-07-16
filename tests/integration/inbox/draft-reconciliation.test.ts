@@ -47,7 +47,10 @@ interface DbState {
   opportunity_follow_up_drafts: Array<Record<string, unknown>>;
 }
 
-function makeSupabaseDouble(state: DbState) {
+function makeSupabaseDouble(
+  state: DbState,
+  options: { resolveFreshPersonalActor?: boolean } = {}
+) {
   class Query {
     private action: "select" | "update" = "select";
     private payload: Record<string, unknown> | null = null;
@@ -134,7 +137,29 @@ function makeSupabaseDouble(state: DbState) {
 
   return {
     from: (table: keyof DbState) => new Query(table),
-    rpc: vi.fn().mockResolvedValue({ data: {}, error: null }),
+    rpc: vi.fn(async (name: string, args: Record<string, unknown> = {}) => {
+      if (name === "resolve_email_outbound_learning_mailbox_actor_as_system") {
+        if (
+          args.p_outcome === "from_scratch" &&
+          !options.resolveFreshPersonalActor
+        ) {
+          return { data: null, error: null };
+        }
+        return {
+          data: {
+            actorUserId: "user-1",
+            opportunityId: "opportunity-1",
+            assignmentVersion: 3,
+            assignmentEventId: "assignment-event-3",
+            proofType: options.resolveFreshPersonalActor
+              ? "personal_mailbox_owner"
+              : "native_mailbox_draft",
+          },
+          error: null,
+        };
+      }
+      return { data: {}, error: null };
+    }),
   };
 }
 
@@ -179,6 +204,7 @@ function pendingDraft(overrides: Record<string, unknown> = {}) {
     status: "auto_drafted",
     mailbox_draft_id: "provider-draft-1",
     profile_type: "client_quoting",
+    opportunity_id: "opportunity-1",
     created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     ...overrides,
   };
@@ -269,7 +295,7 @@ describe("reconcilePendingMailboxDrafts", () => {
     expect(draft.status).toBe("auto_drafted");
   });
 
-  it("treats a sent reply as from-scratch while the exact provider draft still exists", async () => {
+  it("does not attribute a shared-mailbox fresh reply to the stale draft owner", async () => {
     const draft = pendingDraft();
     getProviderMock.mockReturnValue({
       getDraft: vi.fn().mockResolvedValue(providerDraft()),
@@ -283,9 +309,30 @@ describe("reconcilePendingMailboxDrafts", () => {
       ) as never,
     });
 
+    expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
+    expect(draft.status).toBe("superseded");
+    expect(draft).toMatchObject({ discarded_at: expect.any(String) });
+  });
+
+  it("attributes a fresh reply only to the exact personal-mailbox owner", async () => {
+    const draft = pendingDraft();
+    getProviderMock.mockReturnValue({
+      getDraft: vi.fn().mockResolvedValue(providerDraft()),
+    });
+
+    await reconcilePendingMailboxDrafts({
+      connection: makeConnection({ type: "individual", userId: "user-1" }),
+      providerThreadId: "thread-abc",
+      supabase: makeSupabaseDouble(state([draft], [outboundActivity()]), {
+        resolveFreshPersonalActor: true,
+      }) as never,
+    });
+
     expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
       expect.objectContaining({
         providerMessageId: "sent-message-1",
+        userId: "user-1",
+        opportunityId: "opportunity-1",
         learningAuthority: "operator_authored",
       })
     );
@@ -293,7 +340,6 @@ describe("reconcilePendingMailboxDrafts", () => {
       "draftHistoryId"
     );
     expect(draft.status).toBe("superseded");
-    expect(draft).toMatchObject({ discarded_at: expect.any(String) });
   });
 
   it("marks an exact missing draft discarded only after the TTL", async () => {

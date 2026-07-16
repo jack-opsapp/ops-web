@@ -26,7 +26,6 @@ import { ComposeEmailForm } from "@/components/ops/compose-email-form";
 import { ProjectWorkspaceContainer } from "@/components/ops/projects/workspace/project-workspace-container";
 import { ClientWorkspaceContainer } from "@/components/ops/clients/workspace/client-workspace-container";
 import type { ComposeEmailData } from "@/lib/types/email-template";
-import { useGmailSyncNotifications } from "@/lib/hooks/use-gmail-sync-notifications";
 import { useDashboardPreferencesSync } from "@/lib/hooks/use-dashboard-preferences-sync";
 import { InvoiceDetailPopover } from "@/components/ops/invoice-detail-popover";
 import { EstimateDetailPopover } from "@/components/ops/estimate-detail-popover";
@@ -77,11 +76,6 @@ const MapFilterRail = dynamic(
 
 function ActionPromptsInitializer() {
   useActionPrompts();
-  return null;
-}
-
-function GmailSyncNotifier() {
-  useGmailSyncNotifications();
   return null;
 }
 
@@ -325,7 +319,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       {/* Global features */}
       <PreferencesApplier />
       <ActionPromptsInitializer />
-      <GmailSyncNotifier />
       <DashboardPreferencesSync />
       <CommandPalette />
       <KeyboardShortcuts />

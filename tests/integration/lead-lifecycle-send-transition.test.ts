@@ -1,493 +1,150 @@
-/**
- * Durable lifecycle-draft handoff on the real send route.
- *
- * Provider delivery and CRM persistence stay in the route; draft outcomes are
- * handed to the receipt-idempotent outbound-learning queue. The route must
- * validate explicit draft provenance before delivery, pass the validated id to
- * the queue, and never mutate or learn from lifecycle drafts inline.
- */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-const {
-  getServiceRoleClientMock,
-  getConnectionMock,
-  getProviderMock,
-  upsertFromEmailMock,
-  dismissAwaitingReplyMock,
-  verifyAdminAuthMock,
-  findUserByAuthMock,
-  checkPermissionByIdMock,
-  enqueueIfEnabledMock,
-} = vi.hoisted(() => ({
-  getServiceRoleClientMock: vi.fn(),
-  getConnectionMock: vi.fn(),
-  getProviderMock: vi.fn(),
-  upsertFromEmailMock: vi.fn(),
-  dismissAwaitingReplyMock: vi.fn(),
-  verifyAdminAuthMock: vi.fn(),
-  findUserByAuthMock: vi.fn(),
-  checkPermissionByIdMock: vi.fn(),
-  enqueueIfEnabledMock: vi.fn(),
-}));
+import {
+  EmailSendIntentService,
+  buildEmailSendRequestFingerprint,
+  type PrepareEmailSendIntentInput,
+} from "@/lib/api/services/email-send-intent-service";
 
-vi.mock("@/lib/supabase/server-client", () => ({
-  getServiceRoleClient: getServiceRoleClientMock,
-}));
-
-vi.mock("@/lib/firebase/admin-verify", () => ({
-  verifyAdminAuth: verifyAdminAuthMock,
-}));
-
-vi.mock("@/lib/supabase/find-user-by-auth", () => ({
-  findUserByAuth: findUserByAuthMock,
-}));
-
-vi.mock("@/lib/supabase/check-permission", () => ({
-  checkPermissionById: checkPermissionByIdMock,
-}));
-
-vi.mock("@/lib/api/services/email-service", () => ({
-  EmailService: {
-    getConnection: getConnectionMock,
-    getConnections: vi.fn(),
-    getProvider: getProviderMock,
-  },
-}));
-
-vi.mock("@/lib/api/services/email-thread-service", () => ({
-  EmailThreadService: {
-    upsertFromEmail: upsertFromEmailMock,
-    dismissAwaitingReply: dismissAwaitingReplyMock,
-  },
-}));
-
-vi.mock("@/lib/api/services/email-outbound-learning-service", () => ({
-  EmailOutboundLearningService: class {
-    enqueueIfEnabled = enqueueIfEnabledMock;
-  },
-}));
-
-vi.mock("@/lib/email/email-signature-runtime", () => ({
-  resolveEmailSignatureForMessage: vi.fn(async () => ({
-    recordId: "signature-1",
-    source: "ops",
-    scope: "mailbox",
-    html: "<div>Jackson<br>Canpro</div>",
-    text: "Jackson\nCanpro",
-    hash: "a".repeat(64),
-    providerIdentity: null,
-  })),
-}));
-
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import { POST } from "@/app/api/integrations/email/send/route";
-
-interface DraftRow {
-  id: string;
-  company_id: string;
-  opportunity_id: string | null;
-  provider_thread_id: string | null;
-  origin: string;
-  status: string;
-  subject: string;
-  original_body: string;
-  current_body: string | null;
-  final_sent_body: string | null;
-  sent_at: string | null;
-}
-
-interface SendState {
-  drafts: DraftRow[];
-  draftUpdates: Array<{ id: string; payload: Record<string, unknown> }>;
-  canonicalThreadOwnerId?: string | null;
-}
-
-function operatorRequest(body: Record<string, unknown>): Request {
-  // No CRON_SECRET → routes through verifyAdminAuth (operator path).
-  return new Request("https://ops.test/api/integrations/email/send", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: "Bearer user-token",
-    },
-    body: JSON.stringify(body),
-  });
-}
-
-function cronRequest(body: Record<string, unknown>): Request {
-  return new Request("https://ops.test/api/integrations/email/send", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: "Bearer test-cron-secret",
-    },
-    body: JSON.stringify(body),
-  });
-}
-
-function makeSupabaseDouble(state: SendState) {
-  class Query {
-    private action: "select" | "insert" | "update" | "upsert" = "select";
-    private filters = new Map<string, unknown>();
-    private inFilters = new Map<string, unknown[]>();
-    private updatePayload: Record<string, unknown> | null = null;
-    private selectAfterWrite = false;
-
-    constructor(private readonly table: string) {}
-
-    select() {
-      if (this.action !== "select") this.selectAfterWrite = true;
-      return this;
-    }
-
-    eq(column: string, value: unknown) {
-      this.filters.set(column, value);
-      return this;
-    }
-
-    is(column: string, value: unknown) {
-      this.filters.set(column, value);
-      return this;
-    }
-
-    in(column: string, values: unknown[]) {
-      this.inFilters.set(column, values);
-      return this;
-    }
-
-    gte(column: string, value: unknown) {
-      this.filters.set(`${column}:gte`, value);
-      return this;
-    }
-
-    limit() {
-      return this;
-    }
-
-    insert() {
-      this.action = "insert";
-      return this;
-    }
-
-    update(payload: Record<string, unknown>) {
-      this.action = "update";
-      this.updatePayload = payload;
-      return this;
-    }
-
-    upsert(payload: Record<string, unknown> = {}) {
-      this.action = "upsert";
-      if (this.table === "opportunity_email_threads") {
-        state.canonicalThreadOwnerId ??=
-          (payload.opportunity_id as string | null | undefined) ?? null;
-      }
-      return this;
-    }
-
-    private matchingDrafts(): DraftRow[] {
-      return state.drafts.filter((d) => {
-        for (const [col, val] of this.filters) {
-          if ((d as unknown as Record<string, unknown>)[col] !== val)
-            return false;
-        }
-        for (const [col, vals] of this.inFilters) {
-          if (!vals.includes((d as unknown as Record<string, unknown>)[col]))
-            return false;
-        }
-        return true;
-      });
-    }
-
-    private applyDraftUpdate(): DraftRow[] {
-      const matches = this.matchingDrafts();
-      for (const d of matches) {
-        state.draftUpdates.push({ id: d.id, payload: this.updatePayload! });
-        Object.assign(d, this.updatePayload);
-      }
-      return matches;
-    }
-
-    async single() {
-      if (this.table === "companies") {
-        return {
-          data: {
-            subscription_plan: "team",
-            subscription_status: "active",
-            trial_end_date: null,
-            seated_employee_ids: ["user-1"],
-            admin_ids: ["user-1"],
-            max_seats: 10,
-          },
-          error: null,
-        };
-      }
-      if (this.table === "opportunities") {
-        return {
-          data: {
-            correspondence_count: 1,
-            outbound_count: 0,
-            last_outbound_at: null,
-          },
-          error: null,
-        };
-      }
-      if (this.table === "activities") {
-        return { data: { id: "activity-1" }, error: null };
-      }
-      return { data: null, error: null };
-    }
-
-    async maybeSingle() {
-      if (this.table === "opportunities") {
-        return { data: { id: "opp-1" }, error: null };
-      }
-      if (this.table === "opportunity_email_threads") {
-        return {
-          data: state.canonicalThreadOwnerId
-            ? { opportunity_id: state.canonicalThreadOwnerId }
-            : null,
-          error: null,
-        };
-      }
-      if (this.table === "opportunity_follow_up_drafts") {
-        const [first] = this.matchingDrafts();
-        return { data: first ?? null, error: null };
-      }
-      return { data: null, error: null };
-    }
-
-    private result() {
-      if (this.table === "activities" && this.action === "select") {
-        return { data: null, count: 0, error: null };
-      }
-      if (this.table === "opportunity_follow_up_drafts") {
-        if (this.action === "update") {
-          return { data: this.applyDraftUpdate(), error: null };
-        }
-        return { data: this.matchingDrafts(), error: null };
-      }
-      return { data: null, error: null };
-    }
-
-    then<T = unknown, E = never>(
-      onfulfilled?: ((value: unknown) => T | PromiseLike<T>) | null,
-      onrejected?: ((reason: unknown) => E | PromiseLike<E>) | null
-    ) {
-      return Promise.resolve(this.result()).then(onfulfilled, onrejected);
-    }
-  }
-
-  return {
-    from(table: string) {
-      return new Query(table);
-    },
-    rpc: vi.fn(async () => ({
-      data: [{ changed: true }],
-      error: null,
-    })),
-  };
-}
-
-function makeDraft(overrides: Partial<DraftRow> = {}): DraftRow {
-  return {
-    id: "draft-1",
-    company_id: "company-1",
-    opportunity_id: "opp-1",
-    provider_thread_id: "thread-send-1",
-    origin: "template_follow_up",
-    status: "drafted",
-    subject: "Original subject",
-    original_body: "Original template body.",
-    current_body: "Original template body.",
-    final_sent_body: null,
-    sent_at: null,
-    ...overrides,
-  };
-}
-
-const CONNECTION = {
-  id: "connection-1",
+const BASE: PrepareEmailSendIntentInput = {
+  idempotencyKey: "attempt-1",
   companyId: "company-1",
-  userId: "user-1",
-  email: "jackson@canprodeckandrail.com",
-  provider: "gmail",
-  status: "active",
-  opsLabelId: null,
-  syncFilters: {
-    companyDomains: ["canprodeckandrail.com"],
-    userEmailAddresses: ["jackson@canprodeckandrail.com"],
-  },
-};
-
-function wireProvider() {
-  getConnectionMock.mockResolvedValue(CONNECTION);
-  getProviderMock.mockReturnValue({
-    sendEmail: vi.fn(async () => ({
-      messageId: "msg-send-1",
-      threadId: "thread-send-1",
-    })),
-    applyLabel: vi.fn(async () => undefined),
-  });
-}
-
-const BASE_PAYLOAD = {
-  userId: "user-1",
-  companyId: "company-1",
+  actorUserId: "actor-1",
+  initiatedBy: "operator",
   connectionId: "connection-1",
-  to: ["kara.beach@example.com"],
-  subject: "Operator-edited subject",
-  body: "Operator-edited follow-up body.",
   opportunityId: "opp-1",
-  threadId: "thread-send-1",
+  sourceEmailThreadId: "email-thread-1",
+  replyProviderThreadId: "provider-thread-1",
+  inReplyTo: "provider-message-1",
+  senderSwitched: false,
+  toEmails: ["client@example.com"],
+  ccEmails: [],
+  subject: "Follow-up",
+  authoredBody: "Checking in.",
+  renderedBody: "Checking in.\n\n-- \nJason",
+  contentType: "text",
+  draftHistoryId: "ai-draft-1",
+  followUpDraftId: "follow-up-draft-1",
+  learningAuthority: "operator_approved",
+  signatureId: "signature-1",
+  signatureContentHash: "a".repeat(64),
+  renderedBodyHash: "b".repeat(64),
+  pendingAutoSendId: null,
 };
 
-describe("lifecycle follow-up draft send-transition", () => {
-  beforeEach(() => {
-    process.env.CRON_SECRET = "test-cron-secret";
-    setSupabaseOverride(null);
-    getServiceRoleClientMock.mockReset();
-    getConnectionMock.mockReset();
-    getProviderMock.mockReset();
-    upsertFromEmailMock.mockReset();
-    dismissAwaitingReplyMock.mockReset();
-    verifyAdminAuthMock.mockReset();
-    findUserByAuthMock.mockReset();
-    checkPermissionByIdMock.mockReset();
-    enqueueIfEnabledMock.mockReset();
-    enqueueIfEnabledMock.mockResolvedValue({ queueId: "queue-1" });
-    verifyAdminAuthMock.mockResolvedValue({
-      uid: "auth-1",
-      email: "op@ops.test",
-    });
-    findUserByAuthMock.mockResolvedValue({
-      id: "user-1",
-      company_id: "company-1",
-    });
-    checkPermissionByIdMock.mockResolvedValue(true);
-    upsertFromEmailMock.mockResolvedValue({
-      threadRow: {
-        id: "thread-row-1",
-        latestDirection: "outbound",
-        labels: ["AWAITING_REPLY"],
-      },
-    });
-    dismissAwaitingReplyMock.mockResolvedValue(["CUSTOMER"]);
-    wireProvider();
-  });
+function row() {
+  return {
+    id: "intent-1",
+    company_id: "company-1",
+    idempotency_key: "attempt-1",
+    request_fingerprint: buildEmailSendRequestFingerprint(BASE),
+    actor_user_id: "actor-1",
+    initiated_by: "operator",
+    connection_id: "connection-1",
+    opportunity_id: "opp-1",
+    assignment_version: 3,
+    assignment_event_id: "assignment-event-3",
+    actor_name_snapshot: "Jason Zavarella",
+    actor_email_snapshot: "jason@example.com",
+    client_from_address_snapshot: "info@example.com",
+    source_email_thread_id: "email-thread-1",
+    reply_provider_thread_id: "provider-thread-1",
+    in_reply_to: "provider-message-1",
+    sender_switched: false,
+    to_emails: ["client@example.com"],
+    cc_emails: [],
+    subject: "Follow-up",
+    authored_body: "Checking in.",
+    rendered_body: "Checking in.\n\n-- \nJason",
+    content_type: "text",
+    draft_history_id: "ai-draft-1",
+    follow_up_draft_id: "follow-up-draft-1",
+    learning_authority: "operator_approved",
+    signature_id: "signature-1",
+    signature_content_hash: "a".repeat(64),
+    rendered_body_hash: "b".repeat(64),
+    pending_auto_send_id: null,
+    profile_type_snapshot: "client_followup",
+    status: "prepared",
+    provider_message_id: null,
+    accepted_provider_thread_id: null,
+    provider_accepted_at: null,
+    reconciliation_attempts: 0,
+    reconciliation_lease_token: null,
+    reconciliation_lease_expires_at: null,
+    reconciled_activity_id: null,
+    reconciled_at: null,
+    last_error: null,
+    created_at: "2026-07-15T18:00:00.000Z",
+    updated_at: "2026-07-15T18:00:00.000Z",
+  };
+}
 
-  it("queues a validated lifecycle draft and leaves its sent transition to the durable worker", async () => {
-    const state: SendState = { drafts: [makeDraft()], draftUpdates: [] };
-    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+describe("lifecycle draft send provenance", () => {
+  it("binds explicit AI and follow-up draft identities into idempotency", () => {
+    const fingerprint = buildEmailSendRequestFingerprint(BASE);
 
-    const res = await POST(
-      operatorRequest({ ...BASE_PAYLOAD, followUpDraftId: "draft-1" }) as never
-    );
-    expect(res.status).toBe(200);
-    expect(state.drafts[0].status).toBe("drafted");
-    expect(state.draftUpdates).toHaveLength(0);
-    expect(enqueueIfEnabledMock).toHaveBeenCalledTimes(1);
-    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        companyId: "company-1",
-        connectionId: "connection-1",
-        providerMessageId: "msg-send-1",
-        providerThreadId: "thread-send-1",
-        userId: "user-1",
-        subject: "Operator-edited subject",
-        bodyText: "Operator-edited follow-up body.",
-        followUpDraftId: "draft-1",
-        draftHistoryId: null,
-        opportunityId: "opp-1",
-      })
-    );
-  });
-
-  it("rejects a browser caller whose authenticated company does not own the payload", async () => {
-    const state: SendState = { drafts: [makeDraft()], draftUpdates: [] };
-    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
-    findUserByAuthMock.mockResolvedValue({
-      id: "user-1",
-      company_id: "company-other",
-    });
-
-    const response = await POST(operatorRequest(BASE_PAYLOAD) as never);
-
-    expect(response.status).toBe(403);
-    expect(getProviderMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects an invalid explicit lifecycle-draft id before provider delivery", async () => {
-    const state: SendState = { drafts: [makeDraft()], draftUpdates: [] };
-    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
-
-    const response = await POST(
-      operatorRequest({
-        ...BASE_PAYLOAD,
-        followUpDraftId: "draft-from-another-scope",
-      }) as never
-    );
-
-    expect(response.status).toBe(409);
-    expect(getProviderMock).not.toHaveBeenCalled();
-    expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
-  });
-
-  it("never guesses a lifecycle draft from thread + opportunity", async () => {
-    const state: SendState = {
-      drafts: [makeDraft({ id: "draft-a" }), makeDraft({ id: "draft-b" })],
-      draftUpdates: [],
-    };
-    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
-
-    await POST(operatorRequest(BASE_PAYLOAD) as never);
-    expect(state.drafts.every((d) => d.status === "drafted")).toBe(true);
-    expect(state.draftUpdates).toHaveLength(0);
-    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
-      expect.objectContaining({ followUpDraftId: null })
-    );
-  });
-
-  it("queues non-lifecycle sends without attaching a draft outcome", async () => {
-    const state: SendState = { drafts: [], draftUpdates: [] };
-    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
-
-    const res = await POST(operatorRequest(BASE_PAYLOAD) as never);
-    expect(res.status).toBe(200);
-    expect(state.draftUpdates).toHaveLength(0);
-    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(
+      buildEmailSendRequestFingerprint({ ...BASE, draftHistoryId: null })
+    ).not.toBe(fingerprint);
+    expect(
+      buildEmailSendRequestFingerprint({ ...BASE, followUpDraftId: null })
+    ).not.toBe(fingerprint);
+    expect(
+      buildEmailSendRequestFingerprint({
+        ...BASE,
+        sourceEmailThreadId: "same-thread-but-no-draft-guess",
         draftHistoryId: null,
         followUpDraftId: null,
       })
-    );
+    ).not.toBe(fingerprint);
   });
 
-  it("preserves explicit lifecycle provenance on the internal auto-send path", async () => {
-    const state: SendState = { drafts: [makeDraft()], draftUpdates: [] };
-    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+  it("passes only explicit draft identities to the guarded prepare RPC", async () => {
+    const db = { rpc: vi.fn().mockResolvedValue({ data: row(), error: null }) };
+    const service = new EmailSendIntentService(db as never);
 
-    const res = await POST(
-      cronRequest({ ...BASE_PAYLOAD, followUpDraftId: "draft-1" }) as never
-    );
-    expect(res.status).toBe(200);
-    expect(state.drafts[0].status).toBe("drafted");
-    expect(state.draftUpdates).toHaveLength(0);
-    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
-      expect.objectContaining({ followUpDraftId: "draft-1" })
-    );
-  });
+    const prepared = await service.prepare(BASE);
 
-  it("does not report an already-delivered message as failed when queueing errors", async () => {
-    const state: SendState = { drafts: [], draftUpdates: [] };
-    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
-    enqueueIfEnabledMock.mockRejectedValueOnce(new Error("queue unavailable"));
-
-    const response = await POST(operatorRequest(BASE_PAYLOAD) as never);
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      ok: true,
-      messageId: "msg-send-1",
+    expect(prepared).toMatchObject({
+      draftHistoryId: "ai-draft-1",
+      followUpDraftId: "follow-up-draft-1",
+      profileTypeSnapshot: "client_followup",
     });
+    expect(db.rpc).toHaveBeenCalledWith(
+      "prepare_email_send_intent",
+      expect.objectContaining({
+        p_draft_history_id: "ai-draft-1",
+        p_follow_up_draft_id: "follow-up-draft-1",
+      })
+    );
+  });
+
+  it("does not infer a lifecycle draft when the caller supplies none", async () => {
+    const noDraft = {
+      ...BASE,
+      draftHistoryId: null,
+      followUpDraftId: null,
+      learningAuthority: "operator_authored" as const,
+    };
+    const noDraftRow = {
+      ...row(),
+      request_fingerprint: buildEmailSendRequestFingerprint(noDraft),
+      draft_history_id: null,
+      follow_up_draft_id: null,
+      learning_authority: "operator_authored",
+      profile_type_snapshot: "general",
+    };
+    const db = {
+      rpc: vi.fn().mockResolvedValue({ data: noDraftRow, error: null }),
+    };
+
+    const prepared = await new EmailSendIntentService(db as never).prepare(
+      noDraft
+    );
+
+    expect(prepared.draftHistoryId).toBeNull();
+    expect(prepared.followUpDraftId).toBeNull();
+    expect(prepared.profileTypeSnapshot).toBe("general");
   });
 });

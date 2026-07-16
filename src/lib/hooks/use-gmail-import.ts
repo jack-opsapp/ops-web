@@ -7,7 +7,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useCreateNotification } from "./use-notifications";
 import { authedFetch } from "@/lib/utils/authed-fetch";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -50,7 +49,6 @@ export function useGmailImport() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [status, setStatus] = useState<ImportStatusResponse | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const notify = useCreateNotification();
 
   // ── Start import mutation ──────────────────────────────────────────────
 
@@ -75,16 +73,6 @@ export function useGmailImport() {
     onSuccess: (data) => {
       setJobId(data.jobId);
       setStatus({ status: "running" });
-
-      // Create a persistent notification for the running import
-      notify({
-        type: "pipeline_complete",
-        title: "Importing emails...",
-        body: "Scanning your inbox for leads. This may take a minute.",
-        persistent: true,
-        actionUrl: "/settings?tab=integrations",
-        actionLabel: "View Progress",
-      });
     },
   });
 
@@ -111,54 +99,8 @@ export function useGmailImport() {
 
         if (data.status === "completed") {
           stopPolling();
-
-          const cCreated = data.clientsCreated ?? 0;
-          const lCreated = data.leadsCreated ?? 0;
-          const hasReview = (data.needsReview ?? 0) > 0;
-
-          // Build a description that highlights what was created
-          let desc: string;
-          if (cCreated > 0 || lCreated > 0) {
-            const parts: string[] = [];
-            if (cCreated > 0)
-              parts.push(`${cCreated} client${cCreated !== 1 ? "s" : ""}`);
-            if (lCreated > 0)
-              parts.push(`${lCreated} lead${lCreated !== 1 ? "s" : ""}`);
-            desc = `Created ${parts.join(" & ")} from ${data.processedEmails ?? 0} emails.`;
-            if (hasReview) desc += ` ${data.needsReview} need review.`;
-          } else {
-            desc = hasReview
-              ? `Found ${data.matchedLeads ?? 0} leads. ${data.needsReview} need review.`
-              : `Found ${data.matchedLeads ?? 0} leads from ${data.processedEmails ?? 0} emails.`;
-          }
-
-          notify({
-            type: "pipeline_complete",
-            title: "Import complete",
-            body: desc,
-            actionUrl:
-              lCreated > 0
-                ? "/pipeline"
-                : hasReview
-                  ? "/pipeline?review=true"
-                  : "/settings?tab=integrations",
-            actionLabel:
-              lCreated > 0
-                ? "View Pipeline"
-                : hasReview
-                  ? "Review Matches"
-                  : "View",
-          });
         } else if (data.status === "failed") {
           stopPolling();
-
-          notify({
-            type: "system",
-            title: "Import failed",
-            body: data.error ?? "Something went wrong during import.",
-            actionUrl: "/settings?tab=integrations",
-            actionLabel: "View",
-          });
         }
       } catch {
         // Silently retry on network errors
@@ -170,7 +112,7 @@ export function useGmailImport() {
     intervalRef.current = setInterval(poll, POLL_INTERVAL_MS);
 
     return () => stopPolling();
-  }, [jobId, stopPolling, notify]);
+  }, [jobId, stopPolling]);
 
   // ── Public API ─────────────────────────────────────────────────────────
 

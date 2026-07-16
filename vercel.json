@@ -57,6 +57,10 @@
       "schedule": "*/5 13-23,0-4 * * *"
     },
     {
+      "path": "/api/cron/email-send-reconciliation",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/ads-briefing",
       "schedule": "0 12 * * 1"
     },

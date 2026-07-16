@@ -53,6 +53,7 @@ import {
   type SubcontractorTrigger,
 } from "@/lib/types/approval-queue";
 import { EmailCategoryAutonomy } from "@/components/settings/email-category-autonomy";
+import { EmailConnectionBrowserService } from "@/lib/api/services/email-connection-browser-service";
 import {
   StepShell,
   OptionCard,
@@ -1177,20 +1178,18 @@ function StepCategories({ t }: { t: T }) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(
-          `/api/integrations/email/connections?companyId=${company.id}`
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        const conns = (data.connections ?? data.data ?? []) as Array<{
-          id: string;
-          user_id?: string;
-          status?: string;
-        }>;
+        const conns = await EmailConnectionBrowserService.getConnections();
         const mine =
           conns.find(
-            (c) => c.user_id === currentUser.id && c.status === "connected"
-          ) ?? conns.find((c) => c.status === "connected");
+            (connection) =>
+              connection.type === "individual" &&
+              connection.userId === currentUser.id &&
+              connection.status === "active"
+          ) ??
+          conns.find(
+            (connection) =>
+              connection.type === "company" && connection.status === "active"
+          );
         if (!cancelled) setConnectionId(mine?.id ?? null);
       } catch {
         // silent

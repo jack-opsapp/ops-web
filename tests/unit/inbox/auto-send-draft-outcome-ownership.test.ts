@@ -46,18 +46,39 @@ function makeSupabase() {
   const pending = {
     id: "pending-1",
     company_id: "company-1",
+    actor_user_id: "user-1",
+    assignment_version: 1,
+    assignment_event_id: "assignment-event-1",
     connection_id: "connection-1",
     opportunity_id: "opportunity-1",
+    source_email_thread_id: "internal-thread-1",
     thread_id: "thread-1",
     in_reply_to: "message-1",
     to_emails: ["customer@example.com"],
     cc_emails: [],
     subject: "Estimate",
     draft_text: "Here is your estimate.",
+    authored_body: "Here is your estimate.",
+    rendered_body: "Here is your estimate.",
+    rendered_body_hash: "a".repeat(64),
+    content_type: "text",
     draft_history_id: "draft-history-1",
+    profile_type_snapshot: "general",
+    learning_authority: "autonomous",
+    actor_name_snapshot: "Alex Rivera",
+    actor_email_snapshot: "alex@example.com",
+    client_from_address_snapshot: "sales@example.com",
+    signature_id: null,
+    signature_content_hash: null,
+    idempotency_key: "b".repeat(64),
+    send_intent_id: null,
     scheduled_send_at: "2026-07-14T18:00:00.000Z",
-    status: "pending",
+    status: "leased",
+    lease_token: "lease-1",
+    claimed_at: "2026-07-14T18:00:00.000Z",
+    lease_expires_at: "2026-07-14T18:05:00.000Z",
     created_at: "2026-07-14T17:00:00.000Z",
+    updated_at: "2026-07-14T18:00:00.000Z",
     sent_at: null,
     cancelled_at: null,
     error: null,
@@ -157,7 +178,14 @@ function makeSupabase() {
     return query;
   }
 
-  return { client: { from }, updates };
+  const rpc = vi.fn(async (name: string) => {
+    if (name === "claim_phase_c_auto_sends") {
+      return { data: [pending], error: null };
+    }
+    throw new Error(`unexpected RPC: ${name}`);
+  });
+
+  return { client: { from, rpc }, updates, rpc };
 }
 
 describe("AutoSendService draft-outcome ownership", () => {
@@ -168,7 +196,7 @@ describe("AutoSendService draft-outcome ownership", () => {
     recordDraftOutcomeMock.mockResolvedValue(undefined);
   });
 
-  it("delegates the draft outcome to the send route and never records it a second time", async () => {
+  it("returns a claimed source to the root delivery path without sending or learning", async () => {
     const supabase = makeSupabase();
     requireSupabaseMock.mockReturnValue(supabase.client);
     const fetchMock = vi.fn(
@@ -179,23 +207,17 @@ describe("AutoSendService draft-outcome ownership", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await AutoSendService.processPendingSends();
+    const claimed = await AutoSendService.claimPendingSends();
 
-    expect(result).toEqual({ sent: 1, failed: 0, errors: [] });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    const request = fetchMock.mock.calls[0]?.[1];
-    if (!request) throw new Error("Expected auto-send request options");
-    const payload = JSON.parse(request.body as string) as Row;
-    expect(payload).toMatchObject({
+    expect(claimed).toHaveLength(1);
+    expect(claimed[0]).toMatchObject({
       draftHistoryId: "draft-history-1",
-      body: "Here is your estimate.",
+      authoredBody: "Here is your estimate.",
       threadId: "thread-1",
+      learningAuthority: "autonomous",
     });
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(recordDraftOutcomeMock).not.toHaveBeenCalled();
-    expect(supabase.updates).toContainEqual({
-      table: "pending_auto_sends",
-      values: expect.objectContaining({ status: "sent" }),
-    });
+    expect(supabase.updates).toEqual([]);
   });
 });

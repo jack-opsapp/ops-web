@@ -30,6 +30,23 @@ export interface EmailSignatureSettingsResponse {
   providerSignature: ProviderEmailSignature | null;
   providerImportSupported: boolean;
   missing: boolean;
+  providerImportStatus?: "refreshed" | "not_configured";
+}
+
+export interface EmailSignatureConnectionDescriptor {
+  id: string;
+  mailbox: string;
+  provider: EmailProvider;
+  type: "company" | "individual";
+}
+
+export interface EmailSignatureConnectionsResponse {
+  connections: EmailSignatureConnectionDescriptor[];
+}
+
+export interface EmailSignatureActorScope {
+  companyId: string;
+  userId: string;
 }
 
 export interface EmailSignatureScope {

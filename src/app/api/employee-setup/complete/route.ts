@@ -8,9 +8,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
+import { dispatchRoleNeededNotification } from "@/lib/notifications/server-notification-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { PRESET_ROLE_IDS } from "@/lib/types/permissions";
-import { getAppUrl } from "@/lib/utils/app-url";
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,10 +35,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Mark employee onboarding complete in setup_progress
-    const currentProgress =
-      (user.setup_progress as Record<string, unknown>) ?? { steps: {} };
-    const steps =
-      (currentProgress.steps as Record<string, boolean>) ?? {};
+    const currentProgress = (user.setup_progress as Record<
+      string,
+      unknown
+    >) ?? { steps: {} };
+    const steps = (currentProgress.steps as Record<string, boolean>) ?? {};
     steps.employee_onboarding = true;
     currentProgress.steps = steps;
 
@@ -86,16 +87,7 @@ export async function POST(req: NextRequest) {
 
       // Fire notifications to admins
       try {
-        const appUrl = getAppUrl();
-        await fetch(`${appUrl}/api/notifications/role-needed`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: user.id,
-            userName: `${user.first_name} ${user.last_name}`.trim(),
-            companyId: user.company_id,
-          }),
-        });
+        await dispatchRoleNeededNotification(String(user.id), db);
       } catch (notifErr) {
         console.error(
           "[employee-setup/complete] Failed to send role-needed notifications:",

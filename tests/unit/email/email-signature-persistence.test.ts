@@ -56,21 +56,25 @@ function readClient(rows = [DB_ROW]) {
 
 function persistClient() {
   let rpcPayload: Record<string, unknown> | null = null;
+  let rpcName: string | null = null;
   return {
+    get name() {
+      return rpcName;
+    },
     get payload() {
       return rpcPayload;
     },
     client: {
       rpc: vi.fn(async (name: string, payload: Record<string, unknown>) => {
-        expect(name).toBe("replace_email_signature");
+        rpcName = name;
         rpcPayload = payload;
         return {
           data: {
             ...DB_ROW,
             id: "saved-signature",
-            company_id: payload.p_company_id,
             connection_id: payload.p_connection_id,
-            scope_user_id: payload.p_scope_user_id,
+            scope_user_id:
+              payload.p_source === "ops" ? payload.p_actor_user_id : null,
             source: payload.p_source,
             content_html: payload.p_content_html,
             content_text: payload.p_content_text,
@@ -206,6 +210,7 @@ describe("EmailSignatureService persistence", () => {
       scopeUserId: "user-1",
       mailboxAddress: "operator@example.com",
       provider,
+      actorUserId: "user-1",
     });
 
     expect(result).toEqual({
@@ -228,16 +233,17 @@ describe("EmailSignatureService persistence", () => {
       actorUserId: "user-1",
     });
 
+    expect(db.name).toBe("replace_email_signature_as_system");
     expect(db.payload).toMatchObject({
-      p_company_id: "company-1",
       p_connection_id: "connection-1",
-      p_scope_user_id: "user-1",
       p_source: "ops",
       p_content_html: "<div><strong>Jackson</strong></div>",
       p_content_text: "Jackson",
       p_provider_identity: null,
       p_actor_user_id: "user-1",
     });
+    expect(db.payload).not.toHaveProperty("p_company_id");
+    expect(db.payload).not.toHaveProperty("p_scope_user_id");
     expect(db.payload?.p_content_hash).toMatch(/^[a-f0-9]{64}$/);
     expect(saved).toMatchObject({
       id: "saved-signature",
@@ -259,12 +265,40 @@ describe("EmailSignatureService persistence", () => {
       actorUserId: "user-1",
     });
 
+    expect(db.name).toBe("replace_email_signature_as_system");
     expect(db.payload).toMatchObject({
       p_source: "microsoft_confirmed",
       p_provider_identity: "operator@example.com",
-      p_scope_user_id: null,
       p_confirmed_at: expect.any(String),
       p_fetched_at: null,
+    });
+    expect(db.payload).not.toHaveProperty("p_company_id");
+    expect(db.payload).not.toHaveProperty("p_scope_user_id");
+  });
+
+  it("deactivates through the actor-aware RPC instead of a generic table update", async () => {
+    const rpc = vi.fn(async () => ({ data: 1, error: null }));
+    const from = vi.fn(() => {
+      throw new Error(
+        "actor signature mutations must not write the table directly"
+      );
+    });
+    requireSupabaseMock.mockReturnValue({ rpc, from });
+
+    await EmailSignatureService.deactivate({
+      companyId: "spoofed-company",
+      connectionId: "connection-1",
+      source: "ops",
+      scopeUserId: "spoofed-user",
+      actorUserId: "user-1",
+    });
+
+    expect(from).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("deactivate_email_signature_as_system", {
+      p_actor_user_id: "user-1",
+      p_connection_id: "connection-1",
+      p_signature_id: null,
+      p_source: "ops",
     });
   });
 
@@ -306,6 +340,7 @@ describe("EmailSignatureService persistence", () => {
         scopeUserId: "user-1",
         mailboxAddress: "operator@example.com",
         provider,
+        actorUserId: "user-1",
       })
     ).resolves.toEqual({ status: "refreshed", signature: saved });
     expect(EmailSignatureService.saveProvider).toHaveBeenCalledWith(

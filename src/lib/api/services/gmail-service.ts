@@ -30,11 +30,12 @@ import { DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
 function mapFromDb(row: Record<string, unknown>): GmailConnection {
+  const type = row.type as GmailConnection["type"];
   return {
     id: row.id as string,
     companyId: row.company_id as string,
-    type: row.type as GmailConnection["type"],
-    userId: (row.user_id as string) ?? null,
+    type,
+    userId: type === "individual" ? ((row.user_id as string) ?? null) : null,
     email: row.email as string,
     accessToken: row.access_token as string,
     refreshToken: row.refresh_token as string,
@@ -78,7 +79,7 @@ export const GmailService = {
       .insert({
         company_id: data.companyId,
         type: data.type,
-        user_id: data.userId,
+        user_id: data.type === "individual" ? data.userId : null,
         email: data.email,
         access_token: data.accessToken,
         refresh_token: data.refreshToken,

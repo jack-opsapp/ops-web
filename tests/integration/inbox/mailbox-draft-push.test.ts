@@ -115,7 +115,35 @@ function makeSupabaseDouble(state: DbState) {
       return Promise.resolve(this._resolve()).then(f, r);
     }
   }
-  return { from: (t: string) => new Query(t) };
+  const rpc = vi.fn(async (name: string, params: Record<string, unknown>) => {
+    if (name !== "reassign_phase_c_mailbox_draft") {
+      return { data: null, error: { message: `unexpected RPC ${name}` } };
+    }
+    const newId = params.p_new_draft_history_id;
+    const newRow = state.aiDraftHistory.find((row) => row.id === newId);
+    if (!newRow) {
+      return { data: null, error: { message: "new history missing" } };
+    }
+    for (const row of state.aiDraftHistory) {
+      if (
+        row.id !== newId &&
+        row.connection_id === params.p_connection_id &&
+        row.status === "auto_drafted" &&
+        (row.thread_id === params.p_thread_id ||
+          row.mailbox_draft_id === params.p_mailbox_draft_id)
+      ) {
+        row.status = "superseded";
+      }
+    }
+    Object.assign(newRow, {
+      status: "auto_drafted",
+      mailbox_draft_id: params.p_mailbox_draft_id,
+      thread_id: params.p_thread_id,
+      subject: params.p_subject,
+    });
+    return { data: { draft_history_id: newId }, error: null };
+  });
+  return { from: vi.fn((t: string) => new Query(t)), rpc };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -137,7 +165,8 @@ describe("placeNewThreadDraft", () => {
       ],
       opportunityEmailThreads: [],
     };
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const database = makeSupabaseDouble(state);
+    setSupabaseOverride(database as never);
 
     const createNewThreadDraft = vi
       .fn()
@@ -184,16 +213,20 @@ describe("placeNewThreadDraft", () => {
       aiDraftHistory: [
         {
           id: "dh-prior",
+          company_id: "company-1",
           connection_id: "conn-1",
           opportunity_id: "opp-1",
+          origin: "phase_c",
           status: "auto_drafted",
           thread_id: "new-thread-1",
           mailbox_draft_id: "pd-1",
         },
         {
           id: "dh-2",
+          company_id: "company-1",
           connection_id: "conn-1",
           opportunity_id: "opp-1",
+          origin: "phase_c",
           status: "drafted",
           thread_id: null,
           mailbox_draft_id: null,
@@ -201,7 +234,8 @@ describe("placeNewThreadDraft", () => {
       ],
       opportunityEmailThreads: [],
     };
-    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const database = makeSupabaseDouble(state);
+    setSupabaseOverride(database as never);
 
     const createNewThreadDraft = vi.fn();
     const updateDraft = vi.fn().mockResolvedValue(undefined);
@@ -214,6 +248,7 @@ describe("placeNewThreadDraft", () => {
       to: "client@customer.com",
       subject: CONTACT_FORM_OUTREACH_SUBJECT,
       body: "Updated body",
+      phaseCCompanyId: "company-1",
     });
 
     expect(updateDraft).toHaveBeenCalledWith(
@@ -231,5 +266,209 @@ describe("placeNewThreadDraft", () => {
     expect(row.status).toBe("auto_drafted");
     expect(row.mailbox_draft_id).toBe("pd-1");
     expect(row.thread_id).toBe("new-thread-1");
+    expect(state.aiDraftHistory.find((r) => r.id === "dh-prior")?.status).toBe(
+      "superseded"
+    );
+    expect(database.rpc).toHaveBeenCalledWith(
+      "reassign_phase_c_mailbox_draft",
+      {
+        p_company_id: "company-1",
+        p_connection_id: "conn-1",
+        p_thread_id: "new-thread-1",
+        p_new_draft_history_id: "dh-2",
+        p_mailbox_draft_id: "pd-1",
+        p_expected_old_draft_history_id: "dh-prior",
+        p_subject: CONTACT_FORM_OUTREACH_SUBJECT,
+      }
+    );
+  });
+
+  it("updates one exact prior OPS draft without inventorying or creating beside it", async () => {
+    const state: DbState = {
+      aiDraftHistory: [
+        {
+          id: "dh-old-assignee",
+          company_id: "company-1",
+          connection_id: "conn-1",
+          opportunity_id: "opp-1",
+          origin: "phase_c",
+          status: "auto_drafted",
+          thread_id: "old-thread",
+          mailbox_draft_id: "old-provider-draft",
+        },
+        {
+          id: "dh-current-assignee",
+          company_id: "company-1",
+          connection_id: "conn-1",
+          opportunity_id: "opp-1",
+          origin: "phase_c",
+          status: "drafted",
+          thread_id: null,
+          mailbox_draft_id: null,
+        },
+      ],
+      opportunityEmailThreads: [],
+    };
+    const database = makeSupabaseDouble(state);
+    setSupabaseOverride(database as never);
+
+    const createNewThreadDraft = vi.fn().mockResolvedValue({
+      draftId: "new-provider-draft",
+      threadId: "new-provider-thread",
+    });
+    const updateDraft = vi.fn();
+    const listDrafts = vi.fn().mockResolvedValue([
+      {
+        id: "human-identical-draft",
+        threadId: "human-thread",
+        to: ["client@customer.com"],
+        cc: [],
+        subject: CONTACT_FORM_OUTREACH_SUBJECT,
+        bodyText: "Updated body",
+        updatedAt: new Date("2026-07-15T12:00:05.000Z"),
+      },
+    ]);
+    const persistPlacement = vi.fn().mockResolvedValue(true);
+
+    const out = await placeNewThreadDraft({
+      provider: { createNewThreadDraft, updateDraft, listDrafts } as never,
+      connectionId: "conn-1",
+      opportunityId: "opp-1",
+      draftHistoryId: "dh-current-assignee",
+      to: "client@customer.com",
+      subject: CONTACT_FORM_OUTREACH_SUBJECT,
+      body: "Updated body",
+      phaseCCompanyId: "company-1",
+      forceCreate: false,
+      exactReusableDraft: {
+        mailboxDraftId: "old-provider-draft",
+        threadId: "old-thread",
+      },
+      persistPlacement,
+    });
+
+    expect(updateDraft).toHaveBeenCalledWith(
+      "old-provider-draft",
+      "client@customer.com",
+      CONTACT_FORM_OUTREACH_SUBJECT,
+      "Updated body",
+      "old-thread",
+      "text"
+    );
+    expect(listDrafts).not.toHaveBeenCalled();
+    expect(createNewThreadDraft).not.toHaveBeenCalled();
+    expect(database.from).not.toHaveBeenCalled();
+    expect(persistPlacement).toHaveBeenCalledWith({
+      mailboxDraftId: "old-provider-draft",
+      threadId: "old-thread",
+    });
+    expect(out).toEqual({
+      mailboxDraftId: "old-provider-draft",
+      threadId: "old-thread",
+    });
+  });
+
+  it("does not attribute a provider-created draft when atomic queue completion loses authorization", async () => {
+    const state: DbState = {
+      aiDraftHistory: [
+        {
+          id: "dh-stale",
+          company_id: "company-1",
+          connection_id: "conn-1",
+          opportunity_id: "opp-1",
+          origin: "phase_c",
+          status: "drafted",
+          thread_id: null,
+          mailbox_draft_id: null,
+        },
+      ],
+      opportunityEmailThreads: [],
+    };
+    const database = makeSupabaseDouble(state);
+    setSupabaseOverride(database as never);
+
+    const createNewThreadDraft = vi
+      .fn()
+      .mockResolvedValue({ draftId: "pd-stale", threadId: "thread-stale" });
+    const persistPlacement = vi.fn().mockResolvedValue(false);
+
+    await expect(
+      placeNewThreadDraft({
+        provider: {
+          createNewThreadDraft,
+          updateDraft: vi.fn(),
+        } as never,
+        connectionId: "conn-1",
+        opportunityId: "opp-1",
+        draftHistoryId: "dh-stale",
+        to: "client@customer.com",
+        subject: CONTACT_FORM_OUTREACH_SUBJECT,
+        body: "Thanks — happy to help with your deck.",
+        phaseCCompanyId: "company-1",
+        forceCreate: true,
+        persistPlacement,
+      })
+    ).rejects.toThrow("Atomic placement persistence was rejected");
+
+    expect(createNewThreadDraft).toHaveBeenCalledTimes(1);
+    expect(persistPlacement).toHaveBeenCalledWith({
+      mailboxDraftId: "pd-stale",
+      threadId: "thread-stale",
+    });
+    expect(database.rpc).not.toHaveBeenCalled();
+    expect(state.aiDraftHistory[0]?.status).toBe("drafted");
+    expect(state.opportunityEmailThreads).toEqual([]);
+  });
+
+  it("delegates all Phase C history, link, and queue writes to one atomic persistence callback", async () => {
+    const state: DbState = {
+      aiDraftHistory: [
+        {
+          id: "dh-atomic",
+          company_id: "company-1",
+          connection_id: "conn-1",
+          opportunity_id: "opp-1",
+          origin: "phase_c",
+          status: "drafted",
+          thread_id: null,
+          mailbox_draft_id: null,
+        },
+      ],
+      opportunityEmailThreads: [],
+    };
+    const database = makeSupabaseDouble(state);
+    setSupabaseOverride(database as never);
+    const persistPlacement = vi.fn().mockResolvedValue(true);
+
+    const out = await placeNewThreadDraft({
+      provider: {
+        createNewThreadDraft: vi.fn().mockResolvedValue({
+          draftId: "pd-atomic",
+          threadId: "thread-atomic",
+        }),
+        updateDraft: vi.fn(),
+      } as never,
+      connectionId: "conn-1",
+      opportunityId: "opp-1",
+      draftHistoryId: "dh-atomic",
+      to: "client@customer.com",
+      subject: CONTACT_FORM_OUTREACH_SUBJECT,
+      body: "Thanks — happy to help with your deck.",
+      phaseCCompanyId: "company-1",
+      forceCreate: true,
+      persistPlacement,
+    });
+
+    expect(out).toEqual({
+      mailboxDraftId: "pd-atomic",
+      threadId: "thread-atomic",
+    });
+    expect(persistPlacement).toHaveBeenCalledWith({
+      mailboxDraftId: "pd-atomic",
+      threadId: "thread-atomic",
+    });
+    expect(database.rpc).not.toHaveBeenCalled();
+    expect(state.aiDraftHistory[0]?.status).toBe("drafted");
+    expect(state.opportunityEmailThreads).toEqual([]);
   });
 });

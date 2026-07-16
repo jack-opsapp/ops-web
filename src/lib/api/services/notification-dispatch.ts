@@ -1,100 +1,46 @@
 /**
- * OPS Web - Client-side Notification Dispatch
+ * Client notification event dispatch.
  *
- * Typed helper functions for dispatching multi-channel notifications
- * via the /api/notifications/dispatch route. Each function is fire-and-forget:
- * notification failures never break the calling mutation.
+ * Requests contain only persisted event proof IDs. The server derives the
+ * canonical actor/company, authorized recipient relationship, copy,
+ * navigation, persistence, and push payload.
  */
 
-// ─── Types (mirrors the dispatch route's DispatchBody) ───────────────────────
+import type { NotificationDispatchRequest } from "@/lib/notifications/notification-dispatch-policy";
 
-type NotificationEventType =
-  | "project_assigned"
-  | "project_status_change"
-  | "project_archived"
-  | "lead_converted"
-  | "task_assigned"
-  | "task_completed"
-  | "schedule_change"
-  | "expense_submitted"
-  | "expense_approved"
-  | "expense_paid"
-  | "mention";
-
-interface DispatchParams {
-  eventType: NotificationEventType;
-  recipientIds: string[];
-  companyId: string;
-  title: string;
-  body: string;
-  projectId?: string;
-  noteId?: string;
-  actionUrl?: string;
-  actionLabel?: string;
-  persistent?: boolean;
-  pushData?: Record<string, string>;
-}
-
-// ─── Core Dispatcher ─────────────────────────────────────────────────────────
-
-/**
- * Fire-and-forget notification dispatch. Never throws — logs errors to console.
- * The server route handles auth via cookies, self-notification filtering,
- * and notification preference checks.
- */
-async function dispatch(params: DispatchParams): Promise<void> {
-  if (!params.recipientIds.length) return;
-
+async function dispatch(request: NotificationDispatchRequest): Promise<void> {
   try {
-    const res = await fetch("/api/notifications/dispatch", {
+    const response = await fetch("/api/notifications/dispatch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
+      body: JSON.stringify(request),
     });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error(`[notification-dispatch] ${params.eventType} failed:`, err);
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      console.error(
+        `[notification-dispatch] ${request.eventType} failed:`,
+        error
+      );
     }
-  } catch (err) {
-    console.error(`[notification-dispatch] ${params.eventType} error:`, err);
+  } catch (error) {
+    console.error(`[notification-dispatch] ${request.eventType} error:`, error);
   }
 }
 
-// ─── Project Notifications ───────────────────────────────────────────────────
-
-/**
- * Notify users they've been added to a project.
- * Called after useCreateProject / useUpdateProject when teamMemberIds change.
- */
 export function dispatchProjectAssignment(params: {
   projectId: string;
   projectTitle: string;
   newMemberIds: string[];
   companyId: string;
 }): void {
-  dispatch({
+  if (params.newMemberIds.length === 0) return;
+  void dispatch({
     eventType: "project_assigned",
-    recipientIds: params.newMemberIds,
-    companyId: params.companyId,
-    title: "Added to Project",
-    body: `You've been added to "${params.projectTitle}"`,
     projectId: params.projectId,
-    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
-    actionLabel: "View Project",
-    pushData: {
-      type: "projectAssignment",
-      projectId: params.projectId,
-      screen: "projectDetails",
-    },
+    candidateRecipientIds: params.newMemberIds,
   });
 }
 
-/**
- * Notify the project team that a project has been archived.
- * Goes through the dispatch route so push + in-app preferences both fire,
- * and the archiver is auto-filtered out of recipients server-side.
- */
 export function dispatchProjectArchived(params: {
   projectId: string;
   projectTitle: string;
@@ -102,29 +48,9 @@ export function dispatchProjectArchived(params: {
   recipientUserIds: string[];
   companyId: string;
 }): void {
-  dispatch({
-    eventType: "project_archived",
-    recipientIds: params.recipientUserIds,
-    companyId: params.companyId,
-    title: `${params.projectTitle} archived`,
-    body: `${params.archivedByName} archived ${params.projectTitle}.`,
-    projectId: params.projectId,
-    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
-    actionLabel: "View Project",
-    pushData: {
-      type: "projectArchived",
-      projectId: params.projectId,
-      screen: "projectDetails",
-    },
-  });
+  void dispatch({ eventType: "project_archived", projectId: params.projectId });
 }
 
-/**
- * Notify the project team that a project's status has moved to a new stage.
- * Called from ProjectLifecycleService.onProjectStageChange after the
- * project_notes timeline event lands. The recipient list should already
- * exclude the user who triggered the change.
- */
 export function dispatchProjectStatusChange(params: {
   projectId: string;
   projectTitle: string;
@@ -134,36 +60,12 @@ export function dispatchProjectStatusChange(params: {
   recipientUserIds: string[];
   companyId: string;
 }): void {
-  dispatch({
+  void dispatch({
     eventType: "project_status_change",
-    recipientIds: params.recipientUserIds,
-    companyId: params.companyId,
-    title: `Status changed: ${params.fromStatus} → ${params.toStatus}`,
-    body: `${params.changedByName} moved ${params.projectTitle} from ${params.fromStatus} to ${params.toStatus}.`,
     projectId: params.projectId,
-    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
-    actionLabel: "View Project",
-    pushData: {
-      type: "projectStatusChange",
-      projectId: params.projectId,
-      screen: "projectDetails",
-    },
   });
 }
 
-/**
- * Notify the deal's stakeholders that a won opportunity has been converted
- * into a project. Converting a deal creates a real cross-surface artifact (a
- * new project the team now works), so the stakeholders other than the actor
- * should see it land — this is the one pipeline-table event that warrants a
- * rail notification (self-initiated bulk stage moves / bulk edits do not:
- * the actor already has the toast + undo in front of them).
- *
- * `recipientUserIds` should already exclude the actor (the dispatch route also
- * filters the caller out server-side as a backstop). When empty — e.g. an
- * unassigned deal or one assigned to the actor — `dispatch` no-ops, so the
- * actor is never notified about their own conversion.
- */
 export function dispatchLeadConverted(params: {
   projectId: string;
   dealName: string;
@@ -171,32 +73,9 @@ export function dispatchLeadConverted(params: {
   recipientUserIds: string[];
   companyId: string;
 }): void {
-  dispatch({
-    eventType: "lead_converted",
-    recipientIds: params.recipientUserIds,
-    // Terse rail voice: a fixed, scannable event label (the deal name lives in
-    // the body, so the title stays a stable label rather than a long
-    // interpolated string), and a body that names who converted which deal.
-    companyId: params.companyId,
-    title: "Deal converted to project",
-    body: `${params.convertedByName} converted ${params.dealName} to a project.`,
-    projectId: params.projectId,
-    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
-    actionLabel: "View Project",
-    pushData: {
-      type: "leadConverted",
-      projectId: params.projectId,
-      screen: "projectDetails",
-    },
-  });
+  void dispatch({ eventType: "lead_converted", projectId: params.projectId });
 }
 
-// ─── Task Notifications ──────────────────────────────────────────────────────
-
-/**
- * Notify users they've been assigned to a task.
- * Called after useCreateTask / useUpdateTask when teamMemberIds change.
- */
 export function dispatchTaskAssignment(params: {
   taskId: string;
   taskTitle: string;
@@ -205,27 +84,14 @@ export function dispatchTaskAssignment(params: {
   newMemberIds: string[];
   companyId: string;
 }): void {
-  dispatch({
+  if (params.newMemberIds.length === 0) return;
+  void dispatch({
     eventType: "task_assigned",
-    recipientIds: params.newMemberIds,
-    companyId: params.companyId,
-    title: "New Task Assignment",
-    body: `You've been assigned to "${params.taskTitle}" on ${params.projectTitle}`,
-    projectId: params.projectId,
-    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
-    actionLabel: "View Task",
-    pushData: {
-      type: "taskAssignment",
-      taskId: params.taskId,
-      projectId: params.projectId,
-      screen: "taskDetails",
-    },
+    taskId: params.taskId,
+    candidateRecipientIds: params.newMemberIds,
   });
 }
 
-/**
- * Notify project team when a task is marked completed.
- */
 export function dispatchTaskCompleted(params: {
   taskId: string;
   taskTitle: string;
@@ -235,27 +101,9 @@ export function dispatchTaskCompleted(params: {
   teamMemberIds: string[];
   companyId: string;
 }): void {
-  dispatch({
-    eventType: "task_completed",
-    recipientIds: params.teamMemberIds,
-    companyId: params.companyId,
-    title: "Task Completed",
-    body: `${params.completedByName} completed "${params.taskTitle}" on ${params.projectTitle}`,
-    projectId: params.projectId,
-    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
-    actionLabel: "View Project",
-    pushData: {
-      type: "taskCompletion",
-      taskId: params.taskId,
-      projectId: params.projectId,
-      screen: "projectDetails",
-    },
-  });
+  void dispatch({ eventType: "task_completed", taskId: params.taskId });
 }
 
-/**
- * Notify task members when a task is rescheduled.
- */
 export function dispatchScheduleChange(params: {
   taskId: string;
   taskTitle: string;
@@ -264,65 +112,15 @@ export function dispatchScheduleChange(params: {
   teamMemberIds: string[];
   companyId: string;
 }): void {
-  dispatch({
-    eventType: "schedule_change",
-    recipientIds: params.teamMemberIds,
-    companyId: params.companyId,
-    title: "Schedule Update",
-    body: `"${params.taskTitle}" on ${params.projectTitle} has been rescheduled`,
-    projectId: params.projectId,
-    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
-    actionLabel: "View Task",
-    pushData: {
-      type: "scheduleChange",
-      taskId: params.taskId,
-      projectId: params.projectId,
-      screen: "taskDetails",
-    },
-  });
+  void dispatch({ eventType: "schedule_change", taskId: params.taskId });
 }
 
-// ─── Mention Notifications ───────────────────────────────────────────────────
-
-/**
- * Send push notifications for @mentions in project notes.
- * Called alongside NotificationService.createMentionNotifications() which
- * handles the in-app notification — this adds the push channel.
- */
-export function dispatchMentionPush(params: {
-  mentionedUserIds: string[];
-  authorName: string;
-  notePreview: string;
-  projectId: string;
-  projectTitle: string;
-  noteId: string;
-  companyId: string;
-}): void {
-  dispatch({
-    eventType: "mention",
-    recipientIds: params.mentionedUserIds,
-    companyId: params.companyId,
-    title: `${params.authorName} mentioned you`,
-    body: `"${params.notePreview.length > 80 ? params.notePreview.slice(0, 80) + "..." : params.notePreview}" on ${params.projectTitle}`,
-    projectId: params.projectId,
-    noteId: params.noteId,
-    actionUrl: `/dashboard?openProject=${params.projectId}&mode=view`,
-    actionLabel: "View Note",
-    pushData: {
-      type: "projectNoteMention",
-      projectId: params.projectId,
-      noteId: params.noteId,
-      screen: "projectNotes",
-    },
-  });
+export function dispatchMentionPush(params: { noteId: string }): void {
+  void dispatch({ eventType: "mention", noteId: params.noteId });
 }
 
-// ─── Expense Notifications ───────────────────────────────────────────────────
-
-/**
- * Notify approvers when an expense is submitted.
- */
 export function dispatchExpenseSubmitted(params: {
+  expenseId: string;
   expenseDescription: string;
   submittedByName: string;
   approverIds: string[];
@@ -330,66 +128,28 @@ export function dispatchExpenseSubmitted(params: {
   projectId?: string;
   actionUrl?: string;
 }): void {
-  dispatch({
+  void dispatch({
     eventType: "expense_submitted",
-    recipientIds: params.approverIds,
-    companyId: params.companyId,
-    title: "Expense Submitted",
-    body: `${params.submittedByName} submitted an expense: ${params.expenseDescription}`,
-    projectId: params.projectId,
-    actionUrl: params.actionUrl ?? "/expenses",
-    actionLabel: "Review",
-    pushData: {
-      type: "expenseSubmitted",
-      screen: "expenses",
-    },
+    expenseId: params.expenseId,
   });
 }
 
-/**
- * Notify the submitter when their expense is approved.
- */
 export function dispatchExpenseApproved(params: {
-  expenseDescription: string;
-  submitterId: string;
-  companyId: string;
+  batchId: string;
+  expenseDescription?: string;
+  submitterId?: string;
+  companyId?: string;
   actionUrl?: string;
 }): void {
-  dispatch({
-    eventType: "expense_approved",
-    recipientIds: [params.submitterId],
-    companyId: params.companyId,
-    title: "Expense Approved",
-    body: `Your expense "${params.expenseDescription}" has been approved`,
-    actionUrl: params.actionUrl ?? "/expenses",
-    actionLabel: "View",
-    pushData: {
-      type: "expenseApproved",
-      screen: "expenses",
-    },
-  });
+  void dispatch({ eventType: "expense_approved", batchId: params.batchId });
 }
 
-/**
- * Notify the submitter when their approved batch is recorded as paid out.
- */
 export function dispatchExpensePaid(params: {
-  batchLabel: string;
-  submitterId: string;
-  companyId: string;
+  batchId: string;
+  batchLabel?: string;
+  submitterId?: string;
+  companyId?: string;
   actionUrl?: string;
 }): void {
-  dispatch({
-    eventType: "expense_paid",
-    recipientIds: [params.submitterId],
-    companyId: params.companyId,
-    title: "Expenses Paid Out",
-    body: `Your expense batch ${params.batchLabel} has been paid out`,
-    actionUrl: params.actionUrl ?? "/expenses",
-    actionLabel: "View",
-    pushData: {
-      type: "expensePaid",
-      screen: "expenses",
-    },
-  });
+  void dispatch({ eventType: "expense_paid", batchId: params.batchId });
 }

@@ -91,7 +91,7 @@ export function EmailCategoryAutonomy({
             `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${connectionId}`
           ),
           fetch(
-            `/api/integrations/email/draft-stats-by-category?companyId=${company.id}`
+            `/api/integrations/email/draft-stats-by-category?companyId=${company.id}&connectionId=${connectionId}`
           ),
         ]);
 

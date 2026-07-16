@@ -9,9 +9,11 @@ vi.mock("@/lib/firebase/auth", () => ({
 
 import {
   useEmailSignature,
+  useEmailSignatureConnections,
   useImportProviderEmailSignature,
   useSaveEmailSignature,
 } from "@/lib/hooks/use-email-signature";
+import { queryKeys } from "@/lib/api/query-client";
 
 const fetchMock = vi.fn();
 
@@ -64,6 +66,46 @@ afterEach(() => {
 });
 
 describe("email signature hooks", () => {
+  it("loads only the server-authorized signature mailbox descriptors", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        connections: [
+          {
+            id: "connection-1",
+            mailbox: "office@example.com",
+            provider: "gmail",
+            type: "company",
+          },
+        ],
+      }),
+    });
+
+    const { result } = renderHook(
+      () =>
+        useEmailSignatureConnections({
+          companyId: scope.companyId,
+          userId: scope.userId,
+        }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data).toEqual([
+      {
+        id: "connection-1",
+        mailbox: "office@example.com",
+        provider: "gmail",
+        type: "company",
+      },
+    ]);
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "/api/integrations/email/signature?companyId=company-1&userId=user-1"
+    );
+  });
+
   it("loads the current mailbox signature through the authenticated route", async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -135,5 +177,45 @@ describe("email signature hooks", () => {
       ...scope,
       action: "import_provider",
     });
+  });
+
+  it("caches a successful Gmail not-configured reconciliation", async () => {
+    const notConfigured = {
+      ...signature,
+      effective: null,
+      providerSignature: null,
+      missing: true,
+      providerImportStatus: "not_configured" as const,
+    };
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => notConfigured,
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    const localWrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useImportProviderEmailSignature(), {
+      wrapper: localWrapper,
+    });
+    const response = await result.current.mutateAsync(scope);
+
+    expect(response).toEqual(notConfigured);
+    expect(
+      queryClient.getQueryData(
+        queryKeys.emailSignatures.detail(
+          scope.companyId,
+          scope.userId,
+          scope.connectionId
+        )
+      )
+    ).toEqual(notConfigured);
   });
 });

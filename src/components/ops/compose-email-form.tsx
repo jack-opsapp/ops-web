@@ -28,7 +28,7 @@ import {
   resolveMergeFields,
   hasUnresolvedFields,
 } from "@/lib/types/email-template";
-import type { EmailConnection } from "@/lib/types/email-connection";
+import type { EmailConnectionDescriptor } from "@/lib/types/email-connection";
 import {
   normalizeReplySubject,
   subjectDraftRequestFields,
@@ -229,7 +229,10 @@ export function ComposeEmailForm({
   const { data: templates = [] } = useEmailTemplates();
 
   const activeConnections = useMemo(
-    () => connections.filter((c: EmailConnection) => c.status === "active"),
+    () =>
+      connections.filter(
+        (c: EmailConnectionDescriptor) => c.status === "active"
+      ),
     [connections]
   );
 
@@ -253,6 +256,10 @@ export function ComposeEmailForm({
   );
   const [body, setBody] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const sendAttemptRef = useRef<{
+    key: string;
+    fingerprint: string;
+  } | null>(null);
 
   // AI Draft state
   const [aiState, setAiState] = useState<AIDraftState>(EMPTY_AI_STATE);
@@ -277,7 +284,7 @@ export function ComposeEmailForm({
   }, [selectedConnectionId, composeData?.connectionId, activeConnections]);
 
   const selectedConnection = activeConnections.find(
-    (c: EmailConnection) => c.id === effectiveConnectionId
+    (c: EmailConnectionDescriptor) => c.id === effectiveConnectionId
   );
 
   // ─── E5: Auto-draft pre-population ──────────────────────────────────────
@@ -518,25 +525,47 @@ export function ComposeEmailForm({
     }
     setIsSending(true);
     try {
-      const payload = {
-        userId: currentUser?.id,
-        companyId: company?.id,
+      const recipients = to
+        .split(",")
+        .map((email) => email.trim())
+        .filter(Boolean);
+      const ccRecipients = cc
+        ? cc
+            .split(",")
+            .map((email) => email.trim())
+            .filter(Boolean)
+        : [];
+      const attemptFingerprint = JSON.stringify({
         connectionId: effectiveConnectionId,
-        to: to
-          .split(",")
-          .map((e) => e.trim())
-          .filter(Boolean),
-        cc: cc
-          ? cc
-              .split(",")
-              .map((e) => e.trim())
-              .filter(Boolean)
-          : [],
+        emailThreadId: composeData?.threadId ?? null,
+        opportunityId: composeData?.opportunityId ?? null,
+        to: recipients,
+        cc: ccRecipients,
         subject: subject.trim(),
         body: body.trim(),
-        threadId: composeData?.threadId ?? null,
+      });
+      const idempotencyKey =
+        sendAttemptRef.current?.fingerprint === attemptFingerprint
+          ? sendAttemptRef.current.key
+          : globalThis.crypto.randomUUID();
+      sendAttemptRef.current = {
+        key: idempotencyKey,
+        fingerprint: attemptFingerprint,
+      };
+      const payload = {
+        idempotencyKey,
+        connectionId: effectiveConnectionId,
+        to: recipients,
+        cc: ccRecipients,
+        subject: subject.trim(),
+        body: body.trim(),
+        emailThreadId: composeData?.threadId ?? null,
         opportunityId: composeData?.opportunityId ?? null,
         inReplyTo: composeData?.inReplyTo ?? null,
+        senderSwitched:
+          mode === "reply" &&
+          Boolean(composeData?.connectionId) &&
+          composeData?.connectionId !== effectiveConnectionId,
         draftHistoryId:
           aiState.isAIDraft && aiState.draftHistoryId
             ? aiState.draftHistoryId
@@ -548,10 +577,19 @@ export function ComposeEmailForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Send failed");
+      const data = await response.json().catch(() => ({}));
+      if (
+        !response.ok ||
+        (data as { deliveryUnknown?: boolean }).deliveryUnknown ||
+        (data as { delivered?: boolean }).delivered === false
+      ) {
+        throw new Error(
+          (data as { message?: string }).message ??
+            (data as { error?: string }).error ??
+            "Send failed"
+        );
       }
+      sendAttemptRef.current = null;
       toast.success("Email sent");
       onClose();
     } catch (error) {
@@ -572,8 +610,7 @@ export function ComposeEmailForm({
     composeData?.inReplyTo,
     onClose,
     aiState,
-    currentUser?.id,
-    company?.id,
+    mode,
   ]);
 
   // ─── Discard ────────────────────────────────────────────────────────────
@@ -640,7 +677,7 @@ export function ComposeEmailForm({
               </button>
               {showSenderDropdown && (
                 <div className="absolute left-0 top-full z-10 mt-1 min-w-[260px] rounded-chip border border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] backdrop-blur-[20px] backdrop-saturate-[1.2]">
-                  {activeConnections.map((conn: EmailConnection) => (
+                  {activeConnections.map((conn: EmailConnectionDescriptor) => (
                     <button
                       key={conn.id}
                       onClick={() => {

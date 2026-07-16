@@ -26,7 +26,7 @@ import { WidgetTitle } from "./shared/widget-title";
 import type { WidgetSize } from "@/lib/types/dashboard-widgets";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { requireSupabase } from "@/lib/supabase/helpers";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 import { isCompact, WT } from "@/lib/widget-tokens";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -53,80 +53,12 @@ interface PhaseCWeekData {
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-async function fetchWeekData(companyId: string): Promise<PhaseCWeekData> {
-  const supabase = requireSupabase();
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
-
-  // 1. Auto = completed pending_auto_sends in the last 7 days.
-  const autoCountPromise = supabase
-    .from("pending_auto_sends")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", companyId)
-    .eq("status", "sent")
-    .gte("sent_at", sevenDaysAgo);
-
-  // 2. Draft = ai_draft_history rows with status='drafted' created in last 7d.
-  const draftCountPromise = supabase
-    .from("ai_draft_history")
-    .select("id", { count: "exact", head: true })
-    .eq("company_id", companyId)
-    .eq("status", "drafted")
-    .gte("created_at", sevenDaysAgo);
-
-  // 3. Surfaced = CUSTOMER + PLATFORM_BID threads + threads with URGENT label,
-  //    created in the last 7 days.
-  const surfacedPromise = supabase
-    .from("email_threads")
-    .select("id, primary_category, labels")
-    .eq("company_id", companyId)
-    .gte("first_message_at", sevenDaysAgo);
-
-  // 4. Autonomy map — merge across all connections for the company.
-  const autonomyPromise = supabase
-    .from("email_connections")
-    .select("auto_send_settings")
-    .eq("company_id", companyId);
-
-  const [autoCount, draftCount, surfaced, autonomy] = await Promise.all([
-    autoCountPromise,
-    draftCountPromise,
-    surfacedPromise,
-    autonomyPromise,
-  ]);
-
-  const surfacedCount =
-    ((surfaced.data as Array<{
-      primary_category: string;
-      labels: string[] | null;
-    }> | null) ?? []).filter((row) =>
-      row.primary_category === "CUSTOMER" ||
-      row.primary_category === "PLATFORM_BID" ||
-      (Array.isArray(row.labels) && row.labels.includes("URGENT"))
-    ).length;
-
-  // Merge category_autonomy across connections — latest non-off wins.
-  const mergedMap = {} as Record<EmailThreadCategory, EmailThreadAutonomyLevel>;
-  for (const c of EMAIL_THREAD_CATEGORIES) mergedMap[c] = "off";
-
-  for (const row of (autonomy.data ?? []) as Array<{
-    auto_send_settings: Record<string, unknown> | null;
-  }>) {
-    const settings = row.auto_send_settings ?? {};
-    const catMap = (settings.category_autonomy as Record<string, string>) ?? {};
-    for (const cat of EMAIL_THREAD_CATEGORIES) {
-      const value = catMap[`primary:${cat}`] as EmailThreadAutonomyLevel | undefined;
-      if (value && value !== "off" && mergedMap[cat] === "off") {
-        mergedMap[cat] = value;
-      }
-    }
+async function fetchWeekData(): Promise<PhaseCWeekData> {
+  const response = await authedFetch("/api/agent/phase-c-week-summary");
+  if (!response.ok) {
+    throw new Error("Failed to load Phase C summary");
   }
-
-  return {
-    auto: autoCount.count ?? 0,
-    draft: draftCount.count ?? 0,
-    surfaced: surfacedCount,
-    autonomyMap: mergedMap,
-  };
+  return (await response.json()) as PhaseCWeekData;
 }
 
 // ─── Level → color + label ───────────────────────────────────────────────────
@@ -157,15 +89,15 @@ function levelTone(level: EmailThreadAutonomyLevel): { bg: string; fg: string; l
 export function PhaseCAutonomyWidget({ size, config: _config }: PhaseCAutonomyWidgetProps) {
   const { t: _t } = useDictionary("dashboard");
   const router = useRouter();
-  const { company } = useAuthStore();
+  const { currentUser } = useAuthStore();
   const ref = useRef<HTMLDivElement>(null);
   const isVisible = useWidgetIntersection(ref);
   const _reducedMotion = useReducedMotion();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["phase-c-autonomy-widget", company?.id ?? ""],
-    queryFn: () => fetchWeekData(company!.id),
-    enabled: !!company?.id && isVisible,
+    queryKey: ["phase-c-autonomy-widget", currentUser?.id ?? ""],
+    queryFn: fetchWeekData,
+    enabled: !!currentUser?.id && isVisible,
     refetchInterval: 120_000,
   });
 

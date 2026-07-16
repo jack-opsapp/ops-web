@@ -5,7 +5,7 @@
  *   - sync-engine (upsertFromEmail + classifyAndUpdate on every inbound/
  *     outbound message)
  *   - API routes under /api/inbox/* (list, getThread, archive, snooze,
- *     recategorize, setWritebackPreference)
+ *     recategorize)
  *   - backfill script (upsertFromEmail + classifyAndUpdate on existing
  *     activities)
  *
@@ -60,6 +60,10 @@ import {
 import { assertValidProviderEmailIds } from "@/lib/email/provider-email-ids";
 import type { NormalizedEmail } from "./email-provider";
 import { listEmailThreadSiblings } from "./email-thread-sibling-service";
+import {
+  buildEmailThreadListAuthorizationFilter,
+  type AllowedEmailInboxListAccess,
+} from "@/lib/email/email-opportunity-access";
 
 // ─── Sender-name resolution ──────────────────────────────────────────────────
 //
@@ -718,7 +722,8 @@ export function buildSearchOrExpression(raw: string): string {
 async function listThreads(
   companyId: string,
   userConnectionIds: string[],
-  params: ListInboxThreadsParams
+  params: ListInboxThreadsParams,
+  authorization: AllowedEmailInboxListAccess
 ): Promise<ListInboxThreadsResult> {
   const supabase = requireSupabase();
   const limit = Math.min(params.limit ?? LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX);
@@ -727,6 +732,21 @@ async function listThreads(
     .from("email_threads")
     .select("*")
     .eq("company_id", companyId);
+
+  const authorizationFilter =
+    buildEmailThreadListAuthorizationFilter(authorization);
+  if (authorizationFilter.empty) {
+    return { threads: [], nextCursor: null };
+  }
+  if (authorizationFilter.connectionIds) {
+    query = query.in("connection_id", authorizationFilter.connectionIds);
+  }
+  if (authorizationFilter.unlinkedOnly) {
+    query = query.is("opportunity_id", null);
+  }
+  if (authorizationFilter.or) {
+    query = query.or(authorizationFilter.or);
+  }
 
   // Scope: own mailbox(es) vs all company mail
   if (params.scope === "own") {
@@ -1722,22 +1742,6 @@ export const EmailThreadService = {
   },
 
   /**
-   * Persist the connection-level lead-archive preference. Called once after
-   * the user picks 'archive' or 'leave' on the first opp-linked archive that
-   * had no siblings. Subsequent same-shape archives skip the modal.
-   */
-  async setLeadArchivePreference(
-    connectionId: string,
-    preference: ArchiveLeadPreference
-  ): Promise<void> {
-    const supabase = requireSupabase();
-    await supabase
-      .from("email_connections")
-      .update({ archive_lead_preference: preference })
-      .eq("id", connectionId);
-  },
-
-  /**
    * Archive multiple threads in one transaction-ish unit, plus optionally
    * archive a linked opportunity. Used when the user confirms the
    * multi-select modal — the modal already validated which threads/opp the
@@ -2201,23 +2205,13 @@ export const EmailThreadService = {
     return next;
   },
 
-  async setWritebackPreference(
-    connectionId: string,
-    preference: ArchiveWritebackPreference
-  ): Promise<void> {
-    const supabase = requireSupabase();
-    await supabase
-      .from("email_connections")
-      .update({ archive_writeback_preference: preference })
-      .eq("id", connectionId);
-  },
-
   async list(
     companyId: string,
     userConnectionIds: string[],
-    params: ListInboxThreadsParams
+    params: ListInboxThreadsParams,
+    authorization: AllowedEmailInboxListAccess
   ): Promise<ListInboxThreadsResult> {
-    return listThreads(companyId, userConnectionIds, params);
+    return listThreads(companyId, userConnectionIds, params, authorization);
   },
 
   async getThread(
@@ -2327,12 +2321,14 @@ export const EmailThreadService = {
     companyId: string,
     clientId: string,
     excludingThreadId: string,
+    authorization: AllowedEmailInboxListAccess,
     limit = 5
   ): Promise<EmailThread[]> {
     return listEmailThreadSiblings(
       companyId,
       clientId,
       excludingThreadId,
+      authorization,
       limit
     );
   },
@@ -2341,12 +2337,13 @@ export const EmailThreadService = {
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
 function mapConnectionFromDb(row: Record<string, unknown>): EmailConnection {
+  const type = row.type as EmailConnection["type"];
   return {
     id: row.id as string,
     companyId: row.company_id as string,
     provider: row.provider as EmailConnection["provider"],
-    type: row.type as EmailConnection["type"],
-    userId: (row.user_id as string) ?? null,
+    type,
+    userId: type === "individual" ? ((row.user_id as string) ?? null) : null,
     email: row.email as string,
     accessToken: row.access_token as string,
     refreshToken: row.refresh_token as string,
@@ -2448,9 +2445,8 @@ export type { RailFilter, InboxScope } from "@/lib/types/email-thread";
 //   - URGENT label appeared on an inbound thread (wasn't URGENT before)
 //   - Thread just became PLATFORM_BID
 //
-// Addressed to the connection owner (email_connections.user_id). Uses
-// NotificationService.create — the DB-level dedup index ignores repeat titles
-// in the same company+user while unread, so we don't spam.
+// Addressed through the canonical lead-assignment notification helper. Company
+// mailbox connector metadata is never an actor or notification recipient.
 
 /**
  * Phase C post-classification hook — awaited by classifyAndUpdate.
@@ -2495,92 +2491,11 @@ async function fireThreadNotifications(
   previous: EmailThread,
   next: EmailThread
 ): Promise<void> {
-  const supabase = requireSupabase();
-
-  // Resolve the connection owner — the user who should be notified.
-  const { data: connRow } = await supabase
-    .from("email_connections")
-    .select("user_id")
-    .eq("id", next.connectionId)
-    .maybeSingle();
-  const userId = (connRow?.user_id as string | null) ?? null;
-  if (!userId) return;
-
-  // CUSTOMER threads are the post-migration unification of LEAD + CLIENT
-  // (20260428061836_collapse_lead_client_to_customer). The notification still
-  // labels the event "New lead" because the operator-facing concept that
-  // matters is "a customer-side conversation just landed" — the inbound
-  // direction filter below preserves the semantic.
-  const wasCustomer = previous.primaryCategory === "CUSTOMER";
-  const isCustomer = next.primaryCategory === "CUSTOMER";
-  const wasPlatform = previous.primaryCategory === "PLATFORM_BID";
-  const isPlatform = next.primaryCategory === "PLATFORM_BID";
-  const wasUrgent = previous.labels.includes("URGENT");
-  const isUrgent = next.labels.includes("URGENT");
-
-  const sender =
-    next.latestSenderName || next.latestSenderEmail || "Unknown sender";
-  const subject = next.subject?.trim() || "(no subject)";
-  // These page the operator to the inbox thread surface, so deep_link_type is
-  // `inbox` and the thread id is always present in the URL (no email_threads
-  // join needed at tap time). When the thread is already linked to an
-  // opportunity we attach it explicitly too, so a consumer can recover the lead
-  // without that join either.
-  const actionUrl = next.opportunityId
-    ? `/inbox?thread=${next.id}&opportunityId=${next.opportunityId}`
-    : `/inbox?thread=${next.id}`;
-
-  const { NotificationService } = await import("./notification-service");
-
-  // Newly-classified CUSTOMER thread, only on inbound — outbound CUSTOMER
-  // transitions are us replying to ourselves and don't warrant a page.
-  if (isCustomer && !wasCustomer && next.latestDirection === "inbound") {
-    await NotificationService.create({
-      userId,
-      companyId: next.companyId,
-      type: "leads_waiting",
-      title: `New lead: ${sender}`,
-      body: subject,
-      persistent: false,
-      actionUrl,
-      actionLabel: "Open thread",
-      deepLinkType: "inbox",
-    });
-  }
-
-  // New PLATFORM_BID
-  if (isPlatform && !wasPlatform) {
-    // Extract platform name from sender domain when possible.
-    const domain = next.latestSenderEmail?.split("@")[1] ?? "Platform";
-    const platform = domain
-      .split(".")[0]
-      .replace(/[-_]/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-    await NotificationService.create({
-      userId,
-      companyId: next.companyId,
-      type: "leads_waiting",
-      title: `Platform bid: ${platform}`,
-      body: subject,
-      persistent: false,
-      actionUrl,
-      actionLabel: "Review",
-      deepLinkType: "inbox",
-    });
-  }
-
-  // URGENT reply needed — only when the flag is NEW and the latest msg is inbound.
-  if (isUrgent && !wasUrgent && next.latestDirection === "inbound") {
-    await NotificationService.create({
-      userId,
-      companyId: next.companyId,
-      type: "role_needed",
-      title: `Urgent reply needed: ${sender}`,
-      body: subject,
-      persistent: false,
-      actionUrl,
-      actionLabel: "Reply now",
-      deepLinkType: "inbox",
-    });
-  }
+  const { createClassifiedEmailThreadNotifications } =
+    await import("@/lib/email/email-opportunity-notification");
+  await createClassifiedEmailThreadNotifications({
+    previous,
+    next,
+    supabase: requireSupabase(),
+  });
 }

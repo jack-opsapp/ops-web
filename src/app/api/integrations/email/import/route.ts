@@ -4,7 +4,7 @@
  * POST /api/integrations/email/import
  * Imports confirmed leads from the wizard Step 4.
  * Creates clients, opportunities, activity records, and thread links.
- * Applies "OPS Pipeline" label to imported threads.
+ * Queues a durable "OPS Pipeline" label operation for imported threads.
  *
  * Runs as a background job via after() — returns a jobId immediately
  * and continues processing server-side. Survives browser close.
@@ -38,8 +38,21 @@ import {
 import { extractEmailAddress } from "@/lib/utils/email-parsing";
 import type { ImportPayload, ImportResult } from "@/lib/types/email-import";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import {
+  approveEmailImportPayload,
+  EmailImportApprovalError,
+  fingerprintEmailImportPayload,
+} from "@/lib/email/email-import-approval";
+import {
+  completeEmailImportJob,
+  createOrResumeEmailImportJob,
+  EmailImportJobAccessError,
+  loadAuthorizedEmailImportJob,
+  loadEmailImportSourceForActor,
+} from "@/lib/email/email-import-job-access";
+import { assignPersonalMailboxLead } from "@/lib/email/personal-mailbox-lead-assignment";
 
 export const maxDuration = 300;
 
@@ -179,165 +192,215 @@ function exactImportMessages({
   return messages;
 }
 
-export async function POST(request: NextRequest) {
-  const payload: ImportPayload = await request.json();
-  const { connectionId, companyId, leads } = payload;
+async function requireImportOpportunityEdit({
+  supabase,
+  actorUserId,
+  opportunityId,
+}: {
+  supabase: SupabaseClient;
+  actorUserId: string;
+  opportunityId: string;
+}) {
+  const { data, error } = await supabase.rpc(
+    "authorize_opportunity_action_as_system",
+    {
+      p_actor_user_id: actorUserId,
+      p_opportunity_id: opportunityId,
+      p_action: "edit",
+    }
+  );
+  if (error || data !== true) {
+    throw new Error(
+      `Imported lead edit is no longer authorized: ${error?.message ?? "access denied"}`
+    );
+  }
+}
 
-  if (!connectionId || !companyId || !leads?.length) {
+export async function POST(request: NextRequest) {
+  let submitted: unknown;
+  try {
+    submitted = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid import request" }, { status: 400 });
+  }
+  const submittedRecord =
+    submitted && typeof submitted === "object" && !Array.isArray(submitted)
+      ? (submitted as Record<string, unknown>)
+      : null;
+  const connectionId =
+    typeof submittedRecord?.connectionId === "string"
+      ? submittedRecord.connectionId
+      : "";
+  const claimedCompanyId =
+    typeof submittedRecord?.companyId === "string"
+      ? submittedRecord.companyId
+      : "";
+
+  if (!connectionId || !claimedCompanyId) {
     return NextResponse.json(
-      { error: "connectionId, companyId, and leads required" },
+      { error: "Mailbox and company are required" },
       { status: 400 }
     );
   }
 
-  const authError = await requireEmailCompanyAccess(request, companyId);
-  if (authError) return authError;
+  const actorResolution = await resolveEmailRouteActor(request, {
+    claimedCompanyId,
+  });
+  if (!actorResolution.ok) return actorResolution.response;
 
   const supabase = getServiceRoleClient();
-
-  // Validate connection exists. Runs inside the supabase context so any
-  // nested services that call requireSupabase() land on the service-role
-  // client, isolated from concurrent requests via AsyncLocalStorage.
-  const connection = await runWithSupabase(supabase, () =>
-    EmailService.getConnection(connectionId)
-  );
-
-  if (!connection || connection.companyId !== companyId) {
-    return NextResponse.json(
-      { error: "Connection not found" },
-      { status: 404 }
-    );
-  }
-
-  // existingClientId is caller-controlled. Resolve every supplied ID through
-  // the authenticated company before queuing any background work so discard,
-  // merge, link, and sub-client actions can never target another tenant.
-  const suppliedClientIds = Array.from(
-    new Set(
-      leads
-        .map((lead) => lead.existingClientId)
-        .filter((id): id is string => Boolean(id))
-    )
-  );
-  if (suppliedClientIds.length > 0) {
-    const { data: ownedClients, error: ownedClientsError } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("company_id", companyId)
-      .in("id", suppliedClientIds)
-      .is("deleted_at", null);
-
-    if (ownedClientsError) {
-      return NextResponse.json(
-        { error: "Failed to validate selected clients" },
-        { status: 500 }
-      );
+  let job: Awaited<ReturnType<typeof createOrResumeEmailImportJob>>;
+  try {
+    const source = await loadEmailImportSourceForActor({
+      supabase,
+      actorUserId: actorResolution.actor.userId,
+      connectionId,
+    });
+    if (
+      source.companyId !== actorResolution.actor.companyId ||
+      source.companyId !== claimedCompanyId ||
+      source.connectionId !== connectionId
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const ownedClientIds = new Set(
-      (ownedClients ?? []).map((client) => client.id)
-    );
-    if (suppliedClientIds.some((id) => !ownedClientIds.has(id))) {
+    const approvedPayload = approveEmailImportPayload({
+      submitted,
+      sourceResult: source.result,
+      expectedCompanyId: source.companyId,
+      expectedConnectionId: source.connectionId,
+      expectedConnectionEmail: source.connectionEmail,
+    });
+    const approvalFingerprint = fingerprintEmailImportPayload(approvedPayload);
+    job = await createOrResumeEmailImportJob({
+      supabase,
+      actorUserId: actorResolution.actor.userId,
+      sourceScanJobId: source.sourceScanJobId,
+      approvedPayload,
+      approvalFingerprint,
+    });
+    if (job.shouldDispatch && !job.resumed) {
+      const selectedClientIds = Array.from(
+        new Set(
+          approvedPayload.leads
+            .map((lead) => lead.existingClientId)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+      if (selectedClientIds.length > 0) {
+        const { data: selectedClients, error: selectedClientsError } =
+          await supabase
+            .from("clients")
+            .select("id")
+            .eq("company_id", source.companyId)
+            .in("id", selectedClientIds)
+            .is("deleted_at", null);
+        if (selectedClientsError) {
+          return NextResponse.json(
+            { error: "Selected customers could not be verified" },
+            { status: 500 }
+          );
+        }
+        const verifiedIds = new Set(
+          (selectedClients ?? []).map((client) => client.id)
+        );
+        if (selectedClientIds.some((id) => !verifiedIds.has(id))) {
+          return NextResponse.json(
+            { error: "One or more selected customers are unavailable" },
+            { status: 400 }
+          );
+        }
+      }
+    }
+  } catch (error) {
+    if (error instanceof EmailImportApprovalError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof EmailImportJobAccessError) {
+      console.error("[email-import] Approval authorization failed", {
+        reason: error.reason,
+        databaseCode: error.databaseCode,
+        message: error.message,
+      });
+      const invalidSelection =
+        error.databaseCode === "23503" || error.databaseCode === "22023";
+      const accessDenied = error.databaseCode === "42501";
+      const noLongerAvailable = ["P0002", "23505", "40001", "55000"].includes(
+        error.databaseCode ?? ""
+      );
       return NextResponse.json(
-        { error: "One or more selected clients are unavailable" },
-        { status: 400 }
+        {
+          error: invalidSelection
+            ? "One or more selected customers are unavailable"
+            : "Import approval is no longer available",
+        },
+        {
+          status: invalidSelection
+            ? 400
+            : accessDenied
+              ? 403
+              : noLongerAvailable || error.reason !== "rpc_failed"
+                ? 409
+                : 500,
+        }
       );
     }
+    throw error;
   }
-
-  // ─── Create import job ──────────────────────────────────────────────────────
-  const { data: job, error: jobError } = await supabase
-    .from("gmail_scan_jobs")
-    .insert({
-      connection_id: connectionId,
-      company_id: companyId,
-      status: "importing",
-      progress: {
-        stage: "importing",
-        percent: 0,
-        message: `Starting import of ${leads.length} leads...`,
-        totalLeads: leads.length,
-        processedLeads: 0,
-        clientsCreated: 0,
-        leadsCreated: 0,
-        labelsApplied: 0,
-      },
-    })
-    .select()
-    .single();
-
-  if (jobError || !job) {
-    return NextResponse.json(
-      { error: "Failed to create import job" },
-      { status: 500 }
-    );
-  }
-
-  // Save import job ID to connection for wizard state restoration
-  const existingFilters = (connection.syncFilters || {}) as Record<
-    string,
-    unknown
-  >;
-  await supabase
-    .from("email_connections")
-    .update({
-      sync_filters: {
-        ...existingFilters,
-        lastImportJobId: job.id,
-        wizardStep: 4,
-      },
-    })
-    .eq("id", connectionId);
 
   // ─── Run import in background ─────────────────────────────────────────────
   // runWithSupabase pins the service-role client to this async chain so that
   // every requireSupabase() call inside the 90s+ loop resolves to the right
   // client — even while concurrent requests finish their own overrides.
-  after(async () => {
-    const bgSupabase = getServiceRoleClient();
-    await runWithSupabase(bgSupabase, async () => {
-      try {
-        await runImport(job.id, payload, connection, bgSupabase);
-      } catch (err) {
-        console.error("[email-import] Import failed:", err);
-        await bgSupabase
-          .from("gmail_scan_jobs")
-          .update({
-            status: "import_error",
-            error_message: (err as Error).message,
-          })
-          .eq("id", job.id);
-      }
+  if (job.shouldDispatch) {
+    after(async () => {
+      const bgSupabase = getServiceRoleClient();
+      await runWithSupabase(bgSupabase, async () => {
+        try {
+          await runImport(job.jobId, bgSupabase);
+        } catch (err) {
+          console.error("[email-import] Import failed:", err);
+          await bgSupabase
+            .from("gmail_scan_jobs")
+            .update({
+              status: "import_error",
+              error_message:
+                err instanceof Error ? err.message : "Import failed",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", job.jobId)
+            .eq("status", "importing");
+        }
+      });
     });
-  });
+  }
 
-  return NextResponse.json({ jobId: job.id });
+  return NextResponse.json({ jobId: job.jobId });
 }
 
 // ─── Background import logic ──────────────────────────────────────────────────
 
 async function runImport(
   jobId: string,
-  payload: ImportPayload,
-  connection: Awaited<ReturnType<typeof EmailService.getConnection>>,
   supabase: SupabaseClient
 ) {
+  const authorizedJob = await loadAuthorizedEmailImportJob({ supabase, jobId });
+  const payload = authorizedJob.approvedPayload;
   const { connectionId, companyId, leads } = payload;
+  const connection = await EmailService.getConnection(connectionId);
 
-  if (!connection) throw new Error("Connection not found");
-
-  const provider = EmailService.getProvider(connection);
-
-  // Get or create the OPS Pipeline label
-  let labelId = connection.opsLabelId || "";
-  if (!labelId) {
-    try {
-      const existingLabels = await provider.listLabels();
-      const existing = existingLabels.find((l) => l.name === "OPS Pipeline");
-      labelId = existing?.id || (await provider.createLabel("OPS Pipeline"));
-    } catch (err) {
-      console.error("[email-import] Failed to create/find label:", err);
-    }
+  if (
+    !connection ||
+    connection.id !== connectionId ||
+    connection.companyId !== companyId ||
+    connection.type !== authorizedJob.connectionType ||
+    (connection.type === "individual"
+      ? connection.userId !== authorizedJob.connectionOwnerUserId
+      : authorizedJob.connectionOwnerUserId !== null) ||
+    !connection.syncEnabled ||
+    connection.status !== "active"
+  ) {
+    throw new Error("Import mailbox authorization changed");
   }
 
   const result: ImportResult = {
@@ -354,6 +417,7 @@ async function runImport(
     await supabase
       .from("gmail_scan_jobs")
       .update({
+        updated_at: new Date().toISOString(),
         progress: {
           stage: "importing",
           percent,
@@ -383,6 +447,20 @@ async function runImport(
     await updateProgress(i, `Importing lead ${i + 1} of ${leads.length}...`);
 
     try {
+      const currentAuthorization = await loadAuthorizedEmailImportJob({
+        supabase,
+        jobId,
+      });
+      if (
+        currentAuthorization.actorUserId !== authorizedJob.actorUserId ||
+        currentAuthorization.companyId !== companyId ||
+        currentAuthorization.connectionId !== connectionId ||
+        currentAuthorization.approvalFingerprint !==
+          authorizedJob.approvalFingerprint
+      ) {
+        throw new Error("Import authorization changed");
+      }
+
       // ── Handle discard — skip this lead entirely ──────────────────────
       if (lead.action === "discard") {
         console.log(
@@ -457,22 +535,18 @@ async function runImport(
       // Use local variables to avoid mutating the payload object
       let effectiveAction = lead.action;
       let effectiveExistingClientId = lead.existingClientId;
+      const pendingDiscardClientId =
+        effectiveAction === "discard_existing" && effectiveExistingClientId
+          ? effectiveExistingClientId
+          : null;
 
-      // ── Handle discard_existing — soft-delete existing, create new ────
-      if (effectiveAction === "discard_existing" && effectiveExistingClientId) {
+      // The selected client is discarded only after every lead, thread, and
+      // message write succeeds. A mid-import error must never destroy the old
+      // customer record before its replacement is durable.
+      if (pendingDiscardClientId) {
         console.log(
-          `[email-import] DISCARD_EXISTING: Soft-deleting client ${effectiveExistingClientId}, creating new for "${lead.clientName}"`
+          `[email-import] DISCARD_EXISTING: preparing replacement for client ${pendingDiscardClientId}`
         );
-        const { error: discardError } = await supabase
-          .from("clients")
-          .update({ deleted_at: new Date().toISOString() })
-          .eq("id", effectiveExistingClientId)
-          .eq("company_id", companyId);
-        if (discardError) {
-          throw new Error(
-            `Failed to discard selected client: ${discardError.message}`
-          );
-        }
         effectiveAction = "create_new";
         effectiveExistingClientId = null;
       }
@@ -579,10 +653,13 @@ async function runImport(
           .eq("company_id", companyId)
           .ilike("email", escapeIlikeLiteral(lead.clientEmail.toLowerCase()))
           .is("deleted_at", null)
-          .limit(1);
+          .limit(pendingDiscardClientId ? 20 : 1);
 
-        if (existingClients && existingClients.length > 0) {
-          clientId = existingClients[0].id;
+        const reusableClient = (existingClients ?? []).find(
+          (candidate) => candidate.id !== pendingDiscardClientId
+        );
+        if (reusableClient) {
+          clientId = reusableClient.id;
         } else {
           const newClient = await ClientService.createClient({
             name: lead.clientName,
@@ -742,11 +819,17 @@ async function runImport(
 
       let opportunityId: string;
       let opportunityAggregatesSeededByImport = false;
+      let opportunityCreatedForImport = false;
 
       if (relationshipDecision.action === "link") {
         opportunityId = relationshipDecision.opportunityId;
         clientId = relationshipDecision.clientId ?? clientId;
         mergeMap.set(lead.id, clientId);
+        await requireImportOpportunityEdit({
+          supabase,
+          actorUserId: authorizedJob.actorUserId,
+          opportunityId,
+        });
         await applyCanonicalLeadEnrichment({
           supabase,
           opportunityId,
@@ -765,6 +848,11 @@ async function runImport(
           .is("source_email_id", null);
       } else if (existingOpps && existingOpps.length > 0) {
         opportunityId = existingOpps[0].id;
+        await requireImportOpportunityEdit({
+          supabase,
+          actorUserId: authorizedJob.actorUserId,
+          opportunityId,
+        });
         await applyCanonicalLeadEnrichment({
           supabase,
           opportunityId,
@@ -829,6 +917,7 @@ async function runImport(
           });
           opportunityId = opp.id;
           createdOpportunity = true;
+          opportunityCreatedForImport = true;
           opportunityAggregatesSeededByImport = true;
         } catch (createError) {
           if (databaseErrorCode(createError) !== "23505") {
@@ -857,6 +946,7 @@ async function runImport(
             );
           }
           opportunityId = winner.id as string;
+          opportunityCreatedForImport = true;
           // The source-key winner came from the same import path and therefore
           // already seeded its aggregate correspondence counts.
           opportunityAggregatesSeededByImport = true;
@@ -910,6 +1000,52 @@ async function runImport(
           });
         }
         if (createdOpportunity) result.leadsCreated++;
+
+        if (
+          opportunityCreatedForImport &&
+          authorizedJob.connectionType === "individual"
+        ) {
+          const { data: assignmentSnapshot, error: assignmentSnapshotError } =
+            await supabase
+              .from("opportunities")
+              .select("assigned_to, assignment_version")
+              .eq("id", opportunityId)
+              .eq("company_id", companyId)
+              .maybeSingle();
+          if (assignmentSnapshotError || !assignmentSnapshot) {
+            throw new Error(
+              `Failed to load imported lead assignment: ${assignmentSnapshotError?.message ?? "lead not found"}`
+            );
+          }
+          const assignmentVersion = Number(
+            assignmentSnapshot.assignment_version ?? 0
+          );
+          if (!Number.isInteger(assignmentVersion) || assignmentVersion < 0) {
+            throw new Error("Imported lead assignment version is invalid");
+          }
+          await assignPersonalMailboxLead(
+            {
+              connectionType: authorizedJob.connectionType,
+              connectionId,
+              connectionOwnerId: authorizedJob.connectionOwnerUserId,
+              opportunityId,
+              expectedAssignmentVersion: assignmentVersion,
+              expectedAssignedTo:
+                typeof assignmentSnapshot.assigned_to === "string"
+                  ? assignmentSnapshot.assigned_to
+                  : null,
+              providerThreadId,
+              ingestionSource: "email_import",
+            },
+            supabase
+          );
+        }
+
+        await requireImportOpportunityEdit({
+          supabase,
+          actorUserId: authorizedJob.actorUserId,
+          opportunityId,
+        });
 
         // Patch fields that CreateOpportunity omits
         const patches: Record<string, unknown> = {};
@@ -1317,19 +1453,38 @@ async function runImport(
         }
       }
 
-      // Apply label to thread
-      if (labelId) {
-        for (const importedProviderThreadId of importedProviderThreadIds) {
-          try {
-            await provider.applyLabel(importedProviderThreadId, labelId);
-            result.labelsApplied++;
-          } catch (labelErr) {
-            // Non-fatal
-            console.error(
-              `[email-import] Failed to apply label to thread ${importedProviderThreadId}:`,
-              labelErr
-            );
-          }
+      // Provider mutations run only from the durable operation worker after
+      // the import job commits. The import request/background callback never
+      // holds provider state or performs a label write directly.
+      for (const importedProviderThreadId of importedProviderThreadIds) {
+        const { data: labelIntentQueued, error: labelIntentError } =
+          await supabase.rpc(
+            "enqueue_email_import_provider_operation_as_system",
+            {
+              p_job_id: jobId,
+              p_provider_thread_id: importedProviderThreadId,
+            }
+          );
+        if (labelIntentError || labelIntentQueued !== true) {
+          throw new Error(
+            `Failed to queue mailbox label: ${labelIntentError?.message ?? "operation rejected"}`
+          );
+        }
+      }
+
+      if (pendingDiscardClientId) {
+        if (clientId === pendingDiscardClientId) {
+          throw new Error("Replacement client was not created");
+        }
+        const { error: discardError } = await supabase
+          .from("clients")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", pendingDiscardClientId)
+          .eq("company_id", companyId);
+        if (discardError) {
+          throw new Error(
+            `Failed to discard selected client: ${discardError.message}`
+          );
         }
       }
     } catch (err) {
@@ -1347,6 +1502,7 @@ async function runImport(
       .update({
         status: "import_error",
         error_message: result.errors.join("\n"),
+        updated_at: new Date().toISOString(),
         progress: {
           stage: "import_error",
           percent: Math.round((processedLeads / leads.length) * 100),
@@ -1379,67 +1535,53 @@ async function runImport(
   // The wizard polls analyze-status and advances past step 4 once status flips
   // to import_complete. Attachment scans were queued at each exact activity
   // boundary and continue independently through the durable worker.
-  await supabase
-    .from("gmail_scan_jobs")
-    .update({
-      status: "import_complete",
-      progress: {
-        stage: "import_complete",
-        percent: 100,
-        message: "Import complete",
-        totalLeads: leads.length,
-        processedLeads: leads.length,
-        clientsCreated: result.clientsCreated,
-        leadsCreated: result.leadsCreated,
-        labelsApplied: result.labelsApplied,
-      },
-      result,
-    })
-    .eq("id", jobId);
-
-  // ─── Update connection state ──────────────────────────────────────────────
-  const { data: currentConn } = await supabase
-    .from("email_connections")
-    .select("sync_filters, user_id, company_id")
-    .eq("id", connectionId)
-    .single();
-
-  const existingFilters =
-    (currentConn?.sync_filters as Record<string, unknown>) || {};
-
-  await supabase
-    .from("email_connections")
-    .update({
-      sync_filters: {
-        ...existingFilters,
-        lastImportJobId: jobId,
-        wizardStep: 5,
-        importComplete: true,
-      },
-    })
-    .eq("id", connectionId);
+  const completionAuthorization = await loadAuthorizedEmailImportJob({
+    supabase,
+    jobId,
+  });
+  if (
+    completionAuthorization.actorUserId !== authorizedJob.actorUserId ||
+    completionAuthorization.approvalFingerprint !==
+      authorizedJob.approvalFingerprint
+  ) {
+    throw new Error("Import authorization changed before completion");
+  }
+  const completionProgress = {
+    stage: "import_complete",
+    percent: 100,
+    message: "Import complete",
+    totalLeads: leads.length,
+    processedLeads: leads.length,
+    clientsCreated: result.clientsCreated,
+    leadsCreated: result.leadsCreated,
+    labelsApplied: result.labelsApplied,
+  };
+  await completeEmailImportJob({
+    supabase,
+    jobId,
+    result: result as unknown as Record<string, unknown>,
+    progress: completionProgress,
+  });
 
   // ─── Create notification for background completion ────────────────────────
-  if (currentConn?.user_id) {
-    await supabase
-      .from("notifications")
-      .insert({
-        user_id: currentConn.user_id,
-        company_id: currentConn.company_id || companyId,
-        type: "mention",
-        title: "Pipeline import complete",
-        body: `Created ${result.clientsCreated} client${result.clientsCreated !== 1 ? "s" : ""} and ${result.leadsCreated} lead${result.leadsCreated !== 1 ? "s" : ""}`,
-        is_read: false,
-        persistent: true,
-        action_url: "/settings?tab=integrations",
-        action_label: "Activate Sync",
-      })
-      .then(({ error: notifErr }) => {
-        if (notifErr)
-          console.error(
-            "[email-import] Failed to create notification:",
-            notifErr.message
-          );
-      });
-  }
+  await supabase
+    .from("notifications")
+    .insert({
+      user_id: authorizedJob.actorUserId,
+      company_id: companyId,
+      type: "mention",
+      title: "Pipeline import complete",
+      body: `Created ${result.clientsCreated} client${result.clientsCreated !== 1 ? "s" : ""} and ${result.leadsCreated} lead${result.leadsCreated !== 1 ? "s" : ""}`,
+      is_read: false,
+      persistent: true,
+      action_url: "/settings?tab=integrations",
+      action_label: "Activate Sync",
+    })
+    .then(({ error: notifErr }) => {
+      if (notifErr)
+        console.error(
+          "[email-import] Failed to create notification:",
+          notifErr.message
+        );
+    });
 }

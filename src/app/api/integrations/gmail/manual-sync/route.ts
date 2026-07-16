@@ -22,7 +22,7 @@ import {
   SubscriptionStatus,
   type Company,
 } from "@/lib/types/models";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
 
 type CompanySubscriptionFields = Pick<
   Company,
@@ -63,8 +63,21 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const authError = await requireEmailCompanyAccess(request, companyId);
-    if (authError) return authError;
+    const access = await resolveEmailConnectionOperationAccess({
+      request,
+      claimedCompanyId: companyId,
+      requireUsable: true,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
+    }
 
     // ── Subscription gate ───────────────────────────────────────────────
     // Fail closed — a broken company lookup must never let a lapsed
@@ -97,10 +110,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Load active email connections for this company (gmail or M365).
+    const activeConnectionIds = access.connections
+      .filter((connection) => connection.status === "active")
+      .map((connection) => connection.id);
+    if (activeConnectionIds.length === 0) {
+      return NextResponse.json({
+        ok: true,
+        connectionsProcessed: 0,
+        totalActivitiesCreated: 0,
+        results: [],
+      });
+    }
+
     const { data: connections, error: connectionsError } = await supabase
       .from("email_connections")
       .select("id, email")
-      .eq("company_id", companyId)
+      .in("id", activeConnectionIds)
       .eq("sync_enabled", true)
       .eq("status", "active");
 

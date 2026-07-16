@@ -14,6 +14,7 @@ import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getCompanyManagerUserIds } from "./company-managers";
 import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
+import { resolveNewEmailConversationConnectionId } from "@/lib/email/email-connection-selection";
 import type { Locale } from "@/i18n/types";
 import type {
   ReminderTone,
@@ -425,15 +426,12 @@ Key details to include:
 - Write the email in ${locale === "es" ? "Spanish" : "English"} so the client can read it in their preferred language.`;
 
     // Find email connection once (used for both draft generation and action_data)
-    const { data: connRows } = await supabase
-      .from("email_connections")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("user_id", userId)
-      .eq("is_active", true)
-      .limit(1);
-
-    const emailConnectionId = (connRows?.[0]?.id as string) ?? null;
+    const emailConnectionId =
+      await resolveNewEmailConversationConnectionId({
+        supabase,
+        companyId,
+        actorUserId: userId,
+      });
 
     // Generate the draft via AI
     let draftText: string;

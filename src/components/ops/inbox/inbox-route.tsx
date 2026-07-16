@@ -68,13 +68,10 @@ import {
 import { useClientProjects } from "@/lib/hooks/use-client-projects";
 import { useClientTasks } from "@/lib/hooks/use-client-tasks";
 import { useClientFiles } from "@/lib/hooks/use-client-files";
-import { useClient, useSubClients } from "@/lib/hooks/use-clients";
-import { useThreadOpportunityLinks } from "@/lib/hooks/use-thread-opportunity-links";
 import { useClientThreads } from "@/lib/hooks/use-client-threads";
 import { ThreadPicker, type ThreadPickerThread } from "./thread-picker";
 import { StateTag } from "./state-tag";
 import { computeStateTag } from "@/lib/inbox/format-wait";
-import { deriveStripContact } from "@/lib/inbox/derive-strip-contact";
 import { useWindowStore } from "@/stores/window-store";
 import { ResponsiveInboxShell } from "./responsive-inbox-shell";
 import type { MobileInboxPane } from "./mobile-stacked-shell";
@@ -111,7 +108,6 @@ import type {
   InboxThreadMessage,
 } from "@/lib/hooks/use-inbox-threads";
 import type { ThreadAttachmentDto } from "@/lib/inbox/adapt-thread-attachment";
-import type { Opportunity } from "@/lib/types/pipeline";
 import { inboxThreadHref, threadIdFromInboxPathname } from "./inbox-navigation";
 
 interface InboxRouteProps {
@@ -146,6 +142,12 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const userId = useAuthStore(selectUserId);
   const companyId = useAuthStore(selectCompanyId);
   const sendReply = useSendReply();
+  const sendAttemptRef = useRef<{
+    key: string;
+    body: string;
+    subject: string;
+    recipient: string;
+  } | null>(null);
   const threadActions = useThreadActions();
   const answerAgentQuestion = useAnswerAgentQuestion();
   const resolveCommitment = useResolveCommitment();
@@ -338,11 +340,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     }
   }, [detail, selectedThreadId, threadActions.markRead, threads]);
 
-  // providerThreadId lives on InboxThreadRow but not on InboxThreadDetail.
-  // Cross-reference the list to recover it for outbound send threading.
-  const providerThreadId =
-    threads.find((row) => row.id === selectedThreadId)?.providerThreadId ??
-    null;
+  // Detail is the canonical, freshly-authorized source for transport identity.
+  // This remains available for a deep-linked thread outside the current page.
+  const providerThreadId = detail?.thread.providerThreadId ?? null;
 
   // Drafts scoped to the current thread. Provider/AI drafts match by provider
   // thread id; local lifecycle drafts can also navigate by internal inbox id
@@ -493,12 +493,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       return () => window.clearTimeout(handle);
     }
 
-    // Detail wire shape doesn't expose connectionId — only the list row does.
-    // Fall back gracefully when the row isn't in the current page (deep-link
-    // to a thread that's outside the first cursor window).
-    const conn =
-      threads.find((row) => row.id === selectedThreadId)?.connectionId ?? null;
-    if (!conn) return;
+    const conn = detail.thread.connectionId;
 
     const lastInbound = [...detail.messages]
       .reverse()
@@ -542,23 +537,24 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     isPristineDraft,
     activeDraft,
     providerThreadId,
-    threads,
   ]);
 
-  const opportunitiesQuery = useClientOpportunities(clientId);
-  const wonOpportunitiesQuery = useClientOpportunitiesWon(clientId);
-  const projectsQuery = useClientProjects(clientId);
-  const tasksQuery = useClientTasks(clientId);
-  const filesQuery = useClientFiles(clientId, selectedThreadId);
-  const clientQuery = useClient(clientId ?? undefined);
-  const subClientsQuery = useSubClients(clientId ?? undefined);
+  const contextClientId =
+    detail?.thread.pipelineScope === "all" ? clientId : null;
+  const opportunitiesQuery = useClientOpportunities(contextClientId);
+  const wonOpportunitiesQuery = useClientOpportunitiesWon(contextClientId);
+  const projectsQuery = useClientProjects(contextClientId);
+  const tasksQuery = useClientTasks(contextClientId);
+  const filesQuery = useClientFiles(contextClientId, selectedThreadId);
   const clientThreadsQuery = useClientThreads(clientId, {
     excludeId: selectedThreadId,
   });
-  const linkedOpsQuery = useThreadOpportunityLinks(selectedThreadId);
   const linkedOppIds = useMemo(
-    () => new Set(linkedOpsQuery.data ?? []),
-    [linkedOpsQuery.data]
+    () =>
+      new Set(
+        detail?.thread.opportunityId ? [detail.thread.opportunityId] : []
+      ),
+    [detail?.thread.opportunityId]
   );
   const threadAttachments = filesQuery.data?.threadAttachments ?? [];
   const openThreadAttachment = useCallback((url: string) => {
@@ -1055,7 +1051,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       currentDetail: NonNullable<typeof detail>,
       draft: Pick<RenderableDraft, "id" | "source" | "subject"> | null
     ) => {
-      if (!userId || !companyId || !selectedThreadId) return;
+      if (!selectedThreadId) return;
       // Free-form answer path: when an unresolved agent question is
       // attached to this thread, treat the operator's typed reply as
       // both the email body AND the question's answer. Fire-and-forget
@@ -1082,17 +1078,29 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       const replySubject = normalizeReplySubject(
         draftSubject || subjectBase || "(no subject)"
       );
+      const priorAttempt = sendAttemptRef.current;
+      const idempotencyKey =
+        priorAttempt &&
+        priorAttempt.body === value &&
+        priorAttempt.subject === replySubject &&
+        priorAttempt.recipient === recipient
+          ? priorAttempt.key
+          : globalThis.crypto.randomUUID();
+      sendAttemptRef.current = {
+        key: idempotencyKey,
+        body: value,
+        subject: replySubject,
+        recipient,
+      };
       sendReply.mutate(
         {
-          userId,
-          companyId,
           payload: {
+            idempotencyKey,
             threadId: selectedThreadId,
             to: [recipient],
             subject: replySubject,
             body: value,
-            inReplyTo: lastInbound?.id ?? null,
-            providerThreadId: providerThreadId ?? null,
+            inReplyTo: lastInbound?.providerMessageId ?? null,
             opportunityId: currentDetail.thread.opportunityId,
             draftHistoryId: draft?.source === "ai" ? draft.id : null,
             followUpDraftId: draft?.source === "lifecycle" ? draft.id : null,
@@ -1104,6 +1112,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             setComposerValue("");
             setActiveDraftId(null);
             setSendCompletedAt(Date.now());
+            sendAttemptRef.current = null;
             // Once the send lands, the provider auto-removes the draft
             // it was based on (Gmail drafts.send / Graph sendDraft both
             // do this). Clear our local tracking so the next typed reply
@@ -1123,12 +1132,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     },
     [
       answerAgentQuestion,
-      companyId,
-      providerThreadId,
       selectedThreadId,
       sendReply,
       t,
-      userId,
     ]
   );
 
@@ -1407,8 +1413,22 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     </div>
   );
 
-  const opportunities = opportunitiesQuery.data ?? [];
-  const wonOpportunities = wonOpportunitiesQuery.data ?? [];
+  const linkedOpportunity = detail?.linkedOpportunity ?? null;
+  const linkedOpportunityIsWon = linkedOpportunity?.stage === "won";
+  const linkedOpportunityIsOpen = Boolean(
+    linkedOpportunity &&
+      !["won", "lost", "discarded"].includes(linkedOpportunity.stage)
+  );
+  const opportunities = contextClientId
+    ? (opportunitiesQuery.data ?? [])
+    : linkedOpportunityIsOpen && linkedOpportunity
+      ? [linkedOpportunity]
+      : [];
+  const wonOpportunities = contextClientId
+    ? (wonOpportunitiesQuery.data ?? [])
+    : linkedOpportunityIsWon && linkedOpportunity
+      ? [linkedOpportunity]
+      : [];
   const projects = projectsQuery.data ?? [];
   const tasks = tasksQuery.data ?? [];
   const photos = filesQuery.data?.photos ?? [];
@@ -1446,21 +1466,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
 
   const senderEmail =
     detail?.messages.find((m) => m.direction === "inbound")?.from ?? null;
-  const client = clientQuery.data ?? null;
-  const stripContact = useMemo(
-    () =>
-      deriveStripContact({
-        client,
-        opportunities: [...opportunities, ...wonOpportunities],
-        projects,
-      }),
-    [client, opportunities, wonOpportunities, projects]
-  );
-  const subClientCount = subClientsQuery.data?.length ?? 0;
-  const subtitle =
-    subClientCount > 0
-      ? `${subClientCount} ${subClientCount === 1 ? t("rail.subclient", "SUBCLIENT") : t("rail.subclients", "SUBCLIENTS")}`
-      : null;
+  const client = detail?.clientContext ?? null;
 
   // <ContextRail> is now always mounted. It renders the unlinked-state
   // header internally when `client` is undefined — see context-rail.tsx
@@ -1473,10 +1479,11 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         clientId
           ? {
               name: client?.name ?? detail?.thread.clientName ?? "",
-              subtitle,
-              email: client?.email ?? senderEmail,
-              phone: stripContact.phone,
-              address: stripContact.address,
+              subtitle: null,
+              email:
+                client?.email ?? linkedOpportunity?.contactEmail ?? senderEmail,
+              phone: client?.phone ?? linkedOpportunity?.contactPhone ?? null,
+              address: client?.address ?? linkedOpportunity?.address ?? null,
             }
           : undefined
       }
@@ -1756,7 +1763,8 @@ function toRenderableMessage(
     body: m.cleanBodyText || m.bodyText || m.snippet || "",
     senderName,
     initials: senderName,
-    attachments: attachmentsByMessageId?.get(m.id) ?? [],
+    attachments:
+      attachmentsByMessageId?.get(m.providerMessageId ?? m.id) ?? [],
     timestamp: new Date(ts).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
@@ -1816,7 +1824,8 @@ function buildInlinePhotoEntries(
   }
 
   return messages.flatMap((message, index) => {
-    const photos = photosByMessageId.get(message.id) ?? [];
+    const photos =
+      photosByMessageId.get(message.providerMessageId ?? message.id) ?? [];
     if (photos.length === 0) return [];
     const ts = new Date(message.date).getTime();
     const senderName = message.fromName ?? message.from ?? "—";
@@ -1914,8 +1923,18 @@ async function copyTextToClipboard(text: string): Promise<void> {
   }
 }
 
+interface PipelineOpportunitySource {
+  id: string;
+  title: string;
+  description: string | null;
+  estimatedValue: number | null;
+  stage: string;
+  priority: string | null;
+  source: string | null;
+}
+
 function toPipelineOpp(
-  o: Opportunity,
+  o: PipelineOpportunitySource,
   linkedOppIds: Set<string>,
   currentThreadId: string | undefined
 ): PipelineOpp {

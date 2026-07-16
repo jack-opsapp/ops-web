@@ -1,8 +1,11 @@
+import "server-only";
+
 /**
- * Provider-agnostic email connection persistence.
+ * Server-only email connection persistence.
  *
- * This module is safe for client hooks: it performs only Supabase CRUD and
- * deliberately does not import provider implementations or server runtimes.
+ * Rows contain provider credentials and synchronization secrets. Browser code
+ * must use email-connection-browser-service, which crosses the authenticated
+ * connection route and returns an explicitly projected public descriptor.
  */
 
 import {
@@ -17,12 +20,16 @@ import type {
 } from "@/lib/types/email-connection";
 
 function mapFromDb(row: Record<string, unknown>): EmailConnection {
+  const type = row.type as EmailConnection["type"];
   return {
     id: row.id as string,
     companyId: row.company_id as string,
     provider: row.provider as EmailConnection["provider"],
-    type: row.type as EmailConnection["type"],
-    userId: (row.user_id as string) ?? null,
+    type,
+    // `email_connections.user_id` is transport ownership only for personal
+    // mailboxes. Legacy company rows may still contain the user who connected
+    // the mailbox; that value is never an OPS actor or authorization source.
+    userId: type === "individual" ? ((row.user_id as string) ?? null) : null,
     email: row.email as string,
     accessToken: row.access_token as string,
     refreshToken: row.refresh_token as string,
@@ -90,7 +97,7 @@ export const EmailConnectionService = {
         company_id: data.companyId,
         provider: data.provider,
         type: data.type,
-        user_id: data.userId || null,
+        user_id: data.type === "individual" ? data.userId || null : null,
         email: data.email,
         access_token: data.accessToken,
         refresh_token: data.refreshToken,

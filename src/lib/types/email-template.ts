@@ -120,7 +120,7 @@ export interface ComposeEmailData {
   quotedMessage?: string;
   /** Merge field context from linked opportunity/client */
   mergeContext?: MergeFieldContext;
-  /** Thread ID for reply tracking */
+  /** Canonical OPS email_threads.id for reply authorization. */
   threadId?: string;
   /** Connection ID to use for sending (if known) */
   connectionId?: string;

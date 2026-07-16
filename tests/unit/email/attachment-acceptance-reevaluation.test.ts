@@ -6,7 +6,6 @@ const mocks = vi.hoisted(() => ({
   persistRoutingDecision: vi.fn(),
   decideAcceptStage: vi.fn(),
   convertOpportunityToProject: vi.fn(),
-  getCompanyManagerUserIds: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/conversation-state/conversation-state", () => ({
@@ -25,10 +24,6 @@ vi.mock("@/lib/api/services/project-conversion-service", () => ({
   ProjectConversionService: {
     convertOpportunityToProject: mocks.convertOpportunityToProject,
   },
-}));
-
-vi.mock("@/lib/api/services/company-managers", () => ({
-  getCompanyManagerUserIds: mocks.getCompanyManagerUserIds,
 }));
 
 import { evaluateOpportunityAcceptance } from "@/lib/api/services/conversation-state/acceptance-evaluation";
@@ -105,7 +100,6 @@ beforeEach(() => {
     reason: "signed estimate",
   });
   mocks.convertOpportunityToProject.mockResolvedValue({ won: true });
-  mocks.getCompanyManagerUserIds.mockResolvedValue(["manager-1"]);
 });
 
 describe("evaluateOpportunityAcceptance", () => {
@@ -115,8 +109,13 @@ describe("evaluateOpportunityAcceptance", () => {
         stage: "quoted",
         stage_manually_set: false,
         client_id: "client-1",
+        assigned_to: "user-1",
+        assignment_version: 7,
       },
-      thread: { id: "thread-1" },
+      thread: {
+        id: "thread-1",
+        provider_thread_id: "provider-thread-1",
+      },
       client: { name: "North Shore Rail" },
     });
 
@@ -143,26 +142,42 @@ describe("evaluateOpportunityAcceptance", () => {
         companyId: "company-1",
         sourcePath: "email_accept",
         expectedStage: "quoted",
+        decidedBy: null,
+        expectedAssignmentVersion: 7,
+        evidence: {
+          connection_id: "connection-1",
+          email_thread_id: "thread-1",
+          provider_thread_id: "provider-thread-1",
+          decision: "auto_advance_won",
+        },
       })
     );
     expect(rpc).toHaveBeenCalledWith(
-      "create_notification_if_new",
-      expect.objectContaining({
-        p_user_id: "user-1",
-        p_dedupe_key: "email-accept:auto-won:opportunity-1",
-      })
+      "create_email_opportunity_notification_as_system",
+      {
+        p_opportunity_id: "opportunity-1",
+        p_connection_id: "connection-1",
+        p_provider_thread_id: "provider-thread-1",
+        p_expected_assignment_version: 7,
+        p_event_type: "accept_auto_won",
+      }
     );
     expect(result).toEqual({ stageChanged: true });
   });
 
-  it("notifies company managers for a shared mailbox", async () => {
+  it("does not invent a human recipient for an unassigned shared mailbox", async () => {
     const { client, rpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: false,
         client_id: null,
+        assigned_to: null,
+        assignment_version: 0,
       },
-      thread: { id: "thread-1" },
+      thread: {
+        id: "thread-1",
+        provider_thread_id: "provider-thread-1",
+      },
     });
 
     await evaluateOpportunityAcceptance({
@@ -172,13 +187,12 @@ describe("evaluateOpportunityAcceptance", () => {
       connection: { ...connection, userId: null },
     });
 
-    expect(mocks.getCompanyManagerUserIds).toHaveBeenCalledWith(
-      client,
-      "company-1"
-    );
     expect(rpc).toHaveBeenCalledWith(
-      "create_notification_if_new",
-      expect.objectContaining({ p_user_id: "manager-1" })
+      "create_email_opportunity_notification_as_system",
+      expect.not.objectContaining({
+        p_recipient_user_id: expect.anything(),
+        p_company_id: expect.anything(),
+      })
     );
   });
 

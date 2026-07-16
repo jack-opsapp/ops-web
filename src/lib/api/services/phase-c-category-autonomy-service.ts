@@ -20,12 +20,12 @@
  *
  * Valid autonomy levels differ per category — enforced by allowedLevelsFor().
  *
- * Graduation (isGraduated) = approval rate >= 0.95 over >= 20 finalized drafts
- * for the category's primary profile_type(s). A draft counts as "approved"
- * when the user sent it with edit_distance / original_word_count <= 0.15.
+ * Graduation (isGraduated) = strict unchanged-send rate >= 0.95 over >= 20
+ * human-finalized drafts for the category's primary profile_type(s).
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { getHumanDraftAccuracy } from "./phase-c-draft-accuracy-service";
 import {
   EMAIL_THREAD_CATEGORIES,
   type EmailThreadAutonomyLevel,
@@ -200,10 +200,8 @@ export const PhaseCCategoryAutonomy = {
    * on the user's recent draft edit behavior. Thresholds: ≥ 20 finalized
    * drafts in the mapped profile_type(s) AND approval rate ≥ 0.95.
    *
-   * Approval definition:
-   *   - status === 'sent' AND (sent_without_changes === true
-   *       OR edit_distance <= 0.15 * origin_word_count)
-   *   - status === 'discarded' counts as a rejection
+   * Approval definition: the exact OPS actor sent the generated draft without
+   * changing it. Edited and autonomous sends cannot inflate graduation.
    */
   async isGraduated(
     companyId: string,
@@ -215,47 +213,17 @@ export const PhaseCCategoryAutonomy = {
       return { ready: false, approvalRate: 0, sampleSize: 0 };
     }
 
-    const supabase = requireSupabase();
-    const { data, error } = await supabase
-      .from("ai_draft_history")
-      .select("status, sent_without_changes, edit_distance, original_draft")
-      .eq("company_id", companyId)
-      .eq("user_id", userId)
-      .in("profile_type", profileTypes)
-      .in("status", ["sent", "discarded"])
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
-
-    const rows = (data ?? []) as Array<{
-      status: string;
-      sent_without_changes: boolean | null;
-      edit_distance: number | null;
-      original_draft: string | null;
-    }>;
-
-    if (rows.length === 0) {
-      return { ready: false, approvalRate: 0, sampleSize: 0 };
-    }
-
-    let approved = 0;
-    for (const row of rows) {
-      if (row.status !== "sent") continue;
-      if (row.sent_without_changes) {
-        approved += 1;
-        continue;
-      }
-      const origWords = (row.original_draft ?? "").split(/\s+/).filter(Boolean).length;
-      const distance = row.edit_distance ?? Infinity;
-      if (origWords > 0 && distance / origWords <= 0.15) {
-        approved += 1;
-      }
-    }
-
-    const approvalRate = approved / rows.length;
-    const ready = rows.length >= 20 && approvalRate >= 0.95;
-    return { ready, approvalRate, sampleSize: rows.length };
+    const accuracy = await getHumanDraftAccuracy({
+      companyId,
+      userId,
+      profileTypes,
+    });
+    return {
+      ready:
+        accuracy.sampleSize >= 20 && accuracy.approvalRate >= 0.95,
+      approvalRate: accuracy.approvalRate,
+      sampleSize: accuracy.sampleSize,
+    };
   },
 
   /** Return the list of profile_types that fuel a category. Used by router. */

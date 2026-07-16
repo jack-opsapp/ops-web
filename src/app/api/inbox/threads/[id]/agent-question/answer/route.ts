@@ -18,15 +18,13 @@
  * its next pass. Until that wiring lands, the operator's answer still
  * lives in agent_memories as a durable record.
  *
- * Auth: Firebase JWT + `inbox.view` permission (same gate as reading the
- * inbox; answering is a per-user triage action, not an admin op).
+ * Auth: canonical OPS actor + current `pipeline.edit` ∩ `inbox.view`
+ * authority for the lead linked to this internal thread.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 
 interface AnswerBody {
   answer: string;
@@ -36,7 +34,8 @@ interface AnswerBody {
 function isValidBody(v: unknown): v is AnswerBody {
   if (!v || typeof v !== "object") return false;
   const b = v as Record<string, unknown>;
-  if (typeof b.answer !== "string" || b.answer.trim().length === 0) return false;
+  if (typeof b.answer !== "string" || b.answer.trim().length === 0)
+    return false;
   if (
     "optionId" in b &&
     b.optionId !== null &&
@@ -50,118 +49,59 @@ function isValidBody(v: unknown): v is AnswerBody {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { id } = await params;
-  const user = await findUserByAuth(
-    authUser.uid,
-    authUser.email,
-    "id, company_id",
-  );
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
-
-  const canView = await checkPermissionById(userId, "inbox.view");
-  if (!canView) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { userId } = actorResolution.actor;
 
   const body = (await request.json().catch(() => null)) as unknown;
   if (!isValidBody(body)) {
     return NextResponse.json(
       {
-        error: "Body must include `answer` (non-empty string); `optionId` is optional",
+        error:
+          "Body must include `answer` (non-empty string); `optionId` is optional",
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   const supabase = getServiceRoleClient();
-
-  // Verify the thread belongs to the caller's company and read the current
-  // question payload — we need it so the audit row in agent_memories
-  // captures both sides of the exchange even after we clear the column.
-  const { data: row, error: readError } = await supabase
-    .from("email_threads")
-    .select("id, agent_blocking_question")
-    .eq("id", id)
-    .eq("company_id", companyId)
-    .maybeSingle();
-
-  if (readError || !row) {
-    return NextResponse.json({ error: "Thread not found" }, { status: 404 });
-  }
-
-  const existing = row.agent_blocking_question as Record<string, unknown> | null;
-  if (!existing || typeof existing !== "object") {
-    return NextResponse.json(
-      { error: "No pending agent question on this thread" },
-      { status: 400 },
-    );
-  }
-
-  // Record the (question, answer) pair to agent_memories. Phase C reads
-  // memories with `category='answered_question'` on its next pass to feed
-  // the operator's answer into a fresh draft. We persist the optionId
-  // when set so structured replies are queryable downstream.
-  const memoryContent = JSON.stringify({
-    question: existing.question ?? null,
-    options: existing.options ?? null,
-    asked_at: existing.asked_at ?? null,
-    answer: body.answer.trim(),
-    option_id: body.optionId ?? null,
-    answered_at: new Date().toISOString(),
-    answered_by_user_id: userId,
-  });
-
-  const { error: memoryError } = await supabase
-    .from("agent_memories")
-    .insert({
-      company_id: companyId,
-      user_id: userId,
-      memory_type: "fact",
-      category: "answered_question",
-      content: memoryContent,
-      confidence: 1.0,
-      source: "inbox_ui",
-      source_id: id,
-    });
-
+  const { data, error: memoryError } = await supabase.rpc(
+    "answer_email_agent_question_as_system",
+    {
+      p_actor_user_id: userId,
+      p_thread_id: id,
+      p_answer: body.answer.trim(),
+      p_option_id: body.optionId?.trim() || null,
+    }
+  );
   if (memoryError) {
     console.error(
       "[/api/inbox/threads/:id/agent-question/answer] memory insert failed:",
-      memoryError.message,
+      memoryError.message
     );
     return NextResponse.json(
       { error: `Failed to record answer: ${memoryError.message}` },
-      { status: 500 },
+      { status: 500 }
     );
   }
-
-  // Clear the column. The band drops and the thread re-groups normally
-  // on the next inbox refetch.
-  const { error: updateError } = await supabase
-    .from("email_threads")
-    .update({ agent_blocking_question: null })
-    .eq("id", id)
-    .eq("company_id", companyId);
-
-  if (updateError) {
-    console.error(
-      "[/api/inbox/threads/:id/agent-question/answer] clear failed:",
-      updateError.message,
-    );
+  const result = data as { ok?: boolean; reason?: string } | null;
+  if (!result?.ok) {
+    if (
+      result?.reason === "no_pending_question" ||
+      result?.reason === "invalid_option" ||
+      result?.reason === "invalid_input"
+    ) {
+      return NextResponse.json(
+        { error: "No matching pending question" },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
-      { error: `Failed to clear question: ${updateError.message}` },
-      { status: 500 },
+      { error: "Thread not found" },
+      { status: 404 }
     );
   }
 

@@ -312,7 +312,7 @@ interface RefreshProviderSignatureInput extends SignatureLookupInput {
   scopeUserId?: string | null;
   mailboxAddress: string;
   provider: EmailProviderInterface;
-  actorUserId?: string | null;
+  actorUserId: string;
 }
 
 interface SaveOpsSignatureInput extends SignatureLookupInput {
@@ -330,7 +330,7 @@ interface SaveProviderSignatureInput extends SignatureLookupInput {
   text?: string | null;
   fetchedAt?: string | null;
   confirmedAt?: string | null;
-  actorUserId?: string | null;
+  actorUserId: string;
 }
 
 interface ConfirmMicrosoftSignatureInput extends SignatureLookupInput {
@@ -345,7 +345,7 @@ interface DeactivateEmailSignatureInput extends SignatureLookupInput {
   signatureId?: string;
   source?: EmailSignatureSource;
   scopeUserId?: string | null;
-  actorUserId?: string | null;
+  actorUserId: string;
 }
 
 interface PersistSignatureInput extends SignatureLookupInput {
@@ -356,7 +356,7 @@ interface PersistSignatureInput extends SignatureLookupInput {
   text?: string | null;
   fetchedAt: string | null;
   confirmedAt: string | null;
-  actorUserId: string | null;
+  actorUserId: string;
 }
 
 async function persistSignature(
@@ -371,19 +371,20 @@ async function persistSignature(
   }
 
   const supabase = requireSupabase();
-  const { data, error } = await supabase.rpc("replace_email_signature", {
-    p_company_id: input.companyId,
-    p_connection_id: input.connectionId,
-    p_scope_user_id: input.scopeUserId,
-    p_source: input.source,
-    p_content_html: content.html || null,
-    p_content_text: content.text || null,
-    p_content_hash: content.hash,
-    p_provider_identity: input.providerIdentity,
-    p_fetched_at: input.fetchedAt,
-    p_confirmed_at: input.confirmedAt,
-    p_actor_user_id: input.actorUserId,
-  });
+  const { data, error } = await supabase.rpc(
+    "replace_email_signature_as_system",
+    {
+      p_actor_user_id: input.actorUserId,
+      p_connection_id: input.connectionId,
+      p_source: input.source,
+      p_content_html: content.html || null,
+      p_content_text: content.text || null,
+      p_content_hash: content.hash,
+      p_provider_identity: input.providerIdentity,
+      p_fetched_at: input.fetchedAt,
+      p_confirmed_at: input.confirmedAt,
+    }
+  );
   if (error) {
     throw new Error(`Failed to replace email signature: ${error.message}`);
   }
@@ -492,7 +493,7 @@ export const EmailSignatureService = {
         input.source === "microsoft_confirmed"
           ? (input.confirmedAt ?? now)
           : null,
-      actorUserId: input.actorUserId ?? null,
+      actorUserId: input.actorUserId,
     });
   },
 
@@ -501,24 +502,15 @@ export const EmailSignatureService = {
       throw new Error("A signature id or source is required to deactivate");
     }
     const supabase = requireSupabase();
-    let query = supabase
-      .from("email_signatures")
-      .update({
-        active: false,
-        updated_by: input.actorUserId ?? null,
-      })
-      .eq("company_id", input.companyId)
-      .eq("connection_id", input.connectionId)
-      .eq("active", true);
-    if (input.signatureId) {
-      query = query.eq("id", input.signatureId);
-    } else {
-      query = query.eq("source", input.source as EmailSignatureSource);
-      query = input.scopeUserId
-        ? query.eq("scope_user_id", input.scopeUserId)
-        : query.is("scope_user_id", null);
-    }
-    const { error } = await query;
+    const { error } = await supabase.rpc(
+      "deactivate_email_signature_as_system",
+      {
+        p_actor_user_id: input.actorUserId,
+        p_connection_id: input.connectionId,
+        p_signature_id: input.signatureId ?? null,
+        p_source: input.source ?? null,
+      }
+    );
     if (error) {
       throw new Error(`Failed to deactivate email signature: ${error.message}`);
     }
@@ -564,7 +556,7 @@ export const EmailSignatureService = {
             companyId: input.companyId,
             connectionId: input.connectionId,
             signatureId: existing.id,
-            actorUserId: input.actorUserId ?? null,
+            actorUserId: input.actorUserId,
           });
         }
         return { status: "not_configured", signature: null };
@@ -578,7 +570,7 @@ export const EmailSignatureService = {
           result.providerIdentity ??
           normalizeEmailAddress(input.mailboxAddress),
         html: result.contentHtml,
-        actorUserId: input.actorUserId ?? null,
+        actorUserId: input.actorUserId,
       });
       return { status: "refreshed", signature: saved };
     } catch (error) {

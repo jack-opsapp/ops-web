@@ -84,6 +84,7 @@
     "firebase": "^11.1.0",
     "firebase-admin": "^13.6.1",
     "framer-motion": "^12.34.3",
+    "heic-convert": "2.1.0",
     "html-react-parser": "5.2.17",
     "immer": "^10.1.0",
     "input-otp": "^1.4.0",

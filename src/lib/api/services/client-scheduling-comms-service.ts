@@ -23,6 +23,8 @@ import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getDraftingOpenAI } from "./openai-clients";
 import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
 import { isReplyLikeSubject } from "@/lib/email/email-subject-policy";
+import { resolveSyncEngineEmailActor } from "@/lib/email/sync-engine-email-actor";
+import { resolveNewEmailConversationConnectionId } from "@/lib/email/email-connection-selection";
 import type { Locale } from "@/i18n/types";
 import type {
   SendAppointmentConfirmationActionData,
@@ -328,30 +330,11 @@ async function getActiveConnectionId(
   companyId: string,
   userId: string
 ): Promise<string | null> {
-  const supabase = requireSupabase();
-
-  const { data: userConn } = await supabase
-    .from("email_connections")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("user_id", userId)
-    .eq("status", "connected")
-    .is("deleted_at", null)
-    .limit(1)
-    .maybeSingle();
-
-  if (userConn?.id) return userConn.id as string;
-
-  const { data: anyConn } = await supabase
-    .from("email_connections")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("status", "connected")
-    .is("deleted_at", null)
-    .limit(1)
-    .maybeSingle();
-
-  return (anyConn?.id as string) ?? null;
+  return resolveNewEmailConversationConnectionId({
+    supabase: requireSupabase(),
+    companyId,
+    actorUserId: userId,
+  });
 }
 
 function formatTime(time: string | null): string | null {
@@ -1177,11 +1160,20 @@ export const ClientSchedulingCommsService = {
     });
   },
 
-  async detectRescheduleRequest(
-    companyId: string,
-    userId: string,
-    activityId: string
-  ): Promise<string | null> {
+  async detectRescheduleRequest(input: {
+    companyId: string;
+    connectionId: string;
+    providerThreadId: string;
+    opportunityId: string;
+    activityId: string;
+  }): Promise<string | null> {
+    const {
+      companyId,
+      connectionId: requestedConnectionId,
+      providerThreadId,
+      opportunityId: requestedOpportunityId,
+      activityId,
+    } = input;
     const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
       "phase_c"
@@ -1200,14 +1192,34 @@ export const ClientSchedulingCommsService = {
     const { data: activity } = await supabase
       .from("activities")
       .select(
-        "id, company_id, subject, body_text, content, from_email, email_thread_id, opportunity_id, direction"
+        "id, company_id, subject, body_text, content, from_email, email_thread_id, email_connection_id, opportunity_id, direction"
       )
       .eq("id", activityId)
       .eq("company_id", companyId)
+      .eq("email_connection_id", input.connectionId)
+      .eq("email_thread_id", input.providerThreadId)
+      .eq("opportunity_id", input.opportunityId)
       .maybeSingle();
 
     if (!activity || activity.direction !== "inbound") return null;
-    if (!activity.opportunity_id) return null;
+    if (
+      activity.email_connection_id !== requestedConnectionId ||
+      activity.email_thread_id !== providerThreadId ||
+      activity.opportunity_id !== requestedOpportunityId
+    ) {
+      return null;
+    }
+
+    const actor = await resolveSyncEngineEmailActor({
+      companyId,
+      connectionId: requestedConnectionId,
+      opportunityId: requestedOpportunityId,
+      providerThreadId,
+      operation: "send",
+      supabase,
+    });
+    if (actor.kind !== "resolved") return null;
+    const userId = actor.context.actorUserId;
 
     const subject = (activity.subject as string) ?? "";
     const bodyText =
@@ -1217,7 +1229,7 @@ export const ClientSchedulingCommsService = {
     const combined = `${subject} ${bodyText}`;
     if (!matchesRescheduleKeyword(combined)) return null;
 
-    const opportunityId = activity.opportunity_id as string;
+    const opportunityId = requestedOpportunityId;
     const { data: opportunity } = await supabase
       .from("opportunities")
       .select("id, client_id, project_id")
@@ -1371,8 +1383,9 @@ export const ClientSchedulingCommsService = {
       });
     }
 
-    const connectionId = await getActiveConnectionId(companyId, userId);
-    if (!connectionId) return null;
+    // Reschedule replies stay on the exact inbound connection. Never select a
+    // different personal mailbox or arbitrary company fallback.
+    const connectionId = input.connectionId;
 
     const locale = await getCompanyLocale(companyId);
     const bcp = bcp47(locale);
@@ -1460,10 +1473,27 @@ export const ClientSchedulingCommsService = {
       atProposal: true,
     });
 
+    const currentActor = await resolveSyncEngineEmailActor({
+      companyId,
+      connectionId,
+      opportunityId,
+      providerThreadId,
+      expectedAssignmentVersion: actor.context.assignmentVersion,
+      operation: "send",
+      supabase,
+    });
+    if (
+      currentActor.kind !== "resolved" ||
+      currentActor.context.actorUserId !== userId
+    ) {
+      return null;
+    }
+
     const actionData: ProcessRescheduleRequestActionData = {
       activity_id: activityId,
       thread_id: (activity.email_thread_id as string) ?? null,
       opportunity_id: opportunityId,
+      source_assignment_version: actor.context.assignmentVersion,
       client_id: clientId,
       client_email: clientEmail,
       client_name: clientName,

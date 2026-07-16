@@ -31,9 +31,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
 
 // Keep in sync with GENERIC_MAILBOX_TOKENS in email-thread-service.ts.
 // Duplicated intentionally — one file does live-sync writes, this one
@@ -78,25 +77,25 @@ interface NameBackfillResult {
 }
 
 export async function POST(request: NextRequest) {
-  const authUser = await verifyAdminAuth(request);
-  if (!authUser) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(authUser.uid, authUser.email, "id, company_id");
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  const userId = user.id as string;
-  const companyId = user.company_id as string;
-  if (!companyId) {
+  const supabase = getServiceRoleClient();
+  const access = await resolveEmailConnectionOperationAccess({
+    request,
+    supabase,
+  });
+  if (!access.allowed) {
     return NextResponse.json(
-      { error: "No company associated with user" },
-      { status: 400 }
+      {
+        error: access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+      },
+      { status: access.status }
     );
   }
-
-  const canCategorize = await checkPermissionById(userId, "inbox.categorize");
+  const { userId, companyId } = access.actor;
+  const canCategorize = await checkPermissionById(
+    userId,
+    "inbox.categorize",
+    "all"
+  );
   if (!canCategorize) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -107,8 +106,6 @@ export async function POST(request: NextRequest) {
     2000
   );
 
-  const supabase = getServiceRoleClient();
-
   // ── Page 1: fetch candidate threads ──────────────────────────────────────
   // We don't restrict to "broken" at the SQL layer because the
   // generic-mailbox heuristic is easier to run in JS. Net cost is small —
@@ -118,6 +115,7 @@ export async function POST(request: NextRequest) {
     .from("email_threads")
     .select("id, latest_sender_name, latest_sender_email")
     .eq("company_id", companyId)
+    .in("connection_id", access.connectionIds)
     .not("latest_sender_email", "is", null)
     .order("last_message_at", { ascending: false })
     .limit(limit);
@@ -237,7 +235,8 @@ export async function POST(request: NextRequest) {
   const { count } = await supabase
     .from("email_threads")
     .select("id", { count: "exact", head: true })
-    .eq("company_id", companyId);
+    .eq("company_id", companyId)
+    .in("connection_id", access.connectionIds);
   result.remaining = count ?? null;
 
   return NextResponse.json(result);

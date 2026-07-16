@@ -31,13 +31,10 @@ export function ExpiredMemberState({ variant }: ExpiredMemberStateProps) {
   const isoDate = date ? date.toISOString().slice(0, 10) : null;
 
   const fingerprint = isoDate
-    ? interpolate(t("lockout.expiredMember.fingerprintWithDate"), { date: isoDate })
+    ? interpolate(t("lockout.expiredMember.fingerprintWithDate"), {
+        date: isoDate,
+      })
     : t("lockout.expiredMember.fingerprint");
-
-  const userName = currentUser
-    ? [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") ||
-      "A team member"
-    : "A team member";
 
   const noAdmins = (company?.adminIds?.length ?? 0) === 0;
 
@@ -52,7 +49,7 @@ export function ExpiredMemberState({ variant }: ExpiredMemberStateProps) {
     >
       {noAdmins ? (
         <>
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute mb-3">
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.16em] text-text-mute">
             <span className="text-text-mute">SYS :: </span>
             {t("lockout.shared.noAdmins").toUpperCase()}
           </p>
@@ -61,7 +58,7 @@ export function ExpiredMemberState({ variant }: ExpiredMemberStateProps) {
               {t("lockout.shared.noAdminsCta")}
             </Button>
           </a>
-          <p className="font-mohave text-[13px] text-text-3 mt-3">
+          <p className="mt-3 font-mohave text-[13px] text-text-3">
             {t("lockout.shared.noAdminsBody")}
           </p>
         </>
@@ -71,12 +68,10 @@ export function ExpiredMemberState({ variant }: ExpiredMemberStateProps) {
           <RequestButton
             reason="subscription_expired"
             userId={currentUser?.id ?? ""}
-            companyId={company?.id ?? ""}
-            userName={userName}
             adminIds={company?.adminIds ?? []}
             ctaKey="lockout.expiredMember.cta"
           />
-          <p className="font-mohave text-[13px] text-text-3 mt-3">
+          <p className="mt-3 font-mohave text-[13px] text-text-3">
             {t("lockout.expiredMember.explainer")}
           </p>
         </>

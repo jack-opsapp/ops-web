@@ -173,16 +173,101 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
     const result = await ProjectConversionService.convertOpportunityToProject({
       opportunityId: OPP,
       companyId: COMPANY,
+      decidedBy: null,
       sourcePath: "email_accept",
       expectedStage: "quoted",
+      expectedAssignmentVersion: 4,
+      evidence: {
+        connection_id: "connection-1",
+        email_thread_id: "thread-1",
+        provider_thread_id: "provider-thread-1",
+        decision: "auto_advance_won",
+      },
     });
 
     expect(fake.rpcCalls[0].args).toMatchObject({
+      p_decided_by: null,
       p_source_path: "email_accept",
       p_win_opportunity: true,
       p_expected_stage: "quoted",
+      p_expected_assignment_version: 4,
+      p_evidence: {
+        connection_id: "connection-1",
+        email_thread_id: "thread-1",
+        provider_thread_id: "provider-thread-1",
+        decision: "auto_advance_won",
+      },
     });
     expect(result.won).toBe(true);
+  });
+
+  it("binds likely-won conversion to actorless provider-message evidence", async () => {
+    const fake = makeFakeSupabase();
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await ProjectConversionService.convertOpportunityToProject({
+      opportunityId: OPP,
+      companyId: COMPANY,
+      decidedBy: null,
+      sourcePath: "email_likely_won",
+      expectedAssignmentVersion: 9,
+      evidence: {
+        connection_id: "connection-1",
+        provider_thread_id: "provider-thread-1",
+        provider_message_id: "provider-message-1",
+        decision: "likely_won",
+      },
+    });
+
+    expect(fake.rpcCalls[0].args).toMatchObject({
+      p_decided_by: null,
+      p_source_path: "email_likely_won",
+      p_expected_assignment_version: 9,
+      p_evidence: {
+        connection_id: "connection-1",
+        provider_thread_id: "provider-thread-1",
+        provider_message_id: "provider-message-1",
+        decision: "likely_won",
+      },
+    });
+  });
+
+  it("fails closed before RPC when actorless email evidence is missing", async () => {
+    const fake = makeFakeSupabase();
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await expect(
+      ProjectConversionService.convertOpportunityToProject({
+        opportunityId: OPP,
+        companyId: COMPANY,
+        decidedBy: null,
+        sourcePath: "email_likely_won",
+        expectedAssignmentVersion: 9,
+      })
+    ).rejects.toThrow(/exact evidence/i);
+    expect(fake.rpcCalls).toHaveLength(0);
+  });
+
+  it("rejects connector-user attribution on an email conversion", async () => {
+    const fake = makeFakeSupabase();
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await expect(
+      ProjectConversionService.convertOpportunityToProject({
+        opportunityId: OPP,
+        companyId: COMPANY,
+        decidedBy: OPERATOR,
+        sourcePath: "email_accept",
+        expectedAssignmentVersion: 4,
+        evidence: {
+          connection_id: "connection-1",
+          email_thread_id: "thread-1",
+          provider_thread_id: "provider-thread-1",
+          decision: "auto_advance_won",
+        },
+      })
+    ).rejects.toThrow(/actorless email conversion/i);
+    expect(fake.rpcCalls).toHaveLength(0);
   });
 
   it("forwards an operator-typed name as p_title_override (hand-set)", async () => {

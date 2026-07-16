@@ -51,6 +51,32 @@ export interface EmailConnection {
   updatedAt: Date;
 }
 
+/**
+ * Browser-safe mailbox descriptor returned by authenticated OPS routes.
+ *
+ * Provider credentials, cursors, webhook secrets, and provider recovery state
+ * are intentionally absent. Client code must never receive or synthesize
+ * those fields.
+ */
+export interface EmailConnectionDescriptor {
+  id: string;
+  companyId: string;
+  provider: EmailProvider;
+  type: "company" | "individual";
+  userId: string | null;
+  email: string;
+  syncEnabled: boolean;
+  lastSyncedAt: Date | null;
+  syncIntervalMinutes: number;
+  syncFilters: SyncProfile;
+  opsLabelId: string | null;
+  aiReviewEnabled: boolean;
+  aiMemoryEnabled: boolean;
+  status: EmailConnectionStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface SyncProfile {
   // Pattern detection results (populated by wizard Step 2)
   estimateSubjectPatterns?: string[];
@@ -80,6 +106,8 @@ export interface SyncProfile {
   lastScanSummary?: Record<string, unknown> | string;
   lastScanTotal?: number;
   lastScanImportCount?: number;
+  lastImportJobId?: string;
+  importComplete?: boolean;
 }
 
 export interface EmailFilterRule {
@@ -133,6 +161,16 @@ export interface UpdateEmailConnection {
   refreshToken?: string;
   expiresAt?: Date;
 }
+
+/** Fields an authenticated browser may change through the connection API. */
+export type BrowserUpdateEmailConnection = Pick<
+  UpdateEmailConnection,
+  | "syncEnabled"
+  | "syncIntervalMinutes"
+  | "syncFilters"
+  | "aiReviewEnabled"
+  | "aiMemoryEnabled"
+>;
 
 // ─── Junction & Feature Types ────────────────────────────────────────────────
 

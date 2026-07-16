@@ -43,8 +43,8 @@ export interface FailureSignal {
   companyId: string;
   email: string;
   provider: "gmail" | "microsoft365";
-  /** Connection-side user_id, used as a sane fallback when the recipient admin can't be resolved. */
-  connectionUserId: string;
+  /** Exact active personal-mailbox owner candidate; always NULL for company mailboxes. */
+  connectionOwnerUserId: string | null;
   type: "company" | "individual";
   reason: InboxConnectionDownReason;
   /** Hours since last healthy heartbeat — used for the email's `hoursSilent` field. */
@@ -54,7 +54,7 @@ export interface FailureSignal {
 export interface ConnectionRow {
   id: string;
   company_id: string;
-  user_id: string;
+  user_id: string | null;
   email: string;
   provider: string;
   type: "company" | "individual";
@@ -90,7 +90,8 @@ export function classifyFailure(
       companyId: conn.company_id,
       email: conn.email,
       provider: conn.provider as "gmail" | "microsoft365",
-      connectionUserId: conn.user_id,
+      connectionOwnerUserId:
+        conn.type === "individual" ? conn.user_id : null,
       type: conn.type,
       reason: "webhook_setup_failed",
       hoursSilent: hours,
@@ -105,7 +106,8 @@ export function classifyFailure(
       companyId: conn.company_id,
       email: conn.email,
       provider: conn.provider as "gmail" | "microsoft365",
-      connectionUserId: conn.user_id,
+      connectionOwnerUserId:
+        conn.type === "individual" ? conn.user_id : null,
       type: conn.type,
       reason: "webhook_expired",
       hoursSilent: hours,
@@ -122,7 +124,8 @@ export function classifyFailure(
       companyId: conn.company_id,
       email: conn.email,
       provider: conn.provider as "gmail" | "microsoft365",
-      connectionUserId: conn.user_id,
+      connectionOwnerUserId:
+        conn.type === "individual" ? conn.user_id : null,
       type: conn.type,
       reason: "sync_stale",
       hoursSilent: hours,

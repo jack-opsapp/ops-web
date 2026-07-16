@@ -354,7 +354,7 @@ describe("Phase C learning and email signature migration", () => {
       "'email-signature:' || p_connection_id::text || ':' || p_scope_user_id::text"
     );
     expect(sql).toContain(
-      "'/settings?section=email&connection=' || p_connection_id::text"
+      "'/settings?section=profile&connection=' || p_connection_id::text"
     );
     expect(sql).toContain("'email_signature'");
     expect(sql).toContain("persistent");
