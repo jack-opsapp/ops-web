@@ -2826,6 +2826,746 @@ select
 from lead_assignment_contract_values v
 where v.value_name = 'away_back_stale_conversion';
 
+-- Task 2 child/context authorization contract. These fixtures prove that
+-- assignment scope follows the opportunity through each child surface, while
+-- strong project access remains an independent OR path and mailbox data
+-- requires the lead + inbox intersection.
+insert into lead_assignment_contract_results (check_name, passed)
+values
+  (
+    'child_scope_public_contracts_and_grants_exist',
+    to_regprocedure(
+      'public.list_opportunity_assignment_candidates(uuid)'
+    ) is not null
+    and to_regprocedure(
+      'public.get_opportunity_assigned_context(uuid)'
+    ) is not null
+    and has_function_privilege(
+      'authenticated',
+      'public.list_opportunity_assignment_candidates(uuid)',
+      'execute'
+    )
+    and has_function_privilege(
+      'authenticated',
+      'public.get_opportunity_assigned_context(uuid)',
+      'execute'
+    )
+    and not has_function_privilege(
+      'service_role',
+      'public.list_opportunity_assignment_candidates(uuid)',
+      'execute'
+    )
+    and not has_function_privilege(
+      'service_role',
+      'public.get_opportunity_assigned_context(uuid)',
+      'execute'
+    )
+  ),
+  (
+    'lead_linked_child_tables_have_restrictive_select_scope',
+    (
+      select count(*) = 4
+        from pg_catalog.pg_policies p
+       where p.schemaname = 'public'
+         and p.tablename in (
+           'activities', 'follow_ups', 'site_visits', 'deck_designs'
+         )
+         and p.policyname = 'assigned_lead_scope_select'
+         and p.permissive = 'RESTRICTIVE'
+    )
+    and (
+      select count(*) = 3
+        from pg_catalog.pg_policies p
+       where p.schemaname = 'public'
+         and p.tablename in (
+           'stage_transitions',
+           'opportunity_lifecycle_state',
+           'opportunity_lifecycle_action_audit'
+         )
+         and p.policyname in (
+           'assigned_lead_scope_select', 'authorized_lead_select'
+         )
+    )
+  ),
+  (
+    'email_surfaces_have_restrictive_lead_inbox_intersection',
+    (
+      select count(*) = 4
+        from pg_catalog.pg_policies p
+       where p.schemaname = 'public'
+         and p.tablename in (
+           'opportunity_correspondence_events',
+           'opportunity_follow_up_drafts',
+           'email_threads',
+           'opportunity_email_threads'
+         )
+         and p.policyname = 'lead_inbox_scope_select'
+    )
+    and (
+      select count(*) = 2
+        from pg_catalog.pg_policies p
+       where p.schemaname = 'public'
+         and p.tablename in ('email_threads', 'opportunity_email_threads')
+         and p.policyname = 'lead_inbox_scope_select'
+         and p.permissive = 'RESTRICTIVE'
+    )
+    and not has_table_privilege(
+      'authenticated', 'public.email_threads', 'insert'
+    )
+    and not has_table_privilege(
+      'authenticated', 'public.opportunity_email_threads', 'update'
+    )
+  ),
+  (
+    'provider_queues_and_attachments_are_not_browser_readable',
+    not has_table_privilege(
+      'authenticated', 'public.ai_draft_history', 'select'
+    )
+    and not has_table_privilege(
+      'authenticated', 'public.pending_auto_sends', 'select'
+    )
+    and not has_table_privilege(
+      'authenticated', 'public.email_attachments', 'select'
+    )
+    and not has_table_privilege(
+      'authenticated', 'public.email_outbound_learning_queue', 'select'
+    )
+  ),
+  (
+    'stage_history_is_append_only_for_direct_roles',
+    not has_table_privilege(
+      'authenticated', 'public.stage_transitions', 'update'
+    )
+    and not has_table_privilege(
+      'authenticated', 'public.stage_transitions', 'delete'
+    )
+    and not has_table_privilege(
+      'service_role', 'public.stage_transitions', 'update'
+    )
+    and not has_table_privilege(
+      'service_role', 'public.stage_transitions', 'delete'
+    )
+  );
+
+insert into public.role_permissions (role_id, permission, scope)
+values
+  (
+    '1ead5519-0000-4000-8000-000000000201',
+    'inbox.view',
+    'assigned'
+  ),
+  (
+    '1ead5519-0000-4000-8000-000000000201',
+    'inbox.send',
+    'assigned'
+  ),
+  (
+    '1ead5519-0000-4000-8000-000000000201',
+    'deck_builder.view',
+    'assigned'
+  ),
+  (
+    '1ead5519-0000-4000-8000-000000000202',
+    'inbox.view',
+    'all'
+  ),
+  (
+    '1ead5519-0000-4000-8000-000000000202',
+    'inbox.send',
+    'all'
+  );
+
+insert into public.email_connections (
+  id, company_id, type, user_id, email, access_token, refresh_token,
+  expires_at, sync_enabled, status
+) values (
+  '1ead5519-1000-4000-8000-000000000903',
+  '1ead5519-0000-4000-8000-000000000001',
+  'individual',
+  '1ead5519-0000-4000-8000-000000000101',
+  'assigned-actor-personal-mailbox@example.invalid',
+  'rollback-personal-access-token',
+  'rollback-personal-refresh-token',
+  now() + interval '1 day',
+  true,
+  'active'
+);
+
+update public.clients
+   set notes = 'CHILD_SCOPE_CLIENT_SECRET'
+ where id = '1ead5519-0000-4000-8000-000000000401';
+
+insert into public.estimates (
+  id, company_id, opportunity_id, client_id, estimate_number, title,
+  internal_notes, qb_id, subtotal, tax_amount, total, status
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000691',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    '1ead5519-0000-4000-8000-000000000401',
+    'EST-CHILD-SCOPE-001',
+    'Assigned context estimate',
+    'CHILD_SCOPE_ESTIMATE_SECRET',
+    'CHILD_SCOPE_QB_SECRET',
+    1000, 120, 1120, 'sent'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000692',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-0000-4000-8000-000000000401',
+    'EST-CHILD-SCOPE-002',
+    'Sibling context estimate',
+    'CHILD_SCOPE_SIBLING_ESTIMATE_SECRET',
+    'CHILD_SCOPE_SIBLING_QB_SECRET',
+    2000, 240, 2240, 'sent'
+  );
+
+insert into public.activities (
+  id, company_id, opportunity_id, project_id, type, subject, content,
+  email_connection_id, email_thread_id
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000601',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    null, 'note', 'Assigned lead note', 'assigned-note', null, null
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000602',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    null, 'note', 'Sibling lead note', 'sibling-note', null, null
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000603',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    null, 'email', 'Assigned lead email', 'assigned-email',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-child-scope-a'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000604',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    null, 'email', 'Sibling lead email', 'sibling-email',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-child-scope-b'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000605',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000802',
+    'note', 'Project path note', 'project-path', null, null
+  );
+
+insert into public.follow_ups (
+  id, company_id, opportunity_id, type, title, due_at
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000611',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    'call', 'Assigned lead follow-up', now() + interval '1 day'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000612',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    'call', 'Sibling lead follow-up', now() + interval '1 day'
+  );
+
+insert into public.stage_transitions (
+  id, company_id, opportunity_id, from_stage, to_stage
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000621',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    'qualifying', 'quoting'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000622',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    'new_lead', 'qualifying'
+  );
+
+insert into public.site_visits (
+  id, company_id, opportunity_id, project_id, project_ref, scheduled_at,
+  created_by
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000631',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    null, null, now() + interval '2 days',
+    '1ead5519-0000-4000-8000-000000000101'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000632',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    null, null, now() + interval '2 days',
+    '1ead5519-0000-4000-8000-000000000103'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000633',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000802',
+    '1ead5519-1000-4000-8000-000000000802',
+    now() + interval '3 days',
+    '1ead5519-0000-4000-8000-000000000101'
+  );
+
+insert into public.deck_designs (
+  id, company_id, opportunity_id, project_id, title, drawing_data
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000641',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    null, 'Assigned lead deck', '{}'::jsonb
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000642',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    null, 'Sibling lead deck', '{}'::jsonb
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000643',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000802',
+    'Project path deck', '{}'::jsonb
+  );
+
+insert into public.email_threads (
+  id, company_id, connection_id, provider_thread_id, subject,
+  first_message_at, last_message_at, opportunity_id, client_id
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000651',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-child-scope-a', 'Assigned email thread', now(), now(),
+    '1ead5519-0000-4000-8000-000000000503',
+    '1ead5519-0000-4000-8000-000000000401'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000652',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-child-scope-b', 'Sibling email thread', now(), now(),
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-0000-4000-8000-000000000401'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000653',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000903',
+    'provider-thread-child-scope-personal',
+    'Own personal mailbox thread', now(), now(), null, null
+  );
+
+insert into public.opportunity_email_threads (
+  id, opportunity_id, thread_id, connection_id
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000661',
+    '1ead5519-0000-4000-8000-000000000503',
+    'provider-thread-child-scope-a',
+    '1ead5519-1000-4000-8000-000000000901'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000662',
+    '1ead5519-0000-4000-8000-000000000501',
+    'provider-thread-child-scope-b',
+    '1ead5519-1000-4000-8000-000000000901'
+  );
+
+insert into public.opportunity_correspondence_events (
+  id, company_id, opportunity_id, connection_id, provider_thread_id,
+  provider_message_id, direction, party_role, is_meaningful, occurred_at,
+  source, subject
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000671',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-child-scope-a', 'provider-message-child-scope-a',
+    'inbound', 'customer', true, now(), 'lead_assignment_contract',
+    'Assigned correspondence'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000672',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-child-scope-b', 'provider-message-child-scope-b',
+    'inbound', 'customer', true, now(), 'lead_assignment_contract',
+    'Sibling correspondence'
+  );
+
+insert into public.opportunity_follow_up_drafts (
+  id, company_id, opportunity_id, connection_id, provider_thread_id,
+  origin, subject, original_body
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000681',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-child-scope-a', 'operator',
+    'Assigned draft', 'Assigned draft body'
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000682',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000501',
+    '1ead5519-1000-4000-8000-000000000901',
+    'provider-thread-child-scope-b', 'operator',
+    'Sibling draft', 'Sibling draft body'
+  );
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object('role', 'service_role')::text,
+  true
+);
+select set_config('request.jwt.claim.role', 'service_role', true);
+set local role service_role;
+
+do $contract$
+begin
+  begin
+    update public.activities
+       set opportunity_id = '1ead5519-0000-4000-8000-000000000501'
+     where id = '1ead5519-2000-4000-8000-000000000601';
+    insert into lead_assignment_contract_results values (
+      'direct_child_reparent_is_token_guarded',
+      false,
+      'update unexpectedly succeeded'
+    );
+  exception when sqlstate '42501' then
+    insert into lead_assignment_contract_results values (
+      'direct_child_reparent_is_token_guarded',
+      sqlerrm = 'child_reparent_forbidden',
+      sqlerrm
+    );
+  end;
+end;
+$contract$;
+
+reset role;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'failed_reparent_leaves_child_on_original_lead',
+  exists (
+    select 1
+      from public.activities a
+     where a.id = '1ead5519-2000-4000-8000-000000000601'
+       and a.opportunity_id = '1ead5519-0000-4000-8000-000000000503'
+  )
+);
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object(
+    'role', 'authenticated',
+    'sub', '1ead5519-0000-4000-8000-000000000901',
+    'email', 'lead-contract-assigned@example.invalid'
+  )::text,
+  true
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '1ead5519-0000-4000-8000-000000000901',
+  true
+);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+
+insert into lead_assignment_contract_values (value_name, value)
+values
+  (
+    'assigned_child_context',
+    public.get_opportunity_assigned_context(
+      '1ead5519-0000-4000-8000-000000000503'
+    )
+  ),
+  (
+    'assigned_candidate_list',
+    public.list_opportunity_assignment_candidates(
+      '1ead5519-0000-4000-8000-000000000503'
+    )
+  );
+
+insert into lead_assignment_contract_results (check_name, passed)
+values
+  (
+    'assigned_actor_sees_only_own_lead_children_plus_project_path',
+    (
+      select count(*) = 3
+        from public.activities a
+       where a.id in (
+         '1ead5519-2000-4000-8000-000000000601',
+         '1ead5519-2000-4000-8000-000000000602',
+         '1ead5519-2000-4000-8000-000000000603',
+         '1ead5519-2000-4000-8000-000000000604',
+         '1ead5519-2000-4000-8000-000000000605'
+       )
+    )
+    and (
+      select count(*) = 1
+        from public.follow_ups f
+       where f.id in (
+         '1ead5519-2000-4000-8000-000000000611',
+         '1ead5519-2000-4000-8000-000000000612'
+       )
+    )
+    and (
+      select count(*) = 1
+        from public.stage_transitions st
+       where st.id in (
+         '1ead5519-2000-4000-8000-000000000621',
+         '1ead5519-2000-4000-8000-000000000622'
+       )
+    )
+    and (
+      select count(*) = 2
+        from public.site_visits sv
+       where sv.id in (
+         '1ead5519-2000-4000-8000-000000000631',
+         '1ead5519-2000-4000-8000-000000000632',
+         '1ead5519-2000-4000-8000-000000000633'
+       )
+    )
+    and (
+      select count(*) = 2
+        from public.deck_designs dd
+       where dd.id in (
+         '1ead5519-2000-4000-8000-000000000641',
+         '1ead5519-2000-4000-8000-000000000642',
+         '1ead5519-2000-4000-8000-000000000643'
+       )
+    )
+  ),
+  (
+    'assigned_actor_email_reads_require_lead_and_inbox_scope_and_keep_own_mailbox',
+    (
+      select count(*) = 2
+        from public.email_threads et
+       where et.id in (
+         '1ead5519-2000-4000-8000-000000000651',
+         '1ead5519-2000-4000-8000-000000000652',
+         '1ead5519-2000-4000-8000-000000000653'
+       )
+    )
+    and exists (
+      select 1
+        from public.email_threads et
+       where et.id = '1ead5519-2000-4000-8000-000000000653'
+    )
+    and (
+      select count(*) = 1
+        from public.opportunity_email_threads oet
+       where oet.id in (
+         '1ead5519-2000-4000-8000-000000000661',
+         '1ead5519-2000-4000-8000-000000000662'
+       )
+    )
+    and (
+      select count(*) = 1
+        from public.opportunity_correspondence_events ce
+       where ce.id in (
+         '1ead5519-2000-4000-8000-000000000671',
+         '1ead5519-2000-4000-8000-000000000672'
+       )
+    )
+    and (
+      select count(*) = 1
+        from public.opportunity_follow_up_drafts d
+       where d.id in (
+         '1ead5519-2000-4000-8000-000000000681',
+         '1ead5519-2000-4000-8000-000000000682'
+       )
+    )
+  ),
+  (
+    'prior_assignee_keeps_recipient_delivery_but_not_assignment_audit',
+    exists (
+      select 1
+        from public.opportunity_assignment_deliveries d
+       where d.opportunity_id = '1ead5519-0000-4000-8000-000000000501'
+         and d.recipient_user_id = '1ead5519-0000-4000-8000-000000000101'
+         and not d.access_after
+    )
+    and not exists (
+      select 1
+      from public.opportunity_assignment_events e
+       where e.opportunity_id = '1ead5519-0000-4000-8000-000000000501'
+    )
+  ),
+  (
+    'assigned_send_allows_shared_and_own_personal_mailboxes',
+    private.current_user_can_send_opportunity_inbox(
+      '1ead5519-0000-4000-8000-000000000503',
+      '1ead5519-1000-4000-8000-000000000901'
+    )
+    and private.current_user_can_send_opportunity_inbox(
+      '1ead5519-0000-4000-8000-000000000503',
+      '1ead5519-1000-4000-8000-000000000903'
+    )
+  );
+
+reset role;
+
+insert into lead_assignment_contract_results (check_name, passed, details)
+select
+  'assigned_context_is_whitelisted_and_exact_parent_only',
+  v.value -> 'contact' ->> 'email' = 'lead-contract-client@example.invalid'
+  and v.value -> 'estimate_summaries' @> jsonb_build_array(
+    jsonb_build_object('id', '1ead5519-2000-4000-8000-000000000691')
+  )
+  and not v.value -> 'estimate_summaries' @> jsonb_build_array(
+    jsonb_build_object('id', '1ead5519-2000-4000-8000-000000000692')
+  )
+  and v.value -> 'activities' @> jsonb_build_array(
+    jsonb_build_object('id', '1ead5519-2000-4000-8000-000000000601')
+  )
+  and not v.value -> 'activities' @> jsonb_build_array(
+    jsonb_build_object('id', '1ead5519-2000-4000-8000-000000000602')
+  )
+  and v.value::text not like '%CHILD_SCOPE_CLIENT_SECRET%'
+  and v.value::text not like '%CHILD_SCOPE_ESTIMATE_SECRET%'
+  and v.value::text not like '%CHILD_SCOPE_QB_SECRET%'
+  and v.value::text not like '%CHILD_SCOPE_SIBLING_ESTIMATE_SECRET%'
+  and v.value::text not like '%CHILD_SCOPE_SIBLING_QB_SECRET%',
+  v.value::text
+from lead_assignment_contract_values v
+where v.value_name = 'assigned_child_context';
+
+insert into lead_assignment_contract_results (check_name, passed, details)
+select
+  'assigned_candidate_list_is_minimal_and_guard_compatible',
+  not (v.value ->> 'can_unassign')::boolean
+  and v.value -> 'candidates' @> jsonb_build_array(
+    jsonb_build_object('id', '1ead5519-0000-4000-8000-000000000103')
+  )
+  and not v.value -> 'candidates' @> jsonb_build_array(
+    jsonb_build_object('id', '1ead5519-0000-4000-8000-000000000104')
+  )
+  and not v.value -> 'candidates' @> jsonb_build_array(
+    jsonb_build_object('id', '1ead5519-0000-4000-8000-000000000105')
+  )
+  and not v.value -> 'candidates' @> jsonb_build_array(
+    jsonb_build_object('id', '1ead5519-0000-4000-8000-000000000106')
+  )
+  and v.value::text not like '%@example.invalid%',
+  v.value::text
+from lead_assignment_contract_values v
+where v.value_name = 'assigned_candidate_list';
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object(
+    'role', 'authenticated',
+    'sub', '1ead5519-0000-4000-8000-000000000903',
+    'email', 'lead-contract-target@example.invalid'
+  )::text,
+  true
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '1ead5519-0000-4000-8000-000000000903',
+  true
+);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'lead_access_without_inbox_scope_hides_email_children',
+  exists (
+    select 1
+      from public.activities a
+     where a.id = '1ead5519-2000-4000-8000-000000000602'
+  )
+  and not exists (
+    select 1
+      from public.activities a
+     where a.id = '1ead5519-2000-4000-8000-000000000604'
+  )
+  and not exists (
+    select 1
+      from public.email_threads et
+     where et.id = '1ead5519-2000-4000-8000-000000000652'
+  )
+  and not exists (
+    select 1
+      from public.opportunity_correspondence_events ce
+     where ce.id = '1ead5519-2000-4000-8000-000000000672'
+  )
+);
+
+reset role;
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object(
+    'role', 'authenticated',
+    'sub', '1ead5519-0000-4000-8000-000000000902',
+    'email', 'lead-contract-all@example.invalid'
+  )::text,
+  true
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '1ead5519-0000-4000-8000-000000000902',
+  true
+);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'all_scope_send_cannot_use_another_users_personal_mailbox',
+  private.current_user_can_send_opportunity_inbox(
+    '1ead5519-0000-4000-8000-000000000503',
+    '1ead5519-1000-4000-8000-000000000901'
+  )
+  and not private.current_user_can_send_opportunity_inbox(
+    '1ead5519-0000-4000-8000-000000000503',
+    '1ead5519-1000-4000-8000-000000000903'
+  )
+);
+
+insert into lead_assignment_contract_values (value_name, value)
+values (
+  'all_candidate_list',
+  public.list_opportunity_assignment_candidates(
+    '1ead5519-0000-4000-8000-000000000503'
+  )
+);
+
+reset role;
+
+insert into lead_assignment_contract_results (check_name, passed, details)
+select
+  'all_scope_candidate_list_allows_unassign',
+  (v.value ->> 'can_unassign')::boolean,
+  v.value::text
+from lead_assignment_contract_values v
+where v.value_name = 'all_candidate_list';
+
 -- Emit useful diagnostics, then make false checks fail the SQL runner.
 select check_name, passed, details
 from lead_assignment_contract_results
