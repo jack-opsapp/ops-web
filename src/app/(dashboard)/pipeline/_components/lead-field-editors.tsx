@@ -21,6 +21,9 @@
  *
  * ── Design tokens (traced to .interface-design/system.md) ────────────────────
  *  - popovers: `glass-dense` + `var(--shadow-dropdown)` + `rounded-modal` (12px)
+ *    at `z-modal` (3000) — the editors portal over a floating window (z 2000+),
+ *    so the dropdown band (1000) would render behind it; `z-modal` matches the
+ *    sibling `EntityPicker` assignee popover.
  *  - inputs: `var(--surface-input)` fill, `border-glass-border` → brightens on
  *    focus (NO accent on input borders); min-h 36 (web is non-touch), radius 5
  *  - numbers: `font-mono` with `"tnum" 1, "zero" 1`
@@ -215,7 +218,11 @@ export function EditPopover({
       ref={panelRef}
       role="dialog"
       aria-label={ariaLabel}
-      className="glass-dense scrollbar-hide fixed z-[1000] overflow-y-auto rounded-modal border border-glass-border p-1.5"
+      // `data-lead-field-editor` lets the detail window's capture-phase Escape
+      // handler know a portaled editor is open, so Escape closes the editor
+      // (below) instead of collapsing the whole window.
+      data-lead-field-editor=""
+      className="glass-dense scrollbar-hide fixed z-modal overflow-y-auto rounded-modal border border-glass-border p-1.5"
       style={{
         top: position.top,
         left: position.left,

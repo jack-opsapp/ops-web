@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useShallow } from "zustand/react/shallow";
 import { useDictionary } from "@/i18n/client";
 import { useWindowStore } from "@/stores/window-store";
 import { ProjectWorkspaceWindow } from "@/components/ops/projects/workspace/shell/project-workspace-window";
@@ -30,6 +31,27 @@ export interface PipelineFocusedDetailWindowProps extends DetailPanelActionHandl
 
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+// The exact, shallow-compared slice of a window's store record this component
+// depends on. Selecting the whole window object re-rendered (and re-ran the
+// focus effect) on every unrelated store write; this narrow view is stable
+// across bring-to-front / drag churn because each field only changes when it
+// genuinely changes.
+interface DetailWindowView {
+  exists: boolean;
+  isMinimized: boolean;
+  position: { x: number; y: number } | null;
+  size: { width: number; height: number } | null;
+  zIndex: number;
+}
+
+const CLOSED_WINDOW_VIEW: DetailWindowView = {
+  exists: false,
+  isMinimized: false,
+  position: null,
+  size: null,
+  zIndex: 0,
+};
 
 export function getPipelineDetailWindowId(opportunityId: string): string {
   return `pipeline-detail:${opportunityId}`;
@@ -111,17 +133,36 @@ export function PipelineFocusedDetailWindow({
   const closeDetailPanel = usePipelineModeStore((s) => s.closeDetailPanel);
   const openWindow = useWindowStore((s) => s.openWindow);
   const closeWindow = useWindowStore((s) => s.closeWindow);
-  const win = useWindowStore((s) =>
-    s.windows.find(
-      (windowState) =>
-        windowState.id === getPipelineDetailWindowId(opportunity.id) &&
-        windowState.type === "pipeline-detail"
-    )
+  const windowId = getPipelineDetailWindowId(opportunity.id);
+  // Subscribe to a narrow, shallow-compared view instead of the whole window
+  // record. `focusWindow` (bring-to-front) rebuilds the windows array — and
+  // thus the window object identity — on EVERY in-window pointerdown. Reading
+  // the whole object re-ran the focus effect on that churn and yanked focus out
+  // of the open assignee popover (which, being non-modal, dismissed on
+  // focus-out). Each field below is referentially stable across unrelated
+  // writes, so the effects only fire on real transitions.
+  const windowView = useWindowStore(
+    useShallow((s): DetailWindowView => {
+      const windowState = s.windows.find(
+        (candidate) =>
+          candidate.id === windowId && candidate.type === "pipeline-detail"
+      );
+      if (!windowState) return CLOSED_WINDOW_VIEW;
+      return {
+        exists: true,
+        isMinimized: windowState.isMinimized,
+        position: windowState.position,
+        size: windowState.size,
+        zIndex: windowState.zIndex,
+      };
+    })
   );
+  const windowExists = windowView.exists;
+  const windowMinimized = windowView.isMinimized;
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const hadWindowRef = useRef(false);
+  const focusedForOpportunityRef = useRef<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const windowId = getPipelineDetailWindowId(opportunity.id);
   const title = getOpportunityTitle(opportunity, t("detail.unknown"));
   const stageName = getStageDisplayName(opportunity.stage);
   const stageLabel = stageName.toUpperCase();
@@ -154,7 +195,7 @@ export function PipelineFocusedDetailWindow({
   }, [closeWindow, dockTitle, openWindow, opportunity.id, windowId]);
 
   useEffect(() => {
-    if (win) {
+    if (windowExists) {
       hadWindowRef.current = true;
       return;
     }
@@ -162,10 +203,10 @@ export function PipelineFocusedDetailWindow({
     if (!hadWindowRef.current) return;
     closeDetailPanel();
     restoreFocus();
-  }, [closeDetailPanel, restoreFocus, win]);
+  }, [closeDetailPanel, restoreFocus, windowExists]);
 
   useEffect(() => {
-    if (!win || win.isMinimized) return;
+    if (!windowExists || windowMinimized) return;
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
@@ -173,6 +214,17 @@ export function PipelineFocusedDetailWindow({
       // Escape — it closes itself; the window stays. Without this guard the
       // capture-phase listener tears down the whole window underneath it.
       if (document.querySelector("[data-pipeline-detail-modal]")) return;
+      // An open picker owns Escape too: the Radix assignee popover
+      // (`[data-radix-popper-content-wrapper]`) and the portaled inline field
+      // editors (`[data-lead-field-editor]`) each close themselves on Escape.
+      // Bailing here lets them handle it instead of collapsing the window.
+      if (
+        document.querySelector(
+          "[data-radix-popper-content-wrapper], [data-lead-field-editor]"
+        )
+      ) {
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       handleClose();
@@ -180,18 +232,30 @@ export function PipelineFocusedDetailWindow({
 
     document.addEventListener("keydown", handleKeyDown, true);
     return () => document.removeEventListener("keydown", handleKeyDown, true);
-  }, [handleClose, win]);
+  }, [handleClose, windowExists, windowMinimized]);
 
   useEffect(() => {
-    if (!win || win.isMinimized) return;
+    const isOpen = windowExists && !windowMinimized;
+    if (!isOpen) {
+      // Closed or minimized — clear the latch so the next open refocuses.
+      focusedForOpportunityRef.current = null;
+      return;
+    }
 
-    requestAnimationFrame(() => {
+    // Focus the body exactly once per open episode. Re-running on z-order or
+    // position churn would steal focus back into the body and dismiss the
+    // non-modal assignee popover the instant the operator clicks to open it.
+    if (focusedForOpportunityRef.current === opportunity.id) return;
+    focusedForOpportunityRef.current = opportunity.id;
+
+    const frame = requestAnimationFrame(() => {
       const body = bodyRef.current;
       if (!body) return;
       const focusable = body.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
       (focusable ?? body).focus({ preventScroll: true });
     });
-  }, [opportunity.id, win]);
+    return () => cancelAnimationFrame(frame);
+  }, [opportunity.id, windowExists, windowMinimized]);
 
   const footerConfig = useMemo<ModeFooterConfig>(() => {
     const meta = [
@@ -212,7 +276,11 @@ export function PipelineFocusedDetailWindow({
     };
   }, [opportunity, t]);
 
-  if (!mounted || !win || win.isMinimized) return null;
+  if (!mounted || !windowExists || windowMinimized) return null;
+  // `exists` guarantees both are set; this narrows the nullable view fields for
+  // the shell props below.
+  const { position, size, zIndex } = windowView;
+  if (!position || !size) return null;
 
   return createPortal(
     <ProjectWorkspaceWindow
@@ -238,9 +306,9 @@ export function PipelineFocusedDetailWindow({
           />
         ) : undefined
       }
-      position={win.position}
-      size={win.size}
-      zIndex={win.zIndex}
+      position={position}
+      size={size}
+      zIndex={zIndex}
       footerConfig={footerConfig}
       onRequestClose={handleClose}
       keyboardScope="modal-or-menu"

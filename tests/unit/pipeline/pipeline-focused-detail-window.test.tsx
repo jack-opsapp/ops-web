@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -303,6 +304,41 @@ describe("<PipelineFocusedDetailWindow>", () => {
         (element?.textContent ?? "").includes("42 Lonsdale Ave")
       ).length
     ).toBeGreaterThan(0);
+  });
+
+  it("does not steal focus back into the window body on a bring-to-front store write", async () => {
+    // Regression: the window subscribed to the whole store record, so every
+    // `focusWindow` bring-to-front (which fires on any in-window pointerdown)
+    // re-ran the focus effect and yanked focus out of the just-opened,
+    // non-modal assignee popover — dismissing it on focus-out. The narrow
+    // shallow selector + per-open focus latch must keep focus where it is.
+    async function flushFrames(count = 2) {
+      for (let i = 0; i < count; i += 1) {
+        await act(async () => {
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve())
+          );
+        });
+      }
+    }
+
+    renderWindow();
+    const windowShell = await screen.findByTestId("project-workspace-window");
+    await flushFrames();
+
+    // Stand in for the operator having moved focus into a popover portaled
+    // outside the window body.
+    const origin = screen.getByRole("button", { name: "Origin card" });
+    origin.focus();
+    expect(document.activeElement).toBe(origin);
+
+    await act(async () => {
+      useWindowStore.getState().focusWindow("pipeline-detail:opp-1");
+    });
+    await flushFrames();
+
+    expect(document.activeElement).toBe(origin);
+    expect(windowShell.contains(document.activeElement)).toBe(false);
   });
 
   it("closes on Escape and restores focus to the originating card", async () => {
