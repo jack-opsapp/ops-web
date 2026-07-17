@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { queryKeys } from "@/lib/api/query-client";
 import {
+  armAuthorityVerificationDeadline,
+  cancelAuthorityVerificationDeadline,
   reconcileLeadAssignmentBacklog,
   reconcileLeadAssignmentDelivery,
   reconcilePermissionChangeDelivery,
+  replayWithRetryAndDeadline,
   type AssignmentDeliveryRow,
 } from "@/lib/hooks/use-lead-assignment-realtime";
 import { usePermissionStore } from "@/lib/store/permissions-store";
@@ -257,6 +260,110 @@ describe("reconcileLeadAssignmentDelivery", () => {
     expect(useWindowStore.getState().windows.map(({ id }) => id)).toEqual([
       "compose:lead-2",
     ]);
+  });
+});
+
+describe("replayWithRetryAndDeadline", () => {
+  it("retries a failing replay on backoff and recovers without failing closed", async () => {
+    const runReplay = vi.fn(async () => false);
+    runReplay
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const onSuccess = vi.fn();
+    const onFinalFailure = vi.fn();
+    const sleep = vi.fn(async (_ms: number) => {});
+
+    const result = await replayWithRetryAndDeadline({
+      runReplay,
+      onSuccess,
+      onFinalFailure,
+      isDisposed: () => false,
+      sleep,
+    });
+
+    expect(result).toBe(true);
+    // Initial attempt + three backoff retries, recovering on the fourth.
+    expect(runReplay).toHaveBeenCalledTimes(4);
+    expect(sleep.mock.calls.map((call) => call[0])).toEqual([
+      1_000, 3_000, 9_000,
+    ]);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onFinalFailure).not.toHaveBeenCalled();
+  });
+
+  it("hands off to the fail-closed path only after every retry is exhausted", async () => {
+    const runReplay = vi.fn(async () => false);
+    const onSuccess = vi.fn();
+    const onFinalFailure = vi.fn();
+
+    const result = await replayWithRetryAndDeadline({
+      runReplay,
+      onSuccess,
+      onFinalFailure,
+      isDisposed: () => false,
+      sleep: async () => {},
+    });
+
+    expect(result).toBe(false);
+    expect(runReplay).toHaveBeenCalledTimes(4);
+    expect(onFinalFailure).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("stops retrying and never fails closed once disposed mid-backoff", async () => {
+    let disposed = false;
+    const runReplay = vi.fn(async () => false);
+    const onFinalFailure = vi.fn();
+    const sleep = vi.fn(async () => {
+      disposed = true; // the effect tore down during the wait
+    });
+
+    const result = await replayWithRetryAndDeadline({
+      runReplay,
+      onSuccess: vi.fn(),
+      onFinalFailure,
+      isDisposed: () => disposed,
+      sleep,
+    });
+
+    expect(result).toBe(false);
+    expect(runReplay).toHaveBeenCalledTimes(1);
+    expect(onFinalFailure).not.toHaveBeenCalled();
+  });
+});
+
+describe("authority verification deadline", () => {
+  beforeEach(() => {
+    cancelAuthorityVerificationDeadline();
+  });
+
+  it("fires the destructive fallback exactly once after the deadline elapses", () => {
+    vi.useFakeTimers();
+    try {
+      const fallback = vi.fn();
+      armAuthorityVerificationDeadline(fallback);
+      // A second arm while one is pending must not schedule a second wipe.
+      armAuthorityVerificationDeadline(fallback);
+      vi.advanceTimersByTime(3 * 60_000);
+      expect(fallback).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancel prevents the fallback from firing", () => {
+    vi.useFakeTimers();
+    try {
+      const fallback = vi.fn();
+      armAuthorityVerificationDeadline(fallback);
+      cancelAuthorityVerificationDeadline();
+      vi.advanceTimersByTime(3 * 60_000);
+      expect(fallback).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

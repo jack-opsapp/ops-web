@@ -220,7 +220,10 @@ function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
   };
 }
 
-function renderFocusedShell(opportunities: Opportunity[]) {
+function renderFocusedShell(
+  opportunities: Opportunity[],
+  options?: { opportunitiesLoading?: boolean }
+) {
   const leadAccessById = new Map(
     opportunities.map((opportunity) => [
       opportunity.id,
@@ -241,6 +244,7 @@ function renderFocusedShell(opportunities: Opportunity[]) {
       canCreateLead
       leadAccessById={leadAccessById}
       filtersActive={false}
+      opportunitiesLoading={options?.opportunitiesLoading}
       dragAnnouncement=""
       onAddLead={vi.fn()}
       onClearFilters={vi.fn()}
@@ -606,6 +610,42 @@ describe("<PipelineFocusedShell>", () => {
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
       "opp-quoted"
     );
+  });
+
+  it("does not close a detail panel for a missing lead while opportunities are still loading", async () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-not-loaded-yet",
+    });
+
+    // The lead is absent from the (still-loading) list — e.g. the first fetch
+    // or an access-recheck invalidation is in flight. The panel must hold.
+    renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)], {
+      opportunitiesLoading: true,
+    });
+
+    // The close effect runs post-render; give it a tick to (not) fire.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-not-loaded-yet"
+    );
+  });
+
+  it("closes a detail panel for a missing lead once opportunities have settled", async () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-gone",
+    });
+
+    renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)], {
+      opportunitiesLoading: false,
+    });
+
+    await waitFor(() => {
+      expect(
+        usePipelineModeStore.getState().detailPanelOpportunityId
+      ).toBeNull();
+    });
   });
 
   it("closes an aligned detail panel when focusedStage changes afterward", async () => {

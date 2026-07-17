@@ -10,6 +10,18 @@
 
 import { create } from "zustand";
 import type { PermissionScope } from "@/lib/types/permissions";
+
+/**
+ * How a permission refresh treats the in-flight grants:
+ * - `"revoke-first"` drops every grant synchronously before the canonical
+ *   refresh runs — the fail-closed posture for confirmed revocations, sign-in,
+ *   and user-switch, so a stale admin session cannot act during the gap.
+ * - `"hold"` keeps the current grants until the refresh settles — for the boot
+ *   rehydrate and realtime reconnect paths, where an unverified but still-valid
+ *   session must not be transiently stripped. A failed refresh still fails
+ *   closed (grants cleared), exactly as `revoke-first` does.
+ */
+export type PermissionRefreshMode = "revoke-first" | "hold";
 import { ALL_PERMISSIONS, PRESET_ROLE_IDS } from "@/lib/types/permissions";
 import {
   isAdminBypass,
@@ -48,8 +60,18 @@ export interface PermissionState {
    */
   can: (permission: string, requiredScope?: PermissionScope) => boolean;
 
-  /** Fetch and cache the current user's permissions. */
-  fetchPermissions: (userId: string) => Promise<void>;
+  /**
+   * Fetch and cache the current user's permissions.
+   *
+   * `options.mode` (default `"revoke-first"`) controls whether the in-flight
+   * grants are dropped synchronously before the refresh (`"revoke-first"`) or
+   * held until it settles (`"hold"`). See {@link PermissionRefreshMode}. Either
+   * way, a failed refresh fails closed.
+   */
+  fetchPermissions: (
+    userId: string,
+    options?: { mode?: PermissionRefreshMode }
+  ) => Promise<void>;
 
   /** Clear all permissions (on logout). */
   clear: () => void;
@@ -112,18 +134,29 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
     return scopeSatisfies(granted, requiredScope);
   },
 
-  fetchPermissions: async (userId: string) => {
+  fetchPermissions: async (
+    userId: string,
+    options?: { mode?: PermissionRefreshMode }
+  ) => {
+    const mode = options?.mode ?? "revoke-first";
     const refreshGeneration = ++permissionRefreshGeneration;
-    // Permission refreshes are triggered by remote revocation deliveries. Drop
-    // every prior grant synchronously so a stale admin session cannot act while
-    // canonical authority is still in flight.
-    set({
-      permissions: new Map(),
-      configuredPermissions: new Set(),
-      roleId: null,
-      roleName: null,
-      loading: true,
-    });
+    if (mode === "revoke-first") {
+      // Confirmed-revocation / sign-in / user-switch posture: drop every prior
+      // grant synchronously so a stale admin session cannot act while canonical
+      // authority is still in flight.
+      set({
+        permissions: new Map(),
+        configuredPermissions: new Set(),
+        roleId: null,
+        roleName: null,
+        loading: true,
+      });
+    } else {
+      // hold: keep the current grants visible while the refresh runs (boot
+      // rehydrate / realtime reconnect). The catch below still fails closed on
+      // any refresh error, identically to revoke-first.
+      set({ loading: true });
+    }
 
     try {
       const [{ RolesService }, { UserService }, { CompanyService }] =

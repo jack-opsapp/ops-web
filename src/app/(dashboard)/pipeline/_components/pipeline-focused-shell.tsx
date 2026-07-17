@@ -471,6 +471,11 @@ export function PipelineFocusedShell({
     }
 
     if (!detailOpportunity) {
+      // The lead may simply not be in the list yet (first load in flight). Only
+      // reconcile against a SETTLED result — otherwise a legitimately-open
+      // panel flickers shut mid-load. Confirmed revocations close the panel
+      // synchronously elsewhere; this effect is the steady-state reconciler.
+      if (opportunitiesLoading) return;
       stageSyncedDetailIdRef.current = null;
       closeDetailPanel();
       return;
@@ -500,6 +505,7 @@ export function PipelineFocusedShell({
     detailOpportunity,
     detailPanelOpportunityId,
     focusableStages,
+    opportunitiesLoading,
     safeFocusedStage,
     setFocusedStage,
   ]);

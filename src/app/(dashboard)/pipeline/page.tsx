@@ -336,6 +336,7 @@ export default function PipelinePage() {
   const {
     data: opportunities,
     isLoading: oppsLoading,
+    isFetching: oppsFetching,
     isError: oppsError,
     error: opportunitiesError,
     refetch: refetchOpportunities,
@@ -521,10 +522,22 @@ export default function PipelinePage() {
   }, [detailPanelOpportunityId, activeOpportunities]);
 
   useEffect(() => {
+    // Only close against a SETTLED opportunities result. While the query is
+    // loading or refetching (e.g. an access-recheck invalidation in flight),
+    // the lead may be transiently absent from `activeOpportunities` — closing
+    // then would flicker a legitimately-open panel shut. Confirmed revocations
+    // close the panel synchronously elsewhere.
+    if (oppsLoading || oppsFetching) return;
     if (detailPanelOpportunityId && !detailPanelOpportunity) {
       closeDetailPanel();
     }
-  }, [closeDetailPanel, detailPanelOpportunity, detailPanelOpportunityId]);
+  }, [
+    closeDetailPanel,
+    detailPanelOpportunity,
+    detailPanelOpportunityId,
+    oppsFetching,
+    oppsLoading,
+  ]);
 
   useEffect(() => {
     if (previousModeRef.current !== mode) {

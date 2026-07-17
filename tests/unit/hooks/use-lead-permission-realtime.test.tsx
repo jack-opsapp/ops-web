@@ -17,6 +17,7 @@ vi.mock("@/lib/supabase/client", () => ({
 
 import { queryKeys } from "@/lib/api/query-client";
 import {
+  cancelAuthorityVerificationDeadline,
   reconcileLeadAssignmentDelivery,
   useLeadAssignmentRealtime,
 } from "@/lib/hooks/use-lead-assignment-realtime";
@@ -26,18 +27,26 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 type ChangeHandler = (payload: { new: Record<string, unknown> }) => void;
 
 function queryBuilder(result: { data: unknown[] | null; error: unknown }) {
-  const promise = Promise.resolve(result);
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     order: vi.fn(() => builder),
     limit: vi.fn(() => builder),
-    then: promise.then.bind(promise),
+    then: (
+      onFulfilled: (value: { data: unknown[] | null; error: unknown }) => unknown,
+      onRejected?: (reason: unknown) => unknown
+    ) => Promise.resolve(result).then(onFulfilled, onRejected),
   };
   return builder;
 }
 
-function harness(permissionBacklog: unknown[] = []) {
+function harness(
+  permissionBacklog: unknown[] = [],
+  options?: {
+    assignmentResult?: { data: unknown[] | null; error: unknown };
+    permissionResult?: { data: unknown[] | null; error: unknown };
+  }
+) {
   const handlers = new Map<string, ChangeHandler>();
   const channel = {
     on: vi.fn(
@@ -48,11 +57,12 @@ function harness(permissionBacklog: unknown[] = []) {
     ),
     subscribe: vi.fn(() => channel),
   };
-  const assignmentBuilder = queryBuilder({ data: [], error: null });
-  const permissionBuilder = queryBuilder({
-    data: permissionBacklog,
-    error: null,
-  });
+  const assignmentBuilder = queryBuilder(
+    options?.assignmentResult ?? { data: [], error: null }
+  );
+  const permissionBuilder = queryBuilder(
+    options?.permissionResult ?? { data: permissionBacklog, error: null }
+  );
   const from = vi.fn((table: string) =>
     table === "user_permission_change_deliveries"
       ? permissionBuilder
@@ -77,6 +87,9 @@ function harness(permissionBacklog: unknown[] = []) {
 describe("lead permission realtime delivery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The fail-closed deadline is module-level state — never let one test's
+    // armed timer bleed into the next.
+    cancelAuthorityVerificationDeadline();
     useAuthStore.setState({
       company: { id: "company-1" } as never,
       currentUser: { id: "user-1" } as never,
@@ -195,6 +208,58 @@ describe("lead permission realtime delivery", () => {
 
     await waitFor(() => expect(result.current.data).toEqual(refreshed));
     expect(fetchThread).toHaveBeenCalledTimes(2);
+  });
+
+  it("holds last-good data through a transient replay failure, then fails closed at the deadline", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchPermissions = vi.fn().mockResolvedValue(undefined);
+      usePermissionStore.setState({ fetchPermissions });
+
+      // Both backlog reads fail — a dead edge / offline blip, NOT a confirmed
+      // revocation.
+      const failure = { data: null, error: new Error("connection down") };
+      const { queryClient, wrapper } = harness([], {
+        assignmentResult: failure,
+        permissionResult: failure,
+      });
+      const listKey = queryKeys.opportunities.list("company-1");
+      queryClient.setQueryData(listKey, [{ id: "lead-1" }]);
+
+      const { unmount } = renderHook(() => useLeadAssignmentRealtime(), {
+        wrapper,
+      });
+
+      // Initial read + the full 1s/3s/9s backoff, all failing.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(13_100);
+      });
+
+      // Grace path: data holds (invalidated, not reset), authority re-derived
+      // in hold mode — no revoke-first wipe.
+      expect(queryClient.getQueryData(listKey)).toEqual([{ id: "lead-1" }]);
+      expect(fetchPermissions).toHaveBeenCalledWith("user-1", {
+        mode: "hold",
+      });
+      expect(fetchPermissions).not.toHaveBeenCalledWith("user-1", {
+        mode: "revoke-first",
+      });
+
+      // No replay success and no SUBSCRIBED before the 3-minute deadline →
+      // the destructive fail-closed fallback runs.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3 * 60_000);
+      });
+
+      expect(queryClient.getQueryData(listKey)).toBeUndefined();
+      expect(fetchPermissions).toHaveBeenCalledWith("user-1", {
+        mode: "revoke-first",
+      });
+
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("redacts a mounted sensitive query while a revoked assignment refetches under RLS", async () => {
