@@ -149,10 +149,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: events.length, stored: 0, skipped });
   }
 
-  // Idempotent upsert. The unique index is partial (only when sg_message_id
-  // IS NOT NULL), so events without sg_message_id are inserted as new rows
-  // every time. SendGrid omits sg_message_id only on rare system events,
-  // which is acceptable.
+  // Idempotent upsert. PostgreSQL unique indexes treat NULL values as distinct,
+  // so events without sg_message_id are inserted as new rows every time while
+  // PostgREST can infer the full-column conflict target for normal events.
   const supabase = getServiceRoleClient();
   const { error, count } = await supabase
     .from("email_events")
