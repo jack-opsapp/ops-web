@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // NOTE: the fixture below is reconciled to the A0-owned `QboImportReview` type
@@ -170,21 +171,20 @@ describe("QuickBooksImportTab", () => {
     expect(screen.getByTestId("qbo-connection-status").textContent).toContain(
       "integrations.connected"
     );
-    expect(screen.getByTestId("qbo-connection-status").textContent).toContain(
-      "qbo.lastPulled"
-    );
+    expect(screen.getByText("qbo.lastPulled")).toBeInTheDocument();
+    expect(screen.getByText("qbo.never")).toBeInTheDocument();
   });
 
-  it("disables APPLY while a customer is still needs_review, then enables it once resolved", () => {
+  it("disables APPLY while a customer is still needs_review, then enables it once resolved", async () => {
+    const user = userEvent.setup();
     reviewData = reviewNeedsReview;
     render(<QuickBooksImportTab />);
     // Unresolved needs_review → APPLY blocked + hint shown.
     expect(screen.getByRole("button", { name: /qbo.apply.all/ })).toBeDisabled();
     expect(screen.getByTestId("qbo-needs-review-hint")).toBeInTheDocument();
     // Operator resolves the row to skip → APPLY enabled, hint gone.
-    fireEvent.change(screen.getByTestId("match-action-QB2"), {
-      target: { value: "skip" },
-    });
+    await user.click(screen.getByTestId("match-action-QB2"));
+    await user.click(screen.getByRole("option", { name: "qbo.action.skip" }));
     expect(screen.getByRole("button", { name: /qbo.apply.all/ })).toBeEnabled();
     expect(screen.queryByTestId("qbo-needs-review-hint")).not.toBeInTheDocument();
   });

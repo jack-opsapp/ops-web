@@ -17,6 +17,14 @@ vi.mock("@/lib/supabase/check-permission", () => ({
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({
     from: () => ({
+      select: () => {
+        const builder = {
+          eq: () => builder,
+          neq: () => builder,
+          limit: () => Promise.resolve({ data: [], error: null }),
+        };
+        return builder;
+      },
       upsert: (...args: unknown[]) => {
         upsertCall(...args);
         return Promise.resolve({ data: null, error: null });

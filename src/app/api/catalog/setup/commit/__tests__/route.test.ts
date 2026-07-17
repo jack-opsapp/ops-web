@@ -25,8 +25,8 @@ import { POST } from "../route";
 const makeReq = (body: unknown): NextRequest =>
   ({ json: async () => body }) as unknown as NextRequest;
 
-// Captures the service-role UPDATE/INSERTs a commit issues (completion stamp,
-// external-id stamp, unit_cost stamp) so a test can assert what was written.
+// Captures the service-role UPDATE/INSERTs a commit issues (completion stamp and
+// external-id stamp) so a test can assert what was written.
 let serviceWrites: Array<{ table: string; op: "update" | "insert"; values: Record<string, unknown> }>;
 
 const sellCard = {
@@ -233,7 +233,7 @@ describe("POST /api/catalog/setup/commit", () => {
     expect(p.show_in_storefront).toBe(false);
   });
 
-  it("stamps unit_cost on a CREATED product after commit (catalog_setup_save never writes it)", async () => {
+  it("sends unit_cost for a created product through catalog_setup_save", async () => {
     rpc.mockResolvedValue({
       data: { ok: true, counts: { products: 1 }, id_map: { c1: "row-new" } },
       error: null,
@@ -261,13 +261,11 @@ describe("POST /api/catalog/setup/commit", () => {
       }),
     );
     expect(res.status).toBe(200);
-    const costWrite = serviceWrites.find(
-      (w) => w.table === "products" && "unit_cost" in w.values,
-    );
-    expect(costWrite?.values).toEqual({ unit_cost: 40 });
+    const product = rpc.mock.calls[0][1].p_payload.products[0];
+    expect(product.unit_cost).toBe(40);
   });
 
-  it("does NOT stamp unit_cost on a merge card (the on-file cost is preserved, not overwritten)", async () => {
+  it("sends the on-file unit_cost for a merge card instead of the incoming cost", async () => {
     rpc.mockResolvedValue({
       data: { ok: true, counts: { products: 1 }, id_map: {} },
       error: null,
@@ -306,7 +304,8 @@ describe("POST /api/catalog/setup/commit", () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(serviceWrites.find((w) => "unit_cost" in w.values)).toBeUndefined();
+    const product = rpc.mock.calls[0][1].p_payload.products[0];
+    expect(product.unit_cost).toBe(30);
   });
 
   it("content-addressed key: identical set replays the key, a changed set gets a fresh one", async () => {

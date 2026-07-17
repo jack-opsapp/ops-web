@@ -211,6 +211,7 @@ function createRows(): ProjectTableRow[] {
       margin: null,
       photoCount: 2,
       updatedAt: "2026-05-13T00:00:00Z",
+      statusVersion: 1,
     },
   ];
 }
@@ -970,7 +971,14 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
     });
 
     bulkUpdateProjectsMock.mockResolvedValueOnce({
-      success: [{ projectId: "p-1", action: "status", updatedAt: "2026-05-13T01:00:00Z" }],
+      success: [
+        {
+          projectId: "p-1",
+          action: "status",
+          updatedAt: "2026-05-13T01:00:00Z",
+          statusVersion: 2,
+        },
+      ],
       failed: [],
       successCount: 1,
       failedCount: 0,
@@ -985,6 +993,7 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
           projectId: "p-1",
           status: ProjectStatus.Archived,
           expectedUpdatedAt: "2026-05-13T00:00:00Z",
+          expectedStatusVersion: 1,
         },
       ],
     });
@@ -1020,8 +1029,18 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
 
     bulkUpdateProjectsMock.mockResolvedValue({
       success: [
-        { projectId: "p-1", action: "status", updatedAt: "2026-05-13T01:00:00Z" },
-        { projectId: "p-2", action: "status", updatedAt: "2026-05-13T01:00:00Z" },
+        {
+          projectId: "p-1",
+          action: "status",
+          updatedAt: "2026-05-13T01:00:00Z",
+          statusVersion: 2,
+        },
+        {
+          projectId: "p-2",
+          action: "status",
+          updatedAt: "2026-05-13T01:00:00Z",
+          statusVersion: 2,
+        },
       ],
       failed: [],
       successCount: 2,
@@ -1042,16 +1061,31 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
           projectId: "p-1",
           status: ProjectStatus.Completed,
           expectedUpdatedAt: "2026-05-13T00:00:00Z",
+          expectedStatusVersion: 1,
         },
         {
           action: "status",
           projectId: "p-2",
           status: ProjectStatus.Completed,
           expectedUpdatedAt: "2026-05-13T00:10:00Z",
+          expectedStatusVersion: 1,
         },
       ],
     });
 
+    bulkUpdateProjectsMock.mockResolvedValueOnce({
+      success: [
+        {
+          projectId: "p-1",
+          action: "status",
+          updatedAt: "2026-05-13T01:00:00Z",
+          statusVersion: 3,
+        },
+      ],
+      failed: [],
+      successCount: 1,
+      failedCount: 0,
+    });
     await selectProjectRows(container, ["p-1"]);
     await user.click(screen.getByRole("button", { name: "Archive" }));
     expect(bulkUpdateProjectsMock).toHaveBeenLastCalledWith({
@@ -1061,6 +1095,7 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
           projectId: "p-1",
           status: ProjectStatus.Archived,
           expectedUpdatedAt: "2026-05-13T01:00:00Z",
+          expectedStatusVersion: 2,
         },
       ],
     });
@@ -1143,7 +1178,14 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
 
     bulkUpdateProjectsMock
       .mockResolvedValueOnce({
-        success: [{ projectId: "p-1", action: "status", updatedAt: "2026-05-13T01:00:00Z" }],
+        success: [
+          {
+            projectId: "p-1",
+            action: "status",
+            updatedAt: "2026-05-13T01:00:00Z",
+            statusVersion: 2,
+          },
+        ],
         failed: [
           {
             projectId: "p-2",
@@ -1156,7 +1198,14 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
         failedCount: 1,
       })
       .mockResolvedValueOnce({
-        success: [{ projectId: "p-2", action: "status", updatedAt: "2026-05-13T01:10:00Z" }],
+        success: [
+          {
+            projectId: "p-2",
+            action: "status",
+            updatedAt: "2026-05-13T01:10:00Z",
+            statusVersion: 2,
+          },
+        ],
         failed: [],
         successCount: 1,
         failedCount: 0,
@@ -1181,6 +1230,7 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
             projectId: "p-2",
             status: ProjectStatus.Completed,
             expectedUpdatedAt: "2026-05-13T00:10:00Z",
+            expectedStatusVersion: 1,
           },
         ],
       });
@@ -1219,8 +1269,18 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
     bulkUpdateProjectsMock
       .mockResolvedValueOnce({
         success: [
-          { projectId: "p-1", action: "status", updatedAt: "2026-05-13T01:00:00Z" },
-          { projectId: "p-2", action: "status", updatedAt: "2026-05-13T01:00:10Z" },
+          {
+            projectId: "p-1",
+            action: "status",
+            updatedAt: "2026-05-13T01:00:00Z",
+            statusVersion: 2,
+          },
+          {
+            projectId: "p-2",
+            action: "status",
+            updatedAt: "2026-05-13T01:00:10Z",
+            statusVersion: 2,
+          },
         ],
         failed: [],
         successCount: 2,
@@ -1228,8 +1288,18 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
       })
       .mockResolvedValueOnce({
         success: [
-          { projectId: "p-1", action: "status", updatedAt: "2026-05-13T02:00:00Z" },
-          { projectId: "p-2", action: "status", updatedAt: "2026-05-13T02:00:10Z" },
+          {
+            projectId: "p-1",
+            action: "status",
+            updatedAt: "2026-05-13T02:00:00Z",
+            statusVersion: 3,
+          },
+          {
+            projectId: "p-2",
+            action: "status",
+            updatedAt: "2026-05-13T02:00:10Z",
+            statusVersion: 3,
+          },
         ],
         failed: [],
         successCount: 2,
@@ -1257,12 +1327,14 @@ describe("Projects table v2 Phase 4 bulk bar", () => {
             projectId: "p-1",
             status: ProjectStatus.InProgress,
             expectedUpdatedAt: "2026-05-13T01:00:00Z",
+            expectedStatusVersion: 2,
           },
           {
             action: "status",
             projectId: "p-2",
             status: ProjectStatus.Accepted,
             expectedUpdatedAt: "2026-05-13T01:00:10Z",
+            expectedStatusVersion: 2,
           },
         ],
       });

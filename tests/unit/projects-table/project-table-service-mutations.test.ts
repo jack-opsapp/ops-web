@@ -20,11 +20,32 @@ function directUpdateSupabaseMock(result: {
   return { from, update, eqId, eqUpdatedAt, select, maybeSingle };
 }
 
-function rpcSupabaseMock(result: {
-  data: unknown;
-  error: null | { code?: string; message: string };
+function statusUpdateSupabaseMock(args: {
+  statusVersion: number;
+  rpcResult: {
+    data: unknown;
+    error: null | { code?: string; message: string };
+  };
 }) {
-  return { rpc: vi.fn(async () => result) };
+  const maybeSingle = vi.fn(async () => ({
+    data: { status_version: args.statusVersion },
+    error: null,
+  }));
+  const isDeletedAt = vi.fn(() => ({ maybeSingle }));
+  const eqUpdatedAt = vi.fn(() => ({ is: isDeletedAt }));
+  const eqId = vi.fn(() => ({ eq: eqUpdatedAt }));
+  const select = vi.fn(() => ({ eq: eqId }));
+  const from = vi.fn(() => ({ select }));
+  const rpc = vi.fn(async () => args.rpcResult);
+  return {
+    from,
+    select,
+    eqId,
+    eqUpdatedAt,
+    isDeletedAt,
+    maybeSingle,
+    rpc,
+  };
 }
 
 describe("ProjectTableService mutations", () => {
@@ -82,9 +103,16 @@ describe("ProjectTableService mutations", () => {
   });
 
   it("changes status through the canonical RPC", async () => {
-    const mock = rpcSupabaseMock({
-      data: { updated_at: "2026-05-13T01:00:00Z", to_status: "in_progress" },
-      error: null,
+    const mock = statusUpdateSupabaseMock({
+      statusVersion: 4,
+      rpcResult: {
+        data: {
+          updated_at: "2026-05-13T01:00:00Z",
+          status_version: 5,
+          to_status: "in_progress",
+        },
+        error: null,
+      },
     });
     vi.mocked(requireSupabase).mockReturnValue(mock as never);
 
@@ -94,10 +122,19 @@ describe("ProjectTableService mutations", () => {
       expectedUpdatedAt: "2026-05-13T00:00:00Z",
     })).resolves.toEqual({ updatedAt: "2026-05-13T01:00:00Z" });
 
+    expect(mock.from).toHaveBeenCalledWith("projects");
+    expect(mock.select).toHaveBeenCalledWith("status_version");
+    expect(mock.eqId).toHaveBeenCalledWith("id", "p-1");
+    expect(mock.eqUpdatedAt).toHaveBeenCalledWith(
+      "updated_at",
+      "2026-05-13T00:00:00Z",
+    );
+    expect(mock.isDeletedAt).toHaveBeenCalledWith("deleted_at", null);
     expect(mock.rpc).toHaveBeenCalledWith("change_project_status", {
       p_project_id: "p-1",
       p_new_status: "in_progress",
       p_expected_updated_at: "2026-05-13T00:00:00Z",
+      p_expected_status_version: 4,
     });
   });
 });

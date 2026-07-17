@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 // the mock factory runs.
 const { fetchAllProjects } = vi.hoisted(() => ({ fetchAllProjects: vi.fn() }));
 
-vi.mock("@/lib/api/services", () => ({
+vi.mock("@/lib/api/services/project-service", () => ({
   ProjectService: { fetchAllProjects },
 }));
 

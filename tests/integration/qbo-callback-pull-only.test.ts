@@ -9,6 +9,8 @@ vi.mock("@/lib/supabase/server-client", () => ({
       select: () => {
         const builder = {
           eq: () => builder,
+          neq: () => builder,
+          limit: () => Promise.resolve({ data: [], error: null }),
           single: () =>
             Promise.resolve({ data: { webhook_verifier_token: "CO:abc" }, error: null }),
         };

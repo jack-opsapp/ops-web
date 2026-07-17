@@ -176,12 +176,14 @@ describe("<CreateCluster>", () => {
     expect(useEdgeTabStore.getState().activeTab).toBe("bug-report");
   });
 
-  it("opening Create atomically closes another open surface (mutual exclusion)", async () => {
+  it("opening Create by keyboard atomically closes another open surface (mutual exclusion)", async () => {
     useEdgeTabStore.setState({ activeTab: "notifications" });
     const user = userEvent.setup();
     render(<CreateCluster />);
-    revealCluster();
-    await user.click(createTrigger());
+    // A foreign surface deliberately retracts the edge controls so they cannot
+    // overlap its drawer. The global Q shortcut remains the supported way to
+    // switch directly to Create while another edge surface owns the screen.
+    await user.keyboard("q");
     expect(useEdgeTabStore.getState().activeTab).toBe("quick-actions");
   });
 
