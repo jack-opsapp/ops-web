@@ -24,7 +24,7 @@ function StatePanel({ title, body }: { title: string; body: string }) {
   return (
     <div className="p-8">
       <div className="max-w-xl rounded-[10px] border border-white/[0.09] bg-[#121214]/60 p-6">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-[#8A8A8A]">// {title}</p>
+        <p className="font-mono text-[11px] uppercase tracking-wider text-[#8A8A8A]">{"// "}{title}</p>
         <p className="mt-3 text-[14px] leading-relaxed text-[#B5B5B5]">{body}</p>
       </div>
     </div>

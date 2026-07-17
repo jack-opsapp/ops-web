@@ -60,7 +60,7 @@ export function InventoryOffPrompt({
         <DialogHeader>
           <DialogTitle className="font-cakemono text-[18px] font-light uppercase tracking-[0.02em] text-text">
             <span aria-hidden className="mr-[8px] font-mono text-[15px] text-text-mute">
-              //
+              {"//"}
             </span>
             {t("inventoryOff.title", "Track inventory")}
           </DialogTitle>

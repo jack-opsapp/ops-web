@@ -80,7 +80,7 @@ function SectionTitle({ children }: { children: string }) {
   const label = children.replace(/^\/\/\s*/, "");
   return (
     <h3 className="font-mono text-micro uppercase tracking-wider text-text-3">
-      <span className="text-text-mute">//</span>
+      <span className="text-text-mute">{"//"}</span>
       <span className="ml-1.5">{label}</span>
     </h3>
   );
@@ -316,7 +316,7 @@ export function ItemEditor({
                     {/* Axis label + axis name input. */}
                     <div className="flex flex-col gap-1.5">
                       <span className="font-mono text-micro-sm uppercase tracking-wider text-text-3">
-                        <span className="text-text-mute">//</span>
+                        <span className="text-text-mute">{"//"}</span>
                         <span className="ml-1.5">
                           {t("editor.pricing.axisLabel", "// pricing axis").replace(/^\/\/\s*/, "")}
                         </span>

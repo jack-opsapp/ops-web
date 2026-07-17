@@ -25,7 +25,7 @@ export function GatePreview({ initialReason }: { initialReason: GateReason }) {
   return (
     <div className="relative min-h-screen bg-background">
       <div className="fixed bottom-3 right-3 z-50 flex flex-wrap items-center gap-2 rounded-chip border border-glass-border bg-[rgba(18,18,20,0.92)] px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-text-3 backdrop-blur">
-        <span aria-hidden>// gate preview</span>
+        <span aria-hidden>{"// gate preview"}</span>
         {REASONS.map((r) => (
           <button
             key={r}

@@ -258,7 +258,7 @@ export function SetupWizardShell({
           <div className="min-w-0">
             <h1 className="font-cakemono text-[22px] font-light uppercase leading-none text-text">
               <span aria-hidden className="mr-[8px] font-mono text-[18px] text-text-mute">
-                //
+                {"//"}
               </span>
               {t("title", "// your operating system").replace(/^\/\/\s*/, "")}
             </h1>

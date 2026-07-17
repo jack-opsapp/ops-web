@@ -125,7 +125,7 @@ export function QuickBooksPane({
         <header>
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-mono text-micro uppercase tracking-wider text-text-3">
-              <span className="text-text-mute">//</span>
+              <span className="text-text-mute">{"//"}</span>
               <span className="ml-1.5">
                 {t("qb.title", "// QUICKBOOKS").replace(/^\/\/\s*/, "")}
               </span>

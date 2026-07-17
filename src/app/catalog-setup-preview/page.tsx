@@ -60,7 +60,7 @@ export default function CatalogSetupPreviewPage() {
     <div className="relative min-h-screen bg-background">
       {/* Preview-only control bar — pinned, not part of the wizard surface. */}
       <div className="fixed bottom-3 right-3 z-50 flex items-center gap-2 rounded-chip border border-glass-border bg-[rgba(18,18,20,0.92)] px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-text-3 backdrop-blur">
-        <span aria-hidden>// preview</span>
+        <span aria-hidden>{"// preview"}</span>
         <button
           type="button"
           onClick={() => setInventoryTracked((v) => !v)}

@@ -159,7 +159,7 @@ export function UploadPane({
         {/* Header — panel title in mono, // slash in text-mute (decorative). */}
         <header>
           <h2 className="font-mono text-micro uppercase tracking-wider text-text-3">
-            <span className="text-text-mute">//</span>
+            <span className="text-text-mute">{"//"}</span>
             <span className="ml-1.5">
               {t("upload.title", "// UPLOAD").replace(/^\/\/\s*/, "")}
             </span>

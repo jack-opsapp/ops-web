@@ -61,7 +61,7 @@ function Panel({ title, note, children }: { title: string; note?: string; childr
   return (
     <div className="rounded-[10px] border border-white/[0.09] bg-[#121214]/60 p-5">
       <div className="mb-4 flex items-baseline justify-between">
-        <p className="font-mono text-[11px] uppercase tracking-wider text-[#8A8A8A]">// {title}</p>
+        <p className="font-mono text-[11px] uppercase tracking-wider text-[#8A8A8A]">{"// "}{title}</p>
         {note && <p className="font-mono text-[10px] text-[#6A6A6A]">{note}</p>}
       </div>
       {children}
@@ -108,7 +108,7 @@ export function AppStoreContent({ initial }: { initial: Initial }) {
 
       {showProvisional && (
         <p className="font-mono text-[10px] text-[#6A6A6A]">
-          // last 2 days preliminary — Apple finalizes data at +2 days
+          {"// last 2 days preliminary — Apple finalizes data at +2 days"}
         </p>
       )}
 
