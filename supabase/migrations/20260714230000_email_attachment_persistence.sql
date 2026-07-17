@@ -77,7 +77,9 @@ begin
     select 1
       from public.email_attachments attachment
       join public.email_connections connection on connection.id = attachment.connection_id
-     where nullif(connection.company_id, '')::uuid is distinct from attachment.company_id
+      left join public.companies connection_company
+        on connection_company.id::text = connection.company_id
+     where connection_company.id is distinct from attachment.company_id
   ) then
     raise exception 'email attachment row references a mailbox from another company';
   end if;
@@ -482,8 +484,11 @@ declare
   v_connection_company uuid;
   v_activity_company uuid;
 begin
-  select nullif(company_id, '')::uuid into v_connection_company
-    from public.email_connections where id = new.connection_id;
+  select company.id into v_connection_company
+    from public.email_connections connection
+    join public.companies company
+      on company.id::text = connection.company_id
+   where connection.id = new.connection_id;
   select company_id into v_activity_company
     from public.activities where id = new.activity_id;
 
@@ -618,7 +623,8 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_connection_company_id text;
+  v_connection_company_id uuid;
+  v_connection_type text;
   v_connection_user_id text;
   v_connection_email text;
   v_inserted_count integer := 0;
@@ -628,16 +634,23 @@ begin
   end if;
 
   select
-    connection.company_id,
-    connection.user_id,
+    company.id,
+    connection.type::text,
+    case when connection.type::text = 'individual'
+      then connection.user_id
+      else null::text
+    end,
     connection.email
   into
     v_connection_company_id,
+    v_connection_type,
     v_connection_user_id,
     v_connection_email
   from public.email_connections connection
+  join public.companies company
+    on company.id::text = connection.company_id
   where connection.id = p_connection_id
-    and connection.company_id = p_company_id::text
+    and company.id = p_company_id
   for update;
 
   if not found then
@@ -649,41 +662,35 @@ begin
   set status = 'needs_reconnect',
       updated_at = now()
   where id = p_connection_id
-    and company_id = v_connection_company_id;
+    and company_id = v_connection_company_id::text;
 
   with direct_recipient as (
     select app_user.id::text as user_id
     from public.users app_user
-    where nullif(btrim(v_connection_user_id), '') is not null
+    where v_connection_type = 'individual'
+      and nullif(btrim(v_connection_user_id), '') is not null
       and app_user.id::text = btrim(v_connection_user_id)
       and app_user.company_id = v_connection_company_id
       and app_user.deleted_at is null
-      and coalesce(app_user.is_active, true)
+      and coalesce(app_user.is_active, false)
     limit 1
-  ), admin_recipients as (
+  ), integration_recipients as (
     select app_user.id::text as user_id
     from public.users app_user
-    where not exists (select 1 from direct_recipient)
+    where v_connection_type = 'company'
       and app_user.company_id = v_connection_company_id
       and app_user.deleted_at is null
-      and coalesce(app_user.is_active, true)
-      and coalesce(app_user.is_company_admin, false)
-  ), fallback_recipient as (
-    select app_user.id::text as user_id
-    from public.users app_user
-    where not exists (select 1 from direct_recipient)
-      and not exists (select 1 from admin_recipients)
-      and app_user.company_id = v_connection_company_id
-      and app_user.deleted_at is null
-      and coalesce(app_user.is_active, true)
-    order by app_user.created_at asc nulls last, app_user.id asc
-    limit 1
+      and coalesce(app_user.is_active, false)
+      and public.has_permission(
+        app_user.id,
+        'settings.integrations',
+        'all'
+      )
   ), recipients as (
     select direct.user_id from direct_recipient direct
     union all
-    select admin.user_id from admin_recipients admin
-    union all
-    select fallback.user_id from fallback_recipient fallback
+    select integration.user_id
+    from integration_recipients integration
   ), inserted as (
     insert into public.notifications (
       user_id,
@@ -700,7 +707,7 @@ begin
     )
     select
       recipient.user_id,
-      v_connection_company_id,
+      v_connection_company_id::text,
       'system',
       'Email connection paused',
       'Reconnect ' || coalesce(
@@ -718,7 +725,7 @@ begin
       select 1
       from public.notifications notification
       where notification.user_id = recipient.user_id
-        and notification.company_id = v_connection_company_id
+        and notification.company_id = v_connection_company_id::text
         and notification.type = 'system'
         and notification.dedupe_key =
           'email-attachment-reconnect:' || p_connection_id::text
@@ -1021,8 +1028,10 @@ as $$
 declare
   v_company_id uuid := (to_jsonb(new) ->> 'company_id')::uuid;
   v_connection_id uuid := (to_jsonb(new) ->> 'connection_id')::uuid;
+  v_connection_type text;
   v_connection_user_id text;
   v_provider_thread_id text;
+  v_activity_id uuid;
   v_thread_id uuid;
   v_action_url text := '/inbox';
   v_title text;
@@ -1035,16 +1044,20 @@ begin
 
   if tg_table_name = 'email_attachment_scans' then
     v_provider_thread_id := to_jsonb(new) ->> 'provider_thread_id';
+    v_activity_id := (to_jsonb(new) ->> 'activity_id')::uuid;
     v_title := 'Email files need review';
     v_body := 'OPS could not finish copying files from this email after repeated attempts. Open the thread to review them.';
     v_dedupe_key := 'email-attachment-scan-failed:' || new.id::text;
   elsif tg_table_name = 'email_attachment_inspection_jobs' then
-    select attachment.provider_thread_id
-      into v_provider_thread_id
+    select attachment.provider_thread_id, attachment.activity_id
+      into v_provider_thread_id, v_activity_id
       from public.email_attachments attachment
      where attachment.id = new.email_attachment_id
        and attachment.company_id = v_company_id
        and attachment.connection_id = v_connection_id;
+    if not found then
+      return new;
+    end if;
     v_title := 'Email file review incomplete';
     v_body := 'OPS could not finish checking an email file after repeated attempts. Open the thread to review it.';
     v_dedupe_key := 'email-attachment-inspection-failed:' || new.id::text;
@@ -1052,8 +1065,17 @@ begin
     raise exception 'unsupported attachment failure queue';
   end if;
 
-  select connection.user_id
-    into v_connection_user_id
+  if nullif(btrim(v_provider_thread_id), '') is null then
+    return new;
+  end if;
+  v_provider_thread_id := btrim(v_provider_thread_id);
+
+  select connection.type::text,
+    case when connection.type::text = 'individual'
+      then connection.user_id
+      else null::text
+    end
+    into v_connection_type, v_connection_user_id
     from public.email_connections connection
    where connection.id = v_connection_id
      and connection.company_id = v_company_id::text;
@@ -1073,36 +1095,35 @@ begin
   with direct_recipient as (
     select app_user.id::text as user_id
       from public.users app_user
-     where nullif(btrim(v_connection_user_id), '') is not null
+     where v_connection_type = 'individual'
+       and nullif(btrim(v_connection_user_id), '') is not null
        and app_user.id::text = btrim(v_connection_user_id)
-       and app_user.company_id = v_company_id::text
+       and app_user.company_id = v_company_id
        and app_user.deleted_at is null
-       and coalesce(app_user.is_active, true)
+       and coalesce(app_user.is_active, false)
+       and public.has_permission(app_user.id, 'inbox.view', 'all')
+       and not exists (
+         select 1
+           from public.email_threads linked_thread
+          where linked_thread.company_id = v_company_id
+            and linked_thread.connection_id = v_connection_id
+            and linked_thread.provider_thread_id = v_provider_thread_id
+            and linked_thread.opportunity_id is not null
+       )
+       and not exists (
+         select 1
+           from public.opportunity_email_threads link
+          where link.connection_id = v_connection_id
+            and link.thread_id = v_provider_thread_id
+       )
+       and not exists (
+         select 1
+           from public.activities linked_activity
+          where linked_activity.id = v_activity_id
+            and linked_activity.company_id = v_company_id
+            and linked_activity.opportunity_id is not null
+       )
      limit 1
-  ), admin_recipients as (
-    select app_user.id::text as user_id
-      from public.users app_user
-     where not exists (select 1 from direct_recipient)
-       and app_user.company_id = v_company_id::text
-       and app_user.deleted_at is null
-       and coalesce(app_user.is_active, true)
-       and coalesce(app_user.is_company_admin, false)
-  ), fallback_recipient as (
-    select app_user.id::text as user_id
-      from public.users app_user
-     where not exists (select 1 from direct_recipient)
-       and not exists (select 1 from admin_recipients)
-       and app_user.company_id = v_company_id::text
-       and app_user.deleted_at is null
-       and coalesce(app_user.is_active, true)
-     order by app_user.created_at asc nulls last, app_user.id asc
-     limit 1
-  ), recipients as (
-    select direct.user_id from direct_recipient direct
-    union all
-    select admin.user_id from admin_recipients admin
-    union all
-    select fallback.user_id from fallback_recipient fallback
   )
   insert into public.notifications (
     user_id,
@@ -1119,7 +1140,7 @@ begin
   )
   select
     recipient.user_id,
-    v_company_id,
+    v_company_id::text,
     'system',
     v_title,
     v_body,
@@ -1129,7 +1150,7 @@ begin
     'Review thread',
     'inbox',
     v_dedupe_key
-  from recipients recipient
+  from direct_recipient recipient
   on conflict do nothing;
 
   return new;
@@ -1247,9 +1268,11 @@ begin
     new.detected_mime_type := old.detected_mime_type;
   end if;
 
-  select nullif(company_id, '')::uuid into v_connection_company
-    from public.email_connections
-   where id = new.connection_id;
+  select company.id into v_connection_company
+    from public.email_connections connection
+    join public.companies company
+      on company.id::text = connection.company_id
+   where connection.id = new.connection_id;
 
   if v_connection_company is null
      or v_connection_company is distinct from new.company_id then

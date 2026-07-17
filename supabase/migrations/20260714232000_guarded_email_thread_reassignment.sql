@@ -42,9 +42,11 @@ declare
   v_review_allows boolean := false;
 begin
   if new.connection_id is not null then
-    select nullif(connection.company_id, '')::uuid
+    select company.id
       into v_connection_company_id
       from public.email_connections connection
+      join public.companies company
+        on company.id::text = connection.company_id
      where connection.id = new.connection_id;
   end if;
 
@@ -249,9 +251,11 @@ begin
 
   p_provider_thread_id := btrim(p_provider_thread_id);
 
-  select nullif(connection.company_id, '')::uuid
+  select company.id
     into v_connection_company_id
     from public.email_connections connection
+    join public.companies company
+      on company.id::text = connection.company_id
    where connection.id = p_connection_id;
 
   if v_connection_company_id is null

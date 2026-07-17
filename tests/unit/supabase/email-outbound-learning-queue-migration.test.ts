@@ -104,6 +104,15 @@ describe("email outbound learning queue migration", () => {
     expect(enqueue).not.toContain("p_body_text");
     expect(enqueue).not.toContain("status = excluded.status");
     expect(enqueue).toContain("c.company_id = p_company_id");
+    expect(enqueue).toContain("v_connection.type = 'individual'");
+    expect(enqueue).toContain(
+      "nullif(btrim(v_connection.user_id), '') is null"
+    );
+    expect(enqueue).toContain("nullif(btrim(p_user_id), '') is null");
+    expect(enqueue).toContain("v_user_id := nullif(btrim(p_user_id), '')");
+    expect(enqueue).not.toMatch(
+      /v_user_id\s*:=\s*(?:coalesce\([^;]*|nullif\(btrim\()v_connection\.user_id/i
+    );
     expect(enqueue).toContain("p_draft_history_id uuid default null");
     expect(enqueue).toContain("p_follow_up_draft_id uuid default null");
     expect(enqueue).toContain("p_opportunity_id uuid default null");
@@ -317,7 +326,8 @@ describe("email outbound learning queue migration", () => {
     expect(sql).toContain("length(v_edge_json ->> 'evidenceKey') > 200");
     expect(sql).toContain("c.company_id = v_job.company_id");
     expect(sql).toContain("c.type = 'company'");
-    expect(sql).toContain("or c.user_id = v_job.user_id");
+    expect(sql).toContain("and nullif(btrim(c.user_id), '') = v_job.user_id");
+    expect(sql).not.toContain("or c.user_id is null");
     expect(sql).toContain("u.id::text = v_job.user_id");
     expect(sql).toContain("u.company_id::text = v_job.company_id");
     expect(sql).toContain("coalesce(u.is_active, true)");

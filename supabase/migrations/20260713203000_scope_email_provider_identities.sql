@@ -174,13 +174,16 @@ begin
       from public.opportunity_email_threads link
       left join public.email_connections connection
         on connection.id = link.connection_id
+      left join public.companies connection_company
+        on connection_company.id::text = connection.company_id
       left join public.opportunities opportunity
         on opportunity.id = link.opportunity_id
      where link.connection_id is not null
        and (
          connection.id is null
+         or connection_company.id is null
          or opportunity.id is null
-         or connection.company_id is distinct from opportunity.company_id
+         or connection_company.id is distinct from opportunity.company_id
        )
   ) then
     raise exception 'opportunity email thread contains a cross-company or orphaned provider identity';
@@ -210,9 +213,11 @@ begin
     return new;
   end if;
 
-  select connection.company_id
+  select connection_company.id
     into v_connection_company_id
     from public.email_connections connection
+    join public.companies connection_company
+      on connection_company.id::text = connection.company_id
    where connection.id = new.connection_id;
 
   select opportunity.company_id

@@ -125,11 +125,11 @@ begin
     raise exception 'email signature scope user does not belong to company';
   end if;
 
-  if v_connection.type = 'individual'
-    and nullif(btrim(v_connection.user_id), '') is not null
-    and new.scope_user_id is not null
-    and new.scope_user_id::text <> v_connection.user_id
-  then
+  if v_connection.type = 'individual' and (
+    nullif(btrim(v_connection.user_id), '') is null
+    or new.scope_user_id is null
+    or new.scope_user_id::text <> btrim(v_connection.user_id)
+  ) then
     raise exception 'email signature scope user does not own individual connection';
   end if;
 
@@ -491,7 +491,6 @@ as $$
 declare
   v_row public.email_outbound_learning_queue;
   v_connection public.email_connections%rowtype;
-  v_user public.users%rowtype;
   v_draft public.ai_draft_history%rowtype;
   v_activity public.activities%rowtype;
   v_profile_type text := nullif(btrim(p_profile_type), '');
@@ -544,15 +543,6 @@ begin
   from public.email_connections c
   where c.id = v_row.connection_id
     and c.company_id = v_row.company_id
-  for share;
-
-  select u.*
-  into v_user
-  from public.users u
-  where u.id::text = v_row.user_id
-    and u.company_id::text = v_row.company_id
-    and coalesce(u.is_active, true)
-    and u.deleted_at is null
   for share;
 
   select a.*
@@ -620,13 +610,8 @@ begin
       )
       or (
         v_connection.type = 'individual'
-        and v_connection.user_id = v_row.user_id
-        and lower(btrim(v_connection.email)) = lower(btrim(v_row.from_email))
-      )
-      or (
-        v_connection.type <> 'individual'
-        and v_user.id is not null
-        and lower(btrim(v_user.email)) = lower(btrim(v_row.from_email))
+        and nullif(btrim(v_connection.user_id), '') is not null
+        and btrim(v_connection.user_id) = v_row.user_id
         and lower(btrim(v_connection.email)) = lower(btrim(v_row.from_email))
       )
     )

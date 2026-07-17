@@ -504,7 +504,7 @@ begin
   -- Company connector user_id is intentionally ignored. Only an individual
   -- mailbox's canonical owner may transport a draft for that same assignee.
   if connection.type::text = 'individual'
-     and connection.user_id <> v_actor_user_id::text then
+     and connection.user_id is distinct from v_actor_user_id::text then
     return;
   elsif connection.type::text <> 'company'
      and connection.type::text <> 'individual' then

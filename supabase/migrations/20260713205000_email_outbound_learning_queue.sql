@@ -336,18 +336,17 @@ begin
     raise exception 'outbound learning email connection does not belong to company';
   end if;
 
-  if v_connection.type = 'individual'
-    and nullif(btrim(p_user_id), '') is not null
-    and nullif(btrim(v_connection.user_id), '') is not null
-    and btrim(p_user_id) <> btrim(v_connection.user_id)
-  then
+  if v_connection.type = 'individual' and (
+    nullif(btrim(v_connection.user_id), '') is null
+    or nullif(btrim(p_user_id), '') is null
+    or btrim(p_user_id) <> btrim(v_connection.user_id)
+  ) then
     raise exception 'outbound learning user does not own email connection';
   end if;
 
-  v_user_id := coalesce(
-    nullif(btrim(p_user_id), ''),
-    nullif(btrim(v_connection.user_id), '')
-  );
+  -- A company connector's legacy user_id is transport metadata, never actor
+  -- authority. Individual mailboxes were bound to the exact owner above.
+  v_user_id := nullif(btrim(p_user_id), '');
 
   -- Read the follow-up link without a row lock so the canonical lock order can
   -- remain queue -> connection -> draft -> follow-up. The locked re-read below
@@ -926,8 +925,10 @@ begin
       and c.company_id = v_job.company_id
       and (
         c.type = 'company'
-        or c.user_id is null
-        or c.user_id = v_job.user_id
+        or (
+          c.type = 'individual'
+          and nullif(btrim(c.user_id), '') = v_job.user_id
+        )
       )
   ) then
     raise exception 'outbound learning connection ownership changed';
@@ -1168,8 +1169,10 @@ begin
     and c.company_id = v_job.company_id
     and (
       c.type = 'company'
-      or c.user_id is null
-      or c.user_id = v_job.user_id
+      or (
+        c.type = 'individual'
+        and nullif(btrim(c.user_id), '') = v_job.user_id
+      )
     )
   for share;
 

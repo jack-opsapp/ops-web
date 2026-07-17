@@ -29,6 +29,14 @@ describe("durable email attachment persistence migration", () => {
       /create unique index[\s\S]*on public\.email_attachments\s*\(\s*company_id\s*,\s*connection_id\s*,\s*message_id\s*,\s*attachment_id\s*\)/i
     );
     expect(migration).toMatch(/alter column connection_id set not null/i);
+    expect(migration).not.toMatch(/connection\.company_id[^\n]*::uuid/i);
+    expect(migration).toMatch(
+      /email_attachments attachment[\s\S]*?email_connections connection[\s\S]*?companies connection_company[\s\S]*?connection_company\.id::text = connection\.company_id[\s\S]*?connection_company\.id is distinct from attachment\.company_id/i
+    );
+    expect(migration).not.toMatch(/nullif\(company_id, ''\)::uuid/i);
+    expect(
+      migration.match(/company\.id::text = connection\.company_id/gi)?.length
+    ).toBeGreaterThanOrEqual(4);
   });
 
   it("creates a durable exact-message scan queue and atomic claim function", () => {
@@ -157,10 +165,48 @@ describe("durable email attachment persistence migration", () => {
     expect(markReconnect).toMatch(/'system'/i);
     expect(markReconnect).toMatch(/persistent[\s\S]*true/i);
     expect(markReconnect).toContain("direct_recipient");
-    expect(markReconnect).toContain("admin_recipients");
-    expect(markReconnect).toContain("is_company_admin");
-    expect(markReconnect).toContain("fallback_recipient");
+    expect(markReconnect).toContain("integration_recipients");
+    expect(markReconnect).toContain("settings.integrations");
+    expect(markReconnect).not.toContain("admin_recipients");
+    expect(markReconnect).not.toContain("is_company_admin");
+    expect(markReconnect).not.toContain("fallback_recipient");
+    expect(markReconnect).toMatch(
+      /v_connection_company_id uuid[\s\S]*?case when connection\.type::text = 'individual'[\s\S]*?then connection\.user_id[\s\S]*?else null::text/i
+    );
+    expect(markReconnect).not.toMatch(
+      /app_user\.company_id\s*=\s*v_connection_company_id::text/i
+    );
     expect(markReconnect).toMatch(/on conflict do nothing/i);
+
+    const terminalFailure = extractFunction(
+      "notify_terminal_email_attachment_failure"
+    );
+    expect(terminalFailure).toMatch(
+      /case when connection\.type::text = 'individual'[\s\S]*?then connection\.user_id[\s\S]*?else null::text/i
+    );
+    expect(terminalFailure).not.toMatch(
+      /app_user\.company_id\s*=\s*v_company_id::text/i
+    );
+    expect(terminalFailure).toContain("v_connection_type = 'individual'");
+    expect(terminalFailure).toContain("'inbox.view'");
+    expect(terminalFailure).toContain(
+      "nullif(btrim(v_provider_thread_id), '') is null"
+    );
+    expect(terminalFailure).toContain(
+      "v_provider_thread_id := btrim(v_provider_thread_id)"
+    );
+    expect(terminalFailure).toMatch(
+      /from public\.email_threads linked_thread[\s\S]*linked_thread\.opportunity_id is not null/i
+    );
+    expect(terminalFailure).toMatch(
+      /from public\.opportunity_email_threads link[\s\S]*link\.thread_id = v_provider_thread_id/i
+    );
+    expect(terminalFailure).toMatch(
+      /from public\.activities linked_activity[\s\S]*linked_activity\.opportunity_id is not null/i
+    );
+    expect(terminalFailure).not.toContain("admin_recipients");
+    expect(terminalFailure).not.toContain("is_company_admin");
+    expect(terminalFailure).not.toContain("fallback_recipient");
 
     const resumeReconnect = extractFunction(
       "resume_email_attachment_scans_on_reconnect"

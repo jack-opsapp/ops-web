@@ -90,11 +90,14 @@ describe("scoped email provider identity migration", () => {
   it("rejects cross-company provider-thread ownership at the database boundary", () => {
     const source = sql();
 
-    expect(source).toMatch(
-      /opportunity_email_threads link[\s\S]*?email_connections connection[\s\S]*?opportunities opportunity[\s\S]*?connection\.company_id is distinct from opportunity\.company_id[\s\S]*?raise exception/i
+    expect(source).not.toMatch(
+      /connection\.company_id is distinct from opportunity\.company_id/i
     );
     expect(source).toMatch(
-      /function public\.require_same_company_opportunity_email_thread\(\)[\s\S]*?v_connection_company_id[\s\S]*?v_opportunity_company_id[\s\S]*?is distinct from[\s\S]*?create trigger opportunity_email_threads_same_company[\s\S]*?before insert or update of opportunity_id, connection_id/i
+      /opportunity_email_threads link[\s\S]*?email_connections connection[\s\S]*?companies connection_company[\s\S]*?connection_company\.id::text = connection\.company_id[\s\S]*?opportunities opportunity[\s\S]*?connection_company\.id is distinct from opportunity\.company_id[\s\S]*?raise exception/i
+    );
+    expect(source).toMatch(
+      /function public\.require_same_company_opportunity_email_thread\(\)[\s\S]*?select connection_company\.id[\s\S]*?companies connection_company[\s\S]*?connection_company\.id::text = connection\.company_id[\s\S]*?v_connection_company_id[\s\S]*?v_opportunity_company_id[\s\S]*?is distinct from[\s\S]*?create trigger opportunity_email_threads_same_company[\s\S]*?before insert or update of opportunity_id, connection_id/i
     );
   });
 

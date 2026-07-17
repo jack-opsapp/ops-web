@@ -94,7 +94,9 @@ describe("assignment-triggered contact-form draft migration", () => {
       "private.user_can_send_opportunity_inbox( queue.actor_user_id, opportunity.id, connection.id )"
     );
     expect(compact).toContain("connection.type::text = 'individual'");
-    expect(compact).toContain("connection.user_id <> v_actor_user_id::text");
+    expect(compact).toContain(
+      "connection.user_id is distinct from v_actor_user_id::text"
+    );
     expect(compact).toContain("connection.type::text = 'company'");
     expect(compact).not.toContain("connection.user_id::uuid");
     expect(compact).not.toContain("lower(user_row.email)");

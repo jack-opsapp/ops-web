@@ -7,7 +7,8 @@
 -- an opportunity already had project_ref. Both paths could therefore leave a
 -- real project attached to a non-won opportunity with incomplete mirrors.
 --
--- This migration is additive and performs no data backfill. It:
+-- This migration first reconciles only links whose existing mirrors prove one
+-- unambiguous relationship. It then:
 --   1. normalizes both project-side mirrors on future writes (without casting
 --      arbitrary legacy text),
 --   2. enforces the reverse opportunity mirrors and one-time won transition for
@@ -15,6 +16,201 @@
 --   3. hardens convert_opportunity_to_project, including its idempotent branch.
 
 begin;
+
+-- Existing one-sided mirrors are safe to repair only while both tables are
+-- stable. Contradictions abort the migration before any row changes. A deleted
+-- project releases the active opportunity-side link but retains its own
+-- historical opportunity provenance, matching the trigger contract below.
+lock table public.opportunities, public.projects in share row exclusive mode;
+
+do $repair_preflight$
+begin
+  if exists (
+    select 1
+      from public.opportunities opportunity
+     where opportunity.deleted_at is null
+       and opportunity.project_ref is not null
+       and opportunity.project_id is not null
+       and opportunity.project_ref is distinct from opportunity.project_id
+  ) then
+    raise exception 'project opportunity repair preflight failed: opportunity mirrors disagree';
+  end if;
+
+  if exists (
+    select 1
+      from public.opportunities opportunity
+      left join public.projects project
+        on project.id = coalesce(opportunity.project_ref, opportunity.project_id)
+     where opportunity.deleted_at is null
+       and coalesce(opportunity.project_ref, opportunity.project_id) is not null
+       and (
+         project.id is null
+         or project.company_id is distinct from opportunity.company_id
+       )
+  ) then
+    raise exception 'project opportunity repair preflight failed: target is missing or cross-company';
+  end if;
+
+  if exists (
+    select 1
+      from public.opportunities opportunity
+      join public.projects project
+        on project.id = coalesce(opportunity.project_ref, opportunity.project_id)
+       and project.company_id = opportunity.company_id
+     where opportunity.deleted_at is null
+       and project.deleted_at is null
+       and (
+         (
+           project.opportunity_ref is not null
+           and project.opportunity_ref is distinct from opportunity.id
+         )
+         or (
+           project.opportunity_id is not null
+           and btrim(project.opportunity_id) is distinct from opportunity.id::text
+         )
+       )
+  ) then
+    raise exception 'project opportunity repair preflight failed: active project points to another opportunity';
+  end if;
+
+  if exists (
+    select 1
+      from public.opportunities opportunity
+      join public.projects project
+        on project.id = coalesce(opportunity.project_ref, opportunity.project_id)
+       and project.company_id = opportunity.company_id
+     where opportunity.deleted_at is null
+       and project.deleted_at is not null
+       and not (
+         opportunity.stage = 'won'
+         and coalesce(opportunity.stage_manually_set, false)
+         and (project.opportunity_ref is null or project.opportunity_ref = opportunity.id)
+         and (
+           project.opportunity_id is null
+           or btrim(project.opportunity_id) = opportunity.id::text
+         )
+         and (
+           project.opportunity_ref is not null
+           or project.opportunity_id is not null
+         )
+       )
+  ) then
+    raise exception 'project opportunity repair preflight failed: deleted target is not safely releasable';
+  end if;
+
+  if exists (
+    select 1
+      from public.opportunities opportunity
+     where opportunity.deleted_at is null
+       and coalesce(opportunity.project_ref, opportunity.project_id) is not null
+     group by coalesce(opportunity.project_ref, opportunity.project_id)
+    having count(*) > 1
+  ) then
+    raise exception 'project opportunity repair preflight failed: project has multiple active opportunities';
+  end if;
+
+  if exists (
+    select 1
+      from public.projects project
+     where project.deleted_at is null
+       and coalesce(
+         project.opportunity_ref,
+         case
+           when btrim(coalesce(project.opportunity_id, '')) ~*
+             '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+             then project.opportunity_id::uuid
+           else null
+         end
+       ) is not null
+     group by coalesce(
+       project.opportunity_ref,
+       case
+         when btrim(coalesce(project.opportunity_id, '')) ~*
+           '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+           then project.opportunity_id::uuid
+         else null
+       end
+     )
+    having count(*) > 1
+  ) then
+    raise exception 'project opportunity repair preflight failed: opportunity has multiple active projects';
+  end if;
+end;
+$repair_preflight$;
+
+update public.opportunities opportunity
+   set project_ref = null,
+       project_id = null
+  from public.projects project
+ where opportunity.deleted_at is null
+   and opportunity.stage = 'won'
+   and coalesce(opportunity.stage_manually_set, false)
+   and project.id = coalesce(opportunity.project_ref, opportunity.project_id)
+   and project.company_id = opportunity.company_id
+   and project.deleted_at is not null
+   and (project.opportunity_ref is null or project.opportunity_ref = opportunity.id)
+   and (
+     project.opportunity_id is null
+     or btrim(project.opportunity_id) = opportunity.id::text
+   );
+
+update public.projects project
+   set opportunity_ref = opportunity.id,
+       opportunity_id = opportunity.id::text
+  from public.opportunities opportunity
+ where opportunity.deleted_at is null
+   and project.id = coalesce(opportunity.project_ref, opportunity.project_id)
+   and project.company_id = opportunity.company_id
+   and project.deleted_at is null
+   and (project.opportunity_ref is null or project.opportunity_ref = opportunity.id)
+   and (
+     project.opportunity_id is null
+     or btrim(project.opportunity_id) = opportunity.id::text
+   )
+   and (
+     project.opportunity_ref is distinct from opportunity.id
+     or project.opportunity_id is distinct from opportunity.id::text
+   );
+
+update public.opportunities opportunity
+   set project_ref = project.id,
+       project_id = project.id
+  from public.projects project
+ where opportunity.deleted_at is null
+   and project.id = coalesce(opportunity.project_ref, opportunity.project_id)
+   and project.company_id = opportunity.company_id
+   and project.deleted_at is null
+   and (opportunity.project_ref is null or opportunity.project_ref = project.id)
+   and (opportunity.project_id is null or opportunity.project_id = project.id)
+   and (
+     opportunity.project_ref is distinct from project.id
+     or opportunity.project_id is distinct from project.id
+   );
+
+do $repair_postflight$
+begin
+  if exists (
+    select 1
+      from public.opportunities opportunity
+      left join public.projects project
+        on project.id = coalesce(opportunity.project_ref, opportunity.project_id)
+     where opportunity.deleted_at is null
+       and coalesce(opportunity.project_ref, opportunity.project_id) is not null
+       and (
+         opportunity.project_ref is null
+         or opportunity.project_id is null
+         or opportunity.project_ref is distinct from opportunity.project_id
+         or project.id is null
+         or project.deleted_at is not null
+         or project.company_id is distinct from opportunity.company_id
+         or project.opportunity_ref is distinct from opportunity.id
+         or project.opportunity_id is distinct from opportunity.id::text
+       )
+  ) then
+    raise exception 'project opportunity repair postflight failed: reciprocal mirrors remain inconsistent';
+  end if;
+end;
+$repair_postflight$;
 
 -- BEFORE trigger: choose the FK-backed UUID when present; otherwise adopt the
 -- legacy text field only when it is safely UUID-shaped. Non-UUID legacy values

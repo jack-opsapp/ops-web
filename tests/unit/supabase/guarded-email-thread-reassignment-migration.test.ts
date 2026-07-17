@@ -64,6 +64,10 @@ describe("guarded email-thread reassignment migration", () => {
   it("creates one service-only atomic data-review reassignment RPC", () => {
     const sql = migrationSql();
 
+    expect(sql).not.toMatch(/nullif\(connection\.company_id, ''\)::uuid/i);
+    expect(
+      sql.match(/company\.id::text = connection\.company_id/gi)
+    ).toHaveLength(2);
     expect(sql).toMatch(
       /create or replace function public\.reassign_opportunity_email_thread_guarded\([\s\S]*?returns jsonb[\s\S]*?security definer/i
     );

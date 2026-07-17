@@ -69,6 +69,9 @@ describe("Phase C learning and email signature migration", () => {
     expect(sql).toContain(
       "email signature scope user does not belong to company"
     );
+    expect(compactSql).toMatch(
+      /v_connection\.type = 'individual' and \( nullif\(btrim\(v_connection\.user_id\), ''\) is null or new\.scope_user_id is null or new\.scope_user_id::text <> btrim\(v_connection\.user_id\) \)/
+    );
     expect(sql).toContain("email signature content contains unsafe markup");
     expect(sql).toContain("content_hash ~ '^[0-9a-f]{64}$'");
     expect(sql).toContain("nulls not distinct");
@@ -148,9 +151,14 @@ describe("Phase C learning and email signature migration", () => {
     expect(enqueue).toContain("from public.pending_auto_sends pas");
     expect(enqueue).toContain("pas.status in ('pending', 'sent')");
     expect(enqueue).toContain("v_connection.type = 'individual'");
-    expect(enqueue).toContain("v_connection.user_id = v_row.user_id");
+    expect(enqueue).toContain(
+      "nullif(btrim(v_connection.user_id), '') is not null"
+    );
+    expect(enqueue).toContain("btrim(v_connection.user_id) = v_row.user_id");
     expect(enqueue).toContain("lower(btrim(v_connection.email))");
-    expect(enqueue).toContain("lower(btrim(v_user.email))");
+    expect(enqueue).not.toContain("v_connection.type <> 'individual'");
+    expect(enqueue).not.toContain("lower(btrim(v_user.email))");
+    expect(enqueue).not.toContain("v_user public.users%rowtype");
     expect(enqueue).not.toContain("then v_learning_authority");
     expect(enqueue).not.toContain("v_incoming_authority_rank");
   });

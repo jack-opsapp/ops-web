@@ -22,6 +22,30 @@ function functionBody(source: string, name: string): string {
 }
 
 describe("project↔opportunity link invariant migration", () => {
+  it("reconciles only deterministic legacy links before installing the triggers", () => {
+    const source = sql();
+    const triggerInstall = source.indexOf(
+      "create or replace function public.normalize_project_opportunity_link"
+    );
+    const repair = source.slice(0, triggerInstall);
+
+    expect(repair).toContain(
+      "lock table public.opportunities, public.projects in share row exclusive mode"
+    );
+    expect(repair).toContain("project opportunity repair preflight failed");
+    expect(repair).toMatch(
+      /update public\.opportunities opportunity[\s\S]*?set project_ref = null,[\s\S]*?project_id = null[\s\S]*?project\.deleted_at is not null/i
+    );
+    expect(repair).toMatch(
+      /update public\.projects project[\s\S]*?set opportunity_ref = opportunity\.id,[\s\S]*?opportunity_id = opportunity\.id::text[\s\S]*?project\.deleted_at is null/i
+    );
+    expect(repair).toMatch(
+      /update public\.opportunities opportunity[\s\S]*?set project_ref = project\.id,[\s\S]*?project_id = project\.id[\s\S]*?project\.deleted_at is null/i
+    );
+    expect(repair).toContain("project opportunity repair postflight failed");
+    expect(repair).not.toMatch(/set\s+stage\s*=/i);
+  });
+
   it("normalizes either project-side field without casting arbitrary legacy text", () => {
     const body = functionBody(
       sql(),
