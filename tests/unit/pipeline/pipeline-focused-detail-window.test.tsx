@@ -11,7 +11,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Opportunity, OpportunityStage } from "@/lib/types/pipeline";
 import { useWindowStore } from "@/stores/window-store";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
-import { PipelineFocusedDetailWindow } from "@/app/(dashboard)/pipeline/_components/pipeline-focused-detail-window";
+import {
+  PipelineFocusedDetailWindow,
+  getOpportunityTitle,
+} from "@/app/(dashboard)/pipeline/_components/pipeline-focused-detail-window";
 
 vi.mock("framer-motion", () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => (
@@ -405,5 +408,46 @@ describe("<PipelineFocusedDetailWindow>", () => {
         screen.getByTestId("origin-row-cell")
       );
     });
+  });
+});
+
+describe("getOpportunityTitle", () => {
+  it("joins a distinct title to the display name with an em-dash", () => {
+    const opp = {
+      ...makeOpportunity(),
+      contactName: "Jordan Lee",
+      title: "Roof repair",
+    };
+    expect(getOpportunityTitle(opp, "Lead")).toBe("Jordan Lee — Roof repair");
+  });
+
+  it("shows the title alone when it already leads with the display name", () => {
+    const opp = {
+      ...makeOpportunity(),
+      contactName: "North Shore Decks",
+      title: "North Shore Decks — deck rebuild",
+    };
+    // No stutter: "North Shore Decks — North Shore Decks — deck rebuild" avoided.
+    expect(getOpportunityTitle(opp, "Lead")).toBe(
+      "North Shore Decks — deck rebuild"
+    );
+  });
+
+  it("matches the name prefix case-insensitively", () => {
+    const opp = {
+      ...makeOpportunity(),
+      contactName: "North Shore Decks",
+      title: "NORTH SHORE DECKS phase 2",
+    };
+    expect(getOpportunityTitle(opp, "Lead")).toBe("NORTH SHORE DECKS phase 2");
+  });
+
+  it("falls back to the display name when there is no separate title", () => {
+    const opp = {
+      ...makeOpportunity(),
+      contactName: "Jordan Lee",
+      title: "",
+    };
+    expect(getOpportunityTitle(opp, "Lead")).toBe("Jordan Lee");
   });
 });

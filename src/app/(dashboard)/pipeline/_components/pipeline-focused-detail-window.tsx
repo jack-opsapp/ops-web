@@ -87,16 +87,20 @@ function focusOrigin(originatingOpportunityId: string | null) {
   });
 }
 
-function getOpportunityTitle(opportunity: Opportunity, fallback: string) {
+export function getOpportunityTitle(opportunity: Opportunity, fallback: string) {
   const displayName =
     opportunity.client?.name ??
     opportunity.contactName ??
     opportunity.title ??
     fallback;
 
-  return opportunity.title && opportunity.title !== displayName
-    ? `${displayName} — ${opportunity.title}`
-    : displayName;
+  const { title } = opportunity;
+  if (!title || title === displayName) return displayName;
+  // Auto-named / user-named leads whose title already leads with the display
+  // name (client "North Shore Decks" + title "North Shore Decks — deck rebuild")
+  // would stutter the name in "{name} — {title}"; show the title alone instead.
+  if (title.toLowerCase().startsWith(displayName.toLowerCase())) return title;
+  return `${displayName} — ${title}`;
 }
 
 function stageTone(stage: OpportunityStage): ChipVariant {
