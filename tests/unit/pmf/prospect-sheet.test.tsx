@@ -12,7 +12,8 @@
  *  - Fetch failure renders the dedicated error UI
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { ProspectSheet } from "@/components/pmf/prospect-sheet";
 import type { Prospect, Deal } from "@/lib/pmf/types";
@@ -179,6 +180,7 @@ describe("ProspectSheet", () => {
   });
 
   it("stage change PATCHes with the new stage and reconciles state from the response", async () => {
+    const user = userEvent.setup();
     const initialDeal = makeDeal({
       stage: "contacted",
       stage_entered_at: "2026-04-01T00:00:00.000Z",
@@ -214,9 +216,10 @@ describe("ProspectSheet", () => {
 
     // The stage <select> currently shows CONTACTED — change it.
     const stageSelect = screen.getByDisplayValue(/CONTACTED/);
-    fireEvent.change(stageSelect, { target: { value: "qualified" } });
+    await user.selectOptions(stageSelect, "qualified");
+    expect(stageSelect).toHaveValue("qualified");
 
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
