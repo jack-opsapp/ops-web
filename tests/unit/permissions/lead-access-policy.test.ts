@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  actorLosesAccessOnAssign,
   effectivePipelineScope,
   getLeadAccess,
 } from "@/lib/permissions/lead-access-policy";
@@ -168,5 +169,106 @@ describe("lead access policy", () => {
       canUnassign: false,
       canConvert: false,
     });
+  });
+});
+
+describe("actorLosesAccessOnAssign", () => {
+  const assignedScope = state({
+    "pipeline.view": "assigned",
+    "pipeline.edit": "assigned",
+    "pipeline.assign": "assigned",
+  });
+
+  it("is true for an assigned-scope self-transfer to someone else", () => {
+    expect(
+      actorLosesAccessOnAssign(
+        assignedScope,
+        "actor-1",
+        { assignedTo: "actor-1" },
+        "actor-2"
+      )
+    ).toBe(true);
+  });
+
+  it("is true for an assigned-scope unassign of the actor's own lead", () => {
+    expect(
+      actorLosesAccessOnAssign(
+        assignedScope,
+        "actor-1",
+        { assignedTo: "actor-1" },
+        null
+      )
+    ).toBe(true);
+  });
+
+  it("is false for all-scope viewers — reassignment never costs them visibility", () => {
+    expect(
+      actorLosesAccessOnAssign(
+        state({
+          "pipeline.view": "all",
+          "pipeline.edit": "all",
+          "pipeline.assign": "assigned",
+        }),
+        "actor-1",
+        { assignedTo: "actor-1" },
+        "actor-2"
+      )
+    ).toBe(false);
+  });
+
+  it("is false for unassign-capable operators (assign scope all)", () => {
+    expect(
+      actorLosesAccessOnAssign(
+        state({
+          "pipeline.view": "assigned",
+          "pipeline.edit": "assigned",
+          "pipeline.assign": "all",
+        }),
+        "actor-1",
+        { assignedTo: "actor-1" },
+        "actor-2"
+      )
+    ).toBe(false);
+  });
+
+  it("is false when the lead is not currently the actor's", () => {
+    expect(
+      actorLosesAccessOnAssign(
+        assignedScope,
+        "actor-1",
+        { assignedTo: "actor-2" },
+        "actor-3"
+      )
+    ).toBe(false);
+  });
+
+  it("is false for a self-keeping no-op and for a missing actor", () => {
+    expect(
+      actorLosesAccessOnAssign(
+        assignedScope,
+        "actor-1",
+        { assignedTo: "actor-1" },
+        "actor-1"
+      )
+    ).toBe(false);
+    expect(
+      actorLosesAccessOnAssign(
+        assignedScope,
+        null,
+        { assignedTo: "actor-1" },
+        "actor-2"
+      )
+    ).toBe(false);
+  });
+
+  it("is false under legacy manage-all compatibility (view resolves to all)", () => {
+    expect(
+      actorLosesAccessOnAssign(
+        state({}, [], true),
+        "actor-1",
+        { assignedTo: "actor-1" },
+        "actor-2"
+      )
+    ).toBe(false);
   });
 });

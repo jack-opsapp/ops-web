@@ -48,6 +48,16 @@ import { createPortal } from "react-dom";
 import { Check, Plus, X } from "lucide-react";
 
 import { useDictionary } from "@/i18n/client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { toast } from "@/components/ui/toast";
 import { useTeamMembers } from "@/lib/hooks/use-users";
@@ -56,6 +66,9 @@ import {
   useLeadAssignmentCandidates,
 } from "@/lib/hooks/use-lead-assignment";
 import { LeadAssignmentConflictError } from "@/lib/api/services/lead-assignment-service";
+import { actorLosesAccessOnAssign } from "@/lib/permissions/lead-access-policy";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { getUserFullName } from "@/lib/types/models";
 import {
   OpportunityPriority,
@@ -770,8 +783,16 @@ export function AssigneeField({
   const { t } = useDictionary("pipeline");
   const [open, setOpen] = useState(false);
   const [saveState, setSaveState] = useState<FieldSaveState>("idle");
+  // A hand-off awaiting confirmation: an assigned-scope actor is about to move
+  // their own lead away — destructive for THEM (it leaves their list).
+  const [pendingHandOff, setPendingHandOff] = useState<{
+    newAssignedTo: string | null;
+    name: string;
+  } | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assignment = useLeadAssignment();
+  const actorUserId = useAuthStore((state) => state.currentUser?.id ?? null);
+  const permissionState = usePermissionStore();
   const candidatesQuery = useLeadAssignmentCandidates(
     opportunityId,
     open && canAssign
@@ -879,7 +900,31 @@ export function AssigneeField({
 
   const candidates = candidatesQuery.data?.candidates ?? [];
 
+  // Gate the commit: an assigned-scope actor moving THEIR OWN lead to someone
+  // else loses access the moment it lands — interpose one confirm. All-scope
+  // viewers and unassign-capable admins commit directly (never prompted).
+  function requestAssigneeChange(newAssignedTo: string | null) {
+    if (newAssignedTo === value || assignment.isPending) return;
+    if (
+      actorLosesAccessOnAssign(
+        permissionState,
+        actorUserId,
+        { assignedTo: value },
+        newAssignedTo
+      )
+    ) {
+      const candidate = candidates.find(({ id }) => id === newAssignedTo);
+      setPendingHandOff({
+        newAssignedTo,
+        name: candidate ? candidateName(candidate) : unassignedLabel,
+      });
+      return;
+    }
+    void changeAssignee(newAssignedTo);
+  }
+
   return (
+    <>
     <EntityPicker
       trigger={
         <button
@@ -908,7 +953,7 @@ export function AssigneeField({
       label={t("band.changeAssignee", "Assign lead")}
       value={value}
       onChange={(next) => {
-        void changeAssignee(next);
+        requestAssigneeChange(next);
       }}
       noneOption={candidatesQuery.data?.canUnassign === true}
       noneLabel={t("band.unassign", "Unassign")}
@@ -930,6 +975,44 @@ export function AssigneeField({
       size="md"
       contentClassName="z-modal"
     />
+
+    {/* Hand-off confirm: committing removes the lead from the ACTOR'S own
+        list (assigned-only view scope). z-modal on panel + overlay — this
+        dialog launches from inside the floating window (z 2000+). */}
+    <AlertDialog
+      open={pendingHandOff !== null}
+      onOpenChange={(dialogOpen) => {
+        if (!dialogOpen) setPendingHandOff(null);
+      }}
+    >
+      <AlertDialogContent className="z-modal" overlayClassName="z-modal">
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("handoff.title", "Hand off this lead?")}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("handoff.body", "It moves to {name} and leaves your list.").replace(
+              "{name}",
+              pendingHandOff?.name ?? unassignedLabel
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("handoff.cancel", "KEEP")}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              if (!pendingHandOff) return;
+              const { newAssignedTo } = pendingHandOff;
+              setPendingHandOff(null);
+              void changeAssignee(newAssignedTo);
+            }}
+          >
+            {t("handoff.confirm", "HAND OFF")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 

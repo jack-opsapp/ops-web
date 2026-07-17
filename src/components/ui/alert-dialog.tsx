@@ -26,10 +26,18 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 
 const AlertDialogContent = React.forwardRef<
   React.ComponentRef<typeof AlertDialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> & {
+    /**
+     * Extra classes for the backdrop overlay. The sanctioned use is a z-layer
+     * lift (`z-modal`) paired with the same class on the content, for dialogs
+     * launched from inside a floating window (windows sit at z 2000+, above
+     * this kit's default layer).
+     */
+    overlayClassName?: string;
+  }
+>(({ className, overlayClassName, ...props }, ref) => (
   <AlertDialogPortal>
-    <AlertDialogOverlay />
+    <AlertDialogOverlay className={overlayClassName} />
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
