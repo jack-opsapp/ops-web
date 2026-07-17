@@ -126,6 +126,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
             <FocusedQuickStageActions
               currentStage={opportunity.stage}
               canManage={leadAccess.canEdit}
+              canConvert={leadAccess.canConvert}
               previousStage={previousStage}
               nextStage={nextStage}
               onMoveStage={(stage) => {
@@ -194,17 +195,25 @@ function withHexAlpha(hex: string, alpha: number): string {
 function FocusedQuickStageActions({
   currentStage,
   canManage,
+  canConvert,
   previousStage,
   nextStage,
   onMoveStage,
 }: {
   currentStage: OpportunityStage;
   canManage: boolean;
+  canConvert: boolean;
   previousStage: OpportunityStage | null;
   nextStage: OpportunityStage | null;
   onMoveStage: (stage: OpportunityStage) => void;
 }) {
   const { t } = useDictionary("pipeline");
+  // Moving a lead to Won is a conversion — hide the forward arrow when the
+  // operator can't convert (mirrors the detail menu's existing Won gating).
+  // The affordance simply disappears at the Won boundary; Lost is never a
+  // "forward" move, so there is nothing next-eligible to surface instead.
+  const advanceStage =
+    nextStage === OpportunityStage.Won && !canConvert ? null : nextStage;
 
   return (
     <div className="flex min-w-0 items-center gap-[6px]" data-no-drag="">
@@ -221,15 +230,15 @@ function FocusedQuickStageActions({
           <ChevronLeft className="h-[13px] w-[13px]" strokeWidth={1.5} />
         </QuickStageButton>
       ) : null}
-      {nextStage ? (
+      {advanceStage ? (
         <QuickStageButton
           label={formatStageLabel(
             t("card.advanceStage", "Move to {stage}"),
-            nextStage
+            advanceStage
           )}
-          stage={nextStage}
+          stage={advanceStage}
           disabled={!canManage}
-          onClick={() => onMoveStage(nextStage)}
+          onClick={() => onMoveStage(advanceStage)}
         >
           <ChevronRight className="h-[13px] w-[13px]" strokeWidth={1.5} />
         </QuickStageButton>
@@ -237,6 +246,7 @@ function FocusedQuickStageActions({
       <FocusedStageMenu
         currentStage={currentStage}
         canManage={canManage}
+        canConvert={canConvert}
         onMoveStage={onMoveStage}
       />
     </div>
@@ -301,10 +311,12 @@ function QuickStageButton({
 function FocusedStageMenu({
   currentStage,
   canManage,
+  canConvert,
   onMoveStage,
 }: {
   currentStage: OpportunityStage;
   canManage: boolean;
+  canConvert: boolean;
   onMoveStage: (stage: OpportunityStage) => void;
 }) {
   const { t } = useDictionary("pipeline");
@@ -354,6 +366,7 @@ function FocusedStageMenu({
             <FocusedStageMenuPortal
               anchorRef={anchorRef}
               currentStage={currentStage}
+              canConvert={canConvert}
               onClose={() => setOpen(false)}
               onMoveStage={(stage) => {
                 setOpen(false);
@@ -370,11 +383,13 @@ function FocusedStageMenu({
 function FocusedStageMenuPortal({
   anchorRef,
   currentStage,
+  canConvert,
   onClose,
   onMoveStage,
 }: {
   anchorRef: React.RefObject<HTMLDivElement | null>;
   currentStage: OpportunityStage;
+  canConvert: boolean;
   onClose: () => void;
   onMoveStage: (stage: OpportunityStage) => void;
 }) {
@@ -433,7 +448,11 @@ function FocusedStageMenuPortal({
       onMouseDown={(event) => event.stopPropagation()}
     >
       {FOCUSED_STAGE_REASSIGN_ORDER.filter(
-        (stage) => stage !== currentStage
+        (stage) =>
+          stage !== currentStage &&
+          // Won is a conversion — omit it for operators who can't convert,
+          // mirroring the quick-arrow gate and the detail menu.
+          !(stage === OpportunityStage.Won && !canConvert)
       ).map((stage) => (
         <StageMenuItem
           key={stage}

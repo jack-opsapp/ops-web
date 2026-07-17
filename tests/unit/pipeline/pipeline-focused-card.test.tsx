@@ -592,6 +592,62 @@ describe("<PipelineFocusedCard>", () => {
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
   });
 
+  it("hides the Move-to-Won affordances when the operator cannot convert", () => {
+    const onMoveStage = vi.fn();
+    renderFocusedCard({
+      opportunity: {
+        ...makeOpportunity(),
+        stage: OpportunityStage.Negotiation,
+      },
+      onMoveStage,
+      leadAccess: {
+        canView: true,
+        canEdit: true,
+        canAssign: true,
+        canUnassign: true,
+        canConvert: false,
+      },
+    });
+
+    // The forward quick-arrow from Negotiation would target Won — with no
+    // convert access it must not render (Lost is never a "forward" move).
+    expect(screen.queryByRole("button", { name: /Move to Won/i })).toBeNull();
+
+    // The stage menu omits Won too, but keeps the non-terminal stages.
+    fireEvent.click(screen.getByRole("button", { name: "Choose stage" }));
+    expect(
+      screen.queryByRole("menuitem", { name: /Move to Won/i })
+    ).toBeNull();
+    expect(
+      screen.getByRole("menuitem", { name: /Move to Quoted/i })
+    ).toBeInTheDocument();
+  });
+
+  it("surfaces the Move-to-Won affordances when the operator can convert", () => {
+    renderFocusedCard({
+      opportunity: {
+        ...makeOpportunity(),
+        stage: OpportunityStage.Negotiation,
+      },
+      leadAccess: {
+        canView: true,
+        canEdit: true,
+        canAssign: true,
+        canUnassign: true,
+        canConvert: true,
+      },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Move to Won/i })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose stage" }));
+    expect(
+      screen.getByRole("menuitem", { name: /Move to Won/i })
+    ).toBeInTheDocument();
+  });
+
   it("uses the OPS focused card shell without a heavy left rail", () => {
     const { container } = renderFocusedCard();
     const shell = container.querySelector(

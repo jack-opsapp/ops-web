@@ -135,7 +135,11 @@ function SwipeableCard({
   t,
 }: SwipeableCardProps) {
   const terminal = isTerminalStage(opportunity.stage);
-  const next = nextOpportunityStage(opportunity.stage);
+  const rawNext = nextOpportunityStage(opportunity.stage);
+  // Advancing into Won is a conversion — treat Won as no-next when the operator
+  // can't convert, so neither the swipe-advance nor its hint strip engages.
+  const next =
+    rawNext === OpportunityStage.Won && !canConvert ? null : rawNext;
   const prev = previousOpportunityStage(opportunity.stage);
 
   const dragX = useMotionValue(0);

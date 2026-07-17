@@ -9,6 +9,7 @@ import {
   type Opportunity,
   type PipelineStageDefault,
   OPPORTUNITY_STAGE_COLORS,
+  OpportunityStage,
   getDaysInStage,
   isOpportunityStale,
   isTerminalStage,
@@ -155,13 +156,17 @@ export function PipelineCard({
   const followUpOverdue = isDateOverdue(followUpDate);
   const followUpToday = isDateToday(followUpDate);
 
-  const canAdvance =
-    !terminal && nextOpportunityStage(opportunity.stage) !== null;
+  const rawNextStage = nextOpportunityStage(opportunity.stage);
+  // Advancing into Won is a conversion — hide the forward chevron when the
+  // operator can't convert, so the board's advance affordance matches the
+  // focused card, the swipe, and the detail menu's Won gating.
+  const nextStage =
+    rawNextStage === OpportunityStage.Won && !canConvert ? null : rawNextStage;
+  const prevStage = previousOpportunityStage(opportunity.stage);
+
+  const canAdvance = !terminal && nextStage !== null;
   const canRetreat =
     !terminal && previousOpportunityStage(opportunity.stage) !== null;
-
-  const nextStage = nextOpportunityStage(opportunity.stage);
-  const prevStage = previousOpportunityStage(opportunity.stage);
 
   // Expected days for health bar: autoFollowUpDays * 3, fallback to 21
   const expectedDays = stageConfig.autoFollowUpDays
