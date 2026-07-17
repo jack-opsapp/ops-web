@@ -593,7 +593,7 @@ changes as (
     coalesce(b.permission, a.permission) as permission,
     b.item as before_permission,
     a.item as after_permission,
-    b.full_permissions as before_permissions
+    coalesce(b.full_permissions, a.full_permissions) as before_permissions
   from before_rows b
   full join after_rows a
     on a.subject_kind = b.subject_kind

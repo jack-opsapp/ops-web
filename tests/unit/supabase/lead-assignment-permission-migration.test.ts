@@ -91,6 +91,12 @@ describe("lead assignment permission migration", () => {
     expect(source).toMatch(/inbox\.view_company[\s\S]*?inbox\.view/i);
     expect(source).toMatch(/expected legacy rows remain|legacy rows remain/i);
     expect(source).toMatch(/equivalent_compatibility_expansion/i);
+    expect(source).toMatch(
+      /coalesce\(b\.full_permissions,\s*a\.full_permissions\)\s+as before_permissions/i
+    );
+    expect(source).not.toMatch(
+      /(?<!coalesce\()b\.full_permissions\s+as before_permissions/i
+    );
   });
 
   it("aborts every unreviewed or access-widening legacy shape", () => {
