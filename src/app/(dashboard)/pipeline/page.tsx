@@ -399,6 +399,19 @@ export default function PipelinePage() {
     }));
   }, [teamData]);
 
+  // Assignee display names for the focused-card ownership marker — populated
+  // ONLY for company-wide viewers (who can see leads owned by others). When
+  // absent, cards render no marker.
+  const assigneeNameById = useMemo(() => {
+    if (!hasCompanyWideLeadView) return undefined;
+    const map = new Map<string, string>();
+    for (const u of teamData?.users ?? []) {
+      const name = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+      if (name) map.set(u.id, name);
+    }
+    return map;
+  }, [hasCompanyWideLeadView, teamData]);
+
   // ── Active (non-deleted, non-archived) opportunities ──────────────────
   const activeOpportunities = useMemo(() => {
     if (!opportunities) return [];
@@ -1012,13 +1025,21 @@ export default function PipelinePage() {
     [company, createOpportunity, t]
   );
 
-  /** Open the lead's persistent assignment control in the detail header. */
+  /**
+   * Open the lead's detail and arm the assign-intent one-shot so its assignee
+   * picker auto-opens once — "Assign to" lands the operator directly in the
+   * picker instead of on the record.
+   */
   const handleAssign = useCallback(
     (opportunityId: string) => {
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
-      if (opp) handleOpenDetail(opp);
+      if (!opp) return;
+      setOriginatingOpportunityId(opp.id);
+      usePipelineModeStore
+        .getState()
+        .openDetailPanel(opp.id, { assignIntent: true });
     },
-    [activeOpportunities, handleOpenDetail]
+    [activeOpportunities]
   );
 
   /** Placeholder: schedule follow-up (opens detail panel) */
@@ -1326,6 +1347,7 @@ export default function PipelinePage() {
                             opportunities={filteredOpportunities}
                             clients={clientsData?.clients ?? []}
                             clientNameMap={clientNameMap}
+                            assigneeNameById={assigneeNameById}
                             canManage={canManage}
                             canCreateLead={canCreateLead}
                             leadAccessById={leadAccessById}

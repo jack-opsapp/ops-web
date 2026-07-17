@@ -38,6 +38,11 @@ interface PipelineFocusedCardProps
   clients?: Client[];
   stageColor: string;
   stalenessOpacity: number;
+  /**
+   * Assignee display name for the ownership marker — passed only for
+   * company-wide viewers; null when unassigned or the viewer is scoped.
+   */
+  assigneeName?: string | null;
   /** @deprecated Product callers must provide row-specific `leadAccess`. */
   canManage?: boolean;
   leadAccess: LeadAccess;
@@ -50,6 +55,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   clients = [],
   stageColor,
   stalenessOpacity,
+  assigneeName = null,
   leadAccess,
   onLogCall,
   onLogText,
@@ -101,6 +107,11 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
           stalenessOpacity={stalenessOpacity}
           density="comfortable"
           surfaceVariant="focused"
+          assigneeMarker={
+            assigneeName ? (
+              <AssigneeInitialsMarker name={assigneeName} />
+            ) : undefined
+          }
           canManage={leadAccess.canEdit}
           canAssign={leadAccess.canAssign}
           canConvert={leadAccess.canConvert}
@@ -165,6 +176,32 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
     </article>
   );
 });
+
+/**
+ * A quiet ownership marker for company-wide viewers: a 16px hairline disc with
+ * the assignee's first initial in the tertiary tone (no accent). A single glyph
+ * keeps the label at the 11px type floor inside the 16px disc; the full name
+ * rides on the title + aria-label. Unassigned leads render no marker (the parent
+ * passes none), so it never competes on the scan surface.
+ */
+function AssigneeInitialsMarker({ name }: { name: string }) {
+  const { t } = useDictionary("pipeline");
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  const label = t("card.assignedTo", "Assigned to {name}").replace(
+    "{name}",
+    name
+  );
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={name}
+      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line font-mono text-micro leading-none text-text-3"
+    >
+      {initial}
+    </span>
+  );
+}
 
 const FOCUSED_STAGE_REASSIGN_ORDER: OpportunityStage[] = [
   ...getActiveStages(),

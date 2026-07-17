@@ -553,6 +553,7 @@
   "card.timeAgo.minutes": "{count}m ago",
   "card.timeAgo.hours": "{count}h ago",
   "card.timeAgo.days": "{count}d ago",
+  "card.assignedTo": "Assigned to {name}",
   "card.confirm": "Confirm",
   "focused.openDetail.label": "Open deal details",
   "focused.empty.title": "// NO LEADS",

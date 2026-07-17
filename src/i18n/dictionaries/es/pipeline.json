@@ -553,6 +553,7 @@
   "card.timeAgo.minutes": "hace {count}m",
   "card.timeAgo.hours": "hace {count}h",
   "card.timeAgo.days": "hace {count}d",
+  "card.assignedTo": "Asignado a {name}",
   "card.confirm": "Confirmar",
   "focused.openDetail.label": "Abrir detalles del trato",
   "focused.empty.title": "// SIN PROSPECTOS",

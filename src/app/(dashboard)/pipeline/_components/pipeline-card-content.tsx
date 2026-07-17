@@ -87,6 +87,12 @@ export interface PipelineCardContentProps
   openDetailLabel?: string;
   leadingAccessory?: React.ReactNode;
   quickStageActions?: React.ReactNode;
+  /**
+   * Optional ownership marker rendered in the top row beside the day count
+   * (focused surface only). A ReactNode so the caller owns its presentation;
+   * absent for scoped viewers and unassigned leads — it never adds a row.
+   */
+  assigneeMarker?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -115,6 +121,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   openDetailLabel,
   leadingAccessory,
   quickStageActions,
+  assigneeMarker,
   onLogCall = noop,
   onLogText = noop,
   onAddNote = noop,
@@ -299,18 +306,24 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                   onTitleSave={onTitleSave}
                 />
               </div>
-              <span
-                title={applyTemplate(
-                  t("card.daysInStage", "{count}d in stage"),
-                  { count: String(daysInStage) }
-                )}
-                className={cn(
-                  "shrink-0 pt-[3px] font-mono text-micro tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]",
-                  staleCount ? "text-tan" : "text-text-3"
-                )}
-              >
-                {daysInStage}D
-              </span>
+              {/* Top-row trailing cluster: ownership marker (focused surface,
+                  company-wide viewers) + day count. The marker shares this row
+                  so it never adds a line at comfortable density. */}
+              <div className="flex shrink-0 items-center gap-1.5 pt-[3px]">
+                {assigneeMarker}
+                <span
+                  title={applyTemplate(
+                    t("card.daysInStage", "{count}d in stage"),
+                    { count: String(daysInStage) }
+                  )}
+                  className={cn(
+                    "font-mono text-micro tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]",
+                    staleCount ? "text-tan" : "text-text-3"
+                  )}
+                >
+                  {daysInStage}D
+                </span>
+              </div>
             </div>
 
             {/* Row 2 — client · address merged on one truncating line, value

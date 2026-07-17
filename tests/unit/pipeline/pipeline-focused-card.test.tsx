@@ -188,6 +188,7 @@ function renderFocusedCard({
   opportunity = makeOpportunity(),
   clientName = "North Shore Decks",
   clients = makeClients(),
+  assigneeName = null,
   onMoveStage = vi.fn(),
   onTitleSave = vi.fn(),
   onLinkClient = vi.fn(),
@@ -199,6 +200,7 @@ function renderFocusedCard({
   opportunity?: Opportunity;
   clientName?: string;
   clients?: Client[];
+  assigneeName?: string | null;
   onMoveStage?: (opportunity: Opportunity, stage: OpportunityStage) => void;
   onTitleSave?: (opportunity: Opportunity, title: string) => void;
   onLinkClient?: (opportunity: Opportunity, clientId: string) => void;
@@ -230,6 +232,7 @@ function renderFocusedCard({
         clients={clients}
         stageColor="#8F9AA3"
         stalenessOpacity={1}
+        assigneeName={assigneeName}
         canManage={canManage}
         leadAccess={
           leadAccess ?? {
@@ -646,6 +649,24 @@ describe("<PipelineFocusedCard>", () => {
     expect(
       screen.getByRole("menuitem", { name: /Move to Won/i })
     ).toBeInTheDocument();
+  });
+
+  it("shows a quiet ownership marker when a company-wide viewer has an assignee name", () => {
+    renderFocusedCard({ assigneeName: "Dana Reyes" });
+
+    const marker = screen.getByRole("img", { name: "Assigned to Dana Reyes" });
+    expect(marker).toHaveTextContent("D");
+    // Quiet tone, no accent.
+    expect(marker).toHaveClass("text-text-3");
+    expect(marker.className).not.toContain("accent");
+  });
+
+  it("renders no ownership marker when there is no assignee name", () => {
+    renderFocusedCard({ assigneeName: null });
+
+    expect(
+      screen.queryByRole("img", { name: /Assigned to/i })
+    ).not.toBeInTheDocument();
   });
 
   it("uses the OPS focused card shell without a heavy left rail", () => {

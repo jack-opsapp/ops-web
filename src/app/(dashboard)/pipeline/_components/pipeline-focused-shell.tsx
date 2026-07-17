@@ -60,6 +60,11 @@ export interface PipelineFocusedShellProps extends FocusedShellActionHandlers {
   opportunities: Opportunity[];
   clients?: Client[];
   clientNameMap: Map<string, string>;
+  /**
+   * Assignee display names by user id — present only for company-wide viewers,
+   * drives the focused cards' quiet ownership marker. Absent → no marker.
+   */
+  assigneeNameById?: ReadonlyMap<string, string>;
   canManage: boolean;
   canCreateLead: boolean;
   leadAccessById: ReadonlyMap<string, LeadAccess>;
@@ -196,6 +201,7 @@ export function PipelineFocusedShell({
   opportunities,
   clients = [],
   clientNameMap,
+  assigneeNameById,
   canManage,
   canCreateLead,
   leadAccessById,
@@ -605,6 +611,7 @@ export function PipelineFocusedShell({
             opportunities={focusedOpportunities}
             clients={clients}
             clientNameMap={clientNameMap}
+            assigneeNameById={assigneeNameById}
             canManage={canManage}
             canCreateLead={canCreateLead}
             leadAccessById={leadAccessById}

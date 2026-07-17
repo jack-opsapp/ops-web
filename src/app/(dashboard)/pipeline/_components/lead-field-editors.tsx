@@ -69,6 +69,7 @@ import { LeadAssignmentConflictError } from "@/lib/api/services/lead-assignment-
 import { actorLosesAccessOnAssign } from "@/lib/permissions/lead-access-policy";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
+import { usePipelineModeStore } from "./pipeline-mode-store";
 import { getUserFullName } from "@/lib/types/models";
 import {
   OpportunityPriority,
@@ -782,6 +783,13 @@ export function AssigneeField({
 }) {
   const { t } = useDictionary("pipeline");
   const [open, setOpen] = useState(false);
+  // One-shot "Assign to" intent: when the detail opened via that action, this
+  // matches our opportunity and we auto-open the picker once (below).
+  const assignIntent = usePipelineModeStore(
+    (state) => state.assignIntentOpportunityId
+  );
+  const rafOuterRef = useRef(0);
+  const rafInnerRef = useRef(0);
   const [saveState, setSaveState] = useState<FieldSaveState>("idle");
   // A hand-off awaiting confirmation: an assigned-scope actor is about to move
   // their own lead away — destructive for THEM (it leaves their list).
@@ -824,6 +832,26 @@ export function AssigneeField({
     },
     []
   );
+
+  // Auto-open the picker once when this lead's detail arrived via "Assign to".
+  // The detail window focuses its body on open (one rAF); defer our open two
+  // frames so the picker's own focus-in is the last word and the window's focus
+  // pass can't dismiss it. Consume the flag inside the deferred callback so the
+  // resulting re-render can't cancel the scheduled open (a synchronous consume
+  // would). Re-arming the flag for the same lead opens it again.
+  useEffect(() => {
+    if (!canAssign || assignIntent !== opportunityId) return;
+    rafOuterRef.current = requestAnimationFrame(() => {
+      rafInnerRef.current = requestAnimationFrame(() => {
+        setOpen(true);
+        usePipelineModeStore.getState().consumeAssignIntent();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(rafOuterRef.current);
+      cancelAnimationFrame(rafInnerRef.current);
+    };
+  }, [assignIntent, opportunityId, canAssign]);
 
   const candidateName = useCallback(
     (candidate: { firstName: string | null; lastName: string | null }) =>
