@@ -672,7 +672,7 @@ function FocusedActionDropZones({
       data-testid="pipeline-focused-action-drops"
       aria-hidden={!isVisible}
       className={cn(
-        "fixed bottom-2 left-[84px] right-3 z-[9999] grid h-[88px] grid-cols-2 gap-2 overflow-visible",
+        "fixed bottom-2 left-[84px] right-3 z-[1600] grid h-[88px] grid-cols-2 gap-2 overflow-visible",
         "transition-opacity duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         isVisible
           ? "pointer-events-auto opacity-100"

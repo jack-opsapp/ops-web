@@ -1376,7 +1376,7 @@ export default function PipelinePage() {
           first cards and intercepted their taps (audit P1-4). */}
       {!isMobile && (
         <div className="pointer-events-none absolute left-0 right-0 top-0 z-[2]">
-          <div className="pointer-events-auto fixed bottom-[54px] left-[84px] z-[9997] flex w-[min(560px,calc(100vw-108px))] flex-col gap-1">
+          <div className="pointer-events-auto fixed bottom-[54px] left-[84px] z-[1500] flex w-[min(560px,calc(100vw-108px))] flex-col gap-1">
             {pipelineBanners}
           </div>
         </div>

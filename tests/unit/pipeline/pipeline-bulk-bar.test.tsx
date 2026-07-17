@@ -289,16 +289,11 @@ describe("PipelineBulkBar", () => {
   it("reassigns each selected row with its exact snapshot and creates no unsafe undo", async () => {
     const { onClearSelection } = renderBar();
 
-    // Open the guarded assignee picker, wait for candidates, pick a member, apply.
-    fireEvent.click(screen.getAllByText("Reassign assignee")[0]);
+    // Open the guarded assignee picker, wait for candidates, pick a member —
+    // the canonical single-select picker commits and closes on pick (no Apply).
+    fireEvent.click(screen.getByRole("button", { name: "Reassign assignee" }));
     await waitFor(() => expect(listCandidates).toHaveBeenCalledWith("opp-1"));
-    await screen.findByRole("option", { name: "Ada Lovelace" });
-
-    const select = screen.getByLabelText(
-      "Reassign assignee"
-    ) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: "user-b" } });
-    fireEvent.click(screen.getAllByText("Reassign assignee").at(-1)!);
+    fireEvent.click(await screen.findByText("Grace Hopper"));
 
     await waitFor(() => expect(changeAssignment).toHaveBeenCalledTimes(3));
     expect(changeAssignment).toHaveBeenCalledWith({
@@ -359,11 +354,9 @@ describe("PipelineBulkBar", () => {
       }),
     });
 
-    fireEvent.click(screen.getAllByText("Reassign assignee")[0]);
-    await screen.findByRole("option", { name: "Grace Hopper" });
-    expect(
-      screen.queryByRole("option", { name: "— Unassigned —" })
-    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reassign assignee" }));
+    await screen.findByText("Grace Hopper");
+    expect(screen.queryByText("— Unassigned —")).not.toBeInTheDocument();
   });
 
   it("sets the follow-up date across all selected rows and pushes an undo restoring prior dates", async () => {
