@@ -18,6 +18,8 @@ interface ExpenseFiltersProps {
   onPeriodChange: (period: string) => void;
   /** Count of batches needing review (for badge) */
   reviewCount: number;
+  /** Period keys that have at least one batch awaiting review (drives the pill marker) */
+  periodsNeedingReview: Set<string>;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -29,6 +31,7 @@ export function ExpenseFilters({
   activePeriod,
   onPeriodChange,
   reviewCount,
+  periodsNeedingReview,
 }: ExpenseFiltersProps) {
   return (
     <div className="space-y-2">
@@ -66,20 +69,33 @@ export function ExpenseFilters({
       {/* Period pills — horizontal scroll */}
       {periods.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {periods.map((period) => (
-            <button
-              key={period}
-              onClick={() => onPeriodChange(period)}
-              className={cn(
-                "px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider whitespace-nowrap shrink-0 transition-colors border",
-                activePeriod === period
-                  ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.15)]"
-                  : "text-text-3 border-transparent hover:text-text-2 hover:border-border"
-              )}
-            >
-              {formatPeriodDisplay(period)}
-            </button>
-          ))}
+          {periods.map((period) => {
+            const needsReview = periodsNeedingReview.has(period);
+            return (
+              <button
+                key={period}
+                onClick={() => onPeriodChange(period)}
+                title={needsReview ? "Has expenses to review" : undefined}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded font-mono text-[11px] uppercase tracking-wider whitespace-nowrap shrink-0 transition-colors border",
+                  activePeriod === period
+                    ? "bg-[rgba(255,255,255,0.08)] text-text border-[rgba(255,255,255,0.15)]"
+                    : "text-text-3 border-transparent hover:text-text-2 hover:border-border"
+                )}
+              >
+                {needsReview && (
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#D99A3E]"
+                    aria-hidden="true"
+                  />
+                )}
+                {formatPeriodDisplay(period)}
+                {needsReview && (
+                  <span className="sr-only"> — has expenses to review</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

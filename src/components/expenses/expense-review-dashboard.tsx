@@ -41,6 +41,18 @@ export function ExpenseReviewDashboard() {
     return [...keys].sort().reverse();
   }, [batches]);
 
+  // Period keys that have at least one batch awaiting review — drives the
+  // amber marker on the month pills so unreviewed months are visible at a glance.
+  const periodsNeedingReview = useMemo(() => {
+    const keys = new Set<string>();
+    for (const b of batches) {
+      if (!isBatchNeedsReview(b.status)) continue;
+      const key = periodKeyFromBatch(b);
+      if (key && key !== "unknown") keys.add(key);
+    }
+    return keys;
+  }, [batches]);
+
   // Auto-select latest period if none selected
   const effectivePeriod = activePeriod || periods[0] || "";
 
@@ -154,6 +166,7 @@ export function ExpenseReviewDashboard() {
           setSelectedBatchId(null);
         }}
         reviewCount={reviewBatches.length}
+        periodsNeedingReview={periodsNeedingReview}
       />
 
       {/* Period summary */}
