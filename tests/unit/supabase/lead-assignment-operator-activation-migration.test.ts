@@ -130,4 +130,15 @@ describe("lead assignment Operator activation migration", () => {
       expect(source).toContain(prerequisite);
     }
   });
+
+  it("requires both canonical internal SPEC guards before activation", () => {
+    const source = sql();
+
+    expect(source).toContain(
+      "private.is_canonical_internal_permission_override(text,uuid,text,boolean)"
+    );
+    expect(source).toContain(
+      "private.is_canonical_internal_role_permission(uuid,text,text)"
+    );
+  });
 });

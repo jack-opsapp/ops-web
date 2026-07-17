@@ -28,6 +28,7 @@ describe("lead assignment Operator activation two-session contract", () => {
     expect(existsSync(artifactPath)).toBe(true);
     expect(artifact).toContain("isolated database only");
     expect(artifact).toContain("fresh pre-181000 database snapshot");
+    expect(artifact).toContain("through 20260715180900 applied");
     expect(artifact).toContain(
       "20260715181000_lead_assignment_operator_activation.sql"
     );

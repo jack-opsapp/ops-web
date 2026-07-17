@@ -39,6 +39,12 @@ begin
       'private.assert_permission_users_valid(uuid[])'
     ) is null
     or to_regprocedure(
+      'private.is_canonical_internal_permission_override(text,uuid,text,boolean)'
+    ) is null
+    or to_regprocedure(
+      'private.is_canonical_internal_role_permission(uuid,text,text)'
+    ) is null
+    or to_regprocedure(
       'private.lock_lead_assignment_company(uuid)'
     ) is null
     or to_regprocedure(

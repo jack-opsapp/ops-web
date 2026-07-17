@@ -80,7 +80,8 @@ Both facades return `ok`, `conflict`, current `assigned_to`, current `assignment
 5. `supabase/migrations/20260715161500_lead_assignment_realtime_fanout.sql` and `20260715161600_lead_assignment_delivery_worker.sql`
    - durable access-loss fanout and deduplicated assignment notifications
 6. The email and notification hardening chain (`20260715162000` through `20260715180500_notification_creation_hardening.sql`) depends on the canonical assignment and inbox contracts above.
-7. `supabase/migrations/20260715181000_lead_assignment_operator_activation.sql`
+7. `supabase/migrations/20260715180900_internal_spec_permission_guard.sql`
+8. `supabase/migrations/20260715181000_lead_assignment_operator_activation.sql`
    - final, separately controlled activation after web, iOS, notification, and the complete email chain pass compatibility proof
 
 ---

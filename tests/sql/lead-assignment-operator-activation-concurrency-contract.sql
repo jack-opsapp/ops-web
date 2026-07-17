@@ -5,7 +5,7 @@
 -- staging, or production database.
 --
 -- Run each scenario from a fresh pre-181000 database snapshot with migrations
--- through 20260715180500 applied and 20260715181000 unapplied.
+-- through 20260715180900 applied and 20260715181000 unapplied.
 -- Do not run this file as one session: copy only the labelled COMMON SETUP / SESSION / VERIFY
 -- blocks into the indicated migration-owner psql connections.
 --
