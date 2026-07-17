@@ -269,6 +269,7 @@
   "detail.addressLabel": "Dirección",
   "detail.contextError": "// ERROR — NO SE PUDO CARGAR EL CONTEXTO DEL PROSPECTO",
   "detail.contextRetry": "REINTENTAR",
+  "detail.back": "Atrás",
   "handoff.title": "¿Entregar este prospecto?",
   "handoff.body": "Pasa a {name} y sale de tu lista.",
   "handoff.confirm": "ENTREGAR",

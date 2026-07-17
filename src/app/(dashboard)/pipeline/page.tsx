@@ -66,6 +66,7 @@ import type {
   DragStartEvent,
 } from "@dnd-kit/core";
 import { PipelineMobile } from "./_components/pipeline-mobile";
+import { PipelineMobileDetailDrawer } from "./_components/pipeline-mobile-detail-drawer";
 import { StageTransitionDialog } from "./_components/stage-transition-dialog";
 import { useStageTransition } from "./_components/use-stage-transition";
 import { useWindowStore } from "@/stores/window-store";
@@ -1077,6 +1078,83 @@ export default function PipelinePage() {
     ease: EASE_SMOOTH,
   };
 
+  // Banners — ONE definition, two homes. Desktop pins them bottom-left in the
+  // HUD (they must never cover the persistent MetricsStrip/toolbar chrome);
+  // mobile renders them IN FLOW below the stage tab bar inside PipelineMobile,
+  // full-width, so they can never overlay cards or intercept their taps.
+  const pipelineBanners = (
+    <>
+      {gmailConnections.length === 0 && !gmailBannerDismissed && (
+        <div
+          className="glass-dense flex animate-fade-in flex-wrap items-center gap-2 rounded-panel border px-2 py-1.5 [&::before]:rounded-panel"
+          style={{
+            background: "var(--surface-glass-dense)",
+            backdropFilter: "blur(28px) saturate(1.3)",
+            WebkitBackdropFilter: "blur(28px) saturate(1.3)",
+            borderColor: "var(--glass-border)",
+          }}
+        >
+          <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded border border-border bg-surface-active">
+            <Mail className="h-[16px] w-[16px] text-text-2" />
+          </div>
+          <div className="min-w-0 flex-1 basis-[180px]">
+            <p className="font-mohave text-body text-text">
+              {t("email.connectBanner")}
+            </p>
+            <p className="font-mono text-micro text-text-mute">
+              {t("email.connectDesc")}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <ConnectEmailMenu
+              onSelect={(provider) => {
+                if (!currentUser?.id) {
+                  console.error(
+                    "[pipeline] No current user — cannot initiate OAuth"
+                  );
+                  return;
+                }
+                const params = new URLSearchParams({
+                  companyId: company?.id ?? "",
+                  userId: currentUser.id,
+                  type: "company",
+                  // Land back on the pipeline after the OAuth dance so
+                  // the round-trip toast below can fire.
+                  returnTo: "/pipeline",
+                });
+                window.location.href = `/api/integrations/${provider}?${params}`;
+              }}
+            />
+            <button
+              onClick={() => setGmailBannerDismissed(true)}
+              className="p-[6px] text-text-mute transition-colors hover:text-text-3"
+              title={t("email.dismiss")}
+            >
+              <X className="h-[14px] w-[14px]" />
+            </button>
+          </div>
+        </div>
+      )}
+      {showInboxLeads && (
+        <InboxLeadsQueue
+          onCreateLead={(prefill) => {
+            setShowInboxLeads(false);
+            createLeadFromEmail(prefill);
+          }}
+          className="max-w-[600px]"
+        />
+      )}
+      {moveStage.isPending && (
+        <div className="flex items-center gap-1.5 rounded-chip border border-border bg-surface-active px-2 py-1">
+          <Loader2 className="h-[14px] w-[14px] animate-spin text-text-3" />
+          <span className="font-mono text-micro text-text-2">
+            {t("column.updating")}
+          </span>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div
       ref={pipelineScopeRef}
@@ -1085,7 +1163,7 @@ export default function PipelinePage() {
       {/* ── Canvas — fills entire viewport, renders behind HUD ── */}
       <div className="absolute inset-0 overflow-hidden">
         {isMobile ? (
-          <PipelineMobile {...sharedBoardProps} />
+          <PipelineMobile {...sharedBoardProps} banner={pipelineBanners} />
         ) : (
           // Persistent chrome (WEB OVERHAUL P6-2 rework, Jackson 2026-06-30): the
           // metrics bar + toolbar are ONE instance mounted ABOVE the crossfade, so
@@ -1285,93 +1363,24 @@ export default function PipelinePage() {
         )}
       </div>
 
-      {/* ── Page HUD — banners float on top of canvas ── */}
-      <div className="pointer-events-none absolute left-0 right-0 top-0 z-[2]">
-        {/* Metrics + toolbar are NOT in the HUD — they are one persistent instance
-            in normal flow ABOVE the mode crossfade (see the shared chrome above),
-            shared across focused/table so a mode switch never remounts or moves
-            them (Jackson 2026-06-30). Only the banners remain here. */}
-        {/* Banners — pinned bottom-left on ALL desktop modes (focused + table) so
-            they never float over the persistent chrome's pinned top (MetricsStrip +
-            toolbar); a top-flowing banner would cover the MetricsStrip (P6-2).
-            Mobile keeps them in flow. */}
-        <div
-          className={cn(
-            "pointer-events-auto flex flex-col gap-1 px-3",
-            !isMobile &&
-              "fixed bottom-[54px] left-[84px] z-[9997] w-[min(560px,calc(100vw-108px))] px-0"
-          )}
-        >
-          {gmailConnections.length === 0 && !gmailBannerDismissed && (
-            <div
-              className="glass-dense flex animate-fade-in items-center gap-2 rounded-panel border px-2 py-1.5 [&::before]:rounded-panel"
-              style={{
-                background: "var(--surface-glass-dense)",
-                backdropFilter: "blur(28px) saturate(1.3)",
-                WebkitBackdropFilter: "blur(28px) saturate(1.3)",
-                borderColor: "var(--glass-border)",
-              }}
-            >
-              <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded border border-border bg-surface-active">
-                <Mail className="h-[16px] w-[16px] text-text-2" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-mohave text-body text-text">
-                  {t("email.connectBanner")}
-                </p>
-                <p className="font-mono text-micro text-text-mute">
-                  {t("email.connectDesc")}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <ConnectEmailMenu
-                  onSelect={(provider) => {
-                    if (!currentUser?.id) {
-                      console.error(
-                        "[pipeline] No current user — cannot initiate OAuth"
-                      );
-                      return;
-                    }
-                    const params = new URLSearchParams({
-                      companyId: company?.id ?? "",
-                      userId: currentUser.id,
-                      type: "company",
-                      // Land back on the pipeline after the OAuth dance so
-                      // the round-trip toast below can fire.
-                      returnTo: "/pipeline",
-                    });
-                    window.location.href = `/api/integrations/${provider}?${params}`;
-                  }}
-                />
-                <button
-                  onClick={() => setGmailBannerDismissed(true)}
-                  className="p-[6px] text-text-mute transition-colors hover:text-text-3"
-                  title={t("email.dismiss")}
-                >
-                  <X className="h-[14px] w-[14px]" />
-                </button>
-              </div>
-            </div>
-          )}
-          {showInboxLeads && (
-            <InboxLeadsQueue
-              onCreateLead={(prefill) => {
-                setShowInboxLeads(false);
-                createLeadFromEmail(prefill);
-              }}
-              className="max-w-[600px]"
-            />
-          )}
-          {moveStage.isPending && (
-            <div className="flex items-center gap-1.5 rounded-chip border border-border bg-surface-active px-2 py-1">
-              <Loader2 className="h-[14px] w-[14px] animate-spin text-text-3" />
-              <span className="font-mono text-micro text-text-2">
-                {t("column.updating")}
-              </span>
-            </div>
-          )}
+      {/* ── Page HUD — desktop banners float on top of canvas ── */}
+      {/* Metrics + toolbar are NOT in the HUD — they are one persistent instance
+          in normal flow ABOVE the mode crossfade (see the shared chrome above),
+          shared across focused/table so a mode switch never remounts or moves
+          them (Jackson 2026-06-30). Only the banners remain here. */}
+      {/* Banners — pinned bottom-left on ALL desktop modes (focused + table) so
+          they never float over the persistent chrome's pinned top (MetricsStrip +
+          toolbar); a top-flowing banner would cover the MetricsStrip (P6-2).
+          MOBILE renders `pipelineBanners` in flow inside PipelineMobile, below
+          the stage tab bar — never in this absolute HUD, where it overlaid the
+          first cards and intercepted their taps (audit P1-4). */}
+      {!isMobile && (
+        <div className="pointer-events-none absolute left-0 right-0 top-0 z-[2]">
+          <div className="pointer-events-auto fixed bottom-[54px] left-[84px] z-[9997] flex w-[min(560px,calc(100vw-108px))] flex-col gap-1">
+            {pipelineBanners}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Deal detail window — TABLE mode. The focused board renders this same
           window from inside PipelineFocusedShell; in table mode that shell is
@@ -1388,6 +1397,25 @@ export default function PipelinePage() {
           }
           originatingOpportunityId={
             originatingOpportunityId ?? detailPanelOpportunityId
+          }
+          onAdvanceStage={handleAdvanceStage}
+          onMarkWon={handleMarkWon}
+          onMarkLost={handleMarkLost}
+          onArchive={handleArchive}
+          onDiscard={handleDiscard}
+          onDelete={handleDelete}
+        />
+      )}
+
+      {/* Lead detail — MOBILE. The floating window never mounts below 900px,
+          so a card's "View details" wrote the store id and nothing rendered
+          (audit P1-4). The full-screen drawer hosts the same PipelineDetailBody
+          with the same access gating. */}
+      {isMobile && detailPanelOpportunity && (
+        <PipelineMobileDetailDrawer
+          opportunity={detailPanelOpportunity}
+          leadAccess={
+            leadAccessById.get(detailPanelOpportunity.id) ?? NO_LEAD_ACCESS
           }
           onAdvanceStage={handleAdvanceStage}
           onMarkWon={handleMarkWon}

@@ -269,6 +269,7 @@
   "detail.addressLabel": "Address",
   "detail.contextError": "// ERROR — COULDN'T LOAD LEAD CONTEXT",
   "detail.contextRetry": "RETRY",
+  "detail.back": "Back",
   "handoff.title": "Hand off this lead?",
   "handoff.body": "It moves to {name} and leaves your list.",
   "handoff.confirm": "HAND OFF",
