@@ -20,6 +20,17 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
 import { type Opportunity, isActiveStage } from "@/lib/types/pipeline";
 import type { LucideIcon } from "lucide-react";
 import type { DetailTabId } from "./pipeline-mode-types";
@@ -238,8 +249,15 @@ export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
 } & DetailPanelActionHandlers) {
   const { t } = useDictionary("pipeline");
   const [showActions, setShowActions] = useState(false);
+  // Delete is irreversible and one tap from a hover menu — interpose a confirm.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const active = isActiveStage(opportunity.stage);
+  const leadName =
+    opportunity.title?.trim() ||
+    opportunity.client?.name ||
+    opportunity.contactName ||
+    t("detail.deleteName", "this lead");
 
   useEffect(() => {
     if (!showActions) return;
@@ -311,12 +329,47 @@ export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
                 icon={Trash2}
                 label={t("actions.delete")}
                 destructive
-                onClick={() => runAction(() => onDelete(opportunity.id))}
+                onClick={() => runAction(() => setConfirmingDelete(true))}
               />
             </>
           ) : null}
         </div>
       )}
+
+      {/* Delete confirm — z-modal on panel + overlay: this menu lives inside the
+          floating detail window (z 2000+), above the kit's default dialog layer. */}
+      <AlertDialog
+        open={confirmingDelete}
+        onOpenChange={setConfirmingDelete}
+      >
+        <AlertDialogContent className="z-modal" overlayClassName="z-modal">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("detail.deleteTitle", "DELETE LEAD")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t(
+                "detail.deleteBody",
+                "This removes {name} from the pipeline. DESTRUCTIVE. NO UNDO."
+              ).replace("{name}", leadName)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("detail.deleteCancel", "KEEP")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={cn(buttonVariants({ variant: "destructive" }))}
+              onClick={() => {
+                setConfirmingDelete(false);
+                onDelete(opportunity.id);
+              }}
+            >
+              {t("detail.deleteConfirm", "DELETE")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 });
