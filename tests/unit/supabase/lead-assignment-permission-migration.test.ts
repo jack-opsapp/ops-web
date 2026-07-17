@@ -57,6 +57,20 @@ describe("lead assignment permission migration", () => {
     );
   });
 
+  it("emits one deferred Operator row without lateral alias capture", () => {
+    expect(source).toMatch(
+      /jsonb_array_elements\(before_snapshot\.permissions\)\s+as before_element\(item\)/i
+    );
+    expect(source).toMatch(
+      /jsonb_array_elements\(after_snapshot\.permissions\)\s+as after_element\(item\)/i
+    );
+    expect(source).toContain("select before_element.item");
+    expect(source).toContain("select after_element.item");
+    expect(source).not.toMatch(
+      /from jsonb_array_elements\((?:before|after)_snapshot\.permissions\) item/i
+    );
+  });
+
   it("maps only reviewed compatibility rows and retains every legacy row", () => {
     for (const permission of [
       "pipeline.create",

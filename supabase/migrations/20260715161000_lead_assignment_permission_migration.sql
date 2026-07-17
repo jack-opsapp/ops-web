@@ -711,14 +711,16 @@ join private.lead_assignment_permission_migration_snapshots after_snapshot
  and after_snapshot.subject_id = before_snapshot.subject_id
  and after_snapshot.company_id is not distinct from before_snapshot.company_id
 cross join lateral (
-  select item
-  from jsonb_array_elements(before_snapshot.permissions) item
-  where item ->> 'permission' = 'inbox.view'
+  select before_element.item
+  from jsonb_array_elements(before_snapshot.permissions)
+    as before_element(item)
+  where before_element.item ->> 'permission' = 'inbox.view'
 ) before_item
 cross join lateral (
-  select item
-  from jsonb_array_elements(after_snapshot.permissions) item
-  where item ->> 'permission' = 'inbox.view'
+  select after_element.item
+  from jsonb_array_elements(after_snapshot.permissions)
+    as after_element(item)
+  where after_element.item ->> 'permission' = 'inbox.view'
 ) after_item
 where before_snapshot.migration_key = '20260715161000'
   and before_snapshot.phase = 'before'
