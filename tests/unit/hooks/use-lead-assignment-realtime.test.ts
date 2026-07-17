@@ -263,6 +263,109 @@ describe("reconcileLeadAssignmentDelivery", () => {
   });
 });
 
+describe("lead-revoked notification", () => {
+  it("notifies exactly once with the cached display title when a visible lead is revoked", () => {
+    const client = queryClient();
+    const listKey = queryKeys.opportunities.list("company-1");
+    client.setQueryData(listKey, [
+      {
+        id: "lead-1",
+        title: "Deck rebuild",
+        contactName: "Jordan Lee",
+        client: { name: "Acme Exteriors" },
+      } as unknown as Opportunity,
+      opportunity("lead-2"),
+    ]);
+    const onLeadRevoked = vi.fn();
+
+    reconcileLeadAssignmentDelivery(
+      client,
+      { opportunityId: "lead-1", accessAfter: false },
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).toHaveBeenCalledTimes(1);
+    expect(onLeadRevoked).toHaveBeenCalledWith({ title: "Acme Exteriors" });
+    // The purge itself still ran.
+    expect(
+      client.getQueryData<Opportunity[]>(listKey)?.map(({ id }) => id)
+    ).toEqual(["lead-2"]);
+  });
+
+  it("stays silent when the revoked lead was not visible in any list cache", () => {
+    const client = queryClient();
+    const onLeadRevoked = vi.fn();
+
+    // Boot-time backlog replay over an empty cache: nothing vanished before
+    // the operator's eyes, so nothing announces.
+    reconcileLeadAssignmentDelivery(
+      client,
+      { opportunityId: "lead-1", accessAfter: false },
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).not.toHaveBeenCalled();
+  });
+
+  it("does not notify for retained or gained access", () => {
+    const client = queryClient();
+    const listKey = queryKeys.opportunities.list("company-1");
+    client.setQueryData(listKey, [opportunity("lead-1")]);
+    const onLeadRevoked = vi.fn();
+
+    reconcileLeadAssignmentDelivery(
+      client,
+      { opportunityId: "lead-1", accessAfter: true },
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).not.toHaveBeenCalled();
+  });
+
+  it("dedupes the notification when the same revocation version replays", () => {
+    const client = queryClient();
+    const listKey = queryKeys.opportunities.list("company-1");
+    const seen = new Map<string, number>();
+    const onLeadRevoked = vi.fn();
+    const revocation: AssignmentDeliveryRow = {
+      id: "delivery-1",
+      company_id: "company-1",
+      opportunity_id: "lead-1",
+      recipient_user_id: "user-1",
+      access_after: false,
+      assignment_version: 3,
+    };
+
+    client.setQueryData(listKey, [
+      { id: "lead-1", title: "Deck rebuild" } as unknown as Opportunity,
+    ]);
+    reconcileLeadAssignmentBacklog(
+      client,
+      [revocation],
+      "company-1",
+      "user-1",
+      seen,
+      onLeadRevoked
+    );
+    // Reconnect replays the same delivery; the lead is even back in cache
+    // (e.g. a stale refetch) — the seen-version dedupe must keep it silent.
+    client.setQueryData(listKey, [
+      { id: "lead-1", title: "Deck rebuild" } as unknown as Opportunity,
+    ]);
+    reconcileLeadAssignmentBacklog(
+      client,
+      [revocation],
+      "company-1",
+      "user-1",
+      seen,
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).toHaveBeenCalledTimes(1);
+    expect(onLeadRevoked).toHaveBeenCalledWith({ title: "Deck rebuild" });
+  });
+});
+
 describe("replayWithRetryAndDeadline", () => {
   it("retries a failing replay on backoff and recovers without failing closed", async () => {
     const runReplay = vi.fn(async () => false);

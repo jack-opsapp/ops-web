@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   useQueryClient,
   type QueryClient,
@@ -8,6 +8,8 @@ import {
 } from "@tanstack/react-query";
 
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
+import { toast } from "@/components/ui/toast";
+import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -172,20 +174,63 @@ function purgeRevokedLead(
 }
 
 /**
+ * Notification hook for a revocation that removed a lead the user could SEE.
+ * `title` is the lead's display name captured from cache before the purge, or
+ * null when the visible row carried no usable name.
+ */
+export type LeadRevokedNotifier = (notice: { title: string | null }) => void;
+
+/**
+ * Snapshot the revoked lead's on-screen identity BEFORE the purge destroys it.
+ * `visible` = the row exists in some opportunities list cache right now (the
+ * operator can currently see it). Mirrors the detail-window display-name
+ * derivation: client name → contact name → title.
+ */
+function captureVisibleLeadTitle(
+  queryClient: QueryClient,
+  opportunityId: string
+): { visible: boolean; title: string | null } {
+  const lists = queryClient.getQueriesData<Opportunity[]>({
+    queryKey: queryKeys.opportunities.lists(),
+  });
+  for (const [, rows] of lists) {
+    const row = rows?.find(({ id }) => id === opportunityId);
+    if (row) {
+      return {
+        visible: true,
+        title: row.client?.name ?? row.contactName ?? row.title ?? null,
+      };
+    }
+  }
+  return { visible: false, title: null };
+}
+
+/**
  * Applies the durable assignment-delivery contract to local UI state.
  * Revocation is synchronous and destructive; retained/new access refetches all
  * dependent surfaces without ever fabricating an optimistic assignment.
+ *
+ * `onLeadRevoked` fires AFTER the purge, and only when the revocation removed
+ * a lead that was visible in cache — a boot-time backlog replay over an empty
+ * cache stays silent (nothing vanished before the operator's eyes), while a
+ * live transfer or a same-session reconnect catch-up announces itself.
  */
 export function reconcileLeadAssignmentDelivery(
   queryClient: QueryClient,
-  delivery: LeadAssignmentDelivery
+  delivery: LeadAssignmentDelivery,
+  onLeadRevoked?: LeadRevokedNotifier
 ): void {
   if (delivery.accessAfter) {
     invalidateLeadDependents(queryClient, delivery.opportunityId);
     return;
   }
 
+  const { visible, title } = captureVisibleLeadTitle(
+    queryClient,
+    delivery.opportunityId
+  );
   purgeRevokedLead(queryClient, delivery.opportunityId);
+  if (visible) onLeadRevoked?.({ title });
 }
 
 function isAssignmentDeliveryRow(
@@ -219,7 +264,8 @@ export function reconcileLeadAssignmentBacklog(
   rows: readonly AssignmentDeliveryRow[],
   companyId: string,
   recipientUserId: string,
-  seenVersionByOpportunity: Map<string, number>
+  seenVersionByOpportunity: Map<string, number>,
+  onLeadRevoked?: LeadRevokedNotifier
 ): void {
   const latestByOpportunity = new Map<
     string,
@@ -252,10 +298,14 @@ export function reconcileLeadAssignmentBacklog(
     const seenVersion = seenVersionByOpportunity.get(row.opportunity_id) ?? 0;
     if (row.assignment_version <= seenVersion) continue;
     seenVersionByOpportunity.set(row.opportunity_id, row.assignment_version);
-    reconcileLeadAssignmentDelivery(queryClient, {
-      opportunityId: row.opportunity_id,
-      accessAfter: row.access_after,
-    });
+    reconcileLeadAssignmentDelivery(
+      queryClient,
+      {
+        opportunityId: row.opportunity_id,
+        accessAfter: row.access_after,
+      },
+      onLeadRevoked
+    );
   }
 }
 
@@ -406,9 +456,24 @@ export function useLeadAssignmentRealtime(): void {
   const companyId = useAuthStore((state) => state.company?.id ?? null);
   const currentUserId = useAuthStore((state) => state.currentUser?.id ?? null);
   const queryClient = useQueryClient();
+  const { t } = useDictionary("pipeline");
+
+  // The channel effect must not re-subscribe when the dictionary loads or the
+  // locale flips, so the notifier lives behind a ref the effect closes over.
+  const notifyLeadRevokedRef = useRef<LeadRevokedNotifier>(() => {});
+  notifyLeadRevokedRef.current = ({ title }) => {
+    toast.info(t("toast.leadReassignedAway", "Lead reassigned"), {
+      description: t("toast.leadReassignedAwayDesc", "{title} is no longer yours.").replace(
+        "{title}",
+        title ?? t("toast.leadReassignedAwayFallback", "A lead")
+      ),
+    });
+  };
 
   useEffect(() => {
     if (!companyId || !currentUserId) return;
+    const notifyLeadRevoked: LeadRevokedNotifier = (notice) =>
+      notifyLeadRevokedRef.current(notice);
 
     const supabase = getSupabaseClient();
     if (!supabase) return;
@@ -476,7 +541,8 @@ export function useLeadAssignmentRealtime(): void {
           data as AssignmentDeliveryRow[],
           companyId,
           currentUserId,
-          seenVersionByOpportunity
+          seenVersionByOpportunity,
+          notifyLeadRevoked
         );
         return true;
       })();
@@ -561,7 +627,8 @@ export function useLeadAssignmentRealtime(): void {
             [row],
             companyId,
             currentUserId,
-            seenVersionByOpportunity
+            seenVersionByOpportunity,
+            notifyLeadRevoked
           );
         }
       )

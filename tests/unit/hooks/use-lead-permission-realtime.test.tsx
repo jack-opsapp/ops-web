@@ -7,12 +7,22 @@ import {
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getSupabaseClientMock } = vi.hoisted(() => ({
+const { getSupabaseClientMock, toastInfoMock } = vi.hoisted(() => ({
   getSupabaseClientMock: vi.fn(),
+  toastInfoMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
   getSupabaseClient: getSupabaseClientMock,
+}));
+
+vi.mock("@/components/ui/toast", () => ({
+  toast: {
+    info: toastInfoMock,
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+  },
 }));
 
 import { queryKeys } from "@/lib/api/query-client";
@@ -208,6 +218,49 @@ describe("lead permission realtime delivery", () => {
 
     await waitFor(() => expect(result.current.data).toEqual(refreshed));
     expect(fetchThread).toHaveBeenCalledTimes(2);
+  });
+
+  it("toasts exactly once when a live delivery revokes a visible lead", async () => {
+    const fetchPermissions = vi.fn().mockResolvedValue(undefined);
+    usePermissionStore.setState({ fetchPermissions });
+    const { handlers, queryClient, wrapper } = harness();
+    const listKey = queryKeys.opportunities.list("company-1");
+    queryClient.setQueryData(listKey, [
+      { id: "lead-1", title: "Deck rebuild", contactName: "Jordan Lee" },
+    ]);
+
+    renderHook(() => useLeadAssignmentRealtime(), { wrapper });
+    await waitFor(() =>
+      expect(handlers.has("opportunity_assignment_deliveries")).toBe(true)
+    );
+
+    const payload = {
+      new: {
+        id: "delivery-1",
+        company_id: "company-1",
+        opportunity_id: "lead-1",
+        recipient_user_id: "user-1",
+        access_after: false,
+        assignment_version: 2,
+      },
+    };
+    await act(async () => {
+      handlers.get("opportunity_assignment_deliveries")?.(payload);
+      // A duplicate live payload (same version) must not double-announce.
+      handlers.get("opportunity_assignment_deliveries")?.(payload);
+      await Promise.resolve();
+    });
+
+    expect(toastInfoMock).toHaveBeenCalledTimes(1);
+    const [title, options] = toastInfoMock.mock.calls[0] as [
+      string,
+      { description?: string },
+    ];
+    expect(title).toBe("Lead reassigned");
+    // Cached display name (contact name here — no client on the row), never
+    // the new assignee.
+    expect(options?.description).toContain("Jordan Lee");
+    expect(queryClient.getQueryData(listKey)).toEqual([]);
   });
 
   it("holds last-good data through a transient replay failure, then fails closed at the deadline", async () => {
