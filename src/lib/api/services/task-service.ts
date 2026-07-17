@@ -6,7 +6,6 @@
  */
 
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
-import { getCompanyManagerUserIds } from "./company-managers";
 import { TaskStatus } from "../../types/models";
 import type { ProjectTask, TaskType } from "../../types/models";
 
@@ -135,20 +134,6 @@ function mapProjectFromDb(raw: unknown): import("@/lib/types/models").Project | 
   };
 }
 
-/**
- * Find a default admin/owner user id for a company. Used by fire-and-forget
- * hooks inside task mutations to attribute agent actions without requiring
- * the caller to pass a userId.
- */
-async function findDefaultUserForCompany(
-  companyId: string
-): Promise<string | null> {
-  const supabase = requireSupabase();
-
-  const managerIds = await getCompanyManagerUserIds(supabase, companyId);
-  return managerIds[0] ?? null;
-}
-
 function mapFromDb(row: Record<string, unknown>): ProjectTask {
   return {
     id: row.id as string,
@@ -187,6 +172,7 @@ function mapFromDb(row: Record<string, unknown>): ProjectTask {
 
 function mapToDb(data: Partial<ProjectTask>): Record<string, unknown> {
   const row: Record<string, unknown> = {};
+  if (data.id !== undefined) row.id = data.id;
   if (data.projectId !== undefined) row.project_id = data.projectId;
   if (data.companyId !== undefined) row.company_id = data.companyId;
   if (data.status !== undefined) row.status = serializeTaskStatus(data.status);
@@ -211,6 +197,13 @@ function mapToDb(data: Partial<ProjectTask>): Record<string, unknown> {
   else if (data.taskIndex !== undefined) row.display_order = data.taskIndex;
   if (data.inventoryDeducted !== undefined) row.inventory_deducted = data.inventoryDeducted;
   return row;
+}
+
+/** Serialize a whitelisted task patch for authenticated server mutations. */
+export function serializeTaskPatch(
+  data: Partial<ProjectTask>
+): Record<string, unknown> {
+  return mapToDb(data);
 }
 
 // ─── Query Options ────────────────────────────────────────────────────────────
@@ -264,6 +257,28 @@ export interface CreateTaskWithEventData {
     duration?: number;
     teamMemberIds?: string[];
   };
+}
+
+function canonicalValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalValue).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalValue(item)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function existingRowMatchesMutation(
+  existing: Record<string, unknown>,
+  intended: Record<string, unknown>
+): boolean {
+  return Object.entries(intended).every(
+    ([key, value]) => canonicalValue(existing[key]) === canonicalValue(value)
+  );
 }
 
 // ─── Task Service ─────────────────────────────────────────────────────────────
@@ -421,7 +436,7 @@ export const TaskService = {
    */
   async createTaskWithEvent(
     data: CreateTaskWithEventData
-  ): Promise<{ taskId: string }> {
+  ): Promise<{ taskId: string; created: boolean }> {
     const supabase = requireSupabase();
 
     // Merge scheduling data into the task
@@ -446,149 +461,33 @@ export const TaskService = {
       .select("id")
       .single();
 
-    if (taskError) throw new Error(`Failed to create task: ${taskError.message}`);
+    if (taskError) {
+      if (taskError.code === "23505" && data.task.id) {
+        const { data: existing, error: existingError } = await supabase
+          .from("project_tasks")
+          .select("*")
+          .eq("id", data.task.id)
+          .eq("company_id", data.task.companyId)
+          .is("deleted_at", null)
+          .maybeSingle();
+        if (
+          !existingError &&
+          existing &&
+          existingRowMatchesMutation(
+            existing as Record<string, unknown>,
+            taskRow
+          )
+        ) {
+          return { taskId: data.task.id, created: false };
+        }
+        if (existing) throw new Error("Task id conflict");
+      }
+      throw new Error(`Failed to create task: ${taskError.message}`);
+    }
 
     const newTaskId = taskCreated.id as string;
 
-    // S2 Amendment: fire the full_auto appointment confirmation dispatcher
-    // if the company's appointment_confirmation.level is 'full_auto'. This
-    // catches manual creation paths (calendar, task-form, task-list) —
-    // executeCreateTask (agent path) also fires this, so both surfaces are
-    // covered. Phase C gated inside the service; fire-and-forget.
-    if (taskData.startDate && data.task.companyId) {
-      const companyIdValue = data.task.companyId;
-      void (async () => {
-        try {
-          const userId = await findDefaultUserForCompany(companyIdValue);
-          if (!userId) return;
-          const { ClientSchedulingCommsService } = await import(
-            "./client-scheduling-comms-service"
-          );
-          await ClientSchedulingCommsService.onTaskCreatedMaybeFullAuto(
-            companyIdValue,
-            userId,
-            newTaskId
-          );
-        } catch (err) {
-          console.error(
-            "[task-service] full_auto dispatcher after createTaskWithEvent:",
-            err instanceof Error ? err.message : err
-          );
-        }
-      })();
-    }
-
-    return { taskId: newTaskId };
-  },
-
-  /**
-   * Update an existing task.
-   *
-   * Fires a fire-and-forget schedule cascade check when schedule-relevant
-   * fields change (start/end dates, team member assignments). This lets the
-   * agent detect downstream impacts from manual calendar/task edits —
-   * drag-and-drop schedule changes, direct reassignments, etc.
-   */
-  async updateTask(id: string, data: Partial<ProjectTask>): Promise<void> {
-    const supabase = requireSupabase();
-
-    // Capture prior state — needed to detect "confirmed task rescheduled"
-    // which fires the appointment_confirmation.reschedule_behavior dispatcher.
-    const { data: priorRow } = await supabase
-      .from("project_tasks")
-      .select("company_id, start_date, schedule_confirmed_at")
-      .eq("id", id)
-      .maybeSingle();
-
-    const row = mapToDb(data);
-
-    const { error } = await supabase
-      .from("project_tasks")
-      .update(row)
-      .eq("id", id);
-
-    if (error) throw new Error(`Failed to update task: ${error.message}`);
-
-    // Detect if schedule-relevant fields changed → fire cascade check.
-    const scheduleRelevant =
-      data.startDate !== undefined ||
-      data.endDate !== undefined ||
-      data.startTime !== undefined ||
-      data.endTime !== undefined ||
-      data.allDay !== undefined ||
-      data.teamMemberIds !== undefined ||
-      data.duration !== undefined;
-
-    // Detect if start_date actually changed on a previously-confirmed task.
-    const priorStartIso = priorRow?.start_date as string | null | undefined;
-    const newStart = data.startDate;
-    const startChanged =
-      newStart !== undefined &&
-      (priorStartIso ?? null) !== (newStart?.toISOString() ?? null);
-    const wasConfirmed = !!priorRow?.schedule_confirmed_at;
-    const shouldFireRescheduleHook = startChanged && wasConfirmed;
-
-    if (scheduleRelevant || shouldFireRescheduleHook) {
-      // Fire-and-forget cascade + reschedule-behavior dispatcher.
-      // Wrapped in async IIFE so all awaits run off the main path.
-      void (async () => {
-        try {
-          const companyId = priorRow?.company_id as string | undefined;
-          if (!companyId) return;
-
-          const userId = await findDefaultUserForCompany(companyId);
-          if (!userId) return;
-
-          if (scheduleRelevant) {
-            const { ScheduleOptimizationService } = await import(
-              "./schedule-optimization-service"
-            );
-            await ScheduleOptimizationService.handleRescheduleCascade(
-              companyId,
-              userId,
-              id,
-              "manual_update"
-            );
-          }
-
-          // S2 Amendment: fire reschedule-behavior dispatcher when a
-          // previously-confirmed task gets a new start_date. This covers
-          // calendar drag-and-drop and task-form edit paths that bypass
-          // the approval queue executor hooks. The prior start_date is
-          // passed so the draft email can reference it explicitly.
-          if (shouldFireRescheduleHook) {
-            const { ClientSchedulingCommsService } = await import(
-              "./client-scheduling-comms-service"
-            );
-            await ClientSchedulingCommsService.onConfirmedTaskRescheduled(
-              companyId,
-              userId,
-              id,
-              priorStartIso ?? null
-            );
-          }
-        } catch (err) {
-          console.error(
-            "[task-service] hooks after manual update:",
-            err instanceof Error ? err.message : err
-          );
-        }
-      })();
-    }
-  },
-
-  /**
-   * Update only the task status.
-   */
-  async updateTaskStatus(id: string, status: TaskStatus): Promise<void> {
-    const supabase = requireSupabase();
-
-    const { error } = await supabase
-      .from("project_tasks")
-      .update({ status: serializeTaskStatus(status) })
-      .eq("id", id);
-
-    if (error) throw new Error(`Failed to update task status: ${error.message}`);
+    return { taskId: newTaskId, created: true };
   },
 
   /**

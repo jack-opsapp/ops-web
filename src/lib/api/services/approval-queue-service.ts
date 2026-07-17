@@ -6,10 +6,15 @@
  * Shared infrastructure for projects, tasks, invoices, and email.
  */
 
+import "server-only";
+
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import { getCompanyManagerUserIds } from "./company-managers";
 import { ProjectService } from "./project-service";
-import { TaskService } from "./task-service";
+import {
+  deterministicApprovalTaskId,
+  TaskApprovalMutationService,
+} from "./task-approval-mutation-service";
 import { NotificationService } from "./notification-service";
 import type {
   AgentAction,
@@ -21,14 +26,12 @@ import type {
   SendInvoiceEmailActionData,
   CreateInvoiceActionData,
   ReassignTaskActionData,
-  ArchiveProjectActionData,
-  CloseProjectActionData,
   ClientHealthAlertActionData,
   FinancialInsightActionData,
   OptimizeScheduleActionData,
   RescheduleTasksActionData,
 } from "@/lib/types/approval-queue";
-import { ProjectStatus, TaskStatus } from "@/lib/types/models";
+import { ProjectStatus } from "@/lib/types/models";
 import { InvoiceStatus, DiscountType } from "@/lib/types/pipeline";
 import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
 import { ApprovedActionEmailTransportService } from "./approved-action-email-transport-service";
@@ -183,15 +186,11 @@ async function executeAction(
     case "create_project":
       return executeCreateProject(action, learningAuthority, reviewerUserId);
     case "create_task":
-      return executeCreateTask(action);
+      return executeCreateTask(action, reviewerUserId);
     case "send_status_email":
       return executeApprovalQueueEmail(action);
     case "reassign_task":
-      return executeReassignTask(action);
-    case "archive_project":
-      return executeArchiveProject(action);
-    case "close_project":
-      return executeCloseProject(action);
+      return executeReassignTask(action, reviewerUserId);
     case "create_invoice":
       return executeCreateInvoice(action);
     case "send_invoice_email":
@@ -203,9 +202,9 @@ async function executeAction(
     case "financial_insight":
       return executeFinancialInsight(action);
     case "optimize_schedule":
-      return executeOptimizeSchedule(action);
+      return executeOptimizeSchedule(action, reviewerUserId);
     case "reschedule_tasks":
-      return executeRescheduleTasks(action);
+      return executeRescheduleTasks(action, reviewerUserId);
     case "send_appointment_confirmation":
       return executeApprovalQueueEmail(action);
     case "send_day_before_reminder":
@@ -279,16 +278,26 @@ async function executeCreateProject(
   }
 
   // Create suggested tasks
+  let tasksCreated = 0;
   if (data.suggested_tasks?.length) {
-    for (const task of data.suggested_tasks) {
+    for (const [index, task] of data.suggested_tasks.entries()) {
+      if (!task.task_type_id) {
+        console.error(
+          `[approval-queue] Skipped suggested task "${task.title}" without a task type`
+        );
+        continue;
+      }
       try {
-        await TaskService.createTask({
+        await TaskApprovalMutationService.createTask({
+          actorUserId: reviewerUserId,
+          taskId: deterministicApprovalTaskId(
+            `${action.id}:suggested-task:${index}`
+          ),
           projectId,
-          companyId: action.companyId,
-          taskTypeId: task.task_type_id ?? "",
+          taskTypeId: task.task_type_id,
           customTitle: task.title,
-          status: TaskStatus.Booked,
         });
+        tasksCreated += 1;
       } catch (err) {
         console.error(
           `[approval-queue] Failed to create task "${task.title}":`,
@@ -328,80 +337,31 @@ async function executeCreateProject(
       )
     );
 
-  return { projectId, tasksCreated: data.suggested_tasks?.length ?? 0 };
+  return { projectId, tasksCreated };
 }
 
 async function executeCreateTask(
-  action: AgentAction
+  action: AgentAction,
+  reviewerUserId: string
 ): Promise<Record<string, unknown>> {
   const data = action.actionData as unknown as CreateTaskActionData;
-
-  // Build the task creation payload using TaskService patterns
-  const taskData: Parameters<typeof TaskService.createTaskWithEvent>[0] = {
-    task: {
-      projectId: data.project_id,
-      companyId: data.company_id,
-      taskTypeId: data.task_type_id,
-      customTitle: data.custom_title,
-      taskNotes: data.task_notes ?? undefined,
-      taskColor: data.task_color ?? undefined,
-      teamMemberIds: data.suggested_team_member_id
-        ? [data.suggested_team_member_id]
-        : [],
-      status: TaskStatus.Booked,
-    },
-  };
-
-  // Add scheduling data if dates were suggested
-  if (data.suggested_start_date) {
-    taskData.schedule = {
-      title: data.custom_title,
-      startDate: new Date(data.suggested_start_date),
-      endDate: data.suggested_end_date
-        ? new Date(data.suggested_end_date)
-        : undefined,
-      duration: data.suggested_duration ?? 1,
-      color: data.task_color ?? undefined,
-      teamMemberIds: data.suggested_team_member_id
-        ? [data.suggested_team_member_id]
-        : undefined,
-    };
-  }
-
-  const { taskId } = await TaskService.createTaskWithEvent(taskData);
-
-  // S1.4: Fire-and-forget — check for schedule conflicts with existing tasks
-  if (data.suggested_start_date) {
-    import("./schedule-optimization-service")
-      .then(({ ScheduleOptimizationService }) =>
-        ScheduleOptimizationService.handleRescheduleCascade(
-          action.companyId,
-          action.userId,
-          taskId,
-          "task_created"
-        )
-      )
-      .catch((err) =>
-        console.error("[approval-queue] Cascade after task creation:", err)
-      );
-
-    // S2 Amendment: appointment confirmation only fires via
-    // onTaskScheduleConfirmed() (explicit confirm button, auto-confirm cron,
-    // or the full_auto immediate path). executeCreateTask no longer fires
-    // confirmations directly — it would send duplicates as users shuffle
-    // schedules. For full_auto level only, dispatch immediately.
-    import("./client-scheduling-comms-service")
-      .then(({ ClientSchedulingCommsService }) =>
-        ClientSchedulingCommsService.onTaskCreatedMaybeFullAuto(
-          action.companyId,
-          action.userId,
-          taskId
-        )
-      )
-      .catch((err) =>
-        console.error("[approval-queue] Full-auto dispatcher error:", err)
-      );
-  }
+  const { taskId } = await TaskApprovalMutationService.createTask({
+    actorUserId: reviewerUserId,
+    // The approval action UUID is stable across retries, so provider/worker
+    // failures cannot materialize a duplicate task.
+    taskId: action.id,
+    projectId: data.project_id,
+    taskTypeId: data.task_type_id,
+    customTitle: data.custom_title,
+    taskNotes: data.task_notes,
+    taskColor: data.task_color,
+    teamMemberIds: data.suggested_team_member_id
+      ? [data.suggested_team_member_id]
+      : [],
+    startDate: data.suggested_start_date,
+    endDate: data.suggested_end_date,
+    duration: data.suggested_duration,
+  });
 
   return {
     taskId,
@@ -414,160 +374,26 @@ async function executeCreateTask(
 // ─── Reassign Task Executor ─────────────────────────────────────────────────
 
 async function executeReassignTask(
-  action: AgentAction
+  action: AgentAction,
+  reviewerUserId: string
 ): Promise<Record<string, unknown>> {
-  const supabase = requireSupabase();
   const data = action.actionData as unknown as ReassignTaskActionData;
 
-  // Update project_tasks.team_member_ids to the new assignee
-  const { error: taskErr } = await supabase
-    .from("project_tasks")
-    .update({ team_member_ids: [data.suggested_team_member_id] })
-    .eq("id", data.task_id)
-    .eq("company_id", action.companyId);
-
-  if (taskErr) {
-    throw new Error(`Failed to reassign task: ${taskErr.message}`);
-  }
-
-  // Update calendar_event if the task has one
-  const { data: task } = await supabase
-    .from("project_tasks")
-    .select("calendar_event_id")
-    .eq("id", data.task_id)
-    .single();
-
-  const calendarEventId = task?.calendar_event_id as string | null;
-
-  if (calendarEventId) {
-    await supabase
-      .from("calendar_events")
-      .update({
-        team_member_ids: [data.suggested_team_member_id],
-        start_date: data.new_start_date,
-        end_date: data.new_end_date,
-      })
-      .eq("id", calendarEventId);
-  }
-
-  // Notify the new assignee (best effort)
-  try {
-    await NotificationService.create({
-      userId: data.suggested_team_member_id,
-      companyId: action.companyId,
-      type: "mention",
-      title: "Task reassigned to you",
-      body: `"${data.task_title}" on "${data.project_title}" has been reassigned to you.`,
-      persistent: false,
-      actionUrl: `/dashboard?openProject=${data.project_id}&mode=view`,
-      actionLabel: "View Project",
-    });
-  } catch {
-    // Non-critical
-  }
-
-  // S1.4: Fire-and-forget — check for schedule cascade impacts
-  import("./schedule-optimization-service")
-    .then(({ ScheduleOptimizationService }) =>
-      ScheduleOptimizationService.handleRescheduleCascade(
-        action.companyId,
-        action.userId,
-        data.task_id,
-        "reassignment"
-      )
-    )
-    .catch((err) =>
-      console.error("[approval-queue] Cascade after reassignment:", err)
-    );
-
-  // S2 Amendment: reassignment fires the configured reschedule_behavior
-  // (notify, draft, or auto_send) for tasks that were already schedule-
-  // confirmed. The old unconditional confirmation fire was removed — it
-  // caused duplicate emails as users shuffled crews during planning.
-  // Note: reassignment does NOT clear schedule_confirmed_at — only the
-  // crew changed, not the date, so the confirmation is still valid.
-  import("./client-scheduling-comms-service")
-    .then(({ ClientSchedulingCommsService }) =>
-      ClientSchedulingCommsService.onConfirmedTaskRescheduled(
-        action.companyId,
-        action.userId,
-        data.task_id
-      )
-    )
-    .catch((err) =>
-      console.error(
-        "[approval-queue] Reschedule behavior dispatcher error:",
-        err
-      )
-    );
+  await TaskApprovalMutationService.updateTask({
+    actorUserId: reviewerUserId,
+    taskId: data.task_id,
+    patch: {
+      team_member_ids: [data.suggested_team_member_id],
+      start_date: data.new_start_date,
+      end_date: data.new_end_date,
+    },
+  });
 
   return {
     taskId: data.task_id,
     projectId: data.project_id,
     newTeamMemberId: data.suggested_team_member_id,
-    rescheduled: !!calendarEventId,
-  };
-}
-
-// ─── Archive Project Executor ───────────────────────────────────────────────
-//
-// `archived` is an operator pause/cancel outcome — NOT a completion state. This
-// executor is reserved for that path. Completion success (complete + paid) goes
-// to `closed` via executeCloseProject below. Do not repoint this to 'closed'.
-
-async function executeArchiveProject(
-  action: AgentAction
-): Promise<Record<string, unknown>> {
-  const supabase = requireSupabase();
-  const data = action.actionData as unknown as ArchiveProjectActionData;
-
-  const { error } = await supabase
-    .from("projects")
-    .update({ status: "archived" })
-    .eq("id", data.project_id)
-    .eq("company_id", action.companyId)
-    .is("deleted_at", null);
-
-  if (error) {
-    throw new Error(`Failed to archive project: ${error.message}`);
-  }
-
-  return {
-    projectId: data.project_id,
-    projectTitle: data.project_title,
-    archivedAt: new Date().toISOString(),
-  };
-}
-
-// ─── Close Project Executor ─────────────────────────────────────────────────
-//
-// Terminal SUCCESS: a project that is complete AND fully paid moves to `closed`
-// (Automation F). This mirrors executeArchiveProject but writes the correct
-// completion status. The paid-invoice DB cascade normally closes these projects
-// automatically; this executor is the operator-approved fallback for any that
-// linger in `completed`.
-
-async function executeCloseProject(
-  action: AgentAction
-): Promise<Record<string, unknown>> {
-  const supabase = requireSupabase();
-  const data = action.actionData as unknown as CloseProjectActionData;
-
-  const { error } = await supabase
-    .from("projects")
-    .update({ status: "closed" })
-    .eq("id", data.project_id)
-    .eq("company_id", action.companyId)
-    .is("deleted_at", null);
-
-  if (error) {
-    throw new Error(`Failed to close project: ${error.message}`);
-  }
-
-  return {
-    projectId: data.project_id,
-    projectTitle: data.project_title,
-    closedAt: new Date().toISOString(),
+    rescheduled: true,
   };
 }
 
@@ -823,7 +649,8 @@ async function executeFinancialInsight(
 // ─── Optimize Schedule Executor ───────────────────────────────────────────
 
 async function executeOptimizeSchedule(
-  action: AgentAction
+  action: AgentAction,
+  reviewerUserId: string
 ): Promise<Record<string, unknown>> {
   const supabase = requireSupabase();
   const data = action.actionData as unknown as OptimizeScheduleActionData;
@@ -890,17 +717,11 @@ async function executeOptimizeSchedule(
         if (slot.end_date !== null) updatePayload.end_date = slot.end_date;
       }
 
-      const { error: updateErr } = await supabase
-        .from("project_tasks")
-        .update(updatePayload)
-        .eq("id", item.task_id)
-        .eq("company_id", action.companyId);
-
-      if (updateErr) {
-        throw new Error(
-          `Failed to update task ${item.task_id} in route reorder: ${updateErr.message}`
-        );
-      }
+      await TaskApprovalMutationService.updateTask({
+        actorUserId: reviewerUserId,
+        taskId: item.task_id,
+        patch: updatePayload,
+      });
     }
 
     return {
@@ -918,9 +739,9 @@ async function executeOptimizeSchedule(
 // ─── Reschedule Tasks Executor ────────────────────────────────────────────
 
 async function executeRescheduleTasks(
-  action: AgentAction
+  action: AgentAction,
+  reviewerUserId: string
 ): Promise<Record<string, unknown>> {
-  const supabase = requireSupabase();
   const data = action.actionData as unknown as RescheduleTasksActionData;
 
   if (data.resolution_type === "conflict" && data.suggested_resolution) {
@@ -935,29 +756,12 @@ async function executeRescheduleTasks(
     }
 
     if (Object.keys(updatePayload).length > 0) {
-      await supabase
-        .from("project_tasks")
-        .update(updatePayload)
-        .eq("id", res.task_id)
-        .eq("company_id", action.companyId);
+      await TaskApprovalMutationService.updateTask({
+        actorUserId: reviewerUserId,
+        taskId: res.task_id,
+        patch: updatePayload,
+      });
     }
-
-    // Fire-and-forget: detect further cascade
-    import("./schedule-optimization-service")
-      .then(({ ScheduleOptimizationService }) =>
-        ScheduleOptimizationService.handleRescheduleCascade(
-          action.companyId,
-          action.userId,
-          res.task_id,
-          "conflict_resolution"
-        )
-      )
-      .catch((err) =>
-        console.error(
-          "[approval-queue] Cascade after conflict resolution:",
-          err
-        )
-      );
 
     return {
       resolutionType: "conflict",
@@ -969,43 +773,11 @@ async function executeRescheduleTasks(
   if (data.resolution_type === "assign" && data.task_id) {
     // Set team_member_ids on the unassigned task
     if (data.suggested_team_member_id) {
-      await supabase
-        .from("project_tasks")
-        .update({ team_member_ids: [data.suggested_team_member_id] })
-        .eq("id", data.task_id)
-        .eq("company_id", action.companyId);
-
-      // Notify the assigned member
-      try {
-        await NotificationService.create({
-          userId: data.suggested_team_member_id,
-          companyId: action.companyId,
-          type: "mention",
-          title: "Task assigned to you",
-          body: `"${data.task_title}" has been assigned to you.`,
-          persistent: false,
-          actionUrl: "/schedule",
-          actionLabel: "View Schedule",
-        });
-      } catch {
-        // Non-critical
-      }
-
-      // Fire-and-forget cascade — assigning to a member who already has
-      // tasks may create a new conflict we should surface.
-      const assignedTaskId = data.task_id;
-      import("./schedule-optimization-service")
-        .then(({ ScheduleOptimizationService }) =>
-          ScheduleOptimizationService.handleRescheduleCascade(
-            action.companyId,
-            action.userId,
-            assignedTaskId,
-            "assignment"
-          )
-        )
-        .catch((err) =>
-          console.error("[approval-queue] Cascade after assignment:", err)
-        );
+      await TaskApprovalMutationService.updateTask({
+        actorUserId: reviewerUserId,
+        taskId: data.task_id,
+        patch: { team_member_ids: [data.suggested_team_member_id] },
+      });
     }
 
     return {
@@ -1026,26 +798,12 @@ async function executeRescheduleTasks(
     }
 
     if (Object.keys(updatePayload).length > 0) {
-      await supabase
-        .from("project_tasks")
-        .update(updatePayload)
-        .eq("id", res.task_id)
-        .eq("company_id", action.companyId);
+      await TaskApprovalMutationService.updateTask({
+        actorUserId: reviewerUserId,
+        taskId: res.task_id,
+        patch: updatePayload,
+      });
     }
-
-    // Fire-and-forget: detect further cascades
-    import("./schedule-optimization-service")
-      .then(({ ScheduleOptimizationService }) =>
-        ScheduleOptimizationService.handleRescheduleCascade(
-          action.companyId,
-          action.userId,
-          res.task_id,
-          "cascade_resolution"
-        )
-      )
-      .catch((err) =>
-        console.error("[approval-queue] Cascade after cascade resolution:", err)
-      );
 
     return {
       resolutionType: "cascade",
@@ -1068,70 +826,110 @@ export const ApprovalQueueService = {
    */
   async proposeAction(params: ProposeActionParams): Promise<string | null> {
     const supabase = requireSupabase();
-
-    // Application-level dedup check (belt + suspenders with the DB unique index)
-    if (params.sourceId) {
-      const { data: existing } = await supabase
-        .from("agent_actions")
-        .select("id")
-        .eq("company_id", params.companyId)
-        .eq("action_type", params.actionType)
-        .eq("source_id", params.sourceId)
-        .eq("status", "pending")
-        .limit(1);
-
-      if (existing && existing.length > 0) {
-        return null; // Already proposed
-      }
-    }
-
     const expiresAt = params.expiresAt ?? defaultExpiry(params.actionType);
+    let actionId: string;
+    let created = true;
 
-    const { data, error } = await supabase
-      .from("agent_actions")
-      .insert({
-        company_id: params.companyId,
-        user_id: params.userId,
-        action_type: params.actionType,
-        action_data: params.actionData,
-        context_summary: params.contextSummary,
-        context_source: params.contextSource ?? null,
-        source_id: params.sourceId ?? null,
-        confidence: params.confidence ?? 0.5,
-        priority: params.priority ?? "normal",
-        status: "pending",
-        expires_at: expiresAt.toISOString(),
-        auto_execute_at: params.autoExecuteAt
-          ? params.autoExecuteAt.toISOString()
-          : null,
-      })
-      .select("id")
-      .single();
+    if (params.taskAutomationGuard) {
+      if (!params.sourceId || !params.contextSource) {
+        throw new Error("Task automation proposal is missing durable identity");
+      }
+      const guard = params.taskAutomationGuard;
+      const { data, error } = await supabase.rpc(
+        "persist_task_automation_agent_action",
+        {
+          p_event_id: guard.eventId,
+          p_lease_token: guard.leaseToken,
+          p_task_id: guard.taskId,
+          p_task_schedule_version: guard.scheduleVersion,
+          p_action_type: params.actionType,
+          p_action_data: params.actionData,
+          p_context_summary: params.contextSummary,
+          p_context_source: params.contextSource,
+          p_source_id: params.sourceId,
+          p_confidence: params.confidence ?? 0.5,
+          p_priority: params.priority ?? "normal",
+          p_expires_at: expiresAt.toISOString(),
+          p_auto_execute_at: params.autoExecuteAt?.toISOString() ?? null,
+        }
+      );
+      if (error) {
+        throw new Error(`Failed to propose task action: ${error.message}`);
+      }
+      const result = data as Record<string, unknown> | null;
+      if (
+        !result ||
+        typeof result.action_id !== "string" ||
+        typeof result.created !== "boolean"
+      ) {
+        throw new Error("Task automation proposal returned an invalid result");
+      }
+      actionId = result.action_id;
+      created = result.created;
+    } else {
+      // Application-level dedup check (belt + suspenders with the DB unique index)
+      if (params.sourceId) {
+        const { data: existing } = await supabase
+          .from("agent_actions")
+          .select("id")
+          .eq("company_id", params.companyId)
+          .eq("action_type", params.actionType)
+          .eq("source_id", params.sourceId)
+          .eq("status", "pending")
+          .limit(1);
 
-    if (error) {
-      // Unique constraint violation = dedup
-      if (error.code === "23505") return null;
-      throw new Error(`Failed to propose action: ${error.message}`);
+        if (existing && existing.length > 0) {
+          return null; // Already proposed
+        }
+      }
+
+      const { data, error } = await supabase
+        .from("agent_actions")
+        .insert({
+          company_id: params.companyId,
+          user_id: params.userId,
+          action_type: params.actionType,
+          action_data: params.actionData,
+          context_summary: params.contextSummary,
+          context_source: params.contextSource ?? null,
+          source_id: params.sourceId ?? null,
+          confidence: params.confidence ?? 0.5,
+          priority: params.priority ?? "normal",
+          status: "pending",
+          expires_at: expiresAt.toISOString(),
+          auto_execute_at: params.autoExecuteAt
+            ? params.autoExecuteAt.toISOString()
+            : null,
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        // Unique constraint violation = dedup
+        if (error.code === "23505") return null;
+        throw new Error(`Failed to propose action: ${error.message}`);
+      }
+      actionId = data!.id as string;
     }
-
-    const actionId = data!.id as string;
 
     // Notify admin/owner users — not the triggering user
-    const adminIds = await getAdminUserIds(params.companyId);
-    await Promise.allSettled(
-      adminIds.map((adminId) =>
-        NotificationService.create({
-          userId: adminId,
-          companyId: params.companyId,
-          type: "agent_suggestion",
-          title: "New agent suggestion",
-          body: params.contextSummary,
-          persistent: false,
-          actionUrl: "/agent/queue",
-          actionLabel: "Review",
-        })
-      )
-    );
+    if (created) {
+      const adminIds = await getAdminUserIds(params.companyId);
+      await Promise.allSettled(
+        adminIds.map((adminId) =>
+          NotificationService.create({
+            userId: adminId,
+            companyId: params.companyId,
+            type: "agent_suggestion",
+            title: "New agent suggestion",
+            body: params.contextSummary,
+            persistent: false,
+            actionUrl: "/agent/queue",
+            actionLabel: "Review",
+          })
+        )
+      );
+    }
 
     return actionId;
   },
@@ -1224,6 +1022,70 @@ export const ApprovalQueueService = {
     const supabase = requireSupabase();
     const learningAuthority =
       executionContext.learningAuthority ?? "operator_approved";
+
+    const { data: actionIdentity, error: actionIdentityError } = await supabase
+      .from("agent_actions")
+      .select("action_type")
+      .eq("id", actionId)
+      .eq("company_id", companyId)
+      .single();
+    if (actionIdentityError || !actionIdentity) {
+      throw new Error("Action not found or already handled");
+    }
+
+    if (
+      actionIdentity.action_type === "close_project" ||
+      actionIdentity.action_type === "archive_project"
+    ) {
+      if (editedActionData && Object.keys(editedActionData).length > 0) {
+        throw new Error("Project status proposals cannot be retargeted");
+      }
+
+      // The database owns review + execution atomically for terminal project
+      // actions. If the first response is lost after commit, retrying the same
+      // action UUID recovers the stored result without moving the project twice.
+      let execution = await supabase.rpc(
+        "execute_project_status_action_as_system",
+        {
+          p_actor_user_id: userId,
+          p_action_id: actionId,
+        }
+      );
+      if (execution.error || !execution.data) {
+        execution = await supabase.rpc(
+          "execute_project_status_action_as_system",
+          {
+            p_actor_user_id: userId,
+            p_action_id: actionId,
+          }
+        );
+      }
+      if (execution.error || !execution.data) {
+        throw new Error(
+          `Project status action could not be reconciled: ${execution.error?.message ?? "invalid result"}`
+        );
+      }
+      const executionResult = execution.data as Record<string, unknown>;
+      if (executionResult.ok !== true) {
+        throw new Error(
+          typeof executionResult.reason === "string" &&
+            executionResult.reason.trim() !== ""
+            ? executionResult.reason
+            : "Project status action was rejected"
+        );
+      }
+
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .single();
+      if (finalError || !final) {
+        throw new Error("Action not found after project status execution");
+      }
+      return mapFromDb(final);
+    }
 
     const { data: pendingAction, error: pendingActionError } = await supabase
       .from("agent_actions")

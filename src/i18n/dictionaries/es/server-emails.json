@@ -20,6 +20,8 @@
 
   "scheduleChanged.subject": "Actualización sobre su visita programada",
   "scheduleChanged.fallback": "Hola {{clientName}},\n\nQueríamos avisarle que \"{{taskTitle}}\" ha sido reprogramada para el {{newDate}}.\n\nPor favor, responda si este horario no le funciona y buscaremos un mejor momento.\n\nGracias por su flexibilidad.",
+  "scheduleUnscheduled.subject": "Actualización sobre su visita programada",
+  "scheduleUnscheduled.fallback": "Hola {{clientName}},\n\nQueríamos avisarle que la visita programada para \"{{taskTitle}}\" ya no está en el calendario.\n\nAún no hemos fijado una nueva fecha. Por favor, responda si tiene alguna pregunta.\n\nGracias.",
 
   "rescheduleRequest.subject": "Re: Reprogramación de \"{{taskTitle}}\"",
   "rescheduleRequest.fallback": "Hola {{clientName}},\n\nGracias por avisarnos que necesita reprogramar. Le contactaremos en breve con un nuevo horario.\n\nGracias.",
@@ -41,6 +43,7 @@
   "summary.appointmentConfirmation": "Confirmar la cita de {{clientName}} el {{date}}",
   "summary.dayBeforeReminder": "Recordar a {{clientName}} sobre la próxima visita",
   "summary.scheduleChanged": "Notificar a {{clientName}} que \"{{taskTitle}}\" se movió al {{newDate}}",
+  "summary.scheduleUnscheduled": "Notificar a {{clientName}} que \"{{taskTitle}}\" ya no está programada",
   "summary.rescheduleRequest": "{{clientName}} quiere reprogramar \"{{taskTitle}}\"",
   "summary.subcontractorCoordination": "Coordinar con {{subcontractorName}} en \"{{projectTitle}}\"",
 

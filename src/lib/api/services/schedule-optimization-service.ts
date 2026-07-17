@@ -21,6 +21,7 @@ import type {
   OptimizeScheduleActionData,
   RescheduleTasksActionData,
   ScheduleOptimizationSettings,
+  TaskAutomationPersistenceGuard,
 } from "@/lib/types/approval-queue";
 import { DEFAULT_SCHEDULE_SETTINGS } from "@/lib/types/approval-queue";
 
@@ -156,6 +157,25 @@ interface WeatherAwareness {
   weatherRisk: boolean;
   riskLevel: "low" | "medium" | "high";
   reason: { type: string; params: Record<string, string | number> };
+}
+
+export interface RescheduleCascadeOptions {
+  /** Re-throw transport/persistence failures so durable workers can retry. */
+  throwOnError?: boolean;
+  /** Stable event-scoped prefix used to make approval actions idempotent. */
+  sourceIdPrefix?: string;
+  /** Re-authorize and re-check the source snapshot immediately before writes. */
+  prePersistGuard?: () => Promise<boolean>;
+  /** Atomic task version + worker lease used by durable outbox execution. */
+  taskAutomationGuard?: TaskAutomationPersistenceGuard;
+}
+
+export function cascadeAutomationSourceId(
+  taskId: string,
+  affectedTaskId: string,
+  options: Pick<RescheduleCascadeOptions, "sourceIdPrefix"> = {}
+): string {
+  return `${options.sourceIdPrefix ?? `cascade:${taskId}`}:${affectedTaskId}`;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -913,7 +933,8 @@ export const ScheduleOptimizationService = {
     companyId: string,
     userId: string,
     taskId: string,
-    changeType: string
+    changeType: string,
+    options: RescheduleCascadeOptions = {}
   ): Promise<{ cascadeProposed: number }> {
     try {
       // Phase C gate (skipped for internal calls that already gated)
@@ -941,6 +962,7 @@ export const ScheduleOptimizationService = {
 
       if (changedErr || !changedTask) {
         if (changedErr && changedErr.code !== "PGRST116") {
+          if (options.throwOnError) throw new Error(changedErr.message);
           console.error("[schedule-optimization] cascade fetch changed task:", changedErr.message);
         }
         return { cascadeProposed: 0 };
@@ -988,6 +1010,7 @@ export const ScheduleOptimizationService = {
           .limit(100);
 
         if (sameDayErr) {
+          if (options.throwOnError) throw new Error(sameDayErr.message);
           console.error("[schedule-optimization] cascade same-day fetch:", sameDayErr.message);
         }
 
@@ -1060,6 +1083,7 @@ export const ScheduleOptimizationService = {
           .limit(50);
 
         if (projTasksErr) {
+          if (options.throwOnError) throw new Error(projTasksErr.message);
           console.error("[schedule-optimization] cascade project tasks:", projTasksErr.message);
         }
 
@@ -1122,6 +1146,7 @@ export const ScheduleOptimizationService = {
           .in("id", projectIds)
           .is("deleted_at", null);
         if (projErr) {
+          if (options.throwOnError) throw new Error(projErr.message);
           console.error("[schedule-optimization] cascade project fetch:", projErr.message);
         }
         for (const p of projects ?? []) {
@@ -1166,6 +1191,9 @@ export const ScheduleOptimizationService = {
         };
 
         try {
+          if (options.prePersistGuard && !(await options.prePersistGuard())) {
+            return { cascadeProposed };
+          }
           const actionId = await ApprovalQueueService.proposeAction({
             companyId,
             userId,
@@ -1179,12 +1207,18 @@ export const ScheduleOptimizationService = {
               },
             }),
             contextSource: "schedule_optimization",
-            sourceId: `cascade:${taskId}:${c.affectedTaskId}`,
+            sourceId: cascadeAutomationSourceId(
+              taskId,
+              c.affectedTaskId,
+              options
+            ),
             confidence: 0.5,
             priority: "normal",
+            taskAutomationGuard: options.taskAutomationGuard,
           });
           if (actionId) cascadeProposed++;
         } catch (err) {
+          if (options.throwOnError) throw err;
           console.error(
             "[schedule-optimization] cascade propose action:",
             err instanceof Error ? err.message : err
@@ -1194,6 +1228,7 @@ export const ScheduleOptimizationService = {
 
       return { cascadeProposed };
     } catch (err) {
+      if (options.throwOnError) throw err;
       console.error(
         "[schedule-optimization] handleRescheduleCascade failed:",
         err instanceof Error ? err.message : err

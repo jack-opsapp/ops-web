@@ -5,9 +5,8 @@
  *   1. ProjectService.createProject inserts the project row.
  *   2. ProjectNoteService.createSystemEvent writes a project_created entry
  *      to the unified workspace timeline.
- *   3. dispatchProjectAssignment fires once with all initial team members.
  *
- * Strategy: stub the two services + dispatch helper + auth store, then
+ * Strategy: stub the two services + auth store, then
  * mount the hook and run mutateAsync. We inspect the captured calls.
  */
 
@@ -25,14 +24,6 @@ const createSystemEventMock = vi.fn<(input: unknown) => Promise<{ id: string }>>
   () => Promise.resolve({ id: "note-1" }),
 );
 
-interface AssignmentCall {
-  projectId: string;
-  projectTitle: string;
-  newMemberIds: string[];
-  companyId: string;
-}
-const assignmentDispatches: AssignmentCall[] = [];
-
 vi.mock("@/lib/api/services/project-service", () => ({
   ProjectService: {
     createProject: (input: unknown) => createProjectMock(input),
@@ -42,12 +33,6 @@ vi.mock("@/lib/api/services/project-service", () => ({
 vi.mock("@/lib/api/services/project-note-service", () => ({
   ProjectNoteService: {
     createSystemEvent: (input: unknown) => createSystemEventMock(input),
-  },
-}));
-
-vi.mock("@/lib/api/services/notification-dispatch", () => ({
-  dispatchProjectAssignment: (params: AssignmentCall) => {
-    assignmentDispatches.push(params);
   },
 }));
 
@@ -74,7 +59,6 @@ import { ProjectStatus } from "@/lib/types/models";
 beforeEach(() => {
   createProjectMock.mockClear();
   createSystemEventMock.mockClear();
-  assignmentDispatches.length = 0;
 });
 
 function makeWrapper(qc: QueryClient) {
@@ -85,7 +69,7 @@ function makeWrapper(qc: QueryClient) {
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
 describe("useProjectMutations.createProject", () => {
-  it("inserts project row, writes project_created timeline event, dispatches assignment to initial team", async () => {
+  it("inserts the project row and writes the project_created timeline event", async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -115,19 +99,9 @@ describe("useProjectMutations.createProject", () => {
     expect(ev.projectId).toBe("p-new");
     expect(ev.companyId).toBe("co-1");
     expect(ev.authorId).toBe("u-1");
-
-    // (c) assignment dispatch fired once with full initial team
-    expect(assignmentDispatches).toHaveLength(1);
-    expect(assignmentDispatches[0].projectId).toBe("p-new");
-    expect(assignmentDispatches[0].newMemberIds.sort()).toEqual([
-      "u-1",
-      "u-2",
-      "u-3",
-    ]);
-    expect(assignmentDispatches[0].companyId).toBe("co-1");
   });
 
-  it("skips assignment dispatch when no team members provided", async () => {
+  it("supports creation when no team members are provided", async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -143,6 +117,5 @@ describe("useProjectMutations.createProject", () => {
 
     expect(createProjectMock).toHaveBeenCalledOnce();
     expect(createSystemEventMock).toHaveBeenCalledOnce();
-    expect(assignmentDispatches).toHaveLength(0);
   });
 });

@@ -180,6 +180,7 @@ export interface ProjectTableRow {
   margin: number | null;
   photoCount: number;
   updatedAt: string | null;
+  statusVersion?: number;
 }
 
 export function getProjectTableEditValue(
@@ -280,6 +281,7 @@ export type ProjectTableBulkOperation =
   | (ProjectTableBulkOperationBase & {
       action: "status";
       status: ProjectStatus;
+      expectedStatusVersion: number;
     })
   | (ProjectTableBulkOperationBase & {
       action: "date";
@@ -301,6 +303,7 @@ export interface ProjectTableBulkSuccess {
   projectId: string;
   action: ProjectTableBulkAction | string;
   updatedAt: string | null;
+  statusVersion?: number | null;
 }
 
 export interface ProjectTableBulkFailure {

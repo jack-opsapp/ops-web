@@ -21,7 +21,7 @@ import {
   categoryLabel,
   categoryDotClassName,
 } from "@/components/ops/inbox/category-chip";
-import { allowedLevelsFor } from "@/lib/api/services/phase-c-category-autonomy-service";
+import { allowedLevelsFor } from "@/lib/email/phase-c-category-autonomy-policy";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

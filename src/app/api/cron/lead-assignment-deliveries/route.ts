@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { LeadAssignmentDeliveryService } from "@/lib/api/services/lead-assignment-delivery-service";
+import { OpportunityConversionNotificationDeliveryService } from "@/lib/api/services/opportunity-conversion-notification-delivery-service";
+import { ProjectStatusLifecycleOutboxService } from "@/lib/api/services/project-status-lifecycle-outbox-service";
+import { TaskMutationAutomationOutboxService } from "@/lib/api/services/task-mutation-automation-outbox-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export const runtime = "nodejs";
@@ -24,16 +27,52 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const result = await LeadAssignmentDeliveryService.processBatch(
-      getServiceRoleClient(),
-      { limit: 50, leaseSeconds: 360 }
-    );
+    const db = getServiceRoleClient();
+    const [result, projectLifecycle, taskAutomation, conversionNotifications] =
+      await Promise.all([
+        LeadAssignmentDeliveryService.processBatch(db, {
+          limit: 50,
+          leaseSeconds: 360,
+        }),
+        ProjectStatusLifecycleOutboxService.processBatch(db, {
+          limit: 25,
+          leaseSeconds: 360,
+        }),
+        TaskMutationAutomationOutboxService.processBatch(db, {
+          limit: 25,
+          leaseSeconds: 360,
+        }),
+        OpportunityConversionNotificationDeliveryService.processBatch(db, {
+          limit: 25,
+          leaseSeconds: 360,
+        }),
+      ]);
     const ok =
       result.errors.length === 0 &&
       result.requeued === 0 &&
-      result.terminalFailed === 0;
+      result.terminalFailed === 0 &&
+      projectLifecycle.errors.length === 0 &&
+      projectLifecycle.requeued === 0 &&
+      projectLifecycle.failed === 0 &&
+      projectLifecycle.terminalFailed === 0 &&
+      taskAutomation.errors.length === 0 &&
+      taskAutomation.requeued === 0 &&
+      taskAutomation.failed === 0 &&
+      taskAutomation.terminalFailed === 0 &&
+      conversionNotifications.errors.length === 0 &&
+      conversionNotifications.requeued === 0 &&
+      conversionNotifications.terminalFailed === 0;
 
-    return NextResponse.json({ ok, ...result }, { status: ok ? 200 : 503 });
+    return NextResponse.json(
+      {
+        ok,
+        ...result,
+        projectLifecycle,
+        taskAutomation,
+        conversionNotifications,
+      },
+      { status: ok ? 200 : 503 }
+    );
   } catch (error) {
     const message =
       error instanceof Error

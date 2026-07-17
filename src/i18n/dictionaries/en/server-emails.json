@@ -20,6 +20,8 @@
 
   "scheduleChanged.subject": "Update on your scheduled visit",
   "scheduleChanged.fallback": "Hi {{clientName}},\n\nWe wanted to let you know that \"{{taskTitle}}\" has been rescheduled to {{newDate}}.\n\nPlease reply if this doesn't work for you and we'll find a better time.\n\nThank you for your flexibility.",
+  "scheduleUnscheduled.subject": "Update on your scheduled visit",
+  "scheduleUnscheduled.fallback": "Hi {{clientName}},\n\nWe wanted to let you know that the scheduled visit for \"{{taskTitle}}\" is no longer on the calendar.\n\nWe have not set a replacement date. Please reply if you have any questions.\n\nThank you.",
 
   "rescheduleRequest.subject": "Re: Rescheduling \"{{taskTitle}}\"",
   "rescheduleRequest.fallback": "Hi {{clientName}},\n\nThanks for letting us know you need to reschedule. We'll follow up shortly with a new time.\n\nThank you.",
@@ -41,6 +43,7 @@
   "summary.appointmentConfirmation": "Confirm {{clientName}}'s appointment on {{date}}",
   "summary.dayBeforeReminder": "Remind {{clientName}} about the upcoming visit",
   "summary.scheduleChanged": "Notify {{clientName}} that \"{{taskTitle}}\" moved to {{newDate}}",
+  "summary.scheduleUnscheduled": "Notify {{clientName}} that \"{{taskTitle}}\" is no longer scheduled",
   "summary.rescheduleRequest": "{{clientName}} wants to reschedule \"{{taskTitle}}\"",
   "summary.subcontractorCoordination": "Coordinate with {{subcontractorName}} on \"{{projectTitle}}\"",
 

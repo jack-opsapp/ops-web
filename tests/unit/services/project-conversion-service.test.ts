@@ -12,7 +12,7 @@
  *   - win is derived from the source path (won_dialog ⇒ win, approval_queue ⇒
  *     create-without-winning);
  *   - idempotency / snapshot guards map to the right result / throw;
- *   - a successful CREATE fires the rail notification; a LINK-existing does not;
+ *   - notification delivery is owned by the immutable conversion-event outbox;
  *   - preflight snake_case → camelCase mapping.
  */
 
@@ -21,13 +21,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const requireSupabaseMock = vi.fn();
 vi.mock("@/lib/supabase/helpers", () => ({
   requireSupabase: () => requireSupabaseMock(),
-}));
-
-const notifyMock = vi.fn(async (_params: Record<string, unknown>) => {});
-vi.mock("@/lib/api/services/notification-service", () => ({
-  NotificationService: {
-    create: (params: Record<string, unknown>) => notifyMock(params),
-  },
 }));
 
 import {
@@ -40,8 +33,6 @@ type Row = Record<string, unknown>;
 interface FakeOpts {
   /** Per-RPC-name canned result. Falls back to a generic convert success. */
   rpc?: Record<string, { data: unknown; error: unknown }>;
-  /** Title returned by the minimal opportunity read used for the notification. */
-  oppTitle?: string | null;
 }
 
 function makeFakeSupabase(opts: FakeOpts = {}) {
@@ -53,11 +44,11 @@ function makeFakeSupabase(opts: FakeOpts = {}) {
       select: () => builder,
       eq: () => builder,
       maybeSingle: async () => ({
-        data: { title: opts.oppTitle ?? "Roof job" },
+        data: { title: "Roof job" },
         error: null,
       }),
       single: async () => ({
-        data: { title: opts.oppTitle ?? "Roof job" },
+        data: { title: "Roof job" },
         error: null,
       }),
     });
@@ -108,7 +99,6 @@ const HUMAN_SNAPSHOT = {
 
 beforeEach(() => {
   requireSupabaseMock.mockReset();
-  notifyMock.mockClear();
 });
 
 describe("convertOpportunityToProject — unified RPC contract", () => {
@@ -162,8 +152,6 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
     expect(result.assignmentVersion).toBe(7);
     expect(result.conversionEventId).toBe("event-1");
     expect(result.projectAccessible).toBe(true);
-    // success → rail notification fired once.
-    expect(notifyMock).toHaveBeenCalledTimes(1);
   });
 
   it("approval_queue source creates WITHOUT winning the opportunity (p_win_opportunity=false)", async () => {
@@ -312,7 +300,7 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
     expect(fake.rpcCalls[0].args.p_title_override).toBe("Custom name");
   });
 
-  it("targets the lead when the converter cannot view the resulting project", async () => {
+  it("returns lead routing state when the converter cannot view the resulting project", async () => {
     const fake = makeFakeSupabase({
       rpc: {
         convert_opportunity_to_project: {
@@ -341,12 +329,6 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
 
     expect(result.projectId).toBe("proj-hidden");
     expect(result.projectAccessible).toBe(false);
-    expect(notifyMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actionUrl: `/pipeline?opportunityId=${OPP}`,
-        actionLabel: "View lead",
-      })
-    );
   });
 });
 
@@ -383,7 +365,7 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
     });
   });
 
-  it("returns alreadyConverted (no notification) when the RPC reports already_converted", async () => {
+  it("returns alreadyConverted when the RPC reports already_converted", async () => {
     const fake = makeFakeSupabase({
       rpc: {
         convert_opportunity_to_project: {
@@ -411,7 +393,6 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
     expect(result.converted).toBe(false);
     expect(result.projectId).toBe("existing-proj");
     expect(result.won).toBe(true);
-    expect(notifyMock).not.toHaveBeenCalled();
   });
 
   it("throws on snapshot_mismatch (opportunity changed under the operator)", async () => {
@@ -441,7 +422,6 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
       kind: "conflict",
       guardReason: "snapshot_mismatch",
     });
-    expect(notifyMock).not.toHaveBeenCalled();
   });
 
   it("surfaces a locked actorless manual-stage guard as a typed conflict", async () => {
@@ -480,7 +460,6 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
       guardReason: "manual_stage_override",
       assignmentVersion: 4,
     });
-    expect(notifyMock).not.toHaveBeenCalled();
   });
 
   it("throws on a hard RPC error", async () => {
@@ -532,7 +511,7 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
 });
 
 describe("linkOpportunityToExistingProject", () => {
-  it("calls convert with p_link_to_project_id and does NOT fire a new-project notification", async () => {
+  it("calls convert with p_link_to_project_id through the same immutable event seam", async () => {
     const fake = makeFakeSupabase();
     requireSupabaseMock.mockReturnValue(fake.client);
 
@@ -550,8 +529,6 @@ describe("linkOpportunityToExistingProject", () => {
     expect(fake.rpcCalls[0].args.p_link_to_project_id).toBe("existing-proj");
     expect(fake.rpcCalls[0].args.p_win_opportunity).toBe(true);
     expect(result.linkedExisting).toBe(true);
-    // linking an EXISTING project → no "project created" notification.
-    expect(notifyMock).not.toHaveBeenCalled();
   });
 });
 

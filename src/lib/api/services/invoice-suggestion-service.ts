@@ -47,15 +47,20 @@ const DEFAULT_INVOICE_SETTINGS: InvoiceAutomationSettings = {
 };
 
 async function getInvoiceSettings(
-  companyId: string
+  companyId: string,
+  strict = false
 ): Promise<InvoiceAutomationSettings> {
   const supabase = requireSupabase();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("companies")
     .select("invoice_settings")
     .eq("id", companyId)
     .single();
+
+  if (error && strict) {
+    throw new Error(`Failed to load invoice settings: ${error.message}`);
+  }
 
   if (!data?.invoice_settings) return DEFAULT_INVOICE_SETTINGS;
 
@@ -99,19 +104,26 @@ async function checkDuplicates(
   clientId: string,
   projectId: string | null,
   estimateId: string | null,
-  total: number
+  total: number,
+  strict = false
 ): Promise<{ isExactDuplicate: boolean; isSimilarDuplicate: boolean }> {
   const supabase = requireSupabase();
 
   // Exact duplicate: same estimate_id
   if (estimateId) {
-    const { data: exact } = await supabase
+    const { data: exact, error: exactError } = await supabase
       .from("invoices")
       .select("id")
       .eq("company_id", companyId)
       .eq("estimate_id", estimateId)
       .is("deleted_at", null)
       .limit(1);
+
+    if (exactError && strict) {
+      throw new Error(
+        `Failed to check estimate invoices: ${exactError.message}`
+      );
+    }
 
     if (exact && exact.length > 0) {
       return { isExactDuplicate: true, isSimilarDuplicate: false };
@@ -123,7 +135,7 @@ async function checkDuplicates(
     const lowerBound = total * 0.9;
     const upperBound = total * 1.1;
 
-    const { data: similar } = await supabase
+    const { data: similar, error: similarError } = await supabase
       .from("invoices")
       .select("id, total")
       .eq("company_id", companyId)
@@ -133,6 +145,12 @@ async function checkDuplicates(
       .gte("total", lowerBound)
       .lte("total", upperBound)
       .limit(1);
+
+    if (similarError && strict) {
+      throw new Error(
+        `Failed to check project invoices: ${similarError.message}`
+      );
+    }
 
     if (similar && similar.length > 0) {
       return { isExactDuplicate: false, isSimilarDuplicate: true };
@@ -205,7 +223,8 @@ async function applySafetyRails(
   taxRate: number | null,
   paymentTerms: string | null,
   lineItems: CreateInvoiceActionData["line_items"],
-  settings: InvoiceAutomationSettings
+  settings: InvoiceAutomationSettings,
+  strict = false
 ): Promise<SafetyRailResult> {
   const warnings: InvoiceWarning[] = [];
   let priority: AgentActionPriority = "normal";
@@ -216,7 +235,8 @@ async function applySafetyRails(
     clientId,
     projectId,
     estimateId,
-    total
+    total,
+    strict
   );
 
   if (isExactDuplicate) {
@@ -299,6 +319,51 @@ async function getCompanyAdminUserId(
   return managerIds[0] ?? null;
 }
 
+async function findEquivalentPendingInvoiceAction(params: {
+  companyId: string;
+  projectId: string | null;
+  estimateId: string | null;
+  strict: boolean;
+}): Promise<string | null> {
+  const supabase = requireSupabase();
+  let query = supabase
+    .from("agent_actions")
+    .select("id, action_data")
+    .eq("company_id", params.companyId)
+    .eq("action_type", "create_invoice")
+    .eq("status", "pending")
+    .limit(100);
+  if (params.estimateId) {
+    query = query.contains("action_data", { estimate_id: params.estimateId });
+  } else if (params.projectId) {
+    query = query.contains("action_data", { project_id: params.projectId });
+  } else {
+    return null;
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    if (params.strict) {
+      throw new Error(
+        `Failed to check pending invoice suggestions: ${error.message}`
+      );
+    }
+    return null;
+  }
+
+  const equivalent = (data ?? []).find((row) => {
+    const actionData = (row.action_data as Record<string, unknown>) ?? {};
+    if (params.estimateId) {
+      return actionData.estimate_id === params.estimateId;
+    }
+    return (
+      actionData.project_id === params.projectId &&
+      (actionData.estimate_id === null || actionData.estimate_id === undefined)
+    );
+  });
+  return equivalent ? String(equivalent.id) : null;
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export const InvoiceSuggestionService = {
@@ -309,8 +374,11 @@ export const InvoiceSuggestionService = {
   async suggestInvoiceFromEstimate(
     companyId: string,
     userId: string,
-    estimateId: string
+    estimateId: string,
+    sourceIdOverride?: string,
+    mailboxActorUserId?: string | null
   ): Promise<string | null> {
+    const strict = sourceIdOverride !== undefined;
     // Gate behind phase_c
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
@@ -318,19 +386,25 @@ export const InvoiceSuggestionService = {
     );
     if (!enabled) return null;
 
-    const settings = await getInvoiceSettings(companyId);
+    const settings = await getInvoiceSettings(companyId, strict);
     if (!settings.auto_suggest_from_estimate) return null;
 
     const supabase = requireSupabase();
 
     // Fetch the estimate with line items
-    const { data: estimate } = await supabase
+    const { data: estimate, error: estimateError } = await supabase
       .from("estimates")
       .select("*")
       .eq("id", estimateId)
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .single();
+
+    if (estimateError && strict) {
+      throw new Error(
+        `Failed to load invoice estimate: ${estimateError.message}`
+      );
+    }
 
     if (!estimate) {
       console.log(
@@ -339,12 +413,17 @@ export const InvoiceSuggestionService = {
       return null;
     }
 
-    const { data: lineItemRows } = await supabase
+    const { data: lineItemRows, error: lineItemsError } = await supabase
       .from("line_items")
       .select("*")
       .eq("estimate_id", estimateId)
       .eq("company_id", companyId)
       .order("sort_order");
+    if (lineItemsError && strict) {
+      throw new Error(
+        `Failed to load invoice estimate items: ${lineItemsError.message}`
+      );
+    }
 
     const lineItems: CreateInvoiceActionData["line_items"] = (
       lineItemRows ?? []
@@ -365,22 +444,31 @@ export const InvoiceSuggestionService = {
     const clientId = estimate.client_id as string;
     const projectId = (estimate.project_id as string) ?? null;
 
-    const { data: client } = await supabase
+    const { data: client, error: clientError } = await supabase
       .from("clients")
       .select("id, name, email, phone_number, address")
       .eq("id", clientId)
       .single();
+    if (clientError && strict) {
+      throw new Error(`Failed to load invoice client: ${clientError.message}`);
+    }
 
     const clientName = (client?.name as string) ?? "Unknown Client";
     const clientEmail = (client?.email as string) ?? null;
 
     let projectTitle = "Untitled Project";
     if (projectId) {
-      const { data: project } = await supabase
+      const { data: project, error: projectError } = await supabase
         .from("projects")
         .select("title")
         .eq("id", projectId)
         .single();
+
+      if (projectError && strict) {
+        throw new Error(
+          `Failed to load invoice project: ${projectError.message}`
+        );
+      }
 
       projectTitle = (project?.title as string) ?? projectTitle;
     }
@@ -416,7 +504,8 @@ export const InvoiceSuggestionService = {
       taxRate,
       paymentTerms,
       lineItems,
-      settings
+      settings,
+      strict
     );
 
     if (rails.shouldSkip) {
@@ -439,12 +528,12 @@ export const InvoiceSuggestionService = {
 
     // Find a user email connection for the cover email
     if (coverEmail) {
-      coverEmail.connection_id =
-        await resolveNewEmailConversationConnectionId({
-          supabase,
-          companyId,
-          actorUserId: userId,
-        });
+      coverEmail.connection_id = await resolveNewEmailConversationConnectionId({
+        supabase,
+        companyId,
+        actorUserId:
+          mailboxActorUserId === undefined ? userId : mailboxActorUserId,
+      });
     }
 
     const estimateNumber =
@@ -474,6 +563,14 @@ export const InvoiceSuggestionService = {
 
     const contextSummary = `Invoice $${total.toFixed(2)} for ${clientName} — project "${projectTitle}" from estimate #${estimateNumber}`;
 
+    const existingActionId = await findEquivalentPendingInvoiceAction({
+      companyId,
+      projectId,
+      estimateId,
+      strict,
+    });
+    if (existingActionId) return existingActionId;
+
     return ApprovalQueueService.proposeAction({
       companyId,
       userId,
@@ -481,7 +578,7 @@ export const InvoiceSuggestionService = {
       actionData: actionData as unknown as Record<string, unknown>,
       contextSummary,
       contextSource: "estimate_conversion",
-      sourceId: estimateId,
+      sourceId: sourceIdOverride ?? estimateId,
       confidence: 0.85,
       priority: rails.priority,
     });
@@ -494,8 +591,11 @@ export const InvoiceSuggestionService = {
   async suggestInvoiceFromCompletion(
     companyId: string,
     userId: string,
-    projectId: string
+    projectId: string,
+    sourceIdOverride?: string,
+    mailboxActorUserId?: string | null
   ): Promise<string | null> {
+    const strict = sourceIdOverride !== undefined;
     // Gate behind phase_c
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
@@ -503,20 +603,29 @@ export const InvoiceSuggestionService = {
     );
     if (!enabled) return null;
 
-    const settings = await getInvoiceSettings(companyId);
+    const settings = await getInvoiceSettings(companyId, strict);
     if (!settings.auto_suggest_on_completion) return null;
 
     const supabase = requireSupabase();
 
     // Get project context
-    const { data: project } = await supabase
+    const { data: project, error: projectError } = await supabase
       .from("projects")
       .select("id, title, client_id, status")
       .eq("id", projectId)
       .eq("company_id", companyId)
       .single();
 
-    if (!project) return null;
+    if (projectError && strict) {
+      throw new Error(
+        `Failed to load completed project: ${projectError.message}`
+      );
+    }
+
+    if (!project) {
+      if (strict) throw new Error("Completed project was not found");
+      return null;
+    }
 
     const clientId = project.client_id as string;
     if (!clientId) return null;
@@ -524,11 +633,17 @@ export const InvoiceSuggestionService = {
     const projectTitle = (project.title as string) ?? "Untitled Project";
 
     // Get client info
-    const { data: client } = await supabase
+    const { data: client, error: clientError } = await supabase
       .from("clients")
       .select("id, name, email, phone_number")
       .eq("id", clientId)
       .single();
+
+    if (clientError && strict) {
+      throw new Error(
+        `Failed to load completed project client: ${clientError.message}`
+      );
+    }
 
     const clientName = (client?.name as string) ?? "Unknown Client";
     const clientEmail = (client?.email as string) ?? null;
@@ -540,7 +655,8 @@ export const InvoiceSuggestionService = {
         companyId,
         projectId
       );
-    } catch {
+    } catch (error) {
+      if (strict) throw error;
       // If context unavailable, query manually
       projectCtx = null;
     }
@@ -549,24 +665,35 @@ export const InvoiceSuggestionService = {
     const invoicedTotal = projectCtx?.financials?.invoicedTotal ?? 0;
 
     // Check if there are uninvoiced estimates
-    const { data: estimates } = await supabase
+    const { data: estimates, error: estimatesError } = await supabase
       .from("estimates")
       .select("id, total, status, estimate_number")
       .eq("project_id", projectId)
       .eq("company_id", companyId)
       .in("status", ["approved", "sent", "viewed"])
       .is("deleted_at", null);
+    if (estimatesError && strict) {
+      throw new Error(
+        `Failed to load completed project estimates: ${estimatesError.message}`
+      );
+    }
 
     // Find estimates that haven't been converted to invoices (batch query)
     const estimateIds = (estimates ?? []).map((e) => e.id as string);
-    const { data: invoicesWithEstimates } = estimateIds.length > 0
-      ? await supabase
-          .from("invoices")
-          .select("estimate_id")
-          .eq("company_id", companyId)
-          .in("estimate_id", estimateIds)
-          .is("deleted_at", null)
-      : { data: [] };
+    const { data: invoicesWithEstimates, error: invoicesWithEstimatesError } =
+      estimateIds.length > 0
+        ? await supabase
+            .from("invoices")
+            .select("estimate_id")
+            .eq("company_id", companyId)
+            .in("estimate_id", estimateIds)
+            .is("deleted_at", null)
+        : { data: [], error: null };
+    if (invoicesWithEstimatesError && strict) {
+      throw new Error(
+        `Failed to load completed project invoices: ${invoicesWithEstimatesError.message}`
+      );
+    }
 
     const invoicedEstimateIds = new Set(
       (invoicesWithEstimates ?? []).map((i) => i.estimate_id as string)
@@ -586,7 +713,9 @@ export const InvoiceSuggestionService = {
       return InvoiceSuggestionService.suggestInvoiceFromEstimate(
         companyId,
         userId,
-        bestEstimate.id
+        bestEstimate.id,
+        sourceIdOverride,
+        mailboxActorUserId
       );
     }
 
@@ -631,7 +760,8 @@ export const InvoiceSuggestionService = {
       taxRate,
       paymentTerms,
       lineItems,
-      settings
+      settings,
+      strict
     );
 
     if (rails.shouldSkip) return null;
@@ -647,12 +777,12 @@ export const InvoiceSuggestionService = {
         : null;
 
     if (coverEmail) {
-      coverEmail.connection_id =
-        await resolveNewEmailConversationConnectionId({
-          supabase,
-          companyId,
-          actorUserId: userId,
-        });
+      coverEmail.connection_id = await resolveNewEmailConversationConnectionId({
+        supabase,
+        companyId,
+        actorUserId:
+          mailboxActorUserId === undefined ? userId : mailboxActorUserId,
+      });
     }
 
     const actionData: CreateInvoiceActionData = {
@@ -679,6 +809,14 @@ export const InvoiceSuggestionService = {
 
     const contextSummary = `Project complete. $${invoicedTotal.toFixed(2)} invoiced of estimated $${estimateTotal.toFixed(2)}. Uninvoiced balance: $${uninvoicedAmount.toFixed(2)}`;
 
+    const existingActionId = await findEquivalentPendingInvoiceAction({
+      companyId,
+      projectId,
+      estimateId: null,
+      strict,
+    });
+    if (existingActionId) return existingActionId;
+
     return ApprovalQueueService.proposeAction({
       companyId,
       userId,
@@ -686,7 +824,7 @@ export const InvoiceSuggestionService = {
       actionData: actionData as unknown as Record<string, unknown>,
       contextSummary,
       contextSource: "project_completion",
-      sourceId: projectId,
+      sourceId: sourceIdOverride ?? projectId,
       confidence: 0.6,
       priority: rails.priority,
     });

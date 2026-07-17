@@ -3711,6 +3711,7 @@ export type Database = {
           industries: string[] | null
           industry: string | null
           latitude: number | null
+          lifecycle_settings: Json | null
           locale: string
           logo_url: string | null
           longitude: number | null
@@ -3767,6 +3768,7 @@ export type Database = {
           industries?: string[] | null
           industry?: string | null
           latitude?: number | null
+          lifecycle_settings?: Json | null
           locale?: string
           logo_url?: string | null
           longitude?: number | null
@@ -3823,6 +3825,7 @@ export type Database = {
           industries?: string[] | null
           industry?: string | null
           latitude?: number | null
+          lifecycle_settings?: Json | null
           locale?: string
           logo_url?: string | null
           longitude?: number | null
@@ -9005,6 +9008,143 @@ export type Database = {
           },
         ]
       }
+      opportunity_conversion_notification_deliveries: {
+        Row: {
+          actor_user_id: string | null
+          assignment_version: number
+          attempts: number
+          available_at: string
+          claimed_at: string | null
+          claimed_by: string | null
+          company_id: string
+          conversion_event_id: string
+          created_at: string
+          delivered_at: string | null
+          destination: string | null
+          disposition: string | null
+          event_created_at: string
+          id: string
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_token: string | null
+          max_attempts: number
+          notification_id: string | null
+          opportunity_id: string
+          project_id: string
+          push_state: string
+          recipient_user_id: string
+          state: string
+          terminal_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          assignment_version: number
+          attempts?: number
+          available_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          company_id: string
+          conversion_event_id: string
+          created_at?: string
+          delivered_at?: string | null
+          destination?: string | null
+          disposition?: string | null
+          event_created_at: string
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          max_attempts?: number
+          notification_id?: string | null
+          opportunity_id: string
+          project_id: string
+          push_state?: string
+          recipient_user_id: string
+          state?: string
+          terminal_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          assignment_version?: number
+          attempts?: number
+          available_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          company_id?: string
+          conversion_event_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          destination?: string | null
+          disposition?: string | null
+          event_created_at?: string
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          max_attempts?: number
+          notification_id?: string | null
+          opportunity_id?: string
+          project_id?: string
+          push_state?: string
+          recipient_user_id?: string
+          state?: string
+          terminal_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_conversion_notification_deliveries_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_conversion_notification_deliveries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_conversion_notification_deliveries_conversion_event_id_fkey"
+            columns: ["conversion_event_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_conversion_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_conversion_notification_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_conversion_notification_deliveries_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_conversion_notification_deliveries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_conversion_notification_deliveries_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       opportunity_correspondence_events: {
         Row: {
           activity_id: string | null
@@ -11411,6 +11551,88 @@ export type Database = {
           },
         ]
       }
+      project_status_lifecycle_outbox: {
+        Row: {
+          actor_user_id: string | null
+          attempts: number
+          available_at: string
+          company_id: string
+          completed_at: string | null
+          id: string
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_token: string | null
+          new_status: string
+          old_status: string
+          project_id: string
+          project_status_version: number
+          project_updated_at: string
+          requested_at: string
+          status: string
+          worker_id: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          attempts?: number
+          available_at?: string
+          company_id: string
+          completed_at?: string | null
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          new_status: string
+          old_status: string
+          project_id: string
+          project_status_version: number
+          project_updated_at: string
+          requested_at?: string
+          status?: string
+          worker_id?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          attempts?: number
+          available_at?: string
+          company_id?: string
+          completed_at?: string | null
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          new_status?: string
+          old_status?: string
+          project_id?: string
+          project_status_version?: number
+          project_updated_at?: string
+          requested_at?: string
+          status?: string
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_status_lifecycle_outbox_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_status_lifecycle_outbox_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_status_lifecycle_outbox_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_tasks: {
         Row: {
           all_day: boolean
@@ -11434,6 +11656,7 @@ export type Database = {
           schedule_confirmed_at: string | null
           schedule_confirmed_by: string | null
           schedule_locked: boolean
+          schedule_version: number
           source_estimate_id: string | null
           source_line_item_id: string | null
           start_date: string | null
@@ -11467,6 +11690,7 @@ export type Database = {
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
           schedule_locked?: boolean
+          schedule_version?: number
           source_estimate_id?: string | null
           source_line_item_id?: string | null
           start_date?: string | null
@@ -11500,6 +11724,7 @@ export type Database = {
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
           schedule_locked?: boolean
+          schedule_version?: number
           source_estimate_id?: string | null
           source_line_item_id?: string | null
           start_date?: string | null
@@ -11679,6 +11904,7 @@ export type Database = {
           source: string | null
           start_date: string | null
           status: string
+          status_version: number
           team_member_ids: string[] | null
           title: string
           title_is_auto: boolean
@@ -11715,6 +11941,7 @@ export type Database = {
           source?: string | null
           start_date?: string | null
           status?: string
+          status_version?: number
           team_member_ids?: string[] | null
           title: string
           title_is_auto?: boolean
@@ -11751,6 +11978,7 @@ export type Database = {
           source?: string | null
           start_date?: string | null
           status?: string
+          status_version?: number
           team_member_ids?: string[] | null
           title?: string
           title_is_auto?: boolean
@@ -15126,6 +15354,181 @@ export type Database = {
           },
         ]
       }
+      task_mutation_events: {
+        Row: {
+          actor_user_id: string | null
+          after_snapshot: Json
+          before_snapshot: Json
+          company_id: string
+          created_at: string
+          event_sequence: number
+          event_type: string
+          id: string
+          project_id: string
+          task_id: string
+          task_schedule_version: number
+          task_updated_at: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          after_snapshot: Json
+          before_snapshot?: Json
+          company_id: string
+          created_at?: string
+          event_sequence?: number
+          event_type: string
+          id?: string
+          project_id: string
+          task_id: string
+          task_schedule_version: number
+          task_updated_at?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          after_snapshot?: Json
+          before_snapshot?: Json
+          company_id?: string
+          created_at?: string
+          event_sequence?: number
+          event_type?: string
+          id?: string
+          project_id?: string
+          task_id?: string
+          task_schedule_version?: number
+          task_updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_mutation_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_mutation_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_mutation_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_mutation_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_schedule_automation_outbox: {
+        Row: {
+          actor_user_id: string | null
+          after_snapshot: Json
+          attempts: number
+          available_at: string
+          before_snapshot: Json
+          company_id: string
+          completed_at: string | null
+          disposition: string | null
+          id: string
+          kind: string
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_token: string | null
+          requested_at: string
+          result: Json
+          status: string
+          task_id: string
+          task_mutation_event_id: string | null
+          task_schedule_version: number
+          task_updated_at: string | null
+          worker_id: string | null
+        }
+        Insert: {
+          actor_user_id?: string | null
+          after_snapshot: Json
+          attempts?: number
+          available_at?: string
+          before_snapshot?: Json
+          company_id: string
+          completed_at?: string | null
+          disposition?: string | null
+          id?: string
+          kind: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          requested_at?: string
+          result?: Json
+          status?: string
+          task_id: string
+          task_mutation_event_id?: string | null
+          task_schedule_version: number
+          task_updated_at?: string | null
+          worker_id?: string | null
+        }
+        Update: {
+          actor_user_id?: string | null
+          after_snapshot?: Json
+          attempts?: number
+          available_at?: string
+          before_snapshot?: Json
+          company_id?: string
+          completed_at?: string | null
+          disposition?: string | null
+          id?: string
+          kind?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          requested_at?: string
+          result?: Json
+          status?: string
+          task_id?: string
+          task_mutation_event_id?: string | null
+          task_schedule_version?: number
+          task_updated_at?: string | null
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_schedule_automation_outbox_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_schedule_automation_outbox_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_schedule_automation_outbox_task_mutation_event_id_fkey"
+            columns: ["task_mutation_event_id"]
+            isOneToOne: true
+            referencedRelation: "task_mutation_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_schedule_automation_outbox_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "project_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_team_members: {
         Row: {
           task_id: string
@@ -16531,6 +16934,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      authorize_task_action_as_system: {
+        Args: {
+          p_action: string
+          p_actor_user_id: string
+          p_task_id: string
+        }
+        Returns: boolean
+      }
+      authorize_task_status_change_as_system: {
+        Args: { p_actor_user_id: string; p_task_id: string }
+        Returns: boolean
+      }
       assign_project_team_member: {
         Args: {
           p_expected_updated_at: string
@@ -16573,6 +16988,18 @@ export type Database = {
       }
       change_project_status: {
         Args: {
+          p_expected_status_version: number
+          p_expected_updated_at: string
+          p_new_status: string
+          p_project_id: string
+        }
+        Returns: Json
+      }
+      change_project_status_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_expected_status: string
+          p_expected_status_version: number
           p_expected_updated_at: string
           p_new_status: string
           p_project_id: string
@@ -16666,6 +17093,65 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_project_status_lifecycle_events: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          actor_user_id: string | null
+          attempt: number
+          company_id: string
+          event_id: string
+          lease_token: string
+          new_status: string
+          old_status: string
+          project_id: string
+          project_status_version: number
+          project_updated_at: string
+          requested_at: string
+        }[]
+      }
+      claim_opportunity_conversion_notification_deliveries: {
+        Args: { p_lease_seconds?: number; p_worker_id: string }
+        Returns: {
+          actor_user_id: string | null
+          company_id: string
+          conversion_event_id: string
+          delivery_id: string
+          delivery_lease_token: string | null
+          destination: string | null
+          disposition: string
+          lead_title: string
+          notification_id: string | null
+          opportunity_id: string
+          project_id: string
+          recipient_user_id: string
+          requires_notification: boolean
+          should_push: boolean
+        }[]
+      }
+      claim_task_schedule_automation_events: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          actor_user_id: string | null
+          after_snapshot: Json
+          attempt: number
+          before_snapshot: Json
+          company_id: string
+          event_id: string
+          kind: string
+          lease_token: string
+          task_id: string
+          task_schedule_version: number
+          task_updated_at: string | null
+        }[]
+      }
       complete_email_analysis_job_as_system: {
         Args: {
           p_actor_user_id: string
@@ -16674,6 +17160,27 @@ export type Database = {
           p_result: Json
         }
         Returns: Json
+      }
+      complete_project_status_lifecycle_event: {
+        Args: { p_event_id: string; p_lease_token: string }
+        Returns: boolean
+      }
+      complete_opportunity_conversion_notification_delivery: {
+        Args: {
+          p_delivery_id: string
+          p_lease_token: string
+          p_push_state: string
+        }
+        Returns: Json
+      }
+      complete_task_schedule_automation_event: {
+        Args: {
+          p_disposition?: string
+          p_event_id: string
+          p_lease_token: string
+          p_result?: Json
+        }
+        Returns: boolean
       }
       complete_project_task: {
         Args: {
@@ -16846,6 +17353,31 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_task_with_event: {
+        Args: {
+          p_payload?: Json
+          p_project_id: string
+          p_task_id: string
+          p_task_type_id: string
+        }
+        Returns: Json
+      }
+      create_task_with_event_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_custom_title: string
+          p_duration?: number
+          p_end_date?: string
+          p_project_id: string
+          p_start_date?: string
+          p_task_color?: string
+          p_task_id: string
+          p_task_notes?: string
+          p_task_type_id: string
+          p_team_member_ids?: string[]
+        }
+        Returns: Json
+      }
       defer_email_outbound_learning: {
         Args: {
           p_delay_seconds?: number
@@ -16959,6 +17491,37 @@ export type Database = {
           p_expected_requested_at: string
         }
         Returns: boolean
+      }
+      fail_project_status_lifecycle_event: {
+        Args: {
+          p_error: string
+          p_event_id: string
+          p_lease_token: string
+          p_retryable?: boolean
+        }
+        Returns: string
+      }
+      fail_opportunity_conversion_notification_delivery: {
+        Args: {
+          p_delivery_id: string
+          p_error: string
+          p_lease_token: string
+          p_retryable?: boolean
+        }
+        Returns: Json
+      }
+      fail_task_schedule_automation_event: {
+        Args: {
+          p_error: string
+          p_event_id: string
+          p_lease_token: string
+          p_retryable?: boolean
+        }
+        Returns: string
+      }
+      finalize_exhausted_task_schedule_automation_events: {
+        Args: never
+        Returns: number
       }
       enqueue_email_outbound_learning: {
         Args: {
@@ -17113,6 +17676,10 @@ export type Database = {
           p_run_id?: string
           p_winner_id: string
         }
+        Returns: Json
+      }
+      execute_project_status_action_as_system: {
+        Args: { p_action_id: string; p_actor_user_id: string }
         Returns: Json
       }
       expense_envelope_period: {
@@ -17526,6 +18093,41 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      persist_task_automation_agent_action: {
+        Args: {
+          p_action_data: Json
+          p_action_type: string
+          p_auto_execute_at?: string
+          p_confidence?: number
+          p_context_source: string
+          p_context_summary: string
+          p_event_id: string
+          p_expires_at?: string
+          p_lease_token: string
+          p_priority?: string
+          p_source_id: string
+          p_task_id: string
+          p_task_schedule_version: number
+        }
+        Returns: Json
+      }
+      persist_task_automation_notification: {
+        Args: {
+          p_action_label?: string
+          p_action_url?: string
+          p_body: string
+          p_event_id: string
+          p_lease_token: string
+          p_task_id: string
+          p_task_schedule_version: number
+          p_title: string
+        }
+        Returns: Json
+      }
+      persist_task_mutation_notification_as_system: {
+        Args: { p_event_id: string; p_lease_token: string }
+        Returns: Json
+      }
       process_email_signature_notification_lifecycle: {
         Args: {
           p_actor_user_id: string
@@ -17849,6 +18451,14 @@ export type Database = {
         Args: never
         Returns: number
       }
+      resolve_project_status_notification_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_event_id: string
+          p_project_id: string
+        }
+        Returns: Json
+      }
       resolve_product_price: {
         Args: { p_client_id: string; p_product_id: string }
         Returns: number
@@ -17979,6 +18589,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      terminalize_expired_project_status_lifecycle_events: {
+        Args: never
+        Returns: number
+      }
       template_version_compare: {
         Args: {
           p_email_type: string
@@ -18054,6 +18668,23 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      update_task_with_event: {
+        Args: {
+          p_expected_updated_at: string | null
+          p_patch: Json
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      update_task_with_event_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_expected_updated_at: string | null
+          p_patch: Json
+          p_task_id: string
+        }
+        Returns: Json
       }
       users_with_permission: {
         Args: {

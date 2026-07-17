@@ -31,17 +31,26 @@ describe("ProjectTableService bulk updates", () => {
     });
     vi.mocked(requireSupabase).mockReturnValue(mock as never);
 
-    await expect(ProjectTableService.bulkUpdateProjects({
-      operations: [
+    await expect(
+      ProjectTableService.bulkUpdateProjects({
+        operations: [
+          {
+            action: "status",
+            projectId: "project-1",
+            status: ProjectStatus.InProgress,
+            expectedUpdatedAt: "2026-05-13T00:00:00Z",
+            expectedStatusVersion: 1,
+          },
+        ],
+      })
+    ).resolves.toEqual({
+      success: [
         {
-          action: "status",
           projectId: "project-1",
-          status: ProjectStatus.InProgress,
-          expectedUpdatedAt: "2026-05-13T00:00:00Z",
+          action: "status",
+          updatedAt: "2026-05-13T01:00:00Z",
         },
       ],
-    })).resolves.toEqual({
-      success: [{ projectId: "project-1", action: "status", updatedAt: "2026-05-13T01:00:00Z" }],
       failed: [],
       successCount: 1,
       failedCount: 0,
@@ -55,6 +64,7 @@ describe("ProjectTableService bulk updates", () => {
           project_id: "project-1",
           status: "in_progress",
           expected_updated_at: "2026-05-13T00:00:00Z",
+          expected_status_version: 1,
         },
       ],
     });
@@ -136,24 +146,41 @@ describe("ProjectTableService bulk updates", () => {
     });
     vi.mocked(requireSupabase).mockReturnValue(mock as never);
 
-    await expect(ProjectTableService.bulkUpdateProjects({
-      operations: [
+    await expect(
+      ProjectTableService.bulkUpdateProjects({
+        operations: [
+          {
+            action: "status",
+            projectId: "project-1",
+            status: ProjectStatus.Completed,
+            expectedUpdatedAt: "2026-05-13T00:00:00Z",
+            expectedStatusVersion: 1,
+          },
+          {
+            action: "status",
+            projectId: "project-2",
+            status: ProjectStatus.Completed,
+            expectedUpdatedAt: "2026-05-13T00:00:00Z",
+            expectedStatusVersion: 2,
+          },
+        ],
+      })
+    ).resolves.toEqual({
+      success: [
         {
-          action: "status",
           projectId: "project-1",
-          status: ProjectStatus.Completed,
-          expectedUpdatedAt: "2026-05-13T00:00:00Z",
-        },
-        {
           action: "status",
-          projectId: "project-2",
-          status: ProjectStatus.Completed,
-          expectedUpdatedAt: "2026-05-13T00:00:00Z",
+          updatedAt: "2026-05-13T01:00:00Z",
         },
       ],
-    })).resolves.toEqual({
-      success: [{ projectId: "project-1", action: "status", updatedAt: "2026-05-13T01:00:00Z" }],
-      failed: [{ projectId: "project-2", action: "status", code: "P0001", message: "project conflict" }],
+      failed: [
+        {
+          projectId: "project-2",
+          action: "status",
+          code: "P0001",
+          message: "project conflict",
+        },
+      ],
       successCount: 1,
       failedCount: 1,
     });
@@ -166,16 +193,19 @@ describe("ProjectTableService bulk updates", () => {
     });
     vi.mocked(requireSupabase).mockReturnValue(mock as never);
 
-    await expect(ProjectTableService.bulkUpdateProjects({
-      operations: [
-        {
-          action: "status",
-          projectId: "project-1",
-          status: ProjectStatus.Completed,
-          expectedUpdatedAt: "2026-05-13T00:00:00Z",
-        },
-      ],
-    })).rejects.toMatchObject({
+    await expect(
+      ProjectTableService.bulkUpdateProjects({
+        operations: [
+          {
+            action: "status",
+            projectId: "project-1",
+            status: ProjectStatus.Completed,
+            expectedUpdatedAt: "2026-05-13T00:00:00Z",
+            expectedStatusVersion: 1,
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
       name: "ProjectTableMutationError",
       code: "42501",
       message: "permission denied",

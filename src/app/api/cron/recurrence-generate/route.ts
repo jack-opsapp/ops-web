@@ -8,9 +8,9 @@
 // the unique index uq_project_tasks_recurrence_origin prevents duplicate
 // inserts on repeat runs.
 //
-// Notification: emits a schedule_change notification per assigned crew
-// member for each newly-generated task (mirrors task-service notify-on-update
-// behavior).
+// The project_tasks insert trigger writes immutable assignment/schedule proof
+// and a durable notification delivery. This route never inserts notification
+// rows or sends push directly.
 
 import { NextRequest, NextResponse } from "next/server";
 import { RRule } from "rrule";
@@ -56,7 +56,6 @@ interface ProcessResult {
   recurrenceId: string;
   occurrencesConsidered: number;
   tasksInserted: number;
-  notificationsSent: number;
   error?: string;
 }
 
@@ -91,7 +90,6 @@ async function processRecurrence(
     recurrenceId: recurrence.id,
     occurrencesConsidered: 0,
     tasksInserted: 0,
-    notificationsSent: 0,
   };
 
   try {
@@ -202,26 +200,6 @@ async function processRecurrence(
       if (!insertedTask) continue;
 
       result.tasksInserted++;
-
-      // Emit a schedule_change notification for each assigned crew member.
-      if (effectiveTeam.length > 0) {
-        const dateStr = effectiveDate;
-        const notifRows = effectiveTeam.map((userId) => ({
-          user_id: userId,
-          company_id: recurrence.company_id,
-          type: "schedule_change",
-          title: "Recurring task scheduled",
-          body: `${recurrence.title} on ${dateStr}`,
-          is_read: false,
-          persistent: false,
-          action_url: `/schedule?date=${dateStr}&task=${(insertedTask as { id: string }).id}`,
-          action_label: "VIEW",
-        }));
-        const { error: notifErr } = await supabase
-          .from("notifications")
-          .insert(notifRows);
-        if (!notifErr) result.notificationsSent += notifRows.length;
-      }
     }
 
     // Bump checkpoint regardless — even if we wrote nothing this pass, the
@@ -281,17 +259,15 @@ export async function GET(request: NextRequest) {
     }
 
     const totalInserted = results.reduce((s, r) => s + r.tasksInserted, 0);
-    const totalNotifications = results.reduce(
-      (s, r) => s + r.notificationsSent,
-      0
-    );
     const errors = results.filter((r) => r.error);
 
     return NextResponse.json({
       ok: true,
       recurrences_processed: recurrences.length,
       tasks_generated: totalInserted,
-      notifications_sent: totalNotifications,
+      // Backward-compatible response field. Notification delivery is now
+      // asynchronous from immutable task mutation proof.
+      notifications_sent: 0,
       errors: errors.length,
       details: results,
     });

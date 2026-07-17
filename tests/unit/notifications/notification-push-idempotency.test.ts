@@ -6,8 +6,8 @@ const service = readFileSync(
   join(process.cwd(), "src/lib/notifications/server-notification-service.ts"),
   "utf8"
 );
-const route = readFileSync(
-  join(process.cwd(), "src/app/api/notifications/dispatch/route.ts"),
+const dispatcher = readFileSync(
+  join(process.cwd(), "src/lib/notifications/dispatch-notification-event.ts"),
   "utf8"
 );
 
@@ -18,11 +18,15 @@ describe("notification push idempotency", () => {
     expect(service).not.toContain('db.rpc("create_notification_if_new",');
   });
 
-  it("pushes only for recipients whose rail row was newly created", () => {
-    expect(route).toMatch(
-      /preferences\.pushRecipientIds[\s\S]*?rail\.createdRecipientIds/
+  it("retries durable status pushes while keeping ordinary pushes new-rail-only", () => {
+    expect(dispatcher).toContain(
+      'params.request.eventType === "project_status_change"'
     );
-    expect(route).toMatch(/recipientUserIds:\s*pushRecipientIds/);
+    expect(dispatcher).toMatch(
+      /\? preferences\.pushRecipientIds[\s\S]*?: preferences\.pushRecipientIds\.filter/
+    );
+    expect(dispatcher).toContain("idempotencyKey: projectStatusEventId");
+    expect(dispatcher).toContain('reason: "Notification push failed"');
   });
 
   it("does not push role-needed when rail persistence failed or deduped", () => {

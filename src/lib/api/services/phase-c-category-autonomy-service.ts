@@ -24,6 +24,12 @@
  * human-finalized drafts for the category's primary profile_type(s).
  */
 
+import "server-only";
+
+import {
+  allowedLevelsFor,
+  defaultLevelFor,
+} from "@/lib/email/phase-c-category-autonomy-policy";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { getHumanDraftAccuracy } from "./phase-c-draft-accuracy-service";
 import {
@@ -56,57 +62,7 @@ const CATEGORY_TO_PROFILE_TYPES: Partial<
   // Categories that should never draft stay unmapped.
 };
 
-// ─── Allowed autonomy levels per category ────────────────────────────────────
-
-/**
- * Restricts the set of autonomy levels exposed in the UI for each category.
- * Enforced server-side too — set() rejects values outside this list.
- */
-export function allowedLevelsFor(
-  category: EmailThreadCategory
-): EmailThreadAutonomyLevel[] {
-  switch (category) {
-    case "CUSTOMER":
-      return [
-        "off",
-        "draft_on_request",
-        "auto_draft",
-        "auto_send",
-        "auto_follow_up",
-      ];
-    case "VENDOR":
-    case "SUBTRADE":
-      return ["off", "draft_on_request", "auto_draft", "auto_send"];
-    case "PLATFORM_BID":
-      return ["off", "draft_on_request", "auto_draft", "auto_send", "auto_archive"];
-    case "LEGAL":
-    case "COLLECTIONS":
-    case "JOB_SEEKER":
-      return ["off", "draft_on_request"];
-    case "MARKETING":
-    case "RECEIPT":
-    case "PERSONAL":
-    case "INTERNAL":
-    case "OTHER":
-      return ["off", "auto_archive"];
-  }
-}
-
-// ─── Default level (when nothing is stored) ──────────────────────────────────
-
-function defaultLevelFor(category: EmailThreadCategory): EmailThreadAutonomyLevel {
-  switch (category) {
-    case "LEGAL":
-    case "COLLECTIONS":
-    case "JOB_SEEKER":
-      return "draft_on_request";
-    case "MARKETING":
-    case "RECEIPT":
-      return "off"; // users opt in to auto_archive themselves
-    default:
-      return "off";
-  }
-}
+export { allowedLevelsFor } from "@/lib/email/phase-c-category-autonomy-policy";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

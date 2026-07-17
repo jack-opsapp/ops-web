@@ -33,7 +33,6 @@
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";
-import { NotificationService } from "./notification-service";
 
 // Literal names so the calls resolve to the typed `rpc` overload — args and
 // return are checked against the generated database types (regenerated after the
@@ -468,50 +467,20 @@ export const ProjectConversionService = {
   /**
    * Convert a won opportunity into a NEW linked project. Idempotent: an
    * already-linked opportunity returns the existing project (never a second
-   * one). On a real creation, fires the "Project created" rail notification.
+   * one). The immutable conversion event owns notification delivery.
    */
   async convertOpportunityToProject(
     params: ConvertOpportunityParams
   ): Promise<ConvertOpportunityResult> {
-    const result = await runConversion(params, null);
-
-    // Rail notification on a genuine NEW-project creation only — never on the
-    // idempotent no-op, and never on link-existing (handled separately, which
-    // does not notify because the project already existed).
-    if (result.converted && !result.linkedExisting && params.decidedBy) {
-      const supabase = requireSupabase();
-      const { data: oppRow } = await supabase
-        .from("opportunities")
-        .select("title")
-        .eq("id", params.opportunityId)
-        .eq("company_id", params.companyId)
-        .maybeSingle();
-      const oppTitle = (oppRow?.title as string) ?? "an opportunity";
-
-      await NotificationService.create({
-        userId: params.decidedBy,
-        companyId: params.companyId,
-        type: "mention",
-        title: "Project created",
-        body: `Created from ${oppTitle}`,
-        persistent: false,
-        actionUrl: result.projectAccessible
-          ? `/dashboard?openProject=${result.projectId}&mode=view`
-          : `/pipeline?opportunityId=${params.opportunityId}`,
-        actionLabel: result.projectAccessible ? "View Project" : "View lead",
-        ...(result.projectAccessible ? { projectId: result.projectId } : {}),
-      });
-    }
-
-    return result;
+    return runConversion(params, null);
   },
 
   /**
    * Win a deal by LINKING it to an existing project instead of creating a new
-   * one (the Won dialog's "link" branch / dedup candidate selection). No new
-   * project, no "project created" notification — the target's status/title are
-   * untouched; only the link contract, estimate relink, task/photo dedup, and
-   * disposition are written.
+   * one (the Won dialog's "link" branch / dedup candidate selection). The
+   * target's status/title are untouched; only the link contract, estimate
+   * relink, task/photo dedup, disposition, and immutable conversion event are
+   * written.
    */
   async linkOpportunityToExistingProject(
     params: LinkOpportunityToProjectParams

@@ -28,13 +28,26 @@ interface FromCall {
   update?: Record<string, unknown>;
 }
 
+interface RpcCall {
+  name: string;
+  args: Record<string, unknown>;
+}
+
 /**
  * Minimal chainable Supabase fake that records every `.from(table)` call and
  * the payload passed to `.update()`. `agent_actions` reads resolve to the
  * supplied action row; every other terminal resolves to `{ error: null }`.
  */
-function makeFakeSupabase(actionRow: Record<string, unknown>) {
+function makeFakeSupabase(
+  actionRow: Record<string, unknown>,
+  rpcData: Record<string, unknown> = {
+    ok: true,
+    status: "executed",
+    execution_result: { projectId: "proj-1" },
+  }
+) {
   const calls: FromCall[] = [];
+  const rpcCalls: RpcCall[] = [];
 
   function from(table: string) {
     const record: FromCall = { table };
@@ -63,7 +76,12 @@ function makeFakeSupabase(actionRow: Record<string, unknown>) {
     return builder;
   }
 
-  return { supabase: { from }, calls };
+  const rpc = async (name: string, args: Record<string, unknown>) => {
+    rpcCalls.push({ name, args });
+    return { data: rpcData, error: null };
+  };
+
+  return { supabase: { from, rpc }, calls, rpcCalls };
 }
 
 function makeActionRow(overrides: Record<string, unknown> = {}) {
@@ -75,6 +93,9 @@ function makeActionRow(overrides: Record<string, unknown> = {}) {
     action_data: {
       project_id: "proj-1",
       project_title: "WJ ROYAL BAY",
+      expected_project_status: "completed",
+      expected_project_updated_at: "2026-06-03T00:00:00Z",
+      expected_project_status_version: 7,
       completed_date: "2026-05-01T00:00:00Z",
       days_since_completion: 53,
       total_tasks: 6,
@@ -107,17 +128,19 @@ beforeEach(() => {
 });
 
 describe("approval-queue close_project executor", () => {
-  it("writes projects.status = 'closed' when a close_project action is approved", async () => {
-    const { supabase, calls } = makeFakeSupabase(makeActionRow());
+  it("uses the atomic actor-aware project-status action bridge", async () => {
+    const { supabase, rpcCalls } = makeFakeSupabase(makeActionRow());
     requireSupabaseMock.mockReturnValue(supabase);
 
     await ApprovalQueueService.approveAction("act-1", "co-1", "user-1");
 
-    const projectsUpdate = calls.find(
-      (c) => c.table === "projects" && c.update !== undefined
-    );
-    expect(projectsUpdate).toBeDefined();
-    expect(projectsUpdate!.update).toEqual({ status: "closed" });
+    expect(rpcCalls).toContainEqual({
+      name: "execute_project_status_action_as_system",
+      args: {
+        p_actor_user_id: "user-1",
+        p_action_id: "act-1",
+      },
+    });
   });
 
   it("never writes 'archived' on the close path", async () => {
@@ -134,21 +157,54 @@ describe("approval-queue close_project executor", () => {
 });
 
 describe("approval-queue archive_project executor — reserved for operator pause/cancel", () => {
-  it("still writes projects.status = 'archived' when an archive_project action is approved", async () => {
+  it("uses the same atomic status-action bridge to archive", async () => {
     const archiveRow = makeActionRow({
       action_type: "archive_project",
       source_id: "proj-1:archive",
       context_source: "lifecycle_automation",
     });
-    const { supabase, calls } = makeFakeSupabase(archiveRow);
+    const { supabase, rpcCalls } = makeFakeSupabase(archiveRow);
     requireSupabaseMock.mockReturnValue(supabase);
 
     await ApprovalQueueService.approveAction("act-1", "co-1", "user-1");
 
-    const projectsUpdate = calls.find(
-      (c) => c.table === "projects" && c.update !== undefined
-    );
-    expect(projectsUpdate).toBeDefined();
-    expect(projectsUpdate!.update).toEqual({ status: "archived" });
+    expect(rpcCalls).toContainEqual({
+      name: "execute_project_status_action_as_system",
+      args: {
+        p_actor_user_id: "user-1",
+        p_action_id: "act-1",
+      },
+    });
+  });
+
+  it("surfaces a durable legacy-snapshot rejection from the atomic action", async () => {
+    const archiveRow = makeActionRow({
+      action_type: "archive_project",
+      status: "failed",
+      reviewed_by: "user-1",
+      reviewed_at: "2026-07-16T00:00:00Z",
+      error: "archive proposal has no valid project status snapshot",
+      action_data: {
+        project_id: "proj-1",
+        project_title: "WJ ROYAL BAY",
+      },
+    });
+    const { supabase, rpcCalls } = makeFakeSupabase(archiveRow, {
+      ok: false,
+      status: "failed",
+      reason: "archive proposal has no valid project status snapshot",
+    });
+    requireSupabaseMock.mockReturnValue(supabase);
+
+    await expect(
+      ApprovalQueueService.approveAction("act-1", "co-1", "user-1")
+    ).rejects.toThrow("archive proposal has no valid project status snapshot");
+    expect(rpcCalls).toContainEqual({
+      name: "execute_project_status_action_as_system",
+      args: {
+        p_actor_user_id: "user-1",
+        p_action_id: "act-1",
+      },
+    });
   });
 });

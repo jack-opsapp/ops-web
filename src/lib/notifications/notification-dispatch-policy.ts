@@ -1,24 +1,8 @@
 export type NotificationDispatchRequest =
   | {
-      eventType: "project_assigned";
+      eventType: "project_status_change";
       projectId: string;
-      candidateRecipientIds: string[];
-    }
-  | {
-      eventType:
-        | "project_status_change"
-        | "project_archived"
-        | "lead_converted";
-      projectId: string;
-    }
-  | {
-      eventType: "task_assigned";
-      taskId: string;
-      candidateRecipientIds: string[];
-    }
-  | {
-      eventType: "task_completed" | "schedule_change";
-      taskId: string;
+      projectStatusEventId: string;
     }
   | { eventType: "expense_submitted"; expenseId: string }
   | { eventType: "expense_approved" | "expense_paid"; batchId: string }
@@ -58,14 +42,6 @@ function hasOnlyKeys(
   return Object.keys(value).every((key) => allowedSet.has(key));
 }
 
-function parseCandidates(value: unknown): string[] | null {
-  if (!Array.isArray(value) || value.length === 0 || value.length > 100) {
-    return null;
-  }
-  if (!value.every(isUuid)) return null;
-  return [...new Set(value)];
-}
-
 export function parseNotificationDispatchRequest(
   input: unknown
 ): NotificationDispatchParseResult {
@@ -79,65 +55,26 @@ export function parseNotificationDispatchRequest(
 
   const eventType = input.eventType;
   switch (eventType) {
-    case "project_assigned": {
+    case "project_status_change":
       if (
         !hasOnlyKeys(input, [
           "eventType",
           "projectId",
-          "candidateRecipientIds",
+          "projectStatusEventId",
         ]) ||
-        !isUuid(input.projectId)
+        !isUuid(input.projectId) ||
+        !isUuid(input.projectStatusEventId)
       ) {
-        return { ok: false, reason: "Invalid project assignment proof" };
-      }
-      const candidateRecipientIds = parseCandidates(
-        input.candidateRecipientIds
-      );
-      if (!candidateRecipientIds) {
-        return { ok: false, reason: "Invalid project assignment recipients" };
+        return { ok: false, reason: "Invalid project status proof" };
       }
       return {
         ok: true,
-        value: { eventType, projectId: input.projectId, candidateRecipientIds },
+        value: {
+          eventType,
+          projectId: input.projectId,
+          projectStatusEventId: input.projectStatusEventId,
+        },
       };
-    }
-    case "project_status_change":
-    case "project_archived":
-    case "lead_converted":
-      if (
-        !hasOnlyKeys(input, ["eventType", "projectId"]) ||
-        !isUuid(input.projectId)
-      ) {
-        return { ok: false, reason: "Invalid project event proof" };
-      }
-      return { ok: true, value: { eventType, projectId: input.projectId } };
-    case "task_assigned": {
-      if (
-        !hasOnlyKeys(input, ["eventType", "taskId", "candidateRecipientIds"]) ||
-        !isUuid(input.taskId)
-      ) {
-        return { ok: false, reason: "Invalid task assignment proof" };
-      }
-      const candidateRecipientIds = parseCandidates(
-        input.candidateRecipientIds
-      );
-      if (!candidateRecipientIds) {
-        return { ok: false, reason: "Invalid task assignment recipients" };
-      }
-      return {
-        ok: true,
-        value: { eventType, taskId: input.taskId, candidateRecipientIds },
-      };
-    }
-    case "task_completed":
-    case "schedule_change":
-      if (
-        !hasOnlyKeys(input, ["eventType", "taskId"]) ||
-        !isUuid(input.taskId)
-      ) {
-        return { ok: false, reason: "Invalid task event proof" };
-      }
-      return { ok: true, value: { eventType, taskId: input.taskId } };
     case "expense_submitted":
       if (
         !hasOnlyKeys(input, ["eventType", "expenseId"]) ||

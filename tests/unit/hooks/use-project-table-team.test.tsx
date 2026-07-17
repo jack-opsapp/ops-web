@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { analyticsService } from "@/lib/analytics/analytics-service";
 import { queryKeys } from "@/lib/api/query-client";
-import { dispatchProjectAssignment } from "@/lib/api/services/notification-dispatch";
 import { ProjectTableTeamService } from "@/lib/api/services/project-table-team-service";
 import { ProjectTableMutationError } from "@/lib/api/services/project-table-service";
 import { useProjectTableTeam } from "@/lib/hooks/projects-table/use-project-table-team";
@@ -19,10 +18,6 @@ vi.mock("@/lib/api/services/project-table-team-service", () => ({
     assignTeamMember: vi.fn(),
     removeTeamMember: vi.fn(),
   },
-}));
-
-vi.mock("@/lib/api/services/notification-dispatch", () => ({
-  dispatchProjectAssignment: vi.fn(),
 }));
 
 vi.mock("@/lib/analytics/analytics-service", () => ({
@@ -199,12 +194,6 @@ describe("useProjectTableTeam", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.projects.tableTeamMembers("company-1"),
     });
-    expect(dispatchProjectAssignment).toHaveBeenCalledWith({
-      projectId: "project-1",
-      projectTitle: "Deck rebuild",
-      newMemberIds: ["user-2"],
-      companyId: "company-1",
-    });
     expect(analyticsService.track).toHaveBeenCalledWith(
       "action",
       "project_table_team_rpc",
@@ -217,7 +206,7 @@ describe("useProjectTableTeam", () => {
     );
   });
 
-  it("does not dispatch assignment notifications when the member is already on the row", async () => {
+  it("allows an already assigned member to be applied to another task", async () => {
     const queryClient = makeQueryClient();
 
     const { result } = renderHook(() => useProjectTableTeam({ row }), {
@@ -237,7 +226,6 @@ describe("useProjectTableTeam", () => {
       taskIds: ["task-1"],
       expectedUpdatedAt: "2026-05-13T00:00:00Z",
     });
-    expect(dispatchProjectAssignment).not.toHaveBeenCalled();
   });
 
   it("tracks team RPC conflicts without logging member details", async () => {

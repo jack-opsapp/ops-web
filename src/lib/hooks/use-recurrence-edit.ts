@@ -17,7 +17,7 @@ import { addDays, format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { RecurrenceService } from "../api/services/recurrence-service";
-import { TaskService } from "../api/services/task-service";
+import { LifecycleMutationService } from "../api/services/lifecycle-mutation-service";
 import { requireSupabase } from "../supabase/helpers";
 import type {
   ProjectTask,
@@ -135,7 +135,7 @@ async function applyEditThis(
   }
 
   // Always patch the live task row so the user sees their change immediately.
-  await TaskService.updateTask(task.id, patch);
+  await LifecycleMutationService.updateTask(task.id, patch);
 
   return { scope: "this", taskId: task.id };
 }
@@ -195,7 +195,7 @@ async function applyEditThisAndFollowing(
   }
 
   // 4. Apply the patch to the live task row so the user sees the change now.
-  await TaskService.updateTask(task.id, patch);
+  await LifecycleMutationService.updateTask(task.id, patch);
 
   return {
     scope: "this_and_following",

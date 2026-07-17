@@ -47,7 +47,7 @@ const FAKE_TEMPLATE = {
   deletedAt: null,
 };
 
-vi.mock("@/lib/api/services", () => ({
+vi.mock("@/lib/api/services/recurrence-service", () => ({
   RecurrenceService: {
     getById: (id: string) => {
       recurrenceCalls.push({ method: "getById", args: [id] });
@@ -66,7 +66,10 @@ vi.mock("@/lib/api/services", () => ({
       return Promise.resolve({ id: "ex-1" });
     },
   },
-  TaskService: {
+}));
+
+vi.mock("@/lib/api/services/lifecycle-mutation-service", () => ({
+  LifecycleMutationService: {
     updateTask: (id: string, patch: unknown) => {
       taskCalls.push({ method: "updateTask", args: [id, patch] });
       return Promise.resolve();

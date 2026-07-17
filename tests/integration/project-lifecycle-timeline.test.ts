@@ -5,8 +5,8 @@
  * Verifies that on a status transition:
  *   1. A project_notes row is inserted with event_kind='status_change' and
  *      content_metadata = { from, to }.
- *   2. dispatchProjectStatusChange is called once with the project's
- *      team_member_ids minus the changedBy user.
+ *   2. the canonical server notification dispatcher receives only the
+ *      immutable lifecycle event id and authenticated actor.
  *
  * The project_notes write + dispatch must fire regardless of the phase_c
  * AI feature gate — they are the audit trail / team awareness pathway and
@@ -36,21 +36,13 @@ vi.mock("@/lib/api/services/project-note-service", () => ({
   },
 }));
 
-interface DispatchStatusChangeCall {
-  projectId: string;
-  projectTitle: string;
-  fromStatus: string;
-  toStatus: string;
-  changedByName: string;
-  recipientUserIds: string[];
-  companyId: string;
-}
-const statusDispatches: DispatchStatusChangeCall[] = [];
+const dispatchNotificationEvent = vi.fn((_input: unknown) =>
+  Promise.resolve({ ok: true, notified: 2, pushed: 2, emailed: 0 } as const)
+);
 
-vi.mock("@/lib/api/services/notification-dispatch", () => ({
-  dispatchProjectStatusChange: (params: DispatchStatusChangeCall) => {
-    statusDispatches.push(params);
-  },
+vi.mock("@/lib/notifications/dispatch-notification-event", () => ({
+  dispatchNotificationEvent: (input: unknown) =>
+    dispatchNotificationEvent(input),
 }));
 
 // AI feature gate — returns false so the lifecycle service short-circuits
@@ -108,6 +100,15 @@ function makeSupabaseStub(opts: {
           }),
         };
       }
+      if (table === "project_notes") {
+        const builder: Record<string, unknown> = {};
+        builder.select = () => builder;
+        builder.eq = () => builder;
+        builder.contains = () => builder;
+        builder.maybeSingle = () =>
+          Promise.resolve({ data: null, error: null });
+        return builder;
+      }
       if (table === "users") {
         // Used by admin fallback if companies.admin_ids is empty
         return {
@@ -150,7 +151,7 @@ import { ProjectLifecycleService } from "@/lib/api/services/project-lifecycle-se
 
 beforeEach(() => {
   systemEvents.length = 0;
-  statusDispatches.length = 0;
+  dispatchNotificationEvent.mockClear();
 });
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -178,7 +179,7 @@ describe("ProjectLifecycleService.onProjectStageChange — timeline + dispatch",
     expect(ev.contentMetadata).toEqual({ from: "rfq", to: "estimated" });
   });
 
-  it("dispatches status-change notification to team minus the changedBy user", async () => {
+  it("dispatches status-change notification through the trusted server seam", async () => {
     supabaseStub = makeSupabaseStub({
       teamMemberIds: ["u-1", "u-2", "u-3"],
       projectTitle: "Roof Replacement",
@@ -191,20 +192,26 @@ describe("ProjectLifecycleService.onProjectStageChange — timeline + dispatch",
       "estimated",
       "u-1",
       "Operator One",
+      "00000000-0000-4000-8000-000000000001"
     );
 
-    expect(statusDispatches).toHaveLength(1);
-    const call = statusDispatches[0];
-    expect(call.projectId).toBe("p-1");
-    expect(call.projectTitle).toBe("Roof Replacement");
-    expect(call.fromStatus).toBe("rfq");
-    expect(call.toStatus).toBe("estimated");
-    expect(call.changedByName).toBe("Operator One");
-    expect(call.companyId).toBe("co-1");
-    expect(call.recipientUserIds.sort()).toEqual(["u-2", "u-3"]);
+    expect(dispatchNotificationEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchNotificationEvent).toHaveBeenCalledWith({
+      db: supabaseStub,
+      actor: {
+        userId: "u-1",
+        companyId: "co-1",
+        name: "Operator One",
+      },
+      request: {
+        eventType: "project_status_change",
+        projectId: "p-1",
+        projectStatusEventId: "00000000-0000-4000-8000-000000000001",
+      },
+    });
   });
 
-  it("does not dispatch when team has only the changedBy user", async () => {
+  it("lets the server resolver decide whether any recipients remain", async () => {
     supabaseStub = makeSupabaseStub({ teamMemberIds: ["u-1"] });
 
     await ProjectLifecycleService.onProjectStageChange(
@@ -214,10 +221,11 @@ describe("ProjectLifecycleService.onProjectStageChange — timeline + dispatch",
       "accepted",
       "u-1",
       "Solo Operator",
+      "00000000-0000-4000-8000-000000000002"
     );
 
     expect(systemEvents).toHaveLength(1);
-    expect(statusDispatches).toHaveLength(0);
+    expect(dispatchNotificationEvent).toHaveBeenCalledTimes(1);
   });
 
   it("does not dispatch when changedByUserId is omitted (legacy callers)", async () => {
@@ -233,6 +241,6 @@ describe("ProjectLifecycleService.onProjectStageChange — timeline + dispatch",
     // Timeline event still writes (the audit trail does not require a known actor),
     // but we cannot dispatch without knowing who changed the status.
     expect(systemEvents).toHaveLength(1);
-    expect(statusDispatches).toHaveLength(0);
+    expect(dispatchNotificationEvent).not.toHaveBeenCalled();
   });
 });

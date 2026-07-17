@@ -8,14 +8,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { sendOneSignalPush } from "@/lib/integrations/onesignal";
+import { dispatchNotificationEvent } from "@/lib/notifications/dispatch-notification-event";
 import { parseNotificationDispatchRequest } from "@/lib/notifications/notification-dispatch-policy";
-import { resolveNotificationEvent } from "@/lib/notifications/notification-event-resolver";
-import {
-  createTrustedNotifications,
-  resolveNotificationPreferences,
-  resolveNotificationRouteActor,
-} from "@/lib/notifications/server-notification-service";
+import { resolveNotificationRouteActor } from "@/lib/notifications/server-notification-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -36,70 +31,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const db = getServiceRoleClient();
-    const resolved = await resolveNotificationEvent({
+    const result = await dispatchNotificationEvent({
       db,
       actor: actorResolution.actor,
       request: parsed.value,
     });
-    if (!resolved.ok) {
+    if (!result.ok) {
       return NextResponse.json(
-        { error: resolved.reason },
-        { status: resolved.status }
+        { error: result.reason },
+        { status: result.status }
       );
     }
-
-    const event = resolved.event;
-    const preferences = await resolveNotificationPreferences({
-      companyId: event.companyId,
-      recipientUserIds: event.recipientUserIds,
-      excludeUserId: actorResolution.actor.userId,
-      preferenceKey: event.preferenceKey,
-      db,
-    });
-
-    const rail = await createTrustedNotifications(
-      {
-        companyId: event.companyId,
-        recipientUserIds: preferences.inAppRecipientIds,
-        type: event.type,
-        title: event.title,
-        body: event.body,
-        persistent: event.persistent,
-        actionUrl: event.actionUrl,
-        actionLabel: event.actionLabel,
-        projectId: event.projectId ?? null,
-        deepLinkType: event.deepLinkType,
-        dedupeKey: event.dedupeKey,
-      },
-      db
-    );
-    if (rail.errors > 0) {
-      return NextResponse.json(
-        { error: "Notification persistence failed" },
-        { status: 500 }
-      );
-    }
-
-    const createdRecipients = new Set(rail.createdRecipientIds);
-    const pushRecipientIds = preferences.pushRecipientIds.filter((userId) =>
-      createdRecipients.has(userId)
-    );
-    let pushed = 0;
-    if (pushRecipientIds.length > 0) {
-      const result = await sendOneSignalPush({
-        recipientUserIds: pushRecipientIds,
-        title: event.title,
-        body: event.body,
-        data: event.pushData,
-      });
-      pushed = result.ok ? result.recipients : 0;
-    }
-
     return NextResponse.json({
       success: true,
-      notified: rail.createdRecipientIds.length,
-      pushed,
-      emailed: 0,
+      notified: result.notified,
+      pushed: result.pushed,
+      emailed: result.emailed,
     });
   } catch (error) {
     console.error("[notification-dispatch] Error:", error);

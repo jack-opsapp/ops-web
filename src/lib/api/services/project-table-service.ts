@@ -118,6 +118,7 @@ function serializeBulkOperation(operation: ProjectTableBulkOperation): ProjectTa
       return {
         ...base,
         status: serializeProjectTableStatus(operation.status),
+        expected_status_version: operation.expectedStatusVersion,
       };
     case "date":
       return {
@@ -152,6 +153,11 @@ function normalizeBulkSuccess(value: unknown): ProjectTableBulkSuccess | null {
     projectId,
     action: typeof value.action === "string" ? value.action : "",
     updatedAt: typeof value.updated_at === "string" ? value.updated_at : null,
+    ...(typeof value.status_version === "number" &&
+    Number.isSafeInteger(value.status_version) &&
+    value.status_version >= 0
+      ? { statusVersion: value.status_version }
+      : {}),
   };
 }
 
@@ -228,7 +234,34 @@ export const ProjectTableService = {
       throw new Error(`Failed to fetch project table rows: ${error.message}`);
     }
 
-    const rows = (data ?? []).map(mapProjectTableRow).filter((row): row is ProjectTableRow => row !== null);
+    const mappedRows = (data ?? [])
+      .map(mapProjectTableRow)
+      .filter((row): row is ProjectTableRow => row !== null);
+    const { data: versions, error: versionsError } = mappedRows.length
+      ? await supabase
+          .from("projects")
+          .select("id, status_version")
+          .in(
+            "id",
+            mappedRows.map((row) => row.id)
+          )
+          .is("deleted_at", null)
+      : { data: [], error: null };
+    if (versionsError) {
+      throw new Error(
+        `Failed to fetch project status versions: ${versionsError.message}`
+      );
+    }
+    const statusVersionById = new Map(
+      (versions ?? []).map((row) => [row.id, row.status_version])
+    );
+    const rows = mappedRows.map((row) => {
+      const statusVersion = statusVersionById.get(row.id);
+      if (!Number.isSafeInteger(statusVersion) || (statusVersion ?? -1) < 0) {
+        throw new Error(`Project ${row.id} is missing its status version`);
+      }
+      return { ...row, statusVersion: statusVersion as number };
+    });
     const total = count ?? rows.length;
     const nextPage = to + 1 < total ? page + 1 : null;
 
@@ -266,10 +299,28 @@ export const ProjectTableService = {
     expectedUpdatedAt: string;
   }): Promise<{ updatedAt: string }> {
     const supabase = requireSupabase();
+    const { data: snapshot, error: snapshotError } = await supabase
+      .from("projects")
+      .select("status_version")
+      .eq("id", params.projectId)
+      .eq("updated_at", params.expectedUpdatedAt)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (
+      snapshotError ||
+      !snapshot ||
+      !Number.isSafeInteger(snapshot.status_version) ||
+      snapshot.status_version < 0
+    ) {
+      throw normalizeProjectTableMutationError(
+        snapshotError ?? { code: "P0001", message: "Project conflict" }
+      );
+    }
     const { data, error } = await supabase.rpc("change_project_status", {
       p_project_id: params.projectId,
       p_new_status: serializeProjectTableStatus(params.status),
       p_expected_updated_at: params.expectedUpdatedAt,
+      p_expected_status_version: snapshot.status_version,
     });
 
     if (error) throw normalizeProjectTableMutationError(error);

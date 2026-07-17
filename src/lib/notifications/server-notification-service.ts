@@ -92,11 +92,9 @@ export async function filterActiveCompanyRecipients(params: {
     .eq("is_active", true)
     .is("deleted_at", null);
   if (error) {
-    console.error(
-      "[notifications] active recipient lookup failed:",
-      error.message
+    throw new Error(
+      `Active notification recipient lookup failed: ${error.message}`
     );
-    return [];
   }
 
   const allowed = new Set(
@@ -191,12 +189,7 @@ export async function resolveNotificationPreferences(params: {
     .in("user_id", recipients)
     .eq("company_id", params.companyId);
   if (error) {
-    console.error("[notifications] preference lookup failed:", error.message);
-    return {
-      inAppRecipientIds: [],
-      pushRecipientIds: [],
-      emailRecipientIds: [],
-    };
+    throw new Error(`Notification preference lookup failed: ${error.message}`);
   }
 
   const preferences = new Map<string, Record<string, unknown>>(
@@ -224,7 +217,9 @@ export async function resolveNotificationPreferences(params: {
     const wantsPush = eventPreference?.push !== false;
     const wantsEmail = eventPreference?.email === true;
 
-    if (wantsPush || wantsEmail) result.inAppRecipientIds.push(recipientId);
+    // The rail is the durable in-app audit surface and has no separate opt-out.
+    // Channel preferences govern external delivery only.
+    result.inAppRecipientIds.push(recipientId);
     if (wantsPush && userPreferences?.push_enabled !== false) {
       result.pushRecipientIds.push(recipientId);
     }

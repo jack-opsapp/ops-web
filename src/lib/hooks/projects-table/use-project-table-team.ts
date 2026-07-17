@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { analyticsService } from "@/lib/analytics/analytics-service";
 import { queryKeys } from "@/lib/api/query-client";
-import { dispatchProjectAssignment } from "@/lib/api/services/notification-dispatch";
 import { ProjectTableTeamService } from "@/lib/api/services/project-table-team-service";
 import { ProjectTableMutationError } from "@/lib/api/services/project-table-service";
 import type { ProjectTableRow } from "@/lib/types/project-table";
@@ -160,21 +159,12 @@ export function useProjectTableTeam({ row }: { row: ProjectTableRow }) {
       }
     },
     onSuccess: (result, variables) => {
-      const wasAlreadyAssigned = row.teamMemberIds.includes(variables.userId);
       updateProjectRows(queryClient, row.id, (cachedRow) => ({
         ...cachedRow,
         teamMemberIds: uniqueIds([...cachedRow.teamMemberIds, variables.userId]),
         updatedAt: result.updatedAt,
       }));
       invalidateTeamCaches(queryClient, row);
-      if (!wasAlreadyAssigned) {
-        dispatchProjectAssignment({
-          projectId: row.id,
-          projectTitle: row.title,
-          newMemberIds: [variables.userId],
-          companyId: row.companyId,
-        });
-      }
     },
   });
 

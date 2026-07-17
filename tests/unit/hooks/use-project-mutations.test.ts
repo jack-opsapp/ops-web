@@ -5,8 +5,6 @@
  *   - ProjectService for project CRUD
  *   - ProjectNoteService.createSystemEvent for the unified timeline rows
  *     (event_kind = project_created / project_archived / photo_uploaded)
- *   - dispatchProjectAssignment for new-member push notifications
- *   - NotificationService.create for archive notifications to existing team
  *   - useCreateProjectNote (re-exported as `postNote`) for user notes
  *
  * What this hook deliberately does NOT do:
@@ -29,9 +27,15 @@ const projectServiceUpdateCalls: Array<{ id: string; patch: Record<string, unkno
 const projectServiceDeleteCalls: string[] = [];
 const systemEventCalls: Array<Record<string, unknown>> = [];
 const userNoteCalls: Array<Record<string, unknown>> = [];
-const dispatchAssignmentCalls: Array<Record<string, unknown>> = [];
-const dispatchArchivedCalls: Array<Record<string, unknown>> = [];
-const notificationCreateCalls: Array<Record<string, unknown>> = [];
+const lifecycleStatusCalls: Array<{ id: string; status: ProjectStatus }> = [];
+
+vi.mock("@/lib/api/services/lifecycle-mutation-service", () => ({
+  LifecycleMutationService: {
+    updateProjectStatus: vi.fn(async (id: string, status: ProjectStatus) => {
+      lifecycleStatusCalls.push({ id, status });
+    }),
+  },
+}));
 
 vi.mock("@/lib/api/services/project-service", () => ({
   ProjectService: {
@@ -57,23 +61,6 @@ vi.mock("@/lib/api/services/project-note-service", () => ({
     createNote: vi.fn(async (input: Record<string, unknown>) => {
       userNoteCalls.push(input);
       return { id: "note-1", ...input };
-    }),
-  },
-}));
-
-vi.mock("@/lib/api/services/notification-dispatch", () => ({
-  dispatchProjectAssignment: vi.fn((params: Record<string, unknown>) => {
-    dispatchAssignmentCalls.push(params);
-  }),
-  dispatchProjectArchived: vi.fn((params: Record<string, unknown>) => {
-    dispatchArchivedCalls.push(params);
-  }),
-}));
-
-vi.mock("@/lib/api/services/notification-service", () => ({
-  NotificationService: {
-    create: vi.fn(async (params: Record<string, unknown>) => {
-      notificationCreateCalls.push(params);
     }),
   },
 }));
@@ -104,9 +91,7 @@ beforeEach(() => {
   projectServiceDeleteCalls.length = 0;
   systemEventCalls.length = 0;
   userNoteCalls.length = 0;
-  dispatchAssignmentCalls.length = 0;
-  dispatchArchivedCalls.length = 0;
-  notificationCreateCalls.length = 0;
+  lifecycleStatusCalls.length = 0;
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -125,7 +110,7 @@ describe("useProjectMutations", () => {
   });
 
   describe("createProject", () => {
-    it("delegates to ProjectService.createProject + writes project_created event_kind + dispatches assignment", async () => {
+    it("delegates to ProjectService.createProject and writes project_created event_kind", async () => {
       const { result } = renderHook(() => useProjectMutations(null), {
         wrapper: makeWrapper(),
       });
@@ -156,18 +141,9 @@ describe("useProjectMutations", () => {
         authorId: "user-123",
         eventKind: "project_created",
       });
-
-      // Push notification dispatched to the new team members
-      expect(dispatchAssignmentCalls).toHaveLength(1);
-      expect(dispatchAssignmentCalls[0]).toMatchObject({
-        projectId: "new-proj-id",
-        projectTitle: "Driveway Sealing — Block 7",
-        newMemberIds: ["u-pm", "u-crew-1"],
-        companyId: "co-1",
-      });
     });
 
-    it("skips assignment dispatch when no team members are added", async () => {
+    it("supports creating a project without team members", async () => {
       const { result } = renderHook(() => useProjectMutations(null), {
         wrapper: makeWrapper(),
       });
@@ -180,7 +156,6 @@ describe("useProjectMutations", () => {
       });
 
       expect(systemEventCalls).toHaveLength(1);
-      expect(dispatchAssignmentCalls).toHaveLength(0);
     });
 
     it("does NOT call createNote (system events go through createSystemEvent)", async () => {
@@ -214,7 +189,7 @@ describe("useProjectMutations", () => {
       ]);
     });
 
-    it("dispatches assignment notification only for newly added team members", async () => {
+    it("persists team member changes through ProjectService", async () => {
       const { result } = renderHook(() => useProjectMutations("proj-1"), {
         wrapper: makeWrapper(),
       });
@@ -230,15 +205,18 @@ describe("useProjectMutations", () => {
         });
       });
 
-      expect(dispatchAssignmentCalls).toHaveLength(1);
-      expect(dispatchAssignmentCalls[0]).toMatchObject({
-        projectId: "proj-1",
-        newMemberIds: ["u-new-1", "u-new-2"], // only the delta
-        companyId: "co-1",
-      });
+      expect(projectServiceUpdateCalls).toEqual([
+        {
+          id: "proj-1",
+          patch: {
+            title: "Driveway Sealing",
+            teamMemberIds: ["u-existing", "u-new-1", "u-new-2"],
+          },
+        },
+      ]);
     });
 
-    it("does NOT dispatch assignment when the team is unchanged", async () => {
+    it("persists an unchanged team without client-side notification work", async () => {
       const { result } = renderHook(() => useProjectMutations("proj-1"), {
         wrapper: makeWrapper(),
       });
@@ -251,10 +229,10 @@ describe("useProjectMutations", () => {
         });
       });
 
-      expect(dispatchAssignmentCalls).toHaveLength(0);
+      expect(projectServiceUpdateCalls).toHaveLength(1);
     });
 
-    it("does NOT dispatch when previousTeamMemberIds is omitted (trivial save)", async () => {
+    it("supports a trivial save when previousTeamMemberIds is omitted", async () => {
       const { result } = renderHook(() => useProjectMutations("proj-1"), {
         wrapper: makeWrapper(),
       });
@@ -266,13 +244,12 @@ describe("useProjectMutations", () => {
         });
       });
 
-      expect(dispatchAssignmentCalls).toHaveLength(0);
       expect(systemEventCalls).toHaveLength(0);
     });
   });
 
   describe("archiveProject", () => {
-    it("updates status to Archived, writes project_archived event, and notifies team", async () => {
+    it("routes Archived through the guarded durable lifecycle boundary", async () => {
       const { result } = renderHook(() => useProjectMutations("proj-1"), {
         wrapper: makeWrapper(),
       });
@@ -285,31 +262,11 @@ describe("useProjectMutations", () => {
         });
       });
 
-      expect(projectServiceUpdateCalls).toEqual([
-        { id: "proj-1", patch: { status: ProjectStatus.Archived } },
+      expect(lifecycleStatusCalls).toEqual([
+        { id: "proj-1", status: ProjectStatus.Archived },
       ]);
-
-      expect(systemEventCalls).toHaveLength(1);
-      expect(systemEventCalls[0]).toMatchObject({
-        projectId: "proj-1",
-        eventKind: "project_archived",
-        authorId: "user-123",
-      });
-
-      // Archive notifications now go through dispatchProjectArchived
-      // (Phase 11: centralized push + in-app dispatch). The dispatch route
-      // filters out the acting user server-side.
-      expect(dispatchArchivedCalls).toHaveLength(1);
-      expect(dispatchArchivedCalls[0]).toMatchObject({
-        projectId: "proj-1",
-        projectTitle: "Driveway Sealing",
-        recipientUserIds: ["u-pm", "u-crew-1"],
-        companyId: "co-1",
-      });
-      // archivedByName is composed from currentUser; "Jack" since lastName is omitted
-      expect(dispatchArchivedCalls[0].archivedByName).toBe("Jack");
-      // The hook no longer calls NotificationService.create directly for archive
-      expect(notificationCreateCalls).toHaveLength(0);
+      expect(projectServiceUpdateCalls).toHaveLength(0);
+      expect(systemEventCalls).toHaveLength(0);
     });
   });
 

@@ -8,6 +8,8 @@
  * Uses OPENAI_API_KEY_DRAFTING via getDraftingOpenAI().
  */
 
+import "server-only";
+
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { WritingProfileService } from "./writing-profile-service";
 import { MemoryService } from "./memory-service";

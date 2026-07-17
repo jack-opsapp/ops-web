@@ -116,6 +116,9 @@ export function mapProjectTableRow(row: ProjectTableDbRow): ProjectTableRow | nu
     margin: row.margin,
     photoCount: row.photo_count ?? 0,
     updatedAt: row.updated_at,
+    // The table view predates the monotonic status token. fetchRows hydrates
+    // this from canonical projects before exposing rows to mutation hooks.
+    statusVersion: 0,
   };
 }
 

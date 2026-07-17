@@ -78,6 +78,9 @@
   "notification.confirmedTaskRescheduled.title": "CONFIRMED TASK RESCHEDULED",
   "notification.confirmedTaskRescheduled.body": "A previously-confirmed appointment was changed. Consider letting the client know.",
   "notification.confirmedTaskRescheduled.action": "Open Calendar",
+  "notification.confirmedTaskUnscheduled.title": "CONFIRMED VISIT UNSCHEDULED",
+  "notification.confirmedTaskUnscheduled.body": "A confirmed visit was removed from the calendar. Let the client know or set a new date.",
+  "notification.confirmedTaskUnscheduled.action": "Open Calendar",
 
   "notification.autoConfirmedTasks.title": "TASKS AUTO-CONFIRMED",
   "notification.autoConfirmedTasks.action": "Open Calendar"

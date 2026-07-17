@@ -78,6 +78,9 @@
   "notification.confirmedTaskRescheduled.title": "TAREA CONFIRMADA REPROGRAMADA",
   "notification.confirmedTaskRescheduled.body": "Una cita previamente confirmada ha cambiado. Considera avisar al cliente.",
   "notification.confirmedTaskRescheduled.action": "Abrir calendario",
+  "notification.confirmedTaskUnscheduled.title": "VISITA CONFIRMADA SIN FECHA",
+  "notification.confirmedTaskUnscheduled.body": "Una visita confirmada se eliminó del calendario. Avisa al cliente o fija una nueva fecha.",
+  "notification.confirmedTaskUnscheduled.action": "Abrir calendario",
 
   "notification.autoConfirmedTasks.title": "TAREAS CONFIRMADAS AUTOMÁTICAMENTE",
   "notification.autoConfirmedTasks.action": "Abrir calendario"

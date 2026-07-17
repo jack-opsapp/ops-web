@@ -47,19 +47,41 @@ function makeScanSupabase(opts: {
   pendingCloseSourceIds?: string[];
   incompleteTasks?: unknown[];
   noRecentActivity?: boolean;
+  allTasks?: unknown[];
+  projectUpdatedAt?: string;
 }) {
   const resultFor = (table: string, cols: string): { data: unknown } => {
     if (table === "companies") return { data: { lifecycle_settings: null } };
     if (table === "projects" && cols.includes("title"))
-      return { data: [{ id: "proj-1", title: "WJ ROYAL BAY", client_id: "c1" }] };
+      return {
+        data: [
+          {
+            id: "proj-1",
+            title: "WJ ROYAL BAY",
+            client_id: "c1",
+            status: "completed",
+            updated_at: opts.projectUpdatedAt ?? SIXTY_DAYS_AGO,
+            status_version: 7,
+          },
+        ],
+      };
     if (table === "agent_actions")
-      return { data: (opts.pendingCloseSourceIds ?? []).map((s) => ({ source_id: s })) };
+      return {
+        data: (opts.pendingCloseSourceIds ?? []).map((s) => ({ source_id: s })),
+      };
     if (table === "project_tasks" && cols === "id")
       return { data: opts.incompleteTasks ?? [] };
     if (table === "project_tasks" && cols === "id, status")
-      return { data: [{ id: "t1", status: "completed" }, { id: "t2", status: "completed" }] };
+      return {
+        data: opts.allTasks ?? [
+          { id: "t1", status: "completed" },
+          { id: "t2", status: "completed" },
+        ],
+      };
     if (table === "project_tasks" && cols === "updated_at")
-      return { data: opts.noRecentActivity ? [] : [{ updated_at: SIXTY_DAYS_AGO }] };
+      return {
+        data: opts.noRecentActivity ? [] : [{ updated_at: SIXTY_DAYS_AGO }],
+      };
     return { data: [] };
   };
 
@@ -109,6 +131,10 @@ describe("ProjectLifecycleService — completed + paid ⇒ close_project", () =>
     expect(params.contextSummary).toBe(
       'Close "WJ ROYAL BAY" — completed 60 days ago, all tasks done, fully paid.'
     );
+    expect(
+      (params.actionData as Record<string, unknown>)
+        .expected_project_status_version
+    ).toBe(7);
   });
 
   it("does NOT propose a close when the project still owes money (outstanding > 0)", async () => {
@@ -137,24 +163,48 @@ describe("ProjectLifecycleService — completed + paid ⇒ close_project", () =>
     expect(proposeActionMock).not.toHaveBeenCalled();
   });
 
-  it("falls back to the configured close-after window when no recent activity is recorded", async () => {
-    // No task activity rows → daysAgo falls back to the config window (default 30).
-    // This exercises the branch that previously referenced a stale variable name.
-    requireSupabaseMock.mockReturnValue(makeScanSupabase({ noRecentActivity: true }));
+  it("does not close a recently updated project just because it has no task activity", async () => {
+    requireSupabaseMock.mockReturnValue(
+      makeScanSupabase({
+        noRecentActivity: true,
+        allTasks: [],
+        projectUpdatedAt: new Date().toISOString(),
+      })
+    );
     getProjectContextMock.mockResolvedValue({
       financials: { outstandingBalance: 0, invoicedTotal: 12000 },
     });
 
-    const proposed = await ProjectLifecycleService.detectClosableProjects("co-1");
+    const proposed =
+      await ProjectLifecycleService.detectClosableProjects("co-1");
+
+    expect(proposed).toBe(0);
+    expect(proposeActionMock).not.toHaveBeenCalled();
+  });
+
+  it("uses an old project update as the baseline for a zero-task project", async () => {
+    requireSupabaseMock.mockReturnValue(
+      makeScanSupabase({ noRecentActivity: true, allTasks: [] })
+    );
+    getProjectContextMock.mockResolvedValue({
+      financials: { outstandingBalance: 0, invoicedTotal: 12000 },
+    });
+
+    const proposed =
+      await ProjectLifecycleService.detectClosableProjects("co-1");
 
     expect(proposed).toBe(1);
-    const params = proposeActionMock.mock.calls[0][0] as Record<string, unknown>;
+    const params = proposeActionMock.mock.calls[0][0] as Record<
+      string,
+      unknown
+    >;
     expect(params.actionType).toBe("close_project");
     expect(params.contextSummary).toBe(
-      'Close "WJ ROYAL BAY" — completed 30 days ago, all tasks done, fully paid.'
+      'Close "WJ ROYAL BAY" — completed 60 days ago, all tasks done, fully paid.'
     );
     const data = params.actionData as Record<string, unknown>;
-    expect(data.days_since_completion).toBe(30);
-    expect(data.completed_date).toBeNull();
+    expect(data.days_since_completion).toBe(60);
+    expect(data.completed_date).toBe(SIXTY_DAYS_AGO);
+    expect(data.total_tasks).toBe(0);
   });
 });

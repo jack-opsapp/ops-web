@@ -392,6 +392,7 @@ describe("useCellEdit", () => {
             projectId: "p-1",
             status: ProjectStatus.Accepted,
             expectedUpdatedAt: "2026-05-13T01:00:00Z",
+            expectedStatusVersion: 1,
           },
         ],
       });
@@ -415,6 +416,7 @@ describe("useCellEdit", () => {
           projectId: "p-1",
           status: ProjectStatus.Accepted,
           expectedUpdatedAt: "2026-05-13T01:00:00Z",
+          expectedStatusVersion: 1,
         },
       ],
     });

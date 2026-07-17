@@ -322,67 +322,17 @@ export const ProjectService = {
    * Update an existing project.
    */
   async updateProject(id: string, data: Partial<Project>): Promise<void> {
+    if (data.status !== undefined) {
+      throw new Error(
+        "Project status changes must use the guarded lifecycle mutation"
+      );
+    }
     const supabase = requireSupabase();
     const row = mapToDb(data);
 
     const { error } = await supabase.from("projects").update(row).eq("id", id);
 
     if (error) throw new Error(`Failed to update project: ${error.message}`);
-  },
-
-  /**
-   * Update only the project status.
-   * Fires stage change detection (fire-and-forget) for lifecycle automation.
-   *
-   * `changedByUserId` and `changedByName` flow through to
-   * ProjectLifecycleService.onProjectStageChange so it can credit the
-   * timeline event to the actor and dispatch a status-change notification
-   * to the rest of the team. Cron-driven callers can omit them.
-   */
-  async updateProjectStatus(
-    id: string,
-    status: ProjectStatus,
-    changedByUserId?: string,
-    changedByName?: string
-  ): Promise<void> {
-    const supabase = requireSupabase();
-
-    // Fetch old status before updating (for stage change detection)
-    const { data: current } = await supabase
-      .from("projects")
-      .select("status, company_id")
-      .eq("id", id)
-      .single();
-
-    const oldStatus = (current?.status as string) ?? "";
-    const companyId = (current?.company_id as string) ?? "";
-    const newStatus = serializeProjectStatus(status);
-
-    const { error } = await supabase
-      .from("projects")
-      .update({ status: newStatus })
-      .eq("id", id);
-
-    if (error)
-      throw new Error(`Failed to update project status: ${error.message}`);
-
-    // Fire-and-forget: trigger lifecycle automation on stage change
-    if (oldStatus && newStatus && oldStatus !== newStatus && companyId) {
-      import("./project-lifecycle-service")
-        .then(({ ProjectLifecycleService }) =>
-          ProjectLifecycleService.onProjectStageChange(
-            companyId,
-            id,
-            oldStatus,
-            newStatus,
-            changedByUserId,
-            changedByName
-          )
-        )
-        .catch((err) =>
-          console.error("[project-service] Lifecycle stage change error:", err)
-        );
-    }
   },
 
   /**

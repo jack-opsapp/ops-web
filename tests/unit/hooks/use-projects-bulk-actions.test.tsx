@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { analyticsService } from "@/lib/analytics/analytics-service";
 import { queryKeys } from "@/lib/api/query-client";
-import { dispatchProjectAssignment } from "@/lib/api/services/notification-dispatch";
 import { ProjectTableService } from "@/lib/api/services/project-table-service";
 import { useCellEdit } from "@/lib/hooks/projects-table/use-cell-edit";
 import { useProjectsBulkActions } from "@/lib/hooks/projects-table/use-projects-bulk-actions";
@@ -24,10 +23,6 @@ vi.mock("@/lib/api/services/project-table-service", async () => {
     },
   };
 });
-
-vi.mock("@/lib/api/services/notification-dispatch", () => ({
-  dispatchProjectAssignment: vi.fn(),
-}));
 
 vi.mock("@/lib/analytics/analytics-service", () => ({
   analyticsService: {
@@ -68,6 +63,7 @@ const rowA: ProjectTableRow = {
   margin: null,
   photoCount: 0,
   updatedAt: "2026-05-13T00:00:00Z",
+  statusVersion: 1,
 };
 
 const rowB: ProjectTableRow = {
@@ -132,6 +128,7 @@ describe("useProjectsBulkActions", () => {
           projectId: "project-1",
           action: "status",
           updatedAt: "2026-05-13T01:00:00Z",
+          statusVersion: 2,
         },
       ],
       failed: [],
@@ -161,6 +158,7 @@ describe("useProjectsBulkActions", () => {
           projectId: "project-1",
           status: ProjectStatus.Completed,
           expectedUpdatedAt: "2026-05-13T00:00:00Z",
+          expectedStatusVersion: 1,
         },
       ],
     });
@@ -232,6 +230,7 @@ describe("useProjectsBulkActions", () => {
             columnId: "end_date",
             value: null,
             updatedAt: "2026-05-13T00:00:00Z",
+            statusVersion: 1,
           },
         ],
         after: [
@@ -239,13 +238,14 @@ describe("useProjectsBulkActions", () => {
             projectId: "project-1",
             value: "2026-06-01",
             updatedAt: "2026-05-13T01:00:00Z",
+            statusVersion: null,
           },
         ],
       }),
     );
   });
 
-  it("dispatches bulk assignment notifications only for successful new members", async () => {
+  it("applies successful bulk assignments through the guarded service", async () => {
     const queryClient = makeQueryClient();
     seedTableRows(queryClient);
     vi.mocked(ProjectTableService.bulkUpdateProjects).mockResolvedValue({
@@ -287,13 +287,6 @@ describe("useProjectsBulkActions", () => {
       });
     });
 
-    expect(dispatchProjectAssignment).toHaveBeenCalledTimes(1);
-    expect(dispatchProjectAssignment).toHaveBeenCalledWith({
-      projectId: "project-2",
-      projectTitle: "Fence repair",
-      newMemberIds: ["user-1"],
-      companyId: "company-1",
-    });
     expect(analyticsService.track).toHaveBeenCalledWith(
       "action",
       "project_table_bulk_applied",
@@ -316,6 +309,7 @@ describe("useProjectsBulkActions", () => {
             projectId: "project-1",
             action: "status",
             updatedAt: "2026-05-13T01:00:00Z",
+            statusVersion: 2,
           },
         ],
         failed: [
@@ -335,6 +329,7 @@ describe("useProjectsBulkActions", () => {
             projectId: "project-2",
             action: "status",
             updatedAt: "2026-05-13T01:10:00Z",
+            statusVersion: 2,
           },
         ],
         failed: [],
@@ -374,6 +369,7 @@ describe("useProjectsBulkActions", () => {
           projectId: "project-2",
           status: ProjectStatus.InProgress,
           expectedUpdatedAt: "2026-05-13T00:10:00Z",
+          expectedStatusVersion: 1,
         },
       ],
     });
@@ -430,6 +426,7 @@ describe("useProjectsBulkActions", () => {
             projectId: "project-1",
             action: "status",
             updatedAt: "2026-05-13T01:00:00Z",
+            statusVersion: 2,
           },
         ],
         failed: [],
@@ -442,6 +439,7 @@ describe("useProjectsBulkActions", () => {
             projectId: "project-1",
             action: "status",
             updatedAt: "2026-05-13T02:00:00Z",
+            statusVersion: 3,
           },
         ],
         failed: [],
@@ -483,6 +481,7 @@ describe("useProjectsBulkActions", () => {
           projectId: "project-1",
           status: ProjectStatus.Accepted,
           expectedUpdatedAt: "2026-05-13T01:00:00Z",
+          expectedStatusVersion: 2,
         },
       ],
     });

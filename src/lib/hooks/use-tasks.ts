@@ -16,14 +16,9 @@ import {
   type FetchTasksOptions,
   type CreateTaskWithEventData,
 } from "../api/services/task-service";
+import { LifecycleMutationService } from "../api/services/lifecycle-mutation-service";
 import { InventoryDeductionService } from "../api/services/inventory-deduction-service";
-import {
-  dispatchTaskAssignment,
-  dispatchTaskCompleted,
-  dispatchScheduleChange,
-} from "../api/services/notification-dispatch";
-import type { Project, ProjectTask, TaskStatus } from "../types/models";
-import { getTaskDisplayTitle } from "../types/models";
+import type { ProjectTask, TaskStatus } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
 import { usePermissionStore } from "../store/permissions-store";
 import { toast } from "@/components/ui/toast";
@@ -145,9 +140,12 @@ export function useCreateTask() {
         companyId: string;
         taskTypeId: string;
       }
-    ) => TaskService.createTask(data),
+    ) =>
+      LifecycleMutationService.createTaskWithEvent({ task: data }).then(
+        ({ taskId }) => taskId
+      ),
 
-    onSuccess: (taskId, variables) => {
+    onSuccess: (_taskId, variables) => {
       // Invalidate relevant task lists
       queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.lists(),
@@ -160,24 +158,6 @@ export function useCreateTask() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.projects.detail(variables.projectId),
       });
-
-      // Notify assigned team members
-      const memberIds = variables.teamMemberIds ?? [];
-      if (memberIds.length > 0) {
-        const project = queryClient.getQueryData<Project>(
-          queryKeys.projects.detail(variables.projectId)
-        );
-        dispatchTaskAssignment({
-          taskId,
-          taskTitle: getTaskDisplayTitle(
-            { customTitle: variables.customTitle ?? null },
-          ),
-          projectId: variables.projectId,
-          projectTitle: project?.title ?? "a project",
-          newMemberIds: memberIds,
-          companyId: variables.companyId,
-        });
-      }
     },
   });
 }
@@ -190,9 +170,9 @@ export function useCreateTaskWithEvent() {
 
   return useMutation({
     mutationFn: (data: CreateTaskWithEventData) =>
-      TaskService.createTaskWithEvent(data),
+      LifecycleMutationService.createTaskWithEvent(data),
 
-    onSuccess: (result, variables) => {
+    onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.lists(),
       });
@@ -205,27 +185,6 @@ export function useCreateTaskWithEvent() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.projects.detail(variables.task.projectId),
       });
-
-      // Notify assigned team members (from task or schedule data)
-      const memberIds =
-        variables.task.teamMemberIds ??
-        variables.schedule?.teamMemberIds ??
-        [];
-      if (memberIds.length > 0) {
-        const project = queryClient.getQueryData<Project>(
-          queryKeys.projects.detail(variables.task.projectId)
-        );
-        dispatchTaskAssignment({
-          taskId: result.taskId,
-          taskTitle: getTaskDisplayTitle(
-            { customTitle: variables.task.customTitle ?? null },
-          ),
-          projectId: variables.task.projectId,
-          projectTitle: project?.title ?? "a project",
-          newMemberIds: memberIds,
-          companyId: variables.task.companyId,
-        });
-      }
     },
   });
 }
@@ -237,13 +196,8 @@ export function useUpdateTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: Partial<ProjectTask>;
-    }) => TaskService.updateTask(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Partial<ProjectTask> }) =>
+      LifecycleMutationService.updateTask(id, data),
 
     onMutate: async ({ id, data }) => {
       // Cancel every query that could overwrite our optimistic patch. The
@@ -328,72 +282,6 @@ export function useUpdateTask() {
       }
     },
 
-    onSuccess: (_data, { id, data }, context) => {
-      if (!context?.previousTask) return;
-
-      const prev = context.previousTask;
-      const project = queryClient.getQueryData<Project>(
-        queryKeys.projects.detail(prev.projectId)
-      );
-      const taskTitle = getTaskDisplayTitle(
-        { customTitle: data.customTitle ?? prev.customTitle },
-        prev.taskType
-      );
-      const projectTitle = project?.title ?? "a project";
-
-      // Notify newly assigned team members
-      if (data.teamMemberIds !== undefined) {
-        const previousIds = new Set(prev.teamMemberIds ?? []);
-        const newMembers = (data.teamMemberIds ?? []).filter(
-          (memberId) => !previousIds.has(memberId)
-        );
-        if (newMembers.length > 0) {
-          dispatchTaskAssignment({
-            taskId: id,
-            taskTitle,
-            projectId: prev.projectId,
-            projectTitle,
-            newMemberIds: newMembers,
-            companyId: prev.companyId,
-          });
-        }
-      }
-
-      // Notify team when schedule changes — date, time, or all-day toggle.
-      // Phase 3: also fires on startTime/endTime/allDay so timed reschedules
-      // surface in the notification rail.
-      const dateChanged =
-        (data.startDate !== undefined &&
-          data.startDate?.getTime() !== prev.startDate?.getTime()) ||
-        (data.endDate !== undefined &&
-          data.endDate?.getTime() !== prev.endDate?.getTime());
-      const timeChanged =
-        (data.startTime !== undefined && data.startTime !== prev.startTime) ||
-        (data.endTime !== undefined && data.endTime !== prev.endTime);
-      const allDayChanged =
-        data.allDay !== undefined && data.allDay !== prev.allDay;
-
-      if (dateChanged || timeChanged || allDayChanged) {
-        // Union of prior + new assignees so removed members also see the change.
-        const recipients = Array.from(
-          new Set<string>([
-            ...(prev.teamMemberIds ?? []),
-            ...(data.teamMemberIds ?? prev.teamMemberIds ?? []),
-          ])
-        );
-        if (recipients.length > 0) {
-          dispatchScheduleChange({
-            taskId: id,
-            taskTitle,
-            projectId: prev.projectId,
-            projectTitle,
-            teamMemberIds: recipients,
-            companyId: prev.companyId,
-          });
-        }
-      }
-    },
-
     onSettled: (_data, _error, { id }) => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.tasks.detail(id),
@@ -418,13 +306,8 @@ export function useUpdateTaskStatus() {
   const { currentUser } = useAuthStore();
 
   return useMutation({
-    mutationFn: ({
-      id,
-      status,
-    }: {
-      id: string;
-      status: TaskStatus;
-    }) => TaskService.updateTaskStatus(id, status),
+    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
+      LifecycleMutationService.updateTask(id, { status }),
 
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({
@@ -455,29 +338,6 @@ export function useUpdateTaskStatus() {
     },
 
     onSuccess: (_data, { id, status }, context) => {
-      // Notify project team when a task is completed
-      if (status === "Completed" && context?.previousTask) {
-        const prev = context.previousTask;
-        const allMembers = prev.teamMemberIds ?? [];
-
-        if (allMembers.length > 0) {
-          const project = queryClient.getQueryData<Project>(
-            queryKeys.projects.detail(prev.projectId)
-          );
-          dispatchTaskCompleted({
-            taskId: id,
-            taskTitle: getTaskDisplayTitle(prev, prev.taskType),
-            projectId: prev.projectId,
-            projectTitle: project?.title ?? "a project",
-            completedByName: currentUser
-              ? `${currentUser.firstName} ${currentUser.lastName}`.trim()
-              : "A team member",
-            teamMemberIds: allMembers,
-            companyId: prev.companyId,
-          });
-        }
-      }
-
       // Inventory deduction on completion / reversal on reopening
       if (status === "Completed" && context?.previousTask && !context.previousTask.inventoryDeducted) {
         InventoryDeductionService.deductForTask(id, currentUser?.id ?? null)

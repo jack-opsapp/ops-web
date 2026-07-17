@@ -262,8 +262,8 @@ describe("/api/cron/recurrence-generate", () => {
 
     const res = await GET(authedRequest());
     expect(res.status).toBe(200);
-    // Cron emits 1 task per crew member per occurrence — but tasks are
-    // 1-per-occurrence, only notifications are 1-per-crew. We check tasks.
+    // Materialization is one task per occurrence. The database trigger owns
+    // immutable task mutation proof and durable notification delivery.
     // 60 days from "now" includes 8 or 9 Mondays depending on alignment.
     expect(state.insertedTasks.length).toBeGreaterThanOrEqual(7);
     expect(state.insertedTasks.length).toBeLessThanOrEqual(10);
@@ -273,6 +273,10 @@ describe("/api/cron/recurrence-generate", () => {
       expect(typeof task.recurrence_origin_date).toBe("string");
       expect(task.all_day).toBe(true);
     }
+    expect(state.insertedNotifications).toHaveLength(0);
+    await expect(res.clone().json()).resolves.toMatchObject({
+      notifications_sent: 0,
+    });
     // next_generation_at bumped 4h forward.
     expect(state.recurrenceUpdates).toHaveLength(1);
     expect(state.recurrenceUpdates[0].patch.next_generation_at).toBeDefined();

@@ -1,17 +1,10 @@
 /**
  * Integration tests for `useProjectMutations.saveProject` (Phase 11.2).
  *
- * Two behaviors under test:
- *
- *   1. Diff-based assignment dispatch — when previousTeamMemberIds is
- *      passed, only added members get a notification (not the union, not
- *      the full team).
- *
- *   2. Trivial saves don't fire any notifications. saveProject does not
+ * Trivial saves do not write timeline side effects. saveProject does not
  *      currently write a timeline event for description-only edits — there
  *      is no `description_changed` event_kind in ProjectActivityKind, by
- *      design (see plan §11). So the test asserts NO project_notes write
- *      and NO dispatch when only `projectDescription` changes.
+ *      design (see plan §11).
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -28,14 +21,6 @@ const createSystemEventMock = vi.fn<(input: unknown) => Promise<{ id: string }>>
   () => Promise.resolve({ id: "note-1" }),
 );
 
-interface AssignmentCall {
-  projectId: string;
-  projectTitle: string;
-  newMemberIds: string[];
-  companyId: string;
-}
-const assignmentDispatches: AssignmentCall[] = [];
-
 vi.mock("@/lib/api/services/project-service", () => ({
   ProjectService: {
     updateProject: (id: unknown, data: unknown) => updateProjectMock(id, data),
@@ -45,12 +30,6 @@ vi.mock("@/lib/api/services/project-service", () => ({
 vi.mock("@/lib/api/services/project-note-service", () => ({
   ProjectNoteService: {
     createSystemEvent: (input: unknown) => createSystemEventMock(input),
-  },
-}));
-
-vi.mock("@/lib/api/services/notification-dispatch", () => ({
-  dispatchProjectAssignment: (params: AssignmentCall) => {
-    assignmentDispatches.push(params);
   },
 }));
 
@@ -74,7 +53,6 @@ import { useProjectMutations } from "@/lib/hooks/use-project-mutations";
 beforeEach(() => {
   updateProjectMock.mockClear();
   createSystemEventMock.mockClear();
-  assignmentDispatches.length = 0;
 });
 
 function makeWrapper(qc: QueryClient) {
@@ -85,9 +63,12 @@ function makeWrapper(qc: QueryClient) {
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
 describe("useProjectMutations.saveProject — team-member diff", () => {
-  it("only dispatches to newly added members (not the full team)", async () => {
+  it("persists the complete team-member patch", async () => {
     const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     });
     const { result } = renderHook(() => useProjectMutations("p-1"), {
       wrapper: makeWrapper(qc),
@@ -105,15 +86,13 @@ describe("useProjectMutations.saveProject — team-member diff", () => {
     });
 
     expect(updateProjectMock).toHaveBeenCalledOnce();
-    expect(assignmentDispatches).toHaveLength(1);
-    expect(assignmentDispatches[0].newMemberIds.sort()).toEqual([
-      "u-2",
-      "u-3",
-    ]);
-    expect(assignmentDispatches[0].projectId).toBe("p-1");
+    expect(updateProjectMock).toHaveBeenCalledWith("p-1", {
+      title: "Re-roof, 410 Birch",
+      teamMemberIds: ["u-1", "u-2", "u-3"],
+    });
   });
 
-  it("does not dispatch when team membership is unchanged", async () => {
+  it("persists unchanged team membership without client side effects", async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -133,14 +112,16 @@ describe("useProjectMutations.saveProject — team-member diff", () => {
     });
 
     expect(updateProjectMock).toHaveBeenCalledOnce();
-    expect(assignmentDispatches).toHaveLength(0);
   });
 });
 
 describe("useProjectMutations.saveProject — trivial saves", () => {
-  it("description-only edit writes the patch, but no project_notes row and no dispatch", async () => {
+  it("description-only edit writes the patch but no project_notes row", async () => {
     const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     });
     const { result } = renderHook(() => useProjectMutations("p-1"), {
       wrapper: makeWrapper(qc),
@@ -157,10 +138,9 @@ describe("useProjectMutations.saveProject — trivial saves", () => {
 
     expect(updateProjectMock).toHaveBeenCalledOnce();
     expect(createSystemEventMock).not.toHaveBeenCalled();
-    expect(assignmentDispatches).toHaveLength(0);
   });
 
-  it("save without previousTeamMemberIds skips the diff dispatch entirely", async () => {
+  it("save without previousTeamMemberIds still persists normally", async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -180,6 +160,5 @@ describe("useProjectMutations.saveProject — trivial saves", () => {
     });
 
     expect(updateProjectMock).toHaveBeenCalledOnce();
-    expect(assignmentDispatches).toHaveLength(0);
   });
 });

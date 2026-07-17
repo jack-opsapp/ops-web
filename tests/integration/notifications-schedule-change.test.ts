@@ -1,15 +1,10 @@
 /**
- * Integration tests for schedule_change notification fan-out (Phase 3).
+ * Integration tests for schedule mutations crossing the durable server boundary.
  *
  * The mutation under test is `useUpdateTask` (TanStack hook in
- * `src/lib/hooks/use-tasks.ts`). It calls `dispatchScheduleChange` whenever
- * any of (startDate, endDate, startTime, endTime, allDay) changes — and
- * uses the union of prior + new teamMemberIds as recipients so removed crew
- * also see the move.
- *
- * Strategy: stub TaskService.updateTask, the auth + permissions stores, and
- * the dispatchScheduleChange function. Mount the hook, fire mutateAsync,
- * inspect the captured dispatch calls.
+ * `src/lib/hooks/use-tasks.ts`). Client hooks never dispatch task
+ * notifications. The authenticated task API commits the write and durable
+ * schedule outbox row atomically, and the server worker owns follow-up.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -19,28 +14,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
-interface DispatchCall {
-  fn: "dispatchScheduleChange" | "dispatchTaskAssignment" | "dispatchTaskCompleted";
-  params: Record<string, unknown>;
-}
-const dispatches: DispatchCall[] = [];
+const mocks = vi.hoisted(() => ({
+  updateTask: vi.fn(() => Promise.resolve()),
+}));
 
-vi.mock("@/lib/api/services/notification-dispatch", () => ({
-  dispatchScheduleChange: (params: Record<string, unknown>) => {
-    dispatches.push({ fn: "dispatchScheduleChange", params });
-  },
-  dispatchTaskAssignment: (params: Record<string, unknown>) => {
-    dispatches.push({ fn: "dispatchTaskAssignment", params });
-  },
-  dispatchTaskCompleted: (params: Record<string, unknown>) => {
-    dispatches.push({ fn: "dispatchTaskCompleted", params });
+vi.mock("@/lib/api/services/lifecycle-mutation-service", () => ({
+  LifecycleMutationService: {
+    updateTask: mocks.updateTask,
   },
 }));
 
-vi.mock("@/lib/api/services", () => ({
-  TaskService: {
-    updateTask: vi.fn(() => Promise.resolve()),
-  },
+vi.mock("@/lib/api/services/inventory-deduction-service", () => ({
   InventoryDeductionService: {
     deductForTask: vi.fn(),
     reverseForTask: vi.fn(),
@@ -64,7 +48,7 @@ import type { ProjectTask } from "@/lib/types/models";
 import { queryKeys } from "@/lib/api/query-client";
 
 beforeEach(() => {
-  dispatches.length = 0;
+  mocks.updateTask.mockClear();
 });
 
 function makeTask(overrides: Partial<ProjectTask> = {}): ProjectTask {
@@ -110,10 +94,13 @@ function seedTaskInCache(qc: QueryClient, task: ProjectTask) {
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-describe("useUpdateTask — schedule_change notification fan-out", () => {
-  it("fires dispatchScheduleChange when startTime changes", async () => {
+describe("useUpdateTask — durable schedule mutation boundary", () => {
+  it("routes a time change through the authenticated server mutation", async () => {
     const qc = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     });
     const task = makeTask({ teamMemberIds: ["u-1", "u-2"] });
     seedTaskInCache(qc, task);
@@ -129,15 +116,13 @@ describe("useUpdateTask — schedule_change notification fan-out", () => {
       });
     });
 
-    const call = dispatches.find((d) => d.fn === "dispatchScheduleChange");
-    expect(call).toBeDefined();
-    expect((call!.params.teamMemberIds as string[]).sort()).toEqual([
-      "u-1",
-      "u-2",
-    ]);
+    expect(mocks.updateTask).toHaveBeenCalledWith("task-1", {
+      startTime: "09:30:00",
+      allDay: false,
+    });
   });
 
-  it("does NOT fire when only customTitle changes", async () => {
+  it("routes a title-only change through the same server mutation", async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -155,11 +140,12 @@ describe("useUpdateTask — schedule_change notification fan-out", () => {
       });
     });
 
-    const call = dispatches.find((d) => d.fn === "dispatchScheduleChange");
-    expect(call).toBeUndefined();
+    expect(mocks.updateTask).toHaveBeenCalledWith("task-1", {
+      customTitle: "Mow side lawn",
+    });
   });
 
-  it("union recipients include removed crew members", async () => {
+  it("sends crew and schedule changes as one atomic patch", async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -181,13 +167,14 @@ describe("useUpdateTask — schedule_change notification fan-out", () => {
       });
     });
 
-    const call = dispatches.find((d) => d.fn === "dispatchScheduleChange");
-    expect(call).toBeDefined();
-    const recipients = (call!.params.teamMemberIds as string[]).sort();
-    expect(recipients).toEqual(["u-1", "u-2", "u-3"]);
+    expect(mocks.updateTask).toHaveBeenCalledWith("task-1", {
+      teamMemberIds: ["u-1", "u-3"],
+      startTime: "10:00:00",
+      allDay: false,
+    });
   });
 
-  it("fires when allDay toggles even with no other change", async () => {
+  it("routes an all-day toggle through the authenticated server mutation", async () => {
     const qc = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -205,7 +192,8 @@ describe("useUpdateTask — schedule_change notification fan-out", () => {
       });
     });
 
-    const call = dispatches.find((d) => d.fn === "dispatchScheduleChange");
-    expect(call).toBeDefined();
+    expect(mocks.updateTask).toHaveBeenCalledWith("task-1", {
+      allDay: false,
+    });
   });
 });

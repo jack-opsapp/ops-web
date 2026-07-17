@@ -144,6 +144,9 @@ export interface ReassignTaskActionData {
 export interface ArchiveProjectActionData {
   project_id: string;
   project_title: string;
+  expected_project_status: string;
+  expected_project_updated_at: string;
+  expected_project_status_version: number;
   completed_date: string | null;
   days_since_completion: number;
   total_tasks: number;
@@ -162,6 +165,9 @@ export interface ArchiveProjectActionData {
 export interface CloseProjectActionData {
   project_id: string;
   project_title: string;
+  expected_project_status: string;
+  expected_project_updated_at: string;
+  expected_project_status_version: number;
   completed_date: string | null;
   days_since_completion: number;
   total_tasks: number;
@@ -290,6 +296,19 @@ export interface ProposeActionParams {
   /** If set, the action is auto-approved + executed by a cron at this time
    *  unless the user rejects/cancels first. Used by auto-send autonomy levels. */
   autoExecuteAt?: Date;
+  /**
+   * Durable task-automation lease. When present, proposal persistence is
+   * performed by the guarded SQL seam that atomically rechecks the task's
+   * schedule version, the actor's current access, and the live worker lease.
+   */
+  taskAutomationGuard?: TaskAutomationPersistenceGuard;
+}
+
+export interface TaskAutomationPersistenceGuard {
+  eventId: string;
+  leaseToken: string;
+  taskId: string;
+  scheduleVersion: number;
 }
 
 export interface QueueFilters {
@@ -580,8 +599,10 @@ export interface SendScheduleChangedActionData {
   /** Original scheduled date (before the change) */
   original_date: string;
   original_time: string | null;
-  /** New scheduled date (after the change) */
-  new_date: string;
+  /** Distinguishes a move from a confirmed visit being removed from the calendar. */
+  change_kind: "rescheduled" | "unscheduled";
+  /** New scheduled date, or null when the confirmed visit was unscheduled. */
+  new_date: string | null;
   new_time: string | null;
   new_end_time: string | null;
   crew_names: string[];

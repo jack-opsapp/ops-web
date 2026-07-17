@@ -12,7 +12,7 @@ import {
 } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import { ProjectService, type FetchProjectsOptions } from "../api/services/project-service";
-import { dispatchProjectAssignment } from "../api/services/notification-dispatch";
+import { LifecycleMutationService } from "../api/services/lifecycle-mutation-service";
 import type { Project, ProjectStatus } from "../types/models";
 import { useAuthStore } from "../store/auth-store";
 import { usePermissionStore } from "../store/permissions-store";
@@ -130,22 +130,11 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: (data: Partial<Project> & { title: string; companyId: string }) =>
       ProjectService.createProject(data),
-    onSuccess: (projectId, variables) => {
+    onSuccess: () => {
       // Invalidate project lists to refetch
       queryClient.invalidateQueries({
         queryKey: queryKeys.projects.lists(),
       });
-
-      // Notify newly assigned team members
-      const memberIds = variables.teamMemberIds ?? [];
-      if (memberIds.length > 0) {
-        dispatchProjectAssignment({
-          projectId,
-          projectTitle: variables.title,
-          newMemberIds: memberIds,
-          companyId: variables.companyId,
-        });
-      }
     },
   });
 }
@@ -197,26 +186,6 @@ export function useUpdateProject() {
       }
     },
 
-    onSuccess: (_data, { id, data }, context) => {
-      // Notify newly added team members (only when teamMemberIds changed)
-      if (data.teamMemberIds !== undefined && context?.previousProject) {
-        const previousIds = new Set(context.previousProject.teamMemberIds ?? []);
-        const newMembers = (data.teamMemberIds ?? []).filter(
-          (memberId) => !previousIds.has(memberId)
-        );
-
-        if (newMembers.length > 0) {
-          const title = data.title ?? context.previousProject.title;
-          dispatchProjectAssignment({
-            projectId: id,
-            projectTitle: title,
-            newMemberIds: newMembers,
-            companyId: context.previousProject.companyId,
-          });
-        }
-      }
-    },
-
     onSettled: (_data, _error, { id }) => {
       // Always refetch after error or success
       queryClient.invalidateQueries({
@@ -232,33 +201,15 @@ export function useUpdateProject() {
 /**
  * Update project status with optimistic update.
  *
- * Threads currentUser through to the service so the lifecycle handler can
- * credit the timeline event and dispatch a status-change notification to
- * the rest of the team without re-querying auth.
+ * The authenticated server boundary derives the actor and company, performs
+ * the RLS-scoped write, and then runs lifecycle automation server-side.
  */
 export function useUpdateProjectStatus() {
   const queryClient = useQueryClient();
-  const { currentUser } = useAuthStore();
 
   return useMutation({
-    mutationFn: ({
-      id,
-      status,
-    }: {
-      id: string;
-      status: ProjectStatus;
-    }) => {
-      const changedByName = currentUser
-        ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`
-            .trim() || "A teammate"
-        : undefined;
-      return ProjectService.updateProjectStatus(
-        id,
-        status,
-        currentUser?.id,
-        changedByName,
-      );
-    },
+    mutationFn: ({ id, status }: { id: string; status: ProjectStatus }) =>
+      LifecycleMutationService.updateProjectStatus(id, status),
 
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({

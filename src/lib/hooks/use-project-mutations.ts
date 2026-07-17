@@ -3,18 +3,15 @@
  *
  * Thin coordinator over existing services. Each mutation:
  *   - calls the canonical service (ProjectService for CRUD,
- *     ProjectNoteService.createSystemEvent for timeline rows,
- *     dispatchProjectAssignment for new-member push)
+ *     ProjectNoteService.createSystemEvent for timeline rows)
  *   - tags the timeline row with the right event_kind so the
  *     workspace Activity tab renders it
  *   - invalidates the relevant query keys
  *
  * What this hook deliberately does NOT do:
- *   - Status changes are owned by useUpdateProjectStatus
- *     (src/lib/hooks/use-projects.ts). It already calls
- *     ProjectService.updateProjectStatus → ProjectLifecycleService
- *     .onProjectStageChange (fire-and-forget), which writes the
- *     `status_change` project_notes row. Don't duplicate.
+ *   - Status changes cross LifecycleMutationService. The database commits a
+ *     durable lifecycle outbox row with the status; the server worker writes
+ *     the timeline and notifications. Don't duplicate those effects here.
  *   - Task-level dispatches (task assignment, schedule change, task
  *     completed) belong to task mutations.
  *
@@ -28,15 +25,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/api/query-client";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { LifecycleMutationService } from "@/lib/api/services/lifecycle-mutation-service";
 import { ProjectService } from "@/lib/api/services/project-service";
 import {
   ProjectNoteService,
   type CreateProjectSystemEvent,
 } from "@/lib/api/services/project-note-service";
-import {
-  dispatchProjectAssignment,
-  dispatchProjectArchived,
-} from "@/lib/api/services/notification-dispatch";
 import { useCreateProjectNote } from "@/lib/hooks/use-project-notes";
 import { ProjectStatus, type Project, type ProjectTrade } from "@/lib/types/models";
 import type { NoteAttachment } from "@/lib/types/pipeline";
@@ -84,8 +78,7 @@ export interface CreateProjectInput {
 export interface SaveProjectInput {
   projectId: string;
   patch: Partial<Project>;
-  /** Original team member IDs before edit, used to compute the new-member delta
-   *  for dispatchProjectAssignment. Omit for trivial saves that don't change team. */
+  /** Optional compatibility snapshot supplied by existing callers. */
   previousTeamMemberIds?: string[];
 }
 
@@ -149,15 +142,6 @@ export function useProjectMutations(projectId: string | null) {
       };
       await ProjectNoteService.createSystemEvent(eventInput);
 
-      if (teamMemberIds.length > 0) {
-        dispatchProjectAssignment({
-          projectId: newProjectId,
-          projectTitle: input.title ?? "New project",
-          newMemberIds: teamMemberIds,
-          companyId: company.id,
-        });
-      }
-
       return { id: newProjectId, title: input.title ?? "" };
     },
     onSuccess: (created) => {
@@ -172,22 +156,6 @@ export function useProjectMutations(projectId: string | null) {
 
       await ProjectService.updateProject(input.projectId, input.patch);
 
-      const previous = input.previousTeamMemberIds;
-      const next = input.patch.teamMemberIds;
-      if (previous !== undefined && next !== undefined) {
-        const previousSet = new Set(previous);
-        const added = next.filter((id) => !previousSet.has(id));
-        if (added.length > 0) {
-          const projectTitle = input.patch.title ?? "this project";
-          dispatchProjectAssignment({
-            projectId: input.projectId,
-            projectTitle,
-            newMemberIds: added,
-            companyId: company.id,
-          });
-        }
-      }
-
       return input.projectId;
     },
     onSuccess: (id) => {
@@ -201,31 +169,10 @@ export function useProjectMutations(projectId: string | null) {
       if (!company?.id) throw new Error("No active company");
       if (!currentUser?.id) throw new Error("No authenticated user");
 
-      await ProjectService.updateProject(input.projectId, {
-        status: ProjectStatus.Archived,
-      });
-
-      await ProjectNoteService.createSystemEvent({
-        projectId: input.projectId,
-        companyId: company.id,
-        authorId: currentUser.id,
-        eventKind: "project_archived",
-        content: `Project archived: ${input.projectTitle}`,
-        contentMetadata: {},
-      });
-
-      const archivedByName =
-        `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`
-          .trim() || "A teammate";
-      dispatchProjectArchived({
-        projectId: input.projectId,
-        projectTitle: input.projectTitle,
-        archivedByName,
-        // The dispatch route filters out the acting user server-side, so
-        // we can pass the full team without manually excluding currentUser.
-        recipientUserIds: input.notifyUserIds,
-        companyId: company.id,
-      });
+      await LifecycleMutationService.updateProjectStatus(
+        input.projectId,
+        ProjectStatus.Archived
+      );
 
       return input.projectId;
     },

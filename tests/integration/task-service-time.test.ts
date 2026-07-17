@@ -14,9 +14,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // We don't need a real Supabase here — we test the boundary behavior of
-// task-service.mapFromDb / mapToDb. We import the mapping functions through
-// the public TaskService API surface. The cleanest way is to assert against
-// the row passed to .insert and the row returned from .select via .single().
+// task-service mapping boundary. Reads go through TaskService; update patches
+// use the same exported serializer consumed by the authenticated route.
 
 interface MockState {
   lastInsertRow: Record<string, unknown> | null;
@@ -80,7 +79,10 @@ vi.mock("@/lib/supabase/helpers", () => ({
     v instanceof Date ? v : v ? new Date(v as string) : null,
 }));
 
-import { TaskService } from "@/lib/api/services/task-service";
+import {
+  serializeTaskPatch,
+  TaskService,
+} from "@/lib/api/services/task-service";
 import { TaskStatus } from "@/lib/types/models";
 
 beforeEach(() => {
@@ -190,20 +192,11 @@ describe("task-service Phase 3 time-precision mapping", () => {
   });
 
   it("mapToDb (update): allDay toggle round-trips", async () => {
-    state.selectResult = {
-      data: {
-        company_id: "co-1",
-        start_date: null,
-        schedule_confirmed_at: null,
-      },
-      error: null,
-    };
-    await TaskService.updateTask("task-1", {
+    const row = serializeTaskPatch({
       allDay: false,
       startTime: "08:30:00",
       endTime: "17:00:00",
     });
-    const row = state.lastUpdateRow!;
     expect(row.all_day).toBe(false);
     expect(row.start_time).toBe("08:30:00");
     expect(row.end_time).toBe("17:00:00");

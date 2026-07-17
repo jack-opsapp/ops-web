@@ -11,6 +11,9 @@
  * Gated behind phase_c feature flag.
  */
 
+import "server-only";
+
+import { dispatchNotificationEvent } from "@/lib/notifications/dispatch-notification-event";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { parseStringArray } from "@/lib/utils/parse";
 import { getCompanyManagerUserIds } from "./company-managers";
@@ -21,6 +24,7 @@ import { BusinessContextService } from "./business-context-service";
 import { AIDraftService } from "./ai-draft-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
+import { resolveNewEmailConversationConnectionId } from "@/lib/email/email-connection-selection";
 import type {
   SendStatusEmailActionData,
   ReassignTaskActionData,
@@ -126,11 +130,15 @@ function buildTransitionKey(oldStage: string, newStage: string): string {
 async function getLifecycleConfig(companyId: string): Promise<LifecycleConfig> {
   const supabase = requireSupabase();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("companies")
     .select("lifecycle_settings")
     .eq("id", companyId)
     .single();
+
+  if (error) {
+    throw new Error(`Failed to load lifecycle settings: ${error.message}`);
+  }
 
   if (!data?.lifecycle_settings) return DEFAULT_CONFIG;
 
@@ -168,12 +176,16 @@ async function resolveTaskTypes(
 > {
   const supabase = requireSupabase();
 
-  const { data: taskTypes } = await supabase
+  const { data: taskTypes, error: taskTypesError } = await supabase
     .from("task_types")
     .select("id, display, color")
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .limit(100);
+
+  if (taskTypesError) {
+    throw new Error(`Failed to load task types: ${taskTypesError.message}`);
+  }
 
   if (!taskTypes || taskTypes.length === 0) {
     // No task types configured — return generic entries without IDs
@@ -259,7 +271,7 @@ async function getHistoricalTaskPatterns(
   // Include the current stage AND later stages (they all went through this stage)
   const relevantStages = [normalizedInput, ...laterStages].filter(Boolean);
 
-  const { data: projects } = await supabase
+  const { data: projects, error: projectsError } = await supabase
     .from("projects")
     .select("id")
     .eq("company_id", companyId)
@@ -267,16 +279,28 @@ async function getHistoricalTaskPatterns(
     .is("deleted_at", null)
     .limit(20);
 
+  if (projectsError) {
+    throw new Error(
+      `Failed to load lifecycle project history: ${projectsError.message}`
+    );
+  }
+
   if (!projects || projects.length === 0) return [];
 
   const projectIds = projects.map((p) => p.id as string);
-  const { data: tasks } = await supabase
+  const { data: tasks, error: tasksError } = await supabase
     .from("project_tasks")
     .select("task_type_id")
     .eq("company_id", companyId)
     .in("project_id", projectIds)
     .is("deleted_at", null)
     .limit(500);
+
+  if (tasksError) {
+    throw new Error(
+      `Failed to load lifecycle task history: ${tasksError.message}`
+    );
+  }
 
   // Count task type frequency
   const freq = new Map<string, number>();
@@ -314,7 +338,11 @@ export const ProjectLifecycleService = {
     oldStage: string,
     newStage: string,
     changedByUserId?: string,
-    changedByName?: string
+    changedByName?: string,
+    lifecycleEventId?: string,
+    requireCurrentStatus = false,
+    lifecycleStatusVersion?: number,
+    lifecycleOccurredAt?: string
   ): Promise<void> {
     // Always write a status_change row to the unified workspace timeline.
     // The phase_c gate below only governs the AI-driven approval-queue
@@ -326,63 +354,114 @@ export const ProjectLifecycleService = {
       // back to a company admin so cron-driven transitions still record.
       const eventAuthorId =
         changedByUserId ?? (await getCompanyAdminUserId(companyId));
+      if (!eventAuthorId && lifecycleEventId) {
+        throw new Error("Project lifecycle timeline has no active author");
+      }
       if (eventAuthorId) {
-        const { ProjectNoteService } = await import("./project-note-service");
-        await ProjectNoteService.createSystemEvent({
-          projectId,
-          companyId,
-          authorId: eventAuthorId,
-          eventKind: "status_change",
-          content: `Status: ${oldStage} → ${newStage}`,
-          contentMetadata: { from: oldStage, to: newStage },
-        });
+        const supabase = requireSupabase();
+        const { data: existingEvent } = lifecycleEventId
+          ? await supabase
+              .from("project_notes")
+              .select("id")
+              .eq("project_id", projectId)
+              .eq("company_id", companyId)
+              .eq("event_kind", "status_change")
+              .contains("content_metadata", {
+                lifecycle_event_id: lifecycleEventId,
+              })
+              .maybeSingle()
+          : { data: null };
+        if (!existingEvent) {
+          const { ProjectNoteService } = await import("./project-note-service");
+          await ProjectNoteService.createSystemEvent({
+            projectId,
+            companyId,
+            authorId: eventAuthorId,
+            eventKind: "status_change",
+            content: `Status: ${oldStage} → ${newStage}`,
+            contentMetadata: {
+              from: oldStage,
+              to: newStage,
+              ...(lifecycleEventId
+                ? {
+                    lifecycle_event_id: lifecycleEventId,
+                    lifecycle_status_version: lifecycleStatusVersion,
+                  }
+                : {}),
+            },
+            lifecycleOccurredAt,
+          });
+        }
       }
     } catch (err) {
       console.error(
         "[project-lifecycle] Failed to write status_change timeline event:",
         err
       );
-      // Non-fatal — keep going so the rest of the lifecycle flow still runs.
+      // Durable outbox events must remain retryable until their timeline proof
+      // exists. Legacy direct callers retain the historical best-effort path.
+      if (lifecycleEventId) throw err;
+    }
+
+    // A durable worker may resume after a newer status mutation has already
+    // landed. Keep the historical timeline row, but do not create stale
+    // notifications or Phase-C actions for a status that is no longer current.
+    if (requireCurrentStatus) {
+      const { data: currentProject, error: currentProjectError } =
+        await requireSupabase()
+          .from("projects")
+          .select("status, status_version")
+          .eq("id", projectId)
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .maybeSingle();
+      if (currentProjectError) throw currentProjectError;
+      if (
+        !currentProject ||
+        currentProject.status !== newStage ||
+        (lifecycleStatusVersion !== undefined &&
+          currentProject.status_version !== lifecycleStatusVersion)
+      ) {
+        return;
+      }
     }
 
     // Notify the project team so they see status moves in the rail without
     // having to refresh the workspace. Only fires when we know who made the
     // change (cron-driven transitions skip — there is no actor to credit and
     // the timeline event already records the move).
-    if (changedByUserId && changedByName) {
+    let notificationFailure: Error | null = null;
+    if (changedByUserId && changedByName && lifecycleEventId) {
       try {
-        const supabase = requireSupabase();
-        const { data: project } = await supabase
-          .from("projects")
-          .select("title, team_member_ids")
-          .eq("id", projectId)
-          .single();
-
-        const projectTitle = (project?.title as string) ?? "Project";
-        const teamMemberIds = parseStringArray(project?.team_member_ids);
-        const recipientUserIds = teamMemberIds.filter(
-          (id) => id !== changedByUserId
-        );
-
-        if (recipientUserIds.length > 0) {
-          const { dispatchProjectStatusChange } =
-            await import("./notification-dispatch");
-          dispatchProjectStatusChange({
-            projectId,
-            projectTitle,
-            fromStatus: oldStage,
-            toStatus: newStage,
-            changedByName,
-            recipientUserIds,
+        const result = await dispatchNotificationEvent({
+          db: requireSupabase(),
+          actor: {
+            userId: changedByUserId,
             companyId,
-          });
+            name: changedByName,
+          },
+          request: {
+            eventType: "project_status_change",
+            projectId,
+            projectStatusEventId: lifecycleEventId,
+          },
+        });
+        if (!result.ok) {
+          console.error(
+            "[project-lifecycle] Status notification was rejected:",
+            result.reason
+          );
+          throw new Error(result.reason);
         }
       } catch (err) {
         console.error(
           "[project-lifecycle] Failed to dispatch status_change notification:",
           err
         );
-        // Non-fatal — timeline event already landed.
+        if (lifecycleEventId) {
+          notificationFailure =
+            err instanceof Error ? err : new Error(String(err));
+        }
       }
     }
 
@@ -391,7 +470,10 @@ export const ProjectLifecycleService = {
       companyId,
       "phase_c"
     );
-    if (!enabled) return;
+    if (!enabled) {
+      if (notificationFailure) throw notificationFailure;
+      return;
+    }
 
     const config = await getLifecycleConfig(companyId);
     const transitionKey = buildTransitionKey(oldStage, newStage);
@@ -416,6 +498,7 @@ export const ProjectLifecycleService = {
         console.log(
           `[project-lifecycle] No task mappings for transition ${transitionKey}`
         );
+        if (notificationFailure) throw notificationFailure;
         return;
       }
       const locale = await getCompanyLocale(companyId);
@@ -430,6 +513,7 @@ export const ProjectLifecycleService = {
       console.log(
         `[project-lifecycle] No task mappings for transition ${transitionKey}`
       );
+      if (notificationFailure) throw notificationFailure;
       return;
     }
 
@@ -444,12 +528,17 @@ export const ProjectLifecycleService = {
 
     // Check existing tasks on this project to avoid duplicates
     const supabase = requireSupabase();
-    const { data: existingTasks } = await supabase
+    const { data: existingTasks, error: existingTasksError } = await supabase
       .from("project_tasks")
       .select("task_type_id, custom_title")
       .eq("project_id", projectId)
       .eq("company_id", companyId)
       .is("deleted_at", null);
+    if (existingTasksError) {
+      throw new Error(
+        `Failed to load existing project tasks: ${existingTasksError.message}`
+      );
+    }
 
     const existingTypeIds = new Set(
       (existingTasks ?? []).map((t) => t.task_type_id as string).filter(Boolean)
@@ -460,12 +549,53 @@ export const ProjectLifecycleService = {
         .filter(Boolean)
     );
 
+    // Event IDs guarantee retry idempotency; this semantic guard prevents a
+    // second legitimate ABA transition from proposing the same still-pending
+    // task before the first proposal is handled.
+    const { data: pendingTaskActions, error: pendingTaskActionsError } =
+      await supabase
+        .from("agent_actions")
+        .select("action_data")
+        .eq("company_id", companyId)
+        .eq("action_type", "create_task")
+        .eq("status", "pending")
+        .contains("action_data", { project_id: projectId })
+        .limit(200);
+    if (pendingTaskActionsError) {
+      throw new Error(
+        `Failed to load pending lifecycle tasks: ${pendingTaskActionsError.message}`
+      );
+    }
+    const pendingTypeIds = new Set<string>();
+    const pendingTitles = new Set<string>();
+    for (const row of pendingTaskActions ?? []) {
+      const actionData = (row.action_data as Record<string, unknown>) ?? {};
+      if (typeof actionData.task_type_id === "string") {
+        pendingTypeIds.add(actionData.task_type_id);
+      }
+      if (typeof actionData.custom_title === "string") {
+        pendingTitles.add(actionData.custom_title.trim().toLowerCase());
+      }
+    }
+
     // Fetch project name + find a userId to attribute the suggestion to
-    const { data: project } = await supabase
+    const { data: project, error: projectError } = await supabase
       .from("projects")
       .select("title, company_id")
       .eq("id", projectId)
-      .single();
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (projectError) {
+      throw new Error(
+        `Failed to load lifecycle project: ${projectError.message}`
+      );
+    }
+    if (!project) {
+      if (notificationFailure) throw notificationFailure;
+      return;
+    }
 
     const projectName = (project?.title as string) ?? "Unknown Project";
 
@@ -475,14 +605,21 @@ export const ProjectLifecycleService = {
       console.log(
         `[project-lifecycle] No admin user found for company ${companyId}`
       );
+      if (notificationFailure) throw notificationFailure;
       return;
     }
+
+    const lifecycleSourcePrefix = lifecycleEventId
+      ? `project-status-lifecycle:${lifecycleEventId}`
+      : `${projectId}:stage:${transitionKey}`;
 
     // Propose each resolved task
     for (const resolved of resolvedTypes) {
       // Skip if already exists on project
       if (resolved.id && existingTypeIds.has(resolved.id)) continue;
       if (existingTitles.has(resolved.display.toLowerCase())) continue;
+      if (resolved.id && pendingTypeIds.has(resolved.id)) continue;
+      if (pendingTitles.has(resolved.display.trim().toLowerCase())) continue;
 
       // Get assignment recommendation
       let teamMemberId: string | null = null;
@@ -530,7 +667,7 @@ export const ProjectLifecycleService = {
         company_id: companyId,
       };
 
-      const sourceId = `${projectId}:stage:${transitionKey}:${resolved.display}`;
+      const sourceId = `${lifecycleSourcePrefix}:task:${resolved.id ?? resolved.display}`;
 
       await ApprovalQueueService.proposeAction({
         companyId,
@@ -543,6 +680,8 @@ export const ProjectLifecycleService = {
         confidence: resolved.matched ? 0.7 : 0.5,
         priority: "normal",
       });
+      if (resolved.id) pendingTypeIds.add(resolved.id);
+      pendingTitles.add(resolved.display.trim().toLowerCase());
     }
 
     // Also suggest tasks from historical patterns not already covered
@@ -552,14 +691,28 @@ export const ProjectLifecycleService = {
       );
 
       for (const ttId of historicalTypeIds) {
-        if (alreadySuggested.has(ttId) || existingTypeIds.has(ttId)) continue;
+        if (
+          alreadySuggested.has(ttId) ||
+          existingTypeIds.has(ttId) ||
+          pendingTypeIds.has(ttId)
+        ) {
+          continue;
+        }
 
         // Fetch task type info
-        const { data: tt } = await supabase
+        const { data: tt, error: taskTypeError } = await supabase
           .from("task_types")
           .select("id, display, color")
           .eq("id", ttId)
-          .single();
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .maybeSingle();
+
+        if (taskTypeError) {
+          throw new Error(
+            `Failed to load historical task type: ${taskTypeError.message}`
+          );
+        }
 
         if (!tt) continue;
 
@@ -602,10 +755,12 @@ export const ProjectLifecycleService = {
           actionData: actionData as unknown as Record<string, unknown>,
           contextSummary: `Historical pattern: "${tt.display}" is commonly used at the "${newStage}" stage`,
           contextSource: "stage_change",
-          sourceId: `${projectId}:stage:${transitionKey}:hist:${ttId}`,
+          sourceId: `${lifecycleSourcePrefix}:historical-task:${ttId}`,
           confidence: 0.5,
           priority: "low",
         });
+        pendingTypeIds.add(ttId);
+        pendingTitles.add(String(tt.display).trim().toLowerCase());
       }
     }
 
@@ -615,21 +770,28 @@ export const ProjectLifecycleService = {
 
     // I1.5: When project reaches "completed", suggest an invoice
     if (newStage.toLowerCase() === "completed") {
-      import("./invoice-suggestion-service")
-        .then(({ InvoiceSuggestionService }) =>
-          InvoiceSuggestionService.suggestInvoiceFromCompletion(
-            companyId,
-            userId,
-            projectId
-          )
-        )
-        .catch((err) =>
-          console.error(
-            "[project-lifecycle] Invoice suggestion on completion error:",
-            err
-          )
+      try {
+        const { InvoiceSuggestionService } =
+          await import("./invoice-suggestion-service");
+        await InvoiceSuggestionService.suggestInvoiceFromCompletion(
+          companyId,
+          userId,
+          projectId,
+          lifecycleEventId ? `${lifecycleSourcePrefix}:invoice` : undefined,
+          // A durable lifecycle proposal has no guaranteed future sender.
+          // Bind only a company mailbox; never preselect a manager's personal
+          // connection merely because the proposal is attributed to them.
+          null
         );
+      } catch (err) {
+        console.error(
+          "[project-lifecycle] Invoice suggestion on completion error:",
+          err
+        );
+        if (lifecycleEventId) throw err;
+      }
     }
+    if (notificationFailure) throw notificationFailure;
   },
 
   // ── P3.2 — Client Status Update Emails ─────────────────────────────
@@ -664,16 +826,15 @@ export const ProjectLifecycleService = {
       return;
     }
 
-    // Find the user's email connection for sending
-    const { data: connections } = await supabase
-      .from("email_connections")
-      .select("id")
-      .eq("company_id", companyId)
-      .eq("status", "active")
-      .eq("sync_enabled", true)
-      .limit(1);
-
-    const connectionId = (connections?.[0]?.id as string) ?? null;
+    // New conversations may use the actor's own mailbox or a company mailbox,
+    // never another user's personal connection.
+    const connectionId = await resolveNewEmailConversationConnectionId({
+      supabase,
+      companyId,
+      // Scheduled lifecycle drafts do not yet have a human sender. Never bind
+      // the synthetic proposal manager's personal mailbox.
+      actorUserId: null,
+    });
     if (!connectionId) {
       console.log(
         `[project-lifecycle] No active email connection for company ${companyId}`
@@ -1179,23 +1340,37 @@ export const ProjectLifecycleService = {
     cutoffDate.setDate(cutoffDate.getDate() - closeAfterDays);
 
     // Find completed (not yet closed/archived) projects
-    const { data: completedProjects } = await supabase
-      .from("projects")
-      .select("id, title, client_id")
-      .eq("company_id", companyId)
-      .eq("status", "completed")
-      .is("deleted_at", null)
-      .limit(100);
+    const { data: completedProjects, error: completedProjectsError } =
+      await supabase
+        .from("projects")
+        .select("id, title, client_id, status, updated_at, status_version")
+        .eq("company_id", companyId)
+        .eq("status", "completed")
+        .is("deleted_at", null)
+        .limit(100);
+
+    if (completedProjectsError) {
+      throw new Error(
+        `Failed to load closeable projects: ${completedProjectsError.message}`
+      );
+    }
 
     if (!completedProjects || completedProjects.length === 0) return 0;
 
     // Check for existing pending close actions
-    const { data: existingActions } = await supabase
-      .from("agent_actions")
-      .select("source_id")
-      .eq("company_id", companyId)
-      .eq("action_type", "close_project")
-      .eq("status", "pending");
+    const { data: existingActions, error: existingActionsError } =
+      await supabase
+        .from("agent_actions")
+        .select("source_id")
+        .eq("company_id", companyId)
+        .eq("action_type", "close_project")
+        .eq("status", "pending");
+
+    if (existingActionsError) {
+      throw new Error(
+        `Failed to load pending close actions: ${existingActionsError.message}`
+      );
+    }
 
     const pendingCloseSourceIds = new Set(
       (existingActions ?? []).map((a) => a.source_id as string)
@@ -1208,30 +1383,53 @@ export const ProjectLifecycleService = {
     let proposed = 0;
 
     for (const project of completedProjects) {
+      if (
+        typeof project.id !== "string" ||
+        project.status !== "completed" ||
+        typeof project.updated_at !== "string" ||
+        !Number.isSafeInteger(project.status_version) ||
+        project.status_version < 0
+      ) {
+        throw new Error("Closeable project is missing its status snapshot");
+      }
+
       const projectId = project.id as string;
       const sourceId = `${projectId}:close`;
 
       if (pendingCloseSourceIds.has(sourceId)) continue;
 
       // Check all tasks are complete or cancelled
-      const { data: incompleteTasks } = await supabase
-        .from("project_tasks")
-        .select("id")
-        .eq("project_id", projectId)
-        .eq("company_id", companyId)
-        .not("status", "in", '("completed","cancelled","complete")')
-        .is("deleted_at", null)
-        .limit(1);
+      const { data: incompleteTasks, error: incompleteTasksError } =
+        await supabase
+          .from("project_tasks")
+          .select("id")
+          .eq("project_id", projectId)
+          .eq("company_id", companyId)
+          .not("status", "in", '("completed","cancelled","complete")')
+          .is("deleted_at", null)
+          .limit(1);
+
+      if (incompleteTasksError) {
+        throw new Error(
+          `Failed to check incomplete project tasks: ${incompleteTasksError.message}`
+        );
+      }
 
       if (incompleteTasks && incompleteTasks.length > 0) continue;
 
       // Get all tasks for counts
-      const { data: allTasks } = await supabase
+      const { data: allTasks, error: allTasksError } = await supabase
         .from("project_tasks")
         .select("id, status")
         .eq("project_id", projectId)
         .eq("company_id", companyId)
         .is("deleted_at", null);
+
+      if (allTasksError) {
+        throw new Error(
+          `Failed to load project task counts: ${allTasksError.message}`
+        );
+      }
 
       const totalTasks = allTasks?.length ?? 0;
       const completedTasks = (allTasks ?? []).filter(
@@ -1239,18 +1437,30 @@ export const ProjectLifecycleService = {
       ).length;
 
       // Check last activity — use the most recent task or calendar event update
-      const { data: recentActivity } = await supabase
-        .from("project_tasks")
-        .select("updated_at")
-        .eq("project_id", projectId)
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .order("updated_at", { ascending: false })
-        .limit(1);
+      const { data: recentActivity, error: recentActivityError } =
+        await supabase
+          .from("project_tasks")
+          .select("updated_at")
+          .eq("project_id", projectId)
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .order("updated_at", { ascending: false })
+          .limit(1);
 
-      const lastActivityDate = recentActivity?.[0]?.updated_at
+      if (recentActivityError) {
+        throw new Error(
+          `Failed to load recent project activity: ${recentActivityError.message}`
+        );
+      }
+
+      const projectActivityDate = new Date(project.updated_at);
+      const taskActivityDate = recentActivity?.[0]?.updated_at
         ? new Date(recentActivity[0].updated_at as string)
         : null;
+      const lastActivityDate =
+        taskActivityDate && taskActivityDate > projectActivityDate
+          ? taskActivityDate
+          : projectActivityDate;
 
       if (lastActivityDate && lastActivityDate > cutoffDate) continue;
 
@@ -1262,16 +1472,17 @@ export const ProjectLifecycleService = {
       const outstandingBalance = projectCtx.financials?.outstandingBalance ?? 0;
       if (outstandingBalance > 0) continue; // Not fully paid — don't close with money owed
 
-      const completedDate = lastActivityDate?.toISOString() ?? null;
-      const daysAgo = lastActivityDate
-        ? Math.floor(
-            (Date.now() - lastActivityDate.getTime()) / (1000 * 60 * 60 * 24)
-          )
-        : closeAfterDays;
+      const completedDate = lastActivityDate.toISOString();
+      const daysAgo = Math.floor(
+        (Date.now() - lastActivityDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
 
       const actionData: CloseProjectActionData = {
         project_id: projectId,
         project_title: (project.title as string) ?? "Unknown",
+        expected_project_status: project.status,
+        expected_project_updated_at: project.updated_at,
+        expected_project_status_version: project.status_version,
         completed_date: completedDate,
         days_since_completion: daysAgo,
         total_tasks: totalTasks,

@@ -4,10 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { NotificationDispatchRequest } from "@/lib/notifications/notification-dispatch-policy";
 import type { NotificationRouteActor } from "@/lib/notifications/server-notification-service";
-import {
-  checkPermissionById,
-  resolvePermissionScopeById,
-} from "@/lib/supabase/check-permission";
+import { checkPermissionById } from "@/lib/supabase/check-permission";
 
 export interface ResolvedNotificationEvent {
   eventType: NotificationDispatchRequest["eventType"];
@@ -42,14 +39,16 @@ interface ProjectRow {
   deleted_at: string | null;
 }
 
-interface TaskRow {
-  id: string;
-  company_id: string;
-  project_id: string;
-  custom_title: string | null;
-  status: string;
-  team_member_ids: string[] | null;
-  updated_at: string | null;
+interface ProjectStatusNotificationProof {
+  eventId: string;
+  companyId: string;
+  projectId: string;
+  actorUserId: string;
+  oldStatus: string;
+  newStatus: string;
+  statusVersion: number;
+  projectTitle: string;
+  recipientUserIds: string[];
 }
 
 const EVENT_FRESHNESS_MS = 15 * 60 * 1000;
@@ -68,11 +67,6 @@ function isFresh(value: unknown): boolean {
   );
 }
 
-function intersect(left: string[], right: string[]): string[] {
-  const allowed = new Set(right);
-  return [...new Set(left)].filter((id) => allowed.has(id));
-}
-
 async function loadProject(
   db: SupabaseClient,
   actor: NotificationRouteActor,
@@ -86,78 +80,57 @@ async function loadProject(
     .eq("id", projectId)
     .eq("company_id", actor.companyId)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error)
+    throw new Error(`Failed to load notification project: ${error.message}`);
+  if (!data) return null;
   return data as ProjectRow;
 }
 
-async function canActOnProject(params: {
-  db: SupabaseClient;
-  actor: NotificationRouteActor;
-  project: ProjectRow;
-  permission: "projects.edit" | "projects.assign_team";
-}): Promise<boolean> {
-  const scope = await resolvePermissionScopeById(
-    params.actor.userId,
-    params.permission
-  );
-  if (scope === "all") return true;
-  if (scope !== "assigned") return false;
-
-  if (values(params.project.team_member_ids).includes(params.actor.userId)) {
-    return true;
-  }
-  const { data, error } = await params.db
-    .from("project_tasks")
-    .select("id")
-    .eq("project_id", params.project.id)
-    .contains("team_member_ids", [params.actor.userId])
-    .is("deleted_at", null)
-    .limit(1)
-    .maybeSingle();
-  return !error && !!data;
-}
-
-async function loadRecentProjectEvent(params: {
+async function resolveProjectStatusProof(params: {
   db: SupabaseClient;
   actor: NotificationRouteActor;
   projectId: string;
-  eventKind: "status_change" | "project_archived";
-}): Promise<Record<string, unknown> | null> {
-  const cutoff = new Date(Date.now() - EVENT_FRESHNESS_MS).toISOString();
-  const { data, error } = await params.db
-    .from("project_notes")
-    .select("id, content_metadata, created_at")
-    .eq("project_id", params.projectId)
-    .eq("company_id", params.actor.companyId)
-    .eq("author_id", params.actor.userId)
-    .eq("event_kind", params.eventKind)
-    .is("deleted_at", null)
-    .gte("created_at", cutoff)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return error || !data ? null : (data as Record<string, unknown>);
-}
-
-async function loadTask(
-  db: SupabaseClient,
-  actor: NotificationRouteActor,
-  taskId: string
-): Promise<{ task: TaskRow; project: ProjectRow } | null> {
-  const { data, error } = await db
-    .from("project_tasks")
-    .select(
-      "id, company_id, project_id, custom_title, status, team_member_ids, updated_at"
-    )
-    .eq("id", taskId)
-    .eq("company_id", actor.companyId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (error || !data) return null;
-  const task = data as TaskRow;
-  const project = await loadProject(db, actor, task.project_id);
-  if (!project || project.deleted_at) return null;
-  return { task, project };
+  eventId: string;
+}): Promise<ProjectStatusNotificationProof | null> {
+  const { data, error } = await params.db.rpc(
+    "resolve_project_status_notification_as_system",
+    {
+      p_actor_user_id: params.actor.userId,
+      p_project_id: params.projectId,
+      p_event_id: params.eventId,
+    }
+  );
+  if (error) {
+    throw new Error(`Failed to resolve project notification: ${error.message}`);
+  }
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const proof = data as Record<string, unknown>;
+  if (
+    typeof proof.event_id !== "string" ||
+    typeof proof.company_id !== "string" ||
+    typeof proof.project_id !== "string" ||
+    typeof proof.actor_user_id !== "string" ||
+    typeof proof.old_status !== "string" ||
+    typeof proof.new_status !== "string" ||
+    typeof proof.status_version !== "number" ||
+    !Number.isSafeInteger(proof.status_version) ||
+    proof.status_version < 1 ||
+    typeof proof.project_title !== "string" ||
+    !Array.isArray(proof.recipient_user_ids)
+  ) {
+    throw new Error("Project notification proof was invalid");
+  }
+  return {
+    eventId: proof.event_id,
+    companyId: proof.company_id,
+    projectId: proof.project_id,
+    actorUserId: proof.actor_user_id,
+    oldStatus: proof.old_status,
+    newStatus: proof.new_status,
+    statusVersion: proof.status_version,
+    projectTitle: proof.project_title,
+    recipientUserIds: values(proof.recipient_user_ids),
+  };
 }
 
 function projectActionUrl(projectId: string): string {
@@ -171,331 +144,46 @@ export async function resolveNotificationEvent(params: {
 }): Promise<NotificationEventResolution> {
   const { db, actor, request } = params;
 
-  if (
-    request.eventType === "project_assigned" ||
-    request.eventType === "project_status_change" ||
-    request.eventType === "project_archived" ||
-    request.eventType === "lead_converted"
-  ) {
-    const project = await loadProject(db, actor, request.projectId);
-    if (!project || project.deleted_at) {
-      return { ok: false, status: 404, reason: "Project event not found" };
-    }
-
-    if (request.eventType === "project_assigned") {
-      const allowed = await canActOnProject({
-        db,
-        actor,
-        project,
-        permission: "projects.assign_team",
-      });
-      if (!allowed) return { ok: false, status: 403, reason: "Forbidden" };
-      if (!isFresh(project.updated_at)) {
-        return { ok: false, status: 409, reason: "Stale assignment event" };
-      }
-      const recipients = intersect(
-        request.candidateRecipientIds,
-        values(project.team_member_ids)
-      );
-      return {
-        ok: true,
-        event: {
-          eventType: request.eventType,
-          companyId: actor.companyId,
-          recipientUserIds: recipients,
-          preferenceKey: "project_updates",
-          type: "project_assigned",
-          title: "Added to Project",
-          body: `${actor.name} added you to ${project.title}.`,
-          persistent: false,
-          actionUrl: projectActionUrl(project.id),
-          actionLabel: "View Project",
-          projectId: project.id,
-          deepLinkType: "project",
-          dedupeKey: `project-assigned:${project.id}:${project.updated_at}`,
-          pushData: {
-            type: "projectAssignment",
-            projectId: project.id,
-            screen: "projectDetails",
-          },
-        },
-      };
-    }
-
-    if (request.eventType === "project_status_change") {
-      const allowed = await canActOnProject({
-        db,
-        actor,
-        project,
-        permission: "projects.edit",
-      });
-      const proof = allowed
-        ? await loadRecentProjectEvent({
-            db,
-            actor,
-            projectId: project.id,
-            eventKind: "status_change",
-          })
-        : null;
-      if (!allowed) return { ok: false, status: 403, reason: "Forbidden" };
-      if (!proof)
-        return { ok: false, status: 409, reason: "Missing status event" };
-      const metadata =
-        proof.content_metadata && typeof proof.content_metadata === "object"
-          ? (proof.content_metadata as Record<string, unknown>)
-          : {};
-      const from =
-        typeof metadata.from === "string" ? metadata.from : "Previous";
-      const to = typeof metadata.to === "string" ? metadata.to : project.status;
-      if (project.status !== to) {
-        return {
-          ok: false,
-          status: 409,
-          reason: "Status event no longer current",
-        };
-      }
-      return {
-        ok: true,
-        event: {
-          eventType: request.eventType,
-          companyId: actor.companyId,
-          recipientUserIds: values(project.team_member_ids),
-          preferenceKey: "project_updates",
-          type: "project_status_change",
-          title: `Status changed: ${from} → ${to}`,
-          body: `${actor.name} moved ${project.title} from ${from} to ${to}.`,
-          persistent: false,
-          actionUrl: projectActionUrl(project.id),
-          actionLabel: "View Project",
-          projectId: project.id,
-          deepLinkType: "project",
-          dedupeKey: `project-status:${String(proof.id)}`,
-          pushData: {
-            type: "projectStatusChange",
-            projectId: project.id,
-            screen: "projectDetails",
-          },
-        },
-      };
-    }
-
-    if (request.eventType === "project_archived") {
-      const allowed = await canActOnProject({
-        db,
-        actor,
-        project,
-        permission: "projects.edit",
-      });
-      const proof = allowed
-        ? await loadRecentProjectEvent({
-            db,
-            actor,
-            projectId: project.id,
-            eventKind: "project_archived",
-          })
-        : null;
-      if (!allowed) return { ok: false, status: 403, reason: "Forbidden" };
-      if (project.status.toLowerCase() !== "archived" || !proof) {
-        return { ok: false, status: 409, reason: "Missing archive event" };
-      }
-      return {
-        ok: true,
-        event: {
-          eventType: request.eventType,
-          companyId: actor.companyId,
-          recipientUserIds: values(project.team_member_ids),
-          preferenceKey: "project_updates",
-          type: "project_archived",
-          title: `${project.title} archived`,
-          body: `${actor.name} archived ${project.title}.`,
-          persistent: false,
-          actionUrl: projectActionUrl(project.id),
-          actionLabel: "View Project",
-          projectId: project.id,
-          deepLinkType: "project",
-          dedupeKey: `project-archived:${String(proof.id)}`,
-          pushData: {
-            type: "projectArchived",
-            projectId: project.id,
-            screen: "projectDetails",
-          },
-        },
-      };
-    }
-
-    const opportunityId = project.opportunity_ref;
-    if (!opportunityId) {
+  if (request.eventType === "project_status_change") {
+    const proof = await resolveProjectStatusProof({
+      db,
+      actor,
+      projectId: request.projectId,
+      eventId: request.projectStatusEventId,
+    });
+    if (
+      !proof ||
+      proof.companyId !== actor.companyId ||
+      proof.projectId !== request.projectId ||
+      proof.eventId !== request.projectStatusEventId ||
+      proof.actorUserId !== actor.userId
+    ) {
       return {
         ok: false,
         status: 409,
-        reason: "Missing conversion relationship",
+        reason: "Missing current status event",
       };
-    }
-    const [{ data: opportunity }, { data: conversionEvent }, authorization] =
-      await Promise.all([
-        db
-          .from("opportunities")
-          .select("id, title, assigned_to, stage, project_ref")
-          .eq("id", opportunityId)
-          .eq("company_id", actor.companyId)
-          .is("deleted_at", null)
-          .maybeSingle(),
-        db
-          .from("opportunity_conversion_events")
-          .select("id, actor_user_id")
-          .eq("opportunity_id", opportunityId)
-          .eq("project_id", project.id)
-          .eq("company_id", actor.companyId)
-          .eq("event_type", "converted_to_project")
-          .maybeSingle(),
-        db.rpc("authorize_opportunity_action_as_system", {
-          p_actor_user_id: actor.userId,
-          p_opportunity_id: opportunityId,
-          p_action: "convert",
-        }),
-      ]);
-    if (!opportunity || !conversionEvent) {
-      return { ok: false, status: 409, reason: "Missing conversion event" };
-    }
-    if (
-      authorization.error ||
-      authorization.data !== true ||
-      conversionEvent.actor_user_id !== actor.userId ||
-      opportunity.project_ref !== project.id ||
-      String(opportunity.stage).toLowerCase() !== "won"
-    ) {
-      return { ok: false, status: 403, reason: "Forbidden" };
     }
     return {
       ok: true,
       event: {
         eventType: request.eventType,
-        companyId: actor.companyId,
-        recipientUserIds: opportunity.assigned_to
-          ? [String(opportunity.assigned_to)]
-          : [],
+        companyId: proof.companyId,
+        recipientUserIds: proof.recipientUserIds,
         preferenceKey: "project_updates",
-        type: "lead_converted",
-        title: "Deal converted to project",
-        body: `${actor.name} converted ${String(opportunity.title)} to a project.`,
+        type: "project_status_change",
+        title: `Status changed: ${proof.oldStatus} → ${proof.newStatus}`,
+        body: `${actor.name} moved ${proof.projectTitle} from ${proof.oldStatus} to ${proof.newStatus}.`,
         persistent: false,
-        actionUrl: projectActionUrl(project.id),
+        actionUrl: projectActionUrl(proof.projectId),
         actionLabel: "View Project",
-        projectId: project.id,
+        projectId: proof.projectId,
         deepLinkType: "project",
-        dedupeKey: `lead-converted:${String(conversionEvent.id)}`,
+        dedupeKey: `project-status-lifecycle:${proof.eventId}`,
         pushData: {
-          type: "leadConverted",
-          projectId: project.id,
+          type: "projectStatusChange",
+          projectId: proof.projectId,
           screen: "projectDetails",
-        },
-      },
-    };
-  }
-
-  if (
-    request.eventType === "task_assigned" ||
-    request.eventType === "task_completed" ||
-    request.eventType === "schedule_change"
-  ) {
-    const loaded = await loadTask(db, actor, request.taskId);
-    if (!loaded)
-      return { ok: false, status: 404, reason: "Task event not found" };
-    const { task, project } = loaded;
-    const allowed = await canActOnProject({
-      db,
-      actor,
-      project,
-      permission: "projects.edit",
-    });
-    if (!allowed) return { ok: false, status: 403, reason: "Forbidden" };
-    if (!isFresh(task.updated_at)) {
-      return { ok: false, status: 409, reason: "Stale task event" };
-    }
-    const taskTitle = task.custom_title?.trim() || "Task";
-    const taskMembers = values(task.team_member_ids);
-
-    if (request.eventType === "task_assigned") {
-      return {
-        ok: true,
-        event: {
-          eventType: request.eventType,
-          companyId: actor.companyId,
-          recipientUserIds: intersect(
-            request.candidateRecipientIds,
-            taskMembers
-          ),
-          preferenceKey: "task_assigned",
-          type: "task_assigned",
-          title: "New Task Assignment",
-          body: `${actor.name} assigned you ${taskTitle} on ${project.title}.`,
-          persistent: false,
-          actionUrl: projectActionUrl(project.id),
-          actionLabel: "View Task",
-          projectId: project.id,
-          deepLinkType: "task",
-          dedupeKey: `task-assigned:${task.id}:${task.updated_at}`,
-          pushData: {
-            type: "taskAssignment",
-            taskId: task.id,
-            projectId: project.id,
-            screen: "taskDetails",
-          },
-        },
-      };
-    }
-
-    if (request.eventType === "task_completed") {
-      if (task.status.toLowerCase() !== "completed") {
-        return { ok: false, status: 409, reason: "Task is not completed" };
-      }
-      return {
-        ok: true,
-        event: {
-          eventType: request.eventType,
-          companyId: actor.companyId,
-          recipientUserIds: taskMembers,
-          preferenceKey: "task_completed",
-          type: "task_completed",
-          title: "Task Completed",
-          body: `${actor.name} completed ${taskTitle} on ${project.title}.`,
-          persistent: false,
-          actionUrl: projectActionUrl(project.id),
-          actionLabel: "View Project",
-          projectId: project.id,
-          deepLinkType: "task",
-          dedupeKey: `task-completed:${task.id}:${task.updated_at}`,
-          pushData: {
-            type: "taskCompletion",
-            taskId: task.id,
-            projectId: project.id,
-            screen: "projectDetails",
-          },
-        },
-      };
-    }
-
-    return {
-      ok: true,
-      event: {
-        eventType: request.eventType,
-        companyId: actor.companyId,
-        recipientUserIds: taskMembers,
-        preferenceKey: "schedule_changes",
-        type: "schedule_change",
-        title: "Schedule Update",
-        body: `${actor.name} rescheduled ${taskTitle} on ${project.title}.`,
-        persistent: false,
-        actionUrl: projectActionUrl(project.id),
-        actionLabel: "View Task",
-        projectId: project.id,
-        deepLinkType: "task",
-        dedupeKey: `schedule-change:${task.id}:${task.updated_at}`,
-        pushData: {
-          type: "scheduleChange",
-          taskId: task.id,
-          projectId: project.id,
-          screen: "taskDetails",
         },
       },
     };

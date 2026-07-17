@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { analyticsService } from "@/lib/analytics/analytics-service";
 import { queryKeys } from "@/lib/api/query-client";
-import { dispatchProjectAssignment } from "@/lib/api/services/notification-dispatch";
 import {
   ProjectTableMutationError,
   ProjectTableService,
@@ -56,52 +55,77 @@ function isProjectTableRowsQuery(queryKey: readonly unknown[]) {
 function updateRows(
   queryClient: QueryClient,
   projectIds: Set<string>,
-  updater: (row: ProjectTableRow) => ProjectTableRow,
+  updater: (row: ProjectTableRow) => ProjectTableRow
 ) {
   queryClient.setQueriesData<unknown>(
     {
       queryKey: queryKeys.projects.all,
       exact: false,
       predicate: (query) =>
-        Array.isArray(query.queryKey) && isProjectTableRowsQuery(query.queryKey),
+        Array.isArray(query.queryKey) &&
+        isProjectTableRowsQuery(query.queryKey),
     },
     (oldData: unknown) => {
-      if (!oldData || typeof oldData !== "object" || !("pages" in oldData)) return oldData;
+      if (!oldData || typeof oldData !== "object" || !("pages" in oldData))
+        return oldData;
       const data = oldData as InfiniteProjectTableRowsData;
       return {
         ...data,
         pages: data.pages.map((page) => ({
           ...page,
-          rows: page.rows?.map((row) => (projectIds.has(row.id) ? updater(row) : row)),
+          rows: page.rows?.map((row) =>
+            projectIds.has(row.id) ? updater(row) : row
+          ),
         })),
       };
-    },
+    }
   );
 }
 
 function requireUpdateToken(row: ProjectTableRow) {
   if (!row.updatedAt) {
-    throw new ProjectTableMutationError("Project update token is missing", "22023");
+    throw new ProjectTableMutationError(
+      "Project update token is missing",
+      "22023"
+    );
   }
   return row.updatedAt;
 }
 
-function teamTaskIdsForProject(taskIdsByProjectId: TeamTaskMap | undefined, projectId: string) {
+function requireStatusVersion(row: ProjectTableRow): number {
+  if (
+    typeof row.statusVersion !== "number" ||
+    !Number.isSafeInteger(row.statusVersion) ||
+    row.statusVersion < 0
+  ) {
+    throw new ProjectTableMutationError(
+      "Project status version is missing",
+      "22023"
+    );
+  }
+  return row.statusVersion;
+}
+
+function teamTaskIdsForProject(
+  taskIdsByProjectId: TeamTaskMap | undefined,
+  projectId: string
+) {
   if (!taskIdsByProjectId) return null;
-  if (taskIdsByProjectId instanceof Map) return taskIdsByProjectId.get(projectId) ?? null;
+  if (taskIdsByProjectId instanceof Map)
+    return taskIdsByProjectId.get(projectId) ?? null;
   return Object.prototype.hasOwnProperty.call(taskIdsByProjectId, projectId)
-    ? taskIdsByProjectId[projectId] ?? null
+    ? (taskIdsByProjectId[projectId] ?? null)
     : null;
 }
 
 function requireAssignTaskIds(
   projectId: string,
-  taskIds: string[] | null,
+  taskIds: string[] | null
 ): asserts taskIds is string[] {
   if (!taskIds || taskIds.length === 0) {
     throw new ProjectTableMutationError(
       `Team assignment for ${projectId} requires at least one task`,
-      "22023",
+      "22023"
     );
   }
 }
@@ -114,6 +138,7 @@ function applySuccessfulOperation(
   row: ProjectTableRow,
   descriptor: BulkDescriptor,
   updatedAt: string | null,
+  statusVersion: number | null
 ): ProjectTableRow {
   const operation = descriptor.operation;
   switch (operation.action) {
@@ -123,6 +148,7 @@ function applySuccessfulOperation(
         status: operation.status,
         rawStatus: serializeProjectTableStatus(operation.status),
         updatedAt,
+        statusVersion: statusVersion ?? requireStatusVersion(descriptor.row),
       };
     case "date":
       return operation.field === "start_date"
@@ -153,22 +179,28 @@ function buildUndoEntry(args: {
 }): ProjectTableBulkUndoEntry | null {
   const successMap = successByProjectId(args.result.success);
   const successfulDescriptors = args.descriptors.filter((descriptor) =>
-    successMap.has(descriptor.operation.projectId),
+    successMap.has(descriptor.operation.projectId)
   );
 
   if (successfulDescriptors.length === 0) return null;
 
-  const before: ProjectTableBulkUndoPoint[] = successfulDescriptors.map((descriptor) => ({
-    projectId: descriptor.operation.projectId,
-    columnId: descriptor.columnId,
-    value: descriptor.beforeValue,
-    updatedAt: descriptor.row.updatedAt,
-  }));
+  const before: ProjectTableBulkUndoPoint[] = successfulDescriptors.map(
+    (descriptor) => ({
+      projectId: descriptor.operation.projectId,
+      columnId: descriptor.columnId,
+      value: descriptor.beforeValue,
+      updatedAt: descriptor.row.updatedAt,
+      statusVersion: descriptor.row.statusVersion ?? null,
+    })
+  );
 
   const after = successfulDescriptors.map((descriptor) => ({
     projectId: descriptor.operation.projectId,
     value: descriptor.afterValue,
-    updatedAt: successMap.get(descriptor.operation.projectId)?.updatedAt ?? null,
+    updatedAt:
+      successMap.get(descriptor.operation.projectId)?.updatedAt ?? null,
+    statusVersion:
+      successMap.get(descriptor.operation.projectId)?.statusVersion ?? null,
   }));
 
   const undoOperations = successfulDescriptors
@@ -178,6 +210,12 @@ function buildUndoEntry(args: {
       return {
         ...descriptor.undoOperation,
         expectedUpdatedAt: success.updatedAt,
+        ...(descriptor.undoOperation.action === "status"
+          ? {
+              expectedStatusVersion:
+                success.statusVersion ?? requireStatusVersion(descriptor.row),
+            }
+          : {}),
       };
     })
     .filter((operation): operation is ProjectTableBulkOperation => operation !== null);
@@ -216,25 +254,6 @@ function trackBulkApplied(args: {
     action: args.action,
     row_count: args.rowCount,
     partial_failure_count: args.partialFailureCount,
-  });
-}
-
-function dispatchSuccessfulBulkAssignments(
-  descriptors: BulkDescriptor[],
-  successfulProjectIds: Set<string>,
-) {
-  descriptors.forEach((descriptor) => {
-    const operation = descriptor.operation;
-    if (operation.action !== "assign_team") return;
-    if (!successfulProjectIds.has(operation.projectId)) return;
-    if (descriptor.row.teamMemberIds.includes(operation.userId)) return;
-
-    dispatchProjectAssignment({
-      projectId: operation.projectId,
-      projectTitle: descriptor.row.title,
-      newMemberIds: [operation.userId],
-      companyId: descriptor.row.companyId,
-    });
   });
 }
 
@@ -285,17 +304,17 @@ export function useProjectsBulkActions({
           rowCount: descriptors.length,
           partialFailureCount: result.failedCount,
         });
-        dispatchSuccessfulBulkAssignments(descriptors, successfulProjectIds);
 
         updateRows(queryClient, successfulProjectIds, (row) => {
           const descriptor = descriptors.find(
-            (candidate) => candidate.operation.projectId === row.id,
+            (candidate) => candidate.operation.projectId === row.id
           );
           if (!descriptor) return row;
           return applySuccessfulOperation(
             row,
             descriptor,
             successMap.get(row.id)?.updatedAt ?? row.updatedAt,
+            successMap.get(row.id)?.statusVersion ?? row.statusVersion ?? null
           );
         });
 
@@ -341,6 +360,7 @@ export function useProjectsBulkActions({
             projectId: row.id,
             status,
             expectedUpdatedAt: requireUpdateToken(row),
+            expectedStatusVersion: requireStatusVersion(row),
           },
           columnId: "status",
           beforeValue: row.status,
@@ -350,10 +370,11 @@ export function useProjectsBulkActions({
             projectId: row.id,
             status: row.status,
             expectedUpdatedAt: row.updatedAt ?? "",
+            expectedStatusVersion: requireStatusVersion(row),
           },
-        })),
+        }))
       ),
-    [runDescriptors, targetRows],
+    [runDescriptors, targetRows]
   );
 
   const updateDate = useCallback(
@@ -385,7 +406,13 @@ export function useProjectsBulkActions({
   );
 
   const assignTeamMember = useCallback(
-    ({ userId, taskIdsByProjectId }: { userId: string; taskIdsByProjectId: TeamTaskMap }) =>
+    ({
+      userId,
+      taskIdsByProjectId,
+    }: {
+      userId: string;
+      taskIdsByProjectId: TeamTaskMap;
+    }) =>
       runDescriptors(
         "assign_team",
         targetRows.map((row) => {

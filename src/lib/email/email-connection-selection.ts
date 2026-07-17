@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 interface ResolveNewConversationConnectionInput {
   supabase: SupabaseClient;
   companyId: string;
-  actorUserId: string;
+  actorUserId?: string | null;
 }
 
 async function selectConnection(
@@ -53,15 +53,17 @@ export async function resolveNewEmailConversationConnectionId({
   actorUserId,
 }: ResolveNewConversationConnectionInput): Promise<string | null> {
   const normalizedCompanyId = companyId.trim();
-  const normalizedActorUserId = actorUserId.trim();
-  if (!normalizedCompanyId || !normalizedActorUserId) return null;
+  const normalizedActorUserId = actorUserId?.trim() ?? "";
+  if (!normalizedCompanyId) return null;
 
-  const personal = await selectConnection(supabase, {
-    companyId: normalizedCompanyId,
-    type: "individual",
-    actorUserId: normalizedActorUserId,
-  });
-  if (personal) return personal;
+  if (normalizedActorUserId) {
+    const personal = await selectConnection(supabase, {
+      companyId: normalizedCompanyId,
+      type: "individual",
+      actorUserId: normalizedActorUserId,
+    });
+    if (personal) return personal;
+  }
 
   return selectConnection(supabase, {
     companyId: normalizedCompanyId,

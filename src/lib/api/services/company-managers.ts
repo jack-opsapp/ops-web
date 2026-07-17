@@ -21,11 +21,14 @@ export async function getCompanyManagerUserIds(
   supabase: SupabaseClient,
   companyId: string
 ): Promise<string[]> {
-  const { data: company } = await supabase
+  const { data: company, error } = await supabase
     .from("companies")
     .select("account_holder_id, admin_ids")
     .eq("id", companyId)
     .maybeSingle();
+  if (error) {
+    throw new Error(`Failed to resolve company managers: ${error.message}`);
+  }
   if (!company) return [];
 
   const ids = new Set<string>();

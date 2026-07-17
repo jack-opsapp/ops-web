@@ -59,6 +59,8 @@ export interface CreateProjectSystemEvent {
   content: string;
   contentMetadata?: Record<string, unknown> | null;
   attachments?: NoteAttachment[];
+  /** Immutable mutation time for a durable status-lifecycle projection. */
+  lifecycleOccurredAt?: string;
 }
 
 export function mapRowToProjectNote(row: ProjectNoteRow): ProjectNote {
@@ -124,6 +126,12 @@ export const ProjectNoteService = {
    */
   async createSystemEvent(input: CreateProjectSystemEvent): Promise<ProjectNote> {
     const supabase = requireSupabase();
+    const lifecycleCreatedAt =
+      input.eventKind === "status_change" &&
+      typeof input.contentMetadata?.lifecycle_event_id === "string" &&
+      input.lifecycleOccurredAt
+        ? input.lifecycleOccurredAt
+        : undefined;
     const { data, error } = await supabase
       .from("project_notes")
       .insert({
@@ -135,6 +143,7 @@ export const ProjectNoteService = {
         mentioned_user_ids: [],
         event_kind: input.eventKind,
         content_metadata: input.contentMetadata ?? null,
+        ...(lifecycleCreatedAt ? { created_at: lifecycleCreatedAt } : {}),
       })
       .select()
       .single();

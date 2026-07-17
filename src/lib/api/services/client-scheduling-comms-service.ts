@@ -12,6 +12,10 @@
  * client-facing communications. Phase C gated.
  */
 
+import "server-only";
+
+import { createHash } from "node:crypto";
+
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { ApprovalQueueService } from "./approval-queue-service";
 import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
@@ -35,8 +39,10 @@ import type {
   RescheduleAlternative,
   StructuredSummary,
   ClientCommsSettings,
+  TaskAutomationPersistenceGuard,
 } from "@/lib/types/approval-queue";
 import { DEFAULT_CLIENT_COMMS_SETTINGS } from "@/lib/types/approval-queue";
+import { TaskAutomationPersistenceService } from "./task-automation-persistence-service";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -83,6 +89,16 @@ async function renderSummaryFallback(
           clientName: p.clientName ?? "",
           taskTitle: p.taskTitle ?? "",
           newDate: p.newDate ?? "",
+        }
+      );
+    case "schedule_unscheduled":
+      return renderServerString(
+        locale,
+        "server-emails",
+        "summary.scheduleUnscheduled",
+        {
+          clientName: p.clientName ?? "",
+          taskTitle: p.taskTitle ?? "",
         }
       );
     case "reschedule_request":
@@ -345,6 +361,215 @@ function formatTime(time: string | null): string | null {
   return `${hh}:${match[2]}`;
 }
 
+export type TaskScheduleState = {
+  startDate: string | null;
+  endDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  duration: number;
+  teamMemberIds: string[];
+};
+
+export type ConfirmedScheduleChange = {
+  before: TaskScheduleState;
+  after: TaskScheduleState;
+  scheduleVersion: number | null;
+};
+
+export type ConfirmedRescheduleOutcome = {
+  actionTaken:
+    | "phase_c_disabled"
+    | "stale_or_unconfirmed"
+    | "do_nothing"
+    | "notify"
+    | "notify_failed"
+    | "draft"
+    | "auto_send";
+  actionId: string | null;
+};
+
+function sameDateTime(left: string | null, right: string | null): boolean {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  const leftTime = new Date(left).getTime();
+  const rightTime = new Date(right).getTime();
+  return (
+    !Number.isNaN(leftTime) &&
+    !Number.isNaN(rightTime) &&
+    leftTime === rightTime
+  );
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  return (
+    [...new Set(left)].sort().join("\u0000") ===
+    [...new Set(right)].sort().join("\u0000")
+  );
+}
+
+function displayScheduleDate(value: string | null, locale: string): string {
+  if (!value) return "not specified";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString(locale, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function displayScheduleTime(value: string | null, locale: string): string {
+  if (!value) return "not specified";
+  const match = /^(\d{1,2}):(\d{2})/.exec(value);
+  if (!match) return value;
+  const parsed = new Date(
+    Date.UTC(2026, 0, 1, Number(match[1]), Number(match[2]))
+  );
+  return parsed.toLocaleTimeString(locale, {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
+}
+
+function displayTimeWindow(state: TaskScheduleState, locale: string): string {
+  if (state.allDay) return "all day";
+  const start = displayScheduleTime(state.startTime, locale);
+  return state.endTime
+    ? `${start} to ${displayScheduleTime(state.endTime, locale)}`
+    : start;
+}
+
+/** Build only the facts that actually changed; never imply a date move for a time/crew edit. */
+export function buildScheduleChangeDetails(
+  change: ConfirmedScheduleChange,
+  beforeCrewNames: string[],
+  afterCrewNames: string[],
+  locale: string
+): string[] {
+  const details: string[] = [];
+  const wasUnscheduled = !!change.before.startDate && !change.after.startDate;
+  if (
+    !sameDateTime(change.before.startDate, change.after.startDate) ||
+    !sameDateTime(change.before.endDate, change.after.endDate)
+  ) {
+    if (wasUnscheduled) {
+      details.push(
+        `The visit previously scheduled for ${displayScheduleDate(change.before.startDate, locale)} is no longer scheduled.`
+      );
+    } else {
+      details.push(
+        `The original date was ${displayScheduleDate(change.before.startDate, locale)}.`,
+        `The new date is ${displayScheduleDate(change.after.startDate, locale)}.`
+      );
+    }
+  }
+  if (wasUnscheduled) return details;
+  if (
+    change.before.startTime !== change.after.startTime ||
+    change.before.endTime !== change.after.endTime ||
+    change.before.allDay !== change.after.allDay
+  ) {
+    details.push(
+      `The original time was ${displayTimeWindow(change.before, locale)}.`,
+      `The new time is ${displayTimeWindow(change.after, locale)}.`
+    );
+  }
+  if (change.before.duration !== change.after.duration) {
+    details.push(
+      `The duration changed from ${change.before.duration} day${change.before.duration === 1 ? "" : "s"} to ${change.after.duration} day${change.after.duration === 1 ? "" : "s"}.`
+    );
+  }
+  if (!sameStringSet(change.before.teamMemberIds, change.after.teamMemberIds)) {
+    const beforeCrew =
+      beforeCrewNames.length > 0
+        ? beforeCrewNames.join(", ")
+        : "the prior crew";
+    const afterCrew =
+      afterCrewNames.length > 0 ? afterCrewNames.join(", ") : "the new crew";
+    details.push(`The crew changed from ${beforeCrew} to ${afterCrew}.`);
+  }
+  return details;
+}
+
+function canonicalScheduleState(state: TaskScheduleState) {
+  return {
+    ...state,
+    teamMemberIds: [...new Set(state.teamMemberIds)].sort(),
+  };
+}
+
+/** Stable proposal key for the exact successful mutation, including time and crew. */
+export function scheduleChangeFingerprint(
+  change: ConfirmedScheduleChange
+): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        before: canonicalScheduleState(change.before),
+        after: canonicalScheduleState(change.after),
+        scheduleVersion: change.scheduleVersion,
+      })
+    )
+    .digest("hex")
+    .slice(0, 24);
+}
+
+function taskScheduleState(task: Record<string, unknown>): TaskScheduleState {
+  return {
+    startDate: typeof task.start_date === "string" ? task.start_date : null,
+    endDate: typeof task.end_date === "string" ? task.end_date : null,
+    startTime: typeof task.start_time === "string" ? task.start_time : null,
+    endTime: typeof task.end_time === "string" ? task.end_time : null,
+    allDay: task.all_day !== false,
+    duration:
+      typeof task.duration === "number" && Number.isFinite(task.duration)
+        ? task.duration
+        : 1,
+    teamMemberIds: Array.isArray(task.team_member_ids)
+      ? task.team_member_ids.filter(
+          (value): value is string => typeof value === "string"
+        )
+      : [],
+  };
+}
+
+export function taskMatchesScheduleChange(
+  task: Record<string, unknown>,
+  change: ConfirmedScheduleChange
+): boolean {
+  const current = taskScheduleState(task);
+  return (
+    (change.scheduleVersion === null ||
+      task.schedule_version === change.scheduleVersion) &&
+    sameDateTime(current.startDate, change.after.startDate) &&
+    sameDateTime(current.endDate, change.after.endDate) &&
+    current.startTime === change.after.startTime &&
+    current.endTime === change.after.endTime &&
+    current.allDay === change.after.allDay &&
+    current.duration === change.after.duration &&
+    sameStringSet(current.teamMemberIds, change.after.teamMemberIds)
+  );
+}
+
+function taskMatchesScheduleState(
+  task: Record<string, unknown>,
+  expected: TaskScheduleState
+): boolean {
+  const current = taskScheduleState(task);
+  return (
+    sameDateTime(current.startDate, expected.startDate) &&
+    sameDateTime(current.endDate, expected.endDate) &&
+    current.startTime === expected.startTime &&
+    current.endTime === expected.endTime &&
+    current.allDay === expected.allDay &&
+    current.duration === expected.duration &&
+    sameStringSet(current.teamMemberIds, expected.teamMemberIds)
+  );
+}
+
 /** Normalize a Supabase embedded-join value that may be either an object or
  *  an array (PostgREST returns arrays for to-many and objects for to-one,
  *  but the generated types sometimes type it as an array even when to-one). */
@@ -510,7 +735,14 @@ export const ClientSchedulingCommsService = {
     companyId: string,
     userId: string,
     taskId: string,
-    options: { autoSendAfterMinutes?: number } = {}
+    options: {
+      autoSendAfterMinutes?: number;
+      sourceId?: string;
+      expectedSchedule?: TaskScheduleState;
+      expectedConfirmedAt?: string;
+      prePersistGuard?: () => Promise<boolean>;
+      taskAutomationGuard?: TaskAutomationPersistenceGuard;
+    } = {}
   ): Promise<string | null> {
     const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
@@ -529,7 +761,7 @@ export const ClientSchedulingCommsService = {
     const { data: task } = await supabase
       .from("project_tasks")
       .select(
-        "id, project_id, custom_title, start_date, end_date, start_time, end_time, duration, team_member_ids, task_types(display)"
+        "id, project_id, custom_title, start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version, schedule_confirmed_at, task_types(display)"
       )
       .eq("id", taskId)
       .eq("company_id", companyId)
@@ -537,6 +769,17 @@ export const ClientSchedulingCommsService = {
       .maybeSingle();
 
     if (!task || !task.start_date) return null;
+    if (
+      options.expectedSchedule &&
+      (!taskMatchesScheduleState(
+        task as Record<string, unknown>,
+        options.expectedSchedule
+      ) ||
+        (options.expectedConfirmedAt !== undefined &&
+          task.schedule_confirmed_at !== options.expectedConfirmedAt))
+    ) {
+      return null;
+    }
 
     const projectId = task.project_id as string;
     const { data: project } = await supabase
@@ -680,6 +923,32 @@ export const ClientSchedulingCommsService = {
         ? new Date(Date.now() + options.autoSendAfterMinutes * 60 * 1000)
         : undefined;
 
+    if (options.expectedSchedule) {
+      const { data: current } = await supabase
+        .from("project_tasks")
+        .select(
+          "start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_confirmed_at"
+        )
+        .eq("id", taskId)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (
+        !current ||
+        !taskMatchesScheduleState(
+          current as Record<string, unknown>,
+          options.expectedSchedule
+        ) ||
+        (options.expectedConfirmedAt !== undefined &&
+          current.schedule_confirmed_at !== options.expectedConfirmedAt)
+      ) {
+        return null;
+      }
+    }
+    if (options.prePersistGuard && !(await options.prePersistGuard())) {
+      return null;
+    }
+
     return ApprovalQueueService.proposeAction({
       companyId,
       userId,
@@ -687,10 +956,11 @@ export const ClientSchedulingCommsService = {
       actionData: actionData as unknown as Record<string, unknown>,
       contextSummary,
       contextSource: "task_scheduled",
-      sourceId: `${taskId}:confirmation`,
+      sourceId: options.sourceId ?? `${taskId}:confirmation`,
       confidence: 0.85,
       priority: "normal",
       autoExecuteAt,
+      taskAutomationGuard: options.taskAutomationGuard,
     });
   },
 
@@ -707,8 +977,13 @@ export const ClientSchedulingCommsService = {
     companyId: string,
     userId: string,
     taskId: string,
-    priorStartDate: string | null,
-    options: { autoSendAfterMinutes?: number } = {}
+    priorSchedule: string | null | ConfirmedScheduleChange,
+    options: {
+      autoSendAfterMinutes?: number;
+      sourceId?: string;
+      prePersistGuard?: () => Promise<boolean>;
+      taskAutomationGuard?: TaskAutomationPersistenceGuard;
+    } = {}
   ): Promise<string | null> {
     const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
@@ -724,14 +999,37 @@ export const ClientSchedulingCommsService = {
     const { data: task } = await supabase
       .from("project_tasks")
       .select(
-        "id, project_id, custom_title, start_date, end_date, start_time, end_time, duration, team_member_ids, task_types(display)"
+        "id, project_id, custom_title, start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version, task_types(display)"
       )
       .eq("id", taskId)
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .maybeSingle();
 
-    if (!task || !task.start_date) return null;
+    if (!task) return null;
+
+    const currentSchedule = taskScheduleState(task as Record<string, unknown>);
+    const change: ConfirmedScheduleChange =
+      priorSchedule && typeof priorSchedule === "object"
+        ? priorSchedule
+        : {
+            before: {
+              ...currentSchedule,
+              startDate: priorSchedule,
+            },
+            after: currentSchedule,
+            scheduleVersion:
+              typeof task.schedule_version === "number"
+                ? task.schedule_version
+                : null,
+          };
+    if (
+      priorSchedule &&
+      typeof priorSchedule === "object" &&
+      !taskMatchesScheduleChange(task as Record<string, unknown>, change)
+    ) {
+      return null;
+    }
 
     const projectId = task.project_id as string;
     const { data: project } = await supabase
@@ -763,28 +1061,37 @@ export const ClientSchedulingCommsService = {
       (normalizeJoinedRow(task.task_types)?.display as string) ||
       projectTitle;
 
-    const newStartDate = task.start_date as string;
-    const newStartTime = formatTime((task.start_time as string) ?? null);
-    const newEndTime = formatTime((task.end_time as string) ?? null);
+    const isUnscheduled = !change.after.startDate;
+    const newStartDate = change.after.startDate;
+    const newStartTime = formatTime(change.after.startTime);
+    const newEndTime = formatTime(change.after.endTime);
 
     const crewIds = Array.isArray(task.team_member_ids)
       ? (task.team_member_ids as string[])
       : [];
     const crewNames = await loadCrewNames(companyId, crewIds);
+    const priorCrewNames = sameStringSet(
+      change.before.teamMemberIds,
+      change.after.teamMemberIds
+    )
+      ? crewNames
+      : await loadCrewNames(companyId, change.before.teamMemberIds);
 
     const connectionId = await getActiveConnectionId(companyId, userId);
     if (!connectionId) return null;
 
     const locale = await getCompanyLocale(companyId);
     const bcp = bcp47(locale);
-    const displayNewDate = new Date(newStartDate).toLocaleDateString(bcp, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-    const displayOldDate = priorStartDate
-      ? new Date(priorStartDate).toLocaleDateString(bcp, {
+    const displayNewDate = newStartDate
+      ? new Date(newStartDate).toLocaleDateString(bcp, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })
+      : null;
+    const displayOldDate = change.before.startDate
+      ? new Date(change.before.startDate).toLocaleDateString(bcp, {
           weekday: "long",
           month: "long",
           day: "numeric",
@@ -794,23 +1101,37 @@ export const ClientSchedulingCommsService = {
     const crewListText =
       crewNames.length > 0 ? crewNames.join(", ") : "our crew";
 
+    const changeDetails = buildScheduleChangeDetails(
+      change,
+      priorCrewNames,
+      crewNames,
+      bcp
+    );
+    if (changeDetails.length === 0) return null;
+
     // GPT instruction stays English; we ask it to produce output in locale.
-    const instructionParts: string[] = [
-      "Write a brief schedule change notification.",
-      displayOldDate
-        ? `The original date was ${displayOldDate}.`
-        : "The original date has changed.",
-      `The new date is ${displayNewDate}${newStartTime ? ` at ${newStartTime}` : ""}.`,
-      `${crewListText} will be on site to work on ${taskTitle.toLowerCase()}${projectAddress ? ` at ${projectAddress}` : ""}.`,
-      "Acknowledge the change, confirm the new date, and apologize for any inconvenience. Keep it short — two or three sentences.",
-      "Do not include any signature — the email system adds one automatically.",
-      `Write the email in ${locale === "es" ? "Spanish" : "English"}.`,
-    ];
+    const instructionParts: string[] = isUnscheduled
+      ? [
+          "Write a brief notice that a previously confirmed visit is no longer scheduled.",
+          ...changeDetails,
+          `The affected work is ${taskTitle.toLowerCase()}${projectAddress ? ` at ${projectAddress}` : ""}.`,
+          "Do not invent or promise a replacement date. Ask the client to reply with any questions. Keep it short — two or three sentences.",
+          "Do not include any signature — the email system adds one automatically.",
+          `Write the email in ${locale === "es" ? "Spanish" : "English"}.`,
+        ]
+      : [
+          "Write a brief schedule change notification.",
+          ...changeDetails,
+          `${crewListText} will be on site to work on ${taskTitle.toLowerCase()}${projectAddress ? ` at ${projectAddress}` : ""}.`,
+          "Acknowledge the change, confirm only the updated details above, and apologize for any inconvenience. Keep it short — two or three sentences.",
+          "Do not include any signature — the email system adds one automatically.",
+          `Write the email in ${locale === "es" ? "Spanish" : "English"}.`,
+        ];
 
     const subject = await renderServerString(
       locale,
       "server-emails",
-      "scheduleChanged.subject",
+      isUnscheduled ? "scheduleUnscheduled.subject" : "scheduleChanged.subject",
       { projectTitle }
     );
 
@@ -829,11 +1150,13 @@ export const ClientSchedulingCommsService = {
       : await renderServerString(
           locale,
           "server-emails",
-          "scheduleChanged.fallback",
+          isUnscheduled
+            ? "scheduleUnscheduled.fallback"
+            : "scheduleChanged.fallback",
           {
             clientName: clientName.split(" ")[0] || "",
             taskTitle,
-            newDate: displayNewDate,
+            newDate: displayNewDate ?? "",
           }
         );
     const draftHistoryId = await ensureApprovalDraftHistory({
@@ -848,11 +1171,11 @@ export const ClientSchedulingCommsService = {
     });
 
     const structured: StructuredSummary = {
-      type: "schedule_changed",
+      type: isUnscheduled ? "schedule_unscheduled" : "schedule_changed",
       params: {
         clientName: clientName || "client",
         taskTitle,
-        newDate: displayNewDate,
+        newDate: displayNewDate ?? "",
         oldDate: displayOldDate ?? "",
       },
     };
@@ -865,8 +1188,9 @@ export const ClientSchedulingCommsService = {
       client_name: clientName,
       client_email: clientEmail,
       task_title: taskTitle,
-      original_date: priorStartDate ?? "",
-      original_time: null,
+      original_date: change.before.startDate ?? "",
+      original_time: formatTime(change.before.startTime),
+      change_kind: isUnscheduled ? "unscheduled" : "rescheduled",
       new_date: newStartDate,
       new_time: newStartTime,
       new_end_time: newEndTime,
@@ -885,9 +1209,30 @@ export const ClientSchedulingCommsService = {
         ? new Date(Date.now() + options.autoSendAfterMinutes * 60 * 1000)
         : undefined;
 
-    // Dedupe per task per new-date so rapid successive reschedules don't
-    // pile up identical drafts.
-    const newDateKey = newStartDate.slice(0, 10);
+    if (priorSchedule && typeof priorSchedule === "object") {
+      const { data: current } = await supabase
+        .from("project_tasks")
+        .select(
+          "start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version"
+        )
+        .eq("id", taskId)
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (
+        !current ||
+        !taskMatchesScheduleChange(
+          current as Record<string, unknown>,
+          priorSchedule
+        )
+      ) {
+        return null;
+      }
+    }
+    if (options.prePersistGuard && !(await options.prePersistGuard())) {
+      return null;
+    }
+
     return ApprovalQueueService.proposeAction({
       companyId,
       userId,
@@ -895,10 +1240,13 @@ export const ClientSchedulingCommsService = {
       actionData: actionData as unknown as Record<string, unknown>,
       contextSummary: await renderSummaryFallback(locale, structured),
       contextSource: "task_scheduled",
-      sourceId: `${taskId}:sched_changed:${newDateKey}`,
+      sourceId:
+        options.sourceId ??
+        `${taskId}:sched_changed:${scheduleChangeFingerprint(change)}`,
       confidence: 0.8,
       priority: "normal",
       autoExecuteAt,
+      taskAutomationGuard: options.taskAutomationGuard,
     });
   },
 
@@ -1785,7 +2133,14 @@ export const ClientSchedulingCommsService = {
   async onTaskScheduleConfirmed(
     companyId: string,
     userId: string,
-    taskId: string
+    taskId: string,
+    options: {
+      sourceId?: string;
+      expectedSchedule?: TaskScheduleState;
+      expectedConfirmedAt?: string;
+      prePersistGuard?: () => Promise<boolean>;
+      taskAutomationGuard?: TaskAutomationPersistenceGuard;
+    } = {}
   ): Promise<{ actionTaken: string; actionId: string | null }> {
     const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
@@ -1811,30 +2166,43 @@ export const ClientSchedulingCommsService = {
       companyId,
       userId,
       taskId,
-      { autoSendAfterMinutes }
+      { autoSendAfterMinutes, ...options }
     );
 
     return { actionTaken: level, actionId };
   },
 
   /**
-   * Called from executeCreateTask fire-and-forget. Only dispatches when the
-   * level is full_auto — at that setting, the user doesn't want to wait
-   * for an explicit confirm or a grace period.
+   * Durable-worker entry point for immediate full-auto confirmation. The
+   * guarded action RPC persists the proposal and stamps schedule_confirmed_at
+   * in one transaction after rechecking the live task version and lease.
    */
   async onTaskCreatedMaybeFullAuto(
     companyId: string,
     userId: string,
-    taskId: string
-  ): Promise<void> {
+    taskId: string,
+    options: {
+      sourceId?: string;
+      expectedSchedule?: ConfirmedScheduleChange;
+      prePersistGuard?: () => Promise<boolean>;
+      taskAutomationGuard?: TaskAutomationPersistenceGuard;
+    } = {}
+  ): Promise<{ actionTaken: string; actionId: string | null }> {
     const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
       "phase_c"
     );
-    if (!phaseCEnabled) return;
+    if (!phaseCEnabled) {
+      return { actionTaken: "phase_c_disabled", actionId: null };
+    }
 
     const settings = await loadClientCommsSettings(companyId);
-    if (settings.appointment_confirmation.level !== "full_auto") return;
+    if (settings.appointment_confirmation.level !== "full_auto") {
+      return { actionTaken: "not_full_auto", actionId: null };
+    }
+    if (!options.taskAutomationGuard) {
+      throw new Error("Full-auto confirmation requires a durable task lease");
+    }
 
     // Guard: only stamp the confirmation marker when the task actually has
     // a scheduled date. Unscheduled tasks shouldn't be auto-confirmed —
@@ -1845,26 +2213,32 @@ export const ClientSchedulingCommsService = {
     const supabase = requireSupabase();
     const { data: task } = await supabase
       .from("project_tasks")
-      .select("start_date")
+      .select(
+        "start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version"
+      )
       .eq("id", taskId)
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .maybeSingle();
 
-    if (!task || !task.start_date) return;
-
-    // Mark the task as auto-confirmed so the reschedule behavior can fire
-    // correctly if the user later shuffles it.
-    await supabase
-      .from("project_tasks")
-      .update({
-        schedule_confirmed_at: new Date().toISOString(),
-        schedule_confirmed_by: null,
-      })
-      .eq("id", taskId)
-      .eq("company_id", companyId);
-
-    await this.onTaskScheduleConfirmed(companyId, userId, taskId);
+    if (!task || !task.start_date) {
+      return { actionTaken: "stale", actionId: null };
+    }
+    if (
+      options.expectedSchedule &&
+      !taskMatchesScheduleChange(
+        task as Record<string, unknown>,
+        options.expectedSchedule
+      )
+    ) {
+      return { actionTaken: "stale", actionId: null };
+    }
+    return this.onTaskScheduleConfirmed(companyId, userId, taskId, {
+      sourceId: options.sourceId,
+      expectedSchedule: options.expectedSchedule?.after,
+      prePersistGuard: options.prePersistGuard,
+      taskAutomationGuard: options.taskAutomationGuard,
+    });
   },
 
   /**
@@ -1886,31 +2260,50 @@ export const ClientSchedulingCommsService = {
     companyId: string,
     userId: string,
     taskId: string,
-    priorStartDate: string | null = null
-  ): Promise<void> {
+    priorSchedule: string | null | ConfirmedScheduleChange = null,
+    options: {
+      sourceId?: string;
+      prePersistGuard?: () => Promise<boolean>;
+      throwOnError?: boolean;
+      taskAutomationGuard?: TaskAutomationPersistenceGuard;
+    } = {}
+  ): Promise<ConfirmedRescheduleOutcome> {
     const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
       "phase_c"
     );
-    if (!phaseCEnabled) return;
+    if (!phaseCEnabled) {
+      return { actionTaken: "phase_c_disabled", actionId: null };
+    }
 
     const supabase = requireSupabase();
     const { data: task } = await supabase
       .from("project_tasks")
-      .select("id, schedule_confirmed_at")
+      .select(
+        "id, start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version, schedule_confirmed_at"
+      )
       .eq("id", taskId)
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .maybeSingle();
 
-    if (!task || !task.schedule_confirmed_at) return;
+    if (!task || !task.schedule_confirmed_at) {
+      return { actionTaken: "stale_or_unconfirmed", actionId: null };
+    }
+    if (
+      priorSchedule &&
+      typeof priorSchedule === "object" &&
+      !taskMatchesScheduleChange(task as Record<string, unknown>, priorSchedule)
+    ) {
+      return { actionTaken: "stale_or_unconfirmed", actionId: null };
+    }
 
     const settings = await loadClientCommsSettings(companyId);
     const behavior = settings.appointment_confirmation.reschedule_behavior;
 
     switch (behavior) {
       case "do_nothing":
-        return;
+        return { actionTaken: "do_nothing", actionId: null };
       case "notify":
         try {
           // Resolve the notification strings to the company's locale at
@@ -1918,62 +2311,74 @@ export const ClientSchedulingCommsService = {
           // rendered text — the notification rail doesn't run i18n on
           // stored rows.
           const locale = await getCompanyLocale(companyId);
+          const notificationKey = task.start_date
+            ? "notification.confirmedTaskRescheduled"
+            : "notification.confirmedTaskUnscheduled";
           const [nTitle, nBody, nAction] = await Promise.all([
-            renderServerString(
-              locale,
-              "common",
-              "notification.confirmedTaskRescheduled.title"
-            ),
-            renderServerString(
-              locale,
-              "common",
-              "notification.confirmedTaskRescheduled.body"
-            ),
-            renderServerString(
-              locale,
-              "common",
-              "notification.confirmedTaskRescheduled.action"
-            ),
+            renderServerString(locale, "common", `${notificationKey}.title`),
+            renderServerString(locale, "common", `${notificationKey}.body`),
+            renderServerString(locale, "common", `${notificationKey}.action`),
           ]);
-          const { NotificationService } =
-            await import("./notification-service");
-          await NotificationService.create({
-            userId,
-            companyId,
-            type: "mention",
-            title: nTitle,
-            body: nBody,
-            persistent: false,
-            actionUrl: "/schedule",
-            actionLabel: nAction,
-          });
+          if (options.prePersistGuard && !(await options.prePersistGuard())) {
+            return { actionTaken: "stale_or_unconfirmed", actionId: null };
+          }
+          if (options.taskAutomationGuard) {
+            await TaskAutomationPersistenceService.persistNotification(
+              options.taskAutomationGuard,
+              {
+                title: nTitle,
+                body: nBody,
+                actionUrl: "/schedule",
+                actionLabel: nAction,
+              }
+            );
+          } else {
+            const { NotificationService } =
+              await import("./notification-service");
+            await NotificationService.create({
+              userId,
+              companyId,
+              type: "mention",
+              title: nTitle,
+              body: nBody,
+              persistent: false,
+              actionUrl: "/schedule",
+              actionLabel: nAction,
+            });
+          }
+          return { actionTaken: "notify", actionId: null };
         } catch (err) {
+          if (options.throwOnError) throw err;
           console.error(
             "[client-scheduling-comms] reschedule notify failed:",
             err
           );
+          return { actionTaken: "notify_failed", actionId: null };
         }
-        return;
-      case "draft":
-        await this.sendScheduleChangedEmail(
+      case "draft": {
+        const actionId = await this.sendScheduleChangedEmail(
           companyId,
           userId,
           taskId,
-          priorStartDate
+          priorSchedule,
+          options
         );
-        return;
-      case "auto_send":
-        await this.sendScheduleChangedEmail(
+        return { actionTaken: "draft", actionId };
+      }
+      case "auto_send": {
+        const actionId = await this.sendScheduleChangedEmail(
           companyId,
           userId,
           taskId,
-          priorStartDate,
+          priorSchedule,
           {
             autoSendAfterMinutes:
               settings.appointment_confirmation.send_delay_minutes,
+            ...options,
           }
         );
-        return;
+        return { actionTaken: "auto_send", actionId };
+      }
     }
   },
 

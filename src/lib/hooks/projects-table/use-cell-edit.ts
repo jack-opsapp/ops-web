@@ -38,12 +38,14 @@ export interface ProjectTableBulkUndoPoint {
   columnId: "status" | "start_date" | "end_date" | "team";
   value: unknown;
   updatedAt: string | null;
+  statusVersion?: number | null;
 }
 
 export interface ProjectTableBulkUndoAfterPoint {
   projectId: string;
   value: unknown;
   updatedAt: string | null;
+  statusVersion?: number | null;
 }
 
 export interface ProjectTableBulkUndoEntry {
@@ -356,11 +358,22 @@ function buildBulkUndoOperations(
       if (!expectedUpdatedAt) return null;
 
       if (point.columnId === "status" && isProjectStatus(point.value)) {
+        const statusVersion =
+          afterPointForProject(entry, point.projectId)?.statusVersion ??
+          findLatestRow(point.projectId)?.statusVersion;
+        if (
+          typeof statusVersion !== "number" ||
+          !Number.isSafeInteger(statusVersion) ||
+          statusVersion < 0
+        ) {
+          return null;
+        }
         return {
           action: "status",
           projectId: point.projectId,
           status: point.value,
           expectedUpdatedAt,
+          expectedStatusVersion: statusVersion,
         };
       }
 
