@@ -32,6 +32,7 @@ import { LeadMapBand } from "./lead-map-band";
 import { PipelineDetailOverviewTab } from "./pipeline-detail-overview-tab";
 import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 import { useOpportunityAssignedContext } from "@/lib/hooks/use-opportunity-assigned-context";
+import { OpportunityAssignedContextError } from "@/lib/api/services/opportunity-assigned-context-service";
 
 export type DetailPanelActionHandlers = {
   onAdvanceStage: (opportunity: Opportunity) => void;
@@ -55,12 +56,26 @@ export function PipelineDetailBody({
 }) {
   const { t } = useDictionary("pipeline");
   const assignedContextQuery = useOpportunityAssignedContext(opportunity.id);
-  // TanStack retains prior data after a background refetch error. Never render
-  // that stale snapshot while authorization is being rechecked or has failed.
-  const assignedContext =
-    assignedContextQuery.isError || assignedContextQuery.isFetching
-      ? null
-      : (assignedContextQuery.data ?? null);
+  // Denied is the ONE error that redacts synchronously — authorization was
+  // confirmed revoked, so any retained payload must never render. Every other
+  // state keeps last-good data: background refetches (window refocus, access
+  // rechecks) and transient read failures hold the truth on screen instead of
+  // blanking the panel to misleading empty states.
+  const contextDenied =
+    assignedContextQuery.isError &&
+    assignedContextQuery.error instanceof OpportunityAssignedContextError &&
+    assignedContextQuery.error.code === "access_denied";
+  const assignedContext = contextDenied
+    ? null
+    : (assignedContextQuery.data ?? null);
+  // First load only (fetching with nothing to show yet) — a disabled query
+  // (no view scope) is NOT loading; it renders the redacted shape instead.
+  const contextLoading = assignedContextQuery.isLoading;
+  // A settled non-denied failure. With last-good data we keep rendering it
+  // under an advisory row; with nothing to show, the row replaces the tab
+  // content so Contact/Linked can never claim "[ no contact ]" about a lead
+  // whose context simply failed to load.
+  const contextFailed = assignedContextQuery.isError && !contextDenied;
 
   return (
     <div
@@ -79,41 +94,131 @@ export function PipelineDetailBody({
         canManage={leadAccess.canEdit}
         canAssign={leadAccess.canAssign}
       />
-      <PipelineDetailNextSteps
-        opportunity={opportunity}
-        followUps={assignedContext?.followUps ?? []}
-        siteVisits={assignedContext?.siteVisits ?? []}
-        canManage={leadAccess.canEdit}
-      />
+      {/* Hidden during first load — an empty "no pending actions" claim about
+          a lead whose context hasn't arrived yet would be a lie. */}
+      {!contextLoading ? (
+        <PipelineDetailNextSteps
+          opportunity={opportunity}
+          followUps={assignedContext?.followUps ?? []}
+          siteVisits={assignedContext?.siteVisits ?? []}
+          canManage={leadAccess.canEdit}
+        />
+      ) : null}
       <PipelineDetailTabBar />
 
       <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto p-3">
-        {activeTab === "overview" && (
-          <PipelineDetailOverviewTab
-            opportunity={opportunity}
-            canManage={leadAccess.canEdit}
-            assignedContext={assignedContext}
-          />
-        )}
-        {activeTab === "correspondence" && (
-          <PipelineDetailCorrespondenceTab
-            activities={assignedContext?.activities ?? []}
-            correspondence={assignedContext?.correspondence ?? []}
-            contactName={assignedContext?.contact.name ?? null}
-          />
-        )}
-        {activeTab === "timeline" && (
-          <PipelineDetailTimelineTab
-            activities={assignedContext?.activities ?? []}
-          />
-        )}
-        {activeTab === "photos" && (
-          <PipelineDetailPhotosTab
-            opportunity={opportunity}
-            canManage={leadAccess.canEdit}
-          />
+        {contextLoading ? (
+          <DetailContextSkeleton />
+        ) : (
+          <>
+            {contextFailed ? (
+              <DetailContextErrorRow
+                retrying={assignedContextQuery.isFetching}
+                onRetry={() => {
+                  void assignedContextQuery.refetch();
+                }}
+              />
+            ) : null}
+            {/* A failed read with no retained data has no truth to show —
+                the advisory row above stands alone. */}
+            {contextFailed && !assignedContext ? null : (
+              <>
+                {activeTab === "overview" && (
+                  <PipelineDetailOverviewTab
+                    opportunity={opportunity}
+                    canManage={leadAccess.canEdit}
+                    assignedContext={assignedContext}
+                  />
+                )}
+                {activeTab === "correspondence" && (
+                  <PipelineDetailCorrespondenceTab
+                    activities={assignedContext?.activities ?? []}
+                    correspondence={assignedContext?.correspondence ?? []}
+                    contactName={assignedContext?.contact.name ?? null}
+                  />
+                )}
+                {activeTab === "timeline" && (
+                  <PipelineDetailTimelineTab
+                    activities={assignedContext?.activities ?? []}
+                  />
+                )}
+                {activeTab === "photos" && (
+                  <PipelineDetailPhotosTab
+                    opportunity={opportunity}
+                    canManage={leadAccess.canEdit}
+                  />
+                )}
+              </>
+            )}
+          </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * First-load placeholder for the guarded context — quiet pulse rows on the
+ * neutral fill token (mirrors `PipelineSkeleton`), reduced-motion aware. No
+ * copy: a skeleton that names sections it can't vouch for would be guessing.
+ */
+function DetailContextSkeleton() {
+  return (
+    <div
+      data-testid="detail-context-loading"
+      aria-hidden="true"
+      className="space-y-3"
+    >
+      <div className="h-[14px] w-[120px] animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+      <div className="space-y-1.5">
+        <div className="h-[12px] w-full animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+        <div className="h-[12px] w-4/5 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+      </div>
+      <div className="h-[14px] w-[88px] animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+      <div className="space-y-1.5">
+        <div className="h-[12px] w-3/5 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+        <div className="h-[12px] w-2/5 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Settled non-denied failure advisory: the guarded context read failed, so the
+ * record below (if any) is last-good, not live. Rose is semantic error tone;
+ * RETRY is a quiet ghost action wired to the query's refetch.
+ */
+function DetailContextErrorRow({
+  retrying,
+  onRetry,
+}: {
+  retrying: boolean;
+  onRetry: () => void;
+}) {
+  const { t } = useDictionary("pipeline");
+  return (
+    <div
+      data-testid="detail-context-error"
+      role="alert"
+      className="mb-3 flex items-center justify-between gap-2 rounded border border-border-subtle px-2 py-1.5"
+    >
+      <span className="min-w-0 truncate font-mono text-micro uppercase tracking-[0.14em] text-rose">
+        {t("detail.contextError", "// ERROR — COULDN'T LOAD LEAD CONTEXT")}
+      </span>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={retrying}
+        className={cn(
+          "shrink-0 rounded border border-glass-border px-2 py-0.5",
+          "font-mono text-micro uppercase tracking-[0.14em] text-text-2",
+          "transition-colors duration-150 hover:bg-surface-hover hover:text-text",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+          "disabled:cursor-wait disabled:opacity-40"
+        )}
+      >
+        {t("detail.contextRetry", "RETRY")}
+      </button>
     </div>
   );
 }

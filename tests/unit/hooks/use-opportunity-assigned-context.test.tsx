@@ -9,9 +9,23 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 
 const fetchMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/api/services/opportunity-assigned-context-service", () => ({
-  OpportunityAssignedContextService: { fetch: fetchMock },
-}));
+vi.mock(
+  "@/lib/api/services/opportunity-assigned-context-service",
+  async (importOriginal) => {
+    // Preserve the real OpportunityAssignedContextError — the hook's retry
+    // predicate narrows on `instanceof`, so the class must be the real one.
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/opportunity-assigned-context-service")
+      >();
+    return {
+      ...actual,
+      OpportunityAssignedContextService: { fetch: fetchMock },
+    };
+  }
+);
+
+import { OpportunityAssignedContextError } from "@/lib/api/services/opportunity-assigned-context-service";
 
 const OPPORTUNITY_ID = "11111111-1111-4111-8111-111111111111";
 
@@ -77,7 +91,12 @@ describe("useOpportunityAssignedContext", () => {
   });
 
   it("surfaces a denied read as an error and does not retry it", async () => {
-    fetchMock.mockRejectedValue(new Error("access_denied"));
+    fetchMock.mockRejectedValue(
+      new OpportunityAssignedContextError(
+        "access_denied",
+        "Opportunity context access denied"
+      )
+    );
 
     const { result } = renderHook(
       () => useOpportunityAssignedContext(OPPORTUNITY_ID),
@@ -88,6 +107,49 @@ describe("useOpportunityAssignedContext", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(result.current.data).toBeUndefined();
   });
+
+  it("retries a transient read failure twice before surfacing the error", async () => {
+    fetchMock.mockRejectedValue(
+      new OpportunityAssignedContextError(
+        "rpc_error",
+        "Opportunity context read failed"
+      )
+    );
+
+    const { result } = renderHook(
+      () => useOpportunityAssignedContext(OPPORTUNITY_ID),
+      { wrapper: createWrapper() }
+    );
+
+    // Initial attempt + two retries (1s, 2s default backoff), then error.
+    await waitFor(() => expect(result.current.isError).toBe(true), {
+      timeout: 8_000,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  }, 10_000);
+
+  it("recovers to data when a retry succeeds after a transient failure", async () => {
+    const context = { lead: { id: OPPORTUNITY_ID } };
+    fetchMock
+      .mockRejectedValueOnce(
+        new OpportunityAssignedContextError(
+          "rpc_error",
+          "Opportunity context read failed"
+        )
+      )
+      .mockResolvedValueOnce(context);
+
+    const { result } = renderHook(
+      () => useOpportunityAssignedContext(OPPORTUNITY_ID),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.data).toBe(context), {
+      timeout: 8_000,
+    });
+    expect(result.current.isError).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  }, 10_000);
 
   it("destroys cached email context when inbox permission is revoked", async () => {
     const withEmail = {

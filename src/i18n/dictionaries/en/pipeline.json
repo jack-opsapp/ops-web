@@ -267,6 +267,8 @@
   "detail.scopeLabel": "Scope",
   "detail.scopePlaceholder": "[ no scope captured ]",
   "detail.addressLabel": "Address",
+  "detail.contextError": "// ERROR — COULDN'T LOAD LEAD CONTEXT",
+  "detail.contextRetry": "RETRY",
   "band.saving": "saving…",
   "band.saved": "Saved",
   "band.saveError": "Save failed",

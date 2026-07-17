@@ -267,6 +267,8 @@
   "detail.scopeLabel": "Alcance",
   "detail.scopePlaceholder": "[ sin alcance capturado ]",
   "detail.addressLabel": "Dirección",
+  "detail.contextError": "// ERROR — NO SE PUDO CARGAR EL CONTEXTO DEL PROSPECTO",
+  "detail.contextRetry": "REINTENTAR",
   "band.saving": "guardando…",
   "band.saved": "Guardado",
   "band.saveError": "Error al guardar",

@@ -1,7 +1,10 @@
 import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { hashKey, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { OpportunityAssignedContextService } from "@/lib/api/services/opportunity-assigned-context-service";
+import {
+  OpportunityAssignedContextError,
+  OpportunityAssignedContextService,
+} from "@/lib/api/services/opportunity-assigned-context-service";
 import {
   effectiveInboxViewAccess,
   effectivePipelineScope,
@@ -69,8 +72,24 @@ export function useOpportunityAssignedContext(
     enabled: Boolean(
       opportunityId && companyId && actorUserId && pipelineViewScope
     ),
-    placeholderData: undefined,
-    retry: false,
+    // Hold last-good context across a SAME-KEY restart (e.g. the cache was
+    // dropped by an access recheck that re-derived identical scopes). The
+    // guard is deliberate: a plain keepPreviousData would also carry data
+    // across a CHANGED key — resurrecting redacted email bodies after a
+    // permission revocation, or bleeding one lead's context into another.
+    // Different fingerprint or different lead → no placeholder, ever.
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery && hashKey(previousQuery.queryKey) === hashKey(contextKey)
+        ? previousData
+        : undefined,
+    // A confirmed denial is authoritative — never retry it (that would hammer
+    // the guarded RPC after a revocation). Anything else is presumed transient
+    // and gets two retries before surfacing as an error.
+    retry: (failureCount, error) =>
+      !(
+        error instanceof OpportunityAssignedContextError &&
+        error.code === "access_denied"
+      ) && failureCount < 2,
     staleTime: 30_000,
   });
 }
