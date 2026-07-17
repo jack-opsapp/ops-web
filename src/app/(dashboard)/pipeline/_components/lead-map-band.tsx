@@ -279,6 +279,13 @@ export function LeadMapBand({
                       longitude={longitude}
                       pinColor={pinColor}
                       expanded={false}
+                      fallback={
+                        <div className="flex h-full w-full items-center justify-center">
+                          <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+                            {t("band.mapUnavailable", "// MAP UNAVAILABLE")}
+                          </span>
+                        </div>
+                      }
                     />
                   </div>
                   {/* Bottom-weighted scrim — guarantees the value + facts read white. */}

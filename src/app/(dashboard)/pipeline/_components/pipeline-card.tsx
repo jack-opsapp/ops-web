@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Phone, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { useDictionary } from "@/i18n/client";
+import { useDictionary, useLocale } from "@/i18n/client";
+import { getDateLocale } from "@/i18n/date-utils";
+import { isDateToday, isDateOverdue, daysOverdue } from "@/lib/utils/date";
 import {
   type Opportunity,
   type PipelineStageDefault,
@@ -57,67 +59,12 @@ interface PipelineCardProps {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/** Check if a date is today (date-only comparison) */
-function isDateToday(date: Date | null): boolean {
-  if (!date) return false;
-  const d = date instanceof Date ? date : new Date(date);
-  const today = new Date();
-  return (
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
-  );
-}
-
-/** Check if a date is before today (date-only comparison) */
-function isDateOverdue(date: Date | null): boolean {
-  if (!date) return false;
-  const d = date instanceof Date ? date : new Date(date);
-  const now = new Date();
-  const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return dateOnly < todayOnly;
-}
-
-/** Calculate days overdue from today */
-function daysOverdue(date: Date): number {
-  const d = date instanceof Date ? date : new Date(date);
-  const now = new Date();
-  const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.floor(
-    (todayOnly.getTime() - dateOnly.getTime()) / (1000 * 60 * 60 * 24)
-  );
-}
-
-/** Format a date as short weekday (e.g. "Thu") */
-function formatShortDay(date: Date): string {
-  const d = date instanceof Date ? date : new Date(date);
-  return d.toLocaleDateString("en-US", { weekday: "short" });
-}
-
-/** Format relative time ago from a date */
-function formatTimeAgo(date: Date): string {
-  const d = date instanceof Date ? date : new Date(date);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return "1d ago";
-  return `${diffDays}d ago`;
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
+// Date-only predicates (isDateToday / isDateOverdue / daysOverdue) come from
+// the shared `@/lib/utils/date` util — no local duplicates. Display formatting
+// (weekday, relative time) is locale-aware and lives inside the component so it
+// can read the active locale + dictionary.
 export function PipelineCard({
   opportunity,
   clientName,
@@ -144,7 +91,43 @@ export function PipelineCard({
   stageConfig,
 }: PipelineCardProps) {
   const { t } = useDictionary("pipeline");
+  const { locale } = useLocale();
+  const dateLocale = getDateLocale(locale);
   const prefersReducedMotion = useReducedMotion();
+
+  // Weekday in the reader's locale ("Thu" / "jue").
+  const formatShortDay = useCallback(
+    (date: Date) =>
+      new Date(date).toLocaleDateString(dateLocale, { weekday: "short" }),
+    [dateLocale]
+  );
+
+  // Compact relative time, sourced from the dictionary so it localizes
+  // ("5m ago" / "hace 5m"). Buckets: <1m, <1h, <1d, else days.
+  const formatTimeAgo = useCallback(
+    (date: Date) => {
+      const diffMs = Date.now() - new Date(date).getTime();
+      const diffMinutes = Math.floor(diffMs / 60_000);
+      const diffHours = Math.floor(diffMs / 3_600_000);
+      const diffDays = Math.floor(diffMs / 86_400_000);
+      if (diffMinutes < 1) return t("card.timeAgo.now", "just now");
+      if (diffMinutes < 60)
+        return t("card.timeAgo.minutes", "{count}m ago").replace(
+          "{count}",
+          String(diffMinutes)
+        );
+      if (diffHours < 24)
+        return t("card.timeAgo.hours", "{count}h ago").replace(
+          "{count}",
+          String(diffHours)
+        );
+      return t("card.timeAgo.days", "{count}d ago").replace(
+        "{count}",
+        String(diffDays)
+      );
+    },
+    [t]
+  );
 
   // --- Derived state ---
   const daysInStage = getDaysInStage(opportunity);
@@ -203,7 +186,7 @@ export function PipelineCard({
       text: t("card.followUpDate").replace("{date}", day),
       colorClass: "text-text-3",
     };
-  }, [followUpDate, followUpOverdue, followUpToday, t]);
+  }, [followUpDate, followUpOverdue, followUpToday, formatShortDay, t]);
 
   // --- Days in stage text ---
   const daysText = t("card.daysInStage").replace(
@@ -219,7 +202,7 @@ export function PipelineCard({
     return t("card.lastActivity")
       .replace("{type}", "activity")
       .replace("{timeAgo}", timeAgo);
-  }, [opportunity.lastActivityAt, t]);
+  }, [opportunity.lastActivityAt, formatTimeAgo, t]);
 
   // --- Event handlers ---
   function handleAdvance(e: React.MouseEvent) {
@@ -419,14 +402,20 @@ export function PipelineCard({
                   <div className="flex items-center gap-[4px]">
                     <Mail className="h-[11px] w-[11px] text-text-mute" />
                     <span className="font-mono text-micro text-text-3">
-                      {opportunity.correspondenceCount} email
-                      {opportunity.correspondenceCount !== 1 ? "s" : ""}
+                      {t("card.emailCount", "{count} emails").replace(
+                        "{count}",
+                        String(opportunity.correspondenceCount)
+                      )}
                     </span>
                   </div>
                   <span className="font-mono text-micro text-text-mute">·</span>
                   <span className="font-mono text-micro text-text-mute">
-                    {opportunity.inboundCount} in / {opportunity.outboundCount}{" "}
-                    out
+                    {t("card.inOut", "{inbound} in / {outbound} out")
+                      .replace("{inbound}", String(opportunity.inboundCount))
+                      .replace(
+                        "{outbound}",
+                        String(opportunity.outboundCount)
+                      )}
                   </span>
                   {(opportunity.lastInboundAt ||
                     opportunity.lastOutboundAt) && (
@@ -435,16 +424,18 @@ export function PipelineCard({
                         ·
                       </span>
                       <span className="font-mono text-micro text-text-mute">
-                        last{" "}
-                        {formatTimeAgo(
-                          opportunity.lastInboundAt &&
-                            opportunity.lastOutboundAt
-                            ? opportunity.lastInboundAt >
+                        {t("card.lastCorrespondence", "last {time}").replace(
+                          "{time}",
+                          formatTimeAgo(
+                            opportunity.lastInboundAt &&
                               opportunity.lastOutboundAt
-                              ? opportunity.lastInboundAt
-                              : opportunity.lastOutboundAt
-                            : opportunity.lastInboundAt ||
-                                opportunity.lastOutboundAt!
+                              ? opportunity.lastInboundAt >
+                                opportunity.lastOutboundAt
+                                ? opportunity.lastInboundAt
+                                : opportunity.lastOutboundAt
+                              : opportunity.lastInboundAt ||
+                                  opportunity.lastOutboundAt!
+                          )
                         )}
                       </span>
                     </>

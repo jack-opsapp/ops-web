@@ -218,6 +218,9 @@ export default function PipelinePage() {
     "pipeline.view"
   );
   const hasCompanyWideLeadView = pipelineViewScope === "all";
+  // Localized title for the create-lead floating window (was a hardcoded
+  // "New Lead"); shared by every entry point that opens it.
+  const newLeadWindowTitle = t("newLead");
   // Shared search input + toolbar portal slots for the persistent chrome (WEB
   // OVERHAUL P6-2 rework). The metrics bar + toolbar are ONE instance shared
   // across focused/table modes; the table surface portals its mode-specific
@@ -278,9 +281,9 @@ export default function PipelinePage() {
   const searchParams = useSearchParams();
   useEffect(() => {
     if (searchParams.get("action") === "new" && canCreateLead) {
-      openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
+      openWindow({ id: "create-lead", title: newLeadWindowTitle, type: "create-lead" });
     }
-  }, [canCreateLead, searchParams, openWindow]);
+  }, [canCreateLead, searchParams, openWindow, newLeadWindowTitle]);
 
   // ── Email OAuth round-trip toast (?connected=<provider> / ?connect_error=1)
   // The connect banner sends the user through the provider's OAuth dance with
@@ -326,8 +329,8 @@ export default function PipelinePage() {
       setShowSetupModal(true);
       return;
     }
-    openWindow({ id: "create-lead", title: "New Lead", type: "create-lead" });
-  }, [canCreateLead, setupComplete, openWindow]);
+    openWindow({ id: "create-lead", title: newLeadWindowTitle, type: "create-lead" });
+  }, [canCreateLead, setupComplete, openWindow, newLeadWindowTitle]);
 
   // ── Metrics header data ────────────────────────────────────────────
   const { data: pipelineMetrics = [], isLoading: pipelineMetricsLoading } =
@@ -639,7 +642,12 @@ export default function PipelinePage() {
     (opportunityId: string) => {
       if (!leadAccessById.get(opportunityId)?.canEdit) return;
       const opp = activeOpportunities.find((o) => o.id === opportunityId);
-      const label = (opp?.contactName ?? opp?.title ?? "Deal") + " → Archived";
+      const name =
+        opp?.contactName ?? opp?.title ?? t("undo.dealFallback", "Deal");
+      const label = t("undo.archived", "{name} → Archived").replace(
+        "{name}",
+        name
+      );
       archiveMutation.mutate(opportunityId);
       pushUndo({
         label,
@@ -654,6 +662,7 @@ export default function PipelinePage() {
       activeOpportunities,
       leadAccessById,
       pushUndo,
+      t,
     ]
   );
 
@@ -1232,7 +1241,10 @@ export default function PipelinePage() {
               }
               create={
                 canCreateLead ? (
-                  <WorkbarButton onClick={gatedOpenCreate}>
+                  <WorkbarButton
+                    onClick={gatedOpenCreate}
+                    aria-label={t("newLeadCreate")}
+                  >
                     <Plus
                       className="h-[11px] w-[11px] shrink-0"
                       strokeWidth={1.5}
@@ -1458,7 +1470,7 @@ export default function PipelinePage() {
           setShowSetupModal(false);
           openWindow({
             id: "create-lead",
-            title: "New Lead",
+            title: newLeadWindowTitle,
             type: "create-lead",
           });
         }}
