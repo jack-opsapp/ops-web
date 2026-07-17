@@ -211,7 +211,7 @@ function AddPhotoTile({
       ) : (
         <>
           <Plus className="h-4 w-4" strokeWidth={1.75} />
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em]">
+          <span className="font-mono text-micro uppercase tracking-[0.14em]">
             {label}
           </span>
         </>

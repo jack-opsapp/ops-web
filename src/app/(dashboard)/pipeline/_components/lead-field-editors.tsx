@@ -352,7 +352,7 @@ function OptionRow({ selected, onSelect, children, clear }: OptionRowProps) {
         onSelect();
       }}
       className={cn(
-        "flex h-9 w-full min-w-0 items-center gap-2 rounded-[5px] px-2 text-left",
+        "flex h-9 w-full min-w-0 items-center gap-2 rounded px-2 text-left",
         "font-mohave text-[14px] transition-colors duration-100",
         "hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         selected ? "bg-surface-active text-text" : "text-text-2"
@@ -470,7 +470,7 @@ export function CurrencyField({
           onBlur={commitDraft}
           placeholder={t("band.valuePlaceholder", "0")}
           className={cn(
-            "h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
+            "h-9 w-full rounded border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mono text-[14px] tabular-nums text-text [font-feature-settings:'tnum'_1,'zero'_1]",
             "outline-none transition-colors duration-150 placeholder:text-text-mute",
             "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent"
@@ -613,7 +613,7 @@ export function PriorityField({
 
   const chip =
     value == null ? (
-      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-text-3">
+      <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-3">
         {EMPTY}
       </span>
     ) : (
@@ -753,7 +753,7 @@ export function DateField({
           defaultValue={toDateInputValue(value)}
           onChange={(event) => onPick(event.target.value)}
           className={cn(
-            "h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
+            "h-9 w-full rounded border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mono text-[13px] tabular-nums text-text [font-feature-settings:'tnum'_1,'zero'_1]",
             "outline-none transition-colors duration-150",
             "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent",
@@ -1094,7 +1094,7 @@ export function TagsField({
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "inline-flex h-[18px] items-center gap-1 rounded-chip border border-dashed border-glass-border px-1.5",
-          "font-mono text-[10px] uppercase tracking-[0.12em] text-text-3",
+          "font-mono text-micro uppercase tracking-[0.12em] text-text-3",
           "transition-colors duration-150 hover:border-glass-border-medium hover:text-text-2",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
         )}
@@ -1120,7 +1120,7 @@ export function TagsField({
           onKeyDown={onKeyDown}
           placeholder={t("band.tagPlaceholder", "[ type, then ↵ ]")}
           className={cn(
-            "h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
+            "h-9 w-full rounded border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mohave text-[14px] text-text outline-none transition-colors duration-150 placeholder:text-text-mute",
             "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent"
           )}
@@ -1132,7 +1132,7 @@ export function TagsField({
                 key={tag}
                 className="inline-flex items-center gap-1 rounded-chip border border-glass-border bg-[var(--surface-input)] px-1.5 py-[2px]"
               >
-                <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-text-2">
+                <span className="font-mono text-micro uppercase tracking-[0.1em] text-text-2">
                   {tag}
                 </span>
                 <button
