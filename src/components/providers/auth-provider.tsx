@@ -131,7 +131,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Still load permissions + feature flags if not initialized
           const permState = usePermissionStore.getState();
           if (!permState.initialized) {
-            fetchPermissions(existingUser.id).catch((err) =>
+            // Boot rehydrate: the session was restored from a cached user, so
+            // hold grants through the first canonical load rather than doing a
+            // destructive revoke-first drop (a transient failure would strip a
+            // still-valid session). A failed load still fails closed.
+            fetchPermissions(existingUser.id, { mode: "hold" }).catch((err) =>
               console.error("[AuthProvider] Failed to fetch permissions:", err)
             );
           }

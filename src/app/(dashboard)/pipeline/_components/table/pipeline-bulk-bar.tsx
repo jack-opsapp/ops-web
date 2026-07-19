@@ -8,6 +8,7 @@ import {
   usePipelineBulkActions,
 } from "@/lib/hooks/pipeline-table/use-pipeline-bulk-actions";
 import { useLeadAssignmentCandidates } from "@/lib/hooks/use-lead-assignment";
+import { EntityPicker } from "@/components/ui/entity-picker";
 import { OpportunityPriority } from "@/lib/types/pipeline";
 import type { PipelineTableRow } from "@/lib/types/pipeline-table";
 import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
@@ -53,6 +54,15 @@ function formatText(
   );
 }
 
+// Shared rail-control chrome — reused by BulkButton and the assignee picker's
+// trigger (a raw button, so PickerTrigger's asChild can compose onto it).
+const BULK_CONTROL_CLASS = cn(
+  "inline-flex h-[32px] shrink-0 items-center gap-1 rounded border border-border px-2",
+  "font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors",
+  "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+  "disabled:pointer-events-none disabled:opacity-40"
+);
+
 function BulkButton({
   children,
   className,
@@ -69,13 +79,7 @@ function BulkButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={cn(
-        "inline-flex h-[32px] shrink-0 items-center gap-1 rounded border border-border px-2",
-        "font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors",
-        "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
-        "disabled:pointer-events-none disabled:opacity-40",
-        className
-      )}
+      className={cn(BULK_CONTROL_CLASS, className)}
     >
       {children}
     </button>
@@ -88,7 +92,10 @@ const PRIORITY_OPTIONS = [
   { value: OpportunityPriority.High, labelKey: "table.bulk.priorityHigh" },
 ] as const;
 
-const UNASSIGN_VALUE = "__unassigned__";
+// The picker has no "current" assignee in a bulk context; this non-null,
+// non-matching sentinel keeps every candidate row (and the Unassign row)
+// un-checked, so the panel reads as "pick a target", not "here's the current".
+const NO_BULK_SELECTION = "__bulk_no_selection__";
 
 export function PipelineBulkBar({
   selectedRows,
@@ -121,7 +128,17 @@ export function PipelineBulkBar({
   );
   const [followUpDate, setFollowUpDate] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
-  const [assignUserId, setAssignUserId] = useState("");
+
+  // Sentence-case name for a candidate, mirroring the single-lead AssigneeField
+  // (never uppercased — names are content, not authority).
+  const candidateName = useCallback(
+    (candidate: { firstName: string | null; lastName: string | null }) =>
+      [candidate.firstName, candidate.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || t("band.unknownAssignee", "Unknown"),
+    [t]
+  );
 
   const undoLabels = useMemo(
     () => ({
@@ -174,31 +191,33 @@ export function PipelineBulkBar({
   const assignmentCandidates = candidatesQuery.data?.candidates ?? [];
   const canOfferUnassign =
     canBulkUnassign && candidatesQuery.data?.canUnassign === true;
-  const canApplyAssignment =
-    !bulkActions.isRunning &&
-    assignUserId !== "" &&
-    (assignUserId !== UNASSIGN_VALUE || canOfferUnassign);
 
-  const handleReassign = useCallback(() => {
-    if (!canApplyAssignment) return;
-    const nextAssignee = assignUserId === UNASSIGN_VALUE ? "" : assignUserId;
-    void bulkActions.reassignAssignee(nextAssignee).then((result) => {
-      bulkResultToast({
-        result,
-        successMessage: (count) =>
-          formatText(t("table.bulk.reassignDone"), { count }),
-        partialMessage: (success, total) =>
-          formatText(t("table.bulk.partialFailure"), {
-            success,
-            total,
-            failed: total - success,
-          }),
-        failureMessage: t("table.bulk.failure"),
+  // Immediate-apply on pick — the canonical single-select picker commits and
+  // closes (no separate Apply). `null` is the Unassign row; the guarded bulk
+  // action treats "" as clearing the assignee across every selected row.
+  const applyReassign = useCallback(
+    (assigneeId: string | null) => {
+      if (bulkActions.isRunning) return;
+      if (assigneeId === null && !canOfferUnassign) return;
+      const nextAssignee = assigneeId ?? "";
+      void bulkActions.reassignAssignee(nextAssignee).then((result) => {
+        bulkResultToast({
+          result,
+          successMessage: (count) =>
+            formatText(t("table.bulk.reassignDone"), { count }),
+          partialMessage: (success, total) =>
+            formatText(t("table.bulk.partialFailure"), {
+              success,
+              total,
+              failed: total - success,
+            }),
+          failureMessage: t("table.bulk.failure"),
+        });
       });
-    });
-    setAssignOpen(false);
-    setAssignUserId("");
-  }, [assignUserId, bulkActions, canApplyAssignment, t]);
+      setAssignOpen(false);
+    },
+    [bulkActions, canOfferUnassign, t]
+  );
 
   const handleSetFollowUp = useCallback(() => {
     void bulkActions.setFollowUpDate(followUpDate).then((result) => {
@@ -255,8 +274,10 @@ export function PipelineBulkBar({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="glass-dense absolute bottom-3 left-1/2 z-[1500] flex h-[48px] max-w-[calc(100%-24px)] -translate-x-1/2 items-center overflow-visible rounded-modal border border-border px-3 py-2">
-      <div className="flex h-[32px] min-w-0 items-center gap-2">
+    <div className="glass-dense absolute bottom-3 left-1/2 z-[1500] flex max-w-[calc(100%-24px)] -translate-x-1/2 items-center overflow-visible rounded-modal border border-border px-3 py-2">
+      {/* Wraps to a second row within the rail when the controls exceed the
+          available width (1280/1440) instead of clipping under overflow. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
         <div className="mr-1 flex shrink-0 items-center gap-2 font-mono text-micro uppercase tracking-[0.16em] text-text">
           <Check className="h-[14px] w-[14px] text-text-3" strokeWidth={1.5} />
           <span>{selectedCountLabel}</span>
@@ -275,16 +296,52 @@ export function PipelineBulkBar({
           </BulkButton>
         ) : null}
 
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-2">
           {canBulkAssign ? (
             <>
-              <BulkButton
-                disabled={disabled}
-                onClick={() => setAssignOpen((open) => !open)}
-              >
-                <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
-                {t("table.bulk.reassign")}
-              </BulkButton>
+              <EntityPicker
+                trigger={
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    className={BULK_CONTROL_CLASS}
+                  >
+                    <Users
+                      className="h-[14px] w-[14px]"
+                      strokeWidth={1.5}
+                    />
+                    {t("table.bulk.reassign")}
+                  </button>
+                }
+                items={assignmentCandidates}
+                getId={(candidate) => candidate.id}
+                getLabel={candidateName}
+                getAvatar={(candidate) => ({
+                  name: candidateName(candidate),
+                  imageUrl: candidate.profileImageUrl,
+                })}
+                label={t("table.bulk.reassign")}
+                value={NO_BULK_SELECTION}
+                onChange={applyReassign}
+                noneOption={canOfferUnassign}
+                noneLabel={t("table.bulk.unassign")}
+                searchPlaceholder={t("band.assigneeSearch", "Search team")}
+                emptyLabel={
+                  candidatesQuery.isLoading
+                    ? t("band.loadingAssignees", "Loading team…")
+                    : t("band.noEligibleAssignees", "No eligible team members")
+                }
+                error={
+                  candidatesQuery.isError
+                    ? t("band.assigneeLoadFailed", "Team unavailable")
+                    : undefined
+                }
+                open={assignOpen}
+                onOpenChange={setAssignOpen}
+                align="start"
+                size="md"
+                contentClassName="z-modal border border-border"
+              />
 
               <div className="h-6 w-px shrink-0 bg-border" />
             </>
@@ -342,37 +399,6 @@ export function PipelineBulkBar({
           {t("table.bulk.clear")}
         </BulkButton>
       </div>
-
-      {assignOpen && canBulkAssign ? (
-        <div className="glass-dense absolute bottom-[calc(100%+8px)] left-3 z-[1500] flex min-w-[320px] max-w-[calc(100%-24px)] items-center gap-2 rounded-modal p-2">
-          <select
-            aria-label={t("table.bulk.reassign")}
-            value={assignUserId}
-            disabled={candidatesQuery.isLoading || bulkActions.isRunning}
-            onChange={(event) => setAssignUserId(event.target.value)}
-            className="h-[32px] min-w-[200px] flex-1 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
-          >
-            <option value="" disabled>
-              {t("table.bulk.selectAssignee")}
-            </option>
-            {canOfferUnassign ? (
-              <option value={UNASSIGN_VALUE}>{t("table.bulk.unassign")}</option>
-            ) : null}
-            {assignmentCandidates.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {[candidate.firstName, candidate.lastName]
-                  .filter(Boolean)
-                  .join(" ") || t("band.unknownAssignee")}
-              </option>
-            ))}
-          </select>
-
-          <BulkButton disabled={!canApplyAssignment} onClick={handleReassign}>
-            <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
-            {t("table.bulk.reassign")}
-          </BulkButton>
-        </div>
-      ) : null}
     </div>
   );
 }

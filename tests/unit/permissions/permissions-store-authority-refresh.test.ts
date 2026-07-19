@@ -233,4 +233,51 @@ describe("PermissionStore canonical authority refresh", () => {
       errorSpy.mockRestore();
     }
   );
+
+  it("hold mode keeps the current grants while the canonical refresh is in flight", async () => {
+    seedStaleFullAccess({ isCompanyAdmin: true });
+    let resolveUser!: (value: ReturnType<typeof user>) => void;
+    fetchUser.mockReturnValue(
+      new Promise<ReturnType<typeof user>>((resolve) => {
+        resolveUser = resolve;
+      })
+    );
+
+    const refresh = usePermissionStore
+      .getState()
+      .fetchPermissions(USER_ID, { mode: "hold" });
+    const immediateState = usePermissionStore.getState();
+
+    // Unlike revoke-first, the last-good grants stay visible during the refresh.
+    expect(immediateState.loading).toBe(true);
+    expect(immediateState.permissions.get("pipeline.view")).toBe("all");
+    expect(immediateState.permissions.get("settings.billing")).toBe("all");
+
+    resolveUser(user(false));
+    await refresh;
+
+    // The canonical refresh still lands and re-scopes to the true grants.
+    expect(usePermissionStore.getState().permissions.get("pipeline.view")).toBe(
+      "assigned"
+    );
+    expect(
+      usePermissionStore.getState().permissions.has("settings.billing")
+    ).toBe(false);
+  });
+
+  it("hold mode still fails closed when the canonical refresh errors", async () => {
+    seedStaleFullAccess({ isCompanyAdmin: true });
+    fetchUser.mockRejectedValue(new Error("user refresh failed"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await usePermissionStore
+      .getState()
+      .fetchPermissions(USER_ID, { mode: "hold" });
+
+    const state = usePermissionStore.getState();
+    expect(state.permissions.size).toBe(0);
+    expect(state.configuredPermissions.size).toBe(0);
+    expect(state.roleId).toBeNull();
+    errorSpy.mockRestore();
+  });
 });

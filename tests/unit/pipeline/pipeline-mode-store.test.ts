@@ -16,6 +16,7 @@ describe("pipeline-mode-store", () => {
       detailPanelActiveTab: "correspondence",
       sortBy: "value",
       stageSortOverrides: new Map(),
+      assignIntentOpportunityId: null,
     });
   });
 
@@ -110,5 +111,70 @@ describe("pipeline-mode-store", () => {
     const parsed = JSON.parse(raw!);
     expect(parsed.state.detailPanelOpportunityId).toBeUndefined();
     expect(parsed.state.detailPanelActiveTab).toBeUndefined();
+  });
+
+  describe("assign intent one-shot", () => {
+    it("defaults to null", () => {
+      expect(
+        usePipelineModeStore.getState().assignIntentOpportunityId
+      ).toBeNull();
+    });
+
+    it("arms only when opened with the assignIntent option", () => {
+      act(() =>
+        usePipelineModeStore
+          .getState()
+          .openDetailPanel("opp-1", { assignIntent: true })
+      );
+      const state = usePipelineModeStore.getState();
+      expect(state.detailPanelOpportunityId).toBe("opp-1");
+      expect(state.assignIntentOpportunityId).toBe("opp-1");
+    });
+
+    it("a plain open clears any stale intent", () => {
+      act(() =>
+        usePipelineModeStore
+          .getState()
+          .openDetailPanel("opp-1", { assignIntent: true })
+      );
+      act(() => usePipelineModeStore.getState().openDetailPanel("opp-2"));
+      const state = usePipelineModeStore.getState();
+      expect(state.detailPanelOpportunityId).toBe("opp-2");
+      expect(state.assignIntentOpportunityId).toBeNull();
+    });
+
+    it("consumeAssignIntent clears the flag", () => {
+      act(() =>
+        usePipelineModeStore
+          .getState()
+          .openDetailPanel("opp-1", { assignIntent: true })
+      );
+      act(() => usePipelineModeStore.getState().consumeAssignIntent());
+      expect(
+        usePipelineModeStore.getState().assignIntentOpportunityId
+      ).toBeNull();
+    });
+
+    it("closeDetailPanel clears the intent", () => {
+      act(() =>
+        usePipelineModeStore
+          .getState()
+          .openDetailPanel("opp-1", { assignIntent: true })
+      );
+      act(() => usePipelineModeStore.getState().closeDetailPanel());
+      expect(
+        usePipelineModeStore.getState().assignIntentOpportunityId
+      ).toBeNull();
+    });
+
+    it("does not persist the transient assign-intent flag", () => {
+      act(() =>
+        usePipelineModeStore
+          .getState()
+          .openDetailPanel("opp-1", { assignIntent: true })
+      );
+      const parsed = JSON.parse(localStorage.getItem("opsPipeline:v4")!);
+      expect(parsed.state.assignIntentOpportunityId).toBeUndefined();
+    });
   });
 });

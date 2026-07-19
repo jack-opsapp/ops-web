@@ -188,6 +188,7 @@ function renderFocusedCard({
   opportunity = makeOpportunity(),
   clientName = "North Shore Decks",
   clients = makeClients(),
+  assigneeName = null,
   onMoveStage = vi.fn(),
   onTitleSave = vi.fn(),
   onLinkClient = vi.fn(),
@@ -199,6 +200,7 @@ function renderFocusedCard({
   opportunity?: Opportunity;
   clientName?: string;
   clients?: Client[];
+  assigneeName?: string | null;
   onMoveStage?: (opportunity: Opportunity, stage: OpportunityStage) => void;
   onTitleSave?: (opportunity: Opportunity, title: string) => void;
   onLinkClient?: (opportunity: Opportunity, clientId: string) => void;
@@ -230,6 +232,7 @@ function renderFocusedCard({
         clients={clients}
         stageColor="#8F9AA3"
         stalenessOpacity={1}
+        assigneeName={assigneeName}
         canManage={canManage}
         leadAccess={
           leadAccess ?? {
@@ -590,6 +593,80 @@ describe("<PipelineFocusedCard>", () => {
       OpportunityStage.Negotiation
     );
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("hides the Move-to-Won affordances when the operator cannot convert", () => {
+    const onMoveStage = vi.fn();
+    renderFocusedCard({
+      opportunity: {
+        ...makeOpportunity(),
+        stage: OpportunityStage.Negotiation,
+      },
+      onMoveStage,
+      leadAccess: {
+        canView: true,
+        canEdit: true,
+        canAssign: true,
+        canUnassign: true,
+        canConvert: false,
+      },
+    });
+
+    // The forward quick-arrow from Negotiation would target Won — with no
+    // convert access it must not render (Lost is never a "forward" move).
+    expect(screen.queryByRole("button", { name: /Move to Won/i })).toBeNull();
+
+    // The stage menu omits Won too, but keeps the non-terminal stages.
+    fireEvent.click(screen.getByRole("button", { name: "Choose stage" }));
+    expect(
+      screen.queryByRole("menuitem", { name: /Move to Won/i })
+    ).toBeNull();
+    expect(
+      screen.getByRole("menuitem", { name: /Move to Quoted/i })
+    ).toBeInTheDocument();
+  });
+
+  it("surfaces the Move-to-Won affordances when the operator can convert", () => {
+    renderFocusedCard({
+      opportunity: {
+        ...makeOpportunity(),
+        stage: OpportunityStage.Negotiation,
+      },
+      leadAccess: {
+        canView: true,
+        canEdit: true,
+        canAssign: true,
+        canUnassign: true,
+        canConvert: true,
+      },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /Move to Won/i })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose stage" }));
+    expect(
+      screen.getByRole("menuitem", { name: /Move to Won/i })
+    ).toBeInTheDocument();
+  });
+
+  it("shows a quiet ownership marker when a company-wide viewer has an assignee name", () => {
+    renderFocusedCard({ assigneeName: "Dana Reyes" });
+
+    const marker = screen.getByRole("img", { name: "Assigned to Dana Reyes" });
+    expect(marker).toHaveTextContent("D");
+    // Quiet tone, no accent.
+    expect(marker).toHaveClass("text-text-3");
+    expect(marker.className).not.toContain("accent");
+  });
+
+  it("renders no ownership marker when there is no assignee name", () => {
+    renderFocusedCard({ assigneeName: null });
+
+    expect(
+      screen.queryByRole("img", { name: /Assigned to/i })
+    ).not.toBeInTheDocument();
   });
 
   it("uses the OPS focused card shell without a heavy left rail", () => {

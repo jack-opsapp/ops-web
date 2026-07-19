@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -10,7 +11,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Opportunity, OpportunityStage } from "@/lib/types/pipeline";
 import { useWindowStore } from "@/stores/window-store";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
-import { PipelineFocusedDetailWindow } from "@/app/(dashboard)/pipeline/_components/pipeline-focused-detail-window";
+import {
+  PipelineFocusedDetailWindow,
+  getOpportunityTitle,
+} from "@/app/(dashboard)/pipeline/_components/pipeline-focused-detail-window";
 
 vi.mock("framer-motion", () => ({
   AnimatePresence: ({ children }: { children: React.ReactNode }) => (
@@ -305,6 +309,41 @@ describe("<PipelineFocusedDetailWindow>", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("does not steal focus back into the window body on a bring-to-front store write", async () => {
+    // Regression: the window subscribed to the whole store record, so every
+    // `focusWindow` bring-to-front (which fires on any in-window pointerdown)
+    // re-ran the focus effect and yanked focus out of the just-opened,
+    // non-modal assignee popover — dismissing it on focus-out. The narrow
+    // shallow selector + per-open focus latch must keep focus where it is.
+    async function flushFrames(count = 2) {
+      for (let i = 0; i < count; i += 1) {
+        await act(async () => {
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve())
+          );
+        });
+      }
+    }
+
+    renderWindow();
+    const windowShell = await screen.findByTestId("project-workspace-window");
+    await flushFrames();
+
+    // Stand in for the operator having moved focus into a popover portaled
+    // outside the window body.
+    const origin = screen.getByRole("button", { name: "Origin card" });
+    origin.focus();
+    expect(document.activeElement).toBe(origin);
+
+    await act(async () => {
+      useWindowStore.getState().focusWindow("pipeline-detail:opp-1");
+    });
+    await flushFrames();
+
+    expect(document.activeElement).toBe(origin);
+    expect(windowShell.contains(document.activeElement)).toBe(false);
+  });
+
   it("closes on Escape and restores focus to the originating card", async () => {
     renderWindow();
 
@@ -369,5 +408,46 @@ describe("<PipelineFocusedDetailWindow>", () => {
         screen.getByTestId("origin-row-cell")
       );
     });
+  });
+});
+
+describe("getOpportunityTitle", () => {
+  it("joins a distinct title to the display name with an em-dash", () => {
+    const opp = {
+      ...makeOpportunity(),
+      contactName: "Jordan Lee",
+      title: "Roof repair",
+    };
+    expect(getOpportunityTitle(opp, "Lead")).toBe("Jordan Lee — Roof repair");
+  });
+
+  it("shows the title alone when it already leads with the display name", () => {
+    const opp = {
+      ...makeOpportunity(),
+      contactName: "North Shore Decks",
+      title: "North Shore Decks — deck rebuild",
+    };
+    // No stutter: "North Shore Decks — North Shore Decks — deck rebuild" avoided.
+    expect(getOpportunityTitle(opp, "Lead")).toBe(
+      "North Shore Decks — deck rebuild"
+    );
+  });
+
+  it("matches the name prefix case-insensitively", () => {
+    const opp = {
+      ...makeOpportunity(),
+      contactName: "North Shore Decks",
+      title: "NORTH SHORE DECKS phase 2",
+    };
+    expect(getOpportunityTitle(opp, "Lead")).toBe("NORTH SHORE DECKS phase 2");
+  });
+
+  it("falls back to the display name when there is no separate title", () => {
+    const opp = {
+      ...makeOpportunity(),
+      contactName: "Jordan Lee",
+      title: "",
+    };
+    expect(getOpportunityTitle(opp, "Lead")).toBe("Jordan Lee");
   });
 });

@@ -21,6 +21,9 @@
  *
  * ── Design tokens (traced to .interface-design/system.md) ────────────────────
  *  - popovers: `glass-dense` + `var(--shadow-dropdown)` + `rounded-modal` (12px)
+ *    at `z-modal` (3000) — the editors portal over a floating window (z 2000+),
+ *    so the dropdown band (1000) would render behind it; `z-modal` matches the
+ *    sibling `EntityPicker` assignee popover.
  *  - inputs: `var(--surface-input)` fill, `border-glass-border` → brightens on
  *    focus (NO accent on input borders); min-h 36 (web is non-touch), radius 5
  *  - numbers: `font-mono` with `"tnum" 1, "zero" 1`
@@ -45,6 +48,16 @@ import { createPortal } from "react-dom";
 import { Check, Plus, X } from "lucide-react";
 
 import { useDictionary } from "@/i18n/client";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { EntityPicker } from "@/components/ui/entity-picker";
 import { toast } from "@/components/ui/toast";
 import { useTeamMembers } from "@/lib/hooks/use-users";
@@ -53,6 +66,10 @@ import {
   useLeadAssignmentCandidates,
 } from "@/lib/hooks/use-lead-assignment";
 import { LeadAssignmentConflictError } from "@/lib/api/services/lead-assignment-service";
+import { actorLosesAccessOnAssign } from "@/lib/permissions/lead-access-policy";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
+import { usePipelineModeStore } from "./pipeline-mode-store";
 import { getUserFullName } from "@/lib/types/models";
 import {
   OpportunityPriority,
@@ -215,7 +232,11 @@ export function EditPopover({
       ref={panelRef}
       role="dialog"
       aria-label={ariaLabel}
-      className="glass-dense scrollbar-hide fixed z-[1000] overflow-y-auto rounded-modal border border-glass-border p-1.5"
+      // `data-lead-field-editor` lets the detail window's capture-phase Escape
+      // handler know a portaled editor is open, so Escape closes the editor
+      // (below) instead of collapsing the whole window.
+      data-lead-field-editor=""
+      className="glass-dense scrollbar-hide fixed z-modal overflow-y-auto rounded-modal border border-glass-border p-1.5"
       style={{
         top: position.top,
         left: position.left,
@@ -332,7 +353,7 @@ function OptionRow({ selected, onSelect, children, clear }: OptionRowProps) {
         onSelect();
       }}
       className={cn(
-        "flex h-9 w-full min-w-0 items-center gap-2 rounded-[5px] px-2 text-left",
+        "flex h-9 w-full min-w-0 items-center gap-2 rounded px-2 text-left",
         "font-mohave text-[14px] transition-colors duration-100",
         "hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
         selected ? "bg-surface-active text-text" : "text-text-2"
@@ -450,7 +471,7 @@ export function CurrencyField({
           onBlur={commitDraft}
           placeholder={t("band.valuePlaceholder", "0")}
           className={cn(
-            "h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
+            "h-9 w-full rounded border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mono text-[14px] tabular-nums text-text [font-feature-settings:'tnum'_1,'zero'_1]",
             "outline-none transition-colors duration-150 placeholder:text-text-mute",
             "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent"
@@ -593,7 +614,7 @@ export function PriorityField({
 
   const chip =
     value == null ? (
-      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-text-3">
+      <span className="font-mono text-micro uppercase tracking-[0.12em] text-text-3">
         {EMPTY}
       </span>
     ) : (
@@ -733,7 +754,7 @@ export function DateField({
           defaultValue={toDateInputValue(value)}
           onChange={(event) => onPick(event.target.value)}
           className={cn(
-            "h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
+            "h-9 w-full rounded border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mono text-[13px] tabular-nums text-text [font-feature-settings:'tnum'_1,'zero'_1]",
             "outline-none transition-colors duration-150",
             "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent",
@@ -762,9 +783,24 @@ export function AssigneeField({
 }) {
   const { t } = useDictionary("pipeline");
   const [open, setOpen] = useState(false);
+  // One-shot "Assign to" intent: when the detail opened via that action, this
+  // matches our opportunity and we auto-open the picker once (below).
+  const assignIntent = usePipelineModeStore(
+    (state) => state.assignIntentOpportunityId
+  );
+  const rafOuterRef = useRef(0);
+  const rafInnerRef = useRef(0);
   const [saveState, setSaveState] = useState<FieldSaveState>("idle");
+  // A hand-off awaiting confirmation: an assigned-scope actor is about to move
+  // their own lead away — destructive for THEM (it leaves their list).
+  const [pendingHandOff, setPendingHandOff] = useState<{
+    newAssignedTo: string | null;
+    name: string;
+  } | null>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const assignment = useLeadAssignment();
+  const actorUserId = useAuthStore((state) => state.currentUser?.id ?? null);
+  const permissionState = usePermissionStore();
   const candidatesQuery = useLeadAssignmentCandidates(
     opportunityId,
     open && canAssign
@@ -796,6 +832,26 @@ export function AssigneeField({
     },
     []
   );
+
+  // Auto-open the picker once when this lead's detail arrived via "Assign to".
+  // The detail window focuses its body on open (one rAF); defer our open two
+  // frames so the picker's own focus-in is the last word and the window's focus
+  // pass can't dismiss it. Consume the flag inside the deferred callback so the
+  // resulting re-render can't cancel the scheduled open (a synchronous consume
+  // would). Re-arming the flag for the same lead opens it again.
+  useEffect(() => {
+    if (!canAssign || assignIntent !== opportunityId) return;
+    rafOuterRef.current = requestAnimationFrame(() => {
+      rafInnerRef.current = requestAnimationFrame(() => {
+        setOpen(true);
+        usePipelineModeStore.getState().consumeAssignIntent();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(rafOuterRef.current);
+      cancelAnimationFrame(rafInnerRef.current);
+    };
+  }, [assignIntent, opportunityId, canAssign]);
 
   const candidateName = useCallback(
     (candidate: { firstName: string | null; lastName: string | null }) =>
@@ -872,7 +928,31 @@ export function AssigneeField({
 
   const candidates = candidatesQuery.data?.candidates ?? [];
 
+  // Gate the commit: an assigned-scope actor moving THEIR OWN lead to someone
+  // else loses access the moment it lands — interpose one confirm. All-scope
+  // viewers and unassign-capable admins commit directly (never prompted).
+  function requestAssigneeChange(newAssignedTo: string | null) {
+    if (newAssignedTo === value || assignment.isPending) return;
+    if (
+      actorLosesAccessOnAssign(
+        permissionState,
+        actorUserId,
+        { assignedTo: value },
+        newAssignedTo
+      )
+    ) {
+      const candidate = candidates.find(({ id }) => id === newAssignedTo);
+      setPendingHandOff({
+        newAssignedTo,
+        name: candidate ? candidateName(candidate) : unassignedLabel,
+      });
+      return;
+    }
+    void changeAssignee(newAssignedTo);
+  }
+
   return (
+    <>
     <EntityPicker
       trigger={
         <button
@@ -901,7 +981,7 @@ export function AssigneeField({
       label={t("band.changeAssignee", "Assign lead")}
       value={value}
       onChange={(next) => {
-        void changeAssignee(next);
+        requestAssigneeChange(next);
       }}
       noneOption={candidatesQuery.data?.canUnassign === true}
       noneLabel={t("band.unassign", "Unassign")}
@@ -923,6 +1003,44 @@ export function AssigneeField({
       size="md"
       contentClassName="z-modal"
     />
+
+    {/* Hand-off confirm: committing removes the lead from the ACTOR'S own
+        list (assigned-only view scope). z-modal on panel + overlay — this
+        dialog launches from inside the floating window (z 2000+). */}
+    <AlertDialog
+      open={pendingHandOff !== null}
+      onOpenChange={(dialogOpen) => {
+        if (!dialogOpen) setPendingHandOff(null);
+      }}
+    >
+      <AlertDialogContent className="z-modal" overlayClassName="z-modal">
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("handoff.title", "Hand off this lead?")}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("handoff.body", "It moves to {name} and leaves your list.").replace(
+              "{name}",
+              pendingHandOff?.name ?? unassignedLabel
+            )}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("handoff.cancel", "KEEP")}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              if (!pendingHandOff) return;
+              const { newAssignedTo } = pendingHandOff;
+              setPendingHandOff(null);
+              void changeAssignee(newAssignedTo);
+            }}
+          >
+            {t("handoff.confirm", "HAND OFF")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
@@ -1004,7 +1122,7 @@ export function TagsField({
         onClick={() => setOpen((o) => !o)}
         className={cn(
           "inline-flex h-[18px] items-center gap-1 rounded-chip border border-dashed border-glass-border px-1.5",
-          "font-mono text-[10px] uppercase tracking-[0.12em] text-text-3",
+          "font-mono text-micro uppercase tracking-[0.12em] text-text-3",
           "transition-colors duration-150 hover:border-glass-border-medium hover:text-text-2",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
         )}
@@ -1030,7 +1148,7 @@ export function TagsField({
           onKeyDown={onKeyDown}
           placeholder={t("band.tagPlaceholder", "[ type, then ↵ ]")}
           className={cn(
-            "h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
+            "h-9 w-full rounded border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mohave text-[14px] text-text outline-none transition-colors duration-150 placeholder:text-text-mute",
             "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent"
           )}
@@ -1042,7 +1160,7 @@ export function TagsField({
                 key={tag}
                 className="inline-flex items-center gap-1 rounded-chip border border-glass-border bg-[var(--surface-input)] px-1.5 py-[2px]"
               >
-                <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-text-2">
+                <span className="font-mono text-micro uppercase tracking-[0.1em] text-text-2">
                   {tag}
                 </span>
                 <button

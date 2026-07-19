@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   useQueryClient,
   type QueryClient,
@@ -8,6 +8,8 @@ import {
 } from "@tanstack/react-query";
 
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
+import { toast } from "@/components/ui/toast";
+import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store/auth-store";
@@ -172,20 +174,63 @@ function purgeRevokedLead(
 }
 
 /**
+ * Notification hook for a revocation that removed a lead the user could SEE.
+ * `title` is the lead's display name captured from cache before the purge, or
+ * null when the visible row carried no usable name.
+ */
+export type LeadRevokedNotifier = (notice: { title: string | null }) => void;
+
+/**
+ * Snapshot the revoked lead's on-screen identity BEFORE the purge destroys it.
+ * `visible` = the row exists in some opportunities list cache right now (the
+ * operator can currently see it). Mirrors the detail-window display-name
+ * derivation: client name → contact name → title.
+ */
+function captureVisibleLeadTitle(
+  queryClient: QueryClient,
+  opportunityId: string
+): { visible: boolean; title: string | null } {
+  const lists = queryClient.getQueriesData<Opportunity[]>({
+    queryKey: queryKeys.opportunities.lists(),
+  });
+  for (const [, rows] of lists) {
+    const row = rows?.find(({ id }) => id === opportunityId);
+    if (row) {
+      return {
+        visible: true,
+        title: row.client?.name ?? row.contactName ?? row.title ?? null,
+      };
+    }
+  }
+  return { visible: false, title: null };
+}
+
+/**
  * Applies the durable assignment-delivery contract to local UI state.
  * Revocation is synchronous and destructive; retained/new access refetches all
  * dependent surfaces without ever fabricating an optimistic assignment.
+ *
+ * `onLeadRevoked` fires AFTER the purge, and only when the revocation removed
+ * a lead that was visible in cache — a boot-time backlog replay over an empty
+ * cache stays silent (nothing vanished before the operator's eyes), while a
+ * live transfer or a same-session reconnect catch-up announces itself.
  */
 export function reconcileLeadAssignmentDelivery(
   queryClient: QueryClient,
-  delivery: LeadAssignmentDelivery
+  delivery: LeadAssignmentDelivery,
+  onLeadRevoked?: LeadRevokedNotifier
 ): void {
   if (delivery.accessAfter) {
     invalidateLeadDependents(queryClient, delivery.opportunityId);
     return;
   }
 
+  const { visible, title } = captureVisibleLeadTitle(
+    queryClient,
+    delivery.opportunityId
+  );
   purgeRevokedLead(queryClient, delivery.opportunityId);
+  if (visible) onLeadRevoked?.({ title });
 }
 
 function isAssignmentDeliveryRow(
@@ -219,7 +264,8 @@ export function reconcileLeadAssignmentBacklog(
   rows: readonly AssignmentDeliveryRow[],
   companyId: string,
   recipientUserId: string,
-  seenVersionByOpportunity: Map<string, number>
+  seenVersionByOpportunity: Map<string, number>,
+  onLeadRevoked?: LeadRevokedNotifier
 ): void {
   const latestByOpportunity = new Map<
     string,
@@ -252,10 +298,14 @@ export function reconcileLeadAssignmentBacklog(
     const seenVersion = seenVersionByOpportunity.get(row.opportunity_id) ?? 0;
     if (row.assignment_version <= seenVersion) continue;
     seenVersionByOpportunity.set(row.opportunity_id, row.assignment_version);
-    reconcileLeadAssignmentDelivery(queryClient, {
-      opportunityId: row.opportunity_id,
-      accessAfter: row.access_after,
-    });
+    reconcileLeadAssignmentDelivery(
+      queryClient,
+      {
+        opportunityId: row.opportunity_id,
+        accessAfter: row.access_after,
+      },
+      onLeadRevoked
+    );
   }
 }
 
@@ -311,6 +361,92 @@ export async function reconcilePermissionChangeDelivery(
   return true;
 }
 
+// ─── Transient-failure grace: retry + fail-closed deadline ──────────────────
+
+/**
+ * Backoff schedule for a failed realtime replay read. A revocation channel that
+ * momentarily cannot be read (an offline blip, a cold edge) must NOT instantly
+ * wipe access-sensitive UI — RLS is still the server-side authority. We retry on
+ * this fixed schedule before treating the failure as real.
+ */
+const REPLAY_RETRY_DELAYS_MS = [1_000, 3_000, 9_000] as const;
+
+/**
+ * How long the client may run on last-good access after a transient realtime
+ * failure before it fails closed anyway. If no replay succeeds and the channel
+ * never reaches SUBSCRIBED within this window, the destructive wipe runs.
+ */
+const AUTHORITY_VERIFICATION_DEADLINE_MS = 3 * 60_000;
+
+// One module-level deadline. Every failure source (assignment replay, permission
+// replay, channel error) arms the SAME timer, so a storm of failures cannot
+// stack multiple wipes; the first success cancels it.
+let authorityVerificationTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Arm the fail-closed deadline. Idempotent: arming while one is already pending
+ * is a no-op — the clock started at the first failure and must not be extended
+ * by later ones. `runFallback` performs the destructive wipe when it fires.
+ */
+export function armAuthorityVerificationDeadline(runFallback: () => void): void {
+  if (authorityVerificationTimer) return;
+  authorityVerificationTimer = setTimeout(() => {
+    authorityVerificationTimer = null;
+    runFallback();
+  }, AUTHORITY_VERIFICATION_DEADLINE_MS);
+}
+
+/** Cancel a pending fail-closed deadline (a replay succeeded, or SUBSCRIBED). */
+export function cancelAuthorityVerificationDeadline(): void {
+  if (!authorityVerificationTimer) return;
+  clearTimeout(authorityVerificationTimer);
+  authorityVerificationTimer = null;
+}
+
+function defaultReplaySleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Runs a realtime replay read, retrying a transient read failure on the fixed
+ * {@link REPLAY_RETRY_DELAYS_MS} backoff before treating it as real. A success
+ * at any attempt calls `onSuccess` (which cancels the fail-closed deadline);
+ * exhausting the retries calls `onFinalFailure` (which invalidates under RLS
+ * and arms the deadline). Disposal short-circuits WITHOUT failing closed — a
+ * remount re-verifies immediately.
+ *
+ * Extracted + dependency-injected so the retry/deadline contract is unit
+ * testable without a live Supabase channel.
+ */
+export async function replayWithRetryAndDeadline(deps: {
+  runReplay: () => Promise<boolean>;
+  onSuccess: () => void;
+  onFinalFailure: () => void;
+  isDisposed: () => boolean;
+  sleep?: (ms: number) => Promise<void>;
+  retryDelaysMs?: readonly number[];
+}): Promise<boolean> {
+  const sleep = deps.sleep ?? defaultReplaySleep;
+  const delays = deps.retryDelaysMs ?? REPLAY_RETRY_DELAYS_MS;
+
+  if (await deps.runReplay()) {
+    deps.onSuccess();
+    return true;
+  }
+  for (const delay of delays) {
+    if (deps.isDisposed()) return false;
+    await sleep(delay);
+    if (deps.isDisposed()) return false;
+    if (await deps.runReplay()) {
+      deps.onSuccess();
+      return true;
+    }
+  }
+  if (deps.isDisposed()) return false;
+  deps.onFinalFailure();
+  return false;
+}
+
 /**
  * Global assignment fan-out. Recipient deliveries cover both sides of a
  * transfer (including the old assignee after RLS hides the lead); assignment
@@ -320,26 +456,73 @@ export function useLeadAssignmentRealtime(): void {
   const companyId = useAuthStore((state) => state.company?.id ?? null);
   const currentUserId = useAuthStore((state) => state.currentUser?.id ?? null);
   const queryClient = useQueryClient();
+  const { t } = useDictionary("pipeline");
+
+  // The channel effect must not re-subscribe when the dictionary loads or the
+  // locale flips, so the notifier lives behind a ref the effect closes over.
+  const notifyLeadRevokedRef = useRef<LeadRevokedNotifier>(() => {});
+  notifyLeadRevokedRef.current = ({ title }) => {
+    toast.info(t("toast.leadReassignedAway", "Lead reassigned"), {
+      description: t("toast.leadReassignedAwayDesc", "{title} is no longer yours.").replace(
+        "{title}",
+        title ?? t("toast.leadReassignedAwayFallback", "A lead")
+      ),
+    });
+  };
 
   useEffect(() => {
     if (!companyId || !currentUserId) return;
+    const notifyLeadRevoked: LeadRevokedNotifier = (notice) =>
+      notifyLeadRevokedRef.current(notice);
 
     const supabase = getSupabaseClient();
     if (!supabase) return;
     const seenVersionByOpportunity = new Map<string, number>();
     const seenPermissionDeliveryIds = new Set<string>();
     let disposed = false;
-    let replayInFlight: Promise<void> | null = null;
-    let replayRequested = false;
+    let assignmentReplayInFlight: Promise<boolean> | null = null;
+    let assignmentReplayRequested = false;
 
-    const replayBacklog = (): Promise<void> => {
-      if (disposed) return Promise.resolve();
-      if (replayInFlight) {
-        replayRequested = true;
-        return replayInFlight;
+    // Fail-closed backstop: the graceful window elapsed without the revocation
+    // channel proving itself current. Apply the original destructive wipe +
+    // revoke-first authority refresh.
+    const runDeadlineFallback = () => {
+      clearAccessSensitiveCaches(queryClient);
+      void usePermissionStore
+        .getState()
+        .fetchPermissions(currentUserId, { mode: "revoke-first" })
+        .then(() => refreshAccessSensitiveQueries(queryClient));
+    };
+
+    // Transient realtime failure: never wipe on screen. Invalidate under RLS
+    // (server stays authoritative; last-good data holds during the background
+    // refetch), optionally re-derive authority WITHOUT dropping grants (hold
+    // mode), and arm the fail-closed deadline as the backstop.
+    const handleTransientAuthorityFailure = (refreshPermissions: boolean) => {
+      if (disposed) return;
+      void refreshAccessSensitiveQueries(queryClient);
+      if (refreshPermissions) {
+        void usePermissionStore
+          .getState()
+          .fetchPermissions(currentUserId, { mode: "hold" })
+          .then(() => refreshAccessSensitiveQueries(queryClient));
+      }
+      armAuthorityVerificationDeadline(runDeadlineFallback);
+    };
+
+    // Raw assignment-delivery backlog read → true when the read succeeded and
+    // was reconciled, false on a transient read failure (the orchestrator
+    // decides retry / fail-closed). Coalesces concurrent callers and re-runs
+    // once if a trigger (e.g. SUBSCRIBED) requested a replay mid-flight,
+    // preserving the subscribe-then-snapshot handoff-race guarantee.
+    const runAssignmentReplayRead = (): Promise<boolean> => {
+      if (disposed) return Promise.resolve(true);
+      if (assignmentReplayInFlight) {
+        assignmentReplayRequested = true;
+        return assignmentReplayInFlight;
       }
 
-      replayInFlight = (async () => {
+      const run = (async (): Promise<boolean> => {
         const { data, error } = await supabase
           .from("opportunity_assignment_deliveries")
           .select(
@@ -350,28 +533,38 @@ export function useLeadAssignmentRealtime(): void {
           .order("assignment_version", { ascending: true })
           .order("id", { ascending: true });
 
-        if (disposed) return;
-        if (error || !Array.isArray(data)) {
-          clearAccessSensitiveCaches(queryClient);
-          return;
-        }
+        if (disposed) return true;
+        if (error || !Array.isArray(data)) return false;
 
         reconcileLeadAssignmentBacklog(
           queryClient,
           data as AssignmentDeliveryRow[],
           companyId,
           currentUserId,
-          seenVersionByOpportunity
+          seenVersionByOpportunity,
+          notifyLeadRevoked
         );
-      })().finally(() => {
-        replayInFlight = null;
-        if (replayRequested && !disposed) {
-          replayRequested = false;
-          void replayBacklog();
+        return true;
+      })();
+
+      assignmentReplayInFlight = run;
+      void run.finally(() => {
+        assignmentReplayInFlight = null;
+        if (assignmentReplayRequested && !disposed) {
+          assignmentReplayRequested = false;
+          void verifyAssignmentAuthority();
         }
       });
-      return replayInFlight;
+      return run;
     };
+
+    const verifyAssignmentAuthority = (): Promise<boolean> =>
+      replayWithRetryAndDeadline({
+        runReplay: runAssignmentReplayRead,
+        onSuccess: cancelAuthorityVerificationDeadline,
+        onFinalFailure: () => handleTransientAuthorityFailure(false),
+        isDisposed: () => disposed,
+      });
 
     const applyPermissionDelivery = async (
       row: PermissionChangeDeliveryRow
@@ -390,7 +583,9 @@ export function useLeadAssignmentRealtime(): void {
       }
     };
 
-    const replayPermissionBacklog = async (): Promise<void> => {
+    // Raw permission-delivery backlog read → true when the read succeeded (and
+    // any latest delivery was applied), false on a transient read failure.
+    const runPermissionReplayRead = async (): Promise<boolean> => {
       const { data, error } = await supabase
         .from("user_permission_change_deliveries")
         .select("id, company_id, recipient_user_id, changed_at")
@@ -399,16 +594,21 @@ export function useLeadAssignmentRealtime(): void {
         .order("id", { ascending: false })
         .limit(1);
 
-      if (disposed) return;
-      if (error || !Array.isArray(data)) {
-        clearAccessSensitiveCaches(queryClient);
-        await usePermissionStore.getState().fetchPermissions(currentUserId);
-        await refreshAccessSensitiveQueries(queryClient);
-        return;
-      }
+      if (disposed) return true;
+      if (error || !Array.isArray(data)) return false;
+
       const latest = data[0] as PermissionChangeDeliveryRow | undefined;
       if (latest) await applyPermissionDelivery(latest);
+      return true;
     };
+
+    const verifyPermissionAuthority = (): Promise<boolean> =>
+      replayWithRetryAndDeadline({
+        runReplay: runPermissionReplayRead,
+        onSuccess: cancelAuthorityVerificationDeadline,
+        onFinalFailure: () => handleTransientAuthorityFailure(true),
+        isDisposed: () => disposed,
+      });
 
     const channel = supabase
       .channel(`lead-assignment-${companyId}-${currentUserId}`)
@@ -427,7 +627,8 @@ export function useLeadAssignmentRealtime(): void {
             [row],
             companyId,
             currentUserId,
-            seenVersionByOpportunity
+            seenVersionByOpportunity,
+            notifyLeadRevoked
           );
         }
       )
@@ -473,27 +674,35 @@ export function useLeadAssignmentRealtime(): void {
       )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          void replayBacklog();
-          void replayPermissionBacklog();
+          // The channel is proven current — cancel any pending fail-closed
+          // deadline, then re-verify both backlogs (which re-arm it if they in
+          // turn fail).
+          cancelAuthorityVerificationDeadline();
+          void verifyAssignmentAuthority();
+          void verifyPermissionAuthority();
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          // Never leave access-sensitive data on screen when the revocation
-          // channel cannot prove it is current. Fresh reads repopulate via RLS.
-          clearAccessSensitiveCaches(queryClient);
-          void usePermissionStore
-            .getState()
-            .fetchPermissions(currentUserId)
-            .then(() => refreshAccessSensitiveQueries(queryClient));
+          // The revocation channel dropped. Do NOT wipe on screen — RLS is
+          // still the server-side authority. Invalidate + hold-refresh
+          // authority and arm the fail-closed deadline; a later SUBSCRIBED
+          // cancels it, and if none arrives the deadline wipes.
+          handleTransientAuthorityFailure(true);
         }
       });
 
-    // Subscribe-first plus replay-now/replay-on-SUBSCRIBED closes both sides of
+    // Subscribe-first plus verify-now/verify-on-SUBSCRIBED closes both sides of
     // the handoff race. If SUBSCRIBED arrives while the first replay is still
-    // running, replayRequested forces a second read after that snapshot.
-    void replayBacklog();
-    void replayPermissionBacklog();
+    // running, assignmentReplayRequested forces a second read after that
+    // snapshot.
+    void verifyAssignmentAuthority();
+    void verifyPermissionAuthority();
 
     return () => {
       disposed = true;
+      // Drop the fail-closed deadline: this effect is tearing down (sign-out or
+      // user-switch). A remount re-verifies immediately, and a stale timer must
+      // not fire the destructive wipe against a torn-down / switched session's
+      // captured queryClient + user id.
+      cancelAuthorityVerificationDeadline();
       void supabase.removeChannel(channel);
     };
   }, [companyId, currentUserId, queryClient]);

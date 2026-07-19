@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { queryKeys } from "@/lib/api/query-client";
 import {
+  armAuthorityVerificationDeadline,
+  cancelAuthorityVerificationDeadline,
   reconcileLeadAssignmentBacklog,
   reconcileLeadAssignmentDelivery,
   reconcilePermissionChangeDelivery,
+  replayWithRetryAndDeadline,
   type AssignmentDeliveryRow,
 } from "@/lib/hooks/use-lead-assignment-realtime";
 import { usePermissionStore } from "@/lib/store/permissions-store";
@@ -257,6 +260,213 @@ describe("reconcileLeadAssignmentDelivery", () => {
     expect(useWindowStore.getState().windows.map(({ id }) => id)).toEqual([
       "compose:lead-2",
     ]);
+  });
+});
+
+describe("lead-revoked notification", () => {
+  it("notifies exactly once with the cached display title when a visible lead is revoked", () => {
+    const client = queryClient();
+    const listKey = queryKeys.opportunities.list("company-1");
+    client.setQueryData(listKey, [
+      {
+        id: "lead-1",
+        title: "Deck rebuild",
+        contactName: "Jordan Lee",
+        client: { name: "Acme Exteriors" },
+      } as unknown as Opportunity,
+      opportunity("lead-2"),
+    ]);
+    const onLeadRevoked = vi.fn();
+
+    reconcileLeadAssignmentDelivery(
+      client,
+      { opportunityId: "lead-1", accessAfter: false },
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).toHaveBeenCalledTimes(1);
+    expect(onLeadRevoked).toHaveBeenCalledWith({ title: "Acme Exteriors" });
+    // The purge itself still ran.
+    expect(
+      client.getQueryData<Opportunity[]>(listKey)?.map(({ id }) => id)
+    ).toEqual(["lead-2"]);
+  });
+
+  it("stays silent when the revoked lead was not visible in any list cache", () => {
+    const client = queryClient();
+    const onLeadRevoked = vi.fn();
+
+    // Boot-time backlog replay over an empty cache: nothing vanished before
+    // the operator's eyes, so nothing announces.
+    reconcileLeadAssignmentDelivery(
+      client,
+      { opportunityId: "lead-1", accessAfter: false },
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).not.toHaveBeenCalled();
+  });
+
+  it("does not notify for retained or gained access", () => {
+    const client = queryClient();
+    const listKey = queryKeys.opportunities.list("company-1");
+    client.setQueryData(listKey, [opportunity("lead-1")]);
+    const onLeadRevoked = vi.fn();
+
+    reconcileLeadAssignmentDelivery(
+      client,
+      { opportunityId: "lead-1", accessAfter: true },
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).not.toHaveBeenCalled();
+  });
+
+  it("dedupes the notification when the same revocation version replays", () => {
+    const client = queryClient();
+    const listKey = queryKeys.opportunities.list("company-1");
+    const seen = new Map<string, number>();
+    const onLeadRevoked = vi.fn();
+    const revocation: AssignmentDeliveryRow = {
+      id: "delivery-1",
+      company_id: "company-1",
+      opportunity_id: "lead-1",
+      recipient_user_id: "user-1",
+      access_after: false,
+      assignment_version: 3,
+    };
+
+    client.setQueryData(listKey, [
+      { id: "lead-1", title: "Deck rebuild" } as unknown as Opportunity,
+    ]);
+    reconcileLeadAssignmentBacklog(
+      client,
+      [revocation],
+      "company-1",
+      "user-1",
+      seen,
+      onLeadRevoked
+    );
+    // Reconnect replays the same delivery; the lead is even back in cache
+    // (e.g. a stale refetch) — the seen-version dedupe must keep it silent.
+    client.setQueryData(listKey, [
+      { id: "lead-1", title: "Deck rebuild" } as unknown as Opportunity,
+    ]);
+    reconcileLeadAssignmentBacklog(
+      client,
+      [revocation],
+      "company-1",
+      "user-1",
+      seen,
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).toHaveBeenCalledTimes(1);
+    expect(onLeadRevoked).toHaveBeenCalledWith({ title: "Deck rebuild" });
+  });
+});
+
+describe("replayWithRetryAndDeadline", () => {
+  it("retries a failing replay on backoff and recovers without failing closed", async () => {
+    const runReplay = vi.fn(async () => false);
+    runReplay
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const onSuccess = vi.fn();
+    const onFinalFailure = vi.fn();
+    const sleep = vi.fn(async (_ms: number) => {});
+
+    const result = await replayWithRetryAndDeadline({
+      runReplay,
+      onSuccess,
+      onFinalFailure,
+      isDisposed: () => false,
+      sleep,
+    });
+
+    expect(result).toBe(true);
+    // Initial attempt + three backoff retries, recovering on the fourth.
+    expect(runReplay).toHaveBeenCalledTimes(4);
+    expect(sleep.mock.calls.map((call) => call[0])).toEqual([
+      1_000, 3_000, 9_000,
+    ]);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onFinalFailure).not.toHaveBeenCalled();
+  });
+
+  it("hands off to the fail-closed path only after every retry is exhausted", async () => {
+    const runReplay = vi.fn(async () => false);
+    const onSuccess = vi.fn();
+    const onFinalFailure = vi.fn();
+
+    const result = await replayWithRetryAndDeadline({
+      runReplay,
+      onSuccess,
+      onFinalFailure,
+      isDisposed: () => false,
+      sleep: async () => {},
+    });
+
+    expect(result).toBe(false);
+    expect(runReplay).toHaveBeenCalledTimes(4);
+    expect(onFinalFailure).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("stops retrying and never fails closed once disposed mid-backoff", async () => {
+    let disposed = false;
+    const runReplay = vi.fn(async () => false);
+    const onFinalFailure = vi.fn();
+    const sleep = vi.fn(async () => {
+      disposed = true; // the effect tore down during the wait
+    });
+
+    const result = await replayWithRetryAndDeadline({
+      runReplay,
+      onSuccess: vi.fn(),
+      onFinalFailure,
+      isDisposed: () => disposed,
+      sleep,
+    });
+
+    expect(result).toBe(false);
+    expect(runReplay).toHaveBeenCalledTimes(1);
+    expect(onFinalFailure).not.toHaveBeenCalled();
+  });
+});
+
+describe("authority verification deadline", () => {
+  beforeEach(() => {
+    cancelAuthorityVerificationDeadline();
+  });
+
+  it("fires the destructive fallback exactly once after the deadline elapses", () => {
+    vi.useFakeTimers();
+    try {
+      const fallback = vi.fn();
+      armAuthorityVerificationDeadline(fallback);
+      // A second arm while one is pending must not schedule a second wipe.
+      armAuthorityVerificationDeadline(fallback);
+      vi.advanceTimersByTime(3 * 60_000);
+      expect(fallback).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancel prevents the fallback from firing", () => {
+    vi.useFakeTimers();
+    try {
+      const fallback = vi.fn();
+      armAuthorityVerificationDeadline(fallback);
+      cancelAuthorityVerificationDeadline();
+      vi.advanceTimersByTime(3 * 60_000);
+      expect(fallback).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

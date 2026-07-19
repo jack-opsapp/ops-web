@@ -43,13 +43,26 @@ export function PipelineTableHeader({
   const activeSort = sorting[0];
 
   return (
-    <div className="sticky top-[var(--shell-header-top,0px)] z-20 flex border-b border-border bg-background" style={{ height: metrics.headerHeight }}>
+    <div role="row" className="sticky top-[var(--shell-header-top,0px)] z-20 flex border-b border-border bg-background" style={{ height: metrics.headerHeight }}>
       {columns.map(({ column, width, stickyLeft }) => {
         const sorted = activeSort && activeSort.field === column.id ? activeSort.direction : null;
+        // `aria-sort` belongs only on a sortable header: a sorted column reports
+        // its direction, an unsorted-but-sortable column reports "none", and a
+        // non-sortable column omits it entirely. The select rail is chrome, not a
+        // data column — it stays roleless, mirroring the data rows' select cell.
+        const ariaSort = column.sortable
+          ? sorted === "asc"
+            ? "ascending"
+            : sorted === "desc"
+              ? "descending"
+              : "none"
+          : undefined;
 
         return (
           <div
             key={column.id}
+            role={column.id === "select" ? undefined : "columnheader"}
+            aria-sort={ariaSort}
             className={cn(
               "flex shrink-0 items-center border-r border-border bg-background px-[8px]",
               column.align === "right" && "justify-end",

@@ -37,6 +37,8 @@ export interface PipelineFocusedColumnProps extends FocusedColumnActionHandlers 
   opportunities: Opportunity[];
   clients?: Client[];
   clientNameMap: Map<string, string>;
+  /** Assignee display names by user id (company-wide viewers only). */
+  assigneeNameById?: ReadonlyMap<string, string>;
   canManage: boolean;
   canCreateLead: boolean;
   leadAccessById: ReadonlyMap<string, LeadAccess>;
@@ -57,6 +59,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   opportunities,
   clients = [],
   clientNameMap,
+  assigneeNameById,
   canManage,
   canCreateLead,
   leadAccessById,
@@ -176,6 +179,12 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
               t("card.unknown", "Unknown");
             const cardStageColor =
               OPPORTUNITY_STAGE_COLORS[opportunity.stage] ?? stageColor;
+            // Marker name resolves only when the viewer sees company-wide leads
+            // (assigneeNameById present) and the lead is assigned to a known
+            // member. Absent → the card shows no ownership marker.
+            const assigneeName = opportunity.assignedTo
+              ? (assigneeNameById?.get(opportunity.assignedTo) ?? null)
+              : null;
 
             return (
               <PipelineFocusedCard
@@ -185,6 +194,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
                 clients={clients}
                 stageColor={cardStageColor}
                 stalenessOpacity={stalenessMap.get(opportunity.id) ?? 1}
+                assigneeName={assigneeName}
                 canManage={canManage}
                 leadAccess={
                   leadAccessById.get(opportunity.id) ?? NO_LEAD_ACCESS

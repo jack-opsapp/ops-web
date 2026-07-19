@@ -210,7 +210,7 @@ function SummarySection({ opportunity }: { opportunity: Opportunity }) {
                 className={cn(
                   "inline-flex shrink-0 items-center rounded-chip px-1.5 py-[2px]",
                   "border border-[var(--agent-border-hi)] bg-[var(--agent-bg-hi)]",
-                  "font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--agent-text-2)]"
+                  "font-mono text-micro uppercase tracking-[0.1em] text-[var(--agent-text-2)]"
                 )}
               >
                 {signal}
@@ -393,7 +393,7 @@ function ContactSection({
               {canViewClients ? (
                 <Link
                   href={`/clients/${contact.id}`}
-                  className="inline-flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                  className="inline-flex shrink-0 items-center gap-1 font-mono text-micro uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                 >
                   {t("overview.openClient", "Open client")}
                   <ArrowUpRight className="h-2.5 w-2.5" strokeWidth={1.75} />
@@ -593,8 +593,8 @@ function DealContactRow({
               onClick={save}
               disabled={createSubClient.isPending}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2 py-1",
-                "font-mono text-[10px] uppercase tracking-[0.14em] text-text-2",
+                "inline-flex items-center gap-1.5 rounded border border-glass-border bg-[var(--surface-input)] px-2 py-1",
+                "font-mono text-micro uppercase tracking-[0.14em] text-text-2",
                 "transition-colors duration-150 hover:bg-surface-hover hover:text-text",
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
                 "disabled:cursor-not-allowed disabled:opacity-40"
@@ -646,8 +646,8 @@ function AttachClientControl({ opportunityId }: { opportunityId: string }) {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2 py-1",
-          "font-mono text-[10px] uppercase tracking-[0.14em] text-text-2",
+          "inline-flex items-center gap-1.5 rounded border border-glass-border bg-[var(--surface-input)] px-2 py-1",
+          "font-mono text-micro uppercase tracking-[0.14em] text-text-2",
           "transition-colors duration-150 hover:bg-surface-hover hover:text-text",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
         )}
@@ -673,7 +673,7 @@ function AttachClientControl({ opportunityId }: { opportunityId: string }) {
             "[ search clients ]"
           )}
           className={cn(
-            "mb-1 h-9 w-full rounded-[5px] border border-glass-border bg-[var(--surface-input)] px-2",
+            "mb-1 h-9 w-full rounded border border-glass-border bg-[var(--surface-input)] px-2",
             "font-mohave text-[14px] text-text outline-none transition-colors duration-150 placeholder:text-text-mute",
             "focus:border-glass-border-strong focus-visible:ring-1 focus-visible:ring-ops-accent"
           )}
@@ -695,7 +695,7 @@ function AttachClientControl({ opportunityId }: { opportunityId: string }) {
                 aria-selected={false}
                 onClick={() => pick(c.id)}
                 className={cn(
-                  "flex h-9 w-full min-w-0 items-center rounded-[5px] px-2 text-left",
+                  "flex h-9 w-full min-w-0 items-center rounded px-2 text-left",
                   "font-mohave text-[14px] text-text-2 transition-colors duration-100",
                   "hover:bg-surface-hover hover:text-text",
                   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
@@ -740,7 +740,7 @@ function LocationSection({
             href={mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+            className="inline-flex items-center gap-1 font-mono text-micro uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
           >
             <MapPin className="h-2.5 w-2.5" strokeWidth={1.75} />
             {t("overview.openInMaps", "Open in Maps")}
@@ -906,7 +906,7 @@ function LinkedSection({
                       },
                     })
                   }
-                  className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                  className="inline-flex items-center gap-1 font-mono text-micro uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                 >
                   <Plus className="h-2.5 w-2.5" strokeWidth={2} />
                   {t("overview.newEstimate", "New estimate")}
@@ -956,7 +956,7 @@ function LinkedSection({
                 <button
                   type="button"
                   onClick={() => setScheduling(true)}
-                  className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                  className="inline-flex items-center gap-1 font-mono text-micro uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                 >
                   <Plus className="h-2.5 w-2.5" strokeWidth={2} />
                   {t("overview.schedule", "Schedule")}
@@ -1066,7 +1066,7 @@ function SiteVisitRow({
   );
 
   return (
-    <div className="flex items-center gap-2 rounded-[5px] px-1.5 py-1">
+    <div className="flex items-center gap-2 rounded px-1.5 py-1">
       <MapPin className="h-3 w-3 shrink-0 text-text-3" strokeWidth={1.75} />
       <span className="min-w-0 truncate font-mono text-[11px] tabular-nums text-text-2 [font-feature-settings:'tnum'_1,'zero'_1]">
         {formatDate(visit.scheduledAt)}
@@ -1089,7 +1089,7 @@ function LinkedRow({
     <Link
       href={href}
       className={cn(
-        "group flex items-center gap-2 rounded-[5px] px-1.5 py-1",
+        "group flex items-center gap-2 rounded px-1.5 py-1",
         "transition-colors duration-150 hover:bg-surface-hover",
         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
       )}

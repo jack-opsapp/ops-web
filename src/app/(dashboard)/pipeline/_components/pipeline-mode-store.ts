@@ -14,11 +14,16 @@ type PipelineModeActions = {
   setMode: (mode: PipelineMode) => void;
   toggleMode: () => void;
   setFocusedStage: (stage: OpportunityStage) => void;
-  openDetailPanel: (opportunityId: string) => void;
+  openDetailPanel: (
+    opportunityId: string,
+    options?: { assignIntent?: boolean }
+  ) => void;
   closeDetailPanel: () => void;
   setDetailPanelActiveTab: (tab: DetailTabId) => void;
   setSortBy: (sortBy: SortOption) => void;
   setStageSortBy: (stage: OpportunityStage, sortBy: SortOption) => void;
+  /** Clear the one-shot assign-intent flag once AssigneeField has consumed it. */
+  consumeAssignIntent: () => void;
   resetLayout: () => void;
 };
 
@@ -99,6 +104,7 @@ export const usePipelineModeStore = create<Store>()(
       detailPanelActiveTab: "overview",
       sortBy: "value",
       stageSortOverrides: new Map(),
+      assignIntentOpportunityId: null,
       setMode: (mode) =>
         set((state) => {
           dispatchModeWillChange(state.mode, mode);
@@ -114,9 +120,26 @@ export const usePipelineModeStore = create<Store>()(
           })(),
         })),
       setFocusedStage: (focusedStage) => set({ focusedStage }),
-      openDetailPanel: (opportunityId) =>
-        set({ detailPanelOpportunityId: opportunityId }),
-      closeDetailPanel: () => set({ detailPanelOpportunityId: null }),
+      openDetailPanel: (opportunityId, options) =>
+        set({
+          detailPanelOpportunityId: opportunityId,
+          // Arm the one-shot only for the "Assign to" entry point; a plain open
+          // clears any stale intent so the picker never auto-opens unexpectedly.
+          assignIntentOpportunityId: options?.assignIntent
+            ? opportunityId
+            : null,
+        }),
+      closeDetailPanel: () =>
+        set({
+          detailPanelOpportunityId: null,
+          assignIntentOpportunityId: null,
+        }),
+      consumeAssignIntent: () =>
+        set((state) =>
+          state.assignIntentOpportunityId === null
+            ? state
+            : { assignIntentOpportunityId: null }
+        ),
       setDetailPanelActiveTab: (detailPanelActiveTab) =>
         set({ detailPanelActiveTab }),
       setSortBy: (sortBy) => set({ sortBy }),

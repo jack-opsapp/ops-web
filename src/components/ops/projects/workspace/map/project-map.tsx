@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Map, { Marker } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useReducedMotion } from "framer-motion";
@@ -21,6 +22,13 @@ interface ProjectMapProps {
   expanded: boolean;
   otherPins?: OtherPin[];
   onClick?: () => void;
+  /**
+   * Node rendered in place of the map when the Mapbox token is absent — lets a
+   * surface override the default MAP-UNAVAILABLE presentation with its own
+   * (e.g. the lead band's tactical `// MAP UNAVAILABLE`). Defaults to the shared
+   * project-workspace fallback.
+   */
+  fallback?: ReactNode;
 }
 
 const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
@@ -38,12 +46,13 @@ export function ProjectMap({
   expanded,
   otherPins = [],
   onClick,
+  fallback,
 }: ProjectMapProps) {
   const reducedMotion = useReducedMotion();
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   if (!token) {
-    return <MapTokenMissing />;
+    return fallback ?? <MapTokenMissing />;
   }
 
   return (
