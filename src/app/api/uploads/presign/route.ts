@@ -29,6 +29,9 @@
  *     company UUID is refused.
  *   - Filenames are sanitized to strip path-traversal segments and
  *     non-portable characters before they flow into the S3 key.
+ *   - New iOS expense receipts use a typed purpose contract. The server derives
+ *     the key from the authenticated company/user plus validated expense and
+ *     upload UUIDs; client-supplied folder/filename values never select it.
  *   - The presigned PUT URL pins `Content-Type` so a `.jpg` presign
  *     cannot be used to upload an `.html` payload.
  *   - Per-uid sliding-window rate limit (30 presigns / minute) backed
@@ -82,6 +85,8 @@ const TRAINING_DATA_TYPES = ["application/json"] as const;
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB — matches the legacy bucket cap.
 const PRESIGN_EXPIRY_SECONDS = 7200; // 2 hours — matches Supabase upload-URL expiry.
 const RATE_LIMIT_PER_MINUTE = 30;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isTrainingDataPath(folder: string): boolean {
   return TRAINING_DATA_PREFIXES.some((prefix) => folder.startsWith(prefix));
@@ -110,6 +115,7 @@ function defaultExtensionFor(contentType: string): string {
 
 interface AuthContext {
   uid: string;
+  userId: string;
   companyId: string;
 }
 
@@ -119,7 +125,9 @@ interface AuthContext {
  * web) flow through `verifyAuthToken`, and the `users` table holds
  * either form of uid in `auth_id` or `firebase_uid`.
  */
-async function resolveAuth(req: NextRequest): Promise<AuthContext | NextResponse> {
+async function resolveAuth(
+  req: NextRequest
+): Promise<AuthContext | NextResponse> {
   const authHeader = req.headers.get("authorization") ?? "";
   const idToken = authHeader.replace(/^Bearer\s+/i, "");
   if (!idToken) {
@@ -140,18 +148,28 @@ async function resolveAuth(req: NextRequest): Promise<AuthContext | NextResponse
   const supabase = getServiceRoleClient();
   const { data: userRow, error: userErr } = await supabase
     .from("users")
-    .select("id, company_id")
+    .select("id, company_id, is_active, deleted_at")
     .or(`auth_id.eq.${uid},firebase_uid.eq.${uid}`)
     .maybeSingle();
 
-  if (userErr || !userRow || !userRow.company_id) {
+  if (
+    userErr ||
+    !userRow ||
+    !userRow.company_id ||
+    userRow.deleted_at !== null ||
+    userRow.is_active !== true
+  ) {
     return NextResponse.json(
       { error: "User has no company association" },
       { status: 403 }
     );
   }
 
-  return { uid, companyId: userRow.company_id as string };
+  return {
+    uid,
+    userId: userRow.id as string,
+    companyId: userRow.company_id as string,
+  };
 }
 
 async function checkRateLimit(uid: string): Promise<NextResponse | null> {
@@ -202,6 +220,10 @@ interface PresignBody {
   filename: string | null;
   contentType: string | null;
   folder: string | null;
+  purpose: string | null;
+  expenseId: string | null;
+  uploadId: string | null;
+  variant: string | null;
 }
 
 async function readUrlencodedBody(req: NextRequest): Promise<PresignBody> {
@@ -211,6 +233,10 @@ async function readUrlencodedBody(req: NextRequest): Promise<PresignBody> {
     filename: params.get("filename"),
     contentType: params.get("contentType"),
     folder: params.get("folder"),
+    purpose: params.get("purpose"),
+    expenseId: params.get("expenseId"),
+    uploadId: params.get("uploadId"),
+    variant: params.get("variant"),
   };
 }
 
@@ -218,9 +244,12 @@ async function readJsonBody(req: NextRequest): Promise<PresignBody> {
   const json = (await req.json()) as Record<string, unknown>;
   return {
     filename: typeof json.filename === "string" ? json.filename : null,
-    contentType:
-      typeof json.contentType === "string" ? json.contentType : null,
+    contentType: typeof json.contentType === "string" ? json.contentType : null,
     folder: typeof json.folder === "string" ? json.folder : null,
+    purpose: typeof json.purpose === "string" ? json.purpose : null,
+    expenseId: typeof json.expenseId === "string" ? json.expenseId : null,
+    uploadId: typeof json.uploadId === "string" ? json.uploadId : null,
+    variant: typeof json.variant === "string" ? json.variant : null,
   };
 }
 
@@ -230,9 +259,17 @@ async function handlePresign(
   req: NextRequest,
   body: PresignBody
 ): Promise<NextResponse> {
-  const { filename, contentType: fileContentType, folder: rawFolder } = body;
+  const {
+    filename,
+    contentType: fileContentType,
+    folder: rawFolder,
+    purpose,
+    expenseId,
+    uploadId,
+    variant,
+  } = body;
 
-  if (!filename || !fileContentType) {
+  if (!fileContentType || (!purpose && !filename)) {
     return NextResponse.json(
       { error: "Missing filename or contentType" },
       { status: 400 }
@@ -244,6 +281,43 @@ async function handlePresign(
 
   const limited = await checkRateLimit(auth.uid);
   if (limited) return limited;
+
+  if (purpose) {
+    if (purpose !== "expense_receipt") {
+      return NextResponse.json(
+        { error: "Unsupported upload purpose" },
+        { status: 400 }
+      );
+    }
+    if (
+      fileContentType !== "image/jpeg" ||
+      !expenseId ||
+      !UUID_RE.test(expenseId) ||
+      !uploadId ||
+      !UUID_RE.test(uploadId) ||
+      (variant !== "full" && variant !== "thumbnail") ||
+      !UUID_RE.test(auth.userId) ||
+      !UUID_RE.test(auth.companyId)
+    ) {
+      return NextResponse.json(
+        { error: "Invalid expense receipt upload request" },
+        { status: 400 }
+      );
+    }
+
+    const key = [
+      "expenses",
+      auth.companyId.toLowerCase(),
+      auth.userId.toLowerCase(),
+      expenseId.toLowerCase(),
+      `${uploadId.toLowerCase()}-${variant}.jpg`,
+    ].join("/");
+
+    if (getStorageBackend() === "supabase") {
+      return handlePresignSupabase(key, fileContentType, true);
+    }
+    return handlePresignS3(key, fileContentType);
+  }
 
   const folderInput = rawFolder ?? "uploads";
   if (!isAllowedContentType(fileContentType, folderInput)) {
@@ -258,8 +332,11 @@ async function handlePresign(
     return NextResponse.json({ error: folderResult.reason }, { status: 403 });
   }
 
-  const cleanFilename = sanitizeFilename(filename);
-  const ext = inferExtension(cleanFilename, defaultExtensionFor(fileContentType));
+  const cleanFilename = sanitizeFilename(filename!);
+  const ext = inferExtension(
+    cleanFilename,
+    defaultExtensionFor(fileContentType)
+  );
   const key = `${folderResult.folder}/${buildUniqueSuffix()}.${ext}`;
 
   if (getStorageBackend() === "supabase") {
@@ -294,7 +371,8 @@ async function handlePresignS3(
 
 async function handlePresignSupabase(
   key: string,
-  _fileContentType: string
+  _fileContentType: string,
+  allowOverwrite = false
 ): Promise<NextResponse> {
   // Legacy code path retained for STORAGE_BACKEND=supabase rollback.
   // Removed in Phase 3.
@@ -302,7 +380,7 @@ async function handlePresignSupabase(
 
   const { data: signedData, error: signError } = await supabase.storage
     .from("images")
-    .createSignedUploadUrl(key);
+    .createSignedUploadUrl(key, { upsert: allowOverwrite });
 
   if (signError || !signedData) {
     console.error(
@@ -408,10 +486,7 @@ async function handleDirectUploadSupabase(
       "[uploads/presign] Supabase upload failed:",
       uploadError.message
     );
-    return NextResponse.json(
-      { error: uploadError.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
   const { data: urlData } = supabase.storage.from("images").getPublicUrl(key);

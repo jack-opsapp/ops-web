@@ -25,6 +25,10 @@ import type { NextRequest } from "next/server";
 
 const COMPANY = "11111111-1111-1111-1111-111111111111";
 const FOREIGN = "22222222-2222-2222-2222-222222222222";
+const USER = "33333333-3333-4333-8333-333333333333";
+const OTHER_USER = "44444444-4444-4444-8444-444444444444";
+const EXPENSE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const UPLOAD = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +37,14 @@ vi.mock("@/lib/firebase/admin-verify", () => ({
   verifyAuthToken: (token: string) => verifyAuthTokenMock(token),
 }));
 
-const usersByUid = new Map<string, { id: string; company_id: string | null }>();
+interface AuthUserRow {
+  id: string;
+  company_id: string | null;
+  is_active: boolean;
+  deleted_at: string | null;
+}
+
+const usersByUid = new Map<string, AuthUserRow>();
 const supabaseUploadMock = vi.fn();
 const supabasePublicUrlMock = vi.fn();
 const supabaseSignedUrlMock = vi.fn();
@@ -66,7 +77,8 @@ function makeSupabaseStub() {
         upload: (key: string, body: unknown, opts: unknown) =>
           supabaseUploadMock(key, body, opts),
         getPublicUrl: (key: string) => supabasePublicUrlMock(key),
-        createSignedUploadUrl: (key: string) => supabaseSignedUrlMock(key),
+        createSignedUploadUrl: (key: string, options?: { upsert: boolean }) =>
+          supabaseSignedUrlMock(key, options),
       }),
     },
   };
@@ -76,9 +88,12 @@ vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => makeSupabaseStub(),
 }));
 
-const rateLimitMock = vi.fn<
-  (opts: unknown) => Promise<{ exceeded: boolean; count: number; retryAfterSec: number }>
->();
+const rateLimitMock =
+  vi.fn<
+    (
+      opts: unknown
+    ) => Promise<{ exceeded: boolean; count: number; retryAfterSec: number }>
+  >();
 vi.mock("@/lib/utils/ratelimit", () => ({
   rateLimit: (opts: unknown) => rateLimitMock(opts),
 }));
@@ -103,9 +118,8 @@ vi.mock("@aws-sdk/s3-request-presigner", () => ({
 // to return an object with a stubbed `.send()` method instead of
 // creating a real S3Client instance.
 vi.mock("@/lib/s3/client", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/s3/client")>(
-    "@/lib/s3/client"
-  );
+  const actual =
+    await vi.importActual<typeof import("@/lib/s3/client")>("@/lib/s3/client");
   return {
     ...actual,
     getS3Client: () => ({ send: (cmd: unknown) => s3SendMock(cmd) }),
@@ -119,7 +133,10 @@ async function loadRoute() {
   return mod.POST;
 }
 
-function urlencodedRequest(body: Record<string, string>, headers: Record<string, string> = {}): NextRequest {
+function urlencodedRequest(
+  body: Record<string, string>,
+  headers: Record<string, string> = {}
+): NextRequest {
   return new Request("http://localhost/api/uploads/presign", {
     method: "POST",
     headers: {
@@ -130,7 +147,10 @@ function urlencodedRequest(body: Record<string, string>, headers: Record<string,
   }) as unknown as NextRequest;
 }
 
-function jsonRequest(body: unknown, headers: Record<string, string> = {}): NextRequest {
+function jsonRequest(
+  body: unknown,
+  headers: Record<string, string> = {}
+): NextRequest {
   return new Request("http://localhost/api/uploads/presign", {
     method: "POST",
     headers: {
@@ -139,6 +159,16 @@ function jsonRequest(body: unknown, headers: Record<string, string> = {}): NextR
     },
     body: JSON.stringify(body),
   }) as unknown as NextRequest;
+}
+
+function activeUser(overrides: Partial<AuthUserRow> = {}): AuthUserRow {
+  return {
+    id: "u-id",
+    company_id: COMPANY,
+    is_active: true,
+    deleted_at: null,
+    ...overrides,
+  };
 }
 
 // Note on multipart coverage: undici's multipart parser inside vitest
@@ -157,7 +187,11 @@ function jsonRequest(body: unknown, headers: Record<string, string> = {}): NextR
 beforeEach(() => {
   verifyAuthTokenMock.mockReset();
   rateLimitMock.mockReset();
-  rateLimitMock.mockResolvedValue({ exceeded: false, count: 1, retryAfterSec: 0 });
+  rateLimitMock.mockResolvedValue({
+    exceeded: false,
+    count: 1,
+    retryAfterSec: 0,
+  });
   s3SendMock.mockReset();
   s3SendMock.mockResolvedValue({});
   getSignedUrlMock.mockReset();
@@ -168,7 +202,10 @@ beforeEach(() => {
   supabaseUploadMock.mockResolvedValue({ error: null });
   supabasePublicUrlMock.mockReset();
   supabasePublicUrlMock.mockReturnValue({
-    data: { publicUrl: "https://example.supabase.co/storage/v1/object/public/images/foo" },
+    data: {
+      publicUrl:
+        "https://example.supabase.co/storage/v1/object/public/images/foo",
+    },
   });
   supabaseSignedUrlMock.mockReset();
   supabaseSignedUrlMock.mockResolvedValue({
@@ -211,7 +248,7 @@ describe("POST /api/uploads/presign — auth", () => {
 
   it("rejects a token whose user has no company association with 403", async () => {
     verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
-    usersByUid.set("u1", { id: "u-id", company_id: null });
+    usersByUid.set("u1", activeUser({ company_id: null }));
     const POST = await loadRoute();
     const req = urlencodedRequest(
       {
@@ -224,12 +261,53 @@ describe("POST /api/uploads/presign — auth", () => {
     const res = await POST(req);
     expect(res.status).toBe(403);
   });
+
+  it("rejects an inactive user with 403", async () => {
+    verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
+    usersByUid.set("u1", activeUser({ is_active: false }));
+    const POST = await loadRoute();
+    const req = urlencodedRequest(
+      {
+        filename: "x.jpg",
+        contentType: "image/jpeg",
+        folder: `projects/${COMPANY}/p1`,
+      },
+      { Authorization: "Bearer ok" }
+    );
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(403);
+    expect(getSignedUrlMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a soft-deleted user with 403", async () => {
+    verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
+    usersByUid.set(
+      "u1",
+      activeUser({ deleted_at: "2026-07-19T00:00:00.000Z" })
+    );
+    const POST = await loadRoute();
+    const req = urlencodedRequest(
+      {
+        filename: "x.jpg",
+        contentType: "image/jpeg",
+        folder: `projects/${COMPANY}/p1`,
+      },
+      { Authorization: "Bearer ok" }
+    );
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(403);
+    expect(getSignedUrlMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/uploads/presign — happy path", () => {
   beforeEach(() => {
     verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
-    usersByUid.set("u1", { id: "u-id", company_id: COMPANY });
+    usersByUid.set("u1", activeUser());
   });
 
   it("urlencoded (iOS): returns an S3 publicUrl pointing at ops-app-files-prod", async () => {
@@ -267,6 +345,162 @@ describe("POST /api/uploads/presign — happy path", () => {
     );
   });
 
+  it("derives and reuses the exact caller-owned key for an expense-receipt retry", async () => {
+    usersByUid.set("u1", activeUser({ id: USER }));
+    const POST = await loadRoute();
+
+    const makeRequest = () =>
+      urlencodedRequest(
+        {
+          filename: "client-value-is-ignored.jpg",
+          contentType: "image/jpeg",
+          folder: `arbitrary/${FOREIGN}`,
+          purpose: "expense_receipt",
+          expenseId: EXPENSE,
+          uploadId: UPLOAD,
+          variant: "full",
+        },
+        { Authorization: "Bearer ok" }
+      );
+
+    const first = await POST(makeRequest());
+    const second = await POST(makeRequest());
+    const firstJson = await first.json();
+    const secondJson = await second.json();
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(firstJson.publicUrl).toBe(
+      `https://ops-app-files-prod.s3.us-west-2.amazonaws.com/expenses/${COMPANY}/${USER}/${EXPENSE}/${UPLOAD}-full.jpg`
+    );
+    expect(secondJson.publicUrl).toBe(firstJson.publicUrl);
+
+    const keys = getSignedUrlMock.mock.calls.map(
+      (call) => (call[1] as { input: Record<string, unknown> }).input.Key
+    );
+    expect(keys).toEqual([
+      `expenses/${COMPANY}/${USER}/${EXPENSE}/${UPLOAD}-full.jpg`,
+      `expenses/${COMPANY}/${USER}/${EXPENSE}/${UPLOAD}-full.jpg`,
+    ]);
+  });
+
+  it("separates full, thumbnail, upload, and authenticated-user tuples", async () => {
+    usersByUid.set("u1", activeUser({ id: USER }));
+    const POST = await loadRoute();
+    const request = (variant: string, uploadId: string) =>
+      urlencodedRequest(
+        {
+          filename: "ignored.jpg",
+          contentType: "image/jpeg",
+          folder: "ignored",
+          purpose: "expense_receipt",
+          expenseId: EXPENSE,
+          uploadId,
+          variant,
+        },
+        { Authorization: "Bearer ok" }
+      );
+
+    await POST(request("full", UPLOAD));
+    await POST(request("thumbnail", UPLOAD));
+    await POST(request("full", "cccccccc-cccc-4ccc-8ccc-cccccccccccc"));
+
+    verifyAuthTokenMock.mockResolvedValue({ uid: "u2", claims: {} });
+    usersByUid.set("u2", activeUser({ id: OTHER_USER }));
+    await POST(request("full", UPLOAD));
+
+    const keys = getSignedUrlMock.mock.calls.map(
+      (call) => (call[1] as { input: Record<string, unknown> }).input.Key
+    );
+    expect(keys).toEqual([
+      `expenses/${COMPANY}/${USER}/${EXPENSE}/${UPLOAD}-full.jpg`,
+      `expenses/${COMPANY}/${USER}/${EXPENSE}/${UPLOAD}-thumbnail.jpg`,
+      `expenses/${COMPANY}/${USER}/${EXPENSE}/cccccccc-cccc-4ccc-8ccc-cccccccccccc-full.jpg`,
+      `expenses/${COMPANY}/${OTHER_USER}/${EXPENSE}/${UPLOAD}-full.jpg`,
+    ]);
+  });
+
+  it.each([
+    [
+      "bad expense id",
+      {
+        expenseId: "nope",
+        uploadId: UPLOAD,
+        variant: "full",
+        contentType: "image/jpeg",
+      },
+    ],
+    [
+      "bad upload id",
+      {
+        expenseId: EXPENSE,
+        uploadId: "nope",
+        variant: "full",
+        contentType: "image/jpeg",
+      },
+    ],
+    [
+      "bad variant",
+      {
+        expenseId: EXPENSE,
+        uploadId: UPLOAD,
+        variant: "preview",
+        contentType: "image/jpeg",
+      },
+    ],
+    [
+      "bad content type",
+      {
+        expenseId: EXPENSE,
+        uploadId: UPLOAD,
+        variant: "full",
+        contentType: "image/png",
+      },
+    ],
+  ])(
+    "rejects malformed expense-receipt purpose fields: %s",
+    async (_label, values) => {
+      usersByUid.set("u1", activeUser({ id: USER }));
+      const POST = await loadRoute();
+      const res = await POST(
+        urlencodedRequest(
+          {
+            filename: "ignored.jpg",
+            folder: "ignored",
+            purpose: "expense_receipt",
+            ...values,
+          },
+          { Authorization: "Bearer ok" }
+        )
+      );
+
+      expect(res.status).toBe(400);
+      expect(getSignedUrlMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it("keeps the legacy filename/folder request on random server keys", async () => {
+    const POST = await loadRoute();
+    const res = await POST(
+      urlencodedRequest(
+        {
+          filename: `receipt_${EXPENSE}_${UPLOAD}.jpg`,
+          contentType: "image/jpeg",
+          folder: `expenses/${COMPANY}`,
+        },
+        { Authorization: "Bearer ok" }
+      )
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.publicUrl).toMatch(
+      new RegExp(
+        `^https://ops-app-files-prod\\.s3\\.us-west-2\\.amazonaws\\.com/expenses/${COMPANY}/\\d+-[a-z0-9]+\\.jpg$`
+      )
+    );
+  });
+
   // Multipart (direct upload) e2e coverage lives in Playwright — see
   // header note above the helpers section for rationale.
 });
@@ -274,7 +508,7 @@ describe("POST /api/uploads/presign — happy path", () => {
 describe("POST /api/uploads/presign — path authorization", () => {
   beforeEach(() => {
     verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
-    usersByUid.set("u1", { id: "u-id", company_id: COMPANY });
+    usersByUid.set("u1", activeUser());
   });
 
   it("rejects a folder that names a different company UUID", async () => {
@@ -313,25 +547,31 @@ describe("POST /api/uploads/presign — path authorization", () => {
     );
     const res = await POST(req);
     expect(res.status).toBe(200);
-    const cmd = (getSignedUrlMock.mock.calls[0]?.[1] ?? null) as
-      | { input: Record<string, unknown> }
-      | null;
+    const cmd = (getSignedUrlMock.mock.calls[0]?.[1] ?? null) as {
+      input: Record<string, unknown>;
+    } | null;
     const key = cmd?.input.Key as string;
     expect(key).not.toContain("..");
-    expect(key).toMatch(/^projects\/11111111-1111-1111-1111-111111111111\/p1\/\d+-[a-z0-9]+\.jpg$/);
+    expect(key).toMatch(
+      /^projects\/11111111-1111-1111-1111-111111111111\/p1\/\d+-[a-z0-9]+\.jpg$/
+    );
   });
 });
 
 describe("POST /api/uploads/presign — content-type allowlist", () => {
   beforeEach(() => {
     verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
-    usersByUid.set("u1", { id: "u-id", company_id: COMPANY });
+    usersByUid.set("u1", activeUser());
   });
 
   it("rejects non-image, non-training-data content types", async () => {
     const POST = await loadRoute();
     const req = urlencodedRequest(
-      { filename: "x.exe", contentType: "application/octet-stream", folder: `projects/${COMPANY}/p1` },
+      {
+        filename: "x.exe",
+        contentType: "application/octet-stream",
+        folder: `projects/${COMPANY}/p1`,
+      },
       { Authorization: "Bearer ok" }
     );
     const res = await POST(req);
@@ -372,7 +612,7 @@ describe("POST /api/uploads/presign — content-type allowlist", () => {
 describe("POST /api/uploads/presign — content-type pinning", () => {
   beforeEach(() => {
     verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
-    usersByUid.set("u1", { id: "u-id", company_id: COMPANY });
+    usersByUid.set("u1", activeUser());
   });
 
   it("includes content-type in the signed-headers set so the client PUT must match", async () => {
@@ -399,14 +639,22 @@ describe("POST /api/uploads/presign — content-type pinning", () => {
 describe("POST /api/uploads/presign — rate limit", () => {
   beforeEach(() => {
     verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
-    usersByUid.set("u1", { id: "u-id", company_id: COMPANY });
+    usersByUid.set("u1", activeUser());
   });
 
   it("returns 429 when the per-uid rate limit is exceeded", async () => {
-    rateLimitMock.mockResolvedValue({ exceeded: true, count: 31, retryAfterSec: 42 });
+    rateLimitMock.mockResolvedValue({
+      exceeded: true,
+      count: 31,
+      retryAfterSec: 42,
+    });
     const POST = await loadRoute();
     const req = urlencodedRequest(
-      { filename: "x.jpg", contentType: "image/jpeg", folder: `projects/${COMPANY}/p1` },
+      {
+        filename: "x.jpg",
+        contentType: "image/jpeg",
+        folder: `projects/${COMPANY}/p1`,
+      },
       { Authorization: "Bearer ok" }
     );
     const res = await POST(req);
@@ -418,20 +666,49 @@ describe("POST /api/uploads/presign — rate limit", () => {
 describe("POST /api/uploads/presign — STORAGE_BACKEND fallback", () => {
   beforeEach(() => {
     verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
-    usersByUid.set("u1", { id: "u-id", company_id: COMPANY });
+    usersByUid.set("u1", activeUser());
     process.env.STORAGE_BACKEND = "supabase";
   });
 
   it("urlencoded presign routes to Supabase when STORAGE_BACKEND=supabase", async () => {
     const POST = await loadRoute();
     const req = urlencodedRequest(
-      { filename: "x.jpg", contentType: "image/jpeg", folder: `projects/${COMPANY}/p1` },
+      {
+        filename: "x.jpg",
+        contentType: "image/jpeg",
+        folder: `projects/${COMPANY}/p1`,
+      },
       { Authorization: "Bearer ok" }
     );
     const res = await POST(req);
     expect(res.status).toBe(200);
     expect(supabaseSignedUrlMock).toHaveBeenCalledTimes(1);
     expect(getSignedUrlMock).not.toHaveBeenCalled();
+  });
+
+  it("allows overwrite only for a validated stable expense receipt key", async () => {
+    usersByUid.set("u1", activeUser({ id: USER }));
+    const POST = await loadRoute();
+    const req = urlencodedRequest(
+      {
+        filename: "ignored.jpg",
+        contentType: "image/jpeg",
+        folder: "ignored",
+        purpose: "expense_receipt",
+        expenseId: EXPENSE,
+        uploadId: UPLOAD,
+        variant: "thumbnail",
+      },
+      { Authorization: "Bearer ok" }
+    );
+
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(supabaseSignedUrlMock).toHaveBeenCalledWith(
+      `expenses/${COMPANY}/${USER}/${EXPENSE}/${UPLOAD}-thumbnail.jpg`,
+      { upsert: true }
+    );
   });
 
   // Multipart (direct upload) STORAGE_BACKEND fallback covered by
