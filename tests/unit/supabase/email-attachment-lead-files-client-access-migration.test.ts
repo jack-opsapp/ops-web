@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = resolve(
   process.cwd(),
-  "supabase/migrations/20260719230000_email_attachment_lead_files_client_access.sql"
+  "supabase/migrations/20260720055622_email_attachment_lead_files_client_access.sql"
 );
 const sql = existsSync(migrationPath)
   ? readFileSync(migrationPath, "utf8").toLowerCase()
