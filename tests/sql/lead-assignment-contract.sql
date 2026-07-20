@@ -19,7 +19,7 @@ create temp table lead_assignment_contract_values (
 ) on commit drop;
 
 grant select, insert, update on lead_assignment_contract_results
-  to authenticated, service_role;
+  to anon, authenticated, service_role;
 grant select, insert, update on lead_assignment_contract_values
   to authenticated, service_role;
 
@@ -3060,18 +3060,31 @@ values
 insert into public.email_connections (
   id, company_id, type, user_id, email, access_token, refresh_token,
   expires_at, sync_enabled, status
-) values (
-  '1ead5519-1000-4000-8000-000000000903',
-  '1ead5519-0000-4000-8000-000000000001',
-  'individual',
-  '1ead5519-0000-4000-8000-000000000101',
-  'assigned-actor-personal-mailbox@example.invalid',
-  'rollback-personal-access-token',
-  'rollback-personal-refresh-token',
-  now() + interval '1 day',
-  true,
-  'active'
-);
+) values
+  (
+    '1ead5519-1000-4000-8000-000000000903',
+    '1ead5519-0000-4000-8000-000000000001',
+    'individual',
+    '1ead5519-0000-4000-8000-000000000101',
+    'assigned-actor-personal-mailbox@example.invalid',
+    'rollback-personal-access-token',
+    'rollback-personal-refresh-token',
+    now() + interval '1 day',
+    true,
+    'active'
+  ),
+  (
+    '1ead5519-1000-4000-8000-000000000904',
+    '1ead5519-0000-4000-8000-000000000001',
+    'individual',
+    '1ead5519-0000-4000-8000-000000000103',
+    'other-actor-personal-mailbox@example.invalid',
+    'rollback-other-access-token',
+    'rollback-other-refresh-token',
+    now() + interval '1 day',
+    true,
+    'active'
+  );
 
 update public.clients
    set notes = 'CHILD_SCOPE_CLIENT_SECRET'
@@ -3106,19 +3119,19 @@ insert into public.estimates (
 
 insert into public.activities (
   id, company_id, opportunity_id, project_id, type, subject, content,
-  email_connection_id, email_thread_id
+  email_connection_id, email_thread_id, email_message_id
 ) values
   (
     '1ead5519-2000-4000-8000-000000000601',
     '1ead5519-0000-4000-8000-000000000001',
     '1ead5519-0000-4000-8000-000000000503',
-    null, 'note', 'Assigned lead note', 'assigned-note', null, null
+    null, 'note', 'Assigned lead note', 'assigned-note', null, null, null
   ),
   (
     '1ead5519-2000-4000-8000-000000000602',
     '1ead5519-0000-4000-8000-000000000001',
     '1ead5519-0000-4000-8000-000000000501',
-    null, 'note', 'Sibling lead note', 'sibling-note', null, null
+    null, 'note', 'Sibling lead note', 'sibling-note', null, null, null
   ),
   (
     '1ead5519-2000-4000-8000-000000000603',
@@ -3126,7 +3139,7 @@ insert into public.activities (
     '1ead5519-0000-4000-8000-000000000503',
     null, 'email', 'Assigned lead email', 'assigned-email',
     '1ead5519-1000-4000-8000-000000000901',
-    'provider-thread-child-scope-a'
+    'provider-thread-child-scope-a', 'provider-message-file-a'
   ),
   (
     '1ead5519-2000-4000-8000-000000000604',
@@ -3134,21 +3147,31 @@ insert into public.activities (
     '1ead5519-0000-4000-8000-000000000501',
     null, 'email', 'Sibling lead email', 'sibling-email',
     '1ead5519-1000-4000-8000-000000000901',
-    'provider-thread-child-scope-b'
+    'provider-thread-child-scope-b', 'provider-message-file-b'
   ),
   (
     '1ead5519-2000-4000-8000-000000000605',
     '1ead5519-0000-4000-8000-000000000001',
     '1ead5519-1000-4000-8000-000000000506',
     '1ead5519-1000-4000-8000-000000000802',
-    'note', 'Project path note', 'project-path', null, null
+    'note', 'Project path note', 'project-path', null, null, null
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000606',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-0000-4000-8000-000000000503',
+    null, 'email', 'Other personal mailbox email', 'wrong-mailbox-email',
+    '1ead5519-1000-4000-8000-000000000904',
+    'provider-thread-wrong-personal-mailbox',
+    'provider-message-wrong-personal-mailbox'
   ),
   (
     '1ead5519-2000-4000-8000-000000000608',
     '1ead5519-0000-4000-8000-000000000001',
     '1ead5519-0000-4000-8000-000000000501',
     '1ead5519-1000-4000-8000-000000000802',
-    'note', 'Legacy mismatched activity', 'must remain immutable', null, null
+    'note', 'Legacy mismatched activity', 'must remain immutable',
+    null, null, null
   );
 
 insert into public.activity_comments (
@@ -3309,6 +3332,276 @@ insert into public.email_threads (
     'provider-thread-child-scope-company-unlinked',
     'Unlinked company mailbox thread', now(), now(), null, null
   );
+
+insert into public.email_attachments (
+  id, company_id, connection_id, activity_id, provider_thread_id, message_id,
+  attachment_id, filename, mime_type, from_email, opportunity_id,
+  source_url, ingest_status, attribution_status, occurred_at
+) values
+  (
+    '1ead5519-2000-4000-8000-000000000721',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000603',
+    'provider-thread-child-scope-a', 'provider-message-file-a',
+    'provider-attachment-file-a', 'assigned-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    'https://example.invalid/assigned-photo.jpg',
+    'external', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000722',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000603',
+    'provider-thread-child-scope-a', 'provider-message-file-a',
+    'provider-attachment-file-failed', 'failed-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    null, 'failed', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000723',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000604',
+    'provider-thread-child-scope-b', 'provider-message-file-b',
+    'provider-attachment-file-b', 'reassigned-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000501',
+    'https://example.invalid/reassigned-photo.jpg',
+    'external', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000724',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000904',
+    '1ead5519-2000-4000-8000-000000000606',
+    'provider-thread-wrong-personal-mailbox',
+    'provider-message-wrong-personal-mailbox',
+    'provider-attachment-wrong-personal-mailbox',
+    'wrong-mailbox-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    'https://example.invalid/wrong-mailbox-photo.jpg',
+    'external', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000725',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000603',
+    'provider-thread-child-scope-a', 'provider-message-file-a',
+    'provider-attachment-hostless-url',
+    'hostless-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    'https://?missing-host',
+    'external', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000726',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000603',
+    'provider-thread-child-scope-a', 'provider-message-file-a',
+    'provider-attachment-whitespace-url',
+    'whitespace-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    'https://example.invalid/contains space.jpg',
+    'external', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000727',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000603',
+    'provider-thread-child-scope-a', 'provider-message-file-a',
+    'provider-attachment-port-only-url',
+    'port-only-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    'https://:443/port-only.jpg',
+    'external', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000728',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000603',
+    'provider-thread-child-scope-a', 'provider-message-file-a',
+    'provider-attachment-dot-only-url',
+    'dot-only-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    'https://./dot-only.jpg',
+    'external', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000729',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000603',
+    'provider-thread-child-scope-a', 'provider-message-file-a',
+    'provider-attachment-leading-hyphen-url',
+    'hyphen-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    'https://-bad.example/hyphen.jpg',
+    'external', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000730',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000603',
+    'provider-thread-child-scope-a', 'provider-message-file-a',
+    'provider-attachment-malformed-ipv6-url',
+    'malformed-ipv6-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    'https://[gg::1]/malformed-ipv6.jpg',
+    'external', 'attributed', now()
+  ),
+  (
+    '1ead5519-2000-4000-8000-000000000731',
+    '1ead5519-0000-4000-8000-000000000001',
+    '1ead5519-1000-4000-8000-000000000901',
+    '1ead5519-2000-4000-8000-000000000603',
+    'provider-thread-child-scope-a', 'provider-message-file-a',
+    'provider-attachment-invalid-port-url',
+    'bad-port-photo.jpg', 'image/jpeg',
+    'lead-contract-client@example.invalid',
+    '1ead5519-0000-4000-8000-000000000503',
+    'https://example.invalid:70000/bad-port.jpg',
+    'external', 'attributed', now()
+  );
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'lead_file_https_url_validator_rejects_malformed_authorities',
+  private.is_safe_https_attachment_url(
+    'https://example.invalid:443/valid-photo.jpg'
+  )
+  and private.is_safe_https_attachment_url('https://192.0.2.10/photo.jpg')
+  and private.is_safe_https_attachment_url('https://[2001:db8::1]/photo.jpg')
+  and not private.is_safe_https_attachment_url('https://:443/port-only.jpg')
+  and not private.is_safe_https_attachment_url('https://./dot-only.jpg')
+  and not private.is_safe_https_attachment_url(
+    'https://-bad.example/hyphen.jpg'
+  )
+  and not private.is_safe_https_attachment_url(
+    'https://[gg::1]/malformed-ipv6.jpg'
+  )
+  and not private.is_safe_https_attachment_url(
+    'https://example.invalid:70000/bad-port.jpg'
+  )
+);
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object(
+    'role', 'authenticated',
+    'sub', '1ead5519-0000-4000-8000-000000000901',
+    'email', 'login-address-differs-from-ops-user@example.invalid'
+  )::text,
+  true
+);
+select set_config(
+  'request.jwt.claim.sub',
+  '1ead5519-0000-4000-8000-000000000901',
+  true
+);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+set local role authenticated;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'lead_file_rpc_returns_only_authorized_actionable_descriptors',
+  (
+    select count(*) = 1
+      and min(file.id) = '1ead5519-2000-4000-8000-000000000721'::uuid
+      and min(file.filename) = 'assigned-photo.jpg'
+      and min(file.ingest_status) = 'external'
+    from public.get_opportunity_lead_files(
+      '1ead5519-0000-4000-8000-000000000503'
+    ) file
+  )
+  and not exists (
+    select 1
+      from public.get_opportunity_lead_files(
+        '1ead5519-0000-4000-8000-000000000501'
+      )
+  )
+);
+
+do $contract$
+begin
+  begin
+    perform attachment.provider_thread_id
+      from public.email_attachments attachment
+     limit 1;
+    insert into lead_assignment_contract_results values (
+      'lead_file_clients_cannot_read_canonical_attachment_table',
+      false,
+      'direct select unexpectedly succeeded'
+    );
+  exception when sqlstate '42501' then
+    insert into lead_assignment_contract_results values (
+      'lead_file_clients_cannot_read_canonical_attachment_table',
+      true,
+      sqlerrm
+    );
+  end;
+end;
+$contract$;
+
+reset role;
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object('role', 'anon')::text,
+  true
+);
+select set_config('request.jwt.claim.sub', '', true);
+select set_config('request.jwt.claim.role', 'anon', true);
+set local role anon;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'lead_file_rpc_bare_anon_is_empty',
+  not exists (
+    select 1
+      from public.get_opportunity_lead_files(
+        '1ead5519-0000-4000-8000-000000000503'
+      )
+  )
+);
+
+reset role;
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object('role', 'service_role')::text,
+  true
+);
+select set_config('request.jwt.claim.role', 'service_role', true);
+set local role service_role;
+
+insert into lead_assignment_contract_results (check_name, passed)
+values (
+  'lead_file_service_role_keeps_canonical_table_access',
+  has_table_privilege('service_role', 'public.email_attachments', 'select')
+  and exists (
+    select 1
+      from public.email_attachments attachment
+     where attachment.id = '1ead5519-2000-4000-8000-000000000721'
+  )
+);
+
+reset role;
 
 insert into public.email_thread_category_corrections (
   id, company_id, thread_id, user_id, from_category, to_category,

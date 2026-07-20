@@ -8828,6 +8828,7 @@ export type Database = {
           ai_stage_confidence: number | null
           ai_stage_signals: string[] | null
           ai_summary: string | null
+          ai_summary_updated_at: string | null
           archived_at: string | null
           assigned_to: string | null
           client_id: string | null
@@ -8850,6 +8851,7 @@ export type Database = {
           last_inbound_at: string | null
           last_message_direction: string | null
           last_outbound_at: string | null
+          handled_at: string | null
           latitude: number | null
           longitude: number | null
           lost_notes: string | null
@@ -8880,6 +8882,7 @@ export type Database = {
           ai_stage_confidence?: number | null
           ai_stage_signals?: string[] | null
           ai_summary?: string | null
+          ai_summary_updated_at?: string | null
           archived_at?: string | null
           assigned_to?: string | null
           client_id?: string | null
@@ -8902,6 +8905,7 @@ export type Database = {
           last_inbound_at?: string | null
           last_message_direction?: string | null
           last_outbound_at?: string | null
+          handled_at?: string | null
           latitude?: number | null
           longitude?: number | null
           lost_notes?: string | null
@@ -8932,6 +8936,7 @@ export type Database = {
           ai_stage_confidence?: number | null
           ai_stage_signals?: string[] | null
           ai_summary?: string | null
+          ai_summary_updated_at?: string | null
           archived_at?: string | null
           assigned_to?: string | null
           client_id?: string | null
@@ -8954,6 +8959,7 @@ export type Database = {
           last_inbound_at?: string | null
           last_message_direction?: string | null
           last_outbound_at?: string | null
+          handled_at?: string | null
           latitude?: number | null
           longitude?: number | null
           lost_notes?: string | null
@@ -17709,6 +17715,19 @@ export type Database = {
           schedule: string
         }[]
       }
+      get_opportunity_lead_files: {
+        Args: { p_opportunity_id: string }
+        Returns: {
+          created_at: string
+          filename: string | null
+          from_email: string | null
+          id: string
+          ingest_status: string
+          mime_type: string | null
+          occurred_at: string | null
+          source_url: string | null
+        }[]
+      }
       get_inbox_density_per_client: {
         Args: { p_company_id: string }
         Returns: {
@@ -17981,6 +18000,7 @@ export type Database = {
           ai_stage_confidence: number | null
           ai_stage_signals: string[] | null
           ai_summary: string | null
+          ai_summary_updated_at: string | null
           archived_at: string | null
           assigned_to: string | null
           client_id: string | null
@@ -18003,6 +18023,7 @@ export type Database = {
           last_inbound_at: string | null
           last_message_direction: string | null
           last_outbound_at: string | null
+          handled_at: string | null
           latitude: number | null
           longitude: number | null
           lost_notes: string | null
