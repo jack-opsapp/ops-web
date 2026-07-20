@@ -17287,6 +17287,25 @@ export type Database = {
         }
         Returns: boolean
       }
+      create_notification_if_new_with_identity: {
+        Args: {
+          p_action_label?: string
+          p_action_url?: string
+          p_body: string
+          p_company_id: string
+          p_dedupe_key?: string
+          p_deep_link_type?: string
+          p_persistent?: boolean
+          p_project_id?: string
+          p_title: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: {
+          created: boolean
+          notification_id: string
+        }[]
+      }
       create_opportunity_table_view: {
         Args: { p_definition: Json; p_name: string; p_source_view_id: string }
         Returns: {
@@ -18471,6 +18490,15 @@ export type Database = {
       request_lockout_admin_notification: {
         Args: never
         Returns: number
+      }
+      resolve_openai_quota_notification_as_system: {
+        Args: {
+          p_notification_id: string
+          p_user_id: string
+          p_company_id: string
+          p_dedupe_key: string
+        }
+        Returns: boolean
       }
       resolve_project_status_notification_as_system: {
         Args: {
