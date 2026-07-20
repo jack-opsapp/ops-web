@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import {
@@ -23,6 +23,9 @@ import {
   type Company,
 } from "@/lib/types/models";
 import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type CompanySubscriptionFields = Pick<
   Company,
@@ -51,150 +54,149 @@ function mapSubscriptionRow(
 
 export async function POST(request: NextRequest) {
   const supabase = getServiceRoleClient();
-  setSupabaseOverride(supabase);
 
-  try {
-    const body = await request.json();
-    const companyId = body.companyId as string | undefined;
+  return runWithSupabase(supabase, async () => {
+    try {
+      const body = await request.json();
+      const companyId = body.companyId as string | undefined;
 
-    if (!companyId) {
-      return NextResponse.json(
-        { error: "companyId is required" },
-        { status: 400 }
-      );
-    }
-    const access = await resolveEmailConnectionOperationAccess({
-      request,
-      claimedCompanyId: companyId,
-      requireUsable: true,
-      supabase,
-    });
-    if (!access.allowed) {
-      return NextResponse.json(
-        {
-          error:
-            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
-        },
-        { status: access.status }
-      );
-    }
-
-    // ── Subscription gate ───────────────────────────────────────────────
-    // Fail closed — a broken company lookup must never let a lapsed
-    // subscription silently run a sync.
-    const { data: company, error: companyError } = await supabase
-      .from("companies")
-      .select(
-        "subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
-      )
-      .eq("id", companyId)
-      .single();
-
-    if (companyError || !company) {
-      console.error(
-        "[gmail-manual-sync] Company subscription lookup failed:",
-        companyError
-      );
-      return NextResponse.json(
-        { error: "Failed to verify subscription" },
-        { status: 500 }
-      );
-    }
-
-    const info = getSubscriptionInfo(mapSubscriptionRow(company));
-    if (!info.isActive) {
-      return NextResponse.json(
-        { error: "Subscription inactive", reason: "subscription_expired" },
-        { status: 402 }
-      );
-    }
-
-    // Load active email connections for this company (gmail or M365).
-    const activeConnectionIds = access.connections
-      .filter((connection) => connection.status === "active")
-      .map((connection) => connection.id);
-    if (activeConnectionIds.length === 0) {
-      return NextResponse.json({
-        ok: true,
-        connectionsProcessed: 0,
-        totalActivitiesCreated: 0,
-        results: [],
+      if (!companyId) {
+        return NextResponse.json(
+          { error: "companyId is required" },
+          { status: 400 }
+        );
+      }
+      const access = await resolveEmailConnectionOperationAccess({
+        request,
+        claimedCompanyId: companyId,
+        requireUsable: true,
+        supabase,
       });
-    }
+      if (!access.allowed) {
+        return NextResponse.json(
+          {
+            error:
+              access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+          },
+          { status: access.status }
+        );
+      }
 
-    const { data: connections, error: connectionsError } = await supabase
-      .from("email_connections")
-      .select("id, email")
-      .in("id", activeConnectionIds)
-      .eq("sync_enabled", true)
-      .eq("status", "active");
+      // ── Subscription gate ───────────────────────────────────────────────
+      // Fail closed — a broken company lookup must never let a lapsed
+      // subscription silently run a sync.
+      const { data: company, error: companyError } = await supabase
+        .from("companies")
+        .select(
+          "subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
+        )
+        .eq("id", companyId)
+        .single();
 
-    if (connectionsError) {
-      console.error(
-        "[gmail-manual-sync] connections query failed:",
-        connectionsError
-      );
-      return NextResponse.json(
-        { error: "Failed to load email connections" },
-        { status: 500 }
-      );
-    }
+      if (companyError || !company) {
+        console.error(
+          "[gmail-manual-sync] Company subscription lookup failed:",
+          companyError
+        );
+        return NextResponse.json(
+          { error: "Failed to verify subscription" },
+          { status: 500 }
+        );
+      }
 
-    const results: Array<{
-      connectionId: string;
-      email: string;
-      activitiesCreated: number;
-      matched: number;
-      needsReview: number;
-      newLeads: number;
-      error?: string;
-    }> = [];
+      const info = getSubscriptionInfo(mapSubscriptionRow(company));
+      if (!info.isActive) {
+        return NextResponse.json(
+          { error: "Subscription inactive", reason: "subscription_expired" },
+          { status: 402 }
+        );
+      }
 
-    for (const conn of connections ?? []) {
-      try {
-        const result = await SyncEngine.runSync(conn.id as string);
-        results.push({
-          connectionId: conn.id as string,
-          email: conn.email as string,
-          activitiesCreated: result.activitiesCreated,
-          matched: result.matched,
-          needsReview: result.needsReview,
-          newLeads: result.newLeads,
-          ...(result.errors.length > 0
-            ? { error: result.errors.join("; ") }
-            : {}),
-        });
-      } catch (err) {
-        results.push({
-          connectionId: conn.id as string,
-          email: conn.email as string,
-          activitiesCreated: 0,
-          matched: 0,
-          needsReview: 0,
-          newLeads: 0,
-          error: err instanceof Error ? err.message : "Unknown error",
+      // Load active email connections for this company (gmail or M365).
+      const activeConnectionIds = access.connections
+        .filter((connection) => connection.status === "active")
+        .map((connection) => connection.id);
+      if (activeConnectionIds.length === 0) {
+        return NextResponse.json({
+          ok: true,
+          connectionsProcessed: 0,
+          totalActivitiesCreated: 0,
+          results: [],
         });
       }
+
+      const { data: connections, error: connectionsError } = await supabase
+        .from("email_connections")
+        .select("id, email")
+        .in("id", activeConnectionIds)
+        .eq("sync_enabled", true)
+        .eq("status", "active");
+
+      if (connectionsError) {
+        console.error(
+          "[gmail-manual-sync] connections query failed:",
+          connectionsError
+        );
+        return NextResponse.json(
+          { error: "Failed to load email connections" },
+          { status: 500 }
+        );
+      }
+
+      const results: Array<{
+        connectionId: string;
+        email: string;
+        activitiesCreated: number;
+        matched: number;
+        needsReview: number;
+        newLeads: number;
+        error?: string;
+      }> = [];
+
+      for (const conn of connections ?? []) {
+        try {
+          const result = await SyncEngine.runSync(conn.id as string);
+          results.push({
+            connectionId: conn.id as string,
+            email: conn.email as string,
+            activitiesCreated: result.activitiesCreated,
+            matched: result.matched,
+            needsReview: result.needsReview,
+            newLeads: result.newLeads,
+            ...(result.errors.length > 0
+              ? { error: result.errors.join("; ") }
+              : {}),
+          });
+        } catch (err) {
+          results.push({
+            connectionId: conn.id as string,
+            email: conn.email as string,
+            activitiesCreated: 0,
+            matched: 0,
+            needsReview: 0,
+            newLeads: 0,
+            error: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      }
+
+      const totalActivities = results.reduce(
+        (s, r) => s + r.activitiesCreated,
+        0
+      );
+
+      return NextResponse.json({
+        ok: true,
+        connectionsProcessed: results.length,
+        totalActivitiesCreated: totalActivities,
+        results,
+      });
+    } catch (err) {
+      console.error("[gmail-manual-sync]", err);
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Internal error" },
+        { status: 500 }
+      );
     }
-
-    const totalActivities = results.reduce(
-      (s, r) => s + r.activitiesCreated,
-      0
-    );
-
-    return NextResponse.json({
-      ok: true,
-      connectionsProcessed: results.length,
-      totalActivitiesCreated: totalActivities,
-      results,
-    });
-  } catch (err) {
-    console.error("[gmail-manual-sync]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Internal error" },
-      { status: 500 }
-    );
-  } finally {
-    setSupabaseOverride(null);
-  }
+  });
 }

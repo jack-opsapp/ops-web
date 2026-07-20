@@ -267,7 +267,7 @@ export class EmailSendIntentService {
       throw new Error(error.message || `${name} failed`);
     }
     const row = firstRow(data);
-    return row ? mapIntent(row) : null;
+    return row && nullableText(row.id) ? mapIntent(row) : null;
   }
 
   async prepare(input: PrepareEmailSendIntentInput): Promise<EmailSendIntent> {
