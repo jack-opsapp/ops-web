@@ -60,6 +60,11 @@ export interface PipelineFocusedShellProps extends FocusedShellActionHandlers {
   opportunities: Opportunity[];
   clients?: Client[];
   clientNameMap: Map<string, string>;
+  /**
+   * Assignee display names by user id — present only for company-wide viewers,
+   * drives the focused cards' quiet ownership marker. Absent → no marker.
+   */
+  assigneeNameById?: ReadonlyMap<string, string>;
   canManage: boolean;
   canCreateLead: boolean;
   leadAccessById: ReadonlyMap<string, LeadAccess>;
@@ -196,6 +201,7 @@ export function PipelineFocusedShell({
   opportunities,
   clients = [],
   clientNameMap,
+  assigneeNameById,
   canManage,
   canCreateLead,
   leadAccessById,
@@ -243,7 +249,7 @@ export function PipelineFocusedShell({
     (state) => state.closeDetailPanel
   );
   const toggleMode = usePipelineModeStore((state) => state.toggleMode);
-  const { isDragging } = usePipelineDndState();
+  const { activeDragId, isDragging } = usePipelineDndState();
   const shellRef = useRef<HTMLDivElement>(null);
   const focusedColumnRef = useRef<HTMLDivElement>(null);
   const pendingFlipRectRef = useRef<DOMRect | null>(null);
@@ -378,6 +384,10 @@ export function PipelineFocusedShell({
       }
 
       if (event.key === "Escape") {
+        if (event.defaultPrevented) return;
+        if (document.querySelector('[role="alertdialog"][data-state="open"]')) {
+          return;
+        }
         if (detailPanelOpportunityId) {
           event.preventDefault();
           focusOpportunityCard(detailPanelOpportunityId);
@@ -471,6 +481,11 @@ export function PipelineFocusedShell({
     }
 
     if (!detailOpportunity) {
+      // The lead may simply not be in the list yet (first load in flight). Only
+      // reconcile against a SETTLED result — otherwise a legitimately-open
+      // panel flickers shut mid-load. Confirmed revocations close the panel
+      // synchronously elsewhere; this effect is the steady-state reconciler.
+      if (opportunitiesLoading) return;
       stageSyncedDetailIdRef.current = null;
       closeDetailPanel();
       return;
@@ -500,6 +515,7 @@ export function PipelineFocusedShell({
     detailOpportunity,
     detailPanelOpportunityId,
     focusableStages,
+    opportunitiesLoading,
     safeFocusedStage,
     setFocusedStage,
   ]);
@@ -579,6 +595,11 @@ export function PipelineFocusedShell({
               panelId={focusedPanelId}
               registerTab={registerFocusedTab}
               onSelectStage={snapToStage}
+              canDropWon={
+                !isDragging ||
+                (activeDragId !== null &&
+                  leadAccessById.get(activeDragId)?.canConvert === true)
+              }
             />
           </div>
         </div>
@@ -599,6 +620,7 @@ export function PipelineFocusedShell({
             opportunities={focusedOpportunities}
             clients={clients}
             clientNameMap={clientNameMap}
+            assigneeNameById={assigneeNameById}
             canManage={canManage}
             canCreateLead={canCreateLead}
             leadAccessById={leadAccessById}
@@ -666,7 +688,7 @@ function FocusedActionDropZones({
       data-testid="pipeline-focused-action-drops"
       aria-hidden={!isVisible}
       className={cn(
-        "fixed bottom-2 left-[84px] right-3 z-[9999] grid h-[88px] grid-cols-2 gap-2 overflow-visible",
+        "fixed bottom-2 left-[84px] right-3 z-[1600] grid h-[88px] grid-cols-2 gap-2 overflow-visible",
         "transition-opacity duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         isVisible
           ? "pointer-events-auto opacity-100"

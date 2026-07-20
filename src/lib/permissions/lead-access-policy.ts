@@ -88,6 +88,37 @@ function scopeCoversRow(
   );
 }
 
+/**
+ * True when committing `newAssignedTo` would remove the ACTOR'S OWN access to
+ * the lead: an assigned-only viewer moving a lead they currently hold to
+ * someone else (or to nobody) also removes it from their own board. Used to
+ * interpose a confirm before that one destructive-for-the-actor tap.
+ *
+ * Exemptions — never prompted:
+ * - all-scope viewers (reassignment never costs them visibility), and
+ * - unassign-capable operators (`pipeline.assign: all`), who knowingly wield
+ *   company-wide assignment authority.
+ */
+export function actorLosesAccessOnAssign(
+  state: Pick<PermissionState, "permissions" | "configuredPermissions" | "can">,
+  actorUserId: string | null,
+  opportunity: Pick<Opportunity, "assignedTo">,
+  newAssignedTo: string | null
+): boolean {
+  if (actorUserId === null) return false;
+  // Not currently theirs — nothing of their own to lose.
+  if (opportunity.assignedTo !== actorUserId) return false;
+  // Keeping it (or a no-op) removes nothing.
+  if (newAssignedTo === actorUserId) return false;
+  if (effectivePipelineScope(state, "pipeline.view") !== "assigned") {
+    return false;
+  }
+  if (effectivePipelineScope(state, "pipeline.assign") === "all") {
+    return false;
+  }
+  return true;
+}
+
 export function getLeadAccess(
   state: Pick<PermissionState, "permissions" | "configuredPermissions" | "can">,
   actorUserId: string | null,

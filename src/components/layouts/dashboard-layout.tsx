@@ -211,6 +211,7 @@ function FloatingWindows() {
           {win.type === "compose-email" && (
             <ComposeEmailForm
               composeData={win.metadata as ComposeEmailData | undefined}
+              draftInstanceId={win.id}
               onClose={() => closeWindow(win.id)}
             />
           )}

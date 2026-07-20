@@ -271,6 +271,9 @@ export interface PipelineTableRow {
   source: string | null;
   priority: string | null;
   correspondenceCount: number;
+  lastInboundAt: string | null;
+  lastMessageDirection: "in" | "out" | null;
+  handledAt: string | null;
   stageEnteredAt: string | null;
   projectId: string | null;
   updatedAt: string | null;

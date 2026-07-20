@@ -149,6 +149,7 @@ export async function GET(request: NextRequest) {
         latestSenderName: t.latestSenderName,
         latestSnippet: t.latestSnippet,
         opportunityId: t.opportunityId,
+        opportunityNeedsReply: t.opportunityNeedsReply,
         clientId: t.clientId,
         clientName: t.clientId
           ? (clientNameById.get(t.clientId) ?? null)

@@ -64,6 +64,10 @@ import {
   buildEmailThreadListAuthorizationFilter,
   type AllowedEmailInboxListAccess,
 } from "@/lib/email/email-opportunity-access";
+import {
+  applyOpportunityChaseState,
+  type OpportunityChaseRow,
+} from "@/lib/inbox/opportunity-chase-enrichment";
 
 // ─── Sender-name resolution ──────────────────────────────────────────────────
 //
@@ -516,6 +520,49 @@ async function enrichWithPhaseC(
   });
 }
 
+// ─── Linked-opportunity chase-state enrichment ─────────────────────────────
+//
+// Thread unread/label data remains untouched. This overlay contributes only
+// the linked lead's canonical YOUR MOVE answer, letting triage suppress stale
+// thread-level reply debt after the operator marks the lead handled. Missing
+// rows stay unknown (null), so authorization or projection gaps fail open to
+// the existing thread signals rather than hiding customer work.
+
+async function enrichWithOpportunityChaseState(
+  threads: EmailThread[]
+): Promise<EmailThread[]> {
+  const opportunityIds = Array.from(
+    new Set(
+      threads
+        .map((thread) => thread.opportunityId)
+        .filter((id): id is string => id !== null)
+    )
+  );
+  if (threads.length === 0 || opportunityIds.length === 0) {
+    return applyOpportunityChaseState(threads, []);
+  }
+
+  const supabase = requireSupabase();
+  const { data, error } = await supabase
+    .from("opportunities")
+    .select("id, stage, last_message_direction, last_inbound_at, handled_at")
+    .eq("company_id", threads[0].companyId)
+    .in("id", opportunityIds);
+
+  if (error) {
+    console.error(
+      "[email-thread-service] enrichWithOpportunityChaseState query failed:",
+      error.message
+    );
+    return applyOpportunityChaseState(threads, []);
+  }
+
+  return applyOpportunityChaseState(
+    threads,
+    (data ?? []) as OpportunityChaseRow[]
+  );
+}
+
 // ─── Next-commitment id enrichment ──────────────────────────────────────────
 //
 // `email_threads.next_commitment_due_at` is denormalized via DB trigger but
@@ -796,7 +843,8 @@ async function listThreads(
   // commitment enrichers add their per-page derived state.
   const withActivitySnippets = await enrichWithActivitySnippets(page);
   const withPhaseC = await enrichWithPhaseC(withActivitySnippets);
-  const enriched = await enrichWithNextCommitmentId(withPhaseC);
+  const withCommitments = await enrichWithNextCommitmentId(withPhaseC);
+  const enriched = await enrichWithOpportunityChaseState(withCommitments);
 
   return { threads: enriched, nextCursor };
 }
@@ -2230,7 +2278,8 @@ export const EmailThreadService = {
     // Single-thread enrichment uses the same batched helpers (n=1) so the
     // mapping logic stays in one place across list and detail paths.
     const [withPhaseC] = await enrichWithPhaseC([mapped]);
-    const [enriched] = await enrichWithNextCommitmentId([withPhaseC]);
+    const [withCommitments] = await enrichWithNextCommitmentId([withPhaseC]);
+    const [enriched] = await enrichWithOpportunityChaseState([withCommitments]);
     return enriched;
   },
 
@@ -2324,13 +2373,14 @@ export const EmailThreadService = {
     authorization: AllowedEmailInboxListAccess,
     limit = 5
   ): Promise<EmailThread[]> {
-    return listEmailThreadSiblings(
+    const siblings = await listEmailThreadSiblings(
       companyId,
       clientId,
       excludingThreadId,
       authorization,
       limit
     );
+    return enrichWithOpportunityChaseState(siblings);
   },
 };
 

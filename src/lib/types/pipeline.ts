@@ -459,9 +459,11 @@ export interface Opportunity {
   lastInboundAt: Date | null;
   lastOutboundAt: Date | null;
   lastMessageDirection: "in" | "out" | null;
+  handledAt: Date | null;
 
   // AI analysis
   aiSummary: string | null;
+  aiSummaryUpdatedAt: Date | null;
   aiStageConfidence: number | null;
   aiStageSignals: string[] | null;
   detectedValue: number | null;
@@ -1208,6 +1210,8 @@ export type CreateOpportunity = Omit<
   | "lastInboundAt"
   | "lastOutboundAt"
   | "lastMessageDirection"
+  | "handledAt"
+  | "aiSummaryUpdatedAt"
   | "createdAt"
   | "updatedAt"
   | "deletedAt"
@@ -1392,6 +1396,7 @@ export type UpdateAccountingConnection = Partial<CreateAccountingConnection> & {
 export type UpdateOpportunity = Partial<CreateOpportunity> & {
   id: string;
   nextFollowUpAt?: Date | null;
+  handledAt?: Date | null;
 };
 export type UpdateEstimate = Partial<CreateEstimate> & { id: string };
 export type UpdateInvoice = Partial<CreateInvoice> & { id: string };

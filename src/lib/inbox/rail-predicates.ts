@@ -28,9 +28,7 @@ export type InboxPrimaryRail = "CLIENTS" | "EVERYTHING_ELSE" | "ALL";
 export type InboxUtilityRail = "ARCHIVED" | "SNOOZED";
 
 /** Active list filter. */
-export type RailFilter =
-  | InboxPrimaryRail
-  | InboxUtilityRail;
+export type RailFilter = InboxPrimaryRail | InboxUtilityRail;
 
 /** Row-level thread state bucket. Not a top-level rail. */
 export type ThreadStateBucket =
@@ -65,7 +63,7 @@ export const CLIENT_FACING_PRIMARY_CATEGORIES = [
 ] as const;
 
 const CLIENT_FACING_PRIMARY_CATEGORY_SET = new Set<string>(
-  CLIENT_FACING_PRIMARY_CATEGORIES,
+  CLIENT_FACING_PRIMARY_CATEGORIES
 );
 
 /** Type guard — accept only the known rail strings. */
@@ -86,7 +84,7 @@ export function isRailFilter(value: unknown): value is RailFilter {
  */
 export function parseRailFilter(
   raw: string | null | undefined,
-  fallback: RailFilter = DEFAULT_RAIL_FILTER,
+  fallback: RailFilter = DEFAULT_RAIL_FILTER
 ): RailFilter {
   if (!raw) return fallback;
   const upper = raw.toUpperCase();
@@ -131,6 +129,12 @@ export interface RailPredicateThread {
   latest_direction: "inbound" | "outbound" | null;
   unread_count: number;
   agent_blocking_question: unknown;
+  /**
+   * Canonical linked-opportunity chase state. `false` suppresses thread-level
+   * reply debt without clearing unread/labels; commitments and agent blocks
+   * remain independent obligations. Null/undefined means unlinked or unknown.
+   */
+  opportunity_needs_reply?: boolean | null;
 }
 
 function toMillis(value: Date | string | null): number | null {
@@ -145,7 +149,7 @@ export function isClientFacingThread(
   thread: Pick<
     RailPredicateThread,
     "primary_category" | "client_id" | "opportunity_id"
-  >,
+  >
 ): boolean {
   if (thread.client_id) return true;
   if (thread.opportunity_id) return true;
@@ -158,7 +162,7 @@ export function classifyRail(
   thread: Pick<
     RailPredicateThread,
     "primary_category" | "client_id" | "opportunity_id"
-  >,
+  >
 ): Exclude<InboxPrimaryRail, "ALL"> {
   return isClientFacingThread(thread) ? "CLIENTS" : "EVERYTHING_ELSE";
 }
@@ -168,10 +172,14 @@ export function isYourMove(thread: RailPredicateThread, now: number): boolean {
   if (toMillis(thread.archived_at) !== null) return false;
   const snoozedTs = toMillis(thread.snoozed_until);
   if (snoozedTs !== null && snoozedTs > now) return false;
+  const replyDebtAllowed = thread.opportunity_needs_reply !== false;
+  const replyDebt =
+    replyDebtAllowed &&
+    (thread.labels.includes("AWAITING_REPLY") ||
+      (thread.latest_direction === "inbound" && thread.unread_count > 0));
   return (
     thread.has_unresolved_commitments ||
-    thread.labels.includes("AWAITING_REPLY") ||
-    (thread.latest_direction === "inbound" && thread.unread_count > 0) ||
+    replyDebt ||
     thread.agent_blocking_question != null
   );
 }
@@ -199,7 +207,7 @@ export function isArchived(thread: RailPredicateThread): boolean {
 /** Categorise a thread into its row-level state bucket, excluding ALL. */
 export function classifyThreadState(
   thread: RailPredicateThread,
-  now: number,
+  now: number
 ): Exclude<ThreadStateBucket, "ALL"> {
   if (isArchived(thread)) return "ARCHIVED";
   if (isSnoozed(thread, now)) return "SNOOZED";
@@ -242,7 +250,7 @@ interface RailQueryBuilder<Q extends RailQueryBuilder<Q>> {
 export function applyRailPredicate<Q extends RailQueryBuilder<Q>>(
   query: Q,
   rail: RailFilter,
-  nowIso: string,
+  nowIso: string
 ): Q {
   switch (rail) {
     case "CLIENTS":
@@ -251,7 +259,7 @@ export function applyRailPredicate<Q extends RailQueryBuilder<Q>>(
         .or(
           `client_id.not.is.null,` +
             `opportunity_id.not.is.null,` +
-            `primary_category.in.(${CLIENT_FACING_PRIMARY_CATEGORIES.join(",")})`,
+            `primary_category.in.(${CLIENT_FACING_PRIMARY_CATEGORIES.join(",")})`
         );
     case "EVERYTHING_ELSE":
       return query
@@ -260,11 +268,10 @@ export function applyRailPredicate<Q extends RailQueryBuilder<Q>>(
         .is("opportunity_id", null)
         .or(
           `primary_category.is.null,` +
-            `primary_category.not.in.(${CLIENT_FACING_PRIMARY_CATEGORIES.join(",")})`,
+            `primary_category.not.in.(${CLIENT_FACING_PRIMARY_CATEGORIES.join(",")})`
         );
     case "ALL":
-      return query
-        .is("archived_at", null);
+      return query.is("archived_at", null);
     case "ARCHIVED":
       return query.not("archived_at", "is", null);
     case "SNOOZED":

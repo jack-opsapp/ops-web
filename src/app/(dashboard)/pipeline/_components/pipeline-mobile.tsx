@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, type ReactNode } from "react";
 import {
   motion,
   AnimatePresence,
@@ -51,8 +51,13 @@ interface PipelineMobileProps {
   onAssign: (opportunityId: string) => void;
   onScheduleFollowUp: (opportunityId: string) => void;
   onAddLead: () => void;
-  canManage: boolean;
   leadAccessById?: ReadonlyMap<string, LeadAccess>;
+  /**
+   * Page-level banners (email connect, inbox leads queue, move-pending chip).
+   * Rendered IN FLOW below the stage tab bar — never floated over the cards,
+   * so a banner can never intercept a card tap (audit P1-4).
+   */
+  banner?: ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -129,7 +134,10 @@ function SwipeableCard({
   t,
 }: SwipeableCardProps) {
   const terminal = isTerminalStage(opportunity.stage);
-  const next = nextOpportunityStage(opportunity.stage);
+  const rawNext = nextOpportunityStage(opportunity.stage);
+  // Advancing into Won is a conversion — treat Won as no-next when the operator
+  // can't convert, so neither the swipe-advance nor its hint strip engages.
+  const next = rawNext === OpportunityStage.Won && !canConvert ? null : rawNext;
   const prev = previousOpportunityStage(opportunity.stage);
 
   const dragX = useMotionValue(0);
@@ -271,8 +279,8 @@ export function PipelineMobile({
   onAssign,
   onScheduleFollowUp,
   onAddLead: _onAddLead,
-  canManage,
   leadAccessById,
+  banner,
 }: PipelineMobileProps) {
   const { t } = useDictionary("pipeline");
   const prefersReducedMotion = useReducedMotion();
@@ -347,6 +355,17 @@ export function PipelineMobile({
           onStageChange={setActiveStage}
         />
       </div>
+
+      {/* Banners — in flow, full width, below the tab bar. They push the card
+          list down instead of floating over it. */}
+      {banner ? (
+        <div
+          data-testid="pipeline-mobile-banner"
+          className="flex shrink-0 flex-col gap-1 px-[8px] pt-[8px] empty:hidden"
+        >
+          {banner}
+        </div>
+      ) : null}
 
       {/* Card list */}
       <div className="scrollbar-hide flex-1 overflow-y-auto">

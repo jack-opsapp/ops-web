@@ -1,9 +1,12 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import * as jestDomMatchers from "@testing-library/jest-dom/matchers";
 
 import { PipelineDetailBody } from "@/app/(dashboard)/pipeline/_components/pipeline-detail-panel";
-import type { OpportunityAssignedContext } from "@/lib/api/services/opportunity-assigned-context-service";
+import {
+  OpportunityAssignedContextError,
+  type OpportunityAssignedContext,
+} from "@/lib/api/services/opportunity-assigned-context-service";
 import type { Opportunity } from "@/lib/types/pipeline";
 
 // The global setupFiles jest-dom registration isn't reliably applied under a
@@ -97,14 +100,24 @@ const readOnlyLeadAccess = {
   canConvert: false,
 };
 
+// The full query-result shape the body reads. Individual tests override the
+// relevant fields; defaults model a settled successful read.
+function queryResult(overrides: Record<string, unknown> = {}) {
+  return {
+    data: assignedContext,
+    isError: false,
+    error: null,
+    isLoading: false,
+    isFetching: false,
+    refetch: vi.fn(),
+    ...overrides,
+  };
+}
+
 describe("PipelineDetailBody composition", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    assignedContextHookMock.mockReturnValue({
-      data: assignedContext,
-      isError: false,
-      isFetching: false,
-    });
+    assignedContextHookMock.mockReturnValue(queryResult());
   });
 
   it("always renders the map-backed band", () => {
@@ -167,12 +180,18 @@ describe("PipelineDetailBody composition", () => {
   });
 
   it("fails closed when the guarded context read is denied", () => {
-    assignedContextHookMock.mockReturnValue({
-      // React Query retains the previous payload when a refetch is denied.
-      data: assignedContext,
-      isError: true,
-      isFetching: false,
-    });
+    assignedContextHookMock.mockReturnValue(
+      queryResult({
+        // React Query retains the previous payload when a refetch is denied —
+        // a confirmed access_denied must redact it regardless.
+        data: assignedContext,
+        isError: true,
+        error: new OpportunityAssignedContextError(
+          "access_denied",
+          "Opportunity context access denied"
+        ),
+      })
+    );
 
     render(
       <PipelineDetailBody
@@ -191,6 +210,118 @@ describe("PipelineDetailBody composition", () => {
     );
     expect(childProps.nextSteps).toHaveBeenLastCalledWith(
       expect.objectContaining({ followUps: [], siteVisits: [] })
+    );
+    // Redaction is deliberate — it must not dress up as a transient failure.
+    expect(
+      screen.queryByTestId("detail-context-error")
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps last-good context on screen during a background refetch", () => {
+    assignedContextHookMock.mockReturnValue(queryResult({ isFetching: true }));
+
+    render(
+      <PipelineDetailBody
+        opportunity={opportunity}
+        activeTab="correspondence"
+        leadAccess={readOnlyLeadAccess}
+      />
+    );
+
+    // The refocus-blank regression: a background refetch must NOT null the
+    // projections into misleading empty states.
+    expect(childProps.correspondence).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        activities: assignedContext.activities,
+        correspondence: assignedContext.correspondence,
+        contactName: assignedContext.contact.name,
+      })
+    );
+    expect(childProps.nextSteps).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        followUps: assignedContext.followUps,
+        siteVisits: assignedContext.siteVisits,
+      })
+    );
+  });
+
+  it("renders skeleton rows instead of tab content on first load", () => {
+    assignedContextHookMock.mockReturnValue(
+      queryResult({ data: undefined, isLoading: true, isFetching: true })
+    );
+
+    render(
+      <PipelineDetailBody
+        opportunity={opportunity}
+        activeTab="overview"
+        leadAccess={fullLeadAccess}
+        withRegion
+      />
+    );
+
+    expect(screen.getByTestId("detail-context-loading")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Deal detail panel" })
+    ).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByTestId("mock-overview")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("mock-next-steps")).not.toBeInTheDocument();
+  });
+
+  it("shows the error row with a working retry when a settled non-denied read failed with nothing to show", () => {
+    const refetch = vi.fn();
+    assignedContextHookMock.mockReturnValue(
+      queryResult({
+        data: undefined,
+        isError: true,
+        error: new OpportunityAssignedContextError(
+          "rpc_error",
+          "Opportunity context read failed"
+        ),
+        refetch,
+      })
+    );
+
+    render(
+      <PipelineDetailBody
+        opportunity={opportunity}
+        activeTab="overview"
+        leadAccess={fullLeadAccess}
+      />
+    );
+
+    expect(screen.getByTestId("detail-context-error")).toBeInTheDocument();
+    // The truth is "failed to load" — Overview must not render
+    // "[ no contact ]" / "[ no estimates ]" empties.
+    expect(screen.queryByTestId("mock-overview")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "RETRY" }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps last-good content under the error advisory when a refetch fails", () => {
+    assignedContextHookMock.mockReturnValue(
+      queryResult({
+        data: assignedContext,
+        isError: true,
+        error: new OpportunityAssignedContextError(
+          "rpc_error",
+          "Opportunity context read failed"
+        ),
+      })
+    );
+
+    render(
+      <PipelineDetailBody
+        opportunity={opportunity}
+        activeTab="overview"
+        leadAccess={fullLeadAccess}
+      />
+    );
+
+    expect(screen.getByTestId("detail-context-error")).toBeInTheDocument();
+    expect(screen.getByTestId("mock-overview")).toBeInTheDocument();
+    expect(childProps.overview).toHaveBeenLastCalledWith(
+      expect.objectContaining({ assignedContext })
     );
   });
 });

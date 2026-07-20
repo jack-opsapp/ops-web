@@ -21,7 +21,7 @@
 
 import * as React from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as jestDomMatchers from "@testing-library/jest-dom/matchers";
 
 // The global setup registers jest-dom via setupFiles, but when this file is run
@@ -153,6 +153,8 @@ import {
   TagsField,
   TextAreaField,
 } from "@/app/(dashboard)/pipeline/_components/lead-field-editors";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 
 /** Build a fake shared edit instance with a spy `commit`. */
 function makeEdit(): UseOpportunityFieldEdit & {
@@ -464,6 +466,114 @@ describe("AssigneeField", () => {
     expect(leadAssignmentMocks.useCandidates).toHaveBeenCalledWith(
       "lead-1",
       false
+    );
+  });
+});
+
+// ─── AssigneeField — assigned-scope hand-off confirm ─────────────────────────
+//
+// An assigned-only viewer moving THEIR OWN lead to someone else loses access
+// the moment it lands — destructive for the actor, so one confirm interposes.
+// These tests seed the real permission/auth stores; the sibling AssigneeField
+// tests above run with pristine stores (scope resolves to null → no prompt),
+// which also pins that all-scope/unconfigured actors are never prompted.
+
+describe("AssigneeField hand-off confirm", () => {
+  function seedAssignedScopeActor() {
+    usePermissionStore.setState({
+      permissions: new Map<string, "all" | "assigned" | "own">([
+        ["pipeline.view", "assigned"],
+        ["pipeline.edit", "assigned"],
+        ["pipeline.assign", "assigned"],
+      ]),
+      configuredPermissions: new Set([
+        "pipeline.view",
+        "pipeline.edit",
+        "pipeline.assign",
+      ]),
+      initialized: true,
+    });
+    useAuthStore.setState({ currentUser: { id: "user-ada" } as never });
+  }
+
+  beforeEach(() => {
+    seedAssignedScopeActor();
+  });
+
+  afterEach(() => {
+    usePermissionStore.setState({
+      permissions: new Map(),
+      configuredPermissions: new Set(),
+      initialized: false,
+    });
+    useAuthStore.setState({ currentUser: null });
+  });
+
+  function openPickerAndChooseGrace() {
+    render(
+      <AssigneeField
+        opportunityId="lead-1"
+        assignmentVersion={7}
+        canAssign
+        value="user-ada"
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Assign lead" }));
+    const listbox = screen.getByRole("listbox");
+    fireEvent.click(within(listbox).getByText("Grace Hopper"));
+  }
+
+  it("interposes the confirm instead of mutating, then commits on HAND OFF", async () => {
+    openPickerAndChooseGrace();
+
+    // No mutation yet — the confirm owns the commit.
+    expect(leadAssignmentMocks.assign).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText("Hand off this lead?")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("It moves to Grace Hopper and leaves your list.")
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "HAND OFF" }));
+
+    expect(leadAssignmentMocks.assign).toHaveBeenCalledWith({
+      opportunityId: "lead-1",
+      expectedAssignedTo: "user-ada",
+      expectedAssignmentVersion: 7,
+      newAssignedTo: "user-grace",
+      source: "manual",
+    });
+  });
+
+  it("KEEP cancels without mutating", async () => {
+    openPickerAndChooseGrace();
+
+    expect(
+      await screen.findByText("Hand off this lead?")
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "KEEP" }));
+
+    expect(leadAssignmentMocks.assign).not.toHaveBeenCalled();
+    expect(screen.queryByText("Hand off this lead?")).not.toBeInTheDocument();
+  });
+
+  it("does not prompt an actor reassigning a lead that is not their own", () => {
+    render(
+      <AssigneeField
+        opportunityId="lead-1"
+        assignmentVersion={7}
+        canAssign
+        value="user-grace"
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Assign lead" }));
+    const listbox = screen.getByRole("listbox");
+    fireEvent.click(within(listbox).getByText("Ada Lovelace"));
+
+    expect(screen.queryByText("Hand off this lead?")).not.toBeInTheDocument();
+    expect(leadAssignmentMocks.assign).toHaveBeenCalledWith(
+      expect.objectContaining({ newAssignedTo: "user-ada" })
     );
   });
 });

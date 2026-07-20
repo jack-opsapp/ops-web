@@ -425,6 +425,7 @@ export async function GET(
         messageCount: thread.messageCount,
         unreadCount: thread.unreadCount,
         opportunityId: access.opportunityId,
+        opportunityNeedsReply: thread.opportunityNeedsReply,
         clientId: canonicalClientId,
         clientName,
         latestDirection: thread.latestDirection,

@@ -8,9 +8,32 @@ import {
   usePipelineBulkActions,
 } from "@/lib/hooks/pipeline-table/use-pipeline-bulk-actions";
 import { useLeadAssignmentCandidates } from "@/lib/hooks/use-lead-assignment";
+import { EntityPicker } from "@/components/ui/entity-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { OpportunityPriority } from "@/lib/types/pipeline";
 import type { PipelineTableRow } from "@/lib/types/pipeline-table";
-import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
+import {
+  actorLosesAccessOnAssign,
+  type LeadAccess,
+} from "@/lib/permissions/lead-access-policy";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -53,6 +76,15 @@ function formatText(
   );
 }
 
+// Shared rail-control chrome — reused by BulkButton and the assignee picker's
+// trigger (a raw button, so PickerTrigger's asChild can compose onto it).
+const BULK_CONTROL_CLASS = cn(
+  "inline-flex h-[32px] shrink-0 items-center gap-1 rounded border border-border px-2",
+  "font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors",
+  "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+  "disabled:pointer-events-none disabled:opacity-40"
+);
+
 function BulkButton({
   children,
   className,
@@ -69,13 +101,7 @@ function BulkButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={cn(
-        "inline-flex h-[32px] shrink-0 items-center gap-1 rounded border border-border px-2",
-        "font-cakemono text-cake-button font-light uppercase text-text-2 transition-colors",
-        "hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
-        "disabled:pointer-events-none disabled:opacity-40",
-        className
-      )}
+      className={cn(BULK_CONTROL_CLASS, className)}
     >
       {children}
     </button>
@@ -88,7 +114,10 @@ const PRIORITY_OPTIONS = [
   { value: OpportunityPriority.High, labelKey: "table.bulk.priorityHigh" },
 ] as const;
 
-const UNASSIGN_VALUE = "__unassigned__";
+// The picker has no "current" assignee in a bulk context; this non-null,
+// non-matching sentinel keeps every candidate row (and the Unassign row)
+// un-checked, so the panel reads as "pick a target", not "here's the current".
+const NO_BULK_SELECTION = "__bulk_no_selection__";
 
 export function PipelineBulkBar({
   selectedRows,
@@ -121,7 +150,23 @@ export function PipelineBulkBar({
   );
   const [followUpDate, setFollowUpDate] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
-  const [assignUserId, setAssignUserId] = useState("");
+  const [pendingHandOff, setPendingHandOff] = useState<{
+    assigneeId: string | null;
+    name: string;
+  } | null>(null);
+  const actorUserId = useAuthStore((state) => state.currentUser?.id ?? null);
+  const permissionState = usePermissionStore();
+
+  // Sentence-case name for a candidate, mirroring the single-lead AssigneeField
+  // (never uppercased — names are content, not authority).
+  const candidateName = useCallback(
+    (candidate: { firstName: string | null; lastName: string | null }) =>
+      [candidate.firstName, candidate.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || t("band.unknownAssignee", "Unknown"),
+    [t]
+  );
 
   const undoLabels = useMemo(
     () => ({
@@ -147,6 +192,7 @@ export function PipelineBulkBar({
   const targetRows = bulkActions.targetRows;
   const selectedCount = targetRows.length;
   const disabled = bulkActions.isRunning || selectedCount === 0;
+  const hasFollowUpDate = followUpDate.trim().length > 0;
   const canBulkAssign =
     selectedCount > 0 &&
     targetRows.every((row) => leadAccessById.get(row.id)?.canAssign === true);
@@ -171,37 +217,87 @@ export function PipelineBulkBar({
     targetRows[0]?.id ?? "",
     assignOpen && canBulkAssign
   );
-  const assignmentCandidates = candidatesQuery.data?.candidates ?? [];
+  const assignmentCandidates = useMemo(
+    () => candidatesQuery.data?.candidates ?? [],
+    [candidatesQuery.data?.candidates]
+  );
   const canOfferUnassign =
     canBulkUnassign && candidatesQuery.data?.canUnassign === true;
-  const canApplyAssignment =
-    !bulkActions.isRunning &&
-    assignUserId !== "" &&
-    (assignUserId !== UNASSIGN_VALUE || canOfferUnassign);
 
-  const handleReassign = useCallback(() => {
-    if (!canApplyAssignment) return;
-    const nextAssignee = assignUserId === UNASSIGN_VALUE ? "" : assignUserId;
-    void bulkActions.reassignAssignee(nextAssignee).then((result) => {
-      bulkResultToast({
-        result,
-        successMessage: (count) =>
-          formatText(t("table.bulk.reassignDone"), { count }),
-        partialMessage: (success, total) =>
-          formatText(t("table.bulk.partialFailure"), {
-            success,
-            total,
-            failed: total - success,
-          }),
-        failureMessage: t("table.bulk.failure"),
+  // Immediate-apply on pick — the canonical single-select picker commits and
+  // closes (no separate Apply). `null` is the Unassign row; the guarded bulk
+  // action treats "" as clearing the assignee across every selected row.
+  const commitReassign = useCallback(
+    (assigneeId: string | null) => {
+      if (bulkActions.isRunning) return;
+      if (assigneeId === null && !canOfferUnassign) return;
+      const nextAssignee = assigneeId ?? "";
+      void bulkActions.reassignAssignee(nextAssignee).then((result) => {
+        bulkResultToast({
+          result,
+          successMessage: (count) =>
+            formatText(t("table.bulk.reassignDone"), { count }),
+          partialMessage: (success, total) =>
+            formatText(t("table.bulk.partialFailure"), {
+              success,
+              total,
+              failed: total - success,
+            }),
+          failureMessage: t("table.bulk.failure"),
+        });
       });
-    });
-    setAssignOpen(false);
-    setAssignUserId("");
-  }, [assignUserId, bulkActions, canApplyAssignment, t]);
+      setAssignOpen(false);
+    },
+    [bulkActions, canOfferUnassign, t]
+  );
+
+  const requestReassign = useCallback(
+    (assigneeId: string | null) => {
+      if (bulkActions.isRunning) return;
+      if (assigneeId === null && !canOfferUnassign) return;
+
+      const removesActorAccess = targetRows.some((row) =>
+        actorLosesAccessOnAssign(
+          permissionState,
+          actorUserId,
+          { assignedTo: row.assignedTo },
+          assigneeId
+        )
+      );
+      if (!removesActorAccess) {
+        commitReassign(assigneeId);
+        return;
+      }
+
+      const candidate = assignmentCandidates.find(
+        ({ id }) => id === assigneeId
+      );
+      setPendingHandOff({
+        assigneeId,
+        name: candidate
+          ? candidateName(candidate)
+          : t("band.unassigned", "Unassigned"),
+      });
+      setAssignOpen(false);
+    },
+    [
+      actorUserId,
+      assignmentCandidates,
+      bulkActions.isRunning,
+      canOfferUnassign,
+      candidateName,
+      commitReassign,
+      permissionState,
+      t,
+      targetRows,
+    ]
+  );
 
   const handleSetFollowUp = useCallback(() => {
-    void bulkActions.setFollowUpDate(followUpDate).then((result) => {
+    const nextFollowUpDate = followUpDate.trim();
+    if (disabled || nextFollowUpDate.length === 0) return;
+
+    void bulkActions.setFollowUpDate(nextFollowUpDate).then((result) => {
       bulkResultToast({
         result,
         successMessage: (count) =>
@@ -216,7 +312,7 @@ export function PipelineBulkBar({
       });
     });
     setFollowUpDate("");
-  }, [bulkActions, followUpDate, t]);
+  }, [bulkActions, disabled, followUpDate, t]);
 
   const handleChangePriority = useCallback(() => {
     void bulkActions.changePriority(priority).then((result) => {
@@ -255,124 +351,197 @@ export function PipelineBulkBar({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="glass-dense absolute bottom-3 left-1/2 z-[1500] flex h-[48px] max-w-[calc(100%-24px)] -translate-x-1/2 items-center overflow-visible rounded-modal border border-border px-3 py-2">
-      <div className="flex h-[32px] min-w-0 items-center gap-2">
-        <div className="mr-1 flex shrink-0 items-center gap-2 font-mono text-micro uppercase tracking-[0.16em] text-text">
-          <Check className="h-[14px] w-[14px] text-text-3" strokeWidth={1.5} />
-          <span>{selectedCountLabel}</span>
-        </div>
+    <>
+      <div className="glass-dense absolute bottom-3 left-1/2 z-[1500] flex max-w-[calc(100%-24px)] -translate-x-1/2 items-center overflow-visible rounded-modal border border-border px-3 py-2">
+        {/* Wraps to a second row within the rail when the controls exceed the
+          available width (1280/1440) instead of clipping under overflow. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
+          <div className="mr-1 flex shrink-0 items-center gap-2 font-mono text-micro uppercase tracking-[0.16em] text-text">
+            <Check
+              className="h-[14px] w-[14px] text-text-3"
+              strokeWidth={1.5}
+            />
+            <span>{selectedCountLabel}</span>
+          </div>
 
-        {/* Select-all-N affordance — only when more rendered rows remain
+          {/* Select-all-N affordance — only when more rendered rows remain
             unselected. States the EXACT rendered count, never an ambiguous
             "select all". */}
-        {!allRenderedSelected && renderedRowCount > selectedCount ? (
+          {!allRenderedSelected && renderedRowCount > selectedCount ? (
+            <BulkButton
+              className="border-transparent text-text-3"
+              disabled={bulkActions.isRunning}
+              onClick={onSelectAllRendered}
+            >
+              {selectAllLabel}
+            </BulkButton>
+          ) : null}
+
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-2">
+            {canBulkAssign ? (
+              <>
+                <EntityPicker
+                  trigger={
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      className={BULK_CONTROL_CLASS}
+                    >
+                      <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
+                      {t("table.bulk.reassign")}
+                    </button>
+                  }
+                  items={assignmentCandidates}
+                  getId={(candidate) => candidate.id}
+                  getLabel={candidateName}
+                  getAvatar={(candidate) => ({
+                    name: candidateName(candidate),
+                    imageUrl: candidate.profileImageUrl,
+                  })}
+                  label={t("table.bulk.reassign")}
+                  value={NO_BULK_SELECTION}
+                  onChange={requestReassign}
+                  noneOption={canOfferUnassign}
+                  noneLabel={t("table.bulk.unassign")}
+                  searchPlaceholder={t("band.assigneeSearch", "Search team")}
+                  emptyLabel={
+                    candidatesQuery.isLoading
+                      ? t("band.loadingAssignees", "Loading team…")
+                      : t(
+                          "band.noEligibleAssignees",
+                          "No eligible team members"
+                        )
+                  }
+                  error={
+                    candidatesQuery.isError
+                      ? t("band.assigneeLoadFailed", "Team unavailable")
+                      : undefined
+                  }
+                  open={assignOpen}
+                  onOpenChange={setAssignOpen}
+                  align="start"
+                  size="md"
+                  contentClassName="border border-border"
+                />
+
+                <div className="h-6 w-px shrink-0 bg-border" />
+              </>
+            ) : null}
+
+            <input
+              type="date"
+              aria-label={t("table.bulk.setFollowUp")}
+              value={followUpDate}
+              disabled={disabled}
+              onChange={(event) => setFollowUpDate(event.target.value)}
+              className="h-[32px] w-[132px] shrink-0 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors [color-scheme:dark] focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
+            />
+            <BulkButton
+              disabled={disabled || !hasFollowUpDate}
+              onClick={handleSetFollowUp}
+            >
+              <CalendarDays className="h-[14px] w-[14px]" strokeWidth={1.5} />
+              {t("table.bulk.setFollowUp")}
+            </BulkButton>
+
+            <div className="h-6 w-px shrink-0 bg-border" />
+
+            <Select
+              value={priority}
+              disabled={disabled}
+              onValueChange={(value) =>
+                setPriority(value as OpportunityPriority)
+              }
+            >
+              <SelectTrigger
+                aria-label={t("table.bulk.changePriority")}
+                className="h-[32px] w-auto min-w-[72px] shrink-0 border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-dropdown border border-border">
+                {PRIORITY_OPTIONS.map((option) => (
+                  <SelectItem
+                    key={option.value}
+                    value={option.value}
+                    className="font-mono text-micro uppercase"
+                  >
+                    {t(option.labelKey)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <BulkButton disabled={disabled} onClick={handleChangePriority}>
+              <Flag className="h-[14px] w-[14px]" strokeWidth={1.5} />
+              {t("table.bulk.changePriority")}
+            </BulkButton>
+
+            <div className="h-6 w-px shrink-0 bg-border" />
+
+            <BulkButton disabled={disabled} onClick={handleArchive}>
+              <Archive className="h-[14px] w-[14px]" strokeWidth={1.5} />
+              {t("table.bulk.archive")}
+            </BulkButton>
+          </div>
+
           <BulkButton
             className="border-transparent text-text-3"
             disabled={bulkActions.isRunning}
-            onClick={onSelectAllRendered}
+            onClick={onClearSelection}
           >
-            {selectAllLabel}
-          </BulkButton>
-        ) : null}
-
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-          {canBulkAssign ? (
-            <>
-              <BulkButton
-                disabled={disabled}
-                onClick={() => setAssignOpen((open) => !open)}
-              >
-                <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
-                {t("table.bulk.reassign")}
-              </BulkButton>
-
-              <div className="h-6 w-px shrink-0 bg-border" />
-            </>
-          ) : null}
-
-          <input
-            type="date"
-            aria-label={t("table.bulk.setFollowUp")}
-            value={followUpDate}
-            disabled={disabled}
-            onChange={(event) => setFollowUpDate(event.target.value)}
-            className="h-[32px] w-[132px] shrink-0 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
-          />
-          <BulkButton disabled={disabled} onClick={handleSetFollowUp}>
-            <CalendarDays className="h-[14px] w-[14px]" strokeWidth={1.5} />
-            {t("table.bulk.setFollowUp")}
-          </BulkButton>
-
-          <div className="h-6 w-px shrink-0 bg-border" />
-
-          <select
-            aria-label={t("table.bulk.changePriority")}
-            value={priority}
-            disabled={disabled}
-            onChange={(event) =>
-              setPriority(event.target.value as OpportunityPriority)
-            }
-            className="h-[32px] shrink-0 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
-          >
-            {PRIORITY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {t(option.labelKey)}
-              </option>
-            ))}
-          </select>
-          <BulkButton disabled={disabled} onClick={handleChangePriority}>
-            <Flag className="h-[14px] w-[14px]" strokeWidth={1.5} />
-            {t("table.bulk.changePriority")}
-          </BulkButton>
-
-          <div className="h-6 w-px shrink-0 bg-border" />
-
-          <BulkButton disabled={disabled} onClick={handleArchive}>
-            <Archive className="h-[14px] w-[14px]" strokeWidth={1.5} />
-            {t("table.bulk.archive")}
+            <X className="h-[14px] w-[14px]" strokeWidth={1.5} />
+            {t("table.bulk.clear")}
           </BulkButton>
         </div>
-
-        <BulkButton
-          className="border-transparent text-text-mute"
-          disabled={bulkActions.isRunning}
-          onClick={onClearSelection}
-        >
-          <X className="h-[14px] w-[14px]" strokeWidth={1.5} />
-          {t("table.bulk.clear")}
-        </BulkButton>
       </div>
 
-      {assignOpen && canBulkAssign ? (
-        <div className="glass-dense absolute bottom-[calc(100%+8px)] left-3 z-[1500] flex min-w-[320px] max-w-[calc(100%-24px)] items-center gap-2 rounded-modal p-2">
-          <select
-            aria-label={t("table.bulk.reassign")}
-            value={assignUserId}
-            disabled={candidatesQuery.isLoading || bulkActions.isRunning}
-            onChange={(event) => setAssignUserId(event.target.value)}
-            className="h-[32px] min-w-[200px] flex-1 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase text-text-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ops-accent disabled:opacity-40"
-          >
-            <option value="" disabled>
-              {t("table.bulk.selectAssignee")}
-            </option>
-            {canOfferUnassign ? (
-              <option value={UNASSIGN_VALUE}>{t("table.bulk.unassign")}</option>
-            ) : null}
-            {assignmentCandidates.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {[candidate.firstName, candidate.lastName]
-                  .filter(Boolean)
-                  .join(" ") || t("band.unknownAssignee")}
-              </option>
-            ))}
-          </select>
-
-          <BulkButton disabled={!canApplyAssignment} onClick={handleReassign}>
-            <Users className="h-[14px] w-[14px]" strokeWidth={1.5} />
-            {t("table.bulk.reassign")}
-          </BulkButton>
-        </div>
-      ) : null}
-    </div>
+      <AlertDialog
+        open={pendingHandOff !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingHandOff(null);
+        }}
+      >
+        <AlertDialogContent className="z-modal" overlayClassName="z-modal">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {selectedCount === 1
+                ? t("handoff.title", "Hand off this lead?")
+                : t("handoff.bulkTitle", "Hand off selected leads?")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {formatText(
+                selectedCount === 1
+                  ? t(
+                      "handoff.body",
+                      "It moves to {name} and leaves your list."
+                    )
+                  : t(
+                      "handoff.bulkBody",
+                      "{count} leads move to {name} and leave your list."
+                    ),
+                {
+                  count: selectedCount,
+                  name:
+                    pendingHandOff?.name ?? t("band.unassigned", "Unassigned"),
+                }
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("handoff.cancel", "KEEP")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingHandOff) return;
+                const { assigneeId } = pendingHandOff;
+                setPendingHandOff(null);
+                commitReassign(assigneeId);
+              }}
+            >
+              {t("handoff.confirm", "HAND OFF")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

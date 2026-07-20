@@ -221,7 +221,10 @@ export async function POST(request: NextRequest) {
   try {
     submitted = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid import request" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid import request" },
+      { status: 400 }
+    );
   }
   const submittedRecord =
     submitted && typeof submitted === "object" && !Array.isArray(submitted)
@@ -380,10 +383,7 @@ export async function POST(request: NextRequest) {
 
 // ─── Background import logic ──────────────────────────────────────────────────
 
-async function runImport(
-  jobId: string,
-  supabase: SupabaseClient
-) {
+async function runImport(jobId: string, supabase: SupabaseClient) {
   const authorizedJob = await loadAuthorizedEmailImportJob({ supabase, jobId });
   const payload = authorizedJob.approvedPayload;
   const { connectionId, companyId, leads } = payload;
@@ -1052,7 +1052,10 @@ async function runImport(
         if (lastMessageDate)
           patches.stage_entered_at = lastMessageDate.toISOString();
         // ai_summary → the AI-generated description from the classifier
-        if (lead.description) patches.ai_summary = lead.description;
+        if (lead.description) {
+          patches.ai_summary = lead.description;
+          patches.ai_summary_updated_at = new Date().toISOString();
+        }
         if (lead.estimatedValue) patches.detected_value = lead.estimatedValue;
         if (Object.keys(patches).length > 0) {
           const { error: patchError } = await supabase

@@ -14,11 +14,28 @@ vi.mock("@/i18n/client", () => ({
   }),
 }));
 
-const { CellStageAction } = await import(
-  "@/app/(dashboard)/pipeline/_components/table/cells/cell-stage-action"
-);
+const { CellStageAction } =
+  await import("@/app/(dashboard)/pipeline/_components/table/cells/cell-stage-action");
 
 describe("<CellStageAction> — convert an already-won row", () => {
+  it("does not offer Won as a stage destination without convert access", async () => {
+    render(
+      <CellStageAction
+        stage={OpportunityStage.Negotiation}
+        canManage
+        canConvert={false}
+        onSelectStage={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByTestId("cell-stage-trigger"));
+
+    expect(
+      screen.queryByRole("option", { name: "Won" })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Lost" })).toBeInTheDocument();
+  });
+
   it("shows a CONVERT entry for a won+unconverted row and calls onConvert", async () => {
     const onConvert = vi.fn();
     const onSelectStage = vi.fn();
@@ -29,7 +46,7 @@ describe("<CellStageAction> — convert an already-won row", () => {
         wonUnconverted
         onConvert={onConvert}
         onSelectStage={onSelectStage}
-      />,
+      />
     );
 
     await userEvent.click(screen.getByTestId("cell-stage-trigger"));
@@ -48,7 +65,7 @@ describe("<CellStageAction> — convert an already-won row", () => {
         wonUnconverted={false}
         onConvert={vi.fn()}
         onSelectStage={vi.fn()}
-      />,
+      />
     );
     await userEvent.click(screen.getByTestId("cell-stage-trigger"));
     expect(screen.queryByTestId("cell-stage-convert")).not.toBeInTheDocument();
@@ -62,7 +79,7 @@ describe("<CellStageAction> — convert an already-won row", () => {
         wonUnconverted={false}
         onConvert={vi.fn()}
         onSelectStage={vi.fn()}
-      />,
+      />
     );
     await userEvent.click(screen.getByTestId("cell-stage-trigger"));
     expect(screen.queryByTestId("cell-stage-convert")).not.toBeInTheDocument();
@@ -76,7 +93,7 @@ describe("<CellStageAction> — convert an already-won row", () => {
         wonUnconverted
         onConvert={vi.fn()}
         onSelectStage={vi.fn()}
-      />,
+      />
     );
     expect(screen.queryByTestId("cell-stage-trigger")).not.toBeInTheDocument();
   });

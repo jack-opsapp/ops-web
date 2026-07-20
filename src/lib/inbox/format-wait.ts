@@ -19,7 +19,10 @@ const TWO_WEEKS_MS = 14 * DAY_MS;
  * @param durationMs - Elapsed milliseconds (e.g. Date.now() - lastInboundAt)
  * @param asOf       - Reference point for absolute date calculation (defaults to now)
  */
-export function formatWaitClock(durationMs: number, asOf: Date = new Date()): string {
+export function formatWaitClock(
+  durationMs: number,
+  asOf: Date = new Date()
+): string {
   const ms = Math.max(0, durationMs);
   if (ms < HOUR_MS) {
     const m = Math.max(1, Math.round(ms / MIN_MS));
@@ -75,6 +78,8 @@ export interface StateTagInputs {
    * label array; computeStateTag only inspects `AWAITING_REPLY`.
    */
   labels: ReadonlyArray<EmailThreadLabel>;
+  /** Canonical linked-lead chase state; false suppresses reply-debt styling. */
+  opportunityNeedsReply?: boolean | null;
   closed: boolean;
   now: number;
 }
@@ -104,16 +109,32 @@ export function computeStateTag(input: StateTagInputs): StateTagResult {
   } = input;
 
   if (closed) {
-    return { kind: "closed", tone: "neutral", prefix: "CLOSED", alarmStrip: false };
+    return {
+      kind: "closed",
+      tone: "neutral",
+      prefix: "CLOSED",
+      alarmStrip: false,
+    };
   }
   if (hasAiDraft) {
-    return { kind: "draft_ready", tone: "lavender", prefix: "DRAFT READY", alarmStrip: false };
+    return {
+      kind: "draft_ready",
+      tone: "lavender",
+      prefix: "DRAFT READY",
+      alarmStrip: false,
+    };
   }
   if (sentByAgentRecently) {
-    return { kind: "auto_sent", tone: "lavender", prefix: "AUTO-SENT", alarmStrip: false };
+    return {
+      kind: "auto_sent",
+      tone: "lavender",
+      prefix: "AUTO-SENT",
+      alarmStrip: false,
+    };
   }
 
-  const awaitingReply = labels.includes("AWAITING_REPLY");
+  const awaitingReply =
+    input.opportunityNeedsReply !== false && labels.includes("AWAITING_REPLY");
   const inboundUnreplied =
     lastInboundAt !== null &&
     (!lastOutboundAt || lastInboundAt > lastOutboundAt);
@@ -157,11 +178,7 @@ export function computeStateTag(input: StateTagInputs): StateTagResult {
     return {
       kind: "theirs",
       tone:
-        elapsed > TWO_WEEKS_MS
-          ? "rose"
-          : elapsed > WEEK_MS
-            ? "tan"
-            : "neutral",
+        elapsed > TWO_WEEKS_MS ? "rose" : elapsed > WEEK_MS ? "tan" : "neutral",
       prefix: "THEIRS",
       value: formatWaitClock(elapsed),
       alarmStrip: false,

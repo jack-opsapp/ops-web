@@ -2175,6 +2175,7 @@ describe("SyncEngine email opportunity title generation", () => {
     expect(state.opportunities[0]).toMatchObject({
       stage: "qualifying",
       ai_summary: "Customer supplied updated deck measurements.",
+      ai_summary_updated_at: expect.any(String),
       ai_stage_signals: ["ai_evaluated"],
     });
     expect(state.stageTransitions).toEqual([]);

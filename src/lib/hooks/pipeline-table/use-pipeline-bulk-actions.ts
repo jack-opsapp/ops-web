@@ -56,14 +56,32 @@ function isoToDate(value: string | null): Date | null {
 }
 
 /**
- * Normalize a date-input value (`yyyy-mm-dd`, local) into a `Date` at local
- * midnight, or `null` when cleared. Empty string clears the field.
+ * Normalize a date-input value (`yyyy-mm-dd`) into local noon. Noon keeps the
+ * chosen calendar day stable when the payload is serialized from a western
+ * timezone, unlike parsing the bare value as UTC midnight. Blank, malformed,
+ * and impossible dates return `null` so callers can fail closed without
+ * silently clearing an existing follow-up.
  */
 function dateInputToDate(value: string): Date | null {
   const trimmed = value.trim();
   if (trimmed.length === 0) return null;
-  const parsed = new Date(trimmed);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const parsed = new Date(year, monthIndex, day, 12, 0, 0, 0);
+
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== monthIndex ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return parsed;
 }
 
 export interface PipelineBulkActionsApi {
@@ -73,7 +91,7 @@ export interface PipelineBulkActionsApi {
   isRunning: boolean;
   /** Reassign every target's assignee (`assignedTo`). Empty string clears it. */
   reassignAssignee: (userId: string) => Promise<BulkRunResult>;
-  /** Set every target's next follow-up date (`yyyy-mm-dd`, empty clears). */
+  /** Set every target's next follow-up date (`yyyy-mm-dd`; blank is a no-op). */
   setFollowUpDate: (value: string) => Promise<BulkRunResult>;
   /** Set every target's priority. */
   changePriority: (priority: OpportunityPriority) => Promise<BulkRunResult>;
@@ -99,7 +117,9 @@ export function usePipelineBulkActions({
   };
 }): PipelineBulkActionsApi {
   const updateOpportunity = useUpdateOpportunity();
-  const assignOpportunity = useLeadAssignment();
+  // The bulk rail owns one aggregate completion/failure toast; suppress the
+  // per-row self-handoff notice so a 20-lead transfer cannot emit 20 toasts.
+  const assignOpportunity = useLeadAssignment({ notifyOnRevocation: false });
   const archiveOpportunity = useArchiveOpportunity();
   const unarchiveOpportunity = useUnarchiveOpportunity();
   const pushUndo = useUndoStore((s) => s.pushUndo);
@@ -210,6 +230,9 @@ export function usePipelineBulkActions({
   const setFollowUpDate = useCallback(
     (value: string) => {
       const nextFollowUpAt = dateInputToDate(value);
+      if (!nextFollowUpAt) {
+        return Promise.resolve({ successCount: 0, failedCount: 0 });
+      }
       return runUpdate({
         rows: targetRows,
         buildData: () => ({ nextFollowUpAt }),

@@ -38,6 +38,11 @@ interface PipelineFocusedCardProps
   clients?: Client[];
   stageColor: string;
   stalenessOpacity: number;
+  /**
+   * Assignee display name for the ownership marker — passed only for
+   * company-wide viewers; null when unassigned or the viewer is scoped.
+   */
+  assigneeName?: string | null;
   /** @deprecated Product callers must provide row-specific `leadAccess`. */
   canManage?: boolean;
   leadAccess: LeadAccess;
@@ -50,6 +55,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   clients = [],
   stageColor,
   stalenessOpacity,
+  assigneeName = null,
   leadAccess,
   onLogCall,
   onLogText,
@@ -101,6 +107,11 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
           stalenessOpacity={stalenessOpacity}
           density="comfortable"
           surfaceVariant="focused"
+          assigneeMarker={
+            assigneeName ? (
+              <AssigneeInitialsMarker name={assigneeName} />
+            ) : undefined
+          }
           canManage={leadAccess.canEdit}
           canAssign={leadAccess.canAssign}
           canConvert={leadAccess.canConvert}
@@ -126,6 +137,7 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
             <FocusedQuickStageActions
               currentStage={opportunity.stage}
               canManage={leadAccess.canEdit}
+              canConvert={leadAccess.canConvert}
               previousStage={previousStage}
               nextStage={nextStage}
               onMoveStage={(stage) => {
@@ -165,6 +177,32 @@ export const PipelineFocusedCard = memo(function PipelineFocusedCard({
   );
 });
 
+/**
+ * A quiet ownership marker for company-wide viewers: a 16px hairline disc with
+ * the assignee's first initial in the tertiary tone (no accent). A single glyph
+ * keeps the label at the 11px type floor inside the 16px disc; the full name
+ * rides on the title + aria-label. Unassigned leads render no marker (the parent
+ * passes none), so it never competes on the scan surface.
+ */
+function AssigneeInitialsMarker({ name }: { name: string }) {
+  const { t } = useDictionary("pipeline");
+  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  const label = t("card.assignedTo", "Assigned to {name}").replace(
+    "{name}",
+    name
+  );
+  return (
+    <span
+      role="img"
+      aria-label={label}
+      title={name}
+      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line font-mono text-micro leading-none text-text-3"
+    >
+      {initial}
+    </span>
+  );
+}
+
 const FOCUSED_STAGE_REASSIGN_ORDER: OpportunityStage[] = [
   ...getActiveStages(),
   OpportunityStage.Won,
@@ -194,17 +232,25 @@ function withHexAlpha(hex: string, alpha: number): string {
 function FocusedQuickStageActions({
   currentStage,
   canManage,
+  canConvert,
   previousStage,
   nextStage,
   onMoveStage,
 }: {
   currentStage: OpportunityStage;
   canManage: boolean;
+  canConvert: boolean;
   previousStage: OpportunityStage | null;
   nextStage: OpportunityStage | null;
   onMoveStage: (stage: OpportunityStage) => void;
 }) {
   const { t } = useDictionary("pipeline");
+  // Moving a lead to Won is a conversion — hide the forward arrow when the
+  // operator can't convert (mirrors the detail menu's existing Won gating).
+  // The affordance simply disappears at the Won boundary; Lost is never a
+  // "forward" move, so there is nothing next-eligible to surface instead.
+  const advanceStage =
+    nextStage === OpportunityStage.Won && !canConvert ? null : nextStage;
 
   return (
     <div className="flex min-w-0 items-center gap-[6px]" data-no-drag="">
@@ -221,15 +267,15 @@ function FocusedQuickStageActions({
           <ChevronLeft className="h-[13px] w-[13px]" strokeWidth={1.5} />
         </QuickStageButton>
       ) : null}
-      {nextStage ? (
+      {advanceStage ? (
         <QuickStageButton
           label={formatStageLabel(
             t("card.advanceStage", "Move to {stage}"),
-            nextStage
+            advanceStage
           )}
-          stage={nextStage}
+          stage={advanceStage}
           disabled={!canManage}
-          onClick={() => onMoveStage(nextStage)}
+          onClick={() => onMoveStage(advanceStage)}
         >
           <ChevronRight className="h-[13px] w-[13px]" strokeWidth={1.5} />
         </QuickStageButton>
@@ -237,6 +283,7 @@ function FocusedQuickStageActions({
       <FocusedStageMenu
         currentStage={currentStage}
         canManage={canManage}
+        canConvert={canConvert}
         onMoveStage={onMoveStage}
       />
     </div>
@@ -301,10 +348,12 @@ function QuickStageButton({
 function FocusedStageMenu({
   currentStage,
   canManage,
+  canConvert,
   onMoveStage,
 }: {
   currentStage: OpportunityStage;
   canManage: boolean;
+  canConvert: boolean;
   onMoveStage: (stage: OpportunityStage) => void;
 }) {
   const { t } = useDictionary("pipeline");
@@ -354,6 +403,7 @@ function FocusedStageMenu({
             <FocusedStageMenuPortal
               anchorRef={anchorRef}
               currentStage={currentStage}
+              canConvert={canConvert}
               onClose={() => setOpen(false)}
               onMoveStage={(stage) => {
                 setOpen(false);
@@ -370,11 +420,13 @@ function FocusedStageMenu({
 function FocusedStageMenuPortal({
   anchorRef,
   currentStage,
+  canConvert,
   onClose,
   onMoveStage,
 }: {
   anchorRef: React.RefObject<HTMLDivElement | null>;
   currentStage: OpportunityStage;
+  canConvert: boolean;
   onClose: () => void;
   onMoveStage: (stage: OpportunityStage) => void;
 }) {
@@ -433,7 +485,11 @@ function FocusedStageMenuPortal({
       onMouseDown={(event) => event.stopPropagation()}
     >
       {FOCUSED_STAGE_REASSIGN_ORDER.filter(
-        (stage) => stage !== currentStage
+        (stage) =>
+          stage !== currentStage &&
+          // Won is a conversion — omit it for operators who can't convert,
+          // mirroring the quick-arrow gate and the detail menu.
+          !(stage === OpportunityStage.Won && !canConvert)
       ).map((stage) => (
         <StageMenuItem
           key={stage}

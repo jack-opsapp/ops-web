@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
+import { Fragment, useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +13,10 @@ import type {
   InboxThreadDetail,
   InboxThreadRow,
 } from "@/lib/hooks/use-inbox-threads";
+import {
+  communicationDraftKey,
+  useCommunicationDraftStore,
+} from "@/stores/communication-draft-store";
 
 const push = vi.fn();
 const setEntityName = vi.fn();
@@ -24,6 +29,7 @@ const archiveBatchMutateAsync = vi.fn();
 const unarchiveBatchMutate = vi.fn();
 const setLeadArchivePreferenceMutateAsync = vi.fn();
 const markReadMutate = vi.fn();
+const sendReplyMutateAsync = vi.fn();
 const clipboardWriteText = vi.fn();
 const messageListSpy = vi.fn();
 let detailByThreadId = new Map<string, InboxThreadDetail>();
@@ -92,18 +98,18 @@ vi.mock("@/lib/hooks/use-inbox-threads", () => ({
   useInboxThreads: (params: unknown) => {
     useInboxThreadsSpy(params);
     return {
-    data: {
-      pages: [
-        {
-          threads: [
-            makeThreadRow("thread-a", "Alpha"),
-            makeThreadRow("thread-b", "Bravo"),
-          ],
-          nextCursor: null,
-        },
-      ],
-    },
-    isLoading: false,
+      data: {
+        pages: [
+          {
+            threads: [
+              makeThreadRow("thread-a", "Alpha"),
+              makeThreadRow("thread-b", "Bravo"),
+            ],
+            nextCursor: null,
+          },
+        ],
+      },
+      isLoading: false,
     };
   },
   useInboxThread: (threadId: string | null) => {
@@ -111,7 +117,10 @@ vi.mock("@/lib/hooks/use-inbox-threads", () => ({
     return { data: threadId ? (detailByThreadId.get(threadId) ?? null) : null };
   },
   useInboxDrafts: () => ({ data: [] }),
-  useSendReply: () => ({ mutate: vi.fn(), isPending: false }),
+  useSendReply: () => ({
+    mutateAsync: sendReplyMutateAsync,
+    isPending: false,
+  }),
   useThreadActions: () => ({
     archive: { mutate: archiveMutate },
     unarchive: { mutate: unarchiveMutate },
@@ -380,7 +389,33 @@ vi.mock("../message-list", () => ({
 }));
 
 vi.mock("../composer/composer", () => ({
-  Composer: () => null,
+  Composer: ({
+    value,
+    onChange,
+    onSend,
+    disabled,
+  }: {
+    value: string;
+    onChange: (value: string) => void;
+    onSend: (value: string) => void;
+    disabled?: boolean;
+  }) => (
+    <>
+      <textarea
+        aria-label="Reply composer"
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <button
+        type="button"
+        disabled={disabled || value.trim().length === 0}
+        onClick={() => onSend(value)}
+      >
+        Send reply
+      </button>
+    </>
+  ),
 }));
 
 vi.mock("../context-rail/work-view", () => ({
@@ -427,6 +462,7 @@ function makeThreadRow(id: string, clientName: string): InboxThreadRow {
     latestDirection: "inbound",
     latestSnippet: `${clientName} snippet`,
     opportunityId: null,
+    opportunityNeedsReply: null,
     aiSummary: null,
     phaseC: "none",
     agentBlockingQuestion: null,
@@ -458,6 +494,7 @@ function makeThreadDetail(id: string): InboxThreadDetail {
       messageCount: 1,
       unreadCount: 1,
       opportunityId: null,
+      opportunityNeedsReply: null,
       clientId: null,
       clientName: "Alpha",
       latestDirection: "inbound",
@@ -491,6 +528,28 @@ function makeThreadDetail(id: string): InboxThreadDetail {
   };
 }
 
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+  reject: (error: Error) => void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+const THREAD_A_DRAFT_KEY = communicationDraftKey({
+  actorUserId: "user-1",
+  surface: "inbox-reply",
+  threadId: "thread-a",
+});
+
 function renderRoute(threadId?: string) {
   const qc = new QueryClient({
     defaultOptions: {
@@ -519,6 +578,7 @@ beforeEach(() => {
   unarchiveBatchMutate.mockReset();
   setLeadArchivePreferenceMutateAsync.mockReset();
   markReadMutate.mockReset();
+  sendReplyMutateAsync.mockReset();
   clipboardWriteText.mockReset();
   messageListSpy.mockReset();
   clipboardWriteText.mockResolvedValue(undefined);
@@ -536,10 +596,248 @@ beforeEach(() => {
   }
   detailByThreadId = new Map();
   useInboxLayoutStore.setState({ ...DEFAULT_INBOX_LAYOUT });
+  useCommunicationDraftStore.getState().clear();
   window.history.replaceState(null, "", "/inbox");
 });
 
 describe("<InboxRoute> thread navigation", () => {
+  it("preserves the human reply through a query security-boundary remount", async () => {
+    const user = userEvent.setup();
+    detailByThreadId.set("thread-a", {
+      ...makeThreadDetail("thread-a"),
+      thread: {
+        ...makeThreadDetail("thread-a").thread,
+        opportunityId: "opp-a",
+      },
+    });
+
+    function EpochHarness() {
+      const [epoch, setEpoch] = useState(0);
+      return (
+        <>
+          <button type="button" onClick={() => setEpoch((value) => value + 1)}>
+            Rotate query authority
+          </button>
+          <Fragment key={epoch}>
+            <InboxRoute threadId="thread-a" />
+          </Fragment>
+        </>
+      );
+    }
+
+    const qc = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    render(
+      <QueryClientProvider client={qc}>
+        <EpochHarness />
+      </QueryClientProvider>
+    );
+
+    const composer = screen.getByRole("textbox", { name: "Reply composer" });
+    await user.type(composer, "Keep this human edit");
+    await waitFor(() =>
+      expect(
+        Object.values(useCommunicationDraftStore.getState().drafts)[0]?.body
+      ).toBe("Keep this human edit")
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Rotate query authority" })
+    );
+
+    expect(screen.getByRole("textbox", { name: "Reply composer" })).toHaveValue(
+      "Keep this human edit"
+    );
+  });
+
+  it("keeps the in-flight reply disabled and retries with one idempotency attempt after an unrelated authority remount", async () => {
+    const user = userEvent.setup();
+    const firstRequest = deferred<unknown>();
+    sendReplyMutateAsync
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockResolvedValueOnce({ delivered: true });
+    const randomUUID = vi
+      .spyOn(globalThis.crypto, "randomUUID")
+      .mockReturnValue("11111111-1111-4111-8111-111111111111");
+    detailByThreadId.set("thread-a", {
+      ...makeThreadDetail("thread-a"),
+      thread: {
+        ...makeThreadDetail("thread-a").thread,
+        opportunityId: "lead-a",
+      },
+    });
+
+    function EpochHarness() {
+      const [epoch, setEpoch] = useState(0);
+      return (
+        <>
+          <button type="button" onClick={() => setEpoch((value) => value + 1)}>
+            Rotate query authority
+          </button>
+          <Fragment key={epoch}>
+            <InboxRoute threadId="thread-a" />
+          </Fragment>
+        </>
+      );
+    }
+
+    const qc = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    render(
+      <QueryClientProvider client={qc}>
+        <EpochHarness />
+      </QueryClientProvider>
+    );
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Reply composer" }),
+      "Keep the custom dimensions."
+    );
+    await user.click(screen.getByRole("button", { name: "Send reply" }));
+    await waitFor(() =>
+      expect(
+        useCommunicationDraftStore.getState().drafts[THREAD_A_DRAFT_KEY]?.state
+          .sendPending
+      ).toBe(true)
+    );
+    const firstKey = sendReplyMutateAsync.mock.calls[0]?.[0].payload
+      .idempotencyKey as string;
+
+    act(() => {
+      useCommunicationDraftStore
+        .getState()
+        .removeForOpportunity("unrelated-lead");
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Rotate query authority" })
+    );
+
+    expect(screen.getByRole("textbox", { name: "Reply composer" })).toHaveValue(
+      "Keep the custom dimensions."
+    );
+    expect(screen.getByRole("button", { name: "Send reply" })).toBeDisabled();
+
+    await act(async () => {
+      firstRequest.reject(new Error("temporary transport failure"));
+      await firstRequest.promise.catch(() => undefined);
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Send reply" })).toBeEnabled()
+    );
+
+    await user.click(screen.getByRole("button", { name: "Send reply" }));
+    await waitFor(() => expect(sendReplyMutateAsync).toHaveBeenCalledTimes(2));
+    expect(sendReplyMutateAsync.mock.calls[1]?.[0].payload.idempotencyKey).toBe(
+      firstKey
+    );
+    randomUUID.mockRestore();
+  });
+
+  it.each(["resolve", "reject"] as const)(
+    "does not recreate reply state after a matching lead purge when the send later %ss",
+    async (settlement) => {
+      const user = userEvent.setup();
+      const request = deferred<unknown>();
+      sendReplyMutateAsync.mockReturnValueOnce(request.promise);
+      detailByThreadId.set("thread-a", {
+        ...makeThreadDetail("thread-a"),
+        thread: {
+          ...makeThreadDetail("thread-a").thread,
+          opportunityId: "lead-a",
+        },
+      });
+      renderRoute("thread-a");
+
+      await user.type(
+        screen.getByRole("textbox", { name: "Reply composer" }),
+        "Remove this after handoff."
+      );
+      await user.click(screen.getByRole("button", { name: "Send reply" }));
+      await waitFor(() =>
+        expect(
+          useCommunicationDraftStore.getState().drafts[THREAD_A_DRAFT_KEY]
+            ?.state.sendPending
+        ).toBe(true)
+      );
+
+      act(() => {
+        useCommunicationDraftStore.getState().removeForOpportunity("lead-a");
+      });
+      expect(
+        useCommunicationDraftStore.getState().drafts[THREAD_A_DRAFT_KEY]
+      ).toBeUndefined();
+
+      await act(async () => {
+        if (settlement === "resolve") request.resolve({ delivered: true });
+        else request.reject(new Error("late failure"));
+        await request.promise.catch(() => undefined);
+      });
+
+      expect(
+        useCommunicationDraftStore.getState().drafts[THREAD_A_DRAFT_KEY]
+      ).toBeUndefined();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    }
+  );
+
+  it("preserves an unrelated lead draft but fails closed on a full actor clear", async () => {
+    const user = userEvent.setup();
+    const request = deferred<unknown>();
+    sendReplyMutateAsync.mockReturnValueOnce(request.promise);
+    detailByThreadId.set("thread-a", {
+      ...makeThreadDetail("thread-a"),
+      thread: {
+        ...makeThreadDetail("thread-a").thread,
+        opportunityId: "lead-a",
+      },
+    });
+    renderRoute("thread-a");
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Reply composer" }),
+      "Actor-owned reply"
+    );
+    await waitFor(() =>
+      expect(
+        useCommunicationDraftStore.getState().drafts[THREAD_A_DRAFT_KEY]?.body
+      ).toBe("Actor-owned reply")
+    );
+    await user.click(screen.getByRole("button", { name: "Send reply" }));
+    await waitFor(() =>
+      expect(
+        useCommunicationDraftStore.getState().drafts[THREAD_A_DRAFT_KEY]?.state
+          .sendPending
+      ).toBe(true)
+    );
+
+    act(() => {
+      useCommunicationDraftStore
+        .getState()
+        .removeForOpportunity("unrelated-lead");
+    });
+    expect(
+      useCommunicationDraftStore.getState().drafts[THREAD_A_DRAFT_KEY]?.body
+    ).toBe("Actor-owned reply");
+
+    act(() => {
+      useCommunicationDraftStore.getState().clear();
+    });
+    await act(async () => {
+      request.reject(new Error("late actor-A failure"));
+      await request.promise.catch(() => undefined);
+    });
+    expect(useCommunicationDraftStore.getState().drafts).toEqual({});
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("defaults to the starred inbox rail from the inbox layout preference store", () => {
     useInboxLayoutStore.setState({
       ...DEFAULT_INBOX_LAYOUT,
@@ -550,10 +848,10 @@ describe("<InboxRoute> thread navigation", () => {
 
     expect(screen.getByTestId("thread-column-header")).toHaveAttribute(
       "data-filter",
-      "EVERYTHING_ELSE",
+      "EVERYTHING_ELSE"
     );
     expect(useInboxThreadsSpy).toHaveBeenLastCalledWith(
-      expect.objectContaining({ filter: "EVERYTHING_ELSE" }),
+      expect.objectContaining({ filter: "EVERYTHING_ELSE" })
     );
   });
 
@@ -562,15 +860,15 @@ describe("<InboxRoute> thread navigation", () => {
     renderRoute();
 
     await user.click(
-      screen.getByRole("button", { name: "Set Everything Else default" }),
+      screen.getByRole("button", { name: "Set Everything Else default" })
     );
 
     expect(useInboxLayoutStore.getState().defaultRailFilter).toBe(
-      "EVERYTHING_ELSE",
+      "EVERYTHING_ELSE"
     );
     expect(screen.getByTestId("thread-column-header")).toHaveAttribute(
       "data-default-filter",
-      "EVERYTHING_ELSE",
+      "EVERYTHING_ELSE"
     );
   });
 
@@ -628,7 +926,8 @@ describe("<InboxRoute> thread navigation", () => {
     renderRoute("thread-a");
 
     expect(messageListSpy).toHaveBeenCalled();
-    const lastCall = messageListSpy.mock.calls[messageListSpy.mock.calls.length - 1];
+    const lastCall =
+      messageListSpy.mock.calls[messageListSpy.mock.calls.length - 1];
     expect(lastCall?.[0].className).toContain(
       "pb-[calc(var(--inbox-floating-composer-height)_+_24px)]"
     );
@@ -645,7 +944,7 @@ describe("<InboxRoute> thread navigation", () => {
       expect.objectContaining({
         onSuccess: expect.any(Function),
         onError: expect.any(Function),
-      }),
+      })
     );
   });
 
@@ -795,7 +1094,9 @@ describe("<InboxRoute> thread navigation", () => {
     const { invalidateSpy } = renderRoute("thread-a");
 
     await user.click(screen.getByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "MARK READ" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "MARK READ" })
+    );
 
     expect(markReadMutate).toHaveBeenCalledWith(
       { threadId: "thread-a", isRead: true },
@@ -841,7 +1142,9 @@ describe("<InboxRoute> thread navigation", () => {
     renderRoute("thread-a");
 
     await user.click(screen.getByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "MARK UNREAD" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "MARK UNREAD" })
+    );
 
     expect(markReadMutate).toHaveBeenCalledWith(
       { threadId: "thread-a", isRead: false },

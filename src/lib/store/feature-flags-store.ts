@@ -74,6 +74,11 @@ function buildFallbackFlags(): Map<string, FlagState> {
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
+// Actor switches and explicit clears invalidate every older in-flight fetch.
+// Without a generation guard, a slow response for actor A can overwrite actor
+// B's feature and company overrides after B is already active.
+let featureFlagRefreshGeneration = 0;
+
 export const useFeatureFlagsStore = create<FeatureFlagsState>()((set, get) => ({
   flags: new Map(),
   initialized: false,
@@ -105,9 +110,19 @@ export const useFeatureFlagsStore = create<FeatureFlagsState>()((set, get) => ({
   },
 
   fetchFlags: async (userId: string) => {
+    const refreshGeneration = ++featureFlagRefreshGeneration;
+    const isCurrentRefresh = () =>
+      refreshGeneration === featureFlagRefreshGeneration;
+
     /** Attempt a single fetch — returns parsed data or null on failure. */
     const attempt = async (): Promise<
-      | { slug: string; enabled: boolean; hasOverride: boolean; routes: string[]; permissions: string[] }[]
+      | {
+          slug: string;
+          enabled: boolean;
+          hasOverride: boolean;
+          routes: string[];
+          permissions: string[];
+        }[]
       | null
     > => {
       try {
@@ -125,9 +140,11 @@ export const useFeatureFlagsStore = create<FeatureFlagsState>()((set, get) => ({
 
     // Try twice before falling back to static definitions
     let data = await attempt();
+    if (!isCurrentRefresh()) return;
     if (!data) {
       console.warn("[FeatureFlagsStore] Retrying flag fetch…");
       data = await attempt();
+      if (!isCurrentRefresh()) return;
     }
 
     if (!data) {
@@ -153,6 +170,7 @@ export const useFeatureFlagsStore = create<FeatureFlagsState>()((set, get) => ({
   },
 
   clear: () => {
+    featureFlagRefreshGeneration += 1;
     set({ flags: new Map(), initialized: false });
   },
 }));

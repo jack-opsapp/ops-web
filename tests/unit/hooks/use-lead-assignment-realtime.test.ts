@@ -6,11 +6,13 @@ import {
   reconcileLeadAssignmentBacklog,
   reconcileLeadAssignmentDelivery,
   reconcilePermissionChangeDelivery,
+  replayWithRetryAndDeadline,
   type AssignmentDeliveryRow,
 } from "@/lib/hooks/use-lead-assignment-realtime";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { useWindowStore } from "@/stores/window-store";
+import { useCommunicationDraftStore } from "@/stores/communication-draft-store";
 import type { Opportunity } from "@/lib/types/pipeline";
 
 function opportunity(id: string): Opportunity {
@@ -29,6 +31,7 @@ function queryClient(): QueryClient {
 beforeEach(() => {
   usePipelineModeStore.setState({ detailPanelOpportunityId: null });
   useWindowStore.setState({ windows: [], nextZIndex: 2_000 });
+  useCommunicationDraftStore.getState().clear();
 });
 
 describe("reconcileLeadAssignmentDelivery", () => {
@@ -43,6 +46,11 @@ describe("reconcileLeadAssignmentDelivery", () => {
     const commentKey = queryKeys.activityComments.byActivity("activity-1");
     const draftKey = queryKeys.aiDrafting.pendingSends("company-1");
     const approvalKey = queryKeys.approvalQueue.detail("approval-1");
+    const activityFeedKey = ["activities", "company-feed", "company-1"];
+    const inboxLeadsKey = ["inboxLeads", "company-1"];
+    const emailReviewItemsKey = ["emailReviewItems", "company-1"];
+    const singularClientKey = ["client", "client-1"];
+    const futureLeadCacheKey = ["future-lead-cache", "lead-1"];
 
     client.setQueryData(listKey, [
       opportunity("lead-1"),
@@ -63,6 +71,13 @@ describe("reconcileLeadAssignmentDelivery", () => {
     client.setQueryData(commentKey, [{ id: "comment-1" }]);
     client.setQueryData(draftKey, [{ id: "draft-1" }]);
     client.setQueryData(approvalKey, { id: "approval-1" });
+    client.setQueryData(activityFeedKey, [{ body: "private activity" }]);
+    client.setQueryData(inboxLeadsKey, [{ id: "lead-1" }]);
+    client.setQueryData(emailReviewItemsKey, [{ id: "review-1" }]);
+    client.setQueryData(singularClientKey, { id: "client-1" });
+    // A security purge must not depend on a query-root allowlist. A newly
+    // introduced cache can contain lead content before this hook knows its key.
+    client.setQueryData(futureLeadCacheKey, { body: "future private data" });
     usePipelineModeStore.setState({ detailPanelOpportunityId: "lead-1" });
     useWindowStore.setState({
       windows: [
@@ -78,15 +93,73 @@ describe("reconcileLeadAssignmentDelivery", () => {
         },
       ],
     });
+    useCommunicationDraftStore.getState().save("lead-1-draft", {
+      actorUserId: "user-1",
+      surface: "inbox-reply",
+      threadId: "thread-1",
+      opportunityId: "lead-1",
+      instanceId: null,
+      body: "revoked lead draft",
+      state: {},
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-2-draft", {
+      actorUserId: "user-1",
+      surface: "inbox-reply",
+      threadId: "thread-2",
+      opportunityId: "lead-2",
+      instanceId: null,
+      body: "unrelated lead draft",
+      state: {},
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-1-compose", {
+      actorUserId: "user-1",
+      surface: "floating-email",
+      threadId: null,
+      opportunityId: "lead-1",
+      instanceId: "compose-1",
+      body: "revoked floating compose",
+      state: { sendPending: true },
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-1-follow-up", {
+      actorUserId: "user-1",
+      surface: "pipeline-follow-up",
+      threadId: null,
+      opportunityId: "lead-1",
+      instanceId: null,
+      body: "revoked quick follow-up",
+      state: { sendPending: true },
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-2-compose", {
+      actorUserId: "user-1",
+      surface: "floating-email",
+      threadId: null,
+      opportunityId: "lead-2",
+      instanceId: "compose-2",
+      body: "unrelated floating compose",
+      state: {},
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-2-follow-up", {
+      actorUserId: "user-1",
+      surface: "pipeline-follow-up",
+      threadId: null,
+      opportunityId: "lead-2",
+      instanceId: null,
+      body: "unrelated quick follow-up",
+      state: {},
+      updatedAt: Date.now(),
+    });
 
     reconcileLeadAssignmentDelivery(client, {
       opportunityId: "lead-1",
       accessAfter: false,
     });
 
-    expect(
-      client.getQueryData<Opportunity[]>(listKey)?.map(({ id }) => id)
-    ).toEqual(["lead-2"]);
+    expect(client.getQueryData(listKey)).toBeUndefined();
     expect(
       client.getQueryData(queryKeys.opportunities.detail("lead-1"))
     ).toBeUndefined();
@@ -101,8 +174,29 @@ describe("reconcileLeadAssignmentDelivery", () => {
     expect(client.getQueryData(commentKey)).toBeUndefined();
     expect(client.getQueryData(draftKey)).toBeUndefined();
     expect(client.getQueryData(approvalKey)).toBeUndefined();
+    expect(client.getQueryData(activityFeedKey)).toBeUndefined();
+    expect(client.getQueryData(inboxLeadsKey)).toBeUndefined();
+    expect(client.getQueryData(emailReviewItemsKey)).toBeUndefined();
+    expect(client.getQueryData(singularClientKey)).toBeUndefined();
+    expect(client.getQueryData(futureLeadCacheKey)).toBeUndefined();
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
     expect(useWindowStore.getState().windows).toEqual([]);
+    expect(useCommunicationDraftStore.getState().drafts).toEqual({
+      "lead-2-draft": expect.objectContaining({
+        opportunityId: "lead-2",
+        body: "unrelated lead draft",
+      }),
+      "lead-2-compose": expect.objectContaining({
+        surface: "floating-email",
+        opportunityId: "lead-2",
+        body: "unrelated floating compose",
+      }),
+      "lead-2-follow-up": expect.objectContaining({
+        surface: "pipeline-follow-up",
+        opportunityId: "lead-2",
+        body: "unrelated quick follow-up",
+      }),
+    });
   });
 
   it("replays a missed backlog at only the latest version per lead", () => {
@@ -181,7 +275,7 @@ describe("reconcileLeadAssignmentDelivery", () => {
       "user-1",
       seen
     );
-    expect(client.getQueryData(listKey)).toEqual([]);
+    expect(client.getQueryData(listKey)).toBeUndefined();
     expect(seen.get("lead-1")).toBe(3);
   });
 
@@ -257,6 +351,178 @@ describe("reconcileLeadAssignmentDelivery", () => {
     expect(useWindowStore.getState().windows.map(({ id }) => id)).toEqual([
       "compose:lead-2",
     ]);
+  });
+});
+
+describe("lead-revoked notification", () => {
+  it("notifies exactly once with the cached display title when a visible lead is revoked", () => {
+    const client = queryClient();
+    const listKey = queryKeys.opportunities.list("company-1");
+    client.setQueryData(listKey, [
+      {
+        id: "lead-1",
+        title: "Deck rebuild",
+        contactName: "Jordan Lee",
+        client: { name: "Acme Exteriors" },
+      } as unknown as Opportunity,
+      opportunity("lead-2"),
+    ]);
+    const onLeadRevoked = vi.fn();
+
+    reconcileLeadAssignmentDelivery(
+      client,
+      { opportunityId: "lead-1", accessAfter: false },
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).toHaveBeenCalledTimes(1);
+    expect(onLeadRevoked).toHaveBeenCalledWith({ title: "Acme Exteriors" });
+    // The purge itself still ran.
+    expect(client.getQueryData(listKey)).toBeUndefined();
+  });
+
+  it("stays silent when the revoked lead was not visible in any list cache", () => {
+    const client = queryClient();
+    const onLeadRevoked = vi.fn();
+
+    // Boot-time backlog replay over an empty cache: nothing vanished before
+    // the operator's eyes, so nothing announces.
+    reconcileLeadAssignmentDelivery(
+      client,
+      { opportunityId: "lead-1", accessAfter: false },
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).not.toHaveBeenCalled();
+  });
+
+  it("does not notify for retained or gained access", () => {
+    const client = queryClient();
+    const listKey = queryKeys.opportunities.list("company-1");
+    client.setQueryData(listKey, [opportunity("lead-1")]);
+    const onLeadRevoked = vi.fn();
+
+    reconcileLeadAssignmentDelivery(
+      client,
+      { opportunityId: "lead-1", accessAfter: true },
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).not.toHaveBeenCalled();
+  });
+
+  it("dedupes the notification when the same revocation version replays", () => {
+    const client = queryClient();
+    const listKey = queryKeys.opportunities.list("company-1");
+    const seen = new Map<string, number>();
+    const onLeadRevoked = vi.fn();
+    const revocation: AssignmentDeliveryRow = {
+      id: "delivery-1",
+      company_id: "company-1",
+      opportunity_id: "lead-1",
+      recipient_user_id: "user-1",
+      access_after: false,
+      assignment_version: 3,
+    };
+
+    client.setQueryData(listKey, [
+      { id: "lead-1", title: "Deck rebuild" } as unknown as Opportunity,
+    ]);
+    reconcileLeadAssignmentBacklog(
+      client,
+      [revocation],
+      "company-1",
+      "user-1",
+      seen,
+      onLeadRevoked
+    );
+    // Reconnect replays the same delivery; the lead is even back in cache
+    // (e.g. a stale refetch) — the seen-version dedupe must keep it silent.
+    client.setQueryData(listKey, [
+      { id: "lead-1", title: "Deck rebuild" } as unknown as Opportunity,
+    ]);
+    reconcileLeadAssignmentBacklog(
+      client,
+      [revocation],
+      "company-1",
+      "user-1",
+      seen,
+      onLeadRevoked
+    );
+
+    expect(onLeadRevoked).toHaveBeenCalledTimes(1);
+    expect(onLeadRevoked).toHaveBeenCalledWith({ title: "Deck rebuild" });
+  });
+});
+
+describe("replayWithRetryAndDeadline", () => {
+  it("retries a failing replay on backoff and recovers without failing closed", async () => {
+    const runReplay = vi.fn(async () => false);
+    runReplay
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const onSuccess = vi.fn();
+    const onFinalFailure = vi.fn();
+    const sleep = vi.fn(async (_ms: number) => {});
+
+    const result = await replayWithRetryAndDeadline({
+      runReplay,
+      onSuccess,
+      onFinalFailure,
+      isDisposed: () => false,
+      sleep,
+    });
+
+    expect(result).toBe(true);
+    // Initial attempt + three backoff retries, recovering on the fourth.
+    expect(runReplay).toHaveBeenCalledTimes(4);
+    expect(sleep.mock.calls.map((call) => call[0])).toEqual([
+      1_000, 3_000, 9_000,
+    ]);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onFinalFailure).not.toHaveBeenCalled();
+  });
+
+  it("hands off to the fail-closed path only after every retry is exhausted", async () => {
+    const runReplay = vi.fn(async () => false);
+    const onSuccess = vi.fn();
+    const onFinalFailure = vi.fn();
+
+    const result = await replayWithRetryAndDeadline({
+      runReplay,
+      onSuccess,
+      onFinalFailure,
+      isDisposed: () => false,
+      sleep: async () => {},
+    });
+
+    expect(result).toBe(false);
+    expect(runReplay).toHaveBeenCalledTimes(4);
+    expect(onFinalFailure).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("stops retrying and never fails closed once disposed mid-backoff", async () => {
+    let disposed = false;
+    const runReplay = vi.fn(async () => false);
+    const onFinalFailure = vi.fn();
+    const sleep = vi.fn(async () => {
+      disposed = true; // the effect tore down during the wait
+    });
+
+    const result = await replayWithRetryAndDeadline({
+      runReplay,
+      onSuccess: vi.fn(),
+      onFinalFailure,
+      isDisposed: () => disposed,
+      sleep,
+    });
+
+    expect(result).toBe(false);
+    expect(runReplay).toHaveBeenCalledTimes(1);
+    expect(onFinalFailure).not.toHaveBeenCalled();
   });
 });
 

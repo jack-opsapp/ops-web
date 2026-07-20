@@ -87,7 +87,9 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
     lastInboundAt: null,
     lastOutboundAt: null,
     lastMessageDirection: null,
+    handledAt: null,
     aiSummary: null,
+    aiSummaryUpdatedAt: null,
     aiStageConfidence: null,
     aiStageSignals: null,
     detectedValue: null,
@@ -382,6 +384,8 @@ describe("mapOpportunityToTableRow", () => {
     const nextFollowUpAt = daysBeforeNow(1);
     const expectedCloseDate = daysAfterNow(14);
     const updatedAt = daysBeforeNow(1);
+    const lastInboundAt = daysBeforeNow(3);
+    const handledAt = daysBeforeNow(2);
 
     const opp = makeOpportunity({
       id: "opp-42",
@@ -395,6 +399,9 @@ describe("mapOpportunityToTableRow", () => {
       source: OpportunitySource.Referral,
       priority: OpportunityPriority.High,
       correspondenceCount: 7,
+      lastInboundAt,
+      lastMessageDirection: "in",
+      handledAt,
       stageEnteredAt,
       lastActivityAt,
       nextFollowUpAt,
@@ -434,6 +441,7 @@ describe("mapOpportunityToTableRow", () => {
     expect(row.assignedTo).toBe("user-3");
     expect(row.projectId).toBe("proj-2");
     expect(row.correspondenceCount).toBe(7);
+    expect(row.lastMessageDirection).toBe("in");
 
     // Joined names
     expect(row.clientName).toBe("Maple Holdings");
@@ -458,6 +466,8 @@ describe("mapOpportunityToTableRow", () => {
     // Dates → ISO strings
     expect(row.stageEnteredAt).toBe(stageEnteredAt.toISOString());
     expect(row.lastActivityAt).toBe(lastActivityAt.toISOString());
+    expect(row.lastInboundAt).toBe(lastInboundAt.toISOString());
+    expect(row.handledAt).toBe(handledAt.toISOString());
     expect(row.nextFollowUpAt).toBe(nextFollowUpAt.toISOString());
     expect(row.expectedCloseDate).toBe(expectedCloseDate.toISOString());
     expect(row.updatedAt).toBe(updatedAt.toISOString());

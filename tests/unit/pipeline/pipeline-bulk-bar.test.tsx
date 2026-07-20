@@ -6,6 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OpportunityStage } from "@/lib/types/pipeline";
@@ -90,6 +91,12 @@ vi.mock("@/i18n/client", () => ({
         "table.bulk.partialFailure":
           "Updated {success} of {total}. {failed} failed.",
         "table.bulk.failure": "Nothing updated. Try again.",
+        "handoff.bulkTitle": "Hand off selected leads?",
+        "handoff.bulkBody": "{count} leads move to {name} and leave your list.",
+        "handoff.title": "Hand off this lead?",
+        "handoff.body": "It moves to {name} and leaves your list.",
+        "handoff.confirm": "HAND OFF",
+        "handoff.cancel": "KEEP",
         "table.bulk.undoReassign": "Assignee restored on {count} deals",
         "table.bulk.undoFollowUp": "Follow-up restored on {count} deals",
         "table.bulk.undoPriority": "Priority restored on {count} deals",
@@ -99,6 +106,7 @@ vi.mock("@/i18n/client", () => ({
 }));
 
 import { useAuthStore } from "@/lib/store/auth-store";
+import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { PipelineBulkBar } from "@/app/(dashboard)/pipeline/_components/table/pipeline-bulk-bar";
 
@@ -126,6 +134,9 @@ function makeRow(
     source: null,
     priority: null,
     correspondenceCount: 0,
+    lastInboundAt: null,
+    lastMessageDirection: null,
+    handledAt: null,
     stageEnteredAt: null,
     projectId: null,
     updatedAt: "2026-06-01T00:00:00.000Z",
@@ -251,6 +262,14 @@ beforeEach(() => {
     company: { id: "co-1", adminIds: [] } as never,
     currentUser: { id: "user-a" } as never,
   });
+  usePermissionStore.setState({
+    permissions: new Map([
+      ["pipeline.view", "all"],
+      ["pipeline.assign", "all"],
+    ]),
+    configuredPermissions: new Set(["pipeline.view", "pipeline.assign"]),
+    initialized: true,
+  });
 });
 
 afterEach(() => {
@@ -289,16 +308,11 @@ describe("PipelineBulkBar", () => {
   it("reassigns each selected row with its exact snapshot and creates no unsafe undo", async () => {
     const { onClearSelection } = renderBar();
 
-    // Open the guarded assignee picker, wait for candidates, pick a member, apply.
-    fireEvent.click(screen.getAllByText("Reassign assignee")[0]);
+    // Open the guarded assignee picker, wait for candidates, pick a member —
+    // the canonical single-select picker commits and closes on pick (no Apply).
+    fireEvent.click(screen.getByRole("button", { name: "Reassign assignee" }));
     await waitFor(() => expect(listCandidates).toHaveBeenCalledWith("opp-1"));
-    await screen.findByRole("option", { name: "Ada Lovelace" });
-
-    const select = screen.getByLabelText(
-      "Reassign assignee"
-    ) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: "user-b" } });
-    fireEvent.click(screen.getAllByText("Reassign assignee").at(-1)!);
+    fireEvent.click(await screen.findByText("Grace Hopper"));
 
     await waitFor(() => expect(changeAssignment).toHaveBeenCalledTimes(3));
     expect(changeAssignment).toHaveBeenCalledWith({
@@ -325,6 +339,79 @@ describe("PipelineBulkBar", () => {
     await waitFor(() => expect(onClearSelection).toHaveBeenCalled());
 
     expect(useUndoStore.getState().stack).toHaveLength(0);
+  });
+
+  it("confirms before a bulk handoff removes the assigned operator's access", async () => {
+    usePermissionStore.setState({
+      permissions: new Map([
+        ["pipeline.view", "assigned"],
+        ["pipeline.assign", "assigned"],
+      ]),
+      configuredPermissions: new Set(["pipeline.view", "pipeline.assign"]),
+      initialized: true,
+    });
+    const selfAssignedRows = rows.map((row) => ({
+      ...row,
+      assignedTo: "user-a",
+    }));
+
+    renderBar({
+      selectedRows: selfAssignedRows,
+      leadAccessById: new Map(
+        selfAssignedRows.map((row) => [row.id, FULL_ACCESS])
+      ),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reassign assignee" }));
+    fireEvent.click(await screen.findByText("Grace Hopper"));
+
+    expect(changeAssignment).not.toHaveBeenCalled();
+    expect(screen.getByText("Hand off selected leads?")).toBeInTheDocument();
+    expect(
+      screen.getByText("3 leads move to Grace Hopper and leave your list.")
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "HAND OFF" }));
+    await waitFor(() => expect(changeAssignment).toHaveBeenCalledTimes(3));
+  });
+
+  it("uses the singular handoff message when one selected lead will leave", async () => {
+    usePermissionStore.setState({
+      permissions: new Map([
+        ["pipeline.view", "assigned"],
+        ["pipeline.assign", "assigned"],
+      ]),
+      configuredPermissions: new Set(["pipeline.view", "pipeline.assign"]),
+      initialized: true,
+    });
+    const selfAssignedRow = { ...rows[0], assignedTo: "user-a" };
+
+    renderBar({
+      selectedRows: [selfAssignedRow],
+      selectedIds: new Set([selfAssignedRow.id]),
+      leadAccessById: new Map([[selfAssignedRow.id, FULL_ACCESS]]),
+      renderedRowCount: 1,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reassign assignee" }));
+    fireEvent.click(await screen.findByText("Grace Hopper"));
+
+    expect(screen.getByText("Hand off this lead?")).toBeInTheDocument();
+    expect(
+      screen.getByText("It moves to Grace Hopper and leaves your list.")
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the bulk assignee picker on the dropdown layer", async () => {
+    renderBar();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reassign assignee" }));
+    const picker = await screen.findByRole("dialog", {
+      name: "Reassign assignee",
+    });
+
+    expect(picker).toHaveClass("z-dropdown");
+    expect(picker).not.toHaveClass("z-modal");
   });
 
   it("hides reassignment unless every selected row has assign access", () => {
@@ -359,11 +446,22 @@ describe("PipelineBulkBar", () => {
       }),
     });
 
-    fireEvent.click(screen.getAllByText("Reassign assignee")[0]);
-    await screen.findByRole("option", { name: "Grace Hopper" });
-    expect(
-      screen.queryByRole("option", { name: "— Unassigned —" })
-    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reassign assignee" }));
+    await screen.findByText("Grace Hopper");
+    expect(screen.queryByText("— Unassigned —")).not.toBeInTheDocument();
+  });
+
+  it("keeps Set follow-up disabled and mutation-free while the date is blank", () => {
+    const { onClearSelection } = renderBar();
+    const setFollowUp = screen.getByRole("button", {
+      name: "Set follow-up",
+    });
+
+    expect(setFollowUp).toBeDisabled();
+    fireEvent.click(setFollowUp);
+
+    expect(updateOpportunity).not.toHaveBeenCalled();
+    expect(onClearSelection).not.toHaveBeenCalled();
   });
 
   it("sets the follow-up date across all selected rows and pushes an undo restoring prior dates", async () => {
@@ -379,9 +477,11 @@ describe("PipelineBulkBar", () => {
     for (const id of ["opp-1", "opp-2", "opp-3"]) {
       const call = updateOpportunity.mock.calls.find((c) => c[0] === id);
       expect(call?.[1].nextFollowUpAt).toBeInstanceOf(Date);
-      expect((call?.[1].nextFollowUpAt as Date).getTime()).toBe(
-        new Date("2026-08-15").getTime()
-      );
+      const followUp = call?.[1].nextFollowUpAt as Date;
+      expect(followUp.getFullYear()).toBe(2026);
+      expect(followUp.getMonth()).toBe(7);
+      expect(followUp.getDate()).toBe(15);
+      expect(followUp.getHours()).toBe(12);
     }
 
     await waitFor(() => expect(onClearSelection).toHaveBeenCalled());
@@ -404,13 +504,16 @@ describe("PipelineBulkBar", () => {
   });
 
   it("changes priority across all selected rows and pushes an undo restoring prior priorities", async () => {
+    const user = userEvent.setup();
     renderBar();
 
-    const prioritySelect = screen.getByLabelText(
-      "Set priority"
-    ) as HTMLSelectElement;
-    fireEvent.change(prioritySelect, { target: { value: "low" } });
-    fireEvent.click(screen.getByText("Set priority"));
+    const prioritySelect = screen.getByRole("combobox", {
+      name: "Set priority",
+    });
+    expect(prioritySelect).not.toBeInstanceOf(HTMLSelectElement);
+    await user.click(prioritySelect);
+    await user.click(screen.getByRole("option", { name: "Low" }));
+    await user.click(screen.getByRole("button", { name: "Set priority" }));
 
     await waitFor(() => expect(updateOpportunity).toHaveBeenCalledTimes(3));
     expect(updateOpportunity).toHaveBeenCalledWith("opp-1", {
@@ -467,7 +570,10 @@ describe("PipelineBulkBar", () => {
 
   it("clears selection from the clear control without mutating anything", () => {
     const { onClearSelection } = renderBar();
-    fireEvent.click(screen.getByText("Clear"));
+    const clear = screen.getByRole("button", { name: "Clear" });
+    expect(clear).toHaveClass("text-text-3");
+    expect(clear).not.toHaveClass("text-text-mute");
+    fireEvent.click(clear);
     expect(onClearSelection).toHaveBeenCalledTimes(1);
     expect(updateOpportunity).not.toHaveBeenCalled();
     expect(archiveOpportunity).not.toHaveBeenCalled();

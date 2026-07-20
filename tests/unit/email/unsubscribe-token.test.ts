@@ -23,7 +23,10 @@ describe("unsubscribe-token", () => {
   });
 
   it("(1) signs and verifies a token roundtrip", () => {
-    const tok = signUnsubscribeToken({ email: "user@example.com", list: "field_notes" });
+    const tok = signUnsubscribeToken({
+      email: "user@example.com",
+      list: "field_notes",
+    });
     const r = verifyUnsubscribeToken(tok);
     expect(r.ok).toBe(true);
     if (r.ok) {
@@ -57,11 +60,14 @@ describe("unsubscribe-token", () => {
   });
 
   it("(6) rejects a tampered signature", () => {
-    const tok = signUnsubscribeToken({ email: "user@example.com" });
-    const last = tok.slice(-1);
-    const flipped = last === "A" ? "B" : "A";
-    const tampered = tok.slice(0, -1) + flipped;
-    const r = verifyUnsubscribeToken(tampered);
+    // This fixed instant produces the CI edge case: a canonical signature
+    // ending in `A`, whose discarded base64 padding bits made `A` -> `B` a no-op.
+    const tok = signUnsubscribeToken({ email: "user@example.com", now: 32 });
+    const [payloadB64, signatureB64] = tok.split(".");
+    const signature = Buffer.from(signatureB64, "base64url");
+    signature[0] ^= 0x01;
+    const tampered = `${payloadB64}.${signature.toString("base64url")}`;
+    const r = verifyUnsubscribeToken(tampered, 32);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toBe("bad_signature");
   });
@@ -100,8 +106,13 @@ describe("unsubscribe-token", () => {
   });
 
   it("(11) buildUnsubscribeUrl produces a parseable URL", () => {
-    const url = buildUnsubscribeUrl({ email: "user@example.com", list: "field_notes" });
-    expect(url.startsWith("https://app.opsapp.co/api/email/unsubscribe?t=")).toBe(true);
+    const url = buildUnsubscribeUrl({
+      email: "user@example.com",
+      list: "field_notes",
+    });
+    expect(
+      url.startsWith("https://app.opsapp.co/api/email/unsubscribe?t=")
+    ).toBe(true);
     const u = new URL(url);
     const t = u.searchParams.get("t");
     expect(t).toBeTruthy();

@@ -1,6 +1,14 @@
 "use client";
 
-import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useReducedMotion } from "framer-motion";
 import { CalendarClock, Mail } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -25,6 +33,8 @@ import {
   type AddressSelection,
 } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import { PipelineCardActions } from "./pipeline-card-actions";
+import { LeadChaseControl } from "./lead-chase-control";
+import { getLeadChaseState } from "@/lib/leads/chase-state";
 
 type PipelineCardDensity = "compact" | "comfortable";
 
@@ -87,6 +97,12 @@ export interface PipelineCardContentProps
   openDetailLabel?: string;
   leadingAccessory?: React.ReactNode;
   quickStageActions?: React.ReactNode;
+  /**
+   * Optional ownership marker rendered in the top row beside the day count
+   * (focused surface only). A ReactNode so the caller owns its presentation;
+   * absent for scoped viewers and unassigned leads — it never adds a row.
+   */
+  assigneeMarker?: React.ReactNode;
   children?: React.ReactNode;
 }
 
@@ -115,6 +131,7 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   openDetailLabel,
   leadingAccessory,
   quickStageActions,
+  assigneeMarker,
   onLogCall = noop,
   onLogText = noop,
   onAddNote = noop,
@@ -201,7 +218,15 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   const hasEmailSignal = opportunity.correspondenceCount > 0;
   const followUpDate = opportunity.nextFollowUpAt;
   const hasFollowUpSignal = Boolean(followUpDate);
-  const hasSignals = hasEmailSignal || hasFollowUpSignal;
+  const leadChaseState = getLeadChaseState({
+    stage: opportunity.stage,
+    lastMessageDirection: opportunity.lastMessageDirection,
+    lastInboundAt: opportunity.lastInboundAt,
+    handledAt: opportunity.handledAt,
+  });
+  const leadNeedsReply = leadChaseState === "your_move";
+  const leadIsWaiting = leadChaseState === "waiting";
+  const hasSignals = hasEmailSignal || hasFollowUpSignal || leadIsWaiting;
   const followUpOverdue = isDateOverdue(followUpDate);
   const followUpToday = isDateToday(followUpDate);
   // Follow-up tone mirrors the board card: overdue = rose, due today = tan,
@@ -226,7 +251,6 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   // staleness ramp) count in tan; terminal/settled deals stay quiet.
   const staleCount =
     !isTerminalStage(opportunity.stage) && clampedStaleness <= 0.7;
-
   return (
     <div
       data-opportunity-card-id={isFocusedSurface ? opportunity.id : undefined}
@@ -299,18 +323,24 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                   onTitleSave={onTitleSave}
                 />
               </div>
-              <span
-                title={applyTemplate(
-                  t("card.daysInStage", "{count}d in stage"),
-                  { count: String(daysInStage) }
-                )}
-                className={cn(
-                  "shrink-0 pt-[3px] font-mono text-micro tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]",
-                  staleCount ? "text-tan" : "text-text-3"
-                )}
-              >
-                {daysInStage}D
-              </span>
+              {/* Top-row trailing cluster: ownership marker (focused surface,
+                  company-wide viewers) + day count. The marker shares this row
+                  so it never adds a line at comfortable density. */}
+              <div className="flex shrink-0 items-center gap-1.5 pt-[3px]">
+                {assigneeMarker}
+                <span
+                  title={applyTemplate(
+                    t("card.daysInStage", "{count}d in stage"),
+                    { count: String(daysInStage) }
+                  )}
+                  className={cn(
+                    "font-mono text-micro tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]",
+                    staleCount ? "text-tan" : "text-text-3"
+                  )}
+                >
+                  {daysInStage}D
+                </span>
+              </div>
             </div>
 
             {/* Row 2 — client · address merged on one truncating line, value
@@ -353,9 +383,23 @@ export const PipelineCardContent = memo(function PipelineCardContent({
               layout. Reduced motion: both render in flow, always visible. */}
           {reduced ? (
             <>
+              {leadNeedsReply ? (
+                <LeadChaseControl
+                  opportunity={opportunity}
+                  canMarkHandled={canManage}
+                />
+              ) : null}
               <SignalLine
                 hasEmailSignal={hasEmailSignal}
                 hasFollowUpSignal={hasFollowUpSignal}
+                chaseStateControl={
+                  leadIsWaiting ? (
+                    <LeadChaseControl
+                      opportunity={opportunity}
+                      canMarkHandled={canManage}
+                    />
+                  ) : null
+                }
                 emailCount={opportunity.correspondenceCount}
                 lastCorrespondence={lastCorrespondence ?? null}
                 followUpText={followUpText}
@@ -385,6 +429,32 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                 onConvert={onConvert}
               />
             </>
+          ) : leadNeedsReply ? (
+            <div className="flex min-h-7 items-center justify-between gap-2">
+              <LeadChaseControl
+                opportunity={opportunity}
+                canMarkHandled={canManage}
+              />
+              <PipelineCardActions
+                opportunityId={opportunity.id}
+                stage={opportunity.stage}
+                canManage={canManage}
+                canAssign={canAssign}
+                canConvert={canConvert}
+                stageActions={quickStageActions}
+                onLogCall={onLogCall}
+                onLogText={onLogText}
+                onAddNote={onAddNote}
+                onArchive={onArchive}
+                onMarkWon={onMarkWon}
+                onMarkLost={onMarkLost}
+                onDiscard={onDiscard}
+                onAssign={onAssign}
+                onScheduleFollowUp={onScheduleFollowUp}
+                onOpenDetail={onOpenDetail}
+                onConvert={onConvert}
+              />
+            </div>
           ) : (
             <div className="relative min-h-[28px]">
               {hasSignals && (
@@ -392,6 +462,14 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                   <SignalLine
                     hasEmailSignal={hasEmailSignal}
                     hasFollowUpSignal={hasFollowUpSignal}
+                    chaseStateControl={
+                      leadIsWaiting ? (
+                        <LeadChaseControl
+                          opportunity={opportunity}
+                          canMarkHandled={canManage}
+                        />
+                      ) : null
+                    }
                     emailCount={opportunity.correspondenceCount}
                     lastCorrespondence={lastCorrespondence ?? null}
                     followUpText={followUpText}
@@ -909,6 +987,7 @@ function InlineAddressEditor({
 function SignalLine({
   hasEmailSignal,
   hasFollowUpSignal,
+  chaseStateControl,
   emailCount,
   lastCorrespondence,
   followUpText,
@@ -917,16 +996,23 @@ function SignalLine({
 }: {
   hasEmailSignal: boolean;
   hasFollowUpSignal: boolean;
+  chaseStateControl: ReactNode;
   emailCount: number;
   lastCorrespondence: Date | null;
   followUpText: string;
   followUpTone: string;
   emailTitle: string;
 }) {
-  if (!hasEmailSignal && !hasFollowUpSignal) return null;
+  if (!hasEmailSignal && !hasFollowUpSignal && !chaseStateControl) return null;
 
   return (
     <div className="flex min-w-0 items-center gap-1 font-mono text-micro text-text-3 [font-feature-settings:'tnum'_1,'zero'_1]">
+      {chaseStateControl}
+      {chaseStateControl && (hasEmailSignal || hasFollowUpSignal) ? (
+        <span aria-hidden="true" className="shrink-0 text-text-mute">
+          ·
+        </span>
+      ) : null}
       {hasEmailSignal && (
         <span
           className="inline-flex min-w-0 items-center gap-1"

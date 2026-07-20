@@ -90,6 +90,7 @@ export async function GET(
         unreadCount: thread.unreadCount,
         lastMessageAt: thread.lastMessageAt.toISOString(),
         latestDirection: thread.latestDirection,
+        opportunityNeedsReply: thread.opportunityNeedsReply,
         archivedAt: thread.archivedAt?.toISOString() ?? null,
       })),
   });

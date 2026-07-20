@@ -388,4 +388,23 @@ describe("EmailSendIntentService", () => {
     );
     expect(leased?.reconciliationLeaseToken).toBe(leaseToken);
   });
+
+  it("treats an all-null reconciliation composite as an empty queue", async () => {
+    const db = dbMock();
+    const allNullComposite = Object.fromEntries(
+      Object.keys(row()).map((key) => [key, null])
+    );
+    db.rpc.mockResolvedValueOnce({
+      data: allNullComposite,
+      error: null,
+    });
+    const service = new EmailSendIntentService(db as never);
+
+    await expect(
+      service.claimNextReconciliation({
+        failedBefore: "2026-07-15T18:05:00.000Z",
+        leaseSeconds: 240,
+      })
+    ).resolves.toBeNull();
+  });
 });

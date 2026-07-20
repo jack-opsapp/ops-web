@@ -84,6 +84,8 @@ export interface InboxThreadRow {
   latestSenderName: string | null;
   latestSnippet: string | null;
   opportunityId: string | null;
+  /** Canonical linked-lead chase state; null means use thread signals. */
+  opportunityNeedsReply: boolean | null;
   clientId: string | null;
   /** Canonical client name (resolved server-side via clients.id join).
    *  Null when the thread isn't linked to a client. UI renders this in
@@ -226,6 +228,8 @@ export interface InboxThreadDetail {
     messageCount: number;
     unreadCount: number;
     opportunityId: string | null;
+    /** Canonical linked-lead chase state; null means use thread signals. */
+    opportunityNeedsReply: boolean | null;
     clientId: string | null;
     /** Canonical client name, null when unmatched. Server-resolved via clients.id. */
     clientName: string | null;

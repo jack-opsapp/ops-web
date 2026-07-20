@@ -3697,6 +3697,7 @@ export const SyncEngine = {
 
             if (sr.summary) {
               updates.ai_summary = sr.summary;
+              updates.ai_summary_updated_at = new Date().toISOString();
             }
             // The evidence describes the latest evaluated conversation, not
             // only the last transition. Refresh it even when the inferred

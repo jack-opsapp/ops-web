@@ -19,6 +19,10 @@ interface PipelineTerminalStackProps {
   panelId: string;
   registerTab?: (stage: OpportunityStage) => (node: HTMLElement | null) => void;
   onSelectStage: (stage: OpportunityStage.Won | OpportunityStage.Lost) => void;
+  /** Won is a conversion target and must disappear from DnD collision lookup
+   * when the active lead lacks conversion authority. The tab itself remains
+   * interactive so the operator can still inspect won history. */
+  canDropWon?: boolean;
 }
 
 const MAX_SILHOUETTES = 18;
@@ -47,6 +51,7 @@ export const PipelineTerminalStack = memo(function PipelineTerminalStack({
   panelId,
   registerTab,
   onSelectStage,
+  canDropWon = true,
 }: PipelineTerminalStackProps) {
   const { t } = useDictionary("pipeline");
   const items = [
@@ -71,6 +76,7 @@ export const PipelineTerminalStack = memo(function PipelineTerminalStack({
           panelId={panelId}
           tabRef={registerTab?.(stage)}
           onSelectStage={onSelectStage}
+          dropDisabled={stage === OpportunityStage.Won && !canDropWon}
           itemLabelTemplate={t(
             "focused.terminalStack.itemLabel",
             "{stage}, {count} opportunities"
@@ -91,6 +97,7 @@ function TerminalItem({
   tabRef,
   onSelectStage,
   itemLabelTemplate,
+  dropDisabled,
 }: {
   stage: OpportunityStage.Won | OpportunityStage.Lost;
   opportunities: Opportunity[];
@@ -101,6 +108,7 @@ function TerminalItem({
   tabRef?: (node: HTMLElement | null) => void;
   onSelectStage: (stage: OpportunityStage.Won | OpportunityStage.Lost) => void;
   itemLabelTemplate: string;
+  dropDisabled: boolean;
 }) {
   const stageName = getStageDisplayName(stage);
   const stageColor = OPPORTUNITY_STAGE_COLORS[stage];
@@ -112,7 +120,7 @@ function TerminalItem({
       mode: "focused",
       focusedDropIntent: "stage-target",
     },
-    disabled: false,
+    disabled: dropDisabled,
   });
   const count = opportunities.length;
   const renderedCount = isLoading ? "—" : String(count);

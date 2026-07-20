@@ -33,6 +33,7 @@ import {
   PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
 import { mergeImageUrls, removeImageUrl } from "@/lib/utils/opportunity-images";
+import { computeHandledFollowUpAt } from "@/lib/leads/chase-state";
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
@@ -104,9 +105,11 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     lastInboundAt: parseDate(row.last_inbound_at),
     lastOutboundAt: parseDate(row.last_outbound_at),
     lastMessageDirection: (row.last_message_direction as "in" | "out") ?? null,
+    handledAt: parseDate(row.handled_at),
 
     // AI analysis
     aiSummary: (row.ai_summary as string) ?? null,
+    aiSummaryUpdatedAt: parseDate(row.ai_summary_updated_at),
     aiStageConfidence:
       row.ai_stage_confidence != null ? Number(row.ai_stage_confidence) : null,
     aiStageSignals: (row.ai_stage_signals as string[]) ?? null,
@@ -141,7 +144,10 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
  * Only includes keys that are present in the source object.
  */
 function mapOpportunityToDb(
-  data: Partial<CreateOpportunity> & { nextFollowUpAt?: Date | string | null }
+  data: Partial<CreateOpportunity> & {
+    nextFollowUpAt?: Date | string | null;
+    handledAt?: Date | string | null;
+  }
 ): Record<string, unknown> {
   const guardedAssignmentFields = [
     "assignedTo",
@@ -239,6 +245,13 @@ function mapOpportunityToDb(
   }
   if (data.lastMessageDirection !== undefined)
     row.last_message_direction = data.lastMessageDirection;
+  if (data.handledAt !== undefined) {
+    row.handled_at = data.handledAt
+      ? data.handledAt instanceof Date
+        ? data.handledAt.toISOString()
+        : data.handledAt
+      : null;
+  }
 
   // Quote delivery
   if (data.quoteDeliveryMethod !== undefined)
@@ -653,6 +666,7 @@ export const OpportunityService = {
     const row = mapOpportunityToDb(
       rest as Partial<CreateOpportunity> & {
         nextFollowUpAt?: Date | string | null;
+        handledAt?: Date | string | null;
       }
     );
 
@@ -665,6 +679,41 @@ export const OpportunityService = {
 
     if (error) {
       throw new Error(`Failed to update opportunity ${id}: ${error.message}`);
+    }
+
+    return mapOpportunityFromDb(updated as Record<string, unknown>);
+  },
+
+  /**
+   * Mark the current inbound as handled and schedule its quiet comeback in one
+   * RLS-authorized opportunity update. The server row is returned so every
+   * caller can reconcile against the same durable timestamps.
+   */
+  async markHandled(
+    id: string,
+    currentNextFollowUpAt: Date | string | null,
+    handledAt: Date = new Date()
+  ): Promise<Opportunity> {
+    const supabase = requireSupabase();
+    const nextFollowUpAt = computeHandledFollowUpAt(
+      currentNextFollowUpAt,
+      handledAt
+    );
+
+    const { data: updated, error } = await supabase
+      .from("opportunities")
+      .update({
+        handled_at: handledAt.toISOString(),
+        next_follow_up_at: nextFollowUpAt.toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(
+        `Failed to mark opportunity ${id} handled: ${error.message}`
+      );
     }
 
     return mapOpportunityFromDb(updated as Record<string, unknown>);

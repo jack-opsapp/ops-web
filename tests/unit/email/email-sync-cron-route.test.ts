@@ -1,36 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { runSyncMock, sweepStaleLeadsMock, retryDirtyClassificationsMock } =
-  vi.hoisted(() => ({
-    runSyncMock: vi.fn(),
-    sweepStaleLeadsMock: vi.fn(),
-    retryDirtyClassificationsMock: vi.fn(),
-  }));
-
-vi.mock("@/lib/api/services/sync-engine", () => ({
-  SyncEngine: {
-    runSync: runSyncMock,
-    sweepStaleLeads: sweepStaleLeadsMock,
-  },
-}));
-
-vi.mock("@/lib/api/services/email-thread-service", () => ({
-  EmailThreadService: {
-    retryDirtyClassifications: retryDirtyClassificationsMock,
-  },
-}));
-
-vi.mock("@/lib/subscription", () => ({
-  getSubscriptionInfo: () => ({ isActive: true }),
-}));
-
-vi.mock("@/lib/supabase/helpers", () => ({
-  setSupabaseOverride: vi.fn(),
-}));
-
-vi.mock("@/lib/supabase/server-client", () => ({
-  getServiceRoleClient: () => ({
+const {
+  runSyncMock,
+  sweepStaleLeadsMock,
+  retryDirtyClassificationsMock,
+  runWithSupabaseMock,
+  setSupabaseOverrideMock,
+  supabaseContext,
+  serviceRoleClient,
+} = vi.hoisted(() => {
+  const supabaseContext: { current: unknown; seenBySync: unknown } = {
+    current: null,
+    seenBySync: null,
+  };
+  const serviceRoleClient = {
     rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
     from: (table: string) => {
       const result =
@@ -67,10 +51,46 @@ vi.mock("@/lib/supabase/server-client", () => ({
       };
       return query;
     },
-  }),
+  };
+
+  return {
+    runSyncMock: vi.fn(),
+    sweepStaleLeadsMock: vi.fn(),
+    retryDirtyClassificationsMock: vi.fn(),
+    runWithSupabaseMock: vi.fn(),
+    setSupabaseOverrideMock: vi.fn(),
+    supabaseContext,
+    serviceRoleClient,
+  };
+});
+
+vi.mock("@/lib/api/services/sync-engine", () => ({
+  SyncEngine: {
+    runSync: runSyncMock,
+    sweepStaleLeads: sweepStaleLeadsMock,
+  },
 }));
 
-import { GET } from "@/app/api/cron/email-sync/route";
+vi.mock("@/lib/api/services/email-thread-service", () => ({
+  EmailThreadService: {
+    retryDirtyClassifications: retryDirtyClassificationsMock,
+  },
+}));
+
+vi.mock("@/lib/subscription", () => ({
+  getSubscriptionInfo: () => ({ isActive: true }),
+}));
+
+vi.mock("@/lib/supabase/helpers", () => ({
+  runWithSupabase: runWithSupabaseMock,
+  setSupabaseOverride: setSupabaseOverrideMock,
+}));
+
+vi.mock("@/lib/supabase/server-client", () => ({
+  getServiceRoleClient: () => serviceRoleClient,
+}));
+
+import { dynamic, GET, runtime } from "@/app/api/cron/email-sync/route";
 
 function request(): NextRequest {
   return new NextRequest("https://ops.test/api/cron/email-sync", {
@@ -84,11 +104,49 @@ describe("email sync cron HTTP outcome", () => {
     runSyncMock.mockReset();
     sweepStaleLeadsMock.mockReset();
     retryDirtyClassificationsMock.mockReset();
+    runWithSupabaseMock.mockReset();
+    runWithSupabaseMock.mockImplementation(
+      async (client: unknown, work: () => Promise<unknown>) => {
+        supabaseContext.current = client;
+        try {
+          return await work();
+        } finally {
+          supabaseContext.current = null;
+        }
+      }
+    );
+    setSupabaseOverrideMock.mockReset();
+    supabaseContext.current = null;
+    supabaseContext.seenBySync = null;
     retryDirtyClassificationsMock.mockResolvedValue({
       scanned: 0,
       classified: 0,
       errors: 0,
     });
+  });
+
+  it("keeps the complete cron cycle inside an isolated service-role context", async () => {
+    runSyncMock.mockImplementation(async () => {
+      supabaseContext.seenBySync = supabaseContext.current;
+      return {
+        activitiesCreated: 0,
+        newLeads: 0,
+        errors: [],
+      };
+    });
+    sweepStaleLeadsMock.mockResolvedValue(0);
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(runWithSupabaseMock).toHaveBeenCalledWith(
+      serviceRoleClient,
+      expect.any(Function)
+    );
+    expect(supabaseContext.seenBySync).toBe(serviceRoleClient);
+    expect(setSupabaseOverrideMock).not.toHaveBeenCalled();
+    expect(runtime).toBe("nodejs");
+    expect(dynamic).toBe("force-dynamic");
   });
 
   it("returns a retryable non-2xx status when a sync cycle returns errors", async () => {

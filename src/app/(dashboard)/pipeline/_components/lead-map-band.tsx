@@ -128,7 +128,7 @@ function buildMapsUrl(
 /** A `// LABEL` mono micro-label, light tone — the OPS section-label voice. */
 function FactLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-[9px] uppercase leading-none tracking-[0.16em] text-text-3">
+    <span className="whitespace-nowrap font-mono text-micro uppercase leading-none tracking-[0.16em] text-text-3">
       <span className="text-text-mute">{"//"}</span> {children}
     </span>
   );
@@ -209,14 +209,14 @@ export function LeadMapBand({
           ) : null}
 
           {address ? (
-            <span className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-text-2">
+            <span className="flex min-w-0 items-center gap-1.5 font-mono text-micro uppercase leading-none tracking-[0.14em] text-text-2">
               <span aria-hidden="true" className="text-text-mute">
                 ▸
               </span>
               <span className="truncate">{address}</span>
             </span>
           ) : (
-            <span className="font-mono text-[10px] uppercase leading-none tracking-[0.14em] text-text-3">
+            <span className="font-mono text-micro uppercase leading-none tracking-[0.14em] text-text-3">
               {EMPTY}
             </span>
           )}
@@ -279,6 +279,13 @@ export function LeadMapBand({
                       longitude={longitude}
                       pinColor={pinColor}
                       expanded={false}
+                      fallback={
+                        <div className="flex h-full w-full items-center justify-center">
+                          <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+                            {t("band.mapUnavailable", "// MAP UNAVAILABLE")}
+                          </span>
+                        </div>
+                      }
                     />
                   </div>
                   {/* Bottom-weighted scrim — guarantees the value + facts read white. */}
@@ -300,8 +307,8 @@ export function LeadMapBand({
                     rel="noopener noreferrer"
                     aria-label={t("band.openInMaps", "Open in Maps")}
                     className={cn(
-                      "inline-flex shrink-0 items-center gap-1 rounded-[5px] border border-glass-border px-2 py-1",
-                      "font-mono text-[9px] uppercase tracking-[0.16em] text-text-2",
+                      "inline-flex shrink-0 items-center gap-1 rounded border border-glass-border px-2 py-1",
+                      "font-mono text-micro uppercase tracking-[0.16em] text-text-2",
                       "transition-colors duration-150 ease-smooth hover:text-text",
                       "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                     )}
@@ -340,7 +347,7 @@ export function LeadMapBand({
                       edit={edit}
                       canManage={canManage}
                       value={opportunity.estimatedValue}
-                      className="text-[30px] font-medium leading-none text-white"
+                      className="text-[30px] font-medium leading-none text-text"
                     />
                   </div>
                 </div>

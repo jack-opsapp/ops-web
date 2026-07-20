@@ -205,7 +205,9 @@ function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
     lastInboundAt: null,
     lastOutboundAt: null,
     lastMessageDirection: null,
+    handledAt: null,
     aiSummary: null,
+    aiSummaryUpdatedAt: null,
     aiStageConfidence: null,
     aiStageSignals: null,
     detectedValue: null,
@@ -220,7 +222,10 @@ function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
   };
 }
 
-function renderFocusedShell(opportunities: Opportunity[]) {
+function renderFocusedShell(
+  opportunities: Opportunity[],
+  options?: { opportunitiesLoading?: boolean }
+) {
   const leadAccessById = new Map(
     opportunities.map((opportunity) => [
       opportunity.id,
@@ -241,6 +246,7 @@ function renderFocusedShell(opportunities: Opportunity[]) {
       canCreateLead
       leadAccessById={leadAccessById}
       filtersActive={false}
+      opportunitiesLoading={options?.opportunitiesLoading}
       dragAnnouncement=""
       onAddLead={vi.fn()}
       onClearFilters={vi.fn()}
@@ -589,6 +595,44 @@ describe("<PipelineFocusedShell>", () => {
     expect(usePipelineModeStore.getState().mode).toBe("table");
   });
 
+  it("leaves Escape with an open nested delete confirmation", () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-1",
+    });
+    renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)]);
+
+    const confirmation = document.createElement("div");
+    confirmation.setAttribute("role", "alertdialog");
+    confirmation.setAttribute("data-state", "open");
+    document.body.appendChild(confirmation);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
+    confirmation.remove();
+  });
+
+  it("does not close for an Escape already owned by a nested control", () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-1",
+    });
+    renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)]);
+
+    const event = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    event.preventDefault();
+    window.dispatchEvent(event);
+
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
+  });
+
   it("snaps focusedStage to the loaded detail opportunity stage", async () => {
     usePipelineModeStore.setState({
       detailPanelOpportunityId: "opp-quoted",
@@ -606,6 +650,42 @@ describe("<PipelineFocusedShell>", () => {
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
       "opp-quoted"
     );
+  });
+
+  it("does not close a detail panel for a missing lead while opportunities are still loading", async () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-not-loaded-yet",
+    });
+
+    // The lead is absent from the (still-loading) list — e.g. the first fetch
+    // or an access-recheck invalidation is in flight. The panel must hold.
+    renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)], {
+      opportunitiesLoading: true,
+    });
+
+    // The close effect runs post-render; give it a tick to (not) fire.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-not-loaded-yet"
+    );
+  });
+
+  it("closes a detail panel for a missing lead once opportunities have settled", async () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-gone",
+    });
+
+    renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)], {
+      opportunitiesLoading: false,
+    });
+
+    await waitFor(() => {
+      expect(
+        usePipelineModeStore.getState().detailPanelOpportunityId
+      ).toBeNull();
+    });
   });
 
   it("closes an aligned detail panel when focusedStage changes afterward", async () => {

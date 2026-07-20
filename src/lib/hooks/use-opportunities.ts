@@ -287,6 +287,39 @@ function writeOpportunityThrough(
 }
 
 /**
+ * Persist HANDLED through the canonical two-column service write, then carry
+ * the returned timestamps through every matching pipeline cache. Inbox data
+ * is invalidated because its YOUR MOVE projection is opportunity-derived.
+ */
+export function useMarkOpportunityHandled() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      currentNextFollowUpAt,
+    }: {
+      id: string;
+      currentNextFollowUpAt: Date | null;
+    }) => OpportunityService.markHandled(id, currentNextFollowUpAt),
+
+    onSuccess: (updated, { id }) => {
+      writeOpportunityThrough(queryClient, id, updated);
+    },
+
+    onSettled: (_data, _error, { id }) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.detail(id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.opportunities.lists(),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.inbox.all });
+    },
+  });
+}
+
+/**
  * Append lead-photo URLs to an opportunity via the server-state
  * read-modify-write (`OpportunityService.appendImages`). No optimistic
  * pre-write: the upload UI already shows per-tile progress, and under the
