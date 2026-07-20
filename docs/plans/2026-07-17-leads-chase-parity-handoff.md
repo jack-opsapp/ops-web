@@ -2,7 +2,8 @@
 
 **From:** iOS Leads tab redesign (ops-ios `feat/lead-assignment`, spec `ops-ios docs/superpowers/specs/2026-07-17-leads-tab-redesign-design.md` §9)
 **Date filed:** 2026-07-18
-**Status:** NOT built — three web items filed for a web session to pick up.
+**Status:** BUILT on held web merge branch (2026-07-19); awaiting the parent
+merge/deploy gate.
 
 ## Context
 
@@ -20,7 +21,7 @@ The bucket rule iOS now runs (`PipelineViewModel.isAwaitingReply`):
 
 > A lead is **YOUR MOVE** (formerly "waiting on you" / "reply due") only when
 > `stage != 'new_lead' AND last_message_direction = 'in' AND
-> (handled_at IS NULL OR last_inbound_at > handled_at)`.
+(handled_at IS NULL OR last_inbound_at > handled_at)`.
 > A newer inbound after a flip re-arms the lead automatically — no cron.
 
 When iOS flips a lead (HANDLED ✓) it PATCHes `handled_at = now()` AND
@@ -48,6 +49,27 @@ past-due dates are always replaced.
    `YOUR MOVE` / `WAITING` (replacing WAITING ON YOU / WAITING ON THEM /
    REPLY DUE). Adopting the same words on web pipeline chips keeps the one
    language everywhere; purely cosmetic, no data dependency.
+
+## Web implementation
+
+- Pipeline opportunities now map `handled_at` and `ai_summary_updated_at` in
+  the domain, database, and service types.
+- The shared web chase rule matches iOS exactly and fails safe: malformed or
+  temporarily incomplete timestamps cannot hide a customer inbound.
+- Pipeline cards show `YOUR MOVE`, expose a permission-aware `HANDLED` action,
+  and settle to `WAITING` after the durable write. HANDLED persists
+  `handled_at` and the comeback `next_follow_up_at` in one RLS-authorized
+  opportunity update, then reconciles every matching query cache.
+- Inbox list, detail, sibling picker, state tags, and floating reply badge use
+  the linked opportunity chase projection. A handled lead suppresses only
+  stale reply-debt styling; unread counts, labels, commitments, and agent
+  blocking questions remain intact. Missing enrichment falls back to thread
+  signals.
+- Both opportunity summary writers (ongoing sync and reviewed import) stamp
+  `ai_summary_updated_at` in the same update as `ai_summary`.
+- Focused unit/integration coverage exercises the chase rule, comeback rule,
+  single-write persistence, cache reconciliation, pipeline action/state,
+  Inbox triage suppression, mapper wiring, and summary stamps.
 
 ## Also good to know (no action required)
 

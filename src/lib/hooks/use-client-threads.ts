@@ -34,6 +34,7 @@ export interface ClientThreadSummary {
   unreadCount: number;
   lastMessageAt: Date;
   latestDirection: "inbound" | "outbound" | null;
+  opportunityNeedsReply: boolean | null;
   archivedAt: Date | null;
 }
 
@@ -44,6 +45,7 @@ interface ClientThreadSummaryDto {
   unreadCount: number;
   lastMessageAt: string;
   latestDirection: "inbound" | "outbound" | null;
+  opportunityNeedsReply: boolean | null;
   archivedAt: string | null;
 }
 

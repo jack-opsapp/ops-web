@@ -1,6 +1,12 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as jestDomMatchers from "@testing-library/jest-dom/matchers";
 
 import { type Opportunity, OpportunityStage } from "@/lib/types/pipeline";
@@ -9,10 +15,17 @@ import { PipelineMobileDetailDrawer } from "@/app/(dashboard)/pipeline/_componen
 
 expect.extend(jestDomMatchers);
 
+const mockRouterReplace = vi.hoisted(() => vi.fn());
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mockRouterReplace }),
+}));
+
 vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({
     t: (key: string, fallback?: string) => {
       const translations: Record<string, string> = {
+        "actions.archive": "Archive",
         "detail.stageActions": "Stage actions",
       };
       return translations[key] ?? fallback ?? key;
@@ -38,7 +51,9 @@ vi.mock("@/app/(dashboard)/pipeline/_components/lead-map-band", () => ({
 }));
 vi.mock(
   "@/app/(dashboard)/pipeline/_components/pipeline-detail-overview-tab",
-  () => ({ PipelineDetailOverviewTab: () => <div data-testid="mock-overview" /> })
+  () => ({
+    PipelineDetailOverviewTab: () => <div data-testid="mock-overview" />,
+  })
 );
 vi.mock(
   "@/app/(dashboard)/pipeline/_components/pipeline-detail-correspondence-tab",
@@ -94,7 +109,9 @@ function makeOpportunity(): Opportunity {
     lastInboundAt: null,
     lastOutboundAt: null,
     lastMessageDirection: null,
+    handledAt: null,
     aiSummary: null,
+    aiSummaryUpdatedAt: null,
     aiStageConfidence: null,
     aiStageSignals: null,
     detectedValue: null,
@@ -137,7 +154,15 @@ function renderDrawer(canManage = true) {
 }
 
 describe("<PipelineMobileDetailDrawer>", () => {
+  let historyBack: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
+    window.history.replaceState({}, "", "/pipeline");
+    mockRouterReplace.mockReset();
+    mockRouterReplace.mockImplementation((href: string) => {
+      window.history.replaceState({}, "", href);
+    });
+    historyBack = vi.spyOn(window.history, "back").mockImplementation(() => {});
     usePipelineModeStore.setState({
       mode: "focused",
       focusedStage: OpportunityStage.Quoted,
@@ -146,6 +171,10 @@ describe("<PipelineMobileDetailDrawer>", () => {
       sortBy: "value",
       stageSortOverrides: new Map(),
     });
+  });
+
+  afterEach(() => {
+    historyBack.mockRestore();
   });
 
   it("renders a full-screen modal drawer hosting the shared detail body", async () => {
@@ -180,14 +209,15 @@ describe("<PipelineMobileDetailDrawer>", () => {
     document.body.appendChild(origin);
     origin.focus();
 
-    renderDrawer();
+    const { container } = renderDrawer();
     await screen.findByTestId("pipeline-mobile-detail-drawer");
+    await waitFor(() => expect(container).toHaveAttribute("inert"));
 
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
 
-    expect(
-      usePipelineModeStore.getState().detailPanelOpportunityId
-    ).toBeNull();
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+    expect(container).not.toHaveAttribute("inert");
+    expect(container).not.toHaveAttribute("aria-hidden");
     await waitFor(() => expect(document.activeElement).toBe(origin));
     origin.remove();
   });
@@ -198,9 +228,56 @@ describe("<PipelineMobileDetailDrawer>", () => {
 
     fireEvent.keyDown(document, { key: "Escape" });
 
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("closes the nested action menu before closing the drawer", async () => {
+    renderDrawer();
+    await screen.findByTestId("pipeline-mobile-detail-drawer");
+
+    fireEvent.click(screen.getByRole("button", { name: "Stage actions" }));
+    expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
     expect(
-      usePipelineModeStore.getState().detailPanelOpportunityId
-    ).toBeNull();
+      screen.queryByRole("button", { name: "Archive" })
+    ).not.toBeInTheDocument();
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("inerts the pipeline underlay and traps Tab inside the drawer", async () => {
+    const { container } = renderDrawer();
+    const drawer = await screen.findByTestId("pipeline-mobile-detail-drawer");
+
+    await waitFor(() => expect(container).toHaveAttribute("inert"));
+    expect(container).toHaveAttribute("aria-hidden", "true");
+
+    const focusable = Array.from(
+      drawer.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+    ).filter((element) => !element.hasAttribute("disabled"));
+    expect(focusable.length).toBeGreaterThan(1);
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    last.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
+
+    first.focus();
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+
+    screen.getByTestId("origin-control").focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(first);
   });
 
   it("spares Escape for a nested full-screen modal", async () => {
@@ -209,7 +286,13 @@ describe("<PipelineMobileDetailDrawer>", () => {
 
     const nested = document.createElement("div");
     nested.setAttribute("data-pipeline-detail-modal", "");
+    const nestedControl = document.createElement("button");
+    nested.appendChild(nestedControl);
     document.body.appendChild(nested);
+    nestedControl.focus();
+
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(nestedControl);
 
     fireEvent.keyDown(document, { key: "Escape" });
 
@@ -225,8 +308,32 @@ describe("<PipelineMobileDetailDrawer>", () => {
 
     fireEvent.popState(window);
 
-    expect(
-      usePipelineModeStore.getState().detailPanelOpportunityId
-    ).toBeNull();
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
+  });
+
+  it("consumes the history sentinel when an external revocation closes the drawer", async () => {
+    renderDrawer();
+    await screen.findByTestId("pipeline-mobile-detail-drawer");
+
+    act(() => usePipelineModeStore.getState().closeDetailPanel());
+
+    expect(historyBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("replaces its transient history entry when an internal link navigates", async () => {
+    renderDrawer();
+    const drawer = await screen.findByTestId("pipeline-mobile-detail-drawer");
+    const internalLink = document.createElement("a");
+    internalLink.href = "/clients/client-1";
+    internalLink.textContent = "Open client";
+    drawer.appendChild(internalLink);
+
+    fireEvent.click(internalLink);
+
+    expect(mockRouterReplace).toHaveBeenCalledWith("/clients/client-1");
+    expect(window.location.pathname).toBe("/clients/client-1");
+    expect(window.history.state).not.toHaveProperty("ops-lead-drawer");
+    expect(historyBack).not.toHaveBeenCalled();
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
   });
 });

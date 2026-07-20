@@ -101,7 +101,10 @@ export type ArchiveLeadPreference = "ask" | "archive" | "leave";
 // without a second module hop. The legacy `InboxRail` alias retains the
 // old name in case any external consumer leans on it; the canonical
 // identifier is `RailFilter`.
-export type { RailFilter, RailFilter as InboxRail } from "@/lib/inbox/rail-predicates";
+export type {
+  RailFilter,
+  RailFilter as InboxRail,
+} from "@/lib/inbox/rail-predicates";
 import type { RailFilter } from "@/lib/inbox/rail-predicates";
 
 // Phase 3 — the deterministic router's persisted decision lives on
@@ -218,6 +221,8 @@ export interface EmailThread {
 
   // Pipeline linkage (nullable).
   opportunityId: string | null;
+  /** Canonical linked-lead chase state; null when unlinked or unavailable. */
+  opportunityNeedsReply: boolean | null;
   clientId: string | null;
 
   // Phase C commitment denormalization — maintained by the
@@ -281,7 +286,9 @@ export interface CategoryCorrection {
  * Map a Supabase row (snake_case) to our camelCase EmailThread.
  * Keeps parsing in one place so callers stay schema-agnostic.
  */
-export function mapEmailThreadFromDb(row: Record<string, unknown>): EmailThread {
+export function mapEmailThreadFromDb(
+  row: Record<string, unknown>
+): EmailThread {
   const parseDate = (v: unknown): Date =>
     typeof v === "string" ? new Date(v) : (v as Date);
   const parseDateOrNull = (v: unknown): Date | null =>
@@ -295,7 +302,8 @@ export function mapEmailThreadFromDb(row: Record<string, unknown>): EmailThread 
     primaryCategory: row.primary_category as EmailThreadCategory,
     categoryConfidence: Number(row.category_confidence ?? 0),
     categoryClassifiedAt: parseDateOrNull(row.category_classified_at),
-    categoryClassifierVersion: (row.category_classifier_version as string) ?? "v1",
+    categoryClassifierVersion:
+      (row.category_classifier_version as string) ?? "v1",
     categoryManuallySet: Boolean(row.category_manually_set),
     labels: ((row.labels as string[]) ?? []) as EmailThreadLabel[],
     archivedAt: parseDateOrNull(row.archived_at),
@@ -303,16 +311,19 @@ export function mapEmailThreadFromDb(row: Record<string, unknown>): EmailThread 
     priorityScore: Number(row.priority_score ?? 0),
     aiSummary: (row.ai_summary as string | null) ?? null,
     subject: (row.subject as string) ?? "",
-    participants: ((row.participants as string[]) ?? []),
+    participants: (row.participants as string[]) ?? [],
     firstMessageAt: parseDate(row.first_message_at),
     lastMessageAt: parseDate(row.last_message_at),
     messageCount: Number(row.message_count ?? 0),
     unreadCount: Number(row.unread_count ?? 0),
-    latestDirection: (row.latest_direction as EmailThread["latestDirection"]) ?? null,
+    latestDirection:
+      (row.latest_direction as EmailThread["latestDirection"]) ?? null,
     latestSenderEmail: (row.latest_sender_email as string | null) ?? null,
     latestSenderName: (row.latest_sender_name as string | null) ?? null,
     latestSnippet: (row.latest_snippet as string | null) ?? null,
     opportunityId: (row.opportunity_id as string | null) ?? null,
+    // Enriched from the authorized opportunity page query by the service.
+    opportunityNeedsReply: null,
     clientId: (row.client_id as string | null) ?? null,
     nextCommitmentDueAt: parseDateOrNull(row.next_commitment_due_at),
     hasUnresolvedCommitments: Boolean(row.has_unresolved_commitments),
@@ -323,7 +334,9 @@ export function mapEmailThreadFromDb(row: Record<string, unknown>): EmailThread 
     // ai_draft_history join. Bare callers (e.g., upsertFromEmail) get a safe
     // default so they never see undefined.
     phaseC: "none",
-    agentBlockingQuestion: parseAgentBlockingQuestion(row.agent_blocking_question),
+    agentBlockingQuestion: parseAgentBlockingQuestion(
+      row.agent_blocking_question
+    ),
     routing: (row.routing as RoutingDecision | null) ?? null,
     routingReasons: Array.isArray(row.routing_reasons)
       ? (row.routing_reasons as string[])
@@ -343,7 +356,7 @@ export function mapEmailThreadFromDb(row: Record<string, unknown>): EmailThread 
  * than throw and break the inbox list.
  */
 function parseAgentBlockingQuestion(
-  raw: unknown,
+  raw: unknown
 ): AgentBlockingQuestion | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
@@ -382,7 +395,7 @@ export function mapCategoryCorrectionFromDb(
     senderEmail: (row.sender_email as string | null) ?? null,
     senderDomain: (row.sender_domain as string | null) ?? null,
     participantsHash: (row.participants_hash as string | null) ?? null,
-    subjectKeywords: ((row.subject_keywords as string[]) ?? []),
+    subjectKeywords: (row.subject_keywords as string[]) ?? [],
     note: (row.note as string | null) ?? null,
     appliedToSimilar: Boolean(row.applied_to_similar),
     similarCount: Number(row.similar_count ?? 0),

@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -15,6 +22,14 @@ const dndMocks = vi.hoisted(() => ({
   keyDown: vi.fn(),
   setActivatorNodeRef: vi.fn(),
   setNodeRef: vi.fn(),
+}));
+
+const opportunityServiceMocks = vi.hoisted(() => ({
+  markHandled: vi.fn(),
+}));
+
+vi.mock("@/lib/api/services/opportunity-service", () => ({
+  OpportunityService: opportunityServiceMocks,
 }));
 
 vi.mock("@dnd-kit/core", () => ({
@@ -131,7 +146,9 @@ function makeOpportunity(): Opportunity {
     lastInboundAt: NOW,
     lastOutboundAt: null,
     lastMessageDirection: null,
+    handledAt: null,
     aiSummary: null,
+    aiSummaryUpdatedAt: null,
     aiStageConfidence: null,
     aiStageSignals: null,
     detectedValue: null,
@@ -268,6 +285,7 @@ describe("<PipelineFocusedCard>", () => {
     dndMocks.keyDown.mockClear();
     dndMocks.setActivatorNodeRef.mockClear();
     dndMocks.setNodeRef.mockClear();
+    opportunityServiceMocks.markHandled.mockReset();
     localStorage.clear();
     usePipelineModeStore.setState({
       mode: "focused",
@@ -277,6 +295,62 @@ describe("<PipelineFocusedCard>", () => {
       sortBy: "value",
       stageSortOverrides: new Map(),
     });
+  });
+
+  it("shows YOUR MOVE and marks the current inbound handled in one click", async () => {
+    const opportunity = {
+      ...makeOpportunity(),
+      lastMessageDirection: "in" as const,
+      lastInboundAt: new Date("2026-07-19T11:00:00.000Z"),
+      handledAt: null,
+      aiSummaryUpdatedAt: null,
+    };
+    opportunityServiceMocks.markHandled.mockResolvedValue({
+      ...opportunity,
+      handledAt: new Date("2026-07-19T12:00:00.000Z"),
+      nextFollowUpAt: new Date("2026-07-22T12:00:00.000Z"),
+    });
+    renderFocusedCard({ opportunity });
+
+    expect(screen.getByText("YOUR MOVE")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mark handled" }));
+
+    await waitFor(() =>
+      expect(opportunityServiceMocks.markHandled).toHaveBeenCalledOnce()
+    );
+    expect(opportunityServiceMocks.markHandled).toHaveBeenCalledWith(
+      "opp-1",
+      null
+    );
+  });
+
+  it("shows WAITING after the latest inbound is handled", () => {
+    renderFocusedCard({
+      opportunity: {
+        ...makeOpportunity(),
+        lastMessageDirection: "in",
+        lastInboundAt: new Date("2026-07-19T11:00:00.000Z"),
+        handledAt: new Date("2026-07-19T12:00:00.000Z"),
+      },
+    });
+
+    expect(screen.getByText("WAITING")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark handled" })).toBeNull();
+  });
+
+  it("shows reply responsibility without exposing HANDLED to read-only viewers", () => {
+    renderFocusedCard({
+      canManage: false,
+      opportunity: {
+        ...makeOpportunity(),
+        lastMessageDirection: "in",
+        lastInboundAt: new Date("2026-07-19T11:00:00.000Z"),
+        handledAt: null,
+      },
+    });
+
+    expect(screen.getByText("YOUR MOVE")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark handled" })).toBeNull();
   });
 
   it("uses a native labeled button as the drag activator", () => {
@@ -618,9 +692,7 @@ describe("<PipelineFocusedCard>", () => {
 
     // The stage menu omits Won too, but keeps the non-terminal stages.
     fireEvent.click(screen.getByRole("button", { name: "Choose stage" }));
-    expect(
-      screen.queryByRole("menuitem", { name: /Move to Won/i })
-    ).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /Move to Won/i })).toBeNull();
     expect(
       screen.getByRole("menuitem", { name: /Move to Quoted/i })
     ).toBeInTheDocument();

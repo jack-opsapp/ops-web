@@ -95,6 +95,27 @@ describe("computeStateTag", () => {
     expect(tag.prefix).toBe("FYI");
   });
 
+  it("collapses handled linked-lead reply debt to FYI without deleting the label", () => {
+    const now = new Date("2026-07-19T12:00:00.000Z").getTime();
+    const tag = computeStateTag({
+      lastInboundAt: now - 2 * 3_600_000,
+      lastOutboundAt: null,
+      hasAiDraft: false,
+      sentByAgentRecently: false,
+      labels: ["AWAITING_REPLY"],
+      opportunityNeedsReply: false,
+      closed: false,
+      now,
+    });
+
+    expect(tag).toEqual({
+      kind: "fyi",
+      tone: "neutral",
+      prefix: "FYI",
+      alarmStrip: false,
+    });
+  });
+
   it("collapses to FYI on a 30d-old inbound without AWAITING_REPLY (no alarm escalation)", () => {
     const tag = computeStateTag({
       lastInboundAt: Date.now() - 30 * 86400_000,

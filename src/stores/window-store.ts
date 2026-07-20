@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { useCommunicationDraftStore } from "@/stores/communication-draft-store";
 
 export type FloatingWindowType =
   | "create-task"
@@ -151,6 +152,8 @@ interface WindowStoreState {
   // the same window for the same client (second click focuses it).
   openClientWindow: (opts: OpenClientWindowOpts) => void;
   closeWindow: (id: string) => void;
+  /** Drop every actor-owned window and its pending create callback. */
+  clearWindows: () => void;
   minimizeWindow: (id: string) => void;
   restoreWindow: (id: string) => void;
   focusWindow: (id: string) => void;
@@ -376,7 +379,14 @@ export const useWindowStore = create<WindowStoreState>()((set, get) => ({
     // the task modal) should not be invoked retroactively.
     projectCreatedCallbacks.delete(id);
     clientCreatedCallbacks.delete(id);
+    useCommunicationDraftStore.getState().removeForInstance(id);
     set({ windows: get().windows.filter((w) => w.id !== id) });
+  },
+
+  clearWindows: () => {
+    projectCreatedCallbacks.clear();
+    clientCreatedCallbacks.clear();
+    set({ windows: [], nextZIndex: 2000 });
   },
 
   minimizeWindow: (id) => {

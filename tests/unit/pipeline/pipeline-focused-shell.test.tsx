@@ -205,7 +205,9 @@ function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
     lastInboundAt: null,
     lastOutboundAt: null,
     lastMessageDirection: null,
+    handledAt: null,
     aiSummary: null,
+    aiSummaryUpdatedAt: null,
     aiStageConfidence: null,
     aiStageSignals: null,
     detectedValue: null,
@@ -591,6 +593,44 @@ describe("<PipelineFocusedShell>", () => {
 
     fireEvent.keyDown(window, { key: "v" });
     expect(usePipelineModeStore.getState().mode).toBe("table");
+  });
+
+  it("leaves Escape with an open nested delete confirmation", () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-1",
+    });
+    renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)]);
+
+    const confirmation = document.createElement("div");
+    confirmation.setAttribute("role", "alertdialog");
+    confirmation.setAttribute("data-state", "open");
+    document.body.appendChild(confirmation);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
+    confirmation.remove();
+  });
+
+  it("does not close for an Escape already owned by a nested control", () => {
+    usePipelineModeStore.setState({
+      detailPanelOpportunityId: "opp-1",
+    });
+    renderFocusedShell([makeOpportunity("opp-1", OpportunityStage.NewLead)]);
+
+    const event = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    event.preventDefault();
+    window.dispatchEvent(event);
+
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
   });
 
   it("snaps focusedStage to the loaded detail opportunity stage", async () => {

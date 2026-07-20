@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useCallback } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ChevronRight, Mail, ArrowUpRight } from "lucide-react";
 import { toast } from "@/components/ui/toast";
@@ -47,6 +47,10 @@ import { ScrollFade } from "./shared/scroll-fade";
 import { useWidgetEntityOpen } from "./shared/use-widget-entity-open";
 import { WidgetTitle } from "./shared/widget-title";
 import { authedFetch } from "@/lib/utils/authed-fetch";
+import {
+  communicationDraftKey,
+  useCommunicationDraftStore,
+} from "@/stores/communication-draft-store";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -280,12 +284,69 @@ function PipelineInlineActions({
   const createActivity = useCreateActivity();
   const { data: connections } = useEmailConnections();
   const { data: templates } = useEmailTemplates();
+  const communicationDraftStoreKey = user?.id
+    ? communicationDraftKey({
+        actorUserId: user.id,
+        surface: "pipeline-follow-up",
+        opportunityId: opportunity.id,
+      })
+    : null;
+  const initialCommunicationDraftRef = useRef(
+    communicationDraftStoreKey
+      ? useCommunicationDraftStore.getState().drafts[communicationDraftStoreKey]
+      : null
+  );
+  const initialCommunicationDraft = initialCommunicationDraftRef.current;
+  const liveCommunicationDraft = useCommunicationDraftStore((state) =>
+    communicationDraftStoreKey
+      ? state.drafts[communicationDraftStoreKey]
+      : undefined
+  );
+  const communicationSendPending =
+    liveCommunicationDraft?.state.sendPending === true;
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeText, setComposeText] = useState("");
+  const [composeText, setComposeText] = useState(
+    initialCommunicationDraft?.body ?? ""
+  );
   const [sending, setSending] = useState(false);
   const sendAttemptRef = useRef<{ key: string; fingerprint: string } | null>(
-    null
+    (initialCommunicationDraft?.state.sendAttempt as {
+      key: string;
+      fingerprint: string;
+    } | null) ?? null
   );
+
+  useEffect(() => {
+    if (!communicationDraftStoreKey || !user?.id) return;
+    const current =
+      useCommunicationDraftStore.getState().drafts[communicationDraftStoreKey];
+    useCommunicationDraftStore.getState().save(communicationDraftStoreKey, {
+      actorUserId: user.id,
+      surface: "pipeline-follow-up",
+      threadId: null,
+      opportunityId: opportunity.id,
+      instanceId: null,
+      body: composeText,
+      state: {
+        ...(current?.state ?? {}),
+        sendAttempt: sendAttemptRef.current,
+      },
+      updatedAt: Date.now(),
+    });
+  }, [communicationDraftStoreKey, composeText, opportunity.id, user?.id]);
+
+  useEffect(() => {
+    if (
+      !communicationDraftStoreKey ||
+      liveCommunicationDraft?.state.sendStatus !== "sent"
+    ) {
+      return;
+    }
+    setComposeText("");
+    setComposeOpen(false);
+    sendAttemptRef.current = null;
+    useCommunicationDraftStore.getState().remove(communicationDraftStoreKey);
+  }, [communicationDraftStoreKey, liveCommunicationDraft?.state.sendStatus]);
 
   const activeConnection = connections?.find((c) => c.status === "active");
   const followUpTemplate = templates?.find(
@@ -320,7 +381,9 @@ function PipelineInlineActions({
   const sendFollowUp = useCallback(
     async (body: string, subject: string) => {
       if (!activeConnection || !opportunity.contactEmail || !company) return;
+      if (communicationSendPending) return;
       setSending(true);
+      let activeAttemptKey: string | null = null;
       try {
         const attemptFingerprint = JSON.stringify({
           connectionId: activeConnection.id,
@@ -337,6 +400,30 @@ function PipelineInlineActions({
           key: idempotencyKey,
           fingerprint: attemptFingerprint,
         };
+        activeAttemptKey = idempotencyKey;
+        if (communicationDraftStoreKey && user?.id) {
+          const current =
+            useCommunicationDraftStore.getState().drafts[
+              communicationDraftStoreKey
+            ];
+          useCommunicationDraftStore
+            .getState()
+            .save(communicationDraftStoreKey, {
+              actorUserId: user.id,
+              surface: "pipeline-follow-up",
+              threadId: null,
+              opportunityId: opportunity.id,
+              instanceId: null,
+              body,
+              state: {
+                ...(current?.state ?? {}),
+                sendAttempt: sendAttemptRef.current,
+                sendPending: true,
+                sendStatus: "pending",
+              },
+              updatedAt: Date.now(),
+            });
+        }
         const res = await authedFetch("/api/integrations/email/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -362,7 +449,21 @@ function PipelineInlineActions({
               "Send failed"
           );
         }
-        sendAttemptRef.current = null;
+        if (!communicationDraftStoreKey || !user?.id) return;
+        const current =
+          useCommunicationDraftStore.getState().drafts[
+            communicationDraftStoreKey
+          ];
+        const currentAttempt = current?.state.sendAttempt as
+          | { key?: string }
+          | undefined;
+        if (
+          !current ||
+          current.actorUserId !== user.id ||
+          currentAttempt?.key !== idempotencyKey
+        ) {
+          return;
+        }
 
         const recipientName =
           opportunity.contactName ??
@@ -391,19 +492,62 @@ function PipelineInlineActions({
             });
           },
         });
+        useCommunicationDraftStore.getState().save(communicationDraftStoreKey, {
+          ...current,
+          body: "",
+          state: {
+            ...current.state,
+            sendPending: false,
+            sendStatus: "sent",
+          },
+          updatedAt: Date.now(),
+        });
       } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : (t("pipelineList.sendFailed") ?? "Failed to send follow-up")
-        );
+        if (communicationDraftStoreKey && user?.id && activeAttemptKey) {
+          const current =
+            useCommunicationDraftStore.getState().drafts[
+              communicationDraftStoreKey
+            ];
+          const currentAttempt = current?.state.sendAttempt as
+            | { key?: string }
+            | undefined;
+          if (
+            current &&
+            current.actorUserId === user.id &&
+            currentAttempt?.key === activeAttemptKey
+          ) {
+            useCommunicationDraftStore
+              .getState()
+              .save(communicationDraftStoreKey, {
+                ...current,
+                state: {
+                  ...current.state,
+                  sendPending: false,
+                  sendStatus: "failed",
+                },
+                updatedAt: Date.now(),
+              });
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : (t("pipelineList.sendFailed") ?? "Failed to send follow-up")
+            );
+          }
+        }
       } finally {
         setSending(false);
-        setComposeOpen(false);
-        setComposeText("");
       }
     },
-    [activeConnection, opportunity, company, user, createActivity, t]
+    [
+      activeConnection,
+      communicationDraftStoreKey,
+      communicationSendPending,
+      opportunity,
+      company,
+      user,
+      createActivity,
+      t,
+    ]
   );
 
   const handleFollowUp = useCallback(() => {
@@ -493,10 +637,12 @@ function PipelineInlineActions({
                     `${t("pipelineList.followUpSubjectPrefix") ?? "Follow up"}: ${opportunity.title || (t("pipelineList.defaultProjectTitle") ?? "Your project")}`
                   );
                 }}
-                disabled={!composeText.trim() || sending}
+                disabled={
+                  !composeText.trim() || sending || communicationSendPending
+                }
                 className={cn(
                   "rounded-sm px-2 py-[2px] font-mono text-micro uppercase tracking-[0.16em] transition-colors",
-                  composeText.trim() && !sending
+                  composeText.trim() && !sending && !communicationSendPending
                     ? "text-text hover:bg-surface-hover"
                     : "cursor-not-allowed text-text-mute"
                 )}

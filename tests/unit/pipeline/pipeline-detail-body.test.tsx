@@ -218,9 +218,7 @@ describe("PipelineDetailBody composition", () => {
   });
 
   it("keeps last-good context on screen during a background refetch", () => {
-    assignedContextHookMock.mockReturnValue(
-      queryResult({ isFetching: true })
-    );
+    assignedContextHookMock.mockReturnValue(queryResult({ isFetching: true }));
 
     render(
       <PipelineDetailBody
@@ -257,10 +255,14 @@ describe("PipelineDetailBody composition", () => {
         opportunity={opportunity}
         activeTab="overview"
         leadAccess={fullLeadAccess}
+        withRegion
       />
     );
 
     expect(screen.getByTestId("detail-context-loading")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Deal detail panel" })
+    ).toHaveAttribute("aria-busy", "true");
     expect(screen.queryByTestId("mock-overview")).not.toBeInTheDocument();
     expect(screen.queryByTestId("mock-next-steps")).not.toBeInTheDocument();
   });

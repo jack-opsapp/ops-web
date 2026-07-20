@@ -10,6 +10,157 @@
 
 import { QueryClient } from "@tanstack/react-query";
 
+function resetQueryCacheData(queryClient: QueryClient): void {
+  for (const query of queryClient.getQueryCache().findAll()) {
+    // `query.reset()` can immediately refetch a mounted observer before the
+    // caller has refreshed permissions. Cancel first, then publish an empty
+    // terminal local snapshot without invoking the old query function.
+    void query.cancel({ silent: true });
+    query.setState({
+      data: undefined,
+      dataUpdatedAt: 0,
+      error: null,
+      errorUpdatedAt: 0,
+      fetchStatus: "idle",
+      isInvalidated: false,
+      status: "pending",
+    });
+  }
+  queryClient.removeQueries({ type: "inactive" });
+}
+
+/**
+ * Synchronously removes every server-derived value owned by the current
+ * client actor. Security boundaries (sign-out, actor switch, assignment loss,
+ * permission loss) cannot safely depend on a query-key allowlist: new feature
+ * caches may embed protected rows before a central list is updated.
+ *
+ * Active queries are reset before inactive queries are destroyed so mounted
+ * observers stop rendering their last value immediately. Callers may then
+ * invalidate/refetch under the newly proven authority when appropriate.
+ */
+export function redactAllQueryCacheData(queryClient: QueryClient): QueryClient {
+  resetQueryCacheData(queryClient);
+  queryClient.getMutationCache().clear();
+  // MutationCache.clear() detaches executing mutations but cannot cancel their
+  // promises or suppress a captured onSuccess callback. Quarantine this whole
+  // client so any late callback can write only to an abandoned cache.
+  return replaceQueryClient(queryClient);
+}
+
+export interface CurrentActorQueryQuarantine {
+  readonly queryClient: QueryClient;
+  settled: Promise<void>;
+}
+
+const CURRENT_ACTOR_QUARANTINE_TIMEOUT_MS = 10_000;
+
+/**
+ * Redact an authority change for the SAME OPS actor without remounting the
+ * dashboard and destroying unrelated human input. Mutations already in flight
+ * cannot be cancelled by TanStack Query, so query-cache writes stay under a
+ * synchronous quarantine until every pre-boundary (or concurrently-started)
+ * mutation reaches a terminal state. The cache is wiped once more before
+ * callers refetch through canonical RLS.
+ */
+export function quarantineCurrentActorQueryCache(
+  queryClient: QueryClient
+): CurrentActorQueryQuarantine {
+  const mutationCache = queryClient.getMutationCache();
+  const pendingMutations = new Set(
+    mutationCache
+      .getAll()
+      .filter((mutation) => mutation.state.status === "pending")
+  );
+  let activeQueryClient = queryClient;
+  let redacting = false;
+  let finished = false;
+  let quietTimer: ReturnType<typeof setTimeout> | null = null;
+  let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+  let unsubscribeQueries: () => void = () => undefined;
+  let unsubscribeMutations: () => void = () => undefined;
+  let resolveSettled!: () => void;
+  const settled = new Promise<void>((resolve) => {
+    resolveSettled = resolve;
+  });
+
+  const redact = () => {
+    if (redacting) return;
+    redacting = true;
+    resetQueryCacheData(queryClient);
+    redacting = false;
+  };
+
+  const finish = (replaceClient: boolean) => {
+    if (finished) return;
+    finished = true;
+    if (quietTimer) clearTimeout(quietTimer);
+    if (timeoutTimer) clearTimeout(timeoutTimer);
+    unsubscribeQueries();
+    unsubscribeMutations();
+    redact();
+    mutationCache.clear();
+    if (replaceClient) {
+      // A mutation that never settles keeps the retained client tainted. The
+      // rare bounded fallback intentionally remounts a blank client; normal
+      // assignment and permission changes keep the current client and all
+      // unrelated component-local human input.
+      activeQueryClient = replaceQueryClient(queryClient);
+    }
+    resolveSettled();
+  };
+
+  const scheduleQuietFinish = () => {
+    if (finished || pendingMutations.size > 0 || quietTimer) return;
+    // Keep both subscriptions alive through the current task. This captures a
+    // mutation queued immediately after the authority boundary instead of
+    // declaring the cache safe during the zero-pending snapshot race.
+    quietTimer = setTimeout(() => finish(false), 0);
+  };
+
+  unsubscribeQueries = queryClient.getQueryCache().subscribe(() => {
+    redact();
+  });
+  unsubscribeMutations = mutationCache.subscribe((event) => {
+    if (event.type !== "added" && event.type !== "updated") return;
+    if (event.mutation.state.status === "pending") {
+      pendingMutations.add(event.mutation);
+      if (quietTimer) {
+        clearTimeout(quietTimer);
+        quietTimer = null;
+      }
+      return;
+    }
+    pendingMutations.delete(event.mutation);
+    scheduleQuietFinish();
+  });
+
+  timeoutTimer = setTimeout(
+    () => finish(true),
+    CURRENT_ACTOR_QUARANTINE_TIMEOUT_MS
+  );
+
+  redact();
+  scheduleQuietFinish();
+
+  // Remove observer-visible mutation records. The executing Mutation objects
+  // still notify this cache when they settle, which owns the final redaction.
+  mutationCache.clear();
+  return {
+    get queryClient() {
+      return activeQueryClient;
+    },
+    settled,
+  };
+}
+
+/** Reconcile every cache entry under current server-side authority. */
+export async function refreshAllQueries(
+  queryClient: QueryClient
+): Promise<void> {
+  await queryClient.invalidateQueries();
+}
+
 // ─── Query Keys ───────────────────────────────────────────────────────────────
 
 export const queryKeys = {
@@ -720,12 +871,41 @@ function createQueryClient(): QueryClient {
 
 // Singleton query client
 let queryClientInstance: QueryClient | null = null;
+let queryClientSecurityEpoch = 0;
+const queryClientSecurityListeners = new Set<() => void>();
 
 export function getQueryClient(): QueryClient {
   if (!queryClientInstance) {
     queryClientInstance = createQueryClient();
   }
   return queryClientInstance;
+}
+
+/**
+ * Replace a cross-actor authority-tainted client with a blank client. The
+ * authenticated subtree keys off this epoch so every existing query/mutation
+ * observer is rebound to the replacement. Same-actor scope changes use the
+ * in-place quarantine above to preserve unrelated human input.
+ */
+export function replaceQueryClient(current: QueryClient): QueryClient {
+  const replacement = createQueryClient();
+  if (queryClientInstance === current) {
+    queryClientInstance = replacement;
+    queryClientSecurityEpoch += 1;
+    for (const listener of queryClientSecurityListeners) listener();
+  }
+  return replacement;
+}
+
+export function subscribeToQueryClientSecurityEpoch(
+  listener: () => void
+): () => void {
+  queryClientSecurityListeners.add(listener);
+  return () => queryClientSecurityListeners.delete(listener);
+}
+
+export function getQueryClientSecurityEpoch(): number {
+  return queryClientSecurityEpoch;
 }
 
 export default getQueryClient;

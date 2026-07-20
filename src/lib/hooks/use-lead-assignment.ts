@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { toast } from "@/components/ui/toast";
+import { useDictionary } from "@/i18n/client";
 import { queryKeys } from "@/lib/api/query-client";
 import {
   LeadAssignmentAccessLostError,
@@ -56,11 +58,32 @@ function writeAssignmentSnapshot(
  * patch: only the row-locked server snapshot is authoritative. Successes and
  * conflicts are both reconciled before dependent views refetch.
  */
-export function useLeadAssignment() {
+export function useLeadAssignment(
+  options: {
+    /** Bulk handoffs own one aggregate result notice; single-lead mutations use
+     * the default revocation notice captured before secure cache redaction. */
+    notifyOnRevocation?: boolean;
+  } = {}
+) {
   const queryClient = useQueryClient();
+  const { t } = useDictionary("pipeline");
   const actorUserId = useAuthStore((state) => state.currentUser?.id ?? null);
   const permissionState = usePermissionStore();
   const viewScope = effectivePipelineScope(permissionState, "pipeline.view");
+  const notifyLeadRevoked =
+    options.notifyOnRevocation === false
+      ? undefined
+      : ({ title }: { title: string | null }) => {
+          toast.info(t("toast.leadReassignedAway", "Lead reassigned"), {
+            description: t(
+              "toast.leadReassignedAwayDesc",
+              "{title} is no longer yours."
+            ).replace(
+              "{title}",
+              title ?? t("toast.leadReassignedAwayFallback", "A lead")
+            ),
+          });
+        };
 
   const reconcileAuthoritativeSnapshot = (
     opportunityId: string,
@@ -73,10 +96,14 @@ export function useLeadAssignment() {
         snapshot.assignedTo === actorUserId);
 
     if (!accessAfter) {
-      reconcileLeadAssignmentDelivery(queryClient, {
-        opportunityId,
-        accessAfter: false,
-      });
+      reconcileLeadAssignmentDelivery(
+        queryClient,
+        {
+          opportunityId,
+          accessAfter: false,
+        },
+        notifyLeadRevoked
+      );
       return;
     }
     writeAssignmentSnapshot(queryClient, opportunityId, snapshot);
@@ -89,10 +116,14 @@ export function useLeadAssignment() {
     },
     onError: (error, input) => {
       if (error instanceof LeadAssignmentAccessLostError) {
-        reconcileLeadAssignmentDelivery(queryClient, {
-          opportunityId: input.opportunityId,
-          accessAfter: false,
-        });
+        reconcileLeadAssignmentDelivery(
+          queryClient,
+          {
+            opportunityId: input.opportunityId,
+            accessAfter: false,
+          },
+          notifyLeadRevoked
+        );
         return;
       }
       if (error instanceof LeadAssignmentConflictError) {

@@ -51,7 +51,6 @@ interface PipelineMobileProps {
   onAssign: (opportunityId: string) => void;
   onScheduleFollowUp: (opportunityId: string) => void;
   onAddLead: () => void;
-  canManage: boolean;
   leadAccessById?: ReadonlyMap<string, LeadAccess>;
   /**
    * Page-level banners (email connect, inbox leads queue, move-pending chip).
@@ -138,8 +137,7 @@ function SwipeableCard({
   const rawNext = nextOpportunityStage(opportunity.stage);
   // Advancing into Won is a conversion — treat Won as no-next when the operator
   // can't convert, so neither the swipe-advance nor its hint strip engages.
-  const next =
-    rawNext === OpportunityStage.Won && !canConvert ? null : rawNext;
+  const next = rawNext === OpportunityStage.Won && !canConvert ? null : rawNext;
   const prev = previousOpportunityStage(opportunity.stage);
 
   const dragX = useMotionValue(0);
@@ -281,7 +279,6 @@ export function PipelineMobile({
   onAssign,
   onScheduleFollowUp,
   onAddLead: _onAddLead,
-  canManage,
   leadAccessById,
   banner,
 }: PipelineMobileProps) {

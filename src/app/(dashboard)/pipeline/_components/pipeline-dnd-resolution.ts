@@ -1,6 +1,10 @@
 "use client";
 
-import type { OpportunityStage } from "@/lib/types/pipeline";
+import {
+  OpportunityStage,
+  type OpportunityStage as OpportunityStageType,
+} from "@/lib/types/pipeline";
+import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 import type { PipelineMode } from "./pipeline-mode-types";
 
 export type PipelineFocusedDropIntent =
@@ -10,7 +14,7 @@ export type PipelineFocusedDropIntent =
 
 export type PipelineDropData = {
   mode?: PipelineMode;
-  stage?: OpportunityStage;
+  stage?: OpportunityStageType;
   isTerminal?: boolean;
   focusedDropIntent?: PipelineFocusedDropIntent;
 };
@@ -25,7 +29,7 @@ export type PipelineDragEndResolution =
   | {
       type: "focused-stage";
       opportunityId: string;
-      stage: OpportunityStage;
+      stage: OpportunityStageType;
       isTerminal: boolean;
     };
 
@@ -81,4 +85,19 @@ export function resolvePipelineDragEnd({
     stage: dropData.stage,
     isTerminal: Boolean(dropData.isTerminal),
   };
+}
+
+/**
+ * Final client-side permission gate for a resolved focused drop. Droppable
+ * disabling prevents an unauthorized Won target from advertising itself, but
+ * authority can still change during a drag; this check keeps the mutation and
+ * its live-region success announcement atomic with the latest row access.
+ */
+export function isPipelineDropAuthorized(
+  drop: PipelineDragEndResolution,
+  access: Pick<LeadAccess, "canEdit" | "canConvert"> | undefined
+): boolean {
+  if (drop.type === "cancel" || !access?.canEdit) return false;
+  if (drop.type !== "focused-stage") return true;
+  return drop.stage !== OpportunityStage.Won || access.canConvert;
 }

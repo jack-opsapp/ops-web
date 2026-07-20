@@ -109,6 +109,10 @@ import type {
 } from "@/lib/hooks/use-inbox-threads";
 import type { ThreadAttachmentDto } from "@/lib/inbox/adapt-thread-attachment";
 import { inboxThreadHref, threadIdFromInboxPathname } from "./inbox-navigation";
+import {
+  communicationDraftKey,
+  useCommunicationDraftStore,
+} from "@/stores/communication-draft-store";
 
 interface InboxRouteProps {
   threadId?: string;
@@ -141,13 +145,31 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const clearEntityName = useBreadcrumbStore((s) => s.clearEntityName);
   const userId = useAuthStore(selectUserId);
   const companyId = useAuthStore(selectCompanyId);
+  const initialCommunicationDraftKey =
+    userId && initialThreadId
+      ? communicationDraftKey({
+          actorUserId: userId,
+          surface: "inbox-reply",
+          threadId: initialThreadId,
+        })
+      : null;
+  const initialCommunicationDraft = initialCommunicationDraftKey
+    ? useCommunicationDraftStore.getState().drafts[initialCommunicationDraftKey]
+    : null;
   const sendReply = useSendReply();
   const sendAttemptRef = useRef<{
     key: string;
     body: string;
     subject: string;
     recipient: string;
-  } | null>(null);
+  } | null>(
+    (initialCommunicationDraft?.state.sendAttempt as {
+      key: string;
+      body: string;
+      subject: string;
+      recipient: string;
+    } | null) ?? null
+  );
   const threadActions = useThreadActions();
   const answerAgentQuestion = useAnswerAgentQuestion();
   const resolveCommitment = useResolveCommitment();
@@ -158,10 +180,14 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const setDefaultRailFilter = useInboxLayoutStore(
     (s) => s.setDefaultRailFilter
   );
-  const [composerValue, setComposerValue] = useState("");
+  const [composerValue, setComposerValue] = useState(
+    initialCommunicationDraft?.body ?? ""
+  );
   const [composerError, setComposerError] = useState<string | null>(null);
   const [sendCompletedAt, setSendCompletedAt] = useState<number | null>(null);
-  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(
+    (initialCommunicationDraft?.state.activeDraftId as string | null) ?? null
+  );
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiveContext, setArchiveContext] =
     useState<ArchiveConfirmContext | null>(null);
@@ -178,6 +204,21 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(
     () => initialThreadId ?? null
   );
+  const currentCommunicationDraftKey =
+    userId && selectedThreadId
+      ? communicationDraftKey({
+          actorUserId: userId,
+          surface: "inbox-reply",
+          threadId: selectedThreadId,
+        })
+      : null;
+  const liveCommunicationDraft = useCommunicationDraftStore((state) =>
+    currentCommunicationDraftKey
+      ? state.drafts[currentCommunicationDraftKey]
+      : undefined
+  );
+  const communicationSendPending =
+    liveCommunicationDraft?.state.sendPending === true;
   const [mobilePane, setMobilePane] = useState<MobileInboxPane>(() =>
     initialThreadId ? "detail" : "list"
   );
@@ -400,10 +441,98 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const autoSaveDraftIdRef = useRef<string | null>(null);
   const lastSavedBodyRef = useRef<string>("");
   const lastSavedThreadIdRef = useRef<string | null>(null);
+  const communicationDraftKeyRef = useRef(currentCommunicationDraftKey);
+  const skipNextCommunicationDraftPersistRef = useRef<string | null>(null);
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
   const floatingComposerFrameRef = useRef<HTMLDivElement | null>(null);
   const [floatingComposerHeight, setFloatingComposerHeight] = useState(0);
   const AUTOSAVE_DELAY_MS = 1500;
+
+  // Query-client quarantine intentionally remounts every React Query observer
+  // after an authority change. Human-authored text lives outside that subtree
+  // so an unrelated lead handoff cannot erase an unsent reply. Actor changes
+  // and matching lead revocations synchronously purge this store.
+  useEffect(() => {
+    if (communicationDraftKeyRef.current === currentCommunicationDraftKey) {
+      return;
+    }
+
+    communicationDraftKeyRef.current = currentCommunicationDraftKey;
+    skipNextCommunicationDraftPersistRef.current = currentCommunicationDraftKey;
+    const restored = currentCommunicationDraftKey
+      ? useCommunicationDraftStore.getState().drafts[
+          currentCommunicationDraftKey
+        ]
+      : null;
+    setComposerValue(restored?.body ?? "");
+    setActiveDraftId((restored?.state.activeDraftId as string | null) ?? null);
+    sendAttemptRef.current =
+      (restored?.state.sendAttempt as {
+        key: string;
+        body: string;
+        subject: string;
+        recipient: string;
+      } | null) ?? null;
+    autoSaveDraftIdRef.current =
+      (restored?.state.autoSaveDraftId as string | null) ?? null;
+    lastSavedBodyRef.current =
+      (restored?.state.lastSavedBody as string | null) ?? "";
+  }, [currentCommunicationDraftKey]);
+
+  useEffect(() => {
+    if (!currentCommunicationDraftKey || !userId) return;
+    if (
+      skipNextCommunicationDraftPersistRef.current ===
+      currentCommunicationDraftKey
+    ) {
+      skipNextCommunicationDraftPersistRef.current = null;
+      return;
+    }
+    const current =
+      useCommunicationDraftStore.getState().drafts[
+        currentCommunicationDraftKey
+      ];
+    useCommunicationDraftStore.getState().save(currentCommunicationDraftKey, {
+      actorUserId: userId,
+      surface: "inbox-reply",
+      threadId: selectedThreadId,
+      opportunityId:
+        detail?.thread.opportunityId ?? current?.opportunityId ?? null,
+      instanceId: null,
+      body: composerValue,
+      state: {
+        ...(current?.state ?? {}),
+        activeDraftId,
+        sendAttempt: sendAttemptRef.current,
+        autoSaveDraftId: autoSaveDraftIdRef.current,
+        lastSavedBody: lastSavedBodyRef.current,
+      },
+      updatedAt: Date.now(),
+    });
+  }, [
+    activeDraftId,
+    composerValue,
+    currentCommunicationDraftKey,
+    detail?.thread.opportunityId,
+    selectedThreadId,
+    userId,
+  ]);
+
+  useEffect(() => {
+    if (
+      !currentCommunicationDraftKey ||
+      liveCommunicationDraft?.state.sendStatus !== "sent"
+    ) {
+      return;
+    }
+    setComposerValue("");
+    setActiveDraftId(null);
+    setSendCompletedAt(Date.now());
+    sendAttemptRef.current = null;
+    autoSaveDraftIdRef.current = null;
+    lastSavedBodyRef.current = "";
+    useCommunicationDraftStore.getState().remove(currentCommunicationDraftKey);
+  }, [currentCommunicationDraftKey, liveCommunicationDraft?.state.sendStatus]);
 
   useEffect(() => {
     if (!shouldFloatComposer) {
@@ -610,6 +739,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         hasAiDraft: false,
         sentByAgentRecently: false,
         labels: row.labels ?? [],
+        opportunityNeedsReply: row.opportunityNeedsReply,
         closed: row.archivedAt !== null,
         now,
       }),
@@ -978,6 +1108,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
           hasAiDraft: detail.thread.phaseC === "ai_drafted",
           sentByAgentRecently: detail.thread.phaseC === "auto_sent",
           labels: detail.thread.labels,
+          opportunityNeedsReply: detail.thread.opportunityNeedsReply,
           closed: detail.thread.archivedAt !== null,
           now,
         })
@@ -1012,6 +1143,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         latest_direction: detail.thread.latestDirection,
         unread_count: detail.thread.unreadCount,
         agent_blocking_question: detail.thread.agentBlockingQuestion,
+        opportunity_needs_reply: detail.thread.opportunityNeedsReply,
       },
       now
     );
@@ -1052,6 +1184,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       draft: Pick<RenderableDraft, "id" | "source" | "subject"> | null
     ) => {
       if (!selectedThreadId) return;
+      if (communicationSendPending) return;
       // Free-form answer path: when an unresolved agent question is
       // attached to this thread, treat the operator's typed reply as
       // both the email body AND the question's answer. Fire-and-forget
@@ -1092,8 +1225,34 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         subject: replySubject,
         recipient,
       };
-      sendReply.mutate(
-        {
+      if (currentCommunicationDraftKey && userId) {
+        const priorState =
+          useCommunicationDraftStore.getState().drafts[
+            currentCommunicationDraftKey
+          ]?.state ?? {};
+        useCommunicationDraftStore
+          .getState()
+          .save(currentCommunicationDraftKey, {
+            actorUserId: userId,
+            surface: "inbox-reply",
+            threadId: selectedThreadId,
+            opportunityId: currentDetail.thread.opportunityId,
+            instanceId: null,
+            body: value,
+            state: {
+              ...priorState,
+              activeDraftId: draft?.id ?? activeDraftId,
+              sendAttempt: sendAttemptRef.current,
+              sendPending: true,
+              sendStatus: "pending",
+              autoSaveDraftId: autoSaveDraftIdRef.current,
+              lastSavedBody: lastSavedBodyRef.current,
+            },
+            updatedAt: Date.now(),
+          });
+      }
+      void sendReply
+        .mutateAsync({
           payload: {
             idempotencyKey,
             threadId: selectedThreadId,
@@ -1106,35 +1265,89 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             followUpDraftId: draft?.source === "lifecycle" ? draft.id : null,
             format: "markdown",
           },
-        },
-        {
-          onSuccess: () => {
-            setComposerValue("");
-            setActiveDraftId(null);
-            setSendCompletedAt(Date.now());
-            sendAttemptRef.current = null;
-            // Once the send lands, the provider auto-removes the draft
-            // it was based on (Gmail drafts.send / Graph sendDraft both
-            // do this). Clear our local tracking so the next typed reply
-            // provisions a fresh draft instead of trying to PATCH a row
-            // that no longer exists.
-            autoSaveDraftIdRef.current = null;
-            lastSavedBodyRef.current = "";
-          },
-          onError: (e) =>
-            setComposerError(
-              e instanceof Error
-                ? e.message
-                : t("composer.error.sendFailed", "Send failed")
-            ),
-        }
-      );
+        })
+        .then(() => {
+          if (!currentCommunicationDraftKey || !userId) return;
+          const current =
+            useCommunicationDraftStore.getState().drafts[
+              currentCommunicationDraftKey
+            ];
+          const currentAttempt = current?.state.sendAttempt as
+            | { key?: string }
+            | undefined;
+          if (
+            !current ||
+            current.actorUserId !== userId ||
+            currentAttempt?.key !== idempotencyKey
+          ) {
+            return;
+          }
+          useCommunicationDraftStore
+            .getState()
+            .save(currentCommunicationDraftKey, {
+              actorUserId: userId,
+              surface: "inbox-reply",
+              threadId: selectedThreadId,
+              opportunityId: currentDetail.thread.opportunityId,
+              instanceId: null,
+              body: "",
+              state: {
+                ...(current?.state ?? {}),
+                sendPending: false,
+                sendStatus: "sent",
+              },
+              updatedAt: Date.now(),
+            });
+        })
+        .catch((error) => {
+          if (currentCommunicationDraftKey && userId) {
+            const current =
+              useCommunicationDraftStore.getState().drafts[
+                currentCommunicationDraftKey
+              ];
+            const currentAttempt = current?.state.sendAttempt as
+              | { key?: string }
+              | undefined;
+            if (
+              !current ||
+              current.actorUserId !== userId ||
+              currentAttempt?.key !== idempotencyKey
+            ) {
+              return;
+            }
+            useCommunicationDraftStore
+              .getState()
+              .save(currentCommunicationDraftKey, {
+                actorUserId: userId,
+                surface: "inbox-reply",
+                threadId: selectedThreadId,
+                opportunityId: currentDetail.thread.opportunityId,
+                instanceId: null,
+                body: value,
+                state: {
+                  ...(current?.state ?? {}),
+                  sendPending: false,
+                  sendStatus: "failed",
+                },
+                updatedAt: Date.now(),
+              });
+          }
+          setComposerError(
+            error instanceof Error
+              ? error.message
+              : t("composer.error.sendFailed", "Send failed")
+          );
+        });
     },
     [
       answerAgentQuestion,
+      activeDraftId,
+      communicationSendPending,
+      currentCommunicationDraftKey,
       selectedThreadId,
       sendReply,
       t,
+      userId,
     ]
   );
 
@@ -1160,7 +1373,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         if (composerError) setComposerError(null);
       }}
       onSend={(value) => sendThreadReply(value, currentDetail, activeDraft)}
-      disabled={sendReply.isPending}
+      disabled={sendReply.isPending || communicationSendPending}
       placeholder={t(
         "composer.tacticPlaceholder",
         "[type message — ⌘↵ to send]"
@@ -1417,7 +1630,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   const linkedOpportunityIsWon = linkedOpportunity?.stage === "won";
   const linkedOpportunityIsOpen = Boolean(
     linkedOpportunity &&
-      !["won", "lost", "discarded"].includes(linkedOpportunity.stage)
+    !["won", "lost", "discarded"].includes(linkedOpportunity.stage)
   );
   const opportunities = contextClientId
     ? (opportunitiesQuery.data ?? [])
@@ -1651,6 +1864,7 @@ function toThreadListItem(t: InboxThreadRow): ThreadListItem {
     hasAiDraft: t.phaseC === "ai_drafted",
     sentByAgentRecently: t.phaseC === "auto_sent",
     labels: t.labels,
+    opportunityNeedsReply: t.opportunityNeedsReply,
     closed: t.archivedAt !== null,
     now: Date.now(),
   });
@@ -1701,6 +1915,7 @@ function toCommitments(t: InboxThreadRow): TodayCommitment[] {
     hasAiDraft: t.phaseC === "ai_drafted",
     sentByAgentRecently: t.phaseC === "auto_sent",
     labels: t.labels,
+    opportunityNeedsReply: t.opportunityNeedsReply,
     closed: t.archivedAt !== null,
     now: Date.now(),
   });
@@ -1763,8 +1978,7 @@ function toRenderableMessage(
     body: m.cleanBodyText || m.bodyText || m.snippet || "",
     senderName,
     initials: senderName,
-    attachments:
-      attachmentsByMessageId?.get(m.providerMessageId ?? m.id) ?? [],
+    attachments: attachmentsByMessageId?.get(m.providerMessageId ?? m.id) ?? [],
     timestamp: new Date(ts).toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",

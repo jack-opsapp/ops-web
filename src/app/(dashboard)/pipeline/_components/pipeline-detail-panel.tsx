@@ -31,7 +31,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
-import { type Opportunity, isActiveStage } from "@/lib/types/pipeline";
+import {
+  type Opportunity,
+  OpportunityStage,
+  isActiveStage,
+  nextOpportunityStage,
+} from "@/lib/types/pipeline";
 import type { LucideIcon } from "lucide-react";
 import type { DetailTabId } from "./pipeline-mode-types";
 import { PipelineDetailCorrespondenceTab } from "./pipeline-detail-correspondence-tab";
@@ -97,6 +102,7 @@ export function PipelineDetailBody({
           : undefined
       }
       data-keyboard-scope="modal-or-menu"
+      aria-busy={contextLoading ? true : undefined}
       tabIndex={withRegion ? -1 : undefined}
       className="flex h-full min-h-0 flex-col"
     >
@@ -253,6 +259,11 @@ export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const active = isActiveStage(opportunity.stage);
+  const nextStage = nextOpportunityStage(opportunity.stage);
+  const canAdvance =
+    active &&
+    leadAccess.canEdit &&
+    (nextStage !== OpportunityStage.Won || leadAccess.canConvert);
   const leadName =
     opportunity.title?.trim() ||
     opportunity.client?.name ||
@@ -267,8 +278,19 @@ export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
       setShowActions(false);
     }
 
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setShowActions(false);
+    }
+
     document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
+    };
   }, [showActions]);
 
   const runAction = useCallback((callback: () => void) => {
@@ -290,10 +312,11 @@ export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
 
       {showActions && (
         <div
+          data-pipeline-detail-action-menu
           data-keyboard-scope="modal-or-menu"
           className="glass-dense absolute right-0 top-full z-10 mt-1 min-w-[168px] rounded-modal border border-border p-1"
         >
-          {active && leadAccess.canEdit && (
+          {canAdvance && (
             <ActionItem
               icon={ChevronRight}
               label={t("detail.advance")}
@@ -338,10 +361,7 @@ export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
 
       {/* Delete confirm — z-modal on panel + overlay: this menu lives inside the
           floating detail window (z 2000+), above the kit's default dialog layer. */}
-      <AlertDialog
-        open={confirmingDelete}
-        onOpenChange={setConfirmingDelete}
-      >
+      <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent className="z-modal" overlayClassName="z-modal">
           <AlertDialogHeader>
             <AlertDialogTitle>

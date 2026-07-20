@@ -65,7 +65,9 @@ function makeOpportunity(id: string, stage: OpportunityStage): Opportunity {
     lastInboundAt: null,
     lastOutboundAt: null,
     lastMessageDirection: null,
+    handledAt: null,
     aiSummary: null,
+    aiSummaryUpdatedAt: null,
     aiStageConfidence: null,
     aiStageSignals: null,
     detectedValue: null,
@@ -116,6 +118,32 @@ describe("<PipelineTerminalStack>", () => {
       },
       disabled: false,
     });
+  });
+
+  it("disables only the Won drop target when the dragged lead cannot convert", () => {
+    render(
+      <PipelineTerminalStack
+        wonOpportunities={[]}
+        lostOpportunities={[]}
+        focusedStage={OpportunityStage.Negotiation}
+        panelId="pipeline-focused-panel"
+        canDropWon={false}
+        onSelectStage={vi.fn()}
+      />
+    );
+
+    expect(dndMocks.useDroppable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: `focused-terminal-${OpportunityStage.Won}`,
+        disabled: true,
+      })
+    );
+    expect(dndMocks.useDroppable).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: `focused-terminal-${OpportunityStage.Lost}`,
+        disabled: false,
+      })
+    );
   });
 
   it("still selects the terminal stage on click", async () => {

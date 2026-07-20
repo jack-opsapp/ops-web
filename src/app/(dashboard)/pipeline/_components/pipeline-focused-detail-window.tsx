@@ -87,7 +87,10 @@ function focusOrigin(originatingOpportunityId: string | null) {
   });
 }
 
-export function getOpportunityTitle(opportunity: Opportunity, fallback: string) {
+export function getOpportunityTitle(
+  opportunity: Opportunity,
+  fallback: string
+) {
   const displayName =
     opportunity.client?.name ??
     opportunity.contactName ??
@@ -214,10 +217,21 @@ export function PipelineFocusedDetailWindow({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      if (event.defaultPrevented) return;
+      // The nested action menu owns the first Escape and closes itself. Its
+      // capture listener stops propagation before the shell-level shortcut can
+      // tear down this window.
+      if (document.querySelector("[data-pipeline-detail-action-menu]")) return;
       // A nested full-screen modal (photo lightbox, deck viewer) owns this
       // Escape — it closes itself; the window stays. Without this guard the
       // capture-phase listener tears down the whole window underneath it.
       if (document.querySelector("[data-pipeline-detail-modal]")) return;
+      // Destructive confirmations are portaled above this window. Radix owns
+      // the first Escape while the alert is open; the lead window must remain
+      // mounted underneath it.
+      if (document.querySelector('[role="alertdialog"][data-state="open"]')) {
+        return;
+      }
       // An open picker owns Escape too: the Radix assignee popover
       // (`[data-radix-popper-content-wrapper]`) and the portaled inline field
       // editors (`[data-lead-field-editor]`) each close themselves on Escape.

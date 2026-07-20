@@ -3,8 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { queryKeys } from "@/lib/api/query-client";
 import {
-  armAuthorityVerificationDeadline,
-  cancelAuthorityVerificationDeadline,
   reconcileLeadAssignmentBacklog,
   reconcileLeadAssignmentDelivery,
   reconcilePermissionChangeDelivery,
@@ -14,6 +12,7 @@ import {
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { useWindowStore } from "@/stores/window-store";
+import { useCommunicationDraftStore } from "@/stores/communication-draft-store";
 import type { Opportunity } from "@/lib/types/pipeline";
 
 function opportunity(id: string): Opportunity {
@@ -32,6 +31,7 @@ function queryClient(): QueryClient {
 beforeEach(() => {
   usePipelineModeStore.setState({ detailPanelOpportunityId: null });
   useWindowStore.setState({ windows: [], nextZIndex: 2_000 });
+  useCommunicationDraftStore.getState().clear();
 });
 
 describe("reconcileLeadAssignmentDelivery", () => {
@@ -46,6 +46,11 @@ describe("reconcileLeadAssignmentDelivery", () => {
     const commentKey = queryKeys.activityComments.byActivity("activity-1");
     const draftKey = queryKeys.aiDrafting.pendingSends("company-1");
     const approvalKey = queryKeys.approvalQueue.detail("approval-1");
+    const activityFeedKey = ["activities", "company-feed", "company-1"];
+    const inboxLeadsKey = ["inboxLeads", "company-1"];
+    const emailReviewItemsKey = ["emailReviewItems", "company-1"];
+    const singularClientKey = ["client", "client-1"];
+    const futureLeadCacheKey = ["future-lead-cache", "lead-1"];
 
     client.setQueryData(listKey, [
       opportunity("lead-1"),
@@ -66,6 +71,13 @@ describe("reconcileLeadAssignmentDelivery", () => {
     client.setQueryData(commentKey, [{ id: "comment-1" }]);
     client.setQueryData(draftKey, [{ id: "draft-1" }]);
     client.setQueryData(approvalKey, { id: "approval-1" });
+    client.setQueryData(activityFeedKey, [{ body: "private activity" }]);
+    client.setQueryData(inboxLeadsKey, [{ id: "lead-1" }]);
+    client.setQueryData(emailReviewItemsKey, [{ id: "review-1" }]);
+    client.setQueryData(singularClientKey, { id: "client-1" });
+    // A security purge must not depend on a query-root allowlist. A newly
+    // introduced cache can contain lead content before this hook knows its key.
+    client.setQueryData(futureLeadCacheKey, { body: "future private data" });
     usePipelineModeStore.setState({ detailPanelOpportunityId: "lead-1" });
     useWindowStore.setState({
       windows: [
@@ -81,15 +93,73 @@ describe("reconcileLeadAssignmentDelivery", () => {
         },
       ],
     });
+    useCommunicationDraftStore.getState().save("lead-1-draft", {
+      actorUserId: "user-1",
+      surface: "inbox-reply",
+      threadId: "thread-1",
+      opportunityId: "lead-1",
+      instanceId: null,
+      body: "revoked lead draft",
+      state: {},
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-2-draft", {
+      actorUserId: "user-1",
+      surface: "inbox-reply",
+      threadId: "thread-2",
+      opportunityId: "lead-2",
+      instanceId: null,
+      body: "unrelated lead draft",
+      state: {},
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-1-compose", {
+      actorUserId: "user-1",
+      surface: "floating-email",
+      threadId: null,
+      opportunityId: "lead-1",
+      instanceId: "compose-1",
+      body: "revoked floating compose",
+      state: { sendPending: true },
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-1-follow-up", {
+      actorUserId: "user-1",
+      surface: "pipeline-follow-up",
+      threadId: null,
+      opportunityId: "lead-1",
+      instanceId: null,
+      body: "revoked quick follow-up",
+      state: { sendPending: true },
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-2-compose", {
+      actorUserId: "user-1",
+      surface: "floating-email",
+      threadId: null,
+      opportunityId: "lead-2",
+      instanceId: "compose-2",
+      body: "unrelated floating compose",
+      state: {},
+      updatedAt: Date.now(),
+    });
+    useCommunicationDraftStore.getState().save("lead-2-follow-up", {
+      actorUserId: "user-1",
+      surface: "pipeline-follow-up",
+      threadId: null,
+      opportunityId: "lead-2",
+      instanceId: null,
+      body: "unrelated quick follow-up",
+      state: {},
+      updatedAt: Date.now(),
+    });
 
     reconcileLeadAssignmentDelivery(client, {
       opportunityId: "lead-1",
       accessAfter: false,
     });
 
-    expect(
-      client.getQueryData<Opportunity[]>(listKey)?.map(({ id }) => id)
-    ).toEqual(["lead-2"]);
+    expect(client.getQueryData(listKey)).toBeUndefined();
     expect(
       client.getQueryData(queryKeys.opportunities.detail("lead-1"))
     ).toBeUndefined();
@@ -104,8 +174,29 @@ describe("reconcileLeadAssignmentDelivery", () => {
     expect(client.getQueryData(commentKey)).toBeUndefined();
     expect(client.getQueryData(draftKey)).toBeUndefined();
     expect(client.getQueryData(approvalKey)).toBeUndefined();
+    expect(client.getQueryData(activityFeedKey)).toBeUndefined();
+    expect(client.getQueryData(inboxLeadsKey)).toBeUndefined();
+    expect(client.getQueryData(emailReviewItemsKey)).toBeUndefined();
+    expect(client.getQueryData(singularClientKey)).toBeUndefined();
+    expect(client.getQueryData(futureLeadCacheKey)).toBeUndefined();
     expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBeNull();
     expect(useWindowStore.getState().windows).toEqual([]);
+    expect(useCommunicationDraftStore.getState().drafts).toEqual({
+      "lead-2-draft": expect.objectContaining({
+        opportunityId: "lead-2",
+        body: "unrelated lead draft",
+      }),
+      "lead-2-compose": expect.objectContaining({
+        surface: "floating-email",
+        opportunityId: "lead-2",
+        body: "unrelated floating compose",
+      }),
+      "lead-2-follow-up": expect.objectContaining({
+        surface: "pipeline-follow-up",
+        opportunityId: "lead-2",
+        body: "unrelated quick follow-up",
+      }),
+    });
   });
 
   it("replays a missed backlog at only the latest version per lead", () => {
@@ -184,7 +275,7 @@ describe("reconcileLeadAssignmentDelivery", () => {
       "user-1",
       seen
     );
-    expect(client.getQueryData(listKey)).toEqual([]);
+    expect(client.getQueryData(listKey)).toBeUndefined();
     expect(seen.get("lead-1")).toBe(3);
   });
 
@@ -287,9 +378,7 @@ describe("lead-revoked notification", () => {
     expect(onLeadRevoked).toHaveBeenCalledTimes(1);
     expect(onLeadRevoked).toHaveBeenCalledWith({ title: "Acme Exteriors" });
     // The purge itself still ran.
-    expect(
-      client.getQueryData<Opportunity[]>(listKey)?.map(({ id }) => id)
-    ).toEqual(["lead-2"]);
+    expect(client.getQueryData(listKey)).toBeUndefined();
   });
 
   it("stays silent when the revoked lead was not visible in any list cache", () => {
@@ -434,39 +523,6 @@ describe("replayWithRetryAndDeadline", () => {
     expect(result).toBe(false);
     expect(runReplay).toHaveBeenCalledTimes(1);
     expect(onFinalFailure).not.toHaveBeenCalled();
-  });
-});
-
-describe("authority verification deadline", () => {
-  beforeEach(() => {
-    cancelAuthorityVerificationDeadline();
-  });
-
-  it("fires the destructive fallback exactly once after the deadline elapses", () => {
-    vi.useFakeTimers();
-    try {
-      const fallback = vi.fn();
-      armAuthorityVerificationDeadline(fallback);
-      // A second arm while one is pending must not schedule a second wipe.
-      armAuthorityVerificationDeadline(fallback);
-      vi.advanceTimersByTime(3 * 60_000);
-      expect(fallback).toHaveBeenCalledTimes(1);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("cancel prevents the fallback from firing", () => {
-    vi.useFakeTimers();
-    try {
-      const fallback = vi.fn();
-      armAuthorityVerificationDeadline(fallback);
-      cancelAuthorityVerificationDeadline();
-      vi.advanceTimersByTime(3 * 60_000);
-      expect(fallback).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });
 

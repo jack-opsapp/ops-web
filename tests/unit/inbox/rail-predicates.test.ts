@@ -20,7 +20,7 @@ const FUTURE = new Date("2026-05-13T15:00:00Z").toISOString();
 const PAST = new Date("2026-05-11T15:00:00Z").toISOString();
 
 function makeThread(
-  overrides: Partial<RailPredicateThread> = {},
+  overrides: Partial<RailPredicateThread> = {}
 ): RailPredicateThread {
   return {
     archived_at: null,
@@ -36,21 +36,19 @@ function makeThread(
 
 describe("rail-predicates / classifyRail", () => {
   it("classifies linked client/opportunity threads as CLIENTS", () => {
-    expect(classifyRail(makeThread({ client_id: "client-1" }))).toBe(
-      "CLIENTS",
-    );
+    expect(classifyRail(makeThread({ client_id: "client-1" }))).toBe("CLIENTS");
     expect(classifyRail(makeThread({ opportunity_id: "opp-1" }))).toBe(
-      "CLIENTS",
+      "CLIENTS"
     );
   });
 
   it("treats customer and bid-style primary categories as CLIENTS", () => {
     expect(classifyRail(makeThread({ primary_category: "CUSTOMER" }))).toBe(
-      "CLIENTS",
+      "CLIENTS"
     );
-    expect(
-      classifyRail(makeThread({ primary_category: "PLATFORM_BID" })),
-    ).toBe("CLIENTS");
+    expect(classifyRail(makeThread({ primary_category: "PLATFORM_BID" }))).toBe(
+      "CLIENTS"
+    );
     expect([...CLIENT_FACING_PRIMARY_CATEGORIES]).toEqual([
       "CUSTOMER",
       "PLATFORM_BID",
@@ -72,7 +70,7 @@ describe("rail-predicates / classifyRail", () => {
       null,
     ]) {
       expect(classifyRail(makeThread({ primary_category }))).toBe(
-        "EVERYTHING_ELSE",
+        "EVERYTHING_ELSE"
       );
     }
   });
@@ -111,9 +109,9 @@ describe("rail-predicates / classifyThreadState", () => {
     ];
 
     for (const thread of universe) {
-      const matches = (
-        ["YOUR_MOVE", "WAITING"] as const
-      ).filter((rail) => classifyThreadState(thread, NOW) === rail);
+      const matches = (["YOUR_MOVE", "WAITING"] as const).filter(
+        (rail) => classifyThreadState(thread, NOW) === rail
+      );
       expect(matches).toHaveLength(1);
     }
   });
@@ -155,23 +153,66 @@ describe("rail-predicates / classifyThreadState", () => {
 
   it("YOUR_MOVE: triggers on any of {commitment, AWAITING_REPLY, unread inbound, agent question}", () => {
     expect(
-      classifyThreadState(makeThread({ has_unresolved_commitments: true }), NOW),
+      classifyThreadState(makeThread({ has_unresolved_commitments: true }), NOW)
     ).toBe("YOUR_MOVE");
     expect(
-      classifyThreadState(makeThread({ labels: ["AWAITING_REPLY"] }), NOW),
+      classifyThreadState(makeThread({ labels: ["AWAITING_REPLY"] }), NOW)
     ).toBe("YOUR_MOVE");
     expect(
       classifyThreadState(
         makeThread({ latest_direction: "inbound", unread_count: 1 }),
-        NOW,
-      ),
+        NOW
+      )
     ).toBe("YOUR_MOVE");
     expect(
       classifyThreadState(
-        makeThread({ agent_blocking_question: { question: "?", askedAt: "z" } }),
-        NOW,
-      ),
+        makeThread({
+          agent_blocking_question: { question: "?", askedAt: "z" },
+        }),
+        NOW
+      )
     ).toBe("YOUR_MOVE");
+  });
+
+  it("suppresses linked-lead reply debt after HANDLED without erasing stronger obligations", () => {
+    const handledReplyDebt = makeThread({
+      opportunity_id: "opp-1",
+      opportunity_needs_reply: false,
+      labels: ["AWAITING_REPLY"],
+      latest_direction: "inbound",
+      unread_count: 1,
+    });
+    expect(classifyThreadState(handledReplyDebt, NOW)).toBe("WAITING");
+
+    expect(
+      classifyThreadState(
+        { ...handledReplyDebt, has_unresolved_commitments: true },
+        NOW
+      )
+    ).toBe("YOUR_MOVE");
+    expect(
+      classifyThreadState(
+        {
+          ...handledReplyDebt,
+          agent_blocking_question: { question: "Need scope", askedAt: "z" },
+        },
+        NOW
+      )
+    ).toBe("YOUR_MOVE");
+  });
+
+  it("does not force every linked sibling into YOUR_MOVE when the lead re-arms", () => {
+    expect(
+      classifyThreadState(
+        makeThread({
+          opportunity_id: "opp-1",
+          opportunity_needs_reply: true,
+          latest_direction: "outbound",
+          unread_count: 0,
+        }),
+        NOW
+      )
+    ).toBe("WAITING");
   });
 
   it("WAITING: outbound-last, read, no commitment, no AWAITING_REPLY, no agent block", () => {
@@ -234,7 +275,7 @@ describe("rail-predicates / parseRailFilter", () => {
   it("honours an explicit fallback override", () => {
     expect(parseRailFilter(null, "ALL")).toBe("ALL");
     expect(parseRailFilter("nonsense", "EVERYTHING_ELSE")).toBe(
-      "EVERYTHING_ELSE",
+      "EVERYTHING_ELSE"
     );
   });
 });
@@ -268,12 +309,12 @@ describe("rail-predicates / RAIL_NAV_OPTIONS", () => {
       "EVERYTHING_ELSE",
       "ALL",
     ]);
-    expect((RAIL_NAV_OPTIONS as ReadonlyArray<string>).includes("SNOOZED")).toBe(
-      false,
-    );
-    expect((RAIL_NAV_OPTIONS as ReadonlyArray<string>).includes("ARCHIVED")).toBe(
-      false,
-    );
+    expect(
+      (RAIL_NAV_OPTIONS as ReadonlyArray<string>).includes("SNOOZED")
+    ).toBe(false);
+    expect(
+      (RAIL_NAV_OPTIONS as ReadonlyArray<string>).includes("ARCHIVED")
+    ).toBe(false);
   });
 });
 
@@ -295,16 +336,16 @@ describe("rail-predicates / isClientFacingThread", () => {
   it("uses linkage before category so future custom categories can layer on safely", () => {
     expect(
       isClientFacingThread(
-        makeThread({ primary_category: "VENDOR", client_id: "client-1" }),
-      ),
+        makeThread({ primary_category: "VENDOR", client_id: "client-1" })
+      )
     ).toBe(true);
     expect(
       isClientFacingThread(
-        makeThread({ primary_category: "OTHER", opportunity_id: "opp-1" }),
-      ),
+        makeThread({ primary_category: "OTHER", opportunity_id: "opp-1" })
+      )
     ).toBe(true);
-    expect(isClientFacingThread(makeThread({ primary_category: "VENDOR" }))).toBe(
-      false,
-    );
+    expect(
+      isClientFacingThread(makeThread({ primary_category: "VENDOR" }))
+    ).toBe(false);
   });
 });

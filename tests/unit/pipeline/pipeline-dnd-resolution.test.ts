@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { OpportunityStage } from "@/lib/types/pipeline";
-import { resolvePipelineDragEnd } from "@/app/(dashboard)/pipeline/_components/pipeline-dnd-resolution";
+import {
+  isPipelineDropAuthorized,
+  resolvePipelineDragEnd,
+} from "@/app/(dashboard)/pipeline/_components/pipeline-dnd-resolution";
 
 describe("resolvePipelineDragEnd", () => {
   it("cancels focused drops outside a focused stage target", () => {
@@ -80,5 +83,71 @@ describe("resolvePipelineDragEnd", () => {
         },
       })
     ).toEqual({ type: "cancel" });
+  });
+});
+
+describe("isPipelineDropAuthorized", () => {
+  const editOnly = { canEdit: true, canConvert: false };
+
+  it("rejects a Won drop without convert authority", () => {
+    expect(
+      isPipelineDropAuthorized(
+        {
+          type: "focused-stage",
+          opportunityId: "opp-1",
+          stage: OpportunityStage.Won,
+          isTerminal: true,
+        },
+        editOnly
+      )
+    ).toBe(false);
+  });
+
+  it("allows active, Lost, archive, and discard drops with edit authority", () => {
+    expect(
+      isPipelineDropAuthorized(
+        {
+          type: "focused-stage",
+          opportunityId: "opp-1",
+          stage: OpportunityStage.FollowUp,
+          isTerminal: false,
+        },
+        editOnly
+      )
+    ).toBe(true);
+    expect(
+      isPipelineDropAuthorized(
+        {
+          type: "focused-stage",
+          opportunityId: "opp-1",
+          stage: OpportunityStage.Lost,
+          isTerminal: true,
+        },
+        editOnly
+      )
+    ).toBe(true);
+    expect(
+      isPipelineDropAuthorized(
+        {
+          type: "focused-action",
+          opportunityId: "opp-1",
+          action: "archive",
+        },
+        editOnly
+      )
+    ).toBe(true);
+  });
+
+  it("rejects every mutating drop when row edit access is gone", () => {
+    expect(
+      isPipelineDropAuthorized(
+        {
+          type: "focused-action",
+          opportunityId: "opp-1",
+          action: "discard",
+        },
+        { canEdit: false, canConvert: false }
+      )
+    ).toBe(false);
   });
 });

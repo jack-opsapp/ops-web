@@ -41,6 +41,7 @@ import type {
   PipelineTableMetrics,
 } from "./pipeline-table";
 import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
+import { LeadChaseControl } from "../lead-chase-control";
 
 /**
  * Map a column to its presentational cell. Inline-editable columns route through
@@ -56,11 +57,19 @@ function renderReadOnlyCell(
   onRequestStageChange: (rowId: string, next: OpportunityStage) => void,
   onRequestConvertAlreadyWon: (rowId: string) => void,
   canManage: boolean,
-  canConvert: boolean
+  canConvert: boolean,
+  chaseControl: ReactNode
 ): ReactNode {
   switch (column.id) {
     case "deal":
-      return <CellText value={row.title} />;
+      return (
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <CellText value={row.title} />
+          </div>
+          {chaseControl}
+        </div>
+      );
     case "stage":
       return (
         <CellStageAction
@@ -123,7 +132,7 @@ export function PipelineTableRow({
   saveStates,
   activeCell,
   editingCell,
-  canManage,
+  canManage: _canManage,
   leadAccess,
   setActiveCell,
   onToggleRow,
@@ -401,7 +410,12 @@ export function PipelineTableRow({
                       onRequestStageChange,
                       onRequestConvertAlreadyWon,
                       rowAccess.canEdit,
-                      rowAccess.canConvert
+                      rowAccess.canConvert,
+                      <LeadChaseControl
+                        opportunity={row}
+                        canMarkHandled={rowAccess.canEdit}
+                        density="compact"
+                      />
                     )}
               </div>
             )}

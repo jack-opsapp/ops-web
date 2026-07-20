@@ -32,7 +32,9 @@ function wrapperFor(qc: QueryClient) {
   };
 }
 
-function makeThreadRow(overrides: Partial<InboxThreadRow> = {}): InboxThreadRow {
+function makeThreadRow(
+  overrides: Partial<InboxThreadRow> = {}
+): InboxThreadRow {
   return {
     id: "thread-a",
     connectionId: "conn-1",
@@ -56,6 +58,7 @@ function makeThreadRow(overrides: Partial<InboxThreadRow> = {}): InboxThreadRow 
     latestSenderName: "Goodway Homes",
     latestSnippet: "Can you send the number?",
     opportunityId: null,
+    opportunityNeedsReply: null,
     clientId: "client-1",
     clientName: "Goodway Homes",
     nextCommitmentDueAt: null,
@@ -72,7 +75,7 @@ function makeThreadRow(overrides: Partial<InboxThreadRow> = {}): InboxThreadRow 
 
 function makeThreadDetail(
   overrides: Partial<InboxThreadDetail["thread"]> = {},
-  detailOverrides: Partial<Omit<InboxThreadDetail, "thread">> = {},
+  detailOverrides: Partial<Omit<InboxThreadDetail, "thread">> = {}
 ): InboxThreadDetail {
   return {
     thread: {
@@ -92,6 +95,7 @@ function makeThreadDetail(
       messageCount: 1,
       unreadCount: 1,
       opportunityId: null,
+      opportunityNeedsReply: null,
       clientId: "client-1",
       clientName: "Goodway Homes",
       latestDirection: "inbound",
@@ -181,7 +185,7 @@ describe("useThreadActions", () => {
         new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        }),
+        })
       );
       await fetchPromise;
     });
@@ -239,8 +243,8 @@ describe("useResolveCommitment", () => {
               createdAt: "2026-05-10T15:00:00Z",
             },
           ],
-        },
-      ),
+        }
+      )
     );
 
     let resolveFetch!: (response: Response) => void;
@@ -263,7 +267,7 @@ describe("useResolveCommitment", () => {
           .flatMap((page) => page.threads)
           .filter(
             (thread) =>
-              thread.hasUnresolvedCommitments && thread.nextCommitmentId,
+              thread.hasUnresolvedCommitments && thread.nextCommitmentId
           )
           .map((thread) => thread.nextCommitmentId)
           .slice(0, 3) ?? []
@@ -295,7 +299,7 @@ describe("useResolveCommitment", () => {
         new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        }),
+        })
       );
       await fetchPromise;
     });
@@ -347,14 +351,14 @@ describe("useResolveCommitment", () => {
               createdAt: "2026-05-13T15:00:00Z",
             },
           ],
-        },
-      ),
+        }
+      )
     );
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ error: "Update failed" }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
-      }),
+      })
     );
 
     const { result } = renderHook(() => useResolveCommitment(), {
@@ -434,8 +438,8 @@ describe("useSendReply", () => {
         {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        },
-      ),
+        }
+      )
     );
 
     const { result } = renderHook(() => useSendReply(), {
@@ -459,9 +463,7 @@ describe("useSendReply", () => {
       pageParams: unknown[];
     }>(listKey);
     expect(list?.pages[0]?.threads).toHaveLength(1);
-    expect(list?.pages[0]?.threads[0]?.labels).not.toContain(
-      "AWAITING_REPLY",
-    );
+    expect(list?.pages[0]?.threads[0]?.labels).not.toContain("AWAITING_REPLY");
     expect(list?.pages[0]?.threads[0]?.primaryCategory).toBe("CUSTOMER");
     expect(list?.pages[0]?.threads[0]?.clientId).toBe("client-1");
 
@@ -480,8 +482,8 @@ describe("useSendReply", () => {
           unread_count: detail?.thread.unreadCount ?? 0,
           agent_blocking_question: detail?.thread.agentBlockingQuestion ?? null,
         },
-        new Date("2026-05-14T16:00:01Z").getTime(),
-      ),
+        new Date("2026-05-14T16:00:01Z").getTime()
+      )
     ).toBe("WAITING");
   });
 

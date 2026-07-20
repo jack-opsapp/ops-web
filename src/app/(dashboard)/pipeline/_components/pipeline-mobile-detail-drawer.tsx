@@ -23,9 +23,16 @@
  * focused before the drawer opened (the tapped card control) on close.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
@@ -38,8 +45,10 @@ import {
   PipelineDetailBody,
 } from "./pipeline-detail-panel";
 
-export interface PipelineMobileDetailDrawerProps
-  extends DetailPanelActionHandlers {
+const FOCUSABLE_SELECTOR =
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+export interface PipelineMobileDetailDrawerProps extends DetailPanelActionHandlers {
   opportunity: Opportunity;
   leadAccess: LeadAccess;
 }
@@ -67,11 +76,14 @@ export function PipelineMobileDetailDrawer({
   onDelete,
 }: PipelineMobileDetailDrawerProps) {
   const { t } = useDictionary("pipeline");
+  const router = useRouter();
   const activeTab = usePipelineModeStore((s) => s.detailPanelActiveTab);
   const closeDetailPanel = usePipelineModeStore((s) => s.closeDetailPanel);
   const [mounted, setMounted] = useState(false);
   const backButtonRef = useRef<HTMLButtonElement | null>(null);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
   const restoreTargetRef = useRef<HTMLElement | null>(null);
+  const releaseUnderlayRef = useRef<() => void>(() => {});
   // True while our pushed history entry is still on the stack — popstate flips
   // it off; a UI-initiated close consumes it with one history.back().
   const sentinelActiveRef = useRef(false);
@@ -79,24 +91,124 @@ export function PipelineMobileDetailDrawer({
 
   const displayName = getDisplayName(opportunity, t("detail.unknown"));
 
-  const close = useCallback(() => {
-    if (closedRef.current) return;
-    closedRef.current = true;
-    if (sentinelActiveRef.current) {
-      sentinelActiveRef.current = false;
-      window.history.back();
-    }
-    closeDetailPanel();
-    // Restore focus to the control that opened the drawer (the tapped card).
+  const restoreFocus = useCallback(() => {
     const target = restoreTargetRef.current;
     if (target && target.isConnected) {
       target.focus({ preventScroll: true });
     }
-  }, [closeDetailPanel]);
+  }, []);
+
+  const consumeHistorySentinel = useCallback(() => {
+    if (!sentinelActiveRef.current) return;
+    sentinelActiveRef.current = false;
+    window.history.back();
+  }, []);
+
+  const releaseUnderlay = useCallback(() => {
+    releaseUnderlayRef.current();
+  }, []);
+
+  const close = useCallback(() => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    releaseUnderlay();
+    consumeHistorySentinel();
+    closeDetailPanel();
+    // Restore focus to the control that opened the drawer (the tapped card).
+    restoreFocus();
+  }, [closeDetailPanel, consumeHistorySentinel, releaseUnderlay, restoreFocus]);
+
+  const handleInternalNavigation = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
+      if (!anchor || !event.currentTarget.contains(anchor)) return;
+      if (
+        anchor.hasAttribute("download") ||
+        (anchor.target && anchor.target !== "_self")
+      ) {
+        return;
+      }
+
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin) return;
+
+      const current = new URL(window.location.href);
+      if (destination.href === current.href) return;
+
+      // The drawer's same-URL entry is transient UI state. Replace that entry
+      // with the destination instead of pushing above it; otherwise returning
+      // to Pipeline leaves two identical URLs and costs a silent Back press.
+      event.preventDefault();
+      event.stopPropagation();
+      closedRef.current = true;
+      sentinelActiveRef.current = false;
+      releaseUnderlay();
+      closeDetailPanel();
+      router.replace(
+        `${destination.pathname}${destination.search}${destination.hash}`
+      );
+    },
+    [closeDetailPanel, releaseUnderlay, router]
+  );
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // aria-modal alone does not make the rest of the page unavailable. Inert
+  // every pre-existing body sibling while this portaled sheet is open, then
+  // restore each sibling's exact prior state on unmount.
+  useEffect(() => {
+    if (!mounted) return;
+    const drawer = drawerRef.current;
+    if (!drawer) return;
+
+    const siblings = Array.from(document.body.children).filter(
+      (element): element is HTMLElement =>
+        element instanceof HTMLElement && element !== drawer
+    );
+    const prior = siblings.map((element) => ({
+      element,
+      inert: element.hasAttribute("inert"),
+      ariaHidden: element.getAttribute("aria-hidden"),
+    }));
+
+    for (const { element } of prior) {
+      element.setAttribute("inert", "");
+      element.setAttribute("aria-hidden", "true");
+    }
+
+    let released = false;
+    const release = () => {
+      if (released) return;
+      released = true;
+      for (const { element, inert, ariaHidden } of prior) {
+        if (!element.isConnected) continue;
+        if (!inert) element.removeAttribute("inert");
+        if (ariaHidden === null) element.removeAttribute("aria-hidden");
+        else element.setAttribute("aria-hidden", ariaHidden);
+      }
+      if (releaseUnderlayRef.current === release) {
+        releaseUnderlayRef.current = () => {};
+      }
+    };
+
+    releaseUnderlayRef.current = release;
+    return release;
+  }, [mounted]);
 
   // Capture the opener + move focus in, once per mount.
   useEffect(() => {
@@ -120,11 +232,9 @@ export function PipelineMobileDetailDrawer({
       sentinelActiveRef.current = false;
       if (closedRef.current) return;
       closedRef.current = true;
+      releaseUnderlay();
       closeDetailPanel();
-      const target = restoreTargetRef.current;
-      if (target && target.isConnected) {
-        target.focus({ preventScroll: true });
-      }
+      restoreFocus();
     }
 
     window.addEventListener("popstate", handlePopState);
@@ -137,15 +247,77 @@ export function PipelineMobileDetailDrawer({
       // pipeline URL — a visual no-op); a bounce-back costs trust.
       sentinelActiveRef.current = false;
     };
-  }, [closeDetailPanel, opportunity.id]);
+  }, [closeDetailPanel, opportunity.id, releaseUnderlay, restoreFocus]);
+
+  // Revocation/missing-record reconciliation closes the Zustand detail state
+  // directly, bypassing this component's `close()` callback. Subscribe at the
+  // store boundary so that external close still consumes the sentinel while a
+  // route-navigation unmount (no store transition) leaves browser history
+  // alone and cannot bounce the operator back.
+  useEffect(
+    () =>
+      usePipelineModeStore.subscribe((state) => {
+        if (state.detailPanelOpportunityId === opportunity.id) return;
+        if (closedRef.current) return;
+        closedRef.current = true;
+        releaseUnderlay();
+        consumeHistorySentinel();
+        restoreFocus();
+      }),
+    [consumeHistorySentinel, opportunity.id, releaseUnderlay, restoreFocus]
+  );
 
   // Escape closes the drawer — unless a nested full-screen modal (photo
   // lightbox, deck viewer) or an open picker/editor owns that Escape. Same
   // guards as the desktop window.
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Tab") {
+        // Portaled pickers and nested dialogs own their own focus cycle.
+        if (
+          document.querySelector(
+            '[data-radix-popper-content-wrapper], [data-pipeline-detail-modal], [role="alertdialog"][data-state="open"]'
+          )
+        ) {
+          return;
+        }
+        const drawer = drawerRef.current;
+        if (!drawer) return;
+        const focusable = Array.from(
+          drawer.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+        ).filter(
+          (element) =>
+            !element.hasAttribute("disabled") &&
+            element.getAttribute("aria-hidden") !== "true" &&
+            element.tabIndex >= 0
+        );
+        if (focusable.length === 0) {
+          event.preventDefault();
+          drawer.focus({ preventScroll: true });
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+        if (!drawer.contains(active)) {
+          event.preventDefault();
+          (event.shiftKey ? last : first).focus({ preventScroll: true });
+        } else if (!event.shiftKey && active === last) {
+          event.preventDefault();
+          first.focus({ preventScroll: true });
+        } else if (event.shiftKey && active === first) {
+          event.preventDefault();
+          last.focus({ preventScroll: true });
+        }
+        return;
+      }
       if (event.key !== "Escape") return;
+      if (document.querySelector("[data-pipeline-detail-action-menu]")) return;
       if (document.querySelector("[data-pipeline-detail-modal]")) return;
+      if (document.querySelector('[role="alertdialog"][data-state="open"]')) {
+        return;
+      }
       if (
         document.querySelector(
           "[data-radix-popper-content-wrapper], [data-lead-field-editor]"
@@ -166,12 +338,15 @@ export function PipelineMobileDetailDrawer({
 
   return createPortal(
     <div
+      ref={drawerRef}
       role="dialog"
       aria-modal="true"
       aria-label={displayName}
       data-testid="pipeline-mobile-detail-drawer"
       data-keyboard-scope="modal-or-menu"
-      className="glass-dense fixed inset-0 z-modal flex flex-col"
+      tabIndex={-1}
+      onClickCapture={handleInternalNavigation}
+      className="glass-dense z-modal fixed inset-0 flex flex-col"
     >
       {/* Slim header: back · name · gated actions. */}
       <div className="flex shrink-0 items-center gap-1.5 border-b border-glass-border px-1.5 py-1">

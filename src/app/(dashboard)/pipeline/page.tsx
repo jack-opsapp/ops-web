@@ -13,7 +13,6 @@ import { matchesAllTokens } from "@/lib/utils/search";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { useUndoStore } from "@/stores/undo-store";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -84,6 +83,7 @@ import { PipelineModeSwitcher } from "./_components/pipeline-mode-switcher";
 import { PipelineFilterChips } from "./_components/pipeline-filter-chips";
 import { usePipelineModeShortcut } from "./_components/pipeline-mode-shortcuts";
 import {
+  isPipelineDropAuthorized,
   resolvePipelineDragEnd,
   type PipelineDropData,
 } from "./_components/pipeline-dnd-resolution";
@@ -281,7 +281,11 @@ export default function PipelinePage() {
   const searchParams = useSearchParams();
   useEffect(() => {
     if (searchParams.get("action") === "new" && canCreateLead) {
-      openWindow({ id: "create-lead", title: newLeadWindowTitle, type: "create-lead" });
+      openWindow({
+        id: "create-lead",
+        title: newLeadWindowTitle,
+        type: "create-lead",
+      });
     }
   }, [canCreateLead, searchParams, openWindow, newLeadWindowTitle]);
 
@@ -329,7 +333,11 @@ export default function PipelinePage() {
       setShowSetupModal(true);
       return;
     }
-    openWindow({ id: "create-lead", title: newLeadWindowTitle, type: "create-lead" });
+    openWindow({
+      id: "create-lead",
+      title: newLeadWindowTitle,
+      type: "create-lead",
+    });
   }, [canCreateLead, setupComplete, openWindow, newLeadWindowTitle]);
 
   // ── Metrics header data ────────────────────────────────────────────
@@ -801,6 +809,23 @@ export default function PipelinePage() {
         dropData: data,
       });
 
+      // The target can disappear from collision lookup while permissions are
+      // stable, but assignment/role delivery may still revoke authority during
+      // the drag. Gate the resolved drop again before both mutation and the
+      // live-region message so the UI never announces a move it did not make.
+      if (
+        !isPipelineDropAuthorized(
+          drop,
+          drop.type === "cancel"
+            ? undefined
+            : leadAccessById.get(drop.opportunityId)
+        )
+      ) {
+        setFocusedDragLiveMessage(t("focused.dragLive.cancelled"));
+        setActiveDragId(null);
+        return;
+      }
+
       if (drop.type === "focused-action") {
         if (drop.action === "archive") {
           handleArchive(drop.opportunityId);
@@ -829,8 +854,6 @@ export default function PipelinePage() {
             stage: getStageDisplayName(drop.stage),
           })
         );
-      } else {
-        setFocusedDragLiveMessage(t("focused.dragLive.cancelled"));
       }
 
       setActiveDragId(null);
@@ -842,6 +865,7 @@ export default function PipelinePage() {
       handleMarkLost,
       handleMarkWon,
       handleMoveStage,
+      leadAccessById,
       effectiveMode,
       setFocusedDragLiveMessage,
       t,
@@ -1077,7 +1101,6 @@ export default function PipelinePage() {
     onAssign: handleAssign,
     onScheduleFollowUp: handleScheduleFollowUp,
     onAddLead: gatedOpenCreate,
-    canManage,
     leadAccessById,
   } as const;
 

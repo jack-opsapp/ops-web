@@ -35,20 +35,30 @@ const FULL_ACCESS: LeadAccess = {
   canConvert: true,
 };
 
-function makeOpportunity(): Opportunity {
+function makeOpportunity(
+  stage: OpportunityStage = OpportunityStage.Quoted
+): Opportunity {
   return {
     id: "opp-9",
     title: "Cedar deck rebuild",
-    stage: OpportunityStage.Quoted,
+    stage,
     contactName: "Jordan Lee",
   } as Opportunity;
 }
 
-function renderMenu(onDelete = vi.fn()) {
+function renderMenu({
+  onDelete = vi.fn(),
+  opportunity = makeOpportunity(),
+  leadAccess = FULL_ACCESS,
+}: {
+  onDelete?: ReturnType<typeof vi.fn>;
+  opportunity?: Opportunity;
+  leadAccess?: LeadAccess;
+} = {}) {
   render(
     <PipelineDetailActionMenu
-      opportunity={makeOpportunity()}
-      leadAccess={FULL_ACCESS}
+      opportunity={opportunity}
+      leadAccess={leadAccess}
       onAdvanceStage={vi.fn()}
       onMarkWon={vi.fn()}
       onMarkLost={vi.fn()}
@@ -96,5 +106,51 @@ describe("PipelineDetailActionMenu — delete guard", () => {
     fireEvent.click(screen.getByRole("button", { name: "KEEP" }));
 
     expect(onDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe("PipelineDetailActionMenu — conversion authority", () => {
+  it("hides both Won and Advance when Advance would enter Won without convert access", () => {
+    renderMenu({
+      opportunity: makeOpportunity(OpportunityStage.Negotiation),
+      leadAccess: { ...FULL_ACCESS, canConvert: false },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Stage actions" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Advance" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Won" })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Lost" })).toBeInTheDocument();
+  });
+
+  it("keeps Advance available when the next stage is active", () => {
+    renderMenu({
+      opportunity: makeOpportunity(OpportunityStage.Quoted),
+      leadAccess: { ...FULL_ACCESS, canConvert: false },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Stage actions" }));
+
+    expect(screen.getByRole("button", { name: "Advance" })).toBeInTheDocument();
+  });
+});
+
+describe("PipelineDetailActionMenu — nested Escape ownership", () => {
+  it("closes its own menu on Escape", () => {
+    renderMenu();
+    const trigger = screen.getByRole("button", { name: "Stage actions" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(
+      screen.queryByRole("button", { name: "Archive" })
+    ).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 });

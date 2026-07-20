@@ -27,7 +27,6 @@ vi.mock("@/components/ui/toast", () => ({
 
 import { queryKeys } from "@/lib/api/query-client";
 import {
-  cancelAuthorityVerificationDeadline,
   reconcileLeadAssignmentDelivery,
   useLeadAssignmentRealtime,
 } from "@/lib/hooks/use-lead-assignment-realtime";
@@ -35,17 +34,33 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 
 type ChangeHandler = (payload: { new: Record<string, unknown> }) => void;
+type ChannelStatus = "SUBSCRIBED" | "CHANNEL_ERROR" | "TIMED_OUT" | "CLOSED";
+type QueryResult = { data: unknown[] | null; error: unknown };
 
-function queryBuilder(result: { data: unknown[] | null; error: unknown }) {
+function queryBuilder(
+  result:
+    | QueryResult
+    | Promise<QueryResult>
+    | Array<QueryResult | Promise<QueryResult>>
+) {
+  const results = Array.isArray(result) ? result : [result];
+  let readIndex = 0;
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
     order: vi.fn(() => builder),
     limit: vi.fn(() => builder),
     then: (
-      onFulfilled: (value: { data: unknown[] | null; error: unknown }) => unknown,
+      onFulfilled: (value: {
+        data: unknown[] | null;
+        error: unknown;
+      }) => unknown,
       onRejected?: (reason: unknown) => unknown
-    ) => Promise.resolve(result).then(onFulfilled, onRejected),
+    ) => {
+      const next = results[Math.min(readIndex, results.length - 1)];
+      readIndex += 1;
+      return Promise.resolve(next).then(onFulfilled, onRejected);
+    },
   };
   return builder;
 }
@@ -53,11 +68,18 @@ function queryBuilder(result: { data: unknown[] | null; error: unknown }) {
 function harness(
   permissionBacklog: unknown[] = [],
   options?: {
-    assignmentResult?: { data: unknown[] | null; error: unknown };
-    permissionResult?: { data: unknown[] | null; error: unknown };
+    assignmentResult?:
+      | QueryResult
+      | Promise<QueryResult>
+      | Array<QueryResult | Promise<QueryResult>>;
+    permissionResult?:
+      | QueryResult
+      | Promise<QueryResult>
+      | Array<QueryResult | Promise<QueryResult>>;
   }
 ) {
   const handlers = new Map<string, ChangeHandler>();
+  let statusHandler: ((status: ChannelStatus) => void) | null = null;
   const channel = {
     on: vi.fn(
       (_kind: string, config: { table: string }, handler: ChangeHandler) => {
@@ -65,8 +87,12 @@ function harness(
         return channel;
       }
     ),
-    subscribe: vi.fn(() => channel),
+    subscribe: vi.fn((handler: (status: ChannelStatus) => void) => {
+      statusHandler = handler;
+      return channel;
+    }),
   };
+  const channelFactory = vi.fn(() => channel);
   const assignmentBuilder = queryBuilder(
     options?.assignmentResult ?? { data: [], error: null }
   );
@@ -80,7 +106,7 @@ function harness(
   );
   const removeChannel = vi.fn();
   getSupabaseClientMock.mockReturnValue({
-    channel: () => channel,
+    channel: channelFactory,
     from,
     removeChannel,
   });
@@ -91,15 +117,22 @@ function harness(
   const wrapper = ({ children }: PropsWithChildren) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  return { handlers, permissionBuilder, queryClient, wrapper };
+  return {
+    handlers,
+    channelFactory,
+    assignmentBuilder,
+    permissionBuilder,
+    queryClient,
+    wrapper,
+    emitStatus(status: ChannelStatus) {
+      statusHandler?.(status);
+    },
+  };
 }
 
 describe("lead permission realtime delivery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // The fail-closed deadline is module-level state — never let one test's
-    // armed timer bleed into the next.
-    cancelAuthorityVerificationDeadline();
     useAuthStore.setState({
       company: { id: "company-1" } as never,
       currentUser: { id: "user-1" } as never,
@@ -164,7 +197,7 @@ describe("lead permission realtime delivery", () => {
     expect(fetchPermissions).toHaveBeenCalledTimes(1);
   });
 
-  it("redacts a mounted sensitive query before refreshing it under fresh permissions", async () => {
+  it("redacts a mounted sensitive query and never refetches its quarantined client", async () => {
     let releasePermissions!: () => void;
     const permissionsPending = new Promise<void>((resolve) => {
       releasePermissions = resolve;
@@ -173,11 +206,10 @@ describe("lead permission realtime delivery", () => {
     usePermissionStore.setState({ fetchPermissions });
 
     const secret = { bodyText: "private email body" };
-    const refreshed = { bodyText: "authorized refresh" };
     const fetchThread = vi
       .fn()
       .mockResolvedValueOnce(secret)
-      .mockResolvedValueOnce(refreshed);
+      .mockRejectedValue(new Error("lead access revoked"));
     const { handlers, wrapper } = harness();
     const inboxKey = queryKeys.inbox.threadDetail("thread-1");
     const { result } = renderHook(
@@ -216,8 +248,8 @@ describe("lead permission realtime delivery", () => {
       await permissionsPending;
     });
 
-    await waitFor(() => expect(result.current.data).toEqual(refreshed));
-    expect(fetchThread).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(fetchThread).toHaveBeenCalledTimes(2));
+    expect(result.current.data).toBeUndefined();
   });
 
   it("toasts exactly once when a live delivery revokes a visible lead", async () => {
@@ -260,7 +292,7 @@ describe("lead permission realtime delivery", () => {
     // Cached display name (contact name here — no client on the row), never
     // the new assignee.
     expect(options?.description).toContain("Jordan Lee");
-    expect(queryClient.getQueryData(listKey)).toEqual([]);
+    expect(queryClient.getQueryData(listKey)).toBeUndefined();
   });
 
   it("holds last-good data through a transient replay failure, then fails closed at the deadline", async () => {
@@ -283,7 +315,9 @@ describe("lead permission realtime delivery", () => {
         wrapper,
       });
 
-      // Initial read + the full 1s/3s/9s backoff, all failing.
+      // The watchdog starts before the first awaited replay. It therefore
+      // fails closed three minutes from verification start, not three minutes
+      // after the retry schedule finally gives up.
       await act(async () => {
         await vi.advanceTimersByTimeAsync(13_100);
       });
@@ -301,7 +335,7 @@ describe("lead permission realtime delivery", () => {
       // No replay success and no SUBSCRIBED before the 3-minute deadline →
       // the destructive fail-closed fallback runs.
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(3 * 60_000);
+        await vi.advanceTimersByTimeAsync(3 * 60_000 - 13_100);
       });
 
       expect(queryClient.getQueryData(listKey)).toBeUndefined();
@@ -315,30 +349,200 @@ describe("lead permission realtime delivery", () => {
     }
   });
 
-  it("redacts a mounted sensitive query while a revoked assignment refetches under RLS", async () => {
-    let releaseRefetch!: (value: { bodyText: string }) => void;
-    const refetchPending = new Promise<{ bodyText: string }>((resolve) => {
-      releaseRefetch = resolve;
+  it("arms the deadline before awaiting either durable backlog and requires both to verify", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveAssignment!: (result: QueryResult) => void;
+      const assignmentPending = new Promise<QueryResult>((resolve) => {
+        resolveAssignment = resolve;
+      });
+      const fetchPermissions = vi.fn().mockResolvedValue(undefined);
+      usePermissionStore.setState({ fetchPermissions });
+      const { queryClient, wrapper } = harness([], {
+        assignmentResult: assignmentPending,
+        permissionResult: { data: [], error: null },
+      });
+      const listKey = queryKeys.opportunities.list("company-1");
+      queryClient.setQueryData(listKey, [{ id: "lead-1" }]);
+
+      const { unmount } = renderHook(() => useLeadAssignmentRealtime(), {
+        wrapper,
+      });
+      await act(async () => {
+        await Promise.resolve();
+        await vi.advanceTimersByTimeAsync(3 * 60_000);
+      });
+
+      expect(queryClient.getQueryData(listKey)).toBeUndefined();
+      expect(fetchPermissions).toHaveBeenCalledWith("user-1", {
+        mode: "revoke-first",
+      });
+
+      resolveAssignment({ data: [], error: null });
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not let an older assignment replay verify a newer channel generation", async () => {
+    vi.useFakeTimers();
+    try {
+      let resolveOldAssignment!: (result: QueryResult) => void;
+      const oldAssignment = new Promise<QueryResult>((resolve) => {
+        resolveOldAssignment = resolve;
+      });
+      const newAssignment = new Promise<QueryResult>(() => {});
+      const fetchPermissions = vi.fn().mockResolvedValue(undefined);
+      usePermissionStore.setState({ fetchPermissions });
+      const { assignmentBuilder, queryClient, wrapper, emitStatus } = harness(
+        [],
+        {
+          assignmentResult: [oldAssignment, newAssignment],
+          permissionResult: { data: [], error: null },
+        }
+      );
+      const listKey = queryKeys.opportunities.list("company-1");
+      queryClient.setQueryData(listKey, [{ id: "lead-1" }]);
+
+      const { unmount } = renderHook(() => useLeadAssignmentRealtime(), {
+        wrapper,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      act(() => emitStatus("SUBSCRIBED"));
+      await act(async () => {
+        resolveOldAssignment({ data: [], error: null });
+        await Promise.resolve();
+      });
+      expect(assignmentBuilder.select.mock.calls.length).toBeGreaterThan(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3 * 60_000);
+      });
+
+      expect(queryClient.getQueryData(listKey)).toBeUndefined();
+      expect(fetchPermissions).toHaveBeenCalledWith("user-1", {
+        mode: "revoke-first",
+      });
+      unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(["CHANNEL_ERROR", "TIMED_OUT"] as const)(
+    "routes %s through transient invalidation, retry, and permission refresh",
+    async (status) => {
+      const fetchPermissions = vi.fn().mockResolvedValue(undefined);
+      usePermissionStore.setState({ fetchPermissions });
+      const {
+        assignmentBuilder,
+        permissionBuilder,
+        queryClient,
+        wrapper,
+        emitStatus,
+      } = harness();
+      const listKey = queryKeys.opportunities.list("company-1");
+      queryClient.setQueryData(listKey, [{ id: "lead-1" }]);
+
+      renderHook(() => useLeadAssignmentRealtime(), { wrapper });
+      await waitFor(() => expect(assignmentBuilder.select).toHaveBeenCalled());
+      const assignmentReadsBefore = assignmentBuilder.select.mock.calls.length;
+      const permissionReadsBefore = permissionBuilder.select.mock.calls.length;
+
+      act(() => emitStatus(status));
+
+      await waitFor(() =>
+        expect(assignmentBuilder.select.mock.calls.length).toBeGreaterThan(
+          assignmentReadsBefore
+        )
+      );
+      expect(permissionBuilder.select.mock.calls.length).toBeGreaterThan(
+        permissionReadsBefore
+      );
+      expect(fetchPermissions).toHaveBeenCalledWith("user-1", {
+        mode: "hold",
+      });
+      expect(queryClient.getQueryData(listKey)).toEqual([{ id: "lead-1" }]);
+      expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
+    }
+  );
+
+  it("fails closed and replaces a CLOSED channel even when backlog snapshots succeed", async () => {
+    const fetchPermissions = vi.fn().mockResolvedValue(undefined);
+    usePermissionStore.setState({ fetchPermissions });
+    const { channelFactory, queryClient, wrapper, emitStatus } = harness();
+    const listKey = queryKeys.opportunities.list("company-1");
+    queryClient.setQueryData(listKey, [{ id: "lead-1" }]);
+
+    renderHook(() => useLeadAssignmentRealtime(), { wrapper });
+    await waitFor(() => expect(channelFactory).toHaveBeenCalledTimes(1));
+
+    act(() => emitStatus("CLOSED"));
+
+    expect(queryClient.getQueryData(listKey)).toBeUndefined();
+    expect(fetchPermissions).toHaveBeenCalledWith("user-1", {
+      mode: "revoke-first",
     });
+    await waitFor(() => expect(channelFactory).toHaveBeenCalledTimes(2));
+  });
+
+  it("ignores a late CLOSED callback after the actor channel is disposed", async () => {
+    vi.useFakeTimers();
+    try {
+      usePermissionStore.setState({
+        fetchPermissions: vi.fn().mockResolvedValue(undefined),
+      });
+      const { wrapper, emitStatus } = harness();
+      const { unmount } = renderHook(() => useLeadAssignmentRealtime(), {
+        wrapper,
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      unmount();
+      act(() => emitStatus("CLOSED"));
+
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("redacts a mounted sensitive query without reviving its quarantined observer", async () => {
     const secret = { bodyText: "private email body" };
-    const refreshed = { bodyText: "remaining authorized thread" };
     const fetchThread = vi
       .fn()
       .mockResolvedValueOnce(secret)
-      .mockReturnValueOnce(refetchPending);
+      .mockRejectedValue(new Error("lead access revoked"));
+    const allowedProjects = [{ id: "project-1", title: "Active project" }];
+    const fetchProjects = vi.fn().mockResolvedValue(allowedProjects);
     const { queryClient, wrapper } = harness();
     const inboxKey = queryKeys.inbox.threadDetail("thread-1");
+    const projectsKey = queryKeys.projects.list("company-1");
     const { result } = renderHook(
-      () =>
-        useQuery({
+      () => ({
+        thread: useQuery({
           queryKey: inboxKey,
           queryFn: fetchThread,
           staleTime: Infinity,
         }),
+        projects: useQuery({
+          queryKey: projectsKey,
+          queryFn: fetchProjects,
+          staleTime: Infinity,
+        }),
+      }),
       { wrapper }
     );
 
-    await waitFor(() => expect(result.current.data).toEqual(secret));
+    await waitFor(() => expect(result.current.thread.data).toEqual(secret));
+    await waitFor(() =>
+      expect(result.current.projects.data).toEqual(allowedProjects)
+    );
 
     act(() => {
       reconcileLeadAssignmentDelivery(queryClient, {
@@ -347,14 +551,9 @@ describe("lead permission realtime delivery", () => {
       });
     });
 
-    await waitFor(() => expect(result.current.data).toBeUndefined());
-    expect(fetchThread).toHaveBeenCalledTimes(2);
-
-    await act(async () => {
-      releaseRefetch(refreshed);
-      await refetchPending;
-    });
-
-    await waitFor(() => expect(result.current.data).toEqual(refreshed));
+    await waitFor(() => expect(fetchThread).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchProjects).toHaveBeenCalledTimes(2));
+    expect(result.current.thread.data).toBeUndefined();
+    expect(result.current.projects.data).toEqual(allowedProjects);
   });
 });

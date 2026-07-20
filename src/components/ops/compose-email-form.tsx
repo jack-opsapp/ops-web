@@ -35,11 +35,16 @@ import {
   type DraftSubjectInputSource,
 } from "@/lib/email/email-subject-policy";
 import { authedFetch } from "@/lib/utils/authed-fetch";
+import {
+  communicationDraftKey,
+  useCommunicationDraftStore,
+} from "@/stores/communication-draft-store";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface ComposeEmailFormProps {
   composeData?: ComposeEmailData;
+  draftInstanceId?: string;
   onClose: () => void;
 }
 
@@ -219,10 +224,33 @@ function MergeFieldHighlightOverlay({ text }: { text: string }) {
 
 export function ComposeEmailForm({
   composeData,
+  draftInstanceId,
   onClose,
 }: ComposeEmailFormProps) {
   const { t } = useDictionary("compose");
   const { currentUser, company } = useAuthStore();
+  const communicationDraftStoreKey = currentUser?.id
+    ? communicationDraftKey({
+        actorUserId: currentUser.id,
+        surface: "floating-email",
+        threadId: composeData?.threadId ?? null,
+        opportunityId: composeData?.opportunityId ?? null,
+        instanceId: draftInstanceId ?? "default",
+      })
+    : null;
+  const initialCommunicationDraftRef = useRef(
+    communicationDraftStoreKey
+      ? useCommunicationDraftStore.getState().drafts[communicationDraftStoreKey]
+      : null
+  );
+  const initialCommunicationDraft = initialCommunicationDraftRef.current;
+  const liveCommunicationDraft = useCommunicationDraftStore((state) =>
+    communicationDraftStoreKey
+      ? state.drafts[communicationDraftStoreKey]
+      : undefined
+  );
+  const communicationSendPending =
+    liveCommunicationDraft?.state.sendPending === true;
 
   // Data hooks
   const { data: connections = [] } = useEmailConnections();
@@ -238,31 +266,52 @@ export function ComposeEmailForm({
 
   // Form state
   const mode = composeData?.mode ?? "new";
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
-  const [to, setTo] = useState(composeData?.to ?? "");
-  const [cc, setCc] = useState(composeData?.cc?.join(", ") ?? "");
-  const [showCc, setShowCc] = useState(!!composeData?.cc?.length);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string>(
+    (initialCommunicationDraft?.state.selectedConnectionId as string) ?? ""
+  );
+  const [to, setTo] = useState(
+    (initialCommunicationDraft?.state.to as string) ?? composeData?.to ?? ""
+  );
+  const [cc, setCc] = useState(
+    (initialCommunicationDraft?.state.cc as string) ??
+      composeData?.cc?.join(", ") ??
+      ""
+  );
+  const [showCc, setShowCc] = useState(
+    (initialCommunicationDraft?.state.showCc as boolean) ??
+      !!composeData?.cc?.length
+  );
   const [subject, setSubject] = useState(
-    mode === "reply" && composeData?.subject
-      ? normalizeReplySubject(composeData.subject)
-      : (composeData?.subject ?? "")
+    (initialCommunicationDraft?.state.subject as string) ??
+      (mode === "reply" && composeData?.subject
+        ? normalizeReplySubject(composeData.subject)
+        : (composeData?.subject ?? ""))
   );
   const [subjectSource, setSubjectSource] = useState<DraftSubjectInputSource>(
-    mode === "reply"
-      ? "thread"
-      : composeData?.subject
-        ? "configured"
-        : "operator"
+    (initialCommunicationDraft?.state
+      .subjectSource as DraftSubjectInputSource) ??
+      (mode === "reply"
+        ? "thread"
+        : composeData?.subject
+          ? "configured"
+          : "operator")
   );
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(initialCommunicationDraft?.body ?? "");
   const [isSending, setIsSending] = useState(false);
   const sendAttemptRef = useRef<{
     key: string;
     fingerprint: string;
-  } | null>(null);
+  } | null>(
+    (initialCommunicationDraft?.state.sendAttempt as {
+      key: string;
+      fingerprint: string;
+    } | null) ?? null
+  );
 
   // AI Draft state
-  const [aiState, setAiState] = useState<AIDraftState>(EMPTY_AI_STATE);
+  const [aiState, setAiState] = useState<AIDraftState>(
+    (initialCommunicationDraft?.state.aiState as AIDraftState) ?? EMPTY_AI_STATE
+  );
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   const [showAiReplaceConfirm, setShowAiReplaceConfirm] = useState(false);
 
@@ -286,6 +335,47 @@ export function ComposeEmailForm({
   const selectedConnection = activeConnections.find(
     (c: EmailConnectionDescriptor) => c.id === effectiveConnectionId
   );
+
+  useEffect(() => {
+    if (!communicationDraftStoreKey || !currentUser?.id) return;
+    const current =
+      useCommunicationDraftStore.getState().drafts[communicationDraftStoreKey];
+    useCommunicationDraftStore.getState().save(communicationDraftStoreKey, {
+      actorUserId: currentUser.id,
+      surface: "floating-email",
+      threadId: composeData?.threadId ?? current?.threadId ?? null,
+      opportunityId:
+        composeData?.opportunityId ?? current?.opportunityId ?? null,
+      instanceId: draftInstanceId ?? "default",
+      body,
+      state: {
+        ...(current?.state ?? {}),
+        selectedConnectionId,
+        to,
+        cc,
+        showCc,
+        subject,
+        subjectSource,
+        aiState,
+        sendAttempt: sendAttemptRef.current,
+      },
+      updatedAt: Date.now(),
+    });
+  }, [
+    aiState,
+    body,
+    cc,
+    communicationDraftStoreKey,
+    composeData?.opportunityId,
+    composeData?.threadId,
+    currentUser?.id,
+    draftInstanceId,
+    selectedConnectionId,
+    showCc,
+    subject,
+    subjectSource,
+    to,
+  ]);
 
   // ─── E5: Auto-draft pre-population ──────────────────────────────────────
   // When opening compose for a thread, check if an auto-draft exists
@@ -511,6 +601,7 @@ export function ComposeEmailForm({
   // ─── Send ───────────────────────────────────────────────────────────────
 
   const handleSend = useCallback(async () => {
+    if (communicationSendPending) return;
     if (!effectiveConnectionId) {
       toast.error("Select a sender account");
       return;
@@ -552,6 +643,35 @@ export function ComposeEmailForm({
         key: idempotencyKey,
         fingerprint: attemptFingerprint,
       };
+      if (communicationDraftStoreKey && currentUser?.id) {
+        const current =
+          useCommunicationDraftStore.getState().drafts[
+            communicationDraftStoreKey
+          ];
+        useCommunicationDraftStore.getState().save(communicationDraftStoreKey, {
+          actorUserId: currentUser.id,
+          surface: "floating-email",
+          threadId: composeData?.threadId ?? current?.threadId ?? null,
+          opportunityId:
+            composeData?.opportunityId ?? current?.opportunityId ?? null,
+          instanceId: draftInstanceId ?? "default",
+          body,
+          state: {
+            ...(current?.state ?? {}),
+            selectedConnectionId,
+            to,
+            cc,
+            showCc,
+            subject,
+            subjectSource,
+            aiState,
+            sendAttempt: sendAttemptRef.current,
+            sendPending: true,
+            sendStatus: "pending",
+          },
+          updatedAt: Date.now(),
+        });
+      }
       const payload = {
         idempotencyKey,
         connectionId: effectiveConnectionId,
@@ -590,27 +710,78 @@ export function ComposeEmailForm({
         );
       }
       sendAttemptRef.current = null;
-      toast.success("Email sent");
-      onClose();
+      if (communicationDraftStoreKey) {
+        const current =
+          useCommunicationDraftStore.getState().drafts[
+            communicationDraftStoreKey
+          ];
+        const currentAttempt = current?.state.sendAttempt as
+          | { key?: string }
+          | undefined;
+        if (current && currentAttempt?.key === idempotencyKey) {
+          useCommunicationDraftStore
+            .getState()
+            .remove(communicationDraftStoreKey);
+          toast.success("Email sent");
+          onClose();
+        }
+      } else {
+        toast.success("Email sent");
+        onClose();
+      }
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to send email"
-      );
+      let shouldReportError = !communicationDraftStoreKey;
+      if (communicationDraftStoreKey && currentUser?.id) {
+        const current =
+          useCommunicationDraftStore.getState().drafts[
+            communicationDraftStoreKey
+          ];
+        const currentAttempt = current?.state.sendAttempt as
+          | { key?: string }
+          | undefined;
+        if (current && currentAttempt?.key === sendAttemptRef.current?.key) {
+          useCommunicationDraftStore
+            .getState()
+            .save(communicationDraftStoreKey, {
+              ...current,
+              state: {
+                ...current.state,
+                sendPending: false,
+                sendStatus: "failed",
+              },
+              updatedAt: Date.now(),
+            });
+          shouldReportError = true;
+        }
+      }
+      if (shouldReportError) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to send email"
+        );
+      }
     } finally {
       setIsSending(false);
     }
   }, [
     effectiveConnectionId,
+    communicationDraftStoreKey,
+    communicationSendPending,
+    currentUser?.id,
     to,
     cc,
     subject,
     body,
+    composeData?.connectionId,
     composeData?.threadId,
     composeData?.opportunityId,
     composeData?.inReplyTo,
     onClose,
     aiState,
+    draftInstanceId,
     mode,
+    selectedConnectionId,
+    showCc,
+    subjectSource,
   ]);
 
   // ─── Discard ────────────────────────────────────────────────────────────
@@ -620,9 +791,14 @@ export function ComposeEmailForm({
     if (hasContent) {
       setShowDiscardConfirm(true);
     } else {
+      if (communicationDraftStoreKey) {
+        useCommunicationDraftStore
+          .getState()
+          .remove(communicationDraftStoreKey);
+      }
       onClose();
     }
-  }, [to, subject, body, onClose]);
+  }, [body, communicationDraftStoreKey, onClose, subject, to]);
 
   const handleDiscard = useCallback(() => {
     if (
@@ -644,8 +820,17 @@ export function ComposeEmailForm({
     }
     setShowDiscardConfirm(false);
     setAiState(EMPTY_AI_STATE);
+    if (communicationDraftStoreKey) {
+      useCommunicationDraftStore.getState().remove(communicationDraftStoreKey);
+    }
     onClose();
-  }, [onClose, aiState, currentUser?.id, company?.id]);
+  }, [
+    aiState,
+    communicationDraftStoreKey,
+    company?.id,
+    currentUser?.id,
+    onClose,
+  ]);
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
@@ -923,7 +1108,12 @@ export function ComposeEmailForm({
 
         <Button
           onClick={handleSend}
-          disabled={isSending || !effectiveConnectionId || !to.trim()}
+          disabled={
+            isSending ||
+            communicationSendPending ||
+            !effectiveConnectionId ||
+            !to.trim()
+          }
           className="flex items-center gap-1.5 rounded-panel bg-text-primary px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider text-[#0A0A0A] transition-colors hover:bg-text-secondary disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Send className="h-[12px] w-[12px]" />

@@ -165,7 +165,9 @@ function makeOpportunity(): Opportunity {
     lastInboundAt: null,
     lastOutboundAt: null,
     lastMessageDirection: null,
+    handledAt: null,
     aiSummary: null,
+    aiSummaryUpdatedAt: null,
     aiStageConfidence: null,
     aiStageSignals: null,
     detectedValue: null,
@@ -360,6 +362,71 @@ describe("<PipelineFocusedDetailWindow>", () => {
         screen.getByRole("button", { name: "Origin card" })
       );
     });
+  });
+
+  it("closes the nested action menu before closing the detail window", async () => {
+    renderWindow();
+    const windowShell = await screen.findByTestId("project-workspace-window");
+
+    fireEvent.click(
+      within(windowShell).getByRole("button", { name: "Stage actions" })
+    );
+    expect(
+      within(windowShell).getByRole("button", { name: "Archive" })
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(
+      within(windowShell).queryByRole("button", { name: "Archive" })
+    ).not.toBeInTheDocument();
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
+    expect(useWindowStore.getState().windows).toHaveLength(1);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        usePipelineModeStore.getState().detailPanelOpportunityId
+      ).toBeNull();
+    });
+  });
+
+  it("leaves Escape with an open nested delete confirmation", async () => {
+    renderWindow();
+    await screen.findByTestId("project-workspace-window");
+
+    const confirmation = document.createElement("div");
+    confirmation.setAttribute("role", "alertdialog");
+    confirmation.setAttribute("data-state", "open");
+    document.body.appendChild(confirmation);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
+    expect(useWindowStore.getState().windows).toHaveLength(1);
+    confirmation.remove();
+  });
+
+  it("does not close for an Escape already owned by a nested control", async () => {
+    renderWindow();
+    await screen.findByTestId("project-workspace-window");
+
+    const event = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    });
+    event.preventDefault();
+    document.dispatchEvent(event);
+
+    expect(usePipelineModeStore.getState().detailPanelOpportunityId).toBe(
+      "opp-1"
+    );
+    expect(useWindowStore.getState().windows).toHaveLength(1);
   });
 
   it("falls back to the deal's table row cell for focus restore when no card exists (table mode)", async () => {

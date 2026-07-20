@@ -116,7 +116,8 @@ vi.mock("@/lib/email/email-route-auth", () => ({
 
 vi.mock("@/lib/email/email-import-approval", () => ({
   EmailImportApprovalError: class EmailImportApprovalError extends Error {},
-  approveEmailImportPayload: ({ submitted }: { submitted: unknown }) => submitted,
+  approveEmailImportPayload: ({ submitted }: { submitted: unknown }) =>
+    submitted,
   fingerprintEmailImportPayload: () => "a".repeat(64),
 }));
 
@@ -437,7 +438,11 @@ describe("email opportunity title route writes", () => {
       result: { leads: [] },
     });
     createOrResumeEmailImportJobMock.mockImplementation(
-      async ({ approvedPayload }: { approvedPayload: Record<string, unknown> }) => {
+      async ({
+        approvedPayload,
+      }: {
+        approvedPayload: Record<string, unknown>;
+      }) => {
         const jobId = `job-${approvedImportPayloads.size + 1}`;
         approvedImportPayloads.set(jobId, approvedPayload);
         return { jobId, shouldDispatch: true, resumed: false };
@@ -587,6 +592,7 @@ describe("email opportunity title route writes", () => {
     );
     expect(state.opportunityPatches[0]).toMatchObject({
       ai_summary: aiSummary,
+      ai_summary_updated_at: expect.any(String),
     });
     // The import activity preserves the exact provider message identity from
     // analysis so steady sync can dedupe the same message without guessing.

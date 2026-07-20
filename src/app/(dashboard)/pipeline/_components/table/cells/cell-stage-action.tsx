@@ -132,7 +132,9 @@ export function CellStageAction({
           aria-label={menuLabel}
           className="glass-dense absolute left-0 top-full z-[1000] mt-1 min-w-[176px] rounded-modal border border-border p-1"
         >
-          {STAGE_MENU_ORDER.map((option) => {
+          {STAGE_MENU_ORDER.filter(
+            (option) => option !== OpportunityStage.Won || canConvert
+          ).map((option) => {
             const selected = option === stage;
             const color = OPPORTUNITY_STAGE_COLORS[option] ?? "var(--text-3)";
             return (

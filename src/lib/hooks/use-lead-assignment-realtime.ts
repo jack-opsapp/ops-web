@@ -1,21 +1,22 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import {
-  useQueryClient,
-  type QueryClient,
-  type QueryKey,
-} from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { usePipelineModeStore } from "@/app/(dashboard)/pipeline/_components/pipeline-mode-store";
 import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
-import { queryKeys } from "@/lib/api/query-client";
+import {
+  queryKeys,
+  quarantineCurrentActorQueryCache,
+  refreshAllQueries,
+} from "@/lib/api/query-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import type { Opportunity } from "@/lib/types/pipeline";
 import { useWindowStore } from "@/stores/window-store";
+import { useCommunicationDraftStore } from "@/stores/communication-draft-store";
 
 export interface LeadAssignmentDelivery {
   opportunityId: string;
@@ -42,67 +43,14 @@ export interface PermissionChangeDeliveryRow {
   recipient_user_id?: unknown;
 }
 
-// These namespaces can retain lead-owned children without the opportunity ID
-// appearing in the query key (for example activity comments, site-visit detail,
-// client detail, and approval rows). A revocation therefore clears the whole
-// namespace and lets active observers repopulate through canonical RLS.
-const LEAD_SENSITIVE_QUERY_ROOTS = [
-  queryKeys.inbox.all,
-  queryKeys.metrics.all,
-  queryKeys.clients.all,
-  queryKeys.estimates.all,
-  queryKeys.siteVisits.all,
-  queryKeys.activityComments.all,
-  queryKeys.aiDrafting.all,
-  queryKeys.approvalQueue.all,
-  queryKeys.duplicateReviews.all,
-  queryKeys.dataReview.all,
-  queryKeys.intel.all,
-] as const;
-
-function redactQueryRoots(
-  queryClient: QueryClient,
-  queryRoots: readonly QueryKey[]
-): void {
-  for (const queryKey of queryRoots) {
-    const matchingQueries = queryClient.getQueryCache().findAll({ queryKey });
-
-    // Removing a cached query does not update a mounted QueryObserver: it can
-    // continue rendering its last result until another render or timer. Reset
-    // every observer-backed query first so sensitive data disappears now,
-    // then destroy the inactive copies so no old scope remains recoverable.
-    for (const query of matchingQueries) query.reset();
-    queryClient.removeQueries({ queryKey, type: "inactive" });
-  }
-}
-
-async function refreshQueryRoots(
-  queryClient: QueryClient,
-  queryRoots: readonly QueryKey[]
-): Promise<void> {
-  await Promise.all(
-    queryRoots.map((queryKey) => queryClient.invalidateQueries({ queryKey }))
-  );
-}
-
-function clearLeadSensitiveNamespaces(queryClient: QueryClient): void {
-  redactQueryRoots(queryClient, LEAD_SENSITIVE_QUERY_ROOTS);
-  void refreshQueryRoots(queryClient, LEAD_SENSITIVE_QUERY_ROOTS);
-}
-
-const ACCESS_SENSITIVE_QUERY_ROOTS = [
-  queryKeys.opportunities.all,
-  ...LEAD_SENSITIVE_QUERY_ROOTS,
-] as const;
-
-function redactAccessSensitiveQueries(queryClient: QueryClient): void {
-  redactQueryRoots(queryClient, ACCESS_SENSITIVE_QUERY_ROOTS);
-}
-
 async function refreshAccessSensitiveQueries(
   queryClient: QueryClient
 ): Promise<void> {
-  await refreshQueryRoots(queryClient, ACCESS_SENSITIVE_QUERY_ROOTS);
+  // The synchronous boundary redacts every server-derived namespace because a
+  // permission delivery can affect more than leads. Once current authority is
+  // proven, repopulate every mounted observer through canonical server RLS so
+  // unrelated projects, estimates, and calendar work do not remain blank.
+  await refreshAllQueries(queryClient);
 }
 
 function invalidateLeadDependents(
@@ -143,34 +91,18 @@ function purgeRevokedLead(
   // Abort any in-flight access-sensitive reads before changing cache contents;
   // otherwise a response started before the assignment event could repopulate
   // the revoked row after this synchronous purge.
-  void queryClient.cancelQueries({ queryKey: queryKeys.opportunities.all });
-  clearLeadSensitiveNamespaces(queryClient);
-
-  queryClient.setQueriesData<Opportunity[]>(
-    { queryKey: queryKeys.opportunities.lists() },
-    (current) => current?.filter(({ id }) => id !== opportunityId)
-  );
-
-  queryClient.removeQueries({
-    predicate: (query) => {
-      const key = query.queryKey;
-      return (
-        key[0] === queryKeys.opportunities.all[0] &&
-        key[1] !== "list" &&
-        key.includes(opportunityId)
-      );
-    },
-  });
+  const quarantine = quarantineCurrentActorQueryCache(queryClient);
 
   // Inbox thread shapes vary by view and can embed the lead at multiple
   // levels. Removing the namespace is the only safe synchronous redaction;
   // the next render refetches under canonical RLS.
   closeLeadBackedSurfaces(opportunityId);
+  useCommunicationDraftStore.getState().removeForOpportunity(opportunityId);
 
   // Reconcile list membership under RLS after the immediate local redaction.
-  void queryClient.invalidateQueries({
-    queryKey: queryKeys.opportunities.lists(),
-  });
+  void quarantine.settled.then(() =>
+    refreshAccessSensitiveQueries(quarantine.queryClient)
+  );
 }
 
 /**
@@ -309,8 +241,10 @@ export function reconcileLeadAssignmentBacklog(
   }
 }
 
-export function clearAccessSensitiveCaches(queryClient: QueryClient): void {
-  redactAccessSensitiveQueries(queryClient);
+export function clearAccessSensitiveCaches(
+  queryClient: QueryClient
+): ReturnType<typeof quarantineCurrentActorQueryCache> {
+  const quarantine = quarantineCurrentActorQueryCache(queryClient);
 
   const pipelineMode = usePipelineModeStore.getState();
   pipelineMode.closeDetailPanel();
@@ -326,6 +260,7 @@ export function clearAccessSensitiveCaches(queryClient: QueryClient): void {
   for (const windowId of leadWindowIds) {
     useWindowStore.getState().closeWindow(windowId);
   }
+  return quarantine;
 }
 
 function isPermissionChangeDeliveryRow(
@@ -355,9 +290,10 @@ export async function reconcilePermissionChangeDelivery(
 ): Promise<boolean> {
   if (!isPermissionChangeDeliveryRow(row, recipientUserId)) return false;
 
-  clearAccessSensitiveCaches(queryClient);
+  const quarantine = clearAccessSensitiveCaches(queryClient);
   await usePermissionStore.getState().fetchPermissions(recipientUserId);
-  await refreshAccessSensitiveQueries(queryClient);
+  await quarantine.settled;
+  await refreshAccessSensitiveQueries(quarantine.queryClient);
   return true;
 }
 
@@ -373,34 +309,64 @@ const REPLAY_RETRY_DELAYS_MS = [1_000, 3_000, 9_000] as const;
 
 /**
  * How long the client may run on last-good access after a transient realtime
- * failure before it fails closed anyway. If no replay succeeds and the channel
- * never reaches SUBSCRIBED within this window, the destructive wipe runs.
+ * failure before it fails closed anyway. If both durable backlogs are not
+ * verified in the same channel generation within this window, the destructive
+ * wipe runs; transport SUBSCRIBED alone is never sufficient.
  */
 const AUTHORITY_VERIFICATION_DEADLINE_MS = 3 * 60_000;
 
-// One module-level deadline. Every failure source (assignment replay, permission
-// replay, channel error) arms the SAME timer, so a storm of failures cannot
-// stack multiple wipes; the first success cancels it.
-let authorityVerificationTimer: ReturnType<typeof setTimeout> | null = null;
+type AuthorityStream = "assignment" | "permission";
 
 /**
- * Arm the fail-closed deadline. Idempotent: arming while one is already pending
- * is a no-op — the clock started at the first failure and must not be extended
- * by later ones. `runFallback` performs the destructive wipe when it fires.
+ * Tracks the two durable authority streams for one mounted realtime channel.
+ * A generation begins synchronously before either backlog read. The earliest
+ * unresolved generation owns a monotonic deadline: reconnect churn cannot
+ * keep extending unverified access. Late reads from an older generation are
+ * ignored, and only BOTH successful current-generation snapshots cancel it.
  */
-export function armAuthorityVerificationDeadline(runFallback: () => void): void {
-  if (authorityVerificationTimer) return;
-  authorityVerificationTimer = setTimeout(() => {
-    authorityVerificationTimer = null;
-    runFallback();
-  }, AUTHORITY_VERIFICATION_DEADLINE_MS);
-}
+function createAuthorityVerificationWatchdog(runFallback: () => void): {
+  beginGeneration: () => number;
+  markVerified: (stream: AuthorityStream, generation: number) => void;
+  dispose: () => void;
+} {
+  let generation = 0;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let disposed = false;
+  let assignmentVerified = false;
+  let permissionVerified = false;
 
-/** Cancel a pending fail-closed deadline (a replay succeeded, or SUBSCRIBED). */
-export function cancelAuthorityVerificationDeadline(): void {
-  if (!authorityVerificationTimer) return;
-  clearTimeout(authorityVerificationTimer);
-  authorityVerificationTimer = null;
+  const cancel = () => {
+    if (!timer) return;
+    clearTimeout(timer);
+    timer = null;
+  };
+
+  return {
+    beginGeneration() {
+      if (disposed) return generation;
+      generation += 1;
+      assignmentVerified = false;
+      permissionVerified = false;
+      if (!timer) {
+        timer = setTimeout(() => {
+          timer = null;
+          if (!disposed) runFallback();
+        }, AUTHORITY_VERIFICATION_DEADLINE_MS);
+      }
+      return generation;
+    },
+    markVerified(stream, verifiedGeneration) {
+      if (disposed || verifiedGeneration !== generation) return;
+      if (stream === "assignment") assignmentVerified = true;
+      else permissionVerified = true;
+      if (assignmentVerified && permissionVerified) cancel();
+    },
+    dispose() {
+      disposed = true;
+      generation += 1;
+      cancel();
+    },
+  };
 }
 
 function defaultReplaySleep(ms: number): Promise<void> {
@@ -410,9 +376,10 @@ function defaultReplaySleep(ms: number): Promise<void> {
 /**
  * Runs a realtime replay read, retrying a transient read failure on the fixed
  * {@link REPLAY_RETRY_DELAYS_MS} backoff before treating it as real. A success
- * at any attempt calls `onSuccess` (which cancels the fail-closed deadline);
- * exhausting the retries calls `onFinalFailure` (which invalidates under RLS
- * and arms the deadline). Disposal short-circuits WITHOUT failing closed — a
+ * at any attempt calls `onSuccess`; the generation watchdog decides whether
+ * both streams are now proven. Exhausting the retries calls `onFinalFailure`
+ * (which invalidates under RLS while the already-running deadline remains the
+ * fail-closed backstop). Disposal short-circuits WITHOUT failing closed — a
  * remount re-verifies immediately.
  *
  * Extracted + dependency-injected so the retry/deadline contract is unit
@@ -457,13 +424,17 @@ export function useLeadAssignmentRealtime(): void {
   const currentUserId = useAuthStore((state) => state.currentUser?.id ?? null);
   const queryClient = useQueryClient();
   const { t } = useDictionary("pipeline");
+  const [channelEpoch, setChannelEpoch] = useState(0);
 
   // The channel effect must not re-subscribe when the dictionary loads or the
   // locale flips, so the notifier lives behind a ref the effect closes over.
   const notifyLeadRevokedRef = useRef<LeadRevokedNotifier>(() => {});
   notifyLeadRevokedRef.current = ({ title }) => {
     toast.info(t("toast.leadReassignedAway", "Lead reassigned"), {
-      description: t("toast.leadReassignedAwayDesc", "{title} is no longer yours.").replace(
+      description: t(
+        "toast.leadReassignedAwayDesc",
+        "{title} is no longer yours."
+      ).replace(
         "{title}",
         title ?? t("toast.leadReassignedAwayFallback", "A lead")
       ),
@@ -480,24 +451,29 @@ export function useLeadAssignmentRealtime(): void {
     const seenVersionByOpportunity = new Map<string, number>();
     const seenPermissionDeliveryIds = new Set<string>();
     let disposed = false;
-    let assignmentReplayInFlight: Promise<boolean> | null = null;
-    let assignmentReplayRequested = false;
+    let terminalRestartRequested = false;
 
     // Fail-closed backstop: the graceful window elapsed without the revocation
     // channel proving itself current. Apply the original destructive wipe +
     // revoke-first authority refresh.
     const runDeadlineFallback = () => {
-      clearAccessSensitiveCaches(queryClient);
+      const quarantine = clearAccessSensitiveCaches(queryClient);
       void usePermissionStore
         .getState()
         .fetchPermissions(currentUserId, { mode: "revoke-first" })
-        .then(() => refreshAccessSensitiveQueries(queryClient));
+        .then(async () => {
+          await quarantine.settled;
+          await refreshAccessSensitiveQueries(quarantine.queryClient);
+        });
     };
+    const authorityWatchdog =
+      createAuthorityVerificationWatchdog(runDeadlineFallback);
 
     // Transient realtime failure: never wipe on screen. Invalidate under RLS
     // (server stays authoritative; last-good data holds during the background
     // refetch), optionally re-derive authority WITHOUT dropping grants (hold
-    // mode), and arm the fail-closed deadline as the backstop.
+    // mode). The generation watchdog was armed synchronously before any replay
+    // or refresh awaited the network.
     const handleTransientAuthorityFailure = (refreshPermissions: boolean) => {
       if (disposed) return;
       void refreshAccessSensitiveQueries(queryClient);
@@ -507,61 +483,43 @@ export function useLeadAssignmentRealtime(): void {
           .fetchPermissions(currentUserId, { mode: "hold" })
           .then(() => refreshAccessSensitiveQueries(queryClient));
       }
-      armAuthorityVerificationDeadline(runDeadlineFallback);
     };
 
     // Raw assignment-delivery backlog read → true when the read succeeded and
     // was reconciled, false on a transient read failure (the orchestrator
-    // decides retry / fail-closed). Coalesces concurrent callers and re-runs
-    // once if a trigger (e.g. SUBSCRIBED) requested a replay mid-flight,
-    // preserving the subscribe-then-snapshot handoff-race guarantee.
-    const runAssignmentReplayRead = (): Promise<boolean> => {
-      if (disposed) return Promise.resolve(true);
-      if (assignmentReplayInFlight) {
-        assignmentReplayRequested = true;
-        return assignmentReplayInFlight;
-      }
+    // decides retry / fail-closed). Each channel generation owns its own read:
+    // an older in-flight snapshot can never prove a later reconnect current.
+    const runAssignmentReplayRead = async (): Promise<boolean> => {
+      if (disposed) return true;
+      const { data, error } = await supabase
+        .from("opportunity_assignment_deliveries")
+        .select(
+          "id, company_id, opportunity_id, recipient_user_id, access_after, assignment_version"
+        )
+        .eq("company_id", companyId)
+        .eq("recipient_user_id", currentUserId)
+        .order("assignment_version", { ascending: true })
+        .order("id", { ascending: true });
 
-      const run = (async (): Promise<boolean> => {
-        const { data, error } = await supabase
-          .from("opportunity_assignment_deliveries")
-          .select(
-            "id, company_id, opportunity_id, recipient_user_id, access_after, assignment_version"
-          )
-          .eq("company_id", companyId)
-          .eq("recipient_user_id", currentUserId)
-          .order("assignment_version", { ascending: true })
-          .order("id", { ascending: true });
+      if (disposed) return true;
+      if (error || !Array.isArray(data)) return false;
 
-        if (disposed) return true;
-        if (error || !Array.isArray(data)) return false;
-
-        reconcileLeadAssignmentBacklog(
-          queryClient,
-          data as AssignmentDeliveryRow[],
-          companyId,
-          currentUserId,
-          seenVersionByOpportunity,
-          notifyLeadRevoked
-        );
-        return true;
-      })();
-
-      assignmentReplayInFlight = run;
-      void run.finally(() => {
-        assignmentReplayInFlight = null;
-        if (assignmentReplayRequested && !disposed) {
-          assignmentReplayRequested = false;
-          void verifyAssignmentAuthority();
-        }
-      });
-      return run;
+      reconcileLeadAssignmentBacklog(
+        queryClient,
+        data as AssignmentDeliveryRow[],
+        companyId,
+        currentUserId,
+        seenVersionByOpportunity,
+        notifyLeadRevoked
+      );
+      return true;
     };
 
-    const verifyAssignmentAuthority = (): Promise<boolean> =>
+    const verifyAssignmentAuthority = (generation: number): Promise<boolean> =>
       replayWithRetryAndDeadline({
         runReplay: runAssignmentReplayRead,
-        onSuccess: cancelAuthorityVerificationDeadline,
+        onSuccess: () =>
+          authorityWatchdog.markVerified("assignment", generation),
         onFinalFailure: () => handleTransientAuthorityFailure(false),
         isDisposed: () => disposed,
       });
@@ -602,13 +560,26 @@ export function useLeadAssignmentRealtime(): void {
       return true;
     };
 
-    const verifyPermissionAuthority = (): Promise<boolean> =>
+    const verifyPermissionAuthority = (generation: number): Promise<boolean> =>
       replayWithRetryAndDeadline({
         runReplay: runPermissionReplayRead,
-        onSuccess: cancelAuthorityVerificationDeadline,
+        onSuccess: () =>
+          authorityWatchdog.markVerified("permission", generation),
         onFinalFailure: () => handleTransientAuthorityFailure(true),
         isDisposed: () => disposed,
       });
+
+    const verifyCurrentAuthority = (options?: {
+      transientFailure?: boolean;
+    }): number => {
+      const generation = authorityWatchdog.beginGeneration();
+      if (options?.transientFailure) {
+        handleTransientAuthorityFailure(true);
+      }
+      void verifyAssignmentAuthority(generation);
+      void verifyPermissionAuthority(generation);
+      return generation;
+    };
 
     const channel = supabase
       .channel(`lead-assignment-${companyId}-${currentUserId}`)
@@ -671,30 +642,49 @@ export function useLeadAssignmentRealtime(): void {
             payload.new as PermissionChangeDeliveryRow
           );
         }
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          // The channel is proven current — cancel any pending fail-closed
-          // deadline, then re-verify both backlogs (which re-arm it if they in
-          // turn fail).
-          cancelAuthorityVerificationDeadline();
-          void verifyAssignmentAuthority();
-          void verifyPermissionAuthority();
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          // The revocation channel dropped. Do NOT wipe on screen — RLS is
-          // still the server-side authority. Invalidate + hold-refresh
-          // authority and arm the fail-closed deadline; a later SUBSCRIBED
-          // cancels it, and if none arrives the deadline wipes.
-          handleTransientAuthorityFailure(true);
-        }
-      });
+      );
+
+    // Arm before subscribe or either awaited snapshot. Some Supabase clients
+    // invoke the status callback synchronously; a resulting newer generation
+    // safely supersedes this one without extending the first deadline.
+    const initialGeneration = authorityWatchdog.beginGeneration();
+    channel.subscribe((status) => {
+      if (disposed) return;
+      if (status === "SUBSCRIBED") {
+        // Transport readiness alone is not authority proof. Both durable
+        // backlogs must verify in this new channel generation.
+        verifyCurrentAuthority();
+      } else if (status === "CLOSED") {
+        if (terminalRestartRequested) return;
+        terminalRestartRequested = true;
+        // CLOSED is terminal in realtime-js: the channel is removed from the
+        // socket and cannot deliver a future revocation. Fail closed now, then
+        // replace the channel. A successful point-in-time backlog snapshot is
+        // not a substitute for an ongoing revocation stream.
+        const quarantine = clearAccessSensitiveCaches(queryClient);
+        void usePermissionStore
+          .getState()
+          .fetchPermissions(currentUserId, { mode: "revoke-first" })
+          .then(async () => {
+            await quarantine.settled;
+            await refreshAccessSensitiveQueries(quarantine.queryClient);
+          });
+        setChannelEpoch((epoch) => epoch + 1);
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        // Every terminal/transient transport status follows the same path:
+        // keep last-good UI briefly, invalidate under RLS, retry both durable
+        // streams, and fail closed at the monotonic deadline if they do not
+        // recover.
+        verifyCurrentAuthority({ transientFailure: true });
+      }
+    });
 
     // Subscribe-first plus verify-now/verify-on-SUBSCRIBED closes both sides of
     // the handoff race. If SUBSCRIBED arrives while the first replay is still
-    // running, assignmentReplayRequested forces a second read after that
-    // snapshot.
-    void verifyAssignmentAuthority();
-    void verifyPermissionAuthority();
+    // running, the SUBSCRIBED callback starts an independent newer-generation
+    // snapshot; the older result cannot satisfy it.
+    void verifyAssignmentAuthority(initialGeneration);
+    void verifyPermissionAuthority(initialGeneration);
 
     return () => {
       disposed = true;
@@ -702,8 +692,8 @@ export function useLeadAssignmentRealtime(): void {
       // user-switch). A remount re-verifies immediately, and a stale timer must
       // not fire the destructive wipe against a torn-down / switched session's
       // captured queryClient + user id.
-      cancelAuthorityVerificationDeadline();
+      authorityWatchdog.dispose();
       void supabase.removeChannel(channel);
     };
-  }, [companyId, currentUserId, queryClient]);
+  }, [channelEpoch, companyId, currentUserId, queryClient]);
 }

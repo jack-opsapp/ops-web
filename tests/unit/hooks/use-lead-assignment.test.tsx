@@ -7,6 +7,27 @@ const { changeAssignmentMock } = vi.hoisted(() => ({
   changeAssignmentMock: vi.fn(),
 }));
 
+const { toastInfo } = vi.hoisted(() => ({
+  toastInfo: vi.fn(),
+}));
+
+vi.mock("@/components/ui/toast", () => ({
+  toast: { info: toastInfo },
+}));
+
+vi.mock("@/i18n/client", () => ({
+  useDictionary: () => ({
+    t: (key: string, fallback?: string) =>
+      ({
+        "toast.leadReassignedAway": "Lead reassigned",
+        "toast.leadReassignedAwayDesc": "{title} is no longer yours.",
+        "toast.leadReassignedAwayFallback": "A lead",
+      })[key] ??
+      fallback ??
+      key,
+  }),
+}));
+
 vi.mock("@/lib/firebase/auth", () => ({ getIdToken: vi.fn() }));
 
 vi.mock(
@@ -77,6 +98,7 @@ function harness() {
 describe("useLeadAssignment", () => {
   beforeEach(() => {
     changeAssignmentMock.mockReset();
+    toastInfo.mockReset();
     useAuthStore.setState({
       company: { id: "company-1" } as never,
       currentUser: { id: input.expectedAssignedTo } as never,
@@ -194,7 +216,10 @@ describe("useLeadAssignment", () => {
       queryClient.getQueryData<Opportunity[]>(
         queryKeys.opportunities.list("company-1")
       )
-    ).toEqual([]);
+    ).toBeUndefined();
+    expect(toastInfo).toHaveBeenCalledWith("Lead reassigned", {
+      description: "Framing consultation is no longer yours.",
+    });
   });
 
   it("purges stale lead data when a completed transfer revokes the caller's access", async () => {
@@ -222,6 +247,6 @@ describe("useLeadAssignment", () => {
       queryClient.getQueryData<Opportunity[]>(
         queryKeys.opportunities.list("company-1")
       )
-    ).toEqual([]);
+    ).toBeUndefined();
   });
 });

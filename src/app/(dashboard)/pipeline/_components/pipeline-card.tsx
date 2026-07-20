@@ -27,6 +27,7 @@ import {
 } from "@/lib/utils/motion";
 import { PipelineHealthBar } from "./pipeline-health-bar";
 import { PipelineCardActions } from "./pipeline-card-actions";
+import { LeadChaseControl } from "./lead-chase-control";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -281,6 +282,12 @@ export function PipelineCard({
           <span className="font-mono text-micro text-text-3">{daysText}</span>
         </div>
 
+        <LeadChaseControl
+          opportunity={opportunity}
+          canMarkHandled={canManage}
+          className="mt-1"
+        />
+
         {/* Line 3: Health bar + chevron buttons */}
         <div className="mt-[6px] flex items-center gap-[8px]">
           <div className="min-w-0 flex-1">
@@ -412,10 +419,7 @@ export function PipelineCard({
                   <span className="font-mono text-micro text-text-mute">
                     {t("card.inOut", "{inbound} in / {outbound} out")
                       .replace("{inbound}", String(opportunity.inboundCount))
-                      .replace(
-                        "{outbound}",
-                        String(opportunity.outboundCount)
-                      )}
+                      .replace("{outbound}", String(opportunity.outboundCount))}
                   </span>
                   {(opportunity.lastInboundAt ||
                     opportunity.lastOutboundAt) && (

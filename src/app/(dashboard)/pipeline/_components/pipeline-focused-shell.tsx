@@ -249,7 +249,7 @@ export function PipelineFocusedShell({
     (state) => state.closeDetailPanel
   );
   const toggleMode = usePipelineModeStore((state) => state.toggleMode);
-  const { isDragging } = usePipelineDndState();
+  const { activeDragId, isDragging } = usePipelineDndState();
   const shellRef = useRef<HTMLDivElement>(null);
   const focusedColumnRef = useRef<HTMLDivElement>(null);
   const pendingFlipRectRef = useRef<DOMRect | null>(null);
@@ -384,6 +384,10 @@ export function PipelineFocusedShell({
       }
 
       if (event.key === "Escape") {
+        if (event.defaultPrevented) return;
+        if (document.querySelector('[role="alertdialog"][data-state="open"]')) {
+          return;
+        }
         if (detailPanelOpportunityId) {
           event.preventDefault();
           focusOpportunityCard(detailPanelOpportunityId);
@@ -591,6 +595,11 @@ export function PipelineFocusedShell({
               panelId={focusedPanelId}
               registerTab={registerFocusedTab}
               onSelectStage={snapToStage}
+              canDropWon={
+                !isDragging ||
+                (activeDragId !== null &&
+                  leadAccessById.get(activeDragId)?.canConvert === true)
+              }
             />
           </div>
         </div>
