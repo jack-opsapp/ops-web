@@ -31,6 +31,7 @@ async function selectConnection(
 
   const { data, error } = await query
     .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
     .limit(1)
     .maybeSingle();
   if (error) {
@@ -38,6 +39,21 @@ async function selectConnection(
   }
 
   return data?.id ? String(data.id) : null;
+}
+
+/** Select the deterministic shared mailbox used by approval-queue proposals. */
+export async function resolveCompanyEmailConversationConnectionId({
+  supabase,
+  companyId,
+}: Omit<ResolveNewConversationConnectionInput, "actorUserId">): Promise<
+  string | null
+> {
+  const normalizedCompanyId = companyId.trim();
+  if (!normalizedCompanyId) return null;
+  return selectConnection(supabase, {
+    companyId: normalizedCompanyId,
+    type: "company",
+  });
 }
 
 /**

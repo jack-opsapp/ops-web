@@ -336,6 +336,12 @@ export interface SendPaymentReminderActionData {
   client_name: string;
   project_title: string;
   balance_due: number;
+  currency_code: string;
+  company_locale: "en" | "es";
+  company_timezone: string;
+  payment_reminder_settings_snapshot: Record<string, unknown>;
+  due_date: string;
+  invoice_updated_at: string;
   days_overdue: number;
   reminder_level: number;
   reminder_tone: ReminderTone;
