@@ -42,6 +42,11 @@ begin
       using errcode = '22023';
   end if;
 
+  if v_dedupe_key is null then
+    raise exception 'notification dedupe key is required'
+      using errcode = '22023';
+  end if;
+
   if not exists (
     select 1
       from public.users as u

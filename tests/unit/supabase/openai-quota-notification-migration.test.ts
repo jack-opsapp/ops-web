@@ -77,6 +77,21 @@ describe("OpenAI quota notification migration", () => {
     expect(identity).toMatch(/errcode = '42501'/);
   });
 
+  it("requires a nonblank dedupe key before attempting the insert", () => {
+    const identity = functionDefinition(
+      migrationSql(),
+      "public.create_notification_if_new_with_identity"
+    );
+    const validation = identity.indexOf("if v_dedupe_key is null then");
+    const insert = identity.indexOf("insert into public.notifications");
+
+    expect(validation).toBeGreaterThanOrEqual(0);
+    expect(validation).toBeLessThan(insert);
+    expect(identity.slice(validation, insert)).toMatch(
+      /raise exception 'notification dedupe key is required'[\s\S]*?errcode = '22023'/
+    );
+  });
+
   it("resolves only one exact open quota incident without impersonating a human", () => {
     const resolver = functionDefinition(
       migrationSql(),
