@@ -8617,6 +8617,7 @@ export type Database = {
           deep_link_type: string | null
           expense_id: string | null
           id: string
+          incident_version: number
           is_read: boolean
           note_id: string | null
           persistent: boolean | null
@@ -8639,6 +8640,7 @@ export type Database = {
           deep_link_type?: string | null
           expense_id?: string | null
           id?: string
+          incident_version?: number
           is_read?: boolean
           note_id?: string | null
           persistent?: boolean | null
@@ -8661,6 +8663,7 @@ export type Database = {
           deep_link_type?: string | null
           expense_id?: string | null
           id?: string
+          incident_version?: number
           is_read?: boolean
           note_id?: string | null
           persistent?: boolean | null
@@ -17303,6 +17306,7 @@ export type Database = {
         }
         Returns: {
           created: boolean
+          incident_version: number
           notification_id: string
         }[]
       }
@@ -18497,6 +18501,7 @@ export type Database = {
           p_user_id: string
           p_company_id: string
           p_dedupe_key: string
+          p_expected_incident_version: number
         }
         Returns: boolean
       }

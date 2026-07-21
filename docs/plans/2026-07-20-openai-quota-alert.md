@@ -22,8 +22,8 @@
 - Create: `supabase/migrations/<timestamp>_openai_quota_notification_contract.sql`
 - Modify: `src/lib/types/database.types.ts`
 
-1. Write failing migration contract tests for a service-role-only notification create function that returns the durable notification identity without changing the existing boolean RPC.
-2. Require a second service-role-only function that resolves one exact notification by notification ID, recipient user, derived company, type, dedupe key, and unresolved state.
+1. Write failing migration contract tests for a service-role-only notification create function that returns the durable notification identity, creation status, and incident version without changing the existing boolean RPC.
+2. Require quota observations and recovery to share one transaction advisory lock: each failure advances the exact unresolved generation and reasserts unread, while the second service-role-only function resolves only the captured notification ID and expected version with matching recipient user, derived company, type, dedupe key, and unresolved state. Read/unread must remain presentation state.
 3. Require locked search paths, revoked browser execution, active-user and company validation, and no email-derived recipient lookup.
 4. Implement the migration, run the focused test, parse the SQL, and regenerate or minimally reconcile generated database types.
 
@@ -42,7 +42,7 @@
 2. Extend `createTrustedNotifications` nonbreakingly with `createdNotifications: Array<{ notificationId, recipientUserId }>` while preserving all existing result fields.
 3. Implement `OPENAI CREDITS EXHAUSTED` as a persistent `ai_provider_quota` rail item. Include `/admin/platform-health` only when the configured recipient already has that page's access.
 4. Push only for a newly created durable row, using `{ type: "ai_provider_quota", screen: "notifications" }` and the notification UUID as the OneSignal idempotency key.
-5. Implement exact incident capture and exact recovery resolution. Keep monitoring best effort so notification infrastructure cannot mask the original model result.
+5. Implement exact incident ID/version capture and generation-safe recovery resolution. A failure after capture must invalidate stale recovery; recovery before a later failure must allow a fresh incident. Keep monitoring best effort so notification infrastructure cannot mask the original model result.
 
 ## Task 3: Centralize and monitor all OpenAI clients
 
@@ -54,7 +54,7 @@
 - Modify: `src/lib/api/services/openai-clients.ts`
 
 1. Write failing tests proving ordinary 429 errors remain retryable and only `error.code === "insufficient_quota"` opens an incident.
-2. Test generation-safe recovery: capture an existing incident before a request; resolve that exact ID only after a 2xx OpenAI response; never let a later success resolve an incident created during the same request window.
+2. Test generation-safe recovery: capture an existing incident ID and version before a request; resolve that exact generation only after a 2xx OpenAI response; never let a later success resolve an incident created or reconfirmed during the same request window.
 3. Test the five-minute preflight-read gate, cold-start eligibility, and failure-forced recheck without using it to suppress quota incident creation.
 4. Implement a monitored custom fetch/client wrapper with safe metadata only: workload, environment key source, endpoint/model, status, code/type, and provider request ID. Never log keys, prompts, message bodies, headers, or customer content.
 5. Add a static test that rejects production `new OpenAI(...)` outside the canonical factory.

@@ -6,6 +6,8 @@ import { createOpenAIQuotaAlertService } from "@/lib/notifications/openai-quota-
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const COMPANY_ID = "22222222-2222-4222-8222-222222222222";
 const NOTIFICATION_ID = "33333333-3333-4333-8333-333333333333";
+const NEXT_NOTIFICATION_ID = "55555555-5555-4555-8555-555555555555";
+const INCIDENT_VERSION = 7;
 const DEDUPE_KEY = "platform-provider:openai:insufficient-quota:OPENAI_API_KEY";
 
 interface QueryOperation {
@@ -30,6 +32,7 @@ function createDbFixture(overrides?: {
   notificationError?: { message: string } | null;
   rpcData?: unknown;
   rpcError?: { message: string } | null;
+  rpc?: ReturnType<typeof vi.fn>;
 }) {
   const records: QueryRecord[] = [];
   const responses = {
@@ -69,7 +72,7 @@ function createDbFixture(overrides?: {
     notifications: {
       data:
         overrides?.notification === undefined
-          ? { id: NOTIFICATION_ID }
+          ? { id: NOTIFICATION_ID, incident_version: INCIDENT_VERSION }
           : overrides.notification,
       error: overrides?.notificationError ?? null,
     },
@@ -91,10 +94,12 @@ function createDbFixture(overrides?: {
         : Promise.resolve(responses[table]);
     return builder;
   });
-  const rpc = vi.fn().mockResolvedValue({
-    data: overrides?.rpcData ?? true,
-    error: overrides?.rpcError ?? null,
-  });
+  const rpc =
+    overrides?.rpc ??
+    vi.fn().mockResolvedValue({
+      data: overrides?.rpcData ?? true,
+      error: overrides?.rpcError ?? null,
+    });
 
   return {
     db: { from, rpc } as unknown as SupabaseClient,
@@ -503,8 +508,16 @@ describe("OpenAI quota alert service", () => {
     expect(sendPush).not.toHaveBeenCalled();
   });
 
-  it("captures only the exact open incident for the configured identity", async () => {
-    const { service, db } = serviceFixture();
+  it("captures the exact unresolved incident regardless of presentation read state", async () => {
+    const db = createDbFixture({
+      notification: {
+        id: NOTIFICATION_ID,
+        incident_version: INCIDENT_VERSION,
+        is_read: true,
+        resolved_at: null,
+      },
+    });
+    const { service } = serviceFixture({ db });
 
     await expect(
       service.captureOpenAIQuotaIncident("OPENAI_API_KEY")
@@ -512,6 +525,7 @@ describe("OpenAI quota alert service", () => {
       notificationId: NOTIFICATION_ID,
       recipientUserId: USER_ID,
       dedupeKey: DEDUPE_KEY,
+      incidentVersion: INCIDENT_VERSION,
     });
     expect(operationsFor(db.records, "notifications")).toEqual(
       expect.arrayContaining([
@@ -519,10 +533,17 @@ describe("OpenAI quota alert service", () => {
         { method: "eq", args: ["company_id", COMPANY_ID] },
         { method: "eq", args: ["type", "ai_provider_quota"] },
         { method: "eq", args: ["dedupe_key", DEDUPE_KEY] },
-        { method: "eq", args: ["is_read", false] },
         { method: "is", args: ["resolved_at", null] },
       ])
     );
+    expect(operationsFor(db.records, "notifications")).not.toContainEqual({
+      method: "eq",
+      args: ["is_read", false],
+    });
+    expect(operationsFor(db.records, "notifications")).toContainEqual({
+      method: "select",
+      args: ["id, incident_version"],
+    });
     expect(db.records.some((record) => record.table === "admins")).toBe(false);
   });
 
@@ -545,12 +566,25 @@ describe("OpenAI quota alert service", () => {
     ).rejects.toThrow("notification read unavailable");
   });
 
+  it("rejects an invalid incident generation from storage", async () => {
+    const invalid = serviceFixture({
+      db: createDbFixture({
+        notification: { id: NOTIFICATION_ID, incident_version: 0 },
+      }),
+    });
+
+    await expect(
+      invalid.service.captureOpenAIQuotaIncident("OPENAI_API_KEY")
+    ).rejects.toThrow("quota notification generation is invalid");
+  });
+
   it("resolves the exact captured incident through the service-only RPC", async () => {
     const { service, db } = serviceFixture();
     const capture = {
       notificationId: NOTIFICATION_ID,
       recipientUserId: USER_ID,
       dedupeKey: DEDUPE_KEY,
+      incidentVersion: INCIDENT_VERSION,
     };
 
     await expect(
@@ -561,6 +595,7 @@ describe("OpenAI quota alert service", () => {
       {
         p_company_id: COMPANY_ID,
         p_dedupe_key: DEDUPE_KEY,
+        p_expected_incident_version: INCIDENT_VERSION,
         p_notification_id: NOTIFICATION_ID,
         p_user_id: USER_ID,
       }
@@ -577,7 +612,88 @@ describe("OpenAI quota alert service", () => {
         notificationId: NOTIFICATION_ID,
         recipientUserId: USER_ID,
         dedupeKey: DEDUPE_KEY,
+        incidentVersion: INCIDENT_VERSION,
       })
     ).rejects.toThrow("quota incident was not resolved");
+  });
+
+  it("leaves a captured generation open when a later quota observation advances it", async () => {
+    const notification = {
+      id: NOTIFICATION_ID,
+      incident_version: INCIDENT_VERSION,
+    };
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
+      data: args.p_expected_incident_version === notification.incident_version,
+      error: null,
+    }));
+    const db = createDbFixture({ notification, rpc });
+    const createNotifications = vi.fn(async () => {
+      notification.incident_version += 1;
+      return {
+        attempted: 1,
+        errors: 0,
+        createdRecipientIds: [],
+        createdNotifications: [],
+      };
+    });
+    const { service } = serviceFixture({ db, createNotifications });
+    const capture = await service.captureOpenAIQuotaIncident("OPENAI_API_KEY");
+    expect(capture?.incidentVersion).toBe(INCIDENT_VERSION);
+
+    await service.reportOpenAIQuotaExhausted({
+      keySource: "OPENAI_API_KEY",
+      workload: "email_sync",
+    });
+    await expect(
+      service.resolveCapturedOpenAIQuotaIncident(capture!)
+    ).rejects.toThrow("quota incident was not resolved");
+    expect(rpc).toHaveBeenCalledWith(
+      "resolve_openai_quota_notification_as_system",
+      expect.objectContaining({
+        p_expected_incident_version: INCIDENT_VERSION,
+      })
+    );
+  });
+
+  it("opens a fresh durable incident when quota is observed after exact recovery", async () => {
+    let open = true;
+    const notification = {
+      id: NOTIFICATION_ID,
+      incident_version: INCIDENT_VERSION,
+    };
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => {
+      const matches =
+        open &&
+        args.p_notification_id === notification.id &&
+        args.p_expected_incident_version === notification.incident_version;
+      if (matches) open = false;
+      return { data: matches, error: null };
+    });
+    const db = createDbFixture({ notification, rpc });
+    const createNotifications = vi.fn(async () => ({
+      attempted: 1,
+      errors: 0,
+      createdRecipientIds: [USER_ID],
+      createdNotifications: [
+        {
+          notificationId: NEXT_NOTIFICATION_ID,
+          recipientUserId: USER_ID,
+        },
+      ],
+    }));
+    const { service, sendPush } = serviceFixture({ db, createNotifications });
+    const capture = await service.captureOpenAIQuotaIncident("OPENAI_API_KEY");
+
+    await service.resolveCapturedOpenAIQuotaIncident(capture!);
+    await service.reportOpenAIQuotaExhausted({
+      keySource: "OPENAI_API_KEY",
+      workload: "email_sync",
+    });
+
+    expect(open).toBe(false);
+    expect(createNotifications).toHaveBeenCalledTimes(1);
+    expect(sendPush).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: NEXT_NOTIFICATION_ID })
+    );
   });
 });

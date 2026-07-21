@@ -32,6 +32,7 @@ export interface OpenAIQuotaIncidentCapture {
   notificationId: string;
   recipientUserId: string;
   dedupeKey: string;
+  incidentVersion: number;
 }
 
 export interface OpenAIQuotaErrorMetadata {
@@ -325,7 +326,9 @@ function assertCapture(
   if (
     !UUID_PATTERN.test(capture.notificationId) ||
     capture.recipientUserId !== recipient.userId ||
-    !isValidKeySource(capturedKeySource)
+    !isValidKeySource(capturedKeySource) ||
+    !Number.isSafeInteger(capture.incidentVersion) ||
+    capture.incidentVersion < 1
   ) {
     throw new Error("quota incident capture is invalid");
   }
@@ -469,12 +472,11 @@ export function createOpenAIQuotaAlertService({
           );
           const { data, error } = await db
             .from("notifications")
-            .select("id")
+            .select("id, incident_version")
             .eq("user_id", recipient.userId)
             .eq("company_id", recipient.companyId)
             .eq("type", NOTIFICATION_TYPE)
             .eq("dedupe_key", dedupeKey)
-            .eq("is_read", false)
             .is("resolved_at", null)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -486,10 +488,17 @@ export function createOpenAIQuotaAlertService({
           if (typeof data.id !== "string" || !UUID_PATTERN.test(data.id)) {
             throw new Error("quota notification identity is invalid");
           }
+          if (
+            !Number.isSafeInteger(data.incident_version) ||
+            data.incident_version < 1
+          ) {
+            throw new Error("quota notification generation is invalid");
+          }
           return {
             notificationId: data.id,
             recipientUserId: recipient.userId,
             dedupeKey,
+            incidentVersion: data.incident_version,
           };
         },
         databaseTimeoutMs,
@@ -512,6 +521,7 @@ export function createOpenAIQuotaAlertService({
               p_user_id: recipient.userId,
               p_company_id: recipient.companyId,
               p_dedupe_key: capture.dedupeKey,
+              p_expected_incident_version: capture.incidentVersion,
             }
           );
           if (error) {

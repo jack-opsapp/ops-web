@@ -38,13 +38,13 @@ Two environment variables containing duplicate copies of the same credential are
 
 ### Recovery
 
-Recovery must be safe against in-flight requests and recurring incidents. On an eligible recovery slot, the monitored client reads and captures the exact open `notifications.id` for the configured user, derived company, type, and dedupe key **before** it sends the OpenAI request. A 2xx response may resolve only that captured row ID. If no row was open when the request began, that response resolves nothing. This prevents an older success from closing an incident created while the request was running, and prevents a success associated with incident N from closing recurrence N+1.
+Recovery must be safe against in-flight requests and recurring incidents. Each observed quota failure serially advances `notifications.incident_version` on the exact open incident under the same transaction-level advisory lock used by recovery; the first observation for a new row starts at version 1. On an eligible recovery slot, the monitored client reads and captures the exact open `notifications.id` and `incident_version` for the configured user, derived company, type, and dedupe key **before** it sends the OpenAI request. A 2xx response may resolve only that captured row and generation. If no row was open when the request began, that response resolves nothing. If another quota failure arrives after capture, it advances the generation and makes the older recovery attempt a no-op. This prevents an older success from closing an incident created or reconfirmed while the request was running, and prevents a success associated with incident N from closing recurrence N+1.
 
-Atomic resolution matches the captured notification ID, canonical user, derived company, exact notification type, exact dedupe key, and `resolved_at is null`. It sets `is_read = true`, `resolved_at = clock_timestamp()`, `resolved_by = null`, and `resolution_reason = 'provider_quota_recovered'`, returning whether one row changed. Automated recovery must never be attributed to Jackson or another human.
+Atomic resolution matches the captured notification ID, incident version, canonical user, derived company, exact notification type, exact dedupe key, and `resolved_at is null`, regardless of presentation read state. It sets `is_read = true`, `resolved_at = clock_timestamp()`, `resolved_by = null`, and `resolution_reason = 'provider_quota_recovered'`, returning whether one row changed. Automated recovery must never be attributed to Jackson or another human. If recovery commits first, a later quota observation creates a fresh open row at version 1; it never reopens or mutates the resolved row.
 
 The five-minute memory gate throttles only the preflight read. Each server instance checks at most once per key source per five minutes, with the first request after a cold start eligible immediately. Observing a quota failure marks that key source recovery-eligible in-process, so the next local request captures the open incident immediately. Recovery is immediate when that request succeeds; a warm peer reconciles on its next eligible slot. If either the preflight read or resolution fails, the local slot remains eligible so later requests retry.
 
-A later exhaustion event may create a new incident after the prior one is resolved.
+A later exhaustion event creates a new incident after the prior one is resolved. Historical notification rows are not semantically rewritten; generation tracking begins going forward with the next observed quota failure.
 
 ## Notification contract
 
@@ -64,9 +64,9 @@ The notification type must be registered in the web metadata registry and iOS ic
 
 The rail is authoritative. Push is a wake-up channel and is attempted only for entries returned in `createTrustedNotifications().createdNotifications`.
 
-The existing notification row is the incident ledger; no separate billing or provider-payload table is added. A sibling service-only creation RPC returns `{ notification_id, created }` without changing or removing the existing boolean RPC. `createTrustedNotifications()` retains its three existing result fields and adds `createdNotifications: Array<{ notificationId, recipientUserId }>` non-breakingly. Push is attempted at most once for each newly created row and uses that durable notification UUID as its idempotency UUID, never provider request content. A later incident receives a new notification UUID and may therefore send a new push after the previous incident was resolved.
+The existing notification row is the incident ledger; no separate billing or provider-payload table is added. A quota-specific partial unique index allows only one unresolved row for the canonical recipient, company, type, and dedupe key. Read/unread is presentation state and never defines whether the incident is open. A sibling service-only creation RPC returns `{ notification_id, created, incident_version }` without changing or removing the existing boolean RPC. For `ai_provider_quota`, the RPC holds the incident advisory lock, creates a new row at version 1, or atomically increments and reasserts unread on the exact unresolved row before returning its new version. `createTrustedNotifications()` retains its three existing result fields and adds `createdNotifications: Array<{ notificationId, recipientUserId }>` non-breakingly. Push is attempted at most once for each newly created row and uses that durable notification UUID as its idempotency UUID, never provider request content. A later incident receives a new notification UUID and may therefore send a new push after the previous incident was resolved.
 
-A new service-only resolution RPC closes one exact captured row and returns whether it changed. Neither RPC is executable by browser roles. Both use a locked search path, and the notification table remains protected by its existing recipient-scoped RLS.
+A new service-only resolution RPC accepts the expected incident version, closes only that exact captured generation under the same advisory lock, and returns whether it changed. Neither RPC is executable by browser roles. Both use a locked search path, and the notification table remains protected by its existing recipient-scoped RLS.
 
 ## Architecture
 
@@ -136,6 +136,8 @@ The implementation must prove:
 - exact `insufficient_quota` detection for import, sync, drafting, Catalog Setup, and admin analysis clients;
 - no alert for ordinary 429 responses;
 - one durable row and at most one push attempt under retries/concurrency;
+- generation-safe failure/recovery races: a later failure invalidates a stale recovery, while recovery-first permits a fresh incident;
+- persistent alert reads cannot hide, duplicate, or prematurely close an unresolved incident;
 - shared-source convergence and separate-source isolation;
 - user/company mismatch, inactive user, and non-admin user fail closed; missing platform-admin route access removes the action without changing recipient identity;
 - secret, prompt, message, and attachment redaction;

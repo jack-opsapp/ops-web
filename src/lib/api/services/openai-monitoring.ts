@@ -2,6 +2,7 @@ export interface OpenAIQuotaIncidentCapture {
   notificationId: string;
   recipientUserId: string;
   dedupeKey: string;
+  incidentVersion: number;
 }
 
 export interface OpenAIQuotaErrorMetadata {
