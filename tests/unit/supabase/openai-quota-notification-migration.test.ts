@@ -40,7 +40,10 @@ function functionDefinition(source: string, name: string): string {
 describe("OpenAI quota notification migration", () => {
   it("preserves the existing boolean RPC and adds a sibling identity-returning RPC", () => {
     const source = migrationSql();
-    const hardening = readFileSync(notificationHardeningPath, "utf8").toLowerCase();
+    const hardening = readFileSync(
+      notificationHardeningPath,
+      "utf8"
+    ).toLowerCase();
     const identity = functionDefinition(
       source,
       "public.create_notification_if_new_with_identity"
@@ -73,7 +76,9 @@ describe("OpenAI quota notification migration", () => {
       /from public\.users[\s\S]*?join public\.companies[\s\S]*?u\.id = p_user_id[\s\S]*?u\.company_id = p_company_id[\s\S]*?u\.deleted_at is null[\s\S]*?coalesce\(u\.is_active, false\)[\s\S]*?c\.deleted_at is null/
     );
     expect(identity).not.toMatch(/\bemail\b/);
-    expect(identity).toMatch(/raise exception 'notification recipient is unavailable'/);
+    expect(identity).toMatch(
+      /raise exception 'notification recipient is unavailable'/
+    );
     expect(identity).toMatch(/errcode = '42501'/);
   });
 

@@ -111,4 +111,3 @@
 3. Run an independent security/correctness review covering dedupe races, recovery races, service-role exposure, identity spoofing, secret leakage, Gmail exclusion, and push failure behavior.
 4. Correct every finding and rerun proof.
 5. Commit web and iOS changes atomically. Do not push, apply migrations, deploy, or write provider state until Jackson gives the final live-release approval.
-

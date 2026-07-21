@@ -48,17 +48,17 @@ A later exhaustion event may create a new incident after the prior one is resolv
 
 ## Notification contract
 
-| Field | Value |
-|---|---|
-| `type` | `ai_provider_quota` |
-| `title` | `OPENAI CREDITS EXHAUSTED` |
-| `body` | `OpenAI calls stopped. Add credits now.` |
-| `persistent` | `true` |
-| `deep_link_type` | `null` so the durable row never advertises an unsupported iOS destination |
-| `action_url` | `/admin/platform-health` when the configured recipient retains access; otherwise `null` |
-| `action_label` | `CHECK OPENAI` when `action_url` is present; otherwise `null` |
-| `dedupe_key` | Stable condition key defined above |
-| Recipient | Canonical OPS `public.users.id`; company is derived from that user and compared with the configured expected-company invariant; never discovered by email |
+| Field            | Value                                                                                                                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`           | `ai_provider_quota`                                                                                                                                       |
+| `title`          | `OPENAI CREDITS EXHAUSTED`                                                                                                                                |
+| `body`           | `OpenAI calls stopped. Add credits now.`                                                                                                                  |
+| `persistent`     | `true`                                                                                                                                                    |
+| `deep_link_type` | `null` so the durable row never advertises an unsupported iOS destination                                                                                 |
+| `action_url`     | `/admin/platform-health` when the configured recipient retains access; otherwise `null`                                                                   |
+| `action_label`   | `CHECK OPENAI` when `action_url` is present; otherwise `null`                                                                                             |
+| `dedupe_key`     | Stable condition key defined above                                                                                                                        |
+| Recipient        | Canonical OPS `public.users.id`; company is derived from that user and compared with the configured expected-company invariant; never discovered by email |
 
 The notification type must be registered in the web metadata registry and iOS icon registry. The durable row intentionally carries no iOS deep link. OneSignal push data uses `{ type: 'ai_provider_quota', screen: 'notifications' }`; iOS adds a cold-launch/PIN-safe `notifications` screen route that opens the existing rail. The web action opens the existing Platform Health route. Web CI and iOS build/tests are separate acceptance gates.
 
