@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = join(
   process.cwd(),
-  "supabase/migrations/20260720120000_openai_quota_notification_contract.sql"
+  "supabase/migrations/20260721050404_openai_quota_notification_contract.sql"
 );
 const notificationHardeningPath = join(
   process.cwd(),
