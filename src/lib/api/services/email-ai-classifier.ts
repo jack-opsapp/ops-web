@@ -23,6 +23,26 @@ function getOpenAI(
   return override ?? getImportOpenAI();
 }
 
+const BATCH_CLASSIFICATION_ERROR_PREFIX =
+  "[email-ai-classifier] batch classification failed: ";
+
+class ModelContractError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(`${BATCH_CLASSIFICATION_ERROR_PREFIX}${message}`, options);
+    this.name = "ModelContractError";
+  }
+}
+
+class ModelRefusalError extends Error {
+  constructor(options?: ErrorOptions) {
+    super(
+      `${BATCH_CLASSIFICATION_ERROR_PREFIX}model refused classification response`,
+      options
+    );
+    this.name = "ModelRefusalError";
+  }
+}
+
 // Valid pipeline stages — used for validation
 const VALID_STAGES = [
   "new_lead",
@@ -300,28 +320,88 @@ export const EmailAIClassifier = {
   ): Promise<ClassificationResult[]> {
     if (emails.length === 0) return [];
 
-    const results: ClassificationResult[] = [];
-    for (let i = 0; i < emails.length; i += 50) {
-      const batch = emails.slice(i, i + 50);
-      let batchResults: ClassificationResult[] | null = null;
+    const classifyWithModelContractRetry = async (
+      batch: ClassificationInput[],
+      cancellation?: {
+        stopped: boolean;
+        terminalError: unknown | null;
+      }
+    ): Promise<ClassificationResult[]> => {
       let lastError: unknown = null;
-      for (let attempt = 0; attempt < 2 && !batchResults; attempt += 1) {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (cancellation?.stopped) {
+          throw cancellation.terminalError;
+        }
         try {
-          batchResults = await EmailAIClassifier.classifySingleBatch(
+          return await EmailAIClassifier.classifySingleBatch(
             batch,
             context,
             openaiClient
           );
         } catch (error) {
           lastError = error;
-          const message =
-            error instanceof Error ? error.message : String(error);
-          if (!message.includes("model response") || attempt === 1) {
+          if (!(error instanceof ModelContractError) || attempt === 1) {
+            if (cancellation && !cancellation.stopped) {
+              cancellation.stopped = true;
+              cancellation.terminalError = error;
+            }
             throw error;
           }
         }
       }
-      if (!batchResults) throw lastError;
+      throw lastError;
+    };
+
+    const results: ClassificationResult[] = [];
+    for (let i = 0; i < emails.length; i += 50) {
+      const batch = emails.slice(i, i + 50);
+      let batchResults: ClassificationResult[];
+      try {
+        batchResults = await classifyWithModelContractRetry(batch);
+      } catch (error) {
+        if (!(error instanceof ModelContractError) || batch.length === 1) {
+          throw error;
+        }
+
+        // A malformed multi-email response cannot be safely mapped by array
+        // position. Isolate each email after the bounded batch retry so every
+        // recovery response has exactly one possible source identity. Two
+        // workers keep latency bounded without creating a rate-limit burst.
+        const isolatedResults = new Array<ClassificationResult>(batch.length);
+        const cancellation: {
+          stopped: boolean;
+          terminalError: unknown | null;
+        } = { stopped: false, terminalError: null };
+        let nextIndex = 0;
+        const workers = Array.from(
+          { length: Math.min(2, batch.length) },
+          async () => {
+            while (!cancellation.stopped && nextIndex < batch.length) {
+              const index = nextIndex;
+              nextIndex += 1;
+              try {
+                const singletonResults = await classifyWithModelContractRetry(
+                  [batch[index]],
+                  cancellation
+                );
+                if (!cancellation.stopped) {
+                  isolatedResults[index] = singletonResults[0];
+                }
+              } catch (singletonError) {
+                if (!cancellation.stopped) {
+                  cancellation.stopped = true;
+                  cancellation.terminalError = singletonError;
+                }
+              }
+            }
+          }
+        );
+        await Promise.all(workers);
+        if (cancellation.terminalError !== null) {
+          throw cancellation.terminalError;
+        }
+        batchResults = isolatedResults;
+      }
       results.push(...batchResults);
       if (i + 50 < emails.length) {
         await new Promise((r) => setTimeout(r, 200));
@@ -669,6 +749,19 @@ RESPOND WITH JSON: { "results": [...] }. No explanation. Minimize tokens.`;
     },
     openaiClient?: import("openai").default
   ): Promise<ClassificationResult[]> {
+    if (emails.length === 0) return [];
+
+    const requestedIds = new Set<string>();
+    for (const email of emails) {
+      if (!email.id || requestedIds.has(email.id)) {
+        throw new Error(
+          `classification input duplicated id ${email.id || "<empty>"}`
+        );
+      }
+      requestedIds.add(email.id);
+    }
+    const requestedIdList = emails.map((email) => email.id);
+
     const systemPrompt = `You are classifying emails for a trades business.
 
 Company: ${context.companyName}
@@ -677,6 +770,7 @@ Owner email: ${context.ownerEmail}
 Company domains: ${context.companyDomains.join(", ")}
 
 For each email, determine:
+- id: copy the exact input id into every result. Never omit, alter, or invent it.
 - verdict: "lead" (customer inquiry/conversation), "biz" (subtrade/vendor/contractor), "skip" (noise/spam/newsletter)
 - confidence: 0.0 to 1.0
 - stage: pipeline stage if lead. MUST be one of: "new_lead", "qualifying", "quoting", "quoted", "follow_up", "negotiation", "won", "lost". null if not a lead.
@@ -684,11 +778,12 @@ For each email, determine:
   Use "lost" ONLY with CLEAR EVIDENCE — client declined, chose another contractor, or 60+ days of follow-ups with no response.
   When in doubt, choose an active stage ("quoted", "follow_up").
 - val: estimated dollar value if pricing is mentioned. null otherwise.
-- client: { name, email, phone, addr, desc } if lead. Extract from email content. null otherwise.
+- client: { name, email, phone, addr, description } if lead. Extract from email content. null otherwise.
   addr: the customer's job-site or service address if one appears in the body (street + city, or a postal/ZIP code). null if no address is present. Do NOT invent or infer an address from an email domain.
 - dupes: array of other email IDs in this batch that appear to be from the same client/project
 - flag: OMIT this field. Use the stage field directly ("won" or "lost") instead.
 
+Return exactly one result for every input email. Do not reorder or omit results.
 RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize output tokens.`;
 
     const userPrompt = JSON.stringify(
@@ -705,6 +800,79 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
       }))
     );
 
+    const responseFormat = {
+      type: "json_schema" as const,
+      json_schema: {
+        name: "email_classification_batch",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["results"],
+          properties: {
+            results: {
+              type: "array",
+              minItems: emails.length,
+              maxItems: emails.length,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: [
+                  "id",
+                  "verdict",
+                  "confidence",
+                  "stage",
+                  "val",
+                  "client",
+                  "dupes",
+                ],
+                properties: {
+                  id: { type: "string", enum: requestedIdList },
+                  verdict: {
+                    type: "string",
+                    enum: ["lead", "biz", "skip"],
+                  },
+                  confidence: { type: "number", minimum: 0, maximum: 1 },
+                  stage: {
+                    type: ["string", "null"],
+                    enum: [...VALID_STAGES, null],
+                  },
+                  val: { type: ["number", "null"] },
+                  client: {
+                    anyOf: [
+                      {
+                        type: "object",
+                        additionalProperties: false,
+                        required: [
+                          "name",
+                          "email",
+                          "phone",
+                          "addr",
+                          "description",
+                        ],
+                        properties: {
+                          name: { type: "string" },
+                          email: { type: "string" },
+                          phone: { type: ["string", "null"] },
+                          addr: { type: ["string", "null"] },
+                          description: { type: "string" },
+                        },
+                      },
+                      { type: "null" },
+                    ],
+                  },
+                  dupes: {
+                    type: "array",
+                    items: { type: "string", enum: requestedIdList },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
     try {
       const response = await getOpenAI(openaiClient).chat.completions.create({
         model: "gpt-4o-mini",
@@ -713,20 +881,27 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
           { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
-        max_tokens: emails.length * 80,
-        response_format: { type: "json_object" },
+        max_tokens: Math.max(300, emails.length * 140),
+        response_format: responseFormat,
       });
 
-      const content = response.choices[0]?.message?.content;
+      const message = response.choices[0]?.message;
+      if (message?.refusal != null) {
+        throw new ModelRefusalError();
+      }
+
+      const content = message?.content;
       if (typeof content !== "string" || !content.trim()) {
-        throw new Error("model response was empty");
+        throw new ModelContractError("model response was empty");
       }
 
       let parsed: unknown;
       try {
         parsed = JSON.parse(content);
       } catch (err) {
-        throw new Error("model response was not valid JSON", { cause: err });
+        throw new ModelContractError("model response was not valid JSON", {
+          cause: err,
+        });
       }
 
       const rawResults =
@@ -734,45 +909,65 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
           ? (parsed as { results?: unknown }).results
           : parsed;
       if (!Array.isArray(rawResults)) {
-        throw new Error("model response did not contain a results array");
+        throw new ModelContractError(
+          "model response did not contain a results array"
+        );
       }
 
-      const requestedIds = new Set<string>();
-      for (const email of emails) {
-        if (!email.id || requestedIds.has(email.id)) {
-          throw new Error(
-            `classification input duplicated id ${email.id || "<empty>"}`
-          );
-        }
-        requestedIds.add(email.id);
-      }
-
-      const resultById = new Map<string, ClassificationResult>();
+      const normalizedResults: Array<Record<string, unknown>> = [];
+      const explicitResultIds = new Set<string>();
+      const resultsWithoutIds: number[] = [];
       for (const rawResult of rawResults) {
         if (!rawResult || typeof rawResult !== "object") {
-          throw new Error(
+          throw new ModelContractError(
             "model response contained an invalid classification result"
           );
         }
         const r = rawResult as Record<string, unknown>;
         const id = typeof r.id === "string" && r.id ? r.id : null;
         if (!id) {
-          throw new Error(
-            "model response contained a classification without an id"
+          resultsWithoutIds.push(normalizedResults.length);
+        } else {
+          if (!requestedIds.has(id)) {
+            throw new ModelContractError(
+              `model response contained unknown classification id ${id}`
+            );
+          }
+          if (explicitResultIds.has(id)) {
+            throw new ModelContractError(
+              `model response duplicated classification id ${id}`
+            );
+          }
+          explicitResultIds.add(id);
+        }
+        normalizedResults.push(r);
+      }
+
+      if (resultsWithoutIds.length > 0) {
+        const remainingIds = emails
+          .map((email) => email.id)
+          .filter((id) => !explicitResultIds.has(id));
+        if (resultsWithoutIds.length !== 1 || remainingIds.length !== 1) {
+          throw new ModelContractError(
+            "model response contained classifications without unambiguous ids"
           );
         }
-        if (!requestedIds.has(id)) {
-          throw new Error(
-            `model response contained unknown classification id ${id}`
-          );
-        }
-        if (resultById.has(id)) {
-          throw new Error(`model response duplicated classification id ${id}`);
-        }
+        const missingIndex = resultsWithoutIds[0];
+        normalizedResults[missingIndex] = {
+          ...normalizedResults[missingIndex],
+          id: remainingIds[0],
+        };
+      }
+
+      const resultById = new Map<string, ClassificationResult>();
+      for (const r of normalizedResults) {
+        const id = r.id as string;
 
         const verdict = r.verdict;
         if (verdict !== "lead" && verdict !== "biz" && verdict !== "skip") {
-          throw new Error(`model response contained invalid verdict for ${id}`);
+          throw new ModelContractError(
+            `model response contained invalid verdict for ${id}`
+          );
         }
 
         let confidence =
@@ -788,7 +983,7 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
           confidence > 1
         ) {
           if (verdict === "lead") {
-            throw new Error(
+            throw new ModelContractError(
               `model response contained invalid confidence for ${id}`
             );
           }
@@ -819,7 +1014,10 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
                 (rawClient.addr as string | null) ??
                 (rawClient.address as string | null) ??
                 null,
-              description: (rawClient.description as string) || "",
+              description:
+                (rawClient.description as string) ||
+                (rawClient.desc as string) ||
+                "",
             }
           : null;
 
@@ -844,15 +1042,21 @@ RESPOND WITH A JSON OBJECT: { "results": [...] }. No explanation. Minimize outpu
       return emails.map((email) => {
         const result = resultById.get(email.id);
         if (!result) {
-          throw new Error(
+          throw new ModelContractError(
             `model response omitted classification id ${email.id}`
           );
         }
         return result;
       });
     } catch (err) {
+      if (
+        err instanceof ModelContractError ||
+        err instanceof ModelRefusalError
+      ) {
+        throw err;
+      }
       throw new Error(
-        `[email-ai-classifier] batch classification failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        `${BATCH_CLASSIFICATION_ERROR_PREFIX}${err instanceof Error ? err.message : "unknown error"}`,
         { cause: err }
       );
     }
