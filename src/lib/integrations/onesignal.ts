@@ -11,6 +11,7 @@
 export const ONESIGNAL_APP_ID = "0fc0a8e0-9727-49b6-9e37-5d6d919d741f";
 
 const ONESIGNAL_API_ENDPOINT = "https://onesignal.com/api/v1/notifications";
+const DEFAULT_TIMEOUT_MS = 10_000;
 
 export interface SendPushParams {
   recipientUserIds: string[];
@@ -20,6 +21,8 @@ export interface SendPushParams {
   imageUrl?: string;
   /** Stable RFC 9562 UUID reused across retries of one logical send. */
   idempotencyKey?: string;
+  /** Upper bound for provider transport and response-body work. */
+  timeoutMs?: number;
 }
 
 export type SendPushResult =
@@ -67,38 +70,71 @@ export async function sendOneSignalPush(
     payload.big_picture = params.imageUrl;
   }
 
-  try {
-    const response = await fetch(ONESIGNAL_API_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Key ${restApiKey}`,
-      },
-      body: JSON.stringify(payload),
-    });
+  const controller = new AbortController();
+  const requestedTimeout = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs =
+    Number.isFinite(requestedTimeout) && requestedTimeout > 0
+      ? Math.floor(requestedTimeout)
+      : DEFAULT_TIMEOUT_MS;
+  let timedOut = false;
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
-    const result = (await response.json()) as {
-      id?: string;
-      recipients?: number;
-      errors?: unknown;
-    };
+  try {
+    const request = (async () => {
+      const response = await fetch(ONESIGNAL_API_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Key ${restApiKey}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      const result = (await response.json()) as {
+        id?: string;
+        recipients?: number;
+        errors?: unknown;
+      };
+      return { response, result };
+    })();
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+        reject(new Error("OneSignal request timed out"));
+      }, timeoutMs);
+    });
+    const { response, result } = await Promise.race([request, timeout]);
 
     if (!response.ok) {
       console.error("[onesignal] API error:", result);
       return { ok: false, error: result, status: response.status };
     }
 
+    const providerId = typeof result.id === "string" ? result.id.trim() : "";
+    if (!providerId) {
+      console.error("[onesignal] Message was not created:", result);
+      return { ok: false, error: result, status: response.status };
+    }
+
     console.log(
-      `[onesignal] Sent to ${result.recipients ?? 0} recipients — id: ${result.id ?? "(none)"}`
+      `[onesignal] Sent to ${result.recipients ?? 0} recipients — id: ${providerId}`
     );
 
     return {
       ok: true,
       recipients: result.recipients ?? 0,
-      onesignalId: result.id,
+      onesignalId: providerId,
     };
   } catch (err) {
+    if (timedOut) {
+      console.error(`[onesignal] Request timed out after ${timeoutMs}ms`);
+      return { ok: false, error: "Timed out" };
+    }
     console.error("[onesignal] Fetch failed:", err);
     return { ok: false, error: err };
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
   }
 }

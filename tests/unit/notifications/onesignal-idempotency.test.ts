@@ -49,4 +49,65 @@ describe("OneSignal external-user delivery idempotency", () => {
       },
     });
   });
+
+  it("passes a cancellation signal to bound provider work", async () => {
+    await sendOneSignalPush({
+      recipientUserIds: ["user-1"],
+      title: "OPENAI CREDITS EXHAUSTED",
+      body: "OpenAI calls stopped. Add credits now.",
+      timeoutMs: 25,
+    });
+
+    const [, request] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    expect(request.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("settles safely when OneSignal exceeds the caller timeout", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => {}))
+    );
+
+    const result = await Promise.race([
+      sendOneSignalPush({
+        recipientUserIds: ["user-1"],
+        title: "OPENAI CREDITS EXHAUSTED",
+        body: "OpenAI calls stopped. Add credits now.",
+        timeoutMs: 5,
+      }),
+      new Promise<"unbounded">((resolve) =>
+        setTimeout(() => resolve("unbounded"), 50)
+      ),
+    ]);
+
+    expect(result).not.toBe("unbounded");
+    expect(result).toMatchObject({ ok: false });
+  });
+
+  it("treats HTTP 200 without a provider message ID as not accepted", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              recipients: 0,
+              errors: ["All included subscriptions are not subscribed"],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }
+          )
+      )
+    );
+
+    await expect(
+      sendOneSignalPush({
+        recipientUserIds: ["user-1"],
+        title: "OPENAI CREDITS EXHAUSTED",
+        body: "OpenAI calls stopped. Add credits now.",
+      })
+    ).resolves.toMatchObject({ ok: false, status: 200 });
+  });
 });

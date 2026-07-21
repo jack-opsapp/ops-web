@@ -12,9 +12,10 @@ const dispatcher = readFileSync(
 );
 
 describe("notification push idempotency", () => {
-  it("persists through the created-status RPC and exposes only newly created recipients", () => {
-    expect(service).toContain("create_notification_if_new_with_status");
+  it("persists through the identity RPC and exposes only newly created durable rows", () => {
+    expect(service).toContain("create_notification_if_new_with_identity");
     expect(service).toContain("createdRecipientIds");
+    expect(service).toContain("createdNotifications");
     expect(service).not.toContain('db.rpc("create_notification_if_new",');
   });
 

@@ -39,6 +39,11 @@ export interface NotificationPreferenceResult {
   emailRecipientIds: string[];
 }
 
+export interface CreatedTrustedNotification {
+  notificationId: string;
+  recipientUserId: string;
+}
+
 /**
  * Resolve a cryptographically linked, active OPS user. Login email is never an
  * identity fallback for notification authority.
@@ -114,6 +119,7 @@ export async function createTrustedNotifications(
   attempted: number;
   errors: number;
   createdRecipientIds: string[];
+  createdNotifications: CreatedTrustedNotification[];
 }> {
   if (!isSafeInternalNotificationActionUrl(input.actionUrl)) {
     throw new Error("Unsafe notification action URL");
@@ -128,13 +134,18 @@ export async function createTrustedNotifications(
     db,
   });
   if (recipients.length === 0) {
-    return { attempted: 0, errors: 0, createdRecipientIds: [] };
+    return {
+      attempted: 0,
+      errors: 0,
+      createdRecipientIds: [],
+      createdNotifications: [],
+    };
   }
 
   const results = await Promise.all(
     recipients.map(async (userId) => ({
       userId,
-      result: await db.rpc("create_notification_if_new_with_status", {
+      result: await db.rpc("create_notification_if_new_with_identity", {
         p_user_id: userId,
         p_company_id: input.companyId,
         p_type: input.type,
@@ -149,16 +160,44 @@ export async function createTrustedNotifications(
       }),
     }))
   );
-  const errors = results.filter(({ result }) => result.error).length;
-  const createdRecipientIds = results
-    .filter(({ result }) => !result.error && result.data === true)
-    .map(({ userId }) => userId);
+  const reconciled = results.map(({ userId, result }) => {
+    const raw = Array.isArray(result.data) ? result.data[0] : result.data;
+    const row =
+      raw &&
+      typeof raw === "object" &&
+      typeof (raw as Record<string, unknown>).notification_id === "string" &&
+      typeof (raw as Record<string, unknown>).created === "boolean"
+        ? (raw as { notification_id: string; created: boolean })
+        : null;
+    return { userId, result, row };
+  });
+  const errors = reconciled.filter(
+    ({ result, row }) => result.error || row === null
+  ).length;
+  const createdNotifications = reconciled.flatMap(({ userId, result, row }) =>
+    !result.error && row?.created
+      ? [
+          {
+            notificationId: row.notification_id,
+            recipientUserId: userId,
+          },
+        ]
+      : []
+  );
+  const createdRecipientIds = createdNotifications.map(
+    ({ recipientUserId }) => recipientUserId
+  );
   if (errors > 0) {
     console.error(
       `[notifications] ${errors}/${recipients.length} trusted notification writes failed`
     );
   }
-  return { attempted: recipients.length, errors, createdRecipientIds };
+  return {
+    attempted: recipients.length,
+    errors,
+    createdRecipientIds,
+    createdNotifications,
+  };
 }
 
 export async function resolveNotificationPreferences(params: {
