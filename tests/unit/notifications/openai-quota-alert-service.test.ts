@@ -112,6 +112,7 @@ function serviceFixture(options?: {
   databaseTimeoutMs?: number;
   pushTimeoutMs?: number;
   actionAccessTimeoutMs?: number;
+  log?: ReturnType<typeof vi.fn>;
 }) {
   const db = options?.db ?? createDbFixture();
   const createNotifications =
@@ -133,6 +134,7 @@ function serviceFixture(options?: {
   const sendPush =
     options?.sendPush ??
     vi.fn().mockResolvedValue({ ok: true, recipients: 1, onesignalId: "os-1" });
+  const log = options?.log ?? vi.fn();
   const service = createOpenAIQuotaAlertService({
     db: db.db,
     env: {
@@ -144,8 +146,9 @@ function serviceFixture(options?: {
     databaseTimeoutMs: options?.databaseTimeoutMs,
     pushTimeoutMs: options?.pushTimeoutMs,
     actionAccessTimeoutMs: options?.actionAccessTimeoutMs,
+    log,
   });
-  return { service, db, createNotifications, sendPush };
+  return { service, db, createNotifications, sendPush, log };
 }
 
 function operationsFor(
@@ -167,6 +170,7 @@ describe("OpenAI quota alert service", () => {
       },
       createNotifications,
       sendPush: vi.fn(),
+      log: vi.fn(),
     });
 
     await expect(
@@ -183,9 +187,6 @@ describe("OpenAI quota alert service", () => {
   });
 
   it("rejects unsafe key-source and workload tokens before storage or logging", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
     for (const keySource of [
       "OPENAI_API_KEY/../../secret",
       " OPENAI_API_KEY",
@@ -204,6 +205,7 @@ describe("OpenAI quota alert service", () => {
         fixture.service.captureOpenAIQuotaIncident(keySource)
       ).rejects.toThrow("OpenAI key source is invalid");
       expect(fixture.db.from).not.toHaveBeenCalled();
+      expect(fixture.log).not.toHaveBeenCalled();
     }
 
     const invalidWorkload = serviceFixture();
@@ -215,8 +217,35 @@ describe("OpenAI quota alert service", () => {
     ).resolves.toBeUndefined();
     expect(invalidWorkload.db.from).not.toHaveBeenCalled();
     expect(invalidWorkload.createNotifications).not.toHaveBeenCalled();
-    expect(consoleError).not.toHaveBeenCalled();
-    consoleError.mockRestore();
+    expect(invalidWorkload.log).not.toHaveBeenCalled();
+  });
+
+  it("logs only bounded operational metadata for confirmed exhaustion", async () => {
+    const { service, log } = serviceFixture();
+
+    await service.reportOpenAIQuotaExhausted({
+      keySource: "OPENAI_API_KEY_SYNC",
+      workload: "email_sync",
+      errorMetadata: {
+        status: 429,
+        code: "insufficient_quota",
+        type: "insufficient_quota\ncustomer-prompt",
+        requestId: "req_safe_123",
+        endpoint: "/v1/chat/completions/customer-secret",
+      },
+    });
+
+    expect(log).toHaveBeenCalledWith("openai_quota_exhausted", {
+      code: "insufficient_quota",
+      endpointClass: "chat_completions",
+      keySource: "OPENAI_API_KEY_SYNC",
+      requestId: "req_safe_123",
+      status: 429,
+      workload: "email_sync",
+    });
+    const serializedLog = JSON.stringify(log.mock.calls);
+    expect(serializedLog).not.toContain("customer-prompt");
+    expect(serializedLog).not.toContain("customer-secret");
   });
 
   it("accepts the bounded specialized OpenAI key-source namespace", async () => {

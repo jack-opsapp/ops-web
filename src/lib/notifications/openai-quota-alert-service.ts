@@ -25,6 +25,8 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KEY_SOURCE_PATTERN = /^OPENAI_API_KEY(?:_[A-Z0-9_]+)?$/;
 const WORKLOAD_PATTERN = /^[a-z][a-z0-9_]*$/;
+const SAFE_LOG_TOKEN_PATTERN = /^[A-Za-z0-9_.-]+$/;
+const SAFE_REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 export interface OpenAIQuotaIncidentCapture {
   notificationId: string;
@@ -78,6 +80,7 @@ interface OpenAIQuotaAlertServiceDependencies {
   databaseTimeoutMs?: number;
   pushTimeoutMs?: number;
   actionAccessTimeoutMs?: number;
+  log?: (event: string, metadata: Record<string, string | number>) => void;
 }
 
 export interface OpenAIQuotaAlertService {
@@ -153,6 +156,68 @@ function validateWorkload(workload: string): void {
   ) {
     throw new Error("OpenAI workload is invalid");
   }
+}
+
+function endpointClass(endpoint: string | undefined): string | undefined {
+  if (typeof endpoint !== "string") return undefined;
+  const routes: Array<[prefix: string, label: string]> = [
+    ["/v1/chat/completions", "chat_completions"],
+    ["/v1/responses", "responses"],
+    ["/v1/embeddings", "embeddings"],
+    ["/v1/moderations", "moderations"],
+    ["/v1/images", "images"],
+    ["/v1/audio", "audio"],
+  ];
+  const match = routes.find(
+    ([prefix]) => endpoint === prefix || endpoint.startsWith(`${prefix}/`)
+  );
+  return match?.[1] ?? "other";
+}
+
+function safeOperationalMetadata(
+  input: ReportOpenAIQuotaExhaustedInput
+): Record<string, string | number> {
+  const metadata: Record<string, string | number> = {
+    keySource: input.keySource,
+    workload: input.workload,
+  };
+  const error = input.errorMetadata;
+  if (!error) return metadata;
+
+  if (
+    Number.isInteger(error.status) &&
+    error.status >= 100 &&
+    error.status <= 599
+  ) {
+    metadata.status = error.status;
+  }
+  if (error.code === "insufficient_quota") {
+    metadata.code = error.code;
+  }
+  if (
+    typeof error.type === "string" &&
+    error.type.length <= MAX_MONITORING_TOKEN_LENGTH &&
+    SAFE_LOG_TOKEN_PATTERN.test(error.type)
+  ) {
+    metadata.type = error.type;
+  }
+  if (
+    typeof error.requestId === "string" &&
+    error.requestId.length <= 128 &&
+    SAFE_REQUEST_ID_PATTERN.test(error.requestId)
+  ) {
+    metadata.requestId = error.requestId;
+  }
+  const classifiedEndpoint = endpointClass(error.endpoint);
+  if (classifiedEndpoint) metadata.endpointClass = classifiedEndpoint;
+  return metadata;
+}
+
+function defaultOperationalLog(
+  event: string,
+  metadata: Record<string, string | number>
+): void {
+  console.error(`[openai-quota] ${event}`, metadata);
 }
 
 function canonicalAdminIds(value: unknown): string[] {
@@ -274,6 +339,7 @@ export function createOpenAIQuotaAlertService({
   databaseTimeoutMs: requestedDatabaseTimeout,
   pushTimeoutMs: requestedPushTimeout,
   actionAccessTimeoutMs: requestedActionAccessTimeout,
+  log = defaultOperationalLog,
 }: OpenAIQuotaAlertServiceDependencies): OpenAIQuotaAlertService {
   const alertEnvironment: AlertEnvironment = env ?? {
     OPS_PLATFORM_ALERT_USER_ID: process.env.OPS_PLATFORM_ALERT_USER_ID,
@@ -288,12 +354,25 @@ export function createOpenAIQuotaAlertService({
     requestedActionAccessTimeout,
     ACTION_ACCESS_TIMEOUT_MS
   );
+  const emitOperationalLog = (
+    event: string,
+    metadata: Record<string, string | number>
+  ): void => {
+    try {
+      log(event, metadata);
+    } catch {
+      // Diagnostics must never become part of provider request semantics.
+    }
+  };
 
   return {
     async reportOpenAIQuotaExhausted(input): Promise<void> {
+      let operationalMetadata: Record<string, string | number> | null = null;
       try {
         const dedupeKey = dedupeKeyFor(input.keySource);
         validateWorkload(input.workload);
+        operationalMetadata = safeOperationalMetadata(input);
+        emitOperationalLog("openai_quota_exhausted", operationalMetadata);
         const newNotification = await bounded(
           async () => {
             const recipient = await resolveConfiguredRecipient(
@@ -320,18 +399,21 @@ export function createOpenAIQuotaAlertService({
               },
               db
             );
-            if (
-              result.errors !== 0 ||
-              result.createdNotifications.length !== 1
-            ) {
+            if (result.errors !== 0) {
+              throw new Error("quota notification persistence failed");
+            }
+            if (result.createdNotifications.length === 0) {
               return null;
+            }
+            if (result.createdNotifications.length !== 1) {
+              throw new Error("quota notification identity is ambiguous");
             }
             const created = result.createdNotifications[0];
             if (
               created.recipientUserId !== recipient.userId ||
               !UUID_PATTERN.test(created.notificationId)
             ) {
-              return null;
+              throw new Error("quota notification identity is invalid");
             }
             return created;
           },
@@ -340,20 +422,38 @@ export function createOpenAIQuotaAlertService({
         );
 
         if (!newNotification) return;
-        await bounded(
-          () =>
-            sendPush({
-              recipientUserIds: [newNotification.recipientUserId],
-              title: NOTIFICATION_TITLE,
-              body: NOTIFICATION_BODY,
-              data: { type: NOTIFICATION_TYPE, screen: "notifications" },
-              idempotencyKey: newNotification.notificationId,
-              timeoutMs: pushTimeoutMs,
-            }),
-          pushTimeoutMs + 100,
-          "OpenAI quota push"
-        );
+        try {
+          const pushResult = await bounded(
+            () =>
+              sendPush({
+                recipientUserIds: [newNotification.recipientUserId],
+                title: NOTIFICATION_TITLE,
+                body: NOTIFICATION_BODY,
+                data: { type: NOTIFICATION_TYPE, screen: "notifications" },
+                idempotencyKey: newNotification.notificationId,
+                timeoutMs: pushTimeoutMs,
+              }),
+            pushTimeoutMs + 100,
+            "OpenAI quota push"
+          );
+          if (!pushResult.ok) {
+            emitOperationalLog("openai_quota_push_failed", {
+              ...operationalMetadata,
+              ...(typeof pushResult.status === "number"
+                ? { pushStatus: pushResult.status }
+                : {}),
+            });
+          }
+        } catch {
+          emitOperationalLog("openai_quota_push_failed", operationalMetadata);
+        }
       } catch {
+        if (operationalMetadata) {
+          emitOperationalLog(
+            "openai_quota_notification_failed",
+            operationalMetadata
+          );
+        }
         // Alerting is best effort. Provider errors must retain their original
         // timing and response semantics even when notification systems fail.
       }
