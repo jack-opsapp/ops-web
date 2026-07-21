@@ -24,6 +24,7 @@ export type NotificationType =
   | "duplicates_merged"
   | "data_review_resolved"
   | "ai_milestone"
+  | "ai_provider_quota"
   | "agent_suggestion"
   | "trial_expiry"
   | "payment_review_stack"

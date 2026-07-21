@@ -2,17 +2,16 @@
  * Briefing Step 4: AI Analysis + Generation.
  * Feeds Steps 1-3 data to OpenAI gpt-4o with structured output.
  */
-import OpenAI from "openai";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { briefingOutputSchema, type BriefingOutput, type PerformanceSnapshot } from "../briefing-types";
+import {
+  briefingOutputSchema,
+  type BriefingOutput,
+  type PerformanceSnapshot,
+} from "../briefing-types";
+import { getOpenAIForWorkload } from "@/lib/api/services/openai-clients";
 
-let _client: OpenAI | null = null;
-function getClient(): OpenAI {
-  if (_client) return _client;
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("Missing OPENAI_API_KEY");
-  _client = new OpenAI({ apiKey });
-  return _client;
+function getClient() {
+  return getOpenAIForWorkload({ workload: "admin_ads_briefing" });
 }
 
 const SYSTEM_PROMPT = `You are an expert PPC analyst and ad strategist for OPS, a field service management platform for trade workers (electricians, plumbers, HVAC technicians, contractors, roofers).
@@ -44,13 +43,17 @@ Clicks: ${performanceData.current.clicks} | Impressions: ${performanceData.curre
 Top Campaign: ${performanceData.topCampaign.name} (${performanceData.topCampaign.conversions} conv, $${performanceData.topCampaign.cpa.toFixed(2)} CPA)
 Worst Campaign: ${performanceData.worstCampaign.name} ($${performanceData.worstCampaign.spend.toFixed(2)} spend, ${performanceData.worstCampaign.conversions} conv, $${performanceData.worstCampaign.cpa.toFixed(2)} CPA)
 
-${performanceData.trendContext ? `
+${
+  performanceData.trendContext
+    ? `
 ## 90-DAY TREND CONTEXT
-Weekly Spend Trend: ${performanceData.trendContext.weeklySpend.map(w => `${w.week}: $${w.spend.toFixed(0)}`).join(" → ")}
+Weekly Spend Trend: ${performanceData.trendContext.weeklySpend.map((w) => `${w.week}: $${w.spend.toFixed(0)}`).join(" → ")}
 90-Day Avg CPA: $${performanceData.trendContext.avgCpa90d.toFixed(2)}
 90-Day Avg CTR: ${(performanceData.trendContext.avgCtr90d * 100).toFixed(2)}%
 90-Day Total Conversions: ${performanceData.trendContext.totalConversions90d}
-` : ""}
+`
+    : ""
+}
 ## COMPETITOR INTELLIGENCE
 ${competitorContent || "No competitor data available this week."}
 

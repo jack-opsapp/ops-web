@@ -2,13 +2,27 @@
 // Centralized OpenAI client factory — each usage context gets its own API key
 // for billing separation, rate limit isolation, and cost attribution.
 //
-// All three fall back to OPENAI_API_KEY for backward compatibility.
+// Specialized email clients fall back to OPENAI_API_KEY for backward compatibility.
 
 import OpenAI from "openai";
+import { createMonitoredOpenAIFetch } from "./openai-monitoring";
 
 let _importClient: OpenAI | null = null;
 let _syncClient: OpenAI | null = null;
 let _draftingClient: OpenAI | null = null;
+const workloadClients = new Map<string, OpenAI>();
+
+type OpenAIKeyEnvironment =
+  | "OPENAI_API_KEY"
+  | "OPENAI_API_KEY_IMPORT"
+  | "OPENAI_API_KEY_SYNC"
+  | "OPENAI_API_KEY_DRAFTING";
+
+interface OpenAIWorkloadClientOptions {
+  workload: string;
+  primaryKeyEnvironment?: Exclude<OpenAIKeyEnvironment, "OPENAI_API_KEY">;
+  timeout?: number;
+}
 
 /**
  * Sanitize an API key value read from process.env.
@@ -19,20 +33,60 @@ let _draftingClient: OpenAI | null = null;
  * cause OpenAI to reject the request with 401 even though the key looks
  * right in the file. We strip both at the boundary.
  *
- * Exported so call sites that build their own OpenAI client (rather than
- * using one of the singletons below) can reuse the same defense.
+ * Exported so configuration guards can use the same boundary normalization.
  */
 export function sanitizeApiKey(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   // Order: strip the literal `\n` suffix first (regex matches the two
   // characters backslash + n), then trim ambient whitespace. Repeat once
   // in case the value had both (e.g. `sk-...\n   `).
-  const stripped = raw
-    .replace(/\\n$/, "")
-    .trim()
-    .replace(/\\n$/, "")
-    .trim();
+  const stripped = raw.replace(/\\n$/, "").trim().replace(/\\n$/, "").trim();
   return stripped || undefined;
+}
+
+function resolveApiKey(
+  primaryKeyEnvironment?: Exclude<OpenAIKeyEnvironment, "OPENAI_API_KEY">
+): { apiKey: string; keySource: OpenAIKeyEnvironment } {
+  if (primaryKeyEnvironment) {
+    const specialized = sanitizeApiKey(process.env[primaryKeyEnvironment]);
+    if (specialized) {
+      return { apiKey: specialized, keySource: primaryKeyEnvironment };
+    }
+  }
+
+  const shared = sanitizeApiKey(process.env.OPENAI_API_KEY);
+  if (shared) return { apiKey: shared, keySource: "OPENAI_API_KEY" };
+
+  throw new Error(
+    primaryKeyEnvironment
+      ? `Missing ${primaryKeyEnvironment} or OPENAI_API_KEY`
+      : "Missing OPENAI_API_KEY"
+  );
+}
+
+/**
+ * Canonical constructor boundary for every production OpenAI workload.
+ *
+ * `keySource` is the environment-variable name only. Secret key material is
+ * never compared, hashed, logged, or persisted.
+ */
+export function getOpenAIForWorkload({
+  workload,
+  primaryKeyEnvironment,
+  timeout,
+}: OpenAIWorkloadClientOptions): OpenAI {
+  const { apiKey, keySource } = resolveApiKey(primaryKeyEnvironment);
+  const cacheKey = `${workload}:${keySource}:${timeout ?? "default"}`;
+  const existing = workloadClients.get(cacheKey);
+  if (existing) return existing;
+
+  const client = new OpenAI({
+    apiKey,
+    ...(timeout ? { timeout } : {}),
+    fetch: createMonitoredOpenAIFetch({ keySource, workload }),
+  });
+  workloadClients.set(cacheKey, client);
+  return client;
 }
 
 /**
@@ -41,9 +95,10 @@ export function sanitizeApiKey(raw: string | undefined): string | undefined {
  */
 export function getImportOpenAI(): OpenAI {
   if (!_importClient) {
-    const apiKey = sanitizeApiKey(process.env.OPENAI_API_KEY_IMPORT) || sanitizeApiKey(process.env.OPENAI_API_KEY);
-    if (!apiKey) throw new Error("Missing OPENAI_API_KEY_IMPORT or OPENAI_API_KEY");
-    _importClient = new OpenAI({ apiKey });
+    _importClient = getOpenAIForWorkload({
+      workload: "email_import",
+      primaryKeyEnvironment: "OPENAI_API_KEY_IMPORT",
+    });
   }
   return _importClient;
 }
@@ -55,9 +110,10 @@ export function getImportOpenAI(): OpenAI {
  */
 export function getSyncOpenAI(): OpenAI {
   if (!_syncClient) {
-    const apiKey = sanitizeApiKey(process.env.OPENAI_API_KEY_SYNC) || sanitizeApiKey(process.env.OPENAI_API_KEY);
-    if (!apiKey) throw new Error("Missing OPENAI_API_KEY_SYNC or OPENAI_API_KEY");
-    _syncClient = new OpenAI({ apiKey });
+    _syncClient = getOpenAIForWorkload({
+      workload: "email_sync",
+      primaryKeyEnvironment: "OPENAI_API_KEY_SYNC",
+    });
   }
   return _syncClient;
 }
@@ -68,9 +124,17 @@ export function getSyncOpenAI(): OpenAI {
  */
 export function getDraftingOpenAI(): OpenAI {
   if (!_draftingClient) {
-    const apiKey = sanitizeApiKey(process.env.OPENAI_API_KEY_DRAFTING) || sanitizeApiKey(process.env.OPENAI_API_KEY);
-    if (!apiKey) throw new Error("Missing OPENAI_API_KEY_DRAFTING or OPENAI_API_KEY");
-    _draftingClient = new OpenAI({ apiKey });
+    _draftingClient = getOpenAIForWorkload({
+      workload: "email_drafting",
+      primaryKeyEnvironment: "OPENAI_API_KEY_DRAFTING",
+    });
   }
   return _draftingClient;
+}
+
+export function resetOpenAIClientsForTests(): void {
+  _importClient = null;
+  _syncClient = null;
+  _draftingClient = null;
+  workloadClients.clear();
 }

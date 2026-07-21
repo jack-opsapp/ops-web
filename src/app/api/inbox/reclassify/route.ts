@@ -38,6 +38,7 @@ import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { mapEmailThreadFromDb } from "@/lib/types/email-thread";
 import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
+import { isOpenAIRetryableRateLimitError } from "@/lib/api/services/openai-monitoring";
 
 // ─── Tuning ─────────────────────────────────────────────────────────────────
 const LIMIT_PER_RUN = 200;
@@ -78,9 +79,7 @@ async function classifyWithBackoff(
       return { ok: true, primaryCategory: updated.primaryCategory };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const isRateLimit =
-        /rate.?limit|429|tpm|too many requests/i.test(msg) ||
-        (err as { status?: number })?.status === 429;
+      const isRateLimit = isOpenAIRetryableRateLimitError(err);
       if (isRateLimit && attempt < BACKOFF_ATTEMPTS) {
         onRateLimitHit();
         await sleep(Math.min(delay, BACKOFF_MAX_MS));

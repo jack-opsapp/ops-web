@@ -11,8 +11,8 @@
  * Big input (~40K tokens), tiny output (~500 tokens). Cost: < 1¢.
  */
 
-import OpenAI from "openai";
-import { sanitizeApiKey } from "./openai-clients";
+import type OpenAI from "openai";
+import { getOpenAIForWorkload, sanitizeApiKey } from "./openai-clients";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,10 +69,16 @@ const PROTECTED_DOMAINS = new Set([
 let _openaiClient: OpenAI | null = null;
 
 function getOpenAIClient(): OpenAI | null {
-  const apiKey = sanitizeApiKey(process.env.OPENAI_API_KEY_IMPORT) || sanitizeApiKey(process.env.OPENAI_API_KEY);
+  const apiKey =
+    sanitizeApiKey(process.env.OPENAI_API_KEY_IMPORT) ||
+    sanitizeApiKey(process.env.OPENAI_API_KEY);
   if (!apiKey) return null;
   if (!_openaiClient) {
-    _openaiClient = new OpenAI({ apiKey, timeout: 45_000 });
+    _openaiClient = getOpenAIForWorkload({
+      workload: "email_import_classifier",
+      primaryKeyEnvironment: "OPENAI_API_KEY_IMPORT",
+      timeout: 45_000,
+    });
   }
   return _openaiClient;
 }
@@ -157,7 +163,7 @@ labelIds: Usually ["INBOX"]. Add "SENT" only if you see sent-mail replies to cus
 function sanitizeField(value: string, maxLen: number): string {
   return value
     .replace(/[\[\]{}]/g, "") // Remove brackets that match our delimiter format
-    .replace(/\n/g, " ")     // Flatten newlines
+    .replace(/\n/g, " ") // Flatten newlines
     .slice(0, maxLen);
 }
 
@@ -172,12 +178,18 @@ const MAX_EMAILS = 500;
  * @param emails — up to 500 emails. Excess will be truncated.
  */
 export async function classifyEmails(
-  emails: EmailForClassification[],
+  emails: EmailForClassification[]
 ): Promise<ClassificationResult> {
   const openai = getOpenAIClient();
   if (!openai) {
-    console.warn("[email-classifier] OPENAI_API_KEY_IMPORT / OPENAI_API_KEY not set, skipping AI classification");
-    return { filters: defaultFilters("AI classification unavailable — using default filters.") };
+    console.warn(
+      "[email-classifier] OPENAI_API_KEY_IMPORT / OPENAI_API_KEY not set, skipping AI classification"
+    );
+    return {
+      filters: defaultFilters(
+        "AI classification unavailable — using default filters."
+      ),
+    };
   }
 
   // Enforce limit
@@ -187,7 +199,7 @@ export async function classifyEmails(
   const emailList = capped
     .map(
       (e) =>
-        `[${e.id}] From: ${sanitizeField(e.fromEmail, 100)} | Subject: ${sanitizeField(e.subject, 300)} | Snippet: ${sanitizeField(e.snippet || "", 500)}`,
+        `[${e.id}] From: ${sanitizeField(e.fromEmail, 100)} | Subject: ${sanitizeField(e.subject, 300)} | Snippet: ${sanitizeField(e.snippet || "", 500)}`
     )
     .join("\n");
 
@@ -215,7 +227,7 @@ export async function classifyEmails(
   if (finishReason === "length") {
     console.error(
       `[email-classifier] OpenAI response truncated (finish_reason=length). ` +
-      `Content length: ${content.length} chars.`,
+        `Content length: ${content.length} chars.`
     );
     throw new Error("AI response was truncated — output exceeded token limit");
   }
@@ -227,7 +239,8 @@ export async function classifyEmails(
     console.error(
       "[email-classifier] Invalid JSON from OpenAI.",
       `finish_reason=${finishReason}, length=${content.length}`,
-      "First 500 chars:", content.slice(0, 500),
+      "First 500 chars:",
+      content.slice(0, 500)
     );
     throw new Error("AI returned invalid JSON");
   }
@@ -235,7 +248,9 @@ export async function classifyEmails(
   // ── Validate array fields (ensure all entries are strings) ───────────
   const toStringArray = (val: unknown): string[] => {
     if (!Array.isArray(val)) return [];
-    return val.filter((v): v is string => typeof v === "string" && v.length > 0);
+    return val.filter(
+      (v): v is string => typeof v === "string" && v.length > 0
+    );
   };
 
   // ── Post-process AI output to fix common mistakes ──────────────────
@@ -250,7 +265,9 @@ export async function classifyEmails(
       const domain = entry.split("@")[1];
       if (domain) cleanDomains.push(domain.toLowerCase());
       extraAddresses.push(entry.toLowerCase());
-      console.warn(`[email-classifier] Fixed misplaced address in excludeDomains: "${entry}" → domain="${domain}", address kept`);
+      console.warn(
+        `[email-classifier] Fixed misplaced address in excludeDomains: "${entry}" → domain="${domain}", address kept`
+      );
     } else {
       cleanDomains.push(entry.toLowerCase());
     }
@@ -260,7 +277,9 @@ export async function classifyEmails(
   const uniqueDomains = [...new Set(cleanDomains)];
   const safeDomains = uniqueDomains.filter((d) => {
     if (PROTECTED_DOMAINS.has(d)) {
-      console.warn(`[email-classifier] Stripped protected domain from AI output: "${d}"`);
+      console.warn(
+        `[email-classifier] Stripped protected domain from AI output: "${d}"`
+      );
       return false;
     }
     return true;
@@ -270,23 +289,31 @@ export async function classifyEmails(
     excludeDomains: safeDomains,
     excludeAddresses: [...new Set([...rawAddresses, ...extraAddresses])],
     excludeSubjectKeywords: toStringArray(parsed.excludeSubjectKeywords),
-    usePresetBlocklist: typeof parsed.usePresetBlocklist === "boolean" ? parsed.usePresetBlocklist : true,
-    labelIds: toStringArray(parsed.labelIds).length > 0 ? toStringArray(parsed.labelIds) : ["INBOX", "SENT"],
+    usePresetBlocklist:
+      typeof parsed.usePresetBlocklist === "boolean"
+        ? parsed.usePresetBlocklist
+        : true,
+    labelIds:
+      toStringArray(parsed.labelIds).length > 0
+        ? toStringArray(parsed.labelIds)
+        : ["INBOX", "SENT"],
     summary: typeof parsed.summary === "string" ? parsed.summary : "",
   };
 
   // eslint-disable-next-line no-console
   console.log(
     `[email-classifier] Analyzed ${capped.length} emails → ` +
-    `${filters.excludeDomains.length} blocked domains, ` +
-    `${filters.excludeAddresses.length} blocked addresses, ` +
-    `${filters.excludeSubjectKeywords.length} subject keywords`,
+      `${filters.excludeDomains.length} blocked domains, ` +
+      `${filters.excludeAddresses.length} blocked addresses, ` +
+      `${filters.excludeSubjectKeywords.length} subject keywords`
   );
 
   return { filters };
 }
 
-function defaultFilters(summary = "AI classification failed — using default filters."): RecommendedFilters {
+function defaultFilters(
+  summary = "AI classification failed — using default filters."
+): RecommendedFilters {
   return {
     excludeDomains: [],
     excludeAddresses: [],

@@ -14,7 +14,11 @@
 // In product this is "guided setup" — never labelled "AI" (voice rules). Internal
 // engineering names it precisely.
 
-import OpenAI from "openai";
+import type OpenAI from "openai";
+import {
+  getOpenAIForWorkload,
+  sanitizeApiKey,
+} from "@/lib/api/services/openai-clients";
 import { WIZARD_TRADES } from "../trade-list";
 import type { ProposalBatch } from "./proposal-schemas";
 
@@ -40,7 +44,9 @@ export class SetupAgentConfigError extends Error {
   }
 }
 
-const TRADE_TOKENS = WIZARD_TRADES.map((t) => `${t.id} (${t.label})`).join(", ");
+const TRADE_TOKENS = WIZARD_TRADES.map((t) => `${t.id} (${t.label})`).join(
+  ", "
+);
 
 /**
  * The generation contract. Deliberately steers the model to the price book
@@ -89,13 +95,16 @@ function systemPrompt(): string {
  * miss).
  */
 export async function generateCatalogProposals(
-  params: GenerateCatalogParams,
+  params: GenerateCatalogParams
 ): Promise<ProposalBatch> {
   const client = params.client ?? defaultClient();
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt() },
     ...(params.priorTurns ?? []).map(
-      (t): OpenAI.Chat.ChatCompletionMessageParam => ({ role: "user", content: t }),
+      (t): OpenAI.Chat.ChatCompletionMessageParam => ({
+        role: "user",
+        content: t,
+      })
     ),
     { role: "user", content: params.description },
   ];
@@ -110,7 +119,9 @@ export async function generateCatalogProposals(
   try {
     const parsed = JSON.parse(content) as unknown;
     const proposals =
-      parsed && typeof parsed === "object" && Array.isArray((parsed as ProposalBatch).proposals)
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray((parsed as ProposalBatch).proposals)
         ? (parsed as ProposalBatch).proposals
         : [];
     return { proposals };
@@ -120,9 +131,9 @@ export async function generateCatalogProposals(
 }
 
 function defaultClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = sanitizeApiKey(process.env.OPENAI_API_KEY);
   if (!apiKey) {
     throw new SetupAgentConfigError("OPENAI_API_KEY is not configured");
   }
-  return new OpenAI({ apiKey });
+  return getOpenAIForWorkload({ workload: "catalog_setup" });
 }
