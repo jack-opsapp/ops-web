@@ -16846,6 +16846,10 @@ export type Database = {
         Args: { p_estimate_id: string; p_idempotency_key: string }
         Returns: Json
       }
+      acquire_email_connection_sync_lock_as_system: {
+        Args: { p_connection_id: string; p_lease_seconds?: number }
+        Returns: string
+      }
       acquire_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean

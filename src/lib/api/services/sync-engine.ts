@@ -234,28 +234,28 @@ function applyResolvedContactToFacts(
 // UNIQUE (company_id, source_thread_key) and scoped provider ids are hard
 // guarantees, but not every downstream side effect is one statement. If lock
 // ownership cannot be proven, fail closed rather than run overlapping cycles.
-const SYNC_LOCK_TTL_MS = 10 * 60 * 1000;
+const SYNC_LOCK_TTL_SECONDS = 10 * 60;
 const SYNC_LOCK_RENEW_INTERVAL_MS = 2 * 60 * 1000;
 
 async function acquireSyncLock(connectionId: string): Promise<string | null> {
   const supabase = requireSupabase();
-  const staleCutoff = new Date(Date.now() - SYNC_LOCK_TTL_MS).toISOString();
-  const ownerId = crypto.randomUUID();
-  const { data, error } = await supabase
-    .from("email_connections")
-    .update({
-      sync_in_progress_at: new Date().toISOString(),
-      sync_lock_owner: ownerId,
-    })
-    .eq("id", connectionId)
-    .or(`sync_in_progress_at.is.null,sync_in_progress_at.lt.${staleCutoff}`)
-    .select("id");
+  const { data, error } = await supabase.rpc(
+    "acquire_email_connection_sync_lock_as_system",
+    {
+      p_connection_id: connectionId,
+      p_lease_seconds: SYNC_LOCK_TTL_SECONDS,
+    }
+  );
   if (error) {
     throw new Error(
       `[sync-engine] acquireSyncLock failed: ${error.message ?? "unknown error"}`
     );
   }
-  return (data?.length ?? 0) > 0 ? ownerId : null;
+  if (data === null) return null;
+  if (typeof data !== "string") {
+    throw new Error("[sync-engine] acquireSyncLock returned an invalid owner");
+  }
+  return data;
 }
 
 async function renewSyncLock(

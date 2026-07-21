@@ -252,27 +252,35 @@ function makeSupabaseDouble(state: SupabaseState) {
     from(table: string) {
       return new Query(table);
     },
-    rpc: vi.fn(async (name: string) => ({
-      data:
-        name === "apply_opportunity_correspondence_event"
-          ? [
-              {
-                changed: true,
-                correspondence_count: 1,
-                inbound_count: 0,
-                outbound_count: 1,
-                stage: "qualifying",
-                stage_manually_set: false,
-                last_message_direction: "out",
-                last_inbound_at: null,
-                last_outbound_at: "2026-05-25T23:05:00.000Z",
-              },
-            ]
-          : name === "apply_email_opportunity_stage_transition"
-            ? [{ changed: true }]
-            : null,
-      error: null,
-    })),
+    rpc: vi.fn(async (name: string) => {
+      if (name === "acquire_email_connection_sync_lock_as_system") {
+        return {
+          data: "00000000-0000-4000-8000-000000000001",
+          error: null,
+        };
+      }
+      return {
+        data:
+          name === "apply_opportunity_correspondence_event"
+            ? [
+                {
+                  changed: true,
+                  correspondence_count: 1,
+                  inbound_count: 0,
+                  outbound_count: 1,
+                  stage: "qualifying",
+                  stage_manually_set: false,
+                  last_message_direction: "out",
+                  last_inbound_at: null,
+                  last_outbound_at: "2026-05-25T23:05:00.000Z",
+                },
+              ]
+            : name === "apply_email_opportunity_stage_transition"
+              ? [{ changed: true }]
+              : null,
+        error: null,
+      };
+    }),
   };
 }
 

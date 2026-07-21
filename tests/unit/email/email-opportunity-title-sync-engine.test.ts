@@ -107,6 +107,8 @@ interface SupabaseState {
   lifecycleStateUpserts?: Array<Record<string, unknown>>;
   stageTransitions?: Array<Record<string, unknown>>;
   rpcCalls?: Array<{ name: string; params: Record<string, unknown> }>;
+  syncLockResult?: unknown;
+  syncLockError?: string;
   activityInsertError?: string;
   opportunityStageUpdateError?: string;
   opportunityEnrichmentUpdateError?: string;
@@ -679,6 +681,17 @@ function makeSupabaseDouble(state: SupabaseState) {
       return new Query(table);
     },
     rpc: vi.fn(async (name: string, params: Record<string, unknown>) => {
+      if (name === "acquire_email_connection_sync_lock_as_system") {
+        if (state.syncLockError) {
+          return { data: null, error: { message: state.syncLockError } };
+        }
+        return {
+          data: Object.prototype.hasOwnProperty.call(state, "syncLockResult")
+            ? state.syncLockResult
+            : "00000000-0000-4000-8000-000000000001",
+          error: null,
+        };
+      }
       state.rpcCalls?.push({ name, params });
       if (
         name === "apply_email_opportunity_stage_transition" &&
@@ -897,6 +910,59 @@ describe("SyncEngine email opportunity title generation", () => {
 
   afterEach(() => {
     setSupabaseOverride(null);
+  });
+
+  it("skips the cycle when another worker owns the sync lease", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      syncLockResult: null,
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection());
+    const fetchNewEmailsSince = vi.fn();
+    getProviderMock.mockReturnValue({ fetchNewEmailsSince });
+
+    await expect(SyncEngine.runSync("connection-1")).resolves.toMatchObject({
+      errors: ["Sync already in progress for this connection"],
+    });
+    expect(fetchNewEmailsSince).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the database cannot claim the sync lease", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      syncLockError: "lock RPC unavailable",
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({});
+
+    await expect(SyncEngine.runSync("connection-1")).rejects.toThrow(
+      "[sync-engine] acquireSyncLock failed: lock RPC unavailable"
+    );
+  });
+
+  it("fails closed when the sync lease claim returns an invalid owner", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      syncLockResult: { owner: "not-a-scalar-uuid" },
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({});
+
+    await expect(SyncEngine.runSync("connection-1")).rejects.toThrow(
+      "[sync-engine] acquireSyncLock returned an invalid owner"
+    );
   });
 
   it("uses the external recipient display name for sent-folder safety-net opportunities", async () => {
