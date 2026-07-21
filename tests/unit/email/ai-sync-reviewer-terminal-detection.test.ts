@@ -70,6 +70,26 @@ const inheritedMailboxOperation = {
   providerLockCheckpoint: inheritedMailboxCheckpoint,
 };
 
+function stageEvaluationResponse(
+  results: Array<{
+    tid: string;
+    stage?: string | null;
+    flag: "likely_won" | "likely_lost" | null;
+    summary: string;
+  }>
+) {
+  return {
+    choices: [
+      {
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({ results }),
+        },
+      },
+    ],
+  };
+}
+
 describe("AISyncReviewer terminal stage guard", () => {
   beforeEach(() => {
     createMock.mockReset();
@@ -89,12 +109,14 @@ describe("AISyncReviewer terminal stage guard", () => {
     createMock.mockResolvedValue({
       choices: [
         {
+          finish_reason: "stop",
           message: {
             content: JSON.stringify({
               results: [
                 {
-                  tid: "thread-1",
+                  tid: "k0",
                   stage: "quoted",
+                  flag: null,
                   summary: "Client has the estimate.",
                 },
               ],
@@ -146,28 +168,29 @@ describe("AISyncReviewer terminal stage guard", () => {
   it.each([
     ["missing", undefined],
     ["invalid", "sales-ready"],
-  ])(
-    "keeps the stage unchanged when the model returns a %s stage",
-    async (_case, stage) => {
-      createMock.mockResolvedValue({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                results: [
-                  {
-                    tid: "thread-1",
-                    stage,
-                    summary: "Client is waiting for an estimate.",
-                  },
-                ],
-              }),
-            },
+  ])("fails closed when the model returns a %s stage", async (_case, stage) => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          finish_reason: "stop",
+          message: {
+            content: JSON.stringify({
+              results: [
+                {
+                  tid: "k0",
+                  stage,
+                  flag: null,
+                  summary: "Client is waiting for an estimate.",
+                },
+              ],
+            }),
           },
-        ],
-      });
+        },
+      ],
+    });
 
-      const result = await AISyncReviewer.evaluateSingleBatch(
+    await expect(
+      AISyncReviewer.evaluateSingleBatch(
         [
           {
             threadId: "thread-1",
@@ -176,29 +199,22 @@ describe("AISyncReviewer terminal stage guard", () => {
         ],
         "Canpro Deck and Rail",
         "canprojack@gmail.com"
-      );
-
-      expect(result).toEqual([
-        {
-          threadId: "thread-1",
-          newStage: null,
-          terminalFlag: null,
-          summary: "Client is waiting for an estimate.",
-        },
-      ]);
-    }
-  );
+      )
+    ).rejects.toThrow("model response contained invalid stage for k0");
+  });
 
   it("turns a terminal value returned in the stage field into a flag without changing the active stage", async () => {
     createMock.mockResolvedValue({
       choices: [
         {
+          finish_reason: "stop",
           message: {
             content: JSON.stringify({
               results: [
                 {
-                  tid: "thread-1",
+                  tid: "k0",
                   stage: "likely_won",
+                  flag: null,
                   summary: "Client accepted the estimate.",
                 },
               ],
@@ -228,6 +244,7 @@ describe("AISyncReviewer terminal stage guard", () => {
     createMock.mockResolvedValue({
       choices: [
         {
+          finish_reason: "stop",
           message: {
             content: JSON.stringify({ results: [] }),
           },
@@ -241,7 +258,300 @@ describe("AISyncReviewer terminal stage guard", () => {
         "Canpro Deck and Rail",
         "canprojack@gmail.com"
       )
-    ).rejects.toThrow("model response omitted evaluation key thread-1");
+    ).rejects.toThrow("model response omitted evaluation key k0");
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["truncated", "length"],
+    ["filtered", "content_filter"],
+  ])(
+    "fails closed when the model completion marker is %s",
+    async (_case, finishReason) => {
+      createMock.mockResolvedValue({
+        choices: [
+          {
+            finish_reason: finishReason,
+            message: {
+              content: JSON.stringify({
+                results: [
+                  {
+                    tid: "k0",
+                    stage: "quoted",
+                    flag: null,
+                    summary: "The estimate has been sent.",
+                  },
+                ],
+              }),
+            },
+          },
+        ],
+      });
+
+      await expect(
+        AISyncReviewer.evaluateSingleBatch(
+          [{ threadId: "thread-1", messages: [] }],
+          "Canpro Deck and Rail",
+          "canprojack@gmail.com"
+        )
+      ).rejects.toThrow(
+        "model response did not complete with finish_reason stop"
+      );
+    }
+  );
+
+  it("binds structured stage output to one server-owned thread alias", async () => {
+    createMock.mockResolvedValue(
+      stageEvaluationResponse([
+        {
+          tid: "k0",
+          stage: "qualifying",
+          flag: null,
+          summary: "The client sent project details.",
+        },
+      ])
+    );
+
+    const result = await AISyncReviewer.evaluateSingleBatch(
+      [{ threadId: "thread-1", messages: [] }],
+      "Canpro Deck and Rail",
+      "canprojack@gmail.com"
+    );
+
+    const request = createMock.mock.calls[0][0];
+    expect(JSON.parse(request.messages[1].content)).toEqual([
+      { tid: "k0", msgs: [] },
+    ]);
+    expect(request.messages[1].content).not.toContain("thread-1");
+    expect(request.response_format).toMatchObject({
+      type: "json_schema",
+      json_schema: {
+        name: "email_stage_summary_batch",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["results"],
+          properties: {
+            results: {
+              type: "array",
+              minItems: 1,
+              maxItems: 1,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["tid", "stage", "flag", "summary"],
+                properties: {
+                  tid: { type: "string", enum: ["k0"] },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result.map(({ threadId }) => threadId)).toEqual(["thread-1"]);
+  });
+
+  it("rejects multi-thread model contexts before calling the model", async () => {
+    await expect(
+      AISyncReviewer.evaluateSingleBatch(
+        [
+          { threadId: "thread-1", messages: [] },
+          { threadId: "thread-2", messages: [] },
+        ],
+        "Canpro Deck and Rail",
+        "canprojack@gmail.com"
+      )
+    ).rejects.toThrow("stage evaluation requires exactly one thread");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("retries one malformed stage contract before accepting an exact response", async () => {
+    fetchThreadMock.mockResolvedValue([]);
+    createMock
+      .mockResolvedValueOnce(
+        stageEvaluationResponse([
+          {
+            tid: "invented-thread",
+            stage: "quoted",
+            flag: null,
+            summary: "Wrong identity.",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        stageEvaluationResponse([
+          {
+            tid: "k0",
+            stage: "quoted",
+            flag: null,
+            summary: "The estimate has been sent.",
+          },
+        ])
+      );
+
+    const result = await AISyncReviewer.evaluateStagesWithSummary(
+      ["thread-1"],
+      connection,
+      { name: "Canpro Deck and Rail" },
+      inheritedMailboxOperation
+    );
+
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(fetchThreadMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual([
+      {
+        threadId: "thread-1",
+        newStage: "quoted",
+        terminalFlag: null,
+        summary: "The estimate has been sent.",
+      },
+    ]);
+  });
+
+  it("isolates every thread so schema-valid output cannot cross-contaminate leads", async () => {
+    createMock.mockImplementation(async (request) => {
+      const inputs = JSON.parse(request.messages[1].content) as Array<{
+        tid: string;
+        msgs: Array<{ body: string }>;
+      }>;
+      if (inputs.length > 1) {
+        return stageEvaluationResponse([
+          {
+            tid: "k0",
+            stage: "quoting",
+            flag: null,
+            summary: "Summary for bravo-scope.",
+          },
+          {
+            tid: "k1",
+            stage: "qualifying",
+            flag: null,
+            summary: "Summary for alpha-scope.",
+          },
+        ]);
+      }
+
+      const body = inputs[0].msgs[0].body;
+      return stageEvaluationResponse([
+        {
+          tid: "k0",
+          stage: body === "alpha-scope" ? "qualifying" : "quoting",
+          flag: null,
+          summary: `Summary for ${body}.`,
+        },
+      ]);
+    });
+
+    const result = await AISyncReviewer.evaluateStagesWithSummary(
+      [
+        {
+          threadId: "thread-1",
+          messages: [
+            {
+              ...unmatchedEmail,
+              id: "message-alpha",
+              threadId: "thread-1",
+              bodyText: "alpha-scope",
+            },
+          ],
+        },
+        {
+          threadId: "thread-2",
+          messages: [
+            {
+              ...unmatchedEmail,
+              id: "message-bravo",
+              threadId: "thread-2",
+              bodyText: "bravo-scope",
+            },
+          ],
+        },
+      ],
+      connection,
+      { name: "Canpro Deck and Rail" }
+    );
+
+    expect(createMock).toHaveBeenCalledTimes(2);
+    expect(
+      createMock.mock.calls.map(([request]) =>
+        JSON.parse(request.messages[1].content)
+      )
+    ).toEqual([[expect.any(Object)], [expect.any(Object)]]);
+    expect(result).toEqual([
+      {
+        threadId: "thread-1",
+        newStage: "qualifying",
+        terminalFlag: null,
+        summary: "Summary for alpha-scope.",
+      },
+      {
+        threadId: "thread-2",
+        newStage: "quoting",
+        terminalFlag: null,
+        summary: "Summary for bravo-scope.",
+      },
+    ]);
+  });
+
+  it("fails closed after the bounded retry when a singleton contract stays malformed", async () => {
+    createMock.mockResolvedValue(
+      stageEvaluationResponse([
+        {
+          tid: "invented-thread",
+          stage: "quoted",
+          flag: null,
+          summary: "Wrong identity.",
+        },
+      ])
+    );
+
+    await expect(
+      AISyncReviewer.evaluateStagesWithSummary(
+        [{ threadId: "thread-1", messages: [] }],
+        connection,
+        { name: "Canpro Deck and Rail" }
+      )
+    ).rejects.toThrow("model response contained an unknown evaluation key");
+    expect(createMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a model refusal as terminal and does not retry it", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          finish_reason: "stop",
+          message: {
+            content: null,
+            refusal: "I cannot process this request.",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      AISyncReviewer.evaluateStagesWithSummary(
+        [{ threadId: "thread-1", messages: [] }],
+        connection,
+        { name: "Canpro Deck and Rail" }
+      )
+    ).rejects.toThrow("model refused stage and summary response");
+    expect(createMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects duplicate logical thread identities before calling the model", async () => {
+    await expect(
+      AISyncReviewer.evaluateStagesWithSummary(
+        [
+          { threadId: "thread-1", messages: [] },
+          { threadId: "thread-1", messages: [] },
+        ],
+        connection,
+        { name: "Canpro Deck and Rail" }
+      )
+    ).rejects.toThrow("duplicate stage evaluation input thread-1");
+    expect(createMock).not.toHaveBeenCalled();
   });
 
   it("fails closed after a model failure so the sync cycle can retry", async () => {
@@ -308,9 +618,10 @@ describe("AISyncReviewer terminal stage guard", () => {
 
     expect(fetchThreadMock).toHaveBeenCalledTimes(21);
     expect(inheritedMailboxCheckpoint).toHaveBeenCalledTimes(44);
-    expect(evaluateSpy.mock.calls.map(([batch]) => batch.length)).toEqual([
-      5, 5, 5, 5, 1,
-    ]);
+    expect(evaluateSpy).toHaveBeenCalledTimes(21);
+    expect(evaluateSpy.mock.calls.every(([batch]) => batch.length === 1)).toBe(
+      true
+    );
     expect(result.map(({ threadId }) => threadId)).toEqual(threadIds);
   });
 

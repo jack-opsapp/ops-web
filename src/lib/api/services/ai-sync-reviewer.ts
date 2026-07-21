@@ -59,6 +59,45 @@ const VALID_STAGES = [
 ] as const;
 type ActiveOpportunityStage = (typeof VALID_STAGES)[number];
 
+const STAGE_EVALUATION_ERROR_PREFIX =
+  "[ai-sync-reviewer] stage and summary evaluation failed: ";
+
+class StageEvaluationModelContractError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(`${STAGE_EVALUATION_ERROR_PREFIX}${message}`, options);
+    this.name = "StageEvaluationModelContractError";
+  }
+}
+
+class StageEvaluationModelRefusalError extends Error {
+  constructor(options?: ErrorOptions) {
+    super(
+      `${STAGE_EVALUATION_ERROR_PREFIX}model refused stage and summary response`,
+      options
+    );
+    this.name = "StageEvaluationModelRefusalError";
+  }
+}
+
+type StageEvaluationThreadInput = {
+  threadId: string;
+  messages: Array<{
+    from: string;
+    to: string[];
+    subject: string;
+    bodyText: string;
+    date: string;
+    direction: "inbound" | "outbound";
+  }>;
+};
+
+type StageEvaluationResult = {
+  threadId: string;
+  newStage: string | null;
+  terminalFlag: "likely_won" | "likely_lost" | null;
+  summary: string | null;
+};
+
 function sanitizeStage(
   raw: string | null | undefined
 ): ActiveOpportunityStage | null {
@@ -232,33 +271,30 @@ export const AISyncReviewer = {
       supabase?: SupabaseClient;
       providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
     } = {}
-  ): Promise<
-    Array<{
-      threadId: string;
-      newStage: string | null;
-      terminalFlag: "likely_won" | "likely_lost" | null;
-      summary: string | null;
-    }>
-  > {
+  ): Promise<StageEvaluationResult[]> {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       connection.companyId,
       "phase_c"
     );
     if (!enabled) return [];
 
+    const requestedThreadIds = new Set<string>();
+    for (const target of activeLeadTargets) {
+      const threadId = typeof target === "string" ? target : target.threadId;
+      if (!threadId.trim()) {
+        throw new Error("[ai-sync-reviewer] empty stage evaluation input");
+      }
+      if (requestedThreadIds.has(threadId)) {
+        throw new Error(
+          `[ai-sync-reviewer] duplicate stage evaluation input ${threadId}`
+        );
+      }
+      requestedThreadIds.add(threadId);
+    }
+
     // Fetch every active thread. Silently truncating this list leaves later
     // opportunities permanently stale when a busy sync contains >20 threads.
-    const threadInputs: Array<{
-      threadId: string;
-      messages: Array<{
-        from: string;
-        to: string[];
-        subject: string;
-        bodyText: string;
-        date: string;
-        direction: "inbound" | "outbound";
-      }>;
-    }> = [];
+    const threadInputs: StageEvaluationThreadInput[] = [];
 
     const providerMessagesByThreadId = new Map<string, NormalizedEmail[]>();
     const providerThreadIds = activeLeadTargets.filter(
@@ -317,57 +353,117 @@ export const AISyncReviewer = {
 
     if (threadInputs.length === 0) return [];
 
-    // Process in batches of 5 threads per API call
-    const results: Array<{
-      threadId: string;
-      newStage: string | null;
-      terminalFlag: "likely_won" | "likely_lost" | null;
-      summary: string | null;
-    }> = [];
-
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < threadInputs.length; i += BATCH_SIZE) {
-      const batch = threadInputs.slice(i, i + BATCH_SIZE);
-      const batchResults = await this.evaluateSingleBatch(
-        batch,
-        companyContext.name,
-        connection.email
-      );
-      results.push(...batchResults);
-      if (i + BATCH_SIZE < threadInputs.length) {
-        await new Promise((r) => setTimeout(r, 200));
+    const evaluateWithModelContractRetry = async (
+      threadInput: StageEvaluationThreadInput,
+      cancellation?: {
+        stopped: boolean;
+        terminalError: unknown | null;
       }
+    ): Promise<StageEvaluationResult[]> => {
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        if (cancellation?.stopped) {
+          throw cancellation.terminalError;
+        }
+        try {
+          return await this.evaluateSingleBatch(
+            [threadInput],
+            companyContext.name,
+            connection.email
+          );
+        } catch (error) {
+          lastError = error;
+          if (
+            !(error instanceof StageEvaluationModelContractError) ||
+            attempt === 1
+          ) {
+            if (cancellation && !cancellation.stopped) {
+              cancellation.stopped = true;
+              cancellation.terminalError = error;
+            }
+            throw error;
+          }
+        }
+      }
+      throw lastError;
+    };
+
+    // Never place two customers in one model context. Even a schema-valid
+    // multi-thread response can semantically swap summaries or stages between
+    // aliases. Two workers bound latency and rate pressure while preserving
+    // deterministic input order in the returned array.
+    const results = new Array<StageEvaluationResult>(threadInputs.length);
+    const cancellation: {
+      stopped: boolean;
+      terminalError: unknown | null;
+    } = { stopped: false, terminalError: null };
+    let nextIndex = 0;
+    const workers = Array.from(
+      { length: Math.min(2, threadInputs.length) },
+      async () => {
+        while (!cancellation.stopped && nextIndex < threadInputs.length) {
+          const index = nextIndex;
+          nextIndex += 1;
+          try {
+            const singletonResults = await evaluateWithModelContractRetry(
+              threadInputs[index],
+              cancellation
+            );
+            if (!cancellation.stopped) {
+              results[index] = singletonResults[0];
+            }
+          } catch (error) {
+            if (!cancellation.stopped) {
+              cancellation.stopped = true;
+              cancellation.terminalError = error;
+            }
+          }
+        }
+      }
+    );
+    await Promise.all(workers);
+    if (cancellation.terminalError !== null) {
+      throw cancellation.terminalError;
     }
 
     return results;
   },
 
   /**
-   * Internal: Combined stage + summary evaluation for a batch of threads.
-   * Single API call returns both stage and a concise opportunity summary.
+   * Internal: Combined stage + summary evaluation for exactly one thread.
+   * A singleton context prevents schema-valid cross-lead value swaps.
    */
   async evaluateSingleBatch(
-    threads: Array<{
-      threadId: string;
-      messages: Array<{
-        from: string;
-        to: string[];
-        subject: string;
-        bodyText: string;
-        date: string;
-        direction: "inbound" | "outbound";
-      }>;
-    }>,
+    threads: StageEvaluationThreadInput[],
     companyName: string,
     ownerEmail: string
-  ): Promise<
-    Array<{
-      threadId: string;
-      newStage: string | null;
-      terminalFlag: "likely_won" | "likely_lost" | null;
-      summary: string | null;
-    }>
-  > {
+  ): Promise<StageEvaluationResult[]> {
+    if (threads.length !== 1) {
+      throw new Error(
+        "[ai-sync-reviewer] stage evaluation requires exactly one thread"
+      );
+    }
+
+    const inputThreadIds = new Set<string>();
+    for (const thread of threads) {
+      if (!thread.threadId.trim()) {
+        throw new Error("[ai-sync-reviewer] empty stage evaluation input");
+      }
+      if (inputThreadIds.has(thread.threadId)) {
+        throw new Error(
+          `[ai-sync-reviewer] duplicate stage evaluation input ${thread.threadId}`
+        );
+      }
+      inputThreadIds.add(thread.threadId);
+    }
+
+    // The model only sees short, server-owned aliases. Provider thread IDs and
+    // message-scoped contact-form keys stay outside the prompt/output contract.
+    const evaluationKeys = threads.map((_, index) => `k${index}`);
+    const threadByEvaluationKey = new Map(
+      evaluationKeys.map((key, index) => [key, threads[index]])
+    );
+
     const systemPrompt = `You are analyzing email threads for a trades business to determine pipeline stage and generate a brief opportunity summary.
 
 Company: ${companyName}
@@ -384,19 +480,19 @@ Pipeline stages (in order):
 CRITICAL: stage MUST be one of the above values. NEVER use "likely_won" or "likely_lost" as a stage value — those go ONLY in the flag field.
 
 For each thread, return:
+- tid: copy the exact short evaluation key supplied with that thread
 - stage: most accurate pipeline stage based on content (MUST be one of the 6 stages above)
-- c: confidence 0.0 to 1.0
-- val: dollar value if pricing detected
 - flag: "likely_won" or "likely_lost" if terminal language detected, null otherwise
 - summary: 1-2 sentence summary of this opportunity. Include: what the client needs, any pricing discussed, and current status. This becomes the at-a-glance description in the CRM pipeline. Be specific — mention addresses, materials, dollar amounts if known.
 
 Terminal won signals include: client says "go ahead", "let's book it", "sounds good let's proceed", "sounds great" in response to an estimate/schedule, accepted/signed estimate mentioned, scheduling/start date confirmed, crew arrival discussed, deposit/payment discussed, or work instructions given. Silence after a quote is never a won signal.
 
+Return exactly one result for every supplied evaluation key. Never omit, alter, invent, or duplicate a key.
 RESPOND WITH JSON: { "results": [...] }. No explanation.`;
 
     const userPrompt = JSON.stringify(
-      threads.map((t) => ({
-        tid: t.threadId,
+      threads.map((t, index) => ({
+        tid: evaluationKeys[index],
         msgs: t.messages.map((m) => ({
           dir: m.direction,
           from: m.from,
@@ -407,6 +503,43 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
       }))
     );
 
+    const responseFormat = {
+      type: "json_schema" as const,
+      json_schema: {
+        name: "email_stage_summary_batch",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["results"],
+          properties: {
+            results: {
+              type: "array",
+              minItems: threads.length,
+              maxItems: threads.length,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["tid", "stage", "flag", "summary"],
+                properties: {
+                  tid: { type: "string", enum: evaluationKeys },
+                  stage: {
+                    type: ["string", "null"],
+                    enum: [...VALID_STAGES, "likely_won", "likely_lost", null],
+                  },
+                  flag: {
+                    type: ["string", "null"],
+                    enum: ["likely_won", "likely_lost", null],
+                  },
+                  summary: { type: "string", minLength: 1 },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
     try {
       const response = await getSyncOpenAI().chat.completions.create({
         model: "gpt-4o-mini",
@@ -415,64 +548,108 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
           { role: "user", content: userPrompt },
         ],
         temperature: 0.1,
-        // Stage (~15 tokens) + summary (~50 tokens) + metadata (~10 tokens) per thread
-        max_tokens: threads.length * 80,
-        response_format: { type: "json_object" },
+        // Leave enough headroom for complete strict JSON even for a singleton.
+        max_tokens: Math.max(300, threads.length * 100),
+        response_format: responseFormat,
       });
 
-      const content = response.choices[0]?.message?.content || '{"results":[]}';
-      const parsed = JSON.parse(content);
-      const rawResults = parsed.results || parsed;
-      if (!Array.isArray(rawResults)) {
-        throw new Error("model response did not contain a results array");
+      const choice = response.choices[0];
+      const message = choice?.message;
+      if (message?.refusal != null) {
+        throw new StageEvaluationModelRefusalError();
       }
-      const threadById = new Map(
-        threads.map((thread) => [thread.threadId, thread])
-      );
-      const resultByThreadId = new Map<string, Record<string, unknown>>();
+      if (choice?.finish_reason !== "stop") {
+        throw new StageEvaluationModelContractError(
+          "model response did not complete with finish_reason stop"
+        );
+      }
+
+      const content = message?.content;
+      if (typeof content !== "string" || !content.trim()) {
+        throw new StageEvaluationModelContractError("model response was empty");
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(content);
+      } catch (err) {
+        throw new StageEvaluationModelContractError(
+          "model response was not valid JSON",
+          { cause: err }
+        );
+      }
+
+      const rawResults =
+        parsed && typeof parsed === "object" && "results" in parsed
+          ? (parsed as { results?: unknown }).results
+          : null;
+      if (!Array.isArray(rawResults)) {
+        throw new StageEvaluationModelContractError(
+          "model response did not contain a results array"
+        );
+      }
+      const resultByEvaluationKey = new Map<string, Record<string, unknown>>();
 
       for (const rawResult of rawResults) {
         if (!rawResult || typeof rawResult !== "object") {
-          throw new Error("model response contained an invalid result");
-        }
-        const result = rawResult as Record<string, unknown>;
-        const threadId =
-          typeof result.tid === "string"
-            ? result.tid
-            : typeof result.threadId === "string"
-              ? result.threadId
-              : null;
-        if (!threadId || !threadById.has(threadId)) {
-          throw new Error("model response contained an unknown evaluation key");
-        }
-        if (resultByThreadId.has(threadId)) {
-          throw new Error(
-            `model response duplicated evaluation key ${threadId}`
+          throw new StageEvaluationModelContractError(
+            "model response contained an invalid result"
           );
         }
-        resultByThreadId.set(threadId, result);
+        const result = rawResult as Record<string, unknown>;
+        const evaluationKey =
+          typeof result.tid === "string" ? result.tid : null;
+        if (!evaluationKey || !threadByEvaluationKey.has(evaluationKey)) {
+          throw new StageEvaluationModelContractError(
+            "model response contained an unknown evaluation key"
+          );
+        }
+        if (resultByEvaluationKey.has(evaluationKey)) {
+          throw new StageEvaluationModelContractError(
+            `model response duplicated evaluation key ${evaluationKey}`
+          );
+        }
+        resultByEvaluationKey.set(evaluationKey, result);
       }
 
-      return threads.map((thread) => {
-        const result = resultByThreadId.get(thread.threadId);
+      return threads.map((thread, index) => {
+        const evaluationKey = evaluationKeys[index];
+        const result = resultByEvaluationKey.get(evaluationKey);
         if (!result) {
-          throw new Error(
-            `model response omitted evaluation key ${thread.threadId}`
+          throw new StageEvaluationModelContractError(
+            `model response omitted evaluation key ${evaluationKey}`
           );
         }
         if (typeof result.summary !== "string" || !result.summary.trim()) {
-          throw new Error(
-            `model response omitted summary for ${thread.threadId}`
+          throw new StageEvaluationModelContractError(
+            `model response omitted summary for ${evaluationKey}`
           );
         }
-        const rawStage =
-          typeof result?.stage === "string" ? result.stage : null;
-        const rawFlag =
-          typeof result?.flag === "string"
-            ? result.flag
-            : typeof result?.terminalFlag === "string"
-              ? result.terminalFlag
-              : null;
+
+        const rawStageValue = result.stage;
+        if (
+          rawStageValue !== null &&
+          (typeof rawStageValue !== "string" ||
+            ![...VALID_STAGES, "likely_won", "likely_lost"].includes(
+              rawStageValue
+            ))
+        ) {
+          throw new StageEvaluationModelContractError(
+            `model response contained invalid stage for ${evaluationKey}`
+          );
+        }
+        const rawFlagValue = result.flag;
+        if (
+          rawFlagValue !== null &&
+          rawFlagValue !== "likely_won" &&
+          rawFlagValue !== "likely_lost"
+        ) {
+          throw new StageEvaluationModelContractError(
+            `model response contained invalid terminal flag for ${evaluationKey}`
+          );
+        }
+        const rawStage = rawStageValue;
+        const rawFlag = rawFlagValue;
 
         // Rescue terminal flags from stage field
         let stage = sanitizeStage(rawStage);
@@ -503,8 +680,14 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
         };
       });
     } catch (err) {
+      if (
+        err instanceof StageEvaluationModelContractError ||
+        err instanceof StageEvaluationModelRefusalError
+      ) {
+        throw err;
+      }
       throw new Error(
-        `[ai-sync-reviewer] stage and summary evaluation failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        `${STAGE_EVALUATION_ERROR_PREFIX}${err instanceof Error ? err.message : "unknown error"}`,
         { cause: err }
       );
     }
