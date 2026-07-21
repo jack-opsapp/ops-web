@@ -66,7 +66,10 @@ import { FinancialInsightCard } from "./financial-insight-card";
 
 // ─── Type Icon Map ────────────────────────────────────────────────────────────
 
-const ACTION_TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+const ACTION_TYPE_ICONS: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
   create_project: FolderKanban,
   create_task: ListTodo,
   create_invoice: Receipt,
@@ -107,7 +110,10 @@ const PRIORITY_TEXT: Record<string, string> = {
 
 // ─── Source URL Map ───────────────────────────────────────────────────────────
 
-function getSourceUrl(contextSource: string | null, sourceId: string | null): string | null {
+function getSourceUrl(
+  contextSource: string | null,
+  sourceId: string | null
+): string | null {
   if (!contextSource || !sourceId) return null;
   switch (contextSource) {
     case "email_thread":
@@ -155,7 +161,8 @@ function timeAgo(date: Date, t: (key: string) => string): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
   if (seconds < 60) return t("time.justNow");
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return t("time.minutes").replace("{{count}}", String(minutes));
+  if (minutes < 60)
+    return t("time.minutes").replace("{{count}}", String(minutes));
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return t("time.hours").replace("{{count}}", String(hours));
   const days = Math.floor(hours / 24);
@@ -196,8 +203,15 @@ function toInputDate(iso: string | null): string {
 
 // ─── Currency Formatter ──────────────────────────────────────────────────────
 
-function fmtCurrency(amount: number, locale: string): string {
-  return amount.toLocaleString(locale, { style: "currency", currency: "USD" });
+function fmtCurrency(
+  amount: number,
+  locale: string,
+  currencyCode = "CAD"
+): string {
+  return amount.toLocaleString(locale, {
+    style: "currency",
+    currency: currencyCode,
+  });
 }
 
 // ─── i18n Interpolation Helper ───────────────────────────────────────────────
@@ -254,8 +268,14 @@ function renderWarning(
   const p = warning.params ?? {};
   switch (warning.type) {
     case "high_value": {
-      const total = Number(p.total ?? 0).toLocaleString(locale, { style: "currency", currency: "USD" });
-      const threshold = Number(p.threshold ?? 0).toLocaleString(locale, { style: "currency", currency: "USD" });
+      const total = Number(p.total ?? 0).toLocaleString(locale, {
+        style: "currency",
+        currency: "USD",
+      });
+      const threshold = Number(p.threshold ?? 0).toLocaleString(locale, {
+        style: "currency",
+        currency: "USD",
+      });
       return `${t("invoice.warning.highValue")} — ${total} > ${threshold}`;
     }
     case "duplicate_similar":
@@ -267,8 +287,14 @@ function renderWarning(
     case "zero_tax":
       return t("invoice.warning.zeroTax");
     case "price_deviation": {
-      const price = Number(p.item_price ?? 0).toLocaleString(locale, { style: "currency", currency: "USD" });
-      const avg = Number(p.avg_price ?? 0).toLocaleString(locale, { style: "currency", currency: "USD" });
+      const price = Number(p.item_price ?? 0).toLocaleString(locale, {
+        style: "currency",
+        currency: "USD",
+      });
+      const avg = Number(p.avg_price ?? 0).toLocaleString(locale, {
+        style: "currency",
+        currency: "USD",
+      });
       return `${p.item_name}: ${price}/${p.item_unit} — ${p.deviation_pct}% vs avg ${avg}/${p.item_unit}`;
     }
     default:
@@ -416,9 +442,7 @@ export const ActionCard = memo(function ActionCard({
 
   // ── Editable state for status email ──
   const [editingDraft, setEditingDraft] = useState(false);
-  const [draftText, setDraftText] = useState(
-    statusEmailData?.draft_text ?? ""
-  );
+  const [draftText, setDraftText] = useState(statusEmailData?.draft_text ?? "");
 
   // ── Editable state for reassign ──
   const [reassignMemberId, setReassignMemberId] = useState<string | null>(
@@ -479,10 +503,16 @@ export const ActionCard = memo(function ActionCard({
     toInputDate(rescheduleData?.suggested_resolution?.new_start_date ?? null)
   );
   const [rescheduleMemberId, setRescheduleMemberId] = useState<string | null>(
-    rescheduleData?.suggested_team_member_id ?? rescheduleData?.suggested_resolution?.new_team_member_id ?? null
+    rescheduleData?.suggested_team_member_id ??
+      rescheduleData?.suggested_resolution?.new_team_member_id ??
+      null
   );
-  const [rescheduleMemberName, setRescheduleMemberName] = useState<string | null>(
-    rescheduleData?.suggested_team_member_name ?? rescheduleData?.suggested_resolution?.new_team_member_name ?? null
+  const [rescheduleMemberName, setRescheduleMemberName] = useState<
+    string | null
+  >(
+    rescheduleData?.suggested_team_member_name ??
+      rescheduleData?.suggested_resolution?.new_team_member_name ??
+      null
   );
 
   // ── Editable state for S2 client comms action types ──
@@ -508,7 +538,8 @@ export const ActionCard = memo(function ActionCard({
   const [subcontractorSubject, setSubcontractorSubject] = useState(
     subcontractorData?.subject ?? ""
   );
-  const [editingSubcontractorDraft, setEditingSubcontractorDraft] = useState(false);
+  const [editingSubcontractorDraft, setEditingSubcontractorDraft] =
+    useState(false);
 
   const [rescheduleRequestReply, setRescheduleRequestReply] = useState(
     rescheduleRequestData?.reply_draft_text ?? ""
@@ -517,9 +548,8 @@ export const ActionCard = memo(function ActionCard({
     rescheduleRequestData?.subject ?? ""
   );
   const [editingRescheduleReply, setEditingRescheduleReply] = useState(false);
-  const [selectedAlternativeIndex, setSelectedAlternativeIndex] = useState<number>(
-    rescheduleRequestData?.selected_alternative_index ?? 0
-  );
+  const [selectedAlternativeIndex, setSelectedAlternativeIndex] =
+    useState<number>(rescheduleRequestData?.selected_alternative_index ?? 0);
 
   // Reset editable state when action changes.
   useEffect(() => {
@@ -554,9 +584,19 @@ export const ActionCard = memo(function ActionCard({
       setEditingReminderDraft(false);
     }
     if (rescheduleData) {
-      setRescheduleStartDate(toInputDate(rescheduleData.suggested_resolution?.new_start_date ?? null));
-      setRescheduleMemberId(rescheduleData.suggested_team_member_id ?? rescheduleData.suggested_resolution?.new_team_member_id ?? null);
-      setRescheduleMemberName(rescheduleData.suggested_team_member_name ?? rescheduleData.suggested_resolution?.new_team_member_name ?? null);
+      setRescheduleStartDate(
+        toInputDate(rescheduleData.suggested_resolution?.new_start_date ?? null)
+      );
+      setRescheduleMemberId(
+        rescheduleData.suggested_team_member_id ??
+          rescheduleData.suggested_resolution?.new_team_member_id ??
+          null
+      );
+      setRescheduleMemberName(
+        rescheduleData.suggested_team_member_name ??
+          rescheduleData.suggested_resolution?.new_team_member_name ??
+          null
+      );
     }
     if (appointmentData) {
       setAppointmentDraft(appointmentData.draft_text);
@@ -599,9 +639,12 @@ export const ActionCard = memo(function ActionCard({
 
     // Reassign: check if member or dates were changed
     if (isReassign && reassignData) {
-      const memberChanged = reassignMemberId !== reassignData.suggested_team_member_id;
-      const startChanged = reassignStartDate !== toInputDate(reassignData.new_start_date);
-      const endChanged = reassignEndDate !== toInputDate(reassignData.new_end_date);
+      const memberChanged =
+        reassignMemberId !== reassignData.suggested_team_member_id;
+      const startChanged =
+        reassignStartDate !== toInputDate(reassignData.new_start_date);
+      const endChanged =
+        reassignEndDate !== toInputDate(reassignData.new_end_date);
 
       if (memberChanged || startChanged || endChanged) {
         const editedData: Record<string, unknown> = { ...action.actionData };
@@ -628,9 +671,13 @@ export const ActionCard = memo(function ActionCard({
 
     // Create invoice: check if line items, terms, or dates were changed
     if (isCreateInvoice && invoiceData) {
-      const itemsChanged = JSON.stringify(invoiceLineItems) !== JSON.stringify(invoiceData.line_items);
-      const termsChanged = invoicePaymentTerms !== (invoiceData.payment_terms ?? "");
-      const dueDateChanged = invoiceDueDate !== toInputDate(invoiceData.due_date);
+      const itemsChanged =
+        JSON.stringify(invoiceLineItems) !==
+        JSON.stringify(invoiceData.line_items);
+      const termsChanged =
+        invoicePaymentTerms !== (invoiceData.payment_terms ?? "");
+      const dueDateChanged =
+        invoiceDueDate !== toInputDate(invoiceData.due_date);
 
       if (itemsChanged || termsChanged || dueDateChanged) {
         const editedData: Record<string, unknown> = { ...action.actionData };
@@ -646,9 +693,11 @@ export const ActionCard = memo(function ActionCard({
           const taxableSubtotal = invoiceLineItems
             .filter((li) => li.is_taxable)
             .reduce((sum, li) => sum + li.quantity * li.unit_price, 0);
-          const discountAmt = invoiceData.discount_type === "percentage" && invoiceData.discount_value
-            ? newSubtotal * (invoiceData.discount_value / 100)
-            : (invoiceData.discount_amount ?? 0);
+          const discountAmt =
+            invoiceData.discount_type === "percentage" &&
+            invoiceData.discount_value
+              ? newSubtotal * (invoiceData.discount_value / 100)
+              : (invoiceData.discount_amount ?? 0);
           const newTaxAmount = taxableSubtotal * (taxRate / 100);
           editedData.tax_amount = newTaxAmount;
           editedData.discount_amount = discountAmt;
@@ -711,8 +760,13 @@ export const ActionCard = memo(function ActionCard({
 
     // Reschedule tasks: check if member or dates were changed
     if (isRescheduleTasks && rescheduleData) {
-      const origMemberId = rescheduleData.suggested_team_member_id ?? rescheduleData.suggested_resolution?.new_team_member_id ?? null;
-      const origStartDate = toInputDate(rescheduleData.suggested_resolution?.new_start_date ?? null);
+      const origMemberId =
+        rescheduleData.suggested_team_member_id ??
+        rescheduleData.suggested_resolution?.new_team_member_id ??
+        null;
+      const origStartDate = toInputDate(
+        rescheduleData.suggested_resolution?.new_start_date ?? null
+      );
       const memberChanged = rescheduleMemberId !== origMemberId;
       const startChanged = rescheduleStartDate !== origStartDate;
 
@@ -724,14 +778,19 @@ export const ActionCard = memo(function ActionCard({
             editedData.suggested_team_member_name = rescheduleMemberName;
           }
         }
-        if (rescheduleData.suggested_resolution && (memberChanged || startChanged)) {
+        if (
+          rescheduleData.suggested_resolution &&
+          (memberChanged || startChanged)
+        ) {
           const resolution = { ...rescheduleData.suggested_resolution };
           if (memberChanged) {
             resolution.new_team_member_id = rescheduleMemberId;
             resolution.new_team_member_name = rescheduleMemberName;
           }
           if (startChanged && rescheduleStartDate) {
-            resolution.new_start_date = new Date(rescheduleStartDate).toISOString();
+            resolution.new_start_date = new Date(
+              rescheduleStartDate
+            ).toISOString();
           }
           editedData.suggested_resolution = resolution;
         }
@@ -802,7 +861,8 @@ export const ActionCard = memo(function ActionCard({
         const editedData: Record<string, unknown> = { ...action.actionData };
         if (replyChanged) editedData.reply_draft_text = rescheduleRequestReply;
         if (subjectChanged) editedData.subject = rescheduleRequestSubject;
-        if (altChanged) editedData.selected_alternative_index = selectedAlternativeIndex;
+        if (altChanged)
+          editedData.selected_alternative_index = selectedAlternativeIndex;
         onApprove(action.id, editedData);
         return;
       }
@@ -812,9 +872,12 @@ export const ActionCard = memo(function ActionCard({
 
     // Create task: check if assignment or dates were changed
     if (isTaskAction && taskData) {
-      const memberChanged = selectedMemberId !== taskData.suggested_team_member_id;
-      const startChanged = editStartDate !== toInputDate(taskData.suggested_start_date);
-      const endChanged = editEndDate !== toInputDate(taskData.suggested_end_date);
+      const memberChanged =
+        selectedMemberId !== taskData.suggested_team_member_id;
+      const startChanged =
+        editStartDate !== toInputDate(taskData.suggested_start_date);
+      const endChanged =
+        editEndDate !== toInputDate(taskData.suggested_end_date);
 
       if (memberChanged || startChanged || endChanged) {
         const editedData: Record<string, unknown> = { ...action.actionData };
@@ -914,8 +977,8 @@ export const ActionCard = memo(function ActionCard({
         // Fix 21: selected border uses neutral instead of accent
         selected
           ? "border-[rgba(255,255,255,0.20)] bg-[rgba(255,255,255,0.03)]"
-          : "border-[rgba(255,255,255,0.08)] bg-glass glass-surface",
-        "backdrop-blur-[20px] saturate-[1.2]"
+          : "glass-surface border-[rgba(255,255,255,0.08)] bg-glass",
+        "saturate-[1.2] backdrop-blur-[20px]"
       )}
     >
       {/* ── Header Row ─────────────────────────────────────────────────── */}
@@ -924,39 +987,46 @@ export const ActionCard = memo(function ActionCard({
         {isPending && (
           <button
             onClick={() => onSelect(action.id)}
-            className="shrink-0 min-w-[56px] min-h-[56px] flex items-center justify-center -m-3 mr-0"
+            className="-m-3 mr-0 flex min-h-[56px] min-w-[56px] shrink-0 items-center justify-center"
             aria-label="Select"
           >
             <div
               className={cn(
-                "w-[20px] h-[20px] rounded-bar border transition-colors",
+                "h-[20px] w-[20px] rounded-bar border transition-colors",
                 // Fix 21: checkbox is the ONE accent element (selection indicator)
                 selected
-                  ? "bg-text-2 border-[rgba(255,255,255,0.30)]"
+                  ? "border-[rgba(255,255,255,0.30)] bg-text-2"
                   : "border-[rgba(255,255,255,0.12)] hover:border-[rgba(255,255,255,0.24)]"
               )}
             >
-              {selected && <Check className="w-[14px] h-[14px] text-background mx-auto mt-[2px]" />}
+              {selected && (
+                <Check className="mx-auto mt-[2px] h-[14px] w-[14px] text-background" />
+              )}
             </div>
           </button>
         )}
 
         {/* Type icon */}
-        <div className="shrink-0 w-[32px] h-[32px] rounded-chip bg-[rgba(255,255,255,0.04)] flex items-center justify-center mt-3">
-          <Icon className="w-[16px] h-[16px] text-text-2" />
+        <div className="mt-3 flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-chip bg-[rgba(255,255,255,0.04)]">
+          <Icon className="h-[16px] w-[16px] text-text-2" />
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 pt-2">
+        <div className="min-w-0 flex-1 pt-2">
           <div className="flex items-center gap-2">
-            <span className="font-mohave text-body-sm text-text uppercase truncate">
+            <span className="truncate font-mohave text-body-sm uppercase text-text">
               {t(`type.${action.actionType}`)}
             </span>
-            <span className={cn("font-mono text-[11px]", PRIORITY_TEXT[action.priority])}>
+            <span
+              className={cn(
+                "font-mono text-[11px]",
+                PRIORITY_TEXT[action.priority]
+              )}
+            >
               [{t(`priority.${action.priority}`)}]
             </span>
           </div>
-          <p className="font-mono text-[13px] text-text-2 mt-0.5 line-clamp-2">
+          <p className="mt-0.5 line-clamp-2 font-mono text-[13px] text-text-2">
             {(() => {
               // Sprint S2: prefer structured summary from action_data for the
               // new client-comms types. Falls back to raw contextSummary when
@@ -968,32 +1038,38 @@ export const ActionCard = memo(function ActionCard({
                 subcontractorData?.context_summary_structured ??
                 rescheduleRequestData?.context_summary_structured ??
                 null;
-              return renderStructured(structured, tComms, action.contextSummary);
+              return renderStructured(
+                structured,
+                tComms,
+                action.contextSummary
+              );
             })()}
           </p>
 
           {/* ── Task-specific inline details ── */}
           {isTaskAction && taskData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               {taskData.project_name && (
                 <div className="flex items-center gap-1">
-                  <FolderKanban className="w-[12px] h-[12px] text-text-3" />
-                  <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                  <FolderKanban className="h-[12px] w-[12px] text-text-3" />
+                  <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                     {taskData.project_name}
                   </span>
                 </div>
               )}
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
+                <User className="h-[12px] w-[12px] text-text-3" />
                 <span className="font-mono text-[11px] text-text-2">
                   {selectedMemberName ?? t("task.unassigned")}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <CalendarDays className="w-[12px] h-[12px] text-text-3" />
+                <CalendarDays className="h-[12px] w-[12px] text-text-3" />
                 <span className="font-mono text-[11px] text-text-2">
                   {formatDateRange(
-                    editStartDate ? new Date(editStartDate).toISOString() : null,
+                    editStartDate
+                      ? new Date(editStartDate).toISOString()
+                      : null,
                     editEndDate ? new Date(editEndDate).toISOString() : null,
                     locale
                   ) ?? t("task.unscheduled")}
@@ -1004,16 +1080,16 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Status email inline details ── */}
           {isStatusEmail && statusEmailData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <User className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {statusEmailData.client_name}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <FolderKanban className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <FolderKanban className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {statusEmailData.project_title}
                 </span>
               </div>
@@ -1025,21 +1101,23 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Reassign task inline details ── */}
           {isReassign && reassignData && (
-            <div className="flex items-center gap-3 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1">
-                <AlertTriangle className="w-[12px] h-[12px] text-[#C4A868]" />
+                <AlertTriangle className="h-[12px] w-[12px] text-[#C4A868]" />
                 <span className="font-mono text-[11px] text-[#C4A868]">
                   {reassignData.overdue_days}d {t("lifecycle.overdue")}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
+                <User className="h-[12px] w-[12px] text-text-3" />
                 <span className="font-mono text-[11px] text-text-2">
-                  {reassignData.current_team_member_name ?? t("task.unassigned")}
+                  {reassignData.current_team_member_name ??
+                    t("task.unassigned")}
                 </span>
-                <ArrowRight className="w-[10px] h-[10px] text-text-3" />
+                <ArrowRight className="h-[10px] w-[10px] text-text-3" />
                 <span className="font-mono text-[11px] text-text-2">
-                  {reassignMemberName ?? reassignData.suggested_team_member_name}
+                  {reassignMemberName ??
+                    reassignData.suggested_team_member_name}
                 </span>
               </div>
             </div>
@@ -1047,43 +1125,48 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Project lifecycle (archive / close) inline details ── */}
           {isProjectLifecycle && lifecycleData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <FolderKanban className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[160px]">
+                <FolderKanban className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[160px] truncate font-mono text-[11px] text-text-2">
                   {lifecycleData.project_title}
                 </span>
               </div>
               <span className="font-mono text-[11px] text-text-3">
-                {lifecycleData.days_since_completion}d {t("lifecycle.sinceCompletion")}
+                {lifecycleData.days_since_completion}d{" "}
+                {t("lifecycle.sinceCompletion")}
               </span>
               <span className="font-mono text-[11px] text-text-3">
-                {lifecycleData.completed_tasks}/{lifecycleData.total_tasks} {t("task.tasks")}
+                {lifecycleData.completed_tasks}/{lifecycleData.total_tasks}{" "}
+                {t("task.tasks")}
               </span>
             </div>
           )}
 
           {/* ── Create invoice inline details ── */}
           {isCreateInvoice && invoiceData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <User className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {invoiceData.client_name}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <FolderKanban className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <FolderKanban className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {invoiceData.project_title}
                 </span>
               </div>
-              <span className="font-mono text-[13px] text-text font-medium">
-                {invoiceData.total.toLocaleString(locale, { style: "currency", currency: "USD" })}
+              <span className="font-mono text-[13px] font-medium text-text">
+                {invoiceData.total.toLocaleString(locale, {
+                  style: "currency",
+                  currency: "USD",
+                })}
               </span>
               {invoiceData.warnings.length > 0 && (
                 <div className="flex items-center gap-1">
-                  <AlertTriangle className="w-[12px] h-[12px] text-[#C4A868]" />
+                  <AlertTriangle className="h-[12px] w-[12px] text-[#C4A868]" />
                   <span className="font-mono text-[11px] text-[#C4A868]">
                     {invoiceData.warnings.length}
                   </span>
@@ -1094,10 +1177,10 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Invoice email inline details ── */}
           {isInvoiceEmail && invoiceEmailData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <Mail className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[180px]">
+                <Mail className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[180px] truncate font-mono text-[11px] text-text-2">
                   {invoiceEmailData.to_email}
                 </span>
               </div>
@@ -1105,11 +1188,14 @@ export const ActionCard = memo(function ActionCard({
                 #{invoiceEmailData.invoice_number}
               </span>
               <span className="font-mono text-[11px] text-text-2">
-                {invoiceEmailData.invoice_total.toLocaleString(locale, { style: "currency", currency: "USD" })}
+                {invoiceEmailData.invoice_total.toLocaleString(locale, {
+                  style: "currency",
+                  currency: "USD",
+                })}
               </span>
               {invoiceEmailData.attachments.length > 0 && (
                 <div className="flex items-center gap-1">
-                  <Paperclip className="w-[12px] h-[12px] text-text-3" />
+                  <Paperclip className="h-[12px] w-[12px] text-text-3" />
                 </div>
               )}
             </div>
@@ -1117,33 +1203,54 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Payment reminder inline details ── */}
           {isPaymentReminder && reminderData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <User className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {reminderData.client_name}
                 </span>
               </div>
               <span className="font-mono text-[11px] text-text-3">
                 #{reminderData.invoice_number}
               </span>
-              <span className="font-mono text-[13px] text-text font-medium">
-                {fmtCurrency(reminderData.balance_due, locale)}
+              <span className="font-mono text-[13px] font-medium text-text">
+                {fmtCurrency(
+                  reminderData.balance_due,
+                  locale,
+                  reminderData.currency_code
+                )}
               </span>
               <div className="flex items-center gap-1">
-                <Clock className="w-[12px] h-[12px]" style={{
-                  color: reminderData.reminder_level >= 4 ? "#93321A"
-                    : reminderData.reminder_level >= 3 ? "#C4A868"
-                    : reminderData.reminder_level >= 2 ? "#C4A868"
-                    : "rgba(255,255,255,0.4)"
-                }} />
-                <span className="font-mono text-[11px]" style={{
-                  color: reminderData.reminder_level >= 4 ? "#93321A"
-                    : reminderData.reminder_level >= 3 ? "#C4A868"
-                    : reminderData.reminder_level >= 2 ? "#C4A868"
-                    : "rgba(255,255,255,0.5)"
-                }}>
-                  {t("reminder.daysOverdue").replace("{{count}}", String(reminderData.days_overdue))}
+                <Clock
+                  className="h-[12px] w-[12px]"
+                  style={{
+                    color:
+                      reminderData.reminder_level >= 4
+                        ? "#93321A"
+                        : reminderData.reminder_level >= 3
+                          ? "#C4A868"
+                          : reminderData.reminder_level >= 2
+                            ? "#C4A868"
+                            : "rgba(255,255,255,0.4)",
+                  }}
+                />
+                <span
+                  className="font-mono text-[11px]"
+                  style={{
+                    color:
+                      reminderData.reminder_level >= 4
+                        ? "#93321A"
+                        : reminderData.reminder_level >= 3
+                          ? "#C4A868"
+                          : reminderData.reminder_level >= 2
+                            ? "#C4A868"
+                            : "rgba(255,255,255,0.5)",
+                  }}
+                >
+                  {t("reminder.daysOverdue").replace(
+                    "{{count}}",
+                    String(reminderData.days_overdue)
+                  )}
                 </span>
               </div>
               <span className="font-mono text-[11px] text-text-3">
@@ -1154,18 +1261,20 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Client health alert inline details ── */}
           {isHealthAlert && healthData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <User className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {healthData.client_name}
                 </span>
               </div>
               <span className="font-mono text-[11px] text-[#93321A]">
-                {Math.round(healthData.late_rate * 100)}% {t("health.lateRate").toLowerCase()}
+                {Math.round(healthData.late_rate * 100)}%{" "}
+                {t("health.lateRate").toLowerCase()}
               </span>
               <span className="font-mono text-[11px] text-[#C4A868]">
-                {healthData.overdue_count} {t("health.overdueCount").toLowerCase()}
+                {healthData.overdue_count}{" "}
+                {t("health.overdueCount").toLowerCase()}
               </span>
               <span className="font-mono text-[11px] text-text-2">
                 {fmtCurrency(healthData.total_overdue_amount, locale)}
@@ -1180,21 +1289,21 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Optimize schedule inline details ── */}
           {isOptimizeSchedule && optimizeData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <User className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {optimizeData.team_member_name}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <CalendarDays className="w-[12px] h-[12px] text-text-3" />
+                <CalendarDays className="h-[12px] w-[12px] text-text-3" />
                 <span className="font-mono text-[11px] text-text-2">
                   {optimizeData.date}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <Route className="w-[12px] h-[12px] text-text-3" />
+                <Route className="h-[12px] w-[12px] text-text-3" />
                 <span className="font-mono text-[11px] text-[#6F94B0]">
                   -{optimizeData.distance_saved_km} km
                 </span>
@@ -1204,34 +1313,37 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Reschedule tasks inline details ── */}
           {isRescheduleTasks && rescheduleData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
-              {rescheduleData.resolution_type === "conflict" && rescheduleData.conflict_details && (
-                <>
-                  <div className="flex items-center gap-1">
-                    <AlertTriangle className="w-[12px] h-[12px] text-[#C4A868]" />
-                    <span className="font-mono text-[11px] text-[#C4A868]">
-                      {t("type.reschedule_tasks")}
+            <div className="mt-2 flex flex-wrap items-center gap-4">
+              {rescheduleData.resolution_type === "conflict" &&
+                rescheduleData.conflict_details && (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <AlertTriangle className="h-[12px] w-[12px] text-[#C4A868]" />
+                      <span className="font-mono text-[11px] text-[#C4A868]">
+                        {t("type.reschedule_tasks")}
+                      </span>
+                    </div>
+                    <span className="max-w-[200px] truncate font-mono text-[11px] text-text-2">
+                      {rescheduleData.team_member_name}
                     </span>
-                  </div>
-                  <span className="font-mono text-[11px] text-text-2 truncate max-w-[200px]">
-                    {rescheduleData.team_member_name}
-                  </span>
-                </>
-              )}
+                  </>
+                )}
               {rescheduleData.resolution_type === "assign" && (
                 <>
                   <div className="flex items-center gap-1">
-                    <MapPin className="w-[12px] h-[12px] text-text-3" />
-                    <span className="font-mono text-[11px] text-text-2 truncate max-w-[160px]">
+                    <MapPin className="h-[12px] w-[12px] text-text-3" />
+                    <span className="max-w-[160px] truncate font-mono text-[11px] text-text-2">
                       {rescheduleData.task_title}
                     </span>
                   </div>
-                  {(rescheduleMemberName ?? rescheduleData.suggested_team_member_name) && (
+                  {(rescheduleMemberName ??
+                    rescheduleData.suggested_team_member_name) && (
                     <div className="flex items-center gap-1">
-                      <ArrowRight className="w-[10px] h-[10px] text-text-3" />
-                      <User className="w-[12px] h-[12px] text-text-3" />
+                      <ArrowRight className="h-[10px] w-[10px] text-text-3" />
+                      <User className="h-[12px] w-[12px] text-text-3" />
                       <span className="font-mono text-[11px] text-text-2">
-                        {rescheduleMemberName ?? rescheduleData.suggested_team_member_name}
+                        {rescheduleMemberName ??
+                          rescheduleData.suggested_team_member_name}
                       </span>
                     </div>
                   )}
@@ -1240,23 +1352,33 @@ export const ActionCard = memo(function ActionCard({
               {rescheduleData.resolution_type === "cascade" && (
                 <>
                   <div className="flex items-center gap-1">
-                    <RefreshCw className="w-[12px] h-[12px] text-[#C4A868]" />
+                    <RefreshCw className="h-[12px] w-[12px] text-[#C4A868]" />
                     <span className="font-mono text-[11px] text-[#C4A868]">
                       {t("type.reschedule_tasks")}
                     </span>
                   </div>
-                  <span className="font-mono text-[11px] text-text-2 truncate max-w-[200px]">
+                  <span className="max-w-[200px] truncate font-mono text-[11px] text-text-2">
                     {tSched("cascade.taskCount")
-                      .replace("{{count}}", String(rescheduleData.affected_tasks?.length ?? 0))
-                      .replace("{{plural}}", (rescheduleData.affected_tasks?.length ?? 0) === 1 ? "" : "s")}
+                      .replace(
+                        "{{count}}",
+                        String(rescheduleData.affected_tasks?.length ?? 0)
+                      )
+                      .replace(
+                        "{{plural}}",
+                        (rescheduleData.affected_tasks?.length ?? 0) === 1
+                          ? ""
+                          : "s"
+                      )}
                   </span>
                 </>
               )}
               {rescheduleData.weather_risk && (
                 <div className="flex items-center gap-1">
-                  <CloudRain className="w-[12px] h-[12px] text-[#C4A868]" />
+                  <CloudRain className="h-[12px] w-[12px] text-[#C4A868]" />
                   <span className="font-mono text-[11px] text-[#C4A868]">
-                    {tSched(`weather.${rescheduleData.weather_risk.risk_level}`)}
+                    {tSched(
+                      `weather.${rescheduleData.weather_risk.risk_level}`
+                    )}
                   </span>
                 </div>
               )}
@@ -1265,15 +1387,15 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Appointment confirmation inline details ── */}
           {isAppointmentConfirm && appointmentData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <User className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {appointmentData.client_name}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <CalendarDays className="w-[12px] h-[12px] text-text-3" />
+                <CalendarDays className="h-[12px] w-[12px] text-text-3" />
                 <span className="font-mono text-[11px] text-text">
                   {formatDateTime(
                     appointmentData.scheduled_date,
@@ -1284,8 +1406,8 @@ export const ActionCard = memo(function ActionCard({
               </div>
               {appointmentData.crew_names.length > 0 && (
                 <div className="flex items-center gap-1">
-                  <Users className="w-[12px] h-[12px] text-text-3" />
-                  <span className="font-mono text-[11px] text-text-2 truncate max-w-[160px]">
+                  <Users className="h-[12px] w-[12px] text-text-3" />
+                  <span className="max-w-[160px] truncate font-mono text-[11px] text-text-2">
                     {appointmentData.crew_names.join(", ")}
                   </span>
                 </div>
@@ -1295,21 +1417,21 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Day-before reminder inline details ── */}
           {isDayBeforeReminder && dayBeforeData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <User className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {dayBeforeData.client_name}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <BellPlus className="w-[12px] h-[12px] text-[#6F94B0]" />
-                <span className="font-mono text-[11px] text-[#6F94B0] uppercase">
+                <BellPlus className="h-[12px] w-[12px] text-[#6F94B0]" />
+                <span className="font-mono text-[11px] uppercase text-[#6F94B0]">
                   {tComms("label.tomorrow")}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <CalendarDays className="w-[12px] h-[12px] text-text-3" />
+                <CalendarDays className="h-[12px] w-[12px] text-text-3" />
                 <span className="font-mono text-[11px] text-text">
                   {formatDateTime(
                     dayBeforeData.scheduled_date,
@@ -1321,9 +1443,11 @@ export const ActionCard = memo(function ActionCard({
               {dayBeforeData.weather_risk &&
                 dayBeforeData.weather_risk.risk_level !== "low" && (
                   <div className="flex items-center gap-1">
-                    <CloudRain className="w-[12px] h-[12px] text-[#C4A868]" />
+                    <CloudRain className="h-[12px] w-[12px] text-[#C4A868]" />
                     <span className="font-mono text-[11px] text-[#C4A868]">
-                      {tComms(`weather.${dayBeforeData.weather_risk.risk_level}`)}
+                      {tComms(
+                        `weather.${dayBeforeData.weather_risk.risk_level}`
+                      )}
                     </span>
                   </div>
                 )}
@@ -1332,21 +1456,21 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Process reschedule request inline details ── */}
           {isRescheduleRequest && rescheduleRequestData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <User className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <User className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {rescheduleRequestData.client_name}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <MapPin className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <MapPin className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {rescheduleRequestData.task_title}
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <CalendarDays className="w-[12px] h-[12px] text-text-3" />
+                <CalendarDays className="h-[12px] w-[12px] text-text-3" />
                 <span className="font-mono text-[11px] text-text-3 line-through">
                   {formatDateTime(
                     rescheduleRequestData.original_start_date,
@@ -1354,7 +1478,7 @@ export const ActionCard = memo(function ActionCard({
                     locale
                   )}
                 </span>
-                <ArrowRight className="w-[10px] h-[10px] text-text-3" />
+                <ArrowRight className="h-[10px] w-[10px] text-text-3" />
                 <span className="font-mono text-[11px] text-[#6F94B0]">
                   {rescheduleRequestData.requested_date
                     ? formatDateTime(
@@ -1370,21 +1494,21 @@ export const ActionCard = memo(function ActionCard({
 
           {/* ── Subcontractor coordination inline details ── */}
           {isSubcontractorCoord && subcontractorData && (
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="mt-2 flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1">
-                <HardHat className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[160px]">
+                <HardHat className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[160px] truncate font-mono text-[11px] text-text-2">
                   {subcontractorData.subcontractor_name}
                 </span>
               </div>
               {subcontractorData.subcontractor_trade && (
-                <span className="font-mono text-[11px] text-text-3 uppercase">
+                <span className="font-mono text-[11px] uppercase text-text-3">
                   [{subcontractorData.subcontractor_trade}]
                 </span>
               )}
               <div className="flex items-center gap-1">
-                <FolderKanban className="w-[12px] h-[12px] text-text-3" />
-                <span className="font-mono text-[11px] text-text-2 truncate max-w-[140px]">
+                <FolderKanban className="h-[12px] w-[12px] text-text-3" />
+                <span className="max-w-[140px] truncate font-mono text-[11px] text-text-2">
                   {subcontractorData.project_title}
                 </span>
               </div>
@@ -1392,15 +1516,18 @@ export const ActionCard = memo(function ActionCard({
           )}
 
           {/* Meta row: confidence, age, source link */}
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
-            <div className="flex items-center gap-1" title={`${t("card.confidence")}: ${Math.round(action.confidence * 100)}%`}>
-              <Gauge className="w-[14px] h-[14px] text-text-3" />
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <div
+              className="flex items-center gap-1"
+              title={`${t("card.confidence")}: ${Math.round(action.confidence * 100)}%`}
+            >
+              <Gauge className="h-[14px] w-[14px] text-text-3" />
               <span className="font-mono text-[11px] text-text-3">
                 {Math.round(action.confidence * 100)}%
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <Clock className="w-[14px] h-[14px] text-text-3" />
+              <Clock className="h-[14px] w-[14px] text-text-3" />
               <span className="font-mono text-[11px] text-text-3">
                 {timeAgo(action.createdAt, t)}
               </span>
@@ -1409,9 +1536,9 @@ export const ActionCard = memo(function ActionCard({
             {sourceUrl && (
               <a
                 href={sourceUrl}
-                className="flex items-center gap-1 font-mono text-[11px] text-text-3 hover:text-text-2 transition-colors min-h-[56px] px-1 -my-4"
+                className="-my-4 flex min-h-[56px] items-center gap-1 px-1 font-mono text-[11px] text-text-3 transition-colors hover:text-text-2"
               >
-                <ExternalLink className="w-[12px] h-[12px]" />
+                <ExternalLink className="h-[12px] w-[12px]" />
                 {t("card.viewSource")}
               </a>
             )}
@@ -1419,17 +1546,17 @@ export const ActionCard = memo(function ActionCard({
         </div>
 
         {/* Right side: expand + action buttons */}
-        <div className="shrink-0 flex flex-col items-end gap-2 pt-1">
+        <div className="flex shrink-0 flex-col items-end gap-2 pt-1">
           {/* Expand toggle — 56dp tap area */}
           <button
             onClick={() => setExpanded(!expanded)}
-            className="min-w-[56px] min-h-[56px] flex items-center justify-center -m-3"
+            className="-m-3 flex min-h-[56px] min-w-[56px] items-center justify-center"
             title={expanded ? t("action.collapse") : t("action.expand")}
           >
             {expanded ? (
-              <ChevronUp className="w-[16px] h-[16px] text-text-3" />
+              <ChevronUp className="h-[16px] w-[16px] text-text-3" />
             ) : (
-              <ChevronDown className="w-[16px] h-[16px] text-text-3" />
+              <ChevronDown className="h-[16px] w-[16px] text-text-3" />
             )}
           </button>
 
@@ -1439,15 +1566,19 @@ export const ActionCard = memo(function ActionCard({
             <div className="flex items-center gap-1">
               <button
                 onClick={handleApproveWithEdits}
-                className="min-h-[36px] px-4 rounded bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors"
+                className="bg-[rgba(111, 148, 176,0.15)] hover:bg-[rgba(111, 148, 176,0.25)] min-h-[36px] rounded px-4 font-mohave text-body-sm uppercase text-[#6F94B0] transition-colors"
               >
-                {isFinancialInsight ? t("financial.action.acknowledge") : t("action.approve")}
+                {isFinancialInsight
+                  ? t("financial.action.acknowledge")
+                  : t("action.approve")}
               </button>
               <button
                 onClick={() => onReject(action.id)}
-                className="min-h-[36px] px-4 rounded bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors"
+                className="min-h-[36px] rounded bg-[rgba(147,50,26,0.10)] px-4 font-mohave text-body-sm uppercase text-[#93321A] transition-colors hover:bg-[rgba(147,50,26,0.20)]"
               >
-                {isFinancialInsight ? t("financial.action.dismiss") : t("action.reject")}
+                {isFinancialInsight
+                  ? t("financial.action.dismiss")
+                  : t("action.reject")}
               </button>
             </div>
           )}
@@ -1456,13 +1587,19 @@ export const ActionCard = memo(function ActionCard({
           {!isPending && (
             <span
               className={cn(
-                "font-mono text-[11px] px-2 py-0.5 rounded-bar",
-                action.status === "executed" && "bg-[rgba(165,179,104,0.15)] text-[#A5B368]",
-                action.status === "rejected" && "bg-[rgba(147,50,26,0.10)] text-[#93321A]",
-                action.status === "failed" && "bg-[rgba(147,50,26,0.10)] text-[#93321A]",
-                action.status === "expired" && "bg-[rgba(255,255,255,0.04)] text-text-3",
-                action.status === "cancelled" && "bg-[rgba(255,255,255,0.04)] text-text-3",
-                action.status === "approved" && "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0]"
+                "rounded-bar px-2 py-0.5 font-mono text-[11px]",
+                action.status === "executed" &&
+                  "bg-[rgba(165,179,104,0.15)] text-[#A5B368]",
+                action.status === "rejected" &&
+                  "bg-[rgba(147,50,26,0.10)] text-[#93321A]",
+                action.status === "failed" &&
+                  "bg-[rgba(147,50,26,0.10)] text-[#93321A]",
+                action.status === "expired" &&
+                  "bg-[rgba(255,255,255,0.04)] text-text-3",
+                action.status === "cancelled" &&
+                  "bg-[rgba(255,255,255,0.04)] text-text-3",
+                action.status === "approved" &&
+                  "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0]"
               )}
             >
               [{t(`filter.${action.status}`)}]
@@ -1479,32 +1616,38 @@ export const ActionCard = memo(function ActionCard({
             initial={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
             animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
             exit={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
-            transition={shouldReduceMotion ? undefined : { duration: 0.15, ease: EASE_SMOOTH }}
+            transition={
+              shouldReduceMotion
+                ? undefined
+                : { duration: 0.15, ease: EASE_SMOOTH }
+            }
           >
-            <div className="px-4 pb-4 border-t border-[rgba(255,255,255,0.06)]">
-              <div className="pt-3 space-y-3">
+            <div className="border-t border-[rgba(255,255,255,0.06)] px-4 pb-4">
+              <div className="space-y-3 pt-3">
                 {/* ── Task-specific editable details ── */}
                 {isTaskAction && taskData && isPending && (
                   <div className="space-y-3">
                     {/* Assignment editor */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("task.assignedTo")}]
                         </span>
                         {/* Fix 5: 56dp touch target on Change button */}
-                        {!editingAssignment && teamMembers && teamMembers.length > 0 && (
-                          <button
-                            onClick={() => setEditingAssignment(true)}
-                            className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
-                          >
-                            {t("task.changeAssignment")}
-                          </button>
-                        )}
+                        {!editingAssignment &&
+                          teamMembers &&
+                          teamMembers.length > 0 && (
+                            <button
+                              onClick={() => setEditingAssignment(true)}
+                              className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
+                            >
+                              {t("task.changeAssignment")}
+                            </button>
+                          )}
                       </div>
                       {editingAssignment && teamMembers ? (
                         /* Fix 6 + Fix 33: 56dp items, rounded-chip */
-                        <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-hide rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
+                        <div className="scrollbar-hide max-h-[200px] space-y-1 overflow-y-auto rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
                           {teamMembers.map((member) => (
                             <button
                               key={member.id}
@@ -1514,30 +1657,31 @@ export const ActionCard = memo(function ActionCard({
                                 setEditingAssignment(false);
                               }}
                               className={cn(
-                                "w-full text-left px-2.5 py-2 rounded flex items-center justify-between gap-2 transition-colors min-h-[36px]",
+                                "flex min-h-[36px] w-full items-center justify-between gap-2 rounded px-2.5 py-2 text-left transition-colors",
                                 member.id === selectedMemberId
                                   ? "bg-[rgba(255,255,255,0.06)] text-text"
-                                  : "hover:bg-[rgba(255,255,255,0.03)] text-text"
+                                  : "text-text hover:bg-[rgba(255,255,255,0.03)]"
                               )}
                             >
                               <div className="min-w-0">
-                                <span className="font-mohave text-body-sm block truncate">
+                                <span className="block truncate font-mohave text-body-sm">
                                   {member.name}
                                 </span>
-                                <span className="font-mono text-micro text-text-3 block">
+                                <span className="block font-mono text-micro text-text-3">
                                   {member.scheduledTaskCount != null
                                     ? `${member.scheduledTaskCount} ${t("task.tasks")}`
                                     : member.role}
                                 </span>
                               </div>
                               {member.id === selectedMemberId && (
-                                <Check className="w-[14px] h-[14px] text-[#6F94B0] shrink-0" />
+                                <Check className="h-[14px] w-[14px] shrink-0 text-[#6F94B0]" />
                               )}
-                              {member.hasConflicts && member.id !== selectedMemberId && (
-                                <span className="font-mono text-micro text-[#C4A868] shrink-0">
-                                  {t("task.busy")}
-                                </span>
-                              )}
+                              {member.hasConflicts &&
+                                member.id !== selectedMemberId && (
+                                  <span className="shrink-0 font-mono text-micro text-[#C4A868]">
+                                    {t("task.busy")}
+                                  </span>
+                                )}
                             </button>
                           ))}
                           {teamMembers.length === 0 && (
@@ -1548,8 +1692,8 @@ export const ActionCard = memo(function ActionCard({
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <div className="w-[24px] h-[24px] rounded-full bg-[rgba(255,255,255,0.06)] flex items-center justify-center">
-                            <User className="w-[12px] h-[12px] text-text-3" />
+                          <div className="flex h-[24px] w-[24px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.06)]">
+                            <User className="h-[12px] w-[12px] text-text-3" />
                           </div>
                           <span className="font-mohave text-body-sm text-text">
                             {selectedMemberName ?? t("task.unassigned")}
@@ -1561,10 +1705,10 @@ export const ActionCard = memo(function ActionCard({
                     {/* Assignment reason */}
                     {taskData.assignment_reason && (
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("task.reason")}]
                         </span>
-                        <p className="font-mono text-[12px] text-text-2 mt-0.5">
+                        <p className="mt-0.5 font-mono text-[12px] text-text-2">
                           {taskData.assignment_reason}
                         </p>
                       </div>
@@ -1572,24 +1716,24 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Date editor */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("task.schedule")}]
                         </span>
                         {/* Fix 5: 56dp touch target on Change Dates button */}
                         {!editingDates && (
                           <button
                             onClick={() => setEditingDates(true)}
-                            className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                            className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                           >
                             {t("task.changeDates")}
                           </button>
                         )}
                       </div>
                       {editingDates ? (
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           <div>
-                            <label className="font-mono text-micro text-text-3 block mb-0.5">
+                            <label className="mb-0.5 block font-mono text-micro text-text-3">
                               {t("task.startDate")}
                             </label>
                             {/* Fix 7 + Fix 21: 56dp date input, neutral focus */}
@@ -1597,35 +1741,39 @@ export const ActionCard = memo(function ActionCard({
                               type="date"
                               value={editStartDate}
                               onChange={(e) => setEditStartDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                              className="min-h-[36px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 font-mohave text-body-sm text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                             />
                           </div>
                           <div>
-                            <label className="font-mono text-micro text-text-3 block mb-0.5">
+                            <label className="mb-0.5 block font-mono text-micro text-text-3">
                               {t("task.endDate")}
                             </label>
                             <input
                               type="date"
                               value={editEndDate}
                               onChange={(e) => setEditEndDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                              className="min-h-[36px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 font-mohave text-body-sm text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                             />
                           </div>
                           {/* Fix 5: 56dp Done button */}
                           <button
                             onClick={() => setEditingDates(false)}
-                            className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center mt-4"
+                            className="mt-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                           >
                             {t("action.collapse")}
                           </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <CalendarDays className="w-[14px] h-[14px] text-text-3" />
+                          <CalendarDays className="h-[14px] w-[14px] text-text-3" />
                           <span className="font-mohave text-body-sm text-text">
                             {formatDateRange(
-                              editStartDate ? new Date(editStartDate).toISOString() : null,
-                              editEndDate ? new Date(editEndDate).toISOString() : null,
+                              editStartDate
+                                ? new Date(editStartDate).toISOString()
+                                : null,
+                              editEndDate
+                                ? new Date(editEndDate).toISOString()
+                                : null,
                               locale
                             ) ?? t("task.unscheduled")}
                           </span>
@@ -1639,23 +1787,26 @@ export const ActionCard = memo(function ActionCard({
                 {isStatusEmail && statusEmailData && isPending && (
                   <div className="space-y-3">
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <span className="font-mono text-[11px] uppercase text-text-3">
                         [{t("lifecycle.recipient")}]
                       </span>
-                      <p className="font-mono text-[12px] text-text-2 mt-0.5">
-                        {statusEmailData.client_name} &lt;{statusEmailData.client_email}&gt;
+                      <p className="mt-0.5 font-mono text-[12px] text-text-2">
+                        {statusEmailData.client_name} &lt;
+                        {statusEmailData.client_email}&gt;
                       </p>
                     </div>
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("lifecycle.emailPreview")}]
                         </span>
                         <button
                           onClick={() => setEditingDraft(!editingDraft)}
-                          className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                          className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                         >
-                          {editingDraft ? t("action.collapse") : t("lifecycle.editDraft")}
+                          {editingDraft
+                            ? t("action.collapse")
+                            : t("lifecycle.editDraft")}
                         </button>
                       </div>
                       {editingDraft ? (
@@ -1663,11 +1814,12 @@ export const ActionCard = memo(function ActionCard({
                           value={draftText}
                           onChange={(e) => setDraftText(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="min-h-[120px] w-full resize-y rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 font-mono text-[12px] text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                         />
                       ) : (
-                        <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
-                          {draftText.slice(0, 200)}{draftText.length > 200 ? "..." : ""}
+                        <p className="mt-0.5 line-clamp-6 whitespace-pre-wrap font-mono text-[12px] text-text-2">
+                          {draftText.slice(0, 200)}
+                          {draftText.length > 200 ? "..." : ""}
                         </p>
                       )}
                     </div>
@@ -1678,38 +1830,40 @@ export const ActionCard = memo(function ActionCard({
                 {isReassign && reassignData && isPending && (
                   <div className="space-y-3">
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <span className="font-mono text-[11px] uppercase text-text-3">
                         [{t("task.project")}]
                       </span>
-                      <p className="font-mono text-[12px] text-text-2 mt-0.5">
+                      <p className="mt-0.5 font-mono text-[12px] text-text-2">
                         {reassignData.project_title}
                       </p>
                     </div>
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <span className="font-mono text-[11px] uppercase text-text-3">
                         [{t("lifecycle.overdueBy")}]
                       </span>
-                      <p className="font-mono text-[12px] text-[#C4A868] mt-0.5">
+                      <p className="mt-0.5 font-mono text-[12px] text-[#C4A868]">
                         {reassignData.overdue_days} {t("lifecycle.days")}
                       </p>
                     </div>
                     {/* New assignee picker — reuse team member list */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("lifecycle.reassignTo")}]
                         </span>
                         {teamMembers && teamMembers.length > 0 && (
                           <button
-                            onClick={() => setEditingAssignment(!editingAssignment)}
-                            className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                            onClick={() =>
+                              setEditingAssignment(!editingAssignment)
+                            }
+                            className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                           >
                             {t("task.changeAssignment")}
                           </button>
                         )}
                       </div>
                       {editingAssignment && teamMembers ? (
-                        <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-hide rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
+                        <div className="scrollbar-hide max-h-[200px] space-y-1 overflow-y-auto rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
                           {teamMembers.map((member) => (
                             <button
                               key={member.id}
@@ -1719,35 +1873,36 @@ export const ActionCard = memo(function ActionCard({
                                 setEditingAssignment(false);
                               }}
                               className={cn(
-                                "w-full text-left px-2.5 py-2 rounded flex items-center justify-between gap-2 transition-colors min-h-[36px]",
+                                "flex min-h-[36px] w-full items-center justify-between gap-2 rounded px-2.5 py-2 text-left transition-colors",
                                 member.id === reassignMemberId
                                   ? "bg-[rgba(255,255,255,0.06)] text-text"
-                                  : "hover:bg-[rgba(255,255,255,0.03)] text-text"
+                                  : "text-text hover:bg-[rgba(255,255,255,0.03)]"
                               )}
                             >
                               <div className="min-w-0">
-                                <span className="font-mohave text-body-sm block truncate">
+                                <span className="block truncate font-mohave text-body-sm">
                                   {member.name}
                                 </span>
-                                <span className="font-mono text-micro text-text-3 block">
+                                <span className="block font-mono text-micro text-text-3">
                                   {member.scheduledTaskCount != null
                                     ? `${member.scheduledTaskCount} ${t("task.tasks")}`
                                     : member.role}
                                 </span>
                               </div>
                               {member.id === reassignMemberId && (
-                                <Check className="w-[14px] h-[14px] text-[#6F94B0] shrink-0" />
+                                <Check className="h-[14px] w-[14px] shrink-0 text-[#6F94B0]" />
                               )}
                             </button>
                           ))}
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <div className="w-[24px] h-[24px] rounded-full bg-[rgba(255,255,255,0.06)] flex items-center justify-center">
-                            <User className="w-[12px] h-[12px] text-text-3" />
+                          <div className="flex h-[24px] w-[24px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.06)]">
+                            <User className="h-[12px] w-[12px] text-text-3" />
                           </div>
                           <span className="font-mohave text-body-sm text-text">
-                            {reassignMemberName ?? reassignData.suggested_team_member_name}
+                            {reassignMemberName ??
+                              reassignData.suggested_team_member_name}
                           </span>
                         </div>
                       )}
@@ -1755,65 +1910,73 @@ export const ActionCard = memo(function ActionCard({
                     {/* Reason */}
                     {reassignData.assignment_reason && (
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("task.reason")}]
                         </span>
-                        <p className="font-mono text-[12px] text-text-2 mt-0.5">
+                        <p className="mt-0.5 font-mono text-[12px] text-text-2">
                           {reassignData.assignment_reason}
                         </p>
                       </div>
                     )}
                     {/* Reschedule dates */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("lifecycle.newSchedule")}]
                         </span>
                         <button
                           onClick={() => setEditingDates(!editingDates)}
-                          className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                          className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                         >
                           {t("task.changeDates")}
                         </button>
                       </div>
                       {editingDates ? (
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           <div>
-                            <label className="font-mono text-micro text-text-3 block mb-0.5">
+                            <label className="mb-0.5 block font-mono text-micro text-text-3">
                               {t("task.startDate")}
                             </label>
                             <input
                               type="date"
                               value={reassignStartDate}
-                              onChange={(e) => setReassignStartDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                              onChange={(e) =>
+                                setReassignStartDate(e.target.value)
+                              }
+                              className="min-h-[36px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 font-mohave text-body-sm text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                             />
                           </div>
                           <div>
-                            <label className="font-mono text-micro text-text-3 block mb-0.5">
+                            <label className="mb-0.5 block font-mono text-micro text-text-3">
                               {t("task.endDate")}
                             </label>
                             <input
                               type="date"
                               value={reassignEndDate}
-                              onChange={(e) => setReassignEndDate(e.target.value)}
-                              className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                              onChange={(e) =>
+                                setReassignEndDate(e.target.value)
+                              }
+                              className="min-h-[36px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 font-mohave text-body-sm text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                             />
                           </div>
                           <button
                             onClick={() => setEditingDates(false)}
-                            className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center mt-4"
+                            className="mt-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                           >
                             {t("action.collapse")}
                           </button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <CalendarDays className="w-[14px] h-[14px] text-text-3" />
+                          <CalendarDays className="h-[14px] w-[14px] text-text-3" />
                           <span className="font-mohave text-body-sm text-text">
                             {formatDateRange(
-                              reassignStartDate ? new Date(reassignStartDate).toISOString() : null,
-                              reassignEndDate ? new Date(reassignEndDate).toISOString() : null,
+                              reassignStartDate
+                                ? new Date(reassignStartDate).toISOString()
+                                : null,
+                              reassignEndDate
+                                ? new Date(reassignEndDate).toISOString()
+                                : null,
                               locale
                             ) ?? t("task.unscheduled")}
                           </span>
@@ -1826,32 +1989,43 @@ export const ActionCard = memo(function ActionCard({
                 {/* ── Project lifecycle (archive / close) expanded details ── */}
                 {isProjectLifecycle && lifecycleData && (
                   <div className="space-y-2">
-                    <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-4">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("lifecycle.completedDate")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
                           {lifecycleData.completed_date
-                            ? new Date(lifecycleData.completed_date).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })
+                            ? new Date(
+                                lifecycleData.completed_date
+                              ).toLocaleDateString(locale, {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })
                             : "—"}
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("lifecycle.taskSummary")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
-                          {lifecycleData.completed_tasks}/{lifecycleData.total_tasks} {t("lifecycle.tasksComplete")}
+                          {lifecycleData.completed_tasks}/
+                          {lifecycleData.total_tasks}{" "}
+                          {t("lifecycle.tasksComplete")}
                         </span>
                       </div>
                       {lifecycleData.total_invoiced > 0 && (
                         <div>
-                          <span className="font-mono text-[11px] text-text-3 uppercase block">
+                          <span className="block font-mono text-[11px] uppercase text-text-3">
                             [{t("lifecycle.invoiced")}]
                           </span>
                           <span className="font-mono text-[12px] text-text-2">
-                            {lifecycleData.total_invoiced.toLocaleString(locale, { style: "currency", currency: "USD" })}
+                            {lifecycleData.total_invoiced.toLocaleString(
+                              locale,
+                              { style: "currency", currency: "USD" }
+                            )}
                           </span>
                         </div>
                       )}
@@ -1868,9 +2042,9 @@ export const ActionCard = memo(function ActionCard({
                         {invoiceData.warnings.map((warning, idx) => (
                           <div
                             key={idx}
-                            className="flex items-start gap-2 px-3 py-2 rounded-chip border-l-[3px] border-l-[#C4A868] bg-[rgba(196,168,104,0.06)]"
+                            className="flex items-start gap-2 rounded-chip border-l-[3px] border-l-[#C4A868] bg-[rgba(196,168,104,0.06)] px-3 py-2"
                           >
-                            <AlertTriangle className="w-[14px] h-[14px] text-[#C4A868] mt-0.5 shrink-0" />
+                            <AlertTriangle className="mt-0.5 h-[14px] w-[14px] shrink-0 text-[#C4A868]" />
                             <span className="font-mono text-[12px] text-[#C4A868]">
                               {renderWarning(warning, t, locale)}
                             </span>
@@ -1880,9 +2054,9 @@ export const ActionCard = memo(function ActionCard({
                     )}
 
                     {/* Client + project */}
-                    <div className="flex items-center gap-6 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-6">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("invoice.client")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
@@ -1890,7 +2064,7 @@ export const ActionCard = memo(function ActionCard({
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("invoice.project")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
@@ -1899,7 +2073,7 @@ export const ActionCard = memo(function ActionCard({
                       </div>
                       {invoiceData.estimate_id && (
                         <div>
-                          <span className="font-mono text-[11px] text-text-3 uppercase block">
+                          <span className="block font-mono text-[11px] uppercase text-text-3">
                             [{t("invoice.estimate")}]
                           </span>
                           <span className="font-mono text-[12px] text-text-2">
@@ -1911,33 +2085,43 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Line items table */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("invoice.lineItems")}]
                         </span>
                         <button
                           onClick={() => setEditingLineItems(!editingLineItems)}
-                          className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                          className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                         >
-                          {editingLineItems ? t("action.collapse") : t("invoice.editLineItems")}
+                          {editingLineItems
+                            ? t("action.collapse")
+                            : t("invoice.editLineItems")}
                         </button>
                       </div>
 
-                      <div className="rounded-chip border border-[rgba(255,255,255,0.06)] overflow-hidden">
+                      <div className="overflow-hidden rounded-chip border border-[rgba(255,255,255,0.06)]">
                         {/* Header */}
-                        <div className="grid grid-cols-[1fr_60px_80px_80px] gap-2 px-3 py-1.5 bg-[rgba(255,255,255,0.02)] border-b border-[rgba(255,255,255,0.06)]">
-                          <span className="font-mono text-micro text-text-3 uppercase">{t("invoice.item")}</span>
-                          <span className="font-mono text-micro text-text-3 uppercase text-right">{t("invoice.qty")}</span>
-                          <span className="font-mono text-micro text-text-3 uppercase text-right">{t("invoice.unitPrice")}</span>
-                          <span className="font-mono text-micro text-text-3 uppercase text-right">{t("invoice.lineTotal")}</span>
+                        <div className="grid grid-cols-[1fr_60px_80px_80px] gap-2 border-b border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-3 py-1.5">
+                          <span className="font-mono text-micro uppercase text-text-3">
+                            {t("invoice.item")}
+                          </span>
+                          <span className="text-right font-mono text-micro uppercase text-text-3">
+                            {t("invoice.qty")}
+                          </span>
+                          <span className="text-right font-mono text-micro uppercase text-text-3">
+                            {t("invoice.unitPrice")}
+                          </span>
+                          <span className="text-right font-mono text-micro uppercase text-text-3">
+                            {t("invoice.lineTotal")}
+                          </span>
                         </div>
 
                         {/* Rows */}
-                        <div className="max-h-[240px] overflow-y-auto scrollbar-hide">
+                        <div className="scrollbar-hide max-h-[240px] overflow-y-auto">
                           {invoiceLineItems.map((item, idx) => (
                             <div
                               key={idx}
-                              className="grid grid-cols-[1fr_60px_80px_80px] gap-2 px-3 py-2 border-b border-[rgba(255,255,255,0.04)] last:border-b-0 items-center"
+                              className="grid grid-cols-[1fr_60px_80px_80px] items-center gap-2 border-b border-[rgba(255,255,255,0.04)] px-3 py-2 last:border-b-0"
                             >
                               {editingLineItems ? (
                                 <>
@@ -1946,20 +2130,26 @@ export const ActionCard = memo(function ActionCard({
                                     value={item.name}
                                     onChange={(e) => {
                                       const updated = [...invoiceLineItems];
-                                      updated[idx] = { ...updated[idx], name: e.target.value };
+                                      updated[idx] = {
+                                        ...updated[idx],
+                                        name: e.target.value,
+                                      };
                                       setInvoiceLineItems(updated);
                                     }}
-                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                                    className="min-h-[36px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2 py-1 font-mono text-[12px] text-text outline-none focus:border-[rgba(255,255,255,0.20)]"
                                   />
                                   <input
                                     type="number"
                                     value={item.quantity}
                                     onChange={(e) => {
                                       const updated = [...invoiceLineItems];
-                                      updated[idx] = { ...updated[idx], quantity: Number(e.target.value) || 0 };
+                                      updated[idx] = {
+                                        ...updated[idx],
+                                        quantity: Number(e.target.value) || 0,
+                                      };
                                       setInvoiceLineItems(updated);
                                     }}
-                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] text-right min-h-[36px] [color-scheme:dark]"
+                                    className="min-h-[36px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2 py-1 text-right font-mono text-[12px] text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                                     min={0}
                                     step="any"
                                   />
@@ -1968,41 +2158,52 @@ export const ActionCard = memo(function ActionCard({
                                     value={item.unit_price}
                                     onChange={(e) => {
                                       const updated = [...invoiceLineItems];
-                                      updated[idx] = { ...updated[idx], unit_price: Number(e.target.value) || 0 };
+                                      updated[idx] = {
+                                        ...updated[idx],
+                                        unit_price: Number(e.target.value) || 0,
+                                      };
                                       setInvoiceLineItems(updated);
                                     }}
-                                    className="font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2 py-1 text-text outline-none focus:border-[rgba(255,255,255,0.20)] text-right min-h-[36px] [color-scheme:dark]"
+                                    className="min-h-[36px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2 py-1 text-right font-mono text-[12px] text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                                     min={0}
                                     step="0.01"
                                   />
                                   <div className="flex items-center justify-end gap-1">
                                     <span className="font-mono text-[12px] text-text-2">
-                                      {fmtCurrency(item.quantity * item.unit_price, locale)}
+                                      {fmtCurrency(
+                                        item.quantity * item.unit_price,
+                                        locale
+                                      )}
                                     </span>
                                     <button
                                       onClick={() => {
-                                        const updated = invoiceLineItems.filter((_, i) => i !== idx);
+                                        const updated = invoiceLineItems.filter(
+                                          (_, i) => i !== idx
+                                        );
                                         setInvoiceLineItems(updated);
                                       }}
-                                      className="min-w-[36px] min-h-[36px] flex items-center justify-center text-text-3 hover:text-[#93321A] transition-colors"
+                                      className="flex min-h-[36px] min-w-[36px] items-center justify-center text-text-3 transition-colors hover:text-[#93321A]"
                                     >
-                                      <Trash2 className="w-[12px] h-[12px]" />
+                                      <Trash2 className="h-[12px] w-[12px]" />
                                     </button>
                                   </div>
                                 </>
                               ) : (
                                 <>
-                                  <span className="font-mono text-[12px] text-text truncate">
+                                  <span className="truncate font-mono text-[12px] text-text">
                                     {item.name}
                                   </span>
-                                  <span className="font-mono text-[12px] text-text-2 text-right">
+                                  <span className="text-right font-mono text-[12px] text-text-2">
                                     {item.quantity}
                                   </span>
-                                  <span className="font-mono text-[12px] text-text-2 text-right">
+                                  <span className="text-right font-mono text-[12px] text-text-2">
                                     {fmtCurrency(item.unit_price, locale)}
                                   </span>
-                                  <span className="font-mono text-[12px] text-text text-right">
-                                    {fmtCurrency(item.quantity * item.unit_price, locale)}
+                                  <span className="text-right font-mono text-[12px] text-text">
+                                    {fmtCurrency(
+                                      item.quantity * item.unit_price,
+                                      locale
+                                    )}
                                   </span>
                                 </>
                               )}
@@ -2030,10 +2231,12 @@ export const ActionCard = memo(function ActionCard({
                                 },
                               ]);
                             }}
-                            className="w-full flex items-center justify-center gap-1 px-3 py-2 border-t border-[rgba(255,255,255,0.06)] text-text-3 hover:text-text-2 transition-colors min-h-[36px]"
+                            className="flex min-h-[36px] w-full items-center justify-center gap-1 border-t border-[rgba(255,255,255,0.06)] px-3 py-2 text-text-3 transition-colors hover:text-text-2"
                           >
-                            <Plus className="w-[12px] h-[12px]" />
-                            <span className="font-mono text-[11px]">{t("invoice.addLine")}</span>
+                            <Plus className="h-[12px] w-[12px]" />
+                            <span className="font-mono text-[11px]">
+                              {t("invoice.addLine")}
+                            </span>
                           </button>
                         )}
                       </div>
@@ -2041,65 +2244,79 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Totals summary */}
                     {(() => {
-                      const subtotal = invoiceLineItems.reduce((s, li) => s + li.quantity * li.unit_price, 0);
-                      const discountAmt = invoiceData.discount_type === "percentage" && invoiceData.discount_value
-                        ? subtotal * (invoiceData.discount_value / 100)
-                        : (invoiceData.discount_amount ?? 0);
+                      const subtotal = invoiceLineItems.reduce(
+                        (s, li) => s + li.quantity * li.unit_price,
+                        0
+                      );
+                      const discountAmt =
+                        invoiceData.discount_type === "percentage" &&
+                        invoiceData.discount_value
+                          ? subtotal * (invoiceData.discount_value / 100)
+                          : (invoiceData.discount_amount ?? 0);
                       const taxableSubtotal = invoiceLineItems
                         .filter((li) => li.is_taxable)
                         .reduce((s, li) => s + li.quantity * li.unit_price, 0);
-                      const taxAmt = taxableSubtotal * ((invoiceData.tax_rate ?? 0) / 100);
+                      const taxAmt =
+                        taxableSubtotal * ((invoiceData.tax_rate ?? 0) / 100);
                       const total = subtotal - discountAmt + taxAmt;
 
                       return (
-                    <div className="flex justify-end">
-                      <div className="w-[240px] space-y-1">
-                        <div className="flex justify-between">
-                          <span className="font-mono text-[11px] text-text-3">{t("invoice.subtotal")}</span>
-                          <span className="font-mono text-[12px] text-text-2">
-                            {fmtCurrency(subtotal, locale)}
-                          </span>
-                        </div>
-                        {discountAmt > 0 && (
-                          <div className="flex justify-between">
-                            <span className="font-mono text-[11px] text-text-3">{t("invoice.discount")}</span>
-                            <span className="font-mono text-[12px] text-text-2">
-                              -{fmtCurrency(discountAmt, locale)}
-                            </span>
+                        <div className="flex justify-end">
+                          <div className="w-[240px] space-y-1">
+                            <div className="flex justify-between">
+                              <span className="font-mono text-[11px] text-text-3">
+                                {t("invoice.subtotal")}
+                              </span>
+                              <span className="font-mono text-[12px] text-text-2">
+                                {fmtCurrency(subtotal, locale)}
+                              </span>
+                            </div>
+                            {discountAmt > 0 && (
+                              <div className="flex justify-between">
+                                <span className="font-mono text-[11px] text-text-3">
+                                  {t("invoice.discount")}
+                                </span>
+                                <span className="font-mono text-[12px] text-text-2">
+                                  -{fmtCurrency(discountAmt, locale)}
+                                </span>
+                              </div>
+                            )}
+                            {(invoiceData.tax_rate ?? 0) > 0 && (
+                              <div className="flex justify-between">
+                                <span className="font-mono text-[11px] text-text-3">
+                                  {t("invoice.tax")} ({invoiceData.tax_rate}%)
+                                </span>
+                                <span className="font-mono text-[12px] text-text-2">
+                                  {fmtCurrency(taxAmt, locale)}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between border-t border-[rgba(255,255,255,0.08)] pt-1">
+                              <span className="font-mohave text-body-sm uppercase text-text">
+                                {t("invoice.total")}
+                              </span>
+                              <span className="font-mono text-[14px] font-medium text-text">
+                                {fmtCurrency(total, locale)}
+                              </span>
+                            </div>
                           </div>
-                        )}
-                        {(invoiceData.tax_rate ?? 0) > 0 && (
-                          <div className="flex justify-between">
-                            <span className="font-mono text-[11px] text-text-3">
-                              {t("invoice.tax")} ({invoiceData.tax_rate}%)
-                            </span>
-                            <span className="font-mono text-[12px] text-text-2">
-                              {fmtCurrency(taxAmt, locale)}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex justify-between border-t border-[rgba(255,255,255,0.08)] pt-1">
-                          <span className="font-mohave text-body-sm text-text uppercase">{t("invoice.total")}</span>
-                          <span className="font-mono text-[14px] text-text font-medium">
-                            {fmtCurrency(total, locale)}
-                          </span>
                         </div>
-                      </div>
-                    </div>
                       );
                     })()}
 
                     {/* Payment terms & due date */}
-                    <div className="flex items-start gap-6 flex-wrap">
+                    <div className="flex flex-wrap items-start gap-6">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                        <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                           [{t("invoice.paymentTerms")}]
                         </span>
                         {editingLineItems ? (
                           <select
                             value={invoicePaymentTerms}
-                            onChange={(e) => setInvoicePaymentTerms(e.target.value)}
-                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                            onChange={(e) =>
+                              setInvoicePaymentTerms(e.target.value)
+                            }
+                            className="min-h-[36px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 font-mohave text-body-sm text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                           >
                             <option value="NET-15">NET-15</option>
                             <option value="NET-30">NET-30</option>
@@ -2113,7 +2330,7 @@ export const ActionCard = memo(function ActionCard({
                         )}
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                        <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                           [{t("invoice.dueDate")}]
                         </span>
                         {editingLineItems ? (
@@ -2121,12 +2338,19 @@ export const ActionCard = memo(function ActionCard({
                             type="date"
                             value={invoiceDueDate}
                             onChange={(e) => setInvoiceDueDate(e.target.value)}
-                            className="font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-2.5 py-1.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px] [color-scheme:dark]"
+                            className="min-h-[36px] rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1.5 font-mohave text-body-sm text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                           />
                         ) : (
                           <span className="font-mohave text-body-sm text-text">
                             {invoiceDueDate
-                              ? new Date(invoiceDueDate).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" })
+                              ? new Date(invoiceDueDate).toLocaleDateString(
+                                  locale,
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  }
+                                )
                               : "—"}
                           </span>
                         )}
@@ -2135,16 +2359,17 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Cover email indicator */}
                     {invoiceData.cover_email && invoiceData.cover_email.to && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
-                        <Mail className="w-[14px] h-[14px] text-text-3" />
+                      <div className="flex items-center gap-2 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+                        <Mail className="h-[14px] w-[14px] text-text-3" />
                         <span className="font-mono text-[12px] text-text-2">
-                          {t("invoice.coverEmail")}: {invoiceData.cover_email.to}
+                          {t("invoice.coverEmail")}:{" "}
+                          {invoiceData.cover_email.to}
                         </span>
                       </div>
                     )}
                     {!invoiceData.cover_email?.to && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
-                        <AlertTriangle className="w-[14px] h-[14px] text-text-3" />
+                      <div className="flex items-center gap-2 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+                        <AlertTriangle className="h-[14px] w-[14px] text-text-3" />
                         <span className="font-mono text-[12px] text-text-3">
                           {t("invoice.noEmail")}
                         </span>
@@ -2157,46 +2382,55 @@ export const ActionCard = memo(function ActionCard({
                 {isInvoiceEmail && invoiceEmailData && isPending && (
                   <div className="space-y-3">
                     {/* Recipient + invoice context */}
-                    <div className="flex items-center gap-6 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-6">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("invoiceEmail.recipient")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
-                          {invoiceEmailData.client_name} &lt;{invoiceEmailData.to_email}&gt;
+                          {invoiceEmailData.client_name} &lt;
+                          {invoiceEmailData.to_email}&gt;
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("invoiceEmail.invoice")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
-                          #{invoiceEmailData.invoice_number} — {invoiceEmailData.invoice_total.toLocaleString(locale, { style: "currency", currency: "USD" })}
+                          #{invoiceEmailData.invoice_number} —{" "}
+                          {invoiceEmailData.invoice_total.toLocaleString(
+                            locale,
+                            { style: "currency", currency: "USD" }
+                          )}
                         </span>
                       </div>
                     </div>
 
                     {/* Subject */}
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block">
+                      <span className="block font-mono text-[11px] uppercase text-text-3">
                         [{t("invoiceEmail.subject")}]
                       </span>
-                      <span className="font-mono text-[12px] text-text-2 mt-0.5 block">
+                      <span className="mt-0.5 block font-mono text-[12px] text-text-2">
                         {invoiceEmailData.subject}
                       </span>
                     </div>
 
                     {/* Email draft */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("invoiceEmail.preview")}]
                         </span>
                         <button
-                          onClick={() => setEditingInvoiceEmail(!editingInvoiceEmail)}
-                          className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                          onClick={() =>
+                            setEditingInvoiceEmail(!editingInvoiceEmail)
+                          }
+                          className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                         >
-                          {editingInvoiceEmail ? t("action.collapse") : t("invoiceEmail.edit")}
+                          {editingInvoiceEmail
+                            ? t("action.collapse")
+                            : t("invoiceEmail.edit")}
                         </button>
                       </div>
                       {editingInvoiceEmail ? (
@@ -2204,19 +2438,20 @@ export const ActionCard = memo(function ActionCard({
                           value={invoiceEmailDraft}
                           onChange={(e) => setInvoiceEmailDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="min-h-[120px] w-full resize-y rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 font-mono text-[12px] text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                         />
                       ) : (
-                        <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
-                          {invoiceEmailDraft.slice(0, 200)}{invoiceEmailDraft.length > 200 ? "..." : ""}
+                        <p className="mt-0.5 line-clamp-6 whitespace-pre-wrap font-mono text-[12px] text-text-2">
+                          {invoiceEmailDraft.slice(0, 200)}
+                          {invoiceEmailDraft.length > 200 ? "..." : ""}
                         </p>
                       )}
                     </div>
 
                     {/* Attachment indicator */}
                     {invoiceEmailData.attachments.length > 0 && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
-                        <Paperclip className="w-[14px] h-[14px] text-text-3" />
+                      <div className="flex items-center gap-2 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+                        <Paperclip className="h-[14px] w-[14px] text-text-3" />
                         <span className="font-mono text-[12px] text-text-2">
                           {t("invoiceEmail.attachment")}
                         </span>
@@ -2229,17 +2464,18 @@ export const ActionCard = memo(function ActionCard({
                 {isPaymentReminder && reminderData && isPending && (
                   <div className="space-y-3">
                     {/* Client + Invoice context */}
-                    <div className="flex items-center gap-6 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-6">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("reminder.client")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
-                          {reminderData.client_name} &lt;{reminderData.client_email}&gt;
+                          {reminderData.client_name} &lt;
+                          {reminderData.client_email}&gt;
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("reminder.invoiceNumber")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
@@ -2247,18 +2483,22 @@ export const ActionCard = memo(function ActionCard({
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("reminder.balanceDue")}]
                         </span>
-                        <span className="font-mono text-[14px] text-text font-medium">
-                          {fmtCurrency(reminderData.balance_due, locale)}
+                        <span className="font-mono text-[14px] font-medium text-text">
+                          {fmtCurrency(
+                            reminderData.balance_due,
+                            locale,
+                            reminderData.currency_code
+                          )}
                         </span>
                       </div>
                     </div>
 
                     {/* Escalation level bar */}
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block mb-1.5">
+                      <span className="mb-1.5 block font-mono text-[11px] uppercase text-text-3">
                         [{t("reminder.level")}]
                       </span>
                       <div className="flex items-center gap-1">
@@ -2272,29 +2512,36 @@ export const ActionCard = memo(function ActionCard({
                                   ? level >= 4
                                     ? "#93321A"
                                     : level >= 3
-                                    ? "#C4A868"
-                                    : level >= 2
-                                    ? "#C4A868"
-                                    : "rgba(255,255,255,0.2)"
+                                      ? "#C4A868"
+                                      : level >= 2
+                                        ? "#C4A868"
+                                        : "rgba(255,255,255,0.2)"
                                   : "rgba(255,255,255,0.06)",
                             }}
                           />
                         ))}
                       </div>
-                      <span className="font-mono text-[11px] mt-1 block" style={{
-                        color: reminderData.reminder_level >= 4 ? "#93321A"
-                          : reminderData.reminder_level >= 3 ? "#C4A868"
-                          : reminderData.reminder_level >= 2 ? "#C4A868"
-                          : "rgba(255,255,255,0.5)"
-                      }}>
+                      <span
+                        className="mt-1 block font-mono text-[11px]"
+                        style={{
+                          color:
+                            reminderData.reminder_level >= 4
+                              ? "#93321A"
+                              : reminderData.reminder_level >= 3
+                                ? "#C4A868"
+                                : reminderData.reminder_level >= 2
+                                  ? "#C4A868"
+                                  : "rgba(255,255,255,0.5)",
+                        }}
+                      >
                         {t(`reminder.tone.${reminderData.reminder_tone}`)}
                       </span>
                     </div>
 
                     {/* No connection warning */}
                     {!reminderData.connection_id && (
-                      <div className="flex items-start gap-2 px-3 py-2 rounded-chip border-l-[3px] border-l-[#C4A868] bg-[rgba(196,168,104,0.06)]">
-                        <AlertTriangle className="w-[14px] h-[14px] text-[#C4A868] mt-0.5 shrink-0" />
+                      <div className="flex items-start gap-2 rounded-chip border-l-[3px] border-l-[#C4A868] bg-[rgba(196,168,104,0.06)] px-3 py-2">
+                        <AlertTriangle className="mt-0.5 h-[14px] w-[14px] shrink-0 text-[#C4A868]" />
                         <span className="font-mono text-[12px] text-[#C4A868]">
                           {t("reminder.noConnection")}
                         </span>
@@ -2303,15 +2550,19 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Email draft — editable */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{t("reminder.emailPreview")}]
                         </span>
                         <button
-                          onClick={() => setEditingReminderDraft(!editingReminderDraft)}
-                          className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                          onClick={() =>
+                            setEditingReminderDraft(!editingReminderDraft)
+                          }
+                          className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                         >
-                          {editingReminderDraft ? t("action.collapse") : t("reminder.editDraft")}
+                          {editingReminderDraft
+                            ? t("action.collapse")
+                            : t("reminder.editDraft")}
                         </button>
                       </div>
                       {editingReminderDraft ? (
@@ -2319,11 +2570,12 @@ export const ActionCard = memo(function ActionCard({
                           value={reminderDraft}
                           onChange={(e) => setReminderDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="min-h-[120px] w-full resize-y rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 font-mono text-[12px] text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                         />
                       ) : (
-                        <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
-                          {reminderDraft.slice(0, 200)}{reminderDraft.length > 200 ? "..." : ""}
+                        <p className="mt-0.5 line-clamp-6 whitespace-pre-wrap font-mono text-[12px] text-text-2">
+                          {reminderDraft.slice(0, 200)}
+                          {reminderDraft.length > 200 ? "..." : ""}
                         </p>
                       )}
                     </div>
@@ -2331,21 +2583,25 @@ export const ActionCard = memo(function ActionCard({
                     {/* Client payment history summary */}
                     {reminderData.payment_summary && (
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block mb-1.5">
+                        <span className="mb-1.5 block font-mono text-[11px] uppercase text-text-3">
                           [{t("reminder.paymentHistory")}]
                         </span>
-                        <div className="flex items-center gap-6 flex-wrap px-3 py-2.5 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]">
+                        <div className="flex flex-wrap items-center gap-6 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
                           <div>
-                            <span className="font-mono text-micro text-text-3 block">
+                            <span className="block font-mono text-micro text-text-3">
                               {t("reminder.onTimeRate")}
                             </span>
                             <span className="font-mono text-[13px] text-text">
-                              {Math.round(reminderData.payment_summary.on_time_rate * 100)}%
+                              {Math.round(
+                                reminderData.payment_summary.on_time_rate * 100
+                              )}
+                              %
                             </span>
                           </div>
-                          {reminderData.payment_summary.avg_days_to_pay != null && (
+                          {reminderData.payment_summary.avg_days_to_pay !=
+                            null && (
                             <div>
-                              <span className="font-mono text-micro text-text-3 block">
+                              <span className="block font-mono text-micro text-text-3">
                                 {t("reminder.avgDays")}
                               </span>
                               <span className="font-mono text-[13px] text-text">
@@ -2354,7 +2610,7 @@ export const ActionCard = memo(function ActionCard({
                             </div>
                           )}
                           <div>
-                            <span className="font-mono text-micro text-text-3 block">
+                            <span className="block font-mono text-micro text-text-3">
                               {t("health.overdueCount")}
                             </span>
                             <span className="font-mono text-[13px] text-[#C4A868]">
@@ -2371,28 +2627,28 @@ export const ActionCard = memo(function ActionCard({
                 {isHealthAlert && healthData && (
                   <div className="space-y-3">
                     {/* Metrics row */}
-                    <div className="flex items-center gap-6 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-6">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("health.lateRate")}]
                         </span>
-                        <span className="font-mono text-[14px] text-[#93321A] font-medium">
+                        <span className="font-mono text-[14px] font-medium text-[#93321A]">
                           {Math.round(healthData.late_rate * 100)}%
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("health.overdueCount")}]
                         </span>
-                        <span className="font-mono text-[14px] text-[#C4A868] font-medium">
+                        <span className="font-mono text-[14px] font-medium text-[#C4A868]">
                           {healthData.overdue_count}
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{t("health.totalOverdue")}]
                         </span>
-                        <span className="font-mono text-[14px] text-text font-medium">
+                        <span className="font-mono text-[14px] font-medium text-text">
                           {fmtCurrency(healthData.total_overdue_amount, locale)}
                         </span>
                       </div>
@@ -2417,26 +2673,32 @@ export const ActionCard = memo(function ActionCard({
                     <div className="grid grid-cols-2 gap-3">
                       {/* Current route */}
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 block mb-2">
+                        <span className="mb-2 block font-mono text-[11px] text-text-3">
                           [{tSched("route.currentRoute")}]
                         </span>
                         <div className="space-y-1">
                           {optimizeData.current_order.map((stop, idx) => (
-                            <div key={stop.task_id} className="flex items-start gap-2">
+                            <div
+                              key={stop.task_id}
+                              className="flex items-start gap-2"
+                            >
                               <div className="flex flex-col items-center">
-                                <div className="w-[20px] h-[20px] rounded-full border border-[rgba(255,255,255,0.12)] flex items-center justify-center shrink-0">
-                                  <span className="font-mono text-micro text-text-3">{idx + 1}</span>
+                                <div className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full border border-[rgba(255,255,255,0.12)]">
+                                  <span className="font-mono text-micro text-text-3">
+                                    {idx + 1}
+                                  </span>
                                 </div>
-                                {idx < optimizeData.current_order.length - 1 && (
-                                  <div className="w-[1px] h-[16px] bg-[rgba(255,255,255,0.08)]" />
+                                {idx <
+                                  optimizeData.current_order.length - 1 && (
+                                  <div className="h-[16px] w-[1px] bg-[rgba(255,255,255,0.08)]" />
                                 )}
                               </div>
                               <div className="min-w-0 pt-[2px]">
-                                <span className="font-mohave text-[12px] text-text-2 block truncate">
+                                <span className="block truncate font-mohave text-[12px] text-text-2">
                                   {stop.task_title}
                                 </span>
                                 {stop.address && (
-                                  <span className="font-mono text-micro text-text-3 block truncate">
+                                  <span className="block truncate font-mono text-micro text-text-3">
                                     {stop.address}
                                   </span>
                                 )}
@@ -2444,33 +2706,39 @@ export const ActionCard = memo(function ActionCard({
                             </div>
                           ))}
                         </div>
-                        <span className="font-mono text-micro text-text-3 mt-2 block">
+                        <span className="mt-2 block font-mono text-micro text-text-3">
                           {optimizeData.current_distance_km} km
                         </span>
                       </div>
 
                       {/* Suggested route */}
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 block mb-2">
+                        <span className="mb-2 block font-mono text-[11px] text-text-3">
                           [{tSched("route.suggestedRoute")}]
                         </span>
                         <div className="space-y-1">
                           {optimizeData.suggested_order.map((stop, idx) => (
-                            <div key={stop.task_id} className="flex items-start gap-2">
+                            <div
+                              key={stop.task_id}
+                              className="flex items-start gap-2"
+                            >
                               <div className="flex flex-col items-center">
-                                <div className="w-[20px] h-[20px] rounded-full border border-[rgba(255,255,255,0.24)] flex items-center justify-center shrink-0">
-                                  <span className="font-mono text-micro text-text">{idx + 1}</span>
+                                <div className="flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full border border-[rgba(255,255,255,0.24)]">
+                                  <span className="font-mono text-micro text-text">
+                                    {idx + 1}
+                                  </span>
                                 </div>
-                                {idx < optimizeData.suggested_order.length - 1 && (
-                                  <div className="w-[1px] h-[16px] bg-[rgba(255,255,255,0.16)]" />
+                                {idx <
+                                  optimizeData.suggested_order.length - 1 && (
+                                  <div className="h-[16px] w-[1px] bg-[rgba(255,255,255,0.16)]" />
                                 )}
                               </div>
                               <div className="min-w-0 pt-[2px]">
-                                <span className="font-mohave text-[12px] text-text block truncate">
+                                <span className="block truncate font-mohave text-[12px] text-text">
                                   {stop.task_title}
                                 </span>
                                 {stop.address && (
-                                  <span className="font-mono text-micro text-text-3 block truncate">
+                                  <span className="block truncate font-mono text-micro text-text-3">
                                     {stop.address}
                                   </span>
                                 )}
@@ -2478,8 +2746,9 @@ export const ActionCard = memo(function ActionCard({
                             </div>
                           ))}
                         </div>
-                        <span className="font-mono text-micro text-text-2 mt-2 block">
-                          {optimizeData.suggested_distance_km} km (−{optimizeData.distance_saved_km} km)
+                        <span className="mt-2 block font-mono text-micro text-text-2">
+                          {optimizeData.suggested_distance_km} km (−
+                          {optimizeData.distance_saved_km} km)
                         </span>
                       </div>
                     </div>
@@ -2491,59 +2760,82 @@ export const ActionCard = memo(function ActionCard({
                 {isRescheduleTasks && rescheduleData && (
                   <div className="space-y-3">
                     {/* Conflict visualization */}
-                    {rescheduleData.resolution_type === "conflict" && rescheduleData.conflict_details && (
-                      <div className="space-y-2">
-                        <span className="font-mono text-[11px] text-text-3">
-                          [{tSched("conflict.overlap")}]
-                        </span>
-                        <div className="space-y-1">
-                          {rescheduleData.conflict_details.map((task) => (
-                            <div
-                              key={task.task_id}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
-                            >
+                    {rescheduleData.resolution_type === "conflict" &&
+                      rescheduleData.conflict_details && (
+                        <div className="space-y-2">
+                          <span className="font-mono text-[11px] text-text-3">
+                            [{tSched("conflict.overlap")}]
+                          </span>
+                          <div className="space-y-1">
+                            {rescheduleData.conflict_details.map((task) => (
                               <div
-                                className="w-[3px] h-[28px] rounded-full"
-                                style={{ backgroundColor: task.task_id === rescheduleData.conflicting_task_ids?.[0] ? "#C4A868" : "#93321A" }}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <span className="font-mohave text-[12px] text-text block truncate">
-                                  {task.task_title}
-                                </span>
-                                <span className="font-mono text-micro text-text-3">
-                                  {task.project_name} · {formatDateRange(task.start_date, task.end_date, locale)}
-                                </span>
+                                key={task.task_id}
+                                className="flex items-center gap-2 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-2 py-1.5"
+                              >
+                                <div
+                                  className="h-[28px] w-[3px] rounded-full"
+                                  style={{
+                                    backgroundColor:
+                                      task.task_id ===
+                                      rescheduleData.conflicting_task_ids?.[0]
+                                        ? "#C4A868"
+                                        : "#93321A",
+                                  }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <span className="block truncate font-mohave text-[12px] text-text">
+                                    {task.task_title}
+                                  </span>
+                                  <span className="font-mono text-micro text-text-3">
+                                    {task.project_name} ·{" "}
+                                    {formatDateRange(
+                                      task.start_date,
+                                      task.end_date,
+                                      locale
+                                    )}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                        {rescheduleData.suggested_resolution && (
-                          <div className="mt-2 px-2 py-2 rounded-chip border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]">
-                            <span className="font-mono text-micro text-text-3 block mb-1">
-                              [{tSched("conflict.resolution")}]
-                            </span>
-                            <span className="font-mono text-[12px] text-text-2">
-                              {tSched("conflict.reschedule")}: &quot;{rescheduleData.suggested_resolution.task_title}&quot;{" "}
-                              →{" "}
-                              {rescheduleStartDate
-                                ? formatDateRange(new Date(rescheduleStartDate).toISOString(), null, locale)
-                                : formatDateRange(
-                                    rescheduleData.suggested_resolution.new_start_date,
-                                    rescheduleData.suggested_resolution.new_end_date,
-                                    locale
-                                  ) ?? t("task.unscheduled")}
-                            </span>
+                            ))}
                           </div>
-                        )}
-                      </div>
-                    )}
+                          {rescheduleData.suggested_resolution && (
+                            <div className="mt-2 rounded-chip border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] px-2 py-2">
+                              <span className="mb-1 block font-mono text-micro text-text-3">
+                                [{tSched("conflict.resolution")}]
+                              </span>
+                              <span className="font-mono text-[12px] text-text-2">
+                                {tSched("conflict.reschedule")}: &quot;
+                                {rescheduleData.suggested_resolution.task_title}
+                                &quot; →{" "}
+                                {rescheduleStartDate
+                                  ? formatDateRange(
+                                      new Date(
+                                        rescheduleStartDate
+                                      ).toISOString(),
+                                      null,
+                                      locale
+                                    )
+                                  : (formatDateRange(
+                                      rescheduleData.suggested_resolution
+                                        .new_start_date,
+                                      rescheduleData.suggested_resolution
+                                        .new_end_date,
+                                      locale
+                                    ) ?? t("task.unscheduled"))}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                     {/* Unassigned task assignment */}
                     {rescheduleData.resolution_type === "assign" && (
                       <div className="space-y-2">
                         <div>
-                          <span className="font-mono text-[11px] text-text-3">[{tSched("unassigned.task")}]</span>
-                          <p className="font-mohave text-[13px] text-text mt-0.5">
+                          <span className="font-mono text-[11px] text-text-3">
+                            [{tSched("unassigned.task")}]
+                          </span>
+                          <p className="mt-0.5 font-mohave text-[13px] text-text">
                             {rescheduleData.task_title}
                           </p>
                           {rescheduleData.project_name && (
@@ -2554,21 +2846,25 @@ export const ActionCard = memo(function ActionCard({
                         </div>
                         {/* Assignee with change option */}
                         <div>
-                          <div className="flex items-center justify-between mb-1.5">
+                          <div className="mb-1.5 flex items-center justify-between">
                             <span className="font-mono text-[11px] text-text-3">
                               [{tSched("unassigned.suggestedAssignee")}]
                             </span>
-                            {isPending && teamMembers && teamMembers.length > 0 && (
-                              <button
-                                onClick={() => setEditingAssignment(!editingAssignment)}
-                                className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
-                              >
-                                {t("task.changeAssignment")}
-                              </button>
-                            )}
+                            {isPending &&
+                              teamMembers &&
+                              teamMembers.length > 0 && (
+                                <button
+                                  onClick={() =>
+                                    setEditingAssignment(!editingAssignment)
+                                  }
+                                  className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
+                                >
+                                  {t("task.changeAssignment")}
+                                </button>
+                              )}
                           </div>
                           {editingAssignment && teamMembers ? (
-                            <div className="space-y-1 max-h-[200px] overflow-y-auto scrollbar-hide rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
+                            <div className="scrollbar-hide max-h-[200px] space-y-1 overflow-y-auto rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-1">
                               {teamMembers.map((member) => (
                                 <button
                                   key={member.id}
@@ -2578,30 +2874,32 @@ export const ActionCard = memo(function ActionCard({
                                     setEditingAssignment(false);
                                   }}
                                   className={cn(
-                                    "w-full text-left px-2.5 py-2 rounded flex items-center justify-between gap-2 transition-colors min-h-[36px]",
+                                    "flex min-h-[36px] w-full items-center justify-between gap-2 rounded px-2.5 py-2 text-left transition-colors",
                                     member.id === rescheduleMemberId
                                       ? "bg-[rgba(255,255,255,0.06)] text-text"
-                                      : "hover:bg-[rgba(255,255,255,0.03)] text-text"
+                                      : "text-text hover:bg-[rgba(255,255,255,0.03)]"
                                   )}
                                 >
                                   <div className="min-w-0">
-                                    <span className="font-mohave text-body-sm block truncate">{member.name}</span>
-                                    <span className="font-mono text-micro text-text-3 block">
+                                    <span className="block truncate font-mohave text-body-sm">
+                                      {member.name}
+                                    </span>
+                                    <span className="block font-mono text-micro text-text-3">
                                       {member.scheduledTaskCount != null
                                         ? `${member.scheduledTaskCount} ${t("task.tasks")}`
                                         : member.role}
                                     </span>
                                   </div>
                                   {member.id === rescheduleMemberId && (
-                                    <Check className="w-[14px] h-[14px] text-[#6F94B0] shrink-0" />
+                                    <Check className="h-[14px] w-[14px] shrink-0 text-[#6F94B0]" />
                                   )}
                                 </button>
                               ))}
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <div className="w-[24px] h-[24px] rounded-full bg-[rgba(255,255,255,0.06)] flex items-center justify-center">
-                                <User className="w-[12px] h-[12px] text-text-3" />
+                              <div className="flex h-[24px] w-[24px] items-center justify-center rounded-full bg-[rgba(255,255,255,0.06)]">
+                                <User className="h-[12px] w-[12px] text-text-3" />
                               </div>
                               <span className="font-mohave text-body-sm text-text">
                                 {rescheduleMemberName ?? t("task.unassigned")}
@@ -2611,8 +2909,10 @@ export const ActionCard = memo(function ActionCard({
                         </div>
                         {rescheduleData.assignment_reason && (
                           <div>
-                            <span className="font-mono text-[11px] text-text-3">[{tSched("unassigned.reason")}]</span>
-                            <p className="font-mono text-[12px] text-text-2 mt-0.5">
+                            <span className="font-mono text-[11px] text-text-3">
+                              [{tSched("unassigned.reason")}]
+                            </span>
+                            <p className="mt-0.5 font-mono text-[12px] text-text-2">
                               {rescheduleData.assignment_reason}
                             </p>
                           </div>
@@ -2624,55 +2924,74 @@ export const ActionCard = memo(function ActionCard({
                     {rescheduleData.resolution_type === "cascade" && (
                       <div className="space-y-2">
                         <div>
-                          <span className="font-mono text-[11px] text-text-3">[{tSched("cascade.trigger")}]</span>
-                          <p className="font-mono text-[12px] text-text-2 mt-0.5">
-                            {rescheduleData.cascade_change_type} → &quot;{rescheduleData.cascade_source_task_title}&quot;
+                          <span className="font-mono text-[11px] text-text-3">
+                            [{tSched("cascade.trigger")}]
+                          </span>
+                          <p className="mt-0.5 font-mono text-[12px] text-text-2">
+                            {rescheduleData.cascade_change_type} → &quot;
+                            {rescheduleData.cascade_source_task_title}&quot;
                           </p>
                         </div>
-                        {rescheduleData.affected_tasks && rescheduleData.affected_tasks.length > 0 && (
-                          <div>
-                            <span className="font-mono text-[11px] text-text-3">[{tSched("cascade.affectedTasks")}]</span>
-                            <div className="space-y-1 mt-1">
-                              {rescheduleData.affected_tasks.map((task) => (
-                                <div
-                                  key={task.task_id}
-                                  className="flex items-center justify-between px-2 py-1.5 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]"
-                                >
-                                  <div className="min-w-0">
-                                    <span className="font-mohave text-[12px] text-text block truncate">
-                                      {task.task_title}
-                                    </span>
-                                    <span className="font-mono text-micro text-text-3">
-                                      {task.project_name}
-                                    </span>
-                                  </div>
-                                  <div className="text-right shrink-0">
-                                    {task.current_start_date && (
-                                      <span className="font-mono text-micro text-text-3 block">
-                                        {formatDateRange(task.current_start_date, task.current_end_date, locale)}
+                        {rescheduleData.affected_tasks &&
+                          rescheduleData.affected_tasks.length > 0 && (
+                            <div>
+                              <span className="font-mono text-[11px] text-text-3">
+                                [{tSched("cascade.affectedTasks")}]
+                              </span>
+                              <div className="mt-1 space-y-1">
+                                {rescheduleData.affected_tasks.map((task) => (
+                                  <div
+                                    key={task.task_id}
+                                    className="flex items-center justify-between rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] px-2 py-1.5"
+                                  >
+                                    <div className="min-w-0">
+                                      <span className="block truncate font-mohave text-[12px] text-text">
+                                        {task.task_title}
                                       </span>
-                                    )}
-                                    {task.proposed_start_date && (
-                                      <span className="font-mono text-micro text-text-2 block">
-                                        → {formatDateRange(task.proposed_start_date, task.proposed_end_date, locale)}
+                                      <span className="font-mono text-micro text-text-3">
+                                        {task.project_name}
                                       </span>
-                                    )}
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                      {task.current_start_date && (
+                                        <span className="block font-mono text-micro text-text-3">
+                                          {formatDateRange(
+                                            task.current_start_date,
+                                            task.current_end_date,
+                                            locale
+                                          )}
+                                        </span>
+                                      )}
+                                      {task.proposed_start_date && (
+                                        <span className="block font-mono text-micro text-text-2">
+                                          →{" "}
+                                          {formatDateRange(
+                                            task.proposed_start_date,
+                                            task.proposed_end_date,
+                                            locale
+                                          )}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                     )}
 
                     {/* Weather warning */}
                     {rescheduleData.weather_risk && (
-                      <div className="px-2 py-2 rounded-chip border border-[rgba(196,168,104,0.2)] bg-[rgba(196,168,104,0.05)]">
+                      <div className="rounded-chip border border-[rgba(196,168,104,0.2)] bg-[rgba(196,168,104,0.05)] px-2 py-2">
                         <div className="flex items-center gap-2">
-                          <CloudRain className="w-[14px] h-[14px] text-[#C4A868] shrink-0" />
+                          <CloudRain className="h-[14px] w-[14px] shrink-0 text-[#C4A868]" />
                           <span className="font-mono text-[11px] text-[#C4A868]">
-                            [{tSched(`weather.${rescheduleData.weather_risk.risk_level}`)} {tSched("weather.riskLevel").toLowerCase()}]
+                            [
+                            {tSched(
+                              `weather.${rescheduleData.weather_risk.risk_level}`
+                            )}{" "}
+                            {tSched("weather.riskLevel").toLowerCase()}]
                           </span>
                         </div>
                       </div>
@@ -2683,17 +3002,18 @@ export const ActionCard = memo(function ActionCard({
                 {/* ── Appointment confirmation expanded details ── */}
                 {isAppointmentConfirm && appointmentData && isPending && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-6 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-6">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.client")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
-                          {appointmentData.client_name} &lt;{appointmentData.client_email}&gt;
+                          {appointmentData.client_name} &lt;
+                          {appointmentData.client_email}&gt;
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.project")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
@@ -2701,7 +3021,7 @@ export const ActionCard = memo(function ActionCard({
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.scheduled")}]
                         </span>
                         <span className="font-mono text-[13px] text-text">
@@ -2716,16 +3036,16 @@ export const ActionCard = memo(function ActionCard({
 
                     {appointmentData.crew_names.length > 0 && (
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                        <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.crew")}]
                         </span>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           {appointmentData.crew_names.map((name) => (
                             <div
                               key={name}
-                              className="flex items-center gap-1 px-2 py-1 rounded-chip bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
+                              className="flex items-center gap-1 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-2 py-1"
                             >
-                              <User className="w-[12px] h-[12px] text-text-3" />
+                              <User className="h-[12px] w-[12px] text-text-3" />
                               <span className="font-mohave text-[12px] text-text">
                                 {name}
                               </span>
@@ -2737,7 +3057,7 @@ export const ActionCard = memo(function ActionCard({
 
                     {appointmentData.project_address && (
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.address")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
@@ -2748,7 +3068,7 @@ export const ActionCard = memo(function ActionCard({
 
                     <div className="flex items-center gap-6">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.duration")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
@@ -2759,28 +3079,28 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Editable subject */}
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                      <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                         [{tComms("card.subject")}]
                       </span>
                       <input
                         type="text"
                         value={appointmentSubject}
                         onChange={(e) => setAppointmentSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                        className="min-h-[36px] w-full rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2 font-mohave text-body-sm text-text outline-none focus:border-[rgba(255,255,255,0.20)]"
                       />
                     </div>
 
                     {/* Editable draft */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.emailPreview")}]
                         </span>
                         <button
                           onClick={() =>
                             setEditingAppointmentDraft(!editingAppointmentDraft)
                           }
-                          className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                          className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                         >
                           {editingAppointmentDraft
                             ? tComms("action.collapse")
@@ -2792,10 +3112,10 @@ export const ActionCard = memo(function ActionCard({
                           value={appointmentDraft}
                           onChange={(e) => setAppointmentDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="min-h-[120px] w-full resize-y rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 font-mono text-[12px] text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                         />
                       ) : (
-                        <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
+                        <p className="mt-0.5 line-clamp-6 whitespace-pre-wrap font-mono text-[12px] text-text-2">
                           {appointmentDraft.slice(0, 200)}
                           {appointmentDraft.length > 200 ? "..." : ""}
                         </p>
@@ -2811,14 +3131,15 @@ export const ActionCard = memo(function ActionCard({
                       "space-y-3",
                       dayBeforeData.weather_risk &&
                         dayBeforeData.weather_risk.risk_level !== "low" &&
-                        "px-3 py-3 rounded-chip border border-[rgba(196,168,104,0.25)] bg-[rgba(196,168,104,0.04)]"
+                        "rounded-chip border border-[rgba(196,168,104,0.25)] bg-[rgba(196,168,104,0.04)] px-3 py-3"
                     )}
                   >
                     {/* TOMORROW badge */}
                     <div className="flex items-center gap-2">
-                      <BellPlus className="w-[14px] h-[14px] text-[#6F94B0]" />
-                      <span className="font-mohave text-[14px] text-[#6F94B0] uppercase tracking-wider">
-                        {tComms("label.tomorrow")} — {formatDateTime(
+                      <BellPlus className="h-[14px] w-[14px] text-[#6F94B0]" />
+                      <span className="font-mohave text-[14px] uppercase tracking-wider text-[#6F94B0]">
+                        {tComms("label.tomorrow")} —{" "}
+                        {formatDateTime(
                           dayBeforeData.scheduled_date,
                           dayBeforeData.scheduled_time,
                           locale
@@ -2826,17 +3147,18 @@ export const ActionCard = memo(function ActionCard({
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-6 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-6">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.client")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
-                          {dayBeforeData.client_name} &lt;{dayBeforeData.client_email}&gt;
+                          {dayBeforeData.client_name} &lt;
+                          {dayBeforeData.client_email}&gt;
                         </span>
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.project")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
@@ -2847,16 +3169,16 @@ export const ActionCard = memo(function ActionCard({
 
                     {dayBeforeData.crew_names.length > 0 && (
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                        <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.crewArriving")}]
                         </span>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           {dayBeforeData.crew_names.map((name) => (
                             <div
                               key={name}
-                              className="flex items-center gap-1 px-2 py-1 rounded-chip bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
+                              className="flex items-center gap-1 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)] px-2 py-1"
                             >
-                              <User className="w-[12px] h-[12px] text-text-3" />
+                              <User className="h-[12px] w-[12px] text-text-3" />
                               <span className="font-mohave text-[12px] text-text">
                                 {name}
                               </span>
@@ -2868,10 +3190,10 @@ export const ActionCard = memo(function ActionCard({
 
                     {dayBeforeData.weather_risk &&
                       dayBeforeData.weather_risk.risk_level !== "low" && (
-                        <div className="flex items-start gap-2 px-3 py-2 rounded-chip bg-[rgba(196,168,104,0.06)] border border-[rgba(196,168,104,0.20)]">
-                          <CloudRain className="w-[14px] h-[14px] text-[#C4A868] mt-0.5 shrink-0" />
+                        <div className="flex items-start gap-2 rounded-chip border border-[rgba(196,168,104,0.20)] bg-[rgba(196,168,104,0.06)] px-3 py-2">
+                          <CloudRain className="mt-0.5 h-[14px] w-[14px] shrink-0 text-[#C4A868]" />
                           <div>
-                            <span className="font-mono text-[11px] text-[#C4A868] uppercase block">
+                            <span className="block font-mono text-[11px] uppercase text-[#C4A868]">
                               [{tComms("weather.warning")}]
                             </span>
                             <span className="font-mono text-[12px] text-[#C4A868]">
@@ -2892,28 +3214,28 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Editable subject */}
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                      <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                         [{tComms("card.subject")}]
                       </span>
                       <input
                         type="text"
                         value={dayBeforeSubject}
                         onChange={(e) => setDayBeforeSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                        className="min-h-[36px] w-full rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2 font-mohave text-body-sm text-text outline-none focus:border-[rgba(255,255,255,0.20)]"
                       />
                     </div>
 
                     {/* Editable draft */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.emailPreview")}]
                         </span>
                         <button
                           onClick={() =>
                             setEditingDayBeforeDraft(!editingDayBeforeDraft)
                           }
-                          className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                          className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                         >
                           {editingDayBeforeDraft
                             ? tComms("action.collapse")
@@ -2925,10 +3247,10 @@ export const ActionCard = memo(function ActionCard({
                           value={dayBeforeDraft}
                           onChange={(e) => setDayBeforeDraft(e.target.value)}
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="min-h-[120px] w-full resize-y rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 font-mono text-[12px] text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                         />
                       ) : (
-                        <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
+                        <p className="mt-0.5 line-clamp-6 whitespace-pre-wrap font-mono text-[12px] text-text-2">
                           {dayBeforeDraft.slice(0, 200)}
                           {dayBeforeDraft.length > 200 ? "..." : ""}
                         </p>
@@ -2942,20 +3264,21 @@ export const ActionCard = memo(function ActionCard({
                   <div className="space-y-3">
                     {/* Incoming client email excerpt */}
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                      <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                         [{tComms("card.incomingMessage")}]
                       </span>
-                      <blockquote className="font-mono text-[12px] text-text-2 italic pl-3 border-l-[2px] border-l-[rgba(255,255,255,0.12)] whitespace-pre-wrap line-clamp-6">
-                        &quot;{rescheduleRequestData.incoming_message_excerpt}&quot;
+                      <blockquote className="line-clamp-6 whitespace-pre-wrap border-l-[2px] border-l-[rgba(255,255,255,0.12)] pl-3 font-mono text-[12px] italic text-text-2">
+                        &quot;{rescheduleRequestData.incoming_message_excerpt}
+                        &quot;
                       </blockquote>
                     </div>
 
                     {/* Detected task + date change */}
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                      <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                         [{tComms("card.detectedTask")}]
                       </span>
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mohave text-[13px] text-text">
                           {rescheduleRequestData.task_title}
                         </span>
@@ -2966,7 +3289,7 @@ export const ActionCard = memo(function ActionCard({
                             locale
                           )}
                         </span>
-                        <ArrowRight className="w-[12px] h-[12px] text-text-3" />
+                        <ArrowRight className="h-[12px] w-[12px] text-text-3" />
                         <span className="font-mono text-[11px] text-[#6F94B0]">
                           {rescheduleRequestData.requested_date
                             ? formatDateTime(
@@ -2978,7 +3301,7 @@ export const ActionCard = memo(function ActionCard({
                         </span>
                       </div>
                       {rescheduleRequestData.requested_reason && (
-                        <p className="font-mono text-[11px] text-text-3 mt-1">
+                        <p className="mt-1 font-mono text-[11px] text-text-3">
                           {tComms("card.reasonGiven")}:{" "}
                           {rescheduleRequestData.requested_reason}
                         </p>
@@ -2987,7 +3310,7 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Alternative selection — radio buttons */}
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block mb-1.5">
+                      <span className="mb-1.5 block font-mono text-[11px] uppercase text-text-3">
                         [{tComms("card.chooseAlternative")}]
                       </span>
                       <div className="space-y-1">
@@ -2999,38 +3322,38 @@ export const ActionCard = memo(function ActionCard({
                                 key={idx}
                                 onClick={() => setSelectedAlternativeIndex(idx)}
                                 className={cn(
-                                  "w-full text-left px-3 py-2 rounded flex items-center gap-3 transition-colors min-h-[36px]",
+                                  "flex min-h-[36px] w-full items-center gap-3 rounded px-3 py-2 text-left transition-colors",
                                   isSelected
-                                    ? "bg-[rgba(111, 148, 176,0.12)] border border-[rgba(111, 148, 176,0.5)]"
-                                    : "bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)]"
+                                    ? "bg-[rgba(111, 148, 176,0.12)] border-[rgba(111, 148, 176,0.5)] border"
+                                    : "border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]"
                                 )}
                               >
                                 {/* Radio button */}
                                 <div
                                   className={cn(
-                                    "w-[16px] h-[16px] rounded-full border-2 shrink-0 flex items-center justify-center",
+                                    "flex h-[16px] w-[16px] shrink-0 items-center justify-center rounded-full border-2",
                                     isSelected
                                       ? "border-[#6F94B0]"
                                       : "border-[rgba(255,255,255,0.2)]"
                                   )}
                                 >
                                   {isSelected && (
-                                    <div className="w-[8px] h-[8px] rounded-full bg-text-2" />
+                                    <div className="h-[8px] w-[8px] rounded-full bg-text-2" />
                                   )}
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
-                                    <CalendarDays className="w-[12px] h-[12px] text-text-3" />
+                                    <CalendarDays className="h-[12px] w-[12px] text-text-3" />
                                     <span className="font-mono text-[13px] text-text">
                                       {formatDateTime(alt.date, null, locale)}
                                     </span>
                                   </div>
                                   {alt.team_member_name && (
-                                    <span className="font-mono text-[11px] text-text-3 mt-0.5 block">
+                                    <span className="mt-0.5 block font-mono text-[11px] text-text-3">
                                       {alt.team_member_name}
                                     </span>
                                   )}
-                                  <span className="font-mono text-micro text-text-3 mt-0.5 block">
+                                  <span className="mt-0.5 block font-mono text-micro text-text-3">
                                     {interpolate(
                                       tComms(`reasoning.${alt.reasoning.type}`),
                                       alt.reasoning.params
@@ -3046,28 +3369,30 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Editable reply subject */}
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                      <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                         [{tComms("card.subject")}]
                       </span>
                       <input
                         type="text"
                         value={rescheduleRequestSubject}
-                        onChange={(e) => setRescheduleRequestSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                        onChange={(e) =>
+                          setRescheduleRequestSubject(e.target.value)
+                        }
+                        className="min-h-[36px] w-full rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2 font-mohave text-body-sm text-text outline-none focus:border-[rgba(255,255,255,0.20)]"
                       />
                     </div>
 
                     {/* Editable reply draft */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.replyPreview")}]
                         </span>
                         <button
                           onClick={() =>
                             setEditingRescheduleReply(!editingRescheduleReply)
                           }
-                          className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                          className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                         >
                           {editingRescheduleReply
                             ? tComms("action.collapse")
@@ -3081,10 +3406,10 @@ export const ActionCard = memo(function ActionCard({
                             setRescheduleRequestReply(e.target.value)
                           }
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="min-h-[120px] w-full resize-y rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 font-mono text-[12px] text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                         />
                       ) : (
-                        <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
+                        <p className="mt-0.5 line-clamp-6 whitespace-pre-wrap font-mono text-[12px] text-text-2">
                           {rescheduleRequestReply.slice(0, 200)}
                           {rescheduleRequestReply.length > 200 ? "..." : ""}
                         </p>
@@ -3093,7 +3418,7 @@ export const ActionCard = memo(function ActionCard({
 
                     {/* Classification confidence */}
                     <div className="flex items-center gap-1">
-                      <Gauge className="w-[12px] h-[12px] text-text-3" />
+                      <Gauge className="h-[12px] w-[12px] text-text-3" />
                       <span className="font-mono text-[11px] text-text-3">
                         {tComms("card.classificationConfidence")}:{" "}
                         {Math.round(
@@ -3108,9 +3433,9 @@ export const ActionCard = memo(function ActionCard({
                 {/* ── Subcontractor coordination expanded details ── */}
                 {isSubcontractorCoord && subcontractorData && isPending && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-6 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-6">
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block">
+                        <span className="block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.subcontractor")}]
                         </span>
                         <span className="font-mono text-[12px] text-text-2">
@@ -3120,7 +3445,7 @@ export const ActionCard = memo(function ActionCard({
                       </div>
                       {subcontractorData.subcontractor_trade && (
                         <div>
-                          <span className="font-mono text-[11px] text-text-3 uppercase block">
+                          <span className="block font-mono text-[11px] uppercase text-text-3">
                             [{tComms("card.trade")}]
                           </span>
                           <span className="font-mono text-[12px] text-text-2">
@@ -3131,14 +3456,14 @@ export const ActionCard = memo(function ActionCard({
                     </div>
 
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block">
+                      <span className="block font-mono text-[11px] uppercase text-text-3">
                         [{tComms("card.project")}]
                       </span>
                       <span className="font-mono text-[12px] text-text-2">
                         {subcontractorData.project_title}
                       </span>
                       {subcontractorData.project_address && (
-                        <span className="font-mono text-[11px] text-text-3 block mt-0.5">
+                        <span className="mt-0.5 block font-mono text-[11px] text-text-3">
                           {subcontractorData.project_address}
                         </span>
                       )}
@@ -3146,11 +3471,11 @@ export const ActionCard = memo(function ActionCard({
 
                     {subcontractorData.main_crew_schedule && (
                       <div>
-                        <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                        <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.mainCrewSchedule")}]
                         </span>
                         <div className="flex items-center gap-2">
-                          <CalendarDays className="w-[12px] h-[12px] text-text-3" />
+                          <CalendarDays className="h-[12px] w-[12px] text-text-3" />
                           <span className="font-mono text-[12px] text-text-2">
                             {formatDateRange(
                               subcontractorData.main_crew_schedule.start_date,
@@ -3158,8 +3483,8 @@ export const ActionCard = memo(function ActionCard({
                               locale
                             )}
                           </span>
-                          {subcontractorData.main_crew_schedule.crew_names.length >
-                            0 && (
+                          {subcontractorData.main_crew_schedule.crew_names
+                            .length > 0 && (
                             <span className="font-mono text-[11px] text-text-3">
                               —{" "}
                               {subcontractorData.main_crew_schedule.crew_names.join(
@@ -3172,38 +3497,42 @@ export const ActionCard = memo(function ActionCard({
                     )}
 
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block">
+                      <span className="block font-mono text-[11px] uppercase text-text-3">
                         [{tComms("card.scopeOfWork")}]
                       </span>
-                      <p className="font-mono text-[12px] text-text-2 mt-0.5">
+                      <p className="mt-0.5 font-mono text-[12px] text-text-2">
                         {subcontractorData.scope_of_work}
                       </p>
                     </div>
 
                     {/* Editable subject */}
                     <div>
-                      <span className="font-mono text-[11px] text-text-3 uppercase block mb-1">
+                      <span className="mb-1 block font-mono text-[11px] uppercase text-text-3">
                         [{tComms("card.subject")}]
                       </span>
                       <input
                         type="text"
                         value={subcontractorSubject}
-                        onChange={(e) => setSubcontractorSubject(e.target.value)}
-                        className="w-full font-mohave text-body-sm bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2 text-text outline-none focus:border-[rgba(255,255,255,0.20)] min-h-[36px]"
+                        onChange={(e) =>
+                          setSubcontractorSubject(e.target.value)
+                        }
+                        className="min-h-[36px] w-full rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2 font-mohave text-body-sm text-text outline-none focus:border-[rgba(255,255,255,0.20)]"
                       />
                     </div>
 
                     {/* Editable draft */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-mono text-[11px] text-text-3 uppercase">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="font-mono text-[11px] uppercase text-text-3">
                           [{tComms("card.emailPreview")}]
                         </span>
                         <button
                           onClick={() =>
-                            setEditingSubcontractorDraft(!editingSubcontractorDraft)
+                            setEditingSubcontractorDraft(
+                              !editingSubcontractorDraft
+                            )
                           }
-                          className="font-mono text-[11px] text-text-2 hover:text-text transition-colors min-h-[56px] min-w-[56px] flex items-center justify-center -my-4"
+                          className="-my-4 flex min-h-[56px] min-w-[56px] items-center justify-center font-mono text-[11px] text-text-2 transition-colors hover:text-text"
                         >
                           {editingSubcontractorDraft
                             ? tComms("action.collapse")
@@ -3213,12 +3542,14 @@ export const ActionCard = memo(function ActionCard({
                       {editingSubcontractorDraft ? (
                         <textarea
                           value={subcontractorDraft}
-                          onChange={(e) => setSubcontractorDraft(e.target.value)}
+                          onChange={(e) =>
+                            setSubcontractorDraft(e.target.value)
+                          }
                           rows={8}
-                          className="w-full font-mono text-[12px] bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2.5 text-text outline-none focus:border-[rgba(255,255,255,0.20)] resize-y min-h-[120px] [color-scheme:dark]"
+                          className="min-h-[120px] w-full resize-y rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 py-2.5 font-mono text-[12px] text-text outline-none [color-scheme:dark] focus:border-[rgba(255,255,255,0.20)]"
                         />
                       ) : (
-                        <p className="font-mono text-[12px] text-text-2 mt-0.5 whitespace-pre-wrap line-clamp-6">
+                        <p className="mt-0.5 line-clamp-6 whitespace-pre-wrap font-mono text-[12px] text-text-2">
                           {subcontractorDraft.slice(0, 200)}
                           {subcontractorDraft.length > 200 ? "..." : ""}
                         </p>
@@ -3231,7 +3562,7 @@ export const ActionCard = memo(function ActionCard({
                 {/* Fix 26: localized source name via i18n key */}
                 {action.contextSource && (
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] text-text-3 uppercase">
+                    <span className="font-mono text-[11px] uppercase text-text-3">
                       [{t("card.source")}]
                     </span>
                     <span className="font-mono text-[13px] text-text-2">
@@ -3241,23 +3572,39 @@ export const ActionCard = memo(function ActionCard({
                 )}
 
                 {/* Raw details — only for simple action types or non-pending actions */}
-                {!isTaskAction && !isStatusEmail && !isReassign && !isArchive && !isClose && !isCreateInvoice && !isInvoiceEmail && !isPaymentReminder && !isHealthAlert && !isFinancialInsight && !isOptimizeSchedule && !isRescheduleTasks && !isAppointmentConfirm && !isDayBeforeReminder && !isRescheduleRequest && !isSubcontractorCoord && !isPending && (
-                  <div>
-                    <span className="font-mono text-[11px] text-text-3 uppercase">
-                      [{t("card.details")}]
-                    </span>
-                    <pre className="mt-1 p-2 rounded-chip bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] font-mono text-[12px] text-text-2 overflow-x-auto max-h-[200px] overflow-y-auto scrollbar-hide">
-                      {JSON.stringify(action.actionData, null, 2)}
-                    </pre>
-                  </div>
-                )}
+                {!isTaskAction &&
+                  !isStatusEmail &&
+                  !isReassign &&
+                  !isArchive &&
+                  !isClose &&
+                  !isCreateInvoice &&
+                  !isInvoiceEmail &&
+                  !isPaymentReminder &&
+                  !isHealthAlert &&
+                  !isFinancialInsight &&
+                  !isOptimizeSchedule &&
+                  !isRescheduleTasks &&
+                  !isAppointmentConfirm &&
+                  !isDayBeforeReminder &&
+                  !isRescheduleRequest &&
+                  !isSubcontractorCoord &&
+                  !isPending && (
+                    <div>
+                      <span className="font-mono text-[11px] uppercase text-text-3">
+                        [{t("card.details")}]
+                      </span>
+                      <pre className="scrollbar-hide mt-1 max-h-[200px] overflow-x-auto overflow-y-auto rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-2 font-mono text-[12px] text-text-2">
+                        {JSON.stringify(action.actionData, null, 2)}
+                      </pre>
+                    </div>
+                  )}
 
                 {action.reviewNotes && (
                   <div>
-                    <span className="font-mono text-[11px] text-text-3 uppercase">
+                    <span className="font-mono text-[11px] uppercase text-text-3">
                       [{t("card.reviewNotes")}]
                     </span>
-                    <p className="font-mono text-[13px] text-text-2 mt-0.5">
+                    <p className="mt-0.5 font-mono text-[13px] text-text-2">
                       {action.reviewNotes}
                     </p>
                   </div>
@@ -3266,10 +3613,10 @@ export const ActionCard = memo(function ActionCard({
                 {/* Fix 11: [Error] via i18n, not hardcoded */}
                 {action.error && (
                   <div>
-                    <span className="font-mono text-[11px] text-[#93321A] uppercase">
+                    <span className="font-mono text-[11px] uppercase text-[#93321A]">
                       [{t("card.error")}]
                     </span>
-                    <p className="font-mono text-[13px] text-[#93321A] mt-0.5">
+                    <p className="mt-0.5 font-mono text-[13px] text-[#93321A]">
                       {action.error}
                     </p>
                   </div>

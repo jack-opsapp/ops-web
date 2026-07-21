@@ -13,15 +13,17 @@ import { ApprovalQueueService } from "./approval-queue-service";
 import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getCompanyManagerUserIds } from "./company-managers";
-import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
-import { resolveNewEmailConversationConnectionId } from "@/lib/email/email-connection-selection";
+import { renderServerString } from "@/i18n/server-render";
+import { resolveCompanyEmailConversationConnectionId } from "@/lib/email/email-connection-selection";
 import type { Locale } from "@/i18n/types";
 import type {
   ReminderTone,
   SendPaymentReminderActionData,
   ClientPaymentHistory,
   AgentActionPriority,
+  PaymentReminderPreset,
 } from "@/lib/types/approval-queue";
+import { DEFAULT_CLIENT_COMMS_SETTINGS } from "@/lib/types/approval-queue";
 
 // ─── Locale-aware helpers ───────────────────────────────────────────────────
 
@@ -32,15 +34,56 @@ function formatDueDate(dueDate: string, locale: Locale): string {
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }
 
+function localDateISO(now: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+function dateOnlyDistance(from: string, to: string): number {
+  const fromTime = Date.parse(`${from}T00:00:00.000Z`);
+  const toTime = Date.parse(`${to}T00:00:00.000Z`);
+  return Math.floor((toTime - fromTime) / (1000 * 60 * 60 * 24));
+}
+
+function normalizeTimeZone(value: unknown): string {
+  const candidate = typeof value === "string" ? value.trim() : "";
+  if (!candidate) {
+    throw new Error("Missing company timezone for payment reminders");
+  }
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: candidate }).format();
+    return candidate;
+  } catch {
+    throw new Error("Invalid company timezone for payment reminders");
+  }
+}
+
+function normalizeClientEmail(value: unknown): string | null {
+  const email = typeof value === "string" ? value.trim() : "";
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
+}
+
 /** Format a money amount with currency symbol in the company's locale. */
-function formatAmount(amount: number, locale: Locale): string {
+function formatAmount(
+  amount: number,
+  locale: Locale,
+  currencyCode: string
+): string {
   const bcp47 = locale === "es" ? "es-ES" : "en-US";
   return new Intl.NumberFormat(bcp47, {
     style: "currency",
-    currency: "USD",
+    currency: currencyCode,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
@@ -52,69 +95,220 @@ export interface PaymentReminderSettings {
   enabled: boolean;
   reminder_days: [number, number, number, number];
   max_reminders: number;
-  skip_weekends: boolean;
-  excluded_client_ids: string[];
-  late_payment_threshold: number;
+  currency_code: string;
+  locale: Locale;
+  timezone: string;
+  /** Exact persisted reminder object fenced again before provider delivery. */
+  source_snapshot?: Record<string, unknown>;
 }
 
 const DEFAULT_REMINDER_SETTINGS: PaymentReminderSettings = {
-  enabled: true,
-  reminder_days: [7, 14, 30, 45],
-  max_reminders: 4,
-  skip_weekends: false,
-  excluded_client_ids: [],
-  late_payment_threshold: 50,
+  enabled: DEFAULT_CLIENT_COMMS_SETTINGS.payment_reminder.enabled,
+  reminder_days: [
+    ...DEFAULT_CLIENT_COMMS_SETTINGS.payment_reminder.custom_days,
+  ],
+  max_reminders: DEFAULT_CLIENT_COMMS_SETTINGS.payment_reminder.max_reminders,
+  currency_code: "CAD",
+  locale: "en",
+  timezone: "America/Vancouver",
 };
 
+const REMINDER_PRESET_DAYS: Record<
+  Exclude<PaymentReminderPreset, "custom">,
+  [number, number, number, number]
+> = {
+  standard: [7, 14, 30, 45],
+  gentle: [14, 30, 45, 60],
+  aggressive: [3, 7, 14, 30],
+};
+
+const REPEAT_LATE_PAYMENT_THRESHOLD = 0.5;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type PaymentReminderBlockedReason =
+  | "feature_disabled"
+  | "reminders_disabled"
+  | "mailbox_required"
+  | "client_email_required";
+
+export interface QueueProjectReminderResult {
+  eligibleCount: number;
+  queuedCount: number;
+  alreadyQueuedCount: number;
+  failedCount: number;
+  clientEmailBlockedCount?: number;
+  blockedReason?: PaymentReminderBlockedReason;
+}
+
+export class PaymentReminderMailboxRequiredError extends Error {
+  constructor() {
+    super("A company mailbox must be connected before reminders can be queued");
+    this.name = "PaymentReminderMailboxRequiredError";
+  }
+}
+
+export class PaymentReminderGenerationInProgressError extends Error {
+  constructor() {
+    super("Payment reminder generation is already in progress");
+    this.name = "PaymentReminderGenerationInProgressError";
+  }
+}
+
 async function getReminderSettings(
-  companyId: string
+  companyId: string,
+  _options: { throwOnError?: boolean } = {}
 ): Promise<PaymentReminderSettings> {
   const supabase = requireSupabase();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("companies")
-    .select("invoice_settings")
+    .select("client_comms_settings,currency_code,locale,timezone")
     .eq("id", companyId)
     .single();
+  if (error) {
+    throw new Error("Failed to load reminder settings: " + error.message);
+  }
+  if (!data) {
+    throw new Error("Failed to load reminder settings: company not found");
+  }
 
-  if (!data?.invoice_settings) return DEFAULT_REMINDER_SETTINGS;
+  const settings =
+    (data?.client_comms_settings as Record<string, unknown>) ?? {};
+  const rawReminder = settings.payment_reminder;
+  if (
+    rawReminder != null &&
+    (typeof rawReminder !== "object" || Array.isArray(rawReminder))
+  ) {
+    throw new Error("Invalid company payment reminder settings");
+  }
+  const reminder = rawReminder as Record<string, unknown> | undefined;
+  const rawCurrency = String(data?.currency_code ?? "")
+    .trim()
+    .toUpperCase();
+  if (!/^[A-Z]{3}$/.test(rawCurrency)) {
+    throw new Error("Invalid company currency for payment reminders");
+  }
+  const currencyCode = rawCurrency;
+  if (!reminder) {
+    return {
+      ...DEFAULT_REMINDER_SETTINGS,
+      currency_code: currencyCode,
+      locale: data?.locale === "es" ? "es" : "en",
+      timezone: normalizeTimeZone(data?.timezone),
+      source_snapshot: {},
+    };
+  }
 
-  const settings = data.invoice_settings as Record<string, unknown>;
-  const reminder = settings.reminder_settings as
-    | Record<string, unknown>
-    | undefined;
-  if (!reminder) return DEFAULT_REMINDER_SETTINGS;
+  const preset: PaymentReminderPreset = [
+    "standard",
+    "gentle",
+    "aggressive",
+    "custom",
+  ].includes(String(reminder.preset))
+    ? (reminder.preset as PaymentReminderPreset)
+    : DEFAULT_CLIENT_COMMS_SETTINGS.payment_reminder.preset;
+  const rawCustomDays =
+    Array.isArray(reminder.custom_days) &&
+    reminder.custom_days.every(
+      (day) =>
+        typeof day === "number" && Number.isFinite(day) && Number.isInteger(day)
+    )
+      ? reminder.custom_days
+          .map((day) => Math.min(180, Math.max(1, day as number)))
+          .sort((a, b) => a - b)
+      : [];
+  const customDays: [number, number, number, number] =
+    rawCustomDays.length === 4 &&
+    rawCustomDays.every(
+      (day, index) => index === 0 || day > rawCustomDays[index - 1]
+    )
+      ? (rawCustomDays as [number, number, number, number])
+      : [...DEFAULT_CLIENT_COMMS_SETTINGS.payment_reminder.custom_days];
+  const reminderDays =
+    preset === "custom" ? customDays : REMINDER_PRESET_DAYS[preset];
 
   return {
-    enabled: (reminder.enabled as boolean) ?? DEFAULT_REMINDER_SETTINGS.enabled,
-    reminder_days:
-      Array.isArray(reminder.reminder_days) &&
-      reminder.reminder_days.length === 4
-        ? (reminder.reminder_days as [number, number, number, number])
-        : DEFAULT_REMINDER_SETTINGS.reminder_days,
-    max_reminders: Math.min(
-      4,
-      Math.max(
-        1,
-        Number(reminder.max_reminders) ||
-          DEFAULT_REMINDER_SETTINGS.max_reminders
+    enabled:
+      typeof reminder.enabled === "boolean"
+        ? reminder.enabled
+        : DEFAULT_REMINDER_SETTINGS.enabled,
+    reminder_days: [...reminderDays],
+    max_reminders: Math.trunc(
+      Math.min(
+        4,
+        Math.max(
+          1,
+          Number(reminder.max_reminders) ||
+            DEFAULT_REMINDER_SETTINGS.max_reminders
+        )
       )
     ),
-    skip_weekends:
-      (reminder.skip_weekends as boolean) ??
-      DEFAULT_REMINDER_SETTINGS.skip_weekends,
-    excluded_client_ids: Array.isArray(reminder.excluded_client_ids)
-      ? (reminder.excluded_client_ids as string[])
-      : DEFAULT_REMINDER_SETTINGS.excluded_client_ids,
-    late_payment_threshold: Math.min(
-      100,
-      Math.max(
-        0,
-        Number(reminder.late_payment_threshold) ||
-          DEFAULT_REMINDER_SETTINGS.late_payment_threshold
-      )
-    ),
+    currency_code: currencyCode,
+    locale: data?.locale === "es" ? "es" : "en",
+    timezone: normalizeTimeZone(data?.timezone),
+    source_snapshot: { ...reminder },
   };
+}
+
+async function resolveCompanyReminderConnectionId(
+  companyId: string
+): Promise<string | null> {
+  return resolveCompanyEmailConversationConnectionId({
+    supabase: requireSupabase(),
+    companyId,
+  });
+}
+
+async function claimReminderGeneration(
+  companyId: string,
+  sourceId: string
+): Promise<{
+  acquired: boolean;
+  token: string | null;
+  reason: "existing_action" | "generation_in_progress" | null;
+}> {
+  const { data, error } = await requireSupabase().rpc(
+    "claim_payment_reminder_generation",
+    {
+      p_company_id: companyId,
+      p_source_id: sourceId,
+    }
+  );
+  if (error) {
+    throw new Error(`Failed to claim reminder generation: ${error.message}`);
+  }
+  const result = data as Record<string, unknown> | null;
+  return {
+    acquired: result?.acquired === true,
+    token: typeof result?.claim_token === "string" ? result.claim_token : null,
+    reason:
+      result?.reason === "existing_action" ||
+      result?.reason === "generation_in_progress"
+        ? result.reason
+        : null,
+  };
+}
+
+async function releaseReminderGeneration(
+  companyId: string,
+  sourceId: string,
+  claimToken: string
+): Promise<void> {
+  const { error } = await requireSupabase().rpc(
+    "release_payment_reminder_generation",
+    {
+      p_company_id: companyId,
+      p_source_id: sourceId,
+      p_claim_token: claimToken,
+    }
+  );
+  if (error) {
+    console.error(
+      "[payment-reminder] Failed to release generation claim:",
+      error.message
+    );
+  }
 }
 
 // ─── Escalation Schedule ───────────────────────────────────────────────────
@@ -194,11 +388,6 @@ async function getCompanyAdminUserId(
   return managerIds[0] ?? null;
 }
 
-function isWeekend(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6;
-}
-
 // ─── Service ───────────────────────────────────────────────────────────────
 
 export const PaymentReminderService = {
@@ -208,7 +397,14 @@ export const PaymentReminderService = {
    */
   async detectOverdueInvoices(
     companyId: string,
-    settings: PaymentReminderSettings
+    settings: PaymentReminderSettings,
+    options: {
+      includeAlreadyQueued?: boolean;
+      throwOnError?: boolean;
+      projectId?: string;
+      includeBlocked?: boolean;
+      forceFirstTierForOverdue?: boolean;
+    } = {}
   ): Promise<
     Array<{
       invoiceId: string;
@@ -221,29 +417,45 @@ export const PaymentReminderService = {
       balanceDue: number;
       total: number;
       dueDate: string;
+      updatedAt: string;
       daysOverdue: number;
       reminderLevel: number;
       paymentTerms: string | null;
+      existingActionStatus?: "queued" | null;
+      blockedReason?: "client_email_required";
     }>
   > {
     const supabase = requireSupabase();
 
-    const today = new Date();
-    const todayIso = today.toISOString().split("T")[0];
+    const todayIso = localDateISO(new Date(), settings.timezone);
 
     // Query overdue invoices
-    const { data: invoices, error } = await supabase
+    let invoiceQuery = supabase
       .from("invoices")
       .select(
-        "id, invoice_number, client_id, project_id, balance_due, total, due_date, status, payment_terms"
+        "id, invoice_number, client_id, project_id, project_ref, balance_due, total, due_date, status, payment_terms, updated_at"
       )
       .eq("company_id", companyId)
       .in("status", ["sent", "awaiting_payment", "partially_paid", "past_due"])
+      .gt("balance_due", 0)
       .lt("due_date", todayIso)
-      .is("deleted_at", null)
-      .order("due_date", { ascending: true });
+      .is("deleted_at", null);
+    if (options.projectId) {
+      if (!UUID_PATTERN.test(options.projectId)) {
+        throw new Error("Invalid project ID for payment reminder detection");
+      }
+      invoiceQuery = invoiceQuery.or(
+        `project_ref.eq.${options.projectId},and(project_ref.is.null,project_id.eq.${options.projectId})`
+      );
+    }
+    const { data: invoices, error } = await invoiceQuery.order("due_date", {
+      ascending: true,
+    });
 
     if (error) {
+      if (options.throwOnError) {
+        throw new Error("Failed to fetch overdue invoices: " + error.message);
+      }
       console.error(
         "[payment-reminder] Failed to fetch overdue invoices:",
         error.message
@@ -252,28 +464,31 @@ export const PaymentReminderService = {
     }
     if (!invoices || invoices.length === 0) return [];
 
-    // Filter excluded clients
-    const excludedSet = new Set(settings.excluded_client_ids);
-    const filtered = invoices.filter(
-      (inv) => !excludedSet.has(inv.client_id as string)
-    );
-    if (filtered.length === 0) return [];
+    const filtered = invoices;
 
     // Batch fetch client info
     const clientIds = [
       ...new Set(filtered.map((inv) => inv.client_id as string)),
     ];
-    const { data: clients } = await supabase
+    const { data: clients, error: clientsError } = await supabase
       .from("clients")
       .select("id, name, email")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .is("merged_into_client_id", null)
       .in("id", clientIds);
+    if (clientsError && options.throwOnError) {
+      throw new Error(
+        "Failed to fetch reminder clients: " + clientsError.message
+      );
+    }
 
     const clientMap = new Map(
       (clients ?? []).map((c) => [
         c.id as string,
         {
           name: (c.name as string) ?? "Unknown",
-          email: (c.email as string) ?? null,
+          email: normalizeClientEmail(c.email),
         },
       ])
     );
@@ -282,16 +497,26 @@ export const PaymentReminderService = {
     const projectIds = [
       ...new Set(
         filtered
-          .map((inv) => inv.project_id as string | null)
+          .map(
+            (inv) =>
+              (inv.project_ref as string | null) ??
+              (inv.project_id as string | null)
+          )
           .filter((id): id is string => id !== null)
       ),
     ];
     const projectMap = new Map<string, string>();
     if (projectIds.length > 0) {
-      const { data: projects } = await supabase
+      const { data: projects, error: projectsError } = await supabase
         .from("projects")
         .select("id, title")
+        .eq("company_id", companyId)
         .in("id", projectIds);
+      if (projectsError && options.throwOnError) {
+        throw new Error(
+          "Failed to fetch reminder projects: " + projectsError.message
+        );
+      }
 
       for (const p of projects ?? []) {
         projectMap.set(
@@ -302,20 +527,35 @@ export const PaymentReminderService = {
     }
 
     // Check existing reminders sent (from agent_actions)
-    const invoiceIds = filtered.map((inv) => inv.id as string);
-    const { data: existingActions } = await supabase
-      .from("agent_actions")
-      .select("source_id, status")
-      .eq("company_id", companyId)
-      .eq("action_type", "send_payment_reminder")
-      .in("status", ["pending", "approved", "executed", "rejected", "failed"]);
+    const { data: existingActions, error: existingActionsError } =
+      await supabase
+        .from("agent_actions")
+        .select("source_id, status")
+        .eq("company_id", companyId)
+        .eq("action_type", "send_payment_reminder")
+        .in("status", ["pending", "approved", "executed", "rejected"]);
+    if (existingActionsError && options.throwOnError) {
+      throw new Error(
+        "Failed to fetch existing reminders: " + existingActionsError.message
+      );
+    }
 
-    // Build a set of "invoiceId:reminder:level" source_ids already sent/pending
-    const sentReminders = new Set(
-      (existingActions ?? [])
-        .map((a) => a.source_id as string)
-        .filter((sid) => sid !== null)
-    );
+    // A pending/approved proposal is still useful to the manual review flow:
+    // it must report "already queued" rather than falsely claiming that no
+    // reminder is due. Executed/rejected actions remain handled for the current
+    // tier. Failed delivery can be proposed again after its failure is repaired.
+    const queuedReminderSourceIds = new Set<string>();
+    const handledReminderSourceIds = new Set<string>();
+    for (const action of existingActions ?? []) {
+      const sourceId = action.source_id as string | null;
+      if (!sourceId) continue;
+      const status = action.status as string;
+      if (status === "pending" || status === "approved") {
+        queuedReminderSourceIds.add(sourceId);
+      } else {
+        handledReminderSourceIds.add(sourceId);
+      }
+    }
 
     const results: Array<{
       invoiceId: string;
@@ -328,41 +568,56 @@ export const PaymentReminderService = {
       balanceDue: number;
       total: number;
       dueDate: string;
+      updatedAt: string;
       daysOverdue: number;
       reminderLevel: number;
       paymentTerms: string | null;
+      existingActionStatus?: "queued" | null;
+      blockedReason?: "client_email_required";
     }> = [];
 
     for (const inv of filtered) {
       const invoiceId = inv.id as string;
       const clientId = inv.client_id as string;
       const client = clientMap.get(clientId);
-      if (!client?.email) continue; // Can't send reminder without email
 
-      const dueDate = new Date(inv.due_date as string);
-      const daysOverdue = Math.floor(
-        (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      const daysOverdue = dateOnlyDistance(inv.due_date as string, todayIso);
 
-      const level = getReminderLevel(
+      let level = getReminderLevel(
         daysOverdue,
         settings.reminder_days,
         settings.max_reminders
       );
+      if (
+        level === null &&
+        options.forceFirstTierForOverdue &&
+        daysOverdue > 0
+      ) {
+        // A deliberate operator swipe is not an automated schedule. Once an
+        // invoice is actually overdue, queue the first reviewable reminder
+        // instead of exposing an iOS action that can only return "not due."
+        level = 1;
+      }
       if (level === null) continue;
+      if (!client?.email && !options.includeBlocked) continue;
 
-      // Check if this level was already sent
+      // Check whether this tier is already in flight or has been handled.
       const sourceId = `${invoiceId}:reminder:${level}`;
-      if (sentReminders.has(sourceId)) continue;
+      const isQueued = queuedReminderSourceIds.has(sourceId);
+      if (handledReminderSourceIds.has(sourceId) && !isQueued) continue;
+      if (isQueued && !options.includeAlreadyQueued) continue;
 
-      const projectId = (inv.project_id as string) ?? null;
+      const projectId =
+        (inv.project_ref as string | null) ??
+        (inv.project_id as string | null) ??
+        null;
 
       results.push({
         invoiceId,
         invoiceNumber: inv.invoice_number as string,
         clientId,
-        clientName: client.name,
-        clientEmail: client.email,
+        clientName: client?.name ?? "Unknown",
+        clientEmail: client?.email ?? "",
         projectId,
         projectTitle: projectId
           ? (projectMap.get(projectId) ?? "Untitled Project")
@@ -370,9 +625,12 @@ export const PaymentReminderService = {
         balanceDue: Number(inv.balance_due ?? 0),
         total: Number(inv.total ?? 0),
         dueDate: inv.due_date as string,
+        updatedAt: inv.updated_at as string,
         daysOverdue,
         reminderLevel: level,
         paymentTerms: (inv.payment_terms as string) ?? null,
+        existingActionStatus: isQueued ? "queued" : null,
+        blockedReason: client?.email ? undefined : "client_email_required",
       });
     }
 
@@ -396,25 +654,53 @@ export const PaymentReminderService = {
       balanceDue: number;
       total: number;
       dueDate: string;
+      updatedAt: string;
       daysOverdue: number;
       reminderLevel: number;
       paymentTerms: string | null;
     },
-    settings: PaymentReminderSettings
+    settings: PaymentReminderSettings,
+    providedConnectionId?: string
   ): Promise<string | null> {
     const supabase = requireSupabase();
     const tiers = buildTiers(settings.reminder_days);
     const tier = tiers[invoice.reminderLevel - 1];
     if (!tier) return null;
 
-    const locale = await getCompanyLocale(companyId);
+    const emailConnectionId =
+      providedConnectionId ??
+      (await resolveCompanyReminderConnectionId(companyId));
+    if (!emailConnectionId) {
+      throw new PaymentReminderMailboxRequiredError();
+    }
 
-    // Build the draft instruction with full context. The instruction
-    // itself is English because it is consumed by GPT, not the client.
-    const dueDateStr = formatDueDate(invoice.dueDate, locale);
-    const amountStr = formatAmount(invoice.balanceDue, locale);
-    const totalStr = formatAmount(invoice.total, locale);
-    const contextInstruction = `${tier.instruction}
+    const sourceId = `${invoice.invoiceId}:reminder:${invoice.reminderLevel}`;
+    const claim = await claimReminderGeneration(companyId, sourceId);
+    if (!claim.acquired) {
+      if (claim.reason === "existing_action") return null;
+      throw new PaymentReminderGenerationInProgressError();
+    }
+    if (!claim.token) {
+      throw new Error("Payment reminder claim returned no token");
+    }
+
+    try {
+      const locale = settings.locale;
+
+      // Build the draft instruction with full context. The instruction
+      // itself is English because it is consumed by GPT, not the client.
+      const dueDateStr = formatDueDate(invoice.dueDate, locale);
+      const amountStr = formatAmount(
+        invoice.balanceDue,
+        locale,
+        settings.currency_code
+      );
+      const totalStr = formatAmount(
+        invoice.total,
+        locale,
+        settings.currency_code
+      );
+      const contextInstruction = `${tier.instruction}
 
 Key details to include:
 - Invoice number: ${invoice.invoiceNumber}
@@ -425,22 +711,18 @@ Key details to include:
 - Client name: ${invoice.clientName}
 - Write the email in ${locale === "es" ? "Spanish" : "English"} so the client can read it in their preferred language.`;
 
-    // Find email connection once (used for both draft generation and action_data)
-    const emailConnectionId =
-      await resolveNewEmailConversationConnectionId({
-        supabase,
-        companyId,
-        actorUserId: userId,
-      });
+      // Generate the draft via AI
+      let draftText: string;
+      let draftHistoryId: string | null = null;
+      const fallback = await buildFallbackDraft(
+        tier,
+        invoice,
+        locale,
+        settings.currency_code
+      );
+      try {
+        const { AIDraftService } = await import("./ai-draft-service");
 
-    // Generate the draft via AI
-    let draftText: string;
-    let draftHistoryId: string | null = null;
-    const fallback = await buildFallbackDraft(tier, invoice, locale);
-    try {
-      const { AIDraftService } = await import("./ai-draft-service");
-
-      if (emailConnectionId) {
         const result = await AIDraftService.generateDraft({
           companyId,
           userId,
@@ -453,28 +735,24 @@ Key details to include:
 
         draftText = result.available ? result.draft : fallback;
         draftHistoryId = result.draftHistoryId || null;
-      } else {
+      } catch (err) {
+        console.error("[payment-reminder] Draft generation failed:", err);
         draftText = fallback;
       }
-    } catch (err) {
-      console.error("[payment-reminder] Draft generation failed:", err);
-      draftText = fallback;
-    }
 
-    // Subject is rendered server-side in the company's locale so the
-    // email that actually lands in the client's inbox matches the
-    // fallback body language when GPT is unavailable.
-    const subject = await renderServerString(
-      locale,
-      "server-emails",
-      tier.subjectKey,
-      {
-        invoiceNumber: invoice.invoiceNumber,
-        days: invoice.daysOverdue,
-      }
-    );
+      // Subject is rendered server-side in the company's locale so the
+      // email that actually lands in the client's inbox matches the
+      // fallback body language when GPT is unavailable.
+      const subject = await renderServerString(
+        locale,
+        "server-emails",
+        tier.subjectKey,
+        {
+          invoiceNumber: invoice.invoiceNumber,
+          days: invoice.daysOverdue,
+        }
+      );
 
-    if (emailConnectionId) {
       draftHistoryId = await ensureApprovalDraftHistory({
         draftHistoryId,
         companyId,
@@ -485,58 +763,66 @@ Key details to include:
         profileType: "client_followup",
         atProposal: true,
       });
-    }
 
-    // Fetch payment history summary for the approval card
-    let paymentSummary: SendPaymentReminderActionData["payment_summary"];
-    try {
-      const history = await this.getClientPaymentHistory(
-        companyId,
-        invoice.clientId
-      );
-      paymentSummary = {
-        on_time_rate: history.onTimeRate,
-        avg_days_to_pay: history.avgDaysToPayment,
-        total_invoices: history.totalInvoices,
-        currently_overdue: history.currentlyOverdue,
+      // Fetch payment history summary for the approval card
+      let paymentSummary: SendPaymentReminderActionData["payment_summary"];
+      try {
+        const history = await this.getClientPaymentHistory(
+          companyId,
+          invoice.clientId
+        );
+        paymentSummary = {
+          on_time_rate: history.onTimeRate,
+          avg_days_to_pay: history.avgDaysToPayment,
+          total_invoices: history.totalInvoices,
+          currently_overdue: history.currentlyOverdue,
+        };
+      } catch {
+        // Non-critical — card will just not show the history section
+      }
+
+      const actionData: SendPaymentReminderActionData = {
+        invoice_id: invoice.invoiceId,
+        invoice_number: invoice.invoiceNumber,
+        client_id: invoice.clientId,
+        client_email: invoice.clientEmail,
+        client_name: invoice.clientName,
+        project_title: invoice.projectTitle,
+        balance_due: invoice.balanceDue,
+        currency_code: settings.currency_code,
+        company_locale: settings.locale,
+        company_timezone: settings.timezone,
+        payment_reminder_settings_snapshot: settings.source_snapshot ?? {},
+        due_date: invoice.dueDate,
+        invoice_updated_at: invoice.updatedAt,
+        days_overdue: invoice.daysOverdue,
+        reminder_level: invoice.reminderLevel,
+        reminder_tone: tier.tone,
+        subject,
+        draft_text: draftText,
+        original_draft_text: draftText,
+        connection_id: emailConnectionId,
+        draft_history_id: draftHistoryId,
+        payment_summary: paymentSummary,
       };
-    } catch {
-      // Non-critical — card will just not show the history section
+
+      const priority: AgentActionPriority =
+        invoice.daysOverdue > 30 ? "high" : "normal";
+
+      return await ApprovalQueueService.proposeAction({
+        companyId,
+        userId,
+        actionType: "send_payment_reminder",
+        actionData: actionData as unknown as Record<string, unknown>,
+        contextSummary: `Payment reminder #${invoice.reminderLevel} for ${invoice.clientName} — Invoice #${invoice.invoiceNumber}, ${formatAmount(invoice.balanceDue, locale, settings.currency_code)} overdue ${invoice.daysOverdue} days`,
+        contextSource: "overdue_invoice",
+        sourceId,
+        confidence: 0.8,
+        priority,
+      });
+    } finally {
+      await releaseReminderGeneration(companyId, sourceId, claim.token);
     }
-
-    const actionData: SendPaymentReminderActionData = {
-      invoice_id: invoice.invoiceId,
-      invoice_number: invoice.invoiceNumber,
-      client_id: invoice.clientId,
-      client_email: invoice.clientEmail,
-      client_name: invoice.clientName,
-      project_title: invoice.projectTitle,
-      balance_due: invoice.balanceDue,
-      days_overdue: invoice.daysOverdue,
-      reminder_level: invoice.reminderLevel,
-      reminder_tone: tier.tone,
-      subject,
-      draft_text: draftText,
-      original_draft_text: draftText,
-      connection_id: emailConnectionId ?? "",
-      draft_history_id: draftHistoryId,
-      payment_summary: paymentSummary,
-    };
-
-    const priority: AgentActionPriority =
-      invoice.daysOverdue > 30 ? "high" : "normal";
-
-    return ApprovalQueueService.proposeAction({
-      companyId,
-      userId,
-      actionType: "send_payment_reminder",
-      actionData: actionData as unknown as Record<string, unknown>,
-      contextSummary: `Payment reminder #${invoice.reminderLevel} for ${invoice.clientName} — Invoice #${invoice.invoiceNumber}, $${invoice.balanceDue.toFixed(2)} overdue ${invoice.daysOverdue} days`,
-      contextSource: "overdue_invoice",
-      sourceId: `${invoice.invoiceId}:reminder:${invoice.reminderLevel}`,
-      confidence: 0.8,
-      priority,
-    });
   },
 
   /**
@@ -554,9 +840,6 @@ Key details to include:
     const settings = await getReminderSettings(companyId);
     if (!settings.enabled) return 0;
 
-    // Skip if today is weekend and settings say so
-    if (settings.skip_weekends && isWeekend(new Date())) return 0;
-
     const adminUserId = await getCompanyAdminUserId(companyId);
     if (!adminUserId) return 0;
 
@@ -565,6 +848,15 @@ Key details to include:
       settings
     );
     if (overdueInvoices.length === 0) return 0;
+
+    const emailConnectionId =
+      await resolveCompanyReminderConnectionId(companyId);
+    if (!emailConnectionId) {
+      console.error(
+        `[payment-reminder] Company ${companyId} has no active company mailbox`
+      );
+      return 0;
+    }
 
     // Rate limit: max 10 reminders per company per cron run
     const toProcess = overdueInvoices.slice(0, 10);
@@ -576,7 +868,8 @@ Key details to include:
           companyId,
           adminUserId,
           invoice,
-          settings
+          settings,
+          emailConnectionId
         );
         if (actionId) proposed++;
       } catch (err) {
@@ -588,6 +881,134 @@ Key details to include:
     }
 
     return proposed;
+  },
+
+  /**
+   * Queue the reminder drafts currently due for one project.
+   *
+   * This is the manual Payment Review entry point. It deliberately reuses the
+   * detector, escalation tiers, localized draft generator, dedupe key, and
+   * approval queue used by the scheduled sweep. A deliberate swipe can start
+   * tier one as soon as debt is overdue; later tiers still follow company
+   * settings. It creates a reviewable draft and never claims delivery.
+   */
+  async queueProjectReminders(
+    companyId: string,
+    userId: string,
+    projectId: string
+  ): Promise<QueueProjectReminderResult> {
+    const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
+      companyId,
+      "phase_c"
+    );
+    if (!enabled) {
+      return {
+        eligibleCount: 0,
+        queuedCount: 0,
+        alreadyQueuedCount: 0,
+        failedCount: 0,
+        clientEmailBlockedCount: 0,
+        blockedReason: "feature_disabled",
+      };
+    }
+
+    const settings = await getReminderSettings(companyId, {
+      throwOnError: true,
+    });
+    if (!settings.enabled) {
+      return {
+        eligibleCount: 0,
+        queuedCount: 0,
+        alreadyQueuedCount: 0,
+        failedCount: 0,
+        clientEmailBlockedCount: 0,
+        blockedReason: "reminders_disabled",
+      };
+    }
+
+    const eligible = (
+      await this.detectOverdueInvoices(companyId, settings, {
+        includeAlreadyQueued: true,
+        throwOnError: true,
+        projectId,
+        includeBlocked: true,
+        forceFirstTierForOverdue: true,
+      })
+    ).filter((invoice) => invoice.projectId === projectId);
+
+    let queuedCount = 0;
+    let alreadyQueuedCount = 0;
+    let failedCount = 0;
+    const clientEmailBlockedCount = eligible.filter(
+      (invoice) => invoice.blockedReason === "client_email_required"
+    ).length;
+    const needsGeneration = eligible.some(
+      (invoice) =>
+        invoice.existingActionStatus !== "queued" && !invoice.blockedReason
+    );
+    const emailConnectionId = needsGeneration
+      ? await resolveCompanyReminderConnectionId(companyId)
+      : null;
+    if (needsGeneration && !emailConnectionId) {
+      return {
+        eligibleCount: eligible.length,
+        queuedCount: 0,
+        alreadyQueuedCount: eligible.filter(
+          (invoice) => invoice.existingActionStatus === "queued"
+        ).length,
+        failedCount: 0,
+        clientEmailBlockedCount,
+        blockedReason: "mailbox_required",
+      };
+    }
+
+    for (const invoice of eligible) {
+      if (invoice.existingActionStatus === "queued") {
+        alreadyQueuedCount += 1;
+      }
+      if (
+        invoice.existingActionStatus === "queued" ||
+        invoice.blockedReason === "client_email_required"
+      ) {
+        continue;
+      }
+      try {
+        const actionId = await this.generateReminder(
+          companyId,
+          userId,
+          invoice,
+          settings,
+          emailConnectionId ?? undefined
+        );
+        if (actionId) {
+          queuedCount += 1;
+        } else {
+          // A concurrent request may have claimed or inserted this proposal
+          // after detection. The durable source identity remains single-use.
+          alreadyQueuedCount += 1;
+        }
+      } catch (error) {
+        failedCount += 1;
+        console.error(
+          `[payment-reminder] Failed for invoice ${invoice.invoiceNumber}:`,
+          error
+        );
+      }
+    }
+
+    return {
+      eligibleCount: eligible.length,
+      queuedCount,
+      alreadyQueuedCount,
+      failedCount,
+      clientEmailBlockedCount,
+      blockedReason:
+        clientEmailBlockedCount === eligible.length &&
+        queuedCount === 0 &&
+        alreadyQueuedCount === 0
+          ? "client_email_required"
+          : undefined,
+    };
   },
 
   /**
@@ -737,7 +1158,7 @@ Key details to include:
     if (!adminUserId) return 0;
 
     const supabase = requireSupabase();
-    const threshold = settings.late_payment_threshold / 100;
+    const threshold = REPEAT_LATE_PAYMENT_THRESHOLD;
 
     // Get clients with at least 2 invoices in the last 12 months
     const cutoff = new Date();
@@ -907,12 +1328,13 @@ async function buildFallbackDraft(
     daysOverdue: number;
     paymentTerms: string | null;
   },
-  locale: Locale
+  locale: Locale,
+  currencyCode: string
 ): Promise<string> {
   return renderServerString(locale, "server-emails", tier.fallbackKey, {
     clientName: invoice.clientName,
     invoiceNumber: invoice.invoiceNumber,
-    amount: formatAmount(invoice.balanceDue, locale),
+    amount: formatAmount(invoice.balanceDue, locale, currencyCode),
     dueDate: formatDueDate(invoice.dueDate, locale),
     daysOverdue: invoice.daysOverdue,
   });
