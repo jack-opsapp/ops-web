@@ -15,6 +15,11 @@ const {
   resolveEmailOpportunityAccessMock,
   resolveEmailRouteActorMock,
   resolveEmailSignatureForMessageMock,
+  runWithEmailConnectionSyncLockMock,
+  mailboxCheckpointMock,
+  mutationExecuteMock,
+  createMutationServiceMock,
+  buildMutationFingerprintMock,
   runWithSupabaseMock,
   verifyAdminAuthMock,
 } = vi.hoisted(() => ({
@@ -30,8 +35,22 @@ const {
   resolveEmailOpportunityAccessMock: vi.fn(),
   resolveEmailRouteActorMock: vi.fn(),
   resolveEmailSignatureForMessageMock: vi.fn(),
+  runWithEmailConnectionSyncLockMock: vi.fn(),
+  mailboxCheckpointMock: vi.fn(),
+  mutationExecuteMock: vi.fn(),
+  createMutationServiceMock: vi.fn(),
+  buildMutationFingerprintMock: vi.fn(() => "f".repeat(64)),
   runWithSupabaseMock: vi.fn(async (_supabase, fn) => fn()),
   verifyAdminAuthMock: vi.fn(),
+}));
+
+vi.mock("@/lib/api/services/email-provider-mutation-attempt-service", () => ({
+  buildEmailProviderMutationFingerprint: buildMutationFingerprintMock,
+  createEmailProviderMutationAttemptService: createMutationServiceMock,
+  isEmailProviderMutationReconciliationRequiredError: (error: unknown) =>
+    error instanceof Error &&
+    "code" in error &&
+    error.code === "EMAIL_PROVIDER_MUTATION_RECONCILIATION_REQUIRED",
 }));
 
 vi.mock("@/lib/email/email-route-auth", () => ({
@@ -84,8 +103,13 @@ vi.mock("@/lib/api/services/email-service", () => ({
   },
 }));
 
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  runWithEmailConnectionSyncLock: runWithEmailConnectionSyncLockMock,
+}));
+
 type DraftRouteState = {
   ai_draft_history: Array<Record<string, unknown>>;
+  email_connections?: Array<Record<string, unknown>>;
   email_threads: Array<Record<string, unknown>>;
   opportunity_follow_up_drafts: Array<Record<string, unknown>>;
 };
@@ -109,7 +133,7 @@ function makeSupabaseDouble(state: DraftRouteState) {
     constructor(private readonly table: keyof DraftRouteState) {}
 
     private rows() {
-      return state[this.table];
+      return state[this.table] ?? [];
     }
 
     select() {
@@ -236,6 +260,9 @@ function makeDraftRows(count: number) {
 
 describe("/api/inbox/drafts lifecycle drafts", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    resolveEmailOpportunityAccessMock.mockReset();
+    checkPermissionByIdMock.mockReset();
     buildEmailThreadListAuthorizationFilterMock.mockReturnValue({
       empty: false,
     });
@@ -288,11 +315,67 @@ describe("/api/inbox/drafts lifecycle drafts", () => {
     ]);
     getProviderMock.mockReturnValue({
       listDrafts: vi.fn().mockResolvedValue([]),
+      getDraft: vi.fn().mockResolvedValue(null),
       createDraft: vi.fn().mockResolvedValue("provider-draft-1"),
       updateDraft: vi.fn().mockResolvedValue(undefined),
       deleteDraft: vi.fn().mockResolvedValue(undefined),
     });
+    runWithEmailConnectionSyncLockMock.mockImplementation(
+      async ({
+        run,
+      }: {
+        run: (checkpoint: () => Promise<void>) => unknown;
+      }) => ({
+        acquired: true,
+        value: await run(mailboxCheckpointMock),
+      })
+    );
+    mailboxCheckpointMock.mockResolvedValue(undefined);
+    mutationExecuteMock.mockImplementation(async (input) => {
+      const output = await input.executeProvider();
+      await input.reconcile({
+        attemptId: "attempt-1",
+        resourceId: output.resourceId,
+        secondaryResourceId: output.secondaryResourceId ?? null,
+        result: output.result ?? {},
+      });
+      return {
+        status: "completed",
+        providerResourceId: output.resourceId,
+      };
+    });
+    createMutationServiceMock.mockReturnValue({
+      execute: mutationExecuteMock,
+    });
     runWithSupabaseMock.mockImplementation(async (_supabase, fn) => fn());
+  });
+
+  it("skips provider reads while the mailbox lease is owned by ingestion", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [],
+      opportunity_follow_up_drafts: makeDraftRows(1),
+    };
+    const provider = {
+      listDrafts: vi.fn(),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+
+    const response = await GET(
+      new NextRequest("http://test.local/api/inbox/drafts?scope=own")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(provider.listDrafts).not.toHaveBeenCalled();
+    expect(body.drafts).toEqual([
+      expect.objectContaining({ source: "lifecycle", id: "draft-1" }),
+    ]);
   });
 
   it("keeps provider-rendered signatures out of composer state and appends once on autosave", async () => {
@@ -320,6 +403,15 @@ describe("/api/inbox/drafts lifecycle drafts", () => {
           updatedAt: new Date("2026-07-14T18:00:00.000Z"),
         },
       ]),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "provider-draft-1",
+        threadId: "provider-thread-1",
+        to: ["lead@example.com"],
+        cc: [],
+        subject: "Re: Quote",
+        bodyText: "Authored body\n\nOld Jackson\nOld OPS",
+        updatedAt: new Date("2026-07-14T18:00:00.000Z"),
+      }),
       createDraft: vi.fn(),
       updateDraft: vi.fn().mockResolvedValue(undefined),
       deleteDraft: vi.fn(),
@@ -339,6 +431,11 @@ describe("/api/inbox/drafts lifecycle drafts", () => {
     expect(loadKnownEmailSignaturesForMessageMock).toHaveBeenCalledWith({
       connection: activeConnection,
     });
+    expect(resolveEmailSignatureForMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerLockCheckpoint: mailboxCheckpointMock,
+      })
+    );
 
     const saveResponse = await POST(
       new NextRequest("http://test.local/api/inbox/drafts", {
@@ -359,6 +456,475 @@ describe("/api/inbox/drafts lifecycle drafts", () => {
     const renderedBody = provider.updateDraft.mock.calls[0][3] as string;
     expect(renderedBody.match(/data-ops-signature-hash/g)).toHaveLength(1);
     expect(renderedBody.match(/Jackson/g)).toHaveLength(1);
+  });
+
+  it("rechecks canonical send access immediately before updating a provider draft", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [
+        {
+          id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+        },
+      ],
+      opportunity_follow_up_drafts: [],
+    };
+    const provider = {
+      listDrafts: vi.fn(),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "provider-draft-1",
+        threadId: "provider-thread-1",
+        to: ["lead@example.com"],
+        cc: [],
+        subject: "Re: Quote",
+        bodyText: "Draft body",
+        updatedAt: new Date("2026-07-14T18:00:00.000Z"),
+      }),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+    resolveEmailOpportunityAccessMock
+      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValueOnce({
+        allowed: false,
+        reason: "opportunity_other_assignee",
+      });
+
+    const response = await POST(
+      new NextRequest("http://test.local/api/inbox/drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          connectionId: "connection-1",
+          to: "lead@example.com",
+          subject: "Re: Quote",
+          body: "Draft body",
+          providerThreadId: "provider-thread-1",
+          draftId: "provider-draft-1",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({
+      code: "EMAIL_DRAFT_AUTHORIZATION_REVOKED",
+    });
+    expect(provider.updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("rejects a provider draft whose immutable id belongs to another thread", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [
+        {
+          id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+        },
+      ],
+      opportunity_follow_up_drafts: [],
+    };
+    const provider = {
+      listDrafts: vi.fn(),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "provider-draft-1",
+        threadId: "provider-thread-2",
+        to: ["other@example.com"],
+        cc: [],
+        subject: "Other draft",
+        bodyText: "Other body",
+        updatedAt: new Date("2026-07-14T18:00:00.000Z"),
+      }),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+
+    const response = await POST(
+      new NextRequest("http://test.local/api/inbox/drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          connectionId: "connection-1",
+          to: "lead@example.com",
+          subject: "Re: Quote",
+          body: "Draft body",
+          providerThreadId: "provider-thread-1",
+          draftId: "provider-draft-1",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({
+      code: "EMAIL_DRAFT_AUTHORIZATION_REVOKED",
+    });
+    expect(provider.getDraft).toHaveBeenCalledWith("provider-draft-1");
+    expect(provider.updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the supplied provider draft identity is unknown", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [
+        {
+          id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+        },
+      ],
+      opportunity_follow_up_drafts: [],
+    };
+    const provider = {
+      listDrafts: vi.fn(),
+      getDraft: vi.fn().mockResolvedValue(null),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+
+    const response = await POST(
+      new NextRequest("http://test.local/api/inbox/drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          connectionId: "connection-1",
+          to: "lead@example.com",
+          subject: "Re: Quote",
+          body: "Draft body",
+          providerThreadId: "provider-thread-1",
+          draftId: "missing-provider-draft",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({
+      code: "EMAIL_DRAFT_AUTHORIZATION_REVOKED",
+    });
+    expect(provider.getDraft).toHaveBeenCalledWith("missing-provider-draft");
+    expect(provider.updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("fails a provider-draft save before provider construction when the mailbox is busy", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [
+        {
+          id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+        },
+      ],
+      opportunity_follow_up_drafts: [],
+    };
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+
+    const response = await POST(
+      new NextRequest("http://test.local/api/inbox/drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          connectionId: "connection-1",
+          to: "lead@example.com",
+          subject: "Re: Quote",
+          body: "Draft body",
+          providerThreadId: "provider-thread-1",
+          idempotencyKey: "user-1:inbox-reply:thread-internal-1::",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: "EMAIL_DRAFT_MAILBOX_BUSY",
+    });
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(resolveEmailSignatureForMessageMock).not.toHaveBeenCalled();
+  });
+
+  it("requires and durably binds a stable key before creating a provider draft", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_connections: [
+        {
+          id: "connection-1",
+          company_id: "company-1",
+          type: "company",
+          user_id: null,
+          status: "active",
+        },
+      ],
+      email_threads: [],
+      opportunity_follow_up_drafts: [],
+    };
+    const provider = {
+      listDrafts: vi.fn(),
+      createDraft: vi.fn().mockResolvedValue("provider-draft-1"),
+      updateDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+
+    const missingKey = await POST(
+      new NextRequest("http://test.local/api/inbox/drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          connectionId: "connection-1",
+          to: "lead@example.com",
+          subject: "Quote",
+          body: "Draft body",
+        }),
+      })
+    );
+    expect(missingKey.status).toBe(400);
+    expect(await missingKey.json()).toMatchObject({
+      code: "EMAIL_DRAFT_IDEMPOTENCY_KEY_REQUIRED",
+    });
+    expect(provider.createDraft).not.toHaveBeenCalled();
+
+    const response = await POST(
+      new NextRequest("http://test.local/api/inbox/drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          connectionId: "connection-1",
+          to: "lead@example.com",
+          subject: "Quote",
+          body: "Draft body",
+          idempotencyKey: "user-1:inbox-reply:thread-1::",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      draftId: "provider-draft-1",
+    });
+    expect(mutationExecuteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "user-1",
+        connectionId: "connection-1",
+        operationKind: "draft_create",
+        operationKey: "inbox-composer:user-1:inbox-reply:thread-1::",
+        requestFingerprint: "f".repeat(64),
+      })
+    );
+    expect(provider.createDraft).toHaveBeenCalledOnce();
+  });
+
+  it("revalidates an accepted provider draft identity during stable retry reconciliation", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [
+        {
+          id: "thread-internal-1",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+        },
+      ],
+      opportunity_follow_up_drafts: [],
+    };
+    const provider = {
+      listDrafts: vi.fn(),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "provider-draft-1",
+        threadId: "provider-thread-1",
+        to: ["lead@example.com"],
+        cc: [],
+        subject: "Re: Quote",
+        bodyText: "Prior accepted body",
+        updatedAt: new Date("2026-07-14T18:00:00.000Z"),
+      }),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn().mockResolvedValue(undefined),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+    mutationExecuteMock.mockImplementationOnce(async (input) => {
+      await input.reconcile({
+        attemptId: "attempt-1",
+        resourceId: "provider-draft-1",
+        secondaryResourceId: null,
+        result: { draftId: "provider-draft-1" },
+      });
+      return {
+        status: "completed",
+        providerResourceId: "provider-draft-1",
+      };
+    });
+
+    const response = await POST(
+      new NextRequest("http://test.local/api/inbox/drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          connectionId: "connection-1",
+          to: "lead@example.com",
+          subject: "Re: Quote",
+          body: "Recovered autosave body",
+          providerThreadId: "provider-thread-1",
+          idempotencyKey: "user-1:inbox-reply:thread-internal-1::",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(provider.getDraft).toHaveBeenCalledWith("provider-draft-1");
+    expect(provider.updateDraft).toHaveBeenCalledOnce();
+    expect(provider.createDraft).not.toHaveBeenCalled();
+  });
+
+  it("fails a provider-draft delete before provider construction when the mailbox is busy", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_connections: [
+        {
+          id: "connection-1",
+          company_id: "company-1",
+          type: "company",
+          user_id: null,
+          status: "active",
+        },
+      ],
+      email_threads: [],
+      opportunity_follow_up_drafts: [],
+    };
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+
+    const response = await DELETE(
+      new NextRequest(
+        "http://test.local/api/inbox/drafts?source=provider&id=provider-draft-1&connectionId=connection-1",
+        { method: "DELETE" }
+      )
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: "EMAIL_DRAFT_MAILBOX_BUSY",
+    });
+    expect(getProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("rechecks unlinked mailbox authority immediately before deleting a provider draft", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_connections: [
+        {
+          id: "connection-1",
+          company_id: "company-1",
+          type: "company",
+          user_id: null,
+          status: "active",
+        },
+      ],
+      email_threads: [],
+      opportunity_follow_up_drafts: [],
+    };
+    const provider = {
+      listDrafts: vi.fn(),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "provider-draft-1",
+        threadId: null,
+        to: ["lead@example.com"],
+        cc: [],
+        subject: "Standalone draft",
+        bodyText: "Draft body",
+        updatedAt: new Date("2026-07-14T18:00:00.000Z"),
+      }),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+    checkPermissionByIdMock
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+
+    const response = await DELETE(
+      new NextRequest(
+        "http://test.local/api/inbox/drafts?source=provider&id=provider-draft-1&connectionId=connection-1",
+        { method: "DELETE" }
+      )
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({
+      code: "EMAIL_DRAFT_AUTHORIZATION_REVOKED",
+    });
+    expect(provider.deleteDraft).not.toHaveBeenCalled();
+  });
+
+  it("binds a provider draft delete to the draft's actual authorized thread", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_connections: [
+        {
+          id: "connection-1",
+          company_id: "company-1",
+          type: "company",
+          user_id: null,
+          status: "active",
+        },
+      ],
+      email_threads: [
+        {
+          id: "thread-internal-2",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-2",
+        },
+      ],
+      opportunity_follow_up_drafts: [],
+    };
+    const provider = {
+      listDrafts: vi.fn(),
+      getDraft: vi.fn().mockResolvedValue({
+        id: "provider-draft-1",
+        threadId: "provider-thread-2",
+        to: ["other@example.com"],
+        cc: [],
+        subject: "Other draft",
+        bodyText: "Other body",
+        updatedAt: new Date("2026-07-14T18:00:00.000Z"),
+      }),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+    resolveEmailOpportunityAccessMock.mockResolvedValue({
+      allowed: false,
+      reason: "opportunity_other_assignee",
+    });
+
+    const response = await DELETE(
+      new NextRequest(
+        "http://test.local/api/inbox/drafts?source=provider&id=provider-draft-1&connectionId=connection-1",
+        { method: "DELETE" }
+      )
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({
+      code: "EMAIL_DRAFT_AUTHORIZATION_REVOKED",
+    });
+    expect(provider.getDraft).toHaveBeenCalledWith("provider-draft-1");
+    expect(provider.deleteDraft).not.toHaveBeenCalled();
   });
 
   it("surfaces all drafted template follow-ups as local editable inbox drafts", async () => {

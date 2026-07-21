@@ -345,3 +345,70 @@ describe("classifySingleBatch — completeness boundary", () => {
     ]);
   });
 });
+
+describe("classifyBatch — bounded model-contract recovery", () => {
+  it("retries one incomplete model response before failing the sync cycle", async () => {
+    const contents = [
+      JSON.stringify({ results: [classificationResult("msg-2")] }),
+      JSON.stringify({
+        results: [classificationResult("msg-1"), classificationResult("msg-2")],
+      }),
+    ];
+    let calls = 0;
+    const client = {
+      chat: {
+        completions: {
+          create: async () => ({
+            choices: [
+              {
+                message: {
+                  content: contents[calls++],
+                },
+              },
+            ],
+          }),
+        },
+      },
+    } as unknown as import("openai").default;
+
+    const results = await EmailAIClassifier.classifyBatch(
+      [classificationInput("msg-1"), classificationInput("msg-2")],
+      context,
+      client
+    );
+
+    expect(calls).toBe(2);
+    expect(results.map((result) => result.id)).toEqual(["msg-1", "msg-2"]);
+  });
+
+  it("stays fail-closed after two incomplete model responses", async () => {
+    let calls = 0;
+    const client = {
+      chat: {
+        completions: {
+          create: async () => {
+            calls += 1;
+            return {
+              choices: [
+                {
+                  message: {
+                    content: JSON.stringify({ results: [] }),
+                  },
+                },
+              ],
+            };
+          },
+        },
+      },
+    } as unknown as import("openai").default;
+
+    await expect(
+      EmailAIClassifier.classifyBatch(
+        [classificationInput("msg-1")],
+        context,
+        client
+      )
+    ).rejects.toThrow("model response omitted classification id msg-1");
+    expect(calls).toBe(2);
+  });
+});

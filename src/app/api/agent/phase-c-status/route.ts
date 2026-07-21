@@ -26,36 +26,32 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
 
     // ── Email intelligence ──────────────────────────────────────────────
-    const [
-      draftsSent,
-      draftsTotal,
-      writingProfileRes,
-      humanAccuracy,
-    ] = await Promise.all([
-      supabase
-        .from("ai_draft_history")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", auth.companyId)
-        .eq("user_id", auth.id)
-        .eq("status", "sent")
-        .gte("created_at", thirtyDaysAgoIso),
-      supabase
-        .from("ai_draft_history")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", auth.companyId)
-        .eq("user_id", auth.id)
-        .gte("created_at", thirtyDaysAgoIso),
-      supabase
-        .from("agent_writing_profiles")
-        .select("emails_analyzed, profile_type")
-        .eq("company_id", auth.companyId)
-        .eq("user_id", auth.id),
-      getHumanDraftAccuracy({
-        companyId: auth.companyId,
-        userId: auth.id,
-        supabase,
-      }),
-    ]);
+    const [draftsSent, draftsTotal, writingProfileRes, humanAccuracy] =
+      await Promise.all([
+        supabase
+          .from("ai_draft_history")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", auth.companyId)
+          .eq("user_id", auth.id)
+          .eq("status", "sent")
+          .gte("created_at", thirtyDaysAgoIso),
+        supabase
+          .from("ai_draft_history")
+          .select("id", { count: "exact", head: true })
+          .eq("company_id", auth.companyId)
+          .eq("user_id", auth.id)
+          .gte("created_at", thirtyDaysAgoIso),
+        supabase
+          .from("agent_writing_profiles")
+          .select("emails_analyzed, profile_type")
+          .eq("company_id", auth.companyId)
+          .eq("user_id", auth.id),
+        getHumanDraftAccuracy({
+          companyId: auth.companyId,
+          userId: auth.id,
+          supabase,
+        }),
+      ]);
 
     const writingProfiles = writingProfileRes.data ?? [];
     const maxEmailsAnalyzed = writingProfiles.reduce(
@@ -101,8 +97,18 @@ export async function GET(request: NextRequest) {
         { proposed: 0, executed: 0, rejected: 0 }
       );
 
-    const projectStats = sumFor(["create_project", "create_task", "reassign_task", "archive_project", "close_project"]);
-    const invoiceStats = sumFor(["create_invoice", "send_invoice_email", "send_payment_reminder"]);
+    const projectStats = sumFor([
+      "create_project",
+      "create_task",
+      "reassign_task",
+      "archive_project",
+      "close_project",
+    ]);
+    const invoiceStats = sumFor([
+      "create_invoice",
+      "send_invoice_email",
+      "send_payment_reminder",
+    ]);
     const scheduleStats = sumFor(["optimize_schedule", "reschedule_tasks"]);
     const commsStats = sumFor([
       "send_appointment_confirmation",
@@ -123,8 +129,10 @@ export async function GET(request: NextRequest) {
       draftingAvailable: maxEmailsAnalyzed >= 25 && confidence > 0.2,
       drafting: maxEmailsAnalyzed >= 100 && confidence > 0.5,
       autoDraft: maxEmailsAnalyzed >= 250 && confidence > 0.75,
-      autoSend:
-        humanAccuracy.approvalRate >= 0.95 && humanAccuracy.sampleSize >= 20,
+      // There is no mailbox-wide auto-send milestone. Readiness is evaluated
+      // only for the exact actor, connection, and primary category.
+      autoSend: false,
+      autoSendReadiness: "per_category" as const,
     };
 
     return NextResponse.json({

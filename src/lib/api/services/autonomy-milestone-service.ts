@@ -7,7 +7,10 @@
  * Milestones:
  *   Level 0 → 1: DRAFT_AVAILABLE     (confidence crosses 0.2 for the first time)
  *   Level 2 → 3: AUTO_DRAFT_READY    (confidence > 0.75, 250+ emails, draft_available shown)
- *   Level 3 → 4: AUTO_SEND_SUGGESTED (95% approval over 20+ drafts, auto_draft enabled)
+ *
+ * Auto-send readiness is deliberately absent from this mailbox-wide ladder.
+ * That decision belongs to the exact actor, connection, and primary-category
+ * graduation ledger and its atomic acceptance path.
  *
  * Milestone state is stored per OPS actor in email_autonomy_milestones. The
  * connection's auto_send_settings remains the connection-wide transport and
@@ -20,6 +23,7 @@ import { getCompanyManagerUserIds } from "./company-managers";
 import { getHumanDraftAccuracy } from "./phase-c-draft-accuracy-service";
 import { WritingProfileService } from "./writing-profile-service";
 import { NotificationService } from "./notification-service";
+import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -57,6 +61,21 @@ function parseMilestones(raw: unknown): MilestoneState {
 
 const MILESTONE_COLUMNS =
   "draft_available_shown, auto_draft_suggested, auto_send_suggested, comms_wizard_ready_shown";
+
+function assertActorMailboxScope(
+  connection: { type: unknown; user_id: unknown },
+  userId: string
+): void {
+  if (connection.type === "company") return;
+  if (
+    connection.type === "individual" &&
+    typeof connection.user_id === "string" &&
+    connection.user_id.trim() === userId
+  ) {
+    return;
+  }
+  throw new Error("Email connection unavailable for actor");
+}
 
 export async function getActorAutonomyMilestones(input: {
   companyId: string;
@@ -119,11 +138,13 @@ async function recordMilestoneNotification(input: {
  *  If they have, we shouldn't re-fire the wizard notification. */
 async function isCommsWizardCompleted(companyId: string): Promise<boolean> {
   const supabase = requireSupabase();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("companies")
     .select("client_comms_settings")
     .eq("id", companyId)
     .maybeSingle();
+
+  if (error) throw new Error(error.message);
 
   const raw = (data?.client_comms_settings as Record<string, unknown>) ?? {};
   const completedAt = raw.comms_wizard_completed_at;
@@ -133,29 +154,47 @@ async function isCommsWizardCompleted(companyId: string): Promise<boolean> {
 }
 
 /**
+ * Read the actor's writing profile without collapsing database failures into
+ * an apparently missing profile. Durable milestone retries must distinguish
+ * "not learned yet" from "the prerequisite ledger could not be read".
+ */
+async function getActorWritingProfile(
+  companyId: string,
+  userId: string
+): Promise<Record<string, unknown> | null> {
+  const supabase = requireSupabase();
+  const { data: general, error: generalError } = await supabase
+    .from("agent_writing_profiles")
+    .select("*")
+    .eq("company_id", companyId)
+    .eq("user_id", userId)
+    .eq("profile_type", "general")
+    .maybeSingle();
+  if (generalError) throw new Error(generalError.message);
+  if (general) return general as Record<string, unknown>;
+
+  const { data: fallback, error: fallbackError } = await supabase
+    .from("agent_writing_profiles")
+    .select("*")
+    .eq("company_id", companyId)
+    .eq("user_id", userId)
+    .order("emails_analyzed", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (fallbackError) throw new Error(fallbackError.message);
+  return (fallback as Record<string, unknown> | null) ?? null;
+}
+
+/**
  * Compute the user's current autonomy level from their profile + settings state.
  */
 function computeLevel(params: {
   emailsAnalyzed: number;
   confidence: number;
   autoDraftEnabled: boolean;
-  autoSendEnabled: boolean;
-  categoryAutonomyConfigured: boolean;
-  approvalRate: number;
-  totalDrafts: number;
 }): AutonomyLevel {
-  const {
-    emailsAnalyzed,
-    confidence,
-    autoDraftEnabled,
-    autoSendEnabled,
-    categoryAutonomyConfigured,
-    approvalRate,
-    totalDrafts,
-  } = params;
+  const { emailsAnalyzed, confidence, autoDraftEnabled } = params;
 
-  if (categoryAutonomyConfigured && autoSendEnabled) return 5;
-  if (autoSendEnabled && approvalRate >= 0.95 && totalDrafts >= 20) return 4;
   if (autoDraftEnabled && confidence > 0.75 && emailsAnalyzed >= 250) return 3;
   if (emailsAnalyzed >= 100 && confidence > 0.5) return 2;
   if (emailsAnalyzed >= 25 && confidence > 0.2) return 1;
@@ -164,9 +203,14 @@ function computeLevel(params: {
 
 async function getHumanDraftApprovalStats(
   companyId: string,
+  connectionId: string,
   userId: string
 ): Promise<{ approvalRate: number; totalDrafts: number }> {
-  const accuracy = await getHumanDraftAccuracy({ companyId, userId });
+  const accuracy = await getHumanDraftAccuracy({
+    companyId,
+    connectionId,
+    userId,
+  });
   return {
     totalDrafts: accuracy.sampleSize,
     approvalRate: accuracy.approvalRate,
@@ -179,12 +223,14 @@ export const AutonomyMilestoneService = {
   /**
    * Check milestones after a sync cycle processes emails.
    * Called from sync-engine.ts after learnFromOutboundEmail calls.
-   * Fire-and-forget — errors are logged, not thrown.
+   * Interactive callers stay fire-and-forget; the daily durable retry sweep
+   * requests strict error propagation.
    */
   async checkMilestonesAfterSync(
     companyId: string,
     userId: string,
-    connectionId: string
+    connectionId: string,
+    options: { throwOnError?: boolean } = {}
   ): Promise<void> {
     try {
       const supabase = requireSupabase();
@@ -192,13 +238,14 @@ export const AutonomyMilestoneService = {
       // ── Validate the exact mailbox connection ─────────────────────────
       const { data: conn, error: connectionError } = await supabase
         .from("email_connections")
-        .select("id")
+        .select("id, type, user_id")
         .eq("id", connectionId)
         .eq("company_id", companyId)
         .single();
 
       if (connectionError) throw new Error(connectionError.message);
       if (!conn) return;
+      assertActorMailboxScope(conn, userId);
 
       const milestones = await getActorAutonomyMilestones({
         companyId,
@@ -208,7 +255,7 @@ export const AutonomyMilestoneService = {
       });
 
       // ── Fetch writing profile confidence ──────────────────────────────
-      const profile = await WritingProfileService.getProfile(companyId, userId);
+      const profile = await getActorWritingProfile(companyId, userId);
       if (!profile) return;
 
       const emailsAnalyzed = (profile.emails_analyzed as number) || 0;
@@ -283,6 +330,7 @@ export const AutonomyMilestoneService = {
         milestones.comms_wizard_ready_shown = true;
       }
     } catch (err) {
+      if (options.throwOnError) throw err;
       console.error(
         "[autonomy-milestones] Check after sync failed (non-fatal):",
         err
@@ -293,12 +341,14 @@ export const AutonomyMilestoneService = {
   /**
    * Check milestones after a draft outcome is recorded.
    * Called from ai-draft-service.ts after recordDraftOutcome.
-   * Checks the auto-send threshold (95% approval over 20+ drafts).
+   * Validates the actor/mailbox milestone ledger. Exact-category graduation
+   * and its persistent prompt are handled by the durable graduation sweep.
    */
   async checkMilestonesAfterDraftFeedback(
     companyId: string,
     userId: string,
-    connectionId: string
+    connectionId: string,
+    options: { throwOnError?: boolean } = {}
   ): Promise<void> {
     try {
       const supabase = requireSupabase();
@@ -306,48 +356,23 @@ export const AutonomyMilestoneService = {
       // ── Fetch connection settings ─────────────────────────────────────
       const { data: conn, error: connectionError } = await supabase
         .from("email_connections")
-        .select("auto_send_settings")
+        .select("auto_send_settings, type, user_id")
         .eq("id", connectionId)
         .eq("company_id", companyId)
         .single();
 
       if (connectionError) throw new Error(connectionError.message);
       if (!conn) return;
+      assertActorMailboxScope(conn, userId);
 
-      const settings =
-        (conn.auto_send_settings as Record<string, unknown>) || {};
-      const milestones = await getActorAutonomyMilestones({
+      await getActorAutonomyMilestones({
         companyId,
         connectionId,
         userId,
         supabase,
       });
-      const autoDraftEnabled = settings.auto_draft_enabled === true;
-
-      // Only check auto-send milestone if auto-draft is already on
-      if (!autoDraftEnabled || milestones.auto_send_suggested) return;
-
-      // ── Fetch draft approval stats ────────────────────────────────────
-      const { approvalRate, totalDrafts: totalSent } =
-        await getHumanDraftApprovalStats(companyId, userId);
-
-      if (totalSent < 20) return;
-
-      // ── Milestone 3: AUTO_SEND_SUGGESTED ──────────────────────────────
-      if (approvalRate >= 0.95) {
-        await recordMilestoneNotification({
-          supabase,
-          userId,
-          companyId,
-          connectionId,
-          milestone: "auto_send_suggested",
-          title: "SYS :: AUTONOMY UNLOCK · AUTO-SEND UNLOCKED",
-          body: `${(approvalRate * 100).toFixed(0)}% of your drafts are sent without changes. Auto-send is available for activation.`,
-          actionUrl: "/calibration?section=milestones#milestone-8",
-          actionLabel: "Review",
-        });
-      }
     } catch (err) {
+      if (options.throwOnError) throw err;
       console.error(
         "[autonomy-milestones] Check after draft feedback failed (non-fatal):",
         err
@@ -379,13 +404,14 @@ export const AutonomyMilestoneService = {
     // Fetch connection settings
     const { data: conn, error: connectionError } = await supabase
       .from("email_connections")
-      .select("auto_send_settings")
+      .select("auto_send_settings, type, user_id")
       .eq("id", connectionId)
       .eq("company_id", companyId)
       .single();
 
     if (connectionError) throw new Error(connectionError.message);
     if (!conn) throw new Error("Email connection unavailable");
+    assertActorMailboxScope(conn, userId);
 
     const settings = (conn.auto_send_settings as Record<string, unknown>) || {};
     const milestones = await getActorAutonomyMilestones({
@@ -396,32 +422,33 @@ export const AutonomyMilestoneService = {
     });
     const autoDraftEnabled = settings.auto_draft_enabled === true;
     const autoSendEnabled = settings.enabled === true;
-    const categoryAutonomy =
-      (settings.category_autonomy as Record<string, string>) || {};
+    const actorCategoryAutonomy = await PhaseCCategoryAutonomy.get(
+      connectionId,
+      userId
+    );
+    const categoryAutonomy = Object.fromEntries(
+      Object.entries(actorCategoryAutonomy).map(([category, level]) => [
+        `primary:${category}`,
+        level,
+      ])
+    );
 
     // Fetch writing profile
-    const profile = await WritingProfileService.getProfile(companyId, userId);
+    const profile = await getActorWritingProfile(companyId, userId);
     const emailsAnalyzed = (profile?.emails_analyzed as number) || 0;
     const confidence = WritingProfileService.getConfidence(emailsAnalyzed);
 
     // Fetch draft stats
     const { totalDrafts, approvalRate } = await getHumanDraftApprovalStats(
       companyId,
+      connectionId,
       userId
-    );
-
-    const categoryAutonomyConfigured = Object.values(categoryAutonomy).some(
-      (v) => v !== "draft_on_request"
     );
 
     const level = computeLevel({
       emailsAnalyzed,
       confidence,
       autoDraftEnabled,
-      autoSendEnabled,
-      categoryAutonomyConfigured,
-      approvalRate,
-      totalDrafts,
     });
 
     return {

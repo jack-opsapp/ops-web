@@ -1,9 +1,7 @@
-import {
-  ProviderApiError,
-  ProviderAuthError,
-  ProviderScopeError,
-  type EmailProviderInterface,
-} from "./email-provider";
+import type { EmailProviderInterface } from "./email-provider";
+import type { EmailConnectionSyncLockRunResult } from "./email-connection-sync-lock";
+import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
+import { isDefinitiveEmailProviderRejection } from "./email-provider-mutation-attempt-service";
 
 export type ApprovedActionEmailExecutionMode = "manual" | "autonomous";
 
@@ -129,21 +127,18 @@ interface ApprovedActionEmailDeliveryDependencies {
   store: ApprovedActionEmailIntentStore;
   provider: Pick<EmailProviderInterface, "sendEmail">;
   reconcile: (
-    intent: ApprovedActionEmailIntent
+    intent: ApprovedActionEmailIntent,
+    providerLockCheckpoint: EmailProviderMailboxCheckpoint
   ) => Promise<{ activityId: string }>;
+  runWithMailboxLease<T>(input: {
+    connectionId: string;
+    run: (checkpoint: EmailProviderMailboxCheckpoint) => Promise<T>;
+  }): Promise<EmailConnectionSyncLockRunResult<T>>;
   now?: () => Date;
 }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function isExplicitProviderRejection(error: unknown): boolean {
-  return (
-    error instanceof ProviderApiError ||
-    error instanceof ProviderAuthError ||
-    error instanceof ProviderScopeError
-  );
 }
 
 function outcome(
@@ -199,6 +194,23 @@ export class ApprovedActionEmailDeliveryService {
       return outcome("pending", prepared);
     }
 
+    const locked = await this.dependencies.runWithMailboxLease({
+      connectionId: prepared.connectionId,
+      run: (checkpoint) => this.executeUnderMailboxLease(prepared, checkpoint),
+    });
+    if (!locked.acquired) {
+      return outcome("pending", prepared, {
+        delivered: false,
+        error: "APPROVED_ACTION_EMAIL_MAILBOX_BUSY",
+      });
+    }
+    return locked.value;
+  }
+
+  private async executeUnderMailboxLease(
+    prepared: ApprovedActionEmailIntent,
+    checkpoint: EmailProviderMailboxCheckpoint
+  ): Promise<ApprovedActionEmailDeliveryOutcome> {
     let accepted = prepared;
     if (
       prepared.status !== "provider_accepted" &&
@@ -212,6 +224,7 @@ export class ApprovedActionEmailDeliveryService {
 
       let providerResult: { messageId: string; threadId: string };
       try {
+        await checkpoint();
         providerResult = await this.dependencies.provider.sendEmail({
           to: claimed.toEmails,
           cc: claimed.ccEmails,
@@ -222,7 +235,7 @@ export class ApprovedActionEmailDeliveryService {
           threadId: claimed.replyProviderThreadId ?? undefined,
         });
       } catch (error) {
-        if (isExplicitProviderRejection(error)) {
+        if (isDefinitiveEmailProviderRejection(error)) {
           const rejected = await this.dependencies.store.markProviderRejected({
             intentId: claimed.id,
             error: errorMessage(error),
@@ -285,13 +298,25 @@ export class ApprovedActionEmailDeliveryService {
           error: errorMessage(acceptanceError),
         });
       }
+
+      try {
+        // Persist provider acceptance before proving lease ownership again.
+        // A retry can now reconcile this exact send without resending it.
+        await checkpoint();
+      } catch (error) {
+        return outcome("pending", accepted, {
+          delivered: true,
+          error: errorMessage(error),
+        });
+      }
     }
 
-    return this.reconcileAccepted(accepted);
+    return this.reconcileAccepted(accepted, checkpoint);
   }
 
   private async reconcileAccepted(
-    accepted: ApprovedActionEmailIntent
+    accepted: ApprovedActionEmailIntent,
+    checkpoint: EmailProviderMailboxCheckpoint
   ): Promise<ApprovedActionEmailDeliveryOutcome> {
     let lastError: string | null = null;
 
@@ -307,7 +332,12 @@ export class ApprovedActionEmailDeliveryService {
       }
 
       try {
-        const reconciled = await this.dependencies.reconcile(leased);
+        await checkpoint();
+        const reconciled = await this.dependencies.reconcile(
+          leased,
+          checkpoint
+        );
+        await checkpoint();
         const completed = await this.dependencies.store.completeReconciliation({
           intentId: leased.id,
           leaseToken: leased.reconciliationLeaseToken,

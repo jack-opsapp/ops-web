@@ -5,15 +5,21 @@ const {
   listKnownMock,
   refreshProviderMock,
   resolveEffectiveMock,
+  runWithEmailConnectionSyncLockMock,
 } = vi.hoisted(() => ({
   getProviderMock: vi.fn(),
   listKnownMock: vi.fn(),
   refreshProviderMock: vi.fn(),
   resolveEffectiveMock: vi.fn(),
+  runWithEmailConnectionSyncLockMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: { getProvider: getProviderMock },
+}));
+
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  runWithEmailConnectionSyncLock: runWithEmailConnectionSyncLockMock,
 }));
 
 vi.mock("@/lib/api/services/email-signature-service", async () => {
@@ -67,11 +73,22 @@ function connection(type: EmailConnection["type"]): EmailConnection {
 beforeEach(() => {
   vi.clearAllMocks();
   getProviderMock.mockReturnValue({ providerType: "gmail" });
+  resolveEffectiveMock.mockReset();
   resolveEffectiveMock
     .mockResolvedValueOnce(null)
     .mockResolvedValueOnce({ recordId: "signature-1" });
   refreshProviderMock.mockResolvedValue({ status: "refreshed" });
   listKnownMock.mockResolvedValue([]);
+  runWithEmailConnectionSyncLockMock.mockImplementation(
+    async ({
+      run,
+    }: {
+      run: (checkpoint: ReturnType<typeof vi.fn>) => unknown;
+    }) => {
+      const checkpoint = vi.fn(async () => undefined);
+      return { acquired: true, value: await run(checkpoint) };
+    }
+  );
 });
 
 describe("resolveEmailSignatureForMessage", () => {
@@ -99,6 +116,46 @@ describe("resolveEmailSignatureForMessage", () => {
         p_connection_id: "connection-1",
       }
     );
+    expect(runWithEmailConnectionSyncLockMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectionId: "connection-1",
+        context: "email-signature-provider-refresh",
+        client: supabase,
+      })
+    );
+  });
+
+  it("fails busy before constructing or reading the provider", async () => {
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+    const supabase = { rpc: vi.fn().mockResolvedValue({ error: null }) };
+
+    await expect(
+      resolveEmailSignatureForMessage({
+        supabase: supabase as never,
+        connection: connection("company"),
+        userId: "user-1",
+      })
+    ).rejects.toThrow("EMAIL_SIGNATURE_PROVIDER_MAILBOX_BUSY");
+
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(refreshProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("reuses an existing mailbox lease without nested acquisition", async () => {
+    const checkpoint = vi.fn(async () => undefined);
+    const supabase = { rpc: vi.fn().mockResolvedValue({ error: null }) };
+
+    await resolveEmailSignatureForMessage({
+      supabase: supabase as never,
+      connection: connection("company"),
+      userId: "user-1",
+      providerLockCheckpoint: checkpoint,
+    });
+
+    expect(runWithEmailConnectionSyncLockMock).not.toHaveBeenCalled();
+    expect(checkpoint).toHaveBeenCalledTimes(2);
+    expect(getProviderMock).toHaveBeenCalledTimes(1);
+    expect(refreshProviderMock).toHaveBeenCalledTimes(1);
   });
 
   it("reconciles a saved signature even when the connection is sync-disabled", async () => {
@@ -240,7 +297,7 @@ describe("resolveEmailSignatureForMessage", () => {
     });
   });
 
-  it("fails closed when historical signature revisions cannot be loaded", async () => {
+  it("surfaces historical signature lookup failures so the learning job can retry", async () => {
     listKnownMock.mockRejectedValue(new Error("signature lookup unavailable"));
 
     await expect(
@@ -250,10 +307,8 @@ describe("resolveEmailSignatureForMessage", () => {
         body: "Authored body\n\nPrevious signature",
         subject: "Project update",
       })
-    ).resolves.toEqual({
-      authoredBody: "Authored body\n\nPrevious signature",
-      cleanBody: "Authored body\n\nPrevious signature",
-      exactSignatureRemoved: false,
-    });
+    ).rejects.toThrow(
+      "Historical email signature lookup failed: signature lookup unavailable"
+    );
   });
 });

@@ -91,7 +91,7 @@ export function DataReviewQueue() {
       {/* Panel header */}
       <header className="flex flex-col gap-4 border-b border-line px-[30px] py-[16px] md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-1">
-          <h2 className="font-cakemono font-light uppercase text-[15px] tracking-[0.08em] text-text">
+          <h2 className="font-cakemono text-[15px] font-light uppercase tracking-[0.08em] text-text">
             {t("queue.heading", "DATA REVIEW")}
           </h2>
           <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
@@ -124,10 +124,10 @@ export function DataReviewQueue() {
                 onClick={() => setFilter(seg.key)}
                 className={
                   "font-mono text-[11px] uppercase tracking-[0.12em] " +
-                  "min-h-[36px] px-3 rounded-chip border transition-colors duration-150 " +
+                  "min-h-[36px] rounded-chip border px-3 transition-colors duration-150" +
                   (active
-                    ? "bg-surface-active text-text border-border-medium"
-                    : "border-line text-text-3 hover:text-text-2 hover:border-border-medium")
+                    ? "border-border-medium bg-surface-active text-text"
+                    : "border-line text-text-3 hover:border-border-medium hover:text-text-2")
                 }
               >
                 {seg.label}
@@ -139,7 +139,10 @@ export function DataReviewQueue() {
 
       {/* Stat strip — mono, tabular */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-2 border-b border-line px-[30px] py-[14px]">
-        <Stat label={t("queue.stat.split", "SPLIT THREADS")} value={splitCount} />
+        <Stat
+          label={t("queue.stat.split", "SPLIT THREADS")}
+          value={splitCount}
+        />
         <Stat
           label={t("queue.stat.terminal", "TERMINAL/LIVE")}
           value={terminalCount}
@@ -230,7 +233,8 @@ function QueueRow({
   const resolveLink = useResolveLink();
   const quarantine = useQuarantineItem();
   const inFlight = resolveLink.isPending || quarantine.isPending;
-  const actionError = resolveLink.error?.message || quarantine.error?.message || null;
+  const actionError =
+    resolveLink.error?.message || quarantine.error?.message || null;
 
   const oppLabel =
     item.oppCount === 1
@@ -244,7 +248,8 @@ function QueueRow({
     String(item.terminalCount)
   );
 
-  const openTarget = item.owners[0]?.opportunityId ?? item.linkCandidates[0]?.opportunityId;
+  const openTarget =
+    item.owners[0]?.opportunityId ?? item.linkCandidates[0]?.opportunityId;
   const canLink = item.linkCandidates.length > 0;
 
   const rowMotion = reduced
@@ -266,7 +271,7 @@ function QueueRow({
         {...rowMotion}
         className={
           "border-b border-line align-top transition-colors duration-150 " +
-          (inFlight ? "opacity-40 " : "hover:bg-surface-hover-subtle ") +
+          (inFlight ? "opacity-40" : "hover:bg-surface-hover-subtle") +
           "cursor-pointer"
         }
         onClick={() => setExpanded((v) => !v)}
@@ -276,7 +281,7 @@ function QueueRow({
           <TypeTag kind={item.kind} t={t} />
         </td>
         <td className="py-3 pr-3">
-          <span className="font-mohave text-[14px] text-text-2 line-clamp-1">
+          <span className="line-clamp-1 font-mohave text-[14px] text-text-2">
             {item.subject || "—"}
           </span>
         </td>
@@ -287,7 +292,7 @@ function QueueRow({
           </span>
         </td>
         <td className="py-3 pr-3">
-          <span className="font-mohave text-[13px] text-text-3 line-clamp-1">
+          <span className="line-clamp-1 font-mohave text-[13px] text-text-3">
             {item.clientName || "—"}
           </span>
         </td>
@@ -296,9 +301,9 @@ function QueueRow({
             {relativeDate(item.lastActivityAt, t)}
           </span>
         </td>
-        <td className="py-3 pr-3 max-w-[280px]">
+        <td className="max-w-[280px] py-3 pr-3">
           <span
-            className="font-mono text-[11px] text-text-3 line-clamp-1"
+            className="line-clamp-1 font-mono text-[11px] text-text-3"
             title={item.reason}
           >
             {item.reason}
@@ -314,7 +319,7 @@ function QueueRow({
                 href={`/dashboard?openProject=${openTarget}&mode=view`}
                 target="_blank"
                 rel="noreferrer"
-                className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded border border-line text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150"
+                className="inline-flex min-h-[36px] items-center rounded border border-line px-3 font-mono text-[11px] uppercase tracking-[0.1em] text-text-3 transition-colors duration-150 hover:border-border-medium hover:text-text-2"
               >
                 {t("queue.action.open", "OPEN OPPORTUNITY")}
               </a>
@@ -324,7 +329,7 @@ function QueueRow({
                 type="button"
                 disabled={inFlight}
                 onClick={() => setLinkOpen((v) => !v)}
-                className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded border border-line text-text-2 hover:border-border-medium transition-colors duration-150 disabled:opacity-40"
+                className="inline-flex min-h-[36px] items-center rounded border border-line px-3 font-mono text-[11px] uppercase tracking-[0.1em] text-text-2 transition-colors duration-150 hover:border-border-medium disabled:opacity-40"
               >
                 {resolveLink.isPending
                   ? t("queue.linking", "LINKING")
@@ -336,12 +341,16 @@ function QueueRow({
               disabled={inFlight}
               onClick={() =>
                 quarantine.mutate({
+                  connectionId: item.connectionId,
                   providerThreadId: item.providerThreadId,
                   kind: item.kind,
                 })
               }
-              title={t("queue.quarantineHint", "mark reviewed · stays quarantined")}
-              className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] inline-flex items-center px-3 rounded border border-line text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150 disabled:opacity-40"
+              title={t(
+                "queue.quarantineHint",
+                "mark reviewed · stays quarantined"
+              )}
+              className="inline-flex min-h-[36px] items-center rounded border border-line px-3 font-mono text-[11px] uppercase tracking-[0.1em] text-text-3 transition-colors duration-150 hover:border-border-medium hover:text-text-2 disabled:opacity-40"
             >
               {quarantine.isPending
                 ? t("queue.quarantining", "QUARANTINING")
@@ -362,6 +371,7 @@ function QueueRow({
               onConfirm={(targetOpportunityId) =>
                 resolveLink.mutate(
                   {
+                    connectionId: item.connectionId,
                     providerThreadId: item.providerThreadId,
                     targetOpportunityId,
                     kind: item.kind,
@@ -434,7 +444,7 @@ function LinkPicker({
                   : "border-line bg-surface-input hover:border-border-medium hover:bg-surface-hover")
               }
             >
-              <span className="font-mohave text-[13px] text-text-2 line-clamp-1">
+              <span className="line-clamp-1 font-mohave text-[13px] text-text-2">
                 {c.title || c.opportunityId}
               </span>
               <span className="flex items-center gap-2">
@@ -462,7 +472,7 @@ function LinkPicker({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] px-3 rounded border border-line bg-surface-hover text-text-3 hover:text-text-2 transition-colors duration-150 disabled:opacity-40"
+            className="min-h-[36px] rounded border border-line bg-surface-hover px-3 font-mono text-[11px] uppercase tracking-[0.1em] text-text-3 transition-colors duration-150 hover:text-text-2 disabled:opacity-40"
           >
             {t("queue.action.cancel", "// CANCEL")}
           </button>
@@ -471,7 +481,7 @@ function LinkPicker({
             type="button"
             disabled={!selected || busy}
             onClick={() => selected && onConfirm(selected)}
-            className="font-cakemono font-light uppercase text-[13px] tracking-[0.06em] min-h-[36px] px-4 rounded border border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black transition-colors duration-150 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ops-accent"
+            className="min-h-[36px] rounded border border-ops-accent px-4 font-cakemono text-[13px] font-light uppercase tracking-[0.06em] text-ops-accent transition-colors duration-150 hover:bg-ops-accent hover:text-black disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ops-accent"
           >
             {busy
               ? t("queue.linking", "LINKING")
@@ -498,7 +508,7 @@ function OwnerDetail({ item }: { item: DataReviewItem }) {
             key={o.opportunityId}
             className="flex items-center justify-between gap-3 border-t border-line pt-2 first:border-t-0 first:pt-0"
           >
-            <span className="font-mohave text-[13px] text-text-2 line-clamp-1">
+            <span className="line-clamp-1 font-mohave text-[13px] text-text-2">
               {o.title || o.opportunityId}
             </span>
             <div className="flex items-center gap-4">
@@ -621,7 +631,7 @@ function ErrorState({
       <button
         type="button"
         onClick={onRetry}
-        className="self-start font-mono text-[11px] uppercase tracking-[0.1em] min-h-[36px] px-3 rounded border border-line bg-surface-hover text-text-3 hover:text-text-2 hover:border-border-medium transition-colors duration-150"
+        className="min-h-[36px] self-start rounded border border-line bg-surface-hover px-3 font-mono text-[11px] uppercase tracking-[0.1em] text-text-3 transition-colors duration-150 hover:border-border-medium hover:text-text-2"
       >
         {retryLabel}
       </button>

@@ -77,6 +77,7 @@ function makeDouble(opts: { nextOpportunityId: string | null }) {
   };
   return {
     from(table: string) {
+      let isUpdate = false;
       const builder: Record<string, unknown> = {};
       const chain = () => builder;
       builder.select = chain;
@@ -85,7 +86,10 @@ function makeDouble(opts: { nextOpportunityId: string | null }) {
       builder.lt = chain;
       builder.is = chain;
       builder.order = chain;
-      builder.update = chain;
+      builder.update = () => {
+        isUpdate = true;
+        return builder;
+      };
       builder.limit = async () => {
         if (table === "activities") {
           return {
@@ -107,7 +111,10 @@ function makeDouble(opts: { nextOpportunityId: string | null }) {
         }
         return { data: [], error: null };
       };
-      builder.maybeSingle = async () => ({ data: null, error: null });
+      builder.maybeSingle = async () => ({
+        data: table === "email_threads" && isUpdate ? updatedRow : null,
+        error: null,
+      });
       builder.single = async () => {
         if (table === "email_threads") return { data: updatedRow, error: null };
         return { data: null, error: null };

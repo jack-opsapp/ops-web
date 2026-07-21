@@ -25,7 +25,16 @@ import {
   getValidGmailToken,
   type GmailConnectionRow,
 } from "@/lib/api/services/gmail-token";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import {
+  fetchGmailRead,
+  mapGmailReads,
+} from "@/lib/api/services/providers/gmail-read";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
+import {
+  acquireEmailConnectionSyncLock,
+  renewEmailConnectionSyncLock,
+  releaseEmailConnectionSyncLock,
+} from "@/lib/api/services/email-connection-sync-lock";
 
 export const maxDuration = 300;
 
@@ -62,6 +71,7 @@ interface ScanEmail {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAX_SCAN = 500;
+const GMAIL_SCAN_JOB_DEADLINE_MS = 270 * 1000;
 const NON_DELIVERY_GMAIL_LABELS = new Set(["DRAFT", "SPAM", "TRASH"]);
 
 function isDeliveryMessage(labelIds: string[] | undefined): boolean {
@@ -74,6 +84,10 @@ function isDeliveryMessage(labelIds: string[] | undefined): boolean {
 
 export async function POST(request: NextRequest) {
   const supabase = getServiceRoleClient();
+  let lockedConnectionId: string | null = null;
+  let lockOwner: string | null = null;
+  let lockHandedToBackground = false;
+  let createdJobId: string | null = null;
 
   try {
     const body = await request.json();
@@ -90,11 +104,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Load connection
+    const access = await resolveEmailConnectionOperationAccess({
+      request,
+      connectionId,
+      requireUsable: true,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
+    }
+    if (access.connections[0]?.provider !== "gmail") {
+      return NextResponse.json(
+        { error: "Connection not found" },
+        { status: 404 }
+      );
+    }
+
+    // Load only the authorized Gmail connection after the actor/provider gate.
     const { data: connRow, error: connError } = await supabase
       .from("email_connections")
-      .select("id, company_id, access_token, refresh_token, expires_at")
+      .select(
+        "id, company_id, provider, access_token, refresh_token, expires_at"
+      )
       .eq("id", connectionId)
+      .eq("company_id", access.actor.companyId)
+      .eq("provider", "gmail")
       .single();
 
     if (connError || !connRow) {
@@ -103,11 +143,18 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-    const authError = await requireEmailCompanyAccess(
-      request,
-      connRow.company_id as string
+    lockOwner = await acquireEmailConnectionSyncLock(
+      connectionId,
+      "gmail-scan-start",
+      supabase
     );
-    if (authError) return authError;
+    if (!lockOwner) {
+      return NextResponse.json(
+        { error: "Mailbox is busy. Try again in a few minutes." },
+        { status: 409 }
+      );
+    }
+    lockedConnectionId = connectionId;
 
     // Check for an existing in-progress scan — return its jobId instead of starting a new one.
     // Only reuse jobs created in the last 5 minutes to avoid returning stale/crashed jobs.
@@ -180,21 +227,54 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+    createdJobId = job.id as string;
 
     const conn = connRow as unknown as GmailConnectionRow;
 
     // Return jobId immediately — heavy work runs after response is sent
     after(async () => {
-      await processScanJob(job.id, conn, days);
+      await processScanJob(job.id, conn, days, lockOwner!);
     });
+    lockHandedToBackground = true;
 
     return NextResponse.json({ jobId: job.id });
   } catch (err) {
     console.error("[scan-start]", err);
+    if (createdJobId) {
+      const { error: handoffFailureError } = await supabase
+        .from("gmail_scan_jobs")
+        .update({
+          status: "error",
+          error_message: `Scan did not start: ${err instanceof Error ? err.message : "Unknown error"}`,
+          progress: {
+            stage: "error",
+            current: 0,
+            total: 0,
+            message: "Scan failed to start",
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", createdJobId);
+      if (handoffFailureError) {
+        console.error(
+          "[scan-start] Failed to persist handoff failure:",
+          handoffFailureError
+        );
+      }
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal error" },
       { status: 500 }
     );
+  } finally {
+    if (lockedConnectionId && lockOwner && !lockHandedToBackground) {
+      await releaseEmailConnectionSyncLock(
+        lockedConnectionId,
+        lockOwner,
+        "gmail-scan-start",
+        supabase
+      );
+    }
   }
 }
 
@@ -203,23 +283,40 @@ export async function POST(request: NextRequest) {
 async function processScanJob(
   jobId: string,
   conn: GmailConnectionRow,
-  days: number
+  days: number,
+  lockOwner: string
 ) {
   const supabase = getServiceRoleClient();
+  const deadlineAt = Date.now() + GMAIL_SCAN_JOB_DEADLINE_MS;
 
   async function updateJob(
     status: string,
     progress: { stage: string; current: number; total: number; message: string }
   ) {
-    await supabase
+    const { error } = await supabase
       .from("gmail_scan_jobs")
       .update({ status, progress, updated_at: new Date().toISOString() })
       .eq("id", jobId);
+    if (error) {
+      throw new Error(
+        `Failed to persist Gmail scan job ${status}: ${error.message}`
+      );
+    }
   }
 
   try {
+    await renewEmailConnectionSyncLock(
+      conn.id,
+      lockOwner,
+      "gmail-scan-start",
+      supabase
+    );
     // ── Stage 1: Get valid token ──────────────────────────────────────────
-    const token = await getValidGmailToken(conn);
+    const token = await getValidGmailToken(conn, {
+      deadlineAt,
+      context: "Gmail scan job",
+      client: supabase,
+    });
 
     // ── Stage 2: List message IDs ─────────────────────────────────────────
     await updateJob("listing", {
@@ -244,12 +341,17 @@ async function processScanJob(
       listUrl.searchParams.set("maxResults", "200");
       if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
 
-      const listResp = await fetch(listUrl.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const listResp = await fetchGmailRead(
+        listUrl,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+        { deadlineAt, context: "messages.list (scan job)" }
+      );
 
-      if (!listResp.ok)
+      if (!listResp.ok) {
         throw new Error(`Gmail messages.list failed: ${listResp.status}`);
+      }
 
       const listData: GmailMessageListResponse = await listResp.json();
       for (const msg of listData.messages ?? []) {
@@ -265,7 +367,7 @@ async function processScanJob(
     const totalMessages = allMessageIds.length;
 
     if (totalMessages === 0) {
-      await supabase
+      const { error: completeEmptyError } = await supabase
         .from("gmail_scan_jobs")
         .update({
           status: "complete",
@@ -285,6 +387,11 @@ async function processScanJob(
           updated_at: new Date().toISOString(),
         })
         .eq("id", jobId);
+      if (completeEmptyError) {
+        throw new Error(
+          `Failed to persist empty Gmail scan result: ${completeEmptyError.message}`
+        );
+      }
       return;
     }
 
@@ -296,68 +403,62 @@ async function processScanJob(
       message: `Reading ${totalMessages} emails...`,
     });
 
-    const emails: ScanEmail[] = [];
-    const BATCH_SIZE = 50;
+    const results = await mapGmailReads(
+      allMessageIds,
+      async (msgId, _index, readPolicy): Promise<ScanEmail | null> => {
+        const msgResp = await fetchGmailRead(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
+          { headers: { Authorization: `Bearer ${token}` } },
+          { ...readPolicy, context: `messages.get (${msgId})` }
+        );
 
-    for (
-      let batchStart = 0;
-      batchStart < allMessageIds.length;
-      batchStart += BATCH_SIZE
-    ) {
-      const batch = allMessageIds.slice(batchStart, batchStart + BATCH_SIZE);
+        if (msgResp.status === 404 || msgResp.status === 410) return null;
+        if (!msgResp.ok) {
+          throw new Error(
+            `Gmail messages.get failed for ${msgId}: ${msgResp.status}`
+          );
+        }
 
-      const results = await Promise.all(
-        batch.map(async (msgId) => {
-          try {
-            const msgResp = await fetch(
-              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
+        const msg: GmailMessage = await msgResp.json();
+        if (!isDeliveryMessage(msg.labelIds)) return null;
+        const headers = msg.payload?.headers ?? [];
+        const from = headers.find((h) => h.name === "From")?.value ?? "";
+        const subject =
+          headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
+        const date = headers.find((h) => h.name === "Date")?.value ?? "";
+        const fromEmail =
+          (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
+        const domain = fromEmail.split("@")[1] ?? "";
 
-            if (!msgResp.ok) return null;
-
-            const msg: GmailMessage = await msgResp.json();
-            if (!isDeliveryMessage(msg.labelIds)) return null;
-            const headers = msg.payload?.headers ?? [];
-            const from = headers.find((h) => h.name === "From")?.value ?? "";
-            const subject =
-              headers.find((h) => h.name === "Subject")?.value ??
-              "(no subject)";
-            const date = headers.find((h) => h.name === "Date")?.value ?? "";
-            const fromEmail =
-              (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
-            const domain = fromEmail.split("@")[1] ?? "";
-
-            return {
-              id: msgId,
-              from,
-              fromEmail,
-              domain,
-              subject,
-              snippet: msg.snippet ?? "",
-              labels: msg.labelIds ?? [],
-              date,
-              wouldImport: true,
-              reason: "",
-            } as ScanEmail;
-          } catch {
-            return null;
-          }
-        })
-      );
-
-      for (const r of results) {
-        if (r) emails.push(r);
+        return {
+          id: msgId,
+          from,
+          fromEmail,
+          domain,
+          subject,
+          snippet: msg.snippet ?? "",
+          labels: msg.labelIds ?? [],
+          date,
+          wouldImport: true,
+          reason: "",
+        };
+      },
+      {
+        deadlineAt,
+        context: "scan job message reads",
+        onBatchComplete: async (_batchResults, completedItems) => {
+          await updateJob("fetching", {
+            stage: "fetching",
+            current: completedItems,
+            total: totalMessages,
+            message: `Read ${completedItems} of ${totalMessages} emails`,
+          });
+        },
       }
-
-      // Update progress after each batch so client sees movement
-      await updateJob("fetching", {
-        stage: "fetching",
-        current: emails.length,
-        total: totalMessages,
-        message: `Read ${emails.length} of ${totalMessages} emails`,
-      });
-    }
+    );
+    const emails = results.filter(
+      (email): email is ScanEmail => email !== null
+    );
 
     // ── Stage 4: Pre-filter known noise domains ───────────────────────────
     await updateJob("pre_filtering", {
@@ -475,7 +576,7 @@ async function processScanJob(
       ? `Scan complete with warnings — AI analysis failed: ${aiError}`
       : `Scan complete! ${importedCount} to import, ${filteredCount} filtered out of ${allResults.length} total.`;
 
-    await supabase
+    const { error: completeError } = await supabase
       .from("gmail_scan_jobs")
       .update({
         status: "complete",
@@ -496,6 +597,11 @@ async function processScanJob(
         updated_at: new Date().toISOString(),
       })
       .eq("id", jobId);
+    if (completeError) {
+      throw new Error(
+        `Failed to persist final Gmail scan result: ${completeError.message}`
+      );
+    }
 
     // eslint-disable-next-line no-console
     console.log(
@@ -503,7 +609,7 @@ async function processScanJob(
     );
   } catch (err) {
     console.error(`[scan-job] Job ${jobId} failed:`, err);
-    await supabase
+    const { error: failureStateError } = await supabase
       .from("gmail_scan_jobs")
       .update({
         status: "error",
@@ -517,5 +623,17 @@ async function processScanJob(
         updated_at: new Date().toISOString(),
       })
       .eq("id", jobId);
+    if (failureStateError) {
+      throw new Error(
+        `Failed to persist Gmail scan job error: ${failureStateError.message}`
+      );
+    }
+  } finally {
+    await releaseEmailConnectionSyncLock(
+      conn.id,
+      lockOwner,
+      "gmail-scan-start",
+      supabase
+    );
   }
 }

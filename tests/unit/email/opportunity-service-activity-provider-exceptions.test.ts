@@ -84,36 +84,33 @@ describe("OpportunityService.createActivity provider id exceptions", () => {
     });
   });
 
-  it("keeps synthetic import activities explicitly thread-only", async () => {
+  it("rejects email activities without exact mailbox, message, and thread identity", async () => {
     const state: SupabaseDoubleState = { insertedActivities: [] };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
 
-    await OpportunityService.createActivity({
-      companyId: "company-1",
-      opportunityId: "opp-1",
-      clientId: "client-1",
-      estimateId: null,
-      invoiceId: null,
-      projectId: null,
-      siteVisitId: null,
-      type: ActivityType.Email,
-      subject: "Imported from email pipeline",
-      content: "Pipeline import: Kara Beach — stage: new_lead",
-      outcome: null,
-      direction: "inbound",
-      durationMinutes: null,
-      emailThreadId: "thread-import-1",
-      emailMessageId: null,
-      isRead: true,
-      fromEmail: "kara.beach@example.com",
-      createdBy: null,
-    });
+    await expect(
+      OpportunityService.createActivity({
+        companyId: "company-1",
+        opportunityId: "opp-1",
+        clientId: "client-1",
+        estimateId: null,
+        invoiceId: null,
+        projectId: null,
+        siteVisitId: null,
+        type: ActivityType.Email,
+        subject: "Imported from email pipeline",
+        content: "Pipeline import: Kara Beach — stage: new_lead",
+        outcome: null,
+        direction: "inbound",
+        durationMinutes: null,
+        emailThreadId: "thread-import-1",
+        emailMessageId: null,
+        isRead: true,
+        fromEmail: "kara.beach@example.com",
+        createdBy: null,
+      })
+    ).rejects.toThrow("exact mailbox, provider message, and provider thread");
 
-    expect(state.insertedActivities).toHaveLength(1);
-    expect(state.insertedActivities[0]).toMatchObject({
-      type: "email",
-      email_thread_id: "thread-import-1",
-      email_message_id: null,
-    });
+    expect(state.insertedActivities).toHaveLength(0);
   });
 });

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ProviderApiError,
   ProviderAttachmentTooLargeError,
+  type EmailProviderInterface,
 } from "@/lib/api/services/email-provider";
 import { GmailProvider } from "@/lib/api/services/providers/gmail-provider";
 import type { EmailConnection } from "@/lib/types/email-connection";
@@ -111,9 +112,34 @@ function messageFixture() {
   };
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("GmailProvider attachments", () => {
+  it("honors the caller's absolute deadline before enumerating thread attachments", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-21T09:00:00.000Z"));
+    const fetchMock = vi.fn(async () =>
+      response({ messages: [messageFixture()] })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const provider: EmailProviderInterface = new GmailProvider(connection());
+
+    await expect(
+      provider.getImageAttachmentsFromThread("thread-1", {
+        deadlineAt: Date.now(),
+        context: "route attachment read",
+      })
+    ).rejects.toMatchObject({
+      providerStatus: 504,
+      providerBody: { reason: "gmail_read_deadline_exceeded" },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("bounds exact-message attachment enumeration with an abort signal", async () => {
     const fetchMock = vi.fn(
       async (_input: string | URL | Request, init?: RequestInit) => {
@@ -325,14 +351,20 @@ describe("GmailProvider attachments", () => {
   });
 
   it("throws a typed provider error instead of parsing a failed message response", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => response({ error: "down" }, 503))
     );
 
-    await expect(
-      new GmailProvider(connection()).getAttachmentsFromMessage("message-1")
-    ).rejects.toBeInstanceOf(ProviderApiError);
+    const resultPromise = new GmailProvider(
+      connection()
+    ).getAttachmentsFromMessage("message-1");
+    const rejection =
+      expect(resultPromise).rejects.toBeInstanceOf(ProviderApiError);
+    await vi.runAllTimersAsync();
+    await rejection;
   });
 
   it("does not surface attachment bytes from draft, spam, or trash messages", async () => {

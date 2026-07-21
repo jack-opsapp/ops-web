@@ -16,6 +16,11 @@ import type {
   EmailConnection,
   SyncProfile,
 } from "@/lib/types/email-connection";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  runEmailProviderMailboxOperation,
+  type EmailProviderMailboxCheckpoint,
+} from "./email-provider-mailbox-operation";
 
 export interface AIClassifiedLead {
   email: NormalizedEmail;
@@ -222,7 +227,11 @@ export const AISyncReviewer = {
         }
     >,
     connection: EmailConnection,
-    companyContext: { name: string }
+    companyContext: { name: string },
+    mailboxOperation: {
+      supabase?: SupabaseClient;
+      providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+    } = {}
   ): Promise<
     Array<{
       threadId: string;
@@ -236,8 +245,6 @@ export const AISyncReviewer = {
       "phase_c"
     );
     if (!enabled) return [];
-
-    const provider = EmailService.getProvider(connection);
 
     // Fetch every active thread. Silently truncating this list leaves later
     // opportunities permanently stale when a busy sync contains >20 threads.
@@ -253,21 +260,43 @@ export const AISyncReviewer = {
       }>;
     }> = [];
 
+    const providerMessagesByThreadId = new Map<string, NormalizedEmail[]>();
+    const providerThreadIds = activeLeadTargets.filter(
+      (target): target is string => typeof target === "string"
+    );
+    if (providerThreadIds.length > 0) {
+      await runEmailProviderMailboxOperation({
+        supabase: mailboxOperation.supabase,
+        connectionId: connection.id,
+        context: "ai-sync-stage-review",
+        busyError: "AI_SYNC_REVIEW_MAILBOX_BUSY",
+        providerLockCheckpoint: mailboxOperation.providerLockCheckpoint,
+        run: async (checkpoint) => {
+          const provider = EmailService.getProvider(connection);
+          for (const threadId of providerThreadIds) {
+            await checkpoint();
+            let messages: NormalizedEmail[];
+            try {
+              messages = await provider.fetchThread(threadId);
+            } catch (err) {
+              throw new Error(
+                `[ai-sync-reviewer] failed to fetch thread ${threadId}: ${err instanceof Error ? err.message : "unknown error"}`,
+                { cause: err }
+              );
+            }
+            await checkpoint();
+            providerMessagesByThreadId.set(threadId, messages);
+          }
+        },
+      });
+    }
+
     for (const target of activeLeadTargets) {
       const threadId = typeof target === "string" ? target : target.threadId;
-      let messages: NormalizedEmail[];
-      if (typeof target === "string") {
-        try {
-          messages = await provider.fetchThread(threadId);
-        } catch (err) {
-          throw new Error(
-            `[ai-sync-reviewer] failed to fetch thread ${threadId}: ${err instanceof Error ? err.message : "unknown error"}`,
-            { cause: err }
-          );
-        }
-      } else {
-        messages = target.messages;
-      }
+      const messages =
+        typeof target === "string"
+          ? (providerMessagesByThreadId.get(threadId) ?? [])
+          : target.messages;
       threadInputs.push({
         threadId,
         messages: messages.map((m) => ({

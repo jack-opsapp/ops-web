@@ -15,6 +15,7 @@ import { EmailSendDeliveryService } from "@/lib/api/services/email-send-delivery
 import { EmailService } from "@/lib/api/services/email-service";
 import { EmailSendIntentService } from "@/lib/api/services/email-send-intent-service";
 import { reconcileEmailSend } from "@/lib/api/services/email-send-reconciliation-service";
+import { runWithEmailConnectionSyncLock } from "@/lib/api/services/email-connection-sync-lock";
 import { renderEmailBodyWithSignature } from "@/lib/api/services/email-signature-service";
 import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
 import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
           threadId: sourceEmailThreadId,
           connectionId: senderSwitched
             ? undefined
-            : selectedConnectionId ?? undefined,
+            : (selectedConnectionId ?? undefined),
           opportunityId: assertedOpportunityId ?? undefined,
         })
       : null;
@@ -309,21 +310,29 @@ export async function POST(request: NextRequest) {
 
     const provider = EmailService.getProvider(connection);
     const intentStore = new EmailSendIntentService(supabase);
-    let reconciliationResult:
-      | Awaited<ReturnType<typeof reconcileEmailSend>>
-      | null = null;
+    let reconciliationResult: Awaited<
+      ReturnType<typeof reconcileEmailSend>
+    > | null = null;
     const delivery = new EmailSendDeliveryService({
       intentStore,
       provider,
-      reconcile: async (intent) => {
+      reconcile: async (intent, providerLockCheckpoint) => {
         reconciliationResult = await reconcileEmailSend({
           supabase,
           intent,
           connection,
           provider,
+          providerLockCheckpoint,
         });
         return { activityId: reconciliationResult.activityId };
       },
+      runWithMailboxLease: ({ connectionId, run }) =>
+        runWithEmailConnectionSyncLock({
+          connectionId,
+          context: "email-send-delivery",
+          client: supabase,
+          run,
+        }),
     });
 
     const result = await delivery.execute({
@@ -336,9 +345,9 @@ export async function POST(request: NextRequest) {
       sourceEmailThreadId,
       replyProviderThreadId: senderSwitched
         ? null
-        : (sourceAccess?.allowed
-            ? sourceAccess.providerThreadId
-            : null),
+        : sourceAccess?.allowed
+          ? sourceAccess.providerThreadId
+          : null,
       inReplyTo: senderSwitched ? null : inReplyTo,
       senderSwitched,
       toEmails: to,
@@ -366,6 +375,16 @@ export async function POST(request: NextRequest) {
           intentId: result.intentId,
         },
         { status: 502 }
+      );
+    }
+    if (result.error === "EMAIL_SEND_MAILBOX_BUSY") {
+      return NextResponse.json(
+        {
+          error: result.error,
+          delivered: false,
+          intentId: result.intentId,
+        },
+        { status: 409 }
       );
     }
     if (result.state !== "reconciled") {

@@ -130,6 +130,8 @@ function dbRow(overrides: Record<string, unknown> = {}) {
     connection_id: IDS.connection,
     opportunity_id: IDS.opportunity,
     source_email_thread_id: IDS.internalThread,
+    category_snapshot: "CUSTOMER",
+    autonomy_level_snapshot: "auto_send",
     thread_id: "provider-thread-1",
     in_reply_to: "provider-message-1",
     to_emails: ["lead@example.com"],
@@ -140,7 +142,7 @@ function dbRow(overrides: Record<string, unknown> = {}) {
     rendered_body: "<p>Draft body</p><signature />",
     content_type: "html",
     draft_history_id: IDS.draftHistory,
-    profile_type_snapshot: "lead-estimate",
+    profile_type_snapshot: "client_new_inquiry",
     learning_authority: "autonomous",
     actor_name_snapshot: "Alex Rivera",
     actor_email_snapshot: "alex@ops.test",
@@ -180,6 +182,7 @@ function makeClient(
 
 function scheduleInput() {
   return {
+    category: "CUSTOMER" as const,
     companyId: IDS.company,
     connectionId: IDS.connection,
     opportunityId: IDS.opportunity,
@@ -199,7 +202,7 @@ describe("AutoSendService queue lifecycle", () => {
       available: true,
       draft: "Draft body",
       draftHistoryId: IDS.draftHistory,
-      profileType: "lead-estimate",
+      profileType: "client_new_inquiry",
     });
     getConnectionMock.mockResolvedValue(mailboxConnection);
     resolveMessageSignatureMock.mockResolvedValue({
@@ -229,6 +232,7 @@ describe("AutoSendService queue lifecycle", () => {
         connectionId: IDS.connection,
         opportunityId: IDS.opportunity,
         threadId: "provider-thread-1",
+        profileTypeOverride: "client_new_inquiry",
         autonomous: true,
       })
     );
@@ -268,7 +272,7 @@ describe("AutoSendService queue lifecycle", () => {
       p_authored_body: "<p>Draft body</p>",
       p_rendered_body: "<p>Draft body</p><signature />",
       p_content_type: "html",
-      p_profile_type_snapshot: "lead-estimate",
+      p_profile_type_snapshot: "client_new_inquiry",
       p_learning_authority: "autonomous",
       p_signature_id: IDS.signature,
       p_signature_content_hash: "a".repeat(64),
@@ -276,6 +280,55 @@ describe("AutoSendService queue lifecycle", () => {
     expect(args.p_idempotency_key).toMatch(/^[0-9a-f]{64}$/);
     expect(args.p_rendered_body_hash).toMatch(/^[0-9a-f]{64}$/);
     expect(result?.actorUserId).toBe(IDS.actor);
+    expect(result?.categorySnapshot).toBe("CUSTOMER");
+    expect(result?.autonomyLevelSnapshot).toBe("auto_send");
+  });
+
+  it("fails closed when the generated profile is outside the scheduled category", async () => {
+    generateDraftMock.mockResolvedValueOnce({
+      available: true,
+      draft: "Draft body",
+      draftHistoryId: IDS.draftHistory,
+      profileType: "general",
+    });
+    const db = makeClient((name) => {
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    requireSupabaseMock.mockReturnValue(db.client);
+
+    const result = await AutoSendService.scheduleAutoSend(scheduleInput());
+
+    expect(result).toBeNull();
+    expect(db.rpc).not.toHaveBeenCalled();
+    expect(resolveMessageSignatureMock).not.toHaveBeenCalled();
+  });
+
+  it("updates settings through the actor-bound atomic graduation RPC", async () => {
+    const db = makeClient((name) => {
+      if (name === "update_phase_c_auto_send_settings_as_system") {
+        return { enabled: true };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    requireSupabaseMock.mockReturnValue(db.client);
+
+    await AutoSendService.updateSettings(
+      IDS.company,
+      IDS.connection,
+      IDS.actor,
+      { enabled: true }
+    );
+
+    expect(db.rpc).toHaveBeenCalledWith(
+      "update_phase_c_auto_send_settings_as_system",
+      {
+        p_company_id: IDS.company,
+        p_connection_id: IDS.connection,
+        p_actor_user_id: IDS.actor,
+        p_settings_patch: { enabled: true },
+      }
+    );
+    expect(db.from).not.toHaveBeenCalled();
   });
 
   it("preserves the draft and opens the signature prompt instead of scheduling unsigned email", async () => {
@@ -312,6 +365,7 @@ describe("AutoSendService queue lifecycle", () => {
       connectionId: IDS.connection,
       opportunityId: IDS.opportunity,
       sourceEmailThreadId: IDS.internalThread,
+      autonomyLevelSnapshot: "auto_send",
       providerThreadId: "provider-thread-1",
       inReplyTo: "provider-message-1",
       draftHistoryId: IDS.draftHistory,
@@ -472,6 +526,15 @@ describe("AutoSendService queue lifecycle", () => {
 
   it("rejects a claimed source when the assignment event fence is absent", async () => {
     const db = makeClient(() => [dbRow({ assignment_event_id: null })]);
+    requireSupabaseMock.mockReturnValue(db.client);
+
+    await expect(AutoSendService.claimPendingSends()).rejects.toThrow(
+      "PHASE_C_AUTO_SEND_INVALID_CLAIM"
+    );
+  });
+
+  it("rejects a claimed source without its exact autonomy-level snapshot", async () => {
+    const db = makeClient(() => [dbRow({ autonomy_level_snapshot: null })]);
     requireSupabaseMock.mockReturnValue(db.client);
 
     await expect(AutoSendService.claimPendingSends()).rejects.toThrow(

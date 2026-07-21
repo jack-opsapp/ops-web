@@ -9,7 +9,7 @@
  */
 
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/i18n/client", () => ({
@@ -21,15 +21,16 @@ vi.mock("@/i18n/client", () => ({
 // Passthrough framer-motion so AnimatePresence does not retain exiting rows in
 // jsdom (exit animations never "complete" without a real compositor, which
 // would leave filtered-out rows mounted and defeat the filter assertion).
-vi.mock("framer-motion", () => {
-  const React = require("react");
+vi.mock("framer-motion", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
   return {
     AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
     useReducedMotion: () => true,
     motion: new Proxy(
       {},
       {
-        get: (_t, tag: string) =>
+        get:
+          (_t, tag: string) =>
           ({ children, ...props }: { children?: React.ReactNode }) => {
             // strip framer-only props so React doesn't warn
             const {
@@ -64,8 +65,16 @@ const queueState: {
 
 vi.mock("@/lib/hooks/use-data-review", () => ({
   useDataReviewQueue: () => ({ ...queueState, refetch: vi.fn() }),
-  useResolveLink: () => ({ mutate: resolveMutate, isPending: false, error: null }),
-  useQuarantineItem: () => ({ mutate: quarantineMutate, isPending: false, error: null }),
+  useResolveLink: () => ({
+    mutate: resolveMutate,
+    isPending: false,
+    error: null,
+  }),
+  useQuarantineItem: () => ({
+    mutate: quarantineMutate,
+    isPending: false,
+    error: null,
+  }),
 }));
 
 import { DataReviewQueue } from "@/app/admin/data-setup/_components/data-review-queue";
@@ -73,6 +82,7 @@ import { DataReviewQueue } from "@/app/admin/data-setup/_components/data-review-
 const SPLIT_ITEM = {
   id: "T-split",
   kind: "split" as const,
+  connectionId: "conn-1",
   providerThreadId: "T-split",
   subject: "Deck quote",
   clientId: "c1",
@@ -82,18 +92,49 @@ const SPLIT_ITEM = {
   oppCount: 2,
   terminalCount: 0,
   owners: [
-    { opportunityId: "opp-live", title: "Deck — Smith", stage: "quoting", archived: false, deleted: false, terminal: false, activityCount: 5, clientId: "c1", clientName: "Smith" },
-    { opportunityId: "opp-shell", title: "Deck — dupe", stage: "follow_up", archived: false, deleted: false, terminal: false, activityCount: 2, clientId: "c1", clientName: "Smith" },
+    {
+      opportunityId: "opp-live",
+      title: "Deck — Smith",
+      stage: "quoting",
+      archived: false,
+      deleted: false,
+      terminal: false,
+      activityCount: 5,
+      clientId: "c1",
+      clientName: "Smith",
+    },
+    {
+      opportunityId: "opp-shell",
+      title: "Deck — dupe",
+      stage: "follow_up",
+      archived: false,
+      deleted: false,
+      terminal: false,
+      activityCount: 2,
+      clientId: "c1",
+      clientName: "Smith",
+    },
   ],
   linkCandidates: [
-    { opportunityId: "opp-live", title: "Deck — Smith", stage: "quoting", terminal: false },
-    { opportunityId: "opp-shell", title: "Deck — dupe", stage: "follow_up", terminal: false },
+    {
+      opportunityId: "opp-live",
+      title: "Deck — Smith",
+      stage: "quoting",
+      terminal: false,
+    },
+    {
+      opportunityId: "opp-shell",
+      title: "Deck — dupe",
+      stage: "follow_up",
+      terminal: false,
+    },
   ],
 };
 
 const TERMINAL_ITEM = {
   id: "et-1",
   kind: "terminal_live" as const,
+  connectionId: "conn-2",
   providerThreadId: "T-term",
   subject: "Patio thread",
   clientId: "c2",
@@ -103,10 +144,25 @@ const TERMINAL_ITEM = {
   oppCount: 1,
   terminalCount: 1,
   owners: [
-    { opportunityId: "opp-won", title: "Patio — Jones", stage: "won", archived: false, deleted: false, terminal: true, activityCount: 0, clientId: "c2", clientName: "Jones" },
+    {
+      opportunityId: "opp-won",
+      title: "Patio — Jones",
+      stage: "won",
+      archived: false,
+      deleted: false,
+      terminal: true,
+      activityCount: 0,
+      clientId: "c2",
+      clientName: "Jones",
+    },
   ],
   linkCandidates: [
-    { opportunityId: "opp-won", title: "Patio — Jones", stage: "won", terminal: true },
+    {
+      opportunityId: "opp-won",
+      title: "Patio — Jones",
+      stage: "won",
+      terminal: true,
+    },
   ],
 };
 
@@ -156,7 +212,12 @@ describe("DataReviewQueue", () => {
     fireEvent.click(screen.getByRole("radio", { name: /Deck — Smith/ }));
     fireEvent.click(screen.getByRole("button", { name: "// CONFIRM LINK" }));
     expect(resolveMutate).toHaveBeenCalledWith(
-      { providerThreadId: "T-split", targetOpportunityId: "opp-live", kind: "split" },
+      {
+        connectionId: "conn-1",
+        providerThreadId: "T-split",
+        targetOpportunityId: "opp-live",
+        kind: "split",
+      },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
   });
@@ -165,6 +226,7 @@ describe("DataReviewQueue", () => {
     render(<DataReviewQueue />);
     fireEvent.click(screen.getAllByRole("button", { name: "QUARANTINE" })[0]);
     expect(quarantineMutate).toHaveBeenCalledWith({
+      connectionId: "conn-1",
       providerThreadId: "T-split",
       kind: "split",
     });
@@ -178,12 +240,33 @@ describe("DataReviewQueue", () => {
     fireEvent.click(screen.getByRole("button", { name: "// CONFIRM LINK" }));
     expect(resolveMutate).toHaveBeenCalledWith(
       {
+        connectionId: "conn-2",
         providerThreadId: "T-term",
         targetOpportunityId: "opp-won",
         kind: "terminal_live",
       },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     );
+  });
+
+  it("omits LINK for a review-only item with no SQL-eligible target", () => {
+    queueState.data = {
+      split: [
+        {
+          ...SPLIT_ITEM,
+          reason: "2 distinct client(s) — spans more than one customer",
+          linkCandidates: [],
+        },
+      ],
+      terminalLive: [],
+      quarantinedCount: 0,
+    };
+
+    render(<DataReviewQueue />);
+
+    expect(screen.queryByRole("button", { name: "LINK TO…" })).toBeNull();
+    expect(screen.getByRole("button", { name: "QUARANTINE" })).toBeTruthy();
+    expect(screen.getByText(/2 distinct client\(s\)/)).toBeTruthy();
   });
 
   it("renders the empty state when there are no actionable items", () => {

@@ -6,6 +6,8 @@ import {
   type PrepareApprovedActionEmailIntentInput,
 } from "@/lib/api/services/approved-action-email-delivery-service";
 import { mapApprovedActionEmailIntent } from "@/lib/api/services/approved-action-email-intent-service";
+import type { EmailConnectionSyncLockRunResult } from "@/lib/api/services/email-connection-sync-lock";
+import type { EmailProviderMailboxCheckpoint } from "@/lib/api/services/email-provider-mailbox-operation";
 import { ProviderApiError } from "@/lib/api/services/email-provider";
 
 const PREPARE_INPUT: PrepareApprovedActionEmailIntentInput = {
@@ -69,6 +71,15 @@ function intent(
 }
 
 function dependencies() {
+  const mailboxLeaseState = { acquired: true };
+  const mailboxCheckpoint = vi.fn(async () => undefined);
+  const runWithMailboxLease = async <T>(input: {
+    connectionId: string;
+    run: (checkpoint: EmailProviderMailboxCheckpoint) => Promise<T>;
+  }): Promise<EmailConnectionSyncLockRunResult<T>> =>
+    mailboxLeaseState.acquired
+      ? { acquired: true, value: await input.run(mailboxCheckpoint) }
+      : { acquired: false };
   const accepted = intent("provider_accepted", {
     providerMessageId: "sent-message-1",
     acceptedProviderThreadId: "sent-thread-1",
@@ -105,7 +116,14 @@ function dependencies() {
     }),
   };
   const reconcile = vi.fn().mockResolvedValue({ activityId: "activity-1" });
-  return { store, provider, reconcile };
+  return {
+    store,
+    provider,
+    reconcile,
+    runWithMailboxLease,
+    mailboxLeaseState,
+    mailboxCheckpoint,
+  };
 }
 
 describe("approved-action email delivery", () => {
@@ -159,6 +177,24 @@ describe("approved-action email delivery", () => {
     expect(deps.reconcile).not.toHaveBeenCalled();
   });
 
+  it("fails busy before claiming delivery or touching the provider", async () => {
+    const deps = dependencies();
+    deps.mailboxLeaseState.acquired = false;
+
+    const result = await new ApprovedActionEmailDeliveryService(deps).execute(
+      PREPARE_INPUT
+    );
+
+    expect(result).toMatchObject({
+      state: "pending",
+      delivered: false,
+      error: "APPROVED_ACTION_EMAIL_MAILBOX_BUSY",
+    });
+    expect(deps.store.prepare).toHaveBeenCalledTimes(1);
+    expect(deps.store.claimProviderDelivery).not.toHaveBeenCalled();
+    expect(deps.provider.sendEmail).not.toHaveBeenCalled();
+  });
+
   it("retries provider-acceptance persistence exactly once and never resends", async () => {
     const deps = dependencies();
     deps.store.persistProviderAcceptance.mockRejectedValue(
@@ -177,6 +213,65 @@ describe("approved-action email delivery", () => {
     await service.execute(PREPARE_INPUT);
     expect(deps.provider.sendEmail).toHaveBeenCalledTimes(1);
   });
+
+  it("never resends when mailbox ownership is lost after provider acceptance", async () => {
+    const deps = dependencies();
+    deps.mailboxCheckpoint
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("mailbox lease ownership lost"));
+
+    const service = new ApprovedActionEmailDeliveryService(deps);
+    const first = await service.execute(PREPARE_INPUT);
+
+    expect(first).toMatchObject({
+      state: "pending",
+      delivered: true,
+      providerMessageId: "sent-message-1",
+      providerThreadId: "sent-thread-1",
+      error: "mailbox lease ownership lost",
+    });
+    expect(deps.provider.sendEmail).toHaveBeenCalledTimes(1);
+    expect(deps.store.persistProviderAcceptance).toHaveBeenCalledWith({
+      intentId: "intent-1",
+      providerMessageId: "sent-message-1",
+      providerThreadId: "sent-thread-1",
+      acceptedAt: expect.any(Date),
+    });
+    expect(deps.store.markDeliveryUnknown).not.toHaveBeenCalled();
+
+    deps.store.prepare.mockResolvedValueOnce(
+      intent("provider_accepted", {
+        providerMessageId: "sent-message-1",
+        acceptedProviderThreadId: "sent-thread-1",
+        providerAcceptedAt: "2026-07-15T20:00:00.000Z",
+      })
+    );
+    const retry = await service.execute(PREPARE_INPUT);
+
+    expect(retry.state).toBe("reconciled");
+    expect(deps.provider.sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([408, 409, 423, 425, 429, 500, 502, 503, 504])(
+    "quarantines ambiguous provider status %s instead of treating it as a definitive rejection",
+    async (providerStatus) => {
+      const deps = dependencies();
+      deps.provider.sendEmail.mockRejectedValue(
+        new ProviderApiError("Microsoft Graph outcome unknown", providerStatus)
+      );
+
+      const result = await new ApprovedActionEmailDeliveryService(deps).execute(
+        PREPARE_INPUT
+      );
+
+      expect(result.state).toBe("delivery_unknown");
+      expect(deps.store.markDeliveryUnknown).toHaveBeenCalledWith({
+        intentId: "intent-1",
+        error: "Microsoft Graph outcome unknown",
+      });
+      expect(deps.store.markProviderRejected).not.toHaveBeenCalled();
+    }
+  );
 
   it("writes no reconciliation activity after an explicit provider rejection", async () => {
     const deps = dependencies();

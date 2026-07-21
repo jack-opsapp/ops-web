@@ -122,11 +122,13 @@ beforeEach(() => {
     archivedThreadIds: ["thread-a", "thread-b"],
     failedThreadIds: [],
     leadArchivedOpportunityId: "opportunity-1",
+    failedOpportunityId: null,
   });
   unarchiveBatchMock.mockResolvedValue({
     unarchivedThreadIds: ["thread-a", "thread-b"],
     failedThreadIds: [],
     unarchivedOpportunityId: "opportunity-1",
+    failedOpportunityId: null,
   });
   getThreadMock.mockResolvedValue({ id: "thread-a" });
   archiveMock.mockResolvedValue({
@@ -145,9 +147,8 @@ describe("batch archive authorization", () => {
           ? { allowed: false, reason: "opportunity_other_assignee" }
           : allowed(threadId)
     );
-    const { POST } = await import(
-      "@/app/api/inbox/threads/batch-archive/route"
-    );
+    const { POST } =
+      await import("@/app/api/inbox/threads/batch-archive/route");
 
     const response = await POST(
       jsonRequest("https://ops.test/api/inbox/threads/batch-archive", {
@@ -173,9 +174,8 @@ describe("batch archive authorization", () => {
   });
 
   it("rejects a forged opportunity id before the batch service runs", async () => {
-    const { POST } = await import(
-      "@/app/api/inbox/threads/batch-archive/route"
-    );
+    const { POST } =
+      await import("@/app/api/inbox/threads/batch-archive/route");
 
     const response = await POST(
       jsonRequest("https://ops.test/api/inbox/threads/batch-archive", {
@@ -189,9 +189,8 @@ describe("batch archive authorization", () => {
   });
 
   it("passes only preauthorized canonical ids into the archive service", async () => {
-    const { POST } = await import(
-      "@/app/api/inbox/threads/batch-archive/route"
-    );
+    const { POST } =
+      await import("@/app/api/inbox/threads/batch-archive/route");
 
     const response = await POST(
       jsonRequest("https://ops.test/api/inbox/threads/batch-archive", {
@@ -211,6 +210,35 @@ describe("batch archive authorization", () => {
       companyId: actor.companyId,
       threadIds: ["thread-a", "thread-b"],
       archiveOpportunityId: "opportunity-1",
+      authorizeProviderMutation: expect.any(Function),
+    });
+  });
+
+  it("returns an actionable non-success response for any partial archive failure", async () => {
+    archiveBatchMock.mockResolvedValueOnce({
+      archivedThreadIds: ["thread-a"],
+      failedThreadIds: ["thread-b"],
+      leadArchivedOpportunityId: null,
+      failedOpportunityId: "opportunity-1",
+    });
+    const { POST } =
+      await import("@/app/api/inbox/threads/batch-archive/route");
+
+    const response = await POST(
+      jsonRequest("https://ops.test/api/inbox/threads/batch-archive", {
+        threadIds: ["thread-a", "thread-b"],
+        archiveOpportunityId: "opportunity-1",
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(body).toMatchObject({
+      ok: false,
+      error: "Some threads could not be archived. Refresh and try again.",
+      archivedThreadIds: ["thread-a"],
+      failedThreadIds: ["thread-b"],
+      failedOpportunityId: "opportunity-1",
     });
   });
 });
@@ -223,9 +251,8 @@ describe("batch unarchive authorization", () => {
           ? { allowed: false, reason: "opportunity_other_assignee" }
           : allowed(threadId)
     );
-    const { POST } = await import(
-      "@/app/api/inbox/threads/batch-unarchive/route"
-    );
+    const { POST } =
+      await import("@/app/api/inbox/threads/batch-unarchive/route");
 
     const response = await POST(
       jsonRequest("https://ops.test/api/inbox/threads/batch-unarchive", {
@@ -239,9 +266,8 @@ describe("batch unarchive authorization", () => {
   });
 
   it("rejects a forged opportunity id before the unarchive service runs", async () => {
-    const { POST } = await import(
-      "@/app/api/inbox/threads/batch-unarchive/route"
-    );
+    const { POST } =
+      await import("@/app/api/inbox/threads/batch-unarchive/route");
 
     const response = await POST(
       jsonRequest("https://ops.test/api/inbox/threads/batch-unarchive", {
@@ -253,12 +279,46 @@ describe("batch unarchive authorization", () => {
     expect(response.status).toBe(403);
     expect(unarchiveBatchMock).not.toHaveBeenCalled();
   });
+
+  it("returns an actionable non-success response for any partial unarchive failure", async () => {
+    unarchiveBatchMock.mockResolvedValueOnce({
+      unarchivedThreadIds: ["thread-a"],
+      failedThreadIds: ["thread-b"],
+      unarchivedOpportunityId: null,
+      failedOpportunityId: "opportunity-1",
+    });
+    const { POST } =
+      await import("@/app/api/inbox/threads/batch-unarchive/route");
+
+    const response = await POST(
+      jsonRequest("https://ops.test/api/inbox/threads/batch-unarchive", {
+        threadIds: ["thread-a", "thread-b"],
+        unarchiveOpportunityId: "opportunity-1",
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(body).toMatchObject({
+      ok: false,
+      error: "Some threads could not be restored. Refresh and try again.",
+      unarchivedThreadIds: ["thread-a"],
+      failedThreadIds: ["thread-b"],
+      failedOpportunityId: "opportunity-1",
+    });
+  });
 });
 
 describe("single-thread archive authorization", () => {
   it("requires mutate authorization before loading or archiving the thread", async () => {
     resolveEmailOpportunityAccessMock.mockImplementation(
-      async ({ operation, threadId }: { operation: string; threadId: string }) =>
+      async ({
+        operation,
+        threadId,
+      }: {
+        operation: string;
+        threadId: string;
+      }) =>
         operation === "mutate"
           ? { allowed: false, reason: "missing_pipeline_permission" }
           : allowed(threadId)
@@ -302,5 +362,28 @@ describe("single-thread archive authorization", () => {
       supabase,
     });
     expect(markReadMock).toHaveBeenCalledWith("thread-a", true);
+  });
+
+  it("does not report ok when the provider or OPS mirror action fails", async () => {
+    markReadMock.mockRejectedValueOnce(
+      new Error("markRead mirror update failed: database unavailable")
+    );
+    const { PATCH } = await import("@/app/api/inbox/threads/[id]/route");
+
+    const response = await PATCH(
+      jsonRequest("https://ops.test/api/inbox/threads/thread-a", {
+        action: "markRead",
+        isRead: true,
+      }),
+      { params: Promise.resolve({ id: "thread-a" }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error:
+        "Action failed: markRead mirror update failed: database unavailable",
+    });
+    expect(body.ok).not.toBe(true);
   });
 });

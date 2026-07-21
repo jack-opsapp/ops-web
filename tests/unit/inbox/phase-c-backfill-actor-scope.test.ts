@@ -28,4 +28,14 @@ describe("Phase C backfill actor boundary", () => {
     expect(source).not.toContain("connection.userId ??");
     expect(source).not.toContain("resolvedUserId");
   });
+
+  it("serializes provider reads before the Phase C extraction workers run", () => {
+    expect(source).toContain("runWithEmailConnectionSyncLock");
+    expect(source).toContain('context: "phase-c-backfill"');
+    expect(source).toContain("const fetchedTargets");
+    expect(source.indexOf("const fetchedTargets")).toBeLessThan(
+      source.indexOf("const worker = async ()")
+    );
+    expect(source).toMatch(/fetchThread\([\s\S]*deadlineAt/);
+  });
 });

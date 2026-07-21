@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,16 +23,38 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const authError = await requireEmailCompanyAccess(request, companyId);
-    if (authError) return authError;
-
     const supabase = getServiceRoleClient();
+    const access = await resolveEmailConnectionOperationAccess({
+      request,
+      claimedCompanyId: companyId,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
+    }
+    const gmailConnectionIds = access.connections
+      .filter((connection) => {
+        if (connection.provider !== "gmail") return false;
+        return true;
+      })
+      .map((connection) => connection.id);
+    if (gmailConnectionIds.length === 0) {
+      return NextResponse.json({ jobs: [] });
+    }
+
     const { data, error } = await supabase
       .from("gmail_import_jobs")
       .select(
         "id, status, total_emails, processed, matched, needs_review, clients_created, leads_created, error_message, created_at, completed_at"
       )
-      .eq("company_id", companyId)
+      .eq("company_id", access.actor.companyId)
+      .in("connection_id", gmailConnectionIds)
       .order("created_at", { ascending: false })
       .limit(limit);
 

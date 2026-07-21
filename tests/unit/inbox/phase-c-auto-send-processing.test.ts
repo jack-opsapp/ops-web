@@ -82,6 +82,8 @@ function queueRow(overrides: Record<string, unknown> = {}) {
     connection_id: IDS.connection,
     opportunity_id: IDS.opportunity,
     source_email_thread_id: IDS.internalThread,
+    category_snapshot: "CUSTOMER",
+    autonomy_level_snapshot: "auto_send",
     thread_id: "provider-thread-1",
     in_reply_to: "provider-message-1",
     to_emails: ["lead@example.com"],

@@ -51,7 +51,7 @@ describe("outbound-learning assignment runtime", () => {
 
   it("enumerates graduation actors from the actor milestone ledger, never a connector owner", () => {
     expect(graduationSource).toContain(
-      '"list_phase_c_graduation_actor_scopes_as_system"'
+      '"claim_phase_c_graduation_actor_scopes_as_system"'
     );
     expect(graduationSource).not.toContain('.from("email_connections")');
     expect(graduationSource).not.toContain(

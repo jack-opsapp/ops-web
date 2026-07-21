@@ -1,8 +1,6 @@
 /** Default auto_send_settings seeded on a newly connected mailbox.
- *  Auto-drafts routine client conversations into the mailbox; never auto-sends.
- *  Keys match the profile-type aliases consumed by the canonical Phase C
- *  category-autonomy service. Missing sensitive/non-client categories remain
- *  draft_on_request through that service's fail-closed fallback. */
+ *  Auto-drafts routine customer conversations into the mailbox; never sends.
+ *  Only canonical primary-category keys are seeded. */
 export function defaultAutoSendSettings(): {
   auto_draft_enabled: boolean;
   auto_send_enabled: boolean;
@@ -12,9 +10,7 @@ export function defaultAutoSendSettings(): {
     auto_draft_enabled: true,
     auto_send_enabled: false,
     category_autonomy: {
-      general: "auto_draft",
-      client_quoting: "auto_draft",
-      client_followup: "auto_draft",
+      "primary:CUSTOMER": "auto_draft",
     },
   };
 }

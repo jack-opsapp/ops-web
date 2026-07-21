@@ -7,8 +7,6 @@ import {
   Eye,
   FileText,
   Zap,
-  Send,
-  Settings2,
   ArrowRight,
 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
@@ -24,11 +22,7 @@ interface AutonomyData {
   level: number;
   emailsAnalyzed: number;
   confidence: number;
-  approvalRate: number;
-  totalDrafts: number;
   autoDraftEnabled: boolean;
-  autoSendEnabled: boolean;
-  categoryAutonomy: Record<string, string>;
 }
 
 interface AutonomyStatusPanelProps {
@@ -42,8 +36,6 @@ const LEVELS = [
   { key: "available", icon: Sparkles, target: 100 },
   { key: "draft", icon: FileText, target: 250 },
   { key: "autoDraft", icon: Zap, target: null },
-  { key: "autoSend", icon: Send, target: null },
-  { key: "perCategory", icon: Settings2, target: null },
 ] as const;
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -82,33 +74,14 @@ export function AutonomyStatusPanel({
         // Parse autonomy-relevant data from settings response
         const settings = settingsData.settings || {};
         const autoDraftEnabled = settings.auto_draft_enabled === true;
-        const autoSendEnabled = settings.enabled === true;
-        const categoryAutonomy = settings.category_autonomy || {};
 
-        // Fetch draft stats for approval rate
-        const statsRes = await authedFetch(
-          `/api/integrations/email/draft-stats?companyId=${company.id}&userId=${currentUser.id}`
-        );
-        let approvalRate = 0;
-        let totalDrafts = 0;
-        if (statsRes.ok) {
-          const statsData = await statsRes.json();
-          approvalRate = statsData.approvalRate ?? 0;
-          totalDrafts = statsData.totalSent ?? 0;
-        }
-
-        // Compute level client-side (mirrors server logic)
+        // This ladder ends at auto-draft. Autonomous sending is presented and
+        // accepted only by the exact per-category readiness controls below.
         const emailsAnalyzed = settings.emails_analyzed ?? 0;
         const confidence = settings.confidence ?? 0;
-        const categoryConfigured = Object.values(categoryAutonomy).some(
-          (v: unknown) => v !== "draft_on_request"
-        );
 
         let level = 0;
-        if (categoryConfigured && autoSendEnabled) level = 5;
-        else if (autoSendEnabled && approvalRate >= 0.95 && totalDrafts >= 20)
-          level = 4;
-        else if (autoDraftEnabled && confidence > 0.75 && emailsAnalyzed >= 250)
+        if (autoDraftEnabled && confidence > 0.75 && emailsAnalyzed >= 250)
           level = 3;
         else if (emailsAnalyzed >= 100 && confidence > 0.5) level = 2;
         else if (emailsAnalyzed >= 25 && confidence > 0.2) level = 1;
@@ -117,11 +90,7 @@ export function AutonomyStatusPanel({
           level,
           emailsAnalyzed,
           confidence,
-          approvalRate,
-          totalDrafts,
           autoDraftEnabled,
-          autoSendEnabled,
-          categoryAutonomy,
         });
       } catch {
         // Non-fatal
@@ -140,7 +109,7 @@ export function AutonomyStatusPanel({
 
     try {
       const newEnabled = !data.autoDraftEnabled;
-      const response = await fetch(
+      const response = await authedFetch(
         "/api/integrations/email/auto-send/settings",
         {
           method: "PUT",
@@ -186,7 +155,8 @@ export function AutonomyStatusPanel({
   if (!data) return null;
 
   const currentLevelConfig = LEVELS[data.level] || LEVELS[0];
-  const nextLevelConfig = data.level < 5 ? LEVELS[data.level + 1] : null;
+  const nextLevelConfig =
+    data.level < LEVELS.length - 1 ? LEVELS[data.level + 1] : null;
   const CurrentIcon = currentLevelConfig.icon;
 
   // Progress toward next level
@@ -210,12 +180,6 @@ export function AutonomyStatusPanel({
     progressLabel = t("status.progress")
       .replace("{{current}}", String(data.emailsAnalyzed))
       .replace("{{target}}", String(target));
-  } else if (data.level === 3) {
-    progressPercent = Math.min(100, data.approvalRate * 100);
-    progressLabel = t("status.confidence").replace(
-      "{{value}}",
-      (data.approvalRate * 100).toFixed(0)
-    );
   } else {
     progressPercent = 100;
   }
@@ -256,7 +220,7 @@ export function AutonomyStatusPanel({
         </p>
 
         {/* Progress bar */}
-        {data.level < 4 && (
+        {data.level < LEVELS.length - 1 && (
           <div className="mb-2">
             <div className="h-[3px] overflow-hidden rounded-full bg-[rgba(255,255,255,0.04)]">
               <div

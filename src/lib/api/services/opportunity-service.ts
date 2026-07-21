@@ -28,6 +28,7 @@ import type {
 } from "@/lib/types/pipeline";
 import {
   OpportunityStage,
+  ActivityType,
   FollowUpStatus,
   FollowUpType,
   PIPELINE_STAGES_DEFAULT,
@@ -936,6 +937,26 @@ export const OpportunityService = {
    */
   async createActivity(data: CreateActivity): Promise<Activity> {
     const supabase = requireSupabase();
+
+    if (data.type === ActivityType.Email) {
+      const exactProviderIds = [
+        data.emailConnectionId,
+        data.emailMessageId,
+        data.emailThreadId,
+      ];
+      if (
+        exactProviderIds.some(
+          (value) =>
+            typeof value !== "string" ||
+            value.length === 0 ||
+            value !== value.trim()
+        )
+      ) {
+        throw new Error(
+          "Email activity requires exact mailbox, provider message, and provider thread identity"
+        );
+      }
+    }
 
     const row = mapActivityToDb(data);
 

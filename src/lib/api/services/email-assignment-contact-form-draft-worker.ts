@@ -9,6 +9,8 @@ import {
 import { buildContactFormDraftInstruction } from "./mailbox-draft-push";
 import type { EffectiveEmailSignature } from "./email-signature-service";
 import type { CreateNewThreadDraftResult } from "./email-provider";
+import type { EmailConnectionSyncLockRunResult } from "./email-connection-sync-lock";
+import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
 
 const DEFAULT_LIMIT = 3;
 const DEFAULT_LEASE_SECONDS = 360;
@@ -95,6 +97,7 @@ export interface EmailAssignmentContactFormDraftDependencies {
   loadConnection(connectionId: string): Promise<EmailConnection | null>;
   getCustomerAutonomy(
     connectionId: string,
+    actorUserId: string,
     category: Extract<EmailThreadCategory, "CUSTOMER">
   ): Promise<string>;
   generateDraft(input: {
@@ -131,7 +134,12 @@ export interface EmailAssignmentContactFormDraftDependencies {
     connection: EmailConnection;
     userId: string;
     refreshProviderIfMissing: true;
+    providerLockCheckpoint: EmailProviderMailboxCheckpoint;
   }): Promise<EffectiveEmailSignature | null>;
+  runWithMailboxLease<T>(input: {
+    connectionId: string;
+    run: (checkpoint: EmailProviderMailboxCheckpoint) => Promise<T>;
+  }): Promise<EmailConnectionSyncLockRunResult<T>>;
   renderDraft(
     body: string,
     signature: EffectiveEmailSignature
@@ -152,6 +160,7 @@ export interface EmailAssignmentContactFormDraftDependencies {
       mailboxDraftId: string;
       threadId: string;
     };
+    providerLockCheckpoint: EmailProviderMailboxCheckpoint;
     persistPlacement: (input: {
       mailboxDraftId: string;
       threadId: string;
@@ -385,6 +394,7 @@ export class EmailAssignmentContactFormDraftWorker {
 
         const autonomy = await this.dependencies.getCustomerAutonomy(
           job.connectionId,
+          job.actorUserId,
           "CUSTOMER"
         );
         if (!CUSTOMER_DRAFT_LEVELS.has(autonomy)) {
@@ -460,83 +470,99 @@ export class EmailAssignmentContactFormDraftWorker {
           };
         }
 
-        const signature = await this.dependencies.resolveSignature({
-          connection,
-          userId: job.actorUserId,
-          refreshProviderIfMissing: true,
-        });
-        if (!signature) throw new Error("EMAIL_SIGNATURE_REQUIRED");
-        const rendered = this.dependencies.renderDraft(
-          prepared.body,
-          signature
-        );
-
-        // Model and provider-signature work are both unbounded external
-        // boundaries. Re-check the exact assignment/event/mailbox lease at the
-        // final durable seam before the provider Drafts folder is touched.
-        if (
-          !(await this.dependencies.reauthorize({
-            queueId: job.id,
-            holder,
-          }))
-        ) {
-          throw new Error(
-            "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_AUTHORIZATION_STALE"
-          );
-        }
-
-        // The one-shot attempt is durable before the provider boundary. A
-        // null response means an earlier attempt may already have crossed that
-        // boundary, so this worker must never inspect content or create again.
-        const providerPlacementAttempt =
-          await this.dependencies.beginProviderCreate({
-            queueId: job.id,
-            holder,
-          });
-        if (!providerPlacementAttempt) {
-          result.reconciliationRequired += 1;
-          continue;
-        }
-        providerCreateAttemptId = providerPlacementAttempt.attemptId;
-        const exactReusableDraft = exactReusableDraftForAttempt(
-          providerPlacementAttempt
-        );
-        if (exactReusableDraft) {
-          mailboxDraftId = exactReusableDraft.mailboxDraftId;
-          providerThreadId = exactReusableDraft.threadId;
-        }
-
-        const provider = this.dependencies.getDraftTransport(connection);
-        const placed = await this.dependencies.placeDraft({
-          provider,
+        const mailboxLease = await this.dependencies.runWithMailboxLease({
           connectionId: job.connectionId,
-          opportunityId: job.opportunityId,
-          draftHistoryId: prepared.draftHistoryId,
-          to: job.customerEmail,
-          subject: prepared.subject,
-          body: rendered.body,
-          contentType: rendered.contentType,
-          phaseCCompanyId: job.companyId,
-          forceCreate: providerPlacementAttempt.mode === "create",
-          ...(exactReusableDraft ? { exactReusableDraft } : {}),
-          persistPlacement: (placement) => {
-            mailboxDraftId = placement.mailboxDraftId;
-            providerThreadId = placement.threadId;
-            return this.dependencies.complete({
-              queueId: job.id,
-              holder,
-              mailboxDraftId: placement.mailboxDraftId,
-              providerThreadId: placement.threadId,
-              draftHistoryId: prepared.draftHistoryId,
-              providerCreateAttemptId,
-              outcome: "drafted",
+          run: async (checkpoint) => {
+            const signature = await this.dependencies.resolveSignature({
+              connection,
+              userId: job.actorUserId,
+              refreshProviderIfMissing: true,
+              providerLockCheckpoint: checkpoint,
             });
+            if (!signature) throw new Error("EMAIL_SIGNATURE_REQUIRED");
+            const rendered = this.dependencies.renderDraft(
+              prepared.body,
+              signature
+            );
+
+            // Model work happens before the mailbox lease. Re-check the exact
+            // assignment/event/queue lease while holding the physical-mailbox
+            // lease, immediately before the durable provider boundary.
+            if (
+              !(await this.dependencies.reauthorize({
+                queueId: job.id,
+                holder,
+              }))
+            ) {
+              throw new Error(
+                "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_AUTHORIZATION_STALE"
+              );
+            }
+
+            await checkpoint();
+            // The one-shot attempt is durable before the provider boundary. A
+            // null response means an earlier attempt may already have crossed
+            // that boundary, so this worker must never create again.
+            const providerPlacementAttempt =
+              await this.dependencies.beginProviderCreate({
+                queueId: job.id,
+                holder,
+              });
+            if (!providerPlacementAttempt) {
+              return "reconciliation_required" as const;
+            }
+            providerCreateAttemptId = providerPlacementAttempt.attemptId;
+            const exactReusableDraft = exactReusableDraftForAttempt(
+              providerPlacementAttempt
+            );
+            if (exactReusableDraft) {
+              mailboxDraftId = exactReusableDraft.mailboxDraftId;
+              providerThreadId = exactReusableDraft.threadId;
+            }
+
+            await checkpoint();
+            const provider = this.dependencies.getDraftTransport(connection);
+            const placed = await this.dependencies.placeDraft({
+              provider,
+              connectionId: job.connectionId,
+              opportunityId: job.opportunityId,
+              draftHistoryId: prepared.draftHistoryId,
+              to: job.customerEmail,
+              subject: prepared.subject,
+              body: rendered.body,
+              contentType: rendered.contentType,
+              phaseCCompanyId: job.companyId,
+              forceCreate: providerPlacementAttempt.mode === "create",
+              ...(exactReusableDraft ? { exactReusableDraft } : {}),
+              providerLockCheckpoint: checkpoint,
+              persistPlacement: (placement) => {
+                mailboxDraftId = placement.mailboxDraftId;
+                providerThreadId = placement.threadId;
+                return this.dependencies.complete({
+                  queueId: job.id,
+                  holder,
+                  mailboxDraftId: placement.mailboxDraftId,
+                  providerThreadId: placement.threadId,
+                  draftHistoryId: prepared.draftHistoryId,
+                  providerCreateAttemptId,
+                  outcome: "drafted",
+                });
+              },
+            });
+            if (!placed.mailboxDraftId?.trim() || !placed.threadId?.trim()) {
+              throw new Error(
+                "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_PROVIDER_IDENTITY_MISSING"
+              );
+            }
+            return "drafted" as const;
           },
         });
-        if (!placed.mailboxDraftId?.trim() || !placed.threadId?.trim()) {
-          throw new Error(
-            "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_PROVIDER_IDENTITY_MISSING"
-          );
+        if (!mailboxLease.acquired) {
+          throw new Error("EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_MAILBOX_BUSY");
+        }
+        if (mailboxLease.value === "reconciliation_required") {
+          result.reconciliationRequired += 1;
+          continue;
         }
         result.drafted += 1;
       } catch (error) {

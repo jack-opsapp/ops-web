@@ -68,6 +68,62 @@ import {
   applyOpportunityChaseState,
   type OpportunityChaseRow,
 } from "@/lib/inbox/opportunity-chase-enrichment";
+import { runEmailProviderMailboxOperation } from "./email-provider-mailbox-operation";
+
+const EMAIL_THREAD_MAILBOX_BUSY = "EMAIL_THREAD_MAILBOX_BUSY";
+const EMAIL_THREAD_PROVIDER_AUTHORIZATION_REVOKED =
+  "EMAIL_THREAD_PROVIDER_AUTHORIZATION_REVOKED";
+
+type AuthorizeThreadProviderMutation = (threadId: string) => Promise<boolean>;
+
+async function reloadClassificationWinner(input: {
+  supabase: ReturnType<typeof requireSupabase>;
+  thread: EmailThread;
+  context: string;
+}): Promise<EmailThread> {
+  const { data, error } = await input.supabase
+    .from("email_threads")
+    .select("*")
+    .eq("id", input.thread.id)
+    .eq("company_id", input.thread.companyId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(
+      `${input.context} concurrent reload failed: ${error.message}`
+    );
+  }
+  if (!data) {
+    throw new Error(
+      `${input.context} target disappeared during classification`
+    );
+  }
+  return mapEmailThreadFromDb(data);
+}
+
+async function runThreadProviderOperation<T>(input: {
+  supabase: ReturnType<typeof requireSupabase>;
+  connection: EmailConnection;
+  context: string;
+  authorizeProviderMutation?: () => Promise<boolean>;
+  run: (provider: ReturnType<typeof EmailService.getProvider>) => Promise<T>;
+}): Promise<T> {
+  return runEmailProviderMailboxOperation({
+    supabase: input.supabase,
+    connectionId: input.connection.id,
+    context: input.context,
+    busyError: EMAIL_THREAD_MAILBOX_BUSY,
+    run: async () => {
+      if (
+        input.authorizeProviderMutation &&
+        !(await input.authorizeProviderMutation())
+      ) {
+        throw new Error(EMAIL_THREAD_PROVIDER_AUTHORIZATION_REVOKED);
+      }
+      const provider = EmailService.getProvider(input.connection);
+      return input.run(provider);
+    },
+  });
+}
 
 // ─── Sender-name resolution ──────────────────────────────────────────────────
 //
@@ -1374,12 +1430,19 @@ export const EmailThreadService = {
         .eq("category_manually_set", threadRow.categoryManuallySet)
         .eq("primary_category", threadRow.primaryCategory)
         .select("*")
-        .single();
+        .maybeSingle();
 
       if (detErr) {
         throw new Error(
           `classifyAndUpdate deterministic-internal update failed: ${detErr.message}`
         );
+      }
+      if (!detUpdated) {
+        return reloadClassificationWinner({
+          supabase,
+          thread: threadRow,
+          context: "classifyAndUpdate deterministic-internal update",
+        });
       }
       const mappedInternal = mapEmailThreadFromDb(detUpdated);
       // P4-A: run the Phase C router uniformly. INTERNAL is unmapped in the
@@ -1441,12 +1504,19 @@ export const EmailThreadService = {
           .eq("category_manually_set", threadRow.categoryManuallySet)
           .eq("primary_category", threadRow.primaryCategory)
           .select("*")
-          .single();
+          .maybeSingle();
 
         if (custErr) {
           throw new Error(
             `classifyAndUpdate deterministic-customer update failed: ${custErr.message}`
           );
+        }
+        if (!custUpdated) {
+          return reloadClassificationWinner({
+            supabase,
+            thread: threadRow,
+            context: "classifyAndUpdate deterministic-customer update",
+          });
         }
 
         const mappedCustomer = mapEmailThreadFromDb(custUpdated);
@@ -1521,10 +1591,17 @@ export const EmailThreadService = {
       .eq("category_manually_set", threadRow.categoryManuallySet)
       .eq("primary_category", threadRow.primaryCategory)
       .select("*")
-      .single();
+      .maybeSingle();
 
     if (updError) {
       throw new Error(`classifyAndUpdate update failed: ${updError.message}`);
+    }
+    if (!updated) {
+      return reloadClassificationWinner({
+        supabase,
+        thread: threadRow,
+        context: "classifyAndUpdate update",
+      });
     }
 
     const mappedUpdated = mapEmailThreadFromDb(updated);
@@ -1637,7 +1714,10 @@ export const EmailThreadService = {
    *
    * Provider write-back (Gmail / M365) honors archive_writeback_preference.
    */
-  async archive(params: { threadId: string }): Promise<
+  async archive(params: {
+    threadId: string;
+    authorizeProviderMutation: AuthorizeThreadProviderMutation;
+  }): Promise<
     | { archived: true; leadArchivedOpportunityId: string | null }
     | { needsPreference: true; connectionId: string }
     | {
@@ -1704,11 +1784,16 @@ export const EmailThreadService = {
     }> = [];
 
     if (opportunityId) {
-      const { data: oppRow } = await supabase
+      const { data: oppRow, error: opportunityReadError } = await supabase
         .from("opportunities")
         .select("id, title, archived_at")
         .eq("id", opportunityId)
         .maybeSingle();
+      if (opportunityReadError) {
+        throw new Error(
+          `archive lead read failed: ${opportunityReadError.message}`
+        );
+      }
 
       if (oppRow && !oppRow.archived_at) {
         linkedOpportunity = {
@@ -1716,7 +1801,7 @@ export const EmailThreadService = {
           title: ((oppRow.title as string) ?? "").trim() || "Untitled lead",
         };
 
-        const { data: siblings } = await supabase
+        const { data: siblings, error: siblingReadError } = await supabase
           .from("email_threads")
           .select(
             "id, subject, last_message_at, latest_sender_name, latest_sender_email, latest_snippet"
@@ -1726,6 +1811,11 @@ export const EmailThreadService = {
           .neq("id", params.threadId)
           .is("archived_at", null)
           .order("last_message_at", { ascending: false });
+        if (siblingReadError) {
+          throw new Error(
+            `archive sibling read failed: ${siblingReadError.message}`
+          );
+        }
 
         siblingThreads = (siblings ?? []).map((s) => ({
           id: s.id as string,
@@ -1753,23 +1843,43 @@ export const EmailThreadService = {
       };
     }
 
-    // Commit path. Provider write-back first (best-effort failure handling
-    // matches the old behavior — provider exceptions surface to the route).
+    // Commit path. Provider write-back must succeed before the OPS mirror is
+    // changed. A split-brain result is surfaced to the route, never reported
+    // as a successful archive.
     const connection = mapConnectionFromDb(connRow);
 
     if (writebackPreference === "archive_in_gmail") {
-      const provider = EmailService.getProvider(connection);
-      await provider.archiveThread(row.provider_thread_id as string);
+      await runThreadProviderOperation({
+        supabase,
+        connection,
+        context: "email-thread-archive",
+        authorizeProviderMutation: () =>
+          params.authorizeProviderMutation(params.threadId),
+        run: (provider) =>
+          provider.archiveThread(row.provider_thread_id as string),
+      });
     } else if (writebackPreference === "mark_read_only") {
-      const provider = EmailService.getProvider(connection);
-      await provider.markThreadRead(row.provider_thread_id as string, true);
+      await runThreadProviderOperation({
+        supabase,
+        connection,
+        context: "email-thread-archive-mark-read",
+        authorizeProviderMutation: () =>
+          params.authorizeProviderMutation(params.threadId),
+        run: (provider) =>
+          provider.markThreadRead(row.provider_thread_id as string, true),
+      });
     }
     // 'ops_only' does no provider call
 
-    await supabase
+    const { error: threadArchiveError } = await supabase
       .from("email_threads")
       .update({ archived_at: new Date().toISOString() })
       .eq("id", params.threadId);
+    if (threadArchiveError) {
+      throw new Error(
+        `archive mirror update failed: ${threadArchiveError.message}`
+      );
+    }
 
     // No-prompt opp archive: only when the user has explicitly opted in via
     // the saved 'archive' preference AND the opp has no other live threads.
@@ -1779,10 +1889,15 @@ export const EmailThreadService = {
       leadPreference === "archive" &&
       siblingThreads.length === 0
     ) {
-      await supabase
+      const { error: opportunityArchiveError } = await supabase
         .from("opportunities")
         .update({ archived_at: new Date().toISOString() })
         .eq("id", linkedOpportunity.id);
+      if (opportunityArchiveError) {
+        throw new Error(
+          `archive lead mirror update failed: ${opportunityArchiveError.message}`
+        );
+      }
       leadArchivedOpportunityId = linkedOpportunity.id;
     }
 
@@ -1803,10 +1918,12 @@ export const EmailThreadService = {
     companyId: string;
     threadIds: string[];
     archiveOpportunityId: string | null;
+    authorizeProviderMutation: AuthorizeThreadProviderMutation;
   }): Promise<{
     archivedThreadIds: string[];
     failedThreadIds: string[];
     leadArchivedOpportunityId: string | null;
+    failedOpportunityId: string | null;
   }> {
     const supabase = requireSupabase();
 
@@ -1845,12 +1962,12 @@ export const EmailThreadService = {
         if (cached) {
           connRow = cached;
         } else {
-          const { data: fetched } = await supabase
+          const { data: fetched, error: connectionReadError } = await supabase
             .from("email_connections")
             .select("*")
             .eq("id", connectionId)
             .single();
-          if (!fetched) {
+          if (connectionReadError || !fetched) {
             failedThreadIds.push(threadId);
             continue;
           }
@@ -1868,38 +1985,36 @@ export const EmailThreadService = {
         // archive of this batch already; only edge cases (siblings on a
         // different connection) hit this branch.
         if (writebackPreference === "archive_in_gmail") {
-          try {
-            const provider = EmailService.getProvider(
-              mapConnectionFromDb(connRow)
-            );
-            await provider.archiveThread(row.provider_thread_id as string);
-          } catch (err) {
-            console.error(
-              `[email-thread-service] archiveBatch provider.archive failed for ${threadId}:`,
-              err
-            );
-          }
+          await runThreadProviderOperation({
+            supabase,
+            connection: mapConnectionFromDb(connRow),
+            context: "email-thread-archive-batch",
+            authorizeProviderMutation: () =>
+              params.authorizeProviderMutation(threadId),
+            run: (provider) =>
+              provider.archiveThread(row.provider_thread_id as string),
+          });
         } else if (writebackPreference === "mark_read_only") {
-          try {
-            const provider = EmailService.getProvider(
-              mapConnectionFromDb(connRow)
-            );
-            await provider.markThreadRead(
-              row.provider_thread_id as string,
-              true
-            );
-          } catch (err) {
-            console.error(
-              `[email-thread-service] archiveBatch provider.markRead failed for ${threadId}:`,
-              err
-            );
-          }
+          await runThreadProviderOperation({
+            supabase,
+            connection: mapConnectionFromDb(connRow),
+            context: "email-thread-archive-batch-mark-read",
+            authorizeProviderMutation: () =>
+              params.authorizeProviderMutation(threadId),
+            run: (provider) =>
+              provider.markThreadRead(row.provider_thread_id as string, true),
+          });
         }
 
-        await supabase
+        const { error: threadArchiveError } = await supabase
           .from("email_threads")
           .update({ archived_at: new Date().toISOString() })
           .eq("id", threadId);
+        if (threadArchiveError) {
+          throw new Error(
+            `archiveBatch mirror update failed: ${threadArchiveError.message}`
+          );
+        }
 
         archivedThreadIds.push(threadId);
       } catch (err) {
@@ -1912,7 +2027,10 @@ export const EmailThreadService = {
     }
 
     let leadArchivedOpportunityId: string | null = null;
-    if (params.archiveOpportunityId) {
+    let failedOpportunityId: string | null = null;
+    if (params.archiveOpportunityId && failedThreadIds.length > 0) {
+      failedOpportunityId = params.archiveOpportunityId;
+    } else if (params.archiveOpportunityId) {
       const { error: oppError } = await supabase
         .from("opportunities")
         .update({ archived_at: new Date().toISOString() })
@@ -1922,6 +2040,7 @@ export const EmailThreadService = {
       if (!oppError) {
         leadArchivedOpportunityId = params.archiveOpportunityId;
       } else {
+        failedOpportunityId = params.archiveOpportunityId;
         console.error(
           "[email-thread-service] archiveBatch opportunity archive failed:",
           oppError
@@ -1929,7 +2048,12 @@ export const EmailThreadService = {
       }
     }
 
-    return { archivedThreadIds, failedThreadIds, leadArchivedOpportunityId };
+    return {
+      archivedThreadIds,
+      failedThreadIds,
+      leadArchivedOpportunityId,
+      failedOpportunityId,
+    };
   },
 
   /**
@@ -1942,10 +2066,12 @@ export const EmailThreadService = {
     companyId: string;
     threadIds: string[];
     unarchiveOpportunityId: string | null;
+    authorizeProviderMutation: AuthorizeThreadProviderMutation;
   }): Promise<{
     unarchivedThreadIds: string[];
     failedThreadIds: string[];
     unarchivedOpportunityId: string | null;
+    failedOpportunityId: string | null;
   }> {
     const supabase = requireSupabase();
 
@@ -1955,14 +2081,14 @@ export const EmailThreadService = {
 
     for (const threadId of params.threadIds) {
       try {
-        const { data: row } = await supabase
+        const { data: row, error: threadReadError } = await supabase
           .from("email_threads")
           .select("id, connection_id, provider_thread_id, company_id")
           .eq("id", threadId)
           .eq("company_id", params.companyId)
           .single();
 
-        if (!row) {
+        if (threadReadError || !row) {
           failedThreadIds.push(threadId);
           continue;
         }
@@ -1973,12 +2099,12 @@ export const EmailThreadService = {
         if (cached) {
           connRow = cached;
         } else {
-          const { data: fetched } = await supabase
+          const { data: fetched, error: connectionReadError } = await supabase
             .from("email_connections")
             .select("*")
             .eq("id", connectionId)
             .single();
-          if (!fetched) {
+          if (connectionReadError || !fetched) {
             failedThreadIds.push(threadId);
             continue;
           }
@@ -1990,23 +2116,26 @@ export const EmailThreadService = {
           (connRow.archive_writeback_preference as ArchiveWritebackPreference) ??
           "ask";
         if (writebackPreference === "archive_in_gmail") {
-          try {
-            const provider = EmailService.getProvider(
-              mapConnectionFromDb(connRow)
-            );
-            await provider.unarchiveThread(row.provider_thread_id as string);
-          } catch (err) {
-            console.error(
-              `[email-thread-service] unarchiveBatch provider.unarchive failed for ${threadId}:`,
-              err
-            );
-          }
+          await runThreadProviderOperation({
+            supabase,
+            connection: mapConnectionFromDb(connRow),
+            context: "email-thread-unarchive-batch",
+            authorizeProviderMutation: () =>
+              params.authorizeProviderMutation(threadId),
+            run: (provider) =>
+              provider.unarchiveThread(row.provider_thread_id as string),
+          });
         }
 
-        await supabase
+        const { error: threadUnarchiveError } = await supabase
           .from("email_threads")
           .update({ archived_at: null })
           .eq("id", threadId);
+        if (threadUnarchiveError) {
+          throw new Error(
+            `unarchiveBatch mirror update failed: ${threadUnarchiveError.message}`
+          );
+        }
 
         unarchivedThreadIds.push(threadId);
       } catch (err) {
@@ -2019,7 +2148,10 @@ export const EmailThreadService = {
     }
 
     let unarchivedOpportunityId: string | null = null;
-    if (params.unarchiveOpportunityId) {
+    let failedOpportunityId: string | null = null;
+    if (params.unarchiveOpportunityId && failedThreadIds.length > 0) {
+      failedOpportunityId = params.unarchiveOpportunityId;
+    } else if (params.unarchiveOpportunityId) {
       const { error: oppError } = await supabase
         .from("opportunities")
         .update({ archived_at: null })
@@ -2029,6 +2161,7 @@ export const EmailThreadService = {
       if (!oppError) {
         unarchivedOpportunityId = params.unarchiveOpportunityId;
       } else {
+        failedOpportunityId = params.unarchiveOpportunityId;
         console.error(
           "[email-thread-service] unarchiveBatch opportunity unarchive failed:",
           oppError
@@ -2036,79 +2169,107 @@ export const EmailThreadService = {
       }
     }
 
-    return { unarchivedThreadIds, failedThreadIds, unarchivedOpportunityId };
+    return {
+      unarchivedThreadIds,
+      failedThreadIds,
+      unarchivedOpportunityId,
+      failedOpportunityId,
+    };
   },
 
-  async unarchive(params: { threadId: string }): Promise<void> {
+  async unarchive(params: {
+    threadId: string;
+    authorizeProviderMutation: AuthorizeThreadProviderMutation;
+  }): Promise<void> {
     const supabase = requireSupabase();
 
-    const { data: row } = await supabase
+    const { data: row, error: readError } = await supabase
       .from("email_threads")
       .select("id, connection_id, provider_thread_id")
       .eq("id", params.threadId)
       .single();
 
-    if (!row) return;
+    if (readError)
+      throw new Error(`unarchive read failed: ${readError.message}`);
+    if (!row) throw new Error("unarchive: thread not found");
 
-    const { data: connRow } = await supabase
+    const { data: connRow, error: connectionReadError } = await supabase
       .from("email_connections")
       .select("*")
       .eq("id", row.connection_id as string)
       .single();
 
-    if (connRow) {
-      const preference =
-        (connRow.archive_writeback_preference as ArchiveWritebackPreference) ??
-        "ask";
-      if (preference === "archive_in_gmail") {
-        const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
-        try {
-          await provider.unarchiveThread(row.provider_thread_id as string);
-        } catch (err) {
-          console.error(
-            "[email-thread-service] provider.unarchive failed:",
-            err
-          );
-        }
-      }
+    if (connectionReadError) {
+      throw new Error(
+        `unarchive connection read failed: ${connectionReadError.message}`
+      );
+    }
+    if (!connRow) throw new Error("unarchive: connection not found");
+    const preference =
+      (connRow.archive_writeback_preference as ArchiveWritebackPreference) ??
+      "ask";
+    if (preference === "archive_in_gmail") {
+      await runThreadProviderOperation({
+        supabase,
+        connection: mapConnectionFromDb(connRow),
+        context: "email-thread-unarchive",
+        authorizeProviderMutation: () =>
+          params.authorizeProviderMutation(params.threadId),
+        run: (provider) =>
+          provider.unarchiveThread(row.provider_thread_id as string),
+      });
     }
 
-    await supabase
+    const { error: unarchiveError } = await supabase
       .from("email_threads")
       .update({ archived_at: null })
       .eq("id", params.threadId);
+    if (unarchiveError) {
+      throw new Error(
+        `unarchive mirror update failed: ${unarchiveError.message}`
+      );
+    }
   },
 
   async snooze(params: { threadId: string; until: Date }): Promise<void> {
     const supabase = requireSupabase();
 
-    const { data: row } = await supabase
+    const { data: row, error: readError } = await supabase
       .from("email_threads")
       .select("id, connection_id, provider_thread_id")
       .eq("id", params.threadId)
       .single();
 
+    if (readError) throw new Error(`snooze read failed: ${readError.message}`);
     if (!row) throw new Error(`snooze: thread not found`);
 
-    const { data: connRow } = await supabase
+    const { data: connRow, error: connectionReadError } = await supabase
       .from("email_connections")
       .select("*")
       .eq("id", row.connection_id as string)
       .single();
 
-    if (connRow) {
-      const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
-      try {
-        await provider.snoozeThread(row.provider_thread_id as string);
-      } catch (err) {
-        console.error("[email-thread-service] provider.snooze failed:", err);
-      }
+    if (connectionReadError) {
+      throw new Error(
+        `snooze connection read failed: ${connectionReadError.message}`
+      );
     }
+    if (!connRow) throw new Error("snooze: connection not found");
+    await runThreadProviderOperation({
+      supabase,
+      connection: mapConnectionFromDb(connRow),
+      context: "email-thread-snooze",
+      run: (provider) =>
+        provider.snoozeThread(row.provider_thread_id as string),
+    });
 
-    await supabase
+    const { error: snoozeError } = await supabase
       .from("email_threads")
       .update({ snoozed_until: params.until.toISOString() })
       .eq("id", params.threadId);
+    if (snoozeError) {
+      throw new Error(`snooze mirror update failed: ${snoozeError.message}`);
+    }
   },
 
   /**
@@ -2118,70 +2279,91 @@ export const EmailThreadService = {
   async unsnooze(threadId: string): Promise<void> {
     const supabase = requireSupabase();
 
-    const { data: row } = await supabase
+    const { data: row, error: readError } = await supabase
       .from("email_threads")
       .select("id, connection_id, provider_thread_id")
       .eq("id", threadId)
       .single();
 
-    if (!row) return;
+    if (readError)
+      throw new Error(`unsnooze read failed: ${readError.message}`);
+    if (!row) throw new Error("unsnooze: thread not found");
 
-    const { data: connRow } = await supabase
+    const { data: connRow, error: connectionReadError } = await supabase
       .from("email_connections")
       .select("*")
       .eq("id", row.connection_id as string)
       .single();
 
-    if (connRow) {
-      const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
-      try {
-        await provider.unarchiveThread(row.provider_thread_id as string);
-      } catch (err) {
-        console.error("[email-thread-service] provider.unsnooze failed:", err);
-      }
+    if (connectionReadError) {
+      throw new Error(
+        `unsnooze connection read failed: ${connectionReadError.message}`
+      );
     }
+    if (!connRow) throw new Error("unsnooze: connection not found");
+    await runThreadProviderOperation({
+      supabase,
+      connection: mapConnectionFromDb(connRow),
+      context: "email-thread-unsnooze",
+      run: (provider) =>
+        provider.unarchiveThread(row.provider_thread_id as string),
+    });
 
-    await supabase
+    const { error: unsnoozeError } = await supabase
       .from("email_threads")
       .update({ snoozed_until: null })
       .eq("id", threadId);
+    if (unsnoozeError) {
+      throw new Error(
+        `unsnooze mirror update failed: ${unsnoozeError.message}`
+      );
+    }
   },
 
   async markRead(threadId: string, isRead: boolean): Promise<void> {
     const supabase = requireSupabase();
 
-    const { data: row } = await supabase
+    const { data: row, error: readError } = await supabase
       .from("email_threads")
       .select("id, connection_id, provider_thread_id, unread_count")
       .eq("id", threadId)
       .single();
 
-    if (!row) return;
+    if (readError)
+      throw new Error(`markRead read failed: ${readError.message}`);
+    if (!row) throw new Error("markRead: thread not found");
 
-    const { data: connRow } = await supabase
+    const { data: connRow, error: connectionReadError } = await supabase
       .from("email_connections")
       .select("*")
       .eq("id", row.connection_id as string)
       .single();
 
-    if (connRow) {
-      const provider = EmailService.getProvider(mapConnectionFromDb(connRow));
-      try {
-        await provider.markThreadRead(row.provider_thread_id as string, isRead);
-      } catch (err) {
-        console.error(
-          "[email-thread-service] provider.markThreadRead failed:",
-          err
-        );
-      }
+    if (connectionReadError) {
+      throw new Error(
+        `markRead connection read failed: ${connectionReadError.message}`
+      );
     }
+    if (!connRow) throw new Error("markRead: connection not found");
+    await runThreadProviderOperation({
+      supabase,
+      connection: mapConnectionFromDb(connRow),
+      context: "email-thread-mark-read",
+      run: (provider) =>
+        provider.markThreadRead(row.provider_thread_id as string, isRead),
+    });
 
-    await supabase
+    const { error: markReadError } = await supabase
       .from("email_threads")
       .update({
         unread_count: isRead ? 0 : Math.max(1, row.unread_count as number),
       })
       .eq("id", threadId);
+    if (markReadError) {
+      throw new Error(
+        `markRead mirror update failed: ${markReadError.message}`
+      );
+    }
   },
 
   /**
@@ -2201,24 +2383,32 @@ export const EmailThreadService = {
     companyId: string
   ): Promise<EmailThreadLabel[]> {
     const supabase = requireSupabase();
-    const { data: row } = await supabase
+    const { data: row, error: readError } = await supabase
       .from("email_threads")
       .select("id, labels")
       .eq("id", threadId)
       .eq("company_id", companyId)
       .maybeSingle();
 
-    if (!row) return [];
+    if (readError) {
+      throw new Error(`dismissAwaitingReply read failed: ${readError.message}`);
+    }
+    if (!row) throw new Error("dismissAwaitingReply: thread not found");
 
     const current = ((row.labels as EmailThreadLabel[] | null) ??
       []) as EmailThreadLabel[];
     if (!current.includes("AWAITING_REPLY")) return current;
 
     const next = current.filter((l) => l !== "AWAITING_REPLY");
-    await supabase
+    const { error: updateError } = await supabase
       .from("email_threads")
       .update({ labels: next })
       .eq("id", threadId);
+    if (updateError) {
+      throw new Error(
+        `dismissAwaitingReply mirror update failed: ${updateError.message}`
+      );
+    }
     return next;
   },
 
@@ -2232,24 +2422,32 @@ export const EmailThreadService = {
     companyId: string
   ): Promise<EmailThreadLabel[]> {
     const supabase = requireSupabase();
-    const { data: row } = await supabase
+    const { data: row, error: readError } = await supabase
       .from("email_threads")
       .select("id, labels")
       .eq("id", threadId)
       .eq("company_id", companyId)
       .maybeSingle();
 
-    if (!row) return [];
+    if (readError) {
+      throw new Error(`restoreAwaitingReply read failed: ${readError.message}`);
+    }
+    if (!row) throw new Error("restoreAwaitingReply: thread not found");
 
     const current = ((row.labels as EmailThreadLabel[] | null) ??
       []) as EmailThreadLabel[];
     if (current.includes("AWAITING_REPLY")) return current;
 
     const next: EmailThreadLabel[] = [...current, "AWAITING_REPLY"];
-    await supabase
+    const { error: updateError } = await supabase
       .from("email_threads")
       .update({ labels: next })
       .eq("id", threadId);
+    if (updateError) {
+      throw new Error(
+        `restoreAwaitingReply mirror update failed: ${updateError.message}`
+      );
+    }
     return next;
   },
 

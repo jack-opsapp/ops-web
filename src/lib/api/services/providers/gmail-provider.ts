@@ -23,12 +23,20 @@ import {
   type NormalizedDraft,
   type NormalizedEmail,
   type ProviderEmailSignatureResult,
+  type ProviderReadPolicy,
   type SendEmailParams,
   type SendEmailResult,
   type SyncResult,
   type WebhookSubscription,
 } from "../email-provider";
 import { readBoundedResponseBytes } from "./bounded-response";
+import {
+  fetchGmailRead,
+  fetchGmailOnceWithinDeadline,
+  isGmailReadDeadlineError,
+  mapGmailReads,
+  type GmailReadPolicy,
+} from "./gmail-read";
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 const NON_DELIVERY_MESSAGE_LABELS = new Set(["DRAFT", "SPAM", "TRASH"]);
@@ -36,6 +44,7 @@ const MAX_GMAIL_MESSAGE_JSON_BYTES = 80 * 1024 * 1024;
 const GMAIL_ATTACHMENT_JSON_OVERHEAD_BYTES = 64 * 1024;
 const MAX_GMAIL_ATTACHMENTS_PER_MESSAGE = 500;
 const MAX_GMAIL_ATTACHMENT_REQUEST_MS = 30_000;
+const GMAIL_PROVIDER_READ_DEADLINE_MS = 45_000;
 
 function attachmentRequestSignal(): AbortSignal {
   return AbortSignal.timeout(MAX_GMAIL_ATTACHMENT_REQUEST_MS);
@@ -120,8 +129,61 @@ export class GmailProvider implements EmailProviderInterface {
     return this.connection.accessToken;
   }
 
-  private async refreshAccessToken(): Promise<string> {
-    const response = await fetch("https://oauth2.googleapis.com/token", {
+  private effectiveReadPolicy(
+    readPolicy: GmailReadPolicy,
+    fallbackContext: string
+  ): GmailReadPolicy {
+    return {
+      ...readPolicy,
+      deadlineAt:
+        readPolicy.deadlineAt ?? Date.now() + GMAIL_PROVIDER_READ_DEADLINE_MS,
+      context: readPolicy.context ?? fallbackContext,
+    };
+  }
+
+  private assertReadDeadline(readPolicy: GmailReadPolicy): void {
+    if (
+      readPolicy.deadlineAt !== undefined &&
+      Date.now() >= readPolicy.deadlineAt
+    ) {
+      throw new ProviderApiError(
+        `Gmail ${readPolicy.context ?? "read"}: read deadline exceeded`,
+        504,
+        {
+          reason: "gmail_read_deadline_exceeded",
+          deadlineAt: readPolicy.deadlineAt,
+        }
+      );
+    }
+  }
+
+  /**
+   * Return a valid access token for a provider read under one absolute
+   * deadline. This narrow public seam lets lock-handoff workers rehydrate a
+   * connection without trusting the raw access token from an older snapshot.
+   */
+  async getValidAccessToken(
+    readPolicy: ProviderReadPolicy = {}
+  ): Promise<string> {
+    const effectiveReadPolicy = this.effectiveReadPolicy(
+      readPolicy,
+      "OAuth token validation"
+    );
+    this.assertReadDeadline(effectiveReadPolicy);
+
+    const token =
+      new Date() >= new Date(this.connection.expiresAt.getTime() - 60_000)
+        ? await this.refreshAccessToken(effectiveReadPolicy)
+        : this.connection.accessToken;
+
+    this.assertReadDeadline(effectiveReadPolicy);
+    return token;
+  }
+
+  private async refreshAccessToken(
+    readPolicy?: GmailReadPolicy
+  ): Promise<string> {
+    const tokenRequest: RequestInit = {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -133,31 +195,54 @@ export class GmailProvider implements EmailProviderInterface {
         refresh_token: this.connection.refreshToken,
         grant_type: "refresh_token",
       }),
-    });
+    };
+    const response = readPolicy
+      ? await fetchGmailOnceWithinDeadline(
+          "https://oauth2.googleapis.com/token",
+          tokenRequest,
+          {
+            ...readPolicy,
+            context: `${readPolicy.context ?? "Gmail read"} token refresh`,
+          }
+        )
+      : await fetch("https://oauth2.googleapis.com/token", tokenRequest);
+
+    const responseBody = readPolicy
+      ? await response.text()
+      : await response.text().catch(() => "");
 
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
       // invalid_grant → refresh token revoked or expired → user must reconnect.
-      if (response.status === 400 && /invalid_grant/i.test(body)) {
+      if (response.status === 400 && /invalid_grant/i.test(responseBody)) {
         throw new ProviderAuthError(
-          `Gmail refresh token revoked: ${body}`,
+          `Gmail refresh token revoked: ${responseBody}`,
           response.status
         );
       }
       if (response.status === 401) {
         throw new ProviderAuthError(
-          `Gmail token refresh unauthorized: ${body}`,
+          `Gmail token refresh unauthorized: ${responseBody}`,
           response.status
         );
       }
       throw new ProviderApiError(
-        `Gmail token refresh failed (${response.status}): ${body}`,
+        `Gmail token refresh failed (${response.status}): ${responseBody}`,
         response.status,
-        body
+        responseBody
       );
     }
 
-    const json = await response.json();
+    let json: { access_token?: unknown; expires_in?: unknown };
+    try {
+      json = JSON.parse(responseBody) as {
+        access_token?: unknown;
+        expires_in?: unknown;
+      };
+    } catch {
+      throw new ProviderAuthError(
+        "Failed to parse Gmail access token response"
+      );
+    }
     if (!json.access_token) {
       throw new ProviderAuthError("Failed to refresh Gmail access token");
     }
@@ -193,13 +278,39 @@ export class GmailProvider implements EmailProviderInterface {
       );
     }
 
+    if (readPolicy) this.assertReadDeadline(readPolicy);
+
     return newAccessToken;
   }
 
   private async gmailFetch(
     path: string,
-    options?: RequestInit
+    options?: RequestInit,
+    readPolicy: GmailReadPolicy = {}
   ): Promise<Response> {
+    const method = (options?.method ?? "GET").toUpperCase();
+
+    if (method === "GET") {
+      const { method: _method, body: _body, ...readOptions } = options ?? {};
+      const effectiveReadPolicy = this.effectiveReadPolicy(
+        readPolicy,
+        `GET ${path}`
+      );
+      const token = await this.getValidAccessToken(effectiveReadPolicy);
+      return fetchGmailRead(
+        `${GMAIL_API}${path}`,
+        {
+          ...readOptions,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            ...(options?.headers || {}),
+          },
+        },
+        effectiveReadPolicy
+      );
+    }
+
     const token = await this.getToken();
     return fetch(`${GMAIL_API}${path}`, {
       ...options,
@@ -213,11 +324,10 @@ export class GmailProvider implements EmailProviderInterface {
 
   async getInitialSyncToken(): Promise<string> {
     const res = await this.gmailFetch("/profile");
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throwForGmailError(res.status, body, "profile (bootstrap historyId)");
-    }
-    const data = (await res.json()) as { historyId?: string };
+    const data = await this.readGmailJson<{ historyId?: string }>(
+      res,
+      "profile (bootstrap historyId)"
+    );
     if (!data.historyId) {
       throw new ProviderApiError(
         "Gmail /profile returned no historyId",
@@ -259,8 +369,17 @@ export class GmailProvider implements EmailProviderInterface {
 
   async searchEmails(
     query: string,
-    options?: { maxResults?: number; after?: Date }
+    options?: {
+      maxResults?: number;
+      after?: Date;
+      readPolicy?: ProviderReadPolicy;
+    }
   ): Promise<NormalizedEmail[]> {
+    const readPolicy = this.effectiveReadPolicy(
+      options?.readPolicy ?? {},
+      "mailbox search"
+    );
+    const deadlineAt = readPolicy.deadlineAt!;
     let q = query;
     if (options?.after) {
       const epoch = Math.floor(options.after.getTime() / 1000);
@@ -282,7 +401,11 @@ export class GmailProvider implements EmailProviderInterface {
       });
       if (pageToken) params.set("pageToken", pageToken);
 
-      const res = await this.gmailFetch(`/messages?${params.toString()}`);
+      const res = await this.gmailFetch(
+        `/messages?${params.toString()}`,
+        undefined,
+        { ...readPolicy, context: "messages.list (search)" }
+      );
       const data = await this.readGmailJson<{
         messages?: Array<{ id?: string }>;
         nextPageToken?: string;
@@ -294,11 +417,21 @@ export class GmailProvider implements EmailProviderInterface {
       pageToken = data.nextPageToken || undefined;
     } while (pageToken && ids.size < requested);
 
-    return this.fetchMessagesByIds([...ids]);
+    return this.fetchMessagesByIds([...ids], { deadlineAt });
   }
 
-  async fetchThread(threadId: string): Promise<NormalizedEmail[]> {
-    const res = await this.gmailFetch(`/threads/${threadId}?format=full`);
+  async fetchThread(
+    threadId: string,
+    readPolicy: ProviderReadPolicy = {}
+  ): Promise<NormalizedEmail[]> {
+    const res = await this.gmailFetch(
+      `/threads/${threadId}?format=full`,
+      undefined,
+      {
+        ...readPolicy,
+        context: readPolicy.context ?? `threads.get (${threadId})`,
+      }
+    );
     const data = await this.readGmailJson<{
       messages?: Array<Record<string, unknown>>;
     }>(res, `threads.get (${threadId})`);
@@ -336,14 +469,10 @@ export class GmailProvider implements EmailProviderInterface {
     if (options.pageToken) params.set("pageToken", options.pageToken);
 
     const res = await this.gmailFetch(`/messages?${params.toString()}`);
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throwForGmailError(res.status, body, "messages.list (backfill)");
-    }
-    const data = (await res.json()) as {
+    const data = await this.readGmailJson<{
       messages?: Array<{ id: string; threadId: string }>;
       nextPageToken?: string;
-    };
+    }>(res, "messages.list (backfill)");
 
     // Dedupe within the page — a thread with N messages returns N entries.
     const seen = new Set<string>();
@@ -426,9 +555,20 @@ export class GmailProvider implements EmailProviderInterface {
   async listLabels(): Promise<
     Array<{ id: string; name: string; type: string }>
   > {
-    const res = await this.gmailFetch("/labels");
-    const data = await res.json();
-    return (data.labels || []).map(
+    const res = await this.gmailFetch("/labels", undefined, {
+      context: "labels.list",
+    });
+    const data = await this.readGmailJson<{
+      labels?: Array<{ id: string; name: string; type?: string }>;
+    }>(res, "labels.list");
+    if (!Array.isArray(data.labels)) {
+      throw new ProviderApiError(
+        "Gmail labels.list: response did not contain labels",
+        res.status,
+        data
+      );
+    }
+    return data.labels.map(
       (l: { id: string; name: string; type?: string }) => ({
         id: l.id,
         name: l.name,
@@ -445,10 +585,17 @@ export class GmailProvider implements EmailProviderInterface {
     let inReplyToHeader = "";
     let referencesHeader = "";
     if (inReplyTo) {
+      const replyMetadataContext = `messages.get reply metadata (${inReplyTo})`;
       const res = await this.gmailFetch(
-        `/messages/${inReplyTo}?format=metadata&metadataHeaders=Message-Id`
+        `/messages/${inReplyTo}?format=metadata&metadataHeaders=Message-Id`,
+        undefined,
+        { context: replyMetadataContext }
       );
-      const data = await res.json();
+      const data = await this.readGmailJson<{
+        payload?: {
+          headers?: Array<{ name: string; value: string }>;
+        };
+      }>(res, replyMetadataContext);
       const hdrs = (data.payload?.headers || []) as Array<{
         name: string;
         value: string;
@@ -456,10 +603,15 @@ export class GmailProvider implements EmailProviderInterface {
       const msgIdHeader = hdrs.find(
         (h) => h.name.toLowerCase() === "message-id"
       )?.value;
-      if (msgIdHeader) {
-        inReplyToHeader = msgIdHeader;
-        referencesHeader = msgIdHeader;
+      if (!msgIdHeader) {
+        throw new ProviderApiError(
+          `Gmail ${replyMetadataContext}: response did not contain Message-ID`,
+          res.status,
+          data
+        );
       }
+      inReplyToHeader = msgIdHeader;
+      referencesHeader = msgIdHeader;
     }
 
     // Build RFC 2822 message
@@ -566,38 +718,49 @@ export class GmailProvider implements EmailProviderInterface {
     // 15 unsent drafts is the degenerate case; the first 15 are what you
     // actually want to see.
     const DRAFT_LIMIT = 15;
-    const listRes = await this.gmailFetch(`/drafts?maxResults=${DRAFT_LIMIT}`);
-    if (!listRes.ok) {
-      const body = await listRes.json().catch(() => ({}));
-      throwForGmailError(listRes.status, body, "drafts.list");
-    }
-    const listData = (await listRes.json()) as {
+    const deadlineAt = Date.now() + GMAIL_PROVIDER_READ_DEADLINE_MS;
+    const listRes = await this.gmailFetch(
+      `/drafts?maxResults=${DRAFT_LIMIT}`,
+      undefined,
+      { deadlineAt, context: "drafts.list" }
+    );
+    const listData = await this.readGmailJson<{
       drafts?: Array<{
         id: string;
         message?: { id: string; threadId?: string };
       }>;
-    };
+    }>(listRes, "drafts.list");
     const drafts = (listData.drafts ?? []).slice(0, DRAFT_LIMIT);
     if (drafts.length === 0) return [];
 
-    // Single parallel burst — 15 concurrent GETs is well under Gmail's
-    // per-user budget and avoids the synthetic 150ms inter-batch pause.
-    const results = await Promise.all(
-      drafts.map((draft) => this.getDraft(draft.id))
+    const results = await mapGmailReads(
+      drafts,
+      (draft, _index, readPolicy) => this.getDraft(draft.id, readPolicy),
+      {
+        deadlineAt,
+        context: "drafts.get batch",
+      }
     );
     return results.filter((draft): draft is NormalizedDraft => draft !== null);
   }
 
-  async getDraft(draftId: string): Promise<NormalizedDraft | null> {
+  async getDraft(
+    draftId: string,
+    readPolicy: GmailReadPolicy = {}
+  ): Promise<NormalizedDraft | null> {
     const res = await this.gmailFetch(
-      `/drafts/${encodeURIComponent(draftId)}?format=full`
+      `/drafts/${encodeURIComponent(draftId)}?format=full`,
+      undefined,
+      { ...readPolicy, context: `drafts.get (${draftId})` }
     );
-    if (res.status === 404) return null;
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throwForGmailError(res.status, body, "drafts.get");
+    if (res.status === 404) {
+      await res.body?.cancel().catch(() => undefined);
+      return null;
     }
-    const full = (await res.json()) as Record<string, unknown>;
+    const full = await this.readGmailJson<Record<string, unknown>>(
+      res,
+      "drafts.get"
+    );
     return this.normalizeGmailDraft(full);
   }
 
@@ -743,9 +906,10 @@ export class GmailProvider implements EmailProviderInterface {
    * Returns metadata only — call fetchAttachment() to get the actual bytes.
    */
   async getImageAttachmentsFromThread(
-    threadId: string
+    threadId: string,
+    readPolicy: ProviderReadPolicy = {}
   ): Promise<ImageAttachmentMeta[]> {
-    const all = await this.getAttachmentsFromThread(threadId);
+    const all = await this.getAttachmentsFromThread(threadId, readPolicy);
     return all
       .filter((a) => GmailProvider.IMAGE_MIMES.has(a.mimeType.toLowerCase()))
       .map(({ date: _date, ...rest }) => rest);
@@ -758,14 +922,22 @@ export class GmailProvider implements EmailProviderInterface {
    * signature decoration without risking loss of a real customer photo.
    */
   async getAttachmentsFromThread(
-    threadId: string
+    threadId: string,
+    readPolicy: ProviderReadPolicy = {}
   ): Promise<EmailAttachmentMeta[]> {
-    const res = await this.gmailFetch(`/threads/${threadId}?format=full`, {
-      signal: attachmentRequestSignal(),
-    });
+    const effectiveReadPolicy = this.effectiveReadPolicy(
+      readPolicy,
+      `threads.get attachments (${threadId})`
+    );
+    const res = await this.gmailFetch(
+      `/threads/${threadId}?format=full`,
+      { signal: attachmentRequestSignal() },
+      effectiveReadPolicy
+    );
     const data = await this.readGmailJson<{
       messages?: Array<Record<string, unknown>>;
     }>(res, `threads.get attachments (${threadId})`);
+    this.assertReadDeadline(effectiveReadPolicy);
     const out: EmailAttachmentMeta[] = [];
 
     for (const msg of data.messages ?? []) {
@@ -1113,8 +1285,20 @@ export class GmailProvider implements EmailProviderInterface {
   }
 
   async getProfile(): Promise<{ email: string; name: string }> {
-    const res = await this.gmailFetch("/profile");
-    const data = await res.json();
+    const res = await this.gmailFetch("/profile", undefined, {
+      context: "profile.get",
+    });
+    const data = await this.readGmailJson<{ emailAddress?: string }>(
+      res,
+      "profile.get"
+    );
+    if (!data.emailAddress) {
+      throw new ProviderApiError(
+        "Gmail profile.get: response did not contain emailAddress",
+        res.status,
+        data
+      );
+    }
     return {
       email: data.emailAddress,
       name: data.emailAddress, // Gmail profile doesn't always have display name
@@ -1179,6 +1363,7 @@ export class GmailProvider implements EmailProviderInterface {
     labelId: "INBOX" | "SENT" | null,
     contextLabel: "mailbox" | "inbox" | "sent"
   ): Promise<SyncResult> {
+    const deadlineAt = Date.now() + GMAIL_PROVIDER_READ_DEADLINE_MS;
     const messageIds = new Set<string>();
     let pageToken: string | undefined;
     let finalHistoryId = syncToken;
@@ -1191,7 +1376,11 @@ export class GmailProvider implements EmailProviderInterface {
       if (labelId) params.set("labelId", labelId);
       if (pageToken) params.set("pageToken", pageToken);
 
-      const res = await this.gmailFetch(`/history?${params.toString()}`);
+      const res = await this.gmailFetch(
+        `/history?${params.toString()}`,
+        undefined,
+        { deadlineAt, context: `history.list (${contextLabel})` }
+      );
       const data = await this.readGmailJson<{
         history?: Array<{
           messagesAdded?: Array<{ message?: { id?: string } }>;
@@ -1217,6 +1406,7 @@ export class GmailProvider implements EmailProviderInterface {
       // no correspondence left to materialize, so the history cursor may
       // advance. Every other response still fails the whole page closed.
       ignoreMissingHistoryMessages: true,
+      deadlineAt,
     });
     return {
       emails: emails.filter(
@@ -1238,6 +1428,7 @@ export class GmailProvider implements EmailProviderInterface {
     try {
       body = await response.json();
     } catch (error) {
+      if (isGmailReadDeadlineError(error)) throw error;
       throw new ProviderApiError(
         `Gmail ${context}: response was not valid JSON`,
         response.status,
@@ -1280,49 +1471,54 @@ export class GmailProvider implements EmailProviderInterface {
 
   private async fetchMessagesByIds(
     ids: string[],
-    options: { ignoreMissingHistoryMessages?: boolean } = {}
+    options: {
+      ignoreMissingHistoryMessages?: boolean;
+      deadlineAt?: number;
+    } = {}
   ): Promise<NormalizedEmail[]> {
-    const emails: NormalizedEmail[] = [];
-    // Batch in groups of 50 with 200ms delay between batches
-    for (let i = 0; i < ids.length; i += 50) {
-      const batch = ids.slice(i, i + 50);
-      const results = await Promise.all(
-        batch.map(async (id) => {
-          const res = await this.gmailFetch(`/messages/${id}?format=full`);
-          if (
-            options.ignoreMissingHistoryMessages &&
-            (res.status === 404 || res.status === 410)
-          ) {
-            // Do not retry a history page forever for an object Gmail has
-            // confirmed no longer exists. This is intentionally scoped to
-            // the post-history materialization seam; search/backfill/thread
-            // reads keep surfacing missing objects as typed provider errors.
-            return null;
-          }
-          const message = await this.readGmailJson<Record<string, unknown>>(
-            res,
-            `messages.get (${id})`
+    const results = await mapGmailReads(
+      ids,
+      async (id, _index, readPolicy) => {
+        const messageContext = `messages.get (${id})`;
+        const res = await this.gmailFetch(
+          `/messages/${id}?format=full`,
+          undefined,
+          { ...readPolicy, context: messageContext }
+        );
+        if (
+          options.ignoreMissingHistoryMessages &&
+          (res.status === 404 || res.status === 410)
+        ) {
+          // Do not retry a history page forever for an object Gmail has
+          // confirmed no longer exists. This is intentionally scoped to
+          // the post-history materialization seam; search/backfill/thread
+          // reads keep surfacing missing objects as typed provider errors.
+          await res.body?.cancel().catch(() => undefined);
+          return null;
+        }
+        const message = await this.readGmailJson<Record<string, unknown>>(
+          res,
+          messageContext
+        );
+        if (message.id !== id) {
+          throw new ProviderApiError(
+            `Gmail messages.get (${id}): response did not contain the requested message`,
+            res.status,
+            message
           );
-          if (message.id !== id) {
-            throw new ProviderApiError(
-              `Gmail messages.get (${id}): response did not contain the requested message`,
-              res.status,
-              message
-            );
-          }
-          return message;
-        })
-      );
-      emails.push(
-        ...results
-          .filter((msg): msg is Record<string, unknown> => msg !== null)
-          .map((msg) => this.normalizeGmailMessage(msg))
-      );
-      if (i + 50 < ids.length) {
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+        return message;
+      },
+      {
+        deadlineAt:
+          options.deadlineAt ?? Date.now() + GMAIL_PROVIDER_READ_DEADLINE_MS,
+        context: "messages.get batch",
       }
-    }
-    return emails;
+    );
+
+    return results
+      .filter((message): message is Record<string, unknown> => message !== null)
+      .map((message) => this.normalizeGmailMessage(message));
   }
 
   private normalizeGmailMessage(msg: Record<string, unknown>): NormalizedEmail {

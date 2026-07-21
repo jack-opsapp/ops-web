@@ -8,6 +8,13 @@ vi.mock("@/lib/supabase/helpers", () => ({
   requireSupabase: requireSupabaseMock,
 }));
 
+vi.mock("@/lib/api/services/email-provider-mailbox-operation", () => ({
+  runEmailProviderMailboxOperation: async (input: {
+    providerLockCheckpoint?: (force?: boolean) => Promise<void>;
+    run: (checkpoint: (force?: boolean) => Promise<void>) => Promise<unknown>;
+  }) => input.run(input.providerLockCheckpoint ?? (async () => {})),
+}));
+
 import type { EmailProviderInterface } from "@/lib/api/services/email-provider";
 import {
   EmailSignatureService,
@@ -211,6 +218,7 @@ describe("EmailSignatureService persistence", () => {
       mailboxAddress: "operator@example.com",
       provider,
       actorUserId: "user-1",
+      providerLockCheckpoint: async () => {},
     });
 
     expect(result).toEqual({

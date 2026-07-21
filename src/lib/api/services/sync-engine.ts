@@ -19,7 +19,7 @@ import {
 } from "./email-signature-service";
 import { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
-import { reconcilePendingMailboxDrafts } from "./draft-reconciliation";
+import { reconcilePendingMailboxDraftsForConnection } from "./draft-reconciliation";
 import { maybeSuggestProject } from "./project-suggestion-service";
 import { EmailThreadService } from "./email-thread-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
@@ -80,6 +80,15 @@ import {
   type NormalizedEmail,
   type SyncResult,
 } from "./email-provider";
+import { mapGmailReads } from "./providers/gmail-read";
+import {
+  acquireEmailConnectionSyncLock,
+  createEmailConnectionSyncLockRenewer,
+  persistEmailConnectionRecoveryCheckpoint,
+  persistEmailConnectionSyncCompletion,
+  releaseEmailConnectionSyncLock,
+} from "./email-connection-sync-lock";
+import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
 import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import {
   assembleConversationState,
@@ -234,74 +243,7 @@ function applyResolvedContactToFacts(
 // UNIQUE (company_id, source_thread_key) and scoped provider ids are hard
 // guarantees, but not every downstream side effect is one statement. If lock
 // ownership cannot be proven, fail closed rather than run overlapping cycles.
-const SYNC_LOCK_TTL_SECONDS = 10 * 60;
-const SYNC_LOCK_RENEW_INTERVAL_MS = 2 * 60 * 1000;
-
-async function acquireSyncLock(connectionId: string): Promise<string | null> {
-  const supabase = requireSupabase();
-  const { data, error } = await supabase.rpc(
-    "acquire_email_connection_sync_lock_as_system",
-    {
-      p_connection_id: connectionId,
-      p_lease_seconds: SYNC_LOCK_TTL_SECONDS,
-    }
-  );
-  if (error) {
-    throw new Error(
-      `[sync-engine] acquireSyncLock failed: ${error.message ?? "unknown error"}`
-    );
-  }
-  if (data === null) return null;
-  if (typeof data !== "string") {
-    throw new Error("[sync-engine] acquireSyncLock returned an invalid owner");
-  }
-  return data;
-}
-
-async function renewSyncLock(
-  connectionId: string,
-  ownerId: string
-): Promise<void> {
-  const supabase = requireSupabase();
-  const { data, error } = await supabase
-    .from("email_connections")
-    .update({ sync_in_progress_at: new Date().toISOString() })
-    .eq("id", connectionId)
-    .eq("sync_lock_owner", ownerId)
-    .select("id");
-  if (error) {
-    throw new Error(
-      `[sync-engine] renewSyncLock failed: ${error.message ?? "unknown error"}`
-    );
-  }
-  if ((data?.length ?? 0) !== 1) {
-    throw new Error(
-      `[sync-engine] sync lease ownership was lost for ${connectionId}`
-    );
-  }
-}
-
-async function releaseSyncLock(
-  connectionId: string,
-  ownerId: string
-): Promise<void> {
-  try {
-    const supabase = requireSupabase();
-    const { error } = await supabase
-      .from("email_connections")
-      .update({ sync_in_progress_at: null, sync_lock_owner: null })
-      .eq("id", connectionId)
-      .eq("sync_lock_owner", ownerId);
-    if (error) {
-      console.error(
-        "[sync-engine] releaseSyncLock failed (non-fatal):",
-        error.message
-      );
-    }
-  } catch (err) {
-    console.error("[sync-engine] releaseSyncLock threw (non-fatal):", err);
-  }
-}
+const SYNC_LOCK_CONTEXT = "sync-engine";
 
 interface CreateOpportunityTitleOptions {
   kind?: EmailOpportunityTitleKind;
@@ -472,7 +414,6 @@ const GMAIL_HISTORY_RECONCILIATION_OVERLAP_MS = 15 * 60 * 1000;
 const GMAIL_HISTORY_RECONCILIATION_PAGE_SIZE = 100;
 const GMAIL_HISTORY_RECONCILIATION_MAX_PAGES = 10;
 const GMAIL_HISTORY_RECONCILIATION_MAX_THREADS = 500;
-const GMAIL_HISTORY_RECONCILIATION_FETCH_CONCURRENCY = 10;
 
 interface GmailHistoryRecoveryCheckpoint {
   anchor: Date;
@@ -490,7 +431,8 @@ async function reconcileExpiredMailboxHistory(
   provider: EmailProviderInterface,
   connection: EmailConnection,
   anchorOverride?: Date | null,
-  includeSentMail = true
+  includeSentMail = true,
+  syncLockOwner?: string
 ): Promise<MailboxHistoryReconciliation> {
   const persistedRecoveryTarget = connection.historyRecoveryTargetToken ?? null;
   const persistedRecoveryAnchor = connection.historyRecoveryAnchor ?? null;
@@ -578,10 +520,18 @@ async function reconcileExpiredMailboxHistory(
     );
   }
   if (!hasPersistedGmailRecovery) {
-    await EmailService.updateConnection(connection.id, {
-      historyRecoveryAnchor: after,
-      historyRecoveryPageToken: null,
-      historyRecoveryTargetToken: targetToken,
+    if (!syncLockOwner) {
+      throw new Error(
+        "[sync-engine] Gmail recovery checkpoint requires mailbox ownership"
+      );
+    }
+    await persistEmailConnectionRecoveryCheckpoint({
+      connectionId: connection.id,
+      ownerId: syncLockOwner,
+      anchor: after,
+      pageToken: null,
+      targetToken,
+      context: SYNC_LOCK_CONTEXT,
     });
   }
 
@@ -616,26 +566,22 @@ async function reconcileExpiredMailboxHistory(
 
   const recoveredByMessageId = new Map<string, NormalizedEmail>();
   const ids = [...threadIds];
-  for (
-    let index = 0;
-    index < ids.length;
-    index += GMAIL_HISTORY_RECONCILIATION_FETCH_CONCURRENCY
-  ) {
-    const batch = ids.slice(
-      index,
-      index + GMAIL_HISTORY_RECONCILIATION_FETCH_CONCURRENCY
-    );
-    const threads = await Promise.all(
-      batch.map((threadId) => provider.fetchThread(threadId))
-    );
+  const threads = await mapGmailReads(
+    ids,
+    (threadId, _index, readPolicy) =>
+      provider.fetchThread(threadId, readPolicy),
+    {
+      deadlineAt: Date.now() + 2 * 60 * 1000,
+      context: "expired Gmail history thread recovery",
+    }
+  );
 
-    for (const emails of threads) {
-      for (const email of emails) {
-        // fetchThread returns the whole conversation. Only replay the bounded
-        // overlap; older messages are outside the lost incremental interval.
-        if (email.date.getTime() < after.getTime()) continue;
-        recoveredByMessageId.set(email.id, email);
-      }
+  for (const emails of threads) {
+    for (const email of emails) {
+      // fetchThread returns the whole conversation. Only replay the bounded
+      // overlap; older messages are outside the lost incremental interval.
+      if (email.date.getTime() < after.getTime()) continue;
+      recoveredByMessageId.set(email.id, email);
     }
   }
 
@@ -1556,19 +1502,23 @@ async function updateCorrespondenceCounts(
 async function applyLabel(
   threadId: string,
   connection: EmailConnection,
-  result: SyncCycleResult
+  result: SyncCycleResult,
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint
 ): Promise<void> {
   if (!connection.opsLabelId) return;
+  await providerLockCheckpoint();
   try {
     const provider = EmailService.getProvider(connection);
     await provider.applyLabel(threadId, connection.opsLabelId);
-    result.labelsApplied++;
   } catch (err) {
     console.error(
       `[sync-engine] Failed to apply label to thread ${threadId}:`,
       err
     );
+    return;
   }
+  await providerLockCheckpoint();
+  result.labelsApplied++;
 }
 
 /**
@@ -2005,7 +1955,8 @@ async function processInboundEmail(
   connection: EmailConnection,
   profile: SyncProfile,
   followUpDaysCache: Map<string, number>,
-  result: SyncCycleResult
+  result: SyncCycleResult,
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint
 ): Promise<UnmatchedInboundContext | null> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
@@ -2169,7 +2120,12 @@ async function processInboundEmail(
       followUpDaysCache,
       result
     );
-    await applyLabel(email.threadId, connection, result);
+    await applyLabel(
+      email.threadId,
+      connection,
+      result,
+      providerLockCheckpoint
+    );
     result.activitiesCreated++;
     result.matched++;
 
@@ -2293,7 +2249,12 @@ async function processInboundEmail(
         followUpDaysCache,
         result
       );
-      await applyLabel(email.threadId, connection, result);
+      await applyLabel(
+        email.threadId,
+        connection,
+        result,
+        providerLockCheckpoint
+      );
       result.matched++;
       result.activitiesCreated++;
 
@@ -2348,7 +2309,12 @@ async function processInboundEmail(
         followUpDaysCache,
         result
       );
-      await applyLabel(email.threadId, connection, result);
+      await applyLabel(
+        email.threadId,
+        connection,
+        result,
+        providerLockCheckpoint
+      );
       result.newLeads++;
       result.activitiesCreated++;
 
@@ -2435,7 +2401,12 @@ async function processInboundEmail(
         followUpDaysCache,
         result
       );
-      await applyLabel(email.threadId, connection, result);
+      await applyLabel(
+        email.threadId,
+        connection,
+        result,
+        providerLockCheckpoint
+      );
       if (relationshipDecisionRequiresNewOpportunity) {
         result.newLeads++;
       } else {
@@ -2515,7 +2486,8 @@ async function processSentEmail(
   connection: EmailConnection,
   profile: SyncProfile,
   followUpDaysCache: Map<string, number>,
-  result: SyncCycleResult
+  result: SyncCycleResult,
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint
 ): Promise<void> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
@@ -2627,18 +2599,6 @@ async function processSentEmail(
     result.activitiesCreated++;
     result.matched++;
 
-    // Task 5: Reconcile pending mailbox drafts now that the outbound activity
-    // is persisted. Fire-and-forget — must not block or throw from the sync loop.
-    reconcilePendingMailboxDrafts({
-      connection,
-      providerThreadId: email.threadId,
-      supabase,
-    }).catch((err) =>
-      console.error(
-        "[sync-engine] reconcilePendingMailboxDrafts error (non-fatal):",
-        err
-      )
-    );
     return;
   }
 
@@ -2737,7 +2697,12 @@ async function processSentEmail(
           followUpDaysCache,
           result
         );
-        await applyLabel(email.threadId, connection, result);
+        await applyLabel(
+          email.threadId,
+          connection,
+          result,
+          providerLockCheckpoint
+        );
         result.newLeads++;
         result.activitiesCreated++;
         threadLinkedByThisEmail = true;
@@ -2778,21 +2743,6 @@ async function processSentEmail(
       }
     }
   }
-
-  // Task 5: Reconcile pending mailbox drafts after activities are persisted.
-  // Fires for the safety-net path (new-external-address sends and estimate
-  // pattern matches that didn't hit the thread-linked early-return above).
-  // Fire-and-forget — must not block or throw from the sync loop.
-  reconcilePendingMailboxDrafts({
-    connection,
-    providerThreadId: email.threadId,
-    supabase,
-  }).catch((err) =>
-    console.error(
-      "[sync-engine] reconcilePendingMailboxDrafts error (non-fatal):",
-      err
-    )
-  );
 }
 
 /**
@@ -3034,24 +2984,21 @@ export const SyncEngine = {
     // P0-A: claim the per-connection sync lock. If another sync holds it, skip
     // this cycle rather than racing it (the next cron tick re-runs). Released in
     // finally below so a crash can't strand the lock past its TTL.
-    const syncLockOwner = await acquireSyncLock(connectionId);
+    const syncLockOwner = await acquireEmailConnectionSyncLock(
+      connectionId,
+      SYNC_LOCK_CONTEXT
+    );
     if (!syncLockOwner) {
       return {
         ...emptyResult(),
         errors: ["Sync already in progress for this connection"],
       };
     }
-    let syncLockRenewedAt = Date.now();
-    const renewSyncLeaseIfNeeded = async (force = false) => {
-      if (
-        !force &&
-        Date.now() - syncLockRenewedAt < SYNC_LOCK_RENEW_INTERVAL_MS
-      ) {
-        return;
-      }
-      await renewSyncLock(connectionId, syncLockOwner);
-      syncLockRenewedAt = Date.now();
-    };
+    const renewSyncLeaseIfNeeded = createEmailConnectionSyncLockRenewer({
+      connectionId,
+      ownerId: syncLockOwner,
+      context: SYNC_LOCK_CONTEXT,
+    });
 
     try {
       const includeSentMail = profile.includeSentMail !== false;
@@ -3068,7 +3015,8 @@ export const SyncEngine = {
           provider,
           connection,
           undefined,
-          includeSentMail
+          includeSentMail,
+          syncLockOwner
         );
       }
 
@@ -3083,7 +3031,9 @@ export const SyncEngine = {
             mailboxReconciliation = await reconcileExpiredMailboxHistory(
               provider,
               connection,
-              connection.lastSyncedAt ?? connection.createdAt
+              connection.lastSyncedAt ?? connection.createdAt,
+              includeSentMail,
+              syncLockOwner
             );
           } else if (provider.providerType === "microsoft365") {
             // Graph delta's initial walk returns the full current contents of
@@ -3167,7 +3117,8 @@ export const SyncEngine = {
                 provider,
                 connection,
                 undefined,
-                includeSentMail
+                includeSentMail,
+                syncLockOwner
               );
               ({ inboxResult, sentResult } = mailboxReconciliation);
             } catch (reconciliationErr) {
@@ -3239,29 +3190,35 @@ export const SyncEngine = {
         mailboxReconciliation?.gmailCheckpoint ?? null;
       const persistSyncCheckpoint = async () => {
         if (gmailRecoveryCheckpoint?.nextPageToken) {
-          await EmailService.updateConnection(connectionId, {
-            historyRecoveryAnchor: gmailRecoveryCheckpoint.anchor,
-            historyRecoveryPageToken: gmailRecoveryCheckpoint.nextPageToken,
-            historyRecoveryTargetToken: gmailRecoveryCheckpoint.targetToken,
+          await persistEmailConnectionRecoveryCheckpoint({
+            connectionId,
+            ownerId: syncLockOwner,
+            anchor: gmailRecoveryCheckpoint.anchor,
+            pageToken: gmailRecoveryCheckpoint.nextPageToken,
+            targetToken: gmailRecoveryCheckpoint.targetToken,
+            context: SYNC_LOCK_CONTEXT,
           });
           return;
         }
 
-        await EmailService.updateConnection(connectionId, {
+        await persistEmailConnectionSyncCompletion({
+          connectionId,
+          ownerId: syncLockOwner,
           lastSyncedAt: new Date(),
           historyId: newSyncToken,
-          ...(gmailRecoveryCheckpoint
-            ? {
-                historyRecoveryAnchor: null,
-                historyRecoveryPageToken: null,
-                historyRecoveryTargetToken: null,
-              }
-            : {}),
+          clearRecovery: gmailRecoveryCheckpoint !== null,
+          context: SYNC_LOCK_CONTEXT,
         });
       };
       await renewSyncLeaseIfNeeded(true);
 
       if (rawInboxEmails.length === 0 && rawSentEmails.length === 0) {
+        await reconcilePendingMailboxDraftsForConnection({
+          connection,
+          supabase: requireSupabase(),
+          providerLockCheckpoint: renewSyncLeaseIfNeeded,
+        });
+        await renewSyncLeaseIfNeeded(true);
         await persistSyncCheckpoint();
         return result;
       }
@@ -3325,7 +3282,8 @@ export const SyncEngine = {
             connection,
             profile,
             followUpDaysCache,
-            result
+            result,
+            renewSyncLeaseIfNeeded
           );
           if (unmatchedContext) unmatchedContexts.push(unmatchedContext);
         } else {
@@ -3334,10 +3292,22 @@ export const SyncEngine = {
             connection,
             profile,
             followUpDaysCache,
-            result
+            result,
+            renewSyncLeaseIfNeeded
           );
         }
       }
+
+      // Reconcile every pending mailbox-draft thread once per sync after all
+      // new activities are durable. This also catches delete-without-send when
+      // there was no triggering provider message. Any failure aborts cursor
+      // publication so the idempotent cycle can replay safely.
+      await reconcilePendingMailboxDraftsForConnection({
+        connection,
+        supabase: requireSupabase(),
+        providerLockCheckpoint: renewSyncLeaseIfNeeded,
+      });
+      await renewSyncLeaseIfNeeded(true);
 
       // Step 5: AI classification for unmatched emails (feature-gated)
       // Step 6: AI stage evaluation for leads with new emails (feature-gated)
@@ -3565,7 +3535,12 @@ export const SyncEngine = {
                 followUpDaysCache,
                 result
               );
-              await applyLabel(classifiedEmail.threadId, connection, result);
+              await applyLabel(
+                classifiedEmail.threadId,
+                connection,
+                result,
+                renewSyncLeaseIfNeeded
+              );
               result.activitiesCreated++;
             } catch (err) {
               throw new LifecyclePersistenceError(
@@ -3635,7 +3610,8 @@ export const SyncEngine = {
           const stageResults = await AISyncReviewer.evaluateStagesWithSummary(
             [...activeLeadTargets.values()],
             connection,
-            { name: companyName }
+            { name: companyName },
+            { providerLockCheckpoint: renewSyncLeaseIfNeeded }
           );
 
           for (const sr of stageResults) {
@@ -3802,7 +3778,12 @@ export const SyncEngine = {
       result.errors.push(err instanceof Error ? err.message : "Unknown error");
     } finally {
       // P0-A: always release the per-connection sync lock.
-      await releaseSyncLock(connectionId, syncLockOwner);
+      await renewSyncLeaseIfNeeded.stop().catch(() => {});
+      await releaseEmailConnectionSyncLock(
+        connectionId,
+        syncLockOwner,
+        SYNC_LOCK_CONTEXT
+      );
     }
 
     return result;

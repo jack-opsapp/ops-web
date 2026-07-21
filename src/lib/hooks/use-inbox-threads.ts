@@ -555,13 +555,37 @@ export interface BatchArchiveArgs {
 }
 
 export interface BatchArchiveResponse {
-  ok: true;
+  ok: boolean;
+  error?: string;
   archivedThreadIds: string[];
   failedThreadIds: string[];
   leadArchivedOpportunityId: string | null;
+  failedOpportunityId: string | null;
 }
 
-async function batchArchiveRequest(
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isBatchArchiveResponse(value: unknown): value is BatchArchiveResponse {
+  if (!value || typeof value !== "object") return false;
+  const response = value as Record<string, unknown>;
+  return (
+    typeof response.ok === "boolean" &&
+    isStringArray(response.archivedThreadIds) &&
+    isStringArray(response.failedThreadIds) &&
+    isNullableString(response.leadArchivedOpportunityId) &&
+    isNullableString(response.failedOpportunityId)
+  );
+}
+
+export async function batchArchiveRequest(
   args: BatchArchiveArgs
 ): Promise<BatchArchiveResponse> {
   const headers = {
@@ -573,11 +597,15 @@ async function batchArchiveRequest(
     headers,
     body: JSON.stringify(args),
   });
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e.error || `batch archive failed (${res.status})`);
+  const response: unknown = await res.json().catch(() => null);
+  if (isBatchArchiveResponse(response) && (res.ok || response.ok === false)) {
+    return response;
   }
-  return res.json();
+  const error =
+    response && typeof response === "object" && "error" in response
+      ? String(response.error)
+      : null;
+  throw new Error(error || `batch archive failed (${res.status})`);
 }
 
 export interface BatchUnarchiveArgs {
@@ -586,13 +614,29 @@ export interface BatchUnarchiveArgs {
 }
 
 export interface BatchUnarchiveResponse {
-  ok: true;
+  ok: boolean;
+  error?: string;
   unarchivedThreadIds: string[];
   failedThreadIds: string[];
   unarchivedOpportunityId: string | null;
+  failedOpportunityId: string | null;
 }
 
-async function batchUnarchiveRequest(
+function isBatchUnarchiveResponse(
+  value: unknown
+): value is BatchUnarchiveResponse {
+  if (!value || typeof value !== "object") return false;
+  const response = value as Record<string, unknown>;
+  return (
+    typeof response.ok === "boolean" &&
+    isStringArray(response.unarchivedThreadIds) &&
+    isStringArray(response.failedThreadIds) &&
+    isNullableString(response.unarchivedOpportunityId) &&
+    isNullableString(response.failedOpportunityId)
+  );
+}
+
+export async function batchUnarchiveRequest(
   args: BatchUnarchiveArgs
 ): Promise<BatchUnarchiveResponse> {
   const headers = {
@@ -604,11 +648,15 @@ async function batchUnarchiveRequest(
     headers,
     body: JSON.stringify(args),
   });
-  if (!res.ok) {
-    const e = await res.json().catch(() => ({}));
-    throw new Error(e.error || `batch unarchive failed (${res.status})`);
+  const response: unknown = await res.json().catch(() => null);
+  if (isBatchUnarchiveResponse(response) && (res.ok || response.ok === false)) {
+    return response;
   }
-  return res.json();
+  const error =
+    response && typeof response === "object" && "error" in response
+      ? String(response.error)
+      : null;
+  throw new Error(error || `batch unarchive failed (${res.status})`);
 }
 
 // ─── Drafts ──────────────────────────────────────────────────────────────────
@@ -673,6 +721,8 @@ export interface SaveDraftArgs {
   providerThreadId?: string | null;
   /** Existing provider/local draft id; omit on the first provider save. */
   draftId: string | null;
+  /** Stable composer identity used to fence the first provider create. */
+  idempotencyKey?: string | null;
 }
 
 export interface SaveDraftResponse {

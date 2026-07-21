@@ -22,6 +22,23 @@ import {
   CONTACT_FORM_OUTREACH_SUBJECT,
 } from "@/lib/api/services/mailbox-draft-push";
 
+const { mutationExecuteMock, createMutationServiceMock } = vi.hoisted(() => ({
+  mutationExecuteMock: vi.fn(),
+  createMutationServiceMock: vi.fn(),
+}));
+
+vi.mock("@/lib/api/services/email-provider-mutation-attempt-service", () => ({
+  buildEmailProviderMutationFingerprint: vi.fn(() => "f".repeat(64)),
+  createEmailProviderMutationAttemptService: createMutationServiceMock,
+}));
+
+vi.mock("@/lib/api/services/email-provider-mailbox-operation", () => ({
+  runEmailProviderMailboxOperation: async (input: {
+    providerLockCheckpoint?: (force?: boolean) => Promise<void>;
+    run: (checkpoint: (force?: boolean) => Promise<void>) => Promise<unknown>;
+  }) => input.run(input.providerLockCheckpoint ?? (async () => {})),
+}));
+
 interface DbState {
   aiDraftHistory: Array<Record<string, unknown>>;
   opportunityEmailThreads: Array<Record<string, unknown>>;
@@ -146,7 +163,24 @@ function makeSupabaseDouble(state: DbState) {
   return { from: vi.fn((t: string) => new Query(t)), rpc };
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mutationExecuteMock.mockImplementation(async (input) => {
+    const output = await input.executeProvider();
+    await input.reconcile({
+      attemptId: "attempt-1",
+      resourceId: output.resourceId,
+      secondaryResourceId: output.secondaryResourceId ?? null,
+      result: output.result ?? {},
+    });
+    return {
+      status: "completed",
+      providerResourceId: output.resourceId,
+      providerSecondaryResourceId: output.secondaryResourceId ?? null,
+    };
+  });
+  createMutationServiceMock.mockReturnValue({ execute: mutationExecuteMock });
+});
 afterEach(() => setSupabaseOverride(null));
 
 describe("placeNewThreadDraft", () => {
@@ -181,6 +215,10 @@ describe("placeNewThreadDraft", () => {
       to: "client@customer.com",
       subject: CONTACT_FORM_OUTREACH_SUBJECT,
       body: "Thanks — happy to help with your deck.",
+      durableProviderMutation: {
+        actorUserId: "user-1",
+        operationKey: "manual-new-thread-draft:dh-1",
+      },
     });
 
     expect(createNewThreadDraft).toHaveBeenCalledWith(
@@ -190,6 +228,14 @@ describe("placeNewThreadDraft", () => {
       "text"
     );
     expect(updateDraft).not.toHaveBeenCalled();
+    expect(mutationExecuteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "user-1",
+        connectionId: "conn-1",
+        operationKind: "draft_create",
+        operationKey: "manual-new-thread-draft:dh-1",
+      })
+    );
     expect(out).toEqual({ mailboxDraftId: "pd-1", threadId: "new-thread-1" });
 
     const row = state.aiDraftHistory[0];

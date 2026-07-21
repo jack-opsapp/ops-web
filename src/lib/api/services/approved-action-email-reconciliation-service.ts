@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { EmailOutboundLearningService } from "./email-outbound-learning-service";
 import type { EmailProviderInterface } from "./email-provider";
+import { applyEmailProviderLabelWriteback } from "./email-provider-label-writeback";
+import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
 import { EmailThreadService } from "./email-thread-service";
 import { NotificationService } from "./notification-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
@@ -388,6 +390,7 @@ export async function reconcileApprovedActionEmail(input: {
   intent: ApprovedActionEmailIntent;
   connection: EmailConnection;
   provider: Pick<EmailProviderInterface, "applyLabel">;
+  providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
 }): Promise<{ activityId: string }> {
   const { supabase, intent, connection, provider } = input;
   const providerMessageId = required(
@@ -501,11 +504,17 @@ export async function reconcileApprovedActionEmail(input: {
   }
 
   if (connection.opsLabelId) {
-    try {
-      await provider.applyLabel(providerThreadId, connection.opsLabelId);
-    } catch (error) {
-      console.error("[approved-action-email] label writeback failed", error);
-    }
+    await applyEmailProviderLabelWriteback({
+      supabase,
+      connectionId: connection.id,
+      providerThreadId,
+      providerLabelId: connection.opsLabelId,
+      provider,
+      context: "approved-action-email-label-writeback",
+      busyError: "APPROVED_ACTION_EMAIL_LABEL_MAILBOX_BUSY",
+      logPrefix: "[approved-action-email]",
+      providerLockCheckpoint: input.providerLockCheckpoint,
+    });
   }
   try {
     await notifyActor(intent);

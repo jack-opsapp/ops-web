@@ -10,6 +10,11 @@ import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { hashMicrosoft365ClientState } from "@/lib/email/microsoft365-webhook-security";
 import { getAppUrl } from "@/lib/utils/app-url";
+import { runWithEmailConnectionSyncLock } from "@/lib/api/services/email-connection-sync-lock";
+import {
+  buildEmailProviderMutationFingerprint,
+  createEmailProviderMutationAttemptService,
+} from "@/lib/api/services/email-provider-mutation-attempt-service";
 
 export const maxDuration = 300;
 
@@ -89,24 +94,126 @@ export async function GET(request: NextRequest) {
         const connection = await EmailService.getConnection(conn.id as string);
         if (!connection) continue;
 
-        const provider = EmailService.getProvider(connection);
-        const needsFreshSubscription =
-          !conn.webhook_subscription_id ||
-          (connection.provider === "microsoft365" &&
-            !connection.webhookClientStateHash);
-        const webhook = needsFreshSubscription
-          ? await provider.setupWebhook(
-              `${getAppUrl()}/api/integrations/email/webhook/${connection.provider}`
-            )
-          : await provider.renewWebhook(conn.webhook_subscription_id as string);
+        const locked = await runWithEmailConnectionSyncLock({
+          connectionId: connection.id,
+          context: "email-webhook-renewal",
+          client: supabase,
+          run: async (checkpoint) => {
+            await checkpoint();
+            const provider = EmailService.getProvider(connection);
+            const needsFreshSubscription =
+              !conn.webhook_subscription_id ||
+              (connection.provider === "microsoft365" &&
+                !connection.webhookClientStateHash);
+            const webhookUrl = `${getAppUrl()}/api/integrations/email/webhook/${connection.provider}`;
 
-        await EmailService.updateConnection(conn.id as string, {
-          webhookSubscriptionId: webhook.subscriptionId,
-          webhookExpiresAt: webhook.expiresAt,
-          webhookClientStateHash: webhook.clientState
-            ? await hashMicrosoft365ClientState(webhook.clientState)
-            : (connection.webhookClientStateHash ?? null),
+            if (connection.provider === "microsoft365") {
+              const operationKind = needsFreshSubscription
+                ? "webhook_setup"
+                : "webhook_renewal";
+              const currentSubscriptionId =
+                typeof conn.webhook_subscription_id === "string"
+                  ? conn.webhook_subscription_id.trim()
+                  : "";
+              const operationKey = needsFreshSubscription
+                ? [
+                    "m365-webhook-setup",
+                    currentSubscriptionId || "none",
+                    (conn.webhook_expires_at as string | null) || "none",
+                    connection.webhookClientStateHash ? "state" : "no-state",
+                  ].join(":")
+                : `m365-webhook-renew:${currentSubscriptionId}:${
+                    conn.webhook_expires_at as string
+                  }`;
+              const completed = await createEmailProviderMutationAttemptService(
+                supabase
+              ).execute({
+                actorUserId: null,
+                connectionId: connection.id,
+                operationKind,
+                operationKey,
+                requestFingerprint: buildEmailProviderMutationFingerprint(
+                  needsFreshSubscription
+                    ? {
+                        version: 1,
+                        connectionId: connection.id,
+                        webhookUrl,
+                      }
+                    : {
+                        version: 1,
+                        connectionId: connection.id,
+                        subscriptionId: currentSubscriptionId,
+                      }
+                ),
+                assertMailboxLease: () => checkpoint(true),
+                executeProvider: async () => {
+                  await checkpoint();
+                  const webhook = needsFreshSubscription
+                    ? await provider.setupWebhook(webhookUrl)
+                    : await provider.renewWebhook(currentSubscriptionId);
+                  const expiresAt =
+                    webhook.expiresAt instanceof Date &&
+                    Number.isFinite(webhook.expiresAt.getTime())
+                      ? webhook.expiresAt.toISOString()
+                      : null;
+                  const clientStateHash = webhook.clientState
+                    ? await hashMicrosoft365ClientState(webhook.clientState)
+                    : (connection.webhookClientStateHash ?? null);
+                  return {
+                    resourceId: webhook.subscriptionId,
+                    result: { expiresAt, clientStateHash },
+                  };
+                },
+                reconcile: async (acceptance) => {
+                  const expiresAtRaw = acceptance.result.expiresAt;
+                  const clientStateHash = acceptance.result.clientStateHash;
+                  const expiresAt =
+                    typeof expiresAtRaw === "string"
+                      ? new Date(expiresAtRaw)
+                      : new Date(Number.NaN);
+                  if (
+                    !Number.isFinite(expiresAt.getTime()) ||
+                    typeof clientStateHash !== "string" ||
+                    !clientStateHash.trim() ||
+                    (!needsFreshSubscription &&
+                      acceptance.resourceId !== currentSubscriptionId)
+                  ) {
+                    throw new Error("MICROSOFT_WEBHOOK_ACCEPTANCE_INVALID");
+                  }
+                  await checkpoint();
+                  await EmailService.updateConnection(conn.id as string, {
+                    webhookSubscriptionId: acceptance.resourceId,
+                    webhookExpiresAt: expiresAt,
+                    webhookClientStateHash: clientStateHash,
+                  });
+                  await checkpoint();
+                },
+              });
+              if (!completed.providerResourceId) {
+                throw new Error("MICROSOFT_WEBHOOK_ACCEPTANCE_INVALID");
+              }
+            } else {
+              const webhook = needsFreshSubscription
+                ? await provider.setupWebhook(webhookUrl)
+                : await provider.renewWebhook(
+                    conn.webhook_subscription_id as string
+                  );
+              await checkpoint();
+
+              await EmailService.updateConnection(conn.id as string, {
+                webhookSubscriptionId: webhook.subscriptionId,
+                webhookExpiresAt: webhook.expiresAt,
+                webhookClientStateHash: webhook.clientState
+                  ? await hashMicrosoft365ClientState(webhook.clientState)
+                  : (connection.webhookClientStateHash ?? null),
+              });
+              await checkpoint();
+            }
+          },
         });
+        if (!locked.acquired) {
+          throw new Error("EMAIL_WEBHOOK_RENEWAL_MAILBOX_BUSY");
+        }
 
         results.push({
           id: conn.id as string,

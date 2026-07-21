@@ -65,6 +65,11 @@ const companyContext = {
   domains: ["canprodeckandrail.com"],
 };
 
+const inheritedMailboxCheckpoint = vi.fn(async () => {});
+const inheritedMailboxOperation = {
+  providerLockCheckpoint: inheritedMailboxCheckpoint,
+};
+
 describe("AISyncReviewer terminal stage guard", () => {
   beforeEach(() => {
     createMock.mockReset();
@@ -255,9 +260,12 @@ describe("AISyncReviewer terminal stage guard", () => {
     fetchThreadMock.mockRejectedValue(new Error("temporary Gmail failure"));
 
     await expect(
-      AISyncReviewer.evaluateStagesWithSummary(["thread-1"], connection, {
-        name: "Canpro Deck and Rail",
-      })
+      AISyncReviewer.evaluateStagesWithSummary(
+        ["thread-1"],
+        connection,
+        { name: "Canpro Deck and Rail" },
+        inheritedMailboxOperation
+      )
     ).rejects.toThrow(
       "failed to fetch thread thread-1: temporary Gmail failure"
     );
@@ -292,12 +300,14 @@ describe("AISyncReviewer terminal stage guard", () => {
     const resultPromise = AISyncReviewer.evaluateStagesWithSummary(
       threadIds,
       connection,
-      { name: "Canpro Deck and Rail" }
+      { name: "Canpro Deck and Rail" },
+      inheritedMailboxOperation
     );
     await vi.runAllTimersAsync();
     const result = await resultPromise;
 
     expect(fetchThreadMock).toHaveBeenCalledTimes(21);
+    expect(inheritedMailboxCheckpoint).toHaveBeenCalledTimes(44);
     expect(evaluateSpy.mock.calls.map(([batch]) => batch.length)).toEqual([
       5, 5, 5, 5, 1,
     ]);
@@ -343,7 +353,8 @@ describe("AISyncReviewer terminal stage guard", () => {
           userEmailAddresses: ["jared@canprodeckandrail.com"],
         },
       },
-      { name: "Canpro Deck and Rail" }
+      { name: "Canpro Deck and Rail" },
+      inheritedMailboxOperation
     );
 
     expect(evaluateSpy.mock.calls[0][0][0].messages[0].direction).toBe(

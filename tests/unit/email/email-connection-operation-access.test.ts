@@ -18,6 +18,7 @@ vi.mock("@/lib/supabase/check-permission", () => ({
 
 import {
   authorizeEmailConnectionOperationForActor,
+  emailConnectionOwnerId,
   resolveEmailConnectionOperationAccess,
 } from "@/lib/email/email-connection-operation-access";
 
@@ -82,6 +83,15 @@ describe("email connection operation access", () => {
     checkPermissionByIdMock.mockResolvedValue(false);
   });
 
+  it("normalizes only individual mailbox owner snapshots", () => {
+    expect(
+      emailConnectionOwnerId({ type: "individual", user_id: "  user-1  " })
+    ).toBe("user-1");
+    expect(
+      emailConnectionOwnerId({ type: "company", user_id: "legacy-connector" })
+    ).toBeNull();
+  });
+
   it("lets an OPS user operate only their current individual mailbox", async () => {
     const decision = await authorizeEmailConnectionOperationForActor({
       actor,
@@ -92,6 +102,26 @@ describe("email connection operation access", () => {
           company_id: "company-1",
           type: "individual",
           user_id: "user-1",
+          status: "active",
+          sync_enabled: true,
+        },
+      ]),
+    });
+
+    expect(decision.allowed).toBe(true);
+    expect(checkPermissionByIdMock).not.toHaveBeenCalled();
+  });
+
+  it("compares a legacy text mailbox owner to the canonical OPS UUID after trimming", async () => {
+    const decision = await authorizeEmailConnectionOperationForActor({
+      actor,
+      connectionId: "personal-1",
+      supabase: supabaseWithConnections([
+        {
+          id: "personal-1",
+          company_id: "company-1",
+          type: "individual",
+          user_id: "  user-1  ",
           status: "active",
           sync_enabled: true,
         },

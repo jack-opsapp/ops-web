@@ -12,9 +12,14 @@ import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
 import { buildReturnRedirect } from "@/lib/utils/oauth-return";
+import {
+  fetchGmailOnceWithinDeadline,
+  fetchGmailRead,
+} from "@/lib/api/services/providers/gmail-read";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_GMAIL_CLIENT_SECRET;
+const GMAIL_OAUTH_CALLBACK_DEADLINE_MS = 45_000;
 
 function errorRedirect(returnTo: string | null | undefined, message: string) {
   if (returnTo) {
@@ -82,17 +87,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        code,
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: `${getAppUrl()}/api/integrations/gmail/callback`,
-        grant_type: "authorization_code",
-      }),
-    });
+    const deadlineAt = Date.now() + GMAIL_OAUTH_CALLBACK_DEADLINE_MS;
+    const tokenResponse = await fetchGmailOnceWithinDeadline(
+      "https://oauth2.googleapis.com/token",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
+          redirect_uri: `${getAppUrl()}/api/integrations/gmail/callback`,
+          grant_type: "authorization_code",
+        }),
+      },
+      { deadlineAt, context: "OAuth authorization-code exchange" }
+    );
 
     if (!tokenResponse.ok) {
       const errorData = await tokenResponse.text();
@@ -104,9 +114,10 @@ export async function GET(request: NextRequest) {
     }
 
     const tokens = await tokenResponse.json();
-    const profileResponse = await fetch(
+    const profileResponse = await fetchGmailRead(
       "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-      { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+      { headers: { Authorization: `Bearer ${tokens.access_token}` } },
+      { deadlineAt, context: "users.getProfile (OAuth callback)" }
     );
     if (!profileResponse.ok) {
       console.error(
@@ -125,7 +136,9 @@ export async function GET(request: NextRequest) {
       return errorRedirect(returnTo, "mailbox_identity_failed");
     }
     if (state.source === "alert" && gmailEmail !== state.expectedEmail) {
-      console.error("[Gmail OAuth] Reconnect mailbox did not match alert state");
+      console.error(
+        "[Gmail OAuth] Reconnect mailbox did not match alert state"
+      );
       return errorRedirect(returnTo, "mailbox_identity_mismatch");
     }
 

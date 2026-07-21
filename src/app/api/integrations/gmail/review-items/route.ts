@@ -8,7 +8,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import {
+  buildEmailThreadListAuthorizationFilter,
+  resolveEmailInboxListAccess,
+} from "@/lib/email/email-opportunity-access";
 
 export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
@@ -24,12 +28,41 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
-    const authError = await requireEmailCompanyAccess(
-      request,
-      companyId,
-      "inbox.view"
+    const actorResolution = await resolveEmailRouteActor(request, {
+      claimedCompanyId: companyId,
+    });
+    if (!actorResolution.ok) return actorResolution.response;
+    const listAccess = await resolveEmailInboxListAccess({
+      actor: actorResolution.actor,
+      supabase,
+    });
+    if (!listAccess.allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const authorizationFilter =
+      buildEmailThreadListAuthorizationFilter(listAccess);
+    if (authorizationFilter.empty) {
+      return NextResponse.json({ ok: true, items: [] });
+    }
+
+    const { data: gmailConnections, error: gmailConnectionsError } =
+      await supabase
+        .from("email_connections")
+        .select("id")
+        .eq("company_id", actorResolution.actor.companyId)
+        .eq("provider", "gmail");
+    if (gmailConnectionsError) throw gmailConnectionsError;
+    const gmailConnectionIds = (gmailConnections ?? []).map((connection) =>
+      String(connection.id)
     );
-    if (authError) return authError;
+    const allowedConnectionIds = authorizationFilter.connectionIds
+      ? authorizationFilter.connectionIds.filter((connectionId) =>
+          gmailConnectionIds.includes(connectionId)
+        )
+      : gmailConnectionIds;
+    if (allowedConnectionIds.length === 0) {
+      return NextResponse.json({ ok: true, items: [] });
+    }
 
     // The review queue surfaces inbound emails the auto-classification pipeline
     // couldn't confidently place (unmatched) or matched only weakly
@@ -47,18 +80,31 @@ export async function GET(request: NextRequest) {
     ).toISOString();
 
     // Step 1: Fetch recent activities needing review
-    const { data: activities, error } = await supabase
+    let activitiesQuery = supabase
       .from("activities")
       .select(
-        "id, subject, content, from_email, match_confidence, suggested_client_id, client_id, email_thread_id, created_at"
+        "id, subject, content, from_email, match_confidence, suggested_client_id, client_id, email_thread_id, email_connection_id, opportunity_id, created_at"
       )
       .eq("type", "email")
-      .eq("company_id", companyId)
+      .eq("company_id", actorResolution.actor.companyId)
+      .in("email_connection_id", allowedConnectionIds)
       .eq("is_read", false)
       .gte("created_at", windowStart)
       .or("match_needs_review.eq.true,match_confidence.eq.unmatched")
-      .order("created_at", { ascending: false })
-      .limit(REVIEW_MAX_ITEMS);
+      .order("created_at", { ascending: false });
+    if (authorizationFilter.unlinkedOnly) {
+      activitiesQuery = activitiesQuery.is("opportunity_id", null);
+    }
+    if (authorizationFilter.or) {
+      activitiesQuery = activitiesQuery.or(
+        authorizationFilter.or.replaceAll(
+          "connection_id",
+          "email_connection_id"
+        )
+      );
+    }
+    const { data: activities, error } =
+      await activitiesQuery.limit(REVIEW_MAX_ITEMS);
 
     if (error) throw error;
 
@@ -79,6 +125,7 @@ export async function GET(request: NextRequest) {
       const { data: clients, error: clientError } = await supabase
         .from("clients")
         .select("id, name")
+        .eq("company_id", actorResolution.actor.companyId)
         .in("id", Array.from(clientIds));
 
       if (clientError) throw clientError;

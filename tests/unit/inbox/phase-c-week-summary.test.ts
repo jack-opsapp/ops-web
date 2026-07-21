@@ -32,7 +32,11 @@ function makeClient(
       }).then(resolve);
     return builder;
   }
-  return { client: { from }, calls };
+  async function rpc(name: string, args: Record<string, unknown>) {
+    calls.push({ table: "rpc", method: name, args: [args] });
+    return { data: [], error: null };
+  }
+  return { client: { from, rpc }, calls };
 }
 
 const assignedAccess: AllowedEmailInboxListAccess = {
@@ -126,6 +130,16 @@ describe("Phase C weekly summary authorization", () => {
       table: "email_connections",
       method: "or",
       args: ["type.eq.company,and(type.eq.individual,user_id.eq.actor-1)"],
+    });
+    expect(fake.calls).toContainEqual({
+      table: "rpc",
+      method: "get_phase_c_actor_category_acceptances_as_system",
+      args: [
+        {
+          p_connection_id: "shared-1",
+          p_actor_user_id: "actor-1",
+        },
+      ],
     });
   });
 

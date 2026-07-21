@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  Loader2,
-  Sparkles,
-  Clock,
-  TrendingUp,
-  Lock,
-} from "lucide-react";
+import { Loader2, Sparkles, Clock, TrendingUp, Lock } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
@@ -36,7 +30,6 @@ interface DraftStats {
     to: string;
     count: number;
   }>;
-  suggestAutoSend: boolean;
 }
 
 interface AutoSendSettingsProps {
@@ -99,7 +92,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
             `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${connectionId}`
           ),
           authedFetch(
-            `/api/integrations/email/draft-stats?companyId=${company.id}&userId=${currentUser.id}`
+            `/api/integrations/email/draft-stats?companyId=${company.id}&connectionId=${connectionId}`
           ),
         ]);
 
@@ -130,7 +123,7 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
       setSaving(true);
 
       try {
-        const response = await fetch(
+        const response = await authedFetch(
           "/api/integrations/email/auto-send/settings",
           {
             method: "PUT",
@@ -156,9 +149,9 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
     [company?.id, connectionId, t]
   );
 
-  const handleToggle = useCallback(() => {
-    const newEnabled = !(settings?.enabled ?? false);
-    handleSave({ enabled: newEnabled });
+  const handleDisable = useCallback(() => {
+    if (settings?.enabled !== true) return;
+    handleSave({ enabled: false });
   }, [settings?.enabled, handleSave]);
 
   // ─── Loading ──────────────────────────────────────────────────────────
@@ -279,28 +272,6 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
               </div>
             </div>
           )}
-
-          {/* Auto-send suggestion */}
-          {stats.suggestAutoSend && !effectiveSettings.enabled && (
-            <div className="mt-2.5 border-t border-[rgba(255,255,255,0.04)] pt-2">
-              <div className="bg-[rgba(111, 148, 176,0.06)] border-[rgba(111, 148, 176,0.12)] flex items-center gap-2 rounded-panel border px-2 py-1.5">
-                <Sparkles className="h-[12px] w-[12px] shrink-0 text-[#6F94B0]" />
-                <span className="flex-1 font-mohave text-caption-sm text-[#6F94B0]">
-                  {t("stats.suggestAutoSend").replace(
-                    "{{rate}}",
-                    String((stats.approvalRate * 100).toFixed(0))
-                  )}
-                </span>
-                <button
-                  onClick={handleToggle}
-                  disabled={saving}
-                  className="shrink-0 font-mono text-micro uppercase tracking-wider text-[#6F94B0] transition-colors hover:text-text"
-                >
-                  {t("stats.suggestAutoSend.enable")}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -314,33 +285,16 @@ export function AutoSendSettings({ connectionId }: AutoSendSettingsProps) {
             </span>
           </div>
 
-          {/* Toggle — 56dp tap area */}
-          <button
-            onClick={handleToggle}
-            disabled={saving}
-            className={cn(
-              "relative -m-[19px] flex h-[56px] w-[56px] items-center justify-center",
-              saving && "opacity-50"
-            )}
-          >
-            <div
-              className={cn(
-                "relative h-[18px] w-[36px] rounded-full transition-colors",
-                effectiveSettings.enabled
-                  ? "bg-text-2"
-                  : "bg-[rgba(255,255,255,0.1)]"
-              )}
+          {effectiveSettings.enabled && (
+            <button
+              type="button"
+              onClick={handleDisable}
+              disabled={saving}
+              className="min-h-11 rounded border border-border bg-surface-input px-2 font-mono text-micro uppercase tracking-wider text-text-3 transition-colors hover:text-text disabled:cursor-wait disabled:opacity-50"
             >
-              <div
-                className={cn(
-                  "absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white transition-transform",
-                  effectiveSettings.enabled
-                    ? "translate-x-[20px]"
-                    : "translate-x-[2px]"
-                )}
-              />
-            </div>
-          </button>
+              {t("autoSend.toggle.off")}
+            </button>
+          )}
         </div>
 
         <p className="mb-3 font-mohave text-caption-sm text-text-mute">

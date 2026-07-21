@@ -2139,6 +2139,7 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
    */
   async getApprovalStats(
     companyId: string,
+    connectionId: string,
     userId: string
   ): Promise<{
     totalSent: number;
@@ -2151,7 +2152,6 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       to: string;
       count: number;
     }>;
-    suggestAutoSend: boolean;
   }> {
     const supabase = requireSupabase();
 
@@ -2159,6 +2159,7 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
     // keeps autonomous sends from validating the agent's own output.
     const accuracy = await getHumanDraftAccuracy({
       companyId,
+      connectionId,
       userId,
       limit: 50,
     });
@@ -2168,6 +2169,7 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       .from("ai_draft_history")
       .select("changes_made")
       .eq("company_id", companyId)
+      .eq("connection_id", connectionId)
       .eq("user_id", userId)
       .eq("status", "sent")
       .order("created_at", { ascending: false })
@@ -2211,16 +2213,12 @@ ${opportunityContext ? `\nContext:\n${opportunityContext}` : ""}`;
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    // Suggest auto-send if 95%+ approval over 20+ drafts
-    const suggestAutoSend = totalSent >= 20 && approvalRate >= 0.95;
-
     return {
       totalSent,
       sentWithoutChanges,
       approvalRate,
       recentDrafts: totalSent,
       commonChanges,
-      suggestAutoSend,
     };
   },
 };

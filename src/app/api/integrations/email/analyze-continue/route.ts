@@ -14,6 +14,7 @@
  * Each phase gets its own 800s Vercel function budget.
  */
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
@@ -37,35 +38,28 @@ import {
   type AnalyzedLead,
 } from "@/lib/types/email-import";
 import type { DeepExtractionInput } from "@/lib/api/services/email-ai-classifier";
-import type { NormalizedEmail } from "@/lib/api/services/email-provider";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  emailPipelineAuthorizationHeaders,
-  requireEmailPipelineSecret,
-} from "@/lib/email/email-route-auth";
-import { getAppUrl } from "@/lib/utils/app-url";
+  ProviderApiError,
+  type NormalizedEmail,
+} from "@/lib/api/services/email-provider";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
 import { authorizeEmailAnalysisJobContinuation } from "@/lib/email/email-analysis-job-access";
 import { createTrustedNotifications } from "@/lib/notifications/server-notification-service";
+import {
+  acquireEmailConnectionSyncLock,
+  createEmailConnectionSyncLockRenewer,
+  releaseEmailConnectionSyncLock,
+  type EmailConnectionSyncLockRenewer,
+} from "@/lib/api/services/email-connection-sync-lock";
+import {
+  acceptPhaseBDispatch,
+  dispatchPhaseCEntry,
+  preparePhaseCDispatch,
+  writePhaseCError,
+} from "@/lib/api/services/phase-c-pipeline-helpers";
 
 export const maxDuration = 800; // Pro plan max
-
-// ─── Timeout helper for thread fetches ───────────────────────────────────────
-
-async function fetchWithTimeout<T>(
-  promise: Promise<T>,
-  ms: number
-): Promise<T | null> {
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), ms)
-      ),
-    ]);
-  } catch {
-    return null;
-  }
-}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -215,11 +209,11 @@ export async function POST(request: NextRequest) {
   const authError = requireEmailPipelineSecret(request);
   if (authError) return authError;
 
-  const { jobId, connectionId, companyId } = await request.json();
+  const { jobId, connectionId, companyId, dispatchId } = await request.json();
 
-  if (!jobId || !connectionId || !companyId) {
+  if (!jobId || !connectionId || !companyId || !dispatchId) {
     return NextResponse.json(
-      { error: "jobId, connectionId, and companyId required" },
+      { error: "jobId, connectionId, companyId, and dispatchId required" },
       { status: 400 }
     );
   }
@@ -275,44 +269,283 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let lockOwner: string | null;
+  try {
+    lockOwner = await acquireEmailConnectionSyncLock(
+      connectionId,
+      "email-analyze-phase-b",
+      supabase
+    );
+  } catch (error) {
+    console.error("[email-analyze-continue] lease handoff failed:", error);
+    return NextResponse.json(
+      { error: "Mailbox is busy. Try again in a few minutes." },
+      { status: 409 }
+    );
+  }
+  if (!lockOwner) {
+    return NextResponse.json(
+      { error: "Mailbox is busy. Try again in a few minutes." },
+      { status: 409 }
+    );
+  }
+  let lockHandedToBackground = false;
+
   // Run Phase B in background — return immediately. The ALS-scoped client
   // prevents a concurrent request's finally-clause from wiping the override
   // while deep extraction is still making DB writes.
-  after(async () => {
-    const bgSupabase = getServiceRoleClient();
-    await runWithSupabase(bgSupabase, async () => {
-      try {
-        const backgroundAccess = await authorizeEmailAnalysisJobContinuation({
-          supabase: bgSupabase,
-          jobId,
-          claimedConnectionId: connectionId,
-          claimedCompanyId: companyId,
+  try {
+    after(async () => {
+      const bgSupabase = getServiceRoleClient();
+      await runWithSupabase(bgSupabase, async () => {
+        let lockReleased = false;
+        let phaseBPrepared = false;
+        let failureStage: "phase_b_handoff" | "finalize" = "phase_b_handoff";
+        const renewLockIfNeeded = createEmailConnectionSyncLockRenewer({
+          connectionId,
+          ownerId: lockOwner!,
+          context: "email-analyze-phase-b",
+          client: bgSupabase,
         });
-        if (!backgroundAccess.allowed) {
-          await bgSupabase
-            .from("gmail_scan_jobs")
-            .update({
-              status: "error",
-              error_message: `Phase B authorization expired: ${backgroundAccess.reason}`,
-            })
-            .eq("id", jobId);
-          return;
-        }
-        await runPhaseB(jobId, connectionId, companyId, bgSupabase);
-      } catch (err) {
-        console.error("[email-analyze-continue] Phase B failed:", err);
-        await bgSupabase
-          .from("gmail_scan_jobs")
-          .update({
-            status: "error",
-            error_message: `Phase B failed: ${(err as Error).message}`,
-          })
-          .eq("id", jobId);
-      }
-    });
-  });
+        try {
+          await renewLockIfNeeded(true);
+          const backgroundAccess = await authorizeEmailAnalysisJobContinuation({
+            supabase: bgSupabase,
+            jobId,
+            claimedConnectionId: connectionId,
+            claimedCompanyId: companyId,
+          });
+          if (!backgroundAccess.allowed) {
+            const { error: authorizationWriteError } = await bgSupabase
+              .from("gmail_scan_jobs")
+              .update({
+                status: "error",
+                error_message: `Phase B authorization expired: ${backgroundAccess.reason}`,
+              })
+              .eq("id", jobId);
+            if (authorizationWriteError) {
+              throw new Error(
+                `Phase B authorization expired and its error state could not be persisted: ${authorizationWriteError.message}`
+              );
+            }
+            return;
+          }
+          const phaseBResult = await runPhaseB(
+            jobId,
+            connectionId,
+            companyId,
+            bgSupabase,
+            renewLockIfNeeded
+          );
+          phaseBPrepared = true;
 
-  return NextResponse.json({ ok: true });
+          // Every Phase B provider read completed under this owner. Prove it
+          // once more, durably prepare the exact Phase C dispatch, then release
+          // before Phase C claims a fresh mailbox owner.
+          await renewLockIfNeeded(true);
+          const phaseCDispatchId = randomUUID();
+          await preparePhaseCDispatch(bgSupabase, jobId, phaseCDispatchId);
+          await renewLockIfNeeded.stop();
+          await releaseEmailConnectionSyncLock(
+            connectionId,
+            lockOwner!,
+            "email-analyze-phase-b",
+            bgSupabase
+          );
+          lockReleased = true;
+
+          const phaseCDisposition = await dispatchPhaseCEntry({
+            supabase: bgSupabase,
+            jobId,
+            connectionId,
+            companyId,
+            dispatchId: phaseCDispatchId,
+          });
+          if (phaseCDisposition === "skipped") {
+            failureStage = "finalize";
+            await publishAnalysisCompletion({
+              supabase: bgSupabase,
+              jobId,
+              connectionId,
+              companyId,
+              completionProgress: phaseBResult.completionProgress,
+            });
+          }
+        } catch (err) {
+          console.error("[email-analyze-continue] Phase B failed:", err);
+          if (phaseBPrepared) {
+            await writePhaseCError(bgSupabase, jobId, err, failureStage);
+          } else {
+            const { error: failureWriteError } = await bgSupabase
+              .from("gmail_scan_jobs")
+              .update({
+                status: "error",
+                error_message: `Phase B failed: ${(err as Error).message}`,
+              })
+              .eq("id", jobId);
+            if (failureWriteError) {
+              throw new Error(
+                `Phase B failed and its error state could not be persisted: ${failureWriteError.message}`
+              );
+            }
+          }
+        } finally {
+          await renewLockIfNeeded.stop().catch(() => {});
+          if (!lockReleased) {
+            await releaseEmailConnectionSyncLock(
+              connectionId,
+              lockOwner!,
+              "email-analyze-phase-b",
+              bgSupabase
+            );
+          }
+        }
+      });
+    });
+    await acceptPhaseBDispatch(supabase, jobId, dispatchId);
+    lockHandedToBackground = true;
+
+    return NextResponse.json({ ok: true, accepted: true });
+  } catch (error) {
+    const { error: handoffWriteError } = await supabase
+      .from("gmail_scan_jobs")
+      .update({
+        status: "error",
+        error_message: `Phase B could not safely start: ${error instanceof Error ? error.message : String(error)}`,
+      })
+      .eq("id", jobId);
+    if (handoffWriteError) {
+      throw new Error(
+        `Phase B handoff failed and its error state could not be persisted: ${handoffWriteError.message}`
+      );
+    }
+    return NextResponse.json(
+      { error: "Phase B could not safely start", accepted: false },
+      { status: 500 }
+    );
+  } finally {
+    if (!lockHandedToBackground) {
+      await releaseEmailConnectionSyncLock(
+        connectionId,
+        lockOwner,
+        "email-analyze-phase-b",
+        supabase
+      );
+    }
+  }
+}
+
+async function publishAnalysisCompletion({
+  supabase,
+  jobId,
+  connectionId,
+  companyId,
+  completionProgress,
+}: {
+  supabase: SupabaseClient;
+  jobId: string;
+  connectionId: string;
+  companyId: string;
+  completionProgress: Record<string, unknown>;
+}): Promise<void> {
+  const completionAccess = await authorizeEmailAnalysisJobContinuation({
+    supabase,
+    jobId,
+    claimedConnectionId: connectionId,
+    claimedCompanyId: companyId,
+  });
+  if (!completionAccess.allowed) {
+    throw new Error(
+      `Analysis completion authorization expired: ${completionAccess.reason}`
+    );
+  }
+
+  const { data: currentRow, error: currentRowError } = await supabase
+    .from("gmail_scan_jobs")
+    .select("result")
+    .eq("id", jobId)
+    .single();
+  if (currentRowError || !currentRow?.result) {
+    throw new Error(
+      `Analysis completion could not read its durable result: ${currentRowError?.message ?? "job result missing"}`
+    );
+  }
+
+  const currentResult = currentRow.result as Record<string, unknown>;
+  const phaseCDispatch = currentResult.phaseCDispatch as
+    | Record<string, unknown>
+    | undefined;
+  const completedResult = {
+    ...currentResult,
+    ...(phaseCDispatch
+      ? {
+          phaseCDispatch: {
+            ...phaseCDispatch,
+            status: "completed",
+            completedAt: new Date().toISOString(),
+          },
+        }
+      : {}),
+    phaseCComplete: false,
+    phaseCSkipped: true,
+  };
+
+  const { error: completionError } = await supabase.rpc(
+    "complete_email_analysis_job_as_system",
+    {
+      p_job_id: jobId,
+      p_actor_user_id: completionAccess.actorUserId,
+      p_result: completedResult,
+      p_progress: completionProgress,
+    }
+  );
+  if (completionError) {
+    throw new Error(
+      `Analysis completion publication failed: ${completionError.message}`
+    );
+  }
+
+  const finalResult = completedResult as {
+    leads?: unknown[];
+    totalScanned?: number;
+  };
+  try {
+    const completionNotification = await createTrustedNotifications(
+      {
+        recipientUserIds: [completionAccess.actorUserId],
+        companyId: completionAccess.companyId,
+        type: "pipeline_complete",
+        title: "Pipeline analysis complete",
+        body: `Found ${finalResult.leads?.length ?? 0} lead${finalResult.leads?.length === 1 ? "" : "s"} from ${finalResult.totalScanned ?? 0} emails`,
+        persistent: true,
+        actionUrl:
+          completionAccess.connectionType === "company"
+            ? "/settings?tab=integrations"
+            : null,
+        actionLabel:
+          completionAccess.connectionType === "company"
+            ? "Review Results"
+            : null,
+        deepLinkType: "pipeline",
+        dedupeKey: `pipeline-analysis-complete:${jobId}`,
+      },
+      supabase
+    );
+    if (completionNotification.errors > 0) {
+      console.error(
+        "[email-analyze-continue] Analysis completed but its notification could not be created"
+      );
+    }
+  } catch (error) {
+    console.error(
+      "[email-analyze-continue] Analysis completed but its notification could not be created:",
+      error
+    );
+  }
+
+  console.log(
+    `[email-analyze-continue] Analysis complete. ${finalResult.leads?.length ?? 0} leads saved.`
+  );
 }
 
 // ─── Phase B: Full thread fetch, deep extraction, filtering, dedup ───────────
@@ -321,7 +554,8 @@ async function runPhaseB(
   jobId: string,
   connectionId: string,
   companyId: string,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  providerLockCheckpoint: EmailConnectionSyncLockRenewer
 ) {
   console.log(`[email-analyze-continue] Phase B starting for job ${jobId}`);
 
@@ -343,12 +577,15 @@ async function runPhaseB(
   await requireCurrentAnalysisAccess("phase_b_start");
 
   // ─── 1. Read intermediate data from job ────────────────────────────────────
-  const { data: job } = await supabase
+  const { data: job, error: jobReadError } = await supabase
     .from("gmail_scan_jobs")
     .select("result")
     .eq("id", jobId)
     .single();
 
+  if (jobReadError) {
+    throw new Error(`Failed to read Phase A result: ${jobReadError.message}`);
+  }
   if (!job?.result) {
     throw new Error("Job result is empty — Phase A may not have completed");
   }
@@ -367,6 +604,7 @@ async function runPhaseB(
     leads: AnalyzedLead[];
     ownerEmail: string;
     discoveredLeadNames: string[];
+    phaseBDispatch?: Record<string, unknown>;
   };
 
   if (intermediate.phase !== "leads_built") {
@@ -386,7 +624,7 @@ async function runPhaseB(
     percent: number
   ) => {
     await requireCurrentAnalysisAccess("progress_update");
-    await supabase
+    const { error } = await supabase
       .from("gmail_scan_jobs")
       .update({
         status: stage,
@@ -398,6 +636,9 @@ async function runPhaseB(
         },
       })
       .eq("id", jobId);
+    if (error) {
+      throw new Error(`Failed to persist Phase B progress: ${error.message}`);
+    }
   };
 
   // ─── 2. Re-fetch connection, company, employees from DB ───────────────────
@@ -412,10 +653,15 @@ async function runPhaseB(
     detectionData.companyDomains.map((d: string) => d.toLowerCase())
   );
 
-  const { data: companyUsers } = await supabase
+  const { data: companyUsers, error: companyUsersError } = await supabase
     .from("users")
     .select("email, first_name, last_name, phone")
     .eq("company_id", companyId);
+  if (companyUsersError) {
+    throw new Error(
+      `Failed to load company users for Phase B: ${companyUsersError.message}`
+    );
+  }
 
   const employeeEmailSet = new Set<string>();
   const employeeNameSet = new Set<string>();
@@ -430,11 +676,16 @@ async function runPhaseB(
     if (u.phone) employeePhones.push(u.phone);
   }
 
-  const { data: company } = await supabase
+  const { data: company, error: companyError } = await supabase
     .from("companies")
     .select("name, industry, industries, phone, address, physical_address")
     .eq("id", companyId)
     .single();
+  if (companyError || !company) {
+    throw new Error(
+      `Failed to load company for Phase B: ${companyError?.message ?? "not found"}`
+    );
+  }
 
   const internalPhones = [
     ...employeePhones,
@@ -478,30 +729,44 @@ async function runPhaseB(
   const FETCH_CONCURRENCY = 5;
 
   for (let i = 0; i < leads.length; i += FETCH_CONCURRENCY) {
+    await providerLockCheckpoint();
     await requireCurrentAnalysisAccess("provider_batch");
     const batch = leads.slice(i, i + FETCH_CONCURRENCY);
 
-    const results = await Promise.allSettled(
+    const batchDeadlineAt = Date.now() + 45_000;
+    const results = await Promise.all(
       batch.map(async (lead) => {
         const providerThreadId = lead.providerThreadId ?? lead.threadId;
-        const fetchedThread = await fetchWithTimeout(
-          provider.fetchThread(providerThreadId),
-          10_000
-        );
+        let fetchedThread: NormalizedEmail[];
+        try {
+          fetchedThread = await provider.fetchThread(providerThreadId, {
+            deadlineAt: batchDeadlineAt,
+            context: `Phase B thread hydration (${providerThreadId})`,
+          });
+        } catch (error) {
+          if (
+            error instanceof ProviderApiError &&
+            (error.providerStatus === 404 || error.providerStatus === 410)
+          ) {
+            return { lead, fetchedMessages: null };
+          }
+          throw error;
+        }
         const allowedMessageIds = new Set(lead.emails.map((email) => email.id));
         const fetchedMessages =
           lead.providerThreadId && lead.providerThreadId !== lead.threadId
-            ? (fetchedThread?.filter((message) =>
+            ? fetchedThread.filter((message) =>
                 allowedMessageIds.has(message.id)
-              ) ?? null)
+              )
             : fetchedThread;
         return { lead, fetchedMessages };
       })
     );
+    await providerLockCheckpoint();
 
     for (const result of results) {
-      if (result.status === "fulfilled" && result.value.fetchedMessages) {
-        const { lead, fetchedMessages } = result.value;
+      if (result.fetchedMessages) {
+        const { lead, fetchedMessages } = result;
         fetchedThreads.set(lead.threadId, fetchedMessages);
         replaceAnalyzedLeadEmailsFromFetch(
           lead,
@@ -515,14 +780,9 @@ async function runPhaseB(
         fetchedCount++;
       } else {
         skippedCount++;
-        if (result.status === "rejected") {
-          console.error(
-            `[email-analyze-continue] Thread fetch failed:`,
-            result.reason
-          );
-        } else {
-          console.warn(`[email-analyze-continue] Thread timed out — skipping`);
-        }
+        console.warn(
+          `[email-analyze-continue] Provider thread no longer exists — skipping ${result.lead.threadId}`
+        );
       }
     }
 
@@ -1156,6 +1416,9 @@ async function runPhaseB(
     discoveredLeadNames: discoveredLeadNames.slice(-12),
   };
   const finalResult = {
+    ...(intermediate.phaseBDispatch
+      ? { phaseBDispatch: intermediate.phaseBDispatch }
+      : {}),
     estimatePattern: detectionData.estimatePattern,
     estimatePatternConfidence: detectionData.estimatePatternConfidence,
     estimateThreadCount: detectionData.estimateThreadCount,
@@ -1206,76 +1469,32 @@ async function runPhaseB(
     },
   };
 
-  const finalAccess = await requireCurrentAnalysisAccess("completion_publish");
-  const { error: completionError } = await supabase.rpc(
-    "complete_email_analysis_job_as_system",
-    {
-      p_job_id: jobId,
-      p_actor_user_id: finalAccess.actorUserId,
-      p_result: finalResult,
-      p_progress: finalProgress,
+  const provisionalProgress = {
+    stage: "analyzing_threads",
+    message: "Indexing lead intelligence...",
+    percent: 98,
+    discoveredLeadNames: discoveredLeadNames.slice(-12),
+  };
+  const persistPhaseBResult = async (): Promise<void> => {
+    await requireCurrentAnalysisAccess("result_persist");
+    const { error } = await supabase
+      .from("gmail_scan_jobs")
+      .update({
+        status: "analyzing_threads",
+        progress: provisionalProgress,
+        result: finalResult,
+        error_message: null,
+      })
+      .eq("id", jobId);
+    if (error) {
+      throw new Error(`Failed to persist Phase B result: ${error.message}`);
     }
-  );
-  if (completionError) {
-    throw new Error(
-      `Phase B completion publication failed: ${completionError.message}`
-    );
-  }
-
-  // Re-authorize after the atomic completion boundary. A long-running scan must never
-  // notify a legacy company connector or an actor whose mailbox authority was
-  // revoked while the scan was in flight.
-  const completionAccess = await authorizeEmailAnalysisJobContinuation({
-    supabase,
-    jobId,
-    claimedConnectionId: connectionId,
-    claimedCompanyId: companyId,
-  });
-  if (!completionAccess.allowed) {
-    console.warn(
-      `[email-analyze-continue] Completion follow-up denied: ${completionAccess.reason}`
-    );
-    return;
-  }
-
-  // ─── 10b. Create notification for background completion ─────────────────
-  const completionNotification = await createTrustedNotifications(
-    {
-      recipientUserIds: [completionAccess.actorUserId],
-      companyId: completionAccess.companyId,
-      type: "pipeline_complete",
-      title: "Pipeline analysis complete",
-      body: `Found ${deduplicatedLeads.length} lead${deduplicatedLeads.length !== 1 ? "s" : ""} from ${detectionData.totalEmailsScanned} emails`,
-      persistent: true,
-      actionUrl:
-        completionAccess.connectionType === "company"
-          ? "/settings?tab=integrations"
-          : null,
-      actionLabel:
-        completionAccess.connectionType === "company" ? "Review Results" : null,
-      deepLinkType: "pipeline",
-      dedupeKey: `pipeline-analysis-complete:${jobId}`,
-    },
-    supabase
-  );
-  if (completionNotification.errors > 0) {
-    console.error(
-      "[email-analyze-continue] Failed to create completion notification"
-    );
-  }
+  };
+  await persistPhaseBResult();
 
   console.log(
-    `[email-analyze-continue] Phase B complete. ${deduplicatedLeads.length} leads saved.`
+    `[email-analyze-continue] Phase B result prepared. ${deduplicatedLeads.length} leads saved for Phase C.`
   );
 
-  // ─── 11. Chain to Phase C — background data indexing ──────────────────────
-  // Phase C checks its own feature gate — always chain regardless
-  const baseUrl = getAppUrl();
-  fetch(`${baseUrl}/api/integrations/email/analyze-memory`, {
-    method: "POST",
-    headers: emailPipelineAuthorizationHeaders(),
-    body: JSON.stringify({ jobId, connectionId, companyId }),
-  }).catch(() => {}); // Fire and forget — Phase C failure doesn't affect import
-
-  console.log(`[email-analyze-continue] Phase C chain fired for job ${jobId}`);
+  return { finalResult, completionProgress: finalProgress };
 }

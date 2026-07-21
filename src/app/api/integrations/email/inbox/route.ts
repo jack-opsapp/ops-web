@@ -12,8 +12,12 @@ import { EmailService } from "@/lib/api/services/email-service";
 import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
 import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { runWithSupabase } from "@/lib/supabase/helpers";
+import { runWithEmailConnectionSyncLock } from "@/lib/api/services/email-connection-sync-lock";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import type { EmailConnection } from "@/lib/types/email-connection";
+
+const PROVIDER_THREAD_READ_DEADLINE_MS = 45_000;
 
 function mapFromDb(row: Record<string, unknown>): EmailConnection {
   const type = row.type as EmailConnection["type"];
@@ -34,8 +38,7 @@ function mapFromDb(row: Record<string, unknown>): EmailConnection {
       : null,
     syncIntervalMinutes: (row.sync_interval_minutes as number) ?? 60,
     syncFilters: (row.sync_filters as EmailConnection["syncFilters"]) ?? {},
-    webhookSubscriptionId:
-      (row.webhook_subscription_id as string) ?? null,
+    webhookSubscriptionId: (row.webhook_subscription_id as string) ?? null,
     webhookExpiresAt: row.webhook_expires_at
       ? new Date(row.webhook_expires_at as string)
       : null,
@@ -124,52 +127,74 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    const provider = EmailService.getProvider(connection);
     const providerThreadId = access.providerThreadId;
-    const [messages, imageAttachments] = await Promise.all([
-      provider.fetchThread(providerThreadId),
-      provider
-        .getImageAttachmentsFromThread(providerThreadId)
-        .catch(() => []),
-    ]);
+    const locked = await runWithSupabase(supabase, () =>
+      runWithEmailConnectionSyncLock({
+        connectionId: connection.id,
+        context: "legacy-email-inbox-thread",
+        client: supabase,
+        run: async () => {
+          const deadlineAt = Date.now() + PROVIDER_THREAD_READ_DEADLINE_MS;
+          const provider = EmailService.getProvider(connection);
+          const messages = await provider.fetchThread(providerThreadId, {
+            deadlineAt,
+            context: "legacy inbox thread",
+          });
+          const imageAttachments = await provider
+            .getImageAttachmentsFromThread(providerThreadId, {
+              deadlineAt,
+              context: "legacy inbox thread attachments",
+            })
+            .catch(() => []);
 
-    const attachmentsByMessage = new Map<
-      string,
-      (typeof imageAttachments)[number][]
-    >();
-    for (const attachment of imageAttachments) {
-      if (!attachmentsByMessage.has(attachment.messageId)) {
-        attachmentsByMessage.set(attachment.messageId, []);
-      }
-      attachmentsByMessage.get(attachment.messageId)!.push(attachment);
+          const attachmentsByMessage = new Map<
+            string,
+            (typeof imageAttachments)[number][]
+          >();
+          for (const attachment of imageAttachments) {
+            if (!attachmentsByMessage.has(attachment.messageId)) {
+              attachmentsByMessage.set(attachment.messageId, []);
+            }
+            attachmentsByMessage.get(attachment.messageId)!.push(attachment);
+          }
+
+          // Provider adapters may refresh access tokens while reading. Persist
+          // only the exact canonical connection selected above.
+          if (connection.accessToken !== connectionRow.access_token) {
+            await supabase
+              .from("email_connections")
+              .update({
+                access_token: connection.accessToken,
+                expires_at: connection.expiresAt.toISOString(),
+              })
+              .eq("id", connection.id);
+          }
+
+          return {
+            messages: messages.map((message) => ({
+              ...normalizeToResponse(message),
+              bodyText: message.bodyText,
+              attachments: (attachmentsByMessage.get(message.id) ?? []).map(
+                (attachment) => ({
+                  attachmentId: attachment.attachmentId,
+                  filename: attachment.filename,
+                  mimeType: attachment.mimeType,
+                  size: attachment.size,
+                })
+              ),
+            })),
+          };
+        },
+      })
+    );
+    if (!locked.acquired) {
+      return NextResponse.json(
+        { error: "Mailbox is busy. Try again in a few minutes." },
+        { status: 409 }
+      );
     }
 
-    // Provider adapters may refresh access tokens while reading. Persist only
-    // the exact canonical connection selected above.
-    if (connection.accessToken !== connectionRow.access_token) {
-      await supabase
-        .from("email_connections")
-        .update({
-          access_token: connection.accessToken,
-          expires_at: connection.expiresAt.toISOString(),
-        })
-        .eq("id", connection.id);
-    }
-
-    return NextResponse.json({
-      messages: messages.map((message) => ({
-        ...normalizeToResponse(message),
-        bodyText: message.bodyText,
-        attachments: (attachmentsByMessage.get(message.id) ?? []).map(
-          (attachment) => ({
-            attachmentId: attachment.attachmentId,
-            filename: attachment.filename,
-            mimeType: attachment.mimeType,
-            size: attachment.size,
-          })
-        ),
-      })),
-    });
+    return NextResponse.json(locked.value);
   } catch (error) {
     console.error("All Mail inbox error:", error);
     return NextResponse.json(

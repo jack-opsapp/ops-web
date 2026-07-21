@@ -72,7 +72,9 @@ import type { EmailThread } from "@/lib/types/email-thread";
 const activityFilters: Array<[string, unknown]> = [];
 const classificationUpdateFilters: Array<[string, unknown]> = [];
 
-function makeDouble(options: { activityError?: string } = {}) {
+function makeDouble(
+  options: { activityError?: string; classificationCasLost?: boolean } = {}
+) {
   const updatedRow = {
     id: "thr-1",
     company_id: "co-1",
@@ -87,6 +89,7 @@ function makeDouble(options: { activityError?: string } = {}) {
   };
   return {
     from(table: string) {
+      let isUpdate = false;
       const builder: Record<string, unknown> = {};
       const chain = () => builder;
       builder.select = chain;
@@ -101,7 +104,10 @@ function makeDouble(options: { activityError?: string } = {}) {
       builder.lt = chain;
       builder.is = chain;
       builder.order = chain;
-      builder.update = chain;
+      builder.update = () => {
+        isUpdate = true;
+        return builder;
+      };
       builder.limit = async () => {
         if (table === "activities") {
           if (options.activityError) {
@@ -132,6 +138,12 @@ function makeDouble(options: { activityError?: string } = {}) {
       builder.maybeSingle = async () => {
         if (table === "email_connections")
           return { data: { email: "owner@ops.com" }, error: null };
+        if (table === "email_threads") {
+          return {
+            data: isUpdate && options.classificationCasLost ? null : updatedRow,
+            error: null,
+          };
+        }
         return { data: null, error: null };
       };
       builder.single = async () => {
@@ -238,5 +250,20 @@ describe("P4-A — Phase C router uniform firing", () => {
     await expect(
       EmailThreadService.classifyAndUpdate(baseThread())
     ).rejects.toThrow("activities unavailable");
+  });
+
+  it("treats a lost classification compare-and-swap as a completed concurrent decision", async () => {
+    detState.customer = {
+      category: "CUSTOMER",
+      confidence: 0.99,
+      summary: "Customer thread",
+      classifierVersion: "det-customer-1",
+    };
+    setSupabaseOverride(makeDouble({ classificationCasLost: true }) as never);
+
+    const result = await EmailThreadService.classifyAndUpdate(baseThread());
+
+    expect(result.primaryCategory).toBe("CUSTOMER");
+    expect(routerCalls).toEqual([]);
   });
 });

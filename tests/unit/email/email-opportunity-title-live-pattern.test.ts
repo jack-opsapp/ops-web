@@ -259,6 +259,14 @@ function makeSupabaseDouble(state: SupabaseState) {
           error: null,
         };
       }
+      if (
+        name === "renew_email_connection_sync_lock_as_system" ||
+        name === "release_email_connection_sync_lock_as_system" ||
+        name === "persist_email_connection_recovery_checkpoint_as_system" ||
+        name === "persist_email_connection_sync_completion_as_system"
+      ) {
+        return { data: true, error: null };
+      }
       return {
         data:
           name === "apply_opportunity_correspondence_event"

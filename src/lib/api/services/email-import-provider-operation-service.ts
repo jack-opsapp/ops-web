@@ -5,6 +5,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import type { EmailConnection } from "@/lib/types/email-connection";
+import {
+  runWithEmailConnectionSyncLock,
+  type EmailConnectionSyncLockRenewer,
+  type EmailConnectionSyncLockRunResult,
+} from "./email-connection-sync-lock";
 import type { EmailProviderInterface } from "./email-provider";
 import { EmailService } from "./email-service";
 
@@ -32,10 +37,7 @@ export interface EmailImportProviderOperationStore {
     limit: number;
     leaseSeconds: number;
   }): Promise<ClaimedEmailImportProviderOperation[]>;
-  authorize(input: {
-    operationId: string;
-    holder: string;
-  }): Promise<boolean>;
+  authorize(input: { operationId: string; holder: string }): Promise<boolean>;
   persistOpsLabelId(input: {
     connectionId: string;
     companyId: string;
@@ -58,6 +60,10 @@ export interface EmailImportProviderOperationDependencies extends EmailImportPro
   getLabelTransport(
     connection: EmailConnection
   ): EmailImportProviderLabelTransport;
+  runWithMailboxLease<T>(input: {
+    connectionId: string;
+    run: (checkpoint: EmailConnectionSyncLockRenewer) => Promise<T>;
+  }): Promise<EmailConnectionSyncLockRunResult<T>>;
   workerId(): string;
 }
 
@@ -204,12 +210,15 @@ export class EmailImportProviderOperationService {
   private async resolveLabelId(
     operation: ClaimedEmailImportProviderOperation,
     connection: EmailConnection,
-    transport: EmailImportProviderLabelTransport
+    transport: EmailImportProviderLabelTransport,
+    checkpoint: EmailConnectionSyncLockRenewer
   ): Promise<string> {
     const configuredLabelId = connection.opsLabelId?.trim();
     if (configuredLabelId) return configuredLabelId;
 
+    await checkpoint();
     const labels = await transport.listLabels();
+    await checkpoint();
     const existing = labels.find((label) => label.name === OPS_PIPELINE_LABEL);
     const discoveredLabelId = existing?.id?.trim();
     const providerLabelId =
@@ -218,6 +227,7 @@ export class EmailImportProviderOperationService {
         await transport.createLabel(OPS_PIPELINE_LABEL),
         "EMAIL_IMPORT_PROVIDER_LABEL_ID_MISSING"
       );
+    if (!discoveredLabelId) await checkpoint();
 
     return this.dependencies.persistOpsLabelId({
       connectionId: operation.connectionId,
@@ -271,37 +281,55 @@ export class EmailImportProviderOperationService {
           operation.connectionId
         );
         validateConnection(operation, connection);
-        const authorizedBeforeProviderAccess =
-          await this.dependencies.authorize({
-            operationId: operation.id,
-            holder,
-          });
-        if (!authorizedBeforeProviderAccess) {
-          throw new Error("EMAIL_IMPORT_PROVIDER_OPERATION_FORBIDDEN");
-        }
-        const transport = this.dependencies.getLabelTransport(connection);
-        const providerLabelId = await this.resolveLabelId(
-          operation,
-          connection,
-          transport
-        );
+        const locked = await this.dependencies.runWithMailboxLease({
+          connectionId: operation.connectionId,
+          run: async (checkpoint) => {
+            const authorizedBeforeProviderAccess =
+              await this.dependencies.authorize({
+                operationId: operation.id,
+                holder,
+              });
+            if (!authorizedBeforeProviderAccess) {
+              throw new Error("EMAIL_IMPORT_PROVIDER_OPERATION_FORBIDDEN");
+            }
+            await checkpoint();
+            const transport = this.dependencies.getLabelTransport(connection);
+            const providerLabelId = await this.resolveLabelId(
+              operation,
+              connection,
+              transport,
+              checkpoint
+            );
 
-        // Label discovery/creation can take long enough for the actor's access
-        // or the operation lease to change. Fence the exact operation again at
-        // the last durable boundary before the provider thread is mutated.
-        const authorizedBeforeApply = await this.dependencies.authorize({
-          operationId: operation.id,
-          holder,
+            // Label discovery/creation can take long enough for the actor's
+            // access or operation lease to change. Fence the exact operation
+            // again at the last durable boundary before the provider thread is
+            // mutated.
+            const authorizedBeforeApply = await this.dependencies.authorize({
+              operationId: operation.id,
+              holder,
+            });
+            if (!authorizedBeforeApply) {
+              throw new Error("EMAIL_IMPORT_PROVIDER_OPERATION_FORBIDDEN");
+            }
+            await checkpoint();
+            await transport.applyLabel(
+              operation.providerThreadId,
+              providerLabelId
+            );
+            await checkpoint();
+            const completed = await this.completeAfterProviderApply({
+              operationId: operation.id,
+              holder,
+              providerLabelId,
+            });
+            return { completed, providerLabelId };
+          },
         });
-        if (!authorizedBeforeApply) {
-          throw new Error("EMAIL_IMPORT_PROVIDER_OPERATION_FORBIDDEN");
+        if (!locked.acquired) {
+          throw new Error("EMAIL_IMPORT_PROVIDER_MAILBOX_BUSY");
         }
-        await transport.applyLabel(operation.providerThreadId, providerLabelId);
-        const completed = await this.completeAfterProviderApply({
-          operationId: operation.id,
-          holder,
-          providerLabelId,
-        });
+        const { completed } = locked.value;
         if (!completed) {
           result.staleCompletions += 1;
           result.errors.push({
@@ -490,6 +518,13 @@ export async function runEmailImportProviderOperations(
         EmailService.getConnection(connectionId),
       getLabelTransport: (connection) =>
         createLabelTransport(EmailService.getProvider(connection)),
+      runWithMailboxLease: ({ connectionId, run }) =>
+        runWithEmailConnectionSyncLock({
+          connectionId,
+          context: "email-import-provider-operation",
+          client: supabase,
+          run,
+        }),
       workerId: () => randomUUID(),
     });
     return service.process(options);

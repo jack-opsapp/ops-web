@@ -157,13 +157,38 @@ export async function getPhaseCWeekSummary(
 
   const autonomyMap = emptyAutonomyMap();
   for (const row of connectionRows) {
+    const { data: acceptanceRows, error: acceptanceError } =
+      await input.supabase.rpc(
+        "get_phase_c_actor_category_acceptances_as_system",
+        {
+          p_connection_id: row.id,
+          p_actor_user_id: input.actor.userId,
+        }
+      );
+    if (acceptanceError) throw new Error(errorMessage(acceptanceError));
+    const accepted = new Map<string, string>();
+    for (const raw of Array.isArray(acceptanceRows) ? acceptanceRows : []) {
+      if (!raw || typeof raw !== "object") continue;
+      const acceptance = raw as Record<string, unknown>;
+      if (
+        typeof acceptance.primary_category === "string" &&
+        typeof acceptance.accepted_level === "string"
+      ) {
+        accepted.set(acceptance.primary_category, acceptance.accepted_level);
+      }
+    }
     const settings = row.auto_send_settings ?? {};
     const stored =
       (settings.category_autonomy as Record<string, string> | undefined) ?? {};
     for (const category of EMAIL_THREAD_CATEGORIES) {
-      const value = stored[`primary:${category}`] as
+      const declared = stored[`primary:${category}`] as
         | EmailThreadAutonomyLevel
         | undefined;
+      const value =
+        (declared === "auto_send" || declared === "auto_follow_up") &&
+        accepted.get(category) !== declared
+          ? "auto_draft"
+          : declared;
       if (value && value !== "off" && autonomyMap[category] === "off") {
         autonomyMap[category] = value;
       }

@@ -95,6 +95,52 @@ describe("Phase C human draft accuracy", () => {
     });
   });
 
+  it("scopes graduation accuracy to the exact actor and mailbox", async () => {
+    const fake = makeClient([
+      {
+        draft_outcome: { sentWithoutChanges: true },
+        profile_type: "client_new_inquiry",
+      },
+    ]);
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await getHumanDraftAccuracy({
+      companyId: "company-1",
+      connectionId: "connection-1",
+      userId: "actor-1",
+      primaryCategory: "PLATFORM_BID",
+      limit: 20,
+    });
+
+    expect(fake.calls).toContainEqual({
+      method: "rpc",
+      args: [
+        "get_human_draft_accuracy_for_category_as_system",
+        {
+          p_company_id: "company-1",
+          p_actor_user_id: "actor-1",
+          p_connection_id: "connection-1",
+          p_primary_category: "PLATFORM_BID",
+          p_limit: 20,
+        },
+      ],
+    });
+  });
+
+  it("never degrades an explicitly supplied blank mailbox into actor-wide accuracy", async () => {
+    const fake = makeClient([]);
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await expect(
+      getHumanDraftAccuracy({
+        companyId: "company-1",
+        connectionId: "   ",
+        userId: "actor-1",
+      })
+    ).rejects.toThrow("Mailbox connection is required");
+    expect(fake.calls).toEqual([]);
+  });
+
   it("fails closed when the durable outcome ledger cannot be read", async () => {
     requireSupabaseMock.mockReturnValue({
       rpc: () =>

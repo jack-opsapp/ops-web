@@ -4,12 +4,14 @@ const {
   evaluateOpportunityAcceptanceMock,
   getConnectionMock,
   getProviderMock,
+  runWithEmailConnectionSyncLockMock,
   runScanWorkerMock,
   runInspectionWorkerMock,
 } = vi.hoisted(() => ({
   evaluateOpportunityAcceptanceMock: vi.fn(),
   getConnectionMock: vi.fn(),
   getProviderMock: vi.fn(),
+  runWithEmailConnectionSyncLockMock: vi.fn(),
   runScanWorkerMock: vi.fn(),
   runInspectionWorkerMock: vi.fn(),
 }));
@@ -32,6 +34,10 @@ vi.mock("@/lib/api/services/email-service", () => ({
   },
 }));
 
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  runWithEmailConnectionSyncLock: runWithEmailConnectionSyncLockMock,
+}));
+
 vi.mock("@/lib/api/services/conversation-state/acceptance-evaluation", () => ({
   evaluateOpportunityAcceptance: evaluateOpportunityAcceptanceMock,
 }));
@@ -48,6 +54,7 @@ vi.mock("@/lib/api/services/conversation-state/attachment-inspector", () => ({
 }));
 
 import {
+  ProviderAttachmentAdapter,
   SupabaseAttachmentInspectionQueue,
   ingestExactActivityAttachments,
   notifyAttachmentCopyExceptions,
@@ -85,6 +92,13 @@ beforeEach(() => {
   runScanWorkerMock.mockResolvedValue(scanResult);
   runInspectionWorkerMock.mockReset();
   runInspectionWorkerMock.mockResolvedValue(inspectionResult);
+  runWithEmailConnectionSyncLockMock.mockReset();
+  runWithEmailConnectionSyncLockMock.mockImplementation(
+    async ({ run }: { run: (checkpoint: () => Promise<void>) => unknown }) => ({
+      acquired: true,
+      value: await run(vi.fn(async () => undefined)),
+    })
+  );
 });
 
 describe("Supabase attachment runtime orchestration", () => {
@@ -110,6 +124,96 @@ describe("Supabase attachment runtime orchestration", () => {
       failed: 0,
       inspection: inspectionResult,
     });
+  });
+
+  it("retries a claimed scan without touching Gmail when its mailbox is busy", async () => {
+    const scan = {
+      id: "scan-1",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      activityId: "activity-1",
+      providerThreadId: "thread-1",
+      messageId: "message-1",
+      generation: 1,
+      attempts: 1,
+    };
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+    runScanWorkerMock.mockImplementationOnce(async ({ ingest }) => {
+      await expect(ingest(scan)).rejects.toThrow(
+        "Mailbox is busy. Attachment ingestion will retry."
+      );
+      return { ...scanResult, completed: 0, retrying: 1 };
+    });
+
+    const result = await runSupabaseEmailAttachmentWorker({} as never);
+
+    expect(result.retrying).toBe(1);
+    expect(getConnectionMock).not.toHaveBeenCalled();
+    expect(getProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("self-acquires for direct ingestion and fails busy before provider construction", async () => {
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+
+    await expect(
+      ingestExactActivityAttachments(
+        {} as never,
+        {
+          id: "connection-1",
+          companyId: "company-1",
+        } as never,
+        {
+          companyId: "company-1",
+          connectionId: "connection-1",
+          activityId: "activity-1",
+          messageId: "message-1",
+        }
+      )
+    ).rejects.toThrow("EMAIL_ATTACHMENT_MAILBOX_BUSY");
+
+    expect(getProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("checkpoints every provider enumeration and attachment download", async () => {
+    const events: string[] = [];
+    const checkpoint = vi.fn(async () => {
+      events.push("checkpoint");
+    });
+    const adapter = new ProviderAttachmentAdapter(
+      {
+        getAttachmentsFromMessage: vi.fn(async () => {
+          events.push("enumerate");
+          return [];
+        }),
+        fetchAttachment: vi.fn(async () => {
+          events.push("download");
+          return Buffer.from("image");
+        }),
+      } as never,
+      "connection-1",
+      checkpoint
+    );
+
+    await adapter.enumerateExactMessage({
+      connectionId: "connection-1",
+      messageId: "message-1",
+      providerThreadId: "thread-1",
+    });
+    await adapter.downloadExactAttachment({
+      connectionId: "connection-1",
+      messageId: "message-1",
+      attachmentId: "attachment-1",
+      maxBytes: 1024,
+    });
+
+    expect(events).toEqual([
+      "checkpoint",
+      "enumerate",
+      "checkpoint",
+      "checkpoint",
+      "download",
+      "checkpoint",
+    ]);
   });
 
   it("records a durable inspection job without invoking storage or a provider", async () => {

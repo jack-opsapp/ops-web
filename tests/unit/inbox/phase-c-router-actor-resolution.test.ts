@@ -5,8 +5,10 @@ const {
   accessResolverMock,
   archiveMock,
   categoryAutonomyMock,
+  categoryGraduationMock,
   connectionOwnerId,
   generateDraftMock,
+  globalLevelMock,
   isAutoSendEnabledMock,
   scheduleAutoSendMock,
 } = vi.hoisted(() => ({
@@ -14,8 +16,10 @@ const {
   accessResolverMock: vi.fn(),
   archiveMock: vi.fn(),
   categoryAutonomyMock: vi.fn(),
+  categoryGraduationMock: vi.fn(),
   connectionOwnerId: "00000000-0000-4000-8000-000000000007",
   generateDraftMock: vi.fn(),
+  globalLevelMock: vi.fn(async () => ({ level: 0 })),
   isAutoSendEnabledMock: vi.fn(),
   scheduleAutoSendMock: vi.fn(),
 }));
@@ -31,6 +35,7 @@ vi.mock("@/lib/email/email-opportunity-access", () => ({
 vi.mock("@/lib/api/services/phase-c-category-autonomy-service", () => ({
   PhaseCCategoryAutonomy: {
     get: categoryAutonomyMock,
+    isGraduated: categoryGraduationMock,
     profileTypesFor: vi.fn(() => ["general"]),
   },
 }));
@@ -41,7 +46,7 @@ vi.mock("@/lib/api/services/ai-draft-service", () => ({
 
 vi.mock("@/lib/api/services/autonomy-milestone-service", () => ({
   AutonomyMilestoneService: {
-    getAutonomyLevel: vi.fn(async () => ({ level: 4 })),
+    getAutonomyLevel: globalLevelMock,
   },
 }));
 
@@ -114,6 +119,11 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     categoryAutonomyMock.mockResolvedValue({ CUSTOMER: "auto_draft" });
+    categoryGraduationMock.mockResolvedValue({
+      ready: true,
+      approvalRate: 1,
+      sampleSize: 20,
+    });
     isAutoSendEnabledMock.mockResolvedValue({ enabled: false, settings: null });
     accessResolverMock.mockResolvedValue({ allowed: true });
   });
@@ -206,8 +216,56 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
 
     expect(result.outcome).toBe("auto_sent_scheduled");
     expect(scheduleAutoSendMock).toHaveBeenCalledWith(
-      expect.objectContaining({ actorContext: context })
+      expect.objectContaining({
+        actorContext: context,
+        category: "CUSTOMER",
+      })
     );
+    expect(globalLevelMock).not.toHaveBeenCalled();
+  });
+
+  it("downgrades company auto-send intent when the resolved assignee has not graduated on that mailbox and category", async () => {
+    const context = {
+      actorUserId: ASSIGNEE_ID,
+      assignmentVersion: 7,
+      assignmentEventId: "00000000-0000-4000-8000-000000000008",
+      companyId: COMPANY_ID,
+      connectionId: CONNECTION_ID,
+      opportunityId: OPPORTUNITY_ID,
+      internalThreadId: THREAD_ID,
+      providerThreadId: "provider-thread-1",
+      connectionType: "company",
+      actorNameSnapshot: "Alex Rivera",
+      actorEmailSnapshot: "alex@ops.test",
+      clientFacingAddressSnapshot: "hello@company.test",
+    };
+    actorResolverMock.mockResolvedValue({ kind: "resolved", context });
+    categoryAutonomyMock.mockResolvedValue({ CUSTOMER: "auto_send" });
+    categoryGraduationMock.mockResolvedValue({
+      ready: false,
+      approvalRate: 0.5,
+      sampleSize: 20,
+    });
+    const draftSpy = vi
+      .spyOn(PhaseCAutonomyRouter, "doAutoDraft")
+      .mockResolvedValue({
+        outcome: "auto_drafted",
+        category: "CUSTOMER",
+        effectiveLevel: "auto_draft",
+      });
+    const input = thread();
+
+    const result = await PhaseCAutonomyRouter.route(input);
+
+    expect(categoryGraduationMock).toHaveBeenCalledWith(
+      COMPANY_ID,
+      CONNECTION_ID,
+      ASSIGNEE_ID,
+      "CUSTOMER"
+    );
+    expect(draftSpy).toHaveBeenCalledWith(input, ASSIGNEE_ID, "auto_draft");
+    expect(scheduleAutoSendMock).not.toHaveBeenCalled();
+    expect(result.outcome).toBe("auto_drafted");
   });
 
   it("does not auto-archive an inaccessible or unrelated thread", async () => {

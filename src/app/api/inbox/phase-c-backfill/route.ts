@@ -37,6 +37,7 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailService } from "@/lib/api/services/email-service";
+import { runWithEmailConnectionSyncLock } from "@/lib/api/services/email-connection-sync-lock";
 import { MemoryService } from "@/lib/api/services/memory-service";
 import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 import {
@@ -293,7 +294,7 @@ export async function POST(request: NextRequest) {
   const connectionIds = Array.from(
     new Set(targetRows.map((r) => r.connection_id as string))
   );
-  const { data: connRows } = await supabase
+  const { data: connRows, error: connectionError } = await supabase
     .from("email_connections")
     .select("*")
     .eq("company_id", actor.companyId)
@@ -301,13 +302,19 @@ export async function POST(request: NextRequest) {
     .eq("sync_enabled", true)
     .in("id", connectionIds)
     .in("id", learningConnectionIds);
+  if (connectionError) {
+    return NextResponse.json(
+      { error: `Mailbox load failed: ${connectionError.message}` },
+      { status: 500 }
+    );
+  }
 
   const connectionsById = new Map<string, EmailConnection>();
   for (const row of connRows ?? []) {
     connectionsById.set(row.id as string, mapConnectionFromDb(row));
   }
 
-  // ── Worker pool ───────────────────────────────────────────────────────────
+  // ── Serialized provider reads ─────────────────────────────────────────────
 
   const result: BackfillResult = {
     scanned: 0,
@@ -318,82 +325,123 @@ export async function POST(request: NextRequest) {
     remaining: 0,
   };
 
+  const fetchedTargets: Array<{
+    row: (typeof targetRows)[number];
+    connection: EmailConnection;
+    thread: ClassifiedThread;
+  }> = [];
+  const memoryUserId = actor.userId;
   let calls = 0;
-  let cursor = 0;
 
-  const worker = async () => {
-    while (true) {
-      const idx = cursor++;
-      if (idx >= targetRows.length) return;
-      if (calls >= MAX_CALLS) return;
-      calls++;
+  // Provider access is deliberately completed before the extraction workers
+  // fan out. Each fetch receives the same per-mailbox lease used by sync and
+  // import, and this loop starts only one provider thread read at a time.
+  for (const row of targetRows) {
+    if (calls >= MAX_CALLS) break;
+    calls++;
 
-      const row = targetRows[idx];
-      const threadId = row.id as string;
-      const connection = connectionsById.get(row.connection_id as string);
+    const threadId = row.id as string;
+    const connection = connectionsById.get(row.connection_id as string);
+    if (!connection) {
+      result.errors++;
+      result.scanned++;
+      continue;
+    }
 
-      if (!connection) {
+    try {
+      const accessBeforeFetch = await resolveEmailOpportunityAccess({
+        actor,
+        operation: "read",
+        threadId,
+        connectionId: row.connection_id as string,
+        providerThreadId: row.provider_thread_id as string,
+        opportunityId:
+          typeof row.opportunity_id === "string"
+            ? row.opportunity_id
+            : undefined,
+        supabase,
+      });
+      if (!accessBeforeFetch.allowed) {
         result.errors++;
         result.scanned++;
         continue;
       }
 
-      const memoryUserId = actor.userId;
+      const locked = await runWithEmailConnectionSyncLock({
+        connectionId: connection.id,
+        context: "phase-c-backfill",
+        client: supabase,
+        run: async () => {
+          const provider = EmailService.getProvider(connection);
+          return runWithSupabase(supabase, () =>
+            provider.fetchThread(row.provider_thread_id as string, {
+              deadlineAt: Date.now() + 60_000,
+              context: `phase-c-backfill (${threadId})`,
+            })
+          );
+        },
+      });
+      if (!locked.acquired) {
+        result.errors++;
+        result.scanned++;
+        continue;
+      }
 
-      try {
-        const accessBeforeFetch = await resolveEmailOpportunityAccess({
-          actor,
-          operation: "read",
-          threadId,
-          connectionId: row.connection_id as string,
-          providerThreadId: row.provider_thread_id as string,
-          opportunityId:
-            typeof row.opportunity_id === "string"
-              ? row.opportunity_id
-              : undefined,
-          supabase,
-        });
-        if (!accessBeforeFetch.allowed) {
-          result.errors++;
-          result.scanned++;
-          continue;
-        }
+      const providerMessages = locked.value;
+      if (providerMessages.length === 0) {
+        result.scanned++;
+        continue;
+      }
 
-        const provider = EmailService.getProvider(connection);
-        const providerMessages = await provider.fetchThread(
-          row.provider_thread_id as string
-        );
-
-        if (providerMessages.length === 0) {
-          result.scanned++;
-          continue;
-        }
-
-        const thread: ClassifiedThread = {
+      fetchedTargets.push({
+        row,
+        connection,
+        thread: {
           threadId,
           classification: mapCategoryToClassification(
             row.primary_category as EmailThreadCategory
           ),
           profileType: null,
           confidence: (row.category_confidence as number) ?? 0.8,
-          messages: providerMessages.map((m) => ({
-            from: m.from,
-            fromName: m.fromName ?? "",
-            to: m.to ?? [],
-            subject: m.subject ?? "",
-            bodyText: m.bodyText ?? "",
-            date: m.date.toISOString(),
-            // direction is derived from connection email in memory-service's
-            // prompts; we pass a best-effort inbound/outbound tag using the
-            // same comparison rule the thread-detail route uses.
-            direction: m.from
+          messages: providerMessages.map((message) => ({
+            from: message.from,
+            fromName: message.fromName ?? "",
+            to: message.to ?? [],
+            subject: message.subject ?? "",
+            bodyText: message.bodyText ?? "",
+            date: message.date.toISOString(),
+            direction: message.from
               ?.toLowerCase()
               .includes(connection.email.toLowerCase())
               ? "outbound"
               : "inbound",
           })),
-        };
+        },
+      });
+    } catch (error) {
+      console.error(
+        "[/api/inbox/phase-c-backfill] provider fetch failed for thread",
+        threadId,
+        error instanceof Error ? error.message : error
+      );
+      result.errors++;
+      result.scanned++;
+    }
+  }
 
+  // ── Extraction worker pool ────────────────────────────────────────────────
+
+  let cursor = 0;
+
+  const worker = async () => {
+    while (true) {
+      const idx = cursor++;
+      if (idx >= fetchedTargets.length) return;
+
+      const { row, connection, thread } = fetchedTargets[idx];
+      const threadId = row.id as string;
+
+      try {
         // Assignment can change while the provider request is in flight.
         // Re-authorize immediately before persisting actor-specific memory.
         const accessBeforeLearning = await resolveEmailOpportunityAccess({
@@ -418,20 +466,21 @@ export async function POST(request: NextRequest) {
           MemoryService.extractFromThread(actor.companyId, memoryUserId, thread)
         );
 
-        result.factsAdded += stats.factsAdded;
-        result.edgesAdded += stats.edgesAdded;
-        result.processed++;
-        result.scanned++;
-
         // Stamp the thread as processed so it drops out of future
         // candidate sets, even when the LLM returned zero new facts.
-        // Fire-and-forget — a failed stamp just means we re-process the
-        // thread once more next run, never lose data.
-        await supabase
+        const { error: stampError } = await supabase
           .from("email_threads")
           .update({ phase_c_extracted_at: new Date().toISOString() })
           .eq("id", threadId)
           .eq("company_id", actor.companyId);
+        if (stampError) {
+          throw new Error(`Phase C stamp failed: ${stampError.message}`);
+        }
+
+        result.factsAdded += stats.factsAdded;
+        result.edgesAdded += stats.edgesAdded;
+        result.processed++;
+        result.scanned++;
       } catch (err) {
         console.error(
           "[/api/inbox/phase-c-backfill] extraction failed for thread",

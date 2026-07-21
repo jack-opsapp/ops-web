@@ -261,7 +261,19 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     href: "/settings",
     icon: Settings,
     labelKey: "nav.settings",
-    paletteKeywords: ["preferences", "profile", "account", "team", "crew", "members", "staff", "roles", "permissions", "invite", "seats"],
+    paletteKeywords: [
+      "preferences",
+      "profile",
+      "account",
+      "team",
+      "crew",
+      "members",
+      "staff",
+      "roles",
+      "permissions",
+      "invite",
+      "seats",
+    ],
     nav: { order: 22, group: "ops" },
   },
 
@@ -279,6 +291,19 @@ export const ROUTE_REGISTRY: readonly RouteEntry[] = [
     nav: false,
     permission: "pipeline.view",
     fullHeight: "padded",
+  },
+  {
+    // Exact Phase C graduation acceptance. It is deliberately separate from
+    // Calibration: assigned Operators can approve a category they personally
+    // trained without receiving company-wide email.configure_ai access. The
+    // backing APIs still enforce actor × mailbox authorization server-side.
+    key: "agent-auto-send",
+    href: "/agent/auto-send",
+    icon: BrainCircuit,
+    labelKey: "nav.autoSendApproval",
+    nav: false,
+    permission: "inbox.send",
+    phaseCOnly: true,
   },
   {
     // Title + permission umbrella for every /agent/* sub-route; the
@@ -308,7 +333,7 @@ export const FULL_HEIGHT_EXCEPTIONS: readonly string[] = [];
 /** Registry sorted longest-href-first so prefix matching picks the most
  *  specific entry (/agent/queue before /agent). */
 const BY_SPECIFICITY: readonly RouteEntry[] = [...ROUTE_REGISTRY].sort(
-  (a, b) => b.href.length - a.href.length,
+  (a, b) => b.href.length - a.href.length
 );
 
 function matches(entry: RouteEntry, pathname: string): boolean {
@@ -362,7 +387,7 @@ export function getFullHeightMode(pathname: string): FullHeightMode | null {
 export function getNavEntries(): RouteEntry[] {
   return ROUTE_REGISTRY.filter(
     (e): e is RouteEntry & { nav: { order: number; group: NavGroup } } =>
-      e.nav !== false,
+      e.nav !== false
   ).sort((a, b) => a.nav.order - b.nav.order);
 }
 
@@ -370,7 +395,7 @@ export function getNavEntries(): RouteEntry[] {
  *  order so the shortcut map can never drift from the sidebar again. */
 export function getNumberShortcutRoutes(): Record<string, string> {
   const commandEntries = getNavEntries().filter(
-    (e) => e.nav !== false && e.nav.group === "command",
+    (e) => e.nav !== false && e.nav.group === "command"
   );
   const map: Record<string, string> = {};
   commandEntries.slice(0, 9).forEach((e, i) => {

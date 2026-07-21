@@ -166,14 +166,44 @@ export async function GET(request: NextRequest) {
   // 2. Classify each connection. Group failures by company so each company
   //    gets at most one alert per cron tick (the worst failure).
   const failuresByCompany = new Map<string, FailureSignal[]>();
+  const recoveredNotificationKeys: string[] = [];
   let checkedCount = 0;
   for (const raw of connections ?? []) {
     checkedCount += 1;
-    const failure = classifyFailure(raw as ConnectionRow, now);
-    if (!failure) continue;
+    const connection = raw as ConnectionRow;
+    const failure = classifyFailure(connection, now);
+    if (!failure) {
+      if (connection.status === "active" && connection.sync_enabled) {
+        recoveredNotificationKeys.push(`email-ingest-health:${connection.id}`);
+      }
+      continue;
+    }
     const list = failuresByCompany.get(failure.companyId) ?? [];
     list.push(failure);
     failuresByCompany.set(failure.companyId, list);
+  }
+
+  // Persistent connection incidents close only after the exact active mailbox
+  // is healthy again. Resolve by the connection-scoped identity; never by a
+  // shared title or provider thread id.
+  const resolutionTimestamp = new Date(now).toISOString();
+  for (let index = 0; index < recoveredNotificationKeys.length; index += 200) {
+    const keys = recoveredNotificationKeys.slice(index, index + 200);
+    const { error: resolutionError } = await supabase
+      .from("notifications")
+      .update({
+        resolved_at: resolutionTimestamp,
+        is_read: true,
+        resolution_reason: "email_ingest_recovered",
+      })
+      .in("dedupe_key", keys)
+      .is("resolved_at", null);
+    if (resolutionError) {
+      console.error("[email-heartbeat] notification resolution failed", {
+        error: resolutionError.message,
+        connectionCount: keys.length,
+      });
+    }
   }
 
   if (failuresByCompany.size === 0) {
@@ -290,24 +320,36 @@ export async function GET(request: NextRequest) {
     // Notification rail entry — non-technical wording. Uses the in-app
     // settings URL because the user is already authenticated when reading
     // the rail; the deep-link is only needed for the email path.
-    const { error: notificationError } = await supabase
-      .from("notifications")
-      .insert({
-        user_id: recipientUserId,
-        company_id: companyId,
-        type: "system_alert",
-        title: "Your inbox stopped sending leads to OPS",
-        body: `${worst.email} is disconnected. Reconnect to start capturing leads again.`,
-        is_read: false,
-        persistent: true,
-        action_url: "/settings?tab=integrations",
-        action_label: "RECONNECT INBOX",
+    const { data: notificationResult, error: notificationError } =
+      await supabase.rpc("create_notification_if_new_with_identity", {
+        p_user_id: recipientUserId,
+        p_company_id: companyId,
+        p_type: "system_alert",
+        p_title: "Your inbox stopped sending leads to OPS",
+        p_body: `${worst.email} is disconnected. Reconnect to start capturing leads again.`,
+        p_persistent: true,
+        p_action_url: "/settings?tab=integrations",
+        p_action_label: "RECONNECT INBOX",
+        p_project_id: null,
+        p_deep_link_type: null,
+        p_dedupe_key: `email-ingest-health:${worst.connectionId}`,
       });
-    const inAppDelivered = !notificationError;
-    if (notificationError) {
+    const rawNotification = Array.isArray(notificationResult)
+      ? notificationResult[0]
+      : notificationResult;
+    const inAppDelivered =
+      !notificationError &&
+      rawNotification !== null &&
+      typeof rawNotification === "object" &&
+      typeof (rawNotification as Record<string, unknown>).notification_id ===
+        "string" &&
+      typeof (rawNotification as Record<string, unknown>).created === "boolean";
+    if (!inAppDelivered) {
       console.error("[email-heartbeat] notification insert failed", {
         companyId,
-        error: notificationError.message,
+        error:
+          notificationError?.message ??
+          "notification identity response was invalid",
       });
     }
 

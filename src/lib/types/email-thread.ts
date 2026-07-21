@@ -69,7 +69,7 @@ export const EMAIL_THREAD_LABELS: readonly EmailThreadLabel[] = [
  * `email_connections.auto_send_settings.category_autonomy["primary:<CATEGORY>"]`.
  *
  * `auto_archive` only applies to RECEIPT/MARKETING/NEWSLETTER-style categories.
- * `auto_follow_up` only applies to LEAD (and optionally CLIENT).
+ * `auto_follow_up` only applies to CUSTOMER.
  * The UI caps allowed levels per category — see phase-c-category-autonomy-service.
  */
 export type EmailThreadAutonomyLevel =

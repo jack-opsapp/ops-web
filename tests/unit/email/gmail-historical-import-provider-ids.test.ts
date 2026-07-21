@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  acquireLockMock,
   getServiceRoleClientMock,
   buildBlocklistMock,
   shouldFilterMock,
@@ -12,7 +13,10 @@ const {
   classifyEmailThreadMock,
   relationshipMatchMock,
   recordCorrespondenceMock,
+  releaseLockMock,
+  completeImportMock,
 } = vi.hoisted(() => ({
+  acquireLockMock: vi.fn(),
   getServiceRoleClientMock: vi.fn(),
   buildBlocklistMock: vi.fn(),
   shouldFilterMock: vi.fn(),
@@ -24,6 +28,8 @@ const {
   classifyEmailThreadMock: vi.fn(),
   relationshipMatchMock: vi.fn(),
   recordCorrespondenceMock: vi.fn(),
+  releaseLockMock: vi.fn(),
+  completeImportMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -32,6 +38,25 @@ vi.mock("@/lib/supabase/server-client", () => ({
 
 vi.mock("@/lib/email/email-route-auth", () => ({
   requireEmailCompanyAccess: vi.fn(async () => null),
+}));
+
+vi.mock("@/lib/email/email-connection-operation-access", () => ({
+  resolveEmailConnectionOperationAccess: vi.fn(async () => ({
+    allowed: true,
+    actor: { userId: "user-1", companyId: "company-1" },
+    connections: [
+      {
+        id: "connection-1",
+        company_id: "company-1",
+        provider: "gmail",
+        type: "company",
+        user_id: null,
+        status: "active",
+        sync_enabled: true,
+      },
+    ],
+    connectionIds: ["connection-1"],
+  })),
 }));
 
 vi.mock("@/lib/api/services/email-filter-service", () => ({
@@ -79,6 +104,19 @@ vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
   findOpportunityRelationshipMatch: relationshipMatchMock,
 }));
 
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  acquireEmailConnectionSyncLock: (...args: unknown[]) =>
+    acquireLockMock(...args),
+  createEmailConnectionSyncLockRenewer: () =>
+    Object.assign(async () => undefined, {
+      stop: async () => undefined,
+    }),
+  releaseEmailConnectionSyncLock: (...args: unknown[]) =>
+    releaseLockMock(...args),
+  completeGmailImportJobUnderSyncLock: (...args: unknown[]) =>
+    completeImportMock(...args),
+}));
+
 import { POST } from "@/app/api/integrations/gmail/historical-import/route";
 
 interface HistoricalImportState {
@@ -109,6 +147,7 @@ interface HistoricalImportOptions {
   profileHistoryId?: string;
   nextPageToken?: string;
   listMessageIds?: string[];
+  messageFetchStatusById?: Record<string, number>;
   correspondenceProjectionError?: string;
   writeError?: { table: string; action: "update" | "upsert"; message: string };
   existingActivities?: Array<{
@@ -200,6 +239,7 @@ function makeSupabaseDouble(
           data: {
             id: "connection-1",
             company_id: "company-1",
+            provider: "gmail",
             email: options.connectionEmail ?? "operator@example.com",
             access_token: "token",
             refresh_token: "refresh",
@@ -383,6 +423,15 @@ function makeFetchMock(
       const message =
         messages.find((candidate) => url.includes(candidate.id)) ?? messages[0];
 
+      const failedMessage = Object.entries(
+        options.messageFetchStatusById ?? {}
+      ).find(([messageId]) => url.includes(`/messages/${messageId}?`));
+      if (failedMessage) {
+        return new Response("message no longer available", {
+          status: failedMessage[1],
+        });
+      }
+
       return Response.json({
         id: message.id,
         threadId: message.threadId,
@@ -435,6 +484,29 @@ async function runHistoricalImport(
   };
 
   getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state, options));
+  completeImportMock.mockImplementation(async (input) => {
+    const completion = input as {
+      historyId: string;
+      processed: number;
+      matched: number;
+      unmatched: number;
+      needsReview: number;
+      clientsCreated: number;
+      leadsCreated: number;
+      completedAt: Date;
+    };
+    state.jobUpdates.push({
+      status: "completed",
+      processed: completion.processed,
+      matched: completion.matched,
+      unmatched: completion.unmatched,
+      needs_review: completion.needsReview,
+      clients_created: completion.clientsCreated,
+      leads_created: completion.leadsCreated,
+      completed_at: completion.completedAt.toISOString(),
+    });
+    state.connectionUpdates.push({ history_id: completion.historyId });
+  });
   vi.stubGlobal("fetch", makeFetchMock(messages, options));
 
   const response = await POST(
@@ -455,6 +527,9 @@ async function runHistoricalImport(
 
 describe("Gmail historical import provider id guard", () => {
   beforeEach(() => {
+    acquireLockMock.mockResolvedValue("lock-owner-1");
+    releaseLockMock.mockResolvedValue(undefined);
+    completeImportMock.mockReset();
     getServiceRoleClientMock.mockReset();
     buildBlocklistMock.mockReset();
     buildBlocklistMock.mockResolvedValue({ domains: new Set(), keywords: [] });
@@ -497,6 +572,16 @@ describe("Gmail historical import provider id guard", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("does not touch Gmail while another mailbox operation owns the lease", async () => {
+    acquireLockMock.mockResolvedValue(null);
+
+    const { response, fetchMock } = await runHistoricalImport([]);
+
+    expect(response.status).toBe(409);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(releaseLockMock).not.toHaveBeenCalled();
   });
 
   it("skips historical provider email activity creation when threadId is blank", async () => {
@@ -578,6 +663,45 @@ describe("Gmail historical import provider id guard", () => {
       expect(state.threadLinkWrites).toEqual([]);
     }
   );
+
+  it.each([404, 410])(
+    "treats a listed message that disappears with Gmail %s as a tombstone",
+    async (status) => {
+      const messageId = `msg-tombstone-${status}`;
+      const { response, state } = await runHistoricalImport(
+        [{ id: messageId, threadId: `thread-${status}` }],
+        { messageFetchStatusById: { [messageId]: status } }
+      );
+
+      expect(response.status).toBe(200);
+      expect(createActivityMock).not.toHaveBeenCalled();
+      expect(recordCorrespondenceMock).not.toHaveBeenCalled();
+      expect(upsertEmailThreadMock).not.toHaveBeenCalled();
+      expect(state.jobUpdates).toContainEqual(
+        expect.objectContaining({ status: "completed", processed: 1 })
+      );
+      expect(state.connectionUpdates).toContainEqual({
+        history_id: "history-boundary",
+      });
+    }
+  );
+
+  it("fails closed when a listed message read returns a non-tombstone error", async () => {
+    const { response, state } = await runHistoricalImport(
+      [{ id: "msg-forbidden", threadId: "thread-forbidden" }],
+      { messageFetchStatusById: { "msg-forbidden": 401 } }
+    );
+
+    expect(response.status).toBe(500);
+    expect(createActivityMock).not.toHaveBeenCalled();
+    expect(state.connectionUpdates).toEqual([]);
+    expect(state.jobUpdates).toContainEqual(
+      expect.objectContaining({
+        status: "failed",
+        error_message: expect.stringContaining("401"),
+      })
+    );
+  });
 
   it("canonicalizes an already-scoped historical thread before matching and persistence", async () => {
     const { response, state } = await runHistoricalImport([
@@ -1134,10 +1258,6 @@ describe("Gmail historical import provider id guard", () => {
   });
 
   it("fails closed when pagination proves the date range exceeds MAX_MESSAGES", async () => {
-    vi.stubGlobal("setTimeout", ((callback: (...args: unknown[]) => void) => {
-      callback();
-      return 0;
-    }) as typeof setTimeout);
     const overLimitIds = Array.from({ length: 5000 }, () => "   ");
 
     const { response, state } = await runHistoricalImport([], {

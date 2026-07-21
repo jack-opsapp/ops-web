@@ -22,6 +22,7 @@ import {
   type NormalizedDraft,
   type NormalizedEmail,
   type ProviderEmailSignatureResult,
+  type ProviderReadPolicy,
   type SendEmailParams,
   type SendEmailResult,
   type SyncResult,
@@ -36,9 +37,66 @@ const MAX_GRAPH_ATTACHMENTS_PER_MESSAGE = 500;
 const MAX_GRAPH_REFERENCE_METADATA_REQUESTS = 20;
 const MAX_GRAPH_ATTACHMENT_ENUMERATION_MS = 15_000;
 const MAX_GRAPH_ATTACHMENT_DOWNLOAD_MS = 30_000;
+const MICROSOFT365_PROVIDER_READ_DEADLINE_MS = 45_000;
+const GRAPH_READ_MAX_ATTEMPTS = 4;
+const GRAPH_READ_INITIAL_BACKOFF_MS = 1_000;
+const GRAPH_READ_MAX_BACKOFF_MS = 8_000;
+const GRAPH_READ_JITTER_MS = 1_000;
+const RETRYABLE_GRAPH_READ_STATUSES = new Set([429, 500, 502, 503, 504]);
 const SCOPES = ["User.Read", "Mail.Read", "Mail.ReadWrite", "Mail.Send"];
 const MICROSOFT365_CURSOR_V1_PREFIX = "m365:v1:";
 const MICROSOFT365_CURSOR_PREFIX = "m365:v2:";
+
+function graphUrl(path: string, context: string): string {
+  if (!/^https?:/i.test(path)) return `${GRAPH_BASE}${path}`;
+
+  let url: URL;
+  try {
+    url = new URL(path);
+  } catch {
+    throw new ProviderApiError(
+      `M365 ${context} returned an invalid Graph URL`,
+      502,
+      { path }
+    );
+  }
+
+  const graph = new URL(GRAPH_BASE);
+  const graphVersionPath = graph.pathname.replace(/\/$/, "");
+  if (
+    url.protocol !== "https:" ||
+    url.origin !== graph.origin ||
+    url.username ||
+    url.password ||
+    (url.pathname !== graphVersionPath &&
+      !url.pathname.startsWith(`${graphVersionPath}/`))
+  ) {
+    throw new ProviderApiError(`M365 ${context} escaped Microsoft Graph`, 502, {
+      path,
+    });
+  }
+
+  return url.toString();
+}
+
+function validateGraphContinuation(
+  nextLink: string,
+  expectedPath: string,
+  context: string
+): string {
+  const absolute = graphUrl(nextLink, context);
+  const url = new URL(absolute);
+  const normalizedExpectedPath = new URL(`${GRAPH_BASE}${expectedPath}`)
+    .pathname;
+  if (url.pathname !== normalizedExpectedPath) {
+    throw new ProviderApiError(
+      `M365 ${context} escaped its Graph resource`,
+      502,
+      { nextLink, expectedPath: normalizedExpectedPath }
+    );
+  }
+  return absolute;
+}
 
 function validateAttachmentNextLink(
   nextLink: string,
@@ -74,8 +132,52 @@ function validateAttachmentNextLink(
   return url.toString();
 }
 
-function attachmentEnumerationSignal(deadline: number): AbortSignal {
-  return AbortSignal.timeout(Math.max(1, deadline - Date.now()));
+function sleep(milliseconds: number): Promise<void> {
+  if (milliseconds <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function retryAfterMilliseconds(response: Response): number | null {
+  const retryAfterMilliseconds = response.headers
+    .get("x-ms-retry-after-ms")
+    ?.trim();
+  if (retryAfterMilliseconds) {
+    const milliseconds = Number(retryAfterMilliseconds);
+    if (Number.isFinite(milliseconds) && milliseconds >= 0) {
+      return Math.round(milliseconds);
+    }
+  }
+
+  const retryAfter = response.headers.get("retry-after")?.trim();
+  if (!retryAfter) return null;
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.round(seconds * 1_000);
+  }
+
+  const retryAt = Date.parse(retryAfter);
+  if (!Number.isFinite(retryAt)) return null;
+  return Math.max(0, retryAt - Date.now());
+}
+
+function graphReadRetryDelay(response: Response, attempt: number): number {
+  const providerDelay = retryAfterMilliseconds(response);
+  if (providerDelay !== null) return providerDelay;
+  const exponential = Math.min(
+    GRAPH_READ_INITIAL_BACKOFF_MS * 2 ** attempt,
+    GRAPH_READ_MAX_BACKOFF_MS
+  );
+  return exponential + Math.floor(Math.random() * GRAPH_READ_JITTER_MS);
+}
+
+function isGraphRead(options?: RequestInit): boolean {
+  const method = options?.method?.toUpperCase() ?? "GET";
+  return method === "GET" || method === "HEAD";
+}
+
+function isRetryableGraphReadError(error: unknown): boolean {
+  if (!(error instanceof Error)) return true;
+  return error.name !== "AbortError" && error.name !== "TimeoutError";
 }
 
 function attachmentEnumerationBudgetMarker(input: {
@@ -269,34 +371,112 @@ export class Microsoft365Provider implements EmailProviderInterface {
     this.connection = connection;
   }
 
-  private async getToken(): Promise<string> {
-    if (new Date() >= this.connection.expiresAt) {
-      return this.refreshAccessToken();
+  private effectiveReadPolicy(
+    readPolicy: ProviderReadPolicy,
+    fallbackContext: string
+  ): ProviderReadPolicy & { deadlineAt: number } {
+    return {
+      ...readPolicy,
+      deadlineAt:
+        readPolicy.deadlineAt ??
+        Date.now() + MICROSOFT365_PROVIDER_READ_DEADLINE_MS,
+      context: readPolicy.context ?? fallbackContext,
+    };
+  }
+
+  private readDeadlineError(readPolicy: ProviderReadPolicy): ProviderApiError {
+    return new ProviderApiError(
+      `M365 ${readPolicy.context ?? "read"}: read deadline exceeded`,
+      504,
+      {
+        reason: "microsoft_read_deadline_exceeded",
+        deadlineAt: readPolicy.deadlineAt,
+      }
+    );
+  }
+
+  private readDeadlineSignal(
+    readPolicy: ProviderReadPolicy
+  ): AbortSignal | undefined {
+    if (readPolicy.deadlineAt === undefined) return undefined;
+    const remainingMs = readPolicy.deadlineAt - Date.now();
+    if (remainingMs <= 0) throw this.readDeadlineError(readPolicy);
+    return AbortSignal.timeout(Math.max(1, Math.ceil(remainingMs)));
+  }
+
+  private assertReadDeadline(readPolicy: ProviderReadPolicy): void {
+    if (
+      readPolicy.deadlineAt !== undefined &&
+      Date.now() >= readPolicy.deadlineAt
+    ) {
+      throw this.readDeadlineError(readPolicy);
     }
+  }
+
+  private async waitForGraphReadRetry(
+    response: Response,
+    attempt: number,
+    readPolicy: ProviderReadPolicy
+  ): Promise<void> {
+    const delay = graphReadRetryDelay(response, attempt);
+    if (
+      readPolicy.deadlineAt !== undefined &&
+      Date.now() + delay >= readPolicy.deadlineAt
+    ) {
+      throw this.readDeadlineError(readPolicy);
+    }
+    await response.body?.cancel().catch(() => undefined);
+    await sleep(delay);
+    this.assertReadDeadline(readPolicy);
+  }
+
+  private async getToken(readPolicy?: ProviderReadPolicy): Promise<string> {
+    if (new Date() >= this.connection.expiresAt) {
+      return this.refreshAccessToken(readPolicy);
+    }
+    if (readPolicy) this.assertReadDeadline(readPolicy);
     return this.connection.accessToken;
   }
 
-  private async refreshAccessToken(): Promise<string> {
-    const res = await fetch(
-      "https://login.microsoftonline.com/common/oauth2/v2.0/token",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          // Trim — a trailing newline in the Vercel-stored value breaks
-          // the OAuth token request with an opaque 400. See
-          // GOOGLE_PUBSUB_TOPIC incident 2026-04-18.
-          client_id: process.env.MICROSOFT_CLIENT_ID!.trim(),
-          client_secret: process.env.MICROSOFT_CLIENT_SECRET!.trim(),
-          refresh_token: this.connection.refreshToken,
-          grant_type: "refresh_token",
-          scope: SCOPES.join(" "),
-        }),
+  private async refreshAccessToken(
+    readPolicy?: ProviderReadPolicy
+  ): Promise<string> {
+    const deadlineSignal = readPolicy
+      ? this.readDeadlineSignal(readPolicy)
+      : undefined;
+    let res: Response;
+    try {
+      res = await fetch(
+        "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          signal: deadlineSignal,
+          body: new URLSearchParams({
+            // Trim — a trailing newline in the Vercel-stored value breaks
+            // the OAuth token request with an opaque 400. See
+            // GOOGLE_PUBSUB_TOPIC incident 2026-04-18.
+            client_id: process.env.MICROSOFT_CLIENT_ID!.trim(),
+            client_secret: process.env.MICROSOFT_CLIENT_SECRET!.trim(),
+            refresh_token: this.connection.refreshToken,
+            grant_type: "refresh_token",
+            scope: SCOPES.join(" "),
+          }),
+        }
+      );
+    } catch (error) {
+      if (
+        readPolicy &&
+        (deadlineSignal?.aborted || Date.now() >= readPolicy.deadlineAt!)
+      ) {
+        throw this.readDeadlineError(readPolicy);
       }
-    );
+      throw error;
+    }
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
+      if (readPolicy) this.assertReadDeadline(readPolicy);
       // invalid_grant → refresh token revoked or user consent revoked.
       if (res.status === 400 && /invalid_grant|AADSTS70/i.test(body)) {
         throw new ProviderAuthError(
@@ -318,6 +498,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
     }
 
     const data = await res.json();
+    if (readPolicy) this.assertReadDeadline(readPolicy);
     if (!data.access_token) {
       throw new ProviderAuthError("M365 refresh returned no access_token");
     }
@@ -348,47 +529,140 @@ export class Microsoft365Provider implements EmailProviderInterface {
       );
     }
 
+    if (readPolicy) this.assertReadDeadline(readPolicy);
     return newAccessToken;
   }
 
   private async graphFetch(
     path: string,
     options?: RequestInit,
-    context?: string
+    context?: string,
+    readPolicy?: ProviderReadPolicy
   ): Promise<Record<string, unknown>> {
-    const res = await this.graphFetchResponse(path, options, context);
-    return res.json();
+    const effectiveReadPolicy = isGraphRead(options)
+      ? this.effectiveReadPolicy(readPolicy ?? {}, context ?? path)
+      : undefined;
+    try {
+      const res = await this.graphFetchResponse(
+        path,
+        options,
+        context,
+        effectiveReadPolicy
+      );
+      const data = (await res.json()) as Record<string, unknown>;
+      if (effectiveReadPolicy) {
+        this.assertReadDeadline(effectiveReadPolicy);
+      }
+      return data;
+    } catch (error) {
+      if (
+        effectiveReadPolicy?.deadlineAt !== undefined &&
+        Date.now() >= effectiveReadPolicy.deadlineAt
+      ) {
+        throw this.readDeadlineError(effectiveReadPolicy);
+      }
+      throw error;
+    }
   }
 
   private async graphFetchResponse(
     path: string,
     options?: RequestInit,
-    context?: string
+    context?: string,
+    readPolicy?: ProviderReadPolicy
   ): Promise<Response> {
-    const token = await this.getToken();
-    const url = path.startsWith("http") ? path : `${GRAPH_BASE}${path}`;
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        // Outlook's default REST ids change when a message moves folders.
-        // Immutable ids keep activity/event dedupe stable across Inbox,
-        // Archive, Sent, and webhook/delta reads. This must be sent on every
-        // message request and subscription creation for a consistent identity.
-        Prefer: 'IdType="ImmutableId"',
-        ...(options?.headers || {}),
-      },
-    });
+    const graphRead = isGraphRead(options);
+    const effectiveReadPolicy = graphRead
+      ? this.effectiveReadPolicy(readPolicy ?? {}, context ?? path)
+      : undefined;
+    const token = await this.getToken(effectiveReadPolicy);
+    const url = graphUrl(path, context ?? "request");
+    const attempts = graphRead ? GRAPH_READ_MAX_ATTEMPTS : 1;
 
-    if (!res.ok) {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const deadlineSignal = effectiveReadPolicy
+        ? this.readDeadlineSignal(effectiveReadPolicy)
+        : undefined;
+      const signal =
+        deadlineSignal && options?.signal
+          ? AbortSignal.any([deadlineSignal, options.signal])
+          : (deadlineSignal ?? options?.signal);
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          ...options,
+          signal,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            // Outlook's default REST ids change when a message moves folders.
+            // Immutable ids keep activity/event dedupe stable across Inbox,
+            // Archive, Sent, and webhook/delta reads. This must be sent on every
+            // message request and subscription creation for a consistent identity.
+            Prefer: 'IdType="ImmutableId"',
+            ...(options?.headers || {}),
+          },
+        });
+      } catch (error) {
+        if (
+          effectiveReadPolicy &&
+          (deadlineSignal?.aborted ||
+            Date.now() >= effectiveReadPolicy.deadlineAt)
+        ) {
+          throw this.readDeadlineError(effectiveReadPolicy);
+        }
+        if (
+          graphRead &&
+          effectiveReadPolicy &&
+          attempt < attempts - 1 &&
+          isRetryableGraphReadError(error)
+        ) {
+          const syntheticResponse = new Response(null, {
+            status: 503,
+          });
+          await this.waitForGraphReadRetry(
+            syntheticResponse,
+            attempt,
+            effectiveReadPolicy
+          );
+          continue;
+        }
+        throw error;
+      }
+
+      if (res.ok) return res;
+      // Only idempotent Graph reads enter this retry branch. Mailbox writes
+      // keep a single attempt so a transport ambiguity can never duplicate a
+      // label, draft, move, patch, subscription, or send.
+      if (
+        graphRead &&
+        effectiveReadPolicy &&
+        RETRYABLE_GRAPH_READ_STATUSES.has(res.status) &&
+        attempt < attempts - 1
+      ) {
+        await this.waitForGraphReadRetry(res, attempt, effectiveReadPolicy);
+        continue;
+      }
+
       // Throw typed errors so sync-engine can mark the connection
       // needs_reconnect on auth/scope failures and re-seed on
       // expired delta links. Defaults to ProviderApiError.
-      const body = await res.text().catch(() => "");
+      const body = await res.text().catch((error) => {
+        if (
+          effectiveReadPolicy &&
+          Date.now() >= effectiveReadPolicy.deadlineAt
+        ) {
+          throw this.readDeadlineError(effectiveReadPolicy);
+        }
+        return error instanceof Error ? error.message : "";
+      });
+      if (effectiveReadPolicy) this.assertReadDeadline(effectiveReadPolicy);
       throwForGraphError(res.status, body, context ?? path);
     }
-    return res;
+
+    throw new ProviderApiError("M365 Graph read exhausted retries", 503, {
+      path,
+    });
   }
 
   async getInitialSyncToken(): Promise<string> {
@@ -413,7 +687,8 @@ export class Microsoft365Provider implements EmailProviderInterface {
    * same provider identity. Hard deletion means there is no body left to ingest.
    */
   private async fetchMailboxDeltaPages(
-    sourceCursor: Microsoft365DeltaCursor
+    sourceCursor: Microsoft365DeltaCursor,
+    readPolicy: ProviderReadPolicy
   ): Promise<{
     emails: NormalizedEmail[];
     cursor: Microsoft365DeltaCursor;
@@ -431,9 +706,13 @@ export class Microsoft365Provider implements EmailProviderInterface {
     // completed. Finish that exact message-delta round before asking for newer
     // folder changes, otherwise a busy folder tree could starve continuations.
     if (cursor.pendingFolderIds.length === 0) {
-      let folderUrl =
-        cursor.folderDeltaLink ||
-        "/me/mailFolders/delta?$select=id,parentFolderId";
+      let folderUrl = cursor.folderDeltaLink
+        ? validateGraphContinuation(
+            cursor.folderDeltaLink,
+            "/me/mailFolders/delta",
+            "persisted mailFolders deltaLink"
+          )
+        : "/me/mailFolders/delta?$select=id,parentFolderId";
       let folderInventoryComplete = false;
 
       while (pagesRead < MAX_PAGES) {
@@ -442,7 +721,8 @@ export class Microsoft365Provider implements EmailProviderInterface {
         const data = await this.graphFetch(
           requestedUrl,
           undefined,
-          "mailFolders delta"
+          "mailFolders delta",
+          readPolicy
         );
         for (const folder of (data.value as Array<Record<string, unknown>>) ||
           []) {
@@ -476,7 +756,11 @@ export class Microsoft365Provider implements EmailProviderInterface {
           );
         }
         if (delta) {
-          cursor.folderDeltaLink = delta;
+          cursor.folderDeltaLink = validateGraphContinuation(
+            delta,
+            "/me/mailFolders/delta",
+            "mailFolders deltaLink"
+          );
           folderInventoryComplete = true;
           break;
         }
@@ -494,8 +778,12 @@ export class Microsoft365Provider implements EmailProviderInterface {
             { requestedUrl, next }
           );
         }
-        cursor.folderDeltaLink = next;
-        folderUrl = next;
+        cursor.folderDeltaLink = validateGraphContinuation(
+          next,
+          "/me/mailFolders/delta",
+          "mailFolders nextLink"
+        );
+        folderUrl = cursor.folderDeltaLink;
       }
 
       if (!folderInventoryComplete) {
@@ -523,9 +811,14 @@ export class Microsoft365Provider implements EmailProviderInterface {
 
     while (pagesRead < MAX_PAGES && cursor.pendingFolderIds.length > 0) {
       const folderId = cursor.pendingFolderIds[0];
-      const requestedUrl =
-        cursor.messageDeltaLinks[folderId] ||
-        `/me/mailFolders/${encodeURIComponent(folderId)}/messages/delta?$select=${messageSelect}`;
+      const persistedMessageDeltaLink = cursor.messageDeltaLinks[folderId];
+      const requestedUrl = persistedMessageDeltaLink
+        ? validateGraphContinuation(
+            persistedMessageDeltaLink,
+            `/me/mailFolders/${encodeURIComponent(folderId)}/messages/delta`,
+            `persisted messages delta (${folderId})`
+          )
+        : `/me/mailFolders/${encodeURIComponent(folderId)}/messages/delta?$select=${messageSelect}`;
 
       let data: Record<string, unknown>;
       pagesRead += 1;
@@ -533,7 +826,8 @@ export class Microsoft365Provider implements EmailProviderInterface {
         data = await this.graphFetch(
           requestedUrl,
           undefined,
-          `messages delta (${folderId})`
+          `messages delta (${folderId})`,
+          readPolicy
         );
       } catch (error) {
         if (error instanceof ProviderApiError && error.providerStatus === 404) {
@@ -574,7 +868,11 @@ export class Microsoft365Provider implements EmailProviderInterface {
         );
       }
       if (delta) {
-        cursor.messageDeltaLinks[folderId] = delta;
+        cursor.messageDeltaLinks[folderId] = validateGraphContinuation(
+          delta,
+          `/me/mailFolders/${encodeURIComponent(folderId)}/messages/delta`,
+          `messages deltaLink (${folderId})`
+        );
         cursor.pendingFolderIds.shift();
         continue;
       }
@@ -592,7 +890,11 @@ export class Microsoft365Provider implements EmailProviderInterface {
           { requestedUrl, next }
         );
       }
-      cursor.messageDeltaLinks[folderId] = next;
+      cursor.messageDeltaLinks[folderId] = validateGraphContinuation(
+        next,
+        `/me/mailFolders/${encodeURIComponent(folderId)}/messages/delta`,
+        `messages nextLink (${folderId})`
+      );
     }
 
     return { emails: [...emailsById.values()], cursor };
@@ -600,7 +902,8 @@ export class Microsoft365Provider implements EmailProviderInterface {
 
   async fetchNewEmailsSince(syncToken: string): Promise<SyncResult> {
     const cursor = decodeDeltaCursor(syncToken);
-    const result = await this.fetchMailboxDeltaPages(cursor);
+    const readPolicy = this.effectiveReadPolicy({}, "mailbox delta sync");
+    const result = await this.fetchMailboxDeltaPages(cursor, readPolicy);
 
     return {
       emails: result.emails,
@@ -622,8 +925,16 @@ export class Microsoft365Provider implements EmailProviderInterface {
 
   async searchEmails(
     query: string,
-    options?: { maxResults?: number; after?: Date }
+    options?: {
+      maxResults?: number;
+      after?: Date;
+      readPolicy?: ProviderReadPolicy;
+    }
   ): Promise<NormalizedEmail[]> {
+    const readPolicy = this.effectiveReadPolicy(
+      options?.readPolicy ?? {},
+      "mailbox search"
+    );
     // Escape single quotes for OData string literal safety
     const safeQuery = query.replace(/'/g, "''");
     let filter = `contains(subject, '${safeQuery}')`;
@@ -633,7 +944,10 @@ export class Microsoft365Provider implements EmailProviderInterface {
     const top = options?.maxResults || 100;
 
     const data = await this.graphFetch(
-      `/me/messages?$filter=${encodeURIComponent(filter)}&$top=${top}&$orderby=receivedDateTime desc`
+      `/me/messages?$filter=${encodeURIComponent(filter)}&$top=${top}&$orderby=receivedDateTime desc`,
+      undefined,
+      "messages search",
+      readPolicy
     );
 
     return ((data.value as Array<Record<string, unknown>>) || []).map((msg) =>
@@ -641,7 +955,14 @@ export class Microsoft365Provider implements EmailProviderInterface {
     );
   }
 
-  async fetchThread(threadId: string): Promise<NormalizedEmail[]> {
+  async fetchThread(
+    threadId: string,
+    readPolicy: ProviderReadPolicy = {}
+  ): Promise<NormalizedEmail[]> {
+    const effectiveReadPolicy = this.effectiveReadPolicy(
+      readPolicy,
+      `conversation read (${threadId})`
+    );
     // M365 uses conversationId for threading. $select includes uniqueBody,
     // Graph's server-stripped "new content only" variant — used to populate
     // NormalizedEmail.bodyTextClean for the thread-detail display path so we
@@ -671,12 +992,24 @@ export class Microsoft365Provider implements EmailProviderInterface {
       `&$orderby=receivedDateTime asc&$top=100`;
 
     for (let page = 0; page < MAX_THREAD_PAGES && nextUrl; page++) {
-      const data = await this.graphFetch(nextUrl);
+      const data = await this.graphFetch(
+        nextUrl,
+        undefined,
+        effectiveReadPolicy.context,
+        effectiveReadPolicy
+      );
       for (const msg of (data.value as Array<Record<string, unknown>>) || []) {
         if (msg["@removed"] || msg.isDraft === true) continue;
         messages.push(this.normalizeM365Message(msg));
       }
-      nextUrl = (data["@odata.nextLink"] as string | undefined) ?? null;
+      const nextLink = (data["@odata.nextLink"] as string | undefined) ?? null;
+      nextUrl = nextLink
+        ? validateGraphContinuation(
+            nextLink,
+            "/me/messages",
+            `conversation nextLink (${threadId})`
+          )
+        : null;
     }
 
     if (nextUrl) {
@@ -694,6 +1027,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
     after?: Date;
     pageToken?: string | null;
   }): Promise<{ threadIds: string[]; nextPageToken: string | null }> {
+    const readPolicy = this.effectiveReadPolicy({}, "thread id list");
     // M365's messages endpoint clamps $top at 999. Select only what we need
     // to keep the page payload light — one hop to the inbox-level list, not
     // per-message bodies.
@@ -704,7 +1038,11 @@ export class Microsoft365Provider implements EmailProviderInterface {
     // intact. Otherwise we build the first page URL from scratch.
     let url: string;
     if (options.pageToken) {
-      url = options.pageToken;
+      url = validateGraphContinuation(
+        options.pageToken,
+        "/me/messages",
+        "messages list pageToken"
+      );
     } else {
       const params = new URLSearchParams({
         $select: "conversationId",
@@ -720,7 +1058,12 @@ export class Microsoft365Provider implements EmailProviderInterface {
       url = `/me/messages?${params.toString()}`;
     }
 
-    const data = (await this.graphFetch(url)) as {
+    const data = (await this.graphFetch(
+      url,
+      undefined,
+      "messages list (thread ids)",
+      readPolicy
+    )) as {
       value?: Array<{ conversationId?: string }>;
       "@odata.nextLink"?: string;
     };
@@ -739,16 +1082,14 @@ export class Microsoft365Provider implements EmailProviderInterface {
     // Convert the full nextLink URL to a path Graph will accept from
     // graphFetch the next time round. graphFetch prepends the base, so strip
     // it here if it's absolute.
-    let nextPageToken: string | null = data["@odata.nextLink"] ?? null;
-    if (
-      nextPageToken &&
-      nextPageToken.startsWith("https://graph.microsoft.com")
-    ) {
-      nextPageToken = nextPageToken.replace(
-        /^https:\/\/graph\.microsoft\.com\/v1\.0/,
-        ""
-      );
-    }
+    const rawNextPageToken = data["@odata.nextLink"] ?? null;
+    const nextPageToken = rawNextPageToken
+      ? validateGraphContinuation(
+          rawNextPageToken,
+          "/me/messages",
+          "messages list nextLink"
+        )
+      : null;
 
     return { threadIds, nextPageToken };
   }
@@ -870,7 +1211,13 @@ export class Microsoft365Provider implements EmailProviderInterface {
   async listLabels(): Promise<
     Array<{ id: string; name: string; type: string }>
   > {
-    const data = await this.graphFetch("/me/outlook/masterCategories");
+    const readPolicy = this.effectiveReadPolicy({}, "master categories list");
+    const data = await this.graphFetch(
+      "/me/outlook/masterCategories",
+      undefined,
+      "master categories list",
+      readPolicy
+    );
     return (
       (data.value as Array<{ id: string; displayName: string }>) || []
     ).map((c) => ({
@@ -1026,6 +1373,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
   }
 
   async listDrafts(): Promise<NormalizedDraft[]> {
+    const readPolicy = this.effectiveReadPolicy({}, "drafts list");
     // The Drafts well-known folder surfaces exactly what the user sees in
     // Outlook's Drafts view. $select keeps the payload tight; $top=100 caps
     // the list (same as Gmail — we don't paginate drafts).
@@ -1041,13 +1389,23 @@ export class Microsoft365Provider implements EmailProviderInterface {
     ].join(",");
     const data = (await this.graphFetch(
       `/me/mailFolders/drafts/messages?$select=${selectFields}` +
-        `&$orderby=lastModifiedDateTime desc&$top=100`
+        `&$orderby=lastModifiedDateTime desc&$top=100`,
+      undefined,
+      "drafts list",
+      readPolicy
     )) as { value?: Array<Record<string, unknown>> };
 
     return (data.value ?? []).map((msg) => this.normalizeM365Draft(msg));
   }
 
-  async getDraft(draftId: string): Promise<NormalizedDraft | null> {
+  async getDraft(
+    draftId: string,
+    readPolicy: ProviderReadPolicy = {}
+  ): Promise<NormalizedDraft | null> {
+    const effectiveReadPolicy = this.effectiveReadPolicy(
+      readPolicy,
+      `draft get (${draftId})`
+    );
     const selectFields = [
       "id",
       "conversationId",
@@ -1058,23 +1416,21 @@ export class Microsoft365Provider implements EmailProviderInterface {
       "isDraft",
       "lastModifiedDateTime",
     ].join(",");
-    const token = await this.getToken();
     const encodedId = encodeURIComponent(draftId);
-    const res = await fetch(
-      `${GRAPH_BASE}/me/messages/${encodedId}?$select=${selectFields}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Prefer: 'IdType="ImmutableId"',
-        },
+    let message: Record<string, unknown>;
+    try {
+      message = await this.graphFetch(
+        `/me/messages/${encodedId}?$select=${selectFields}`,
+        undefined,
+        "messages/get (draft)",
+        effectiveReadPolicy
+      );
+    } catch (error) {
+      if (error instanceof ProviderApiError && error.providerStatus === 404) {
+        return null;
       }
-    );
-    if (res.status === 404) return null;
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throwForGraphError(res.status, body, "messages/get (draft)");
+      throw error;
     }
-    const message = (await res.json()) as Record<string, unknown>;
     if (message.isDraft !== true) return null;
     return this.normalizeM365Draft(message);
   }
@@ -1205,46 +1561,70 @@ export class Microsoft365Provider implements EmailProviderInterface {
   }
 
   async getImageAttachmentsFromThread(
-    threadId: string
+    threadId: string,
+    readPolicy: ProviderReadPolicy = {}
   ): Promise<ImageAttachmentMeta[]> {
-    const all = await this.getAttachmentsFromThread(threadId);
+    const all = await this.getAttachmentsFromThread(threadId, readPolicy);
     return all
       .filter((a) => a.mimeType.startsWith("image/"))
       .map(({ date: _date, ...rest }) => rest);
   }
 
   async getAttachmentsFromThread(
-    threadId: string
+    threadId: string,
+    readPolicy: ProviderReadPolicy = {}
   ): Promise<EmailAttachmentMeta[]> {
+    const effectiveReadPolicy = this.effectiveReadPolicy(
+      readPolicy,
+      `thread attachments (${threadId})`
+    );
     // Graph's hasAttachments flag excludes inline-only files. Enumerate every
     // exact message so CID photos cannot disappear from OPS.
-    const messages = await this.fetchThread(threadId);
+    const messages = await this.fetchThread(threadId, effectiveReadPolicy);
     const out: EmailAttachmentMeta[] = [];
 
     for (const msg of messages) {
       out.push(
-        ...(await this.getAttachmentsFromMessage(msg.id, {
-          fromEmail: msg.from,
-          date: msg.date,
-        }))
+        ...(await this.getAttachmentsFromMessage(
+          msg.id,
+          {
+            fromEmail: msg.from,
+            date: msg.date,
+          },
+          effectiveReadPolicy
+        ))
       );
     }
 
+    this.assertReadDeadline(effectiveReadPolicy);
     return out;
   }
 
   async getAttachmentsFromMessage(
     messageId: string,
-    context?: { fromEmail?: string; date?: Date }
+    context?: { fromEmail?: string; date?: Date },
+    readPolicy: ProviderReadPolicy = {}
   ): Promise<EmailAttachmentMeta[]> {
-    const deadline = Date.now() + MAX_GRAPH_ATTACHMENT_ENUMERATION_MS;
+    const parentReadPolicy = this.effectiveReadPolicy(
+      readPolicy,
+      `message attachments (${messageId})`
+    );
+    const deadline = Math.min(
+      parentReadPolicy.deadlineAt,
+      Date.now() + MAX_GRAPH_ATTACHMENT_ENUMERATION_MS
+    );
+    const attachmentReadPolicy = {
+      ...parentReadPolicy,
+      deadlineAt: deadline,
+    };
     let fromEmail = context?.fromEmail ?? "";
     let date = context?.date;
     if (!date || !fromEmail) {
       const message = await this.graphFetch(
         `/me/messages/${encodeURIComponent(messageId)}?$select=id,from,receivedDateTime`,
-        { signal: attachmentEnumerationSignal(deadline) },
-        `message metadata for attachments (${messageId})`
+        undefined,
+        `message metadata for attachments (${messageId})`,
+        attachmentReadPolicy
       );
       if (message.id !== messageId) {
         throw new ProviderApiError(
@@ -1274,6 +1654,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
       page++
     ) {
       if (Date.now() >= deadline) {
+        this.assertReadDeadline(parentReadPolicy);
         truncated = true;
         break;
       }
@@ -1287,8 +1668,9 @@ export class Microsoft365Provider implements EmailProviderInterface {
       visitedPages.add(nextUrl);
       const data = await this.graphFetch(
         nextUrl,
-        { signal: attachmentEnumerationSignal(deadline) },
-        `attachments.list (${messageId})`
+        undefined,
+        `attachments.list (${messageId})`,
+        attachmentReadPolicy
       );
       for (const attachment of (data.value as
         | Array<Record<string, unknown>>
@@ -1321,7 +1703,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
                 ? await this.getReferenceAttachmentSourceUrl(
                     messageId,
                     attachmentId,
-                    attachmentEnumerationSignal(deadline)
+                    attachmentReadPolicy
                   ).finally(() => {
                     referenceMetadataRequests += 1;
                   })
@@ -1364,18 +1746,20 @@ export class Microsoft365Provider implements EmailProviderInterface {
         })
       );
     }
+    this.assertReadDeadline(parentReadPolicy);
     return out;
   }
 
   private async getReferenceAttachmentSourceUrl(
     messageId: string,
     attachmentId: string,
-    signal?: AbortSignal
+    readPolicy: ProviderReadPolicy
   ): Promise<string | null> {
     const response = await this.graphFetchResponse(
       `/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
-      signal ? { signal } : undefined,
-      `reference attachment metadata (${messageId}:${attachmentId})`
+      undefined,
+      `reference attachment metadata (${messageId}:${attachmentId})`,
+      readPolicy
     );
     const raw = await readBoundedResponseBytes(
       response,
@@ -1392,6 +1776,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
         { parseError: error instanceof Error ? error.message : String(error) }
       );
     }
+    this.assertReadDeadline(readPolicy);
     const odataType = ((data["@odata.type"] as string) || "").toLowerCase();
     if (
       data.id !== attachmentId ||
@@ -1411,20 +1796,40 @@ export class Microsoft365Provider implements EmailProviderInterface {
     attachmentId: string,
     maxBytes = DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES
   ): Promise<Buffer> {
+    const readPolicy = this.effectiveReadPolicy(
+      {
+        deadlineAt:
+          Date.now() +
+          Math.min(
+            MICROSOFT365_PROVIDER_READ_DEADLINE_MS,
+            MAX_GRAPH_ATTACHMENT_DOWNLOAD_MS
+          ),
+      },
+      `attachment download (${messageId}:${attachmentId})`
+    );
     const response = await this.graphFetchResponse(
       `/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}/$value`,
-      { signal: AbortSignal.timeout(MAX_GRAPH_ATTACHMENT_DOWNLOAD_MS) },
-      `attachments raw value (${messageId}:${attachmentId})`
+      undefined,
+      `attachments raw value (${messageId}:${attachmentId})`,
+      readPolicy
     );
-    return readBoundedResponseBytes(
+    const bytes = await readBoundedResponseBytes(
       response,
       maxBytes,
       `M365 attachment ${messageId}:${attachmentId}`
     );
+    this.assertReadDeadline(readPolicy);
+    return bytes;
   }
 
   async getProfile(): Promise<{ email: string; name: string }> {
-    const data = await this.graphFetch("/me");
+    const readPolicy = this.effectiveReadPolicy({}, "profile read");
+    const data = await this.graphFetch(
+      "/me",
+      undefined,
+      "profile read",
+      readPolicy
+    );
     return {
       email: (data.mail as string) || (data.userPrincipalName as string),
       name: (data.displayName as string) || (data.mail as string) || "",

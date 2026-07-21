@@ -1,89 +1,25 @@
 /**
- * Lead Data Review service (P1 DW2 link-reconciliation — operator surface).
+ * Actor-scoped lead data review.
  *
- * This promotes the conservative classification logic proven in the one-off
- * script `scripts/lead-lifecycle-p1-link-resolver.ts` into a reusable,
- * request-time service that powers the `// DATA REVIEW QUEUE` admin panel.
- *
- * The service surfaces the genuinely-actionable residual of the link-resolver
- * pass as a queue of items an operator can triage:
- *
- *   - SPLIT THREADS  — a single provider email thread fans out across >1
- *     opportunity. The auto-resolver REFUSED a confident re-point because the
- *     fork crosses a terminal (won/lost/discarded) boundary, spans >1 client,
- *     or has no singular live target. These need an operator decision.
- *   - TERMINAL/LIVE  — an `email_threads` cache row whose `opportunity_id` is
- *     NULL while a canonical join row points at a terminal (won/lost) but live
- *     opportunity. A closed deal can legitimately own its thread, so the
- *     resolver FLAGGED rather than auto-backfilled.
- *
- * The 2,198 passive de-aggregated blank-bucket activities (synthetic
- * `legacy%` thread ids) are QUARANTINED, not review items — the service exposes
- * them only as a muted count (`quarantinedCount`), never as actionable rows.
- *
- * Mutations are extreme-conservative and go through the SAME guarded, allow-
- * listed write surface the script uses. The only writes are:
- *   - activities.opportunity_id  (re-point a split thread's activities)
- *   - email_threads.opportunity_id  (align a cache row)
- * Each write is guarded by `assertWriteAllowed(table, column)`. Opportunities
- * are never merged, rows never deleted, links never fabricated, clients never
- * auto-created, opportunity business state never changed.
- *
- * `linkThread` re-points a split thread to an operator-chosen owning
- * opportunity (the confident re-point the auto-pass refused — now operator-
- * authorized to cross the boundary). It is single-client-guarded server-side:
- * the chosen target must belong to the same client as the thread's owners, so
- * even an authorized operator can never move correspondence across customers.
- *
- * `quarantineThread` marks a split thread reviewed-and-left-as-is by re-pointing
- * its activities onto a synthetic `legacy:<providerThreadId>` thread id, exactly
- * the quarantine marker the DW1 de-aggregation uses, so the item drops out of
- * the actionable queue and the lifecycle cron's fragmentation skip covers it.
- *
- * Table/column names verified live (read-only) against project
- * ijeekuhbatykdomumfjx before writing:
- *   activities(id uuid, opportunity_id uuid null, email_thread_id text null,
- *     type text, company_id uuid, subject text)
- *   opportunity_email_threads(thread_id text, opportunity_id uuid, connection_id uuid null)
- *   email_threads(id uuid, provider_thread_id text, opportunity_id uuid null,
- *     connection_id uuid, company_id uuid, subject text)
- *   opportunities(id, title, stage text, archived_at, deleted_at, client_id, clients(name))
- *   notifications(company_id text, dedupe_key, resolved_at, persistent, action_url, action_label)
+ * Provider thread ids are mailbox-scoped, never globally unique. Reads are
+ * classified only inside the authenticated actor's company and every item is
+ * checked by the canonical opportunity + inbox authorization bridge. Writes
+ * are single guarded RPCs so a failed authorization or invariant check leaves
+ * every correspondence projection unchanged.
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";
 
-// ─── Constants (mirrored from the resolver script) ──────────────────────────
-
 const TERMINAL_STAGES = new Set(["won", "lost", "discarded"]);
 const TEST_SEED_OPP_PREFIX = "d2000000-0000-4000-d200-";
-/** Quarantine marker family — same generator the DW1 de-aggregation uses. */
-const LEGACY_THREAD_PREFIX = "legacy%";
-
-/**
- * Write allow-list (table + column). The ONLY columns any review action may
- * write — identical surface to the resolver script's allow-list.
- */
-const WRITE_ALLOW_LIST: ReadonlyArray<{
-  table: string;
-  columns: ReadonlyArray<string>;
-}> = [
-  { table: "activities", columns: ["opportunity_id", "email_thread_id"] },
-  { table: "email_threads", columns: ["opportunity_id"] },
-] as const;
-
-function assertWriteAllowed(table: string, column: string): void {
-  const entry = WRITE_ALLOW_LIST.find((e) => e.table === table);
-  if (!entry || !entry.columns.includes(column)) {
-    throw new Error(
-      `REFUSED: write to ${table}.${column} is not in the data-review allow-list`
-    );
-  }
-}
-
-// ─── Types ───────────────────────────────────────────────────────────────────
+const LEGACY_THREAD_PREFIX = "legacy:%";
 
 export type ReviewItemKind = "split" | "terminal_live";
+
+export interface DataReviewContext {
+  actorUserId: string;
+  companyId: string;
+}
 
 export interface OppMeta {
   id: string;
@@ -96,7 +32,6 @@ export interface OppMeta {
   clientName: string | null;
 }
 
-/** One owning opportunity in a split-thread's expanded detail. */
 export interface ReviewOwner {
   opportunityId: string;
   title: string | null;
@@ -109,28 +44,19 @@ export interface ReviewOwner {
   clientName: string | null;
 }
 
-/** A single actionable queue item. */
 export interface DataReviewItem {
-  /** Stable id the action routes address. For split: the provider thread id.
-   * For terminal/live: the email_threads row id. */
   id: string;
   kind: ReviewItemKind;
+  connectionId: string;
   providerThreadId: string;
-  /** Email-thread subject (terminal/live) or the busiest owner's title (split). */
   subject: string | null;
-  /** Client name shared across the thread's owners (single-client threads). */
   clientId: string | null;
   clientName: string | null;
-  /** ISO timestamp of the most recent activity / thread row. */
   lastActivityAt: string | null;
-  /** Terse refusal reason from the conservative classifier. */
   reason: string;
-  /** Spread counts for the SPREAD column. */
   oppCount: number;
   terminalCount: number;
-  /** Full owner detail for the expand-to-inspect accordion. */
   owners: ReviewOwner[];
-  /** Candidate owning opportunities the operator may LINK-TO (split only). */
   linkCandidates: Array<{
     opportunityId: string;
     title: string | null;
@@ -142,8 +68,14 @@ export interface DataReviewItem {
 export interface DataReviewQueue {
   split: DataReviewItem[];
   terminalLive: DataReviewItem[];
-  /** Passive, non-actionable de-aggregated activity count (muted display only). */
   quarantinedCount: number;
+}
+
+export interface LinkThreadInput extends DataReviewContext {
+  connectionId: string;
+  providerThreadId: string;
+  targetOpportunityId: string;
+  kind?: ReviewItemKind;
 }
 
 export interface LinkThreadResult {
@@ -151,51 +83,113 @@ export interface LinkThreadResult {
   targetOpportunityId: string;
   targetTitle: string | null;
   activitiesRepointed: number;
+  resolutionVersion: number;
+}
+
+export interface QuarantineThreadInput extends DataReviewContext {
+  connectionId: string;
+  providerThreadId: string;
+  kind?: ReviewItemKind;
 }
 
 export interface QuarantineThreadResult {
   providerThreadId: string;
   subject: string | null;
   activitiesQuarantined: number;
+  resolutionVersion: number;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+class DataReviewRpcError extends Error {
+  readonly code: string | null;
 
-function isTerminal(o: OppMeta): boolean {
-  return o.stage !== null && TERMINAL_STAGES.has(o.stage);
+  constructor(message: string, code?: string | null) {
+    super(message);
+    this.name = "DataReviewRpcError";
+    this.code = code ?? null;
+  }
 }
 
-function isHidden(o: OppMeta): boolean {
-  return o.archived || o.deleted;
+export function isDataReviewAccessDenied(error: unknown): boolean {
+  return (
+    error instanceof DataReviewRpcError &&
+    (error.code === "42501" || error.message === "data_review_access_denied")
+  );
+}
+
+function cleanRequired(value: string, label: string): string {
+  const cleaned = value.trim();
+  if (!cleaned) throw new Error(`${label} is required`);
+  return cleaned;
+}
+
+function readResolutionVersion(result: Record<string, unknown>): number {
+  const version = Number(result.resolution_version);
+  if (!Number.isSafeInteger(version) || version < 1) {
+    throw new Error(
+      "Guarded data-review RPC returned an invalid resolution version"
+    );
+  }
+  return version;
+}
+
+function isTerminal(opportunity: OppMeta): boolean {
+  return opportunity.stage !== null && TERMINAL_STAGES.has(opportunity.stage);
+}
+
+function isHidden(opportunity: OppMeta): boolean {
+  return opportunity.archived || opportunity.deleted;
 }
 
 function quarantineThreadId(providerThreadId: string): string {
   return `legacy:${providerThreadId}`;
 }
 
-async function fetchOppMeta(ids: string[]): Promise<Map<string, OppMeta>> {
+function exactThreadKey(
+  connectionId: string,
+  providerThreadId: string
+): string {
+  return `${connectionId}\u0000${providerThreadId}`;
+}
+
+function ownerFrom(opportunity: OppMeta, activityCount: number): ReviewOwner {
+  return {
+    opportunityId: opportunity.id,
+    title: opportunity.title,
+    stage: opportunity.stage,
+    archived: opportunity.archived,
+    deleted: opportunity.deleted,
+    terminal: isTerminal(opportunity),
+    activityCount,
+    clientId: opportunity.clientId,
+    clientName: opportunity.clientName,
+  };
+}
+
+async function fetchOppMeta(
+  companyId: string,
+  ids: string[]
+): Promise<Map<string, OppMeta>> {
   const sb = requireSupabase();
-  const map = new Map<string, OppMeta>();
+  const result = new Map<string, OppMeta>();
   const unique = Array.from(new Set(ids.filter(Boolean)));
-  const chunkSize = 100;
-  for (let i = 0; i < unique.length; i += chunkSize) {
-    const chunk = unique.slice(i, i + chunkSize);
+
+  for (let index = 0; index < unique.length; index += 100) {
+    const chunk = unique.slice(index, index + 100);
     const { data, error } = await sb
       .from("opportunities")
       .select(
         "id, company_id, title, stage, archived_at, deleted_at, client_id, clients(name)"
       )
-      .in("id", chunk);
+      .in("id", chunk)
+      .eq("company_id", companyId);
     if (error) throw new Error(error.message);
+
     for (const row of (data ?? []) as Array<Record<string, unknown>>) {
       const client = row.clients as
         | { name?: string }
-        | { name?: string }[]
+        | Array<{ name?: string }>
         | null;
-      const clientName = Array.isArray(client)
-        ? (client[0]?.name ?? null)
-        : (client?.name ?? null);
-      map.set(row.id as string, {
+      result.set(row.id as string, {
         id: row.id as string,
         companyId: row.company_id as string,
         title: (row.title as string) ?? null,
@@ -203,188 +197,284 @@ async function fetchOppMeta(ids: string[]): Promise<Map<string, OppMeta>> {
         archived: row.archived_at !== null,
         deleted: row.deleted_at !== null,
         clientId: (row.client_id as string) ?? null,
-        clientName,
+        clientName: Array.isArray(client)
+          ? (client[0]?.name ?? null)
+          : (client?.name ?? null),
       });
     }
   }
-  return map;
+
+  return result;
 }
 
-/**
- * Resolve one provider thread to exactly one mailbox inside the target's
- * company. Provider thread IDs are mailbox-scoped; accepting an ambiguous ID
- * here would let an operator action move another mailbox's correspondence.
- */
-async function resolveThreadConnection(
-  companyId: string,
-  providerThreadId: string
-): Promise<string> {
-  const sb = requireSupabase();
-  const { data, error } = await sb
-    .from("email_threads")
-    .select("connection_id")
-    .eq("company_id", companyId)
-    .eq("provider_thread_id", providerThreadId);
-  if (error) throw new Error(error.message);
-
-  const connectionIds = Array.from(
-    new Set(
-      ((data ?? []) as Array<{ connection_id: string | null }>)
-        .map((row) => row.connection_id)
-        .filter((id): id is string => Boolean(id))
-    )
-  );
-  if (connectionIds.length === 0) {
-    throw new Error("REFUSED: exact mailbox thread not found");
-  }
-  if (connectionIds.length > 1) {
-    throw new Error(
-      "REFUSED: provider thread resolves to more than one mailbox connection"
-    );
-  }
-  return connectionIds[0];
-}
-
-async function runGuardedThreadReassignment(input: {
-  companyId: string;
-  connectionId: string;
-  providerThreadId: string;
-  targetOpportunityId: string;
-  kind: ReviewItemKind;
-}): Promise<number> {
+async function canReview(
+  context: DataReviewContext,
+  connectionId: string,
+  providerThreadId: string,
+  kind: ReviewItemKind
+): Promise<boolean> {
   const sb = requireSupabase();
   const { data, error } = await sb.rpc(
-    "reassign_opportunity_email_thread_guarded",
+    "authorize_email_thread_data_review_as_system",
     {
-      p_company_id: input.companyId,
-      p_connection_id: input.connectionId,
-      p_provider_thread_id: input.providerThreadId,
-      p_target_opportunity_id: input.targetOpportunityId,
-      p_kind: input.kind,
+      p_actor_user_id: context.actorUserId,
+      p_company_id: context.companyId,
+      p_connection_id: connectionId,
+      p_provider_thread_id: providerThreadId,
+      p_kind: kind,
+      p_action: "view",
     }
   );
-  if (error) throw new Error(error.message);
-  const result = (data ?? {}) as { activities_repointed?: number };
-  return Number(result.activities_repointed ?? 0);
+  if (error) throw new DataReviewRpcError(error.message, error.code);
+  return data === true;
 }
 
-function ownerFrom(opp: OppMeta, activityCount: number): ReviewOwner {
-  return {
-    opportunityId: opp.id,
-    title: opp.title,
-    stage: opp.stage,
-    archived: opp.archived,
-    deleted: opp.deleted,
-    terminal: isTerminal(opp),
-    activityCount,
-    clientId: opp.clientId,
-    clientName: opp.clientName,
-  };
+async function keepAuthorized(
+  context: DataReviewContext,
+  items: DataReviewItem[]
+): Promise<DataReviewItem[]> {
+  const authorized: DataReviewItem[] = [];
+  for (const item of items) {
+    if (
+      await canReview(
+        context,
+        item.connectionId,
+        item.providerThreadId,
+        item.kind
+      )
+    ) {
+      authorized.push(item);
+    }
+  }
+  return authorized;
 }
-
-// ─── 1. Split threads ─────────────────────────────────────────────────────────
 
 interface SplitActivityRow {
   id: string;
+  company_id: string;
+  email_connection_id: string;
   email_thread_id: string;
   opportunity_id: string;
   created_at: string;
 }
 
-/**
- * Re-derive split provider threads (>1 opportunity per provider thread) from
- * live `activities`, classify each, and return them as actionable queue items.
- * Mirrors `fetchSplitThreads` in the resolver script: every split thread is
- * surfaced for operator review (the script quarantines the ones it can't auto-
- * resolve; here the operator IS the resolver). Test-seed opportunities are
- * skipped. Already-quarantined (`legacy%`) threads are excluded — they are not
- * actionable and live in `quarantinedCount`.
- */
-async function fetchSplitItems(): Promise<DataReviewItem[]> {
+async function fetchSplitProjectionOwners(
+  companyId: string,
+  identities: Array<{ connectionId: string; providerThreadId: string }>
+): Promise<Map<string, Set<string>>> {
   const sb = requireSupabase();
-  const acts: SplitActivityRow[] = [];
-  const pageSize = 1000;
-  let from = 0;
-  for (;;) {
+  const identityKeys = new Set(
+    identities.map(({ connectionId, providerThreadId }) =>
+      exactThreadKey(connectionId, providerThreadId)
+    )
+  );
+  const owners = new Map<string, Set<string>>();
+  const connectionIds = Array.from(
+    new Set(identities.map(({ connectionId }) => connectionId))
+  );
+
+  const recordOwner = (
+    connectionId: string,
+    providerThreadId: string,
+    opportunityId: string | null
+  ) => {
+    if (!opportunityId) return;
+    const key = exactThreadKey(connectionId, providerThreadId);
+    if (!identityKeys.has(key)) return;
+    const ids = owners.get(key) ?? new Set<string>();
+    ids.add(opportunityId);
+    owners.set(key, ids);
+  };
+
+  for (let index = 0; index < connectionIds.length; index += 100) {
+    const connectionChunk = connectionIds.slice(index, index + 100);
+
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await sb
+        .from("email_threads")
+        .select("connection_id, provider_thread_id, opportunity_id")
+        .eq("company_id", companyId)
+        .in("connection_id", connectionChunk)
+        .not("opportunity_id", "is", null)
+        .range(offset, offset + 999);
+      if (error) throw new Error(error.message);
+      const batch = (data ?? []) as Array<{
+        connection_id: string;
+        provider_thread_id: string;
+        opportunity_id: string | null;
+      }>;
+      for (const row of batch) {
+        recordOwner(
+          row.connection_id,
+          row.provider_thread_id,
+          row.opportunity_id
+        );
+      }
+      if (batch.length < 1000) break;
+    }
+
+    for (let offset = 0; ; offset += 1000) {
+      const { data, error } = await sb
+        .from("opportunity_email_threads")
+        .select("connection_id, thread_id, opportunity_id")
+        .in("connection_id", connectionChunk)
+        .range(offset, offset + 999);
+      if (error) throw new Error(error.message);
+      const batch = (data ?? []) as Array<{
+        connection_id: string;
+        thread_id: string;
+        opportunity_id: string;
+      }>;
+      for (const row of batch) {
+        recordOwner(row.connection_id, row.thread_id, row.opportunity_id);
+      }
+      if (batch.length < 1000) break;
+    }
+  }
+
+  return owners;
+}
+
+async function fetchSplitItems(
+  context: DataReviewContext
+): Promise<DataReviewItem[]> {
+  const sb = requireSupabase();
+  const activities: SplitActivityRow[] = [];
+
+  for (let offset = 0; ; offset += 1000) {
     const { data, error } = await sb
       .from("activities")
-      .select("id, email_thread_id, opportunity_id, created_at")
+      .select(
+        "id, company_id, email_connection_id, email_thread_id, opportunity_id, created_at"
+      )
+      .eq("company_id", context.companyId)
       .eq("type", "email")
+      .not("email_connection_id", "is", null)
       .not("email_thread_id", "is", null)
       .neq("email_thread_id", "")
       .not("opportunity_id", "is", null)
-      .range(from, from + pageSize - 1);
+      .range(offset, offset + 999);
     if (error) throw new Error(error.message);
     const batch = (data ?? []) as SplitActivityRow[];
-    acts.push(...batch);
-    if (batch.length < pageSize) break;
-    from += pageSize;
+    activities.push(...batch);
+    if (batch.length < 1000) break;
   }
 
-  // group provider thread -> opp -> { ids, latest }
-  const byThread = new Map<
+  const grouped = new Map<
     string,
-    { opps: Map<string, { ids: string[]; latest: string }>; latest: string }
-  >();
-  for (const a of acts) {
-    if (a.email_thread_id.startsWith("legacy")) continue; // already quarantined
-    if (a.opportunity_id.startsWith(TEST_SEED_OPP_PREFIX)) continue;
-    let thread = byThread.get(a.email_thread_id);
-    if (!thread) {
-      thread = { opps: new Map(), latest: a.created_at };
-      byThread.set(a.email_thread_id, thread);
+    {
+      connectionId: string;
+      providerThreadId: string;
+      latest: string;
+      owners: Map<string, string[]>;
     }
-    const opp = thread.opps.get(a.opportunity_id) ?? {
-      ids: [],
-      latest: a.created_at,
+  >();
+
+  for (const activity of activities) {
+    if (activity.email_thread_id.startsWith("legacy:")) continue;
+    if (activity.opportunity_id.startsWith(TEST_SEED_OPP_PREFIX)) continue;
+    const key = exactThreadKey(
+      activity.email_connection_id,
+      activity.email_thread_id
+    );
+    const thread = grouped.get(key) ?? {
+      connectionId: activity.email_connection_id,
+      providerThreadId: activity.email_thread_id,
+      latest: activity.created_at,
+      owners: new Map<string, string[]>(),
     };
-    opp.ids.push(a.id);
-    if (a.created_at > opp.latest) opp.latest = a.created_at;
-    thread.opps.set(a.opportunity_id, opp);
-    if (a.created_at > thread.latest) thread.latest = a.created_at;
+    const ids = thread.owners.get(activity.opportunity_id) ?? [];
+    ids.push(activity.id);
+    thread.owners.set(activity.opportunity_id, ids);
+    if (activity.created_at > thread.latest)
+      thread.latest = activity.created_at;
+    grouped.set(key, thread);
   }
 
-  const splitEntries = Array.from(byThread.entries()).filter(
-    ([, t]) => t.opps.size > 1
+  const splitThreads = Array.from(grouped.values()).filter(
+    (thread) => thread.owners.size > 1
   );
-  const oppIds = splitEntries.flatMap(([, t]) => Array.from(t.opps.keys()));
-  const meta = await fetchOppMeta(oppIds);
-
+  const projectionOwners = await fetchSplitProjectionOwners(
+    context.companyId,
+    splitThreads
+  );
+  const meta = await fetchOppMeta(
+    context.companyId,
+    splitThreads.flatMap((thread) => [
+      ...Array.from(thread.owners.keys()),
+      ...Array.from(
+        projectionOwners.get(
+          exactThreadKey(thread.connectionId, thread.providerThreadId)
+        ) ?? []
+      ),
+    ])
+  );
   const items: DataReviewItem[] = [];
-  for (const [providerThreadId, thread] of splitEntries) {
-    const owners = Array.from(thread.opps.entries())
-      .map(([oppId, info]) => {
-        const opp = meta.get(oppId);
-        return opp ? { opp, count: info.ids.length } : null;
+
+  for (const thread of splitThreads) {
+    const owners = Array.from(thread.owners.entries())
+      .map(([opportunityId, activityIds]) => {
+        const opportunity = meta.get(opportunityId);
+        return opportunity
+          ? { opportunity, activityCount: activityIds.length }
+          : null;
       })
-      .filter((o): o is { opp: OppMeta; count: number } => o !== null)
-      .sort((a, b) => b.count - a.count);
-    if (owners.length < 2) continue;
+      .filter(
+        (owner): owner is { opportunity: OppMeta; activityCount: number } =>
+          owner !== null
+      )
+      .sort((left, right) => right.activityCount - left.activityCount);
 
-    const terminalCount = owners.filter((o) => isTerminal(o.opp)).length;
-    const distinctClients = new Set(owners.map((o) => o.opp.clientId)).size;
-    const hasNullClient = owners.some((o) => o.opp.clientId === null);
-    const liveNonTerminal = owners.filter(
-      (o) => !isTerminal(o.opp) && !isHidden(o.opp)
+    // A missing/cross-company owner makes the whole item ineligible.
+    if (owners.length !== thread.owners.size || owners.length < 2) continue;
+
+    const terminalCount = owners.filter(({ opportunity }) =>
+      isTerminal(opportunity)
+    ).length;
+    const liveOwners = owners.filter(
+      ({ opportunity }) => !isTerminal(opportunity) && !isHidden(opportunity)
     );
+    const eligibilityOwnerIds = new Set([
+      ...Array.from(thread.owners.keys()),
+      ...Array.from(
+        projectionOwners.get(
+          exactThreadKey(thread.connectionId, thread.providerThreadId)
+        ) ?? []
+      ),
+    ]);
+    const eligibilityOwners = Array.from(eligibilityOwnerIds)
+      .map((opportunityId) => meta.get(opportunityId) ?? null)
+      .filter((opportunity): opportunity is OppMeta => opportunity !== null);
+    const eligibilityIsComplete =
+      eligibilityOwners.length === eligibilityOwnerIds.size;
+    const eligibilityClientId = eligibilityOwners[0]?.clientId ?? null;
+    const hasOneExactClient =
+      eligibilityIsComplete &&
+      eligibilityOwners.length > 0 &&
+      eligibilityOwners.every(
+        (opportunity) => opportunity.clientId === eligibilityClientId
+      );
+    const distinctClients = new Set(
+      eligibilityOwners.map((opportunity) => opportunity.clientId)
+    ).size;
+    const hasNullClient = eligibilityOwners.some(
+      (opportunity) => opportunity.clientId === null
+    );
+    const top = owners[0].opportunity;
+    const reason =
+      terminalCount > 0
+        ? `${terminalCount} owner(s) closed (won/lost/discarded) — re-point crosses a terminal boundary`
+        : !hasOneExactClient
+          ? `${distinctClients} distinct client(s)${hasNullClient ? " incl. unassigned" : ""} — spans more than one customer`
+          : liveOwners.length !== 1
+            ? `${liveOwners.length} live owners — no single canonical opportunity`
+            : "Multiple owners on one provider thread — confirm the canonical owner";
 
-    let reason: string;
-    if (terminalCount > 0) {
-      reason = `${terminalCount} owner(s) closed (won/lost/discarded) — re-point crosses a terminal boundary`;
-    } else if (distinctClients > 1 || hasNullClient) {
-      reason = `${distinctClients} distinct client(s)${hasNullClient ? " incl. unassigned" : ""} — spans more than one customer`;
-    } else if (liveNonTerminal.length !== 1) {
-      reason = `${liveNonTerminal.length} live owners — no single canonical opportunity`;
-    } else {
-      reason =
-        "Multiple owners on one provider thread — confirm the canonical owner";
-    }
-
-    const top = owners[0].opp;
     items.push({
-      id: providerThreadId,
+      id: `${thread.connectionId}:${thread.providerThreadId}`,
       kind: "split",
-      providerThreadId,
+      connectionId: thread.connectionId,
+      providerThreadId: thread.providerThreadId,
       subject: top.title,
       clientId: top.clientId,
       clientName: top.clientName,
@@ -392,362 +482,290 @@ async function fetchSplitItems(): Promise<DataReviewItem[]> {
       reason,
       oppCount: owners.length,
       terminalCount,
-      owners: owners.map((o) => ownerFrom(o.opp, o.count)),
-      linkCandidates: owners.map((o) => ({
-        opportunityId: o.opp.id,
-        title: o.opp.title,
-        stage: o.opp.stage,
-        terminal: isTerminal(o.opp),
-      })),
+      owners: owners.map(({ opportunity, activityCount }) =>
+        ownerFrom(opportunity, activityCount)
+      ),
+      linkCandidates: hasOneExactClient
+        ? owners
+            .filter(({ opportunity }) => !isHidden(opportunity))
+            .map(({ opportunity }) => ({
+              opportunityId: opportunity.id,
+              title: opportunity.title,
+              stage: opportunity.stage,
+              terminal: isTerminal(opportunity),
+            }))
+        : [],
     });
   }
-  items.sort(
-    (a, b) =>
-      (b.lastActivityAt ?? "").localeCompare(a.lastActivityAt ?? "") ||
-      b.oppCount - a.oppCount
-  );
-  return items;
-}
 
-// ─── 2. Terminal/live (NULL-canonical pointing at a terminal owner) ─────────────
+  const authorized = await keepAuthorized(context, items);
+  return authorized.sort(
+    (left, right) =>
+      (right.lastActivityAt ?? "").localeCompare(left.lastActivityAt ?? "") ||
+      right.oppCount - left.oppCount
+  );
+}
 
 interface EmailThreadRow {
   id: string;
   provider_thread_id: string;
-  connection_id: string | null;
+  connection_id: string;
   opportunity_id: string | null;
   subject: string | null;
   created_at: string | null;
 }
 
-/**
- * Re-derive the NULL-canonical rows whose singular join points at a TERMINAL
- * but live opportunity — the FLAG class from `fetchCanonRows` in the resolver
- * script. A won/lost deal can legitimately own its thread, so cache-backfill to
- * a terminal opp needs operator sign-off. These are surfaced as actionable
- * terminal/live items: LINK-TO aligns the cache to the terminal owner.
- */
-async function fetchTerminalLiveItems(): Promise<DataReviewItem[]> {
+async function fetchTerminalLiveItems(
+  context: DataReviewContext
+): Promise<DataReviewItem[]> {
   const sb = requireSupabase();
-  const ets: EmailThreadRow[] = [];
-  {
-    const pageSize = 1000;
-    let from = 0;
-    for (;;) {
-      const { data, error } = await sb
-        .from("email_threads")
-        .select(
-          "id, provider_thread_id, connection_id, opportunity_id, subject, created_at"
-        )
-        .neq("provider_thread_id", "")
-        .is("opportunity_id", null)
-        .range(from, from + pageSize - 1);
-      if (error) throw new Error(error.message);
-      const batch = (data ?? []) as EmailThreadRow[];
-      ets.push(...batch);
-      if (batch.length < pageSize) break;
-      from += pageSize;
-    }
-  }
-  if (ets.length === 0) return [];
+  const threads: EmailThreadRow[] = [];
 
-  // Canonical join rows keyed connection|thread → set of opp ids.
-  const joinByKey = new Map<string, Set<string>>();
-  {
-    const pageSize = 1000;
-    let from = 0;
-    for (;;) {
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await sb
+      .from("email_threads")
+      .select(
+        "id, provider_thread_id, connection_id, opportunity_id, subject, created_at"
+      )
+      .eq("company_id", context.companyId)
+      .neq("provider_thread_id", "")
+      .is("opportunity_id", null)
+      .range(offset, offset + 999);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as EmailThreadRow[];
+    threads.push(...batch);
+    if (batch.length < 1000) break;
+  }
+  if (threads.length === 0) return [];
+
+  const connectionIds = Array.from(
+    new Set(threads.map((thread) => thread.connection_id))
+  );
+  const links = new Map<string, Set<string>>();
+  for (let index = 0; index < connectionIds.length; index += 100) {
+    const connectionChunk = connectionIds.slice(index, index + 100);
+    for (let offset = 0; ; offset += 1000) {
       const { data, error } = await sb
         .from("opportunity_email_threads")
         .select("connection_id, thread_id, opportunity_id")
+        .in("connection_id", connectionChunk)
         .neq("thread_id", "")
-        .range(from, from + pageSize - 1);
+        .range(offset, offset + 999);
       if (error) throw new Error(error.message);
       const batch = (data ?? []) as Array<{
-        connection_id: string | null;
+        connection_id: string;
         thread_id: string;
         opportunity_id: string;
       }>;
-      for (const j of batch) {
-        const key = `${j.connection_id}|${j.thread_id}`;
-        const set = joinByKey.get(key) ?? new Set<string>();
-        set.add(j.opportunity_id);
-        joinByKey.set(key, set);
+      for (const link of batch) {
+        const key = `${link.connection_id}\u0000${link.thread_id}`;
+        const owners = links.get(key) ?? new Set<string>();
+        owners.add(link.opportunity_id);
+        links.set(key, owners);
       }
-      if (batch.length < pageSize) break;
-      from += pageSize;
+      if (batch.length < 1000) break;
     }
   }
 
-  const matched = ets
-    .map((et) => {
-      const set = joinByKey.get(`${et.connection_id}|${et.provider_thread_id}`);
-      if (!set || set.size === 0) return null;
-      return { et, joinOpps: Array.from(set) };
-    })
-    .filter((m): m is { et: EmailThreadRow; joinOpps: string[] } => m !== null);
-
-  const oppIds = matched.flatMap((m) => m.joinOpps);
-  const meta = await fetchOppMeta(oppIds);
-
+  const matched = threads
+    .map((thread) => ({
+      thread,
+      ownerIds: Array.from(
+        links.get(
+          `${thread.connection_id}\u0000${thread.provider_thread_id}`
+        ) ?? []
+      ),
+    }))
+    .filter(({ ownerIds }) => ownerIds.length === 1);
+  const meta = await fetchOppMeta(
+    context.companyId,
+    matched.flatMap(({ ownerIds }) => ownerIds)
+  );
   const items: DataReviewItem[] = [];
-  for (const { et, joinOpps } of matched) {
-    // Only singular-join, terminal, live (non-hidden) — the FLAG class.
-    if (joinOpps.length !== 1) continue;
-    const opp = meta.get(joinOpps[0]);
-    if (!opp) continue;
-    if (!isTerminal(opp)) continue; // CONFIDENT (non-terminal) is auto-handled
-    if (isHidden(opp)) continue; // hidden → quarantine, not a review item
 
+  for (const { thread, ownerIds } of matched) {
+    const opportunity = meta.get(ownerIds[0]);
+    if (!opportunity || !isTerminal(opportunity) || isHidden(opportunity))
+      continue;
     items.push({
-      id: et.id,
+      id: thread.id,
       kind: "terminal_live",
-      providerThreadId: et.provider_thread_id,
-      subject: et.subject,
-      clientId: opp.clientId,
-      clientName: opp.clientName,
-      lastActivityAt: et.created_at,
-      reason: `Cache unset; canonical owner is closed (${opp.stage}) but live — confirm it owns this thread`,
+      connectionId: thread.connection_id,
+      providerThreadId: thread.provider_thread_id,
+      subject: thread.subject,
+      clientId: opportunity.clientId,
+      clientName: opportunity.clientName,
+      lastActivityAt: thread.created_at,
+      reason: `Cache unset; canonical owner is closed (${opportunity.stage}) but live — confirm it owns this thread`,
       oppCount: 1,
       terminalCount: 1,
-      owners: [ownerFrom(opp, 0)],
+      owners: [ownerFrom(opportunity, 0)],
       linkCandidates: [
         {
-          opportunityId: opp.id,
-          title: opp.title,
-          stage: opp.stage,
+          opportunityId: opportunity.id,
+          title: opportunity.title,
+          stage: opportunity.stage,
           terminal: true,
         },
       ],
     });
   }
-  items.sort((a, b) =>
-    (b.lastActivityAt ?? "").localeCompare(a.lastActivityAt ?? "")
+
+  const authorized = await keepAuthorized(context, items);
+  return authorized.sort((left, right) =>
+    (right.lastActivityAt ?? "").localeCompare(left.lastActivityAt ?? "")
   );
-  return items;
 }
 
-// ─── 3. Passive quarantined count ──────────────────────────────────────────────
+interface QuarantinedActivityRow {
+  email_connection_id: string;
+  email_thread_id: string;
+}
 
-async function fetchQuarantinedCount(): Promise<number> {
+async function fetchQuarantinedCount(
+  context: DataReviewContext
+): Promise<number> {
   const sb = requireSupabase();
-  const { count, error } = await sb
-    .from("activities")
-    .select("id", { count: "exact", head: true })
-    .eq("type", "email")
-    .like("email_thread_id", LEGACY_THREAD_PREFIX);
-  if (error) throw new Error(error.message);
-  return count ?? 0;
+  const activities: QuarantinedActivityRow[] = [];
+
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await sb
+      .from("activities")
+      .select("email_connection_id, email_thread_id")
+      .eq("company_id", context.companyId)
+      .eq("type", "email")
+      .not("email_connection_id", "is", null)
+      .not("opportunity_id", "is", null)
+      .like("email_thread_id", LEGACY_THREAD_PREFIX)
+      .range(offset, offset + 999);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as QuarantinedActivityRow[];
+    activities.push(...batch);
+    if (batch.length < 1000) break;
+  }
+
+  const groups = new Map<
+    string,
+    { connectionId: string; providerThreadId: string; count: number }
+  >();
+  for (const activity of activities) {
+    const providerThreadId = activity.email_thread_id.slice("legacy:".length);
+    if (!providerThreadId) continue;
+    const key = `${activity.email_connection_id}\u0000${providerThreadId}`;
+    const group = groups.get(key) ?? {
+      connectionId: activity.email_connection_id,
+      providerThreadId,
+      count: 0,
+    };
+    group.count += 1;
+    groups.set(key, group);
+  }
+
+  let count = 0;
+  for (const group of groups.values()) {
+    if (
+      await canReview(
+        context,
+        group.connectionId,
+        group.providerThreadId,
+        "split"
+      )
+    ) {
+      count += group.count;
+    }
+  }
+  return count;
 }
 
-// ─── Service ────────────────────────────────────────────────────────────────
+async function callGuardedRpc(
+  name:
+    | "reassign_opportunity_email_thread_guarded"
+    | "quarantine_opportunity_email_thread_guarded",
+  args: Record<string, string>
+): Promise<Record<string, unknown>> {
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc(name, args);
+  if (error) throw new DataReviewRpcError(error.message, error.code);
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`${name} returned an invalid result`);
+  }
+  return data as Record<string, unknown>;
+}
 
 export const LeadDataReviewService = {
-  /** Build the full actionable queue + the muted passive count. */
-  async getQueue(): Promise<DataReviewQueue> {
+  async getQueue(context: DataReviewContext): Promise<DataReviewQueue> {
+    const actorUserId = cleanRequired(context.actorUserId, "actor user id");
+    const companyId = cleanRequired(context.companyId, "company id");
+    const scoped = { actorUserId, companyId };
     const [split, terminalLive, quarantinedCount] = await Promise.all([
-      fetchSplitItems(),
-      fetchTerminalLiveItems(),
-      fetchQuarantinedCount(),
+      fetchSplitItems(scoped),
+      fetchTerminalLiveItems(scoped),
+      fetchQuarantinedCount(scoped),
     ]);
     return { split, terminalLive, quarantinedCount };
   },
 
-  /**
-   * Resolve a queue item by linking its correspondence to the operator-chosen
-   * owning opportunity. Behavior branches on `kind`:
-   *
-   *   - "split"         — re-point the split provider thread's activities onto
-   *     the target (the confident re-point the auto-pass refused). Guarded:
-   *       · the target must be one of the thread's current owners (no fabrication);
-   *       · the target must be the SAME client as every owner (never move
-   *         correspondence across customers — enforced even for an authorized
-   *         operator);
-   *       · only activities NOT already on the target are updated (idempotent).
-   *     Aligns the cache row to the target afterward.
-   *   - "terminal_live" — the row is a NULL-canonical `email_threads` cache row
-   *     with NO owning activities; the resolving action ALIGNS the cache to the
-   *     terminal owner (sets `email_threads.opportunity_id`). No activity
-   *     re-point happens (there is nothing to re-point), and the single-client
-   *     guard is satisfied by construction (the singular join already names the
-   *     one owner). This is the "align the cache to the terminal owner" path the
-   *     design (§2/§3) specifies.
-   */
-  async linkThread(
-    providerThreadId: string,
-    targetOpportunityId: string,
-    kind: ReviewItemKind = "split"
-  ): Promise<LinkThreadResult> {
-    const sb = requireSupabase();
-
-    // ── terminal_live: cache-only row, no owning activities ──────────────────
-    // Align the cache to the operator-confirmed terminal owner. There are no
-    // activities to re-point, so the activity-driven owner guards do not apply;
-    // we still confirm the target exists and is not hidden before aligning.
-    if (kind === "terminal_live") {
-      const meta = await fetchOppMeta([targetOpportunityId]);
-      const target = meta.get(targetOpportunityId);
-      if (!target) throw new Error("Target opportunity not found");
-      if (isHidden(target)) {
-        throw new Error("REFUSED: target opportunity is archived/deleted");
-      }
-      const connectionId = await resolveThreadConnection(
-        target.companyId,
-        providerThreadId
-      );
-      const repointed = await runGuardedThreadReassignment({
-        companyId: target.companyId,
-        connectionId,
-        providerThreadId,
-        targetOpportunityId,
-        kind,
-      });
-      return {
-        providerThreadId,
-        targetOpportunityId,
-        targetTitle: target.title,
-        activitiesRepointed: repointed,
-      };
-    }
-
-    // ── split: re-point the thread's activities onto the chosen owner ─────────
-    assertWriteAllowed("activities", "opportunity_id");
-
-    // Re-derive the thread's owners from live data (never trust the client).
-    const { data: actData, error: actErr } = await sb
-      .from("activities")
-      .select("id, opportunity_id")
-      .eq("type", "email")
-      .eq("email_thread_id", providerThreadId)
-      .not("opportunity_id", "is", null);
-    if (actErr) throw new Error(actErr.message);
-    const activities = (actData ?? []) as Array<{
-      id: string;
-      opportunity_id: string;
-    }>;
-    if (activities.length === 0) {
-      throw new Error("No activities found for this provider thread");
-    }
-
-    const ownerIds = Array.from(
-      new Set(activities.map((a) => a.opportunity_id))
+  async linkThread(input: LinkThreadInput): Promise<LinkThreadResult> {
+    const providerThreadId = cleanRequired(
+      input.providerThreadId,
+      "provider thread id"
     );
-    if (!ownerIds.includes(targetOpportunityId)) {
-      throw new Error(
-        "REFUSED: target opportunity is not an owner of this thread — never fabricate a link"
-      );
-    }
-
-    const meta = await fetchOppMeta(ownerIds);
-    const target = meta.get(targetOpportunityId);
-    if (!target) throw new Error("Target opportunity not found");
-    if (isHidden(target)) {
-      throw new Error("REFUSED: target opportunity is archived/deleted");
-    }
-
-    // Single-client guarantee: every owner must share the target's client.
-    const targetClient = target.clientId;
-    for (const id of ownerIds) {
-      const o = meta.get(id);
-      if (!o) continue;
-      if (o.companyId !== target.companyId) {
-        throw new Error(
-          "REFUSED: thread spans more than one company — re-point would cross tenant ownership"
-        );
-      }
-      if (o.clientId !== targetClient) {
-        throw new Error(
-          "REFUSED: thread spans more than one client — re-point would move correspondence across customers"
-        );
-      }
-    }
-
-    const connectionId = await resolveThreadConnection(
-      target.companyId,
-      providerThreadId
-    );
-    const repointed = await runGuardedThreadReassignment({
-      companyId: target.companyId,
-      connectionId,
-      providerThreadId,
-      targetOpportunityId,
-      kind,
-    });
-
-    return {
-      providerThreadId,
-      targetOpportunityId,
-      targetTitle: target.title,
-      activitiesRepointed: repointed,
-    };
-  },
-
-  /**
-   * Mark a split thread reviewed-and-left-as-is: re-point its activities onto a
-   * synthetic `legacy:<providerThreadId>` thread id — the same quarantine
-   * marker DW1 uses — so the item drops out of the actionable queue and the
-   * lifecycle cron's fragmentation skip covers it. No opportunity link changes,
-   * no rows deleted. Idempotent: a thread already on its `legacy:` id no-ops.
-   */
-  async quarantineThread(
-    providerThreadId: string,
-    kind: ReviewItemKind = "split"
-  ): Promise<QuarantineThreadResult> {
-    const sb = requireSupabase();
-
-    if (providerThreadId.startsWith("legacy")) {
+    if (providerThreadId.startsWith("legacy:")) {
       throw new Error("REFUSED: thread is already quarantined");
     }
-
-    const { data: actData, error: actErr } = await sb
-      .from("activities")
-      .select("id, subject")
-      .eq("type", "email")
-      .eq("email_thread_id", providerThreadId);
-    if (actErr) throw new Error(actErr.message);
-    const activities = (actData ?? []) as Array<{
-      id: string;
-      subject: string;
-    }>;
-
-    // terminal_live items are NULL-canonical cache rows with no owning
-    // activities. Leaving the cache unset IS the quarantined state — there is
-    // nothing to re-point onto a `legacy:` marker. Resolve gracefully (the item
-    // is acknowledged-and-left-as-is) instead of throwing "no activities".
-    if (activities.length === 0) {
-      if (kind === "terminal_live") {
-        return {
-          providerThreadId,
-          subject: null,
-          activitiesQuarantined: 0,
-        };
+    const result = await callGuardedRpc(
+      "reassign_opportunity_email_thread_guarded",
+      {
+        p_actor_user_id: cleanRequired(input.actorUserId, "actor user id"),
+        p_company_id: cleanRequired(input.companyId, "company id"),
+        p_connection_id: cleanRequired(input.connectionId, "connection id"),
+        p_provider_thread_id: providerThreadId,
+        p_target_opportunity_id: cleanRequired(
+          input.targetOpportunityId,
+          "target opportunity id"
+        ),
+        p_kind: input.kind ?? "split",
       }
-      throw new Error("No activities found for this provider thread");
-    }
-
-    assertWriteAllowed("activities", "email_thread_id");
-
-    const marker = quarantineThreadId(providerThreadId);
-    const subject = activities[0]?.subject ?? null;
-    let count = 0;
-    for (const a of activities) {
-      const { error } = await sb
-        .from("activities")
-        .update({ email_thread_id: marker })
-        .eq("id", a.id)
-        .eq("email_thread_id", providerThreadId); // idempotency guard
-      if (error) throw new Error(`activities ${a.id}: ${error.message}`);
-      count += 1;
-    }
-
+    );
     return {
-      providerThreadId,
-      subject,
-      activitiesQuarantined: count,
+      providerThreadId: String(result.provider_thread_id ?? providerThreadId),
+      targetOpportunityId: String(
+        result.target_opportunity_id ?? input.targetOpportunityId
+      ),
+      targetTitle:
+        typeof result.target_title === "string" ? result.target_title : null,
+      activitiesRepointed: Number(result.activities_repointed ?? 0),
+      resolutionVersion: readResolutionVersion(result),
     };
   },
 
-  // Test-only internals.
-  _assertWriteAllowed: assertWriteAllowed,
+  async quarantineThread(
+    input: QuarantineThreadInput
+  ): Promise<QuarantineThreadResult> {
+    const providerThreadId = cleanRequired(
+      input.providerThreadId,
+      "provider thread id"
+    );
+    if (providerThreadId.startsWith("legacy:")) {
+      throw new Error("REFUSED: thread is already quarantined");
+    }
+    const result = await callGuardedRpc(
+      "quarantine_opportunity_email_thread_guarded",
+      {
+        p_actor_user_id: cleanRequired(input.actorUserId, "actor user id"),
+        p_company_id: cleanRequired(input.companyId, "company id"),
+        p_connection_id: cleanRequired(input.connectionId, "connection id"),
+        p_provider_thread_id: providerThreadId,
+        p_kind: input.kind ?? "split",
+      }
+    );
+    return {
+      providerThreadId: String(result.provider_thread_id ?? providerThreadId),
+      subject: typeof result.subject === "string" ? result.subject : null,
+      activitiesQuarantined: Number(result.activities_quarantined ?? 0),
+      resolutionVersion: readResolutionVersion(result),
+    };
+  },
+
   _quarantineThreadId: quarantineThreadId,
 };

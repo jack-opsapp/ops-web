@@ -32,7 +32,13 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
+import {
+  acquireEmailConnectionSyncLock,
+  createEmailConnectionSyncLockRenewer,
+  releaseEmailConnectionSyncLock,
+} from "@/lib/api/services/email-connection-sync-lock";
 
 export const maxDuration = 300; // 5 min — the Vercel ceiling.
 
@@ -172,8 +178,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     updatedAt: new Date(connRow.updated_at as string),
     // Fields touched by newer migrations; fall back gracefully if absent.
     archiveWritebackPreference:
-      (connRow.archive_writeback_preference as "never" | "always" | "ask_first" | null) ??
-      null,
+      (connRow.archive_writeback_preference as
+        | "never"
+        | "always"
+        | "ask_first"
+        | null) ?? null,
   } as Parameters<typeof EmailService.getProvider>[0];
 
   const provider = EmailService.getProvider(connection);
@@ -194,17 +203,47 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     dryRun,
   };
 
+  let lockOwner: string;
+  try {
+    const acquiredOwner = await acquireEmailConnectionSyncLock(
+      connectionId,
+      "inbox-backfill",
+      supabase
+    );
+    if (!acquiredOwner) {
+      return NextResponse.json(
+        { error: "Mailbox is busy. Try again in a few minutes." },
+        { status: 409 }
+      );
+    }
+    lockOwner = acquiredOwner;
+  } catch (error) {
+    console.error("[/api/inbox/backfill] lock acquisition failed:", error);
+    return NextResponse.json(
+      { error: "Backfill could not safely start" },
+      { status: 500 }
+    );
+  }
+  const renewLockIfNeeded = createEmailConnectionSyncLockRenewer({
+    connectionId,
+    ownerId: lockOwner,
+    context: "inbox-backfill",
+    client: supabase,
+  });
+
   try {
     // ─── 1. Walk the provider's thread list, dedupe across pages ────────────
     const allThreadIds = new Set<string>();
     let pageToken: string | null = startPageToken;
 
     for (let page = 0; page < maxPages; page++) {
+      await renewLockIfNeeded();
       const { threadIds, nextPageToken } = await provider.listThreadIds({
         pageSize: 500,
         after,
         pageToken,
       });
+      await renewLockIfNeeded();
       result.pagesWalked += 1;
       for (const id of threadIds) allThreadIds.add(id);
 
@@ -252,8 +291,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // single 404 (rare — message deleted between the list call and the
     // thread fetch) doesn't abort the whole backfill.
     for (const threadId of missingIds) {
+      await renewLockIfNeeded();
+      let messages: NormalizedEmail[];
       try {
-        const messages = await provider.fetchThread(threadId);
+        messages = await provider.fetchThread(threadId);
+      } catch (err) {
+        result.errors.push({
+          threadId,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        continue;
+      }
+      await renewLockIfNeeded();
+
+      try {
         if (messages.length === 0) continue;
 
         // Order matters for denormalized fields (last_message_at etc.) —
@@ -322,5 +373,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
       { status: 500 }
     );
+  } finally {
+    try {
+      await renewLockIfNeeded.stop();
+    } finally {
+      await releaseEmailConnectionSyncLock(
+        connectionId,
+        lockOwner,
+        "inbox-backfill",
+        supabase
+      );
+    }
   }
 }

@@ -9,7 +9,8 @@
  *
  * Entry points:
  *   - classifyDraftOutcome — pure classifier (Part A, TDD-driven)
- *   - reconcilePendingMailboxDrafts — runner wired into the per-thread sync path (Part B)
+ *   - reconcilePendingMailboxDrafts — exact per-thread reconciler (Part B)
+ *   - reconcilePendingMailboxDraftsForConnection — bounded per-sync sweep
  */
 
 import { requireSupabase } from "@/lib/supabase/helpers";
@@ -24,6 +25,12 @@ import {
   stripKnownRenderedEmailSignatures,
 } from "./email-signature-service";
 import type { EmailConnection } from "@/lib/types/email-connection";
+import { mapGmailReads } from "./providers/gmail-read";
+import type { ProviderReadPolicy } from "./email-provider";
+import {
+  runEmailProviderMailboxOperation,
+  type EmailProviderMailboxCheckpoint,
+} from "./email-provider-mailbox-operation";
 
 // ─── Part A: Pure Classifier ────────────────────────────────────────────────
 
@@ -85,6 +92,10 @@ export interface ReconcileParams {
   /** Provider thread id (e.g. Gmail threadId / M365 conversationId). */
   providerThreadId: string;
   supabase: ReturnType<typeof requireSupabase>;
+  /** Shared absolute budget supplied by the connection-level sync sweep. */
+  readPolicy?: ProviderReadPolicy;
+  /** Reuse the sync worker's physical-mailbox lease when one is already held. */
+  providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
 }
 
 interface ResolvedMailboxLearningActor {
@@ -93,6 +104,40 @@ interface ResolvedMailboxLearningActor {
   assignmentVersion: number | null;
   assignmentEventId: string | null;
   proofType: "native_mailbox_draft" | "personal_mailbox_owner";
+}
+
+const DRAFT_RECONCILIATION_READ_DEADLINE_MS = 2 * 60 * 1000;
+const DRAFT_RECONCILIATION_SWEEP_DEADLINE_MS = 4 * 60 * 1000;
+const DRAFT_RECONCILIATION_SWEEP_CANDIDATE_LIMIT = 500;
+const DRAFT_RECONCILIATION_SWEEP_THREAD_LIMIT = 100;
+
+function reconciliationFailureMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === "object" &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message;
+  }
+  return String(error);
+}
+
+function throwReconciliationFailures(
+  label: string,
+  failures: Array<{ identity: string; error: unknown }>
+): never {
+  const detail = failures
+    .slice(0, 3)
+    .map(
+      ({ identity, error }) =>
+        `${identity}: ${reconciliationFailureMessage(error)}`
+    )
+    .join("; ");
+  throw new Error(
+    `[draft-reconciliation] ${label} (${failures.length}): ${detail}`,
+    { cause: failures[0]?.error }
+  );
 }
 
 async function resolveMailboxLearningActor(input: {
@@ -116,11 +161,10 @@ async function resolveMailboxLearningActor(input: {
     }
   );
   if (error) {
-    console.warn(
-      "[draft-reconciliation] mailbox actor proof unavailable; learning disabled",
-      error
+    throw new Error(
+      `[draft-reconciliation] mailbox actor proof failed: ${reconciliationFailureMessage(error)}`,
+      { cause: error }
     );
-    return null;
   }
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
 
@@ -209,13 +253,16 @@ async function authoredBodyWithoutKnownSignature(input: {
  *     snapshot, so its omissions cannot prove deletion. Reconciliation calls
  *     getDraft() for each immutable mailbox_draft_id instead.
  *
- * Error isolation: one row's failure does not abort the rest.
- * Fire-and-forget from the sync loop: the caller wraps in .catch(log).
+ * Error isolation: one row's failure does not abort the rest. The sync loop
+ * awaits reconciliation so exact provider reads finish before its connection
+ * lease is released.
  */
 export async function reconcilePendingMailboxDrafts({
   connection,
   providerThreadId,
   supabase,
+  readPolicy,
+  providerLockCheckpoint,
 }: ReconcileParams): Promise<void> {
   // Step 1: Query for pending rows — exit immediately if none.
   const { data: pendingRows, error: queryErr } = await supabase
@@ -230,8 +277,10 @@ export async function reconcilePendingMailboxDrafts({
     .not("mailbox_draft_id", "is", null);
 
   if (queryErr) {
-    console.error("[draft-reconciliation] pending-row query failed:", queryErr);
-    return;
+    throw new Error(
+      `[draft-reconciliation] pending-row query failed: ${reconciliationFailureMessage(queryErr)}`,
+      { cause: queryErr }
+    );
   }
 
   if (!pendingRows || pendingRows.length === 0) {
@@ -271,37 +320,57 @@ export async function reconcilePendingMailboxDrafts({
         p_expected_old_draft_history_id: String(ordered[1].id),
       });
       if (error) {
-        console.error(
-          `[draft-reconciliation] competing history repair failed for ${mailboxDraftId}:`,
-          error
+        throw new Error(
+          `[draft-reconciliation] competing history repair failed for ${mailboxDraftId}: ${reconciliationFailureMessage(error)}`,
+          { cause: error }
         );
-        continue;
       }
     }
     canonicalRows.push(newest);
   }
 
-  const provider = EmailService.getProvider(connection);
   const draftPresence = new Map<string, boolean>();
-  await Promise.all(
-    canonicalRows.map(async (row) => {
-      const mailboxDraftId = String(row.mailbox_draft_id);
-      try {
-        draftPresence.set(
-          mailboxDraftId,
-          (await provider.getDraft(mailboxDraftId)) !== null
-        );
-      } catch (error) {
-        console.error(
-          `[draft-reconciliation] getDraft failed for ${mailboxDraftId} (will retry):`,
-          error
+  const providerReadFailures: Array<{ identity: string; error: unknown }> = [];
+  const effectiveReadPolicy: ProviderReadPolicy = {
+    deadlineAt:
+      readPolicy?.deadlineAt ??
+      Date.now() + DRAFT_RECONCILIATION_READ_DEADLINE_MS,
+    context: readPolicy?.context ?? "mailbox draft reconciliation",
+  };
+  await runEmailProviderMailboxOperation({
+    supabase,
+    connectionId: connection.id,
+    context: "mailbox-draft-reconciliation",
+    busyError: "DRAFT_RECONCILIATION_MAILBOX_BUSY",
+    providerLockCheckpoint,
+    run: async (checkpoint) => {
+      const provider = EmailService.getProvider(connection);
+      await mapGmailReads(
+        canonicalRows,
+        async (row, _index, readPolicy) => {
+          const mailboxDraftId = String(row.mailbox_draft_id);
+          await checkpoint();
+          try {
+            const draft = await provider.getDraft(mailboxDraftId, readPolicy);
+            draftPresence.set(mailboxDraftId, draft !== null);
+          } catch (error) {
+            providerReadFailures.push({ identity: mailboxDraftId, error });
+          }
+          await checkpoint();
+        },
+        effectiveReadPolicy
+      );
+      if (providerReadFailures.length > 0) {
+        throwReconciliationFailures(
+          "exact provider draft read failed; sync checkpoint withheld",
+          providerReadFailures
         );
       }
-    })
-  );
+    },
+  });
 
   // Step 3: Query outbound activities for this thread (all of them, ordered oldest-first).
-  const { data: outboundActivities } = await supabase
+  const { data: outboundActivities, error: outboundError } = await supabase
     .from("activities")
     .select(
       "id, body_text, created_at, subject, from_email, to_emails, email_message_id, opportunity_id"
@@ -311,6 +380,12 @@ export async function reconcilePendingMailboxDrafts({
     .eq("email_thread_id", providerThreadId)
     .eq("direction", "outbound")
     .order("created_at", { ascending: true });
+  if (outboundError) {
+    throw new Error(
+      `[draft-reconciliation] outbound activity query failed: ${reconciliationFailureMessage(outboundError)}`,
+      { cause: outboundError }
+    );
+  }
 
   const outbound = outboundActivities ?? [];
 
@@ -324,6 +399,7 @@ export async function reconcilePendingMailboxDrafts({
       Date.parse(String(left.created_at ?? ""))
   );
   const claimedOutboundMessageIds = new Set<string>();
+  const rowFailures: Array<{ identity: string; error: unknown }> = [];
   for (const row of canonicalRows) {
     try {
       const rowCreatedAt = new Date(row.created_at as string);
@@ -505,24 +581,26 @@ export async function reconcilePendingMailboxDrafts({
               );
             }
           }
-          await supabase
+          const { error: supersedeError } = await supabase
             .from("ai_draft_history")
             .update({
               status: "superseded",
               discarded_at: new Date().toISOString(),
             })
             .eq("id", row.id);
+          if (supersedeError) throw supersedeError;
           break;
         }
 
         case "discarded": {
-          await supabase
+          const { error: discardError } = await supabase
             .from("ai_draft_history")
             .update({
               status: "discarded_in_mailbox",
               discarded_at: new Date().toISOString(),
             })
             .eq("id", row.id);
+          if (discardError) throw discardError;
           break;
         }
 
@@ -531,11 +609,85 @@ export async function reconcilePendingMailboxDrafts({
           break;
       }
     } catch (err) {
-      // One row's failure must not abort others.
-      console.error(
-        `[draft-reconciliation] row ${row.id} failed (non-fatal):`,
-        err
-      );
+      // Finish the bounded batch so independent rows can converge, then hold
+      // the provider cursor and replay the cycle if any durable transition
+      // failed. Provider ids and queue claims make successful rows idempotent.
+      rowFailures.push({ identity: String(row.id), error: err });
     }
+  }
+  if (rowFailures.length > 0) {
+    throwReconciliationFailures(
+      "draft outcome persistence failed; sync checkpoint withheld",
+      rowFailures
+    );
+  }
+}
+
+/**
+ * Revisit a bounded set of pending mailbox-draft threads once per connection
+ * sync. This runs even when Gmail reports no new message, which is the only
+ * way to observe a draft deleted without being sent. The caller owns the
+ * connection lease and must not publish its provider cursor if this rejects.
+ */
+export async function reconcilePendingMailboxDraftsForConnection({
+  connection,
+  supabase,
+  providerLockCheckpoint,
+}: {
+  connection: EmailConnection;
+  supabase: ReturnType<typeof requireSupabase>;
+  providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+}): Promise<void> {
+  const { data, error } = await supabase
+    .from("ai_draft_history")
+    .select("thread_id")
+    .eq("company_id", connection.companyId)
+    .eq("connection_id", connection.id)
+    .eq("status", "auto_drafted")
+    .not("mailbox_draft_id", "is", null)
+    .not("thread_id", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(DRAFT_RECONCILIATION_SWEEP_CANDIDATE_LIMIT);
+  if (error) {
+    throw new Error(
+      `[draft-reconciliation] pending-thread sweep query failed: ${reconciliationFailureMessage(error)}`,
+      { cause: error }
+    );
+  }
+
+  const providerThreadIds = Array.from(
+    new Set(
+      (data ?? [])
+        .map((row) =>
+          typeof row.thread_id === "string" ? row.thread_id.trim() : ""
+        )
+        .filter(Boolean)
+    )
+  ).slice(0, DRAFT_RECONCILIATION_SWEEP_THREAD_LIMIT);
+  if (providerThreadIds.length === 0) return;
+
+  const readPolicy: ProviderReadPolicy = {
+    deadlineAt: Date.now() + DRAFT_RECONCILIATION_SWEEP_DEADLINE_MS,
+    context: "mailbox draft reconciliation sweep",
+  };
+  const threadFailures: Array<{ identity: string; error: unknown }> = [];
+  for (const providerThreadId of providerThreadIds) {
+    try {
+      await reconcilePendingMailboxDrafts({
+        connection,
+        providerThreadId,
+        supabase,
+        readPolicy,
+        providerLockCheckpoint,
+      });
+    } catch (error) {
+      threadFailures.push({ identity: providerThreadId, error });
+    }
+  }
+  if (threadFailures.length > 0) {
+    throwReconciliationFailures(
+      "connection draft sweep failed; sync checkpoint withheld",
+      threadFailures
+    );
   }
 }

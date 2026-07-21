@@ -10,8 +10,11 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AutoSendService } from "@/lib/api/services/auto-send-service";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
-import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
+import { resolvePhaseCCategorySettingsAccess } from "@/lib/email/phase-c-category-settings-access";
 import { validateAutoSendSettingsTransition } from "@/lib/email/email-auto-send-settings-guard";
+import { PhaseCCategoryAutonomy } from "@/lib/api/services/phase-c-category-autonomy-service";
+import { WritingProfileService } from "@/lib/api/services/writing-profile-service";
+import { EMAIL_THREAD_CATEGORIES } from "@/lib/types/email-thread";
 
 export const maxDuration = 15;
 
@@ -30,7 +33,7 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
-    const access = await resolveEmailConnectionOperationAccess({
+    const access = await resolvePhaseCCategorySettingsAccess({
       request,
       claimedCompanyId: companyId,
       connectionId,
@@ -39,8 +42,7 @@ export async function GET(request: NextRequest) {
     if (!access.allowed) {
       return NextResponse.json(
         {
-          error:
-            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+          error: access.status === 401 ? "Unauthorized" : "Forbidden",
         },
         { status: access.status }
       );
@@ -71,14 +73,44 @@ export async function GET(request: NextRequest) {
 
     const rawSettings =
       (rawConn?.auto_send_settings as Record<string, unknown>) || {};
+    const [actorLevels, writingProfiles] = await Promise.all([
+      PhaseCCategoryAutonomy.get(connectionId, access.actor.userId),
+      supabase
+        .from("agent_writing_profiles")
+        .select("emails_analyzed")
+        .eq("company_id", companyId)
+        .eq("user_id", access.actor.userId),
+    ]);
+    if (writingProfiles.error) {
+      throw new Error(
+        `Failed to read writing profile: ${writingProfiles.error.message}`
+      );
+    }
+    const emailsAnalyzed = (writingProfiles.data ?? []).reduce(
+      (maximum, profile) =>
+        Math.max(maximum, Number(profile.emails_analyzed ?? 0)),
+      0
+    );
+    const confidence = WritingProfileService.getConfidence(emailsAnalyzed);
+    const actorCategoryAutonomy = {
+      ...((rawSettings.category_autonomy as Record<string, unknown>) ?? {}),
+      ...Object.fromEntries(
+        EMAIL_THREAD_CATEGORIES.map((category) => [
+          `primary:${category}`,
+          actorLevels[category],
+        ])
+      ),
+    };
 
     if (!featureEnabled) {
       return NextResponse.json({
         featureEnabled: false,
         settings: {
           auto_draft_enabled: rawSettings.auto_draft_enabled ?? false,
-          category_autonomy: rawSettings.category_autonomy ?? {},
+          category_autonomy: actorCategoryAutonomy,
           milestones: rawSettings.milestones ?? {},
+          emails_analyzed: emailsAnalyzed,
+          confidence,
         },
       });
     }
@@ -93,8 +125,10 @@ export async function GET(request: NextRequest) {
       settings: {
         ...settings,
         auto_draft_enabled: rawSettings.auto_draft_enabled ?? false,
-        category_autonomy: rawSettings.category_autonomy ?? {},
+        category_autonomy: actorCategoryAutonomy,
         milestones: rawSettings.milestones ?? {},
+        emails_analyzed: emailsAnalyzed,
+        confidence,
       },
     });
   } catch (err) {
@@ -130,7 +164,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
     }
 
-    const access = await resolveEmailConnectionOperationAccess({
+    const access = await resolvePhaseCCategorySettingsAccess({
       request,
       claimedCompanyId: companyId,
       connectionId,
@@ -139,8 +173,7 @@ export async function PUT(request: NextRequest) {
     if (!access.allowed) {
       return NextResponse.json(
         {
-          error:
-            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+          error: access.status === 401 ? "Unauthorized" : "Forbidden",
         },
         { status: access.status }
       );
@@ -175,20 +208,53 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const requestedCategoryAutonomy =
+      typeof (settings as Record<string, unknown>).category_autonomy ===
+        "object" &&
+      (settings as Record<string, unknown>).category_autonomy !== null &&
+      !Array.isArray((settings as Record<string, unknown>).category_autonomy)
+        ? ((settings as Record<string, unknown>).category_autonomy as Record<
+            string,
+            unknown
+          >)
+        : {};
+    const requestsAutonomousSend = Object.values(
+      requestedCategoryAutonomy
+    ).some((level) => level === "auto_send" || level === "auto_follow_up");
+    if (
+      !autoSendEnabled &&
+      ((settings as Record<string, unknown>).enabled === true ||
+        requestsAutonomousSend)
+    ) {
+      return NextResponse.json(
+        {
+          error: "Auto-send is not enabled for this company.",
+          reason: "feature_disabled",
+        },
+        { status: 403 }
+      );
+    }
+
     const currentSettings =
       (ownedConnection.auto_send_settings as Record<string, unknown> | null) ??
       {};
     const graduation = await validateAutoSendSettingsTransition({
       companyId,
+      connectionId,
       actorUserId: access.actor.userId,
       currentSettings,
       requestedSettings: settings as Record<string, unknown>,
     });
     if (!graduation.allowed) {
+      const error =
+        graduation.reason === "category_required"
+          ? "Choose a ready email category to enable auto-send."
+          : graduation.reason === "invalid_category"
+            ? "Auto-send is unavailable for this email category."
+            : "Keep reviewing this category's drafts. Auto-send unlocks at 20 drafts and 95% sent unchanged.";
       return NextResponse.json(
         {
-          error:
-            "Keep reviewing drafts. Auto-send unlocks at 20 drafts and 95% sent unchanged.",
+          error,
           reason: graduation.reason,
           categoryKey: graduation.categoryKey,
           sampleSize: graduation.sampleSize,
@@ -200,7 +266,12 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    await AutoSendService.updateSettings(companyId, connectionId, settings);
+    await AutoSendService.updateSettings(
+      companyId,
+      connectionId,
+      access.actor.userId,
+      settings
+    );
 
     return NextResponse.json({ ok: true });
   } catch (err) {

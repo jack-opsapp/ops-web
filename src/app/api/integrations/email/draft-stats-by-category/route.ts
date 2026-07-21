@@ -1,14 +1,19 @@
 /**
  * GET /api/integrations/email/draft-stats-by-category
  *
- * Returns per-profile-type draft counts for the category autonomy UI.
+ * Returns actor-mailbox readiness for each exact primary category.
  * Authenticated: requires Firebase auth + company_id validation.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
+import { resolvePhaseCCategorySettingsAccess } from "@/lib/email/phase-c-category-settings-access";
+import { PhaseCCategoryAutonomy } from "@/lib/api/services/phase-c-category-autonomy-service";
+import {
+  EMAIL_THREAD_CATEGORIES,
+  type EmailThreadCategory,
+} from "@/lib/types/email-thread";
 
 export const maxDuration = 15;
 
@@ -28,7 +33,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const access = await resolveEmailConnectionOperationAccess({
+    const access = await resolvePhaseCCategorySettingsAccess({
       request,
       claimedCompanyId: companyId,
       connectionId,
@@ -37,37 +42,29 @@ export async function GET(request: NextRequest) {
     if (!access.allowed) {
       return NextResponse.json(
         {
-          error:
-            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+          error: access.status === 401 ? "Unauthorized" : "Forbidden",
         },
         { status: access.status }
       );
     }
 
-    // Count sent drafts grouped by profile_type
-    const { data, error } = await supabase
-      .from("ai_draft_history")
-      .select("profile_type")
-      .eq("company_id", companyId)
-      .eq("connection_id", connectionId)
-      .eq("user_id", access.actor.userId)
-      .eq("status", "sent");
+    const entries = await Promise.all(
+      EMAIL_THREAD_CATEGORIES.map(async (category) => [
+        category,
+        await PhaseCCategoryAutonomy.isGraduated(
+          companyId,
+          connectionId,
+          access.actor.userId,
+          category
+        ),
+      ])
+    );
+    const categoryReadiness = Object.fromEntries(entries) as Record<
+      EmailThreadCategory,
+      { ready: boolean; sampleSize: number; approvalRate: number }
+    >;
 
-    if (error) {
-      console.error("[draft-stats-by-category] Query error:", error.message);
-      return NextResponse.json(
-        { error: "Failed to fetch stats" },
-        { status: 500 }
-      );
-    }
-
-    const counts: Record<string, number> = {};
-    for (const row of data || []) {
-      const pt = (row.profile_type as string) || "general";
-      counts[pt] = (counts[pt] || 0) + 1;
-    }
-
-    return NextResponse.json({ categoryCounts: counts });
+    return NextResponse.json({ categoryReadiness });
   } catch (err) {
     console.error("[draft-stats-by-category] Unexpected error:", err);
     return NextResponse.json(

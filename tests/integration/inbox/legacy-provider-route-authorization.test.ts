@@ -1,23 +1,33 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   fetchThreadMock,
   findUserByAuthMock,
   getImageAttachmentsMock,
   getProviderMock,
+  runWithEmailConnectionSyncLockMock,
+  runWithSupabaseMock,
   resolveEmailOpportunityAccessMock,
   resolveEmailRouteActorMock,
   searchEmailsMock,
+  state,
   verifyAdminAuthMock,
 } = vi.hoisted(() => ({
   fetchThreadMock: vi.fn(),
   findUserByAuthMock: vi.fn(),
   getImageAttachmentsMock: vi.fn(),
   getProviderMock: vi.fn(),
+  runWithEmailConnectionSyncLockMock: vi.fn(),
+  runWithSupabaseMock: vi.fn(),
   resolveEmailOpportunityAccessMock: vi.fn(),
   resolveEmailRouteActorMock: vi.fn(),
   searchEmailsMock: vi.fn(),
+  state: {
+    activeMailboxLock: false,
+    activeSupabase: null as unknown,
+    providerCalls: [] as string[],
+  },
   verifyAdminAuthMock: vi.fn(),
 }));
 
@@ -39,6 +49,15 @@ vi.mock("@/lib/supabase/find-user-by-auth", () => ({
 
 vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: { getProvider: getProviderMock },
+}));
+
+vi.mock("@/lib/supabase/helpers", () => ({
+  runWithSupabase: (...args: unknown[]) => runWithSupabaseMock(...args),
+}));
+
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  runWithEmailConnectionSyncLock: (...args: unknown[]) =>
+    runWithEmailConnectionSyncLockMock(...args),
 }));
 
 type Row = Record<string, unknown>;
@@ -128,7 +147,10 @@ function createQuery(table: string) {
     },
     then<TResult1 = unknown, TResult2 = never>(
       onfulfilled?:
-        | ((value: { data: Row[]; error: null }) => TResult1 | PromiseLike<TResult1>)
+        | ((value: {
+            data: Row[];
+            error: null;
+          }) => TResult1 | PromiseLike<TResult1>)
         | null,
       onrejected?:
         | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
@@ -192,6 +214,9 @@ const providerMessage = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  state.activeMailboxLock = false;
+  state.activeSupabase = null;
+  state.providerCalls = [];
   verifyAdminAuthMock.mockResolvedValue({
     uid: "firebase-subject",
     email: "login@example.com",
@@ -216,14 +241,49 @@ beforeEach(() => {
     usedLegacyPipelineManage: false,
     usedLegacyInboxViewCompany: false,
   });
-  fetchThreadMock.mockResolvedValue([providerMessage]);
-  getImageAttachmentsMock.mockResolvedValue([]);
+  runWithSupabaseMock.mockImplementation(
+    async (client: unknown, task: () => Promise<unknown>) => {
+      state.activeSupabase = client;
+      try {
+        return await task();
+      } finally {
+        state.activeSupabase = null;
+      }
+    }
+  );
+  runWithEmailConnectionSyncLockMock.mockImplementation(
+    async ({ run }: { run: () => Promise<unknown> }) => {
+      expect(state.activeSupabase).toBe(supabase);
+      state.activeMailboxLock = true;
+      try {
+        return { acquired: true, value: await run() };
+      } finally {
+        state.activeMailboxLock = false;
+      }
+    }
+  );
+  fetchThreadMock.mockImplementation(async () => {
+    expect(state.activeSupabase).toBe(supabase);
+    expect(state.activeMailboxLock).toBe(true);
+    state.providerCalls.push("fetchThread");
+    return [providerMessage];
+  });
+  getImageAttachmentsMock.mockImplementation(async () => {
+    expect(state.activeSupabase).toBe(supabase);
+    expect(state.activeMailboxLock).toBe(true);
+    state.providerCalls.push("getImageAttachmentsFromThread");
+    return [];
+  });
   searchEmailsMock.mockResolvedValue([providerMessage]);
   getProviderMock.mockReturnValue({
     fetchThread: fetchThreadMock,
     getImageAttachmentsFromThread: getImageAttachmentsMock,
     searchEmails: searchEmailsMock,
   });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("legacy provider-route authorization", () => {
@@ -247,6 +307,8 @@ describe("legacy provider-route authorization", () => {
   });
 
   it("loads an authorized provider thread through its canonical mailbox identity", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-21T09:00:00.000Z"));
     const { GET } = await import("@/app/api/integrations/email/inbox/route");
 
     const response = await GET(
@@ -269,7 +331,46 @@ describe("legacy provider-route authorization", () => {
         email: "office@example.com",
       })
     );
-    expect(fetchThreadMock).toHaveBeenCalledWith("provider-thread-1");
+    expect(runWithEmailConnectionSyncLockMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectionId: "connection-company",
+        context: "legacy-email-inbox-thread",
+        client: supabase,
+      })
+    );
+    expect(fetchThreadMock).toHaveBeenCalledWith("provider-thread-1", {
+      deadlineAt: Date.now() + 45_000,
+      context: "legacy inbox thread",
+    });
+    expect(getImageAttachmentsMock).toHaveBeenCalledWith("provider-thread-1", {
+      deadlineAt: Date.now() + 45_000,
+      context: "legacy inbox thread attachments",
+    });
+    expect(state.providerCalls).toEqual([
+      "fetchThread",
+      "getImageAttachmentsFromThread",
+    ]);
+  });
+
+  it("returns 409 without touching the provider when the authorized mailbox is busy", async () => {
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+    const { GET } = await import("@/app/api/integrations/email/inbox/route");
+
+    const response = await GET(
+      new NextRequest(
+        "https://ops.test/api/integrations/email/inbox?companyId=company-1&threadId=thread-internal"
+      )
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Mailbox is busy. Try again in a few minutes.",
+    });
+    expect(resolveEmailOpportunityAccessMock).toHaveBeenCalled();
+    expect(runWithEmailConnectionSyncLockMock).toHaveBeenCalled();
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(fetchThreadMock).not.toHaveBeenCalled();
+    expect(getImageAttachmentsMock).not.toHaveBeenCalled();
   });
 
   it("ignores legacy connector metadata on an authorized company mailbox", async () => {
@@ -313,14 +414,14 @@ describe("legacy provider-route authorization", () => {
     );
 
     expect(response.status).toBe(404);
+    expect(runWithEmailConnectionSyncLockMock).not.toHaveBeenCalled();
     expect(getProviderMock).not.toHaveBeenCalled();
     expect(fetchThreadMock).not.toHaveBeenCalled();
   });
 
   it("fails closed on the unanchored client provider-search route", async () => {
-    const { GET } = await import(
-      "@/app/api/integrations/email/client-threads/route"
-    );
+    const { GET } =
+      await import("@/app/api/integrations/email/client-threads/route");
 
     const response = await GET(
       new NextRequest(

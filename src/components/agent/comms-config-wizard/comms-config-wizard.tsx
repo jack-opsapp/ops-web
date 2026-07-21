@@ -54,6 +54,12 @@ import {
 } from "@/lib/types/approval-queue";
 import { EmailCategoryAutonomy } from "@/components/settings/email-category-autonomy";
 import { EmailConnectionBrowserService } from "@/lib/api/services/email-connection-browser-service";
+import { authedFetch } from "@/lib/utils/authed-fetch";
+import {
+  parsePhaseCGraduationActionScope,
+  selectPhaseCCalibrationConnection,
+  type PhaseCGraduationActionScope,
+} from "@/lib/email/phase-c-graduation-action";
 import {
   StepShell,
   OptionCard,
@@ -80,6 +86,10 @@ export function CommsConfigWizard() {
   const reduceMotion = useReducedMotion();
 
   const companyId = company?.id ?? null;
+  const graduationScope = useMemo(
+    () => parsePhaseCGraduationActionScope(searchParams),
+    [searchParams]
+  );
 
   // Deep-link support: `?step=N` (1-10). Invalid/missing → start at step 1.
   const initialStep = useMemo(() => {
@@ -294,10 +304,10 @@ export function CommsConfigWizard() {
   // ─── Render ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2
           className={cn(
-            "w-[18px] h-[18px] text-text-3",
+            "h-[18px] w-[18px] text-text-3",
             !reduceMotion && "animate-spin"
           )}
         />
@@ -306,7 +316,7 @@ export function CommsConfigWizard() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col bg-black">
+    <div className="flex min-h-[calc(100vh-64px)] flex-col bg-black">
       {/* Progress indicator */}
       <ProgressBar step={step} />
 
@@ -320,7 +330,7 @@ export function CommsConfigWizard() {
           duration: reduceMotion ? 0.2 : 0.25,
           ease: [0.22, 1, 0.36, 1],
         }}
-        className="flex-1 flex items-start justify-center px-4 py-8"
+        className="flex flex-1 items-start justify-center px-4 py-8"
       >
         {step === 1 && <StepWelcome t={t} onBegin={handleNext} />}
         {step === 2 && (
@@ -374,53 +384,53 @@ export function CommsConfigWizard() {
             onChange={updateSubcontractor}
           />
         )}
-        {step === 9 && <StepCategories t={t} />}
+        {step === 9 && (
+          <StepCategories t={t} graduationScope={graduationScope} />
+        )}
         {step === 10 && (
           <StepSummary
             t={t}
             settings={settings}
             saving={saving}
             onFinish={() => persistAndExit("/agent/queue")}
-            onOpenSettings={() =>
-              persistAndExit("/settings?tab=client-comms")
-            }
+            onOpenSettings={() => persistAndExit("/settings?tab=client-comms")}
           />
         )}
       </motion.div>
 
       {/* Footer navigation */}
       {step < 10 && (
-        <div className="border-t border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
-          <div className="max-w-[640px] mx-auto px-4 py-4 flex items-center justify-between gap-3">
+        <div className="glass-surface border-t border-[rgba(255,255,255,0.08)] bg-glass backdrop-blur-[20px] backdrop-saturate-[1.2]">
+          <div className="mx-auto flex max-w-[640px] items-center justify-between gap-3 px-4 py-4">
             <button
               type="button"
               onClick={handleBack}
               disabled={step === 1}
               className={cn(
-                "flex items-center gap-2 min-h-[36px] px-5 rounded",
+                "flex min-h-[36px] items-center gap-2 rounded px-5",
                 "border border-[rgba(255,255,255,0.12)] bg-transparent",
-                "font-mohave text-[14px] text-text-2 uppercase tracking-[0.04em]",
+                "font-mohave text-[14px] uppercase tracking-[0.04em] text-text-2",
                 "transition-colors duration-150 motion-reduce:transition-none",
                 "hover:border-[rgba(255,255,255,0.24)]",
-                "disabled:opacity-30 disabled:cursor-not-allowed"
+                "disabled:cursor-not-allowed disabled:opacity-30"
               )}
             >
-              <ArrowLeft className="w-[14px] h-[14px]" />
+              <ArrowLeft className="h-[14px] w-[14px]" />
               {t("nav.back")}
             </button>
             <button
               type="button"
               onClick={handleNext}
               className={cn(
-                "flex items-center gap-2 min-h-[36px] px-5 rounded",
+                "flex min-h-[36px] items-center gap-2 rounded px-5",
                 "border border-[#6F94B0] bg-ops-accent",
-                "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
+                "font-mohave text-[14px] uppercase tracking-[0.04em] text-text",
                 "transition-colors duration-150 motion-reduce:transition-none",
-                "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
+                "hover:border-[#6A8AA8] hover:bg-[#6A8AA8]"
               )}
             >
               {step === 9 ? t("nav.review") : t("nav.next")}
-              <ArrowRight className="w-[14px] h-[14px]" />
+              <ArrowRight className="h-[14px] w-[14px]" />
             </button>
           </div>
         </div>
@@ -433,18 +443,18 @@ export function CommsConfigWizard() {
 
 function ProgressBar({ step }: { step: number }) {
   return (
-    <div className="border-b border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
-      <div className="max-w-[640px] mx-auto px-4 py-3">
+    <div className="glass-surface border-b border-[rgba(255,255,255,0.08)] bg-glass backdrop-blur-[20px] backdrop-saturate-[1.2]">
+      <div className="mx-auto max-w-[640px] px-4 py-3">
         <div className="flex items-center gap-1">
           {Array.from({ length: TOTAL_STEPS }, (_, i) => {
             const segStep = i + 1;
             const filled = segStep <= step;
             const current = segStep === step;
             return (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <div key={i} className="flex flex-1 flex-col items-center gap-1">
                 <div
                   className={cn(
-                    "w-full h-[2px] rounded-full",
+                    "h-[2px] w-full rounded-full",
                     "transition-colors duration-[250ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
                     "motion-reduce:transition-none",
                     filled
@@ -492,49 +502,49 @@ function StepWelcome({ t, onBegin }: { t: T; onBegin: () => void }) {
       title={t("step1.title")}
       description={t("step1.description")}
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {emailTypes.map(({ key, Icon }) => (
           <div
             key={key}
-            className="p-3 rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2] flex items-start gap-3"
+            className="glass-surface flex items-start gap-3 rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass p-3 backdrop-blur-[20px] backdrop-saturate-[1.2]"
           >
             <div
-              className="w-[32px] h-[32px] rounded-chip shrink-0 flex items-center justify-center bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]"
+              className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.03)]"
               aria-hidden="true"
             >
-              <Icon className="w-[16px] h-[16px] text-text-2" />
+              <Icon className="h-[16px] w-[16px] text-text-2" />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-mohave text-[13px] text-text uppercase tracking-[0.04em]">
+            <div className="min-w-0 flex-1">
+              <div className="font-mohave text-[13px] uppercase tracking-[0.04em] text-text">
                 {t(`step1.types.${key}.title`)}
               </div>
-              <div className="font-mono text-[11px] text-text-3 mt-1">
+              <div className="mt-1 font-mono text-[11px] text-text-3">
                 [{t(`step1.types.${key}.caption`)}]
               </div>
             </div>
           </div>
         ))}
       </div>
-      <div className="mt-4 p-3 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)]">
+      <div className="mt-4 rounded-chip border border-[rgba(255,255,255,0.06)] bg-[rgba(255,255,255,0.02)] p-3">
         <p className="font-mono text-[12px] text-text-2">
           [{t("step1.estimate")}]
         </p>
       </div>
 
-      <div className="pt-2 flex justify-end">
+      <div className="flex justify-end pt-2">
         <button
           type="button"
           onClick={onBegin}
           className={cn(
-            "flex items-center gap-2 min-h-[36px] px-6 rounded",
+            "flex min-h-[36px] items-center gap-2 rounded px-6",
             "border border-[#6F94B0] bg-ops-accent",
-            "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
+            "font-mohave text-[14px] uppercase tracking-[0.04em] text-text",
             "transition-colors duration-150 motion-reduce:transition-none",
-            "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]"
+            "hover:border-[#6A8AA8] hover:bg-[#6A8AA8]"
           )}
         >
           {t("step1.beginSetup")}
-          <ArrowRight className="w-[14px] h-[14px]" />
+          <ArrowRight className="h-[14px] w-[14px]" />
         </button>
       </div>
     </StepShell>
@@ -597,7 +607,7 @@ function StepStatusUpdates({
       )}
 
       {value.cadence !== "off" && (
-        <div className="pt-3 space-y-3">
+        <div className="space-y-3 pt-3">
           <AutonomyPicker
             t={t}
             value={value.autonomy}
@@ -617,7 +627,9 @@ function StepStatusUpdates({
                   "{{n}}",
                   String(value.send_delay_minutes)
                 )}
-                onChange={(send_delay_minutes) => onChange({ send_delay_minutes })}
+                onChange={(send_delay_minutes) =>
+                  onChange({ send_delay_minutes })
+                }
               />
             </>
           )}
@@ -665,7 +677,8 @@ function StepAppointmentConfirmation({
   ];
 
   const showConfirmModeSubQ =
-    value.level === "draft_on_confirm" || value.level === "auto_send_on_confirm";
+    value.level === "draft_on_confirm" ||
+    value.level === "auto_send_on_confirm";
   const showDelaySubQ =
     value.level === "auto_send_on_confirm" || value.level === "full_auto";
   const showRescheduleSubQ = value.level !== "off";
@@ -676,10 +689,7 @@ function StepAppointmentConfirmation({
           "{{confidence}}",
           String(Math.round(gating.writingProfileConfidence * 100))
         )
-        .replace(
-          "{{priors}}",
-          String(gating.priorConfirmationsSent)
-        )
+        .replace("{{priors}}", String(gating.priorConfirmationsSent))
     : undefined;
 
   return (
@@ -703,8 +713,8 @@ function StepAppointmentConfirmation({
       ))}
 
       {showConfirmModeSubQ && (
-        <div className="pt-3 space-y-2">
-          <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em]">
+        <div className="space-y-2 pt-3">
+          <div className="font-mohave text-[12px] uppercase tracking-[0.08em] text-text-3">
             {t("step3.subQ.confirmMode")}
           </div>
           {confirmModes.map((m) => (
@@ -737,7 +747,7 @@ function StepAppointmentConfirmation({
 
       {showDelaySubQ && (
         <div className="pt-3">
-          <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em] mb-2">
+          <div className="mb-2 font-mohave text-[12px] uppercase tracking-[0.08em] text-text-3">
             {t("step3.subQ.sendDelay")}
           </div>
           <StepSlider
@@ -756,8 +766,8 @@ function StepAppointmentConfirmation({
       )}
 
       {showRescheduleSubQ && (
-        <div className="pt-3 space-y-2">
-          <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em]">
+        <div className="space-y-2 pt-3">
+          <div className="font-mohave text-[12px] uppercase tracking-[0.08em] text-text-3">
             {t("step3.subQ.rescheduleBehavior")}
           </div>
           {rescheduleOptions
@@ -883,9 +893,7 @@ function StepPaymentReminder({
 }: {
   t: T;
   value: ClientCommsSettings["payment_reminder"];
-  onChange: (
-    partial: Partial<ClientCommsSettings["payment_reminder"]>
-  ) => void;
+  onChange: (partial: Partial<ClientCommsSettings["payment_reminder"]>) => void;
 }) {
   const presets: PaymentReminderPreset[] = [
     "standard",
@@ -907,7 +915,7 @@ function StepPaymentReminder({
       />
       {value.enabled && (
         <>
-          <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em] pt-2">
+          <div className="pt-2 font-mohave text-[12px] uppercase tracking-[0.08em] text-text-3">
             {t("step5.preset")}
           </div>
           {presets.map((p) => (
@@ -1016,26 +1024,26 @@ function StepInvoiceCover({
       />
       {value.enabled && (
         <>
-          <div className="p-4 rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]">
-            <div className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.06em] mb-2">
+          <div className="glass-surface rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass p-4 backdrop-blur-[20px] backdrop-saturate-[1.2]">
+            <div className="mb-2 font-mohave text-[13px] uppercase tracking-[0.06em] text-text-2">
               {t("step6.threshold")}
             </div>
             <div className="flex items-center gap-3">
-              <span className="font-mono text-[12px] text-text-3">
-                $
-              </span>
+              <span className="font-mono text-[12px] text-text-3">$</span>
               <input
                 type="number"
                 min={0}
                 step={100}
                 value={value.threshold}
                 onChange={(e) =>
-                  onChange({ threshold: Math.max(0, Number(e.target.value) || 0) })
+                  onChange({
+                    threshold: Math.max(0, Number(e.target.value) || 0),
+                  })
                 }
-                className="flex-1 min-h-[36px] px-3 rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] font-mono text-[14px] text-text outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors motion-reduce:transition-none"
+                className="min-h-[36px] flex-1 rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-3 font-mono text-[14px] text-text outline-none transition-colors focus:border-[rgba(255,255,255,0.20)] motion-reduce:transition-none"
               />
             </div>
-            <div className="font-mono text-[11px] text-text-3 mt-2">
+            <div className="mt-2 font-mono text-[11px] text-text-3">
               [{t("step6.thresholdHint")}]
             </div>
           </div>
@@ -1169,28 +1177,41 @@ function StepSubcontractor({
 
 // ─── Step 9: Per-category overrides ─────────────────────────────────────────
 
-function StepCategories({ t }: { t: T }) {
+function StepCategories({
+  t,
+  graduationScope,
+}: {
+  t: T;
+  graduationScope: PhaseCGraduationActionScope | null;
+}) {
   const { company, currentUser } = useAuthStore();
   const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [autoSendFeatureEnabled, setAutoSendFeatureEnabled] = useState(false);
 
   useEffect(() => {
     if (!company?.id || !currentUser?.id) return;
     let cancelled = false;
     (async () => {
       try {
+        setAutoSendFeatureEnabled(false);
         const conns = await EmailConnectionBrowserService.getConnections();
-        const mine =
-          conns.find(
-            (connection) =>
-              connection.type === "individual" &&
-              connection.userId === currentUser.id &&
-              connection.status === "active"
-          ) ??
-          conns.find(
-            (connection) =>
-              connection.type === "company" && connection.status === "active"
-          );
-        if (!cancelled) setConnectionId(mine?.id ?? null);
+        const mine = selectPhaseCCalibrationConnection(
+          conns,
+          currentUser.id,
+          graduationScope?.connectionId ?? null
+        );
+        if (cancelled) return;
+        setConnectionId(mine?.id ?? null);
+        if (!mine) return;
+
+        const settingsResponse = await authedFetch(
+          `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${mine.id}`
+        );
+        if (!settingsResponse.ok || cancelled) return;
+        const settingsData = await settingsResponse.json();
+        if (!cancelled) {
+          setAutoSendFeatureEnabled(settingsData.featureEnabled === true);
+        }
       } catch {
         // silent
       }
@@ -1198,7 +1219,7 @@ function StepCategories({ t }: { t: T }) {
     return () => {
       cancelled = true;
     };
-  }, [company?.id, currentUser?.id]);
+  }, [company?.id, currentUser?.id, graduationScope?.connectionId]);
 
   return (
     <StepShell
@@ -1210,10 +1231,11 @@ function StepCategories({ t }: { t: T }) {
       {connectionId ? (
         <EmailCategoryAutonomy
           connectionId={connectionId}
-          autoSendFeatureEnabled={true}
+          autoSendFeatureEnabled={autoSendFeatureEnabled}
+          focusPrimaryCategory={graduationScope?.category}
         />
       ) : (
-        <div className="p-4 rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass glass-surface">
+        <div className="glass-surface rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass p-4">
           <p className="font-mono text-[12px] text-text-3">
             [{t("step9.noConnection")}]
           </p>
@@ -1277,8 +1299,9 @@ function StepSummary({
     {
       labelKey: "summary.paymentReminder",
       value: settings.payment_reminder.enabled
-        ? t(`summary.paymentReminderPreset.${settings.payment_reminder.preset}`)
-            .replace("{{n}}", String(settings.payment_reminder.max_reminders))
+        ? t(
+            `summary.paymentReminderPreset.${settings.payment_reminder.preset}`
+          ).replace("{{n}}", String(settings.payment_reminder.max_reminders))
         : t("summary.disabled"),
     },
     {
@@ -1290,7 +1313,9 @@ function StepSummary({
     {
       labelKey: "summary.rescheduleRequest",
       value: settings.reschedule_request.enabled
-        ? t(`summary.rescheduleBehavior.${settings.reschedule_request.behavior}`)
+        ? t(
+            `summary.rescheduleBehavior.${settings.reschedule_request.behavior}`
+          )
         : t("summary.disabled"),
     },
     {
@@ -1314,11 +1339,11 @@ function StepSummary({
         {rows.map((row) => (
           <div
             key={row.labelKey}
-            className="flex items-center justify-between gap-3 min-h-[36px] px-4 rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]"
+            className="glass-surface flex min-h-[36px] items-center justify-between gap-3 rounded-lg border border-[rgba(255,255,255,0.08)] bg-glass px-4 backdrop-blur-[20px] backdrop-saturate-[1.2]"
           >
             <div className="flex items-center gap-2">
-              <Check className="w-[14px] h-[14px] text-text-2" />
-              <span className="font-mohave text-[13px] text-text-2 uppercase tracking-[0.04em]">
+              <Check className="h-[14px] w-[14px] text-text-2" />
+              <span className="font-mohave text-[13px] uppercase tracking-[0.04em] text-text-2">
                 {t(row.labelKey)}
               </span>
             </div>
@@ -1329,7 +1354,7 @@ function StepSummary({
         ))}
       </div>
 
-      <p className="font-mono text-[12px] text-text-3 pt-2">
+      <p className="pt-2 font-mono text-[12px] text-text-3">
         [{t("step10.reminder")}]
       </p>
 
@@ -1339,9 +1364,9 @@ function StepSummary({
           onClick={onOpenSettings}
           disabled={saving}
           className={cn(
-            "flex-1 min-h-[36px] px-5 rounded",
+            "min-h-[36px] flex-1 rounded px-5",
             "border border-[rgba(255,255,255,0.12)] bg-transparent",
-            "font-mohave text-[14px] text-text-2 uppercase tracking-[0.04em]",
+            "font-mohave text-[14px] uppercase tracking-[0.04em] text-text-2",
             "transition-colors duration-150 motion-reduce:transition-none",
             "hover:border-[rgba(255,255,255,0.24)]",
             "disabled:opacity-50"
@@ -1354,18 +1379,18 @@ function StepSummary({
           onClick={onFinish}
           disabled={saving}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 min-h-[36px] px-5 rounded",
+            "flex min-h-[36px] flex-1 items-center justify-center gap-2 rounded px-5",
             "border border-[#6F94B0] bg-ops-accent",
-            "font-mohave text-[14px] text-text uppercase tracking-[0.04em]",
+            "font-mohave text-[14px] uppercase tracking-[0.04em] text-text",
             "transition-colors duration-150 motion-reduce:transition-none",
-            "hover:bg-[#6A8AA8] hover:border-[#6A8AA8]",
+            "hover:border-[#6A8AA8] hover:bg-[#6A8AA8]",
             "disabled:opacity-50"
           )}
         >
           {saving ? (
-            <Loader2 className="w-[14px] h-[14px] animate-spin motion-reduce:animate-none" />
+            <Loader2 className="h-[14px] w-[14px] animate-spin motion-reduce:animate-none" />
           ) : (
-            <Check className="w-[14px] h-[14px]" />
+            <Check className="h-[14px] w-[14px]" />
           )}
           {t("step10.finish")}
         </button>
@@ -1394,7 +1419,7 @@ function AutonomyPicker({
     : ["off", "draft_to_queue"];
   return (
     <div className="space-y-2 pt-2">
-      <div className="font-mohave text-[12px] text-text-3 uppercase tracking-[0.08em]">
+      <div className="font-mohave text-[12px] uppercase tracking-[0.08em] text-text-3">
         {t("autonomyPicker.label")}
       </div>
       {levels.map((lv) => (

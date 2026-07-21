@@ -16,6 +16,10 @@ import { AIDraftService } from "@/lib/api/services/ai-draft-service";
 import { WritingProfileService } from "@/lib/api/services/writing-profile-service";
 import { EmailService } from "@/lib/api/services/email-service";
 import {
+  isEmailProviderMailboxLeaseError,
+  runEmailProviderMailboxOperation,
+} from "@/lib/api/services/email-provider-mailbox-operation";
+import {
   pickExistingMailboxDraft,
   type MailboxDraftRow,
 } from "@/lib/api/services/mailbox-draft-helpers";
@@ -29,6 +33,11 @@ import {
   renderMailboxDraftWithSignature,
   resolveEmailSignatureForMessage,
 } from "@/lib/email/email-signature-runtime";
+import {
+  buildEmailProviderMutationFingerprint,
+  createEmailProviderMutationAttemptService,
+  isEmailProviderMutationReconciliationRequiredError,
+} from "@/lib/api/services/email-provider-mutation-attempt-service";
 
 export const maxDuration = 300;
 
@@ -114,7 +123,7 @@ export async function POST(request: NextRequest) {
         .single(),
       supabase
         .from("activities")
-        .select("subject, email_thread_id, email_connection_id, body_text")
+        .select("id, subject, email_thread_id, email_connection_id, body_text")
         .eq("opportunity_id", canonicalOpportunityId)
         .eq("type", "email")
         .eq("direction", "inbound")
@@ -122,6 +131,10 @@ export async function POST(request: NextRequest) {
         .limit(1),
     ]);
     const latestInbound = lastActivity?.[0] ?? null;
+    const durableDraftSourceKey =
+      typeof latestInbound?.id === "string" && latestInbound.id.trim()
+        ? latestInbound.id.trim()
+        : `opportunity-${canonicalOpportunityId}`;
     const contactFormSubmitter = extractContactFormSubmission(
       (latestInbound?.subject as string) ?? "",
       (latestInbound?.body_text as string) ?? ""
@@ -242,6 +255,26 @@ export async function POST(request: NextRequest) {
       connection = pinnedConnection;
     }
 
+    const authorizeDraftProviderMutation = async (): Promise<boolean> => {
+      const currentAccess = await resolveEmailOpportunityAccess({
+        actor,
+        operation: "send",
+        ...(replyThread
+          ? {
+              threadId: replyThread.id,
+              connectionId: replyThread.connection_id,
+              providerThreadId: replyThread.provider_thread_id,
+              opportunityId: canonicalOpportunityId,
+            }
+          : {
+              connectionId: connection.id,
+              opportunityId: canonicalOpportunityId,
+            }),
+        supabase,
+      });
+      return currentAccess.allowed;
+    };
+
     // ── Quick availability check — no AI calls ───────────────────────────
     if (checkOnly) {
       const profile = await WritingProfileService.getProfile(
@@ -292,153 +325,261 @@ export async function POST(request: NextRequest) {
     // If no active connection, return the draft without mailbox placement.
     let mailboxDraftId: string | null = null;
     let mailboxSaved = false;
+    let mailboxErrorCode: string | null = null;
 
     try {
-      const provider = EmailService.getProvider(connection);
-      const signature = await resolveEmailSignatureForMessage({
+      const earlyResponse = await runEmailProviderMailboxOperation({
         supabase,
-        connection,
-        userId: actor.userId,
-        refreshProviderIfMissing: true,
-      });
-      if (!signature) {
-        throw new Error("EMAIL_SIGNATURE_REQUIRED");
-      }
-      const renderedDraft = renderMailboxDraftWithSignature(
-        draftResult.draft,
-        signature
-      );
-
-      const clientRecord = opp?.clients as unknown as
-        | { email: string; name: string }
-        | { email: string; name: string }[]
-        | null
-        | undefined;
-      const clientObj = Array.isArray(clientRecord)
-        ? clientRecord[0]
-        : clientRecord;
-      const clientEmail = clientObj?.email;
-
-      // Forwarded contact-form lead → fresh first reply on a NEW thread to the
-      // actual client, not a "Re:" glued to the forwarder's thread. Detect from
-      // the latest inbound activity body; if matched, ignore the forwarder
-      // thread entirely and place a clean new-thread outreach (shared helper
-      // also links the thread + tracks thread_id for reconciliation).
-      if (contactFormSubmitter && draftResult.draftHistoryId) {
-        const to = contactFormSubmitter.email || clientEmail;
-        if (!to) {
-          return NextResponse.json({
-            draft: draftResult.draft,
-            confidence: draftResult.confidence,
-            sources: draftResult.sources,
-            available: true,
-            draftHistoryId: draftResult.draftHistoryId,
-            mailboxSaved: false,
-            reason: "No client email to address draft to",
+        connectionId: connection.id,
+        context: "email-draft-placement",
+        busyError: "EMAIL_DRAFT_MAILBOX_BUSY",
+        run: async (checkpoint) => {
+          const provider = EmailService.getProvider(connection);
+          const signature = await resolveEmailSignatureForMessage({
+            supabase,
+            connection,
+            userId: actor.userId,
+            refreshProviderIfMissing: true,
+            providerLockCheckpoint: checkpoint,
           });
-        }
-        const placed = await placeNewThreadDraft({
-          provider,
-          connectionId: connection.id,
-          opportunityId: canonicalOpportunityId,
-          draftHistoryId: draftResult.draftHistoryId,
-          to,
-          subject: draftResult.subject || CONTACT_FORM_OUTREACH_SUBJECT,
-          body: renderedDraft.body,
-          contentType: renderedDraft.contentType,
-        });
-        return NextResponse.json({
-          draft: draftResult.draft,
-          confidence: draftResult.confidence,
-          sources: draftResult.sources,
-          available: true,
-          draftHistoryId: draftResult.draftHistoryId,
-          mailboxSaved: true,
-          mailboxDraftId: placed.mailboxDraftId,
-          provider: connection.provider,
-        });
-      }
+          if (!signature) {
+            throw new Error("EMAIL_SIGNATURE_REQUIRED");
+          }
+          const renderedDraft = renderMailboxDraftWithSignature(
+            draftResult.draft,
+            signature
+          );
 
-      const rawSubject =
-        (latestInbound?.subject as string) ||
-        (opp?.title as string) ||
-        "Your inquiry";
-      const replySubject = normalizeReplySubject(rawSubject);
-      const mailboxThreadId = replyThread?.provider_thread_id;
+          const clientRecord = opp?.clients as unknown as
+            | { email: string; name: string }
+            | { email: string; name: string }[]
+            | null
+            | undefined;
+          const clientObj = Array.isArray(clientRecord)
+            ? clientRecord[0]
+            : clientRecord;
+          const clientEmail = clientObj?.email;
 
-      if (!clientEmail) {
-        // No recipient — can't push. Return draft without mailbox placement.
-        return NextResponse.json({
-          draft: draftResult.draft,
-          confidence: draftResult.confidence,
-          sources: draftResult.sources,
-          available: true,
-          draftHistoryId: draftResult.draftHistoryId,
-          mailboxSaved: false,
-          reason: "No client email to address draft to",
-        });
-      }
+          // Forwarded contact-form lead → fresh first reply on a NEW thread to the
+          // actual client, not a "Re:" glued to the forwarder's thread. Detect from
+          // the latest inbound activity body; if matched, ignore the forwarder
+          // thread entirely and place a clean new-thread outreach (shared helper
+          // also links the thread + tracks thread_id for reconciliation).
+          if (contactFormSubmitter && draftResult.draftHistoryId) {
+            const to = contactFormSubmitter.email || clientEmail;
+            if (!to) {
+              return NextResponse.json({
+                draft: draftResult.draft,
+                confidence: draftResult.confidence,
+                sources: draftResult.sources,
+                available: true,
+                draftHistoryId: draftResult.draftHistoryId,
+                mailboxSaved: false,
+                reason: "No client email to address draft to",
+              });
+            }
+            await checkpoint();
+            const placed = await placeNewThreadDraft({
+              provider,
+              connectionId: connection.id,
+              opportunityId: canonicalOpportunityId,
+              draftHistoryId: draftResult.draftHistoryId,
+              to,
+              subject: draftResult.subject || CONTACT_FORM_OUTREACH_SUBJECT,
+              body: renderedDraft.body,
+              contentType: renderedDraft.contentType,
+              providerLockCheckpoint: checkpoint,
+              durableProviderMutation: {
+                actorUserId: actor.userId,
+                operationKey: `manual-new-thread-draft:${connection.id}:${durableDraftSourceKey}`,
+                requestFingerprint: buildEmailProviderMutationFingerprint({
+                  version: 2,
+                  connectionId: connection.id,
+                  opportunityId: canonicalOpportunityId,
+                  sourceActivityId: durableDraftSourceKey,
+                  to: to.trim().toLowerCase(),
+                }),
+              },
+              authorizeProviderMutation: authorizeDraftProviderMutation,
+            });
+            return NextResponse.json({
+              draft: draftResult.draft,
+              confidence: draftResult.confidence,
+              sources: draftResult.sources,
+              available: true,
+              draftHistoryId: draftResult.draftHistoryId,
+              mailboxSaved: true,
+              mailboxDraftId: placed.mailboxDraftId,
+              provider: connection.provider,
+            });
+          }
 
-      // Idempotency: check for an existing unresolved mailbox draft on this
-      // thread so we update in-place rather than creating a duplicate.
-      let existingMailboxDraftId: string | null = null;
-      if (mailboxThreadId && draftResult.draftHistoryId) {
-        const { data: priorRows } = await supabase
-          .from("ai_draft_history")
-          .select("id, mailbox_draft_id, status")
-          .eq("connection_id", connection.id)
-          .eq("thread_id", mailboxThreadId);
-        const existing = pickExistingMailboxDraft(
-          (priorRows ?? []) as MailboxDraftRow[]
-        );
-        existingMailboxDraftId = existing?.mailbox_draft_id ?? null;
-      }
+          const rawSubject =
+            (latestInbound?.subject as string) ||
+            (opp?.title as string) ||
+            "Your inquiry";
+          const replySubject = normalizeReplySubject(rawSubject);
+          const mailboxThreadId = replyThread?.provider_thread_id;
 
-      if (existingMailboxDraftId) {
-        await provider.updateDraft(
-          existingMailboxDraftId,
-          clientEmail,
-          replySubject,
-          renderedDraft.body,
-          mailboxThreadId,
-          renderedDraft.contentType
-        );
-        mailboxDraftId = existingMailboxDraftId;
-      } else {
-        mailboxDraftId = await provider.createDraft(
-          clientEmail,
-          replySubject,
-          renderedDraft.body,
-          mailboxThreadId,
-          renderedDraft.contentType
-        );
-      }
+          if (!clientEmail) {
+            // No recipient — can't push. Return draft without mailbox placement.
+            return NextResponse.json({
+              draft: draftResult.draft,
+              confidence: draftResult.confidence,
+              sources: draftResult.sources,
+              available: true,
+              draftHistoryId: draftResult.draftHistoryId,
+              mailboxSaved: false,
+              reason: "No client email to address draft to",
+            });
+          }
 
-      // Persist mailbox_draft_id + set status to auto_drafted
-      if (draftResult.draftHistoryId && mailboxDraftId) {
-        await supabase
-          .from("ai_draft_history")
-          .update({
-            status: "auto_drafted",
-            mailbox_draft_id: mailboxDraftId,
-            subject: replySubject,
-            subject_source: "thread",
-          })
-          .eq("id", draftResult.draftHistoryId);
-      }
+          // Idempotency: check for an existing unresolved mailbox draft on this
+          // thread so we update in-place rather than creating a duplicate.
+          let existingMailboxDraftId: string | null = null;
+          if (mailboxThreadId && draftResult.draftHistoryId) {
+            const { data: priorRows } = await supabase
+              .from("ai_draft_history")
+              .select("id, mailbox_draft_id, status")
+              .eq("connection_id", connection.id)
+              .eq("thread_id", mailboxThreadId);
+            const existing = pickExistingMailboxDraft(
+              (priorRows ?? []) as MailboxDraftRow[]
+            );
+            existingMailboxDraftId = existing?.mailbox_draft_id ?? null;
+          }
 
-      mailboxSaved = true;
+          if (!draftResult.draftHistoryId) {
+            throw new Error("EMAIL_DRAFT_HISTORY_ID_REQUIRED");
+          }
+
+          const persistMailboxIdentity = async (providerDraftId: string) => {
+            const { error: historyError } = await supabase
+              .from("ai_draft_history")
+              .update({
+                status: "auto_drafted",
+                mailbox_draft_id: providerDraftId,
+                subject: replySubject,
+                subject_source: "thread",
+              })
+              .eq("id", draftResult.draftHistoryId);
+            if (historyError) {
+              throw new Error(
+                `Failed to persist mailbox draft identity: ${historyError.message ?? "unknown error"}`
+              );
+            }
+          };
+
+          await checkpoint();
+          if (existingMailboxDraftId) {
+            if (!(await authorizeDraftProviderMutation())) {
+              throw new Error("EMAIL_DRAFT_AUTHORIZATION_REVOKED");
+            }
+            await provider.updateDraft(
+              existingMailboxDraftId,
+              clientEmail,
+              replySubject,
+              renderedDraft.body,
+              mailboxThreadId,
+              renderedDraft.contentType
+            );
+            mailboxDraftId = existingMailboxDraftId;
+            await checkpoint();
+            await persistMailboxIdentity(mailboxDraftId);
+          } else {
+            let createdThisInvocation = false;
+            const mutationService =
+              createEmailProviderMutationAttemptService(supabase);
+            const completed = await mutationService.execute({
+              actorUserId: actor.userId,
+              connectionId: connection.id,
+              operationKind: "draft_create",
+              operationKey: `manual-reply-draft:${connection.id}:${durableDraftSourceKey}`,
+              requestFingerprint: buildEmailProviderMutationFingerprint({
+                version: 2,
+                connectionId: connection.id,
+                opportunityId: canonicalOpportunityId,
+                providerThreadId: mailboxThreadId ?? null,
+                sourceActivityId: durableDraftSourceKey,
+                to: clientEmail.trim().toLowerCase(),
+              }),
+              assertMailboxLease: () => checkpoint(true),
+              executeProvider: async () => {
+                await checkpoint();
+                if (!(await authorizeDraftProviderMutation())) {
+                  throw new Error("EMAIL_DRAFT_AUTHORIZATION_REVOKED");
+                }
+                const providerDraftId = await provider.createDraft(
+                  clientEmail,
+                  replySubject,
+                  renderedDraft.body,
+                  mailboxThreadId,
+                  renderedDraft.contentType
+                );
+                createdThisInvocation = true;
+                return {
+                  resourceId: providerDraftId,
+                  result: { draftId: providerDraftId },
+                };
+              },
+              reconcile: async (acceptance) => {
+                if (!createdThisInvocation) {
+                  await checkpoint();
+                  if (!(await authorizeDraftProviderMutation())) {
+                    throw new Error("EMAIL_DRAFT_AUTHORIZATION_REVOKED");
+                  }
+                  await provider.updateDraft(
+                    acceptance.resourceId,
+                    clientEmail,
+                    replySubject,
+                    renderedDraft.body,
+                    mailboxThreadId,
+                    renderedDraft.contentType
+                  );
+                  await checkpoint();
+                }
+                await persistMailboxIdentity(acceptance.resourceId);
+              },
+            });
+            mailboxDraftId = completed.providerResourceId;
+            if (!mailboxDraftId) {
+              throw new Error("EMAIL_DRAFT_PROVIDER_IDENTITY_MISSING");
+            }
+          }
+          await checkpoint();
+
+          mailboxSaved = true;
+          return null;
+        },
+      });
+      if (earlyResponse) return earlyResponse;
     } catch (pushErr) {
       // Mailbox push is non-fatal — still return the draft so Copy works.
       console.error("[draft-route] mailbox push failed (non-fatal):", pushErr);
+      if (isEmailProviderMailboxLeaseError(pushErr)) {
+        mailboxErrorCode = pushErr.code;
+      } else if (isEmailProviderMutationReconciliationRequiredError(pushErr)) {
+        mailboxErrorCode = pushErr.code;
+      } else if (
+        pushErr instanceof Error &&
+        pushErr.message === "EMAIL_DRAFT_AUTHORIZATION_REVOKED"
+      ) {
+        mailboxErrorCode = pushErr.message;
+      }
 
       // Update status to auto_drafted even without a mailbox_draft_id so the
       // reconciliation and UI can still see this draft.
       if (draftResult.draftHistoryId) {
-        await supabase
+        const { error: fallbackHistoryError } = await supabase
           .from("ai_draft_history")
           .update({ status: "auto_drafted" })
           .eq("id", draftResult.draftHistoryId);
+        if (fallbackHistoryError) {
+          console.error(
+            "[draft-route] failed to preserve draft history after mailbox error:",
+            fallbackHistoryError
+          );
+        }
       }
     }
 
@@ -450,6 +591,7 @@ export async function POST(request: NextRequest) {
       draftHistoryId: draftResult.draftHistoryId,
       mailboxSaved,
       mailboxDraftId,
+      mailboxErrorCode,
       subject: draftResult.subject,
       provider: connection.provider,
     });

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { EmailService } from "@/lib/api/services/email-service";
+import { runWithEmailConnectionSyncLock } from "@/lib/api/services/email-connection-sync-lock";
 import {
   authoredMessageBody,
   cleanMessageBody,
@@ -15,11 +16,64 @@ import {
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
 
+export const EMAIL_SIGNATURE_PROVIDER_MAILBOX_BUSY =
+  "EMAIL_SIGNATURE_PROVIDER_MAILBOX_BUSY";
+
+export type EmailSignatureProviderLockCheckpoint = (
+  force?: boolean
+) => Promise<void>;
+
+export class EmailSignatureProviderMailboxBusyError extends Error {
+  constructor() {
+    super(EMAIL_SIGNATURE_PROVIDER_MAILBOX_BUSY);
+    this.name = "EmailSignatureProviderMailboxBusyError";
+  }
+}
+
+export function isEmailSignatureProviderMailboxBusyError(
+  error: unknown
+): error is EmailSignatureProviderMailboxBusyError {
+  return (
+    error instanceof EmailSignatureProviderMailboxBusyError ||
+    (error instanceof Error &&
+      error.message === EMAIL_SIGNATURE_PROVIDER_MAILBOX_BUSY)
+  );
+}
+
+async function refreshProviderSignatureUnderLease(input: {
+  connection: EmailConnection;
+  userId: string;
+  checkpoint: EmailSignatureProviderLockCheckpoint;
+}): Promise<void> {
+  // Keep ownership checks outside the provider-error boundary. Provider reads
+  // remain a non-fatal signature fallback, but lease loss must fail closed.
+  await input.checkpoint();
+  try {
+    await EmailSignatureService.refreshProvider({
+      companyId: input.connection.companyId,
+      connectionId: input.connection.id,
+      scopeUserId: null,
+      mailboxAddress: input.connection.email,
+      provider: EmailService.getProvider(input.connection),
+      actorUserId: input.userId,
+      providerLockCheckpoint: input.checkpoint,
+    });
+  } catch (error) {
+    console.error("[email-signature] provider refresh failed", {
+      connectionId: input.connection.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  await input.checkpoint();
+}
+
 export async function resolveEmailSignatureForMessage(input: {
   supabase: SupabaseClient;
   connection: EmailConnection;
   userId: string;
   refreshProviderIfMissing?: boolean;
+  /** Reuse the caller's physical-mailbox lease; prevents nested acquisition. */
+  providerLockCheckpoint?: EmailSignatureProviderLockCheckpoint;
 }): Promise<EffectiveEmailSignature | null> {
   const scope = {
     companyId: input.connection.companyId,
@@ -34,22 +88,29 @@ export async function resolveEmailSignatureForMessage(input: {
     input.refreshProviderIfMissing !== false &&
     input.connection.provider === "gmail"
   ) {
-    try {
-      await EmailSignatureService.refreshProvider({
-        companyId: input.connection.companyId,
-        connectionId: input.connection.id,
-        scopeUserId: null,
-        mailboxAddress: input.connection.email,
-        provider: EmailService.getProvider(input.connection),
-        actorUserId: input.userId,
+    if (input.providerLockCheckpoint) {
+      await refreshProviderSignatureUnderLease({
+        connection: input.connection,
+        userId: input.userId,
+        checkpoint: input.providerLockCheckpoint,
       });
-      signature = await EmailSignatureService.resolveEffective(scope);
-    } catch (error) {
-      console.error("[email-signature] provider refresh failed", {
+    } else {
+      const locked = await runWithEmailConnectionSyncLock({
         connectionId: input.connection.id,
-        error: error instanceof Error ? error.message : String(error),
+        context: "email-signature-provider-refresh",
+        client: input.supabase,
+        run: (checkpoint) =>
+          refreshProviderSignatureUnderLease({
+            connection: input.connection,
+            userId: input.userId,
+            checkpoint,
+          }),
       });
+      if (!locked.acquired) {
+        throw new EmailSignatureProviderMailboxBusyError();
+      }
     }
+    signature = await EmailSignatureService.resolveEffective(scope);
   }
 
   try {
@@ -192,19 +253,16 @@ export async function prepareHistoricalOutboundBodyForLearning(input: {
       exactSignatureRemoved: true,
     };
   } catch (error) {
-    console.warn(
-      "[email-signature] historical exact signature lookup failed; learning disabled",
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      "[email-signature] historical exact signature lookup failed; learning will retry",
       {
         companyId: input.connection.companyId,
         connectionId: input.connection.id,
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       }
     );
-    return {
-      authoredBody: original,
-      cleanBody: original,
-      exactSignatureRemoved: false,
-    };
+    throw new Error(`Historical email signature lookup failed: ${message}`);
   }
 }
 

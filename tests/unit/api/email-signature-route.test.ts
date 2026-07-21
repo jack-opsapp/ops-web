@@ -11,6 +11,7 @@ const {
   listActiveMock,
   saveOpsMock,
   refreshProviderMock,
+  runWithEmailConnectionSyncLockMock,
 } = vi.hoisted(() => ({
   getConnectionMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -21,6 +22,7 @@ const {
   listActiveMock: vi.fn(),
   saveOpsMock: vi.fn(),
   refreshProviderMock: vi.fn(),
+  runWithEmailConnectionSyncLockMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
@@ -50,6 +52,13 @@ vi.mock("@/lib/email/email-route-auth", () => ({
 
 vi.mock("@/lib/email/email-signature-runtime", () => ({
   resolveEmailSignatureForMessage: resolveEmailSignatureForMessageMock,
+  isEmailSignatureProviderMailboxBusyError: (error: unknown) =>
+    error instanceof Error &&
+    error.message === "EMAIL_SIGNATURE_PROVIDER_MAILBOX_BUSY",
+}));
+
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  runWithEmailConnectionSyncLock: runWithEmailConnectionSyncLockMock,
 }));
 
 vi.mock("@/lib/supabase/helpers", () => ({
@@ -107,6 +116,16 @@ beforeEach(() => {
   listActiveMock.mockResolvedValue([]);
   saveOpsMock.mockResolvedValue({});
   refreshProviderMock.mockResolvedValue({ status: "not_configured" });
+  runWithEmailConnectionSyncLockMock.mockImplementation(
+    async ({
+      run,
+    }: {
+      run: (checkpoint: ReturnType<typeof vi.fn>) => unknown;
+    }) => {
+      const checkpoint = vi.fn(async () => undefined);
+      return { acquired: true, value: await run(checkpoint) };
+    }
+  );
 });
 
 describe("email signature route individual-mailbox ownership", () => {
@@ -184,6 +203,26 @@ describe("email signature route individual-mailbox ownership", () => {
     expect(await response.json()).toEqual({
       error: "Gmail signature could not be read. Try again",
     });
+  });
+
+  it("fails busy before constructing or reading the Gmail provider", async () => {
+    getConnectionMock.mockResolvedValue({
+      ...foreignIndividualConnection,
+      userId: "user-1",
+      email: "user-1@example.com",
+    });
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+
+    const response = await POST(
+      jsonRequest("POST", { action: "import_provider" })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "Mailbox is busy. Try again in a few minutes.",
+    });
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(refreshProviderMock).not.toHaveBeenCalled();
   });
 
   it("allows an operator to read their own individual mailbox signature", async () => {

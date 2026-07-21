@@ -10,19 +10,21 @@
  *
  * Body: { targetOpportunityId: string }
  *
- * On success, inserts a standard dismissible rail notification (distinct from
- * the P3 persistent leads_waiting candidates). Permission gate: pipeline.manage.
+ * On success, reconciles one idempotent dismissible rail notification. The
+ * guarded RPC requires canonical lead edit + inbox view for every owner.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import { LeadDataReviewService } from "@/lib/api/services/lead-data-review-service";
+import { runWithSupabase } from "@/lib/supabase/helpers";
+import {
+  isDataReviewAccessDenied,
+  LeadDataReviewService,
+} from "@/lib/api/services/lead-data-review-service";
 import type { ReviewItemKind } from "@/lib/api/services/lead-data-review-service";
 import { renderForCompany } from "@/i18n/server-render";
+import { createTrustedNotifications } from "@/lib/notifications/server-notification-service";
 
 export async function POST(
   request: NextRequest,
@@ -30,31 +32,25 @@ export async function POST(
 ) {
   const { id: providerThreadId } = await params;
 
-  const auth = await verifyAdminAuth(request);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(auth.uid, auth.email);
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 401 });
-  }
-
-  // Granular permission — never filter by role. Re-pointing mutates pipeline
-  // correspondence, so it is gated on pipeline.manage.
-  const allowed = await checkPermissionById(user.id as string, "pipeline.manage");
-  if (!allowed) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { userId: actorUserId, companyId } = actorResolution.actor;
 
   const body = await request.json();
-  const { targetOpportunityId, kind } = body as {
+  const { targetOpportunityId, connectionId, kind } = body as {
     targetOpportunityId?: unknown;
+    connectionId?: unknown;
     kind?: unknown;
   };
   if (!targetOpportunityId || typeof targetOpportunityId !== "string") {
     return NextResponse.json(
       { error: "targetOpportunityId is required" },
+      { status: 400 }
+    );
+  }
+  if (!connectionId || typeof connectionId !== "string") {
+    return NextResponse.json(
+      { error: "connectionId is required" },
       { status: 400 }
     );
   }
@@ -64,26 +60,57 @@ export async function POST(
       { status: 400 }
     );
   }
+  const exactConnectionId = connectionId.trim();
+  const exactProviderThreadId = providerThreadId.trim();
+  const exactTargetOpportunityId = targetOpportunityId.trim();
+  if (!exactConnectionId) {
+    return NextResponse.json(
+      { error: "connectionId is required" },
+      { status: 400 }
+    );
+  }
+  if (!exactProviderThreadId) {
+    return NextResponse.json(
+      { error: "provider thread id is required" },
+      { status: 400 }
+    );
+  }
+  if (!exactTargetOpportunityId) {
+    return NextResponse.json(
+      { error: "targetOpportunityId is required" },
+      { status: 400 }
+    );
+  }
   // The resolving action branches on item kind: "split" re-points activities,
   // "terminal_live" aligns the NULL-canonical cache row. Default to "split".
+  if (kind !== undefined && kind !== "split" && kind !== "terminal_live") {
+    return NextResponse.json(
+      { error: "invalid review item kind" },
+      { status: 400 }
+    );
+  }
   const itemKind: ReviewItemKind =
     kind === "terminal_live" ? "terminal_live" : "split";
 
   const db = getServiceRoleClient();
-  setSupabaseOverride(db);
 
   try {
-    const result = await LeadDataReviewService.linkThread(
-      providerThreadId,
-      targetOpportunityId,
-      itemKind
+    const result = await runWithSupabase(db, () =>
+      LeadDataReviewService.linkThread({
+        actorUserId,
+        companyId,
+        connectionId: exactConnectionId,
+        providerThreadId: exactProviderThreadId,
+        targetOpportunityId: exactTargetOpportunityId,
+        kind: itemKind,
+      })
     );
 
     // Standard dismissible rail notification — the operator already acted.
     // Localized server-side against the company locale; purpose-named type so
     // the rail buckets it as a data-review outcome (not a duplicates scan).
-    const companyId = user.company_id as string | null;
-    if (companyId) {
+    let notificationStatus: "created" | "existing" | "failed" = "failed";
+    try {
       const subjectLabel = result.targetTitle?.trim() || "thread";
       const [title, notifBody, actionLabel] = await Promise.all([
         renderForCompany(companyId, "data-review", "queue.notif.linkedTitle", {
@@ -95,26 +122,41 @@ export async function POST(
         }),
         renderForCompany(companyId, "data-review", "queue.notif.actionLabel"),
       ]);
-      await db.from("notifications").insert({
-        user_id: user.id as string,
-        company_id: companyId,
-        type: "data_review_resolved",
-        title,
-        body: notifBody,
-        is_read: false,
-        persistent: false,
-        action_url: `/dashboard?openProject=${result.targetOpportunityId}&mode=view`,
-        action_label: actionLabel,
-        dedupe_key: `data_review:link:${providerThreadId}`,
-      });
+      const notification = await createTrustedNotifications(
+        {
+          companyId,
+          recipientUserIds: [actorUserId],
+          type: "data_review_resolved",
+          title,
+          body: notifBody,
+          persistent: false,
+          actionUrl: `/dashboard?openProject=${result.targetOpportunityId}&mode=view`,
+          actionLabel,
+          dedupeKey: `data_review_resolution:v1:link:${exactConnectionId}:${result.providerThreadId}:${itemKind}:${result.targetOpportunityId}:r${result.resolutionVersion}`,
+          durableDedupe: true,
+        },
+        db
+      );
+      notificationStatus =
+        notification.errors > 0
+          ? "failed"
+          : notification.createdNotifications.length > 0
+            ? "created"
+            : "existing";
+    } catch (notificationError) {
+      console.error(
+        "[DataReview] link notification reconciliation failed:",
+        notificationError
+      );
     }
 
-    return NextResponse.json({ ok: true, result });
+    return NextResponse.json({ ok: true, result, notificationStatus });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[DataReview] link error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
-  } finally {
-    setSupabaseOverride(null);
+    return NextResponse.json(
+      { error: message },
+      { status: isDataReviewAccessDenied(err) ? 403 : 500 }
+    );
   }
 }

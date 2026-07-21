@@ -11,6 +11,7 @@
   "nav.team": "Team",
   "nav.calibration": "Calibration",
   "nav.agentQueue": "Agent Queue",
+  "nav.autoSendApproval": "Auto-send approval",
   "nav.settings": "Settings",
   "nav.inbox": "Inbox",
 

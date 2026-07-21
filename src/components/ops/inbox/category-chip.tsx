@@ -18,7 +18,10 @@ import { forwardRef } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { EmailThreadCategory } from "@/lib/types/email-thread";
+import { categoryLabel } from "@/lib/email/email-thread-category-metadata";
 import { StateTag, type StateTagTone } from "./state-tag";
+
+export { categoryLabel } from "@/lib/email/email-thread-category-metadata";
 
 // ─── Category metadata ────────────────────────────────────────────────────────
 
@@ -30,24 +33,24 @@ interface CategoryMeta {
 }
 
 const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
-  CUSTOMER:     { tone: "tan",     label: "CUSTOMER",     dotClass: "bg-tan" },
-  VENDOR:       { tone: "neutral", label: "VENDOR",       dotClass: "bg-text-3" },
-  SUBTRADE:     { tone: "neutral", label: "SUBTRADE",     dotClass: "bg-text-3" },
-  JOB_SEEKER:   { tone: "neutral", label: "JOB SEEKER",   dotClass: "bg-text-3" },
-  PLATFORM_BID: { tone: "tan",     label: "PLATFORM BID", dotClass: "bg-tan" },
-  LEGAL:        { tone: "rose",    label: "LEGAL",        dotClass: "bg-rose" },
-  COLLECTIONS:  { tone: "rose",    label: "COLLECTIONS",  dotClass: "bg-rose" },
+  CUSTOMER: { tone: "tan", label: "CUSTOMER", dotClass: "bg-tan" },
+  VENDOR: { tone: "neutral", label: "VENDOR", dotClass: "bg-text-3" },
+  SUBTRADE: { tone: "neutral", label: "SUBTRADE", dotClass: "bg-text-3" },
+  JOB_SEEKER: { tone: "neutral", label: "JOB SEEKER", dotClass: "bg-text-3" },
+  PLATFORM_BID: { tone: "tan", label: "PLATFORM BID", dotClass: "bg-tan" },
+  LEGAL: { tone: "rose", label: "LEGAL", dotClass: "bg-rose" },
+  COLLECTIONS: { tone: "rose", label: "COLLECTIONS", dotClass: "bg-rose" },
   // Fix 2 (confirmed, no visual regression): MARKETING/RECEIPT/PERSONAL/INTERNAL/OTHER
   // use the neutral text tier instead of the legacy ambient tone.
   // StateTag's vocabulary has no `ambient` tone; `neutral`
   // is the closest low-priority tier. The visual delta (+brightness) is acceptable —
   // both are firmly in the muted range. dotClass retains bg-text-mute so standalone
   // colored dots stay at the darker legacy hue.
-  MARKETING:    { tone: "neutral", label: "MARKETING",    dotClass: "bg-text-mute" },
-  RECEIPT:      { tone: "neutral", label: "RECEIPT",      dotClass: "bg-text-mute" },
-  PERSONAL:     { tone: "neutral", label: "PERSONAL",     dotClass: "bg-text-mute" },
-  INTERNAL:     { tone: "neutral", label: "INTERNAL",     dotClass: "bg-text-mute" },
-  OTHER:        { tone: "neutral", label: "OTHER",        dotClass: "bg-text-mute" },
+  MARKETING: { tone: "neutral", label: "MARKETING", dotClass: "bg-text-mute" },
+  RECEIPT: { tone: "neutral", label: "RECEIPT", dotClass: "bg-text-mute" },
+  PERSONAL: { tone: "neutral", label: "PERSONAL", dotClass: "bg-text-mute" },
+  INTERNAL: { tone: "neutral", label: "INTERNAL", dotClass: "bg-text-mute" },
+  OTHER: { tone: "neutral", label: "OTHER", dotClass: "bg-text-mute" },
 };
 
 // ─── Outer-shell tone → Tailwind class map ────────────────────────────────────
@@ -62,14 +65,18 @@ const CATEGORY_META: Record<EmailThreadCategory, CategoryMeta> = {
 //   neutral → VENDOR / SUBTRADE / JOB_SEEKER + low-priority (MARKETING / RECEIPT / PERSONAL / INTERNAL / OTHER)
 //   rose    → LEGAL / COLLECTIONS
 const TONE_CHIP_CLASS: Record<StateTagTone, string> = {
-  tan:      "border-y border-r border-l-2 border-tan/40     border-l-tan     bg-tan/[0.08]",
-  neutral:  "border-y border-r border-l-2 border-text-3/40  border-l-text-3  bg-text-3/[0.08]",
-  rose:     "border-y border-r border-l-2 border-rose/40    border-l-rose    bg-rose/[0.08]",
+  tan: "border-y border-r border-l-2 border-tan/40     border-l-tan     bg-tan/[0.08]",
+  neutral:
+    "border-y border-r border-l-2 border-text-3/40  border-l-text-3  bg-text-3/[0.08]",
+  rose: "border-y border-r border-l-2 border-rose/40    border-l-rose    bg-rose/[0.08]",
   // Remaining tones are not used by CategoryChip but must be present for the
   // Record<StateTagTone, string> constraint. Fallback to neutral shell treatment.
-  accent:   "border-y border-r border-l-2 border-ops-accent/40 border-l-ops-accent bg-ops-accent/[0.08]",
-  olive:    "border-y border-r border-l-2 border-olive/40   border-l-olive   bg-olive/[0.08]",
-  lavender: "border-y border-r border-l-2 border-agent-border-hi border-l-agent-hi bg-agent/[0.08]",
+  accent:
+    "border-y border-r border-l-2 border-ops-accent/40 border-l-ops-accent bg-ops-accent/[0.08]",
+  olive:
+    "border-y border-r border-l-2 border-olive/40   border-l-olive   bg-olive/[0.08]",
+  lavender:
+    "border-y border-r border-l-2 border-agent-border-hi border-l-agent-hi bg-agent/[0.08]",
 };
 
 const FALLBACK_META: CategoryMeta = CATEGORY_META.OTHER;
@@ -79,15 +86,6 @@ function resolveMeta(
 ): CategoryMeta {
   if (!category) return FALLBACK_META;
   return CATEGORY_META[category] ?? FALLBACK_META;
-}
-
-export function categoryLabel(category: EmailThreadCategory): string {
-  const meta = CATEGORY_META[category];
-  if (meta) return meta.label;
-  if (typeof category === "string" && category.length > 0) {
-    return category.replace(/_/g, " ").toUpperCase();
-  }
-  return FALLBACK_META.label;
 }
 
 /**
@@ -139,10 +137,7 @@ export const CategoryChip = forwardRef<
 
   // Size controls the wrapper's height/padding only. The inner StateTag is fixed
   // at 11px per spec — its font size comes from StateTag itself, not sizeClasses.
-  const sizeClasses =
-    size === "md"
-      ? "h-[22px] px-[7px]"
-      : "h-[18px] px-[6px]";
+  const sizeClasses = size === "md" ? "h-[22px] px-[7px]" : "h-[18px] px-[6px]";
 
   const inner = (
     <>

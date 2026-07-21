@@ -31,6 +31,8 @@ export interface TrustedNotificationInput {
   projectId?: string | null;
   deepLinkType?: string | null;
   dedupeKey: string;
+  /** Reconcile the exact identity even after the notification is read/resolved. */
+  durableDedupe?: boolean;
 }
 
 export interface NotificationPreferenceResult {
@@ -42,6 +44,45 @@ export interface NotificationPreferenceResult {
 export interface CreatedTrustedNotification {
   notificationId: string;
   recipientUserId: string;
+}
+
+interface TrustedNotificationIdentityRow {
+  notification_id: string;
+  created: boolean;
+}
+
+function parseTrustedNotificationIdentity(
+  data: unknown
+): TrustedNotificationIdentityRow | null {
+  const raw = Array.isArray(data) ? data[0] : data;
+  return raw &&
+    typeof raw === "object" &&
+    typeof (raw as Record<string, unknown>).notification_id === "string" &&
+    typeof (raw as Record<string, unknown>).created === "boolean"
+    ? (raw as TrustedNotificationIdentityRow)
+    : null;
+}
+
+async function findDurableTrustedNotificationId(params: {
+  db: SupabaseClient;
+  userId: string;
+  companyId: string;
+  type: string;
+  dedupeKey: string;
+}): Promise<string | null> {
+  const { data, error } = await params.db
+    .from("notifications")
+    .select("id")
+    .eq("user_id", params.userId)
+    .eq("company_id", params.companyId)
+    .eq("type", params.type)
+    .eq("dedupe_key", params.dedupeKey)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`Durable notification lookup failed: ${error.message}`);
+  }
+  return typeof data?.id === "string" ? data.id : null;
 }
 
 /**
@@ -121,11 +162,20 @@ export async function createTrustedNotifications(
   createdRecipientIds: string[];
   createdNotifications: CreatedTrustedNotification[];
 }> {
+  const notificationType = input.type.trim();
+  const dedupeKey = input.dedupeKey.trim();
   if (!isSafeInternalNotificationActionUrl(input.actionUrl)) {
     throw new Error("Unsafe notification action URL");
   }
-  if (!input.dedupeKey.trim()) {
+  if (!dedupeKey) {
     throw new Error("Notification dedupe key is required");
+  }
+  if (
+    input.durableDedupe &&
+    (notificationType !== "data_review_resolved" ||
+      !dedupeKey.startsWith("data_review_resolution:v1:"))
+  ) {
+    throw new Error("Unsupported durable notification identity");
   }
 
   const recipients = await filterActiveCompanyRecipients({
@@ -142,13 +192,29 @@ export async function createTrustedNotifications(
     };
   }
 
-  const results = await Promise.all(
-    recipients.map(async (userId) => ({
-      userId,
-      result: await db.rpc("create_notification_if_new_with_identity", {
+  const reconciled = await Promise.all(
+    recipients.map(async (userId) => {
+      if (input.durableDedupe) {
+        const notificationId = await findDurableTrustedNotificationId({
+          db,
+          userId,
+          companyId: input.companyId,
+          type: notificationType,
+          dedupeKey,
+        });
+        if (notificationId) {
+          return {
+            userId,
+            result: { data: null, error: null },
+            row: { notification_id: notificationId, created: false },
+          };
+        }
+      }
+
+      const result = await db.rpc("create_notification_if_new_with_identity", {
         p_user_id: userId,
         p_company_id: input.companyId,
-        p_type: input.type,
+        p_type: notificationType,
         p_title: input.title,
         p_body: input.body,
         p_persistent: input.persistent ?? false,
@@ -156,21 +222,33 @@ export async function createTrustedNotifications(
         p_action_label: input.actionLabel ?? null,
         p_project_id: input.projectId ?? null,
         p_deep_link_type: input.deepLinkType ?? null,
-        p_dedupe_key: input.dedupeKey,
-      }),
-    }))
+        p_dedupe_key: dedupeKey,
+      });
+      const row = parseTrustedNotificationIdentity(result.data);
+
+      // The durable partial unique index may win a race after the preflight,
+      // including when the winner was immediately marked read. Re-read the
+      // exact user/company/type/key without presentation-state filters.
+      if (input.durableDedupe && (result.error || row === null)) {
+        const notificationId = await findDurableTrustedNotificationId({
+          db,
+          userId,
+          companyId: input.companyId,
+          type: notificationType,
+          dedupeKey,
+        });
+        if (notificationId) {
+          return {
+            userId,
+            result: { data: null, error: null },
+            row: { notification_id: notificationId, created: false },
+          };
+        }
+      }
+
+      return { userId, result, row };
+    })
   );
-  const reconciled = results.map(({ userId, result }) => {
-    const raw = Array.isArray(result.data) ? result.data[0] : result.data;
-    const row =
-      raw &&
-      typeof raw === "object" &&
-      typeof (raw as Record<string, unknown>).notification_id === "string" &&
-      typeof (raw as Record<string, unknown>).created === "boolean"
-        ? (raw as { notification_id: string; created: boolean })
-        : null;
-    return { userId, result, row };
-  });
   const errors = reconciled.filter(
     ({ result, row }) => result.error || row === null
   ).length;

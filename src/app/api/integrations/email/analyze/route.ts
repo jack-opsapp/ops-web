@@ -24,6 +24,7 @@
  * → Saves final results
  */
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
@@ -50,14 +51,22 @@ import type { EmailConnection } from "@/lib/types/email-connection";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import type { TriageInput } from "@/lib/api/services/email-ai-classifier";
-import { getAppUrl } from "@/lib/utils/app-url";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { emailPipelineAuthorizationHeaders } from "@/lib/email/email-route-auth";
 import {
   emailConnectionOwnerId,
   resolveEmailConnectionOperationAccess,
 } from "@/lib/email/email-connection-operation-access";
 import { authorizeEmailAnalysisJobContinuation } from "@/lib/email/email-analysis-job-access";
+import {
+  acquireEmailConnectionSyncLock,
+  createEmailConnectionSyncLockRenewer,
+  releaseEmailConnectionSyncLock,
+} from "@/lib/api/services/email-connection-sync-lock";
+import {
+  dispatchPhaseBContinuation,
+  preparePhaseBDispatch,
+} from "@/lib/api/services/phase-c-pipeline-helpers";
+import type { EmailProviderMailboxCheckpoint } from "@/lib/api/services/email-provider-mailbox-operation";
 
 // Uses OPENAI_API_KEY_IMPORT — initial inbox scan.
 function getOpenAI() {
@@ -138,7 +147,7 @@ export async function POST(request: NextRequest) {
   // If there's a running job for this connection less than 5 min old, return it.
   // Jobs older than 5 min are considered stale/dead (Vercel killed the function).
   const STALE_THRESHOLD_MS = 5 * 60 * 1000;
-  const { data: existingJobs } = await supabase
+  const { data: existingJobs, error: existingJobsError } = await supabase
     .from("gmail_scan_jobs")
     .select(
       "id, status, created_at, requested_by_user_id, connection_owner_user_id"
@@ -154,6 +163,13 @@ export async function POST(request: NextRequest) {
     ])
     .order("created_at", { ascending: false })
     .limit(1);
+
+  if (existingJobsError) {
+    return NextResponse.json(
+      { error: "Analysis state could not be checked" },
+      { status: 500 }
+    );
+  }
 
   if (existingJobs && existingJobs.length > 0) {
     const jobAge = Date.now() - new Date(existingJobs[0].created_at).getTime();
@@ -173,102 +189,214 @@ export async function POST(request: NextRequest) {
     console.log(
       `[email-analyze] Stale job ${existingJobs[0].id} (${Math.round(jobAge / 1000)}s old), marking as error`
     );
-    await supabase
+    const { error: staleJobError } = await supabase
       .from("gmail_scan_jobs")
       .update({
         status: "error",
         error_message: "Timed out — function exceeded max duration",
       })
       .eq("id", existingJobs[0].id);
+    if (staleJobError) {
+      return NextResponse.json(
+        { error: "Stale analysis state could not be closed" },
+        { status: 500 }
+      );
+    }
   }
 
-  // Create analysis job
-  const { data: job, error } = await supabase
-    .from("gmail_scan_jobs")
-    .insert({
-      connection_id: connectionId,
-      company_id: companyId,
-      requested_by_user_id: access.actor.userId,
-      connection_owner_user_id: connectionOwnerUserId,
-      status: "pending",
-      progress: {
-        stage: "pending",
-        message: "Starting analysis...",
-        percent: 0,
-      },
-    })
-    .select()
-    .single();
-
-  if (error) {
+  const lockOwner = await acquireEmailConnectionSyncLock(
+    connectionId,
+    "email-analyze-phase-a",
+    supabase
+  );
+  if (!lockOwner) {
     return NextResponse.json(
-      { error: "Failed to create analysis job" },
-      { status: 500 }
+      { error: "Mailbox is busy. Try again in a few minutes." },
+      { status: 409 }
     );
   }
+  let lockHandedToBackground = false;
+  let createdJobId: string | null = null;
 
-  // ─── Persist wizard state on the connection ────────────────────────────────
-  await supabase
-    .from("email_connections")
-    .update({
-      sync_filters: {
-        ...connection.syncFilters,
-        wizardStep: 2,
-        lastScanJobId: job.id,
-        wizardCompleted: false,
-        lastScanComplete: false,
-      },
-      status: "setup_incomplete",
-    })
-    .eq("id", connectionId);
+  try {
+    // Create analysis job
+    const { data: job, error } = await supabase
+      .from("gmail_scan_jobs")
+      .insert({
+        connection_id: connectionId,
+        company_id: companyId,
+        requested_by_user_id: access.actor.userId,
+        connection_owner_user_id: connectionOwnerUserId,
+        status: "pending",
+        progress: {
+          stage: "pending",
+          message: "Starting analysis...",
+          percent: 0,
+        },
+      })
+      .select()
+      .single();
 
-  // Run Phase A (pattern detection + AI classification) in background.
-  // When Phase A completes, it saves intermediate data and chains to
-  // /api/integrations/email/analyze-continue for Phase B (lead building + validation).
-  // Each phase gets its own 800s budget. runWithSupabase binds the
-  // service-role client to this async chain so nested requireSupabase() calls
-  // can't be clobbered by concurrent request handlers.
-  after(async () => {
-    const bgSupabase = getServiceRoleClient();
-    await runWithSupabase(bgSupabase, async () => {
-      try {
-        const continuationAccess = await authorizeEmailAnalysisJobContinuation({
-          supabase: bgSupabase,
-          jobId: job.id,
-          claimedConnectionId: connectionId,
-          claimedCompanyId: companyId,
+    if (error || !job) {
+      return NextResponse.json(
+        { error: "Failed to create analysis job" },
+        { status: 500 }
+      );
+    }
+    createdJobId = job.id as string;
+
+    // ─── Persist wizard state on the connection ────────────────────────────────
+    const { error: wizardStateError } = await supabase
+      .from("email_connections")
+      .update({
+        sync_filters: {
+          ...connection.syncFilters,
+          wizardStep: 2,
+          lastScanJobId: job.id,
+          wizardCompleted: false,
+          lastScanComplete: false,
+        },
+        status: "setup_incomplete",
+      })
+      .eq("id", connectionId);
+    if (wizardStateError) {
+      throw new Error(
+        `Failed to persist analysis wizard state: ${wizardStateError.message}`
+      );
+    }
+
+    // Run Phase A (pattern detection + AI classification) in background.
+    // When Phase A completes, it saves intermediate data and chains to
+    // /api/integrations/email/analyze-continue for Phase B (lead building + validation).
+    // Each phase gets its own 800s budget. runWithSupabase binds the
+    // service-role client to this async chain so nested requireSupabase() calls
+    // can't be clobbered by concurrent request handlers.
+    after(async () => {
+      const bgSupabase = getServiceRoleClient();
+      await runWithSupabase(bgSupabase, async () => {
+        let lockReleased = false;
+        const renewLockIfNeeded = createEmailConnectionSyncLockRenewer({
+          connectionId,
+          ownerId: lockOwner,
+          context: "email-analyze-phase-a",
+          client: bgSupabase,
         });
-        if (!continuationAccess.allowed) {
-          await bgSupabase
+        try {
+          // The request may sit between response handoff and execution. Prove
+          // ownership again before touching Gmail.
+          await renewLockIfNeeded(true);
+          const continuationAccess =
+            await authorizeEmailAnalysisJobContinuation({
+              supabase: bgSupabase,
+              jobId: job.id,
+              claimedConnectionId: connectionId,
+              claimedCompanyId: companyId,
+            });
+          if (!continuationAccess.allowed) {
+            const { error: authorizationWriteError } = await bgSupabase
+              .from("gmail_scan_jobs")
+              .update({
+                status: "error",
+                error_message: `Analysis authorization expired: ${continuationAccess.reason}`,
+              })
+              .eq("id", job.id);
+            if (authorizationWriteError) {
+              throw new Error(
+                `Analysis authorization expired and its error state could not be persisted: ${authorizationWriteError.message}`
+              );
+            }
+            return;
+          }
+          await runPhaseA(
+            job.id,
+            connection,
+            companyId,
+            connectionId,
+            bgSupabase,
+            renewLockIfNeeded
+          );
+
+          // Prove Phase A still owns the mailbox after every provider read,
+          // then create a durable Phase B dispatch before releasing that
+          // owner. Phase B always claims a fresh owner; lease identities never
+          // cross an HTTP boundary.
+          await renewLockIfNeeded(true);
+          const dispatchId = randomUUID();
+          await preparePhaseBDispatch(bgSupabase, job.id, dispatchId);
+          await renewLockIfNeeded.stop();
+          await releaseEmailConnectionSyncLock(
+            connectionId,
+            lockOwner,
+            "email-analyze-phase-a",
+            bgSupabase
+          );
+          lockReleased = true;
+          await dispatchPhaseBContinuation({
+            supabase: bgSupabase,
+            jobId: job.id,
+            connectionId,
+            companyId,
+            dispatchId,
+          });
+        } catch (err) {
+          console.error("[email-analyze] Phase A failed:", err);
+          const { error: failureWriteError } = await bgSupabase
             .from("gmail_scan_jobs")
             .update({
               status: "error",
-              error_message: `Analysis authorization expired: ${continuationAccess.reason}`,
+              error_message: (err as Error).message,
             })
             .eq("id", job.id);
-          return;
+          if (failureWriteError) {
+            throw new Error(
+              `Phase A failed and its error state could not be persisted: ${failureWriteError.message}`
+            );
+          }
+        } finally {
+          await renewLockIfNeeded.stop().catch(() => {});
+          if (!lockReleased) {
+            await releaseEmailConnectionSyncLock(
+              connectionId,
+              lockOwner,
+              "email-analyze-phase-a",
+              bgSupabase
+            );
+          }
         }
-        await runPhaseA(
-          job.id,
-          connection,
-          companyId,
-          connectionId,
-          bgSupabase
-        );
-      } catch (err) {
-        console.error("[email-analyze] Phase A failed:", err);
-        await bgSupabase
-          .from("gmail_scan_jobs")
-          .update({
-            status: "error",
-            error_message: (err as Error).message,
-          })
-          .eq("id", job.id);
-      }
+      });
     });
-  });
+    lockHandedToBackground = true;
 
-  return NextResponse.json({ jobId: job.id });
+    return NextResponse.json({ jobId: job.id });
+  } catch (error) {
+    if (createdJobId) {
+      const { error: failureWriteError } = await supabase
+        .from("gmail_scan_jobs")
+        .update({
+          status: "error",
+          error_message: `Analysis did not start: ${error instanceof Error ? error.message : "Unknown error"}`,
+        })
+        .eq("id", createdJobId);
+      if (failureWriteError) {
+        throw new Error(
+          `Analysis handoff failed and its error state could not be persisted: ${failureWriteError.message}`
+        );
+      }
+    }
+    return NextResponse.json(
+      { error: "Analysis could not safely start" },
+      { status: 500 }
+    );
+  } finally {
+    if (!lockHandedToBackground) {
+      await releaseEmailConnectionSyncLock(
+        connectionId,
+        lockOwner,
+        "email-analyze-phase-a",
+        supabase
+      );
+    }
+  }
 }
 
 async function runPhaseA(
@@ -276,7 +404,8 @@ async function runPhaseA(
   connection: EmailConnection,
   companyId: string,
   connectionId: string,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint
 ) {
   // Track discovered lead names — streamed to the client for fading display
   const discoveredLeadNames: string[] = [];
@@ -286,7 +415,7 @@ async function runPhaseA(
     message: string,
     percent: number
   ) => {
-    await supabase
+    const { error } = await supabase
       .from("gmail_scan_jobs")
       .update({
         status: stage,
@@ -298,6 +427,9 @@ async function runPhaseA(
         },
       })
       .eq("id", jobId);
+    if (error) {
+      throw new Error(`Failed to persist Phase A progress: ${error.message}`);
+    }
   };
 
   // ─── Phase 1: Pattern detection ──────────────────────────────────────────
@@ -309,6 +441,7 @@ async function runPhaseA(
 
   const detection = await PatternDetectionService.detect(connection, {
     monthsBack: 3,
+    providerLockCheckpoint,
   });
 
   const totalEmails =
@@ -341,10 +474,15 @@ async function runPhaseA(
       `[email-analyze] Owner email was empty on connection — detected from sent mail: ${ownerEmailLower}`
     );
     // Also fix the connection so future runs don't hit this
-    await supabase
+    const { error: connectionEmailError } = await supabase
       .from("email_connections")
       .update({ email: ownerEmailLower })
       .eq("id", connectionId);
+    if (connectionEmailError) {
+      throw new Error(
+        `Failed to persist detected mailbox identity: ${connectionEmailError.message}`
+      );
+    }
   }
   if (!ownerEmailLower) {
     console.error(
@@ -359,10 +497,15 @@ async function runPhaseA(
   );
 
   // Add domains from employee emails (users table)
-  const { data: companyUsers } = await supabase
+  const { data: companyUsers, error: companyUsersError } = await supabase
     .from("users")
     .select("email, first_name, last_name")
     .eq("company_id", companyId);
+  if (companyUsersError) {
+    throw new Error(
+      `Failed to load company users for analysis: ${companyUsersError.message}`
+    );
+  }
 
   const employeeEmailSet = new Set<string>();
   const employeeNameSet = new Set<string>();
@@ -376,11 +519,16 @@ async function runPhaseA(
   }
 
   // Fetch company info (needed for domain matching and AI context)
-  const { data: company } = await supabase
+  const { data: company, error: companyError } = await supabase
     .from("companies")
     .select("name, industry")
     .eq("id", companyId)
     .single();
+  if (companyError || !company) {
+    throw new Error(
+      `Failed to load company for analysis: ${companyError?.message ?? "not found"}`
+    );
+  }
 
   // Scan all emails for non-public domains that match the company name
   // e.g., company "Canpro Deck and Rail" → domain "canprodeckandrail.com"
@@ -765,11 +913,16 @@ async function runPhaseA(
 
     let existingClientName: string | null = null;
     if (matchResult.clientId) {
-      const { data: clientData } = await supabase
+      const { data: clientData, error: clientReadError } = await supabase
         .from("clients")
         .select("name")
         .eq("id", matchResult.clientId)
         .single();
+      if (clientReadError) {
+        throw new Error(
+          `Failed to load matched client ${matchResult.clientId}: ${clientReadError.message}`
+        );
+      }
       existingClientName = clientData?.name || null;
     }
 
@@ -826,7 +979,7 @@ async function runPhaseA(
     `[email-analyze] Phase A complete: ${leads.length} raw leads built. Saving intermediate data and chaining to Phase B...`
   );
 
-  await supabase
+  const { error: intermediateWriteError } = await supabase
     .from("gmail_scan_jobs")
     .update({
       status: "building_leads",
@@ -868,14 +1021,11 @@ async function runPhaseA(
       },
     })
     .eq("id", jobId);
-
-  // Chain to Phase B — a separate function invocation with its own 800s budget
-  const baseUrl = getAppUrl();
-  await fetch(`${baseUrl}/api/integrations/email/analyze-continue`, {
-    method: "POST",
-    headers: emailPipelineAuthorizationHeaders(),
-    body: JSON.stringify({ jobId, connectionId, companyId }),
-  });
+  if (intermediateWriteError) {
+    throw new Error(
+      `Failed to persist Phase A result: ${intermediateWriteError.message}`
+    );
+  }
 }
 
 // ─── Helper functions ──────────────────────────────────────────────────────

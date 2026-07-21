@@ -239,7 +239,10 @@ describe("Microsoft365Provider attachments", () => {
               "https://graph.microsoft.com/v1.0/me/messages/message-1/attachments?page=2",
           });
         }
-        return new Response("backend unavailable", { status: 503 });
+        return new Response("backend unavailable", {
+          status: 503,
+          headers: { "retry-after": "0" },
+        });
       })
     );
 

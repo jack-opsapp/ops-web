@@ -20,19 +20,27 @@ const {
   createDraftMock,
   updateDraftMock,
   getConnectionMock,
+  getProviderMock,
   resolveEmailSignatureMock,
   renderMailboxDraftWithSignatureMock,
+  runWithEmailConnectionSyncLockMock,
+  mailboxCheckpointMock,
+  mutationExecuteMock,
 } = vi.hoisted(() => ({
   generateDraftMock: vi.fn(),
   accessResolverMock: vi.fn(),
   createDraftMock: vi.fn(),
   updateDraftMock: vi.fn(),
   getConnectionMock: vi.fn(),
+  getProviderMock: vi.fn(),
   resolveEmailSignatureMock: vi.fn(),
   renderMailboxDraftWithSignatureMock: vi.fn((body: string) => ({
     body: `${body}\n\nOwner signature`,
     contentType: "text" as const,
   })),
+  runWithEmailConnectionSyncLockMock: vi.fn(),
+  mailboxCheckpointMock: vi.fn(async () => undefined),
+  mutationExecuteMock: vi.fn(),
 }));
 vi.mock("@/lib/api/services/ai-draft-service", () => ({
   AIDraftService: { generateDraft: generateDraftMock },
@@ -43,11 +51,17 @@ vi.mock("@/lib/email/email-opportunity-access", () => ({
 vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: {
     getConnection: getConnectionMock,
-    getProvider: vi.fn(() => ({
-      createDraft: createDraftMock,
-      updateDraft: updateDraftMock,
-    })),
+    getProvider: getProviderMock,
   },
+}));
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  runWithEmailConnectionSyncLock: runWithEmailConnectionSyncLockMock,
+}));
+vi.mock("@/lib/api/services/email-provider-mutation-attempt-service", () => ({
+  buildEmailProviderMutationFingerprint: vi.fn(() => "fingerprint-1"),
+  createEmailProviderMutationAttemptService: vi.fn(() => ({
+    execute: mutationExecuteMock,
+  })),
 }));
 vi.mock("@/lib/email/email-signature-runtime", () => ({
   resolveEmailSignatureForMessage: resolveEmailSignatureMock,
@@ -78,6 +92,7 @@ interface DbState {
   priorMailboxDraftRows: Array<Record<string, unknown>>; // provider-draft idempotency
   // P4-A cost-guard fixtures.
   latestInboundMessageId: string | null; // activities latest inbound email_message_id
+  latestInboundFilters: Record<string, unknown> | null;
   matchingHistoryRow: Record<string, unknown> | null; // ai_draft_history match on source_message_id
   rpcCalls: Array<{ name: string; args: Record<string, unknown> }>;
 }
@@ -122,6 +137,7 @@ vi.mock("@/lib/supabase/helpers", async () => {
     chain.maybeSingle = async () => {
       if (table === "activities") {
         // P4-A guard: latest inbound message id lookup.
+        db.latestInboundFilters = { ...filters };
         return {
           data: db.latestInboundMessageId
             ? { email_message_id: db.latestInboundMessageId }
@@ -211,6 +227,7 @@ beforeEach(() => {
     updates: [],
     priorMailboxDraftRows: [],
     latestInboundMessageId: null,
+    latestInboundFilters: null,
     matchingHistoryRow: null,
     rpcCalls: [],
   };
@@ -219,6 +236,10 @@ beforeEach(() => {
   createDraftMock.mockReset();
   updateDraftMock.mockReset();
   getConnectionMock.mockReset();
+  getProviderMock.mockReset().mockReturnValue({
+    createDraft: createDraftMock,
+    updateDraft: updateDraftMock,
+  });
   resolveEmailSignatureMock.mockReset();
   renderMailboxDraftWithSignatureMock.mockClear();
   resolveEmailSignatureMock.mockResolvedValue({
@@ -252,6 +273,27 @@ beforeEach(() => {
     updatedAt: new Date(),
   });
   createDraftMock.mockResolvedValue("gmail-draft-1");
+  runWithEmailConnectionSyncLockMock.mockReset();
+  mailboxCheckpointMock.mockClear();
+  runWithEmailConnectionSyncLockMock.mockImplementation(
+    async ({ run }: { run: (checkpoint: () => Promise<void>) => unknown }) => {
+      return { acquired: true, value: await run(mailboxCheckpointMock) };
+    }
+  );
+  mutationExecuteMock.mockReset().mockImplementation(async (input) => {
+    await input.assertMailboxLease();
+    const providerResult = await input.executeProvider();
+    await input.reconcile({
+      attemptId: "attempt-1",
+      resourceId: providerResult.resourceId,
+      secondaryResourceId: providerResult.secondaryResourceId ?? null,
+      result: providerResult.result ?? {},
+    });
+    return {
+      providerResourceId: providerResult.resourceId,
+      status: "completed",
+    };
+  });
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -281,6 +323,20 @@ describe("P4-C — phase_c provider mailbox draft", () => {
       "text"
     );
     expect(updateDraftMock).not.toHaveBeenCalled();
+    expect(mailboxCheckpointMock).toHaveBeenCalledTimes(5);
+    expect(mutationExecuteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "owner-1",
+        connectionId: "conn-1",
+        operationKind: "draft_create",
+        operationKey: "phase-c-reply-draft:adh-1",
+        requestFingerprint: "fingerprint-1",
+        assertMailboxLease: expect.any(Function),
+        executeProvider: expect.any(Function),
+        reconcile: expect.any(Function),
+      })
+    );
+    expect(mailboxCheckpointMock).toHaveBeenCalledWith(true);
     expect(
       db.inserts.filter((i) => i.table === "opportunity_follow_up_drafts")
     ).toHaveLength(0);
@@ -335,17 +391,142 @@ describe("P4-C — phase_c provider mailbox draft", () => {
     );
 
     expect(result).toEqual({
-      outcome: "auto_drafted",
+      outcome: "draft_placement_pending",
       category: "CUSTOMER",
       effectiveLevel: "auto_draft",
-      detail: "adh-provider-failed",
+      detail: "OAuth token expired",
     });
     expect(createDraftMock).toHaveBeenCalledTimes(1);
     expect(db.rpcCalls).toHaveLength(0);
-    expect(db.updates).toContainEqual({
-      table: "ai_draft_history",
-      payload: { status: "auto_drafted" },
-      filters: { id: "adh-provider-failed" },
+    expect(db.updates).toHaveLength(0);
+  });
+
+  it("reconciles an accepted provider draft by exact id without creating again", async () => {
+    mutationExecuteMock.mockImplementationOnce(async (input) => {
+      await input.assertMailboxLease();
+      await input.reconcile({
+        attemptId: "attempt-recovered",
+        resourceId: "gmail-recovered",
+        secondaryResourceId: null,
+        result: { draftId: "gmail-recovered" },
+      });
+      return {
+        providerResourceId: "gmail-recovered",
+        status: "completed",
+      };
+    });
+    generateDraftMock.mockResolvedValue({
+      available: true,
+      draft: "Generated body",
+      subject: "Re: Quote",
+      draftHistoryId: "adh-recovered",
+    });
+
+    const result = await PhaseCAutonomyRouter.doAutoDraft(
+      thread(),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(result).toMatchObject({
+      outcome: "auto_drafted",
+      detail: "gmail-recovered",
+    });
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).toHaveBeenCalledWith(
+      "gmail-recovered",
+      "client@acme.com",
+      "Re: Quote",
+      "Generated body\n\nOwner signature",
+      "pt-1",
+      "text"
+    );
+    expect(db.rpcCalls).toContainEqual({
+      name: "reassign_phase_c_mailbox_draft",
+      args: expect.objectContaining({
+        p_new_draft_history_id: "adh-recovered",
+        p_mailbox_draft_id: "gmail-recovered",
+        p_expected_old_draft_history_id: null,
+      }),
+    });
+  });
+
+  it("keeps the OPS review draft without provider access when the mailbox is busy", async () => {
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+    generateDraftMock.mockResolvedValue({
+      available: true,
+      draft: "Generated body",
+      subject: "Re: Quote",
+      draftHistoryId: "adh-mailbox-busy",
+    });
+
+    const result = await PhaseCAutonomyRouter.doAutoDraft(
+      thread(),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(result).toEqual({
+      outcome: "draft_placement_pending",
+      category: "CUSTOMER",
+      effectiveLevel: "auto_draft",
+      detail: "PHASE_C_DRAFT_MAILBOX_BUSY",
+    });
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(resolveEmailSignatureMock).not.toHaveBeenCalled();
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(db.updates).toHaveLength(0);
+  });
+
+  it("retries a busy mailbox placement from the durable draft without regenerating", async () => {
+    db.latestInboundMessageId = "msg-busy";
+    runWithEmailConnectionSyncLockMock.mockResolvedValueOnce({
+      acquired: false,
+    });
+    generateDraftMock.mockResolvedValue({
+      available: true,
+      draft: "Generated body",
+      subject: "Re: Quote",
+      draftHistoryId: "adh-mailbox-busy",
+    });
+
+    const first = await PhaseCAutonomyRouter.doAutoDraft(
+      thread(),
+      "owner-1",
+      "auto_draft"
+    );
+    expect(first.outcome).toBe("draft_placement_pending");
+
+    db.matchingHistoryRow = {
+      id: "adh-mailbox-busy",
+      status: "drafted",
+      mailbox_draft_id: null,
+      original_draft: "Generated body",
+      subject: "Re: Quote",
+    };
+    runWithEmailConnectionSyncLockMock.mockImplementationOnce(
+      async ({
+        run,
+      }: {
+        run: (checkpoint: () => Promise<void>) => unknown;
+      }) => ({ acquired: true, value: await run(mailboxCheckpointMock) })
+    );
+
+    const second = await PhaseCAutonomyRouter.doAutoDraft(
+      thread(),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(second.outcome).toBe("auto_drafted");
+    expect(generateDraftMock).toHaveBeenCalledTimes(1);
+    expect(createDraftMock).toHaveBeenCalledTimes(1);
+    expect(db.rpcCalls).toContainEqual({
+      name: "reassign_phase_c_mailbox_draft",
+      args: expect.objectContaining({
+        p_new_draft_history_id: "adh-mailbox-busy",
+        p_mailbox_draft_id: "gmail-draft-1",
+      }),
     });
   });
 
@@ -438,7 +619,7 @@ describe("P4-C — phase_c provider mailbox draft", () => {
       "auto_draft"
     );
 
-    expect(result.outcome).toBe("auto_drafted");
+    expect(result.outcome).toBe("draft_placement_pending");
     expect(createDraftMock).not.toHaveBeenCalled();
     expect(updateDraftMock).not.toHaveBeenCalled();
     expect(renderMailboxDraftWithSignatureMock).not.toHaveBeenCalled();
@@ -477,6 +658,30 @@ describe("P4-C — phase_c provider mailbox draft", () => {
 });
 
 describe("P4-A — pre-LLM cost guard (no re-draft per re-sync)", () => {
+  it("scopes the latest inbound source message to the exact mailbox", async () => {
+    db.latestInboundMessageId = "msg-mailbox-scoped";
+    generateDraftMock.mockResolvedValue({
+      available: true,
+      draft: "Fresh body",
+      subject: "Re: Quote",
+      draftHistoryId: "adh-mailbox-scoped",
+    });
+
+    await PhaseCAutonomyRouter.doAutoDraft(
+      thread({ connectionId: "conn-exact" }),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(db.latestInboundFilters).toMatchObject({
+      company_id: "co-1",
+      email_connection_id: "conn-exact",
+      email_thread_id: "pt-1",
+      type: "email",
+      direction: "inbound",
+    });
+  });
+
   it("short-circuits BEFORE generateDraft when an open phase_c draft already covers the latest inbound message", async () => {
     // The thread's latest inbound message id...
     db.latestInboundMessageId = "msg-123";

@@ -13,6 +13,8 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAppUrl } from "@/lib/utils/app-url";
 import { buildReturnRedirect } from "@/lib/utils/oauth-return";
 
+const MICROSOFT_OAUTH_CALLBACK_DEADLINE_MS = 45_000;
+
 function errorRedirect(returnTo: string | null | undefined, message: string) {
   if (returnTo) {
     const url = buildReturnRedirect(getAppUrl(), returnTo, {
@@ -82,6 +84,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const callbackSignal = AbortSignal.timeout(
+      MICROSOFT_OAUTH_CALLBACK_DEADLINE_MS
+    );
     const tokenRes = await fetch(
       "https://login.microsoftonline.com/common/oauth2/v2.0/token",
       {
@@ -95,6 +100,7 @@ export async function GET(request: NextRequest) {
           grant_type: "authorization_code",
           scope: "User.Read Mail.Read Mail.ReadWrite Mail.Send offline_access",
         }),
+        signal: callbackSignal,
       }
     );
 
@@ -110,6 +116,7 @@ export async function GET(request: NextRequest) {
     const tokens = await tokenRes.json();
     const profileRes = await fetch("https://graph.microsoft.com/v1.0/me", {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
+      signal: callbackSignal,
     });
     if (!profileRes.ok) {
       console.error("[M365 OAuth] Profile lookup failed:", profileRes.status);

@@ -27,7 +27,7 @@ describe("registry shape", () => {
     const keys = ROUTE_REGISTRY.map((e) => e.key);
     const hrefs = ROUTE_REGISTRY.map((e) => e.href);
     const orders = ROUTE_REGISTRY.filter((e) => e.nav !== false).map(
-      (e) => (e.nav as { order: number }).order,
+      (e) => (e.nav as { order: number }).order
     );
     expect(new Set(keys).size).toBe(keys.length);
     expect(new Set(hrefs).size).toBe(hrefs.length);
@@ -52,17 +52,21 @@ describe("registry shape", () => {
     const entries = getNavEntries();
     const lastCommand = entries.reduce(
       (acc, e, i) => (e.nav !== false && e.nav.group === "command" ? i : acc),
-      -1,
+      -1
     );
     const firstOps = entries.findIndex(
-      (e) => e.nav !== false && e.nav.group === "ops",
+      (e) => e.nav !== false && e.nav.group === "ops"
     );
     expect(firstOps).toBeGreaterThan(lastCommand);
   });
 
-  it("phase-C-only entries are exactly calibration and agent-queue", () => {
+  it("phase-C-only entries include the exact auto-send acceptance surface", () => {
     const phaseC = ROUTE_REGISTRY.filter((e) => e.phaseCOnly).map((e) => e.key);
-    expect(phaseC.sort()).toEqual(["agent-queue", "calibration"]);
+    expect(phaseC.sort()).toEqual([
+      "agent-auto-send",
+      "agent-queue",
+      "calibration",
+    ]);
   });
 
   it("inbox is registered but NOT in the nav (shelved per master plan §3)", () => {
@@ -77,6 +81,10 @@ describe("longest-prefix matching", () => {
     expect(getEntryForPath("/agent/queue")?.key).toBe("agent-queue");
     expect(getEntryForPath("/agent/queue/abc")?.key).toBe("agent-queue");
     expect(getEntryForPath("/agent/other")?.key).toBe("agent");
+  });
+
+  it("picks the exact auto-send acceptance entry over /agent", () => {
+    expect(getEntryForPath("/agent/auto-send")?.key).toBe("agent-auto-send");
   });
 
   it("matches nested paths to their root entry", () => {
@@ -98,6 +106,7 @@ describe("title resolution (replaces top-bar routeTitles)", () => {
     ["/projects", "nav.projects"],
     ["/inbox", "nav.inbox"],
     ["/agent/queue", "nav.agentQueue"],
+    ["/agent/auto-send", "nav.autoSendApproval"],
     ["/calibration", "nav.calibration"],
   ])("%s → %s", (path, key) => {
     expect(getTitleKeyForPath(path)).toBe(key);
@@ -120,7 +129,7 @@ describe("nested breadcrumb parent-crumb resolution (top-bar CATALOG // SETUP)",
     expect(getTitleKeyForPath("/catalog/setup")).toBe("nav.catalogSetup");
     expect(getTitleKeyForPath("/catalog")).toBe("nav.catalog");
     expect(getTitleKeyForPath("/catalog/setup")).not.toBe(
-      getTitleKeyForPath("/catalog"),
+      getTitleKeyForPath("/catalog")
     );
   });
 
@@ -144,6 +153,7 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
     ["/calibration", "email.configure_ai"],
     ["/agent", "pipeline.view"],
     ["/agent/queue", "pipeline.view"],
+    ["/agent/auto-send", "inbox.send"],
   ])("%s requires %s", (path, permission) => {
     expect(getPermissionForPath(path)).toBe(permission);
   });

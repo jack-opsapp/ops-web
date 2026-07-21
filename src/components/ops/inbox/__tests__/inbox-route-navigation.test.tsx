@@ -32,10 +32,15 @@ const markReadMutate = vi.fn();
 const sendReplyMutateAsync = vi.fn();
 const clipboardWriteText = vi.fn();
 const messageListSpy = vi.fn();
+const { toastError, showUndoToastSpy } = vi.hoisted(() => ({
+  toastError: vi.fn(),
+  showUndoToastSpy: vi.fn(),
+}));
 let detailByThreadId = new Map<string, InboxThreadDetail>();
 
 type ArchiveMutationOptions = {
   onSuccess?: (response: ActionResponse) => void;
+  onError?: (error?: unknown) => void;
 };
 
 vi.mock("next/navigation", () => ({
@@ -52,7 +57,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("sonner", () => ({
   toast: {
     success: vi.fn(),
-    error: vi.fn(),
+    error: toastError,
   },
 }));
 
@@ -286,7 +291,7 @@ vi.mock("../archive-confirm-modal", () => ({
             threadIds: ["thread-a", "thread-b"],
             archiveOpportunityId: "opp-1",
             saveLeadPreference: null,
-          })
+          }).catch(() => undefined)
         }
       >
         Confirm archive batch
@@ -320,7 +325,7 @@ vi.mock("../command-palette", () => ({
 }));
 
 vi.mock("@/components/ui/toast-undo", () => ({
-  showUndoToast: vi.fn(),
+  showUndoToast: showUndoToastSpy,
 }));
 
 vi.mock("../composer/draft-switcher", () => ({
@@ -581,6 +586,8 @@ beforeEach(() => {
   sendReplyMutateAsync.mockReset();
   clipboardWriteText.mockReset();
   messageListSpy.mockReset();
+  toastError.mockReset();
+  showUndoToastSpy.mockReset();
   clipboardWriteText.mockResolvedValue(undefined);
   if (window.navigator.clipboard) {
     vi.spyOn(window.navigator.clipboard, "writeText").mockImplementation(
@@ -921,6 +928,48 @@ describe("<InboxRoute> thread navigation", () => {
     });
   });
 
+  it("surfaces a provider archive failure without pretending the action succeeded", async () => {
+    const user = userEvent.setup();
+    detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
+    renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+
+    const options = archiveMutate.mock.calls[0]?.[1] as
+      | ArchiveMutationOptions
+      | undefined;
+    act(() => options?.onError?.(new Error("provider rejected archive")));
+
+    expect(toastError).toHaveBeenCalledWith("SYS :: ARCHIVE FAILED");
+    expect(showUndoToastSpy).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a failed restore from the archive undo action", async () => {
+    const user = userEvent.setup();
+    detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
+    archiveMutate.mockImplementation(
+      (_threadId: string, options?: ArchiveMutationOptions) => {
+        options?.onSuccess?.({ ok: true });
+      }
+    );
+    renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+    const undo = (
+      showUndoToastSpy.mock.calls[0]?.[0] as { onUndo?: () => void } | undefined
+    )?.onUndo;
+    act(() => undo?.());
+
+    const restoreOptions = unarchiveMutate.mock.calls[0]?.[1] as
+      | ArchiveMutationOptions
+      | undefined;
+    act(() =>
+      restoreOptions?.onError?.(new Error("provider rejected restore"))
+    );
+
+    expect(toastError).toHaveBeenCalledWith("SYS :: RESTORE FAILED");
+  });
+
   it("pads the message list beyond the measured floating composer height", () => {
     detailByThreadId.set("thread-a", makeThreadDetail("thread-a"));
     renderRoute("thread-a");
@@ -1058,6 +1107,108 @@ describe("<InboxRoute> thread navigation", () => {
       );
     });
     expect(window.location.pathname).toBe("/inbox");
+  });
+
+  it("keeps batch confirmation open and surfaces a failed provider archive", async () => {
+    const user = userEvent.setup();
+    const detail = makeThreadDetail("thread-a");
+    detail.thread.opportunityId = "opp-1";
+    detailByThreadId.set("thread-a", detail);
+    archiveMutate.mockImplementation(
+      (_threadId: string, options?: ArchiveMutationOptions) => {
+        options?.onSuccess?.({
+          needsConfirmation: true,
+          connectionId: "conn-1",
+          leadPreference: "ask",
+          linkedOpportunity: { id: "opp-1", title: "Alpha lead" },
+          siblingThreads: [],
+        });
+      }
+    );
+    archiveBatchMutateAsync.mockRejectedValue(
+      new Error("provider rejected batch archive")
+    );
+    renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+    await user.click(
+      screen.getByRole("button", { name: "Confirm archive batch" })
+    );
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith("SYS :: ARCHIVE FAILED")
+    );
+    expect(
+      screen.getByRole("button", { name: "Confirm archive batch" })
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/inbox");
+  });
+
+  it("reconciles successful rows and offers a scoped undo after a partial batch archive", async () => {
+    const user = userEvent.setup();
+    const detail = makeThreadDetail("thread-a");
+    detail.thread.opportunityId = "opp-1";
+    detailByThreadId.set("thread-a", detail);
+    archiveMutate.mockImplementation(
+      (_threadId: string, options?: ArchiveMutationOptions) => {
+        options?.onSuccess?.({
+          needsConfirmation: true,
+          connectionId: "conn-1",
+          leadPreference: "ask",
+          linkedOpportunity: { id: "opp-1", title: "Alpha lead" },
+          siblingThreads: [
+            {
+              id: "thread-b",
+              subject: "Sibling",
+              lastMessageAt: "2026-05-06T15:00:00Z",
+              latestSenderName: "Bravo",
+              latestSenderEmail: "bravo@example.com",
+              latestSnippet: "Follow up",
+            },
+          ],
+        });
+      }
+    );
+    archiveBatchMutateAsync.mockResolvedValue({
+      ok: false,
+      error: "Some threads could not be archived. Refresh and try again.",
+      archivedThreadIds: ["thread-a"],
+      failedThreadIds: ["thread-b"],
+      leadArchivedOpportunityId: null,
+      failedOpportunityId: "opp-1",
+    });
+    renderRoute("thread-a");
+
+    await user.click(screen.getByRole("button", { name: "Archive thread" }));
+    await user.click(
+      screen.getByRole("button", { name: "Confirm archive batch" })
+    );
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith("SYS :: ARCHIVE PARTIAL")
+    );
+    expect(
+      screen.queryByRole("button", { name: "Confirm archive batch" })
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("responsive-shell")).toHaveAttribute(
+      "data-thread-id",
+      "thread-b"
+    );
+
+    const undo = (
+      showUndoToastSpy.mock.calls[0]?.[0] as { onUndo?: () => void } | undefined
+    )?.onUndo;
+    act(() => undo?.());
+    expect(unarchiveBatchMutate).toHaveBeenCalledWith(
+      {
+        threadIds: ["thread-a"],
+        unarchiveOpportunityId: null,
+      },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+      })
+    );
   });
 
   it("command palette Archive uses the same selected-thread archive path", async () => {

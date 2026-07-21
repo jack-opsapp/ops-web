@@ -3,11 +3,12 @@
  *
  * Returns AI draft approval rate stats for the current user.
  * Used by the compose modal and settings page to display
- * approval rate and suggest auto-send.
+ * actor-scoped approval rate and edit-pattern diagnostics. Exact auto-send
+ * readiness is served separately per mailbox and primary category.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolvePhaseCCategorySettingsAccess } from "@/lib/email/phase-c-category-settings-access";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AIDraftService } from "@/lib/api/services/ai-draft-service";
@@ -21,23 +22,35 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get("companyId");
-    const userId = searchParams.get("userId");
+    const connectionId = searchParams.get("connectionId");
 
-    if (!companyId || !userId) {
+    if (!companyId || !connectionId) {
       return NextResponse.json(
-        { error: "companyId and userId are required" },
+        { error: "companyId and connectionId are required" },
         { status: 400 }
       );
     }
-    const authError = await requireEmailCompanyAccess(
-      request,
-      companyId,
-      "email.configure_ai",
-      userId
-    );
-    if (authError) return authError;
 
-    const stats = await AIDraftService.getApprovalStats(companyId, userId);
+    const access = await resolvePhaseCCategorySettingsAccess({
+      request,
+      claimedCompanyId: companyId,
+      connectionId,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error: access.status === 401 ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
+    }
+
+    const stats = await AIDraftService.getApprovalStats(
+      companyId,
+      connectionId,
+      access.actor.userId
+    );
     return NextResponse.json(stats);
   } catch (err) {
     console.error("[draft-stats]", err);

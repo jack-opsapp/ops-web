@@ -13,6 +13,7 @@ import {
 } from "./approved-action-email-delivery-service";
 import { ApprovedActionEmailIntentService } from "./approved-action-email-intent-service";
 import { reconcileApprovedActionEmail } from "./approved-action-email-reconciliation-service";
+import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
 import { EmailService } from "./email-service";
 import { renderEmailBodyWithSignature } from "./email-signature-service";
 import { resolveEmailSignatureForMessage } from "@/lib/email/email-signature-runtime";
@@ -127,12 +128,20 @@ async function executeApprovedActionEmail(input: {
   const delivery = new ApprovedActionEmailDeliveryService({
     store,
     provider,
-    reconcile: (intent) =>
+    reconcile: (intent, providerLockCheckpoint) =>
       reconcileApprovedActionEmail({
         supabase,
         intent,
         connection,
         provider,
+        providerLockCheckpoint,
+      }),
+    runWithMailboxLease: ({ connectionId, run }) =>
+      runWithEmailConnectionSyncLock({
+        connectionId,
+        context: "approved-action-email-delivery",
+        client: supabase,
+        run,
       }),
   });
   return delivery.execute(prepareInput);

@@ -5,12 +5,16 @@ import {
   EmailSignatureService,
   type EmailSignatureRecord,
 } from "@/lib/api/services/email-signature-service";
+import { runWithEmailConnectionSyncLock } from "@/lib/api/services/email-connection-sync-lock";
 import { filterAuthorizedEmailSignatureConnections } from "@/lib/email/email-signature-access";
 import {
   resolveEmailRouteActor,
   type EmailRouteActor,
 } from "@/lib/email/email-route-auth";
-import { resolveEmailSignatureForMessage } from "@/lib/email/email-signature-runtime";
+import {
+  isEmailSignatureProviderMailboxBusyError,
+  resolveEmailSignatureForMessage,
+} from "@/lib/email/email-signature-runtime";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { EmailConnection } from "@/lib/types/email-connection";
@@ -37,6 +41,13 @@ function providerSource(
 
 function forbiddenConnectionResponse(): NextResponse {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
+
+function mailboxBusyResponse(): NextResponse {
+  return NextResponse.json(
+    { error: "Mailbox is busy. Try again in a few minutes." },
+    { status: 409 }
+  );
 }
 
 function signatureScope(actor: EmailRouteActor, connectionId: string) {
@@ -175,6 +186,9 @@ export async function GET(request: NextRequest) {
         )
       );
     } catch (error) {
+      if (isEmailSignatureProviderMailboxBusyError(error)) {
+        return mailboxBusyResponse();
+      }
       const message = error instanceof Error ? error.message : String(error);
       return NextResponse.json({ error: message }, { status: 400 });
     }
@@ -239,6 +253,9 @@ export async function PUT(request: NextRequest) {
         })
       );
     } catch (error) {
+      if (isEmailSignatureProviderMailboxBusyError(error)) {
+        return mailboxBusyResponse();
+      }
       return NextResponse.json(
         { error: error instanceof Error ? error.message : String(error) },
         { status: 400 }
@@ -287,14 +304,27 @@ export async function POST(request: NextRequest) {
         );
       }
       const scope = signatureScope(actorResult.actor, connection.id);
-      const importResult = await EmailSignatureService.refreshProvider({
-        companyId: scope.companyId,
-        connectionId: scope.connectionId,
-        scopeUserId: connection.type === "individual" ? scope.userId : null,
-        mailboxAddress: connection.email,
-        provider: EmailService.getProvider(connection),
-        actorUserId: scope.userId,
+      const locked = await runWithEmailConnectionSyncLock({
+        connectionId: connection.id,
+        context: "email-signature-provider-import",
+        client: supabase,
+        run: async (checkpoint) => {
+          await checkpoint();
+          const importResult = await EmailSignatureService.refreshProvider({
+            companyId: scope.companyId,
+            connectionId: scope.connectionId,
+            scopeUserId: connection.type === "individual" ? scope.userId : null,
+            mailboxAddress: connection.email,
+            provider: EmailService.getProvider(connection),
+            actorUserId: scope.userId,
+            providerLockCheckpoint: checkpoint,
+          });
+          await checkpoint();
+          return importResult;
+        },
       });
+      if (!locked.acquired) return mailboxBusyResponse();
+      const importResult = locked.value;
       if (importResult.status === "not_configured") {
         const response = await loadResponse(scope, connection, {
           refreshProviderIfMissing: false,
@@ -324,6 +354,9 @@ export async function POST(request: NextRequest) {
         providerImportStatus: "refreshed",
       });
     } catch (error) {
+      if (isEmailSignatureProviderMailboxBusyError(error)) {
+        return mailboxBusyResponse();
+      }
       return NextResponse.json(
         { error: error instanceof Error ? error.message : String(error) },
         { status: 400 }

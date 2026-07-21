@@ -14,10 +14,13 @@ export type { DataReviewQueue, DataReviewItem, ReviewItemKind, ReviewOwner };
 /**
  * Authenticated fetch for the admin data-review surface. Mirrors the
  * `getIdToken()` Bearer pattern used by the admin data-setup actions — the API
- * routes verify the Firebase token + gate on the granular pipeline.manage
- * permission server-side.
+ * routes verify the Firebase token and intersect row-specific lead + inbox
+ * authorization for the exact mailbox thread server-side.
  */
-async function authedFetch(input: string, init?: RequestInit): Promise<Response> {
+async function authedFetch(
+  input: string,
+  init?: RequestInit
+): Promise<Response> {
   const { getIdToken } = await import("@/lib/firebase/auth");
   const token = await getIdToken();
   return fetch(input, {
@@ -54,14 +57,30 @@ export function useDataReviewQueue() {
 export function useResolveLink() {
   const queryClient = useQueryClient();
   return useMutation<
-    { ok: true; result: { activitiesRepointed: number; targetTitle: string | null } },
+    {
+      ok: true;
+      result: { activitiesRepointed: number; targetTitle: string | null };
+    },
     Error,
-    { providerThreadId: string; targetOpportunityId: string; kind: ReviewItemKind }
+    {
+      connectionId: string;
+      providerThreadId: string;
+      targetOpportunityId: string;
+      kind: ReviewItemKind;
+    }
   >({
-    mutationFn: async ({ providerThreadId, targetOpportunityId, kind }) => {
+    mutationFn: async ({
+      connectionId,
+      providerThreadId,
+      targetOpportunityId,
+      kind,
+    }) => {
       const res = await authedFetch(
         `/api/data-review/${encodeURIComponent(providerThreadId)}/link`,
-        { method: "POST", body: JSON.stringify({ targetOpportunityId, kind }) }
+        {
+          method: "POST",
+          body: JSON.stringify({ connectionId, targetOpportunityId, kind }),
+        }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -82,14 +101,17 @@ export function useResolveLink() {
 export function useQuarantineItem() {
   const queryClient = useQueryClient();
   return useMutation<
-    { ok: true; result: { activitiesQuarantined: number; subject: string | null } },
+    {
+      ok: true;
+      result: { activitiesQuarantined: number; subject: string | null };
+    },
     Error,
-    { providerThreadId: string; kind: ReviewItemKind }
+    { connectionId: string; providerThreadId: string; kind: ReviewItemKind }
   >({
-    mutationFn: async ({ providerThreadId, kind }) => {
+    mutationFn: async ({ connectionId, providerThreadId, kind }) => {
       const res = await authedFetch(
         `/api/data-review/${encodeURIComponent(providerThreadId)}/quarantine`,
-        { method: "POST", body: JSON.stringify({ kind }) }
+        { method: "POST", body: JSON.stringify({ connectionId, kind }) }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

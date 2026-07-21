@@ -282,6 +282,26 @@ describe("email OAuth callback state validation", () => {
     vi.stubGlobal("fetch", vi.fn());
   });
 
+  it("bounds both Microsoft OAuth callback network requests", async () => {
+    consumeEmailOAuthStateMock.mockResolvedValueOnce(validState);
+    mockProviderFetch("microsoft365", "crew@example.com");
+    mockEmailConnectionTable();
+    const { GET } =
+      await import("@/app/api/integrations/microsoft365/callback/route");
+
+    const response = await GET(
+      new NextRequest(
+        "https://ops.test/api/integrations/microsoft365/callback?code=oauth-code&state=opaque-state-token"
+      )
+    );
+
+    expect(response.headers.get("location")).toContain("status=connected");
+    expect(fetch).toHaveBeenCalledTimes(2);
+    for (const call of vi.mocked(fetch).mock.calls) {
+      expect(call[1]?.signal).toBeInstanceOf(AbortSignal);
+    }
+  });
+
   it.each([
     ["gmail", () => import("@/app/api/integrations/gmail/callback/route")],
     [

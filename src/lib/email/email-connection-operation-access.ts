@@ -14,6 +14,7 @@ export interface EmailConnectionOperationRow {
   id: string;
   company_id: string;
   email?: string;
+  provider: string;
   type: "company" | "individual";
   user_id: string | null;
   status: string;
@@ -30,7 +31,9 @@ export interface EmailConnectionOperationRow {
 export function emailConnectionOwnerId(
   connection: Pick<EmailConnectionOperationRow, "type" | "user_id">
 ): string | null {
-  return connection.type === "individual" ? connection.user_id : null;
+  if (connection.type !== "individual") return null;
+  const ownerId = connection.user_id?.trim();
+  return ownerId || null;
 }
 
 export type EmailConnectionOperationDenialReason =
@@ -116,7 +119,9 @@ export async function authorizeEmailConnectionOperationForActor({
 
   let query = supabase
     .from("email_connections")
-    .select("id, company_id, email, type, user_id, status, sync_enabled")
+    .select(
+      "id, company_id, email, provider, type, user_id, status, sync_enabled"
+    )
     .eq("company_id", actor.companyId);
   if (connectionId) query = query.eq("id", connectionId);
 
@@ -143,7 +148,7 @@ export async function authorizeEmailConnectionOperationForActor({
 
   const identityAuthorized = rows.filter((row) =>
     row.type === "individual"
-      ? row.user_id === actor.userId
+      ? row.user_id?.trim() === actor.userId
       : row.type === "company" && canManageCompany
   );
   if (connectionId && identityAuthorized.length === 0) {

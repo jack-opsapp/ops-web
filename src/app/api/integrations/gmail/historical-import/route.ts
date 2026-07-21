@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride, requireSupabase } from "@/lib/supabase/helpers";
+import { requireSupabase, runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailFilterService } from "@/lib/api/services/email-filter-service";
 import {
   EmailMatchingServiceV2,
@@ -52,8 +52,18 @@ import {
   DEFAULT_SYNC_FILTERS,
 } from "@/lib/types/pipeline";
 import type { GmailSyncFilters } from "@/lib/types/pipeline";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
+import { fetchGmailRead } from "@/lib/api/services/providers/gmail-read";
+import {
+  acquireEmailConnectionSyncLock,
+  completeGmailImportJobUnderSyncLock,
+  createEmailConnectionSyncLockRenewer,
+  releaseEmailConnectionSyncLock,
+} from "@/lib/api/services/email-connection-sync-lock";
+import { getValidGmailToken } from "@/lib/api/services/gmail-token";
+
+export const maxDuration = 800;
 
 // ─── Approved contact from wizard ──────────────────────────────────────────
 
@@ -97,6 +107,7 @@ interface GmailMessageListResponse {
 interface ConnectionRow {
   id: string;
   company_id: string;
+  provider: string;
   email: string;
   access_token: string;
   refresh_token: string;
@@ -106,55 +117,12 @@ interface ConnectionRow {
   sync_filters: GmailSyncFilters | null;
 }
 
-async function refreshAccessToken(
-  connectionId: string,
-  refreshToken: string
-): Promise<string> {
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: process.env.GOOGLE_GMAIL_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_GMAIL_CLIENT_SECRET!,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  const json = await response.json();
-  if (!json.access_token)
-    throw new Error("Failed to refresh Gmail access token");
-
-  const supabase = requireSupabase();
-  const { error: tokenPersistError } = await supabase
-    .from("email_connections")
-    .update({
-      access_token: json.access_token,
-      expires_at: new Date(Date.now() + json.expires_in * 1000).toISOString(),
-    })
-    .eq("id", connectionId);
-  if (tokenPersistError) {
-    throw new Error(
-      `Failed to persist refreshed Gmail access token: ${tokenPersistError.message}`
-    );
-  }
-
-  return json.access_token as string;
-}
-
-async function getValidToken(conn: ConnectionRow): Promise<string> {
-  const expiresAt = new Date(conn.expires_at);
-  if (expiresAt > new Date(Date.now() + 60_000)) {
-    return conn.access_token;
-  }
-  return refreshAccessToken(conn.id, conn.refresh_token);
-}
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAX_MESSAGES = 5000;
 const BATCH_SIZE = 50;
 const BATCH_DELAY_MS = 200;
+const GMAIL_HISTORICAL_IMPORT_DEADLINE_MS = 12 * 60 * 1000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -277,10 +245,14 @@ function externalRecipient(
   return null;
 }
 
-async function gmailHistoryBoundary(token: string): Promise<string> {
-  const response = await fetch(
+async function gmailHistoryBoundary(
+  token: string,
+  deadlineAt: number
+): Promise<string> {
+  const response = await fetchGmailRead(
     "https://gmail.googleapis.com/gmail/v1/users/me/profile",
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${token}` } },
+    { deadlineAt, context: "users.getProfile (historical import)" }
   );
   if (!response.ok) {
     throw new Error(
@@ -310,7 +282,8 @@ async function markImportJobFailed(
       error_message: failure,
       completed_at: new Date().toISOString(),
     })
-    .eq("id", jobId);
+    .eq("id", jobId)
+    .eq("status", "running");
   return error
     ? `${failure}; additionally failed to mark import job failed: ${error.message}`
     : failure;
@@ -320,8 +293,21 @@ async function markImportJobFailed(
 
 export async function POST(request: NextRequest) {
   const supabase = getServiceRoleClient();
-  setSupabaseOverride(supabase);
+  return runWithSupabase(supabase, () =>
+    postHistoricalImport(request, supabase)
+  );
+}
+
+async function postHistoricalImport(
+  request: NextRequest,
+  supabase: ReturnType<typeof getServiceRoleClient>
+) {
   let jobId: string | null = null;
+  let lockedConnectionId: string | null = null;
+  let lockOwner: string | null = null;
+  let renewLockIfNeeded: ReturnType<
+    typeof createEmailConnectionSyncLockRenewer
+  > | null = null;
 
   try {
     const body = await request.json();
@@ -345,15 +331,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const authError = await requireEmailCompanyAccess(request, companyId);
-    if (authError) return authError;
+    const access = await resolveEmailConnectionOperationAccess({
+      request,
+      claimedCompanyId: companyId,
+      connectionId,
+      requireUsable: true,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
+    }
+    if (access.connections[0]?.provider !== "gmail") {
+      return NextResponse.json(
+        { error: "Gmail connection not found" },
+        { status: 404 }
+      );
+    }
 
-    // Load connection
+    // Load only the authorized Gmail connection after the actor/provider gate.
     const { data: connRow, error: connError } = await supabase
       .from("email_connections")
       .select("*")
       .eq("id", connectionId)
-      .eq("company_id", companyId)
+      .eq("company_id", access.actor.companyId)
+      .eq("provider", "gmail")
       .single();
 
     if (connError || !connRow) {
@@ -365,8 +372,33 @@ export async function POST(request: NextRequest) {
 
     const conn = connRow as ConnectionRow;
 
+    lockOwner = await acquireEmailConnectionSyncLock(
+      connectionId,
+      "gmail-historical-import",
+      supabase
+    );
+    if (!lockOwner) {
+      return NextResponse.json(
+        { error: "Mailbox is busy. Try again in a few minutes." },
+        { status: 409 }
+      );
+    }
+    lockedConnectionId = connectionId;
+    const deadlineAt = Date.now() + GMAIL_HISTORICAL_IMPORT_DEADLINE_MS;
+    renewLockIfNeeded = createEmailConnectionSyncLockRenewer({
+      connectionId,
+      ownerId: lockOwner,
+      context: "gmail-historical-import",
+      client: supabase,
+    });
+
     // Get a valid access token (refresh if needed)
-    const token = await getValidToken(conn);
+    const token = await getValidGmailToken(conn, {
+      deadlineAt,
+      context: "Gmail historical import",
+      client: supabase,
+      requirePersistence: true,
+    });
 
     // Parse sync_filters from the connection row (JSONB column)
     const syncFilters: GmailSyncFilters =
@@ -428,7 +460,7 @@ export async function POST(request: NextRequest) {
 
     // Snapshot the incremental boundary BEFORE listing. Messages arriving
     // during this import remain discoverable by the next history traversal.
-    const historyBoundary = await gmailHistoryBoundary(token);
+    const historyBoundary = await gmailHistoryBoundary(token, deadlineAt);
 
     // Build blocklist via EmailFilterService
     const blocklist = await EmailFilterService.buildBlocklist(syncFilters);
@@ -447,9 +479,16 @@ export async function POST(request: NextRequest) {
       listUrl.searchParams.set("maxResults", "500");
       if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
 
-      const listResp = await fetch(listUrl.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const listResp = await fetchGmailRead(
+        listUrl,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+        {
+          deadlineAt,
+          context: "messages.list (historical import)",
+        }
+      );
 
       if (!listResp.ok) {
         throw new Error(
@@ -496,6 +535,7 @@ export async function POST(request: NextRequest) {
 
       for (const msgId of batch) {
         try {
+          await renewLockIfNeeded();
           const result = await processMessage(
             msgId,
             token,
@@ -506,7 +546,8 @@ export async function POST(request: NextRequest) {
             operatorDomains,
             syncFilters,
             blocklist,
-            supabase
+            supabase,
+            deadlineAt
           );
 
           processed++;
@@ -560,6 +601,7 @@ export async function POST(request: NextRequest) {
 
       for (const contact of approvedContacts) {
         try {
+          await renewLockIfNeeded();
           let clientId: string;
 
           if (contact.isCompanyGroup && contact.subContacts?.length) {
@@ -761,37 +803,25 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Mark job as completed ─────────────────────────────────────────────
-    const { error: completedError } = await supabase
-      .from("gmail_import_jobs")
-      .update({
-        status: "completed",
-        processed,
-        matched,
-        unmatched,
-        needs_review: needsReview,
-        clients_created: clientsCreated,
-        leads_created: leadsCreated,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", jobId);
-    if (completedError) {
-      throw new Error(
-        `Failed to complete import job: ${completedError.message}`
-      );
-    }
-
-    // Advance only to the pre-list boundary, and only after every message and
-    // direct database write has succeeded. Anything newer remains in history.
-    const { error: cursorError } = await supabase
-      .from("email_connections")
-      .update({ history_id: historyBoundary })
-      .eq("id", connectionId)
-      .eq("company_id", companyId);
-    if (cursorError) {
-      throw new Error(
-        `Failed to persist historical import history boundary: ${cursorError.message}`
-      );
-    }
+    // This is the irreversible publication boundary. Prove the same owner
+    // still holds the mailbox lease before writing completion or advancing
+    // the history cursor.
+    await renewLockIfNeeded(true);
+    await completeGmailImportJobUnderSyncLock({
+      connectionId,
+      ownerId: lockOwner,
+      jobId,
+      historyId: historyBoundary,
+      processed,
+      matched,
+      unmatched,
+      needsReview,
+      clientsCreated,
+      leadsCreated,
+      completedAt: new Date(),
+      context: "gmail-historical-import",
+      client: supabase,
+    });
 
     return NextResponse.json({
       ok: true,
@@ -814,7 +844,24 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    setSupabaseOverride(null);
+    if (renewLockIfNeeded) {
+      try {
+        await renewLockIfNeeded.stop();
+      } catch (heartbeatError) {
+        console.error(
+          "[gmail-historical-import] mailbox heartbeat failed:",
+          heartbeatError
+        );
+      }
+    }
+    if (lockedConnectionId && lockOwner) {
+      await releaseEmailConnectionSyncLock(
+        lockedConnectionId,
+        lockOwner,
+        "gmail-historical-import",
+        supabase
+      );
+    }
   }
 }
 
@@ -830,7 +877,8 @@ async function processMessage(
   operatorDomains: string[],
   syncFilters: GmailSyncFilters,
   blocklist: { domains: Set<string>; keywords: string[] },
-  supabase: ReturnType<typeof requireSupabase>
+  supabase: ReturnType<typeof requireSupabase>,
+  deadlineAt: number
 ): Promise<{
   matched: boolean;
   needsReview: boolean;
@@ -867,11 +915,15 @@ async function processMessage(
 
   // Full payload is required: form submitter identity, job details, and body
   // facts do not exist in Gmail metadata/snippets reliably.
-  const msgResp = await fetch(
+  const msgResp = await fetchGmailRead(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${providerMessageId}?format=full`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${token}` } },
+    { deadlineAt, context: `messages.get (${providerMessageId})` }
   );
 
+  if (msgResp.status === 404 || msgResp.status === 410) {
+    return null;
+  }
   if (!msgResp.ok) {
     throw new Error(
       `Failed to fetch message ${providerMessageId}: ${msgResp.status} ${msgResp.statusText}`

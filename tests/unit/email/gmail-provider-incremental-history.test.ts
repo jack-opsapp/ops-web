@@ -63,6 +63,8 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -171,6 +173,8 @@ describe("GmailProvider incremental history failures", () => {
   });
 
   it("throws a typed provider error when any message fetch fails", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(String(input));
       if (url.pathname.endsWith("/history")) {
@@ -192,13 +196,16 @@ describe("GmailProvider incremental history failures", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(
-      new GmailProvider(makeConnection()).fetchNewEmailsSince("history-start")
-    ).rejects.toMatchObject({
+    const resultPromise = new GmailProvider(
+      makeConnection()
+    ).fetchNewEmailsSince("history-start");
+    const rejection = expect(resultPromise).rejects.toMatchObject({
       name: ProviderApiError.name,
       code: "provider_api_error",
       providerStatus: 503,
     });
+    await vi.runAllTimersAsync();
+    await rejection;
   });
 
   it.each([404, 410])(
@@ -285,6 +292,8 @@ describe("GmailProvider incremental history failures", () => {
   });
 
   it("throws a typed provider error when an expired-history thread fetch fails", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0);
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -301,13 +310,16 @@ describe("GmailProvider incremental history failures", () => {
       )
     );
 
-    await expect(
-      new GmailProvider(makeConnection()).fetchThread("thread-recovery")
-    ).rejects.toMatchObject({
+    const resultPromise = new GmailProvider(makeConnection()).fetchThread(
+      "thread-recovery"
+    );
+    const rejection = expect(resultPromise).rejects.toMatchObject({
       name: ProviderApiError.name,
       code: "provider_api_error",
       providerStatus: 503,
     });
+    await vi.runAllTimersAsync();
+    await rejection;
   });
 });
 

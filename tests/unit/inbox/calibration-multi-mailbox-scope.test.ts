@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   aggregateCalibrationConnectionConfig,
+  deriveCalibrationAutoSendLadder,
   mergeCalibrationMilestones,
   selectActorCalibrationConnections,
 } from "@/lib/email/calibration-mailbox-scope";
@@ -14,7 +15,10 @@ describe("calibration multi-mailbox scope", () => {
       user_id: null,
       status: "active",
       auto_send_settings: {
-        category_autonomy: { general: "auto_draft" },
+        category_autonomy: {
+          "primary:CUSTOMER": "auto_draft",
+          client_new_inquiry: "auto_send",
+        },
       },
       sync_filters: { rules: [{ id: "a" }] },
     },
@@ -24,17 +28,17 @@ describe("calibration multi-mailbox scope", () => {
       user_id: null,
       status: "active",
       auto_send_settings: {
-        category_autonomy: { client_followup: "auto_send" },
+        category_autonomy: { "primary:PLATFORM_BID": "auto_send" },
       },
       sync_filters: { rules: [{ id: "b" }, { id: "c" }] },
     },
     {
       id: "actor-personal",
       type: "individual",
-      user_id: "actor-1",
+      user_id: "  actor-1  ",
       status: "active",
       auto_send_settings: {
-        category_autonomy: { warranty_claim: "off" },
+        category_autonomy: { "primary:VENDOR": "off" },
       },
       sync_filters: { rules: [] },
     },
@@ -44,7 +48,7 @@ describe("calibration multi-mailbox scope", () => {
       user_id: "actor-2",
       status: "active",
       auto_send_settings: {
-        category_autonomy: { vendor_ordering: "auto_send" },
+        category_autonomy: { "primary:SUBTRADE": "auto_send" },
       },
       sync_filters: { rules: [{ id: "secret" }] },
     },
@@ -54,7 +58,7 @@ describe("calibration multi-mailbox scope", () => {
       user_id: null,
       status: "disconnected",
       auto_send_settings: {
-        category_autonomy: { vendor_ordering: "auto_send" },
+        category_autonomy: { "primary:INTERNAL": "auto_send" },
       },
       sync_filters: { rules: [{ id: "stale" }] },
     },
@@ -78,9 +82,9 @@ describe("calibration multi-mailbox scope", () => {
     expect(aggregateCalibrationConnectionConfig(selected)).toEqual({
       categoryLevels: ["auto_draft", "auto_send", "off"],
       categoryAutonomy: {
-        general: "auto_draft",
-        client_followup: "auto_send",
-        warranty_claim: "off",
+        CUSTOMER: "auto_draft",
+        PLATFORM_BID: "auto_send",
+        VENDOR: "off",
       },
       rulesCount: 3,
     });
@@ -118,5 +122,71 @@ describe("calibration multi-mailbox scope", () => {
       auto_send_suggested: false,
       comms_wizard_ready_shown: true,
     });
+  });
+
+  it("derives auto-send milestones from exact mailbox-category readiness", () => {
+    const selected = selectActorCalibrationConnections(
+      connections,
+      "actor-1",
+      "all"
+    );
+
+    expect(
+      deriveCalibrationAutoSendLadder({
+        connections: selected,
+        featureEnabled: true,
+        readiness: [
+          {
+            connectionId: "company-gmail",
+            category: "CUSTOMER",
+            ready: false,
+            sampleSize: 19,
+          },
+          {
+            connectionId: "company-microsoft",
+            category: "PLATFORM_BID",
+            ready: true,
+            sampleSize: 20,
+          },
+        ],
+      })
+    ).toEqual({
+      readinessStatus: "complete",
+      activeStatus: "complete",
+    });
+  });
+
+  it("does not activate a category from another mailbox or a disabled kill switch", () => {
+    const selected = selectActorCalibrationConnections(
+      connections,
+      "actor-1",
+      "all"
+    );
+    const readiness = [
+      {
+        connectionId: "company-gmail",
+        category: "PLATFORM_BID" as const,
+        ready: true,
+        sampleSize: 20,
+      },
+    ];
+
+    expect(
+      deriveCalibrationAutoSendLadder({
+        connections: selected,
+        featureEnabled: true,
+        readiness,
+      })
+    ).toEqual({
+      readinessStatus: "complete",
+      activeStatus: "gated",
+    });
+    expect(
+      deriveCalibrationAutoSendLadder({
+        connections: selected,
+        featureEnabled: false,
+        readiness,
+      }).activeStatus
+    ).toBe("gated");
   });
 });

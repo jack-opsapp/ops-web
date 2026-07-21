@@ -540,6 +540,8 @@
   "modal.writeback.learnMore": "learn more about writeback →",
 
   "toast.archivedTactic": "SYS :: THREAD ARCHIVED",
+  "toast.archivePartialTactic": "SYS :: ARCHIVE PARTIAL",
+  "toast.restorePartialTactic": "SYS :: RESTORE PARTIAL",
   "toast.snoozedTactic": "SYS :: SNOOZED UNTIL {time}",
   "toast.recategorizedTactic": "SYS :: MOVED TO {category}",
   "toast.dismissedTactic": "SYS :: MARKED NO REPLY NEEDED",

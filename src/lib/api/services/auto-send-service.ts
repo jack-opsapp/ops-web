@@ -6,6 +6,7 @@ import type { PhaseCEmailActorContext } from "@/lib/email/phase-c-email-actor";
 import { resolveEmailSignatureForMessage } from "@/lib/email/email-signature-runtime";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import { requireSupabase } from "@/lib/supabase/helpers";
+import type { EmailThreadCategory } from "@/lib/types/email-thread";
 import type {
   Company,
   SubscriptionPlan,
@@ -14,11 +15,13 @@ import type {
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { AIDraftService } from "./ai-draft-service";
+import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
 import { EmailSendDeliveryService } from "./email-send-delivery-service";
 import { EmailSendIntentService } from "./email-send-intent-service";
 import { reconcileEmailSend } from "./email-send-reconciliation-service";
 import { EmailService } from "./email-service";
 import { renderEmailBodyWithSignature } from "./email-signature-service";
+import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
 
 export interface AutoSendSettings {
   enabled: boolean;
@@ -71,6 +74,8 @@ export interface PendingAutoSend {
   draftHistoryId: string | null;
   followUpDraftId: null;
   profileTypeSnapshot: string;
+  categorySnapshot: string | null;
+  autonomyLevelSnapshot: "auto_send" | "auto_follow_up" | null;
   learningAuthority: "autonomous";
   actorNameSnapshot: string;
   actorEmailSnapshot: string;
@@ -100,6 +105,7 @@ export interface ClaimedAutoSendSource extends PendingAutoSend {
   assignmentEventId: string;
   opportunityId: string;
   sourceEmailThreadId: string;
+  autonomyLevelSnapshot: "auto_send" | "auto_follow_up";
   status: "leased";
   leaseToken: string;
   claimedAt: Date;
@@ -120,6 +126,7 @@ export interface PhaseCAutoSendIdempotencyInput {
 }
 
 export interface ScheduleAutoSendInput {
+  category: EmailThreadCategory;
   companyId: string;
   /** Legacy value is ignored. The canonical actor context is mandatory. */
   userId?: string;
@@ -316,6 +323,12 @@ function mapPendingFromDb(row: Record<string, unknown>): PendingAutoSend {
     draftHistoryId: nullableText(row.draft_history_id),
     followUpDraftId: null,
     profileTypeSnapshot: text(row.profile_type_snapshot) || "general",
+    categorySnapshot: nullableText(row.category_snapshot),
+    autonomyLevelSnapshot:
+      row.autonomy_level_snapshot === "auto_send" ||
+      row.autonomy_level_snapshot === "auto_follow_up"
+        ? row.autonomy_level_snapshot
+        : null,
     learningAuthority: "autonomous",
     actorNameSnapshot: text(row.actor_name_snapshot),
     actorEmailSnapshot: text(row.actor_email_snapshot),
@@ -349,6 +362,8 @@ function mapClaimedFromDb(row: Record<string, unknown>): ClaimedAutoSendSource {
     !pending.assignmentEventId ||
     !pending.opportunityId ||
     !pending.sourceEmailThreadId ||
+    !pending.categorySnapshot ||
+    !pending.autonomyLevelSnapshot ||
     !pending.leaseToken ||
     !pending.claimedAt ||
     !pending.leaseExpiresAt ||
@@ -465,20 +480,12 @@ export const AutoSendService = {
   async updateSettings(
     companyId: string,
     connectionId: string,
+    actorUserId: string,
     settings: Partial<AutoSendSettings>
   ): Promise<void> {
     const supabase = requireSupabase();
-    const { data: current } = await supabase
-      .from("email_connections")
-      .select("auto_send_settings")
-      .eq("id", connectionId)
-      .eq("company_id", companyId)
-      .single();
-    const currentSettings =
-      (current?.auto_send_settings as Record<string, unknown>) || {};
     const extended = settings as Record<string, unknown>;
-    const merged = {
-      ...currentSettings,
+    const patch = {
       ...(settings.enabled !== undefined && { enabled: settings.enabled }),
       ...(settings.businessHoursStart && {
         business_hours_start: settings.businessHoursStart,
@@ -493,9 +500,6 @@ export const AutoSendService = {
       ...(settings.delayMaxMinutes !== undefined && {
         delay_max_minutes: settings.delayMaxMinutes,
       }),
-      ...(settings.enabled === true && !currentSettings.enabled_at
-        ? { enabled_at: new Date().toISOString() }
-        : {}),
       ...(extended.auto_draft_enabled !== undefined && {
         auto_draft_enabled: extended.auto_draft_enabled,
       }),
@@ -504,11 +508,19 @@ export const AutoSendService = {
       }),
     };
 
-    await supabase
-      .from("email_connections")
-      .update({ auto_send_settings: merged })
-      .eq("id", connectionId)
-      .eq("company_id", companyId);
+    const { data, error } = await supabase.rpc(
+      "update_phase_c_auto_send_settings_as_system",
+      {
+        p_company_id: companyId,
+        p_connection_id: connectionId,
+        p_actor_user_id: actorUserId,
+        p_settings_patch: patch,
+      }
+    );
+    if (error) throw new Error(error.message);
+    if (!data || typeof data !== "object") {
+      throw new Error("Auto-send settings update returned invalid data");
+    }
   },
 
   async scheduleAutoSend(
@@ -522,12 +534,23 @@ export const AutoSendService = {
       return null;
     }
 
+    const authorizedProfileTypes = PhaseCCategoryAutonomy.profileTypesFor(
+      params.category
+    );
+    if (authorizedProfileTypes.length === 0) {
+      console.warn(
+        "[auto-send] category has no authorized draft profile; schedule suppressed"
+      );
+      return null;
+    }
+
     const draftResult = await AIDraftService.generateDraft({
       companyId: actor.companyId,
       userId: actor.actorUserId,
       connectionId: actor.connectionId,
       opportunityId: actor.opportunityId,
       threadId: actor.providerThreadId,
+      profileTypeOverride: authorizedProfileTypes[0],
       autonomous: true,
     });
     if (!draftResult.available || !draftResult.draft) {
@@ -550,6 +573,12 @@ export const AutoSendService = {
     if (toEmails.length === 0) return null;
 
     const profileType = draftResult.profileType?.trim() || "general";
+    if (!authorizedProfileTypes.includes(profileType)) {
+      console.warn(
+        "[auto-send] generated profile is outside the category calibration; schedule suppressed"
+      );
+      return null;
+    }
     const authoredBody = markdownToEmailHtml(draftResult.draft);
     const supabase = requireSupabase();
     const connection = await EmailService.getConnection(actor.connectionId);
@@ -737,12 +766,20 @@ export const AutoSendService = {
         const delivery = new EmailSendDeliveryService({
           intentStore,
           provider,
-          reconcile: (intent) =>
+          reconcile: (intent, providerLockCheckpoint) =>
             reconcileEmailSend({
               supabase,
               intent,
               connection,
               provider,
+              providerLockCheckpoint,
+            }),
+          runWithMailboxLease: ({ connectionId, run }) =>
+            runWithEmailConnectionSyncLock({
+              connectionId,
+              context: "phase-c-auto-send-delivery",
+              client: supabase,
+              run,
             }),
         });
         const outcome = await delivery.execute({

@@ -1,3 +1,8 @@
+import {
+  EMAIL_THREAD_CATEGORIES,
+  type EmailThreadCategory,
+} from "@/lib/types/email-thread";
+
 export interface CalibrationConnectionRow {
   id: string;
   type: string;
@@ -21,6 +26,15 @@ const EMPTY_CALIBRATION_MILESTONES: CalibrationMilestoneProjection = {
   comms_wizard_ready_shown: false,
 };
 
+const PRIMARY_CATEGORIES = new Set<string>(EMAIL_THREAD_CATEGORIES);
+
+export interface CalibrationCategoryReadinessProjection {
+  connectionId: string;
+  category: EmailThreadCategory;
+  ready: boolean;
+  sampleSize: number;
+}
+
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -40,7 +54,8 @@ export function selectActorCalibrationConnections<
       ((connection.type === "company" &&
         (visibleCompanyConnectionIds === "all" ||
           visibleCompanyConnectionIds.has(connection.id))) ||
-        (connection.type === "individual" && connection.user_id === userId))
+        (connection.type === "individual" &&
+          connection.user_id?.trim() === userId.trim()))
   );
 }
 
@@ -58,8 +73,11 @@ export function aggregateCalibrationConnectionConfig(
   for (const connection of rows) {
     const settings = record(connection.auto_send_settings);
     const configured = record(settings.category_autonomy);
-    for (const [category, level] of Object.entries(configured)) {
+    for (const [storageKey, level] of Object.entries(configured)) {
       if (typeof level !== "string") continue;
+      if (!storageKey.startsWith("primary:")) continue;
+      const category = storageKey.slice("primary:".length);
+      if (!PRIMARY_CATEGORIES.has(category)) continue;
       categoryLevels.push(level);
       categoryAutonomy[category] = level;
     }
@@ -71,6 +89,49 @@ export function aggregateCalibrationConnectionConfig(
   }
 
   return { categoryLevels, categoryAutonomy, rulesCount };
+}
+
+export function deriveCalibrationAutoSendLadder(input: {
+  connections: CalibrationConnectionRow[];
+  readiness: CalibrationCategoryReadinessProjection[];
+  featureEnabled: boolean;
+}): {
+  readinessStatus: "complete" | "in_training" | "gated";
+  activeStatus: "complete" | "gated";
+} {
+  const readyScopes = new Set(
+    input.readiness
+      .filter((status) => status.ready)
+      .map((status) => `${status.connectionId}:${status.category}`)
+  );
+  const hasReadyCategory = readyScopes.size > 0;
+  const hasTrainingCategory = input.readiness.some(
+    (status) => status.sampleSize > 0
+  );
+
+  const hasActiveExactCategory = input.connections.some((connection) => {
+    const settings = record(connection.auto_send_settings);
+    const configured = record(settings.category_autonomy);
+    return Object.entries(configured).some(([storageKey, level]) => {
+      if (level !== "auto_send" && level !== "auto_follow_up") {
+        return false;
+      }
+      if (!storageKey.startsWith("primary:")) return false;
+      const category = storageKey.slice("primary:".length);
+      if (!PRIMARY_CATEGORIES.has(category)) return false;
+      return readyScopes.has(`${connection.id}:${category}`);
+    });
+  });
+
+  return {
+    readinessStatus: hasReadyCategory
+      ? "complete"
+      : hasTrainingCategory
+        ? "in_training"
+        : "gated",
+    activeStatus:
+      input.featureEnabled && hasActiveExactCategory ? "complete" : "gated",
+  };
 }
 
 export function mergeCalibrationMilestones(

@@ -227,6 +227,29 @@ describe("resolvePhaseCEmailActor", () => {
     );
   });
 
+  it("normalizes the canonical OPS owner id stored on a personal mailbox", async () => {
+    const rows = baseRows();
+    rows.email_connections[0] = {
+      ...rows.email_connections[0],
+      type: "individual",
+      user_id: `  ${CONNECTION_OWNER_ID}  `,
+      email: "sales-alias@example.com",
+    };
+    rows.opportunities[0].assigned_to = CONNECTION_OWNER_ID;
+    const { result, authorize } = resolveWith({ rows });
+
+    await expect(result).resolves.toMatchObject({
+      kind: "resolved",
+      context: {
+        actorUserId: CONNECTION_OWNER_ID,
+        connectionType: "individual",
+      },
+    });
+    expect(authorize).toHaveBeenCalledWith(
+      expect.objectContaining({ actorUserId: CONNECTION_OWNER_ID })
+    );
+  });
+
   it("never lets a new assignee use another user's personal mailbox", async () => {
     const rows = baseRows();
     rows.email_connections[0] = {

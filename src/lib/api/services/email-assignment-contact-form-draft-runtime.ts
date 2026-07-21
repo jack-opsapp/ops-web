@@ -17,6 +17,7 @@ import {
 import { AIDraftService } from "./ai-draft-service";
 import { EmailService } from "./email-service";
 import { placeNewThreadDraft } from "./mailbox-draft-push";
+import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
 import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
 import {
   renderMailboxDraftWithSignature,
@@ -253,8 +254,11 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
       return EmailService.getConnection(connectionId);
     },
 
-    async getCustomerAutonomy(connectionId) {
-      const autonomy = await PhaseCCategoryAutonomy.get(connectionId);
+    async getCustomerAutonomy(connectionId, actorUserId) {
+      const autonomy = await PhaseCCategoryAutonomy.get(
+        connectionId,
+        actorUserId
+      );
       return autonomy.CUSTOMER;
     },
 
@@ -310,8 +314,17 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
         connection: input.connection,
         userId: input.userId,
         refreshProviderIfMissing: input.refreshProviderIfMissing,
+        providerLockCheckpoint: input.providerLockCheckpoint,
       });
     },
+
+    runWithMailboxLease: ({ connectionId, run }) =>
+      runWithEmailConnectionSyncLock({
+        connectionId,
+        context: "email-assignment-contact-form-draft",
+        client: supabase,
+        run,
+      }),
 
     renderDraft(body, signature) {
       return renderMailboxDraftWithSignature(body, signature);

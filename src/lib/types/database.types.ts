@@ -16850,6 +16850,54 @@ export type Database = {
         Args: { p_connection_id: string; p_lease_seconds?: number }
         Returns: string
       }
+      renew_email_connection_sync_lock_as_system: {
+        Args: {
+          p_connection_id: string
+          p_lease_seconds?: number
+          p_owner_id: string
+        }
+        Returns: boolean
+      }
+      release_email_connection_sync_lock_as_system: {
+        Args: { p_connection_id: string; p_owner_id: string }
+        Returns: boolean
+      }
+      persist_email_connection_recovery_checkpoint_as_system: {
+        Args: {
+          p_anchor: string
+          p_connection_id: string
+          p_owner_id: string
+          p_page_token: string
+          p_target_token: string
+        }
+        Returns: boolean
+      }
+      persist_email_connection_sync_completion_as_system: {
+        Args: {
+          p_clear_recovery?: boolean
+          p_connection_id: string
+          p_history_id: string
+          p_last_synced_at: string
+          p_owner_id: string
+        }
+        Returns: boolean
+      }
+      complete_gmail_import_job_as_system: {
+        Args: {
+          p_clients_created: number
+          p_completed_at: string
+          p_connection_id: string
+          p_history_id: string
+          p_job_id: string
+          p_leads_created: number
+          p_matched: number
+          p_needs_review: number
+          p_owner_id: string
+          p_processed: number
+          p_unmatched: number
+        }
+        Returns: boolean
+      }
       acquire_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean
@@ -16944,6 +16992,17 @@ export type Database = {
           p_actor_user_id: string
           p_connection_id: string
           p_opportunity_id: string | null
+        }
+        Returns: boolean
+      }
+      authorize_email_thread_data_review_as_system: {
+        Args: {
+          p_action: string
+          p_actor_user_id: string
+          p_company_id: string
+          p_connection_id: string
+          p_kind: string
+          p_provider_thread_id: string
         }
         Returns: boolean
       }
@@ -18354,11 +18413,22 @@ export type Database = {
       }
       reassign_opportunity_email_thread_guarded: {
         Args: {
+          p_actor_user_id: string
           p_company_id: string
           p_connection_id: string
           p_kind?: string
           p_provider_thread_id: string
           p_target_opportunity_id: string
+        }
+        Returns: Json
+      }
+      quarantine_opportunity_email_thread_guarded: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_connection_id: string
+          p_kind?: string
+          p_provider_thread_id: string
         }
         Returns: Json
       }

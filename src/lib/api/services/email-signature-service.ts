@@ -4,6 +4,10 @@ import sanitizeHtml from "sanitize-html";
 import { htmlToPlainText } from "@/lib/utils/email-parsing";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import type { EmailProviderInterface } from "./email-provider";
+import {
+  runEmailProviderMailboxOperation,
+  type EmailProviderMailboxCheckpoint,
+} from "./email-provider-mailbox-operation";
 
 export type EmailSignatureSource =
   | "ops"
@@ -313,6 +317,7 @@ interface RefreshProviderSignatureInput extends SignatureLookupInput {
   mailboxAddress: string;
   provider: EmailProviderInterface;
   actorUserId: string;
+  providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
 }
 
 interface SaveOpsSignatureInput extends SignatureLookupInput {
@@ -545,8 +550,38 @@ export const EmailSignatureService = {
       return { status: "unsupported", signature: existing };
     }
 
+    const providerRead = await runEmailProviderMailboxOperation({
+      supabase: input.providerLockCheckpoint ? undefined : requireSupabase(),
+      connectionId: input.connectionId,
+      context: "email-signature-provider-refresh",
+      busyError: "EMAIL_SIGNATURE_PROVIDER_MAILBOX_BUSY",
+      providerLockCheckpoint: input.providerLockCheckpoint,
+      run: async (checkpoint) => {
+        await checkpoint();
+        let result;
+        try {
+          result = await input.provider.getEmailSignature!();
+        } catch (error) {
+          await checkpoint();
+          return { ok: false as const, error };
+        }
+        await checkpoint();
+        return { ok: true as const, result };
+      },
+    });
+    if (!providerRead.ok) {
+      return {
+        status: "stale",
+        signature: existing,
+        error:
+          providerRead.error instanceof Error
+            ? providerRead.error.message
+            : String(providerRead.error),
+      };
+    }
+
+    const result = providerRead.result;
     try {
-      const result = await input.provider.getEmailSignature();
       if (result.status === "unsupported") {
         return { status: "unsupported", signature: existing };
       }

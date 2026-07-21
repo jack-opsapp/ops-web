@@ -1,162 +1,164 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Loader2,
-  ChevronDown,
   AlertTriangle,
-  Sparkles,
   CheckCircle2,
+  ChevronDown,
+  Loader2,
 } from "lucide-react";
-import { toast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils/cn";
-import { useDictionary } from "@/i18n/client";
-import { useAuthStore } from "@/lib/store/auth-store";
 import {
-  EMAIL_THREAD_CATEGORIES,
-  type EmailThreadAutonomyLevel,
-  type EmailThreadCategory,
-} from "@/lib/types/email-thread";
-import {
-  categoryLabel,
   categoryDotClassName,
+  categoryLabel,
 } from "@/components/ops/inbox/category-chip";
+import { toast } from "@/components/ui/toast";
+import { useDictionary } from "@/i18n/client";
 import { allowedLevelsFor } from "@/lib/email/phase-c-category-autonomy-policy";
+import { useAuthStore } from "@/lib/store/auth-store";
+import type {
+  EmailThreadAutonomyLevel,
+  EmailThreadCategory,
+} from "@/lib/types/email-thread";
+import { EMAIL_THREAD_CATEGORIES } from "@/lib/types/email-thread";
+import { authedFetch } from "@/lib/utils/authed-fetch";
+import { cn } from "@/lib/utils/cn";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
-type AutonomyLevel = "off" | "draft_on_request" | "auto_draft" | "auto_send";
-
-interface CategoryConfig {
-  profileType: string;
-  level: AutonomyLevel;
-  emailCount: number;
+interface CategoryReadiness {
+  ready: boolean;
+  sampleSize: number;
+  approvalRate: number;
 }
+
+type CategoryReadinessMap = Partial<
+  Record<EmailThreadCategory, CategoryReadiness>
+>;
 
 interface EmailCategoryAutonomyProps {
   connectionId: string;
   autoSendFeatureEnabled: boolean;
+  focusPrimaryCategory?: EmailThreadCategory;
+  visiblePrimaryCategories?: readonly EmailThreadCategory[];
 }
 
-// ─── Constants ──────────────────────────────────────────────────────────────
+interface PendingConfirmation {
+  category: EmailThreadCategory;
+  level: EmailThreadAutonomyLevel;
+}
 
-const CATEGORIES = [
-  "client_new_inquiry",
-  "client_quoting",
-  "client_active_project",
-  "client_followup",
-  "vendor_ordering",
-  "vendor_inquiry",
-  "subtrade_coordination",
-  "warranty_claim",
-  "internal",
-] as const;
+const EMPTY_READINESS: CategoryReadiness = {
+  ready: false,
+  sampleSize: 0,
+  approvalRate: 0,
+};
 
-const MIN_EMAILS_FOR_AUTO = 10;
+function initialLevels(): Record<
+  EmailThreadCategory,
+  EmailThreadAutonomyLevel
+> {
+  const levels = {} as Record<EmailThreadCategory, EmailThreadAutonomyLevel>;
+  for (const category of EMAIL_THREAD_CATEGORIES) {
+    levels[category] = allowedLevelsFor(category)[0];
+  }
+  return levels;
+}
 
-const LEVELS: AutonomyLevel[] = [
-  "off",
-  "draft_on_request",
-  "auto_draft",
-  "auto_send",
-];
-
-// ─── Component ──────────────────────────────────────────────────────────────
+function autonomouslySends(level: EmailThreadAutonomyLevel): boolean {
+  return level === "auto_send" || level === "auto_follow_up";
+}
 
 export function EmailCategoryAutonomy({
   connectionId,
   autoSendFeatureEnabled,
+  focusPrimaryCategory,
+  visiblePrimaryCategories,
 }: EmailCategoryAutonomyProps) {
   const { t } = useDictionary("autonomy");
-  const { currentUser, company } = useAuthStore();
-
+  const { company, currentUser } = useAuthStore();
+  const [levels, setLevels] = useState(initialLevels);
+  const [categoryReadiness, setCategoryReadiness] =
+    useState<CategoryReadinessMap>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
+  const [saving, setSaving] = useState<EmailThreadCategory | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] =
+    useState<PendingConfirmation | null>(null);
+  const [saveError, setSaveError] = useState<EmailThreadCategory | null>(null);
+  const focusedRowRef = useRef<HTMLDivElement | null>(null);
 
-  const prefersReducedMotion = typeof window !== "undefined"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
-  const [categories, setCategories] = useState<CategoryConfig[]>([]);
-  const [showAutoSendWarning, setShowAutoSendWarning] = useState<string | null>(null);
-
-  // ─── Fetch current settings + category stats ──────────────────────────
   useEffect(() => {
     if (!company?.id || !currentUser?.id || !connectionId) return;
+    let cancelled = false;
 
-    const fetchData = async () => {
+    const load = async () => {
       setLoading(true);
       try {
-        const [settingsRes, categoryStatsRes] = await Promise.all([
-          fetch(
+        const [settingsResponse, readinessResponse] = await Promise.all([
+          authedFetch(
             `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${connectionId}`
           ),
-          fetch(
+          authedFetch(
             `/api/integrations/email/draft-stats-by-category?companyId=${company.id}&connectionId=${connectionId}`
           ),
         ]);
+        if (cancelled) return;
 
-        let categoryAutonomy: Record<string, string> = {};
-        if (settingsRes.ok) {
-          const data = await settingsRes.json();
-          categoryAutonomy =
-            (data.settings as Record<string, unknown>)?.category_autonomy as Record<string, string> ?? {};
+        if (settingsResponse.ok) {
+          const body = await settingsResponse.json();
+          const settings = (body.settings as Record<string, unknown>) ?? {};
+          const stored =
+            (settings.category_autonomy as Record<string, string>) ?? {};
+          const next = initialLevels();
+          for (const category of EMAIL_THREAD_CATEGORIES) {
+            const value = stored[
+              `primary:${category}`
+            ] as EmailThreadAutonomyLevel;
+            if (allowedLevelsFor(category).includes(value)) {
+              next[category] = value;
+            }
+          }
+          setLevels(next);
         }
 
-        // Real per-profile-type counts from ai_draft_history
-        let categoryCounts: Record<string, number> = {};
-        if (categoryStatsRes.ok) {
-          const data = await categoryStatsRes.json();
-          categoryCounts = (data.categoryCounts as Record<string, number>) || {};
+        if (readinessResponse.ok) {
+          const body = await readinessResponse.json();
+          setCategoryReadiness(
+            (body.categoryReadiness as CategoryReadinessMap) ?? {}
+          );
         }
-
-        setCategories(
-          CATEGORIES.map((profileType) => ({
-            profileType,
-            level: (categoryAutonomy[profileType] as AutonomyLevel) || "draft_on_request",
-            emailCount: categoryCounts[profileType] || 0,
-          }))
-        );
       } catch {
-        // Non-fatal
+        // The settings surface remains usable at fail-closed defaults.
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchData();
-  }, [company?.id, currentUser?.id, connectionId]);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [company?.id, connectionId, currentUser?.id]);
 
-  // ─── Save category level ──────────────────────────────────────────────
-  const handleLevelChange = useCallback(
-    async (profileType: string, newLevel: AutonomyLevel) => {
+  useEffect(() => {
+    if (loading || !focusPrimaryCategory) return;
+    const frame = requestAnimationFrame(() => {
+      focusedRowRef.current?.scrollIntoView({ block: "center" });
+      focusedRowRef.current
+        ?.querySelector<HTMLSelectElement>("select")
+        ?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusPrimaryCategory, loading]);
+
+  const commit = useCallback(
+    async (category: EmailThreadCategory, level: EmailThreadAutonomyLevel) => {
       if (!company?.id) return;
-
-      // Show warning for auto_send
-      if (newLevel === "auto_send") {
-        setShowAutoSendWarning(profileType);
-        return;
-      }
-
-      await applyLevelChange(profileType, newLevel);
-    },
-    [company?.id, connectionId]
-  );
-
-  const applyLevelChange = useCallback(
-    async (profileType: string, newLevel: AutonomyLevel) => {
-      if (!company?.id) return;
-      setSaving(profileType);
-      setShowAutoSendWarning(null);
+      const previous = levels[category];
+      setSaving(category);
+      setSaveError(null);
+      setPendingConfirmation(null);
+      setLevels((current) => ({ ...current, [category]: level }));
 
       try {
-        // Build new category_autonomy from current state
-        const newCategoryAutonomy: Record<string, string> = {};
-        for (const cat of categories) {
-          newCategoryAutonomy[cat.profileType] =
-            cat.profileType === profileType ? newLevel : cat.level;
-        }
-
-        const response = await fetch(
+        const response = await authedFetch(
           "/api/integrations/email/auto-send/settings",
           {
             method: "PUT",
@@ -164,35 +166,40 @@ export function EmailCategoryAutonomy({
             body: JSON.stringify({
               companyId: company.id,
               connectionId,
-              settings: { category_autonomy: newCategoryAutonomy },
+              settings: {
+                category_autonomy: { [`primary:${category}`]: level },
+              },
             }),
           }
         );
-
-        if (!response.ok) throw new Error("Save failed");
-
-        setCategories((prev) =>
-          prev.map((cat) =>
-            cat.profileType === profileType
-              ? { ...cat, level: newLevel }
-              : cat
-          )
-        );
+        if (!response.ok) throw new Error("category setting rejected");
         toast.success(t("category.saved"));
       } catch {
+        setLevels((current) => ({ ...current, [category]: previous }));
+        setSaveError(category);
         toast.error(t("error.categorySaveFailed"));
       } finally {
         setSaving(null);
       }
     },
-    [company?.id, connectionId, categories, t]
+    [company?.id, connectionId, levels, t]
   );
 
-  // ─── Loading ──────────────────────────────────────────────────────────
+  const chooseLevel = useCallback(
+    (category: EmailThreadCategory, level: EmailThreadAutonomyLevel) => {
+      if (autonomouslySends(level)) {
+        setPendingConfirmation({ category, level });
+        return;
+      }
+      void commit(category, level);
+    },
+    [commit]
+  );
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-4">
-        <Loader2 className={cn("w-[14px] h-[14px] text-text-mute", !prefersReducedMotion && "animate-spin")} />
+        <Loader2 className="h-4 w-4 text-text-mute motion-safe:animate-spin" />
         <span className="font-mohave text-body-sm text-text-mute">
           {t("loading")}
         </span>
@@ -200,74 +207,99 @@ export function EmailCategoryAutonomy({
     );
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────
+  const displayedCategories = visiblePrimaryCategories?.length
+    ? EMAIL_THREAD_CATEGORIES.filter((category) =>
+        visiblePrimaryCategories.includes(category)
+      )
+    : EMAIL_THREAD_CATEGORIES;
+
   return (
-    <div className="space-y-2">
-      {/* Header */}
-      <div className="mb-2">
-        <span className="font-cakemono text-body-sm text-text-2 font-light uppercase tracking-wide">
+    <section className="space-y-2" aria-labelledby="category-autonomy-title">
+      <header>
+        <h3
+          id="category-autonomy-title"
+          className="font-cakemono text-body-sm font-light uppercase tracking-wide text-text-2"
+        >
           {t("category.title")}
-        </span>
-        <p className="font-mono text-micro text-text-mute mt-0.5">
+        </h3>
+        <p className="mt-0.5 font-mono text-micro text-text-mute">
           [{t("category.description")}]
         </p>
-      </div>
+      </header>
 
-      {/* Category rows */}
-      <div className="rounded-lg border border-[rgba(255,255,255,0.06)] overflow-hidden">
-        {categories.map((cat, index) => {
-          const isLearning = cat.emailCount < MIN_EMAILS_FOR_AUTO;
-          const isSaving = saving === cat.profileType;
-          const showWarning = showAutoSendWarning === cat.profileType;
-
-          // Available levels for this category
-          const availableLevels = LEVELS.filter((level) => {
-            if (level === "auto_send" && !autoSendFeatureEnabled) return false;
-            if (
-              (level === "auto_draft" || level === "auto_send") &&
-              isLearning
-            )
-              return false;
-            return true;
+      <div className="overflow-hidden rounded-panel border border-border bg-surface-input">
+        {displayedCategories.map((category, index) => {
+          const status = categoryReadiness[category] ?? EMPTY_READINESS;
+          const currentLevel = levels[category];
+          const isSaving = saving === category;
+          const isFocused = category === focusPrimaryCategory;
+          const canEnableSend = autoSendFeatureEnabled && status.ready;
+          const availableLevels = allowedLevelsFor(category).filter((level) => {
+            if (!autonomouslySends(level)) return true;
+            if (level === currentLevel) return true;
+            return autoSendFeatureEnabled && status.ready;
           });
+          const readyToEnable =
+            canEnableSend &&
+            currentLevel === "auto_draft" &&
+            availableLevels.some(autonomouslySends);
+          const rate = Math.round(status.approvalRate * 100);
 
           return (
-            <div key={cat.profileType}>
-              <div
-                className={cn(
-                  "flex items-center justify-between px-3 py-2 min-h-[36px]",
-                  index > 0 && "border-t border-[rgba(255,255,255,0.04)]"
-                )}
-              >
-                {/* Category info */}
-                <div className="flex-1 min-w-0 mr-3">
-                  <span className="font-mohave text-body-sm text-text block truncate">
-                    {t(`category.${cat.profileType}`)}
-                  </span>
-                  <span className="font-mono text-micro text-text-mute uppercase tracking-wider">
-                    {isLearning
-                      ? t("category.learning")
-                      : t("category.emailCount").replace(
-                          "{{count}}",
-                          String(cat.emailCount)
-                        )}
-                  </span>
+            <div
+              key={category}
+              ref={isFocused ? focusedRowRef : undefined}
+              className={cn(
+                index > 0 && "border-t border-border",
+                isFocused && "border-olive-line bg-olive-soft"
+              )}
+            >
+              <div className="flex min-h-12 items-center justify-between gap-3 px-3 py-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 shrink-0 rounded-full",
+                      categoryDotClassName(category)
+                    )}
+                    aria-hidden
+                  />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-cakemono text-caption-sm font-light uppercase tracking-wider text-text-2">
+                        {categoryLabel(category)}
+                      </span>
+                      {readyToEnable && (
+                        <span className="inline-flex items-center gap-1 rounded-chip border border-olive-line bg-olive-soft px-1.5 py-0.5 font-mono text-micro uppercase tracking-wider text-olive">
+                          <CheckCircle2 className="h-3 w-3" aria-hidden />
+                          {t("category.readyToEnable")}
+                        </span>
+                      )}
+                    </div>
+                    <span className="block font-mono text-micro text-text-mute">
+                      {t("category.reviewedAccuracy", {
+                        rate,
+                        count: status.sampleSize,
+                      })}
+                    </span>
+                  </div>
                 </div>
 
-                {/* Level selector */}
                 <div className="relative shrink-0">
                   <select
-                    value={cat.level}
-                    onChange={(e) =>
-                      handleLevelChange(
-                        cat.profileType,
-                        e.target.value as AutonomyLevel
+                    value={currentLevel}
+                    onChange={(event) =>
+                      chooseLevel(
+                        category,
+                        event.target.value as EmailThreadAutonomyLevel
                       )
                     }
-                    disabled={isSaving}
+                    disabled={isSaving || availableLevels.length <= 1}
+                    aria-label={t("category.autonomyLabel", {
+                      category: categoryLabel(category),
+                    })}
                     className={cn(
-                      "appearance-none pl-2 pr-6 py-1 min-h-[36px] rounded bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] font-mohave text-caption-sm text-text-2 outline-none focus:border-[rgba(255,255,255,0.20)] transition-colors cursor-pointer min-w-[130px]",
-                      isSaving && "opacity-50"
+                      "min-h-11 min-w-36 cursor-pointer appearance-none rounded border border-border bg-surface-input py-1 pl-2 pr-7 font-mohave text-caption-sm text-text-2 outline-none transition-colors focus:border-border-medium",
+                      isSaving && "cursor-wait opacity-50"
                     )}
                   >
                     {availableLevels.map((level) => (
@@ -276,324 +308,58 @@ export function EmailCategoryAutonomy({
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-[10px] h-[10px] text-text-mute pointer-events-none" />
-                  {isSaving && (
-                    <Loader2 className={cn("absolute right-6 top-1/2 -translate-y-1/2 w-[10px] h-[10px] text-text-mute", !prefersReducedMotion && "animate-spin")} />
+                  {isSaving ? (
+                    <Loader2 className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-text-mute motion-safe:animate-spin" />
+                  ) : (
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-text-mute" />
                   )}
                 </div>
               </div>
 
-              {/* Auto-send warning banner */}
-              {showWarning && (
-                <div className="px-3 pb-2">
-                  <div className="flex items-start gap-2 px-2 py-1.5 rounded-chip bg-[rgba(196,168,104,0.06)] border border-[rgba(196,168,104,0.15)]">
-                    <AlertTriangle className="w-[12px] h-[12px] text-[#C4A868] shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-mohave text-caption-sm text-[#C4A868]">
-                        {t("category.warning.autoSend")}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <button
-                          onClick={() =>
-                            applyLevelChange(cat.profileType, "auto_send")
-                          }
-                          className="font-mono text-micro text-[#C4A868] uppercase tracking-wider hover:text-text transition-colors"
-                        >
-                          {t("confirm")}
-                        </button>
-                        <button
-                          onClick={() => setShowAutoSendWarning(null)}
-                          className="font-mono text-micro text-text-mute uppercase tracking-wider hover:text-text-3 transition-colors"
-                        >
-                          {t("cancel")}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Min emails notice */}
-              {isLearning &&
-                (cat.level === "auto_draft" || cat.level === "auto_send") && (
-                  <div className="px-3 pb-1.5">
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-panel bg-[rgba(255,255,255,0.02)]">
-                      <Sparkles className="w-[10px] h-[10px] text-text-mute" />
-                      <span className="font-mohave text-[11px] text-text-mute">
-                        {t("category.minEmails").replace(
-                          "{{count}}",
-                          String(MIN_EMAILS_FOR_AUTO)
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ─── Primary Category Autonomy (Inbox v2) ───────────────────────── */}
-      <PrimaryCategoryAutonomy
-        connectionId={connectionId}
-        autoSendFeatureEnabled={autoSendFeatureEnabled}
-        categoryCounts={categories.reduce<Record<string, number>>((acc, c) => {
-          acc[c.profileType] = c.emailCount;
-          return acc;
-        }, {})}
-      />
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Primary Category Autonomy section — Inbox v2 taxonomy (13 categories)
-// ═══════════════════════════════════════════════════════════════════════════
-
-interface PrimaryCategoryAutonomyProps {
-  connectionId: string;
-  autoSendFeatureEnabled: boolean;
-  /**
-   * Category email counts per profile_type — used to compute a rough
-   * "ready to graduate" signal for primary categories (CUSTOMER maps to
-   * client_new_inquiry + client_quoting + active/followup, etc.).
-   */
-  categoryCounts: Record<string, number>;
-}
-
-const PRIMARY_PROFILE_MAP: Partial<Record<EmailThreadCategory, string[]>> = {
-  CUSTOMER: [
-    "client_new_inquiry",
-    "client_quoting",
-    "client_active_project",
-    "client_followup",
-  ],
-  VENDOR: ["vendor_ordering", "vendor_inquiry"],
-  SUBTRADE: ["subtrade_coordination"],
-  PLATFORM_BID: ["client_new_inquiry"],
-  INTERNAL: ["internal"],
-};
-
-const PRIMARY_MIN_SAMPLES = 20;
-
-function PrimaryCategoryAutonomy({
-  connectionId,
-  autoSendFeatureEnabled,
-  categoryCounts,
-}: PrimaryCategoryAutonomyProps) {
-  const { t } = useDictionary("autonomy");
-  const { company } = useAuthStore();
-  const [levels, setLevels] = useState<
-    Record<EmailThreadCategory, EmailThreadAutonomyLevel>
-  >(() => {
-    const out = {} as Record<EmailThreadCategory, EmailThreadAutonomyLevel>;
-    for (const c of EMAIL_THREAD_CATEGORIES) out[c] = "off";
-    return out;
-  });
-  const [saving, setSaving] = useState<EmailThreadCategory | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // Load current settings
-  useEffect(() => {
-    if (!company?.id || !connectionId) return;
-    let aborted = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(
-          `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${connectionId}`
-        );
-        if (!res.ok || aborted) return;
-        const data = await res.json();
-        const settings = (data.settings as Record<string, unknown>) ?? {};
-        const map =
-          (settings.category_autonomy as Record<string, string>) ?? {};
-        const next = {} as Record<EmailThreadCategory, EmailThreadAutonomyLevel>;
-        for (const c of EMAIL_THREAD_CATEGORIES) {
-          const key = `primary:${c}`;
-          const value = (map[key] as EmailThreadAutonomyLevel | undefined);
-          const allowed = allowedLevelsFor(c);
-          next[c] = value && allowed.includes(value)
-            ? value
-            : allowed[0]; // default: first allowed ("off" or "draft_on_request")
-        }
-        setLevels(next);
-      } catch {
-        // non-fatal
-      } finally {
-        if (!aborted) setLoading(false);
-      }
-    })();
-    return () => {
-      aborted = true;
-    };
-  }, [company?.id, connectionId]);
-
-  const commit = useCallback(
-    async (category: EmailThreadCategory, level: EmailThreadAutonomyLevel) => {
-      if (!company?.id) return;
-      setSaving(category);
-      const prevLevels = levels;
-      const nextLevels = { ...levels, [category]: level };
-      setLevels(nextLevels);
-      try {
-        // Merge with existing category_autonomy: fetch → patch → write.
-        const getRes = await fetch(
-          `/api/integrations/email/auto-send/settings?companyId=${company.id}&connectionId=${connectionId}`
-        );
-        const getBody = await getRes.json();
-        const currentMap =
-          ((getBody.settings as Record<string, unknown>)
-            ?.category_autonomy as Record<string, string>) ?? {};
-
-        const mergedMap: Record<string, string> = {
-          ...currentMap,
-          [`primary:${category}`]: level,
-        };
-
-        const res = await fetch(
-          "/api/integrations/email/auto-send/settings",
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              companyId: company.id,
-              connectionId,
-              settings: { category_autonomy: mergedMap },
-            }),
-          }
-        );
-        if (!res.ok) throw new Error("Save failed");
-        toast.success(t("category.saved") ?? "Saved");
-      } catch {
-        setLevels(prevLevels);
-        toast.error(t("error.categorySaveFailed") ?? "Could not save.");
-      } finally {
-        setSaving(null);
-      }
-    },
-    [company?.id, connectionId, levels, t]
-  );
-
-  if (loading) return null;
-
-  return (
-    <div className="mt-6">
-      <div className="mb-2">
-        <span className="font-cakemono text-body-sm text-text-2 font-light uppercase tracking-wide">
-          Primary category autonomy
-        </span>
-        <p className="font-mono text-micro text-text-mute mt-0.5">
-          [Inbox v2 — thirteen primary categories]
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-[rgba(255,255,255,0.06)] overflow-hidden">
-        {EMAIL_THREAD_CATEGORIES.map((cat, index) => {
-          const allowed = allowedLevelsFor(cat);
-          // Apply the global feature gate too: if auto_send isn't enabled at
-          // the connection level, remove it from the dropdown.
-          const filtered = allowed.filter((lvl) => {
-            if (
-              (lvl === "auto_send" || lvl === "auto_follow_up") &&
-              !autoSendFeatureEnabled
-            ) {
-              return false;
-            }
-            return true;
-          });
-
-          const profileTypes = PRIMARY_PROFILE_MAP[cat] ?? [];
-          const totalSamples = profileTypes.reduce(
-            (sum, pt) => sum + (categoryCounts[pt] ?? 0),
-            0
-          );
-          const readyToGraduate =
-            profileTypes.length > 0 && totalSamples >= PRIMARY_MIN_SAMPLES;
-
-          const isSaving = saving === cat;
-
-          return (
-            <div
-              key={cat}
-              className={cn(
-                "flex items-center justify-between px-3 py-2 min-h-[48px]",
-                index > 0 && "border-t border-[rgba(255,255,255,0.04)]"
-              )}
-            >
-              <div className="flex-1 min-w-0 mr-3 flex items-center gap-2">
-                <span
-                  className={cn(
-                    "w-[6px] h-[6px] rounded-full shrink-0",
-                    categoryDotClassName(cat)
-                  )}
-                  aria-hidden
-                />
-                <span className="font-cakemono font-light uppercase text-[12px] tracking-[0.14em] text-text-2">
-                  {categoryLabel(cat)}
-                </span>
-                {readyToGraduate && levels[cat] === "auto_draft" && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-[1px] rounded-[3px] bg-[rgba(157,181,130,0.08)] border border-[rgba(157,181,130,0.24)]">
-                    <CheckCircle2 className="w-[10px] h-[10px] text-olive" strokeWidth={2} />
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-olive">
-                      Ready to auto
-                    </span>
-                  </span>
-                )}
-              </div>
-
-              <div className="relative shrink-0">
-                <select
-                  value={levels[cat]}
-                  onChange={(e) =>
-                    commit(cat, e.target.value as EmailThreadAutonomyLevel)
-                  }
-                  disabled={isSaving || filtered.length <= 1}
-                  className={cn(
-                    "appearance-none pl-2 pr-6 py-1 min-h-[36px] rounded",
-                    "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
-                    "font-mohave text-caption-sm text-text-2 outline-none",
-                    "focus:border-[rgba(255,255,255,0.20)] transition-colors cursor-pointer min-w-[150px]",
-                    isSaving && "opacity-50"
-                  )}
+              {pendingConfirmation?.category === category && (
+                <div
+                  className="mx-3 mb-2 flex items-start gap-2 rounded-chip border border-olive-line bg-olive-soft px-2 py-1.5"
+                  role="alert"
                 >
-                  {filtered.map((level) => (
-                    <option key={level} value={level}>
-                      {formatLevelLabel(level)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-[10px] h-[10px] text-text-mute pointer-events-none" />
-                {isSaving && (
-                  <Loader2
-                    className={cn(
-                      "absolute right-6 top-1/2 -translate-y-1/2 w-[10px] h-[10px] text-text-mute",
-                      "animate-spin"
-                    )}
-                  />
-                )}
-              </div>
+                  <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-olive" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-mohave text-caption-sm text-olive">
+                      {t("category.warning.autoSend")}
+                    </p>
+                    <div className="mt-1 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void commit(category, pendingConfirmation.level)
+                        }
+                        className="font-mono text-micro uppercase tracking-wider text-olive transition-colors hover:text-text"
+                      >
+                        {t("confirm")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPendingConfirmation(null)}
+                        className="font-mono text-micro uppercase tracking-wider text-text-mute transition-colors hover:text-text-3"
+                      >
+                        {t("cancel")}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {saveError === category && (
+                <p
+                  className="mx-3 mb-2 font-mohave text-caption-sm text-rose"
+                  role="alert"
+                >
+                  {t("error.categorySaveFailed")}
+                </p>
+              )}
             </div>
           );
         })}
       </div>
-    </div>
+    </section>
   );
-}
-
-function formatLevelLabel(level: EmailThreadAutonomyLevel): string {
-  switch (level) {
-    case "off":
-      return "Off";
-    case "draft_on_request":
-      return "Draft on request";
-    case "auto_draft":
-      return "Auto-draft";
-    case "auto_send":
-      return "Auto-send";
-    case "auto_archive":
-      return "Auto-archive";
-    case "auto_follow_up":
-      return "Auto follow-up";
-  }
 }

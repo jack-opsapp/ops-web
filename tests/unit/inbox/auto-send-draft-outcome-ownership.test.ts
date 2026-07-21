@@ -52,6 +52,8 @@ function makeSupabase() {
     connection_id: "connection-1",
     opportunity_id: "opportunity-1",
     source_email_thread_id: "internal-thread-1",
+    category_snapshot: "CUSTOMER",
+    autonomy_level_snapshot: "auto_send",
     thread_id: "thread-1",
     in_reply_to: "message-1",
     to_emails: ["customer@example.com"],

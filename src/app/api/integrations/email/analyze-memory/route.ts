@@ -14,6 +14,7 @@
  * Feature-gated: phase_c
  */
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
@@ -29,17 +30,29 @@ import {
   type ProfileType,
 } from "@/lib/api/services/memory-service";
 import {
+  acceptPhaseCDispatch,
   acquirePhaseCLock,
   buildPersistStateFn,
   dispatchPhaseCContinuation,
   finalizePhaseC,
+  isExactDurablePhaseCCompletion,
+  preparePhaseCContinuationDispatch,
   releasePhaseCLock,
+  skipPhaseCDispatch,
   writePhaseCError,
 } from "@/lib/api/services/phase-c-pipeline-helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { NormalizedEmail } from "@/lib/api/services/email-provider";
+import {
+  ProviderApiError,
+  type NormalizedEmail,
+} from "@/lib/api/services/email-provider";
 import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
 import { authorizeEmailAnalysisJobContinuation } from "@/lib/email/email-analysis-job-access";
+import {
+  acquireEmailConnectionSyncLock,
+  createEmailConnectionSyncLockRenewer,
+  releaseEmailConnectionSyncLock,
+} from "@/lib/api/services/email-connection-sync-lock";
 
 export const maxDuration = 800;
 
@@ -50,24 +63,9 @@ const CHUNK_TIME_BUDGET_MS = 550_000;
 // 12 threads per chunk → progress is persisted every ~60-90s at typical
 // extraction speeds. Small enough that a Lambda kill loses < 2 min of work.
 const CHUNK_SIZE = 12;
+const PHASE_C_THREAD_READ_DEADLINE_MS = 45_000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-async function fetchWithTimeout<T>(
-  promise: Promise<T>,
-  ms: number
-): Promise<T | null> {
-  try {
-    return await Promise.race([
-      promise,
-      new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), ms)
-      ),
-    ]);
-  } catch {
-    return null;
-  }
-}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -149,11 +147,11 @@ export async function POST(request: NextRequest) {
   const authError = requireEmailPipelineSecret(request);
   if (authError) return authError;
 
-  const { jobId, connectionId, companyId } = await request.json();
+  const { jobId, connectionId, companyId, dispatchId } = await request.json();
 
-  if (!jobId || !connectionId || !companyId) {
+  if (!jobId || !connectionId || !companyId || !dispatchId) {
     return NextResponse.json(
-      { error: "jobId, connectionId, and companyId required" },
+      { error: "jobId, connectionId, companyId, and dispatchId required" },
       { status: 400 }
     );
   }
@@ -190,77 +188,130 @@ export async function POST(request: NextRequest) {
   );
 
   if (!enabled) {
+    await skipPhaseCDispatch(supabase, jobId, dispatchId);
     console.log(
       `[analyze-memory] Phase C skipped — phase_c disabled for ${companyId}`
     );
     return NextResponse.json({ skipped: true });
   }
 
+  let lockOwner: string | null;
+  try {
+    lockOwner = await acquireEmailConnectionSyncLock(
+      connectionId,
+      "email-analyze-phase-c-entry",
+      supabase
+    );
+  } catch (error) {
+    console.error("[analyze-memory] mailbox lease handoff failed:", error);
+    return NextResponse.json(
+      {
+        error: "Mailbox is busy. Try again in a few minutes.",
+        lockAccepted: false,
+      },
+      { status: 409 }
+    );
+  }
+  if (!lockOwner) {
+    return NextResponse.json(
+      {
+        error: "Mailbox is busy. Try again in a few minutes.",
+        lockAccepted: false,
+      },
+      { status: 409 }
+    );
+  }
+  let lockHandedToBackground = false;
+
   // Run Phase C in background. runWithSupabase pins the service-role client to
   // the async chain so Memory/Writing/KnowledgeGraph services see the right
   // client for the entire multi-minute run, regardless of concurrent traffic.
-  after(async () => {
-    const bgSupabase = getServiceRoleClient();
-    await runWithSupabase(bgSupabase, async () => {
-      const backgroundAccess = await authorizeEmailAnalysisJobContinuation({
-        supabase: bgSupabase,
-        jobId,
-        claimedConnectionId: connectionId,
-        claimedCompanyId: companyId,
-      });
-      if (!backgroundAccess.allowed) {
-        await writePhaseCError(
-          bgSupabase,
-          jobId,
-          new Error(
-            `Phase C authorization expired: ${backgroundAccess.reason}`
-          ),
-          "entry"
-        );
-        return;
-      }
-      // Row-level execution lock. A duplicate dispatch (webhook retry, a
-      // user double-click on a retry button, two entry routes overlapping)
-      // would otherwise race through the same thread range and corrupt
-      // phaseCStats — in-memory counters whose "last writer wins" on
-      // finalize makes concurrent progress invisible to the job row.
-      const holderId = await acquirePhaseCLock(bgSupabase, jobId, "entry");
-      if (!holderId) {
-        console.log(
-          `[analyze-memory] Phase C lock held by another runner for job ${jobId} — skipping duplicate dispatch`
-        );
-        return;
-      }
-      try {
-        await runPhaseCEntry(
-          jobId,
+  try {
+    after(async () => {
+      const bgSupabase = getServiceRoleClient();
+      await runWithSupabase(bgSupabase, async () => {
+        const renewLockIfNeeded = createEmailConnectionSyncLockRenewer({
           connectionId,
-          companyId,
-          backgroundAccess.actorUserId,
-          bgSupabase,
-          holderId
-        );
-      } catch (err) {
-        console.error("[analyze-memory] Phase C entry failed:", err);
+          ownerId: lockOwner!,
+          context: "email-analyze-phase-c-entry",
+          client: bgSupabase,
+        });
+        let holderId: string | null = null;
         try {
+          await renewLockIfNeeded(true);
+          const backgroundAccess = await authorizeEmailAnalysisJobContinuation({
+            supabase: bgSupabase,
+            jobId,
+            claimedConnectionId: connectionId,
+            claimedCompanyId: companyId,
+          });
+          if (!backgroundAccess.allowed) {
+            throw new Error(
+              `Phase C authorization expired: ${backgroundAccess.reason}`
+            );
+          }
+          // Row-level execution lock. A duplicate dispatch (webhook retry, a
+          // user double-click on a retry button, two entry routes overlapping)
+          // would otherwise race through the same thread range and corrupt
+          // phaseCStats — in-memory counters whose "last writer wins" on
+          // finalize makes concurrent progress invisible to the job row.
+          holderId = await acquirePhaseCLock(bgSupabase, jobId, "entry");
+          if (!holderId) {
+            console.log(
+              `[analyze-memory] Phase C lock held by another runner for job ${jobId} — skipping duplicate dispatch`
+            );
+            return;
+          }
+          await runPhaseCEntry(
+            jobId,
+            connectionId,
+            companyId,
+            backgroundAccess.actorUserId,
+            bgSupabase,
+            holderId,
+            () => renewLockIfNeeded(true)
+          );
+        } catch (err) {
+          console.error("[analyze-memory] Phase C entry failed:", err);
           await writePhaseCError(bgSupabase, jobId, err, "entry");
-        } catch (markErr) {
-          console.error(
-            "[analyze-memory] Failed to persist phaseCError marker:",
-            markErr
+        } finally {
+          if (holderId) {
+            // Idempotent: runPhaseCEntry releases the lock itself just before
+            // firing a continuation dispatch so the next runner can acquire.
+            await releasePhaseCLock(bgSupabase, jobId, holderId).catch(
+              () => {}
+            );
+          }
+          await renewLockIfNeeded.stop().catch(() => {});
+          await releaseEmailConnectionSyncLock(
+            connectionId,
+            lockOwner!,
+            "email-analyze-phase-c-entry",
+            bgSupabase
           );
         }
-      } finally {
-        // Idempotent: runPhaseCEntry releases the lock itself just before
-        // firing a continuation dispatch so the next runner can acquire. If
-        // it already released, this is a no-op (fenced by holder id). This
-        // block is the crash safety net.
-        await releasePhaseCLock(bgSupabase, jobId, holderId).catch(() => {});
-      }
+      });
     });
-  });
+    await acceptPhaseCDispatch(supabase, jobId, dispatchId);
+    lockHandedToBackground = true;
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, accepted: true });
+  } catch (error) {
+    await writePhaseCError(supabase, jobId, error, "entry");
+    return NextResponse.json(
+      { error: "Phase C could not safely start", accepted: false },
+      { status: 500 }
+    );
+  } finally {
+    if (!lockHandedToBackground) {
+      await releaseEmailConnectionSyncLock(
+        connectionId,
+        lockOwner,
+        "email-analyze-phase-c-entry",
+        supabase
+      );
+    }
+  }
 }
 
 // ─── Phase C Entry: bootstrap (fetch + classify) + first chunk run ───────────
@@ -271,37 +322,73 @@ async function runPhaseCEntry(
   companyId: string,
   actorUserId: string,
   supabase: SupabaseClient,
-  holderId: string
+  holderId: string,
+  proveMailboxOwnership: () => Promise<void>
 ) {
   console.log(
     `[analyze-memory] Phase C entry starting for job ${jobId} (lock holder ${holderId})`
   );
 
   // ─── 1. Read Phase B job result ──────────────────────────────────────────
-  const { data: job } = await supabase
+  const { data: job, error: jobReadError } = await supabase
     .from("gmail_scan_jobs")
-    .select("result")
+    .select("status, result, requested_by_user_id, company_id")
     .eq("id", jobId)
     .single();
 
-  if (!job?.result) {
-    console.error(
-      "[analyze-memory] Job result empty — Phase B may not have completed"
+  if (jobReadError) {
+    throw new Error(
+      `Phase C entry could not read its job result: ${jobReadError.message}`
     );
-    return;
+  }
+  if (!job?.result) {
+    throw new Error(
+      "Phase C entry job result is empty — Phase B did not durably prepare it"
+    );
   }
 
   const priorResult = job.result as Record<string, unknown>;
 
-  // Idempotency: if Phase C already completed, skip. If pipeline state already
-  // exists (e.g., a prior invocation wrote it before crashing), resume from
-  // there rather than re-fetching threads.
-  if (priorResult.phaseCComplete) {
+  // Idempotency is based on the durable row transition plus the exact actor,
+  // company, and finalization proof. A JSON marker by itself is not enough:
+  // it may have been written by a failed/stale attempt before the guarded
+  // completion transaction committed.
+  if (
+    isExactDurablePhaseCCompletion({
+      status: job.status,
+      result: priorResult,
+      requestedByUserId: job.requested_by_user_id,
+      rowCompanyId: job.company_id,
+      jobId,
+      companyId,
+      actorUserId,
+    })
+  ) {
     console.log(
       `[analyze-memory] Phase C already complete for job ${jobId} — skipping`
     );
     return;
   }
+
+  const isDurableFeatureSkip =
+    job.status === "complete" &&
+    job.requested_by_user_id === actorUserId &&
+    job.company_id === companyId &&
+    priorResult.phaseCComplete === false &&
+    priorResult.phaseCSkipped === true;
+  if (isDurableFeatureSkip) {
+    console.log(
+      `[analyze-memory] Phase C durably skipped for job ${jobId} — skipping`
+    );
+    return;
+  }
+
+  if (job.status === "complete" || priorResult.phaseCComplete === true) {
+    throw new Error("Phase C completion state is inconsistent");
+  }
+
+  // If pipeline state already exists (e.g., a prior invocation wrote it
+  // before crashing), resume from there rather than re-fetching threads.
 
   if (priorResult.phaseCPipeline) {
     const persistedState = priorResult.phaseCPipeline as PhaseCPipelineState;
@@ -313,10 +400,23 @@ async function runPhaseCEntry(
     console.log(
       `[analyze-memory] Phase C pipeline state found — resuming via continuation`
     );
+    const continuationDispatchId = randomUUID();
+    await preparePhaseCContinuationDispatch(
+      supabase,
+      jobId,
+      continuationDispatchId
+    );
+    await proveMailboxOwnership();
     // Release before dispatching so the continuation can acquire immediately
     // rather than racing our still-held lock and skipping as a duplicate.
     await releasePhaseCLock(supabase, jobId, holderId);
-    dispatchPhaseCContinuation(jobId, connectionId, companyId);
+    await dispatchPhaseCContinuation({
+      supabase,
+      jobId,
+      connectionId,
+      companyId,
+      dispatchId: continuationDispatchId,
+    });
     return;
   }
 
@@ -338,18 +438,22 @@ async function runPhaseCEntry(
   const connection = await EmailService.getConnection(connectionId);
 
   if (!connection || connection.companyId !== companyId) {
-    console.error(`[analyze-memory] Connection ${connectionId} not found`);
-    return;
+    throw new Error(`Phase C email connection ${connectionId} was not found`);
   }
 
   const userId = actorUserId;
   const ownerEmail = connection.email.toLowerCase();
 
   // ─── 3. Get company users for employee email set ─────────────────────────
-  const { data: companyUsers } = await supabase
+  const { data: companyUsers, error: companyUsersError } = await supabase
     .from("users")
     .select("email")
     .eq("company_id", companyId);
+  if (companyUsersError) {
+    throw new Error(
+      `Phase C could not load company email identities: ${companyUsersError.message}`
+    );
+  }
 
   const employeeEmailSet = new Set<string>();
   for (const u of companyUsers || []) {
@@ -420,38 +524,40 @@ async function runPhaseCEntry(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fetchedThreads = new Map<string, any[]>();
   const FETCH_CONCURRENCY = 5;
-  const MAX_RETRIES = 3;
 
   for (let i = 0; i < allThreadTargets.length; i += FETCH_CONCURRENCY) {
     const batch = allThreadTargets.slice(i, i + FETCH_CONCURRENCY);
 
-    const results = await Promise.allSettled(
+    await proveMailboxOwnership();
+    const results = await Promise.all(
       batch.map(async (target) => {
-        // Retry with exponential backoff on failure
-        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-          const fetched = await fetchWithTimeout(
-            provider.fetchThread(target.providerThreadId),
-            10_000
-          );
-          if (fetched) {
-            const messages = target.messageIds
-              ? fetched.filter((message: { id?: string }) =>
-                  message.id ? target.messageIds!.has(message.id) : false
-                )
-              : fetched;
-            return { threadId: target.logicalThreadId, messages };
+        try {
+          const fetched = await provider.fetchThread(target.providerThreadId, {
+            deadlineAt: Date.now() + PHASE_C_THREAD_READ_DEADLINE_MS,
+            context: `Phase C thread fetch (${target.providerThreadId})`,
+          });
+          const messages = target.messageIds
+            ? fetched.filter((message: { id?: string }) =>
+                message.id ? target.messageIds!.has(message.id) : false
+              )
+            : fetched;
+          return { threadId: target.logicalThreadId, messages };
+        } catch (error) {
+          if (
+            error instanceof ProviderApiError &&
+            (error.providerStatus === 404 || error.providerStatus === 410)
+          ) {
+            return { threadId: target.logicalThreadId, messages: null };
           }
-          // Backoff: 1s, 2s, 4s
-          if (attempt < MAX_RETRIES - 1)
-            await delay(1000 * Math.pow(2, attempt));
+          throw error;
         }
-        return { threadId: target.logicalThreadId, messages: null };
       })
     );
+    await proveMailboxOwnership();
 
     for (const r of results) {
-      if (r.status === "fulfilled" && r.value.messages) {
-        fetchedThreads.set(r.value.threadId, r.value.messages);
+      if (r.messages) {
+        fetchedThreads.set(r.threadId, r.messages);
       }
     }
 
@@ -574,13 +680,22 @@ async function runPhaseCEntry(
   );
 
   if (done) {
+    await proveMailboxOwnership();
     // Re-read priorResult so we don't clobber phaseCPipeline writes that
     // happened during our own chunk run (startIndex, stats, etc.)
-    const { data: currentRow } = await supabase
+    const { data: currentRow, error: currentRowError } = await supabase
       .from("gmail_scan_jobs")
       .select("result")
       .eq("id", jobId)
       .single();
+    if (currentRowError) {
+      throw new Error(
+        `Phase C could not read its final durable state: ${currentRowError.message}`
+      );
+    }
+    if (!currentRow) {
+      throw new Error("Phase C final durable state is missing");
+    }
     const currentPriorResult =
       (currentRow?.result as Record<string, unknown>) || {};
 
@@ -593,10 +708,23 @@ async function runPhaseCEntry(
       priorResult: currentPriorResult,
     });
   } else {
+    const continuationDispatchId = randomUUID();
+    await preparePhaseCContinuationDispatch(
+      supabase,
+      jobId,
+      continuationDispatchId
+    );
+    await proveMailboxOwnership();
     // Release before dispatching so the continuation's acquire doesn't see
     // our lock and skip as a duplicate. Outer finally() will no-op since
     // fenced release only clears when holderId still matches.
     await releasePhaseCLock(supabase, jobId, holderId);
-    dispatchPhaseCContinuation(jobId, connectionId, companyId);
+    await dispatchPhaseCContinuation({
+      supabase,
+      jobId,
+      connectionId,
+      companyId,
+      dispatchId: continuationDispatchId,
+    });
   }
 }

@@ -3,25 +3,21 @@
  *
  * Read/write helpers for per-primary-category Phase C autonomy levels.
  *
- * Storage: `email_connections.auto_send_settings.category_autonomy` (JSONB).
- * Keys use the `primary:<CATEGORY>` namespace so they coexist with the
- * existing 9 relationship-type keys (client_new_inquiry, vendor_ordering, …)
- * used by ai-draft-service for writing-profile graduation.
+ * Shared policy lives in `email_connections.auto_send_settings.category_autonomy`
+ * under `primary:<CATEGORY>` keys. Send-capable policy is effective only when
+ * the exact OPS actor also has a live acceptance ledger row.
  *
  * Example stored value:
  *   {
  *     "primary:CUSTOMER": "auto_send",
  *     "primary:VENDOR":   "auto_archive",
- *     "primary:LEGAL":    "off",
- *     "client_new_inquiry": "auto_send",   // legacy key retained
- *     "vendor_ordering":   "auto_draft",   // legacy key retained
- *     …
+ *     "primary:LEGAL":    "off"
  *   }
  *
  * Valid autonomy levels differ per category — enforced by allowedLevelsFor().
  *
  * Graduation (isGraduated) = strict unchanged-send rate >= 0.95 over >= 20
- * human-finalized drafts for the category's primary profile_type(s).
+ * human-finalized drafts carrying the exact immutable primary-category proof.
  */
 
 import "server-only";
@@ -66,7 +62,10 @@ export { allowedLevelsFor } from "@/lib/email/phase-c-category-autonomy-policy";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type CategoryAutonomyMap = Record<EmailThreadCategory, EmailThreadAutonomyLevel>;
+type CategoryAutonomyMap = Record<
+  EmailThreadCategory,
+  EmailThreadAutonomyLevel
+>;
 
 export interface GraduationStatus {
   ready: boolean;
@@ -78,10 +77,15 @@ export interface GraduationStatus {
 
 export const PhaseCCategoryAutonomy = {
   /**
-   * Read the per-category autonomy map for a connection. Missing keys fall
-   * back to defaults. Always returns all 12 categories.
+   * Read the per-category autonomy map for a connection. When actorUserId is
+   * supplied, shared send-capable policy is capped at auto-draft until that
+   * exact actor has accepted the exact mailbox/category/level. Missing keys
+   * fall back to defaults. Always returns all 12 categories.
    */
-  async get(connectionId: string): Promise<CategoryAutonomyMap> {
+  async get(
+    connectionId: string,
+    actorUserId?: string
+  ): Promise<CategoryAutonomyMap> {
     const supabase = requireSupabase();
     const { data, error } = await supabase
       .from("email_connections")
@@ -91,76 +95,66 @@ export const PhaseCCategoryAutonomy = {
 
     if (error) throw error;
 
-    const settings = (data?.auto_send_settings as Record<string, unknown>) ?? {};
+    const settings =
+      (data?.auto_send_settings as Record<string, unknown>) ?? {};
     const stored = (settings.category_autonomy as Record<string, string>) ?? {};
+    const accepted = new Map<EmailThreadCategory, EmailThreadAutonomyLevel>();
+
+    if (actorUserId) {
+      const { data: acceptanceRows, error: acceptanceError } =
+        await supabase.rpc("get_phase_c_actor_category_acceptances_as_system", {
+          p_connection_id: connectionId,
+          p_actor_user_id: actorUserId,
+        });
+      if (acceptanceError) throw acceptanceError;
+
+      for (const raw of Array.isArray(acceptanceRows) ? acceptanceRows : []) {
+        if (!raw || typeof raw !== "object") continue;
+        const row = raw as Record<string, unknown>;
+        const category = row.primary_category;
+        const level = row.accepted_level;
+        if (
+          typeof category === "string" &&
+          EMAIL_THREAD_CATEGORIES.includes(category as EmailThreadCategory) &&
+          (level === "auto_send" || level === "auto_follow_up")
+        ) {
+          accepted.set(
+            category as EmailThreadCategory,
+            level as EmailThreadAutonomyLevel
+          );
+        }
+      }
+    }
 
     const out = {} as CategoryAutonomyMap;
     for (const cat of EMAIL_THREAD_CATEGORIES) {
       const key = `primary:${cat}`;
       const value = stored[key] as EmailThreadAutonomyLevel | undefined;
-      out[cat] = value && allowedLevelsFor(cat).includes(value)
-        ? value
-        : defaultLevelFor(cat);
+      const declared =
+        value && allowedLevelsFor(cat).includes(value)
+          ? value
+          : defaultLevelFor(cat);
+      out[cat] =
+        actorUserId &&
+        (declared === "auto_send" || declared === "auto_follow_up") &&
+        accepted.get(cat) !== declared
+          ? "auto_draft"
+          : declared;
     }
     return out;
   },
 
   /**
-   * Set the autonomy level for a single category. Rejects invalid levels.
-   * Merges into existing category_autonomy JSONB — does not clobber other keys
-   * (including the legacy per-relationship keys).
-   */
-  async set(
-    connectionId: string,
-    category: EmailThreadCategory,
-    level: EmailThreadAutonomyLevel
-  ): Promise<void> {
-    if (!allowedLevelsFor(category).includes(level)) {
-      throw new Error(
-        `Autonomy level '${level}' is not allowed for category '${category}'.`
-      );
-    }
-    const supabase = requireSupabase();
-
-    const { data: current, error: readErr } = await supabase
-      .from("email_connections")
-      .select("auto_send_settings")
-      .eq("id", connectionId)
-      .maybeSingle();
-    if (readErr) throw readErr;
-
-    const currentSettings =
-      (current?.auto_send_settings as Record<string, unknown>) ?? {};
-    const currentMap =
-      (currentSettings.category_autonomy as Record<string, string>) ?? {};
-
-    const nextMap: Record<string, string> = {
-      ...currentMap,
-      [`primary:${category}`]: level,
-    };
-
-    const merged = {
-      ...currentSettings,
-      category_autonomy: nextMap,
-    };
-
-    const { error } = await supabase
-      .from("email_connections")
-      .update({ auto_send_settings: merged })
-      .eq("id", connectionId);
-    if (error) throw error;
-  },
-
-  /**
    * Return whether Phase C has graduated to auto_send for this category, based
    * on the user's recent draft edit behavior. Thresholds: ≥ 20 finalized
-   * drafts in the mapped profile_type(s) AND approval rate ≥ 0.95.
+   * drafts for this exact category AND approval rate ≥ 0.95.
    *
    * Approval definition: the exact OPS actor sent the generated draft without
    * changing it. Edited and autonomous sends cannot inflate graduation.
    */
   async isGraduated(
     companyId: string,
+    connectionId: string,
     userId: string,
     category: EmailThreadCategory
   ): Promise<GraduationStatus> {
@@ -171,12 +165,12 @@ export const PhaseCCategoryAutonomy = {
 
     const accuracy = await getHumanDraftAccuracy({
       companyId,
+      connectionId,
       userId,
-      profileTypes,
+      primaryCategory: category,
     });
     return {
-      ready:
-        accuracy.sampleSize >= 20 && accuracy.approvalRate >= 0.95,
+      ready: accuracy.sampleSize >= 20 && accuracy.approvalRate >= 0.95,
       approvalRate: accuracy.approvalRate,
       sampleSize: accuracy.sampleSize,
     };

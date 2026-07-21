@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { requireSupabase } from "@/lib/supabase/helpers";
+import type { EmailThreadCategory } from "@/lib/types/email-thread";
 
 const DEFAULT_SAMPLE_LIMIT = 50;
 const MAX_SAMPLE_LIMIT = 200;
@@ -21,8 +22,10 @@ interface DraftOutcomeRow {
 
 export interface GetHumanDraftAccuracyInput {
   companyId: string;
+  connectionId?: string;
   userId: string;
   profileTypes?: string[];
+  primaryCategory?: EmailThreadCategory;
   limit?: number;
   supabase?: SupabaseClient;
 }
@@ -70,6 +73,15 @@ export function summarizeHumanDraftOutcomes(
 export async function getHumanDraftAccuracy(
   input: GetHumanDraftAccuracyInput
 ): Promise<HumanDraftAccuracy> {
+  const connectionId =
+    input.connectionId === undefined ? undefined : input.connectionId.trim();
+  if (input.connectionId !== undefined && !connectionId) {
+    throw new Error("Mailbox connection is required");
+  }
+  if (input.primaryCategory && !connectionId) {
+    throw new Error("Category accuracy requires a mailbox connection");
+  }
+
   const supabase = input.supabase ?? requireSupabase();
   const limit = Math.min(
     MAX_SAMPLE_LIMIT,
@@ -83,15 +95,22 @@ export async function getHumanDraftAccuracy(
         .filter(Boolean)
     )
   );
-  const { data, error } = await supabase.rpc(
-    "get_human_draft_accuracy_as_system",
-    {
-      p_company_id: input.companyId,
-      p_actor_user_id: input.userId,
-      p_profile_types: profileTypes.length > 0 ? profileTypes : null,
-      p_limit: limit,
-    }
-  );
+  const category = input.primaryCategory;
+  const { data, error } = category
+    ? await supabase.rpc("get_human_draft_accuracy_for_category_as_system", {
+        p_company_id: input.companyId,
+        p_actor_user_id: input.userId,
+        p_connection_id: connectionId,
+        p_primary_category: category,
+        p_limit: limit,
+      })
+    : await supabase.rpc("get_human_draft_accuracy_as_system", {
+        p_company_id: input.companyId,
+        p_actor_user_id: input.userId,
+        ...(connectionId ? { p_connection_id: connectionId } : {}),
+        p_profile_types: profileTypes.length > 0 ? profileTypes : null,
+        p_limit: limit,
+      });
   if (error) throw new Error(error.message);
 
   return summarizeHumanDraftOutcomes(

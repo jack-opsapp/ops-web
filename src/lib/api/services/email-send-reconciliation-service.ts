@@ -5,6 +5,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { EmailOutboundLearningService } from "./email-outbound-learning-service";
 import type { EmailProviderInterface } from "./email-provider";
+import { applyEmailProviderLabelWriteback } from "./email-provider-label-writeback";
+import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
 import type { EmailSendIntent } from "./email-send-intent-service";
 import { EmailThreadService } from "./email-thread-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
@@ -24,6 +26,7 @@ interface ReconcileEmailSendInput {
   intent: EmailSendIntent;
   connection: EmailConnection;
   provider: Pick<EmailProviderInterface, "applyLabel">;
+  providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
 }
 
 function required(value: string | null, code: string): string {
@@ -209,10 +212,8 @@ export async function reconcileEmailSend(
       bodyText: intent.authoredBody,
       connectionEmail: connection.email,
       companyDomains: connection.syncFilters?.companyDomains ?? [],
-      userEmailAddresses:
-        connection.syncFilters?.userEmailAddresses ?? [],
-      knownPlatformSenders:
-        connection.syncFilters?.knownPlatformSenders ?? [],
+      userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
+      knownPlatformSenders: connection.syncFilters?.knownPlatformSenders ?? [],
     });
   if (
     !correspondenceResult.created &&
@@ -271,11 +272,17 @@ export async function reconcileEmailSend(
       : threadRow.labels;
 
   if (connection.opsLabelId) {
-    try {
-      await provider.applyLabel(providerThreadId, connection.opsLabelId);
-    } catch (error) {
-      console.error("[email-send] Failed to apply label:", error);
-    }
+    await applyEmailProviderLabelWriteback({
+      supabase,
+      connectionId: connection.id,
+      providerThreadId,
+      providerLabelId: connection.opsLabelId,
+      provider,
+      context: "email-send-label-writeback",
+      busyError: "EMAIL_SEND_LABEL_MAILBOX_BUSY",
+      logPrefix: "[email-send]",
+      providerLockCheckpoint: input.providerLockCheckpoint,
+    });
   }
 
   // Queue persistence is part of provider reconciliation, not a best-effort

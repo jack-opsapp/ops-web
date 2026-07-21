@@ -3,6 +3,7 @@ import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import {
   SyncTokenExpiredError,
   type NormalizedEmail,
+  type ProviderReadPolicy,
 } from "@/lib/api/services/email-provider";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { buildEmailOpportunityTitle } from "@/lib/email/opportunity-title";
@@ -692,6 +693,34 @@ function makeSupabaseDouble(state: SupabaseState) {
           error: null,
         };
       }
+      if (name === "renew_email_connection_sync_lock_as_system") {
+        return { data: true, error: null };
+      }
+      if (name === "release_email_connection_sync_lock_as_system") {
+        return { data: true, error: null };
+      }
+      if (name === "persist_email_connection_recovery_checkpoint_as_system") {
+        await updateConnectionMock(params.p_connection_id, {
+          historyRecoveryAnchor: new Date(String(params.p_anchor)),
+          historyRecoveryPageToken: params.p_page_token,
+          historyRecoveryTargetToken: params.p_target_token,
+        });
+        return { data: true, error: null };
+      }
+      if (name === "persist_email_connection_sync_completion_as_system") {
+        await updateConnectionMock(params.p_connection_id, {
+          lastSyncedAt: new Date(String(params.p_last_synced_at)),
+          historyId: params.p_history_id,
+          ...(params.p_clear_recovery
+            ? {
+                historyRecoveryAnchor: null,
+                historyRecoveryPageToken: null,
+                historyRecoveryTargetToken: null,
+              }
+            : {}),
+        });
+        return { data: true, error: null };
+      }
       state.rpcCalls?.push({ name, params });
       if (
         name === "apply_email_opportunity_stage_transition" &&
@@ -909,6 +938,7 @@ describe("SyncEngine email opportunity title generation", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     setSupabaseOverride(null);
   });
 
@@ -944,7 +974,7 @@ describe("SyncEngine email opportunity title generation", () => {
     getProviderMock.mockReturnValue({});
 
     await expect(SyncEngine.runSync("connection-1")).rejects.toThrow(
-      "[sync-engine] acquireSyncLock failed: lock RPC unavailable"
+      "[sync-engine] email connection lock acquisition failed: lock RPC unavailable"
     );
   });
 
@@ -961,7 +991,7 @@ describe("SyncEngine email opportunity title generation", () => {
     getProviderMock.mockReturnValue({});
 
     await expect(SyncEngine.runSync("connection-1")).rejects.toThrow(
-      "[sync-engine] acquireSyncLock returned an invalid owner"
+      "[sync-engine] email connection lock acquisition returned an invalid owner"
     );
   });
 
@@ -3624,7 +3654,10 @@ describe("SyncEngine email opportunity title generation", () => {
         },
       ],
       expect.objectContaining({ id: "connection-1" }),
-      { name: "Canpro Deck and Rail" }
+      { name: "Canpro Deck and Rail" },
+      expect.objectContaining({
+        providerLockCheckpoint: expect.any(Function),
+      })
     );
     expect(state.opportunities[0]).toMatchObject({
       stage: "qualifying",
@@ -3674,6 +3707,7 @@ describe("SyncEngine Gmail history completeness", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     setSupabaseOverride(null);
   });
 
@@ -3813,19 +3847,21 @@ describe("SyncEngine Gmail history completeness", () => {
         threadIds: ["thread-recovered-2"],
         nextPageToken: null,
       });
-    const fetchThread = vi.fn(async (threadId: string) => [
-      baseEmail({
-        id: `message-${threadId}`,
-        threadId,
-        from: `Customer <${threadId}@example.com>`,
-        fromName: "Customer",
-        to: ["jackson@canprodeckandrail.com"],
-        subject: "Estimate follow-up",
-        bodyText: "Checking on the estimate.",
-        date: new Date("2026-05-20T17:05:00.000Z"),
-        labelIds: ["INBOX"],
-      }),
-    ]);
+    const fetchThread = vi.fn(
+      async (threadId: string, _readPolicy?: ProviderReadPolicy) => [
+        baseEmail({
+          id: `message-${threadId}`,
+          threadId,
+          from: `Customer <${threadId}@example.com>`,
+          fromName: "Customer",
+          to: ["jackson@canprodeckandrail.com"],
+          subject: "Estimate follow-up",
+          bodyText: "Checking on the estimate.",
+          date: new Date("2026-05-20T17:05:00.000Z"),
+          labelIds: ["INBOX"],
+        }),
+      ]
+    );
     getProviderMock.mockReturnValue({
       providerType: "gmail",
       fetchNewEmailsSince: vi.fn(async () => {
@@ -3860,6 +3896,20 @@ describe("SyncEngine Gmail history completeness", () => {
       expect.objectContaining({ pageToken: "page-2" })
     );
     expect(fetchThread).toHaveBeenCalledTimes(2);
+    const recoveryReadPolicies = fetchThread.mock.calls.map((call) => call[1]);
+    expect(recoveryReadPolicies).toEqual([
+      expect.objectContaining({
+        deadlineAt: expect.any(Number),
+        context: "expired Gmail history thread recovery",
+      }),
+      expect.objectContaining({
+        deadlineAt: expect.any(Number),
+        context: "expired Gmail history thread recovery",
+      }),
+    ]);
+    expect(recoveryReadPolicies[0]?.deadlineAt).toBe(
+      recoveryReadPolicies[1]?.deadlineAt
+    );
     expect(updateConnectionMock).toHaveBeenLastCalledWith(
       "connection-1",
       expect.objectContaining({ historyId: "fresh-history-token" })
@@ -3867,6 +3917,7 @@ describe("SyncEngine Gmail history completeness", () => {
   });
 
   it("checkpoints a Gmail recovery page and resumes beyond 500 threads before committing the fresh cursor", async () => {
+    vi.useFakeTimers();
     const state: SupabaseState = {
       clients: [],
       opportunities: [],
@@ -3921,7 +3972,9 @@ describe("SyncEngine Gmail history completeness", () => {
       fetchThread,
     });
 
-    const first = await SyncEngine.runSync("connection-1");
+    const firstPromise = SyncEngine.runSync("connection-1");
+    await vi.runAllTimersAsync();
+    const first = await firstPromise;
 
     expect(first.errors).toEqual([]);
     expect(listThreadIds).toHaveBeenNthCalledWith(
@@ -3941,7 +3994,9 @@ describe("SyncEngine Gmail history completeness", () => {
     );
 
     updateConnectionMock.mockClear();
-    const second = await SyncEngine.runSync("connection-1");
+    const secondPromise = SyncEngine.runSync("connection-1");
+    await vi.runAllTimersAsync();
+    const second = await secondPromise;
 
     expect(second.errors).toEqual([]);
     expect(fetchNewEmailsSince).toHaveBeenCalledTimes(1);
@@ -4143,6 +4198,7 @@ describe("SyncEngine Gmail history completeness", () => {
   });
 
   it("leaves both recovery cursors unadvanced when a recovered activity insert fails", async () => {
+    vi.useFakeTimers();
     const state: SupabaseState = {
       clients: [],
       opportunities: [{ id: "opp-linked", stage: "new_lead" }],
@@ -4198,7 +4254,9 @@ describe("SyncEngine Gmail history completeness", () => {
       ),
     });
 
-    const result = await SyncEngine.runSync("connection-1");
+    const resultPromise = SyncEngine.runSync("connection-1");
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
 
     expect(result.errors.join(" ")).toContain("activities write unavailable");
     expect(updateConnectionMock).toHaveBeenCalledTimes(1);

@@ -22,10 +22,13 @@ import { WritingProfileService } from "./writing-profile-service";
 import { getActorAutonomyMilestones } from "./autonomy-milestone-service";
 import {
   aggregateCalibrationConnectionConfig,
+  deriveCalibrationAutoSendLadder,
   mergeCalibrationMilestones,
   selectActorCalibrationConnections,
   type CalibrationConnectionRow,
 } from "@/lib/email/calibration-mailbox-scope";
+import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
+import { EMAIL_THREAD_CATEGORIES } from "@/lib/types/email-thread";
 import type {
   DeckState,
   FirstRunState,
@@ -35,6 +38,47 @@ import type {
   ActivityFilters,
   DomainStatus,
 } from "@/lib/types/calibration";
+
+async function projectActorCategoryAutonomy(
+  connections: CalibrationConnectionRow[],
+  actorUserId: string
+): Promise<CalibrationConnectionRow[]> {
+  return Promise.all(
+    connections.map(async (connection) => {
+      const levels = await PhaseCCategoryAutonomy.get(
+        connection.id,
+        actorUserId
+      );
+      const settings =
+        connection.auto_send_settings &&
+        typeof connection.auto_send_settings === "object" &&
+        !Array.isArray(connection.auto_send_settings)
+          ? (connection.auto_send_settings as Record<string, unknown>)
+          : {};
+      const configured =
+        settings.category_autonomy &&
+        typeof settings.category_autonomy === "object" &&
+        !Array.isArray(settings.category_autonomy)
+          ? (settings.category_autonomy as Record<string, unknown>)
+          : {};
+      return {
+        ...connection,
+        auto_send_settings: {
+          ...settings,
+          category_autonomy: {
+            ...configured,
+            ...Object.fromEntries(
+              EMAIL_THREAD_CATEGORIES.map((category) => [
+                `primary:${category}`,
+                levels[category],
+              ])
+            ),
+          },
+        },
+      };
+    })
+  );
+}
 
 export const CalibrationService = {
   /**
@@ -507,10 +551,14 @@ export const CalibrationService = {
       .in("type", ["company", "individual"]);
     if (error) throw new Error(error.message);
 
-    const connections = selectActorCalibrationConnections(
+    const visibleConnections = selectActorCalibrationConnections(
       (emailConnections ?? []) as CalibrationConnectionRow[],
       userId,
       visibleCompanyConnectionIds
+    );
+    const connections = await projectActorCategoryAutonomy(
+      visibleConnections,
+      userId
     );
     const config = aggregateCalibrationConnectionConfig(connections);
 
@@ -522,8 +570,8 @@ export const CalibrationService = {
     return {
       emailTypeCounts: counts,
       rulesCount: config.rulesCount,
-      // 13 email thread categories — fixed enum in the codebase
-      categoriesCount: 13,
+      // Twelve primary email thread categories — fixed enum in the codebase.
+      categoriesCount: EMAIL_THREAD_CATEGORIES.length,
     };
   },
 
@@ -640,10 +688,14 @@ export const CalibrationService = {
       throw new Error(connections.error.message);
     }
 
-    const actorConnections = selectActorCalibrationConnections(
+    const visibleActorConnections = selectActorCalibrationConnections(
       (connections.data ?? []) as CalibrationConnectionRow[],
       userId,
       visibleCompanyConnectionIds
+    );
+    const actorConnections = await projectActorCategoryAutonomy(
+      visibleActorConnections,
+      userId
     );
     const milestones = mergeCalibrationMilestones(
       await Promise.all(
@@ -657,6 +709,34 @@ export const CalibrationService = {
         )
       )
     );
+    const categoryReadiness = (
+      await Promise.all(
+        actorConnections.flatMap((connection) =>
+          EMAIL_THREAD_CATEGORIES.filter(
+            (category) =>
+              PhaseCCategoryAutonomy.profileTypesFor(category).length > 0
+          ).map(async (category) => {
+            const status = await PhaseCCategoryAutonomy.isGraduated(
+              companyId,
+              connection.id,
+              userId,
+              category
+            );
+            return {
+              connectionId: connection.id,
+              category,
+              ready: status.ready,
+              sampleSize: status.sampleSize,
+            };
+          })
+        )
+      )
+    ).flat();
+    const autoSendLadder = deriveCalibrationAutoSendLadder({
+      connections: actorConnections,
+      readiness: categoryReadiness,
+      featureEnabled: autoSendEnabled.data?.enabled === true,
+    });
     const { categoryAutonomy } =
       aggregateCalibrationConnectionConfig(actorConnections);
     const maxEmailsAnalyzed = (writingProfiles.data ?? []).reduce(
@@ -721,16 +801,12 @@ export const CalibrationService = {
       },
       {
         position: 8,
-        status: milestones.auto_send_suggested
-          ? "complete"
-          : confidence >= 0.75 && apptCount >= 50
-            ? "in_training"
-            : "gated",
+        status: autoSendLadder.readinessStatus,
         persistent: true,
       },
       {
         position: 9,
-        status: autoSendEnabled.data?.enabled ? "complete" : "gated",
+        status: autoSendLadder.activeStatus,
         persistent: false,
       },
     ];

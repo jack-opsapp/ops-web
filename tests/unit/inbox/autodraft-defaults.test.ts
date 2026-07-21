@@ -10,20 +10,17 @@ describe("defaultAutoSendSettings", () => {
     expect(defaultAutoSendSettings().auto_send_enabled).toBe(false);
   });
 
-  it("maps general to auto_draft", () => {
-    expect(defaultAutoSendSettings().category_autonomy.general).toBe("auto_draft");
+  it("seeds only the canonical CUSTOMER primary category", () => {
+    expect(
+      defaultAutoSendSettings().category_autonomy["primary:CUSTOMER"]
+    ).toBe("auto_draft");
   });
 
-  it("maps client_quoting to auto_draft", () => {
-    expect(defaultAutoSendSettings().category_autonomy.client_quoting).toBe("auto_draft");
-  });
-
-  it("maps client_followup to auto_draft", () => {
-    expect(defaultAutoSendSettings().category_autonomy.client_followup).toBe("auto_draft");
-  });
-
-  it("does NOT map warranty_claim, vendor_ordering, or subtrade_coordination (sensitive categories stay draft_on_request by omission)", () => {
+  it("does not seed legacy relationship-level controls", () => {
     const { category_autonomy } = defaultAutoSendSettings();
+    expect(category_autonomy.general).toBeUndefined();
+    expect(category_autonomy.client_quoting).toBeUndefined();
+    expect(category_autonomy.client_followup).toBeUndefined();
     expect(category_autonomy.warranty_claim).toBeUndefined();
     expect(category_autonomy.vendor_ordering).toBeUndefined();
     expect(category_autonomy.subtrade_coordination).toBeUndefined();

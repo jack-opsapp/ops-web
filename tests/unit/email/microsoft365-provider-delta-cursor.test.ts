@@ -32,10 +32,14 @@ function makeConnection(): EmailConnection {
   };
 }
 
-function jsonResponse(body: unknown, status = 200): Response {
+function jsonResponse(
+  body: unknown,
+  status = 200,
+  headers: Record<string, string> = {}
+): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
   });
 }
 
@@ -63,6 +67,88 @@ afterEach(() => {
 });
 
 describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
+  it("rejects a caller-supplied continuation outside Microsoft Graph before sending credentials", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ value: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new Microsoft365Provider(makeConnection()).listThreadIds({
+        pageToken: "https://attacker.example/steal-graph-token",
+      })
+    ).rejects.toBeInstanceOf(ProviderApiError);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a foreign Graph continuation returned during conversation pagination", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        value: [m365Message("message-1", "conversation-1")],
+        "@odata.nextLink": "https://attacker.example/steal-graph-token",
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new Microsoft365Provider(makeConnection()).fetchThread("conversation-1")
+    ).rejects.toBeInstanceOf(ProviderApiError);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a persisted folder delta URL for a different Graph resource before sending credentials", async () => {
+    const persistedUrl =
+      "https://graph.microsoft.com/v1.0/me/messages/delta?$deltatoken=wrong-resource";
+    const fetchMock = vi.fn(async () => jsonResponse({ value: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new Microsoft365Provider(makeConnection()).fetchNewEmailsSince(
+        `m365:v2:${JSON.stringify({
+          folderDeltaLink: persistedUrl,
+          messageDeltaLinks: {},
+          pendingFolderIds: [],
+        })}`
+      )
+    ).rejects.toMatchObject({
+      name: ProviderApiError.name,
+      providerStatus: 502,
+      providerBody: {
+        nextLink: persistedUrl,
+        expectedPath: "/v1.0/me/mailFolders/delta",
+      },
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a persisted message delta URL for a different folder before sending credentials", async () => {
+    const persistedUrl =
+      "https://graph.microsoft.com/v1.0/me/mailFolders/other-folder/messages/delta?$deltatoken=wrong-folder";
+    const fetchMock = vi.fn(async () => jsonResponse({ value: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new Microsoft365Provider(makeConnection()).fetchNewEmailsSince(
+        `m365:v2:${JSON.stringify({
+          folderDeltaLink:
+            "https://graph.microsoft.com/v1.0/me/mailFolders/delta?$deltatoken=folders-stable",
+          messageDeltaLinks: { "expected-folder": persistedUrl },
+          pendingFolderIds: ["expected-folder"],
+        })}`
+      )
+    ).rejects.toMatchObject({
+      name: ProviderApiError.name,
+      providerStatus: 502,
+      providerBody: {
+        nextLink: persistedUrl,
+        expectedPath: "/v1.0/me/mailFolders/expected-folder/messages/delta",
+      },
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("discovers every mailbox folder and ingests archive/custom-folder mail", async () => {
     const requestedUrls: string[] = [];
     const requestedHeaders: HeadersInit[] = [];
@@ -81,7 +167,8 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
               { id: "custom-rule-id" },
               { id: "drafts-id" },
             ],
-            "@odata.deltaLink": "https://graph.test/folders-delta-1",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/delta?$deltatoken=folders-delta-1",
           });
         }
         const folderId = [
@@ -99,7 +186,9 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
                 : folderId === "drafts-id"
                   ? [{ ...m365Message("message-draft"), isDraft: true }]
                   : [],
-            "@odata.deltaLink": `https://graph.test/${folderId}-delta-1`,
+            "@odata.deltaLink":
+              `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages/delta` +
+              `?$deltatoken=${folderId}-delta-1`,
           });
         }
         throw new Error(`Unexpected Microsoft Graph request: ${url}`);
@@ -138,13 +227,15 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
         if (url.includes("/me/mailFolders/delta")) {
           return jsonResponse({
             value: [{ id: "custom-id" }],
-            "@odata.deltaLink": "https://graph.test/folders-after-upgrade",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/delta?$deltatoken=folders-after-upgrade",
           });
         }
         if (url.includes("/mailFolders/custom-id/messages/delta")) {
           return jsonResponse({
             value: [m365Message("message-custom")],
-            "@odata.deltaLink": "https://graph.test/custom-after-upgrade",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/custom-id/messages/delta?$deltatoken=custom-after-upgrade",
           });
         }
         throw new Error(`Unexpected Microsoft Graph request: ${url}`);
@@ -171,7 +262,9 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
         folderPage += 1;
         return jsonResponse({
           value: [],
-          "@odata.nextLink": `https://graph.test/folder-page-${folderPage + 1}`,
+          "@odata.nextLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders/delta" +
+            `?$skiptoken=folder-page-${folderPage + 1}`,
         });
       })
     );
@@ -183,7 +276,7 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
 
     expect(folderPage).toBe(50);
     expect(first.emails).toEqual([]);
-    expect(first.nextSyncToken).toContain("https://graph.test/folder-page-51");
+    expect(first.nextSyncToken).toContain("folder-page-51");
 
     const requestedUrls: string[] = [];
     vi.stubGlobal(
@@ -191,22 +284,24 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
       vi.fn(async (input: string | URL | Request) => {
         const url = String(input);
         requestedUrls.push(url);
-        if (url === "https://graph.test/folder-page-51") {
+        if (url.includes("folder-page-51")) {
           return jsonResponse({
             value: [{ id: "late-custom-folder" }],
-            "@odata.deltaLink": "https://graph.test/folders-terminal",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/delta?$deltatoken=folders-terminal",
           });
         }
         return jsonResponse({
           value: [m365Message("message-late-custom")],
-          "@odata.deltaLink": "https://graph.test/late-custom-terminal",
+          "@odata.deltaLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders/late-custom-folder/messages/delta?$deltatoken=late-custom-terminal",
         });
       })
     );
 
     const resumed = await provider.fetchNewEmailsSince(first.nextSyncToken);
 
-    expect(requestedUrls[0]).toBe("https://graph.test/folder-page-51");
+    expect(requestedUrls[0]).toContain("folder-page-51");
     expect(requestedUrls[1]).toContain(
       "/mailFolders/late-custom-folder/messages/delta"
     );
@@ -226,13 +321,16 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
         if (url.includes("/me/mailFolders/delta")) {
           return jsonResponse({
             value: [{ id: "large-folder" }],
-            "@odata.deltaLink": "https://graph.test/folders-stable",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/delta?$deltatoken=folders-stable",
           });
         }
         messagePage += 1;
         return jsonResponse({
           value: [],
-          "@odata.nextLink": `https://graph.test/message-page-${messagePage + 1}`,
+          "@odata.nextLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders/large-folder/messages/delta" +
+            `?$skiptoken=message-page-${messagePage + 1}`,
         });
       })
     );
@@ -244,7 +342,7 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
 
     expect(requestedUrls).toHaveLength(50);
     expect(messagePage).toBe(49);
-    expect(first.nextSyncToken).toContain("https://graph.test/message-page-50");
+    expect(first.nextSyncToken).toContain("message-page-50");
 
     requestedUrls.length = 0;
     vi.stubGlobal(
@@ -253,14 +351,15 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
         requestedUrls.push(String(input));
         return jsonResponse({
           value: [m365Message("message-after-resume")],
-          "@odata.deltaLink": "https://graph.test/large-folder-terminal",
+          "@odata.deltaLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders/large-folder/messages/delta?$deltatoken=large-folder-terminal",
         });
       })
     );
 
     const resumed = await provider.fetchNewEmailsSince(first.nextSyncToken);
 
-    expect(requestedUrls[0]).toBe("https://graph.test/message-page-50");
+    expect(requestedUrls[0]).toContain("message-page-50");
     expect(requestedUrls.join("\n")).not.toContain("/me/mailFolders/delta");
     expect(resumed.emails.map((email) => email.id)).toEqual([
       "message-after-resume",
@@ -287,7 +386,8 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
         if (url.includes("/me/mailFolders/delta")) {
           return jsonResponse({
             value: [{ id: "source-folder" }, { id: "destination-folder" }],
-            "@odata.deltaLink": "https://graph.test/folders-after-move",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/delta?$deltatoken=folders-after-move",
           });
         }
         if (url.includes("source-folder")) {
@@ -295,12 +395,14 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
             value: [
               { id: "immutable-message", "@removed": { reason: "changed" } },
             ],
-            "@odata.deltaLink": "https://graph.test/source-after-move",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/source-folder/messages/delta?$deltatoken=source-after-move",
           });
         }
         return jsonResponse({
           value: [m365Message("immutable-message")],
-          "@odata.deltaLink": "https://graph.test/destination-after-move",
+          "@odata.deltaLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders/destination-folder/messages/delta?$deltatoken=destination-after-move",
         });
       })
     );
@@ -325,7 +427,8 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
         if (url.includes("/me/mailFolders/delta")) {
           return jsonResponse({
             value: [{ id: "gone-folder" }, { id: "live-folder" }],
-            "@odata.deltaLink": "https://graph.test/folders-after-first",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/delta?$deltatoken=folders-after-first",
           });
         }
         if (url.includes("gone-folder")) {
@@ -341,7 +444,8 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
         }
         return jsonResponse({
           value: [],
-          "@odata.deltaLink": "https://graph.test/live-terminal",
+          "@odata.deltaLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders/live-folder/messages/delta?$deltatoken=live-terminal",
         });
       })
     );
@@ -357,21 +461,24 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
       vi.fn(async (input: string | URL | Request) => {
         const url = String(input);
         retriedUrls.push(url);
-        if (url === "https://graph.test/folders-after-first") {
+        if (url.includes("folders-after-first")) {
           return jsonResponse({
             value: [],
-            "@odata.deltaLink": "https://graph.test/folders-after-retry",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/delta?$deltatoken=folders-after-retry",
           });
         }
         if (url.includes("gone-folder")) {
           return jsonResponse({
             value: [m365Message("message-after-transient-404")],
-            "@odata.deltaLink": "https://graph.test/gone-now-readable",
+            "@odata.deltaLink":
+              "https://graph.microsoft.com/v1.0/me/mailFolders/gone-folder/messages/delta?$deltatoken=gone-now-readable",
           });
         }
         return jsonResponse({
           value: [],
-          "@odata.deltaLink": "https://graph.test/live-after-retry",
+          "@odata.deltaLink":
+            "https://graph.microsoft.com/v1.0/me/mailFolders/live-folder/messages/delta?$deltatoken=live-after-retry",
         });
       })
     );
@@ -397,7 +504,8 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
             })
           : jsonResponse({
               value: [m365Message("message-1", "conversation-1")],
-              "@odata.nextLink": "https://graph.test/thread-page-2",
+              "@odata.nextLink":
+                "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=thread-page-2",
             });
       })
     );
@@ -455,11 +563,13 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
                   message: "Backend unavailable",
                 },
               },
-              503
+              503,
+              { "retry-after": "0" }
             )
           : jsonResponse({
               value: [m365Message("message-1", "conversation-1")],
-              "@odata.nextLink": "https://graph.test/thread-page-2",
+              "@odata.nextLink":
+                "https://graph.microsoft.com/v1.0/me/messages?$skiptoken=thread-page-2",
             })
       )
     );
@@ -471,6 +581,23 @@ describe("Microsoft365Provider mailbox-wide folder delta cursor", () => {
       code: "provider_api_error",
       providerStatus: 503,
     });
+  });
+
+  it("honors a caller deadline before reading a conversation", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ value: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new Microsoft365Provider(makeConnection()).fetchThread("conversation-1", {
+        deadlineAt: Date.now() - 1,
+        context: "phase B thread hydration",
+      })
+    ).rejects.toMatchObject({
+      name: ProviderApiError.name,
+      providerStatus: 504,
+      providerBody: { reason: "microsoft_read_deadline_exceeded" },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("creates subscriptions with a random clientState secret", async () => {

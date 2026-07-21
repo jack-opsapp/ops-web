@@ -122,6 +122,16 @@ export interface SyncResult {
   nextSyncToken: string;
 }
 
+/**
+ * Absolute read boundary that a caller may propagate through provider layers.
+ * Providers that support bounded reads must treat `deadlineAt` as one shared
+ * wall-clock deadline, not as a fresh timeout for each nested request.
+ */
+export interface ProviderReadPolicy {
+  deadlineAt?: number;
+  context?: string;
+}
+
 export interface WebhookSubscription {
   subscriptionId: string;
   expiresAt: Date;
@@ -254,7 +264,11 @@ export interface EmailProviderInterface {
   // Search (for wizard sent mail analysis)
   searchEmails(
     query: string,
-    options?: { maxResults?: number; after?: Date }
+    options?: {
+      maxResults?: number;
+      after?: Date;
+      readPolicy?: ProviderReadPolicy;
+    }
   ): Promise<NormalizedEmail[]>;
 
   /**
@@ -287,11 +301,15 @@ export interface EmailProviderInterface {
   }>;
 
   // Thread operations
-  fetchThread(threadId: string): Promise<NormalizedEmail[]>;
+  fetchThread(
+    threadId: string,
+    readPolicy?: ProviderReadPolicy
+  ): Promise<NormalizedEmail[]>;
 
   // Attachments — scan threads for images and download them
   getImageAttachmentsFromThread(
-    threadId: string
+    threadId: string,
+    readPolicy?: ProviderReadPolicy
   ): Promise<ImageAttachmentMeta[]>;
   /**
    * Like `getImageAttachmentsFromThread` but returns every provider attachment
@@ -304,7 +322,10 @@ export interface EmailProviderInterface {
    * can sort newest-first and render the "MMM DD" stamp without a follow-up
    * thread fetch.
    */
-  getAttachmentsFromThread(threadId: string): Promise<EmailAttachmentMeta[]>;
+  getAttachmentsFromThread(
+    threadId: string,
+    readPolicy?: ProviderReadPolicy
+  ): Promise<EmailAttachmentMeta[]>;
   /** Enumerate one exact provider message. This is the durable ingestion seam:
    * queue jobs are keyed to a message/activity, never a thread alone. */
   getAttachmentsFromMessage(
@@ -390,7 +411,10 @@ export interface EmailProviderInterface {
    * Fetch one provider draft by immutable draft identity. Returns null only
    * when that exact resource no longer exists or is no longer a draft.
    */
-  getDraft(draftId: string): Promise<NormalizedDraft | null>;
+  getDraft(
+    draftId: string,
+    readPolicy?: ProviderReadPolicy
+  ): Promise<NormalizedDraft | null>;
 
   /** Delete a draft from the provider. Idempotent on already-gone drafts. */
   deleteDraft(draftId: string): Promise<void>;

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // unknown-name normalization).
 
 const {
+  acquireLockMock,
   getServiceRoleClientMock,
   buildBlocklistMock,
   shouldFilterMock,
@@ -17,7 +18,10 @@ const {
   createActivityMock,
   createClientMock,
   relationshipMatchMock,
+  releaseLockMock,
+  completeImportMock,
 } = vi.hoisted(() => ({
+  acquireLockMock: vi.fn(),
   getServiceRoleClientMock: vi.fn(),
   buildBlocklistMock: vi.fn(),
   shouldFilterMock: vi.fn(),
@@ -27,6 +31,8 @@ const {
   createActivityMock: vi.fn(),
   createClientMock: vi.fn(),
   relationshipMatchMock: vi.fn(),
+  releaseLockMock: vi.fn(),
+  completeImportMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -35,6 +41,25 @@ vi.mock("@/lib/supabase/server-client", () => ({
 
 vi.mock("@/lib/email/email-route-auth", () => ({
   requireEmailCompanyAccess: vi.fn(async () => null),
+}));
+
+vi.mock("@/lib/email/email-connection-operation-access", () => ({
+  resolveEmailConnectionOperationAccess: vi.fn(async () => ({
+    allowed: true,
+    actor: { userId: "user-1", companyId: "company-1" },
+    connections: [
+      {
+        id: "connection-1",
+        company_id: "company-1",
+        provider: "gmail",
+        type: "company",
+        user_id: null,
+        status: "active",
+        sync_enabled: true,
+      },
+    ],
+    connectionIds: ["connection-1"],
+  })),
 }));
 
 vi.mock("@/lib/api/services/email-filter-service", () => ({
@@ -67,6 +92,19 @@ vi.mock("@/lib/api/services/opportunity-service", () => ({
 
 vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
   findOpportunityRelationshipMatch: relationshipMatchMock,
+}));
+
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  acquireEmailConnectionSyncLock: (...args: unknown[]) =>
+    acquireLockMock(...args),
+  createEmailConnectionSyncLockRenewer: () =>
+    Object.assign(async () => undefined, {
+      stop: async () => undefined,
+    }),
+  releaseEmailConnectionSyncLock: (...args: unknown[]) =>
+    releaseLockMock(...args),
+  completeGmailImportJobUnderSyncLock: (...args: unknown[]) =>
+    completeImportMock(...args),
 }));
 
 import { POST } from "@/app/api/integrations/gmail/historical-import/route";
@@ -121,6 +159,7 @@ function makeSupabaseDouble() {
           data: {
             id: "connection-1",
             company_id: "company-1",
+            provider: "gmail",
             email: "operator@example.com",
             access_token: "token",
             refresh_token: "refresh",
@@ -192,6 +231,10 @@ async function importApprovedContact(name: string, fromEmail: string) {
 
 describe("Gmail historical import — safe opportunity titles", () => {
   beforeEach(() => {
+    acquireLockMock.mockResolvedValue("lock-owner-1");
+    releaseLockMock.mockResolvedValue(undefined);
+    completeImportMock.mockReset();
+    completeImportMock.mockResolvedValue(undefined);
     getServiceRoleClientMock.mockReset();
     buildBlocklistMock.mockReset();
     buildBlocklistMock.mockResolvedValue({ domains: new Set(), keywords: [] });

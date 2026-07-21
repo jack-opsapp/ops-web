@@ -7,9 +7,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
+import { authorizeEmailConnectionOperationForActor } from "@/lib/email/email-connection-operation-access";
 
 export async function GET(request: NextRequest) {
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+
   const supabase = getServiceRoleClient();
 
   try {
@@ -35,8 +39,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const authError = await requireEmailCompanyAccess(request, job.company_id);
-    if (authError) return authError;
+    const connectionAccess = await authorizeEmailConnectionOperationForActor({
+      actor: actorResolution.actor,
+      connectionId: String(job.connection_id),
+      supabase,
+    });
+    if (
+      !connectionAccess.allowed ||
+      String(job.company_id) !== actorResolution.actor.companyId
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (connectionAccess.connections[0]?.provider !== "gmail") {
+      return NextResponse.json(
+        { error: "Import job not found" },
+        { status: 404 }
+      );
+    }
 
     // Flat response — matches ImportStatusResponse shape in use-gmail-import.ts
     return NextResponse.json({

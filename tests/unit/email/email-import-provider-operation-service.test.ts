@@ -21,6 +21,7 @@ import {
   createSupabaseEmailImportProviderOperationStore,
   type ClaimedEmailImportProviderOperation,
   type EmailImportProviderLabelTransport,
+  type EmailImportProviderOperationDependencies,
 } from "@/lib/api/services/email-import-provider-operation-service";
 
 const operation: ClaimedEmailImportProviderOperation = {
@@ -66,6 +67,7 @@ function makeHarness(input?: {
   authorizeResult?: boolean;
   completeResult?: boolean;
   failResult?: boolean;
+  mailboxLeaseAcquired?: boolean;
 }) {
   const sendEmail = vi.fn();
   const listLabels = vi.fn(async () => [
@@ -87,6 +89,20 @@ function makeHarness(input?: {
   const persistOpsLabelId = vi.fn(async () => "label-listed");
   const complete = vi.fn(async () => input?.completeResult ?? true);
   const fail = vi.fn(async () => input?.failResult ?? true);
+  const checkpoint = Object.assign(
+    vi.fn(async () => undefined),
+    {
+      stop: vi.fn(async () => undefined),
+    }
+  );
+  const runWithMailboxLeaseMock = vi.fn(
+    async ({ run }: { run: (renew: typeof checkpoint) => Promise<unknown> }) =>
+      input?.mailboxLeaseAcquired === false
+        ? { acquired: false as const }
+        : { acquired: true as const, value: await run(checkpoint) }
+  );
+  const runWithMailboxLease =
+    runWithMailboxLeaseMock as unknown as EmailImportProviderOperationDependencies["runWithMailboxLease"];
 
   const service = new EmailImportProviderOperationService({
     claim,
@@ -96,6 +112,7 @@ function makeHarness(input?: {
     persistOpsLabelId,
     complete,
     fail,
+    runWithMailboxLease,
     workerId: () => "00000000-0000-4000-8000-000000000024",
   });
 
@@ -108,6 +125,8 @@ function makeHarness(input?: {
     persistOpsLabelId,
     complete,
     fail,
+    checkpoint,
+    runWithMailboxLease: runWithMailboxLeaseMock,
     listLabels,
     createLabel,
     applyLabel,
@@ -134,6 +153,10 @@ describe("EmailImportProviderOperationService", () => {
       leaseSeconds: 300,
     });
     expect(harness.loadConnection).toHaveBeenCalledWith("connection-2");
+    expect(harness.runWithMailboxLease).toHaveBeenCalledWith({
+      connectionId: "connection-2",
+      run: expect.any(Function),
+    });
     expect(harness.authorize).toHaveBeenNthCalledWith(1, {
       operationId: "operation-1",
       holder: "00000000-0000-4000-8000-000000000024",
@@ -168,6 +191,25 @@ describe("EmailImportProviderOperationService", () => {
       staleFailures: 0,
       errors: [],
     });
+  });
+
+  it("fails busy without constructing or accessing the provider transport", async () => {
+    const harness = makeHarness({ mailboxLeaseAcquired: false });
+
+    const result = await harness.service.process();
+
+    expect(harness.runWithMailboxLease).toHaveBeenCalledTimes(1);
+    expect(harness.getLabelTransport).not.toHaveBeenCalled();
+    expect(harness.listLabels).not.toHaveBeenCalled();
+    expect(harness.createLabel).not.toHaveBeenCalled();
+    expect(harness.applyLabel).not.toHaveBeenCalled();
+    expect(harness.complete).not.toHaveBeenCalled();
+    expect(harness.fail).toHaveBeenCalledWith({
+      operationId: "operation-1",
+      holder: "00000000-0000-4000-8000-000000000024",
+      error: "EMAIL_IMPORT_PROVIDER_MAILBOX_BUSY",
+    });
+    expect(result.failed).toBe(1);
   });
 
   it("fails before any provider access when the claimed operation is no longer authorized", async () => {
@@ -226,6 +268,13 @@ describe("EmailImportProviderOperationService", () => {
     expect(harness.applyLabel).toHaveBeenCalledWith(
       "provider-thread-exact",
       "label-listed"
+    );
+    expect(harness.checkpoint).toHaveBeenCalled();
+    expect(harness.checkpoint.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.listLabels.mock.invocationCallOrder[0]
+    );
+    expect(harness.checkpoint.mock.invocationCallOrder.at(-1)).toBeGreaterThan(
+      harness.applyLabel.mock.invocationCallOrder[0]
     );
   });
 

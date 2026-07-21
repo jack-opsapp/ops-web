@@ -23,6 +23,10 @@ const {
   placeNewThreadDraftMock,
   resolveEmailOpportunityAccessMock,
   resolveEmailRouteActorMock,
+  runWithEmailConnectionSyncLockMock,
+  createMutationServiceMock,
+  mutationExecuteMock,
+  buildMutationFingerprintMock,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -33,6 +37,19 @@ const {
   placeNewThreadDraftMock: vi.fn(),
   resolveEmailOpportunityAccessMock: vi.fn(),
   resolveEmailRouteActorMock: vi.fn(),
+  runWithEmailConnectionSyncLockMock: vi.fn(),
+  createMutationServiceMock: vi.fn(),
+  mutationExecuteMock: vi.fn(),
+  buildMutationFingerprintMock: vi.fn(() => "f".repeat(64)),
+}));
+
+vi.mock("@/lib/api/services/email-provider-mutation-attempt-service", () => ({
+  buildEmailProviderMutationFingerprint: buildMutationFingerprintMock,
+  createEmailProviderMutationAttemptService: createMutationServiceMock,
+  isEmailProviderMutationReconciliationRequiredError: (error: unknown) =>
+    error instanceof Error &&
+    "code" in error &&
+    error.code === "EMAIL_PROVIDER_MUTATION_RECONCILIATION_REQUIRED",
 }));
 
 vi.mock("@/lib/email/email-route-auth", () => ({
@@ -68,6 +85,10 @@ vi.mock("@/lib/api/services/writing-profile-service", () => ({
 vi.mock("@/lib/api/services/mailbox-draft-push", () => ({
   placeNewThreadDraft: placeNewThreadDraftMock,
   CONTACT_FORM_OUTREACH_SUBJECT: "Thanks for reaching out",
+}));
+
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  runWithEmailConnectionSyncLock: runWithEmailConnectionSyncLockMock,
 }));
 
 import { POST } from "@/app/api/integrations/email/draft/route";
@@ -192,6 +213,7 @@ function makeRequest() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resolveEmailOpportunityAccessMock.mockReset();
   resolveEmailRouteActorMock.mockResolvedValue({
     ok: true,
     actor: { userId: "user-1", companyId: "company-1" },
@@ -233,6 +255,27 @@ beforeEach(() => {
     mailboxDraftId: "pd-new",
     threadId: "client-thread-1",
   });
+  runWithEmailConnectionSyncLockMock.mockImplementation(
+    async ({ run }: { run: (checkpoint: () => Promise<void>) => unknown }) => {
+      const checkpoint = vi.fn(async () => undefined);
+      return { acquired: true, value: await run(checkpoint) };
+    }
+  );
+  mutationExecuteMock.mockImplementation(async (input) => {
+    const output = await input.executeProvider();
+    await input.reconcile({
+      attemptId: "attempt-1",
+      resourceId: output.resourceId,
+      secondaryResourceId: output.secondaryResourceId ?? null,
+      result: output.result ?? {},
+    });
+    return {
+      status: "completed",
+      providerResourceId: output.resourceId,
+      providerSecondaryResourceId: output.secondaryResourceId ?? null,
+    };
+  });
+  createMutationServiceMock.mockReturnValue({ execute: mutationExecuteMock });
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -258,6 +301,7 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       ],
       activities: [
         {
+          id: "activity-1",
           opportunity_id: "opp-1",
           type: "email",
           direction: "inbound",
@@ -292,11 +336,96 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
         subject: "Thanks for reaching out",
         body: expect.stringContaining("Jackson"),
         contentType: "html",
+        durableProviderMutation: {
+          actorUserId: "user-1",
+          operationKey: "manual-new-thread-draft:conn-1:activity-1",
+          requestFingerprint: "f".repeat(64),
+        },
       })
     );
     expect(createDraft).not.toHaveBeenCalled();
     expect(json.mailboxSaved).toBe(true);
     expect(json.mailboxDraftId).toBe("pd-new");
+  });
+
+  it("rechecks canonical lead and inbox access at the final provider boundary", async () => {
+    const provider = {
+      createNewThreadDraft: vi.fn(),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    placeNewThreadDraftMock.mockImplementationOnce(async (input) => {
+      if (!(await input.authorizeProviderMutation())) {
+        throw new Error("EMAIL_DRAFT_AUTHORIZATION_REVOKED");
+      }
+      return { mailboxDraftId: "pd-new", threadId: "client-thread-1" };
+    });
+    resolveEmailOpportunityAccessMock
+      .mockResolvedValueOnce({
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "conn-1",
+        providerThreadId: null,
+        opportunityId: "opp-1",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      })
+      .mockResolvedValueOnce({
+        allowed: false,
+        reason: "opportunity_other_assignee",
+      });
+    const state: DbState = {
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          title: "Priya Shah — Email Inquiry",
+          clients: { email: "priya@example.net", name: "Priya Shah" },
+        },
+      ],
+      activities: [
+        {
+          id: "activity-1",
+          opportunity_id: "opp-1",
+          type: "email",
+          direction: "inbound",
+          subject: "New contact form",
+          email_thread_id: "forwarder-thread",
+          body_text: CONTACT_FORM_BODY,
+        },
+      ],
+      email_threads: [],
+      ai_draft_history: [
+        {
+          id: "dh-1",
+          connection_id: "conn-1",
+          status: "drafted",
+          mailbox_draft_id: null,
+        },
+      ],
+    };
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+
+    const response = await POST(makeRequest());
+    const body = await response.json();
+
+    expect(body).toMatchObject({
+      mailboxSaved: false,
+      mailboxErrorCode: "EMAIL_DRAFT_AUTHORIZATION_REVOKED",
+    });
+    expect(placeNewThreadDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authorizeProviderMutation: expect.any(Function),
+      })
+    );
+    expect(provider.createNewThreadDraft).not.toHaveBeenCalled();
   });
 
   it("takes the reply path (Re: + createDraft) for an ordinary client reply (no contact form)", async () => {
@@ -365,6 +494,7 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       ],
       activities: [
         {
+          id: "activity-2",
           opportunity_id: "opp-1",
           type: "email",
           direction: "inbound",
@@ -428,6 +558,15 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       expect.any(String),
       "gmail-thread-x",
       "html"
+    );
+    expect(mutationExecuteMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "user-1",
+        connectionId: "conn-company",
+        operationKind: "draft_create",
+        operationKey: "manual-reply-draft:conn-company:activity-2",
+        requestFingerprint: "f".repeat(64),
+      })
     );
   });
 });

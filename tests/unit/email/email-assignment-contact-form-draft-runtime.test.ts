@@ -8,6 +8,7 @@ const {
   placeNewThreadDraftMock,
   renderDraftMock,
   resolveSignatureMock,
+  runWithEmailConnectionSyncLockMock,
 } = vi.hoisted(() => ({
   generateDraftMock: vi.fn(),
   getAutonomyMock: vi.fn(),
@@ -16,6 +17,7 @@ const {
   placeNewThreadDraftMock: vi.fn(),
   renderDraftMock: vi.fn(),
   resolveSignatureMock: vi.fn(),
+  runWithEmailConnectionSyncLockMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/ai-draft-service", () => ({
@@ -41,6 +43,10 @@ vi.mock("@/lib/email/email-signature-runtime", () => ({
 vi.mock("@/lib/api/services/mailbox-draft-push", () => ({
   buildContactFormDraftInstruction: vi.fn(() => "contact form instruction"),
   placeNewThreadDraft: placeNewThreadDraftMock,
+}));
+
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  runWithEmailConnectionSyncLock: runWithEmailConnectionSyncLockMock,
 }));
 
 import { runSupabaseEmailAssignmentContactFormDraftWorker } from "@/lib/api/services/email-assignment-contact-form-draft-runtime";
@@ -86,6 +92,14 @@ function connection() {
 
 describe("assignment contact-form draft runtime", () => {
   it("maps the durable claim to a review-only provider capability and exact actor RPC lifecycle", async () => {
+    const mailboxCheckpoint = vi.fn(async () => undefined);
+    runWithEmailConnectionSyncLockMock.mockImplementation(
+      async ({
+        run,
+      }: {
+        run: (checkpoint: () => Promise<void>) => unknown;
+      }) => ({ acquired: true, value: await run(mailboxCheckpoint) })
+    );
     const provider = {
       createNewThreadDraft: vi.fn(),
       updateDraft: vi.fn(),
@@ -191,12 +205,15 @@ describe("assignment contact-form draft runtime", () => {
         autonomous: true,
       })
     );
-    expect(resolveSignatureMock).toHaveBeenCalledWith({
-      supabase,
-      connection: expect.objectContaining({ id: CONNECTION_ID }),
-      userId: ACTOR_ID,
-      refreshProviderIfMissing: true,
-    });
+    expect(resolveSignatureMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase,
+        connection: expect.objectContaining({ id: CONNECTION_ID }),
+        userId: ACTOR_ID,
+        refreshProviderIfMissing: true,
+        providerLockCheckpoint: mailboxCheckpoint,
+      })
+    );
     const placement = placeNewThreadDraftMock.mock.calls[0]![0];
     expect(placement).toEqual(
       expect.objectContaining({

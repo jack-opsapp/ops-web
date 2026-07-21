@@ -809,8 +809,9 @@ async function processThreadExtraction(
 // Extracted from buildWritingProfiles so the outer orchestrator can drive a
 // concurrency-limited worker pool over profile types. One unit of work here =
 // one gpt-4o-mini call + one agent_writing_profiles upsert. Returns true iff
-// a profile row was upserted; false for skip (too few samples, invalid type)
-// or failure (LLM call threw).
+// a profile row was upserted; false only for a deterministic skip (too few
+// samples or invalid type). Generation and persistence failures propagate so
+// Phase C remains retryable instead of publishing a false completion.
 async function buildSingleWritingProfile(
   supabase: SupabaseClient,
   companyId: string,
@@ -945,28 +946,35 @@ IMPORTANT:
       typeof parsed.formality_score === "number" ? parsed.formality_score : 0.5;
     if (formalityScore > 1) formalityScore = formalityScore / 10;
 
-    await supabase.from("agent_writing_profiles").upsert(
-      {
-        company_id: companyId,
-        user_id: userId,
-        profile_type: profileType,
-        greeting_patterns: Array.isArray(parsed.greeting_patterns)
-          ? parsed.greeting_patterns
-          : [],
-        closing_patterns: Array.isArray(parsed.closing_patterns)
-          ? parsed.closing_patterns
-          : [],
-        avg_sentence_length: parsed.avg_sentence_length || 0,
-        formality_score: formalityScore,
-        tone_traits: WritingProfileService.normalizeToneTraits(
-          parsed.tone_traits
-        ),
-        vocabulary_preferences: vocabPrefs,
-        emails_analyzed: selected.length,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "company_id,user_id,profile_type" }
-    );
+    const { error: profileUpsertError } = await supabase
+      .from("agent_writing_profiles")
+      .upsert(
+        {
+          company_id: companyId,
+          user_id: userId,
+          profile_type: profileType,
+          greeting_patterns: Array.isArray(parsed.greeting_patterns)
+            ? parsed.greeting_patterns
+            : [],
+          closing_patterns: Array.isArray(parsed.closing_patterns)
+            ? parsed.closing_patterns
+            : [],
+          avg_sentence_length: parsed.avg_sentence_length || 0,
+          formality_score: formalityScore,
+          tone_traits: WritingProfileService.normalizeToneTraits(
+            parsed.tone_traits
+          ),
+          vocabulary_preferences: vocabPrefs,
+          emails_analyzed: selected.length,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "company_id,user_id,profile_type" }
+      );
+    if (profileUpsertError) {
+      throw new Error(
+        `Failed to persist writing profile for ${profileType}: ${profileUpsertError.message}`
+      );
+    }
 
     return true;
   } catch (err) {
@@ -974,7 +982,7 @@ IMPORTANT:
       `[memory-service] Writing profile analysis failed for ${profileType}:`,
       err
     );
-    return false;
+    throw err;
   }
 }
 

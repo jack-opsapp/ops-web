@@ -48,9 +48,8 @@ async function GET() {
 }
 
 function mockTokenExchangeSuccess() {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
+  const providerFetch = vi.fn(
+    async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input);
       if (url.includes("oauth2.googleapis.com/token")) {
         return new Response(
@@ -63,13 +62,18 @@ function mockTokenExchangeSuccess() {
         );
       }
       if (url.includes("gmail.googleapis.com/gmail/v1/users/me/profile")) {
-        return new Response(JSON.stringify({ emailAddress: "owner@ops.test" }), {
-          status: 200,
-        });
+        return new Response(
+          JSON.stringify({ emailAddress: "owner@ops.test" }),
+          {
+            status: 200,
+          }
+        );
       }
       throw new Error(`unexpected fetch: ${url}`);
-    })
+    }
   );
+  vi.stubGlobal("fetch", providerFetch);
+  return providerFetch;
 }
 
 describe("GET /api/integrations/gmail/callback returnTo", () => {
@@ -84,7 +88,7 @@ describe("GET /api/integrations/gmail/callback returnTo", () => {
   });
 
   it("redirects success to returnTo with ?connected=gmail", async () => {
-    mockTokenExchangeSuccess();
+    const providerFetch = mockTokenExchangeSuccess();
     consumeState.mockResolvedValue({
       companyId: "co-1",
       userId: "user-1",
@@ -106,6 +110,13 @@ describe("GET /api/integrations/gmail/callback returnTo", () => {
       `${APP_URL}/pipeline?connected=gmail`
     );
     expect(persistConnection).toHaveBeenCalledTimes(1);
+    expect(providerFetch).toHaveBeenCalledTimes(2);
+    expect(providerFetch.mock.calls[0]?.[1]?.signal).toBeInstanceOf(
+      AbortSignal
+    );
+    expect(providerFetch.mock.calls[1]?.[1]?.signal).toBeInstanceOf(
+      AbortSignal
+    );
   });
 
   it("redirects user denial to returnTo with ?connect_error=1", async () => {

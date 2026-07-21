@@ -20,6 +20,13 @@ vi.mock("@/lib/api/services/email-service", () => ({
   },
 }));
 
+vi.mock("@/lib/api/services/email-provider-mailbox-operation", () => ({
+  runEmailProviderMailboxOperation: async (input: {
+    providerLockCheckpoint?: (force?: boolean) => Promise<void>;
+    run: (checkpoint: (force?: boolean) => Promise<void>) => Promise<unknown>;
+  }) => input.run(input.providerLockCheckpoint ?? (async () => {})),
+}));
+
 vi.mock("@/lib/api/services/email-outbound-learning-service", () => ({
   EmailOutboundLearningService: class {
     enqueueIfEnabled = enqueueIfEnabledMock;
@@ -44,6 +51,7 @@ import {
   reconcilePendingMailboxDrafts,
   type DraftOutcome,
 } from "@/lib/api/services/draft-reconciliation";
+import * as DraftReconciliationModule from "@/lib/api/services/draft-reconciliation";
 
 describe("classifyDraftOutcome", () => {
   // ── used: draft gone + outbound reply exists ─────────────────────────────
@@ -272,15 +280,24 @@ describe("reconcilePendingMailboxDrafts", () => {
       userId: "user-1",
       email: "operator@example.com",
     };
+    const providerLockCheckpoint = vi.fn(async () => {});
 
     await reconcilePendingMailboxDrafts({
       connection: connection as never,
       providerThreadId: "provider-thread-1",
       supabase: supabase as never,
+      providerLockCheckpoint,
     });
 
     expect(getDraftMock).toHaveBeenCalledOnce();
-    expect(getDraftMock).toHaveBeenCalledWith("provider-draft-1");
+    expect(providerLockCheckpoint).toHaveBeenCalledTimes(2);
+    expect(getDraftMock).toHaveBeenCalledWith(
+      "provider-draft-1",
+      expect.objectContaining({
+        context: "mailbox draft reconciliation",
+        deadlineAt: expect.any(Number),
+      })
+    );
     expect(supabase.rpc).toHaveBeenCalledWith(
       "resolve_email_outbound_learning_mailbox_actor_as_system",
       expect.objectContaining({
@@ -321,6 +338,259 @@ describe("reconcilePendingMailboxDrafts", () => {
       connectionId: "connection-1",
     });
     expect(updateCalls).toEqual([]);
+  });
+
+  it("bounds exact provider draft reads under one absolute deadline", async () => {
+    const pendingRows = Array.from({ length: 12 }, (_, index) => ({
+      id: `draft-history-${index}`,
+      company_id: "company-1",
+      user_id: "user-1",
+      mailbox_draft_id: `provider-draft-${index}`,
+      created_at: "2999-07-10T09:00:00.000Z",
+      profile_type: "general",
+      opportunity_id: null,
+    }));
+    let activeReads = 0;
+    let maxActiveReads = 0;
+    getDraftMock.mockImplementation(async () => {
+      activeReads += 1;
+      maxActiveReads = Math.max(maxActiveReads, activeReads);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      activeReads -= 1;
+      return null;
+    });
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        order: vi.fn(async () => ({ data: [], error: null })),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    const supabase = { from: vi.fn((table: string) => queryFor(table)) };
+    await reconcilePendingMailboxDrafts({
+      connection: {
+        id: "connection-1",
+        companyId: "company-1",
+        email: "operator@example.com",
+      } as never,
+      providerThreadId: "provider-thread-1",
+      supabase: supabase as never,
+    });
+
+    expect(getDraftMock).toHaveBeenCalledTimes(12);
+    expect(maxActiveReads).toBeLessThanOrEqual(5);
+    const readPolicies = getDraftMock.mock.calls.map((call) => call[1]);
+    expect(
+      readPolicies.every(
+        (policy) =>
+          typeof (policy as { deadlineAt?: unknown } | undefined)
+            ?.deadlineAt === "number"
+      )
+    ).toBe(true);
+    expect(
+      new Set(
+        readPolicies.map(
+          (policy) => (policy as { deadlineAt: number }).deadlineAt
+        )
+      ).size
+    ).toBe(1);
+  });
+
+  it("rethrows an exact provider draft read failure so sync cannot advance its cursor", async () => {
+    const pendingRows = [
+      {
+        id: "draft-history-provider-failure",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "provider-draft-failure",
+        created_at: "2026-07-10T09:00:00.000Z",
+        profile_type: "general",
+        opportunity_id: null,
+      },
+    ];
+    getDraftMock.mockRejectedValue(new Error("Gmail drafts.get failed: 503"));
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        order: vi.fn(() => query),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    await expect(
+      reconcilePendingMailboxDrafts({
+        connection: {
+          id: "connection-1",
+          companyId: "company-1",
+          email: "operator@example.com",
+        } as never,
+        providerThreadId: "provider-thread-1",
+        supabase: {
+          from: vi.fn((table: string) => queryFor(table)),
+        } as never,
+      })
+    ).rejects.toThrow("exact provider draft read failed");
+  });
+
+  it("rethrows a terminal draft-state write failure for cursor-safe replay", async () => {
+    const pendingRows = [
+      {
+        id: "draft-history-write-failure",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "provider-draft-gone",
+        created_at: "2026-01-10T09:00:00.000Z",
+        profile_type: "general",
+        opportunity_id: null,
+      },
+    ];
+    let aiDraftQueryCount = 0;
+
+    function queryFor(table: string, aiQueryNumber: number) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        order: vi.fn(() => query),
+        update: vi.fn(() => query),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve(
+            table === "ai_draft_history" && aiQueryNumber === 1
+              ? { data: pendingRows, error: null }
+              : table === "ai_draft_history"
+                ? { data: null, error: { message: "draft state write failed" } }
+                : { data: [], error: null }
+          ).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "ai_draft_history") aiDraftQueryCount += 1;
+        return queryFor(table, aiDraftQueryCount);
+      }),
+    };
+
+    await expect(
+      reconcilePendingMailboxDrafts({
+        connection: {
+          id: "connection-1",
+          companyId: "company-1",
+          email: "operator@example.com",
+        } as never,
+        providerThreadId: "provider-thread-1",
+        supabase: supabase as never,
+      })
+    ).rejects.toThrow("draft state write failed");
+  });
+
+  it("sweeps pending draft threads even when no new provider message arrives", async () => {
+    const sweep = (
+      DraftReconciliationModule as unknown as {
+        reconcilePendingMailboxDraftsForConnection?: (params: {
+          connection: never;
+          supabase: never;
+        }) => Promise<void>;
+      }
+    ).reconcilePendingMailboxDraftsForConnection;
+    expect(sweep).toBeTypeOf("function");
+    if (!sweep) return;
+
+    const pendingRow = {
+      id: "draft-history-no-event",
+      company_id: "company-1",
+      user_id: "user-1",
+      mailbox_draft_id: "provider-draft-deleted",
+      thread_id: "provider-thread-no-event",
+      created_at: "2026-01-10T09:00:00.000Z",
+      profile_type: "general",
+      opportunity_id: null,
+    };
+    let aiDraftQueryCount = 0;
+    const updateCalls: Array<Record<string, unknown>> = [];
+
+    function queryFor(table: string, aiQueryNumber: number) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        order: vi.fn(() => query),
+        limit: vi.fn(() => query),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updateCalls.push(payload);
+          return query;
+        }),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve(
+            table === "ai_draft_history" && aiQueryNumber === 1
+              ? {
+                  data: [{ thread_id: "provider-thread-no-event" }],
+                  error: null,
+                }
+              : table === "ai_draft_history" && aiQueryNumber === 2
+                ? { data: [pendingRow], error: null }
+                : { data: [], error: null }
+          ).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "ai_draft_history") aiDraftQueryCount += 1;
+        return queryFor(table, aiDraftQueryCount);
+      }),
+    };
+
+    await sweep({
+      connection: {
+        id: "connection-1",
+        companyId: "company-1",
+        email: "operator@example.com",
+      } as never,
+      supabase: supabase as never,
+    });
+
+    expect(getDraftMock).toHaveBeenCalledWith(
+      "provider-draft-deleted",
+      expect.objectContaining({
+        context: "mailbox draft reconciliation sweep",
+        deadlineAt: expect.any(Number),
+      })
+    );
+    expect(updateCalls).toContainEqual(
+      expect.objectContaining({ status: "discarded_in_mailbox" })
+    );
   });
 
   it("checks an older draft by exact id instead of treating a bounded list omission as deletion", async () => {
@@ -379,7 +649,11 @@ describe("reconcilePendingMailboxDrafts", () => {
     });
 
     expect(getDraftMock).toHaveBeenCalledWith(
-      "provider-draft-older-than-ui-page"
+      "provider-draft-older-than-ui-page",
+      expect.objectContaining({
+        context: "mailbox draft reconciliation",
+        deadlineAt: expect.any(Number),
+      })
     );
     expect(updateCalls).toEqual([]);
     expect(enqueueIfEnabledMock).not.toHaveBeenCalled();

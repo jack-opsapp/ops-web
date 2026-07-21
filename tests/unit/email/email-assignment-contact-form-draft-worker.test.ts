@@ -7,6 +7,8 @@ import {
   type ContactFormDraftProviderPlacementAttempt,
 } from "@/lib/api/services/email-assignment-contact-form-draft-worker";
 import type { EmailConnection } from "@/lib/types/email-connection";
+import type { EmailConnectionSyncLockRunResult } from "@/lib/api/services/email-connection-sync-lock";
+import type { EmailProviderMailboxCheckpoint } from "@/lib/api/services/email-provider-mailbox-operation";
 
 const FORM_BODY = [
   "New contact form submission",
@@ -157,6 +159,18 @@ function makeHarness(input?: {
     sendEmail,
   };
   const getDraftTransport = vi.fn(() => transport);
+  const mailboxLeaseState = { acquired: true };
+  const mailboxCheckpoint = vi.fn(async () => undefined);
+  const runWithMailboxLease = async <T>(mailboxInput: {
+    connectionId: string;
+    run: (checkpoint: EmailProviderMailboxCheckpoint) => Promise<T>;
+  }): Promise<EmailConnectionSyncLockRunResult<T>> =>
+    mailboxLeaseState.acquired
+      ? {
+          acquired: true,
+          value: await mailboxInput.run(mailboxCheckpoint),
+        }
+      : { acquired: false };
 
   const dependencies: EmailAssignmentContactFormDraftDependencies = {
     claim,
@@ -173,6 +187,7 @@ function makeHarness(input?: {
     complete,
     markReconciliationRequired,
     fail,
+    runWithMailboxLease,
     workerId: () => "contact-form-worker-1",
   };
   const worker = new EmailAssignmentContactFormDraftWorker(dependencies);
@@ -194,6 +209,8 @@ function makeHarness(input?: {
     markReconciliationRequired,
     fail,
     sendEmail,
+    mailboxLeaseState,
+    mailboxCheckpoint,
   };
 }
 
@@ -220,6 +237,7 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     );
     expect(harness.getCustomerAutonomy).toHaveBeenCalledWith(
       harness.job.connectionId,
+      harness.job.actorUserId,
       "CUSTOMER"
     );
     expect(harness.generateDraft).toHaveBeenCalledWith(
@@ -329,6 +347,24 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     });
     expect(result.stale).toBe(1);
     expect(harness.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("fails busy before the durable provider attempt or provider construction", async () => {
+    const harness = makeHarness();
+    harness.mailboxLeaseState.acquired = false;
+
+    const result = await harness.worker.process();
+
+    expect(harness.resolveSignature).not.toHaveBeenCalled();
+    expect(harness.beginProviderCreate).not.toHaveBeenCalled();
+    expect(harness.getDraftTransport).not.toHaveBeenCalled();
+    expect(harness.placeDraft).not.toHaveBeenCalled();
+    expect(harness.fail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_MAILBOX_BUSY",
+      })
+    );
+    expect(result.retrying).toBe(1);
   });
 
   it("fences the assignment again after model and signature work", async () => {

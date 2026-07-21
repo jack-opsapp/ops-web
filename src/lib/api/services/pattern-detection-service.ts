@@ -1,14 +1,22 @@
 // src/lib/api/services/pattern-detection-service.ts
 // Discovers business email patterns from the user's inbox and sent mail
 
-import { EmailService } from './email-service';
-import type { EmailConnection } from '@/lib/types/email-connection';
-import type { EmailProviderInterface, NormalizedEmail } from './email-provider';
-import { matchPlatform, isFormSubmissionSubject } from './known-platforms';
-import { PUBLIC_EMAIL_DOMAINS } from '@/lib/types/pipeline';
+import { EmailService } from "./email-service";
+import type { EmailConnection } from "@/lib/types/email-connection";
+import type {
+  EmailProviderInterface,
+  NormalizedEmail,
+  ProviderReadPolicy,
+} from "./email-provider";
+import { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
+import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
+import {
+  runEmailProviderMailboxOperation,
+  type EmailProviderMailboxCheckpoint,
+} from "./email-provider-mailbox-operation";
 
 export interface DetectedSource {
-  type: 'estimate_pattern' | 'platform' | 'forwarder' | 'ai_detected';
+  type: "estimate_pattern" | "platform" | "forwarder" | "ai_detected";
   label: string;
   pattern: string;
   count: number;
@@ -29,9 +37,11 @@ export interface PatternDetectionResult {
   /** All sent emails from the analysis period — needed to find outbound recipients for client email detection */
   allSentEmails: NormalizedEmail[];
   /** Map from email ID to its match source, for emails that were pattern-matched */
-  emailSourceMap: Record<string, 'estimate_pattern' | 'platform' | 'forwarder'>;
+  emailSourceMap: Record<string, "estimate_pattern" | "platform" | "forwarder">;
   totalEmailsScanned: number;
 }
+
+const PATTERN_DETECTION_READ_DEADLINE_MS = 8 * 60 * 1000;
 
 export const PatternDetectionService = {
   /**
@@ -40,25 +50,65 @@ export const PatternDetectionService = {
    */
   async detect(
     connection: EmailConnection,
-    options: { monthsBack?: number } = {}
+    options: {
+      monthsBack?: number;
+      providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+    } = {}
   ): Promise<PatternDetectionResult> {
-    const provider = EmailService.getProvider(connection);
     const monthsBack = options.monthsBack || 3;
     const afterDate = new Date();
     afterDate.setMonth(afterDate.getMonth() - monthsBack);
+    const readPolicy: ProviderReadPolicy = {
+      deadlineAt: Date.now() + PATTERN_DETECTION_READ_DEADLINE_MS,
+      context: "pattern detection mailbox scan",
+    };
 
-    // Run all three detection operations in parallel
-    const [sentAnalysis, platformDetection, inboxEmails] = await Promise.all([
-      PatternDetectionService.analyzeSentMail(provider, afterDate),
-      PatternDetectionService.detectPlatforms(provider, afterDate),
-      PatternDetectionService.fetchPersonalInbox(provider, afterDate),
-    ]);
+    // Each provider search hydrates up to 2,000 full messages with its own
+    // bounded inner pool. Keep the searches sequential, under the physical
+    // mailbox lease, and propagate one absolute deadline so the three pools
+    // can never multiply mailbox-wide concurrency or restart the time budget.
+    const { sentAnalysis, platformDetection, inboxEmails } =
+      await runEmailProviderMailboxOperation({
+        connectionId: connection.id,
+        context: "pattern-detection",
+        busyError: "PATTERN_DETECTION_MAILBOX_BUSY",
+        providerLockCheckpoint: options.providerLockCheckpoint,
+        run: async (checkpoint) => {
+          const provider = EmailService.getProvider(connection);
+
+          await checkpoint();
+          const sentAnalysis = await PatternDetectionService.analyzeSentMail(
+            provider,
+            afterDate,
+            readPolicy
+          );
+          await checkpoint();
+
+          const platformDetection =
+            await PatternDetectionService.detectPlatforms(
+              provider,
+              afterDate,
+              readPolicy
+            );
+          await checkpoint();
+
+          const inboxEmails = await PatternDetectionService.fetchPersonalInbox(
+            provider,
+            afterDate,
+            readPolicy
+          );
+          await checkpoint();
+
+          return { sentAnalysis, platformDetection, inboxEmails };
+        },
+      });
 
     // Identify company domains from sent mail (first pass — without forwarders)
-    const initialCompanyDomains = PatternDetectionService.identifyCompanyDomains(
-      sentAnalysis.allSentEmails,
-      connection.email
-    );
+    const initialCompanyDomains =
+      PatternDetectionService.identifyCompanyDomains(
+        sentAnalysis.allSentEmails,
+        connection.email
+      );
 
     // Detect team forwarders (people from company domains who forward form submissions)
     const teamForwarders = PatternDetectionService.detectForwarders(
@@ -79,7 +129,7 @@ export const PatternDetectionService = {
     // Add estimate pattern as a source if found
     if (sentAnalysis.topPattern && sentAnalysis.confidence >= 0.5) {
       detectedSources.push({
-        type: 'estimate_pattern',
+        type: "estimate_pattern",
         label: `Estimate threads matching "${sentAnalysis.topPattern}"`,
         pattern: sentAnalysis.topPattern,
         count: sentAnalysis.threadCount,
@@ -89,10 +139,12 @@ export const PatternDetectionService = {
     }
 
     // Add platform detections
-    for (const [platformName, source] of Object.entries(platformDetection.byPlatform)) {
+    for (const [platformName, source] of Object.entries(
+      platformDetection.byPlatform
+    )) {
       detectedSources.push({
-        type: 'platform',
-        label: `${source.category === 'website_form' ? 'Website forms' : source.category === 'bid_platform' ? 'Bid invitations' : 'Leads'} from ${platformName}`,
+        type: "platform",
+        label: `${source.category === "website_form" ? "Website forms" : source.category === "bid_platform" ? "Bid invitations" : "Leads"} from ${platformName}`,
         pattern: platformName,
         count: source.count,
         enabled: true,
@@ -103,7 +155,7 @@ export const PatternDetectionService = {
     // Add team forwarder detections
     for (const fwd of teamForwarders) {
       detectedSources.push({
-        type: 'forwarder',
+        type: "forwarder",
         label: `Forwarded by ${fwd.name || fwd.email}`,
         pattern: fwd.email,
         count: fwd.count,
@@ -114,35 +166,47 @@ export const PatternDetectionService = {
 
     // Collect IDs/threadIds that are already matched and build source map
     const matchedFromEmails = new Set<string>();
-    const emailSourceMap: Record<string, 'estimate_pattern' | 'platform' | 'forwarder'> = {};
+    const emailSourceMap: Record<
+      string,
+      "estimate_pattern" | "platform" | "forwarder"
+    > = {};
 
-    const forwarderEmailSet = new Set(teamForwarders.map((f) => f.email.toLowerCase()));
+    const forwarderEmailSet = new Set(
+      teamForwarders.map((f) => f.email.toLowerCase())
+    );
     const alreadyMatchedThreadIds = new Set(sentAnalysis.estimateThreadIds);
 
     for (const email of inboxEmails) {
       if (matchPlatform(email.from)) {
         matchedFromEmails.add(email.id);
-        emailSourceMap[email.id] = 'platform';
+        emailSourceMap[email.id] = "platform";
       } else if (alreadyMatchedThreadIds.has(email.threadId)) {
-        emailSourceMap[email.id] = 'estimate_pattern';
+        emailSourceMap[email.id] = "estimate_pattern";
       } else if (forwarderEmailSet.has(email.from.toLowerCase())) {
-        emailSourceMap[email.id] = 'forwarder';
+        emailSourceMap[email.id] = "forwarder";
       }
     }
 
     // Filter out non-personal categories for ALL emails (pattern-matched and unclassified)
     const allPersonalInboxEmails = inboxEmails.filter((email) => {
-      if (email.labelIds.some((l) => l.startsWith('CATEGORY_') && l !== 'CATEGORY_PERSONAL')) return false;
+      if (
+        email.labelIds.some(
+          (l) => l.startsWith("CATEGORY_") && l !== "CATEGORY_PERSONAL"
+        )
+      )
+        return false;
       return true;
     });
 
-    const unclassifiedPersonalEmails = allPersonalInboxEmails.filter((email) => {
-      if (matchedFromEmails.has(email.id)) return false;
-      if (alreadyMatchedThreadIds.has(email.threadId)) return false;
-      if (forwarderEmailSet.has(email.from.toLowerCase())) return false;
-      if (matchPlatform(email.from)) return false;
-      return true;
-    });
+    const unclassifiedPersonalEmails = allPersonalInboxEmails.filter(
+      (email) => {
+        if (matchedFromEmails.has(email.id)) return false;
+        if (alreadyMatchedThreadIds.has(email.threadId)) return false;
+        if (forwarderEmailSet.has(email.from.toLowerCase())) return false;
+        if (matchPlatform(email.from)) return false;
+        return true;
+      }
+    );
 
     return {
       estimatePattern: sentAnalysis.topPattern,
@@ -155,7 +219,8 @@ export const PatternDetectionService = {
       allInboxEmails: allPersonalInboxEmails,
       allSentEmails: sentAnalysis.allSentEmails,
       emailSourceMap,
-      totalEmailsScanned: inboxEmails.length + sentAnalysis.allSentEmails.length,
+      totalEmailsScanned:
+        inboxEmails.length + sentAnalysis.allSentEmails.length,
     };
   },
 
@@ -164,7 +229,8 @@ export const PatternDetectionService = {
    */
   async analyzeSentMail(
     provider: EmailProviderInterface,
-    afterDate: Date
+    afterDate: Date,
+    readPolicy?: ProviderReadPolicy
   ): Promise<{
     topPattern: string | null;
     confidence: number;
@@ -172,17 +238,30 @@ export const PatternDetectionService = {
     estimateThreadIds: string[];
     allSentEmails: NormalizedEmail[];
   }> {
-    const sent = await provider.searchEmails('in:sent', { after: afterDate, maxResults: 2000 });
+    const sent = await provider.searchEmails("in:sent", {
+      after: afterDate,
+      maxResults: 2000,
+      readPolicy,
+    });
 
     // Group by normalized subject (strip Re:, Fwd:, whitespace)
-    const subjectGroups = new Map<string, { count: number; uniqueRecipients: Set<string>; threadIds: string[] }>();
+    const subjectGroups = new Map<
+      string,
+      { count: number; uniqueRecipients: Set<string>; threadIds: string[] }
+    >();
 
     for (const email of sent) {
-      const normalized = PatternDetectionService.normalizeSubject(email.subject);
+      const normalized = PatternDetectionService.normalizeSubject(
+        email.subject
+      );
       if (!normalized || normalized.length < 5) continue;
 
       if (!subjectGroups.has(normalized)) {
-        subjectGroups.set(normalized, { count: 0, uniqueRecipients: new Set(), threadIds: [] });
+        subjectGroups.set(normalized, {
+          count: 0,
+          uniqueRecipients: new Set(),
+          threadIds: [],
+        });
       }
       const group = subjectGroups.get(normalized)!;
       group.count++;
@@ -206,8 +285,15 @@ export const PatternDetectionService = {
     }
 
     // Confidence: high if the top pattern has significantly more recipients than the runner-up
-    const scores = [...subjectGroups.values()].map((g) => g.uniqueRecipients.size).sort((a, b) => b - a);
-    const confidence = scores.length >= 2 ? Math.min(1, topScore / (scores[1] + 1)) : topScore > 3 ? 0.9 : 0.5;
+    const scores = [...subjectGroups.values()]
+      .map((g) => g.uniqueRecipients.size)
+      .sort((a, b) => b - a);
+    const confidence =
+      scores.length >= 2
+        ? Math.min(1, topScore / (scores[1] + 1))
+        : topScore > 3
+          ? 0.9
+          : 0.5;
 
     return {
       topPattern,
@@ -223,22 +309,41 @@ export const PatternDetectionService = {
    */
   async detectPlatforms(
     provider: EmailProviderInterface,
-    afterDate: Date
+    afterDate: Date,
+    readPolicy?: ProviderReadPolicy
   ): Promise<{
-    byPlatform: Record<string, {
-      category: string;
-      count: number;
-      samples: Array<{ from: string; subject: string; date: string }>;
-    }>;
+    byPlatform: Record<
+      string,
+      {
+        category: string;
+        count: number;
+        samples: Array<{ from: string; subject: string; date: string }>;
+      }
+    >;
   }> {
-    const inbox = await provider.searchEmails('in:inbox', { after: afterDate, maxResults: 2000 });
-    const byPlatform: Record<string, { category: string; count: number; samples: Array<{ from: string; subject: string; date: string }> }> = {};
+    const inbox = await provider.searchEmails("in:inbox", {
+      after: afterDate,
+      maxResults: 2000,
+      readPolicy,
+    });
+    const byPlatform: Record<
+      string,
+      {
+        category: string;
+        count: number;
+        samples: Array<{ from: string; subject: string; date: string }>;
+      }
+    > = {};
 
     for (const email of inbox) {
       const match = matchPlatform(email.from);
       if (match) {
         if (!byPlatform[match.platformName]) {
-          byPlatform[match.platformName] = { category: match.category, count: 0, samples: [] };
+          byPlatform[match.platformName] = {
+            category: match.category,
+            count: 0,
+            samples: [],
+          };
         }
         byPlatform[match.platformName].count++;
         if (byPlatform[match.platformName].samples.length < 3) {
@@ -259,9 +364,14 @@ export const PatternDetectionService = {
    */
   async fetchPersonalInbox(
     provider: EmailProviderInterface,
-    afterDate: Date
+    afterDate: Date,
+    readPolicy?: ProviderReadPolicy
   ): Promise<NormalizedEmail[]> {
-    return provider.searchEmails('category:primary', { after: afterDate, maxResults: 2000 });
+    return provider.searchEmails("category:primary", {
+      after: afterDate,
+      maxResults: 2000,
+      readPolicy,
+    });
   },
 
   /**
@@ -281,7 +391,7 @@ export const PatternDetectionService = {
     teamForwarders: string[] = []
   ): string[] {
     const companyDomains: string[] = [];
-    const userDomain = userEmail.split('@')[1]?.toLowerCase();
+    const userDomain = userEmail.split("@")[1]?.toLowerCase();
 
     // User's own domain (if not a public email provider)
     if (userDomain && !PUBLIC_EMAIL_DOMAINS.has(userDomain)) {
@@ -290,8 +400,12 @@ export const PatternDetectionService = {
 
     // Team forwarder domains are company domains
     for (const forwarder of teamForwarders) {
-      const domain = forwarder.split('@')[1]?.toLowerCase();
-      if (domain && !PUBLIC_EMAIL_DOMAINS.has(domain) && !companyDomains.includes(domain)) {
+      const domain = forwarder.split("@")[1]?.toLowerCase();
+      if (
+        domain &&
+        !PUBLIC_EMAIL_DOMAINS.has(domain) &&
+        !companyDomains.includes(domain)
+      ) {
         companyDomains.push(domain);
       }
     }
@@ -305,23 +419,43 @@ export const PatternDetectionService = {
   detectForwarders(
     inboxEmails: NormalizedEmail[],
     companyDomains: string[]
-  ): Array<{ email: string; name: string; count: number; samples: Array<{ from: string; subject: string; date: string }> }> {
-    const forwarderMap = new Map<string, { name: string; count: number; samples: Array<{ from: string; subject: string; date: string }> }>();
+  ): Array<{
+    email: string;
+    name: string;
+    count: number;
+    samples: Array<{ from: string; subject: string; date: string }>;
+  }> {
+    const forwarderMap = new Map<
+      string,
+      {
+        name: string;
+        count: number;
+        samples: Array<{ from: string; subject: string; date: string }>;
+      }
+    >();
 
     for (const email of inboxEmails) {
-      const senderDomain = email.from.split('@')[1]?.toLowerCase();
+      const senderDomain = email.from.split("@")[1]?.toLowerCase();
       const isFromCompany = companyDomains.some((d) => senderDomain === d);
       const hasFormSubject = isFormSubmissionSubject(email.subject);
 
       if (isFromCompany && hasFormSubject) {
         const senderEmail = email.from.toLowerCase();
         if (!forwarderMap.has(senderEmail)) {
-          forwarderMap.set(senderEmail, { name: email.fromName, count: 0, samples: [] });
+          forwarderMap.set(senderEmail, {
+            name: email.fromName,
+            count: 0,
+            samples: [],
+          });
         }
         const fwd = forwarderMap.get(senderEmail)!;
         fwd.count++;
         if (fwd.samples.length < 3) {
-          fwd.samples.push({ from: email.from, subject: email.subject, date: email.date.toISOString() });
+          fwd.samples.push({
+            from: email.from,
+            subject: email.subject,
+            date: email.date.toISOString(),
+          });
         }
       }
     }
@@ -336,8 +470,8 @@ export const PatternDetectionService = {
    */
   normalizeSubject(subject: string): string {
     return subject
-      .replace(/^(re|fwd|fw)\s*:\s*/gi, '')
-      .replace(/^(re|fwd|fw)\s*:\s*/gi, '')
+      .replace(/^(re|fwd|fw)\s*:\s*/gi, "")
+      .replace(/^(re|fwd|fw)\s*:\s*/gi, "")
       .trim();
   },
 };

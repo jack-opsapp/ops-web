@@ -1,15 +1,13 @@
 import "server-only";
 
-import {
-  ProviderApiError,
-  ProviderAuthError,
-  ProviderScopeError,
-  type EmailProviderInterface,
-} from "./email-provider";
+import type { EmailProviderInterface } from "./email-provider";
+import { isDefinitiveEmailProviderRejection } from "./email-provider-mutation-attempt-service";
 import type {
   EmailSendIntent,
   PrepareEmailSendIntentInput,
 } from "./email-send-intent-service";
+import type { EmailConnectionSyncLockRunResult } from "./email-connection-sync-lock";
+import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
 
 export interface EmailSendReconciliationResult {
   activityId: string;
@@ -49,17 +47,18 @@ interface EmailSendDeliveryDependencies {
   intentStore: EmailSendIntentStore;
   provider: Pick<EmailProviderInterface, "sendEmail">;
   reconcile: (
-    intent: EmailSendIntent
+    intent: EmailSendIntent,
+    providerLockCheckpoint: EmailProviderMailboxCheckpoint
   ) => Promise<EmailSendReconciliationResult>;
+  runWithMailboxLease<T>(input: {
+    connectionId: string;
+    run: (checkpoint: EmailProviderMailboxCheckpoint) => Promise<T>;
+  }): Promise<EmailConnectionSyncLockRunResult<T>>;
   now?: () => Date;
 }
 
 export interface EmailSendDeliveryOutcome {
-  state:
-    | "reconciled"
-    | "pending"
-    | "rejected"
-    | "delivery_unknown";
+  state: "reconciled" | "pending" | "rejected" | "delivery_unknown";
   delivered: boolean;
   intentId: string;
   providerMessageId: string | null;
@@ -70,14 +69,6 @@ export interface EmailSendDeliveryOutcome {
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function explicitProviderRejection(error: unknown): boolean {
-  return (
-    error instanceof ProviderApiError ||
-    error instanceof ProviderAuthError ||
-    error instanceof ProviderScopeError
-  );
 }
 
 function outcome(
@@ -128,17 +119,36 @@ export class EmailSendDeliveryService {
       return outcome("pending", prepared);
     }
 
+    const locked = await this.dependencies.runWithMailboxLease({
+      connectionId: prepared.connectionId,
+      run: (checkpoint) => this.executeUnderMailboxLease(prepared, checkpoint),
+    });
+    if (!locked.acquired) {
+      return outcome("pending", prepared, {
+        delivered: false,
+        error: "EMAIL_SEND_MAILBOX_BUSY",
+      });
+    }
+    return locked.value;
+  }
+
+  private async executeUnderMailboxLease(
+    prepared: EmailSendIntent,
+    checkpoint: EmailProviderMailboxCheckpoint
+  ): Promise<EmailSendDeliveryOutcome> {
     let accepted = prepared;
     if (
       prepared.status !== "provider_accepted" &&
       prepared.status !== "reconciliation_failed"
     ) {
-      const claimed =
-        await this.dependencies.intentStore.claimProviderDelivery(prepared.id);
+      const claimed = await this.dependencies.intentStore.claimProviderDelivery(
+        prepared.id
+      );
       if (!claimed) return outcome("pending", prepared);
 
       let providerResult: { messageId: string; threadId: string };
       try {
+        await checkpoint();
         providerResult = await this.dependencies.provider.sendEmail({
           to: claimed.toEmails,
           cc: claimed.ccEmails,
@@ -153,7 +163,7 @@ export class EmailSendDeliveryService {
             : (claimed.replyProviderThreadId ?? undefined),
         });
       } catch (error) {
-        if (explicitProviderRejection(error)) {
+        if (isDefinitiveEmailProviderRejection(error)) {
           const rejected =
             await this.dependencies.intentStore.markProviderRejected({
               intentId: claimed.id,
@@ -168,7 +178,10 @@ export class EmailSendDeliveryService {
         return outcome("delivery_unknown", unknown, { delivered: false });
       }
 
-      if (!providerResult.messageId?.trim() || !providerResult.threadId?.trim()) {
+      if (
+        !providerResult.messageId?.trim() ||
+        !providerResult.threadId?.trim()
+      ) {
         const unknown = await this.dependencies.intentStore.markDeliveryUnknown(
           claimed.id,
           "EMAIL_SEND_INVALID_PROVIDER_IDS"
@@ -204,13 +217,25 @@ export class EmailSendDeliveryService {
           error: message(error),
         });
       }
+
+      try {
+        // The immutable provider identity is durable before this ownership
+        // check. Lease loss pauses reconciliation but cannot cause a resend.
+        await checkpoint();
+      } catch (error) {
+        return outcome("pending", accepted, {
+          delivered: true,
+          error: message(error),
+        });
+      }
     }
 
-    return this.reconcileAccepted(accepted);
+    return this.reconcileAccepted(accepted, checkpoint);
   }
 
   private async reconcileAccepted(
-    accepted: EmailSendIntent
+    accepted: EmailSendIntent,
+    checkpoint: EmailProviderMailboxCheckpoint
   ): Promise<EmailSendDeliveryOutcome> {
     let lastError: string | null = null;
 
@@ -218,8 +243,9 @@ export class EmailSendDeliveryService {
     // covers transient persistence failures. Further retries are left to the
     // durable reconciliation worker and never revisit provider delivery.
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const leased =
-        await this.dependencies.intentStore.claimReconciliation(accepted.id);
+      const leased = await this.dependencies.intentStore.claimReconciliation(
+        accepted.id
+      );
       if (!leased?.reconciliationLeaseToken) {
         return outcome("pending", accepted, {
           delivered: true,
@@ -228,7 +254,12 @@ export class EmailSendDeliveryService {
       }
 
       try {
-        const reconciled = await this.dependencies.reconcile(leased);
+        await checkpoint();
+        const reconciled = await this.dependencies.reconcile(
+          leased,
+          checkpoint
+        );
+        await checkpoint();
         const completed =
           await this.dependencies.intentStore.completeReconciliation({
             intentId: leased.id,

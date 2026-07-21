@@ -10,6 +10,11 @@ import {
   type EmailProviderInterface,
 } from "@/lib/api/services/email-provider";
 import { EmailService } from "@/lib/api/services/email-service";
+import { runWithEmailConnectionSyncLock } from "@/lib/api/services/email-connection-sync-lock";
+import {
+  runEmailProviderMailboxOperation,
+  type EmailProviderMailboxCheckpoint,
+} from "@/lib/api/services/email-provider-mailbox-operation";
 import { evaluateOpportunityAcceptance } from "@/lib/api/services/conversation-state/acceptance-evaluation";
 import {
   classifyInspectableAttachment,
@@ -390,7 +395,8 @@ export class SupabaseAttachmentRepository implements AttachmentActivityRepositor
 export class ProviderAttachmentAdapter implements ExactMessageAttachmentProvider {
   constructor(
     private readonly provider: EmailProviderInterface,
-    private readonly connectionId: string
+    private readonly connectionId: string,
+    private readonly providerLockCheckpoint?: EmailProviderMailboxCheckpoint
   ) {}
 
   async enumerateExactMessage(input: {
@@ -401,9 +407,11 @@ export class ProviderAttachmentAdapter implements ExactMessageAttachmentProvider
     if (input.connectionId !== this.connectionId) {
       throw new Error("Attachment provider connection identity changed");
     }
+    await this.providerLockCheckpoint?.();
     const attachments = await this.provider.getAttachmentsFromMessage(
       input.messageId
     );
+    await this.providerLockCheckpoint?.();
     return attachments.map(mapProviderAttachment);
   }
 
@@ -417,11 +425,14 @@ export class ProviderAttachmentAdapter implements ExactMessageAttachmentProvider
       throw new Error("Attachment provider connection identity changed");
     }
     try {
-      return await this.provider.fetchAttachment(
+      await this.providerLockCheckpoint?.();
+      const bytes = await this.provider.fetchAttachment(
         input.messageId,
         input.attachmentId,
         input.maxBytes
       );
+      await this.providerLockCheckpoint?.();
+      return bytes;
     } catch (error) {
       if (error instanceof ProviderAttachmentTooLargeError) {
         throw new AttachmentSourceOversizedError(
@@ -923,7 +934,10 @@ export async function ingestExactActivityAttachments(
   supabase: SupabaseClient,
   connection: EmailConnection,
   identity: ExactActivityIdentity,
-  options: { inspectImmediately?: boolean } = {}
+  options: {
+    inspectImmediately?: boolean;
+    providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+  } = {}
 ) {
   if (
     identity.companyId !== connection.companyId ||
@@ -957,19 +971,32 @@ export async function ingestExactActivityAttachments(
     }
   }
 
-  const provider = EmailService.getProvider(connection);
-  const service = new AttachmentIngestionService({
-    repository: new SupabaseAttachmentRepository(supabase),
-    provider: new ProviderAttachmentAdapter(provider, connection.id),
-    storage: new SupabasePrivateAttachmentStorage(supabase),
-    inspectionQueue: new SupabaseAttachmentInspectionQueue(
-      supabase,
-      connection,
-      options.inspectImmediately ?? false
-    ),
-  });
   try {
-    const result = await service.ingestExactMessage(identity);
+    const result = await runEmailProviderMailboxOperation({
+      supabase,
+      connectionId: connection.id,
+      context: "email-attachment-ingestion",
+      busyError: "EMAIL_ATTACHMENT_MAILBOX_BUSY",
+      providerLockCheckpoint: options.providerLockCheckpoint,
+      run: async (checkpoint) => {
+        const provider = EmailService.getProvider(connection);
+        const service = new AttachmentIngestionService({
+          repository: new SupabaseAttachmentRepository(supabase),
+          provider: new ProviderAttachmentAdapter(
+            provider,
+            connection.id,
+            checkpoint
+          ),
+          storage: new SupabasePrivateAttachmentStorage(supabase),
+          inspectionQueue: new SupabaseAttachmentInspectionQueue(
+            supabase,
+            connection,
+            options.inspectImmediately ?? false
+          ),
+        });
+        return service.ingestExactMessage(identity);
+      },
+    });
     if (inlineScan && inlineWorkerId) {
       if (result.requiresRetry) {
         await scanStore.markRetry({
@@ -1117,19 +1144,33 @@ export async function runSupabaseEmailAttachmentWorker(
     {
       store,
       ingest: async (scan) => {
-        const connection = await requireActiveConnection(scan);
-        const result = await ingestExactActivityAttachments(
-          supabase,
-          connection,
-          {
-            companyId: scan.companyId,
-            connectionId: scan.connectionId,
-            activityId: scan.activityId,
-            messageId: scan.messageId,
-          }
-        );
-        await notifyAttachmentCopyExceptions(supabase, scan.id, result);
-        return result;
+        const locked = await runWithEmailConnectionSyncLock({
+          connectionId: scan.connectionId,
+          context: "email-attachment-worker",
+          client: supabase,
+          run: async (checkpoint) => {
+            const connection = await requireActiveConnection(scan);
+            const result = await ingestExactActivityAttachments(
+              supabase,
+              connection,
+              {
+                companyId: scan.companyId,
+                connectionId: scan.connectionId,
+                activityId: scan.activityId,
+                messageId: scan.messageId,
+              },
+              {
+                providerLockCheckpoint: checkpoint,
+              }
+            );
+            await notifyAttachmentCopyExceptions(supabase, scan.id, result);
+            return result;
+          },
+        });
+        if (!locked.acquired) {
+          throw new Error("Mailbox is busy. Attachment ingestion will retry.");
+        }
+        return locked.value;
       },
     },
     options

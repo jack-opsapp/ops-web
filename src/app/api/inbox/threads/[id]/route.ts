@@ -36,8 +36,10 @@ import {
   resolveEmailInboxListAccess,
   resolveEmailOpportunityAccess,
 } from "@/lib/email/email-opportunity-access";
+import { runWithEmailConnectionSyncLock } from "@/lib/api/services/email-connection-sync-lock";
 
 const CATEGORY_SET = new Set<string>(EMAIL_THREAD_CATEGORIES);
+const PROVIDER_THREAD_READ_DEADLINE_MS = 45_000;
 
 // ─── GET: thread detail ─────────────────────────────────────────────────────
 
@@ -141,43 +143,56 @@ export async function GET(
           updatedAt: new Date(connRow.updated_at as string),
         } as Parameters<typeof EmailService.getProvider>[0];
 
-        const provider = EmailService.getProvider(connection);
-        const providerMsgs = await provider.fetchThread(
-          thread.providerThreadId
+        const locked = await runWithSupabase(supabase, () =>
+          runWithEmailConnectionSyncLock({
+            connectionId: access.connectionId,
+            context: "inbox-thread-detail",
+            client: supabase,
+            run: async () => {
+              const deadlineAt = Date.now() + PROVIDER_THREAD_READ_DEADLINE_MS;
+              const provider = EmailService.getProvider(connection);
+              const providerMsgs = await provider.fetchThread(
+                thread.providerThreadId,
+                {
+                  deadlineAt,
+                  context: "inbox thread detail",
+                }
+              );
+              return providerMsgs.map((m) => {
+                const rawBody = m.bodyText ?? "";
+                // 3-layer clean-body cascade (see email-parsing.ts header):
+                //   1. provider-native (M365 uniqueBody, Gmail HTML-first) → bodyTextClean
+                //   2. plain-text regex stripping via stripQuotedContent
+                //   3. cross-message overlap — applied below once all messages are in hand.
+                const providerClean = m.bodyTextClean?.trim();
+                const contactFormClean =
+                  extractContactFormSubmissionDisplayText(m.subject, rawBody);
+                const initialClean =
+                  contactFormClean ??
+                  (providerClean && providerClean.length > 0
+                    ? providerClean
+                    : stripQuotedContent(rawBody, m.subject));
+                return {
+                  id: m.id,
+                  providerMessageId: m.id,
+                  from: m.from,
+                  fromName: m.fromName,
+                  to: m.to,
+                  cc: m.cc,
+                  subject: m.subject,
+                  snippet: m.snippet,
+                  bodyText: rawBody,
+                  cleanBodyText: initialClean,
+                  direction: deriveDirection(m.from),
+                  date: m.date.toISOString(),
+                  isRead: m.isRead,
+                  hasAttachments: m.hasAttachments,
+                };
+              });
+            },
+          })
         );
-        messages = providerMsgs.map((m) => {
-          const rawBody = m.bodyText ?? "";
-          // 3-layer clean-body cascade (see email-parsing.ts header):
-          //   1. provider-native (M365 uniqueBody, Gmail HTML-first) → bodyTextClean
-          //   2. plain-text regex stripping via stripQuotedContent
-          //   3. cross-message overlap — applied below once all messages are in hand.
-          const providerClean = m.bodyTextClean?.trim();
-          const contactFormClean = extractContactFormSubmissionDisplayText(
-            m.subject,
-            rawBody
-          );
-          const initialClean =
-            contactFormClean ??
-            (providerClean && providerClean.length > 0
-              ? providerClean
-              : stripQuotedContent(rawBody, m.subject));
-          return {
-            id: m.id,
-            providerMessageId: m.id,
-            from: m.from,
-            fromName: m.fromName,
-            to: m.to,
-            cc: m.cc,
-            subject: m.subject,
-            snippet: m.snippet,
-            bodyText: rawBody,
-            cleanBodyText: initialClean,
-            direction: deriveDirection(m.from),
-            date: m.date.toISOString(),
-            isRead: m.isRead,
-            hasAttachments: m.hasAttachments,
-          };
-        });
+        if (locked.acquired) messages = locked.value;
       } catch (err) {
         console.error(
           "[/api/inbox/threads/:id] provider.fetchThread failed:",
@@ -530,7 +545,18 @@ export async function PATCH(
     switch (body.action) {
       case "archive": {
         const result = await runWithSupabase(supabase, () =>
-          EmailThreadService.archive({ threadId: id })
+          EmailThreadService.archive({
+            threadId: id,
+            authorizeProviderMutation: async (threadId) =>
+              (
+                await resolveEmailOpportunityAccess({
+                  actor,
+                  operation: "mutate",
+                  threadId,
+                  supabase,
+                })
+              ).allowed,
+          })
         );
         if ("needsPreference" in result) {
           return NextResponse.json({
@@ -555,7 +581,18 @@ export async function PATCH(
 
       case "unarchive": {
         await runWithSupabase(supabase, () =>
-          EmailThreadService.unarchive({ threadId: id })
+          EmailThreadService.unarchive({
+            threadId: id,
+            authorizeProviderMutation: async (threadId) =>
+              (
+                await resolveEmailOpportunityAccess({
+                  actor,
+                  operation: "mutate",
+                  threadId,
+                  supabase,
+                })
+              ).allowed,
+          })
         );
         return NextResponse.json({ ok: true });
       }

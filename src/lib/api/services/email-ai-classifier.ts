@@ -303,11 +303,25 @@ export const EmailAIClassifier = {
     const results: ClassificationResult[] = [];
     for (let i = 0; i < emails.length; i += 50) {
       const batch = emails.slice(i, i + 50);
-      const batchResults = await EmailAIClassifier.classifySingleBatch(
-        batch,
-        context,
-        openaiClient
-      );
+      let batchResults: ClassificationResult[] | null = null;
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 2 && !batchResults; attempt += 1) {
+        try {
+          batchResults = await EmailAIClassifier.classifySingleBatch(
+            batch,
+            context,
+            openaiClient
+          );
+        } catch (error) {
+          lastError = error;
+          const message =
+            error instanceof Error ? error.message : String(error);
+          if (!message.includes("model response") || attempt === 1) {
+            throw error;
+          }
+        }
+      }
+      if (!batchResults) throw lastError;
       results.push(...batchResults);
       if (i + 50 < emails.length) {
         await new Promise((r) => setTimeout(r, 200));

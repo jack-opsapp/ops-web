@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailFilterService } from "@/lib/api/services/email-filter-service";
 import { DEFAULT_SYNC_FILTERS } from "@/lib/types/pipeline";
 import type { GmailSyncFilters } from "@/lib/types/pipeline";
@@ -21,7 +21,16 @@ import {
   classifyEmails,
   type EmailForClassification,
 } from "@/lib/api/services/email-classifier";
-import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
+import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
+import {
+  fetchGmailRead,
+  mapGmailReads,
+} from "@/lib/api/services/providers/gmail-read";
+import {
+  acquireEmailConnectionSyncLock,
+  releaseEmailConnectionSyncLock,
+} from "@/lib/api/services/email-connection-sync-lock";
+import { getValidGmailToken } from "@/lib/api/services/gmail-token";
 
 // Vercel serverless function config — this route fetches 500 emails
 // then calls OpenAI, so it needs more than the default 15s timeout.
@@ -32,6 +41,7 @@ export const maxDuration = 60;
 interface ConnectionRow {
   id: string;
   company_id: string;
+  provider: string;
   access_token: string;
   refresh_token: string;
   expires_at: string;
@@ -66,59 +76,10 @@ interface ScanEmail {
   reason: string;
 }
 
-// ─── Token helper ────────────────────────────────────────────────────────────
-
-async function getValidToken(conn: ConnectionRow): Promise<string> {
-  const expiresAt = new Date(conn.expires_at);
-  if (expiresAt > new Date(Date.now() + 60_000)) {
-    return conn.access_token;
-  }
-
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: process.env.GOOGLE_GMAIL_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_GMAIL_CLIENT_SECRET!,
-      refresh_token: conn.refresh_token,
-      grant_type: "refresh_token",
-    }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.text().catch(() => "");
-    throw new Error(
-      `Gmail token refresh failed (${response.status}): ${errorBody.slice(0, 200)}`
-    );
-  }
-
-  const json = await response.json();
-  if (!json.access_token)
-    throw new Error("Gmail token refresh returned no access_token");
-
-  const supabase = getServiceRoleClient();
-  const { error: updateErr } = await supabase
-    .from("email_connections")
-    .update({
-      access_token: json.access_token,
-      expires_at: new Date(Date.now() + json.expires_in * 1000).toISOString(),
-    })
-    .eq("id", conn.id);
-
-  if (updateErr) {
-    console.warn(
-      "[gmail-scan-preview] Failed to persist refreshed token:",
-      updateErr.message
-    );
-  }
-
-  return json.access_token as string;
-}
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const MAX_SCAN = 500;
-const BATCH_SIZE = 50;
+const GMAIL_SCAN_PREVIEW_DEADLINE_MS = 50 * 1000;
 const NON_DELIVERY_GMAIL_LABELS = new Set(["DRAFT", "SPAM", "TRASH"]);
 
 function isDeliveryMessage(labelIds: string[] | undefined): boolean {
@@ -131,7 +92,15 @@ function isDeliveryMessage(labelIds: string[] | undefined): boolean {
 
 export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
-  setSupabaseOverride(supabase);
+  return runWithSupabase(supabase, () => scanPreview(request, supabase));
+}
+
+async function scanPreview(
+  request: NextRequest,
+  supabase: ReturnType<typeof getServiceRoleClient>
+) {
+  let lockedConnectionId: string | null = null;
+  let lockOwner: string | null = null;
 
   try {
     const connectionId = request.nextUrl.searchParams.get("connectionId");
@@ -150,13 +119,37 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Load connection
+    const access = await resolveEmailConnectionOperationAccess({
+      request,
+      connectionId,
+      requireUsable: true,
+      supabase,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "unauthorized" ? "Unauthorized" : "Forbidden",
+        },
+        { status: access.status }
+      );
+    }
+    if (access.connections[0]?.provider !== "gmail") {
+      return NextResponse.json(
+        { error: "Connection not found" },
+        { status: 404 }
+      );
+    }
+
+    // Load only the authorized Gmail connection after the actor/provider gate.
     const { data: connRow, error: connError } = await supabase
       .from("email_connections")
       .select(
-        "id, company_id, access_token, refresh_token, expires_at, sync_filters"
+        "id, company_id, provider, access_token, refresh_token, expires_at, sync_filters"
       )
       .eq("id", connectionId)
+      .eq("company_id", access.actor.companyId)
+      .eq("provider", "gmail")
       .single();
 
     if (connError || !connRow) {
@@ -165,14 +158,26 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
-    const authError = await requireEmailCompanyAccess(
-      request,
-      connRow.company_id as string
+    lockOwner = await acquireEmailConnectionSyncLock(
+      connectionId,
+      "gmail-scan-preview",
+      supabase
     );
-    if (authError) return authError;
+    if (!lockOwner) {
+      return NextResponse.json(
+        { error: "Mailbox is busy. Try again in a few minutes." },
+        { status: 409 }
+      );
+    }
+    lockedConnectionId = connectionId;
+    const deadlineAt = Date.now() + GMAIL_SCAN_PREVIEW_DEADLINE_MS;
 
     const conn = connRow as ConnectionRow;
-    const token = await getValidToken(conn);
+    const token = await getValidGmailToken(conn, {
+      deadlineAt,
+      context: "Gmail scan preview",
+      client: supabase,
+    });
 
     // Build preset blocklist for pre-filtering
     const presetFilters: GmailSyncFilters = {
@@ -198,9 +203,13 @@ export async function GET(request: NextRequest) {
       listUrl.searchParams.set("maxResults", "200");
       if (pageToken) listUrl.searchParams.set("pageToken", pageToken);
 
-      const listResp = await fetch(listUrl.toString(), {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const listResp = await fetchGmailRead(
+        listUrl,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+        { deadlineAt, context: "messages.list (scan preview)" }
+      );
 
       if (!listResp.ok) {
         throw new Error(`Gmail messages.list failed: ${listResp.status}`);
@@ -219,57 +228,54 @@ export async function GET(request: NextRequest) {
 
     // ─── Fetch email metadata in batches ──────────────────────────────────
 
-    const emails: ScanEmail[] = [];
+    const results = await mapGmailReads(
+      allMessageIds,
+      async (msgId, _index, readPolicy): Promise<ScanEmail | null> => {
+        const msgResp = await fetchGmailRead(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
+          { headers: { Authorization: `Bearer ${token}` } },
+          { ...readPolicy, context: `messages.get (${msgId})` }
+        );
 
-    for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {
-      const batch = allMessageIds.slice(i, i + BATCH_SIZE);
+        if (msgResp.status === 404 || msgResp.status === 410) return null;
+        if (!msgResp.ok) {
+          throw new Error(
+            `Gmail messages.get failed for ${msgId}: ${msgResp.status}`
+          );
+        }
 
-      const results = await Promise.all(
-        batch.map(async (msgId) => {
-          try {
-            const msgResp = await fetch(
-              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
+        const msg: GmailMessage = await msgResp.json();
+        if (!isDeliveryMessage(msg.labelIds)) return null;
+        const headers = msg.payload?.headers ?? [];
+        const from = headers.find((h) => h.name === "From")?.value ?? "";
+        const subject =
+          headers.find((h) => h.name === "Subject")?.value ?? "(no subject)";
+        const date = headers.find((h) => h.name === "Date")?.value ?? "";
+        const fromEmail =
+          (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
+        const domain = fromEmail.split("@")[1] ?? "";
 
-            if (!msgResp.ok) return null;
-
-            const msg: GmailMessage = await msgResp.json();
-            if (!isDeliveryMessage(msg.labelIds)) return null;
-            const headers = msg.payload?.headers ?? [];
-            const from = headers.find((h) => h.name === "From")?.value ?? "";
-            const subject =
-              headers.find((h) => h.name === "Subject")?.value ??
-              "(no subject)";
-            const date = headers.find((h) => h.name === "Date")?.value ?? "";
-            const fromEmail =
-              (from.match(/<(.+?)>/) ?? [, from])[1]?.toLowerCase() ?? "";
-            const domain = fromEmail.split("@")[1] ?? "";
-
-            return {
-              id: msgId,
-              from,
-              fromEmail,
-              domain,
-              subject,
-              snippet: msg.snippet ?? "",
-              labels: msg.labelIds ?? [],
-              date,
-              wouldImport: true, // Default; will be set by pre-filter or AI
-              reason: "",
-            };
-          } catch {
-            return null;
-          }
-        })
-      );
-
-      for (const r of results) {
-        if (r) emails.push(r);
+        return {
+          id: msgId,
+          from,
+          fromEmail,
+          domain,
+          subject,
+          snippet: msg.snippet ?? "",
+          labels: msg.labelIds ?? [],
+          date,
+          wouldImport: true,
+          reason: "",
+        };
+      },
+      {
+        deadlineAt,
+        context: "scan preview message reads",
       }
-
-      // Gmail allows 250 req/s — no sleep needed at batch size 50
-    }
+    );
+    const emails = results.filter(
+      (email): email is ScanEmail => email !== null
+    );
 
     // ─── Pre-filter: strip known noise domains before AI ──────────────────
     // Emails from preset blocklist domains (mailchimp, linkedin, etc.) are
@@ -374,6 +380,13 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    setSupabaseOverride(null);
+    if (lockedConnectionId && lockOwner) {
+      await releaseEmailConnectionSyncLock(
+        lockedConnectionId,
+        lockOwner,
+        "gmail-scan-preview",
+        supabase
+      );
+    }
   }
 }

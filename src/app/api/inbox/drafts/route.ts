@@ -28,13 +28,23 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { EmailService } from "@/lib/api/services/email-service";
+import { runWithEmailConnectionSyncLock } from "@/lib/api/services/email-connection-sync-lock";
+import {
+  isEmailProviderMailboxBusyError,
+  isEmailProviderMailboxLeaseError,
+  runEmailProviderMailboxOperation,
+  type EmailProviderMailboxCheckpoint,
+} from "@/lib/api/services/email-provider-mailbox-operation";
 import {
   loadKnownEmailSignaturesForMessage,
   normalizeMailboxDraftAuthoredBody,
   renderMailboxDraftWithSignature,
   resolveEmailSignatureForMessage,
 } from "@/lib/email/email-signature-runtime";
-import type { NormalizedDraft } from "@/lib/api/services/email-provider";
+import type {
+  EmailProviderInterface,
+  NormalizedDraft,
+} from "@/lib/api/services/email-provider";
 import type { InboxDraftRow, InboxScope } from "@/lib/types/email-thread";
 import { DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT } from "@/lib/email/opportunity-lifecycle-evaluator";
 import {
@@ -49,6 +59,11 @@ import {
 } from "@/lib/email/email-route-auth";
 import { canUseEmailMailboxForSend } from "@/lib/email/server-mailbox-access";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  buildEmailProviderMutationFingerprint,
+  createEmailProviderMutationAttemptService,
+  isEmailProviderMutationReconciliationRequiredError,
+} from "@/lib/api/services/email-provider-mutation-attempt-service";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -221,6 +236,48 @@ async function canMutateDraftContext({
   );
 }
 
+async function bindProviderDraftForMutation({
+  actor,
+  supabase,
+  provider,
+  connectionId,
+  draftId,
+  expectedProviderThreadId,
+  checkpoint,
+}: {
+  actor: EmailRouteActor;
+  supabase: SupabaseClient;
+  provider: Pick<EmailProviderInterface, "getDraft">;
+  connectionId: string;
+  draftId: string;
+  expectedProviderThreadId?: string | null;
+  checkpoint: EmailProviderMailboxCheckpoint;
+}): Promise<{ providerThreadId: string | null } | null> {
+  const existingProviderDraft = await provider.getDraft(draftId);
+  await checkpoint();
+
+  const actualProviderThreadId = nonEmptyText(existingProviderDraft?.threadId);
+  const expectedThreadId = nonEmptyText(expectedProviderThreadId);
+  if (
+    !existingProviderDraft ||
+    existingProviderDraft.id !== draftId ||
+    (expectedThreadId && actualProviderThreadId !== expectedThreadId)
+  ) {
+    return null;
+  }
+
+  const contextAuthorized = await canMutateDraftContext({
+    actor,
+    supabase,
+    connectionId,
+    providerThreadId: actualProviderThreadId,
+    requireCanonicalProviderThread: Boolean(expectedThreadId),
+  });
+  return contextAuthorized
+    ? { providerThreadId: actualProviderThreadId }
+    : null;
+}
+
 // ─── GET — list merged drafts ───────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -271,32 +328,42 @@ export async function GET(request: NextRequest) {
   const providerBatches = await Promise.all(
     connections.map(async (conn) => {
       try {
-        const provider = EmailService.getProvider(conn);
-        const drafts = await provider.listDrafts();
-        const signature = await resolveEmailSignatureForMessage({
-          supabase,
-          connection: conn,
-          userId,
-        });
-        const knownSignatures = await loadKnownEmailSignaturesForMessage({
-          connection: conn,
-        });
-        return drafts.map<InboxDraftRow>((d: NormalizedDraft) => ({
-          source: "provider",
-          id: d.id,
-          threadId: d.threadId,
+        const locked = await runWithEmailConnectionSyncLock({
           connectionId: conn.id,
-          fromEmail: conn.email,
-          to: d.to,
-          cc: d.cc,
-          subject: d.subject,
-          bodyText: normalizeMailboxDraftAuthoredBody(
-            d.bodyText,
-            signature,
-            knownSignatures
-          ),
-          updatedAt: d.updatedAt.toISOString(),
-        }));
+          context: "inbox-drafts-list",
+          client: supabase,
+          run: (checkpoint) =>
+            runWithSupabase(supabase, async () => {
+              const provider = EmailService.getProvider(conn);
+              const drafts = await provider.listDrafts();
+              const signature = await resolveEmailSignatureForMessage({
+                supabase,
+                connection: conn,
+                userId,
+                providerLockCheckpoint: checkpoint,
+              });
+              const knownSignatures = await loadKnownEmailSignaturesForMessage({
+                connection: conn,
+              });
+              return drafts.map<InboxDraftRow>((d: NormalizedDraft) => ({
+                source: "provider",
+                id: d.id,
+                threadId: d.threadId,
+                connectionId: conn.id,
+                fromEmail: conn.email,
+                to: d.to,
+                cc: d.cc,
+                subject: d.subject,
+                bodyText: normalizeMailboxDraftAuthoredBody(
+                  d.bodyText,
+                  signature,
+                  knownSignatures
+                ),
+                updatedAt: d.updatedAt.toISOString(),
+              }));
+            }),
+        });
+        return locked.acquired ? locked.value : [];
       } catch (err) {
         console.error(
           `[/api/inbox/drafts] listDrafts failed for connection ${conn.id}:`,
@@ -604,6 +671,7 @@ interface SaveDraftBody {
   body?: string;
   providerThreadId?: string | null;
   draftId?: string | null;
+  idempotencyKey?: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -619,8 +687,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { connectionId, to, subject, body, providerThreadId, draftId, source } =
-    payload;
+  const {
+    connectionId,
+    to,
+    subject,
+    body,
+    providerThreadId,
+    draftId,
+    idempotencyKey,
+    source,
+  } = payload;
 
   if (source === "lifecycle") {
     if (!draftId || typeof draftId !== "string") {
@@ -708,6 +784,17 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+  const durableOperationKey = nonEmptyText(idempotencyKey);
+  if (!draftId && (!durableOperationKey || durableOperationKey.length > 180)) {
+    return NextResponse.json(
+      {
+        error:
+          "A stable draft key is required before creating a mailbox draft.",
+        code: "EMAIL_DRAFT_IDEMPOTENCY_KEY_REQUIRED",
+      },
+      { status: 400 }
+    );
+  }
 
   const supabase = getServiceRoleClient();
   const conn = await runWithSupabase(supabase, () =>
@@ -732,15 +819,159 @@ export async function POST(request: NextRequest) {
   if (!canMutate) {
     return NextResponse.json({ error: "Draft not found" }, { status: 404 });
   }
+  const authorizeDraftProviderMutation = () =>
+    canMutateDraftContext({
+      actor,
+      supabase,
+      connectionId,
+      providerThreadId,
+      requireCanonicalProviderThread: Boolean(providerThreadId),
+    });
 
   try {
-    const provider = EmailService.getProvider(conn);
-    const signature = await resolveEmailSignatureForMessage({
+    const savedDraftId = await runEmailProviderMailboxOperation({
       supabase,
-      connection: conn,
-      userId,
+      connectionId,
+      context: "inbox-draft-save",
+      busyError: "EMAIL_DRAFT_MAILBOX_BUSY",
+      run: async (checkpoint) => {
+        const provider = EmailService.getProvider(conn);
+        const signature = await resolveEmailSignatureForMessage({
+          supabase,
+          connection: conn,
+          userId,
+          providerLockCheckpoint: checkpoint,
+        });
+        if (!signature) {
+          throw new Error("EMAIL_SIGNATURE_REQUIRED");
+        }
+        const knownSignatures = await loadKnownEmailSignaturesForMessage({
+          connection: conn,
+        });
+        const rendered = renderMailboxDraftWithSignature(
+          body,
+          signature,
+          knownSignatures
+        );
+        await checkpoint();
+        if (draftId) {
+          const binding = await bindProviderDraftForMutation({
+            actor,
+            supabase,
+            provider,
+            connectionId,
+            draftId,
+            expectedProviderThreadId: providerThreadId,
+            checkpoint,
+          });
+          if (!binding) {
+            throw new Error("EMAIL_DRAFT_AUTHORIZATION_REVOKED");
+          }
+          await provider.updateDraft(
+            draftId,
+            to,
+            subject,
+            rendered.body,
+            binding.providerThreadId ?? undefined,
+            rendered.contentType
+          );
+          return draftId;
+        }
+        const mutationService =
+          createEmailProviderMutationAttemptService(supabase);
+        let createdThisInvocation = false;
+        const completed = await mutationService.execute({
+          actorUserId: userId,
+          connectionId,
+          operationKind: "draft_create",
+          operationKey: `inbox-composer:${durableOperationKey}`,
+          requestFingerprint: buildEmailProviderMutationFingerprint({
+            version: 1,
+            connectionId,
+            providerThreadId: providerThreadId ?? null,
+            to: to.trim().toLowerCase(),
+          }),
+          assertMailboxLease: () => checkpoint(true),
+          executeProvider: async () => {
+            await checkpoint();
+            if (!(await authorizeDraftProviderMutation())) {
+              throw new Error("EMAIL_DRAFT_AUTHORIZATION_REVOKED");
+            }
+            const providerDraftId = await provider.createDraft(
+              to,
+              subject,
+              rendered.body,
+              providerThreadId ?? undefined,
+              rendered.contentType
+            );
+            createdThisInvocation = true;
+            return {
+              resourceId: providerDraftId,
+              result: { draftId: providerDraftId },
+            };
+          },
+          reconcile: async (acceptance) => {
+            if (createdThisInvocation) return;
+            // A lost response may leave the browser without the accepted id.
+            // Reconcile only by updating that exact durable provider draft.
+            await checkpoint();
+            const binding = await bindProviderDraftForMutation({
+              actor,
+              supabase,
+              provider,
+              connectionId,
+              draftId: acceptance.resourceId,
+              expectedProviderThreadId: providerThreadId,
+              checkpoint,
+            });
+            if (!binding) {
+              throw new Error("EMAIL_DRAFT_AUTHORIZATION_REVOKED");
+            }
+            await provider.updateDraft(
+              acceptance.resourceId,
+              to,
+              subject,
+              rendered.body,
+              binding.providerThreadId ?? undefined,
+              rendered.contentType
+            );
+            await checkpoint();
+          },
+        });
+        if (!completed.providerResourceId) {
+          throw new Error("EMAIL_DRAFT_PROVIDER_IDENTITY_MISSING");
+        }
+        return completed.providerResourceId;
+      },
     });
-    if (!signature) {
+    return NextResponse.json({
+      ok: true,
+      draftId: savedDraftId,
+      source: "provider" as const,
+    });
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message === "EMAIL_DRAFT_AUTHORIZATION_REVOKED"
+    ) {
+      return NextResponse.json(
+        {
+          error: "Draft access changed. Refresh before trying again.",
+          code: err.message,
+        },
+        { status: 404 }
+      );
+    }
+    if (isEmailProviderMutationReconciliationRequiredError(err)) {
+      return NextResponse.json(
+        {
+          error: "Draft placement needs review. Check Drafts before retrying.",
+          code: err.code,
+        },
+        { status: 409 }
+      );
+    }
+    if (err instanceof Error && err.message === "EMAIL_SIGNATURE_REQUIRED") {
       return NextResponse.json(
         {
           error: "Create an email signature before saving mailbox drafts.",
@@ -749,42 +980,18 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
-    const knownSignatures = await loadKnownEmailSignaturesForMessage({
-      connection: conn,
-    });
-    const rendered = renderMailboxDraftWithSignature(
-      body,
-      signature,
-      knownSignatures
-    );
-    if (draftId) {
-      await provider.updateDraft(
-        draftId,
-        to,
-        subject,
-        rendered.body,
-        providerThreadId ?? undefined,
-        rendered.contentType
+    if (isEmailProviderMailboxBusyError(err)) {
+      return NextResponse.json(
+        { error: "Mailbox is busy. Try again.", code: err.code },
+        { status: 409 }
       );
-      return NextResponse.json({
-        ok: true,
-        draftId,
-        source: "provider" as const,
-      });
     }
-    const newId = await provider.createDraft(
-      to,
-      subject,
-      rendered.body,
-      providerThreadId ?? undefined,
-      rendered.contentType
-    );
-    return NextResponse.json({
-      ok: true,
-      draftId: newId,
-      source: "provider" as const,
-    });
-  } catch (err) {
+    if (isEmailProviderMailboxLeaseError(err)) {
+      return NextResponse.json(
+        { error: "Mailbox operation interrupted. Try again.", code: err.code },
+        { status: 503 }
+      );
+    }
     console.error("[/api/inbox/drafts] save failed:", err);
     return NextResponse.json(
       { error: `Save failed: ${(err as Error).message}` },
@@ -944,10 +1151,53 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const provider = EmailService.getProvider(conn);
-    await provider.deleteDraft(id);
+    await runEmailProviderMailboxOperation({
+      supabase,
+      connectionId,
+      context: "inbox-draft-delete",
+      busyError: "EMAIL_DRAFT_MAILBOX_BUSY",
+      run: async (checkpoint) => {
+        const provider = EmailService.getProvider(conn);
+        const binding = await bindProviderDraftForMutation({
+          actor,
+          supabase,
+          provider,
+          connectionId,
+          draftId: id,
+          checkpoint,
+        });
+        if (!binding) {
+          throw new Error("EMAIL_DRAFT_AUTHORIZATION_REVOKED");
+        }
+        await provider.deleteDraft(id);
+      },
+    });
     return NextResponse.json({ ok: true });
   } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message === "EMAIL_DRAFT_AUTHORIZATION_REVOKED"
+    ) {
+      return NextResponse.json(
+        {
+          error: "Draft access changed. Refresh before trying again.",
+          code: err.message,
+        },
+        { status: 404 }
+      );
+    }
+    if (isEmailProviderMailboxBusyError(err)) {
+      return NextResponse.json(
+        { error: "Mailbox is busy. Try again.", code: err.code },
+        { status: 409 }
+      );
+    }
+    if (isEmailProviderMailboxLeaseError(err)) {
+      return NextResponse.json(
+        { error: "Mailbox operation interrupted. Try again.", code: err.code },
+        { status: 503 }
+      );
+    }
     console.error("[/api/inbox/drafts] provider discard failed:", err);
     return NextResponse.json(
       { error: `Discard failed: ${(err as Error).message}` },

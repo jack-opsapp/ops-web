@@ -28,8 +28,17 @@ import {
   prepareHistoricalOutboundBodyForLearning,
 } from "@/lib/email/email-signature-runtime";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
+import { fetchGmailRead } from "@/lib/api/services/providers/gmail-read";
+import { GmailProvider } from "@/lib/api/services/providers/gmail-provider";
+import {
+  acquireEmailConnectionSyncLock,
+  createEmailConnectionSyncLockRenewer,
+  releaseEmailConnectionSyncLock,
+  type EmailConnectionSyncLockRenewer,
+} from "@/lib/api/services/email-connection-sync-lock";
 
 export const maxDuration = 800;
+const GMAIL_HISTORY_SCAN_DEADLINE_MS = 12 * 60 * 1000;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -61,11 +70,19 @@ export async function GET(request: NextRequest) {
 
   const supabase = getServiceRoleClient();
 
-  const { data: job } = await supabase
+  const { data: job, error: jobReadError } = await supabase
     .from("gmail_scan_jobs")
     .select("result")
     .eq("id", jobId)
     .single();
+
+  if (jobReadError) {
+    console.error("[email-scan] Failed to load scan progress:", jobReadError);
+    return NextResponse.json(
+      { error: "Couldn't load scan progress. Try again." },
+      { status: 500 }
+    );
+  }
 
   if (!job?.result) {
     return NextResponse.json({ status: "pending", progress: null });
@@ -94,6 +111,11 @@ export async function POST(request: NextRequest) {
   // it from concurrent requests, so the 800s background scan can't get its
   // override wiped by another handler's finally clause.
   return runWithSupabase(supabase, async () => {
+    let lockedConnectionId: string | null = null;
+    let lockOwner: string | null = null;
+    let lockHandedToBackground = false;
+    let createdJobId: string | null = null;
+
     try {
       // Auth
       const authUser = await verifyAdminAuth(request);
@@ -160,8 +182,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      lockOwner = await acquireEmailConnectionSyncLock(
+        connection.id,
+        "phase-c-email-scan",
+        supabase
+      );
+      if (!lockOwner) {
+        return NextResponse.json(
+          { error: "Mailbox is busy. Try again in a few minutes." },
+          { status: 409 }
+        );
+      }
+      lockedConnectionId = connection.id;
+
       // Create a job record for progress tracking
-      const { data: jobRecord } = await supabase
+      const { data: jobRecord, error: jobInsertError } = await supabase
         .from("gmail_scan_jobs")
         .insert({
           connection_id: connection.id,
@@ -182,7 +217,11 @@ export async function POST(request: NextRequest) {
         .select("id")
         .single();
 
-      if (!jobRecord) {
+      if (jobInsertError || !jobRecord) {
+        console.error(
+          "[email-scan] Failed to create durable scan job:",
+          jobInsertError
+        );
         return NextResponse.json(
           { error: "Failed to create scan job" },
           { status: 500 }
@@ -190,37 +229,92 @@ export async function POST(request: NextRequest) {
       }
 
       const jobId = jobRecord.id as string;
+      createdJobId = jobId;
 
       // Run scan in background. Re-binding inside after() keeps the
       // service-role client pinned for the entire 800s scan window.
       after(async () => {
         const bgSupabase = getServiceRoleClient();
         await runWithSupabase(bgSupabase, async () => {
+          const renewLockIfNeeded = createEmailConnectionSyncLockRenewer({
+            connectionId: connection.id,
+            ownerId: lockOwner!,
+            context: "phase-c-email-scan",
+            client: bgSupabase,
+          });
           try {
+            // Revalidate both the lease and the connection after the async
+            // handoff. Never run a long scan with a pre-lock token snapshot.
+            await renewLockIfNeeded(true);
+            const currentConnection = await EmailService.getConnection(
+              connection.id
+            );
+            if (
+              !currentConnection ||
+              currentConnection.companyId !== companyId ||
+              !isPersonalHistoricalLearningConnection(currentConnection, userId)
+            ) {
+              throw new Error(
+                "Personal mailbox access changed before the scan started"
+              );
+            }
             await runFullHistoryScan(
               bgSupabase,
               jobId,
-              connection,
+              currentConnection,
               companyId,
-              userId
+              userId,
+              renewLockIfNeeded
             );
           } catch (err) {
             console.error("[email-scan] Full history scan failed:", err);
-            await updateProgress(bgSupabase, jobId, {
-              status: "error",
-              error: err instanceof Error ? err.message : "Unknown error",
-            });
+            try {
+              await updateProgress(bgSupabase, jobId, {
+                status: "error",
+                error: err instanceof Error ? err.message : "Unknown error",
+              });
+            } catch (persistenceError) {
+              console.error(
+                "[email-scan] Failed to persist scan error state:",
+                persistenceError
+              );
+              throw persistenceError;
+            }
+          } finally {
+            await renewLockIfNeeded.stop().catch(() => {});
+            await releaseEmailConnectionSyncLock(
+              connection.id,
+              lockOwner!,
+              "phase-c-email-scan",
+              bgSupabase
+            );
           }
         });
       });
+      lockHandedToBackground = true;
 
       return NextResponse.json({ ok: true, jobId });
     } catch (err) {
       console.error("[email-scan]", err);
+      if (createdJobId) {
+        await updateProgress(supabase, createdJobId, {
+          status: "error",
+          error: err instanceof Error ? err.message : "Unknown error",
+        });
+      }
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Internal error" },
         { status: 500 }
       );
+    } finally {
+      if (lockedConnectionId && lockOwner && !lockHandedToBackground) {
+        await releaseEmailConnectionSyncLock(
+          lockedConnectionId,
+          lockOwner,
+          "phase-c-email-scan",
+          supabase
+        );
+      }
     }
   });
 }
@@ -234,17 +328,26 @@ async function updateProgress(
   jobId: string,
   update: Partial<ScanProgress>
 ): Promise<void> {
-  const { data: job } = await supabase
+  const { data: job, error: progressReadError } = await supabase
     .from("gmail_scan_jobs")
     .select("result")
     .eq("id", jobId)
     .single();
 
+  if (progressReadError) {
+    throw new Error(
+      `Failed to read email scan progress: ${progressReadError.message}`
+    );
+  }
+  if (!job) {
+    throw new Error("Failed to read email scan progress: job not found");
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result = (job?.result ?? {}) as any;
   const current = (result.emailScanProgress ?? {}) as ScanProgress;
 
-  await supabase
+  const { error: progressWriteError } = await supabase
     .from("gmail_scan_jobs")
     .update({
       result: {
@@ -256,6 +359,12 @@ async function updateProgress(
         : {}),
     })
     .eq("id", jobId);
+
+  if (progressWriteError) {
+    throw new Error(
+      `Failed to persist email scan progress: ${progressWriteError.message}`
+    );
+  }
 }
 
 // ─── Full History Scan ─────────────────────────────────────────────────────────
@@ -270,9 +379,16 @@ async function runFullHistoryScan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   connection: any,
   companyId: string,
-  userId: string
+  userId: string,
+  renewLockIfNeeded: EmailConnectionSyncLockRenewer
 ): Promise<void> {
   const startTime = Date.now();
+  const deadlineAt = startTime + GMAIL_HISTORY_SCAN_DEADLINE_MS;
+  const gmailProvider = new GmailProvider(connection);
+  const validToken = await gmailProvider.getValidAccessToken({
+    deadlineAt,
+    context: "Phase C history scan",
+  });
   // eslint-disable-next-line no-console
   console.log(
     `[email-scan] Starting full history scan for company ${companyId}`
@@ -304,24 +420,26 @@ async function runFullHistoryScan(
     // Use the provider's internal gmailFetch by calling searchEmails in pages
     // Since the provider doesn't expose pagination, we'll fetch IDs directly
     // via the connection's access token
-    const token = connection.accessToken;
     const epoch = Math.floor(twelveMonthsAgo.getTime() / 1000);
     const query = encodeURIComponent(`in:sent after:${epoch}`);
     const pageParam = pageToken ? `&pageToken=${pageToken}` : "";
 
-    const res = await fetch(
+    const res = await fetchGmailRead(
       `${GMAIL_API}/messages?q=${query}&maxResults=100${pageParam}`,
       {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${validToken}`,
           "Content-Type": "application/json",
         },
+      },
+      {
+        deadlineAt,
+        context: "messages.list (Phase C history scan)",
       }
     );
 
     if (!res.ok) {
-      console.error(`[email-scan] Gmail list failed: ${res.status}`);
-      break;
+      throw new Error(`Gmail messages.list failed: ${res.status}`);
     }
 
     const data = await res.json();
@@ -351,78 +469,87 @@ async function runFullHistoryScan(
   let totalProfileUpdates = 0;
 
   for (let i = 0; i < allMessageIds.length; i += BATCH_SIZE) {
+    await renewLockIfNeeded();
     const batchIds = allMessageIds.slice(i, i + BATCH_SIZE);
 
     // Fetch full message content for this batch
     const batchEmails: NormalizedEmail[] = [];
     for (const msgId of batchIds) {
-      try {
-        const token = connection.accessToken;
-        const res = await fetch(`${GMAIL_API}/messages/${msgId}?format=full`, {
+      await renewLockIfNeeded();
+      const res = await fetchGmailRead(
+        `${GMAIL_API}/messages/${msgId}?format=full`,
+        {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${validToken}`,
             "Content-Type": "application/json",
           },
-        });
+        },
+        {
+          deadlineAt,
+          context: `messages.get (${msgId})`,
+        }
+      );
 
-        if (!res.ok) continue;
-        const msgData = await res.json();
-
-        // Extract headers
-        const headers = (msgData.payload?.headers ?? []) as Array<{
-          name: string;
-          value: string;
-        }>;
-        const getHeader = (name: string) =>
-          headers.find((h) => h.name.toLowerCase() === name.toLowerCase())
-            ?.value ?? "";
-
-        // Extract body text
-        let bodyText = "";
-        const extractText = (part: Record<string, unknown>): string => {
-          if (part.mimeType === "text/plain" && part.body) {
-            const body = part.body as { data?: string };
-            if (body.data) {
-              return Buffer.from(body.data, "base64url").toString("utf-8");
-            }
-          }
-          if (part.parts) {
-            return (part.parts as Record<string, unknown>[])
-              .map(extractText)
-              .filter(Boolean)
-              .join("\n");
-          }
-          return "";
-        };
-        bodyText = extractText(msgData.payload ?? {});
-
-        if (!bodyText || bodyText.length < 20) continue;
-
-        batchEmails.push({
-          id: msgData.id,
-          threadId: msgData.threadId,
-          from: getHeader("From"),
-          fromName: "",
-          to: getHeader("To")
-            .split(",")
-            .map((s: string) => s.trim()),
-          cc: getHeader("Cc")
-            ? getHeader("Cc")
-                .split(",")
-                .map((s: string) => s.trim())
-            : [],
-          subject: getHeader("Subject"),
-          bodyText,
-          snippet: msgData.snippet ?? "",
-          date: new Date(parseInt(msgData.internalDate ?? "0")),
-          labelIds: msgData.labelIds ?? [],
-          isRead: true,
-          hasAttachments: false,
-          sizeEstimate: 0,
-        });
-      } catch {
-        // Skip individual message failures
+      if (res.status === 404 || res.status === 410) continue;
+      if (!res.ok) {
+        throw new Error(
+          `Gmail messages.get failed for ${msgId}: ${res.status}`
+        );
       }
+      const msgData = await res.json();
+
+      // Extract headers
+      const headers = (msgData.payload?.headers ?? []) as Array<{
+        name: string;
+        value: string;
+      }>;
+      const getHeader = (name: string) =>
+        headers.find((h) => h.name.toLowerCase() === name.toLowerCase())
+          ?.value ?? "";
+
+      // Extract body text
+      let bodyText = "";
+      const extractText = (part: Record<string, unknown>): string => {
+        if (part.mimeType === "text/plain" && part.body) {
+          const body = part.body as { data?: string };
+          if (body.data) {
+            return Buffer.from(body.data, "base64url").toString("utf-8");
+          }
+        }
+        if (part.parts) {
+          return (part.parts as Record<string, unknown>[])
+            .map(extractText)
+            .filter(Boolean)
+            .join("\n");
+        }
+        return "";
+      };
+      bodyText = extractText(msgData.payload ?? {});
+
+      if (!bodyText || bodyText.length < 20) continue;
+
+      batchEmails.push({
+        id: msgData.id,
+        threadId: msgData.threadId,
+        from: getHeader("From"),
+        fromName: "",
+        to: getHeader("To")
+          .split(",")
+          .map((s: string) => s.trim()),
+        cc: getHeader("Cc")
+          ? getHeader("Cc")
+              .split(",")
+              .map((s: string) => s.trim())
+          : [],
+        subject: getHeader("Subject"),
+        bodyText,
+        snippet: msgData.snippet ?? "",
+        date: new Date(parseInt(msgData.internalDate ?? "0")),
+        labelIds: msgData.labelIds ?? [],
+        isRead: true,
+        hasAttachments: false,
+        sizeEstimate: 0,
+      });
     }
 
     // Queue each immutable provider message through the same receipt-backed
@@ -430,38 +557,35 @@ async function runFullHistoryScan(
     // repair missing jobs but can never increment a profile twice.
     const outboundLearning = new EmailOutboundLearningService(supabase);
     for (const email of batchEmails) {
-      try {
-        const preparedBody = await prepareHistoricalOutboundBodyForLearning({
-          connection,
-          userId,
-          body: email.bodyText,
-          subject: email.subject,
-        });
-        if (!preparedBody.exactSignatureRemoved) continue;
+      await renewLockIfNeeded();
+      const preparedBody = await prepareHistoricalOutboundBodyForLearning({
+        connection,
+        userId,
+        body: email.bodyText,
+        subject: email.subject,
+      });
+      if (!preparedBody.exactSignatureRemoved) continue;
 
-        const queued = await outboundLearning.enqueueIfEnabled({
-          companyId,
-          connectionId: connection.id,
-          providerMessageId: email.id,
-          providerThreadId: email.threadId,
-          userId,
-          fromEmail: email.from,
-          toEmails: email.to,
-          subject: email.subject,
-          bodyText: preparedBody.authoredBody,
-          authoredBody: preparedBody.authoredBody,
-          cleanBody: preparedBody.cleanBody,
-          occurredAt: email.date,
-          labelIds: email.labelIds,
-          profileType: "general",
-          learningAuthority: "operator_authored",
-        });
-        if (queued) {
-          totalProfileUpdates++;
-          totalFactsExtracted++;
-        }
-      } catch (err) {
-        console.error(`[email-scan] Processing email ${email.id} failed:`, err);
+      const queued = await outboundLearning.enqueueIfEnabled({
+        companyId,
+        connectionId: connection.id,
+        providerMessageId: email.id,
+        providerThreadId: email.threadId,
+        userId,
+        fromEmail: email.from,
+        toEmails: email.to,
+        subject: email.subject,
+        bodyText: preparedBody.authoredBody,
+        authoredBody: preparedBody.authoredBody,
+        cleanBody: preparedBody.cleanBody,
+        occurredAt: email.date,
+        labelIds: email.labelIds,
+        profileType: "general",
+        learningAuthority: "operator_authored",
+      });
+      if (queued) {
+        totalProfileUpdates++;
+        totalFactsExtracted++;
       }
     }
 

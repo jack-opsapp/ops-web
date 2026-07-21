@@ -307,9 +307,7 @@ describe("canonical email attachment database types", () => {
       databaseTypes,
       "      notify_email_attachment_scan_exception_as_system: {"
     );
-    expect(notifyExceptionAsSystem).toContain(
-      "Args: { p_scan_id: string }"
-    );
+    expect(notifyExceptionAsSystem).toContain("Args: { p_scan_id: string }");
     expect(notifyExceptionAsSystem).toContain("Returns: boolean");
 
     const markReconnect = extractBlock(
@@ -334,6 +332,7 @@ describe("canonical email attachment database types", () => {
       "      reassign_opportunity_email_thread_guarded: {"
     );
     for (const fragment of [
+      "p_actor_user_id: string",
       "p_company_id: string",
       "p_connection_id: string",
       "p_kind?: string",

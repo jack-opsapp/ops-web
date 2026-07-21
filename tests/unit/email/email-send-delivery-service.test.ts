@@ -8,6 +8,8 @@ import {
   ProviderApiError,
   type EmailProviderInterface,
 } from "@/lib/api/services/email-provider";
+import type { EmailConnectionSyncLockRunResult } from "@/lib/api/services/email-connection-sync-lock";
+import type { EmailProviderMailboxCheckpoint } from "@/lib/api/services/email-provider-mailbox-operation";
 import type {
   EmailSendIntent,
   PrepareEmailSendIntentInput,
@@ -94,6 +96,18 @@ function intent(
 }
 
 function dependencies() {
+  const mailboxLeaseState = { acquired: true };
+  const mailboxCheckpoint = vi.fn(async () => undefined);
+  const runWithMailboxLeaseMock = vi.fn();
+  const runWithMailboxLease = async <T>(input: {
+    connectionId: string;
+    run: (checkpoint: EmailProviderMailboxCheckpoint) => Promise<T>;
+  }): Promise<EmailConnectionSyncLockRunResult<T>> => {
+    runWithMailboxLeaseMock(input.connectionId);
+    return mailboxLeaseState.acquired
+      ? { acquired: true, value: await input.run(mailboxCheckpoint) }
+      : { acquired: false };
+  };
   const intentStore = {
     prepare: vi.fn().mockResolvedValue(intent("prepared")),
     claimProviderDelivery: vi.fn().mockResolvedValue(intent("sending")),
@@ -144,9 +158,18 @@ function dependencies() {
     intentStore,
     provider: provider as unknown as EmailProviderInterface,
     reconcile,
+    runWithMailboxLease,
     now: () => new Date("2026-07-15T18:01:00.000Z"),
   });
-  return { service, intentStore, provider, reconcile };
+  return {
+    service,
+    intentStore,
+    provider,
+    reconcile,
+    mailboxLeaseState,
+    mailboxCheckpoint,
+    runWithMailboxLease: runWithMailboxLeaseMock,
+  };
 }
 
 describe("EmailSendDeliveryService", () => {
@@ -195,6 +218,23 @@ describe("EmailSendDeliveryService", () => {
     }
   );
 
+  it("fails busy before claiming or calling the provider", async () => {
+    const { service, intentStore, provider, mailboxLeaseState } =
+      dependencies();
+    mailboxLeaseState.acquired = false;
+
+    const result = await service.execute(PREPARE_INPUT);
+
+    expect(result).toMatchObject({
+      state: "pending",
+      delivered: false,
+      error: "EMAIL_SEND_MAILBOX_BUSY",
+    });
+    expect(intentStore.prepare).toHaveBeenCalledTimes(1);
+    expect(intentStore.claimProviderDelivery).not.toHaveBeenCalled();
+    expect(provider.sendEmail).not.toHaveBeenCalled();
+  });
+
   it("returns a completed retry without calling the provider", async () => {
     const { service, intentStore, provider } = dependencies();
     intentStore.prepare.mockResolvedValueOnce(
@@ -240,6 +280,66 @@ describe("EmailSendDeliveryService", () => {
       "socket closed"
     );
     expect(intentStore.markProviderRejected).not.toHaveBeenCalled();
+  });
+
+  it.each([408, 409, 423, 425, 429, 500, 502, 503, 504])(
+    "quarantines ambiguous provider status %s instead of treating it as a definitive rejection",
+    async (providerStatus) => {
+      const { service, intentStore, provider } = dependencies();
+      provider.sendEmail.mockRejectedValueOnce(
+        new ProviderApiError("Microsoft Graph outcome unknown", providerStatus)
+      );
+
+      const result = await service.execute(PREPARE_INPUT);
+
+      expect(result).toMatchObject({
+        state: "delivery_unknown",
+        delivered: false,
+      });
+      expect(intentStore.markDeliveryUnknown).toHaveBeenCalledWith(
+        "intent-1",
+        "Microsoft Graph outcome unknown"
+      );
+      expect(intentStore.markProviderRejected).not.toHaveBeenCalled();
+    }
+  );
+
+  it("never resends when mailbox ownership is lost after provider acceptance", async () => {
+    const { service, intentStore, provider, mailboxCheckpoint } =
+      dependencies();
+    mailboxCheckpoint
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("mailbox lease ownership lost"));
+
+    const first = await service.execute(PREPARE_INPUT);
+
+    expect(first).toMatchObject({
+      state: "pending",
+      delivered: true,
+      providerMessageId: "sent-message-1",
+      providerThreadId: "sent-thread-1",
+      error: "mailbox lease ownership lost",
+    });
+    expect(provider.sendEmail).toHaveBeenCalledTimes(1);
+    expect(intentStore.persistProviderAcceptance).toHaveBeenCalledWith({
+      intentId: "intent-1",
+      providerMessageId: "sent-message-1",
+      providerThreadId: "sent-thread-1",
+      acceptedAt: new Date("2026-07-15T18:01:00.000Z"),
+    });
+    expect(intentStore.markDeliveryUnknown).not.toHaveBeenCalled();
+
+    intentStore.prepare.mockResolvedValueOnce(
+      intent("provider_accepted", {
+        providerMessageId: "sent-message-1",
+        acceptedProviderThreadId: "sent-thread-1",
+        providerAcceptedAt: "2026-07-15T18:01:00.000Z",
+      })
+    );
+    const retry = await service.execute(PREPARE_INPUT);
+
+    expect(retry.state).toBe("reconciled");
+    expect(provider.sendEmail).toHaveBeenCalledTimes(1);
   });
 
   it("retries post-provider reconciliation exactly once without resending", async () => {

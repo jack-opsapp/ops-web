@@ -20,6 +20,13 @@ vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: { getProvider: getProviderMock },
 }));
 
+vi.mock("@/lib/api/services/email-provider-mailbox-operation", () => ({
+  runEmailProviderMailboxOperation: async (input: {
+    providerLockCheckpoint?: (force?: boolean) => Promise<void>;
+    run: (checkpoint: (force?: boolean) => Promise<void>) => Promise<unknown>;
+  }) => input.run(input.providerLockCheckpoint ?? (async () => {})),
+}));
+
 vi.mock("@/lib/api/services/email-outbound-learning-service", () => ({
   EmailOutboundLearningService: class {
     enqueueIfEnabled = enqueueIfEnabledMock;
@@ -400,7 +407,9 @@ describe("reconcilePendingMailboxDrafts", () => {
         providerThreadId: "thread-abc",
         supabase: makeSupabaseDouble(state([draft])) as never,
       })
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow(
+      "exact provider draft read failed; sync checkpoint withheld"
+    );
 
     expect(draft.status).toBe("auto_drafted");
     expect(enqueueIfEnabledMock).not.toHaveBeenCalled();

@@ -37,7 +37,11 @@ export async function POST(request: NextRequest) {
     archiveOpportunityId?: string | null;
   };
 
-  if (!body.threadIds || !Array.isArray(body.threadIds) || body.threadIds.length === 0) {
+  if (
+    !body.threadIds ||
+    !Array.isArray(body.threadIds) ||
+    body.threadIds.length === 0
+  ) {
     return NextResponse.json(
       { error: "threadIds (non-empty array) required" },
       { status: 400 }
@@ -60,7 +64,8 @@ export async function POST(request: NextRequest) {
   }
 
   const allowed = await checkPermissionById(actor.userId, "inbox.archive");
-  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!allowed)
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const supabase = getServiceRoleClient();
   const accessDecisions = await Promise.all(
@@ -94,14 +99,35 @@ export async function POST(request: NextRequest) {
         companyId: actor.companyId,
         threadIds,
         archiveOpportunityId,
+        authorizeProviderMutation: async (threadId) =>
+          (
+            await resolveEmailOpportunityAccess({
+              actor,
+              operation: "mutate",
+              threadId,
+              supabase,
+            })
+          ).allowed,
       })
     );
-    return NextResponse.json({
-      ok: true,
-      archivedThreadIds: result.archivedThreadIds,
-      failedThreadIds: result.failedThreadIds,
-      leadArchivedOpportunityId: result.leadArchivedOpportunityId,
-    });
+    const failed =
+      result.failedThreadIds.length > 0 || Boolean(result.failedOpportunityId);
+    return NextResponse.json(
+      {
+        ok: !failed,
+        ...(failed
+          ? {
+              error:
+                "Some threads could not be archived. Refresh and try again.",
+            }
+          : {}),
+        archivedThreadIds: result.archivedThreadIds,
+        failedThreadIds: result.failedThreadIds,
+        leadArchivedOpportunityId: result.leadArchivedOpportunityId,
+        failedOpportunityId: result.failedOpportunityId,
+      },
+      { status: failed ? 502 : 200 }
+    );
   } catch (err) {
     console.error("[/api/inbox/threads/batch-archive] failed:", err);
     return NextResponse.json(

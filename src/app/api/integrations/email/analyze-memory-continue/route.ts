@@ -13,6 +13,7 @@
  * Otherwise we dispatch ourselves again.
  */
 
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
@@ -23,10 +24,13 @@ import {
   type PhaseCPipelineState,
 } from "@/lib/api/services/memory-service";
 import {
+  acceptPhaseCContinuationDispatch,
   acquirePhaseCLock,
   buildPersistStateFn,
   dispatchPhaseCContinuation,
   finalizePhaseC,
+  isExactDurablePhaseCCompletion,
+  preparePhaseCContinuationDispatch,
   releasePhaseCLock,
   writePhaseCError,
 } from "@/lib/api/services/phase-c-pipeline-helpers";
@@ -48,11 +52,11 @@ export async function POST(request: NextRequest) {
   const authError = requireEmailPipelineSecret(request);
   if (authError) return authError;
 
-  const { jobId, connectionId, companyId } = await request.json();
+  const { jobId, connectionId, companyId, dispatchId } = await request.json();
 
-  if (!jobId || !connectionId || !companyId) {
+  if (!jobId || !connectionId || !companyId || !dispatchId) {
     return NextResponse.json(
-      { error: "jobId, connectionId, and companyId required" },
+      { error: "jobId, connectionId, companyId, and dispatchId required" },
       { status: 400 }
     );
   }
@@ -96,73 +100,70 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ skipped: true });
   }
 
-  after(async () => {
-    const bgSupabase = getServiceRoleClient();
-    await runWithSupabase(bgSupabase, async () => {
-      const backgroundAccess = await authorizeEmailAnalysisJobContinuation({
-        supabase: bgSupabase,
-        jobId,
-        claimedConnectionId: connectionId,
-        claimedCompanyId: companyId,
-      });
-      if (!backgroundAccess.allowed) {
-        await writePhaseCError(
-          bgSupabase,
-          jobId,
-          new Error(
-            `Phase C authorization expired: ${backgroundAccess.reason}`
-          ),
-          "continuation"
-        );
-        return;
-      }
-      // Row-level execution lock. Continuations are the hot path for
-      // double-dispatch races — a webhook retry or a sluggish Vercel that
-      // re-fires the same fetch can put two runners on the same thread
-      // range simultaneously. See migration 070_phase_c_row_lock.sql.
-      const holderId = await acquirePhaseCLock(
-        bgSupabase,
-        jobId,
-        "continuation"
-      );
-      if (!holderId) {
-        console.log(
-          `[analyze-memory-continue] Phase C lock held by another runner for job ${jobId} — skipping duplicate dispatch`
-        );
-        return;
-      }
-      try {
-        await runPhaseCContinuation(
-          jobId,
-          connectionId,
-          companyId,
-          backgroundAccess.actorUserId,
-          bgSupabase,
-          holderId
-        );
-      } catch (err) {
-        console.error(
-          "[analyze-memory-continue] Phase C continuation failed:",
-          err
-        );
+  try {
+    after(async () => {
+      const bgSupabase = getServiceRoleClient();
+      await runWithSupabase(bgSupabase, async () => {
+        let holderId: string | null = null;
         try {
-          await writePhaseCError(bgSupabase, jobId, err, "continuation");
-        } catch (markErr) {
-          console.error(
-            "[analyze-memory-continue] Failed to persist phaseCError marker:",
-            markErr
+          const backgroundAccess = await authorizeEmailAnalysisJobContinuation({
+            supabase: bgSupabase,
+            jobId,
+            claimedConnectionId: connectionId,
+            claimedCompanyId: companyId,
+          });
+          if (!backgroundAccess.allowed) {
+            throw new Error(
+              `Phase C authorization expired: ${backgroundAccess.reason}`
+            );
+          }
+          // Row-level execution lock. Continuations are the hot path for
+          // double-dispatch races — a webhook retry or a sluggish Vercel that
+          // re-fires the same fetch can put two runners on the same thread
+          // range simultaneously. See migration 070_phase_c_row_lock.sql.
+          holderId = await acquirePhaseCLock(bgSupabase, jobId, "continuation");
+          if (!holderId) {
+            console.log(
+              `[analyze-memory-continue] Phase C lock held by another runner for job ${jobId} — skipping duplicate dispatch`
+            );
+            return;
+          }
+          await runPhaseCContinuation(
+            jobId,
+            connectionId,
+            companyId,
+            backgroundAccess.actorUserId,
+            bgSupabase,
+            holderId
           );
+        } catch (err) {
+          console.error(
+            "[analyze-memory-continue] Phase C continuation failed:",
+            err
+          );
+          await writePhaseCError(bgSupabase, jobId, err, "continuation");
+        } finally {
+          if (holderId) {
+            // Idempotent safety net: the inner function releases ahead of any
+            // continuation dispatch so the next runner can acquire immediately.
+            // Fenced release makes a double-release a no-op.
+            await releasePhaseCLock(bgSupabase, jobId, holderId).catch(
+              () => {}
+            );
+          }
         }
-      } finally {
-        // Idempotent safety net: the inner function releases ahead of any
-        // continuation dispatch so the next runner can acquire immediately.
-        // Fenced release makes a double-release a no-op.
-        await releasePhaseCLock(bgSupabase, jobId, holderId).catch(() => {});
-      }
+      });
     });
-  });
+    await acceptPhaseCContinuationDispatch(supabase, jobId, dispatchId);
+  } catch (error) {
+    await writePhaseCError(supabase, jobId, error, "continuation_handoff");
+    return NextResponse.json(
+      { error: "Phase C continuation could not safely start", accepted: false },
+      { status: 500 }
+    );
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, accepted: true });
 }
 
 // ─── Phase C Continuation ────────────────────────────────────────────────────
@@ -180,34 +181,64 @@ async function runPhaseCContinuation(
   );
 
   // Read durable pipeline state off the job row
-  const { data: job } = await supabase
+  const { data: job, error: jobReadError } = await supabase
     .from("gmail_scan_jobs")
-    .select("result")
+    .select("status, result, requested_by_user_id, company_id")
     .eq("id", jobId)
     .single();
 
-  if (!job?.result) {
-    console.error(
-      `[analyze-memory-continue] Job ${jobId} has no result — cannot continue`
+  if (jobReadError) {
+    throw new Error(
+      `Phase C continuation could not read its job result: ${jobReadError.message}`
     );
-    return;
+  }
+  if (!job?.result) {
+    throw new Error(
+      `Phase C continuation job ${jobId} has no result — cannot continue`
+    );
   }
 
   const priorResult = job.result as Record<string, unknown>;
 
-  if (priorResult.phaseCComplete) {
+  if (
+    isExactDurablePhaseCCompletion({
+      status: job.status,
+      result: priorResult,
+      requestedByUserId: job.requested_by_user_id,
+      rowCompanyId: job.company_id,
+      jobId,
+      companyId,
+      actorUserId,
+    })
+  ) {
     console.log(
       `[analyze-memory-continue] Phase C already complete for job ${jobId} — skipping`
     );
     return;
   }
 
-  const state = priorResult.phaseCPipeline as PhaseCPipelineState | undefined;
-  if (!state) {
-    console.error(
-      `[analyze-memory-continue] Job ${jobId} has no phaseCPipeline state — continuation aborted. Entry route may have failed during bootstrap.`
+  const isDurableFeatureSkip =
+    job.status === "complete" &&
+    job.requested_by_user_id === actorUserId &&
+    job.company_id === companyId &&
+    priorResult.phaseCComplete === false &&
+    priorResult.phaseCSkipped === true;
+  if (isDurableFeatureSkip) {
+    console.log(
+      `[analyze-memory-continue] Phase C durably skipped for job ${jobId} — skipping`
     );
     return;
+  }
+
+  if (job.status === "complete" || priorResult.phaseCComplete === true) {
+    throw new Error("Phase C completion state is inconsistent");
+  }
+
+  const state = priorResult.phaseCPipeline as PhaseCPipelineState | undefined;
+  if (!state) {
+    throw new Error(
+      `Phase C continuation job ${jobId} has no phaseCPipeline state — entry bootstrap did not persist`
+    );
   }
   if (state.userId !== actorUserId) {
     throw new Error("Phase C requester snapshot does not match pipeline state");
@@ -233,13 +264,20 @@ async function runPhaseCContinuation(
   if (done) {
     // Re-read priorResult to capture any phaseCPipeline writes from our own
     // chunk run and any concurrent mutations.
-    const { data: currentRow } = await supabase
+    const { data: currentRow, error: currentRowError } = await supabase
       .from("gmail_scan_jobs")
       .select("result")
       .eq("id", jobId)
       .single();
-    const currentPriorResult =
-      (currentRow?.result as Record<string, unknown>) || {};
+    if (currentRowError) {
+      throw new Error(
+        `Phase C continuation could not read its final durable state: ${currentRowError.message}`
+      );
+    }
+    if (!currentRow?.result) {
+      throw new Error("Phase C continuation final durable state is missing");
+    }
+    const currentPriorResult = currentRow.result as Record<string, unknown>;
 
     await finalizePhaseC({
       supabase,
@@ -250,10 +288,22 @@ async function runPhaseCContinuation(
       priorResult: currentPriorResult,
     });
   } else {
+    const continuationDispatchId = randomUUID();
+    await preparePhaseCContinuationDispatch(
+      supabase,
+      jobId,
+      continuationDispatchId
+    );
     // Release before dispatching so the next continuation can acquire
     // immediately. Outer finally() will no-op since fenced release only
     // clears when holderId still matches.
     await releasePhaseCLock(supabase, jobId, holderId);
-    dispatchPhaseCContinuation(jobId, connectionId, companyId);
+    await dispatchPhaseCContinuation({
+      supabase,
+      jobId,
+      connectionId,
+      companyId,
+      dispatchId: continuationDispatchId,
+    });
   }
 }

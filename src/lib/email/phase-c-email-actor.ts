@@ -262,13 +262,14 @@ export async function resolvePhaseCEmailActor(
 
     let actorUserId = opportunity.assigned_to;
     if (connection.type === "individual") {
-      if (!connection.user_id) {
+      const connectionOwnerUserId = connection.user_id?.trim();
+      if (!connectionOwnerUserId) {
         return noWork("personal_connection_owner_missing");
       }
-      if (connection.user_id !== opportunity.assigned_to) {
+      if (connectionOwnerUserId !== opportunity.assigned_to) {
         return noWork("personal_owner_not_assignee");
       }
-      actorUserId = connection.user_id;
+      actorUserId = connectionOwnerUserId;
     }
     if (!isUuid(actorUserId)) return noWork("actor_identity_invalid");
 

@@ -32,6 +32,7 @@ const {
   requireSupabaseMock,
   resolveEmailOpportunityAccessMock,
   resolveEmailRouteActorMock,
+  runWithEmailConnectionSyncLockMock,
 } = vi.hoisted(() => ({
   generateDraftMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -42,6 +43,7 @@ const {
   requireSupabaseMock: vi.fn(),
   resolveEmailOpportunityAccessMock: vi.fn(),
   resolveEmailRouteActorMock: vi.fn(),
+  runWithEmailConnectionSyncLockMock: vi.fn(),
 }));
 
 vi.mock("@/lib/email/email-route-auth", () => ({
@@ -77,6 +79,10 @@ vi.mock("@/lib/supabase/helpers", () => ({
   requireSupabase: requireSupabaseMock,
 }));
 
+vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
+  runWithEmailConnectionSyncLock: runWithEmailConnectionSyncLockMock,
+}));
+
 // ─── In-memory Supabase double ─────────────────────────────────────────────────
 
 interface DbState {
@@ -88,6 +94,22 @@ interface DbState {
 }
 
 function makeSupabaseDouble(state: DbState) {
+  let providerMutationAttempt: Record<string, unknown> = {
+    id: "provider-mutation-attempt-1",
+    connection_id: "conn-1",
+    operation_kind: "draft_create",
+    operation_key: "pipeline-draft-test",
+    request_fingerprint: "a".repeat(64),
+    status: "prepared",
+    attempt_count: 0,
+    provider_resource_id: null,
+    provider_secondary_resource_id: null,
+    provider_result: {},
+    last_error: null,
+    created_at: "2026-01-01T00:00:00.000Z",
+    updated_at: "2026-01-01T00:00:00.000Z",
+  };
+
   class Query {
     private _table: string;
     private _action: "select" | "insert" | "update" = "select";
@@ -248,7 +270,63 @@ function makeSupabaseDouble(state: DbState) {
 
   return {
     from: (table: string) => new Query(table),
-    rpc: async () => ({ data: null, error: null }),
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === "prepare_email_provider_mutation_attempt") {
+        providerMutationAttempt = {
+          ...providerMutationAttempt,
+          connection_id: args.p_connection_id,
+          operation_kind: args.p_operation_kind,
+          operation_key: args.p_operation_key,
+          request_fingerprint: args.p_request_fingerprint,
+        };
+        return { data: providerMutationAttempt, error: null };
+      }
+      if (name === "claim_email_provider_mutation_attempt") {
+        providerMutationAttempt = {
+          ...providerMutationAttempt,
+          status: "attempting",
+          attempt_count: 1,
+        };
+        return { data: providerMutationAttempt, error: null };
+      }
+      if (name === "mark_email_provider_mutation_accepted") {
+        providerMutationAttempt = {
+          ...providerMutationAttempt,
+          status: "provider_accepted",
+          provider_resource_id: args.p_provider_resource_id,
+          provider_secondary_resource_id: args.p_provider_secondary_resource_id,
+          provider_result: args.p_provider_result,
+        };
+        return { data: providerMutationAttempt, error: null };
+      }
+      if (name === "complete_email_provider_mutation_attempt") {
+        providerMutationAttempt = {
+          ...providerMutationAttempt,
+          status: "completed",
+        };
+        return { data: providerMutationAttempt, error: null };
+      }
+      if (name === "mark_email_provider_mutation_rejected") {
+        providerMutationAttempt = {
+          ...providerMutationAttempt,
+          status: "provider_rejected",
+          last_error: args.p_error,
+        };
+        return { data: providerMutationAttempt, error: null };
+      }
+      if (name === "mark_email_provider_mutation_reconciliation_required") {
+        providerMutationAttempt = {
+          ...providerMutationAttempt,
+          status: "reconciliation_required",
+          provider_resource_id: args.p_provider_resource_id,
+          provider_secondary_resource_id: args.p_provider_secondary_resource_id,
+          provider_result: args.p_provider_result,
+          last_error: args.p_error,
+        };
+        return { data: providerMutationAttempt, error: null };
+      }
+      return { data: null, error: null };
+    },
   };
 }
 
@@ -360,6 +438,12 @@ beforeEach(() => {
     })
   );
   requireSupabaseMock.mockImplementation(() => capturedSupabaseDouble);
+  runWithEmailConnectionSyncLockMock.mockImplementation(
+    async ({ run }: { run: (checkpoint: () => Promise<void>) => unknown }) => {
+      const checkpoint = vi.fn(async () => undefined);
+      return { acquired: true, value: await run(checkpoint) };
+    }
+  );
 
   // Default: writing profile with sufficient emails
   getProfileMock.mockResolvedValue({ emails_analyzed: 20 });
@@ -690,6 +774,55 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
     const row = state.aiDraftHistory.find((r) => r.id === "history-1");
     expect(row?.status).toBe("auto_drafted");
     expect(row?.mailbox_draft_id).toBeNull();
+  });
+
+  it("returns the generated draft without provider access while the mailbox is busy", async () => {
+    const state: DbState = {
+      aiDraftHistory: [
+        {
+          id: "history-1",
+          connection_id: "conn-1",
+          thread_id: null,
+          status: "drafted",
+          mailbox_draft_id: null,
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          deleted_at: null,
+          title: "Roofing",
+          clients: { email: "bob@example.com", name: "Bob" },
+        },
+      ],
+      activities: [],
+      emailThreads: [],
+    };
+    capturedSupabaseDouble = makeSupabaseDouble(state);
+    const createDraftMock = vi.fn();
+    getProviderMock.mockReturnValue({
+      createDraft: createDraftMock,
+      updateDraft: vi.fn(),
+    });
+    runWithEmailConnectionSyncLockMock.mockResolvedValue({ acquired: false });
+
+    const { POST } = await import("@/app/api/integrations/email/draft/route");
+    const res = await POST(
+      makeRequest({
+        companyId: "company-1",
+        userId: "user-1",
+        opportunityId: "opp-1",
+      })
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.available).toBe(true);
+    expect(json.mailboxSaved).toBe(false);
+    expect(json.mailboxErrorCode).toBe("EMAIL_DRAFT_MAILBOX_BUSY");
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(createDraftMock).not.toHaveBeenCalled();
   });
 
   it("checkOnly with no connection returns available: false with 'No mailbox connected'", async () => {

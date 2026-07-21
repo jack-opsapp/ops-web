@@ -8,19 +8,21 @@
  * opportunity links change, no rows are deleted. All logic lives in
  * LeadDataReviewService.quarantineThread (idempotent, allow-listed write only).
  *
- * `[id]` is the provider thread id. On success, inserts a standard dismissible
- * rail notification. Permission gate: pipeline.manage.
+ * `[id]` is the mailbox-scoped provider thread id. On success, reconciles one
+ * idempotent rail notification after canonical lead edit + inbox view checks.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
-import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
-import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { resolveEmailRouteActor } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
-import { setSupabaseOverride } from "@/lib/supabase/helpers";
-import { LeadDataReviewService } from "@/lib/api/services/lead-data-review-service";
+import { runWithSupabase } from "@/lib/supabase/helpers";
+import {
+  isDataReviewAccessDenied,
+  LeadDataReviewService,
+} from "@/lib/api/services/lead-data-review-service";
 import type { ReviewItemKind } from "@/lib/api/services/lead-data-review-service";
 import { renderForCompany } from "@/i18n/server-render";
+import { createTrustedNotifications } from "@/lib/notifications/server-notification-service";
 
 export async function POST(
   request: NextRequest,
@@ -28,21 +30,9 @@ export async function POST(
 ) {
   const { id: providerThreadId } = await params;
 
-  const auth = await verifyAdminAuth(request);
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await findUserByAuth(auth.uid, auth.email);
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 401 });
-  }
-
-  // Granular permission — never filter by role.
-  const allowed = await checkPermissionById(user.id as string, "pipeline.manage");
-  if (!allowed) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const actorResolution = await resolveEmailRouteActor(request);
+  if (!actorResolution.ok) return actorResolution.response;
+  const { userId: actorUserId, companyId } = actorResolution.actor;
 
   if (!providerThreadId) {
     return NextResponse.json(
@@ -54,27 +44,66 @@ export async function POST(
   // Optional body carries the item kind so terminal_live (cache-only, no owning
   // activities) resolves gracefully instead of erroring. Default to "split".
   let itemKind: ReviewItemKind = "split";
+  let connectionId: string | null = null;
   try {
     const body = await request.json();
+    if (
+      typeof (body as { connectionId?: unknown })?.connectionId === "string"
+    ) {
+      connectionId = (body as { connectionId: string }).connectionId;
+    }
     if ((body as { kind?: unknown })?.kind === "terminal_live") {
       itemKind = "terminal_live";
+    } else if (
+      (body as { kind?: unknown })?.kind !== undefined &&
+      (body as { kind?: unknown })?.kind !== "split"
+    ) {
+      return NextResponse.json(
+        { error: "invalid review item kind" },
+        { status: 400 }
+      );
     }
   } catch {
-    // No body is fine — keep the "split" default.
+    // The exact mailbox selector is mandatory, so malformed/missing JSON is
+    // rejected by the validation below.
+  }
+  if (!connectionId) {
+    return NextResponse.json(
+      { error: "connectionId is required" },
+      { status: 400 }
+    );
+  }
+  const exactConnectionId = connectionId.trim();
+  const exactProviderThreadId = providerThreadId.trim();
+  if (!exactConnectionId) {
+    return NextResponse.json(
+      { error: "connectionId is required" },
+      { status: 400 }
+    );
+  }
+  if (!exactProviderThreadId) {
+    return NextResponse.json(
+      { error: "provider thread id is required" },
+      { status: 400 }
+    );
   }
 
   const db = getServiceRoleClient();
-  setSupabaseOverride(db);
 
   try {
-    const result = await LeadDataReviewService.quarantineThread(
-      providerThreadId,
-      itemKind
+    const result = await runWithSupabase(db, () =>
+      LeadDataReviewService.quarantineThread({
+        actorUserId,
+        companyId,
+        connectionId: exactConnectionId,
+        providerThreadId: exactProviderThreadId,
+        kind: itemKind,
+      })
     );
 
     // Standard dismissible rail notification — localized, purpose-named type.
-    const companyId = user.company_id as string | null;
-    if (companyId) {
+    let notificationStatus: "created" | "existing" | "failed" = "failed";
+    try {
       const subjectLabel = result.subject?.trim() || "thread";
       const [title, notifBody] = await Promise.all([
         renderForCompany(
@@ -89,24 +118,39 @@ export async function POST(
           "queue.notif.quarantinedBody"
         ),
       ]);
-      await db.from("notifications").insert({
-        user_id: user.id as string,
-        company_id: companyId,
-        type: "data_review_resolved",
-        title,
-        body: notifBody,
-        is_read: false,
-        persistent: false,
-        dedupe_key: `data_review:quarantine:${providerThreadId}`,
-      });
+      const notification = await createTrustedNotifications(
+        {
+          companyId,
+          recipientUserIds: [actorUserId],
+          type: "data_review_resolved",
+          title,
+          body: notifBody,
+          persistent: false,
+          dedupeKey: `data_review_resolution:v1:quarantine:${exactConnectionId}:${result.providerThreadId}:${itemKind}:r${result.resolutionVersion}`,
+          durableDedupe: true,
+        },
+        db
+      );
+      notificationStatus =
+        notification.errors > 0
+          ? "failed"
+          : notification.createdNotifications.length > 0
+            ? "created"
+            : "existing";
+    } catch (notificationError) {
+      console.error(
+        "[DataReview] quarantine notification reconciliation failed:",
+        notificationError
+      );
     }
 
-    return NextResponse.json({ ok: true, result });
+    return NextResponse.json({ ok: true, result, notificationStatus });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[DataReview] quarantine error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
-  } finally {
-    setSupabaseOverride(null);
+    return NextResponse.json(
+      { error: message },
+      { status: isDataReviewAccessDenied(err) ? 403 : 500 }
+    );
   }
 }

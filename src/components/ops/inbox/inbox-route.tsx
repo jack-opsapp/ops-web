@@ -170,6 +170,11 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       recipient: string;
     } | null) ?? null
   );
+  const autoSaveDraftOperationKeyRef = useRef<string | null>(
+    (initialCommunicationDraft?.state.autoSaveDraftOperationKey as
+      | string
+      | null) ?? null
+  );
   const threadActions = useThreadActions();
   const answerAgentQuestion = useAnswerAgentQuestion();
   const resolveCommitment = useResolveCommitment();
@@ -475,6 +480,8 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       } | null) ?? null;
     autoSaveDraftIdRef.current =
       (restored?.state.autoSaveDraftId as string | null) ?? null;
+    autoSaveDraftOperationKeyRef.current =
+      (restored?.state.autoSaveDraftOperationKey as string | null) ?? null;
     lastSavedBodyRef.current =
       (restored?.state.lastSavedBody as string | null) ?? "";
   }, [currentCommunicationDraftKey]);
@@ -505,6 +512,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         activeDraftId,
         sendAttempt: sendAttemptRef.current,
         autoSaveDraftId: autoSaveDraftIdRef.current,
+        autoSaveDraftOperationKey: autoSaveDraftOperationKeyRef.current,
         lastSavedBody: lastSavedBodyRef.current,
       },
       updatedAt: Date.now(),
@@ -530,6 +538,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     setSendCompletedAt(Date.now());
     sendAttemptRef.current = null;
     autoSaveDraftIdRef.current = null;
+    autoSaveDraftOperationKeyRef.current = null;
     lastSavedBodyRef.current = "";
     useCommunicationDraftStore.getState().remove(currentCommunicationDraftKey);
   }, [currentCommunicationDraftKey, liveCommunicationDraft?.state.sendStatus]);
@@ -575,10 +584,15 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
   useEffect(() => {
     if (lastSavedThreadIdRef.current !== selectedThreadId) {
       autoSaveDraftIdRef.current = null;
+      autoSaveDraftOperationKeyRef.current = currentCommunicationDraftKey
+        ? ((useCommunicationDraftStore.getState().drafts[
+            currentCommunicationDraftKey
+          ]?.state.autoSaveDraftOperationKey as string | null) ?? null)
+        : null;
       lastSavedBodyRef.current = "";
       lastSavedThreadIdRef.current = selectedThreadId;
     }
-  }, [selectedThreadId]);
+  }, [currentCommunicationDraftKey, selectedThreadId]);
 
   // Seed the auto-save draft id from the currently-active provider or local
   // lifecycle draft so subsequent edits update the existing row rather than
@@ -635,6 +649,33 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
 
     const handle = window.setTimeout(() => {
       const valueAtFire = composerValue;
+      let durableDraftOperationKey = autoSaveDraftOperationKeyRef.current;
+      if (!durableDraftOperationKey) {
+        durableDraftOperationKey = globalThis.crypto.randomUUID();
+        autoSaveDraftOperationKeyRef.current = durableDraftOperationKey;
+        if (currentCommunicationDraftKey && userId) {
+          const current =
+            useCommunicationDraftStore.getState().drafts[
+              currentCommunicationDraftKey
+            ];
+          useCommunicationDraftStore
+            .getState()
+            .save(currentCommunicationDraftKey, {
+              actorUserId: userId,
+              surface: "inbox-reply",
+              threadId: selectedThreadId,
+              opportunityId:
+                detail.thread.opportunityId ?? current?.opportunityId ?? null,
+              instanceId: null,
+              body: valueAtFire,
+              state: {
+                ...(current?.state ?? {}),
+                autoSaveDraftOperationKey: durableDraftOperationKey,
+              },
+              updatedAt: Date.now(),
+            });
+        }
+      }
       saveDraft.mutate(
         {
           connectionId: conn,
@@ -643,6 +684,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
           body: valueAtFire,
           providerThreadId: providerThreadId ?? null,
           draftId: autoSaveDraftIdRef.current,
+          idempotencyKey: durableDraftOperationKey,
         },
         {
           onSuccess: (res) => {
@@ -665,6 +707,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     isLifecycleDraft,
     isPristineDraft,
     activeDraft,
+    currentCommunicationDraftKey,
     providerThreadId,
   ]);
 
@@ -1002,8 +1045,16 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
             onUndo: () =>
               threadActions.unarchive.mutate(target.threadId, {
                 onSuccess: () => moveSelectionAfterUnarchive([target.threadId]),
+                onError: () => {
+                  toast.error(
+                    t("toast.restoreFailedTactic", "SYS :: RESTORE FAILED")
+                  );
+                },
               }),
           });
+        },
+        onError: () => {
+          toast.error(t("toast.archiveFailedTactic", "SYS :: ARCHIVE FAILED"));
         },
       });
     },
@@ -1787,33 +1838,70 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         onOpenChange={setArchiveOpen}
         context={archiveContext}
         onConfirm={async (args) => {
-          if (args.saveLeadPreference && archiveContext?.connectionId) {
-            await threadActions.setLeadArchivePreference.mutateAsync({
-              connectionId: archiveContext.connectionId,
-              preference: args.saveLeadPreference,
+          try {
+            if (args.saveLeadPreference && archiveContext?.connectionId) {
+              await threadActions.setLeadArchivePreference.mutateAsync({
+                connectionId: archiveContext.connectionId,
+                preference: args.saveLeadPreference,
+              });
+            }
+            const result = await threadActions.archiveBatch.mutateAsync({
+              threadIds: args.threadIds,
+              archiveOpportunityId: args.archiveOpportunityId,
             });
+            if (
+              result.archivedThreadIds.length === 0 &&
+              !result.leadArchivedOpportunityId
+            ) {
+              throw new Error(
+                result.error ?? "No selected thread was archived"
+              );
+            }
+            setArchiveOpen(false);
+            setArchiveContext(null);
+            moveSelectionAfterArchive(result.archivedThreadIds);
+            if (!result.ok) {
+              toast.error(
+                t("toast.archivePartialTactic", "SYS :: ARCHIVE PARTIAL")
+              );
+            }
+            showUndoToast({
+              title: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
+              undoLabel: t("toast.undoTactic", "UNDO"),
+              onUndo: () =>
+                threadActions.unarchiveBatch.mutate(
+                  {
+                    threadIds: result.archivedThreadIds,
+                    unarchiveOpportunityId: result.leadArchivedOpportunityId,
+                  },
+                  {
+                    onSuccess: (restoreResult) => {
+                      moveSelectionAfterUnarchive(
+                        restoreResult.unarchivedThreadIds
+                      );
+                      if (!restoreResult.ok) {
+                        toast.error(
+                          t(
+                            "toast.restorePartialTactic",
+                            "SYS :: RESTORE PARTIAL"
+                          )
+                        );
+                      }
+                    },
+                    onError: () => {
+                      toast.error(
+                        t("toast.restoreFailedTactic", "SYS :: RESTORE FAILED")
+                      );
+                    },
+                  }
+                ),
+            });
+          } catch (error) {
+            toast.error(
+              t("toast.archiveFailedTactic", "SYS :: ARCHIVE FAILED")
+            );
+            throw error;
           }
-          const result = await threadActions.archiveBatch.mutateAsync({
-            threadIds: args.threadIds,
-            archiveOpportunityId: args.archiveOpportunityId,
-          });
-          setArchiveOpen(false);
-          setArchiveContext(null);
-          moveSelectionAfterArchive(result.archivedThreadIds);
-          showUndoToast({
-            title: t("toast.archivedTactic", "SYS :: THREAD ARCHIVED"),
-            undoLabel: t("toast.undoTactic", "UNDO"),
-            onUndo: () =>
-              threadActions.unarchiveBatch.mutate(
-                {
-                  threadIds: args.threadIds,
-                  unarchiveOpportunityId: args.archiveOpportunityId,
-                },
-                {
-                  onSuccess: () => moveSelectionAfterUnarchive(args.threadIds),
-                }
-              ),
-          });
         }}
       />
       <WritebackPreferenceModal

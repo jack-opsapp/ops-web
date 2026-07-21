@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Sparkles, X, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { authedFetch } from "@/lib/utils/authed-fetch";
+import { useDictionary } from "@/i18n/client";
 
 interface DraftReplyButtonProps {
   opportunityId: string;
@@ -20,6 +21,7 @@ interface DraftResponse {
   draftHistoryId?: string;
   mailboxSaved?: boolean;
   mailboxDraftId?: string | null;
+  mailboxErrorCode?: string | null;
   provider?: "gmail" | "microsoft365";
 }
 
@@ -36,6 +38,7 @@ export function DraftReplyButton({
   companyId,
   userId,
 }: DraftReplyButtonProps) {
+  const { t } = useDictionary("pipeline");
   const [available, setAvailable] = useState<boolean | null>(null);
   const [draftResult, setDraftResult] = useState<DraftResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,7 +71,15 @@ export function DraftReplyButton({
   // Don't render if not available or still checking
   if (available === null || available === false) return null;
 
+  const mailboxPlacementUnknown =
+    draftResult?.mailboxErrorCode ===
+    "EMAIL_PROVIDER_MUTATION_RECONCILIATION_REQUIRED";
+
   const generateDraft = async () => {
+    if (mailboxPlacementUnknown) {
+      setShowModal(true);
+      return;
+    }
     setLoading(true);
     setShowModal(true);
     setCopyState("idle");
@@ -205,7 +216,16 @@ export function DraftReplyButton({
                     )}
                     {draftResult.mailboxSaved === false && (
                       <div className="font-mono text-[11px] text-[#B5B5B5]">
-                        {`Couldn't reach ${mailboxName}. Copy it instead.`}
+                        {mailboxPlacementUnknown
+                          ? t("draft.mailboxOutcomeUnknown", {
+                              mailbox: mailboxName,
+                            })
+                          : draftResult.mailboxErrorCode ===
+                              "EMAIL_DRAFT_AUTHORIZATION_REVOKED"
+                            ? t("draft.accessChanged")
+                            : t("draft.mailboxSaveFailed", {
+                                mailbox: mailboxName,
+                              })}
                       </div>
                     )}
                   </div>
