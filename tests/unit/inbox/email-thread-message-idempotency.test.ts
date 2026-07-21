@@ -11,6 +11,11 @@ interface State {
   thread: Row | null;
   activities: Row[];
   dirtyThreads?: Row[];
+  threadUpdates?: Row[];
+  projectionCalls?: Array<{ name: string; args: Row }>;
+  projectionError?: string;
+  projectionResult?: Row;
+  threadUpdateResult?: Row;
 }
 
 function threadRow(overrides: Partial<Row> = {}): Row {
@@ -139,6 +144,9 @@ function makeSupabaseDouble(state: State) {
     update(payload: Row) {
       this.action = "update";
       this.payload = payload;
+      if (this.table === "email_threads") {
+        state.threadUpdates?.push(payload);
+      }
       return this;
     }
 
@@ -155,7 +163,7 @@ function makeSupabaseDouble(state: State) {
     async single() {
       if (this.table === "email_threads" && this.action === "update") {
         state.thread = { ...state.thread, ...this.payload };
-        return { data: state.thread, error: null };
+        return { data: state.threadUpdateResult ?? state.thread, error: null };
       }
       if (this.table === "email_threads" && this.action === "insert") {
         state.thread = threadRow({
@@ -187,6 +195,31 @@ function makeSupabaseDouble(state: State) {
   return {
     from(table: string) {
       return new Query(table);
+    },
+    async rpc(name: string, args: Row) {
+      state.projectionCalls?.push({ name, args });
+      if (name !== "attach_email_thread_to_opportunity_as_system") {
+        return { data: null, error: { message: `unexpected RPC ${name}` } };
+      }
+      if (state.projectionError) {
+        return { data: null, error: { message: state.projectionError } };
+      }
+      if (state.projectionResult) {
+        return { data: state.projectionResult, error: null };
+      }
+      state.thread = {
+        ...state.thread,
+        opportunity_id: args.p_opportunity_id,
+      };
+      return {
+        data: {
+          ok: true,
+          attached: true,
+          email_thread_id: state.thread?.id,
+          opportunity_id: args.p_opportunity_id,
+        },
+        error: null,
+      };
     },
   };
 }
@@ -396,6 +429,144 @@ describe("EmailThreadService.upsertFromEmail message idempotency", () => {
     });
     expect(replayed.threadRow.categoryClassifiedAt).toEqual(
       new Date("2026-07-14T08:30:00.000Z")
+    );
+  });
+
+  it("projects a proven canonical opportunity onto an existing unlinked thread through the guarded RPC", async () => {
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow({ opportunity_id: null }),
+      activities: [activity({ opportunity_id: "opportunity-1" })],
+      threadUpdates: [],
+      projectionCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const result = await EmailThreadService.upsertFromEmail({
+      companyId: "company-1",
+      connectionId: "connection-1",
+      providerThreadId: "provider-thread-1",
+      email: email(),
+      direction: "inbound",
+      opportunityId: "opportunity-1",
+      markClassificationDirty: false,
+    });
+
+    expect(state.projectionCalls).toEqual([
+      {
+        name: "attach_email_thread_to_opportunity_as_system",
+        args: {
+          p_company_id: "company-1",
+          p_connection_id: "connection-1",
+          p_provider_thread_id: "provider-thread-1",
+          p_opportunity_id: "opportunity-1",
+        },
+      },
+    ]);
+    expect(state.threadUpdates).toHaveLength(1);
+    expect(state.threadUpdates?.[0]).not.toHaveProperty("opportunity_id");
+    expect(result.threadRow.opportunityId).toBe("opportunity-1");
+  });
+
+  it("fails closed when canonical opportunity projection is rejected", async () => {
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow({ opportunity_id: null }),
+      activities: [activity({ opportunity_id: "opportunity-1" })],
+      projectionError: "email_thread_parent_proof_missing",
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    await expect(
+      EmailThreadService.upsertFromEmail({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        providerThreadId: "provider-thread-1",
+        email: email(),
+        direction: "inbound",
+        opportunityId: "opportunity-1",
+      })
+    ).rejects.toThrow(
+      "upsertFromEmail opportunity projection failed: email_thread_parent_proof_missing"
+    );
+  });
+
+  it("rejects a conflicting cached parent before RPC or summary mutation", async () => {
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow({ opportunity_id: "opportunity-a" }),
+      activities: [activity({ opportunity_id: "opportunity-b" })],
+      threadUpdates: [],
+      projectionCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    await expect(
+      EmailThreadService.upsertFromEmail({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        providerThreadId: "provider-thread-1",
+        email: email(),
+        direction: "inbound",
+        opportunityId: "opportunity-b",
+      })
+    ).rejects.toThrow(
+      "upsertFromEmail opportunity projection failed: email_thread_parent_conflict"
+    );
+    expect(state.projectionCalls).toEqual([]);
+    expect(state.threadUpdates).toEqual([]);
+  });
+
+  it("fails closed when the guarded projection receipt is not exact", async () => {
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow({ opportunity_id: null }),
+      activities: [activity({ opportunity_id: "opportunity-1" })],
+      projectionResult: {
+        ok: "true",
+        attached: true,
+        email_thread_id: "thread-row-1",
+        opportunity_id: "opportunity-1",
+      },
+      threadUpdates: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    await expect(
+      EmailThreadService.upsertFromEmail({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        providerThreadId: "provider-thread-1",
+        email: email(),
+        direction: "inbound",
+        opportunityId: "opportunity-1",
+      })
+    ).rejects.toThrow(
+      "upsertFromEmail opportunity projection failed: invalid_projection_receipt"
+    );
+    expect(state.threadUpdates).toEqual([]);
+  });
+
+  it("withholds success when the post-RPC thread read does not retain the parent", async () => {
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow({ opportunity_id: null }),
+      activities: [activity({ opportunity_id: "opportunity-1" })],
+      threadUpdateResult: threadRow({ opportunity_id: null }),
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    await expect(
+      EmailThreadService.upsertFromEmail({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        providerThreadId: "provider-thread-1",
+        email: email(),
+        direction: "inbound",
+        opportunityId: "opportunity-1",
+      })
+    ).rejects.toThrow(
+      "upsertFromEmail opportunity projection failed: projection_not_persisted"
     );
   });
 

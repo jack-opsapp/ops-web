@@ -1004,6 +1004,49 @@ export const EmailThreadService = {
     );
 
     if (existing) {
+      if (
+        params.opportunityId &&
+        existing.opportunity_id &&
+        existing.opportunity_id !== params.opportunityId
+      ) {
+        throw new Error(
+          "upsertFromEmail opportunity projection failed: email_thread_parent_conflict"
+        );
+      }
+      if (params.opportunityId && !existing.opportunity_id) {
+        const { data: projection, error: projectionError } = await supabase.rpc(
+          "attach_email_thread_to_opportunity_as_system",
+          {
+            p_company_id: companyId,
+            p_connection_id: connectionId,
+            p_provider_thread_id: providerThreadId,
+            p_opportunity_id: params.opportunityId,
+          }
+        );
+        if (projectionError) {
+          throw new Error(
+            `upsertFromEmail opportunity projection failed: ${projectionError.message}`
+          );
+        }
+        const projectionReceipt =
+          projection &&
+          typeof projection === "object" &&
+          !Array.isArray(projection)
+            ? (projection as Record<string, unknown>)
+            : null;
+        if (
+          projectionReceipt?.ok !== true ||
+          typeof projectionReceipt.attached !== "boolean" ||
+          projectionReceipt.email_thread_id !== existing.id ||
+          projectionReceipt.opportunity_id !== params.opportunityId
+        ) {
+          throw new Error(
+            "upsertFromEmail opportunity projection failed: invalid_projection_receipt"
+          );
+        }
+        existing.opportunity_id = params.opportunityId;
+      }
+
       // Merge participants (union)
       const existingParticipants = new Set<string>(
         ((existing.participants as string[]) ?? []).map((p) => p.toLowerCase())
@@ -1182,9 +1225,6 @@ export const EmailThreadService = {
       // params.clientId wins; otherwise auto-derive from participants so
       // a thread links to its client the first time a matching address
       // shows up in the conversation.
-      if (params.opportunityId && !existing.opportunity_id) {
-        update.opportunity_id = params.opportunityId;
-      }
       if (!existing.client_id) {
         if (params.clientId) {
           update.client_id = params.clientId;
@@ -1236,7 +1276,16 @@ export const EmailThreadService = {
 
       if (updError)
         throw new Error(`upsertFromEmail update failed: ${updError.message}`);
-      return { threadRow: mapEmailThreadFromDb(updated), isNew: false };
+      const updatedThread = mapEmailThreadFromDb(updated);
+      if (
+        params.opportunityId &&
+        updatedThread.opportunityId !== params.opportunityId
+      ) {
+        throw new Error(
+          "upsertFromEmail opportunity projection failed: projection_not_persisted"
+        );
+      }
+      return { threadRow: updatedThread, isNew: false };
     }
 
     // New row
